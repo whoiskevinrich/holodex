@@ -1,0 +1,35 @@
+# Go
+/holodex
+/holodex.exe
+*.test
+*.out
+
+# Data / runtime
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend
+/web/node_modules/
+/web/dist/
+/web/.svelte-kit/
+
+# Test fixtures (generated; keep generator + goldens)
+/testdata/mp4/
+/testdata/mkv/
+
+# Local config / overrides
+/holodex.yaml
+/docker-compose.override.yml
+
+# Secrets / personal — never commit
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

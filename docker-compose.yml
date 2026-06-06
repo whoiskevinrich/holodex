@@ -1,0 +1,20 @@
+services:
+  holodex:
+    build: .
+    image: holodex:dev
+    container_name: holodex
+    ports:
+      - "7800:7800"   # web UI + REST API
+      - "7801:7801"   # MCP (Phase 2; optional)
+    environment:
+      MEDIA_PATH: /media
+      DATA_PATH: /data
+      PORT: "7800"
+      LOG_LEVEL: info
+    volumes:
+      - ${HOLODEX_MEDIA_PATH:-./media}:/media:ro   # your library (read-only)
+      - holodex-data:/data                          # index, thumbnails, config
+    restart: unless-stopped
+
+volumes:
+  holodex-data:

@@ -1,0 +1,42 @@
+# Holodex configuration (ADR-014)
+# Precedence: CLI flags > environment variables > this file > built-in defaults.
+# Every key here has an equivalent environment variable (shown in comments).
+# Copy to holodex.yaml (or mount at $DATA_PATH/config/holodex.yaml) and edit.
+
+# --- Paths ---
+media_path: ""              # MEDIA_PATH   (required for scanning; read-only library root)
+data_path: "./data"        # DATA_PATH    (read-write: db, thumbnails, config, etc.)
+# database_path: ""        # DATABASE_PATH (defaults to ${data_path}/holodex.db)
+
+# --- Server ---
+port: 7800                  # PORT
+log_level: "info"          # LOG_LEVEL    (debug|info|warn|error)
+
+# --- Scanner (ADR-011, ADR-018) ---
+scan_interval_seconds: 300  # SCAN_INTERVAL_SECONDS
+scan_workers: 4             # SCAN_WORKERS
+follow_symlinks: true       # FOLLOW_SYMLINKS
+scan_max_depth: 64          # SCAN_MAX_DEPTH
+scan_min_age_seconds: 5     # SCAN_MIN_AGE_SECONDS (skip files modified more recently — mid-copy guard)
+
+# --- Cache (ADR-008) ---
+cache_backend: "memory"    # CACHE_BACKEND (memory|redis|none)
+cache_max_memory_mb: 128    # CACHE_MAX_MEMORY_MB
+# redis_url: ""            # REDIS_URL (required when cache_backend=redis)
+
+# --- MCP server (Phase 2, ADR-005) ---
+mcp_enabled: false          # MCP_ENABLED
+mcp_transport: "http"      # MCP_TRANSPORT (http|stdio|both)
+mcp_port: 7801              # MCP_PORT
+
+# --- Thumbnails (Phase 2, ADR-009) ---
+thumbnail_enabled: true     # THUMBNAIL_ENABLED
+thumbnail_backfill: "eager" # THUMBNAIL_BACKFILL (eager|lazy)
+thumbnail_workers: 2        # THUMBNAIL_WORKERS
+thumbnail_nice: true        # THUMBNAIL_NICE
+thumbnail_seek_percent: 10  # THUMBNAIL_SEEK_PERCENT
+thumbnail_width: 400        # THUMBNAIL_WIDTH
+
+# --- Metadata mapping (Phase 2, ADR-013) ---
+# Mappings live in a separate file referenced here:
+# metadata_mappings_path: "${data_path}/config/metadata-mappings.yaml"
