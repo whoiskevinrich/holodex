@@ -24,6 +24,17 @@ A functional change with no spec update — or an infra change with no ADR — i
 3. Confirm the matching **spec / ADR / design / testing** artifacts (table above) were created or updated.
 4. Confirm **no secrets, credentials, or PII** in the diff (see "Secrets & publishing").
 
+## Before pushing or opening a PR
+
+1. Run **`/productivity:update`** to sync task tracking (pull/triage tasks, refresh memory) — before every `git push` and `gh pr create`.
+2. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
+3. Scan the working tree for secrets / PII (see "Secrets & publishing").
+
+## Task tracking
+
+- When you note a **TODO**, or **defer** an item (a stub, a "later", a "Phase 2", a known gap), run **`/productivity:update`** to capture it so it isn't lost in a code comment.
+- Keep deferred work visible in the task list, not only inline in the source.
+
 ## Secrets & publishing
 
 - Never commit secrets, tokens, private keys, or PII. Configuration comes from environment

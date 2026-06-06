@@ -29,6 +29,13 @@
 !.env.example
 .claude/settings.local.json
 
+# Personal productivity workspace — not committed.
+# (Project governance lives in .claude/CLAUDE.md; personal memory lives in ~/.claude.)
+/TASKS.md
+/dashboard.html
+/CLAUDE.md
+/memory/
+
 # Editor / OS
 .DS_Store
 .idea/
