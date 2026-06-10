@@ -26,6 +26,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [020](ADR-020-frontend-embed-and-build.md) | Frontend embed location, SPA fallback serving & BuildKit caching | Accepted |
 | [021](ADR-021-frontend-theming-and-skins.md) | Frontend theming — semantic design tokens & 3-skin system | Accepted |
 | [022](ADR-022-defer-in-process-cache.md) | Defer the in-process cache to a measured need | Accepted |
+| [023](ADR-023-image-distribution.md) | Image distribution — **published GHCR image + pull-based compose** | Accepted |
 
 ## Phase specs
 - [Phase 1 — MVP](../specs/phase-1-mvp.md)
