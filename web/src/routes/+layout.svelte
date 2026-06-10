@@ -1,38 +1,65 @@
 <script lang="ts">
 	import '../app.css';
+	import { goto } from '$app/navigation';
+	import { theme, THEMES, THEME_LABELS, type Theme } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
-	// Dark mode is default (F8); toggle persists to localStorage.
-	let dark = $state(true);
+	let searchTerm = $state('');
+	let searchInput = $state<HTMLInputElement | null>(null);
 
-	// Load the saved preference once on mount (default: dark).
+	// Apply the saved skin on mount (data-theme on <html>).
 	$effect(() => {
-		dark = localStorage.getItem('holodex-theme') !== 'light';
+		theme.init();
 	});
 
-	// Apply + persist whenever the theme changes.
+	// Ctrl-/Cmd-K focuses the global search (F4.10).
 	$effect(() => {
-		document.documentElement.classList.toggle('dark', dark);
-		localStorage.setItem('holodex-theme', dark ? 'dark' : 'light');
+		function onKey(e: KeyboardEvent) {
+			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+				e.preventDefault();
+				searchInput?.focus();
+			}
+		}
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
 	});
 
-	const toggleTheme = () => (dark = !dark);
+	function submitSearch(e: Event) {
+		e.preventDefault();
+		if (searchTerm.trim()) goto(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
+	}
 </script>
 
-<header class="flex items-center justify-between border-b border-zinc-800 px-6 py-3">
-	<a href="/" class="text-lg font-semibold tracking-tight">Holodex</a>
-	<nav class="flex items-center gap-4 text-sm text-zinc-400">
-		<a href="/" class="hover:text-zinc-100">Media</a>
-		<a href="/people" class="hover:text-zinc-100">People</a>
-		<a href="/tags" class="hover:text-zinc-100">Tags</a>
-		<button
-			onclick={toggleTheme}
-			class="rounded border border-zinc-700 px-2 py-1 hover:bg-zinc-800"
-			aria-label="Toggle color theme"
+<header class="flex items-center justify-between gap-4 border-b border-rule px-6 py-3">
+	<a href="/" class="skin-title text-lg font-semibold tracking-tight text-ink">Holodex</a>
+
+	<form onsubmit={submitSearch} class="relative max-w-md flex-1">
+		<input
+			bind:this={searchInput}
+			bind:value={searchTerm}
+			placeholder="Search everything…  (Ctrl-K)"
+			class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+		/>
+	</form>
+
+	<nav class="flex items-center gap-4 text-sm text-muted">
+		<a href="/" class="hover:text-ink">Media</a>
+		<a href="/people" class="hover:text-ink">People</a>
+		<a href="/tags" class="hover:text-ink">Tags</a>
+
+		<label class="sr-only" for="skin">Skin</label>
+		<select
+			id="skin"
+			value={theme.current}
+			onchange={(e) => theme.set(e.currentTarget.value as Theme)}
+			class="rounded-theme border border-rule bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-accent"
+			aria-label="Theme skin"
 		>
-			{dark ? '☾' : '☀'}
-		</button>
+			{#each THEMES as t (t)}
+				<option value={t}>{THEME_LABELS[t]}</option>
+			{/each}
+		</select>
 	</nav>
 </header>
 

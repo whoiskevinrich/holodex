@@ -4,7 +4,8 @@
 FROM node:22-slim AS frontend
 WORKDIR /app/web
 COPY web/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 COPY web/ ./
 RUN npm run build        # outputs to web/dist
 
@@ -12,10 +13,13 @@ RUN npm run build        # outputs to web/dist
 FROM golang:1.23-bookworm AS backend
 WORKDIR /app
 COPY go.mod go.sum* ./
-RUN go mod download
-COPY --from=frontend /app/web/dist ./web/dist
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+COPY --from=frontend /app/web/dist ./cmd/holodex/web/dist
 COPY . .
-RUN CGO_ENABLED=0 go build -tags production -o /out/holodex ./cmd/holodex
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -tags production -o /out/holodex ./cmd/holodex
 
 # --- Stage 3: runtime ---
 FROM debian:bookworm-slim

@@ -12,12 +12,15 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"holodex/internal/api"
 	"holodex/internal/config"
 	"holodex/internal/db"
+	"holodex/internal/metadata"
+	"holodex/internal/repo"
 	"holodex/internal/scanner"
 )
 
@@ -26,6 +29,11 @@ func main() {
 		configPath  = flag.String("config", "", "path to holodex.yaml (optional)")
 		migrateOnly = flag.Bool("migrate-only", false, "apply migrations and exit (ADR-016)")
 		healthcheck = flag.Bool("healthcheck", false, "probe /healthz and exit 0/1 (Docker HEALTHCHECK)")
+		// CLI overrides — highest config precedence (ADR-014, F9.5).
+		portFlag      = flag.Int("port", 0, "override PORT")
+		mediaPathFlag = flag.String("media-path", "", "override MEDIA_PATH")
+		dataPathFlag  = flag.String("data-path", "", "override DATA_PATH")
+		logLevelFlag  = flag.String("log-level", "", "override LOG_LEVEL")
 	)
 	flag.Parse()
 
@@ -33,17 +41,24 @@ func main() {
 		os.Exit(runHealthcheck())
 	}
 
-	if err := run(*configPath, *migrateOnly); err != nil {
+	overrides := config.Overrides{
+		Port:      *portFlag,
+		MediaPath: *mediaPathFlag,
+		DataPath:  *dataPathFlag,
+		LogLevel:  *logLevelFlag,
+	}
+	if err := run(*configPath, *migrateOnly, overrides); err != nil {
 		fmt.Fprintln(os.Stderr, "fatal:", err)
 		os.Exit(1)
 	}
 }
 
-func run(configPath string, migrateOnly bool) error {
+func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
+	cfg.ApplyOverrides(overrides) // CLI > env > yaml > defaults (ADR-014)
 
 	log := newLogger(cfg.LogLevel)
 	log.Info("starting holodex", "port", cfg.Port, "data_path", cfg.DataPath)
@@ -60,8 +75,28 @@ func run(configPath string, migrateOnly bool) error {
 		return nil
 	}
 
+	repository := repo.New(database)
+
+	extractor := metadata.NewExtractor()
+	if err := extractor.Available(); err != nil {
+		log.Warn("metadata binaries unavailable; scans will error per-file until installed", "err", err)
+	}
+
 	health := api.NewHealth()
-	handler := api.Router(log, health)
+	apiHandler := api.Router(log, health, api.NewHandlers(repository, log))
+
+	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.
+	var handler http.Handler = apiHandler
+	if fe := frontendFS(); fe != nil {
+		spa := spaHandler{fs: fe}
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+				apiHandler.ServeHTTP(w, r)
+				return
+			}
+			spa.ServeHTTP(w, r)
+		})
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + strconv.Itoa(cfg.Port),
@@ -79,13 +114,13 @@ func run(configPath string, migrateOnly bool) error {
 		MaxDepth:       cfg.ScanMaxDepth,
 		MinAge:         time.Duration(cfg.ScanMinAgeSeconds) * time.Second,
 		Workers:        cfg.ScanWorkers,
-	}, log)
+	}, log, repository, extractor)
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 
 	// Serve.
 	serveErr := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", srv.Addr)
+		log.Info("listening", "addr", srv.Addr, "url", "http://localhost:"+strconv.Itoa(cfg.Port))
 		// Ready = migrations applied + server listening; scanner bootstrap is deferred to a later phase (ADR-019).
 		health.SetReady(true)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

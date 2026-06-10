@@ -35,12 +35,31 @@ MEDIA_PATH=/path/to/videos go run ./cmd/holodex
 ## Docker
 
 ```bash
-docker compose up --build
-#    -> http://localhost:7800
+# Point at your media library, then build and start.
+# The container mounts the folder read-only; data (database, thumbnails) goes
+# into a named volume.
+HOLODEX_MEDIA_PATH=/path/to/your/videos docker compose up --build
+#    -> http://localhost:7800  (web UI + REST API)
 ```
 
-Configure via environment (see [`holodex.yaml.example`](holodex.yaml.example) and ADR-014):
-`MEDIA_PATH` (read-only library), `DATA_PATH` (read-write index/thumbnails/config), `PORT`.
+`HOLODEX_MEDIA_PATH` defaults to `./media` if unset (Docker will create an empty bind-mount).
+
+Other variables (see [`holodex.yaml.example`](holodex.yaml.example) and ADR-014):
+`DATA_PATH` (read-write index/thumbnails/config, default `/data`), `PORT` (default `7800`).
+Config precedence is **CLI flags > env > `holodex.yaml` > defaults** (ADR-014); e.g.
+`holodex -port 8080 -media-path /srv/videos` overrides the env/file values.
+
+### Multi-arch image (F9.4)
+
+The binary is pure Go (`CGO_ENABLED=0`, modernc SQLite) on multi-arch base images, so
+one command builds and pushes a `linux/amd64` + `linux/arm64` manifest:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t <registry>/holodex:<tag> --push .
+```
+
+(Local `docker compose up --build` produces a single-arch image for your host, which is all
+a self-hosted install needs.)
 
 ## Testing
 

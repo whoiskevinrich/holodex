@@ -1,8 +1,29 @@
 # Holodex Testing Strategy
 
-**Status**: Draft  
-**Date**: 2026-06-05  
-**Scope**: Phases 1–3. Grounded in the 19 ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
+**Status**: Draft (plan); Phase-1 implementation status below  
+**Date**: 2026-06-05 (plan) · updated 2026-06-10  
+**Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
+
+---
+
+## 0. Implementation status — Phase 1 (2026-06-10)
+
+The plan below is the target. What actually exists today:
+
+**Automated tests (Go, `go test ./...`, real SQLite + temp-FS, no external binaries needed):**
+- `internal/config` — precedence + **CLI overrides** (CLI > env > yaml > default), DB-path derivation.
+- `internal/metadata` — resolution classifier boundaries; **pure exiftool/ffprobe mappers** (title/people/tags/date/raw-capture, dimension/duration) via inline fixture JSON.
+- `internal/repo` — upsert idempotency, filtered list + person filter, FTS prefix search, deactivate-missing, and **concurrent-writer safety** (no `SQLITE_BUSY`).
+- `internal/scanner` — walk + media filter, add/skip/remove reconciliation, change detection, and the **fs-watcher** indexing a newly created file.
+- `internal/api` — list/detail/search/people/tags handlers, 404s, and **Range (206)** streaming via `httptest`.
+
+**Verified by driven browser QA (not yet automated):** the SvelteKit UI end-to-end (scan → browse → filter → detail → Range playback), the facet autocomplete + pagination, and **all three theme skins** (per `.claude/CLAUDE.md`).
+
+**Deferred from the plan (known gaps, not silent):**
+- The full **golden-fixture corpus** (`testdata/gen.sh` + `*.golden.json`) and `//go:build integration` tests that exercise *real* `exiftool`/`ffprobe`/`mkvpropedit` — the mapping logic is currently unit-tested against captured JSON instead. MKV multi-target-level precedence (ADR-010) is **not yet** covered by a real-file test.
+- **Cache** tests — the in-process backend is deferred (ADR-022), so only Noop passthrough applies.
+- Frontend **Vitest** component tests and the **Playwright E2E** suite — covered manually for Phase 1; to be automated.
+- **Perf** (50k dataset, p95 budget) and **a11y/axe** automation — WCAG AA contrast was verified by computation across all three skins (F8.3), not yet wired into CI.
 
 ---
 

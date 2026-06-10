@@ -1,6 +1,6 @@
 # Phase 1 Spec: MVP — Indexer + Browse + Search
 
-**Status**: Draft  
+**Status**: Implemented (2026-06-10) — see implementation status below  
 **Phase**: 1 of 3  
 **Depends on**: ADR-001 (Backend), ADR-002 (Frontend), ADR-003 (Database), ADR-004 (Metadata extraction), ADR-010 (MKV tag precedence), ADR-011 (Symlink handling), ADR-012 (Resolution classification), ADR-013 (Metadata field mapping — data capture only), ADR-014 (Config & data layout), ADR-015 (Media file serving), ADR-016 (Migrations), ADR-017 (Search), ADR-018 (Scan change detection), ADR-019 (Observability)
 
@@ -9,6 +9,23 @@
 ## Objective
 
 A working Docker container that scans a local/mounted video library, indexes metadata from MP4/MKV files, and serves a fast dark-mode web UI for browsing and filtering.
+
+---
+
+## Implementation status (2026-06-10)
+
+**Done:** F1 scanner (walk, symlink dedup, incremental change detection, mid-copy guard,
+removal reconciliation, **OS-level fs-watching** F1.5 + periodic fallback); F2 extraction
+(exiftool + ffprobe, all six core fields + raw `video_metadata` capture); F3 browse grid
+with **pagination/load-more**; F4 search + filters incl. **people/tag autocomplete** and
+URL sync; F5 people, F6 tags, F7 detail + **Range streaming**; F8 dark UI — generalized
+into a **3-skin theming system** (ADR-021), WCAG AA contrast verified per skin (F8.3);
+F9 Docker (compose serves UI at :7800, volumes, migrations, health, graceful shutdown,
+**CLI>env>yaml>default precedence** F9.5, **multi-arch-ready** buildx F9.4).
+
+**Deferred (tracked):** the in-process cache is deferred to a measured need ([ADR-022](../architecture/ADR-022-defer-in-process-cache.md));
+the golden-fixture/real-binary integration corpus and the automated Vitest/Playwright/perf
+suites are pending (see [testing-strategy.md §0](../testing-strategy.md)).
 
 ---
 

@@ -86,6 +86,35 @@ func (c *Config) derive() {
 	}
 }
 
+// Overrides carries CLI-flag values — the highest-precedence layer (ADR-014,
+// F9.5: CLI > env > yaml > defaults). Zero/empty fields are left untouched, so
+// the caller can pass only the flags the user actually set.
+type Overrides struct {
+	Port      int
+	MediaPath string
+	DataPath  string
+	LogLevel  string
+}
+
+// ApplyOverrides overlays CLI flags on top of the loaded config and re-derives
+// computed fields (e.g. DatabasePath when DataPath changes).
+func (c *Config) ApplyOverrides(o Overrides) {
+	if o.Port != 0 {
+		c.Port = o.Port
+	}
+	if o.MediaPath != "" {
+		c.MediaPath = o.MediaPath
+	}
+	if o.DataPath != "" {
+		c.DataPath = o.DataPath
+		c.DatabasePath = "" // re-derive under the new data dir
+	}
+	if o.LogLevel != "" {
+		c.LogLevel = o.LogLevel
+	}
+	c.derive()
+}
+
 func applyEnv(c *Config) {
 	c.MediaPath = envStr("MEDIA_PATH", c.MediaPath)
 	c.DataPath = envStr("DATA_PATH", c.DataPath)
