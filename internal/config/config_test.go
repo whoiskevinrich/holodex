@@ -40,6 +40,29 @@ func TestLoadPrecedence(t *testing.T) {
 	}
 }
 
+func TestApplyOverridesPrecedence(t *testing.T) {
+	// Env sets PORT; a CLI override must win (CLI > env, F9.5).
+	t.Setenv("PORT", "7000")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ApplyOverrides(Overrides{Port: 6000, DataPath: filepath.FromSlash("/srv/cli")})
+	if cfg.Port != 6000 {
+		t.Errorf("CLI should override env port: got %d, want 6000", cfg.Port)
+	}
+	// DataPath override re-derives DatabasePath.
+	want := filepath.Join("/srv/cli", "holodex.db")
+	if cfg.DatabasePath != want {
+		t.Errorf("DatabasePath after data-path override = %q, want %q", cfg.DatabasePath, want)
+	}
+	// Empty override fields leave existing values untouched.
+	cfg.ApplyOverrides(Overrides{})
+	if cfg.Port != 6000 {
+		t.Errorf("empty overrides must not reset port: got %d", cfg.Port)
+	}
+}
+
 func TestDatabasePathDerivation(t *testing.T) {
 	t.Setenv("DATA_PATH", filepath.FromSlash("/srv/holo"))
 	cfg, err := Load("")

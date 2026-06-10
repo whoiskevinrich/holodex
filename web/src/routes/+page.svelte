@@ -1,29 +1,187 @@
 <script lang="ts">
-	// Browse view placeholder (F3). Confirms backend connectivity until the
-	// media grid + filter bar land.
-	let status = $state<'checking' | 'ok' | 'down'>('checking');
+	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
+	import { filtersToParams, paramsToFilters } from '$lib/filters';
+	import { toMessage, videoCount } from '$lib/format';
+	import type { MediaFilters, Person, Resolution, Tag, Video } from '$lib/types';
+	import VideoGrid from '$lib/components/VideoGrid.svelte';
+	import FacetFilter from '$lib/components/FacetFilter.svelte';
 
-	$effect(() => {
-		fetch('/api/v1/ping')
-			.then((r) => (status = r.ok ? 'ok' : 'down'))
-			.catch(() => (status = 'down'));
+	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
+	const PAGE_SIZE = 50;
+
+	// Initialize filter state from the URL once, so shared links reproduce it
+	// (F4.7). SPA-only (ssr=false), so `location` is always available here.
+	const init = paramsToFilters(new URLSearchParams(location.search));
+	let q = $state(init.q ?? '');
+	let resolution = $state<Resolution>(init.resolution ?? 'All');
+	let durationMin = $state<number | ''>(init.duration_min ?? '');
+	let durationMax = $state<number | ''>(init.duration_max ?? '');
+	let yearMin = $state<number | ''>(init.year_min ?? '');
+	let yearMax = $state<number | ''>(init.year_max ?? '');
+	let personIDs = $state<number[]>(init.person ?? []);
+	let tagIDs = $state<number[]>(init.tag ?? []);
+
+	let videos = $state<Video[]>([]);
+	let total = $state(0);
+	let offset = $state(0);
+	let loading = $state(true);
+	let loadingMore = $state(false);
+	let error = $state('');
+
+	// Facet options for the people/tag autocomplete (F4.2/F4.3), fetched once.
+	let peopleOptions = $state<Person[]>([]);
+	let tagOptions = $state<Tag[]>([]);
+	onMount(() => {
+		api.listPeople('count').then((r) => (peopleOptions = r.items ?? [])).catch(() => {});
+		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
 	});
+
+	const hasMore = $derived(videos.length < total);
+
+	function currentFilters(): MediaFilters {
+		return {
+			q: q || undefined,
+			resolution,
+			duration_min: durationMin || undefined,
+			duration_max: durationMax || undefined,
+			year_min: yearMin || undefined,
+			year_max: yearMax || undefined,
+			person: personIDs,
+			tag: tagIDs,
+			limit: PAGE_SIZE
+		};
+	}
+
+	// The shareable param set (no paging) doubles as the "any filter active?" check.
+	const activeParams = $derived(filtersToParams(currentFilters(), false));
+	const hasFilters = $derived(activeParams.toString() !== '');
+
+	let debounce: ReturnType<typeof setTimeout>;
+	// loadPage(true) replaces the grid (filter change); loadPage(false) appends the
+	// next page (F3.1 pagination). offset is intentionally not a tracked dep of the
+	// re-fetch effect, so paging doesn't re-trigger a full reload.
+	async function loadPage(reset: boolean) {
+		if (reset) {
+			offset = 0;
+			loading = true;
+		} else {
+			loadingMore = true;
+		}
+		error = '';
+		try {
+			const res = await api.listMedia({ ...currentFilters(), offset });
+			const items = res.items ?? [];
+			videos = reset ? items : [...videos, ...items];
+			total = res.total;
+		} catch (e) {
+			error = toMessage(e);
+		} finally {
+			loading = false;
+			loadingMore = false;
+		}
+	}
+
+	function loadMore() {
+		offset += PAGE_SIZE;
+		loadPage(false);
+	}
+
+	// Reading activeParams tracks every filter var, so this re-runs on any change:
+	// sync the URL and reload from page 0 (debounced for the text query, F4.1).
+	$effect(() => {
+		const qs = activeParams.toString();
+		history.replaceState(null, '', qs ? `/?${qs}` : '/');
+		clearTimeout(debounce);
+		debounce = setTimeout(() => loadPage(true), q ? 200 : 0);
+		return () => clearTimeout(debounce);
+	});
+
+	function clearAll() {
+		q = '';
+		resolution = 'All';
+		durationMin = durationMax = yearMin = yearMax = '';
+		personIDs = [];
+		tagIDs = [];
+	}
 </script>
 
-<section class="space-y-4">
-	<h1 class="text-2xl font-semibold">Library</h1>
-	<p class="text-zinc-400">
-		Browse grid, filters, and global search land here (Phase 1: F3, F4).
-	</p>
+<section class="space-y-5">
+	<div class="flex flex-wrap items-end gap-3">
+		<div class="min-w-[12rem] flex-1">
+			<label class="mb-1 block text-xs text-muted" for="q">Search title</label>
+			<input
+				id="q"
+				bind:value={q}
+				placeholder="Type to search…"
+				class="w-full rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+			/>
+		</div>
 
-	<div class="inline-flex items-center gap-2 rounded border border-zinc-800 px-3 py-2 text-sm">
-		<span class="text-zinc-500">API:</span>
-		{#if status === 'checking'}
-			<span class="text-amber-400">checking…</span>
-		{:else if status === 'ok'}
-			<span class="text-emerald-400">connected</span>
-		{:else}
-			<span class="text-red-400">unreachable — is the Go server running on :7800?</span>
+		<div>
+			<span class="mb-1 block text-xs text-muted">Resolution</span>
+			<div class="flex overflow-hidden rounded-theme border border-rule">
+				{#each RESOLUTIONS as r (r)}
+					<button
+						onclick={() => (resolution = r)}
+						class={`px-3 py-2 text-sm ${resolution === r ? 'bg-accent text-accent-ink' : 'bg-surface text-muted hover:text-ink'}`}
+					>
+						{r}
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<div>
+			<span class="mb-1 block text-xs text-muted">Duration (min)</span>
+			<div class="flex items-center gap-1">
+				<input type="number" min="0" bind:value={durationMin} placeholder="min"
+					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
+				<span class="text-muted">–</span>
+				<input type="number" min="0" bind:value={durationMax} placeholder="max"
+					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
+			</div>
+		</div>
+
+		<div>
+			<span class="mb-1 block text-xs text-muted">Year</span>
+			<div class="flex items-center gap-1">
+				<input type="number" bind:value={yearMin} placeholder="from"
+					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
+				<span class="text-muted">–</span>
+				<input type="number" bind:value={yearMax} placeholder="to"
+					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
+			</div>
+		</div>
+
+		<FacetFilter label="People" items={peopleOptions} bind:selected={personIDs} />
+		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
+
+		{#if hasFilters}
+			<button onclick={clearAll} class="rounded-theme border border-rule px-3 py-2 text-sm text-muted hover:text-ink">
+				Clear filters
+			</button>
 		{/if}
 	</div>
+
+	<div class="flex items-center justify-between text-sm text-muted">
+		<span>{loading ? 'Loading…' : videoCount(total)}</span>
+	</div>
+
+	{#if error}
+		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{error}</p>
+	{:else}
+		<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
+		{#if hasMore}
+			<div class="flex justify-center pt-2">
+				<button
+					onclick={loadMore}
+					disabled={loadingMore}
+					class="rounded-theme border border-rule px-4 py-2 text-sm text-muted hover:text-ink disabled:opacity-50"
+				>
+					{loadingMore ? 'Loading…' : `Load more (${total - videos.length} left)`}
+				</button>
+			</div>
+		{/if}
+	{/if}
 </section>

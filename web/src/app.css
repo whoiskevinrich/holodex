@@ -1,7 +1,201 @@
+/* Fonts bundled offline via @fontsource (no runtime CDN — ADR-007 self-hosting). */
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/spline-sans-mono';
+@import '@fontsource/vt323';
+@import '@fontsource/share-tech-mono';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * SKIN TOKENS (ADR-021, docs/design/theming.md)
+ * Every visual difference between skins lives here as CSS custom properties.
+ * Components reference these only through semantic Tailwind classes
+ * (bg-bg, text-ink, text-accent, font-display, rounded-theme, …) or the
+ * decorative hook classes below — never a hardcoded color/font/radius.
+ */
 :root {
 	color-scheme: dark;
+}
+
+/* ---- Skin 1: Cinémathèque (default) — refined film-archive editorial ---- */
+[data-theme='cinematheque'] {
+	--bg: #0c0a09;
+	--surface: #15110e;
+	--surface-2: #181310;
+	--ink: #f3ece1;
+	--muted: #9b9082;
+	--rule: #2a2622;
+	--accent: #e8a33d;
+	--accent-ink: #1a1206;
+	--font-display: 'Fraunces Variable', serif;
+	--font-ui: 'Archivo Variable', sans-serif;
+	--radius: 2px;
+}
+
+/* ---- Skin 2: Broadcast / VHS — retro-futurist CRT ---- */
+[data-theme='broadcast'] {
+	--bg: #060814;
+	--surface: #0b0f22;
+	--surface-2: #0a0e1f;
+	--ink: #dfe9ff;
+	--muted: #6f7da6;
+	--rule: #1a2240;
+	--accent: #36e0d0;
+	--accent-ink: #04121a;
+	--font-display: 'VT323', monospace;
+	--font-ui: 'Share Tech Mono', monospace;
+	--radius: 0px;
+}
+
+/* ---- Skin 3: Brutalist terminal — raw utilitarian catalog ---- */
+[data-theme='brutalist'] {
+	--bg: #0a0a0a;
+	--surface: #0e0e0e;
+	--surface-2: #111111;
+	--ink: #fafafa;
+	--muted: #8a8a8a;
+	--rule: #333333;
+	--accent: #d6ff3f;
+	--accent-ink: #0a0a0a;
+	--font-display: 'Spline Sans Mono Variable', monospace;
+	--font-ui: 'Spline Sans Mono Variable', monospace;
+	--radius: 0px;
+}
+
+@layer base {
+	body {
+		background-color: var(--bg);
+		color: var(--ink);
+		font-family: var(--font-ui);
+	}
+}
+
+@layer components {
+	/*
+	 * Decorative atmosphere — applied to <body> and gated per skin. Pure CSS;
+	 * no per-component markup branches. Components add `.video-frame` to the
+	 * 16:9 thumbnail wrapper and the skin owns the flourishes (letterbox bars,
+	 * scanlines, index counters).
+	 */
+	.app-atmosphere::after {
+		content: '';
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		z-index: 40;
+	}
+
+	/* Cinémathèque: film grain + vignette. */
+	[data-theme='cinematheque'] .app-atmosphere::after {
+		box-shadow: inset 0 0 240px 40px rgba(0, 0, 0, 0.6);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+	}
+	/* Broadcast: scanlines + CRT vignette. */
+	[data-theme='broadcast'] .app-atmosphere::after {
+		background-image: repeating-linear-gradient(
+			0deg,
+			transparent 0 2px,
+			rgba(0, 0, 0, 0.13) 2px 4px
+		);
+		box-shadow: inset 0 0 200px 30px rgba(0, 0, 0, 0.65);
+	}
+
+	/* ---- Reusable thumbnail frame (themed flourishes via pseudo-elements) ---- */
+	.video-frame {
+		position: relative;
+		aspect-ratio: 16 / 9;
+		overflow: hidden;
+		background: var(--surface-2);
+		border: 1px solid var(--rule);
+		border-radius: var(--radius);
+	}
+	/* Cinémathèque: letterbox bars. */
+	[data-theme='cinematheque'] .video-frame::before,
+	[data-theme='cinematheque'] .video-frame::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		height: 9px;
+		background: #000;
+		z-index: 1;
+	}
+	[data-theme='cinematheque'] .video-frame::before {
+		top: 0;
+	}
+	[data-theme='cinematheque'] .video-frame::after {
+		bottom: 0;
+	}
+	/* Broadcast: scanline wash over each still. */
+	[data-theme='broadcast'] .video-frame::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: repeating-linear-gradient(
+			0deg,
+			transparent 0 3px,
+			rgba(54, 224, 208, 0.06) 3px 4px
+		);
+	}
+
+	/* Display headings honor the skin's display face + casing. */
+	.skin-title {
+		font-family: var(--font-display);
+	}
+	[data-theme='broadcast'] .skin-title,
+	[data-theme='brutalist'] .skin-title {
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+	/* Broadcast caret flourish after titles. */
+	[data-theme='broadcast'] .skin-title::after {
+		content: '▮';
+		color: var(--accent);
+		margin-left: 2px;
+	}
+
+	/* Brutalist: catalog index numbers on cards via a pure-CSS counter. */
+	.video-grid {
+		counter-reset: reel;
+	}
+	.video-frame {
+		counter-increment: reel;
+	}
+	[data-theme='brutalist'] .video-frame::before {
+		content: counter(reel, decimal-leading-zero);
+		position: absolute;
+		left: 0.45rem;
+		bottom: 0.35rem; /* bottom-left: avoids the top-left resolution badge */
+		z-index: 1;
+		font-size: 0.6rem;
+		color: var(--muted);
+	}
+
+	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced). */
+	@media (prefers-reduced-motion: no-preference) {
+		.video-grid > * {
+			animation: reel-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+		}
+		.video-grid > *:nth-child(1) { animation-delay: 0ms; }
+		.video-grid > *:nth-child(2) { animation-delay: 40ms; }
+		.video-grid > *:nth-child(3) { animation-delay: 80ms; }
+		.video-grid > *:nth-child(4) { animation-delay: 120ms; }
+		.video-grid > *:nth-child(5) { animation-delay: 160ms; }
+		.video-grid > *:nth-child(6) { animation-delay: 200ms; }
+		.video-grid > *:nth-child(n + 7) { animation-delay: 240ms; }
+	}
+	@keyframes reel-rise {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
 }

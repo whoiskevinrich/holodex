@@ -6,17 +6,17 @@ import "time"
 // Video is one indexed media file. file metadata is the source of truth; this
 // record is a rebuildable cache of it (ADR-003/004).
 type Video struct {
-	ID         int64     `json:"id"`
-	FilePath   string    `json:"file_path"` // canonical absolute path (ADR-011)
-	FileSize   int64     `json:"file_size"`
-	Title      string    `json:"title"`
-	Duration   int       `json:"duration_sec"`
-	Width      int       `json:"width"`
-	Height     int       `json:"height"`
+	ID         int64      `json:"id"`
+	FilePath   string     `json:"file_path"` // canonical absolute path (ADR-011)
+	FileSize   int64      `json:"file_size"`
+	Title      string     `json:"title"`
+	Duration   int        `json:"duration_sec"`
+	Width      int        `json:"width"`
+	Height     int        `json:"height"`
 	RecordedAt *time.Time `json:"recorded_at,omitempty"`
-	IndexedAt  time.Time `json:"indexed_at"`
-	FileMtime  time.Time `json:"file_mtime"`
-	Active     bool      `json:"-"`
+	IndexedAt  time.Time  `json:"indexed_at"`
+	FileMtime  time.Time  `json:"file_mtime"`
+	Active     bool       `json:"-"`
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`

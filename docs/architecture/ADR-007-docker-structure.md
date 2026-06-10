@@ -1,8 +1,14 @@
 # ADR-007: Docker Image Structure — Single Multi-Stage Image + Vite Dev Server
 
-**Status**: Accepted  
+**Status**: Accepted — build-stage & frontend-embed mechanics superseded by [ADR-020](ADR-020-frontend-embed-and-build.md)  
 **Date**: 2026-06-05  
 **Deciders**: Project owner
+
+> **Note:** The "Build Stages" and "Frontend Embedding" sections below are superseded
+> by [ADR-020](ADR-020-frontend-embed-and-build.md). The embed source lives in the
+> `cmd/holodex` package, so the built SPA is copied to `cmd/holodex/web/dist` (not
+> repo-root `web/dist`), because `//go:embed` cannot reference a parent directory. The
+> overall single-multi-stage-image + Vite-dev decision still stands.
 
 ---
 

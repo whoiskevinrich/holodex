@@ -26,5 +26,12 @@
   },
   "overrides": {
     "cookie": "^0.7.2"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.2.8",
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/spline-sans-mono": "^5.2.8",
+    "@fontsource/share-tech-mono": "^5.2.7",
+    "@fontsource/vt323": "^5.2.7"
   }
 }

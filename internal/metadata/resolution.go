@@ -1,5 +1,7 @@
 package metadata
 
+import "strings"
+
 // ResolutionBucket is the user-facing resolution tier (ADR-012).
 type ResolutionBucket string
 
@@ -36,6 +38,23 @@ func ClassifyResolution(width int) ResolutionBucket {
 		return ResolutionHD
 	default:
 		return ResolutionSD
+	}
+}
+
+// ParseResolutionBucket parses a user-facing tier token ("SD", "HD", "FHD",
+// "4K", or "4K+") into a bucket. ok is false for unrecognized input (e.g. "all").
+func ParseResolutionBucket(s string) (ResolutionBucket, bool) {
+	switch strings.ToUpper(strings.TrimRight(strings.TrimSpace(s), "+")) {
+	case "SD":
+		return ResolutionSD, true
+	case "HD":
+		return ResolutionHD, true
+	case "FHD":
+		return ResolutionFHD, true
+	case "4K":
+		return Resolution4K, true
+	default:
+		return "", false
 	}
 }
 

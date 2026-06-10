@@ -23,6 +23,28 @@ A functional change with no spec update — or an infra change with no ADR — i
 2. If the change touched **auth, access, or infrastructure** → run **`/security-review`**.
 3. Confirm the matching **spec / ADR / design / testing** artifacts (table above) were created or updated.
 4. Confirm **no secrets, credentials, or PII** in the diff (see "Secrets & publishing").
+5. If the change touched the **frontend** → honor the "Frontend theming" rules below: no hardcoded styling, and **QA all three skins**.
+
+## Frontend theming (component discipline)
+
+The UI is built on semantic design tokens with three switchable skins (see
+[ADR-021](../docs/architecture/ADR-021-frontend-theming-and-skins.md) and
+[`docs/design/theming.md`](../docs/design/theming.md)). Two rules are load-bearing:
+
+- **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
+  utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
+  `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
+  `rounded-theme`). **Never** a literal palette or value in a component: no `zinc-*`,
+  `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px` radii. A hardcoded
+  value is a theming bug — it won't react to the skin. Skin-specific flourishes belong in
+  `app.css` gated by `[data-theme]`, attached to the shared hook classes
+  (`.app-atmosphere`, `.video-frame`, `.video-grid`, `.skin-title`) — not as per-component
+  markup. Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
+- **QA all three skins.** When verifying any UI change, render and eyeball **Cinémathèque,
+  Broadcast, and Brutalist** (switch via the header picker), not just the default —
+  regressions routinely appear in only one skin (e.g. a badge/counter collision, an accent
+  that doesn't read on its background). Confirm fonts load offline and the
+  loading/empty/error/grid states are all themed.
 
 ## Before pushing or opening a PR
 

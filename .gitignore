@@ -28,6 +28,8 @@
 .env.*
 !.env.example
 .claude/settings.local.json
+# Local dev-server config (machine-specific media paths)
+.claude/launch.json
 
 # Personal productivity workspace — not committed.
 # (Project governance lives in .claude/CLAUDE.md; personal memory lives in ~/.claude.)
