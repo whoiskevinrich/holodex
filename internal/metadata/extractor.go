@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -53,6 +54,14 @@ func (e *Extractor) Available() error {
 // Extract reads embedded metadata from path. ffprobe values (width/height/
 // duration) take precedence over exiftool's for those fields (ADR-004).
 func (e *Extractor) Extract(ctx context.Context, path string) (Extracted, error) {
+	// Pass an absolute path to the subprocesses: an absolute path always begins
+	// with a separator (or drive letter), so a filename can never be mis-parsed
+	// as a CLI option (argv flag smuggling). Defense-in-depth — the scanner only
+	// ever feeds filesystem paths under MEDIA_PATH, never untrusted input.
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+
 	exifRaw, err := e.runExiftool(ctx, path)
 	if err != nil {
 		return Extracted{}, err
