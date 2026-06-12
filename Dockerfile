@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Stage 1: frontend build ---
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 WORKDIR /app/web
 COPY web/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
