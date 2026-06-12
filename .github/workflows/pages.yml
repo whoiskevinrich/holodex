@@ -1,0 +1,47 @@
+# Deploy the static landing page (site/) to GitHub Pages, served at the custom
+# domain holodex.whoiskevinrich.com (CNAME in site/; Cloudflare record + one-time
+# repo setting documented in site/README.md). No build step — the folder is
+# uploaded as-is. Runs on pushes to main that touch site/ (or this workflow).
+name: Deploy landing page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Least privilege: read the repo, publish the Pages deployment, and mint the OIDC
+# token that deploy-pages exchanges for short-lived Pages credentials.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; don't cancel an in-flight deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site/ artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

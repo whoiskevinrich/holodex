@@ -18,12 +18,21 @@ npx --yes serve site          # or: python -m http.server -d site 4321
 
 ## Deploy
 
-The page is static and host-agnostic (relative asset paths), so any static host works:
+Deployed to **GitHub Pages** at the custom domain **`holodex.whoiskevinrich.com`** by
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml), which uploads `site/` as-is on
+every push to `main` that touches it. The `CNAME` file pins the custom domain.
 
-- **GitHub Pages** — publish the `site/` directory (a Pages Action that uploads `site/` as
-  the artifact, or push it to a `gh-pages` branch). Then optionally point a custom subdomain
-  at it with a `CNAME`.
-- **Cloudflare Pages / any static host** — upload `site/` as the site root.
+Two one-time setup steps (outside this repo):
 
-> Wiring up a deploy touches CI/infra — run `/security-review` and keep the distribution ADRs
-> in lockstep before merging a workflow.
+1. **Repo setting** — Settings → Pages → *Build and deployment* → **Source: GitHub Actions**.
+2. **Cloudflare DNS** (matches the two-tier DNS strategy — proxy **off** so GitHub provisions TLS):
+
+   | Type | Name | Target | Proxy |
+   |------|------|--------|-------|
+   | CNAME | `holodex` | `whoiskevinrich.github.io` | **Off** (grey cloud) |
+
+   After the first deploy, enable **Enforce HTTPS** in Settings → Pages (once GitHub finishes
+   issuing the certificate, usually a few minutes).
+
+The page is host-agnostic otherwise (relative asset paths), so it also runs from any static
+host or `npx serve site` locally.
