@@ -198,4 +198,30 @@
 			transform: none;
 		}
 	}
+
+	/* Cold-start shimmer: while a card's cover is still generating, sweep a faint
+	   highlight across the frame so the wait reads as "loading", not "empty".
+	   Overrides .video-frame's flat --surface-2 (later rule wins). */
+	.thumb-shimmer {
+		background: linear-gradient(
+			100deg,
+			var(--surface-2) 38%,
+			var(--rule) 50%,
+			var(--surface-2) 62%
+		);
+		background-size: 220% 100%;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.thumb-shimmer {
+			animation: thumb-sweep 1.5s ease-in-out infinite;
+		}
+	}
+	@keyframes thumb-sweep {
+		from {
+			background-position: 200% 0;
+		}
+		to {
+			background-position: -120% 0;
+		}
+	}
 }

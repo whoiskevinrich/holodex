@@ -10,8 +10,25 @@
 	let error = $state('');
 	let playFailed = $state(false);
 	let showRaw = $state(false);
+	let regenerating = $state(false);
+	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 
 	const id = $derived(Number($page.params.id));
+
+	async function regenerateThumbnail() {
+		if (!video) return;
+		regenerating = true;
+		try {
+			await api.regenerateThumbnail(video.id);
+			// Give the worker a moment, then refresh the poster with a busted URL.
+			setTimeout(() => (thumbVersion += 1), 4000);
+		} catch (e) {
+			// Generation may be disabled (503) or the request may fail; non-fatal.
+			console.warn('thumbnail regenerate failed', e);
+		} finally {
+			regenerating = false;
+		}
+	}
 
 	$effect(() => {
 		const current = id;
@@ -39,7 +56,7 @@
 	<article class="mx-auto max-w-4xl space-y-6">
 		<a href="/" class="text-sm text-muted hover:text-ink">← Back to library</a>
 
-		<div class="overflow-hidden rounded-theme border border-rule bg-black">
+		<div class="group relative overflow-hidden rounded-theme border border-rule bg-black">
 			{#if playFailed}
 				<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
 					<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
@@ -49,13 +66,36 @@
 				</div>
 			{:else}
 				<!-- svelte-ignore a11y_media_has_caption -->
+				<!-- The generated cover (ADR-009) is the poster, so the player shows the
+				     same frame as the card instead of a black box until play. -->
 				<video
 					src={api.streamURL(video.id)}
+					poster={video.thumbnail_url
+						? `${video.thumbnail_url}${thumbVersion ? `?r=${thumbVersion}` : ''}`
+						: undefined}
 					controls
 					preload="metadata"
 					class="aspect-video w-full bg-black"
 					onerror={() => (playFailed = true)}
 				></video>
+				<button
+					onclick={regenerateThumbnail}
+					disabled={regenerating}
+					title="Regenerate thumbnail"
+					aria-label="Regenerate thumbnail"
+					class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+				>
+					<svg
+						class="h-4 w-4 {regenerating ? 'animate-spin' : ''}"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+						aria-hidden="true"
+					>
+						<path
+							d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+						/>
+					</svg>
+				</button>
 			{/if}
 		</div>
 

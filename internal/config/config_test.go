@@ -73,4 +73,38 @@ func TestDatabasePathDerivation(t *testing.T) {
 	if cfg.DatabasePath != want {
 		t.Errorf("DatabasePath = %q, want %q", cfg.DatabasePath, want)
 	}
+	// ThumbnailPath derives from DATA_PATH alongside the database (ADR-009/014).
+	wantThumb := filepath.Join("/srv/holo", "thumbnails")
+	if cfg.ThumbnailPath != wantThumb {
+		t.Errorf("ThumbnailPath = %q, want %q", cfg.ThumbnailPath, wantThumb)
+	}
+}
+
+func TestThumbnailConfig(t *testing.T) {
+	// Defaults (ADR-009).
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.ThumbnailEnabled || cfg.ThumbnailBackfill != "eager" ||
+		cfg.ThumbnailWorkers != 2 || !cfg.ThumbnailNice ||
+		cfg.ThumbnailSeekPercent != 10 || cfg.ThumbnailWidth != 400 {
+		t.Errorf("unexpected thumbnail defaults: %+v", cfg)
+	}
+
+	// Env overrides, including disabling the bool.
+	t.Setenv("THUMBNAIL_ENABLED", "false")
+	t.Setenv("THUMBNAIL_BACKFILL", "lazy")
+	t.Setenv("THUMBNAIL_WORKERS", "4")
+	t.Setenv("THUMBNAIL_WIDTH", "640")
+	cfg, err = Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ThumbnailEnabled {
+		t.Errorf("THUMBNAIL_ENABLED=false not applied")
+	}
+	if cfg.ThumbnailBackfill != "lazy" || cfg.ThumbnailWorkers != 4 || cfg.ThumbnailWidth != 640 {
+		t.Errorf("thumbnail env overrides not applied: %+v", cfg)
+	}
 }

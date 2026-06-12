@@ -239,7 +239,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 		limit = 50
 	}
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
-	             v.height, v.recorded_at, v.indexed_at, v.file_mtime
+	             v.height, v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v ` + where +
 		` ORDER BY v.indexed_at DESC, v.id DESC LIMIT ? OFFSET ?`
 	rows, err := r.db.QueryContext(ctx, q, append(args, limit, f.Offset)...)
@@ -315,7 +315,7 @@ func (f VideoFilter) build() (string, []any) {
 func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, file_path, file_size, title, duration_sec, width, height,
-		        recorded_at, indexed_at, file_mtime FROM videos WHERE id = ?`, id)
+		        recorded_at, indexed_at, file_mtime, thumbnail_state FROM videos WHERE id = ?`, id)
 	v, err := scanVideo(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, ErrNotFound
@@ -343,6 +343,83 @@ func (r *Repo) PathByID(ctx context.Context, id int64) (string, error) {
 		return "", ErrNotFound
 	}
 	return path, err
+}
+
+// ---------------------------------------------------------------------------
+// Thumbnails (ADR-009)
+// ---------------------------------------------------------------------------
+
+// ThumbnailCandidate is the minimal row a generation worker needs to produce a
+// thumbnail for one video.
+type ThumbnailCandidate struct {
+	ID          int64
+	FilePath    string
+	DurationSec int
+}
+
+// SetThumbnailState records the per-video thumbnail pipeline state (ADR-009).
+func (r *Repo) SetThumbnailState(ctx context.Context, id int64, state string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE videos SET thumbnail_state = ? WHERE id = ?`, state, id); err != nil {
+		return fmt.Errorf("set thumbnail state: %w", err)
+	}
+	return nil
+}
+
+// ResetThumbnailState clears the state (NULL) so the pipeline regenerates the
+// image on the next sweep / enqueue (used by the regenerate endpoint).
+func (r *Repo) ResetThumbnailState(ctx context.Context, id int64) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE videos SET thumbnail_state = NULL WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("reset thumbnail state: %w", err)
+	}
+	return nil
+}
+
+// ThumbnailBackfillCandidates returns active videos still needing a generated
+// thumbnail — never attempted (NULL) or previously failed (retried on restart) —
+// newest first so a fresh library fills the most-recently-added items sooner.
+func (r *Repo) ThumbnailBackfillCandidates(ctx context.Context, limit int) ([]ThumbnailCandidate, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, file_path, duration_sec FROM videos
+		WHERE active = 1 AND (thumbnail_state IS NULL OR thumbnail_state = ?)
+		ORDER BY indexed_at DESC, id DESC LIMIT ?`, model.ThumbnailFailed, limit)
+	if err != nil {
+		return nil, fmt.Errorf("thumbnail backfill candidates: %w", err)
+	}
+	defer rows.Close()
+	var out []ThumbnailCandidate
+	for rows.Next() {
+		var c ThumbnailCandidate
+		if err := rows.Scan(&c.ID, &c.FilePath, &c.DurationSec); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ThumbnailCandidateByID resolves one candidate row, ok=false if the id is gone
+// (e.g. the file was removed between enqueue and processing).
+func (r *Repo) ThumbnailCandidateByID(ctx context.Context, id int64) (ThumbnailCandidate, bool, error) {
+	var c ThumbnailCandidate
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, file_path, duration_sec FROM videos WHERE id = ?`, id).
+		Scan(&c.ID, &c.FilePath, &c.DurationSec)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ThumbnailCandidate{}, false, nil
+	}
+	if err != nil {
+		return ThumbnailCandidate{}, false, fmt.Errorf("thumbnail candidate: %w", err)
+	}
+	return c, true, nil
 }
 
 // attachAssociations fills People and Tags for a page of videos using two
@@ -576,11 +653,13 @@ func scanVideo(s rowScanner) (model.Video, error) {
 		recorded   sql.NullString
 		indexedStr string
 		mtimeStr   string
+		thumbState sql.NullString
 	)
 	if err := s.Scan(&v.ID, &v.FilePath, &v.FileSize, &v.Title, &v.Duration,
-		&v.Width, &v.Height, &recorded, &indexedStr, &mtimeStr); err != nil {
+		&v.Width, &v.Height, &recorded, &indexedStr, &mtimeStr, &thumbState); err != nil {
 		return model.Video{}, err
 	}
+	v.ThumbnailState = thumbState.String
 	if recorded.Valid && recorded.String != "" {
 		if t, err := time.Parse(timeLayout, recorded.String); err == nil {
 			v.RecordedAt = &t

@@ -132,6 +132,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Migrations** (ADR-016) | Integration | Up from empty; up/down round-trip; **data preserved** across a representative migration; abort on failure | behavior |
 | **API handlers** (ADR-006) | Integration | Each endpoint happy+error; 404 unknown id; pagination; OpenAPI contract conformance | ~85% |
 | **Range serving** (ADR-015) | Integration | Full 200; `Range:` → 206 + correct `Content-Range`; open-ended/suffix ranges; bad range → 416; serve-by-ID only (no path input) | ~90% |
+| **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 
@@ -231,7 +232,7 @@ Conventions:
 
 ### Phase 2 — MCP, thumbnails, mapping
 - MCP tool tests + **REST/MCP parity** (ADR-005).
-- Thumbnail pipeline: embedded-vs-generated, throttle/worker bound, priority bump, queue-depth metric (ADR-009).
+- Thumbnail pipeline (ADR-009): Tier-1 embedded-art extraction vs Tier-2 generated frame; bounded worker pool + high-priority bump; single-column state machine with sweep-retried `failed`; serve 404-while-pending → 200; `POST .../thumbnail` regenerate; `thumbnail_queue_depth` on `/admin/status` (full Prometheus deferred); a `-tags integration` test runs real ffmpeg so the argv/muxer is exercised.
 - Mapping: normalization, precedence, `multi`, facets, reload endpoint, key-discovery view (ADR-013, F20).
 - Sort, keyboard nav, responsive, Prometheus `/metrics` shape.
 - E2E flows 8–10.
