@@ -73,9 +73,13 @@ Two v4 defaults are explicitly compensated so the UI is visually unchanged:
   `shadow`). The one `shadow-sm` in the codebase (the resolution badge) became `shadow-xs`
   to keep its original weight.
 
-No other v4 breaking changes apply: the codebase already specifies an explicit color on
+No other v4 change required a code edit: the codebase already specifies an explicit color on
 every `border`/`ring`/`divide`, uses no renamed `rounded-*`/`shadow` scale tokens beyond the
-above, and has no Svelte `<style>` blocks needing PostCSS.
+above, and has no Svelte `<style>` blocks needing PostCSS. One v4 change is benign here but
+worth recording: `space-y-*`/`space-x-*` swapped their internal selector (from
+`> :not([hidden]) ~ :not([hidden])` to `> :not(:last-child)`). The ~8 `space-y-*` call sites
+are simple vertical stacks where the two selectors are equivalent, so no markup changed —
+confirmed during three-skin QA.
 
 ## Consequences
 
