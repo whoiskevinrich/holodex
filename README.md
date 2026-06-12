@@ -45,7 +45,8 @@ HOLODEX_MEDIA_PATH=/path/to/your/videos docker compose up --build
 `HOLODEX_MEDIA_PATH` defaults to `./media` if unset (Docker will create an empty bind-mount).
 
 Other variables (see [`holodex.yaml.example`](holodex.yaml.example) and ADR-014):
-`DATA_PATH` (read-write index/thumbnails/config, default `/data`), `PORT` (default `7800`).
+`DATA_PATH` (read-write index/thumbnails/config, default `/data`), `PORT` (default `7800`),
+`HOST` (bind address; default all interfaces — set `127.0.0.1` to listen loopback-only).
 Config precedence is **CLI flags > env > `holodex.yaml` > defaults** (ADR-014); e.g.
 `holodex -port 8080 -media-path /srv/videos` overrides the env/file values.
 

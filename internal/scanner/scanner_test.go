@@ -74,6 +74,72 @@ func (stubExtractor) Extract(_ context.Context, path string) (metadata.Extracted
 	return metadata.Extracted{Title: filepath.Base(path), Width: 1920, Height: 1080, DurationSec: 60}, nil
 }
 
+// artExtractor reports a configurable embedded-cover-art flag.
+type artExtractor struct{ hasArt bool }
+
+func (a artExtractor) Extract(_ context.Context, path string) (metadata.Extracted, error) {
+	return metadata.Extracted{
+		Title: filepath.Base(path), Width: 1920, Height: 1080, DurationSec: 60,
+		HasCoverArt: a.hasArt,
+	}, nil
+}
+
+// fakeThumbnailer records pipeline calls.
+type fakeThumbnailer struct {
+	mu        sync.Mutex
+	extracted []int64
+	enqueued  []int64
+	extractOK bool
+}
+
+func (f *fakeThumbnailer) ExtractEmbedded(_ context.Context, id int64, _ string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.extracted = append(f.extracted, id)
+	return f.extractOK, nil
+}
+
+func (f *fakeThumbnailer) Enqueue(id int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.enqueued = append(f.enqueued, id)
+}
+
+func TestThumbnailHook(t *testing.T) {
+	cases := []struct {
+		name          string
+		hasArt        bool
+		extractOK     bool
+		wantExtracted bool
+		wantEnqueued  bool
+	}{
+		{"embedded art extracted", true, true, true, false},
+		{"art flagged but extract fails -> generate", true, false, true, true},
+		{"no art -> generate", false, false, false, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "a.mkv"), 100)
+			fr := newFakeRepo()
+			s := New(Config{MediaPath: dir, FollowSymlinks: true, MaxDepth: 64, MinAge: time.Minute, Workers: 1},
+				slog.New(slog.NewTextHandler(io.Discard, nil)), fr, artExtractor{hasArt: c.hasArt})
+			ft := &fakeThumbnailer{extractOK: c.extractOK}
+			s.SetThumbnailer(ft)
+
+			if err := s.ScanOnce(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if got := len(ft.extracted) > 0; got != c.wantExtracted {
+				t.Errorf("extracted=%v, want %v", got, c.wantExtracted)
+			}
+			if got := len(ft.enqueued) > 0; got != c.wantEnqueued {
+				t.Errorf("enqueued=%v, want %v", got, c.wantEnqueued)
+			}
+		})
+	}
+}
+
 func writeFile(t *testing.T, path string, size int) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

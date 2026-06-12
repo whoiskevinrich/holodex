@@ -49,11 +49,20 @@ type Extractor interface {
 	Extract(ctx context.Context, path string) (metadata.Extracted, error)
 }
 
+// Thumbnailer is the thumbnail pipeline seam (ADR-009). After indexing a file the
+// scanner extracts embedded cover art (Tier 1) or, failing that, enqueues the
+// file for background frame generation (Tier 2). Optional — nil disables both.
+type Thumbnailer interface {
+	ExtractEmbedded(ctx context.Context, id int64, path string) (bool, error)
+	Enqueue(id int64)
+}
+
 type Scanner struct {
 	cfg    Config
 	log    *slog.Logger
 	repo   Repository
 	ext    Extractor
+	thumbs Thumbnailer
 	scanMu sync.Mutex // ensures only one reconciliation pass runs at a time
 }
 
@@ -63,6 +72,9 @@ func New(cfg Config, log *slog.Logger, repo Repository, ext Extractor) *Scanner 
 	}
 	return &Scanner{cfg: cfg, log: log, repo: repo, ext: ext}
 }
+
+// SetThumbnailer wires the thumbnail pipeline. Called once at startup before Run.
+func (s *Scanner) SetThumbnailer(t Thumbnailer) { s.thumbs = t }
 
 var mediaExts = map[string]struct{}{".mp4": {}, ".mkv": {}}
 
@@ -181,6 +193,24 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	} else {
 		st.incAdded()
 	}
+	s.handleThumbnail(ctx, id, path, ex.HasCoverArt)
+}
+
+// handleThumbnail runs Tier 1 (embedded cover art) for a freshly indexed file,
+// falling back to enqueuing it for Tier 2 background generation. Best-effort: a
+// failure here never affects indexing.
+func (s *Scanner) handleThumbnail(ctx context.Context, id int64, path string, hasCoverArt bool) {
+	if s.thumbs == nil {
+		return
+	}
+	if hasCoverArt {
+		if ok, err := s.thumbs.ExtractEmbedded(ctx, id, path); err != nil {
+			s.log.Warn("cover art extract failed; will generate", "path", path, "err", err)
+		} else if ok {
+			return
+		}
+	}
+	s.thumbs.Enqueue(id)
 }
 
 func buildVideo(path string, info os.FileInfo, mtime time.Time, ex metadata.Extracted) *model.Video {

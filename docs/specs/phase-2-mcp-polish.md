@@ -52,7 +52,7 @@ Expose the full library query capability via a Model Context Protocol (MCP) serv
 
 ### F11: Thumbnail Generation
 
-See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). Note: Tier 1 embedded cover-art extraction ships in Phase 1; the generation tiers below are Phase 2.
+See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). **Status: implemented (2026-06-11).** Note: although ADR-009 framed Tier 1 as a Phase-1 deliverable, it was not built then — **all three tiers (embedded art, generated frames, priority bump) shipped together in Phase 2** (see the ADR-009 implementation-status note). F11.8's `holodex_thumbnail_queue_depth` is exposed as `thumbnail_queue_depth` on `GET /api/v1/admin/status`; the Prometheus `/metrics` endpoint (F13) remains deferred.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|

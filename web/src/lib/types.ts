@@ -27,6 +27,7 @@ export interface Video {
 	height: number;
 	recorded_at?: string | null;
 	indexed_at: string;
+	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	people?: Person[];
 	tags?: Tag[];
 }

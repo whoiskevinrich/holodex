@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,6 +23,7 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
+	"holodex/internal/thumbnail"
 )
 
 func main() {
@@ -30,6 +32,7 @@ func main() {
 		migrateOnly = flag.Bool("migrate-only", false, "apply migrations and exit (ADR-016)")
 		healthcheck = flag.Bool("healthcheck", false, "probe /healthz and exit 0/1 (Docker HEALTHCHECK)")
 		// CLI overrides — highest config precedence (ADR-014, F9.5).
+		hostFlag      = flag.String("host", "", "override HOST (bind address; empty = all interfaces, e.g. 127.0.0.1 for loopback-only)")
 		portFlag      = flag.Int("port", 0, "override PORT")
 		mediaPathFlag = flag.String("media-path", "", "override MEDIA_PATH")
 		dataPathFlag  = flag.String("data-path", "", "override DATA_PATH")
@@ -42,6 +45,7 @@ func main() {
 	}
 
 	overrides := config.Overrides{
+		Host:      *hostFlag,
 		Port:      *portFlag,
 		MediaPath: *mediaPathFlag,
 		DataPath:  *dataPathFlag,
@@ -82,8 +86,25 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Warn("metadata binaries unavailable; scans will error per-file until installed", "err", err)
 	}
 
+	// Thumbnail pipeline (ADR-009): shared by the scanner (Tier 1 + new-file
+	// enqueue) and the API (Tier 3 priority bump + serving).
+	thumbs := thumbnail.New(thumbnail.Config{
+		Enabled:      cfg.ThumbnailEnabled,
+		Backfill:     cfg.ThumbnailBackfill,
+		Workers:      cfg.ThumbnailWorkers,
+		Nice:         cfg.ThumbnailNice,
+		SeekPercent:  cfg.ThumbnailSeekPercent,
+		Width:        cfg.ThumbnailWidth,
+		Dir:          cfg.ThumbnailPath,
+		FfmpegPath:   "ffmpeg",
+		ExiftoolPath: "exiftool",
+	}, log, repository)
+	if err := thumbs.Available(); err != nil {
+		log.Warn("ffmpeg unavailable; thumbnail generation will error until installed", "err", err)
+	}
+
 	health := api.NewHealth()
-	apiHandler := api.Router(log, health, api.NewHandlers(repository, log))
+	apiHandler := api.Router(log, health, api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath))
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.
 	var handler http.Handler = apiHandler
@@ -98,8 +119,11 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		})
 	}
 
+	// Bind address: cfg.Host empty → all interfaces (Docker default); set to
+	// 127.0.0.1 to listen on loopback only (avoids the Windows Firewall prompt in
+	// local dev, since loopback listeners aren't filtered).
 	srv := &http.Server{
-		Addr:              ":" + strconv.Itoa(cfg.Port),
+		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -115,7 +139,9 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		MinAge:         time.Duration(cfg.ScanMinAgeSeconds) * time.Second,
 		Workers:        cfg.ScanWorkers,
 	}, log, repository, extractor)
+	sc.SetThumbnailer(thumbs)
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
+	go thumbs.Run(ctx)
 
 	// Serve.
 	serveErr := make(chan error, 1)

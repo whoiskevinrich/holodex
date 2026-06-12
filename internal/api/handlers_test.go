@@ -30,7 +30,7 @@ func newServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log)))
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"))))
 	t.Cleanup(srv.Close)
 	return srv, r, dir
 }

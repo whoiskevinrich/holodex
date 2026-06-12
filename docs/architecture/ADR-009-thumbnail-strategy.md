@@ -68,3 +68,26 @@ In `lazy` mode, Tier 3 (priority bump for visible items) still applies — viewe
 - The priority bump (Tier 3) requires the frontend to report visible item IDs — implemented via the existing list query (the API knows which IDs a page returned and can enqueue-with-priority server-side, so no extra client call is needed).
 - This ADR supersedes the placeholder reference to "ADR-006 (Thumbnail strategy)" in the Phase 2 spec; the correct reference is ADR-009.
 - Phase 1 implements Tier 1 (embedded art) only. Tiers 2 and 3 are Phase 2 (consistent with thumbnail generation being a Phase 2 feature, F11).
+
+---
+
+## Implementation status (2026-06-11)
+
+Correcting the consequence above: **Tier 1 was *not* built in Phase 1.** The
+Phase-1 codebase shipped with no thumbnail column, no serving endpoint, and
+cover-art keys explicitly excluded from extraction (`internal/metadata/extractor.go`).
+All three tiers were therefore implemented together in Phase 2 (F11):
+
+- **Storage path** is `DATA_PATH/thumbnails/{id}.jpg` — the ADR body's
+  `DATABASE_PATH/thumbnails` reference is superseded by [ADR-014](ADR-014-configuration-and-data-layout.md).
+- **State** is tracked in a single `videos.thumbnail_state` column
+  (`NULL`→`embedded`/`generated`/`failed`). A transient `failed` is retried by the
+  one-shot startup backfill sweep; the list hot-path only enqueues never-attempted
+  (`NULL`) items, so a broken file is not re-attempted on every browse.
+- **Queue depth** (F11.8) is exposed as `thumbnail_queue_depth` on
+  `GET /api/v1/admin/status`; the full Prometheus `/metrics` endpoint is deferred
+  with the rest of Phase 2 observability (F13).
+- **`nice`/`ionice`** are applied only on Unix (skipped on Windows, where they
+  don't exist); generation runs unthrottled when they're absent.
+- Lives in `internal/thumbnail/`; the scanner calls it for Tier 1 + new-file
+  enqueue, the API for Tier 3 priority bump + serving.

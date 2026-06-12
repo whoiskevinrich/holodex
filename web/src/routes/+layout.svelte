@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { goto } from '$app/navigation';
-	import { theme, THEMES, THEME_LABELS, type Theme } from '$lib/theme.svelte';
+	import { theme, THEMES, THEME_LABELS } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
@@ -48,18 +48,29 @@
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
 
-		<label class="sr-only" for="skin">Skin</label>
-		<select
-			id="skin"
-			value={theme.current}
-			onchange={(e) => theme.set(e.currentTarget.value as Theme)}
-			class="rounded-theme border border-rule bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-accent"
+		<!-- Skin switcher as a first-class segmented control: each option shows that
+		     skin's own accent (the swatch re-scopes --accent via data-theme). -->
+		<div
+			class="flex items-center gap-0.5 rounded-theme border border-rule p-0.5"
+			role="group"
 			aria-label="Theme skin"
 		>
 			{#each THEMES as t (t)}
-				<option value={t}>{THEME_LABELS[t]}</option>
+				<button
+					type="button"
+					onclick={() => theme.set(t)}
+					aria-pressed={theme.current === t}
+					title={THEME_LABELS[t]}
+					class="flex items-center gap-1.5 rounded-theme px-2 py-1 text-xs transition {theme.current ===
+					t
+						? 'bg-surface-2 text-ink'
+						: 'text-muted hover:text-ink'}"
+				>
+					<span data-theme={t} class="h-2.5 w-2.5 rounded-full bg-accent ring-1 ring-black/20"></span>
+					<span class="hidden md:inline">{THEME_LABELS[t]}</span>
+				</button>
 			{/each}
-		</select>
+		</div>
 	</nav>
 </header>
 

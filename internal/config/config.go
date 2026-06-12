@@ -20,6 +20,7 @@ type Config struct {
 	DatabasePath string `yaml:"database_path"`
 
 	// Server
+	Host     string `yaml:"host"` // bind address; empty = all interfaces (Docker default)
 	Port     int    `yaml:"port"`
 	LogLevel string `yaml:"log_level"`
 
@@ -29,6 +30,15 @@ type Config struct {
 	FollowSymlinks      bool `yaml:"follow_symlinks"`
 	ScanMaxDepth        int  `yaml:"scan_max_depth"`
 	ScanMinAgeSeconds   int  `yaml:"scan_min_age_seconds"`
+
+	// Thumbnails (ADR-009)
+	ThumbnailEnabled     bool   `yaml:"thumbnail_enabled"`
+	ThumbnailBackfill    string `yaml:"thumbnail_backfill"` // "eager" | "lazy"
+	ThumbnailWorkers     int    `yaml:"thumbnail_workers"`
+	ThumbnailNice        bool   `yaml:"thumbnail_nice"`
+	ThumbnailSeekPercent int    `yaml:"thumbnail_seek_percent"`
+	ThumbnailWidth       int    `yaml:"thumbnail_width"`
+	ThumbnailPath        string `yaml:"-"` // derived: DataPath/thumbnails
 
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
@@ -52,6 +62,14 @@ func Defaults() Config {
 		FollowSymlinks:      true,
 		ScanMaxDepth:        64,
 		ScanMinAgeSeconds:   5,
+
+		ThumbnailEnabled:     true,
+		ThumbnailBackfill:    "eager",
+		ThumbnailWorkers:     2,
+		ThumbnailNice:        true,
+		ThumbnailSeekPercent: 10,
+		ThumbnailWidth:       400,
+
 		CacheBackend:        "memory",
 		CacheMaxMemoryMB:    128,
 		MCPTransport:        "http",
@@ -84,12 +102,16 @@ func (c *Config) derive() {
 	if c.DatabasePath == "" {
 		c.DatabasePath = filepath.Join(c.DataPath, "holodex.db")
 	}
+	if c.ThumbnailPath == "" {
+		c.ThumbnailPath = filepath.Join(c.DataPath, "thumbnails")
+	}
 }
 
 // Overrides carries CLI-flag values — the highest-precedence layer (ADR-014,
 // F9.5: CLI > env > yaml > defaults). Zero/empty fields are left untouched, so
 // the caller can pass only the flags the user actually set.
 type Overrides struct {
+	Host      string
 	Port      int
 	MediaPath string
 	DataPath  string
@@ -99,6 +121,9 @@ type Overrides struct {
 // ApplyOverrides overlays CLI flags on top of the loaded config and re-derives
 // computed fields (e.g. DatabasePath when DataPath changes).
 func (c *Config) ApplyOverrides(o Overrides) {
+	if o.Host != "" {
+		c.Host = o.Host
+	}
 	if o.Port != 0 {
 		c.Port = o.Port
 	}
@@ -108,6 +133,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 	if o.DataPath != "" {
 		c.DataPath = o.DataPath
 		c.DatabasePath = "" // re-derive under the new data dir
+		c.ThumbnailPath = ""
 	}
 	if o.LogLevel != "" {
 		c.LogLevel = o.LogLevel
@@ -119,6 +145,7 @@ func applyEnv(c *Config) {
 	c.MediaPath = envStr("MEDIA_PATH", c.MediaPath)
 	c.DataPath = envStr("DATA_PATH", c.DataPath)
 	c.DatabasePath = envStr("DATABASE_PATH", c.DatabasePath)
+	c.Host = envStr("HOST", c.Host)
 	c.Port = envInt("PORT", c.Port)
 	c.LogLevel = envStr("LOG_LEVEL", c.LogLevel)
 
@@ -127,6 +154,13 @@ func applyEnv(c *Config) {
 	c.FollowSymlinks = envBool("FOLLOW_SYMLINKS", c.FollowSymlinks)
 	c.ScanMaxDepth = envInt("SCAN_MAX_DEPTH", c.ScanMaxDepth)
 	c.ScanMinAgeSeconds = envInt("SCAN_MIN_AGE_SECONDS", c.ScanMinAgeSeconds)
+
+	c.ThumbnailEnabled = envBool("THUMBNAIL_ENABLED", c.ThumbnailEnabled)
+	c.ThumbnailBackfill = envStr("THUMBNAIL_BACKFILL", c.ThumbnailBackfill)
+	c.ThumbnailWorkers = envInt("THUMBNAIL_WORKERS", c.ThumbnailWorkers)
+	c.ThumbnailNice = envBool("THUMBNAIL_NICE", c.ThumbnailNice)
+	c.ThumbnailSeekPercent = envInt("THUMBNAIL_SEEK_PERCENT", c.ThumbnailSeekPercent)
+	c.ThumbnailWidth = envInt("THUMBNAIL_WIDTH", c.ThumbnailWidth)
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
