@@ -1,0 +1,56 @@
+# CodeQL static security analysis for Go and the SvelteKit frontend.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 1"   # weekly, Monday 05:23 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Manual build, not autobuild: autobuild runs `make` with no target, which hits the
+          # Makefile's default `run` target (go run ./cmd/holodex) and boots the server forever.
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}   # input is `languages` (plural); `language` is silently ignored
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Build Go
+        if: matrix.language == 'go'
+        run: go build ./...   # compiles every package, runs nothing
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

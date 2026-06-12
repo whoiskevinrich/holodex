@@ -1,23 +1,30 @@
-# Build and publish the Holodex runtime image to GHCR (ADR-023).
-# Pushes multi-arch (amd64 + arm64) images on main and on version tags.
-name: Publish image
+# Build, push, and scan the Holodex runtime image (ADR-023).
+# - on push to main / manual dispatch: continuous build, tagged edge + sha-<short>.
+# - via workflow_call (from release.yml on a v* tag): tagged with semver + latest.
+# Multi-arch (amd64 + arm64); Trivy scans the pushed image into the Security tab.
+name: Build image
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}   # whoiskevinrich/holodex
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write          # push to GHCR via the built-in GITHUB_TOKEN
+      security-events: write   # upload the Trivy SARIF report
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -50,6 +57,7 @@ jobs:
           flavor: latest=auto
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -59,3 +67,19 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true   # only flag CVEs with an available fix
+
+      - name: Upload Trivy results to Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image

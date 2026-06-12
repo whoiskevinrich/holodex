@@ -1,0 +1,42 @@
+# Release on a v* tag: publish the image (semver + latest) and cut a GitHub Release.
+# Tag a release with:  git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  # Reuse the image pipeline; the tag ref makes metadata-action emit semver + latest.
+  image:
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    secrets: inherit
+
+  github-release:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # create the GitHub Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0        # full history for auto-generated notes
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          body: |
+            ### Container image
+            ```
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
+            Or pin in `docker-compose.prod.yml`:
+            `HOLODEX_TAG=${{ github.ref_name }} docker compose -f docker-compose.prod.yml up -d`
