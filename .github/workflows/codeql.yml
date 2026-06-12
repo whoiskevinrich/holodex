@@ -43,7 +43,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          language: ${{ matrix.language }}
+          languages: ${{ matrix.language }}   # input is `languages` (plural); `language` is silently ignored
           build-mode: ${{ matrix.build-mode }}
 
       - name: Build Go
