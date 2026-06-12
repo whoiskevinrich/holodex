@@ -43,6 +43,9 @@
 /CLAUDE.md
 /memory/
 
+# Browser-automation scratch (Playwright MCP snapshots/console logs)
+.playwright-mcp/
+
 # Editor / OS
 .DS_Store
 .idea/

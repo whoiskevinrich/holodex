@@ -89,8 +89,16 @@ node generate.mjs --max-seconds 8          # cap runtimes (fast smoke build)
 node generate.mjs --out /path/to/media     # custom output directory
 ```
 
+## Showcase surfaces built on this corpus
+
+- **README** — product-first rewrite with a three-skin gallery + detail shot
+  (`docs/assets/screenshots/`, captured from this corpus).
+- **Landing page** — [`site/`](../../site/), a self-contained static page whose hero swaps the
+  real grid + detail screenshots between skins, tinted with each skin's accent. It reuses the
+  existing theming design system (ADR-021) rather than introducing new UX, so no new design
+  handoff is required; deploying it is a separate infra step (see [`site/README.md`](../../site/README.md)).
+
 ## Follow-ups (tracked separately)
 
-- README glow-up consuming screenshots of this corpus.
-- Interactive landing page (live skin-switcher).
+- Deploy the landing page (GitHub Pages / Cloudflare) — needs a security review for the CI/infra.
 - Optional: reuse this corpus as the seed for a hosted live demo / in-app demo mode.
