@@ -157,6 +157,55 @@ func TestConcurrentUpsertsNoLock(t *testing.T) {
 	}
 }
 
+func TestThumbnailStateLifecycle(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+
+	// Fresh videos are backfill candidates (state NULL).
+	cands, err := r.ThumbnailBackfillCandidates(ctx, 10)
+	if err != nil || len(cands) != 2 {
+		t.Fatalf("candidates = %d (%v), want 2", len(cands), err)
+	}
+
+	// Marking one generated removes it from the candidate set; a failed one stays.
+	if err := r.SetThumbnailState(ctx, a, "generated"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetThumbnailState(ctx, b, "failed"); err != nil {
+		t.Fatal(err)
+	}
+	cands, _ = r.ThumbnailBackfillCandidates(ctx, 10)
+	if len(cands) != 1 || cands[0].ID != b {
+		t.Fatalf("after marking: candidates = %v, want only %d (failed retried)", cands, b)
+	}
+
+	// The state surfaces on reads.
+	got, _, _ := r.GetVideo(ctx, a)
+	if got.ThumbnailState != "generated" {
+		t.Errorf("GetVideo state = %q, want generated", got.ThumbnailState)
+	}
+
+	// Reset returns it to the candidate set.
+	if err := r.ResetThumbnailState(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	cands, _ = r.ThumbnailBackfillCandidates(ctx, 10)
+	if len(cands) != 2 {
+		t.Errorf("after reset: candidates = %d, want 2", len(cands))
+	}
+
+	// Candidate-by-id resolves path + duration, and reports missing ids.
+	c, ok, err := r.ThumbnailCandidateByID(ctx, a)
+	if err != nil || !ok || c.FilePath != "/m/a.mkv" {
+		t.Errorf("candidate by id = %+v ok=%v err=%v", c, ok, err)
+	}
+	if _, ok, _ := r.ThumbnailCandidateByID(ctx, 99999); ok {
+		t.Errorf("expected ok=false for missing id")
+	}
+}
+
 func TestDeactivateExcept(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

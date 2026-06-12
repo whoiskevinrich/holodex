@@ -35,6 +35,16 @@ export const api = {
 
 	streamURL: (id: number) => `${BASE}/media/${id}/stream`,
 
+	thumbnailURL: (id: number) => `${BASE}/media/${id}/thumbnail`,
+
+	// Request background re-extraction (202 Accepted; image appears once ready).
+	regenerateThumbnail: async (id: number, fetchFn: typeof fetch = fetch) => {
+		const res = await fetchFn(`${BASE}/media/${id}/thumbnail`, { method: 'POST' });
+		if (!res.ok && res.status !== 202) {
+			throw new Error(`regenerate thumbnail failed: ${res.status}`);
+		}
+	},
+
 	listPeople: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
 		get<{ items: Person[] }>(`/people${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
 

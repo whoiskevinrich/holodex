@@ -28,6 +28,10 @@ type Extracted struct {
 	Height      int
 	RecordedAt  *time.Time
 	Extra       []model.ExtraMetadata
+	// HasCoverArt reports that the container carries an embedded cover image, so
+	// the thumbnail pipeline can extract it (Tier 1) rather than generating a
+	// frame (ADR-009). The blob itself is not captured here.
+	HasCoverArt bool
 }
 
 // Extractor runs exiftool + ffprobe. Binary paths default to the names on PATH.
@@ -144,6 +148,11 @@ var (
 		"MediaCreateDate", "CreateDate", "DateRecorded", "DateTagged", "Date")
 )
 
+// coverArtKeys are the embedded cover-image tags exiftool surfaces. Their
+// presence flags Tier-1 art availability (ADR-009); the bytes are extracted
+// separately by the thumbnail pipeline via `exiftool -b`.
+var coverArtKeys = newKeySet("CoverArt", "Picture")
+
 // excludedKeys are filesystem/tool/binary keys never captured as human metadata
 // (ADR-013 excludes cover-art blobs, core-six source keys, and noise).
 var excludedKeys = newKeySet(
@@ -151,7 +160,7 @@ var excludedKeys = newKeySet(
 	"FileModifyDate", "FileAccessDate", "FileCreateDate", "FileInodeChangeDate",
 	"FilePermissions", "FileType", "FileTypeExtension", "MIMEType",
 	"ImageWidth", "ImageHeight", "ImageSize", "Megapixels", "Duration",
-	"CoverArt", "Picture", "ThumbnailImage", "PreviewImage",
+	"ThumbnailImage", "PreviewImage",
 )
 
 // mapExiftool converts exiftool's flat JSON object into normalized fields,
@@ -175,6 +184,8 @@ func mapExiftool(m map[string]any) Extracted {
 					ex.RecordedAt = t
 				}
 			}
+		case coverArtKeys.has(key):
+			ex.HasCoverArt = true
 		case excludedKeys.has(key) || isBinaryValue(val):
 			// skip
 		default:

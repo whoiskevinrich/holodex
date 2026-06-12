@@ -1,20 +1,71 @@
 <script lang="ts">
 	import type { Video } from '$lib/types';
+	import { api } from '$lib/api';
 	import { formatDuration, resolutionBucket } from '$lib/format';
 
 	let { video }: { video: Video } = $props();
 
 	const bucket = $derived(resolutionBucket(video.width));
+
+	// Thumbnails are generated in the background (ADR-009). The card attempts the
+	// image immediately; while it is still generating the server returns 404, so
+	// we retry with backoff until it lands, then give up to the placeholder.
+	const MAX_RETRIES = 5;
+	let attempt = $state(0);
+	let loaded = $state(false);
+	let gaveUp = $state(false);
+	const src = $derived(api.thumbnailURL(video.id) + (attempt > 0 ? `?r=${attempt}` : ''));
+
+	function onError() {
+		if (attempt < MAX_RETRIES) {
+			// Exponential backoff with jitter so a freshly-scanned grid doesn't
+			// retry every card in lockstep (thundering herd) against the API.
+			const base = Math.min(2000 * 2 ** attempt, 30000);
+			const delay = base * (0.5 + Math.random());
+			const next = attempt + 1;
+			setTimeout(() => (attempt = next), delay);
+		} else {
+			gaveUp = true;
+		}
+	}
 </script>
 
 <a href={`/media/${video.id}`} class="group block">
-	<!-- Cover placeholder (embedded cover art lands in Phase 2 — ADR-009).
-	     `.video-frame` carries the per-skin flourishes (letterbox, scanlines,
-	     index counter) from app.css. -->
-	<div class="video-frame flex items-center justify-center transition group-hover:border-accent">
-		<svg class="h-10 w-10 text-rule" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-			<path d="M8 5v14l11-7z" />
-		</svg>
+	<!-- Cover image with background-generation fallback (ADR-009). `.video-frame`
+	     carries the per-skin flourishes (letterbox, scanlines, index counter) from
+	     app.css; the <img> sits beneath them (their z-index is 1). -->
+	<div
+		class="video-frame flex items-center justify-center transition group-hover:border-accent {!loaded &&
+		!gaveUp
+			? 'thumb-shimmer'
+			: ''}"
+	>
+		{#if !gaveUp}
+			<img
+				{src}
+				alt=""
+				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 {loaded
+					? 'opacity-100'
+					: 'opacity-0'}"
+				onload={() => (loaded = true)}
+				onerror={onError}
+			/>
+		{/if}
+		{#if !loaded}
+			<svg class="h-10 w-10 text-rule" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M8 5v14l11-7z" />
+			</svg>
+		{/if}
+		{#if loaded}
+			<!-- "Click to watch" affordance: a play glyph fades in over the cover on hover. -->
+			<div
+				class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-black/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+			>
+				<svg class="h-11 w-11 text-ink drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M8 5v14l11-7z" />
+				</svg>
+			</div>
+		{/if}
 		<span
 			class="absolute bottom-1.5 right-1.5 z-[2] rounded-theme bg-black/70 px-1.5 py-0.5 text-xs tabular-nums text-ink"
 		>
@@ -22,7 +73,7 @@
 		</span>
 		{#if video.width > 0}
 			<span
-				class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"
+				class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-sm ring-1 ring-black/20"
 			>
 				{bucket}
 			</span>
