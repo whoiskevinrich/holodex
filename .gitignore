@@ -19,6 +19,11 @@
 /testdata/mp4/
 /testdata/mkv/
 
+# Demo showcase corpus (generated media + node deps; keep the generator)
+/testdata/demo/node_modules/
+/testdata/demo/library/
+/testdata/demo/.posters/
+
 # Local config / overrides
 /holodex.yaml
 /docker-compose.override.yml
