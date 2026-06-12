@@ -46,8 +46,14 @@ GitHub Actions, four workflows plus Dependabot config under `.github/`:
 - Trivy scans run **after** push (multi-arch manifests can't be loaded locally), so a finding
   surfaces in the Security tab rather than blocking publish — acceptable for the current
   cadence; can move pre-push with single-arch scanning later if needed.
-- CodeQL Go autobuild uses the default (non-`production`) build, so it needs no prebuilt
-  frontend embed.
+- **CodeQL uses `build-mode: manual` for Go** (explicit `go build ./...`), *not* autobuild:
+  autobuild runs `make` with no target, which hits the Makefile's default `run` target
+  (`go run ./cmd/holodex`) and hangs booting the server. The frontend uses `build-mode: none`.
+  (The init input is `languages`, plural — `language` is silently ignored.)
+- **Code scanning requires the repo to be public** (or GHAS on a private repo): CodeQL and the
+  Trivy SARIF upload both publish to GitHub code scanning, which is unavailable on a private
+  repo without Advanced Security. The repo was made public (2026-06-11) to enable this; the
+  full git history was secret/PII-scanned clean first.
 - This is an **infrastructure/access** change: workflows use only the built-in `GITHUB_TOKEN`
   with per-job least-privilege scopes (`contents: read` by default; `packages: write` only to
   push; `security-events: write` only to upload SARIF; `contents: write` only on the release
