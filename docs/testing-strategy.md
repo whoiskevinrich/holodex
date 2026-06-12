@@ -17,7 +17,7 @@ The plan below is the target. What actually exists today:
 - `internal/scanner` — walk + media filter, add/skip/remove reconciliation, change detection, and the **fs-watcher** indexing a newly created file.
 - `internal/api` — list/detail/search/people/tags handlers, 404s, and **Range (206)** streaming via `httptest`.
 
-**Verified by driven browser QA (not yet automated):** the SvelteKit UI end-to-end (scan → browse → filter → detail → Range playback), the facet autocomplete + pagination, and **all three theme skins** (per `.claude/CLAUDE.md`).
+**Verified by driven browser QA (not yet automated):** the SvelteKit UI end-to-end (scan → browse → filter → detail → Range playback), the facet autocomplete + pagination, and **all three theme skins** (per `.claude/CLAUDE.md`). The frontend builds on **Tailwind v4** (CSS-first config, ADR-025); because the theme is a runtime `[data-theme]` swap, skin QA also covers computed-token verification (`--accent`/`--radius`/`--font-*` resolve per skin) — the migration was checked this way, not just by eye.
 
 **Deferred from the plan (known gaps, not silent):**
 - The full **golden-fixture corpus** (`testdata/gen.sh` + `*.golden.json`) and `//go:build integration` tests that exercise *real* `exiftool`/`ffprobe`/`mkvpropedit` — the mapping logic is currently unit-tested against captured JSON instead. MKV multi-target-level precedence (ADR-010) is **not yet** covered by a real-file test.

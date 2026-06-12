@@ -73,7 +73,7 @@
 		</span>
 		{#if video.width > 0}
 			<span
-				class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-sm ring-1 ring-black/20"
+				class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-xs ring-1 ring-black/20"
 			>
 				{bucket}
 			</span>

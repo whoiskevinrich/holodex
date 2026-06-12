@@ -28,6 +28,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [022](ADR-022-defer-in-process-cache.md) | Defer the in-process cache to a measured need | Accepted |
 | [023](ADR-023-image-distribution.md) | Image distribution — **published GHCR image + pull-based compose** | Accepted |
 | [024](ADR-024-ci-cd-pipeline.md) | CI/CD — **PR gate + supply-chain scanning + tag-driven releases** | Accepted |
+| [025](ADR-025-tailwind-v4-css-first.md) | Tailwind v4 — **CSS-first config** (`@theme inline`) + Vite plugin | Accepted (supersedes ADR-021 §2 mechanism) |
 
 ## Phase specs
 - [Phase 1 — MVP](../specs/phase-1-mvp.md)
