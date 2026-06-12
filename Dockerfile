@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Stage 1: frontend build ---
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 WORKDIR /app/web
 COPY web/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
@@ -10,7 +10,7 @@ COPY web/ ./
 RUN npm run build        # outputs to web/dist
 
 # --- Stage 2: Go build ---
-FROM golang:1.23-bookworm AS backend
+FROM golang:1.26-bookworm AS backend
 WORKDIR /app
 COPY go.mod go.sum* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
