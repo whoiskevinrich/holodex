@@ -1,0 +1,13 @@
+{
+  "name": "holodex-demo-corpus",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates a deterministic, IP-free demo media library for showcasing Holodex (specs/showcase-demo-corpus.md).",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}
