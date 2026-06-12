@@ -30,7 +30,9 @@ export function formatBytes(bytes: number): string {
 export function formatYear(iso?: string | null): string {
 	if (!iso) return '';
 	const d = new Date(iso);
-	return Number.isNaN(d.getTime()) ? '' : String(d.getFullYear());
+	// recorded_at is a UTC instant (e.g. "2021-01-01T00:00:00Z"); read the year in
+	// UTC so a midnight-UTC date doesn't roll back a year for viewers west of UTC.
+	return Number.isNaN(d.getTime()) ? '' : String(d.getUTCFullYear());
 }
 
 // toMessage normalizes a caught value into a display string (replaces the
