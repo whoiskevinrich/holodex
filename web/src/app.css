@@ -5,9 +5,27 @@
 @import '@fontsource/vt323';
 @import '@fontsource/share-tech-mono';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/*
+ * THEME MAP (Tailwind v4 CSS-first config — ADR-025, supersedes tailwind.config.ts).
+ * `inline` is load-bearing: it makes the generated utilities emit `var(--bg)` etc.
+ * *directly* rather than a resolved snapshot, so they track the live per-skin value
+ * when `[data-theme]` flips at runtime. Values live in the SKIN TOKENS block below.
+ */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-ink: var(--ink);
+	--color-muted: var(--muted);
+	--color-rule: var(--rule);
+	--color-accent: var(--accent);
+	--color-accent-ink: var(--accent-ink);
+	--font-display: var(--font-display);
+	--font-ui: var(--font-ui);
+	--radius-theme: var(--radius);
+}
 
 /*
  * SKIN TOKENS (ADR-021, docs/design/theming.md)
@@ -70,6 +88,13 @@
 		background-color: var(--bg);
 		color: var(--ink);
 		font-family: var(--font-ui);
+	}
+
+	/* Tailwind v4 Preflight sets buttons to `cursor: default`; restore the
+	   pointer for interactive controls (the picker, load-more, copy, clear). */
+	button:not(:disabled),
+	[role='button']:not(:disabled) {
+		cursor: pointer;
 	}
 }
 

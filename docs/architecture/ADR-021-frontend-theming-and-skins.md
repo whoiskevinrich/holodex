@@ -37,6 +37,11 @@ vocabulary is intentionally small and semantic (not palette-named):
 
 ### 2. Tailwind maps utilities → tokens
 
+> **Superseded in part by [ADR-025](ADR-025-tailwind-v4-css-first.md).** The *mechanism*
+> below moved from `tailwind.config.ts` to a CSS-first `@theme inline` block in `app.css`
+> when the project upgraded to Tailwind v4. The token vocabulary, the semantic utilities,
+> and the "never name a palette" discipline are unchanged.
+
 `tailwind.config.ts` extends `colors`/`fontFamily`/`borderRadius` to point at the
 variables, so components use semantic utilities (`bg-bg`, `text-ink`, `text-accent`,
 `font-display`, `rounded-theme`) and the skin swap is free. **Components never name a
