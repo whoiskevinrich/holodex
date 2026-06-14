@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"holodex/internal/api"
 	"holodex/internal/config"
 	"holodex/internal/db"
+	"holodex/internal/mcp"
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
 	"holodex/internal/repo"
@@ -38,6 +40,7 @@ func main() {
 		mediaPathFlag = flag.String("media-path", "", "override MEDIA_PATH")
 		dataPathFlag  = flag.String("data-path", "", "override DATA_PATH")
 		logLevelFlag  = flag.String("log-level", "", "override LOG_LEVEL")
+		mcpTransport  = flag.String("mcp-transport", "", "run as an MCP server over this transport instead of the web server; only \"stdio\" is valid (ADR-005)")
 	)
 	flag.Parse()
 
@@ -52,10 +55,42 @@ func main() {
 		DataPath:  *dataPathFlag,
 		LogLevel:  *logLevelFlag,
 	}
+
+	// stdio MCP entrypoint (`docker exec -i holodex holodex -mcp-transport stdio`):
+	// run only the MCP server over the pipe, never the web server.
+	if *mcpTransport == "stdio" {
+		if err := runMCPStdio(*configPath, overrides); err != nil {
+			fmt.Fprintln(os.Stderr, "fatal:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(*configPath, *migrateOnly, overrides); err != nil {
 		fmt.Fprintln(os.Stderr, "fatal:", err)
 		os.Exit(1)
 	}
+}
+
+// runMCPStdio serves the MCP tools over stdin/stdout, sharing the same database
+// as the main process (ADR-005). Logs go to stderr because stdout is the
+// JSON-RPC pipe — anything written there corrupts the protocol stream.
+func runMCPStdio(configPath string, overrides config.Overrides) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	cfg.ApplyOverrides(overrides)
+
+	log := newLogger(cfg.LogLevel, os.Stderr)
+	database, err := db.Open(cfg.DatabasePath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	log.Info("mcp stdio server starting", "database", cfg.DatabasePath)
+	return mcp.New(repo.New(database), log).ServeStdio()
 }
 
 func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
@@ -65,7 +100,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	cfg.ApplyOverrides(overrides) // CLI > env > yaml > defaults (ADR-014)
 
-	log := newLogger(cfg.LogLevel)
+	log := newLogger(cfg.LogLevel, os.Stdout)
 	log.Info("starting holodex", "port", cfg.Port, "data_path", cfg.DataPath)
 
 	database, err := db.Open(cfg.DatabasePath)
@@ -157,6 +192,19 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
 
+	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
+	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).
+	if cfg.MCPEnabled && (cfg.MCPTransport == "http" || cfg.MCPTransport == "both") {
+		mcpAddr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.MCPPort))
+		go func() {
+			if err := mcp.New(repository, log).StartHTTP(ctx, mcpAddr); err != nil {
+				log.Error("mcp http server failed", "err", err)
+			}
+		}()
+	} else if cfg.MCPEnabled {
+		log.Info("mcp enabled but transport is stdio-only; HTTP server not started", "transport", cfg.MCPTransport)
+	}
+
 	// Serve.
 	serveErr := make(chan error, 1)
 	go func() {
@@ -186,7 +234,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	return nil
 }
 
-func newLogger(level string) *slog.Logger {
+func newLogger(level string, w io.Writer) *slog.Logger {
 	var lvl slog.Level
 	switch level {
 	case "debug":
@@ -198,7 +246,7 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: lvl}))
 }
 
 // runHealthcheck probes the local /healthz endpoint for the Docker HEALTHCHECK.

@@ -226,7 +226,10 @@ type VideoFilter struct {
 	DurationMinSec, DurationMaxSec int
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
-	Limit, Offset                  int
+	// DateFrom/DateTo are inclusive ISO dates (YYYY-MM-DD) matched against
+	// recorded_at — finer-grained than Year*, used by the MCP search tool (F10.2).
+	DateFrom, DateTo string
+	Limit, Offset    int
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
@@ -341,6 +344,16 @@ func (f VideoFilter) build() (string, []any) {
 	if f.YearMax > 0 {
 		clauses = append(clauses, "v.recorded_at <= ?")
 		args = append(args, fmt.Sprintf("%04d-12-31T23:59:59Z", f.YearMax))
+	}
+	// recorded_at is stored RFC3339; a bare date sorts lexicographically before
+	// that day's timestamps, so >= DateFrom and <= DateTo+end-of-day are inclusive.
+	if f.DateFrom != "" {
+		clauses = append(clauses, "v.recorded_at >= ?")
+		args = append(args, f.DateFrom)
+	}
+	if f.DateTo != "" {
+		clauses = append(clauses, "v.recorded_at <= ?")
+		args = append(args, f.DateTo+"T23:59:59Z")
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
@@ -533,6 +546,32 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 // ---------------------------------------------------------------------------
 // People & Tags navigation (F5, F6)
 // ---------------------------------------------------------------------------
+
+// PersonIDByName resolves a person id by exact, case-insensitive name; ok=false
+// if absent. Used by the MCP search tool to filter by names rather than ids.
+func (r *Repo) PersonIDByName(ctx context.Context, name string) (int64, bool, error) {
+	return idByName(ctx, r.db, "people", name)
+}
+
+// TagIDByName mirrors PersonIDByName for tags.
+func (r *Repo) TagIDByName(ctx context.Context, name string) (int64, bool, error) {
+	return idByName(ctx, r.db, "tags", name)
+}
+
+// idByName looks up a row id by unique name (case-insensitive). table is a
+// trusted literal ("people" | "tags"), never user input.
+func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool, error) {
+	var id int64
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM "+table+" WHERE name = ? COLLATE NOCASE", strings.TrimSpace(name)).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("%s id by name: %w", table, err)
+	}
+	return id, true, nil
+}
 
 // namedRow is the shared shape of a people/tags row joined to its video count.
 func namedCountQuery(table, junction, fk string, sortByCount bool) string {

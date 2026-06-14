@@ -39,6 +39,8 @@ Expose the full library query capability via a Model Context Protocol (MCP) serv
 
 ### F10: MCP Server
 
+**Status: implemented (2026-06-13).** Built on `mark3labs/mcp-go` (ADR-005) in `internal/mcp`, sharing the same `*repo.Repo` as the REST API. The four tools (`search_videos`, `get_video`, `list_people`, `list_tags`) are read-only and return the spec's JSON schemas as tool text. `search_videos` resolves people/tag **names** to ids (an unknown name yields an empty result under AND semantics) and reuses the shared `VideoFilter` (with new `DateFrom`/`DateTo`). Transports: stdio via the `holodex -mcp-transport stdio` entrypoint (logs forced to stderr so stdout stays a clean JSON-RPC pipe), and Streamable HTTP at `/mcp` plus legacy SSE at `/mcp/sse` on `MCPPort`, started in-process when `MCP_ENABLED=true` and transport is `http`/`both`. Verified end-to-end over both transports (initialize → tools/list → tools/call).
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F10.1 | MCP server runs as part of the same Docker service, toggled via `MCP_ENABLED=true` env var | Setting env var starts MCP listener; absence skips it |
