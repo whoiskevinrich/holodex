@@ -30,10 +30,18 @@ func newServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"))))
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil), nil))
 	t.Cleanup(srv.Close)
 	return srv, r, dir
 }
+
+// fakeRescanner records TriggerRescan calls for the admin-rescan handler test.
+type fakeRescanner struct {
+	calls   int
+	started bool
+}
+
+func (f *fakeRescanner) TriggerRescan() bool { f.calls++; return f.started }
 
 func seedVideo(t *testing.T, r *repo.Repo, path, title string) int64 {
 	t.Helper()
@@ -130,6 +138,51 @@ func TestStreamRange(t *testing.T) {
 	got, _ := io.ReadAll(resp.Body)
 	if string(got) != "0123" {
 		t.Errorf("range body = %q, want %q", got, "0123")
+	}
+}
+
+func TestAdminRescan(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fake := &fakeRescanner{started: true}
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), fake, nil), nil))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Post(srv.URL+"/api/v1/admin/rescan", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST rescan: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("rescan status = %d, want 202", resp.StatusCode)
+	}
+	var body map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	if body["started"] != true {
+		t.Errorf("started = %v, want true", body["started"])
+	}
+	if fake.calls != 1 {
+		t.Errorf("TriggerRescan calls = %d, want 1", fake.calls)
+	}
+}
+
+// Without a wired scanner (health-only mode), rescan reports 503 rather than
+// pretending to have queued work.
+func TestAdminRescanUnavailable(t *testing.T) {
+	srv, _, _ := newServer(t)
+	resp, err := http.Post(srv.URL+"/api/v1/admin/rescan", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST rescan: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("rescan without scanner = %d, want 503", resp.StatusCode)
 	}
 }
 

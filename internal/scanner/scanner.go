@@ -57,13 +57,21 @@ type Thumbnailer interface {
 	Enqueue(id int64)
 }
 
+// Metrics is the observability seam (F13.2): each completed pass reports its
+// duration and how many files it (re)indexed. Optional — nil disables it.
+type Metrics interface {
+	ObserveScan(d time.Duration, indexed int)
+}
+
 type Scanner struct {
-	cfg    Config
-	log    *slog.Logger
-	repo   Repository
-	ext    Extractor
-	thumbs Thumbnailer
-	scanMu sync.Mutex // ensures only one reconciliation pass runs at a time
+	cfg     Config
+	log     *slog.Logger
+	repo    Repository
+	ext     Extractor
+	thumbs  Thumbnailer
+	metrics Metrics
+	scanMu  sync.Mutex      // ensures only one reconciliation pass runs at a time
+	baseCtx context.Context // server-lifetime ctx for manual rescans (F13.3)
 }
 
 func New(cfg Config, log *slog.Logger, repo Repository, ext Extractor) *Scanner {
@@ -75,6 +83,16 @@ func New(cfg Config, log *slog.Logger, repo Repository, ext Extractor) *Scanner 
 
 // SetThumbnailer wires the thumbnail pipeline. Called once at startup before Run.
 func (s *Scanner) SetThumbnailer(t Thumbnailer) { s.thumbs = t }
+
+// SetBaseContext supplies the server-lifetime context used by manually-triggered
+// rescans (TriggerRescan), so an admin rescan is cancelled on shutdown rather than
+// when the HTTP request returns. Call once at startup before Run; without it
+// manual rescans fall back to context.Background().
+func (s *Scanner) SetBaseContext(ctx context.Context) { s.baseCtx = ctx }
+
+// SetMetrics wires scan-duration / indexed-files instrumentation (F13.2). Called
+// once at startup before Run; nil leaves the scanner uninstrumented.
+func (s *Scanner) SetMetrics(m Metrics) { s.metrics = m }
 
 var mediaExts = map[string]struct{}{".mp4": {}, ".mkv": {}}
 
@@ -112,7 +130,38 @@ func (s *Scanner) ScanOnce(ctx context.Context) error {
 	}
 	s.scanMu.Lock()
 	defer s.scanMu.Unlock()
+	return s.scanLocked(ctx)
+}
 
+// TriggerRescan starts a full reconciliation pass in the background (F13.3),
+// returning true if it started one and false if a scan was already running — in
+// which case the in-flight pass already satisfies the request. It is the seam
+// behind POST /api/v1/admin/rescan: the handler returns 202 immediately while the
+// scan proceeds. Concurrent triggers are deduplicated by the same scanMu that
+// serializes the periodic and watch-driven passes, so spamming the endpoint can
+// never stack up passes.
+func (s *Scanner) TriggerRescan() bool {
+	if s.cfg.MediaPath == "" {
+		return false
+	}
+	if !s.scanMu.TryLock() {
+		return false
+	}
+	ctx := s.baseCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	go func() {
+		defer s.scanMu.Unlock()
+		if err := s.scanLocked(ctx); err != nil {
+			s.log.Error("admin rescan failed", "err", err)
+		}
+	}()
+	return true
+}
+
+// scanLocked runs one reconciliation pass. The caller must hold scanMu.
+func (s *Scanner) scanLocked(ctx context.Context) error {
 	start := time.Now()
 	st := &stats{}
 
@@ -137,11 +186,15 @@ func (s *Scanner) ScanOnce(ctx context.Context) error {
 		s.log.Error("reconcile removed files failed", "err", err)
 	}
 
+	dur := time.Since(start)
+	if s.metrics != nil {
+		s.metrics.ObserveScan(dur, st.added+st.updated)
+	}
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
 		"seen", st.seen, "added", st.added, "updated", st.updated,
 		"removed", removed, "skipped", st.skipped, "errors", st.errors,
-		"duration_ms", time.Since(start).Milliseconds())
+		"duration_ms", dur.Milliseconds())
 	return walkErr
 }
 

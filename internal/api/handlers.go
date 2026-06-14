@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -26,16 +27,32 @@ type thumbnailer interface {
 	Enabled() bool
 }
 
+// rescanner triggers an out-of-band full library re-index (F13.3). Nil in tests
+// or when the scanner is not wired (health-only mode).
+type rescanner interface {
+	TriggerRescan() bool
+}
+
+// searchMetrics records search latency (F13.2). Optional — nil disables it.
+type searchMetrics interface {
+	ObserveSearch(d time.Duration)
+}
+
 // Handlers serves the REST API (ADR-006) over the repository.
 type Handlers struct {
 	repo     *repo.Repo
 	log      *slog.Logger
 	thumbs   thumbnailer
 	thumbDir string
+	scanner  rescanner
+	metrics  searchMetrics
 }
 
-func NewHandlers(r *repo.Repo, log *slog.Logger, thumbs thumbnailer, thumbDir string) *Handlers {
-	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir}
+// NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
+// they disable thumbnail bumping, admin rescan, and search instrumentation
+// respectively in tests or health-only mode.
+func NewHandlers(r *repo.Repo, log *slog.Logger, thumbs thumbnailer, thumbDir string, sc rescanner, m searchMetrics) *Handlers {
+	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir, scanner: sc, metrics: m}
 }
 
 // Mount registers the REST routes under the given router.
@@ -51,6 +68,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/tags/{id}", h.getTag)
 	r.Get("/search", h.search)
 	r.Get("/admin/status", h.adminStatus)
+	r.Post("/admin/rescan", h.adminRescan)
 }
 
 // listMedia handles GET /media with filters (F4). Query params:
@@ -218,6 +236,18 @@ func (h *Handlers) adminStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"thumbnail_queue_depth": depth})
 }
 
+// adminRescan triggers a full library re-index (F13.3) and returns 202 Accepted
+// immediately; the scan runs in the background. "started":false means a scan was
+// already in progress, which already satisfies the request.
+func (h *Handlers) adminRescan(w http.ResponseWriter, _ *http.Request) {
+	if h.scanner == nil {
+		writeError(w, http.StatusServiceUnavailable, "rescan unavailable")
+		return
+	}
+	started := h.scanner.TriggerRescan()
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "accepted", "started": started})
+}
+
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	people, err := h.repo.ListPeople(r.Context(), r.URL.Query().Get("sort") == "count")
 	if err != nil {
@@ -281,10 +311,14 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	res, err := h.repo.Search(r.Context(), r.URL.Query().Get("q"), atoiDefault(r.URL.Query().Get("limit"), 10))
 	if err != nil {
 		h.fail(w, "search", err)
 		return
+	}
+	if h.metrics != nil {
+		h.metrics.ObserveSearch(time.Since(start))
 	}
 	writeJSON(w, http.StatusOK, res)
 }

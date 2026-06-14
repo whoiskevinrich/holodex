@@ -52,7 +52,7 @@ Expose the full library query capability via a Model Context Protocol (MCP) serv
 
 ### F11: Thumbnail Generation
 
-See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). **Status: implemented (2026-06-11).** Note: although ADR-009 framed Tier 1 as a Phase-1 deliverable, it was not built then — **all three tiers (embedded art, generated frames, priority bump) shipped together in Phase 2** (see the ADR-009 implementation-status note). F11.8's `holodex_thumbnail_queue_depth` is exposed as `thumbnail_queue_depth` on `GET /api/v1/admin/status`; the Prometheus `/metrics` endpoint (F13) remains deferred.
+See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). **Status: implemented (2026-06-11).** Note: although ADR-009 framed Tier 1 as a Phase-1 deliverable, it was not built then — **all three tiers (embedded art, generated frames, priority bump) shipped together in Phase 2** (see the ADR-009 implementation-status note). F11.8's `holodex_thumbnail_queue_depth` is exposed as `thumbnail_queue_depth` on `GET /api/v1/admin/status` **and** (as of F13, below) as a pull-based gauge on `GET /metrics`.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
@@ -77,6 +77,8 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 | F12.6 | Responsive layout: browse grid reflows to 2 columns on viewport ≤ 768px, 1 column on ≤ 480px | Tested in browser at 375px width |
 
 ### F13: Observability
+
+**Status: implemented (2026-06-13).** `/metrics` is a dependency-free hand-rolled Prometheus exposition (ADR-026); the queue-depth gauge is pulled live from the thumbnail pipeline at scrape time, while scan/search durations and the indexed-files counter are pushed via nil-safe `SetMetrics` seams on the scanner and handlers. The admin re-scan (F13.3) drives the scanner's `TriggerRescan`, which deduplicates concurrent triggers via the existing scan mutex and runs against the server-lifetime context.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|

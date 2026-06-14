@@ -21,6 +21,7 @@ import (
 	"holodex/internal/config"
 	"holodex/internal/db"
 	"holodex/internal/metadata"
+	"holodex/internal/metrics"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
@@ -103,15 +104,40 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Warn("ffmpeg unavailable; thumbnail generation will error until installed", "err", err)
 	}
 
+	// Metrics registry (ADR-019/ADR-026, F13): the queue-depth gauge is pulled
+	// live from the thumbnail pipeline at scrape time; scan and search durations
+	// are pushed by the scanner and handlers below.
+	reg := metrics.New()
+	reg.SetQueueDepthSource(thumbs.QueueDepth)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Background scanner (ADR-018), constructed before the router so the admin
+	// rescan endpoint (F13.3) can drive it. SetBaseContext ties manual rescans to
+	// the server lifetime so they stop on shutdown rather than when the request
+	// returns.
+	sc := scanner.New(scanner.Config{
+		MediaPath:      cfg.MediaPath,
+		FollowSymlinks: cfg.FollowSymlinks,
+		MaxDepth:       cfg.ScanMaxDepth,
+		MinAge:         time.Duration(cfg.ScanMinAgeSeconds) * time.Second,
+		Workers:        cfg.ScanWorkers,
+	}, log, repository, extractor)
+	sc.SetThumbnailer(thumbs)
+	sc.SetBaseContext(ctx)
+	sc.SetMetrics(reg)
+
 	health := api.NewHealth()
-	apiHandler := api.Router(log, health, api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath))
+	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
+	apiHandler := api.Router(log, health, handlers, reg.Handler())
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.
 	var handler http.Handler = apiHandler
 	if fe := frontendFS(); fe != nil {
 		spa := spaHandler{fs: fe}
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/api") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+			if strings.HasPrefix(r.URL.Path, "/api") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" {
 				apiHandler.ServeHTTP(w, r)
 				return
 			}
@@ -128,18 +154,6 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	// Background scanner (ADR-018).
-	sc := scanner.New(scanner.Config{
-		MediaPath:      cfg.MediaPath,
-		FollowSymlinks: cfg.FollowSymlinks,
-		MaxDepth:       cfg.ScanMaxDepth,
-		MinAge:         time.Duration(cfg.ScanMinAgeSeconds) * time.Second,
-		Workers:        cfg.ScanWorkers,
-	}, log, repository, extractor)
-	sc.SetThumbnailer(thumbs)
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
 
