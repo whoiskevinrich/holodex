@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import type { ExtraMetadata, Video } from '$lib/types';
-	import { formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -140,7 +140,15 @@
 
 		<section class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 			<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
-			<div class="truncate" title={video.file_path}><span class="text-muted">Path:</span> {video.file_path}</div>
+			{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
+			{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
+			{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
+			{#if video.bitrate_kbps}
+				<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
+			{/if}
+			<div class="truncate sm:col-span-2" title={video.file_path}>
+				<span class="text-muted">Path:</span> {video.file_path}
+			</div>
 		</section>
 
 		{#if extra.length}

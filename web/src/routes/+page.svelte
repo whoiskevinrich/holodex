@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { filtersToParams, paramsToFilters } from '$lib/filters';
+	import { DEFAULT_SORT, filtersToParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { MediaFilters, Person, Resolution, Tag, Video } from '$lib/types';
+	import type { MediaFilters, Person, Resolution, SortOrder, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/VideoGrid.svelte';
 	import FacetFilter from '$lib/components/FacetFilter.svelte';
+	import SortDropdown from '$lib/components/SortDropdown.svelte';
+	import RecentlyAddedShelf from '$lib/components/RecentlyAddedShelf.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -21,6 +23,7 @@
 	let yearMax = $state<number | ''>(init.year_max ?? '');
 	let personIDs = $state<number[]>(init.person ?? []);
 	let tagIDs = $state<number[]>(init.tag ?? []);
+	let sort = $state<SortOrder>(init.sort ?? DEFAULT_SORT);
 
 	let videos = $state<Video[]>([]);
 	let total = $state(0);
@@ -49,6 +52,7 @@
 			year_max: yearMax || undefined,
 			person: personIDs,
 			tag: tagIDs,
+			sort,
 			limit: PAGE_SIZE
 		};
 	}
@@ -103,10 +107,70 @@
 		durationMin = durationMax = yearMin = yearMax = '';
 		personIDs = [];
 		tagIDs = [];
+		sort = DEFAULT_SORT;
 	}
+
+	// Keyboard navigation (F12.5): `/` focuses search, arrow keys move between grid
+	// cards (the cards are <a> links, so Enter follows natively), Escape clears
+	// filters. Bound on the window for the lifetime of the page.
+	function gridCards(): { grid: Element | null; cards: HTMLElement[] } {
+		const grid = document.querySelector('.video-grid');
+		const cards = grid ? Array.from(grid.querySelectorAll<HTMLElement>('a[href^="/media/"]')) : [];
+		return { grid, cards };
+	}
+
+	function onKeydown(e: KeyboardEvent) {
+		const target = e.target as HTMLElement | null;
+		const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT';
+
+		if (e.key === '/' && !typing) {
+			e.preventDefault();
+			document.getElementById('q')?.focus();
+			return;
+		}
+		if (e.key === 'Escape') {
+			if (typing) target?.blur();
+			if (hasFilters) clearAll();
+			return;
+		}
+		if (!e.key.startsWith('Arrow')) return;
+
+		const { grid, cards } = gridCards();
+		if (!grid || cards.length === 0) return;
+		const idx = cards.indexOf(document.activeElement as HTMLElement);
+		if (idx === -1) {
+			if (typing) return; // don't steal arrows from a text field
+			e.preventDefault();
+			cards[0].focus();
+			return;
+		}
+		e.preventDefault();
+		// Column count only matters for vertical movement.
+		const cols =
+			e.key === 'ArrowDown' || e.key === 'ArrowUp'
+				? getComputedStyle(grid).gridTemplateColumns.split(' ').length
+				: 1;
+		const delta =
+			({ ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols } as Record<string, number>)[
+				e.key
+			] ?? 0;
+		cards[Math.max(0, Math.min(idx + delta, cards.length - 1))].focus();
+	}
+
+	$effect(() => {
+		window.addEventListener('keydown', onKeydown);
+		return () => window.removeEventListener('keydown', onKeydown);
+	});
 </script>
 
 <section class="space-y-5">
+	<!-- Recently Added shelf (F12.3): the default landing view only; hidden once
+	     the user filters/sorts so results stay the focus. Sliced from the grid's
+	     newest-first page, so it costs no extra request. -->
+	{#if !hasFilters}
+		<RecentlyAddedShelf {videos} />
+	{/if}
+
 	<div class="flex flex-wrap items-end gap-3">
 		<div class="min-w-[12rem] flex-1">
 			<label class="mb-1 block text-xs text-muted" for="q">Search title</label>
@@ -156,6 +220,8 @@
 
 		<FacetFilter label="People" items={peopleOptions} bind:selected={personIDs} />
 		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
+
+		<SortDropdown bind:sort />
 
 		{#if hasFilters}
 			<button onclick={clearAll} class="rounded-theme border border-rule px-3 py-2 text-sm text-muted hover:text-ink">

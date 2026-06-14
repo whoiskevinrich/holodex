@@ -268,14 +268,18 @@ func (s *Scanner) handleThumbnail(ctx context.Context, id int64, path string, ha
 
 func buildVideo(path string, info os.FileInfo, mtime time.Time, ex metadata.Extracted) *model.Video {
 	v := &model.Video{
-		FilePath:   path,
-		FileSize:   info.Size(),
-		Title:      ex.Title,
-		Duration:   ex.DurationSec,
-		Width:      ex.Width,
-		Height:     ex.Height,
-		RecordedAt: ex.RecordedAt,
-		FileMtime:  mtime,
+		FilePath:    path,
+		FileSize:    info.Size(),
+		Title:       ex.Title,
+		Duration:    ex.DurationSec,
+		Width:       ex.Width,
+		Height:      ex.Height,
+		VideoCodec:  ex.VideoCodec,
+		AudioCodec:  ex.AudioCodec,
+		BitrateKbps: ex.BitrateKbps,
+		Container:   ex.Container,
+		RecordedAt:  ex.RecordedAt,
+		FileMtime:   mtime,
 	}
 	// Fall back to file mtime when no embedded date (F2.7).
 	if v.RecordedAt == nil {

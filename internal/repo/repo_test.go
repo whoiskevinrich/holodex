@@ -3,6 +3,7 @@ package repo_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -222,5 +223,78 @@ func TestDeactivateExcept(t *testing.T) {
 	vids, total, _ := r.ListVideos(ctx, repo.VideoFilter{})
 	if total != 1 || len(vids) != 1 || vids[0].ID != keep {
 		t.Errorf("after deactivate: total=%d", total)
+	}
+}
+
+func TestListVideosSort(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	mk := func(path, title string, dur, w, h int) {
+		v := &model.Video{
+			FilePath: path, Title: title, Duration: dur, Width: w, Height: h,
+			FileMtime: time.Now().UTC().Truncate(time.Second),
+		}
+		if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+			t.Fatalf("upsert %s: %v", path, err)
+		}
+	}
+	// Distinct title / duration / width so each sort key has a unique order.
+	mk("/m/c.mkv", "Charlie", 100, 1280, 720)
+	mk("/m/a.mkv", "alpha", 300, 3840, 2160)
+	mk("/m/b.mkv", "Bravo", 200, 1920, 1080)
+
+	titlesFor := func(sort string) []string {
+		items, _, err := r.ListVideos(ctx, repo.VideoFilter{Sort: sort, Limit: 50})
+		if err != nil {
+			t.Fatalf("list %s: %v", sort, err)
+		}
+		out := make([]string, len(items))
+		for i, v := range items {
+			out[i] = v.Title
+		}
+		return out
+	}
+
+	cases := map[string][]string{
+		"title_asc":       {"alpha", "Bravo", "Charlie"}, // COLLATE NOCASE
+		"title_desc":      {"Charlie", "Bravo", "alpha"},
+		"duration_asc":    {"Charlie", "Bravo", "alpha"},
+		"duration_desc":   {"alpha", "Bravo", "Charlie"},
+		"resolution_asc":  {"Charlie", "Bravo", "alpha"},
+		"resolution_desc": {"alpha", "Bravo", "Charlie"},
+	}
+	for sort, want := range cases {
+		if got := titlesFor(sort); !slices.Equal(got, want) {
+			t.Errorf("sort=%s order=%v, want %v", sort, got, want)
+		}
+	}
+}
+
+// Codec/container/bitrate (F12.4) survive a write and come back on both the
+// detail getter and the list query.
+func TestCodecRoundTrip(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	v := &model.Video{
+		FilePath: "/m/x.mp4", Title: "X", FileMtime: time.Now().UTC().Truncate(time.Second),
+		VideoCodec: "h264", AudioCodec: "aac", BitrateKbps: 8500, Container: "MP4",
+	}
+	id, err := r.UpsertVideo(ctx, v, nil)
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	got, _, err := r.GetVideo(ctx, id)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.VideoCodec != "h264" || got.AudioCodec != "aac" || got.BitrateKbps != 8500 || got.Container != "MP4" {
+		t.Errorf("detail codec round-trip = %+v", got)
+	}
+	items, _, err := r.ListVideos(ctx, repo.VideoFilter{Limit: 10})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != 1 || items[0].VideoCodec != "h264" || items[0].Container != "MP4" {
+		t.Errorf("list codec = %+v", items)
 	}
 }

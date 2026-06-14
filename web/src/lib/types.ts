@@ -25,6 +25,10 @@ export interface Video {
 	duration_sec: number;
 	width: number;
 	height: number;
+	video_codec?: string; // ffprobe stream/format details (F12.4)
+	audio_codec?: string;
+	bitrate_kbps?: number;
+	container?: string;
 	recorded_at?: string | null;
 	indexed_at: string;
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
@@ -52,6 +56,17 @@ export interface SearchResponse {
 
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
+// Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
+export type SortOrder =
+	| 'added_desc'
+	| 'added_asc'
+	| 'title_asc'
+	| 'title_desc'
+	| 'duration_desc'
+	| 'duration_asc'
+	| 'resolution_desc'
+	| 'resolution_asc';
+
 export interface MediaFilters {
 	q?: string;
 	person?: number[];
@@ -61,6 +76,7 @@ export interface MediaFilters {
 	resolution?: Resolution;
 	year_min?: number;
 	year_max?: number;
+	sort?: SortOrder;
 	limit?: number;
 	offset?: number;
 }

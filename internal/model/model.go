@@ -29,7 +29,13 @@ type Video struct {
 	Duration   int        `json:"duration_sec"`
 	Width      int        `json:"width"`
 	Height     int        `json:"height"`
-	RecordedAt *time.Time `json:"recorded_at,omitempty"`
+	// Stream/container details from ffprobe (F12.4). Empty/zero until a file has
+	// been (re)indexed after migration 0003.
+	VideoCodec  string `json:"video_codec,omitempty"`
+	AudioCodec  string `json:"audio_codec,omitempty"`
+	BitrateKbps int    `json:"bitrate_kbps,omitempty"`
+	Container   string `json:"container,omitempty"`
+	RecordedAt  *time.Time `json:"recorded_at,omitempty"`
 	IndexedAt  time.Time  `json:"indexed_at"`
 	FileMtime  time.Time  `json:"file_mtime"`
 	Active     bool       `json:"-"`

@@ -86,19 +86,25 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	// Upsert the base row by unique file_path.
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO videos (file_path, file_size, title, duration_sec, width, height,
+		                    video_codec, audio_codec, bitrate_kbps, container,
 		                    recorded_at, indexed_at, file_mtime, active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
 		ON CONFLICT(file_path) DO UPDATE SET
 			file_size    = excluded.file_size,
 			title        = excluded.title,
 			duration_sec = excluded.duration_sec,
 			width        = excluded.width,
 			height       = excluded.height,
+			video_codec  = excluded.video_codec,
+			audio_codec  = excluded.audio_codec,
+			bitrate_kbps = excluded.bitrate_kbps,
+			container    = excluded.container,
 			recorded_at  = excluded.recorded_at,
 			indexed_at   = excluded.indexed_at,
 			file_mtime   = excluded.file_mtime,
 			active       = 1`,
 		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
+		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
 		recorded, now, v.FileMtime.UTC().Format(timeLayout),
 	)
 	if err != nil {
@@ -221,10 +227,38 @@ type VideoFilter struct {
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
 	Limit, Offset                  int
+	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
+	// newest-indexed-first. See orderBy for the allowed set.
+	Sort string
+}
+
+// orderBy maps the sort key to a safe ORDER BY clause (whitelist — the key is
+// never interpolated). The id tiebreaker keeps pagination stable. "Resolution"
+// sorts by width, consistent with the width-based resolution buckets (ADR-012).
+func (f VideoFilter) orderBy() string {
+	switch f.Sort {
+	case "title_asc":
+		return "v.title COLLATE NOCASE ASC, v.id ASC"
+	case "title_desc":
+		return "v.title COLLATE NOCASE DESC, v.id DESC"
+	case "added_asc":
+		return "v.indexed_at ASC, v.id ASC"
+	case "duration_desc":
+		return "v.duration_sec DESC, v.id DESC"
+	case "duration_asc":
+		return "v.duration_sec ASC, v.id ASC"
+	case "resolution_desc":
+		return "v.width DESC, v.height DESC, v.id DESC"
+	case "resolution_asc":
+		return "v.width ASC, v.height ASC, v.id ASC"
+	default: // "added_desc" and anything unrecognized
+		return "v.indexed_at DESC, v.id DESC"
+	}
 }
 
 // ListVideos returns a page of active videos matching filter plus the total
-// match count (for pagination). Results are ordered newest-indexed first (F3.4).
+// match count (for pagination). Ordering follows filter.Sort, defaulting to
+// newest-indexed first (F3.4 / F12.1).
 func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, int, error) {
 	where, args := f.build()
 
@@ -239,9 +273,10 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 		limit = 50
 	}
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
-	             v.height, v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
+	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
+	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v ` + where +
-		` ORDER BY v.indexed_at DESC, v.id DESC LIMIT ? OFFSET ?`
+		` ORDER BY ` + f.orderBy() + ` LIMIT ? OFFSET ?`
 	rows, err := r.db.QueryContext(ctx, q, append(args, limit, f.Offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list videos: %w", err)
@@ -315,6 +350,7 @@ func (f VideoFilter) build() (string, []any) {
 func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, file_path, file_size, title, duration_sec, width, height,
+		        video_codec, audio_codec, bitrate_kbps, container,
 		        recorded_at, indexed_at, file_mtime, thumbnail_state FROM videos WHERE id = ?`, id)
 	v, err := scanVideo(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -656,7 +692,8 @@ func scanVideo(s rowScanner) (model.Video, error) {
 		thumbState sql.NullString
 	)
 	if err := s.Scan(&v.ID, &v.FilePath, &v.FileSize, &v.Title, &v.Duration,
-		&v.Width, &v.Height, &recorded, &indexedStr, &mtimeStr, &thumbState); err != nil {
+		&v.Width, &v.Height, &v.VideoCodec, &v.AudioCodec, &v.BitrateKbps, &v.Container,
+		&recorded, &indexedStr, &mtimeStr, &thumbState); err != nil {
 		return model.Video{}, err
 	}
 	v.ThumbnailState = thumbState.String

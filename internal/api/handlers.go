@@ -74,7 +74,10 @@ func (h *Handlers) Mount(r chi.Router) {
 // listMedia handles GET /media with filters (F4). Query params:
 //
 //	q, person (repeatable), tag (repeatable), duration_min/max (minutes),
-//	resolution (SD|HD|FHD|4K), year_min/max, limit, offset.
+//	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
+//
+// sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
+// duration_asc|duration_desc|resolution_asc|resolution_desc; default added_desc.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := repo.VideoFilter{
@@ -85,6 +88,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		DurationMaxSec: atoiDefault(q.Get("duration_max"), 0) * 60,
 		YearMin:        atoiDefault(q.Get("year_min"), 0),
 		YearMax:        atoiDefault(q.Get("year_max"), 0),
+		Sort:           q.Get("sort"),
 		Limit:          atoiDefault(q.Get("limit"), 50),
 		Offset:         atoiDefault(q.Get("offset"), 0),
 	}
