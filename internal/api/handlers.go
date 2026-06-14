@@ -67,6 +67,12 @@ type Handlers struct {
 	version          string
 	startedAt        time.Time
 	mediaPathPresent bool
+
+	// Owner gating (F21.7, ADR-030). auth nil = open. exposedBind is true when the
+	// server binds beyond loopback; with no token that combination is the
+	// fail-loud "controls reachable without a token" condition.
+	auth        *Auth
+	exposedBind bool
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -97,6 +103,21 @@ func (h *Handlers) SetActivity(scan scanStatusSource, health *Health, version st
 	h.mediaPathPresent = mediaPathPresent
 }
 
+// SetAuth wires the owner gate (F21.7, ADR-030). auth nil leaves the admin
+// surface open (the single-user default). exposedBind marks a non-loopback bind,
+// which together with an absent token drives the fail-loud
+// controls_unauthenticated signal. Called once at startup before serving.
+func (h *Handlers) SetAuth(auth *Auth, exposedBind bool) {
+	h.auth = auth
+	h.exposedBind = exposedBind
+}
+
+// controlsUnauthenticated is true when the admin surface is reachable beyond
+// loopback with no token configured (F21.7 condition 1).
+func (h *Handlers) controlsUnauthenticated() bool {
+	return h.exposedBind && (h.auth == nil || !h.auth.Required())
+}
+
 // Mount registers the REST routes under the given router.
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
@@ -111,11 +132,19 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/search", h.search)
 	r.Get("/facets", h.facets)
 	r.Get("/metadata-keys", h.metadataKeys)
-	r.Get("/admin/status", h.adminStatus)
-	r.Get("/admin/activity", h.adminActivity)
-	r.Get("/admin/activity/history", h.adminActivityHistory)
-	r.Post("/admin/rescan", h.adminRescan)
-	r.Post("/admin/reload-config", h.adminReloadConfig)
+	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
+	r.Get("/capabilities", h.capabilities)
+
+	// Owner-only surface (F21.7, ADR-030): the single choke point for the activity
+	// read-model, history, and the admin controls. Open when no ADMIN_TOKEN is set.
+	r.Group(func(r chi.Router) {
+		r.Use(h.requireOwner)
+		r.Get("/admin/status", h.adminStatus)
+		r.Get("/admin/activity", h.adminActivity)
+		r.Get("/admin/activity/history", h.adminActivityHistory)
+		r.Post("/admin/rescan", h.adminRescan)
+		r.Post("/admin/reload-config", h.adminReloadConfig)
+	})
 }
 
 // listMedia handles GET /media with filters (F4). Query params:

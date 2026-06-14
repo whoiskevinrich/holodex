@@ -25,8 +25,8 @@ type activitySystem struct {
 	Ready            bool   `json:"ready"`
 	Version          string `json:"version"`
 	MediaPathPresent bool   `json:"media_path_present"`
-	// ControlsUnauthenticated is set by the F21.7 gating seam (ADR-030); false
-	// until that lands.
+	// ControlsUnauthenticated is the F21.7 fail-loud signal: true when the admin
+	// surface is reachable beyond loopback with no ADMIN_TOKEN set (ADR-030).
 	ControlsUnauthenticated bool  `json:"controls_unauthenticated"`
 	UptimeSeconds           int64 `json:"uptime_seconds,omitempty"`
 }
@@ -49,9 +49,10 @@ func (h *Handlers) adminActivity(w http.ResponseWriter, r *http.Request) {
 	resp.Library = counts
 
 	resp.System = activitySystem{
-		Ready:            h.health != nil && h.health.Ready(),
-		Version:          h.version,
-		MediaPathPresent: h.mediaPathPresent,
+		Ready:                   h.health != nil && h.health.Ready(),
+		Version:                 h.version,
+		MediaPathPresent:        h.mediaPathPresent,
+		ControlsUnauthenticated: h.controlsUnauthenticated(),
 	}
 	if !h.startedAt.IsZero() {
 		resp.System.UptimeSeconds = int64(time.Since(h.startedAt).Seconds())

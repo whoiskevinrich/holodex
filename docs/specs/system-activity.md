@@ -9,7 +9,7 @@
 **New ADRs required**:
 - **[ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md) (Proposed)** — User-facing activity surface & job-history persistence (extends [ADR-019](../architecture/ADR-019-observability-conventions.md)). Covers the new `activity` read-model endpoint, the job-history table, and 30-day retention.
 - **ADR-029 (reserved, P1)** — Live activity transport (Server-Sent Events) for real-time push (to be drafted when SSE is scheduled).
-- **[ADR-030](../architecture/ADR-030-access-control-gating-seam.md) (Proposed, P0 — required before build)** — Access-control / "Pro mode" gating seam for owner-only surfaces (precondition for future multi-user). Pulled into P0 because F21.6 exposes infrastructure-affecting controls that are unauthenticated today.
+- **[ADR-030](../architecture/ADR-030-access-control-gating-seam.md) (Accepted, P0)** — Access-control / "Pro mode" gating seam for owner-only surfaces (precondition for future multi-user). Pulled into P0 because F21.6 exposes infrastructure-affecting controls. Implemented as `ADMIN_TOKEN` + a `requireOwner` middleware; security-review signed off 2026-06-14.
 
 ---
 

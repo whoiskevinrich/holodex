@@ -1,6 +1,6 @@
 # ADR-030: Access-control / "Pro mode" gating seam for owner-only surfaces
 
-**Status**: Proposed
+**Status**: Accepted (security-review sign-off 2026-06-14: gate complete, constant-time compare, header-only CSRF posture, fail-loud default-open — no HIGH/MEDIUM findings)
 **Date**: 2026-06-14
 **Deciders**: Project owner
 **Relates to**: ADR-014 (Configuration strategy & precedence), ADR-006 (API design),
@@ -78,9 +78,11 @@ that toggles the flag even though no real non-owner exists yet.
   controls/internals.
 - Tests must exercise **both** states: open (no token) and gated (token set → 401
   without it, 200 with it), plus the frontend flag toggle.
-- `/security-review` must sign off that this seam adequately mitigates the
-  unauthenticated-controls risk introduced by F21.6 **before merge**; this ADR moves
-  from Proposed to Accepted on that sign-off.
+- `/security-review` signed off (2026-06-14) that this seam adequately mitigates the
+  unauthenticated-controls risk introduced by F21.6 — gate applied to every owner
+  route, constant-time token compare, header-only (CSRF-immune) scheme, and the
+  fail-loud `controls_unauthenticated` signal; no HIGH/MEDIUM findings. This ADR is
+  therefore **Accepted**.
 - This ADR is **superseded**, not edited, when real multi-user authentication is
   introduced; `ADMIN_TOKEN` becomes a legacy/bootstrap path at that point.
 - Default-open when `ADMIN_TOKEN` is unset is a deliberate trade-off (usability for

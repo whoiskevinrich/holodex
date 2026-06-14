@@ -25,6 +25,12 @@ type Config struct {
 	Port     int    `yaml:"port"`
 	LogLevel string `yaml:"log_level"`
 
+	// AdminToken gates the owner-only admin surface (F21.7, ADR-030). Empty =
+	// open (single-user, zero-config); set = the X-Admin-Token header is required
+	// on /admin routes. Recommended whenever the server is reachable beyond
+	// loopback.
+	AdminToken string `yaml:"admin_token"`
+
 	// Scanner (ADR-011, ADR-018)
 	ScanIntervalSeconds int  `yaml:"scan_interval_seconds"`
 	ScanWorkers         int  `yaml:"scan_workers"`
@@ -161,6 +167,7 @@ func applyEnv(c *Config) {
 	c.Host = envStr("HOST", c.Host)
 	c.Port = envInt("PORT", c.Port)
 	c.LogLevel = envStr("LOG_LEVEL", c.LogLevel)
+	c.AdminToken = envStr("ADMIN_TOKEN", c.AdminToken)
 
 	c.ScanIntervalSeconds = envInt("SCAN_INTERVAL_SECONDS", c.ScanIntervalSeconds)
 	c.ScanWorkers = envInt("SCAN_WORKERS", c.ScanWorkers)

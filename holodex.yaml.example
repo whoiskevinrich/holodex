@@ -19,6 +19,12 @@ data_path: "./data"        # DATA_PATH    (read-write: db, thumbnails, config, e
                             #        avoids the Windows Firewall "allow access" prompt).
 port: 7800                  # PORT
 log_level: "info"          # LOG_LEVEL    (debug|info|warn|error)
+# admin_token: ""           # ADMIN_TOKEN  gates the owner-only /admin surface (F21.7,
+                            #              ADR-030). Empty = open (single-user default).
+                            #              SET THIS whenever the server is reachable beyond
+                            #              loopback; clients then send it as the
+                            #              X-Admin-Token header. The server warns at startup
+                            #              if it binds non-loopback with no token set.
 
 # --- Scanner (ADR-011, ADR-018) ---
 scan_interval_seconds: 300  # SCAN_INTERVAL_SECONDS
