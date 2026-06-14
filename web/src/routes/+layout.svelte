@@ -47,6 +47,7 @@
 		<a href="/" class="hover:text-ink">Media</a>
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
+		<a href="/keys" class="hover:text-ink">Keys</a>
 
 		<!-- Skin switcher as a first-class segmented control: each option shows that
 		     skin's own accent (the swatch re-scopes --accent via data-theme). -->

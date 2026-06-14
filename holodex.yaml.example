@@ -41,5 +41,7 @@ thumbnail_seek_percent: 10  # THUMBNAIL_SEEK_PERCENT
 thumbnail_width: 400        # THUMBNAIL_WIDTH
 
 # --- Metadata mapping (Phase 2, ADR-013) ---
-# Mappings live in a separate file referenced here:
-# metadata_mappings_path: "${data_path}/config/metadata-mappings.yaml"
+# Surface extra container tags under custom labels. The mappings live in a
+# separate file (copy metadata-mappings.yaml.example -> metadata-mappings.yaml);
+# this is the path to it. A missing file simply means no configurable fields.
+metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH

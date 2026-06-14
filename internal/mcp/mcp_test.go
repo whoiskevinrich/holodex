@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"holodex/internal/db"
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -25,7 +27,7 @@ func newTestServer(t *testing.T) (*Server, *repo.Repo) {
 	t.Cleanup(func() { database.Close() })
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(r, log), r
+	return New(r, log, nil), r
 }
 
 func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, tags []string) {
@@ -134,6 +136,43 @@ func TestGetVideo(t *testing.T) {
 	res := call(t, s.getVideo, map[string]any{"id": "99999"})
 	if !res.IsError {
 		t.Errorf("missing id should be an error result")
+	}
+}
+
+func TestSearchMappedFields(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "mcp.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+
+	rec := time.Date(2023, 1, 15, 12, 0, 0, 0, time.UTC)
+	v := &model.Video{FilePath: "/m/a.mkv", Title: "Studio Film", Width: 1920, FileMtime: time.Now().UTC().Truncate(time.Second), RecordedAt: &rec}
+	if _, err := r.UpsertVideo(context.Background(), v, []model.ExtraMetadata{{SourceKey: "Publisher", Value: "Acme"}}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "metadata-mappings.yaml")
+	if err := os.WriteFile(path, []byte("fields:\n  - canonical: studio\n    label: Studio\n    sources: [Publisher, Label]\n    filterable: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := mapping.NewStore(path)
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), store)
+
+	var resp searchResponse
+	json.Unmarshal([]byte(resultText(t, call(t, s.searchVideos, map[string]any{"fields": map[string]any{"studio": "Acme"}}))), &resp)
+	if resp.Total != 1 || len(resp.Results) != 1 || resp.Results[0].Title != "Studio Film" {
+		t.Errorf("studio=Acme: %+v", resp)
+	}
+
+	resp = searchResponse{}
+	json.Unmarshal([]byte(resultText(t, call(t, s.searchVideos, map[string]any{"fields": map[string]any{"studio": "Other"}}))), &resp)
+	if resp.Total != 0 {
+		t.Errorf("studio=Other should be empty: %+v", resp)
 	}
 }
 

@@ -19,11 +19,27 @@ export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams
 	if (f.year_min) p.set('year_min', String(f.year_min));
 	if (f.year_max) p.set('year_max', String(f.year_max));
 	if (f.sort && f.sort !== DEFAULT_SORT) p.set('sort', f.sort);
+	for (const [k, v] of Object.entries(f.mapped ?? {})) {
+		if (v) p.set(k, v); // configurable mapped-field filter, keyed by canonical (F20.5)
+	}
 	if (paging) {
 		if (f.limit) p.set('limit', String(f.limit));
 		if (f.offset) p.set('offset', String(f.offset));
 	}
 	return p;
+}
+
+// mappedFromParams extracts selected values for the given mapped-field canonical
+// names from the URL (F20.5). The canonical names aren't known until the facet
+// list loads, so the browse page calls this once facets arrive — keeping all
+// URL→state parsing in this module rather than inside the facet component.
+export function mappedFromParams(p: URLSearchParams, canonicals: string[]): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const c of canonicals) {
+		const v = p.get(c);
+		if (v) out[c] = v;
+	}
+	return out;
 }
 
 // paramsToFilters is the inverse parser (initializes browse state from the URL).

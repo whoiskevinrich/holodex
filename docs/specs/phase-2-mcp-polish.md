@@ -94,6 +94,8 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 
 Maps one or more raw file tag keys to a single canonical Holodex field with a user-defined display label (e.g. `[Publisher, Label, Studio] → "Studio"`). Extended metadata is already captured at index time in Phase 1 (F2.9), so enabling or changing mappings requires no re-scan. See ADR-013 for the full design.
 
+**Status: implemented (2026-06-13).** `internal/mapping` loads `metadata-mappings.yaml` behind an atomic-pointer `Store` (lock-free reads, atomic reload). Precedence (first present source wins) and `multi` splitting are resolved per-video from the already-captured `video_metadata`. Filterable fields drive `GET /api/v1/facets` (cached values via the cache seam — Noop today per ADR-022, so it recomputes; TTL + reload/`InvalidatePrefix` are wired for when a real backend lands), a `?<canonical>=` param on `GET /media`, the MCP `search_videos` `fields` object, and a `MappedFacets` browse control. Detail pages render resolved fields; `GET /api/v1/metadata-keys` + the `/keys` page enumerate raw keys with counts/samples and a mapped flag. `POST /api/v1/admin/reload-config` reloads + invalidates. Verified end-to-end (web + REST) across all three skins.
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F20.1 | Load field mappings from `metadata-mappings.yaml` mounted into the container | Adding a `studio` mapping makes the field available after restart (or config reload) without re-scanning |

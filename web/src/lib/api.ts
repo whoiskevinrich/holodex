@@ -2,9 +2,11 @@
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
 import type {
+	Facet,
 	MediaDetailResponse,
 	MediaFilters,
 	MediaListResponse,
+	MetadataKey,
 	Person,
 	SearchResponse,
 	Tag,
@@ -58,5 +60,11 @@ export const api = {
 		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
 
 	search: (q: string, fetchFn?: typeof fetch) =>
-		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn)
+		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
+
+	// Configurable metadata fields (F20): filterable facets + key-discovery view.
+	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),
+
+	metadataKeys: (fetchFn?: typeof fetch) =>
+		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn)
 };

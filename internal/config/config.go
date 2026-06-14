@@ -49,6 +49,10 @@ type Config struct {
 	MCPEnabled   bool   `yaml:"mcp_enabled"`
 	MCPTransport string `yaml:"mcp_transport"`
 	MCPPort      int    `yaml:"mcp_port"`
+
+	// Metadata field mapping (Phase 2, ADR-013). Path to metadata-mappings.yaml;
+	// a missing file simply means no configurable fields.
+	MetadataMappingsPath string `yaml:"metadata_mappings_path"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -70,10 +74,11 @@ func Defaults() Config {
 		ThumbnailSeekPercent: 10,
 		ThumbnailWidth:       400,
 
-		CacheBackend:        "memory",
-		CacheMaxMemoryMB:    128,
-		MCPTransport:        "http",
-		MCPPort:             7801,
+		CacheBackend:         "memory",
+		CacheMaxMemoryMB:     128,
+		MCPTransport:         "http",
+		MCPPort:              7801,
+		MetadataMappingsPath: "./metadata-mappings.yaml",
 	}
 }
 
@@ -169,6 +174,8 @@ func applyEnv(c *Config) {
 	c.MCPEnabled = envBool("MCP_ENABLED", c.MCPEnabled)
 	c.MCPTransport = envStr("MCP_TRANSPORT", c.MCPTransport)
 	c.MCPPort = envInt("MCP_PORT", c.MCPPort)
+
+	c.MetadataMappingsPath = envStr("METADATA_MAPPINGS_PATH", c.MetadataMappingsPath)
 }
 
 func envStr(key, def string) string {

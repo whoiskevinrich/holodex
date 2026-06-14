@@ -43,9 +43,38 @@ export interface MediaListResponse {
 	offset: number;
 }
 
+// MappedField is a configurable canonical field resolved for one video (F20.3).
+export interface MappedField {
+	canonical: string;
+	label: string;
+	values: string[];
+}
+
 export interface MediaDetailResponse {
 	video: Video;
 	metadata: ExtraMetadata[] | null;
+	fields: MappedField[] | null;
+}
+
+export interface FacetValue {
+	value: string;
+	count: number;
+}
+
+// Facet is a filterable mapped field plus its distinct values (F20.4).
+export interface Facet {
+	canonical: string;
+	label: string;
+	multi: boolean;
+	values: FacetValue[];
+}
+
+// MetadataKey is one row of the library-wide key-discovery view (F20.9).
+export interface MetadataKey {
+	source_key: string;
+	count: number;
+	samples: string[];
+	mapped: boolean;
 }
 
 export interface SearchResponse {
@@ -77,6 +106,7 @@ export interface MediaFilters {
 	year_min?: number;
 	year_max?: number;
 	sort?: SortOrder;
+	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
 	limit?: number;
 	offset?: number;
 }

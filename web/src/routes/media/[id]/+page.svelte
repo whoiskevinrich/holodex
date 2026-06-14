@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import type { ExtraMetadata, Video } from '$lib/types';
+	import type { ExtraMetadata, MappedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
+	let fields = $state<MappedField[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 	let playFailed = $state(false);
@@ -40,6 +41,7 @@
 			.then((res) => {
 				video = res.video;
 				extra = res.metadata ?? [];
+				fields = res.fields ?? [];
 			})
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
@@ -135,6 +137,20 @@
 						</a>
 					{/each}
 				</div>
+			</section>
+		{/if}
+
+		{#if fields.length}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
+					{#each fields as f (f.canonical)}
+						<div>
+							<dt class="inline text-muted">{f.label}:</dt>
+							<dd class="inline">{f.values.join(', ')}</dd>
+						</div>
+					{/each}
+				</dl>
 			</section>
 		{/if}
 

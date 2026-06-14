@@ -206,7 +206,7 @@ func (r *Repo) DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, er
 	}
 	q := `UPDATE videos SET active = 0 WHERE active = 1 AND id NOT IN (` +
 		placeholders(len(seenIDs)) + `)`
-	res, err := r.db.ExecContext(ctx, q, int64sToAny(seenIDs)...)
+	res, err := r.db.ExecContext(ctx, q, toAnySlice(seenIDs)...)
 	if err != nil {
 		return 0, fmt.Errorf("deactivate missing: %w", err)
 	}
@@ -229,10 +229,20 @@ type VideoFilter struct {
 	// DateFrom/DateTo are inclusive ISO dates (YYYY-MM-DD) matched against
 	// recorded_at — finer-grained than Year*, used by the MCP search tool (F10.2).
 	DateFrom, DateTo string
-	Limit, Offset    int
+	// MappedFilters constrain by configurable mapped fields (F20.5); each must
+	// match (AND), like People/Tags.
+	MappedFilters []MappedFilter
+	Limit, Offset int
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
+}
+
+// MappedFilter matches videos carrying a metadata row whose source_key is one of
+// SourceKeys (case-insensitive) and whose value equals Value (F20.5).
+type MappedFilter struct {
+	SourceKeys []string
+	Value      string
 }
 
 // orderBy maps the sort key to a safe ORDER BY clause (whitelist — the key is
@@ -354,6 +364,18 @@ func (f VideoFilter) build() (string, []any) {
 	if f.DateTo != "" {
 		clauses = append(clauses, "v.recorded_at <= ?")
 		args = append(args, f.DateTo+"T23:59:59Z")
+	}
+	for _, mf := range f.MappedFilters {
+		if mf.Value == "" || len(mf.SourceKeys) == 0 {
+			continue
+		}
+		clauses = append(clauses,
+			"EXISTS (SELECT 1 FROM video_metadata m WHERE m.video_id = v.id"+
+				" AND m.source_key COLLATE NOCASE IN ("+placeholders(len(mf.SourceKeys))+") AND m.value = ?)")
+		for _, k := range mf.SourceKeys {
+			args = append(args, k)
+		}
+		args = append(args, mf.Value)
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
@@ -484,7 +506,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 		idx[v.ID] = i
 	}
 	in := "(" + placeholders(len(ids)) + ")"
-	args := int64sToAny(ids)
+	args := toAnySlice(ids)
 
 	prows, err := r.db.QueryContext(ctx,
 		`SELECT vp.video_id, p.id, p.name FROM people p
@@ -541,6 +563,101 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// ---------------------------------------------------------------------------
+// Configurable metadata fields (F20, ADR-013)
+// ---------------------------------------------------------------------------
+
+// FacetValue is one distinct mapped-field value with its video count.
+type FacetValue struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
+}
+
+// FacetValues returns the distinct values (with counts) for a mapped field across
+// active videos — the union of metadata rows whose source_key is in sourceKeys
+// (case-insensitive). Drives the filter facet value list (F20.4).
+func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetValue, error) {
+	if len(sourceKeys) == 0 {
+		return nil, nil
+	}
+	q := `SELECT m.value, COUNT(DISTINCT m.video_id) AS cnt
+	      FROM video_metadata m
+	      JOIN videos v ON v.id = m.video_id AND v.active = 1
+	      WHERE m.source_key COLLATE NOCASE IN (` + placeholders(len(sourceKeys)) + `)
+	      GROUP BY m.value ORDER BY cnt DESC, m.value COLLATE NOCASE`
+	rows, err := r.db.QueryContext(ctx, q, toAnySlice(sourceKeys)...)
+	if err != nil {
+		return nil, fmt.Errorf("facet values: %w", err)
+	}
+	defer rows.Close()
+	var out []FacetValue
+	for rows.Next() {
+		var fv FacetValue
+		if err := rows.Scan(&fv.Value, &fv.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, fv)
+	}
+	return out, rows.Err()
+}
+
+// MetadataKey is a distinct raw source key with its occurrence count and a few
+// sample values — the library-wide mapping-authoring aid (F20.9).
+type MetadataKey struct {
+	SourceKey string   `json:"source_key"`
+	Count     int      `json:"count"`
+	Samples   []string `json:"samples"`
+}
+
+// MetadataKeys enumerates all distinct source keys across active videos, most
+// frequent first, each with up to sampleLimit sample values (F20.9).
+func (r *Repo) MetadataKeys(ctx context.Context, sampleLimit int) ([]MetadataKey, error) {
+	if sampleLimit <= 0 {
+		sampleLimit = 3
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT m.source_key, COUNT(DISTINCT m.video_id) AS cnt
+		FROM video_metadata m
+		JOIN videos v ON v.id = m.video_id AND v.active = 1
+		GROUP BY m.source_key COLLATE NOCASE
+		ORDER BY cnt DESC, m.source_key COLLATE NOCASE`)
+	if err != nil {
+		return nil, fmt.Errorf("metadata keys: %w", err)
+	}
+	defer rows.Close()
+	var keys []MetadataKey
+	for rows.Next() {
+		var k MetadataKey
+		if err := rows.Scan(&k.SourceKey, &k.Count); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Distinct-key cardinality is small (tens), so a sample query per key on this
+	// cold discovery view is fine.
+	for i := range keys {
+		srows, err := r.db.QueryContext(ctx,
+			`SELECT DISTINCT value FROM video_metadata WHERE source_key COLLATE NOCASE = ? LIMIT ?`,
+			keys[i].SourceKey, sampleLimit)
+		if err != nil {
+			return nil, fmt.Errorf("metadata key samples: %w", err)
+		}
+		for srows.Next() {
+			var v string
+			if err := srows.Scan(&v); err != nil {
+				srows.Close()
+				return nil, err
+			}
+			keys[i].Samples = append(keys[i].Samples, v)
+		}
+		srows.Close()
+	}
+	return keys, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -773,9 +890,10 @@ func placeholders(n int) string {
 	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
 }
 
-func int64sToAny(ids []int64) []any {
-	out := make([]any, len(ids))
-	for i, v := range ids {
+// toAnySlice boxes a typed slice into []any for variadic query args.
+func toAnySlice[T any](in []T) []any {
+	out := make([]any, len(in))
+	for i, v := range in {
 		out[i] = v
 	}
 	return out

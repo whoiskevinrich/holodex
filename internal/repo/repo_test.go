@@ -226,6 +226,54 @@ func TestDeactivateExcept(t *testing.T) {
 	}
 }
 
+func TestMetadataFacetsKeysAndFilter(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	mk := func(path string, extra []model.ExtraMetadata) {
+		v := &model.Video{FilePath: path, Title: "t", FileMtime: time.Now().UTC().Truncate(time.Second)}
+		if _, err := r.UpsertVideo(ctx, v, extra); err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+	}
+	mk("/m/a.mkv", []model.ExtraMetadata{{SourceKey: "Publisher", Value: "Acme"}, {SourceKey: "Comment", Value: "hi"}})
+	mk("/m/b.mkv", []model.ExtraMetadata{{SourceKey: "Label", Value: "Acme"}, {SourceKey: "Publisher", Value: "Globex"}})
+
+	// FacetValues over the studio sources [Publisher, Label]: Acme spans both
+	// videos (a via Publisher, b via Label) → 2; Globex → 1.
+	fv, err := r.FacetValues(ctx, []string{"Publisher", "Label"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, f := range fv {
+		counts[f.Value] = f.Count
+	}
+	if counts["Acme"] != 2 || counts["Globex"] != 1 {
+		t.Errorf("facet values = %+v", fv)
+	}
+
+	// MetadataKeys: Publisher in 2 videos, Label + Comment in 1 each, with samples.
+	keys, err := r.MetadataKeys(ctx, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kc := map[string]int{}
+	for _, k := range keys {
+		kc[k.SourceKey] = k.Count
+	}
+	if kc["Publisher"] != 2 || kc["Label"] != 1 || kc["Comment"] != 1 {
+		t.Errorf("metadata keys = %+v", keys)
+	}
+
+	// Mapped filter: studio=Acme matches both; studio=Globex matches only b.
+	if _, total, _ := r.ListVideos(ctx, repo.VideoFilter{MappedFilters: []repo.MappedFilter{{SourceKeys: []string{"Publisher", "Label"}, Value: "Acme"}}}); total != 2 {
+		t.Errorf("studio=Acme total = %d, want 2", total)
+	}
+	if _, total, _ := r.ListVideos(ctx, repo.VideoFilter{MappedFilters: []repo.MappedFilter{{SourceKeys: []string{"Publisher", "Label"}, Value: "Globex"}}}); total != 1 {
+		t.Errorf("studio=Globex total = %d, want 1", total)
+	}
+}
+
 func TestListVideosSort(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

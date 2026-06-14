@@ -19,6 +19,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
+	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
 	"holodex/internal/repo"
@@ -28,14 +29,16 @@ const serverVersion = "0.2.0"
 
 // Server wraps the MCP server and the repository its tools read from.
 type Server struct {
-	repo *repo.Repo
-	log  *slog.Logger
-	mcp  *mcpserver.MCPServer
+	repo     *repo.Repo
+	log      *slog.Logger
+	mappings *mapping.Store // configurable mapped fields (F20.6); nil disables them
+	mcp      *mcpserver.MCPServer
 }
 
-// New builds the MCP server and registers the four Phase 2 tools.
-func New(r *repo.Repo, log *slog.Logger) *Server {
-	s := &Server{repo: r, log: log}
+// New builds the MCP server and registers the four Phase 2 tools. mappings may be
+// nil (no configurable filterable fields on search_videos).
+func New(r *repo.Repo, log *slog.Logger, mappings *mapping.Store) *Server {
+	s := &Server{repo: r, log: log, mappings: mappings}
 	m := mcpserver.NewMCPServer("holodex", serverVersion)
 	s.register(m)
 	s.mcp = m
@@ -86,6 +89,7 @@ func (s *Server) register(m *mcpserver.MCPServer) {
 		mcp.WithString("date_to", mcp.Description("Latest recorded date, ISO YYYY-MM-DD")),
 		mcp.WithNumber("page", mcp.Description("1-based page number"), mcp.DefaultNumber(1)),
 		mcp.WithNumber("page_size", mcp.Description("Results per page, 1-100"), mcp.DefaultNumber(20)),
+		mcp.WithObject("fields", mcp.Description(`Filterable configurable metadata fields keyed by canonical name, e.g. {"studio":"Acme"} (F20.6)`)),
 	), s.searchVideos)
 
 	m.AddTool(mcp.NewTool("get_video",
@@ -160,6 +164,22 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		return jsonResult(empty)
 	}
 	f.PersonIDs, f.TagIDs = pids, tids
+
+	// Filterable mapped fields (F20.6): {canonical: value}, resolved via the config.
+	if s.mappings != nil {
+		if raw, ok := req.GetArguments()["fields"].(map[string]any); ok {
+			cur := s.mappings.Current()
+			for canonical, v := range raw {
+				val := strings.TrimSpace(fmt.Sprintf("%v", v))
+				if val == "" {
+					continue
+				}
+				if fld, ok := cur.ByCanonical(canonical); ok && fld.Filterable {
+					f.MappedFilters = append(f.MappedFilters, repo.MappedFilter{SourceKeys: fld.Sources, Value: val})
+				}
+			}
+		}
+	}
 
 	vids, total, err := s.repo.ListVideos(ctx, f)
 	if err != nil {

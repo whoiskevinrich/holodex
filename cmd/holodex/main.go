@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"holodex/internal/api"
+	"holodex/internal/cache"
 	"holodex/internal/config"
 	"holodex/internal/db"
+	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
@@ -89,8 +91,13 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 	}
 	defer database.Close()
 
+	mappings, err := mapping.NewStore(cfg.MetadataMappingsPath)
+	if err != nil {
+		return err
+	}
+
 	log.Info("mcp stdio server starting", "database", cfg.DatabasePath)
-	return mcp.New(repo.New(database), log).ServeStdio()
+	return mcp.New(repo.New(database), log, mappings).ServeStdio()
 }
 
 func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
@@ -145,6 +152,14 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	reg := metrics.New()
 	reg.SetQueueDepthSource(thumbs.QueueDepth)
 
+	// Configurable metadata field mapping (ADR-013) + facet cache (ADR-008/022).
+	cacheBackend := cache.New(cfg.CacheBackend, cfg.CacheMaxMemoryMB)
+	mappings, err := mapping.NewStore(cfg.MetadataMappingsPath)
+	if err != nil {
+		return fmt.Errorf("load metadata mappings: %w", err)
+	}
+	log.Info("metadata field mappings loaded", "path", cfg.MetadataMappingsPath, "fields", len(mappings.Current().Fields()))
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -165,6 +180,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
+	handlers.SetMetadataFields(mappings, cacheBackend)
 	apiHandler := api.Router(log, health, handlers, reg.Handler())
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.
@@ -197,7 +213,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if cfg.MCPEnabled && (cfg.MCPTransport == "http" || cfg.MCPTransport == "both") {
 		mcpAddr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.MCPPort))
 		go func() {
-			if err := mcp.New(repository, log).StartHTTP(ctx, mcpAddr); err != nil {
+			if err := mcp.New(repository, log, mappings).StartHTTP(ctx, mcpAddr); err != nil {
 				log.Error("mcp http server failed", "err", err)
 			}
 		}()

@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { DEFAULT_SORT, filtersToParams, paramsToFilters } from '$lib/filters';
+	import { DEFAULT_SORT, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { MediaFilters, Person, Resolution, SortOrder, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/VideoGrid.svelte';
 	import FacetFilter from '$lib/components/FacetFilter.svelte';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
 	import RecentlyAddedShelf from '$lib/components/RecentlyAddedShelf.svelte';
+	import MappedFacets from '$lib/components/MappedFacets.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -24,6 +25,7 @@
 	let personIDs = $state<number[]>(init.person ?? []);
 	let tagIDs = $state<number[]>(init.tag ?? []);
 	let sort = $state<SortOrder>(init.sort ?? DEFAULT_SORT);
+	let mapped = $state<Record<string, string>>({}); // configurable mapped-field filters (F20.5)
 
 	let videos = $state<Video[]>([]);
 	let total = $state(0);
@@ -53,6 +55,7 @@
 			person: personIDs,
 			tag: tagIDs,
 			sort,
+			mapped,
 			limit: PAGE_SIZE
 		};
 	}
@@ -108,6 +111,7 @@
 		personIDs = [];
 		tagIDs = [];
 		sort = DEFAULT_SORT;
+		mapped = {};
 	}
 
 	// Keyboard navigation (F12.5): `/` focuses search, arrow keys move between grid
@@ -220,6 +224,18 @@
 
 		<FacetFilter label="People" items={peopleOptions} bind:selected={personIDs} />
 		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
+
+		<MappedFacets
+			bind:mapped
+			onfacets={(facets) =>
+				(mapped = {
+					...mapped,
+					...mappedFromParams(
+						new URLSearchParams(location.search),
+						facets.map((f) => f.canonical)
+					)
+				})}
+		/>
 
 		<SortDropdown bind:sort />
 
