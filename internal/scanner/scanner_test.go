@@ -105,6 +105,59 @@ func (f *fakeThumbnailer) Enqueue(id int64) {
 	f.enqueued = append(f.enqueued, id)
 }
 
+// fakeRecorder captures job-history records for the status/recording test.
+type fakeRecorder struct {
+	mu   sync.Mutex
+	runs []model.JobRun
+}
+
+func (f *fakeRecorder) RecordJobRun(_ context.Context, run model.JobRun) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.runs = append(f.runs, run)
+	return nil
+}
+
+func TestScanStatusAndRecord(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.mkv"), 100)
+	s := newTestScanner(dir, newFakeRepo())
+	rec := &fakeRecorder{}
+	s.SetJobRecorder(rec)
+
+	// Idle, no history before the first pass.
+	if st := s.Status(); st.State != "idle" || st.LastRun != nil {
+		t.Fatalf("pre-scan status = %+v, want idle with no last run", st)
+	}
+
+	if err := s.ScanOnce(context.Background()); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	st := s.Status()
+	if st.State != "idle" {
+		t.Errorf("state = %q, want idle after completion", st.State)
+	}
+	if st.LastRun == nil {
+		t.Fatal("last run nil after a completed scan")
+	}
+	if st.LastRun.Trigger != model.TriggerPeriodic {
+		t.Errorf("last-run trigger = %q, want periodic", st.LastRun.Trigger)
+	}
+	if st.LastRun.Added != 1 {
+		t.Errorf("last-run added = %d, want 1", st.LastRun.Added)
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.runs) != 1 {
+		t.Fatalf("recorded runs = %d, want 1", len(rec.runs))
+	}
+	if rec.runs[0].Kind != model.JobKindScan || rec.runs[0].Status != model.JobStatusOK {
+		t.Errorf("recorded run = %+v, want scan/success", rec.runs[0])
+	}
+}
+
 func TestThumbnailHook(t *testing.T) {
 	cases := []struct {
 		name          string

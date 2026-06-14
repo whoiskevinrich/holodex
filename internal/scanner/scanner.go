@@ -63,15 +63,32 @@ type Metrics interface {
 	ObserveScan(d time.Duration, indexed int)
 }
 
+// JobRecorder durably records a completed pass for the activity history (F21.3,
+// ADR-028). Optional — nil disables recording. Best-effort: a failure here is
+// logged and never affects the scan (ADR-019 NFR).
+type JobRecorder interface {
+	RecordJobRun(ctx context.Context, run model.JobRun) error
+}
+
 type Scanner struct {
-	cfg     Config
-	log     *slog.Logger
-	repo    Repository
-	ext     Extractor
-	thumbs  Thumbnailer
-	metrics Metrics
-	scanMu  sync.Mutex      // ensures only one reconciliation pass runs at a time
-	baseCtx context.Context // server-lifetime ctx for manual rescans (F13.3)
+	cfg      Config
+	log      *slog.Logger
+	repo     Repository
+	ext      Extractor
+	thumbs   Thumbnailer
+	metrics  Metrics
+	recorder JobRecorder
+	scanMu   sync.Mutex      // ensures only one reconciliation pass runs at a time
+	baseCtx  context.Context // server-lifetime ctx for manual rescans (F13.3)
+
+	// Live status for the activity surface (F21.2), independent of scanMu so a
+	// status read never blocks behind a running pass.
+	statusMu  sync.Mutex
+	running   bool
+	curTrig   string
+	startedAt time.Time
+	lastRun   *model.ScanSummary
+	nextSched time.Time
 }
 
 func New(cfg Config, log *slog.Logger, repo Repository, ext Extractor) *Scanner {
@@ -93,6 +110,56 @@ func (s *Scanner) SetBaseContext(ctx context.Context) { s.baseCtx = ctx }
 // SetMetrics wires scan-duration / indexed-files instrumentation (F13.2). Called
 // once at startup before Run; nil leaves the scanner uninstrumented.
 func (s *Scanner) SetMetrics(m Metrics) { s.metrics = m }
+
+// SetJobRecorder wires durable job-history recording (F21.3). Called once at
+// startup before Run; nil disables recording.
+func (s *Scanner) SetJobRecorder(rec JobRecorder) { s.recorder = rec }
+
+// Status reports the scanner's current state for the activity surface (F21.2).
+// It is lock-light: it never contends with a running pass (which holds scanMu,
+// not statusMu).
+func (s *Scanner) Status() model.ScanStatus {
+	s.statusMu.Lock()
+	defer s.statusMu.Unlock()
+	st := model.ScanStatus{State: "idle"}
+	if s.running {
+		st.State = "running"
+		st.Trigger = s.curTrig
+		started := s.startedAt
+		st.StartedAt = &started
+	} else if s.lastRun != nil {
+		st.Trigger = s.lastRun.Trigger
+	}
+	if s.lastRun != nil {
+		lr := *s.lastRun
+		st.LastRun = &lr
+	}
+	if !s.nextSched.IsZero() {
+		next := s.nextSched
+		st.NextScheduledAt = &next
+	}
+	return st
+}
+
+func (s *Scanner) markRunning(trigger string, start time.Time) {
+	s.statusMu.Lock()
+	s.running, s.curTrig, s.startedAt = true, trigger, start
+	s.statusMu.Unlock()
+}
+
+func (s *Scanner) markDone(sum model.ScanSummary) {
+	s.statusMu.Lock()
+	s.running = false
+	cp := sum
+	s.lastRun = &cp
+	s.statusMu.Unlock()
+}
+
+func (s *Scanner) setNextScheduled(t time.Time) {
+	s.statusMu.Lock()
+	s.nextSched = t
+	s.statusMu.Unlock()
+}
 
 var mediaExts = map[string]struct{}{".mp4": {}, ".mkv": {}}
 
@@ -124,13 +191,19 @@ func (s *stats) incErrors()  { s.mu.Lock(); s.errors++; s.mu.Unlock() }
 // callers (the periodic ticker and the fs-watcher) are serialized so two passes
 // never race on the seen-set / removal reconciliation.
 func (s *Scanner) ScanOnce(ctx context.Context) error {
+	return s.scanTriggered(ctx, model.TriggerPeriodic)
+}
+
+// scanTriggered runs one pass tagged with its trigger, guarding the MEDIA_PATH
+// and single-pass invariants shared by every entry point.
+func (s *Scanner) scanTriggered(ctx context.Context, trigger string) error {
 	if s.cfg.MediaPath == "" {
 		s.log.Warn("MEDIA_PATH not set; skipping scan")
 		return nil
 	}
 	s.scanMu.Lock()
 	defer s.scanMu.Unlock()
-	return s.scanLocked(ctx)
+	return s.scanLocked(ctx, trigger)
 }
 
 // TriggerRescan starts a full reconciliation pass in the background (F13.3),
@@ -153,16 +226,18 @@ func (s *Scanner) TriggerRescan() bool {
 	}
 	go func() {
 		defer s.scanMu.Unlock()
-		if err := s.scanLocked(ctx); err != nil {
+		if err := s.scanLocked(ctx, model.TriggerManual); err != nil {
 			s.log.Error("admin rescan failed", "err", err)
 		}
 	}()
 	return true
 }
 
-// scanLocked runs one reconciliation pass. The caller must hold scanMu.
-func (s *Scanner) scanLocked(ctx context.Context) error {
+// scanLocked runs one reconciliation pass tagged with its trigger. The caller
+// must hold scanMu.
+func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	start := time.Now()
+	s.markRunning(trigger, start)
 	st := &stats{}
 
 	jobs := make(chan string, s.cfg.Workers*2)
@@ -190,12 +265,50 @@ func (s *Scanner) scanLocked(ctx context.Context) error {
 	if s.metrics != nil {
 		s.metrics.ObserveScan(dur, st.added+st.updated)
 	}
+
+	sum := model.ScanSummary{
+		Trigger:    trigger,
+		FinishedAt: time.Now().UTC(),
+		DurationMs: dur.Milliseconds(),
+		Seen:       st.seen, Added: st.added, Updated: st.updated,
+		Removed: int(removed), Skipped: st.skipped, Errors: st.errors,
+	}
+	s.markDone(sum)
+	s.recordRun(start, sum, walkErr)
+
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
 		"seen", st.seen, "added", st.added, "updated", st.updated,
 		"removed", removed, "skipped", st.skipped, "errors", st.errors,
 		"duration_ms", dur.Milliseconds())
 	return walkErr
+}
+
+// recordRun persists a completed pass to the activity history (F21.3). Only a
+// pass-level failure (walkErr) marks the run "error"; per-file extraction errors
+// are surfaced via the Errors count, consistent with the never-abort NFR. The
+// write uses a detached, bounded context so a pass that finished during shutdown
+// still records. Best-effort: errors are logged, never propagated.
+func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, walkErr error) {
+	if s.recorder == nil {
+		return
+	}
+	status, msg := model.JobStatusOK, ""
+	if walkErr != nil {
+		status, msg = model.JobStatusErr, walkErr.Error()
+	}
+	run := model.JobRun{
+		Kind: model.JobKindScan, Trigger: sum.Trigger, Status: status,
+		StartedAt: start.UTC(), FinishedAt: sum.FinishedAt, DurationMs: sum.DurationMs,
+		Seen: sum.Seen, Added: sum.Added, Updated: sum.Updated,
+		Removed: sum.Removed, Skipped: sum.Skipped, Errors: sum.Errors,
+		ErrorMessage: msg,
+	}
+	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.recorder.RecordJobRun(recCtx, run); err != nil {
+		s.log.Warn("record job run failed", "err", err)
+	}
 }
 
 // index handles one media file: change-detect, extract, upsert.
@@ -390,13 +503,18 @@ func (s *Scanner) canonical(path string) (string, error) {
 // Run does the initial scan, starts the OS-level fs-watcher (F1.5, primary), and
 // runs the periodic scan loop (the reliable fallback if events are missed).
 func (s *Scanner) Run(ctx context.Context, interval time.Duration) {
-	if err := s.ScanOnce(ctx); err != nil {
+	if err := s.scanTriggered(ctx, model.TriggerInitial); err != nil {
 		s.log.Error("initial scan failed", "err", err)
 	}
 	go s.runWatcher(ctx)
 
 	if interval <= 0 {
 		interval = 300 * time.Second
+	}
+	// next_scheduled_at is a best-effort estimate (spec Open Q4): the tick fires
+	// ~interval from now, re-armed after each pass. Only meaningful when scanning.
+	if s.cfg.MediaPath != "" {
+		s.setNextScheduled(time.Now().Add(interval))
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -407,6 +525,9 @@ func (s *Scanner) Run(ctx context.Context, interval time.Duration) {
 		case <-ticker.C:
 			if err := s.ScanOnce(ctx); err != nil {
 				s.log.Error("scan failed", "err", err)
+			}
+			if s.cfg.MediaPath != "" {
+				s.setNextScheduled(time.Now().Add(interval))
 			}
 		}
 	}
@@ -438,7 +559,7 @@ func (s *Scanner) runWatcher(ctx context.Context) {
 			debounce.Stop()
 		}
 		debounce = time.AfterFunc(2*time.Second, func() {
-			if err := s.ScanOnce(ctx); err != nil {
+			if err := s.scanTriggered(ctx, model.TriggerWatch); err != nil {
 				s.log.Error("watch-triggered scan failed", "err", err)
 			}
 		})

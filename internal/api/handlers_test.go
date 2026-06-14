@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +71,68 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 		_ = json.NewDecoder(resp.Body).Decode(&body)
 	}
 	return resp.StatusCode, body
+}
+
+func TestAdminActivity(t *testing.T) {
+	srv, r, _ := newServer(t)
+	_ = seedVideo(t, r, "/secret/library/clip.mp4", "Clip")
+
+	code, body := getJSON(t, srv.URL+"/api/v1/admin/activity")
+	if code != 200 {
+		t.Fatalf("activity code = %d", code)
+	}
+	scan, _ := body["scan"].(map[string]any)
+	if scan["state"] != "idle" {
+		t.Errorf("scan.state = %v, want idle", scan["state"])
+	}
+	lib, _ := body["library"].(map[string]any)
+	if lib["videos_active"].(float64) != 1 {
+		t.Errorf("library.videos_active = %v, want 1", lib["videos_active"])
+	}
+	sys, _ := body["system"].(map[string]any)
+	if _, ok := sys["media_path_present"]; !ok {
+		t.Error("system.media_path_present missing")
+	}
+	if sys["controls_unauthenticated"] != false {
+		t.Errorf("system.controls_unauthenticated = %v, want false", sys["controls_unauthenticated"])
+	}
+}
+
+// The activity read-model must not leak filesystem paths (no-secrets invariant,
+// ADR-028): media_path_present is a boolean, not the path.
+func TestAdminActivityNoSecrets(t *testing.T) {
+	srv, r, _ := newServer(t)
+	_ = seedVideo(t, r, "/secret/library/clip.mp4", "Clip")
+
+	resp, err := http.Get(srv.URL + "/api/v1/admin/activity")
+	if err != nil {
+		t.Fatalf("GET activity: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(raw), "/secret/library") {
+		t.Errorf("activity payload leaked a filesystem path: %s", raw)
+	}
+}
+
+func TestAdminActivityHistory(t *testing.T) {
+	srv, r, _ := newServer(t)
+	now := time.Now().UTC()
+	if err := r.RecordJobRun(context.Background(), model.JobRun{
+		Kind: model.JobKindScan, Trigger: model.TriggerManual, Status: model.JobStatusOK,
+		StartedAt: now, FinishedAt: now, DurationMs: 5, Added: 3,
+	}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+
+	code, body := getJSON(t, srv.URL+"/api/v1/admin/activity/history")
+	if code != 200 {
+		t.Fatalf("history code = %d", code)
+	}
+	runs, _ := body["runs"].([]any)
+	if len(runs) != 1 {
+		t.Fatalf("history runs = %d, want 1", len(runs))
+	}
 }
 
 func TestListAndGetMedia(t *testing.T) {

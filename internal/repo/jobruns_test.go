@@ -1,0 +1,110 @@
+package repo_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"holodex/internal/model"
+	"holodex/internal/repo"
+)
+
+func TestJobRunsRecordAndList(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	rec := func(trig, status, msg string, started time.Time, added int) {
+		t.Helper()
+		if err := r.RecordJobRun(ctx, model.JobRun{
+			Kind: model.JobKindScan, Trigger: trig, Status: status,
+			StartedAt: started, FinishedAt: started.Add(time.Second), DurationMs: 1000,
+			Seen: 10, Added: added, ErrorMessage: msg,
+		}); err != nil {
+			t.Fatalf("record: %v", err)
+		}
+	}
+
+	rec(model.TriggerInitial, model.JobStatusOK, "", now.Add(-2*time.Minute), 5)
+	rec(model.TriggerManual, model.JobStatusErr, "boom", now.Add(-time.Minute), 0)
+
+	runs, err := r.ListJobRuns(ctx, 30)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("runs = %d, want 2", len(runs))
+	}
+	// Newest first.
+	if runs[0].Trigger != model.TriggerManual {
+		t.Errorf("first run trigger = %q, want manual", runs[0].Trigger)
+	}
+	if runs[0].Status != model.JobStatusErr || runs[0].ErrorMessage != "boom" {
+		t.Errorf("error run not round-tripped: %+v", runs[0])
+	}
+	if runs[1].Added != 5 {
+		t.Errorf("added = %d, want 5", runs[1].Added)
+	}
+}
+
+func TestJobRunsRetention(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	// A run older than the 30-day window is pruned by the insert's own sweep.
+	old := time.Now().UTC().AddDate(0, 0, -40)
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindScan, Trigger: model.TriggerPeriodic, Status: model.JobStatusOK,
+		StartedAt: old, FinishedAt: old,
+	}); err != nil {
+		t.Fatalf("record old: %v", err)
+	}
+	// A recent run survives.
+	nowt := time.Now().UTC()
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindScan, Trigger: model.TriggerPeriodic, Status: model.JobStatusOK,
+		StartedAt: nowt, FinishedAt: nowt,
+	}); err != nil {
+		t.Fatalf("record recent: %v", err)
+	}
+
+	runs, err := r.ListJobRuns(ctx, 30)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs after prune = %d, want 1 (old run pruned)", len(runs))
+	}
+
+	// Standalone prune (startup path) is callable and a no-op here.
+	if _, err := r.PruneJobRuns(ctx); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+}
+
+func TestLibraryCounts(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	_, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice", "Bob"}, []string{"x"}), nil)
+	if err != nil {
+		t.Fatalf("upsert a: %v", err)
+	}
+	b, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Alice"}, []string{"y"}), nil)
+	if err != nil {
+		t.Fatalf("upsert b: %v", err)
+	}
+	// Deactivate a (keep only b), so it counts as inactive and its Bob/x drop out.
+	if _, err := r.DeactivateExcept(ctx, []int64{b}); err != nil {
+		t.Fatalf("deactivate: %v", err)
+	}
+
+	c, err := r.LibraryCounts(ctx)
+	if err != nil {
+		t.Fatalf("counts: %v", err)
+	}
+	want := repo.LibraryCounts{VideosActive: 1, VideosInactive: 1, People: 1, Tags: 1}
+	if c != want {
+		t.Errorf("counts = %+v, want %+v", c, want)
+	}
+}

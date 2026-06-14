@@ -28,6 +28,7 @@ import (
 type thumbnailer interface {
 	EnqueueHigh(ids []int64)
 	QueueDepth() int
+	QueueStats() thumbnail.QueueStats // pipeline snapshot for the activity surface (F21.1)
 	Enabled() bool
 }
 
@@ -42,6 +43,12 @@ type searchMetrics interface {
 	ObserveSearch(d time.Duration)
 }
 
+// scanStatusSource exposes the scanner's live state for the activity read-model
+// (F21.1/F21.2). Nil disables the scan section (tests / health-only mode).
+type scanStatusSource interface {
+	Status() model.ScanStatus
+}
+
 // Handlers serves the REST API (ADR-006) over the repository.
 type Handlers struct {
 	repo     *repo.Repo
@@ -52,6 +59,14 @@ type Handlers struct {
 	metrics  searchMetrics
 	mappings *mapping.Store // configurable metadata fields (F20); nil disables them
 	cache    cache.Cache    // facet-value cache (F20.8); nil disables caching
+
+	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
+	// come from the existing thumbs seam; scan status from scanStatus.
+	scanStatus       scanStatusSource
+	health           *Health
+	version          string
+	startedAt        time.Time
+	mediaPathPresent bool
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -69,6 +84,19 @@ func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
 	h.cache = c
 }
 
+// SetActivity wires the read-only activity surface (F21.1, ADR-028): the scanner
+// status source, the health state, the build version, the process start time
+// (for uptime), and whether MEDIA_PATH is configured. Thumbnail stats are read
+// from the thumbnailer seam wired in NewHandlers. Called once at startup before
+// serving; all parts are nil-safe.
+func (h *Handlers) SetActivity(scan scanStatusSource, health *Health, version string, startedAt time.Time, mediaPathPresent bool) {
+	h.scanStatus = scan
+	h.health = health
+	h.version = version
+	h.startedAt = startedAt
+	h.mediaPathPresent = mediaPathPresent
+}
+
 // Mount registers the REST routes under the given router.
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
@@ -84,6 +112,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/facets", h.facets)
 	r.Get("/metadata-keys", h.metadataKeys)
 	r.Get("/admin/status", h.adminStatus)
+	r.Get("/admin/activity", h.adminActivity)
+	r.Get("/admin/activity/history", h.adminActivityHistory)
 	r.Post("/admin/rescan", h.adminRescan)
 	r.Post("/admin/reload-config", h.adminReloadConfig)
 }

@@ -16,6 +16,10 @@ func NewHealth() *Health { return &Health{} }
 // SetReady marks the service ready to serve traffic.
 func (h *Health) SetReady(ready bool) { h.ready.Store(ready) }
 
+// Ready reports the current readiness state, surfaced in the activity read-model
+// (F21.1) so the UI can show whether bootstrap has completed.
+func (h *Health) Ready() bool { return h.ready.Load() }
+
 // Liveness always returns 200 if the process is running.
 func (h *Health) Liveness(w http.ResponseWriter, _ *http.Request) {
 	writeStatus(w, http.StatusOK, "ok")

@@ -69,3 +69,66 @@ type ExtraMetadata struct {
 	SourceKey string `json:"source_key"`
 	Value     string `json:"value"`
 }
+
+// Scan trigger kinds (F21.2). A scan pass is driven by exactly one of these, and
+// the value is surfaced in the activity status and recorded on each JobRun.
+const (
+	TriggerInitial  = "initial"  // the bootstrap scan at startup
+	TriggerPeriodic = "periodic" // the interval ticker / explicit ScanOnce
+	TriggerWatch    = "watch"    // a debounced filesystem-watch event
+	TriggerManual   = "manual"   // an admin-triggered rescan (F13.3)
+)
+
+// Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
+// extensible; scan is the only producer today.
+const (
+	JobKindScan  = "scan"
+	JobStatusOK  = "success"
+	JobStatusErr = "error"
+)
+
+// ScanSummary is the outcome of one completed scan pass (F21.2). It is both the
+// scanner's "last run" status and the source of a JobRun history record.
+type ScanSummary struct {
+	Trigger    string    `json:"trigger"`
+	FinishedAt time.Time `json:"finished_at"`
+	DurationMs int64     `json:"duration_ms"`
+	Seen       int       `json:"seen"`
+	Added      int       `json:"added"`
+	Updated    int       `json:"updated"`
+	Removed    int       `json:"removed"`
+	Skipped    int       `json:"skipped"`
+	Errors     int       `json:"errors"`
+}
+
+// ScanStatus is the scanner's live state for the activity surface (F21.1/F21.2).
+// StartedAt is set only while running; LastRun is nil until the first pass
+// completes; NextScheduledAt is a best-effort estimate (nil when scanning is
+// disabled). It carries no filesystem paths — the no-secrets invariant (ADR-028).
+type ScanStatus struct {
+	State           string       `json:"state"` // "idle" | "running"
+	Trigger         string       `json:"trigger,omitempty"`
+	StartedAt       *time.Time   `json:"started_at,omitempty"`
+	LastRun         *ScanSummary `json:"last_run"`
+	NextScheduledAt *time.Time   `json:"next_scheduled_at,omitempty"`
+}
+
+// JobRun is one completed background job pass recorded for the 30-day activity
+// history (F21.3, ADR-028). Counts mirror a scan summary; ErrorMessage is empty
+// unless the whole pass errored.
+type JobRun struct {
+	ID           int64     `json:"id"`
+	Kind         string    `json:"kind"`
+	Trigger      string    `json:"trigger"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+	FinishedAt   time.Time `json:"finished_at"`
+	DurationMs   int64     `json:"duration_ms"`
+	Seen         int       `json:"seen"`
+	Added        int       `json:"added"`
+	Updated      int       `json:"updated"`
+	Removed      int       `json:"removed"`
+	Skipped      int       `json:"skipped"`
+	Errors       int       `json:"errors"`
+	ErrorMessage string    `json:"error_message,omitempty"`
+}

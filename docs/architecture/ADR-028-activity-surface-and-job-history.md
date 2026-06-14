@@ -1,6 +1,6 @@
 # ADR-028: User-facing activity surface & job-history persistence
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-06-14
 **Deciders**: Project owner
 **Extends**: ADR-019 (Observability — health endpoints, structured logging, `GET /metrics`)
