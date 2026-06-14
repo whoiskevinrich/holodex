@@ -30,6 +30,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [024](ADR-024-ci-cd-pipeline.md) | CI/CD — **PR gate + supply-chain scanning + tag-driven releases** | Accepted |
 | [025](ADR-025-tailwind-v4-css-first.md) | Tailwind v4 — **CSS-first config** (`@theme inline`) + Vite plugin | Accepted (supersedes ADR-021 §2 mechanism) |
 | [026](ADR-026-metrics-exposition.md) | Prometheus metrics — **hand-rolled exposition, no client_golang** | Accepted (extends ADR-019) |
+| [027](ADR-027-dotenv-local-config.md) | Local **`.env` loading** for dev config | Accepted (extends ADR-014) |
 
 ## Phase specs
 - [Phase 1 — MVP](../specs/phase-1-mvp.md)
