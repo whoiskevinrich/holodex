@@ -27,6 +27,11 @@ export function formatBytes(bytes: number): string {
 	return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+// formatBitrate renders kbps as "N.N Mbps" once it reaches 1000, else "N kbps".
+export function formatBitrate(kbps: number): string {
+	return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mbps` : `${kbps} kbps`;
+}
+
 export function formatYear(iso?: string | null): string {
 	if (!iso) return '';
 	const d = new Date(iso);

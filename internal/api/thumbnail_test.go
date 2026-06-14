@@ -42,7 +42,7 @@ func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, thumbs, thumbDir)))
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, thumbs, thumbDir, nil, nil), nil))
 	t.Cleanup(srv.Close)
 	return srv, r, thumbDir
 }

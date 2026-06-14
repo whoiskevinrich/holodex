@@ -12,8 +12,9 @@ import (
 
 // Router builds the chi router. The frontend (embedded SvelteKit dist) is
 // mounted by the caller in production; in dev the Vite server proxies /api here.
-// handlers may be nil before the data layer is wired (health-only mode).
-func Router(log *slog.Logger, health *Health, handlers *Handlers) http.Handler {
+// handlers may be nil before the data layer is wired (health-only mode), and
+// metricsHandler may be nil to omit the Prometheus endpoint.
+func Router(log *slog.Logger, health *Health, handlers *Handlers, metricsHandler http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
@@ -21,6 +22,11 @@ func Router(log *slog.Logger, health *Health, handlers *Handlers) http.Handler {
 	// Health / readiness (ADR-019).
 	r.Get("/healthz", health.Liveness)
 	r.Get("/readyz", health.Readiness)
+
+	// Prometheus exposition (ADR-019/ADR-026, F13.1) at the root, outside /api/v1.
+	if metricsHandler != nil {
+		r.Handle("/metrics", metricsHandler)
+	}
 
 	// REST API (ADR-006): media (F4/F7), people (F5), tags (F6), search (F4.10).
 	r.Route("/api/v1", func(r chi.Router) {

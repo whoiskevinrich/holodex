@@ -86,19 +86,25 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	// Upsert the base row by unique file_path.
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO videos (file_path, file_size, title, duration_sec, width, height,
+		                    video_codec, audio_codec, bitrate_kbps, container,
 		                    recorded_at, indexed_at, file_mtime, active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
 		ON CONFLICT(file_path) DO UPDATE SET
 			file_size    = excluded.file_size,
 			title        = excluded.title,
 			duration_sec = excluded.duration_sec,
 			width        = excluded.width,
 			height       = excluded.height,
+			video_codec  = excluded.video_codec,
+			audio_codec  = excluded.audio_codec,
+			bitrate_kbps = excluded.bitrate_kbps,
+			container    = excluded.container,
 			recorded_at  = excluded.recorded_at,
 			indexed_at   = excluded.indexed_at,
 			file_mtime   = excluded.file_mtime,
 			active       = 1`,
 		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
+		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
 		recorded, now, v.FileMtime.UTC().Format(timeLayout),
 	)
 	if err != nil {
@@ -200,7 +206,7 @@ func (r *Repo) DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, er
 	}
 	q := `UPDATE videos SET active = 0 WHERE active = 1 AND id NOT IN (` +
 		placeholders(len(seenIDs)) + `)`
-	res, err := r.db.ExecContext(ctx, q, int64sToAny(seenIDs)...)
+	res, err := r.db.ExecContext(ctx, q, toAnySlice(seenIDs)...)
 	if err != nil {
 		return 0, fmt.Errorf("deactivate missing: %w", err)
 	}
@@ -220,11 +226,52 @@ type VideoFilter struct {
 	DurationMinSec, DurationMaxSec int
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
-	Limit, Offset                  int
+	// DateFrom/DateTo are inclusive ISO dates (YYYY-MM-DD) matched against
+	// recorded_at — finer-grained than Year*, used by the MCP search tool (F10.2).
+	DateFrom, DateTo string
+	// MappedFilters constrain by configurable mapped fields (F20.5); each must
+	// match (AND), like People/Tags.
+	MappedFilters []MappedFilter
+	Limit, Offset int
+	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
+	// newest-indexed-first. See orderBy for the allowed set.
+	Sort string
+}
+
+// MappedFilter matches videos carrying a metadata row whose source_key is one of
+// SourceKeys (case-insensitive) and whose value equals Value (F20.5).
+type MappedFilter struct {
+	SourceKeys []string
+	Value      string
+}
+
+// orderBy maps the sort key to a safe ORDER BY clause (whitelist — the key is
+// never interpolated). The id tiebreaker keeps pagination stable. "Resolution"
+// sorts by width, consistent with the width-based resolution buckets (ADR-012).
+func (f VideoFilter) orderBy() string {
+	switch f.Sort {
+	case "title_asc":
+		return "v.title COLLATE NOCASE ASC, v.id ASC"
+	case "title_desc":
+		return "v.title COLLATE NOCASE DESC, v.id DESC"
+	case "added_asc":
+		return "v.indexed_at ASC, v.id ASC"
+	case "duration_desc":
+		return "v.duration_sec DESC, v.id DESC"
+	case "duration_asc":
+		return "v.duration_sec ASC, v.id ASC"
+	case "resolution_desc":
+		return "v.width DESC, v.height DESC, v.id DESC"
+	case "resolution_asc":
+		return "v.width ASC, v.height ASC, v.id ASC"
+	default: // "added_desc" and anything unrecognized
+		return "v.indexed_at DESC, v.id DESC"
+	}
 }
 
 // ListVideos returns a page of active videos matching filter plus the total
-// match count (for pagination). Results are ordered newest-indexed first (F3.4).
+// match count (for pagination). Ordering follows filter.Sort, defaulting to
+// newest-indexed first (F3.4 / F12.1).
 func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, int, error) {
 	where, args := f.build()
 
@@ -239,9 +286,10 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 		limit = 50
 	}
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
-	             v.height, v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
+	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
+	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v ` + where +
-		` ORDER BY v.indexed_at DESC, v.id DESC LIMIT ? OFFSET ?`
+		` ORDER BY ` + f.orderBy() + ` LIMIT ? OFFSET ?`
 	rows, err := r.db.QueryContext(ctx, q, append(args, limit, f.Offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list videos: %w", err)
@@ -307,6 +355,28 @@ func (f VideoFilter) build() (string, []any) {
 		clauses = append(clauses, "v.recorded_at <= ?")
 		args = append(args, fmt.Sprintf("%04d-12-31T23:59:59Z", f.YearMax))
 	}
+	// recorded_at is stored RFC3339; a bare date sorts lexicographically before
+	// that day's timestamps, so >= DateFrom and <= DateTo+end-of-day are inclusive.
+	if f.DateFrom != "" {
+		clauses = append(clauses, "v.recorded_at >= ?")
+		args = append(args, f.DateFrom)
+	}
+	if f.DateTo != "" {
+		clauses = append(clauses, "v.recorded_at <= ?")
+		args = append(args, f.DateTo+"T23:59:59Z")
+	}
+	for _, mf := range f.MappedFilters {
+		if mf.Value == "" || len(mf.SourceKeys) == 0 {
+			continue
+		}
+		clauses = append(clauses,
+			"EXISTS (SELECT 1 FROM video_metadata m WHERE m.video_id = v.id"+
+				" AND m.source_key COLLATE NOCASE IN ("+placeholders(len(mf.SourceKeys))+") AND m.value = ?)")
+		for _, k := range mf.SourceKeys {
+			args = append(args, k)
+		}
+		args = append(args, mf.Value)
+	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
@@ -315,6 +385,7 @@ func (f VideoFilter) build() (string, []any) {
 func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, file_path, file_size, title, duration_sec, width, height,
+		        video_codec, audio_codec, bitrate_kbps, container,
 		        recorded_at, indexed_at, file_mtime, thumbnail_state FROM videos WHERE id = ?`, id)
 	v, err := scanVideo(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -435,7 +506,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 		idx[v.ID] = i
 	}
 	in := "(" + placeholders(len(ids)) + ")"
-	args := int64sToAny(ids)
+	args := toAnySlice(ids)
 
 	prows, err := r.db.QueryContext(ctx,
 		`SELECT vp.video_id, p.id, p.name FROM people p
@@ -495,8 +566,129 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 }
 
 // ---------------------------------------------------------------------------
+// Configurable metadata fields (F20, ADR-013)
+// ---------------------------------------------------------------------------
+
+// FacetValue is one distinct mapped-field value with its video count.
+type FacetValue struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
+}
+
+// FacetValues returns the distinct values (with counts) for a mapped field across
+// active videos — the union of metadata rows whose source_key is in sourceKeys
+// (case-insensitive). Drives the filter facet value list (F20.4).
+func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetValue, error) {
+	if len(sourceKeys) == 0 {
+		return nil, nil
+	}
+	q := `SELECT m.value, COUNT(DISTINCT m.video_id) AS cnt
+	      FROM video_metadata m
+	      JOIN videos v ON v.id = m.video_id AND v.active = 1
+	      WHERE m.source_key COLLATE NOCASE IN (` + placeholders(len(sourceKeys)) + `)
+	      GROUP BY m.value ORDER BY cnt DESC, m.value COLLATE NOCASE`
+	rows, err := r.db.QueryContext(ctx, q, toAnySlice(sourceKeys)...)
+	if err != nil {
+		return nil, fmt.Errorf("facet values: %w", err)
+	}
+	defer rows.Close()
+	var out []FacetValue
+	for rows.Next() {
+		var fv FacetValue
+		if err := rows.Scan(&fv.Value, &fv.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, fv)
+	}
+	return out, rows.Err()
+}
+
+// MetadataKey is a distinct raw source key with its occurrence count and a few
+// sample values — the library-wide mapping-authoring aid (F20.9).
+type MetadataKey struct {
+	SourceKey string   `json:"source_key"`
+	Count     int      `json:"count"`
+	Samples   []string `json:"samples"`
+}
+
+// MetadataKeys enumerates all distinct source keys across active videos, most
+// frequent first, each with up to sampleLimit sample values (F20.9).
+func (r *Repo) MetadataKeys(ctx context.Context, sampleLimit int) ([]MetadataKey, error) {
+	if sampleLimit <= 0 {
+		sampleLimit = 3
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT m.source_key, COUNT(DISTINCT m.video_id) AS cnt
+		FROM video_metadata m
+		JOIN videos v ON v.id = m.video_id AND v.active = 1
+		GROUP BY m.source_key COLLATE NOCASE
+		ORDER BY cnt DESC, m.source_key COLLATE NOCASE`)
+	if err != nil {
+		return nil, fmt.Errorf("metadata keys: %w", err)
+	}
+	defer rows.Close()
+	var keys []MetadataKey
+	for rows.Next() {
+		var k MetadataKey
+		if err := rows.Scan(&k.SourceKey, &k.Count); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Distinct-key cardinality is small (tens), so a sample query per key on this
+	// cold discovery view is fine.
+	for i := range keys {
+		srows, err := r.db.QueryContext(ctx,
+			`SELECT DISTINCT value FROM video_metadata WHERE source_key COLLATE NOCASE = ? LIMIT ?`,
+			keys[i].SourceKey, sampleLimit)
+		if err != nil {
+			return nil, fmt.Errorf("metadata key samples: %w", err)
+		}
+		for srows.Next() {
+			var v string
+			if err := srows.Scan(&v); err != nil {
+				srows.Close()
+				return nil, err
+			}
+			keys[i].Samples = append(keys[i].Samples, v)
+		}
+		srows.Close()
+	}
+	return keys, nil
+}
+
+// ---------------------------------------------------------------------------
 // People & Tags navigation (F5, F6)
 // ---------------------------------------------------------------------------
+
+// PersonIDByName resolves a person id by exact, case-insensitive name; ok=false
+// if absent. Used by the MCP search tool to filter by names rather than ids.
+func (r *Repo) PersonIDByName(ctx context.Context, name string) (int64, bool, error) {
+	return idByName(ctx, r.db, "people", name)
+}
+
+// TagIDByName mirrors PersonIDByName for tags.
+func (r *Repo) TagIDByName(ctx context.Context, name string) (int64, bool, error) {
+	return idByName(ctx, r.db, "tags", name)
+}
+
+// idByName looks up a row id by unique name (case-insensitive). table is a
+// trusted literal ("people" | "tags"), never user input.
+func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool, error) {
+	var id int64
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM "+table+" WHERE name = ? COLLATE NOCASE", strings.TrimSpace(name)).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("%s id by name: %w", table, err)
+	}
+	return id, true, nil
+}
 
 // namedRow is the shared shape of a people/tags row joined to its video count.
 func namedCountQuery(table, junction, fk string, sortByCount bool) string {
@@ -656,7 +848,8 @@ func scanVideo(s rowScanner) (model.Video, error) {
 		thumbState sql.NullString
 	)
 	if err := s.Scan(&v.ID, &v.FilePath, &v.FileSize, &v.Title, &v.Duration,
-		&v.Width, &v.Height, &recorded, &indexedStr, &mtimeStr, &thumbState); err != nil {
+		&v.Width, &v.Height, &v.VideoCodec, &v.AudioCodec, &v.BitrateKbps, &v.Container,
+		&recorded, &indexedStr, &mtimeStr, &thumbState); err != nil {
 		return model.Video{}, err
 	}
 	v.ThumbnailState = thumbState.String
@@ -697,9 +890,10 @@ func placeholders(n int) string {
 	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
 }
 
-func int64sToAny(ids []int64) []any {
-	out := make([]any, len(ids))
-	for i, v := range ids {
+// toAnySlice boxes a typed slice into []any for variadic query args.
+func toAnySlice[T any](in []T) []any {
+	out := make([]any, len(in))
+	for i, v := range in {
 		out[i] = v
 	}
 	return out

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -8,9 +10,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/cache"
+	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
 	"holodex/internal/repo"
@@ -26,16 +31,42 @@ type thumbnailer interface {
 	Enabled() bool
 }
 
+// rescanner triggers an out-of-band full library re-index (F13.3). Nil in tests
+// or when the scanner is not wired (health-only mode).
+type rescanner interface {
+	TriggerRescan() bool
+}
+
+// searchMetrics records search latency (F13.2). Optional — nil disables it.
+type searchMetrics interface {
+	ObserveSearch(d time.Duration)
+}
+
 // Handlers serves the REST API (ADR-006) over the repository.
 type Handlers struct {
 	repo     *repo.Repo
 	log      *slog.Logger
 	thumbs   thumbnailer
 	thumbDir string
+	scanner  rescanner
+	metrics  searchMetrics
+	mappings *mapping.Store // configurable metadata fields (F20); nil disables them
+	cache    cache.Cache    // facet-value cache (F20.8); nil disables caching
 }
 
-func NewHandlers(r *repo.Repo, log *slog.Logger, thumbs thumbnailer, thumbDir string) *Handlers {
-	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir}
+// NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
+// they disable thumbnail bumping, admin rescan, and search instrumentation
+// respectively in tests or health-only mode.
+func NewHandlers(r *repo.Repo, log *slog.Logger, thumbs thumbnailer, thumbDir string, sc rescanner, m searchMetrics) *Handlers {
+	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir, scanner: sc, metrics: m}
+}
+
+// SetMetadataFields wires the configurable metadata field mapping (F20) and the
+// facet-value cache. Called once at startup before serving; a nil store disables
+// mapped-field display, facets, and the reload endpoint.
+func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
+	h.mappings = store
+	h.cache = c
 }
 
 // Mount registers the REST routes under the given router.
@@ -50,13 +81,20 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
 	r.Get("/search", h.search)
+	r.Get("/facets", h.facets)
+	r.Get("/metadata-keys", h.metadataKeys)
 	r.Get("/admin/status", h.adminStatus)
+	r.Post("/admin/rescan", h.adminRescan)
+	r.Post("/admin/reload-config", h.adminReloadConfig)
 }
 
 // listMedia handles GET /media with filters (F4). Query params:
 //
 //	q, person (repeatable), tag (repeatable), duration_min/max (minutes),
-//	resolution (SD|HD|FHD|4K), year_min/max, limit, offset.
+//	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
+//
+// sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
+// duration_asc|duration_desc|resolution_asc|resolution_desc; default added_desc.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := repo.VideoFilter{
@@ -67,11 +105,21 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		DurationMaxSec: atoiDefault(q.Get("duration_max"), 0) * 60,
 		YearMin:        atoiDefault(q.Get("year_min"), 0),
 		YearMax:        atoiDefault(q.Get("year_max"), 0),
+		Sort:           q.Get("sort"),
 		Limit:          atoiDefault(q.Get("limit"), 50),
 		Offset:         atoiDefault(q.Get("offset"), 0),
 	}
 	if b, ok := metadata.ParseResolutionBucket(q.Get("resolution")); ok {
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)
+	}
+	// Filterable mapped fields become query params keyed by canonical name (F20.5),
+	// e.g. ?studio=Acme.
+	if h.mappings != nil {
+		for _, fld := range h.mappings.Current().Filterable() {
+			if val := q.Get(fld.Canonical); val != "" {
+				f.MappedFilters = append(f.MappedFilters, repo.MappedFilter{SourceKeys: fld.Sources, Value: val})
+			}
+		}
 	}
 
 	items, total, err := h.repo.ListVideos(r.Context(), f)
@@ -119,7 +167,11 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setThumbnailURL(v)
-	writeJSON(w, http.StatusOK, map[string]any{"video": v, "metadata": extra})
+	var fields []mapping.Resolved
+	if h.mappings != nil {
+		fields = h.mappings.Current().Resolve(extra)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"video": v, "metadata": extra, "fields": fields})
 }
 
 // streamMedia serves the file by ID with HTTP Range support (ADR-015). The path
@@ -218,6 +270,111 @@ func (h *Handlers) adminStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"thumbnail_queue_depth": depth})
 }
 
+// adminRescan triggers a full library re-index (F13.3) and returns 202 Accepted
+// immediately; the scan runs in the background. "started":false means a scan was
+// already in progress, which already satisfies the request.
+func (h *Handlers) adminRescan(w http.ResponseWriter, _ *http.Request) {
+	if h.scanner == nil {
+		writeError(w, http.StatusServiceUnavailable, "rescan unavailable")
+		return
+	}
+	started := h.scanner.TriggerRescan()
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "accepted", "started": started})
+}
+
+// adminReloadConfig re-reads metadata-mappings.yaml without a restart (F20.10) and
+// invalidates cached facet values so new mappings take effect immediately.
+func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
+	if h.mappings == nil {
+		writeError(w, http.StatusServiceUnavailable, "config reload unavailable")
+		return
+	}
+	if err := h.mappings.Reload(); err != nil {
+		h.fail(w, "reload config", err)
+		return
+	}
+	if h.cache != nil {
+		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "reloaded", "fields": len(h.mappings.Current().Fields())})
+}
+
+const facetCachePrefix = "facet:"
+
+// facets returns the filterable mapped fields with their distinct values (F20.4).
+func (h *Handlers) facets(w http.ResponseWriter, r *http.Request) {
+	type facet struct {
+		Canonical string            `json:"canonical"`
+		Label     string            `json:"label"`
+		Multi     bool              `json:"multi"`
+		Values    []repo.FacetValue `json:"values"`
+	}
+	out := []facet{}
+	if h.mappings != nil {
+		for _, fld := range h.mappings.Current().Filterable() {
+			vals, err := h.facetValues(r.Context(), fld)
+			if err != nil {
+				h.fail(w, "facets", err)
+				return
+			}
+			out = append(out, facet{Canonical: fld.Canonical, Label: fld.Label, Multi: fld.Multi, Values: vals})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"facets": out})
+}
+
+// facetValues returns a field's distinct values, served from cache when available
+// (F20.8). With the Noop cache (ADR-022) this recomputes; the seam + TTL +
+// reload-invalidation are in place for when a real backend is enabled.
+func (h *Handlers) facetValues(ctx context.Context, fld mapping.Field) ([]repo.FacetValue, error) {
+	key := facetCachePrefix + strings.ToLower(fld.Canonical)
+	if h.cache != nil {
+		if b, ok := h.cache.Get(ctx, key); ok {
+			var v []repo.FacetValue
+			if json.Unmarshal(b, &v) == nil {
+				return v, nil
+			}
+		}
+	}
+	v, err := h.repo.FacetValues(ctx, fld.Sources)
+	if err != nil {
+		return nil, err
+	}
+	if h.cache != nil {
+		if b, err := json.Marshal(v); err == nil {
+			_ = h.cache.Set(ctx, key, b, 5*time.Minute)
+		}
+	}
+	return v, nil
+}
+
+// metadataKeys is the library-wide mapping-authoring aid (F20.9): every distinct
+// raw source key with counts, sample values, and whether a mapping covers it.
+func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
+	keys, err := h.repo.MetadataKeys(r.Context(), 3)
+	if err != nil {
+		h.fail(w, "metadata keys", err)
+		return
+	}
+	mapped := map[string]bool{}
+	if h.mappings != nil {
+		for _, fld := range h.mappings.Current().Fields() {
+			for _, s := range fld.Sources {
+				mapped[strings.ToLower(s)] = true
+			}
+		}
+	}
+	type keyOut struct {
+		repo.MetadataKey
+		Mapped bool `json:"mapped"`
+	}
+	out := make([]keyOut, len(keys))
+	for i, k := range keys {
+		out[i] = keyOut{MetadataKey: k, Mapped: mapped[strings.ToLower(k.SourceKey)]}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"keys": out})
+}
+
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	people, err := h.repo.ListPeople(r.Context(), r.URL.Query().Get("sort") == "count")
 	if err != nil {
@@ -281,10 +438,14 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	res, err := h.repo.Search(r.Context(), r.URL.Query().Get("q"), atoiDefault(r.URL.Query().Get("limit"), 10))
 	if err != nil {
 		h.fail(w, "search", err)
 		return
+	}
+	if h.metrics != nil {
+		h.metrics.ObserveSearch(time.Since(start))
 	}
 	writeJSON(w, http.StatusOK, res)
 }

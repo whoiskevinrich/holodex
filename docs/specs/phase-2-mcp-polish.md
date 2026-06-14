@@ -39,6 +39,8 @@ Expose the full library query capability via a Model Context Protocol (MCP) serv
 
 ### F10: MCP Server
 
+**Status: implemented (2026-06-13).** Built on `mark3labs/mcp-go` (ADR-005) in `internal/mcp`, sharing the same `*repo.Repo` as the REST API. The four tools (`search_videos`, `get_video`, `list_people`, `list_tags`) are read-only and return the spec's JSON schemas as tool text. `search_videos` resolves people/tag **names** to ids (an unknown name yields an empty result under AND semantics) and reuses the shared `VideoFilter` (with new `DateFrom`/`DateTo`). Transports: stdio via the `holodex -mcp-transport stdio` entrypoint (logs forced to stderr so stdout stays a clean JSON-RPC pipe), and Streamable HTTP at `/mcp` plus legacy SSE at `/mcp/sse` on `MCPPort`, started in-process when `MCP_ENABLED=true` and transport is `http`/`both`. Verified end-to-end over both transports (initialize → tools/list → tools/call).
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F10.1 | MCP server runs as part of the same Docker service, toggled via `MCP_ENABLED=true` env var | Setting env var starts MCP listener; absence skips it |
@@ -52,7 +54,7 @@ Expose the full library query capability via a Model Context Protocol (MCP) serv
 
 ### F11: Thumbnail Generation
 
-See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). **Status: implemented (2026-06-11).** Note: although ADR-009 framed Tier 1 as a Phase-1 deliverable, it was not built then — **all three tiers (embedded art, generated frames, priority bump) shipped together in Phase 2** (see the ADR-009 implementation-status note). F11.8's `holodex_thumbnail_queue_depth` is exposed as `thumbnail_queue_depth` on `GET /api/v1/admin/status`; the Prometheus `/metrics` endpoint (F13) remains deferred.
+See ADR-009 for the full tiered strategy (embedded art at index time, throttled priority-aware background generation, eager-but-configurable backfill). **Status: implemented (2026-06-11).** Note: although ADR-009 framed Tier 1 as a Phase-1 deliverable, it was not built then — **all three tiers (embedded art, generated frames, priority bump) shipped together in Phase 2** (see the ADR-009 implementation-status note). F11.8's `holodex_thumbnail_queue_depth` is exposed as `thumbnail_queue_depth` on `GET /api/v1/admin/status` **and** (as of F13, below) as a pull-based gauge on `GET /metrics`.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
@@ -67,6 +69,8 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 
 ### F12: Browse UI Polish
 
+**Status: implemented (2026-06-13).** Sort is a `?sort=` param on `GET /media` backed by a whitelisted `ORDER BY` (repo.VideoFilter.orderBy); the frontend `SortDropdown` syncs it through the shared `filtersToParams` URL serializer (default `added_desc` omitted to keep `/` pristine). The Recently Added shelf (`RecentlyAddedShelf`) fetches the 20 newest independently and shows on the unfiltered landing view. Codec/audio-codec/bitrate/container come from ffprobe stream+format metadata (migration 0003 adds the columns; existing rows backfill on the next scan / admin rescan) and render on the detail page. Keyboard nav (`/` focus search, arrow-key grid roving, Enter via native anchors, Escape clears filters) is a window listener on the browse page. The grid reflows 1→2 cols at 480px and stays 2-up through ≤768px. Verified across all three skins.
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F12.1 | Sort controls: Title A-Z, Title Z-A, Date Added (newest/oldest), Duration (longest/shortest), Resolution (highest/lowest) | Changing sort updates grid without full reload |
@@ -78,6 +82,8 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 
 ### F13: Observability
 
+**Status: implemented (2026-06-13).** `/metrics` is a dependency-free hand-rolled Prometheus exposition (ADR-026); the queue-depth gauge is pulled live from the thumbnail pipeline at scrape time, while scan/search durations and the indexed-files counter are pushed via nil-safe `SetMetrics` seams on the scanner and handlers. The admin re-scan (F13.3) drives the scanner's `TriggerRescan`, which deduplicates concurrent triggers via the existing scan mutex and runs against the server-lifetime context.
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F13.1 | Prometheus metrics at `GET /metrics` | Endpoint returns valid Prometheus exposition format |
@@ -87,6 +93,8 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 ### F20: Configurable Metadata Field Mapping
 
 Maps one or more raw file tag keys to a single canonical Holodex field with a user-defined display label (e.g. `[Publisher, Label, Studio] → "Studio"`). Extended metadata is already captured at index time in Phase 1 (F2.9), so enabling or changing mappings requires no re-scan. See ADR-013 for the full design.
+
+**Status: implemented (2026-06-13).** `internal/mapping` loads `metadata-mappings.yaml` behind an atomic-pointer `Store` (lock-free reads, atomic reload). Precedence (first present source wins) and `multi` splitting are resolved per-video from the already-captured `video_metadata`. Filterable fields drive `GET /api/v1/facets` (cached values via the cache seam — Noop today per ADR-022, so it recomputes; TTL + reload/`InvalidatePrefix` are wired for when a real backend lands), a `?<canonical>=` param on `GET /media`, the MCP `search_videos` `fields` object, and a `MappedFacets` browse control. Detail pages render resolved fields; `GET /api/v1/metadata-keys` + the `/keys` page enumerate raw keys with counts/samples and a mapped flag. `POST /api/v1/admin/reload-config` reloads + invalidates. Verified end-to-end (web + REST) across all three skins.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
