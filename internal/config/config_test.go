@@ -6,6 +6,40 @@ import (
 	"testing"
 )
 
+func TestLoadDotenv(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, ".env")
+	content := "# a comment\n\nMEDIA_PATH=E:/Media\nQUOTED=\"a b\"\nexport EXPORTED=yes\nALREADY=fromfile\n"
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A key already set in the real environment must NOT be overridden by .env.
+	t.Setenv("ALREADY", "fromenv")
+	// Keys the file should set must start unset.
+	for _, k := range []string{"MEDIA_PATH", "QUOTED", "EXPORTED"} {
+		os.Unsetenv(k)
+		t.Cleanup(func() { os.Unsetenv(k) })
+	}
+
+	loadDotenv(p)
+
+	cases := map[string]string{
+		"MEDIA_PATH": "E:/Media",
+		"QUOTED":     "a b",     // surrounding quotes stripped
+		"EXPORTED":   "yes",     // `export ` prefix handled
+		"ALREADY":    "fromenv", // real env wins over .env
+	}
+	for k, want := range cases {
+		if got := os.Getenv(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+
+	// A missing file is a silent no-op.
+	loadDotenv(filepath.Join(dir, "nope.env"))
+}
+
 func TestLoadPrecedence(t *testing.T) {
 	// YAML overrides defaults.
 	dir := t.TempDir()

@@ -2,6 +2,11 @@
 # Precedence: CLI flags > environment variables > this file > built-in defaults.
 # Every key here has an equivalent environment variable (shown in comments).
 # Copy to holodex.yaml (or mount at $DATA_PATH/config/holodex.yaml) and edit.
+#
+# Local dev: a `.env` in the working directory is loaded into the environment at
+# startup (ADR-027), so you can set MEDIA_PATH / HOST / etc. there instead of
+# exporting vars — e.g. `MEDIA_PATH=E:/Media`. Real env vars and CLI flags still
+# win. Note: the binary reads MEDIA_PATH (not the compose-only HOLODEX_MEDIA_PATH).
 
 # --- Paths ---
 media_path: ""              # MEDIA_PATH   (required for scanning; read-only library root)

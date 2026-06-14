@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -79,7 +80,14 @@ func Defaults() Config {
 
 // Load builds a Config by layering, in increasing precedence:
 // defaults -> YAML file (if path non-empty and exists) -> environment.
+//
+// A local .env (in the working directory) is loaded first as a convenience for
+// development (ADR-027): its keys feed the environment layer so a checked-out
+// dev config works without exporting vars or relying on the launcher's env
+// handling. Real environment variables and CLI flags still win; in production
+// (Docker) no .env ships, so deployment is unaffected.
 func Load(yamlPath string) (Config, error) {
+	loadDotenv(".env")
 	cfg := Defaults()
 
 	if yamlPath != "" {
@@ -169,6 +177,37 @@ func applyEnv(c *Config) {
 	c.MCPEnabled = envBool("MCP_ENABLED", c.MCPEnabled)
 	c.MCPTransport = envStr("MCP_TRANSPORT", c.MCPTransport)
 	c.MCPPort = envInt("MCP_PORT", c.MCPPort)
+}
+
+// loadDotenv reads simple KEY=VALUE lines from path into the process environment
+// for any key not already set (ADR-027). This lets a local .env supply dev config
+// without exporting vars; real env vars and CLI flags still take precedence, and a
+// missing/unreadable file is a silent no-op (so production, which ships no .env,
+// is unaffected). Supports `#` comments, blank lines, an optional `export ` prefix,
+// and one layer of surrounding single/double quotes.
+func loadDotenv(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export "))
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			continue
+		}
+		val = strings.TrimSpace(val)
+		if len(val) >= 2 && (val[0] == '"' || val[0] == '\'') && val[len(val)-1] == val[0] {
+			val = val[1 : len(val)-1]
+		}
+		if _, exists := os.LookupEnv(key); !exists {
+			_ = os.Setenv(key, val)
+		}
+	}
 }
 
 func envStr(key, def string) string {
