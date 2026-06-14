@@ -201,7 +201,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// zero-config default; on a non-loopback bind that means the admin surface is
 	// reachable without a token — warn loudly (fail-loud condition 1).
 	auth := api.NewAuth(cfg.AdminToken)
-	exposedBind := !isLoopbackHost(cfg.Host)
+	exposedBind := cfg.ExposedBind()
 	if !auth.Required() && exposedBind {
 		log.Warn("admin controls are reachable WITHOUT a token on a non-loopback bind; set ADMIN_TOKEN to require authentication",
 			"host", cfg.Host)
@@ -289,21 +289,6 @@ func newLogger(level string, w io.Writer) *slog.Logger {
 		lvl = slog.LevelInfo
 	}
 	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: lvl}))
-}
-
-// isLoopbackHost reports whether the bind address is loopback-only. An empty
-// host means "all interfaces" (the Docker default) and is therefore exposed.
-func isLoopbackHost(host string) bool {
-	switch host {
-	case "localhost":
-		return true
-	case "":
-		return false
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		return ip.IsLoopback()
-	}
-	return false
 }
 
 // runHealthcheck probes the local /healthz endpoint for the Docker HEALTHCHECK.

@@ -113,9 +113,10 @@ func (h *Handlers) SetAuth(auth *Auth, exposedBind bool) {
 }
 
 // controlsUnauthenticated is true when the admin surface is reachable beyond
-// loopback with no token configured (F21.7 condition 1).
+// loopback with no token configured (F21.7 condition 1). Required() is
+// nil-receiver safe, so no separate h.auth nil check is needed.
 func (h *Handlers) controlsUnauthenticated() bool {
-	return h.exposedBind && (h.auth == nil || !h.auth.Required())
+	return h.exposedBind && !h.auth.Required()
 }
 
 // Mount registers the REST routes under the given router.

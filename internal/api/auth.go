@@ -27,9 +27,11 @@ func NewAuth(token string) *Auth { return &Auth{token: strings.TrimSpace(token)}
 // to the SPA via /capabilities so it knows to present a token.
 func (a *Auth) Required() bool { return a != nil && a.token != "" }
 
-// authorized reports whether a request may reach owner-only routes: always true
-// when no token is configured; otherwise the header must match in constant time
-// (F21.7 condition 2 — never a plain ==, to avoid leaking the token by timing).
+// authorized reports whether a request may reach owner-only routes. It is
+// nil-receiver safe: a nil *Auth means no gate is configured, so Required() is
+// false and access is open — which is why callers never need their own nil check.
+// When a token is set, the header must match in constant time (F21.7 condition 2
+// — never a plain ==, to avoid leaking the token by timing).
 func (a *Auth) authorized(r *http.Request) bool {
 	if !a.Required() {
 		return true
@@ -38,12 +40,12 @@ func (a *Auth) authorized(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(a.token)) == 1
 }
 
-// requireOwner wraps the owner-only route group. With no token configured it is
-// a transparent pass-through (single-user); otherwise an unauthorized request
-// gets 401 before reaching any handler.
+// requireOwner wraps the owner-only route group. With no token configured (or no
+// gate wired) it is a transparent pass-through (single-user); otherwise an
+// unauthorized request gets 401 before reaching any handler.
 func (h *Handlers) requireOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if h.auth == nil || h.auth.authorized(r) {
+		if h.auth.authorized(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -55,10 +57,8 @@ func (h *Handlers) requireOwner(next http.Handler) http.Handler {
 // request is an owner, and whether a token is required at all. The frontend
 // shows owner controls only when owner is true (F21.7).
 func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
-	owner := h.auth == nil || h.auth.authorized(r)
-	required := h.auth != nil && h.auth.Required()
 	writeJSON(w, http.StatusOK, struct {
 		Owner        bool `json:"owner"`
 		AuthRequired bool `json:"auth_required"`
-	}{Owner: owner, AuthRequired: required})
+	}{Owner: h.auth.authorized(r), AuthRequired: h.auth.Required()})
 }

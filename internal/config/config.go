@@ -6,6 +6,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -114,6 +115,23 @@ func Load(yamlPath string) (Config, error) {
 	applyEnv(&cfg)
 	cfg.derive()
 	return cfg, nil
+}
+
+// ExposedBind reports whether Host binds beyond loopback (reachable from other
+// hosts). An empty Host means "all interfaces" (the Docker default) and is
+// therefore exposed; an unparseable/DNS host is treated as exposed (fail-safe).
+// Drives the F21.7 fail-loud warning when the admin surface has no token.
+func (c Config) ExposedBind() bool {
+	switch c.Host {
+	case "localhost":
+		return false
+	case "":
+		return true
+	}
+	if ip := net.ParseIP(c.Host); ip != nil {
+		return !ip.IsLoopback()
+	}
+	return true
 }
 
 // derive fills computed defaults that depend on other fields.
