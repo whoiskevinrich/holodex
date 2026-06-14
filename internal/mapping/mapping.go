@@ -1,0 +1,204 @@
+// Package mapping implements configurable metadata field mapping (F20, ADR-013):
+// it maps one or more raw container tag keys to a single canonical Holodex field
+// with a display label, honoring source precedence and optional multi-value
+// splitting. Because the scanner already captures every raw tag at index time
+// (F2.9), enabling or changing a mapping is pure re-interpretation — no re-scan.
+package mapping
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"sync/atomic"
+
+	"gopkg.in/yaml.v3"
+
+	"holodex/internal/model"
+)
+
+// Field is one canonical field built from a precedence-ordered list of source
+// tag keys.
+type Field struct {
+	Canonical  string   `yaml:"canonical"`
+	Label      string   `yaml:"label"`
+	Sources    []string `yaml:"sources"` // order = precedence; first present wins
+	Filterable bool     `yaml:"filterable"`
+	Multi      bool     `yaml:"multi"` // split/aggregate multiple values
+}
+
+type fileConfig struct {
+	Fields []Field `yaml:"fields"`
+}
+
+// Mappings is an immutable, parsed mapping configuration (swapped atomically on
+// reload, never mutated in place).
+type Mappings struct {
+	fields []Field
+}
+
+// Empty is the no-mappings configuration (the default when no file is present).
+func Empty() *Mappings { return &Mappings{} }
+
+func parse(data []byte) (*Mappings, error) {
+	var fc fileConfig
+	if err := yaml.Unmarshal(data, &fc); err != nil {
+		return nil, fmt.Errorf("parse metadata mappings: %w", err)
+	}
+	m := &Mappings{}
+	for _, f := range fc.Fields {
+		f.Canonical = strings.TrimSpace(f.Canonical)
+		if f.Canonical == "" || len(f.Sources) == 0 {
+			continue // skip malformed entries rather than failing the whole load
+		}
+		if f.Label == "" {
+			f.Label = f.Canonical
+		}
+		m.fields = append(m.fields, f)
+	}
+	return m, nil
+}
+
+// Load reads mappings from path. A missing file yields Empty (mappings are
+// optional), not an error.
+func Load(path string) (*Mappings, error) {
+	if path == "" {
+		return Empty(), nil
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return Empty(), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read metadata mappings %s: %w", path, err)
+	}
+	return parse(data)
+}
+
+// Fields returns all configured fields in declaration order.
+func (m *Mappings) Fields() []Field { return m.fields }
+
+// Filterable returns the subset of fields marked filterable (facet candidates).
+func (m *Mappings) Filterable() []Field {
+	out := make([]Field, 0, len(m.fields))
+	for _, f := range m.fields {
+		if f.Filterable {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// ByCanonical resolves a field by its canonical name (case-insensitive). Field
+// counts are tiny (tens), so a linear scan beats a parallel index to maintain.
+func (m *Mappings) ByCanonical(canonical string) (Field, bool) {
+	canonical = strings.ToLower(strings.TrimSpace(canonical))
+	for _, f := range m.fields {
+		if strings.ToLower(f.Canonical) == canonical {
+			return f, true
+		}
+	}
+	return Field{}, false
+}
+
+// Resolved is a canonical field with the value(s) found for one video.
+type Resolved struct {
+	Canonical string   `json:"canonical"`
+	Label     string   `json:"label"`
+	Values    []string `json:"values"`
+}
+
+// Resolve interprets a video's raw metadata through the mappings: for each field,
+// the first source key present (precedence) supplies the value; multi fields
+// split/aggregate that source's values, single-valued fields take the first.
+func (m *Mappings) Resolve(extra []model.ExtraMetadata) []Resolved {
+	bySource := make(map[string][]string, len(extra))
+	for _, e := range extra {
+		k := strings.ToLower(strings.TrimSpace(e.SourceKey))
+		bySource[k] = append(bySource[k], e.Value)
+	}
+
+	out := make([]Resolved, 0, len(m.fields))
+	for _, f := range m.fields {
+		var values []string
+		for _, src := range f.Sources {
+			vals := bySource[strings.ToLower(strings.TrimSpace(src))]
+			if len(vals) == 0 {
+				continue
+			}
+			if f.Multi {
+				for _, v := range vals {
+					values = append(values, splitMulti(v)...)
+				}
+			} else {
+				values = []string{strings.TrimSpace(vals[0])}
+			}
+			break // precedence: first present source wins
+		}
+		if values = dedupe(values); len(values) > 0 {
+			out = append(out, Resolved{Canonical: f.Canonical, Label: f.Label, Values: values})
+		}
+	}
+	return out
+}
+
+// splitMulti splits a multi-valued tag on common separators and trims each.
+func splitMulti(s string) []string {
+	fields := strings.FieldsFunc(s, func(r rune) bool {
+		return r == ',' || r == ';' || r == '/' || r == '\n'
+	})
+	out := make([]string, 0, len(fields))
+	for _, f := range fields {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+func dedupe(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := in[:0]
+	for _, v := range in {
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+// Store holds the current Mappings behind an atomic pointer so reads are
+// lock-free and reload (POST /admin/reload-config, F20.10) swaps atomically.
+type Store struct {
+	path string
+	cur  atomic.Pointer[Mappings]
+}
+
+// NewStore loads the initial mappings from path (missing file is fine).
+func NewStore(path string) (*Store, error) {
+	s := &Store{path: path}
+	m, err := Load(path)
+	if err != nil {
+		return nil, err
+	}
+	s.cur.Store(m)
+	return s, nil
+}
+
+// Current returns the live mappings; callers treat the result as immutable.
+func (s *Store) Current() *Mappings { return s.cur.Load() }
+
+// Reload re-reads the config file and swaps it in atomically (F20.10).
+func (s *Store) Reload() error {
+	m, err := Load(s.path)
+	if err != nil {
+		return err
+	}
+	s.cur.Store(m)
+	return nil
+}

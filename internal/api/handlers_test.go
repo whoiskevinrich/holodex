@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"holodex/internal/api"
+	"holodex/internal/cache"
 	"holodex/internal/db"
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -30,10 +32,18 @@ func newServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"))))
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil), nil))
 	t.Cleanup(srv.Close)
 	return srv, r, dir
 }
+
+// fakeRescanner records TriggerRescan calls for the admin-rescan handler test.
+type fakeRescanner struct {
+	calls   int
+	started bool
+}
+
+func (f *fakeRescanner) TriggerRescan() bool { f.calls++; return f.started }
 
 func seedVideo(t *testing.T, r *repo.Repo, path, title string) int64 {
 	t.Helper()
@@ -130,6 +140,127 @@ func TestStreamRange(t *testing.T) {
 	got, _ := io.ReadAll(resp.Body)
 	if string(got) != "0123" {
 		t.Errorf("range body = %q, want %q", got, "0123")
+	}
+}
+
+func TestAdminRescan(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fake := &fakeRescanner{started: true}
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), fake, nil), nil))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Post(srv.URL+"/api/v1/admin/rescan", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST rescan: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("rescan status = %d, want 202", resp.StatusCode)
+	}
+	var body map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	if body["started"] != true {
+		t.Errorf("started = %v, want true", body["started"])
+	}
+	if fake.calls != 1 {
+		t.Errorf("TriggerRescan calls = %d, want 1", fake.calls)
+	}
+}
+
+// Without a wired scanner (health-only mode), rescan reports 503 rather than
+// pretending to have queued work.
+func TestAdminRescanUnavailable(t *testing.T) {
+	srv, _, _ := newServer(t)
+	resp, err := http.Post(srv.URL+"/api/v1/admin/rescan", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST rescan: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("rescan without scanner = %d, want 503", resp.StatusCode)
+	}
+}
+
+func TestMetadataFields(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	id, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: "/m/a.mkv", FileSize: 1, Title: "Studio Film",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, []model.ExtraMetadata{{SourceKey: "Publisher", Value: "Acme"}})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	mpath := filepath.Join(dir, "metadata-mappings.yaml")
+	if err := os.WriteFile(mpath, []byte("fields:\n  - canonical: studio\n    label: Studio\n    sources: [Publisher, Label]\n    filterable: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := mapping.NewStore(mpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetMetadataFields(store, cache.Noop{})
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	// Facets: one filterable field with value "Acme".
+	code, body := getJSON(t, srv.URL+"/api/v1/facets")
+	facets, _ := body["facets"].([]any)
+	if code != 200 || len(facets) != 1 {
+		t.Fatalf("facets: code=%d body=%v", code, body)
+	}
+	f0 := facets[0].(map[string]any)
+	vals := f0["values"].([]any)
+	if f0["canonical"] != "studio" || len(vals) != 1 || vals[0].(map[string]any)["value"] != "Acme" {
+		t.Errorf("facet = %v", f0)
+	}
+
+	// Mapped filter ?studio=Acme matches; a miss is empty.
+	if _, b := getJSON(t, srv.URL+"/api/v1/media?studio=Acme"); b["total"].(float64) != 1 {
+		t.Errorf("studio=Acme total = %v", b["total"])
+	}
+	if _, b := getJSON(t, srv.URL+"/api/v1/media?studio=Nope"); b["total"].(float64) != 0 {
+		t.Errorf("studio=Nope total = %v", b["total"])
+	}
+
+	// Detail includes resolved fields.
+	_, body = getJSON(t, srv.URL+"/api/v1/media/"+itoa(id))
+	fields, _ := body["fields"].([]any)
+	if len(fields) != 1 || fields[0].(map[string]any)["label"] != "Studio" {
+		t.Errorf("detail fields = %v", body["fields"])
+	}
+
+	// Metadata keys flag the mapped Publisher key.
+	_, body = getJSON(t, srv.URL+"/api/v1/metadata-keys")
+	keys, _ := body["keys"].([]any)
+	if len(keys) < 1 || keys[0].(map[string]any)["source_key"] != "Publisher" || keys[0].(map[string]any)["mapped"] != true {
+		t.Errorf("metadata-keys = %v", body["keys"])
+	}
+
+	// Reload endpoint succeeds.
+	resp, err := http.Post(srv.URL+"/api/v1/admin/reload-config", "application/json", nil)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("reload code = %d", resp.StatusCode)
 	}
 }
 

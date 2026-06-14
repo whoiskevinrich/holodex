@@ -54,6 +54,7 @@ The UI is built on semantic design tokens with three switchable skins (see
 
 ## Task tracking
 
+- **Track tasks in the main worktree's `TASKS.md`** (the primary checkout's copy, shared across all worktrees) — never a per-worktree file — so task state stays aligned everywhere.
 - When you note a **TODO**, or **defer** an item (a stub, a "later", a "Phase 2", a known gap), run **`/productivity:update`** to capture it so it isn't lost in a code comment.
 - Keep deferred work visible in the task list, not only inline in the source.
 

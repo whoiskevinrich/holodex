@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import type { ExtraMetadata, Video } from '$lib/types';
-	import { formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import type { ExtraMetadata, MappedField, Video } from '$lib/types';
+	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
+	let fields = $state<MappedField[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 	let playFailed = $state(false);
@@ -40,6 +41,7 @@
 			.then((res) => {
 				video = res.video;
 				extra = res.metadata ?? [];
+				fields = res.fields ?? [];
 			})
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
@@ -138,9 +140,31 @@
 			</section>
 		{/if}
 
+		{#if fields.length}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
+					{#each fields as f (f.canonical)}
+						<div>
+							<dt class="inline text-muted">{f.label}:</dt>
+							<dd class="inline">{f.values.join(', ')}</dd>
+						</div>
+					{/each}
+				</dl>
+			</section>
+		{/if}
+
 		<section class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 			<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
-			<div class="truncate" title={video.file_path}><span class="text-muted">Path:</span> {video.file_path}</div>
+			{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
+			{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
+			{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
+			{#if video.bitrate_kbps}
+				<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
+			{/if}
+			<div class="truncate sm:col-span-2" title={video.file_path}>
+				<span class="text-muted">Path:</span> {video.file_path}
+			</div>
 		</section>
 
 		{#if extra.length}

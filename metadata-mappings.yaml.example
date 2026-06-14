@@ -1,0 +1,34 @@
+# Holodex configurable metadata field mapping (F20, ADR-013).
+#
+# Copy to metadata-mappings.yaml (next to holodex.yaml, or set
+# METADATA_MAPPINGS_PATH) to surface extra container tags under your own labels.
+# All raw tags are already captured at index time, so adding or changing a
+# mapping needs no re-scan — POST /api/v1/admin/reload-config (or restart) and
+# the new fields appear. Use the "Metadata keys" view (/keys) to discover which
+# raw source keys your files actually carry.
+#
+# Each field maps one or more raw source keys to a single canonical field:
+#   canonical   internal id + default label + query-param name
+#   label       display label on the detail page
+#   sources     raw tag keys in PRECEDENCE order (first present wins); matched
+#               case-insensitively
+#   filterable  when true, becomes a browse facet + a ?<canonical>= query param
+#               (web) / a search_videos `fields` entry (MCP)
+#   multi       when true, splits/aggregates multi-valued tags (e.g. directors)
+
+fields:
+  - canonical: studio
+    label: Studio
+    sources: [Publisher, Label, Studio, ProductionCompany]
+    filterable: true
+
+  - canonical: collection
+    label: Collection
+    sources: [Album, Collection]
+    filterable: true
+
+  - canonical: director
+    label: Director
+    sources: [Director]
+    filterable: true
+    multi: true

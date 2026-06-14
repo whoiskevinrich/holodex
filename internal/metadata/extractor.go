@@ -26,6 +26,10 @@ type Extracted struct {
 	DurationSec int
 	Width       int
 	Height      int
+	VideoCodec  string
+	AudioCodec  string
+	BitrateKbps int
+	Container   string
 	RecordedAt  *time.Time
 	Extra       []model.ExtraMetadata
 	// HasCoverArt reports that the container carries an embedded cover image, so
@@ -73,13 +77,15 @@ func (e *Extractor) Extract(ctx context.Context, path string) (Extracted, error)
 	ex := mapExiftool(exifRaw)
 
 	if probe, err := e.runFfprobe(ctx, path); err == nil {
-		w, h, dur := mapFfprobe(probe)
-		if w > 0 {
-			ex.Width, ex.Height = w, h
+		p := mapFfprobe(probe)
+		if p.width > 0 {
+			ex.Width, ex.Height = p.width, p.height
 		}
-		if dur > 0 {
-			ex.DurationSec = dur
+		if p.durationSec > 0 {
+			ex.DurationSec = p.durationSec
 		}
+		ex.VideoCodec, ex.AudioCodec = p.videoCodec, p.audioCodec
+		ex.BitrateKbps, ex.Container = p.bitrateKbps, p.container
 	}
 	return ex, nil
 }
@@ -103,11 +109,14 @@ func (e *Extractor) runExiftool(ctx context.Context, path string) (map[string]an
 type ffprobeOut struct {
 	Streams []struct {
 		CodecType string `json:"codec_type"`
+		CodecName string `json:"codec_name"`
 		Width     int    `json:"width"`
 		Height    int    `json:"height"`
 	} `json:"streams"`
 	Format struct {
-		Duration string `json:"duration"`
+		Duration   string `json:"duration"`
+		BitRate    string `json:"bit_rate"`
+		FormatName string `json:"format_name"`
 	} `json:"format"`
 }
 
@@ -125,17 +134,59 @@ func (e *Extractor) runFfprobe(ctx context.Context, path string) (ffprobeOut, er
 	return out, nil
 }
 
-func mapFfprobe(p ffprobeOut) (width, height, durationSec int) {
+// probeResult is the subset of ffprobe data Holodex stores (dimensions,
+// duration, codecs, bitrate, container).
+type probeResult struct {
+	width, height, durationSec, bitrateKbps int
+	videoCodec, audioCodec, container       string
+}
+
+func mapFfprobe(p ffprobeOut) probeResult {
+	var r probeResult
 	for _, s := range p.Streams {
-		if s.CodecType == "video" && s.Width > 0 {
-			width, height = s.Width, s.Height
-			break
+		switch s.CodecType {
+		case "video":
+			if r.videoCodec == "" {
+				r.videoCodec = s.CodecName
+			}
+			if r.width == 0 && s.Width > 0 {
+				r.width, r.height = s.Width, s.Height
+			}
+		case "audio":
+			if r.audioCodec == "" {
+				r.audioCodec = s.CodecName
+			}
 		}
 	}
 	if f, err := strconv.ParseFloat(strings.TrimSpace(p.Format.Duration), 64); err == nil {
-		durationSec = int(f + 0.5)
+		r.durationSec = int(f + 0.5)
 	}
-	return width, height, durationSec
+	if b, err := strconv.ParseInt(strings.TrimSpace(p.Format.BitRate), 10, 64); err == nil {
+		r.bitrateKbps = int(b / 1000)
+	}
+	r.container = normalizeContainer(p.Format.FormatName)
+	return r
+}
+
+// normalizeContainer turns ffprobe's comma-joined format_name (e.g.
+// "mov,mp4,m4a,3gp,3g2,mj2" or "matroska,webm") into one friendly label.
+func normalizeContainer(formatName string) string {
+	f := strings.ToLower(strings.TrimSpace(formatName))
+	switch {
+	case strings.Contains(f, "matroska"):
+		return "Matroska"
+	case strings.Contains(f, "webm"):
+		return "WebM"
+	case strings.Contains(f, "mp4"):
+		return "MP4"
+	default:
+		// "" and single-token names fall through unchanged; comma-joined lists
+		// (none of the above) keep their first element.
+		if i := strings.IndexByte(f, ','); i > 0 {
+			return f[:i]
+		}
+		return f
+	}
 }
 
 // Field-key classification (case-insensitive). exiftool surfaces MP4 atoms and
