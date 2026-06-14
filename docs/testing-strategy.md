@@ -135,6 +135,8 @@ assert.JSONEq(t, string(want), string(got))
 | **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
+| **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
+| **Owner gating seam** (ADR-030, F21.7) | Unit + Integration | Open (no token) vs gated (token set) on every owner route; **constant-time** token compare; **fail-loud** on non-loopback bind + no token; **CSRF** rejection of cross-site admin POST; frontend capability-flag toggle hides controls | ~95% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -143,6 +145,8 @@ assert.JSONEq(t, string(want), string(got))
 - **Resolution tolerance**: 3456→4K+, 3455→FHD; exact boundary behavior is pinned.
 - **Mapping precedence**: file with both `Publisher` and `Studio` resolves per `sources` list order.
 - **Migration safety**: user-authored Phase 3 data (aliases, enrichment) survives an up-migration.
+- **Activity leaks no secrets**: `/admin/activity` and `/admin/activity/history` never serialize a filesystem path, env value, or token (incl. `job_runs.error_message`).
+- **Gate is real and loud**: an owner-only route is unreachable without the token when `ADMIN_TOKEN` is set; when unset on a non-loopback bind, the server warns and flags it (never a silent open control surface).
 
 ---
 
@@ -237,6 +241,11 @@ Conventions:
 - Sort, keyboard nav, responsive, Prometheus `/metrics` shape.
 - E2E flows 8–10.
 
+### System Activity "Under the Hood" (F21) — post–Phase 2
+- **Activity read-model** (ADR-028): scanner `Status()` states/triggers + last-run counts; `job_runs` insert + 30-day prune + restart survival; library-count caching; no-secrets invariant (incl. history `error_message`).
+- **Owner gating seam** (ADR-030): open-vs-gated across all owner routes; constant-time compare; fail-loud on non-loopback + no token; CSRF rejection of cross-site admin POST; frontend capability-flag toggle.
+- **Activity page + header indicator**: polled refresh reflects state within one interval; loading/empty/error states; **all 3 skins** (tokens-only, per CLAUDE.md). SSE (F21.8) tests land with ADR-029.
+
 ### Phase 3 — enrichment (mock externals)
 - People/tag aliases resolve in search/filter; tag-graph DAG traversal (incl. cycle handling).
 - **Metadata plugins** with **mocked** IMDB/TMDB HTTP (record/replay); never hit live APIs in CI.
@@ -300,6 +309,55 @@ Given mapping studio.sources = [Publisher, Studio]
   And a file with Publisher="A" and Studio="B"
 When the Studio field resolves
 Then value == "A" (first source in precedence order)
+```
+
+**Owner gate — open vs. gated (ADR-030, F21.7)**
+```
+Given ADMIN_TOKEN is set
+When GET /api/v1/admin/activity is requested WITHOUT the token
+Then status 401
+ And the same request WITH the correct token → 200
+When ADMIN_TOKEN is unset (single-user pass-through)
+Then the request → 200
+```
+
+**Fail-loud default-open (F21.7 condition 1)**
+```
+Given ADMIN_TOKEN is empty
+When the server binds a non-loopback HOST
+Then a warn/error is logged at startup
+ And GET /admin/activity → system.controls_unauthenticated == true
+When instead bound to loopback, or ADMIN_TOKEN is set
+Then no such warning is logged
+ And system.controls_unauthenticated == false
+```
+
+**Constant-time token comparison + cookie attributes (F21.7 condition 2)**
+```
+Given the gate compares a presented token to ADMIN_TOKEN
+When the comparison runs
+Then it uses crypto/subtle.ConstantTimeCompare (never ==)
+ And IF owner identity is carried by a cookie
+Then that cookie is HttpOnly + Secure + SameSite=Lax|Strict
+ And the raw token is never written to localStorage
+```
+
+**CSRF on state-changing controls (F21.7 condition 3)**
+```
+Given the owner is authenticated
+When a cross-site form issues POST /api/v1/admin/rescan
+     without the required request header / CSRF token
+Then the request is rejected (no scan is triggered)
+ And the same applies to POST /admin/reload-config and the regenerate-thumbnail route
+```
+
+**Activity read-model — no secrets (ADR-028, F21.1/F21.3)**
+```
+Given a library with an extraction failure whose error text contains an absolute path
+When GET /api/v1/admin/activity and GET /api/v1/admin/activity/history are read
+Then no response field contains a filesystem path, env value, or token
+     (including job_runs.error_message)
+ And system.media_path_present is a boolean, not the path
 ```
 
 ---

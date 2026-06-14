@@ -31,11 +31,16 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [025](ADR-025-tailwind-v4-css-first.md) | Tailwind v4 — **CSS-first config** (`@theme inline`) + Vite plugin | Accepted (supersedes ADR-021 §2 mechanism) |
 | [026](ADR-026-metrics-exposition.md) | Prometheus metrics — **hand-rolled exposition, no client_golang** | Accepted (extends ADR-019) |
 | [027](ADR-027-dotenv-local-config.md) | Local **`.env` loading** for dev config | Accepted (extends ADR-014) |
+| [028](ADR-028-activity-surface-and-job-history.md) | User-facing **activity surface** & **job-history** persistence | Proposed (extends ADR-019; spec F21) |
+| [030](ADR-030-access-control-gating-seam.md) | Access-control / **"Pro mode" gating seam** for owner-only surfaces | Proposed (spec F21; P0 gate) |
+
+> **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
 ## Phase specs
 - [Phase 1 — MVP](../specs/phase-1-mvp.md)
 - [Phase 2 — MCP + Polish](../specs/phase-2-mcp-polish.md)
 - [Phase 3 — Enrichment](../specs/phase-3-enrichment.md)
+- [System Activity — "Under the Hood" (F21)](../specs/system-activity.md)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing
