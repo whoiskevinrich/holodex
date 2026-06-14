@@ -247,7 +247,7 @@ This is a personal, self-hosted tool, so metrics are framed as owner-experience 
 
 ## Open Questions
 
-1. **Route & placement** *(design)* — Is the page `/status`, `/admin`, or a settings sub-route? And is the header indicator an icon, a text pill, or an animation on an existing element? → resolve in `/design-handoff`.
+1. ~~**Route & placement**~~ — **Resolved** in the [design handoff](../design/system-activity-handoff.md): page at **`/status`** (nav label "Status", peer of `/keys`); header indicator is a **compact pill** in the nav (left of the skin switcher) shown **only while work is active**, with a pulsing accent dot.
 2. ~~**`admin/status` compatibility**~~ — **Resolved**: add a new `GET /api/v1/admin/activity` for the full read-model and leave `GET /api/v1/admin/status` as the minimal legacy shape (F21.1). *(Engineering still confirms nothing else consumes the old shape — tests/MCP/dashboards — but the direction is set.)*
 3. **Library counts cost** *(engineering)* — Are `COUNT(*)` over videos/people/tags cheap enough to compute per poll at personal scale, or should they be cached with a short TTL (ristretto/Noop seam, ADR-008/ADR-022)?
 4. **`next_scheduled_at` accuracy** *(engineering)* — The periodic ticker doesn't currently expose its next fire time; is a best-effort estimate (last tick + interval) acceptable, or do we track the deadline explicitly?
@@ -261,4 +261,5 @@ This is a personal, self-hosted tool, so metrics are framed as owner-experience 
 
 - Builds on: [phase-2-mcp-polish.md](phase-2-mcp-polish.md) F11 (thumbnails), F13 (observability/admin), F20 (mapping reload).
 - ADRs: [ADR-019](../architecture/ADR-019-observability-conventions.md) (observability conventions, extended by ADR-028), [ADR-016](../architecture/ADR-016-database-migrations.md) (migrations), [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) (theming/skins), [ADR-008](../architecture/ADR-008-caching.md)/[ADR-022](../architecture/ADR-022-defer-in-process-cache.md) (caching seam).
+- Design: [system-activity-handoff.md](../design/system-activity-handoff.md) — `/status` page + header indicator, component breakdown, states, three-skin QA.
 - Forward link: Phase 3 jobs ([phase-3-enrichment.md](phase-3-enrichment.md) F16–F18) plug into `job_runs.kind` (F21.10).
