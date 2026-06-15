@@ -59,7 +59,7 @@
 - [x] 3.9 Activate a row (Enter/click) → `aria-selected`; Enter confirms.
 - [x] 3.10 Confirm → `POST /enrich`, **dialog closes, fields populate** in the `<dl>` (F22.5c). ⚠ the handoff's success **toast** isn't shown (fields-populate is the only feedback). *(gap — TASKS.)*
 - [x] 3.11 **Provenance badges** "from {provider}" on each resolved field (F22.7).
-- [ ] 3.12 ⚠ Enrich run should appear in **`/status` history as `kind=enrich`** (F22.6b) — **not recorded** (`Service.Enrich` never writes a `JobRun`). *(functional gap — TASKS.)*
+- [x] 3.12 Enrich run appears in **`/status` → Recent jobs as `kind=enrich`** with a "provider → entity (N fields)" detail (F22.6b). *(Implemented + smoke-tested `TestServiceEnrichRecordsJobRun`. To see it live: restart the backend so migration 0006 applies, then enrich a person.)*
 - [ ] 3.13 ~ **Re-enrich skips the picker** (F22.4b) — the re-enrich-without-picker shortcut UI **isn't implemented** (deferred); Enrich always opens the picker.
 - [x] 3.14 **Clear-provider** → the provider's rows are removed and fields fall back to the next source (F22.7b).
 
