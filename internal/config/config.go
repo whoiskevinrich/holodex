@@ -61,6 +61,10 @@ type Config struct {
 	// Metadata field mapping (Phase 2, ADR-013). Path to metadata-mappings.yaml;
 	// a missing file simply means no configurable fields.
 	MetadataMappingsPath string `yaml:"metadata_mappings_path"`
+
+	// Metadata source plugins (Phase 3, F22, ADR-033). Path to metadata-sources.yaml
+	// declaring the sidecar providers; a missing file simply means no providers.
+	MetadataSourcesPath string `yaml:"metadata_sources_path"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -87,6 +91,7 @@ func Defaults() Config {
 		MCPTransport:         "http",
 		MCPPort:              7801,
 		MetadataMappingsPath: "./metadata-mappings.yaml",
+		MetadataSourcesPath:  "./metadata-sources.yaml",
 	}
 }
 
@@ -209,6 +214,7 @@ func applyEnv(c *Config) {
 	c.MCPPort = envInt("MCP_PORT", c.MCPPort)
 
 	c.MetadataMappingsPath = envStr("METADATA_MAPPINGS_PATH", c.MetadataMappingsPath)
+	c.MetadataSourcesPath = envStr("METADATA_SOURCES_PATH", c.MetadataSourcesPath)
 }
 
 // loadDotenv reads simple KEY=VALUE lines from path into the process environment

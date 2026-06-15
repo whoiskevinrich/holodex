@@ -56,3 +56,10 @@ thumbnail_width: 400        # THUMBNAIL_WIDTH
 # separate file (copy metadata-mappings.yaml.example -> metadata-mappings.yaml);
 # this is the path to it. A missing file simply means no configurable fields.
 metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH
+
+# --- Metadata source plugins (Phase 3, F22, ADR-033) ---
+# Sidecar providers (IMDB/TMDB, …) that enrich People (v1) with external data.
+# Declared in a separate file (copy metadata-sources.yaml.example ->
+# metadata-sources.yaml); a missing file means no providers. Enrichment is
+# owner-gated and on-demand; core holds no upstream API keys (each provider does).
+metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH

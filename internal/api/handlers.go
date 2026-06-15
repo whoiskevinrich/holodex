@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/cache"
+	"holodex/internal/enrich"
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -57,8 +58,9 @@ type Handlers struct {
 	thumbDir string
 	scanner  rescanner
 	metrics  searchMetrics
-	mappings *mapping.Store // configurable metadata fields (F20); nil disables them
-	cache    cache.Cache    // facet-value cache (F20.8); nil disables caching
+	mappings *mapping.Store  // configurable metadata fields (F20); nil disables them
+	cache    cache.Cache     // facet-value cache (F20.8); nil disables caching
+	enrich   *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -89,6 +91,11 @@ func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
 	h.mappings = store
 	h.cache = c
 }
+
+// SetEnrichment wires the metadata source plugin service (F22, ADR-033). A nil
+// service disables the enrichment endpoints and the person-page enriched fields.
+// Called once at startup before serving.
+func (h *Handlers) SetEnrichment(svc *enrich.Service) { h.enrich = svc }
 
 // SetActivity wires the read-only activity surface (F21.1, ADR-028): the scanner
 // status source, the health state, the build version, the process start time
@@ -145,6 +152,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Get("/admin/activity/history", h.adminActivityHistory)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
+		// Metadata source plugins — People enrichment (F22, ADR-033).
+		h.mountEnrich(r)
 	})
 }
 
@@ -353,6 +362,14 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "reload config", err)
 		return
 	}
+	// Reload the provider registry alongside the mappings (F22.2d) so both config
+	// files take effect without a restart.
+	if h.enrich != nil {
+		if err := h.enrich.Store().Reload(); err != nil {
+			h.fail(w, "reload sources", err)
+			return
+		}
+	}
 	if h.cache != nil {
 		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)
 	}
@@ -450,12 +467,8 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := h.repo.GetPerson(r.Context(), id)
-	if errors.Is(err, repo.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "person not found")
-		return
-	}
 	if err != nil {
-		h.fail(w, "get person", err)
+		h.personLookupError(w, err)
 		return
 	}
 	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{PersonIDs: []int64{id}, Limit: 500})
@@ -463,7 +476,10 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "person videos", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"person": p, "items": items, "total": total})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"person": p, "items": items, "total": total,
+		"enriched": h.personEnrichment(r, id), // F22.5/F22.7: plugin fields w/ provenance
+	})
 }
 
 func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {

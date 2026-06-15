@@ -22,6 +22,7 @@ import (
 	"holodex/internal/cache"
 	"holodex/internal/config"
 	"holodex/internal/db"
+	"holodex/internal/enrich"
 	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
@@ -192,9 +193,19 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("pruned old job history", "removed", n)
 	}
 
+	// Metadata source plugins (F22, ADR-033): a registry of sidecar providers; the
+	// service is the only thing that dials them, and only on an owner action.
+	sources, err := enrich.NewStore(cfg.MetadataSourcesPath)
+	if err != nil {
+		return fmt.Errorf("load metadata sources: %w", err)
+	}
+	enrichSvc := enrich.NewService(sources, repository, log)
+	log.Info("metadata source providers loaded", "path", cfg.MetadataSourcesPath, "enabled", len(sources.Current().Enabled()))
+
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
+	handlers.SetEnrichment(enrichSvc)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
 	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user

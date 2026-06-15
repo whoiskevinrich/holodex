@@ -1,0 +1,13 @@
+# Holodex metadata source providers (F22, ADR-033)
+# Copy to metadata-sources.yaml (path via METADATA_SOURCES_PATH). A missing file
+# simply means no providers — enrichment is then unavailable.
+#
+# Each provider is a SIDECAR container speaking the small HTTP contract
+# (/describe, /resolve, /enrich, /healthz). Core only ever dials a base_url listed
+# here (the SSRF allowlist) and holds NO upstream API keys — each provider owns
+# its own key in its own container env. Enrichment is owner-gated and on-demand.
+sources:
+  - name: tmdb
+    base_url: http://holodex-tmdb:9100   # compose service name on the internal network
+    entity_types: [person]               # v1 enriches People; series/video later
+    enabled: false                       # flip to true once the sidecar is running

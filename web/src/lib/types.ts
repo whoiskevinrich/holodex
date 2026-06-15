@@ -158,6 +158,43 @@ export interface Capabilities {
 	auth_required: boolean;
 }
 
+// Metadata source plugins — People enrichment (F22, ADR-033).
+
+// EnrichSource is one configured provider the owner can enrich from (no base_url
+// or secrets — F22.9d).
+export interface EnrichSource {
+	name: string;
+	entity_types: string[];
+}
+
+// EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence
+// is advisory — the owner always confirms (no silent auto-apply).
+export interface EnrichCandidate {
+	external_id: string;
+	namespace: string;
+	label: string;
+	confidence: number;
+	disambiguation?: string;
+}
+
+// EnrichedField is a resolved field with provenance (F22.7). Provider is the
+// source name ("from <provider>"); an empty Provider would denote a file value.
+export interface EnrichedField {
+	canonical: string;
+	label: string;
+	values: string[];
+	provider: string;
+	external_id?: string;
+	fetched_at?: string;
+}
+
+export interface PersonDetailResponse {
+	person: Person;
+	items: Video[];
+	total: number;
+	enriched?: EnrichedField[] | null;
+}
+
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
