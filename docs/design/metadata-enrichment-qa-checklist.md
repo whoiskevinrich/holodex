@@ -10,8 +10,15 @@
 
 ## 1. Setup / preconditions
 
-- [ ] Provider config: a `metadata-sources.yaml` exists with the **in-process fake provider** enabled (`name: fake` or `name: tmdb`, `enabled: true`, `entity_types: [person]`), pointed at the httptest/stub `base_url` (F22.10a/b). No network or real API keys are required.
-- [ ] Core boots clean: `/status` lists the fake provider as **ok** with a version (F22.1a, F22.8a); no provider-protocol error in logs (F22.1e).
+**Provider config file — `metadata-sources.yaml`**
+
+- [ ] **Create it from the committed template**: copy `metadata-sources.yaml.example` → `metadata-sources.yaml` (PowerShell: `Copy-Item metadata-sources.yaml.example metadata-sources.yaml`). The real file is **gitignored**, like `holodex.yaml` and `metadata-mappings.yaml` — never commit it.
+- [ ] **Place it where the server resolves the path** (config precedence is CLI > env > yaml > default, ADR-014):
+  - **Default** — `./metadata-sources.yaml`, i.e. in the **server process's current working directory**: the **repo root** in local dev (`go run ./cmd/holodex`, or the launch.json preview), and the **container WORKDIR** in Docker.
+  - **Override the location** — set `METADATA_SOURCES_PATH=/abs/path/to/metadata-sources.yaml` (env, or in a local `.env`), or `metadata_sources_path: "..."` in `holodex.yaml`. In Docker, **mount** the file at whatever path you point this to (same pattern as `metadata-mappings.yaml`).
+  - A **missing** file is not an error — it just means "no providers" and the Enrich button won't appear. Confirm the path actually resolved by checking the startup log line `metadata source providers loaded ... enabled=N` (N ≥ 1).
+- [ ] **Enable one provider entry** with `name:` (e.g. `fake` or `tmdb`), `enabled: true`, `entity_types: [person]`, and `base_url:` pointing at a **running** provider reachable from the server that speaks the contract (`/describe` `/resolve` `/enrich` `/healthz`). Note: the in-process `enrich.Fake` is **test-only** (Go unit tests); for manual QA run a small **stub HTTP server** (or the real sidecar) at that `base_url` — e.g. `base_url: http://127.0.0.1:9100`. No network or real API keys are needed for a stub (F22.10a/b).
+- [ ] Core boots clean: `/status` lists the provider as **ok** with a version (F22.1a, F22.8a); no provider-protocol error in logs (F22.1e).
 - [ ] Pick **one Person record** to test that the fake returns a confident match for (e.g. a person named to hit the fake's "Hayao Miyazaki" → `tmdb:608` fixture). Note its `/people/[id]` URL.
 - [ ] Pick **one Person** the fake returns **no match** for (ambiguous/empty), for the no-results path (§3).
 - [ ] Exercise **both token states**, in separate passes:
@@ -66,8 +73,8 @@
 - [ ] **Empty**: pre-search / cleared input shows help text; no spurious call.
 - [ ] **Error — provider unreachable**: stop the fake (or point `base_url` at a dead host), search → picker shows an inline **`border-warn`** message "{provider} is unavailable right now." — a single failure, not a page break (F22.2c, F22.9b, handoff edge case). The page and other providers keep working.
 - [ ] **CJK aliases** (e.g. 宮崎駿): provider-supplied CJK aliases render in the `<dl>` and alias chips **without tofu** (boxes); verify in body `font-ui` (handoff edge case — re-check per skin in §5).
-- [ ] **Photo asset — success**: `assets.photo` downloads (core-side, not provider-redirected), stored under the data dir, shown on the person card/page; `thumb-shimmer` hook shows while downloading (F22.5e).
-- [ ] **Photo asset — fallback**: with a broken/absent photo URL, the UI falls back to the existing no-photo treatment and **does not block** field display (handoff edge case).
+- [ ] **Photo asset — success** *(DEFERRED in v1 — `assets` is parsed but not fetched; skip until the person-photo slice ships)*: `assets.photo` downloads **core-side** (never via a provider redirect) and is stored at **`${DATABASE_PATH}/images/people/<person_id>.{jpg,png}`** (Phase 3 F14.3; `DATABASE_PATH` defaults to `${DATA_PATH}/holodex.db`, so the images dir sits beside the DB under `DATA_PATH`). Shown on the person card/page; `thumb-shimmer` hook shows while downloading (F22.5e).
+- [ ] **Photo asset — fallback** *(DEFERRED in v1)*: with a broken/absent photo URL, the UI falls back to the existing no-photo treatment and **does not block** field display (handoff edge case).
 - [ ] **Slow connection**: throttle to Slow 3G — all provider calls are explicit and show their loading state; nothing auto-polls (unlike activity) (handoff edge case).
 
 ---
