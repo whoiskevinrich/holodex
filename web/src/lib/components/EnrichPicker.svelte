@@ -110,11 +110,9 @@
 	}
 
 	// Keys while the search box is focused: Enter applies the active match, ↓ moves
-	// focus down into the results list.
+	// focus down into the results list. (Escape is handled by the window listener.)
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			onclose();
-		} else if (e.key === 'ArrowDown' && candidates.length) {
+		if (e.key === 'ArrowDown' && candidates.length) {
 			e.preventDefault();
 			focusOption(0);
 		} else if (e.key === 'Enter') {
@@ -136,8 +134,6 @@
 			e.preventDefault();
 			if (i === 0) input?.focus();
 			else focusOption(i - 1);
-		} else if (e.key === 'Escape') {
-			onclose();
 		}
 	}
 

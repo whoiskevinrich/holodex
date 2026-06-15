@@ -167,7 +167,7 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
 	started := time.Now()
 	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID)
-	s.recordEnrichJob(ctx, started, provider, entityType, entityID, len(fields), err)
+	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), err)
 	return fields, err
 }
 
@@ -190,11 +190,13 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 }
 
 // recordEnrichJob appends the enrich pass to the 30-day activity history (F22.6b).
-// Best effort — a recording failure is logged, never returned. The detail carries
-// provider + entity + field count only: no filesystem path, env value, or token
-// (the no-secrets invariant, ADR-028); on error the raw provider error is omitted
-// because it can include the provider base_url.
-func (s *Service) recordEnrichJob(ctx context.Context, started time.Time, provider, entityType string, entityID int64, n int, enrichErr error) {
+// Best effort — a recording failure is logged, never returned. It uses a detached
+// context (like the scanner's recordRun) so a failed/cancelled enrich — the case
+// the history most needs to capture — still records instead of no-op'ing on a
+// cancelled request context. The detail carries provider + entity + field count
+// only: no filesystem path, env value, or token (the no-secrets invariant,
+// ADR-028); on error the raw provider error is omitted (it can include base_url).
+func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, enrichErr error) {
 	now := time.Now()
 	run := model.JobRun{
 		Kind:       model.JobKindEnrich,
@@ -216,7 +218,9 @@ func (s *Service) recordEnrichJob(ctx context.Context, started time.Time, provid
 		}
 		run.Detail = fmt.Sprintf("%s → %s #%d (%d %s)", provider, entityType, entityID, n, field)
 	}
-	if err := s.repo.RecordJobRun(ctx, run); err != nil {
+	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.repo.RecordJobRun(recCtx, run); err != nil {
 		s.log.Warn("record enrich job", "err", err)
 	}
 }

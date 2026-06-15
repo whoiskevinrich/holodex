@@ -45,14 +45,15 @@
 	// owner can toggle it off. Per-browser preference; defaults on.
 	const isOwner = $derived(activity.isOwner);
 	const RECENT_KEY = 'holodex:show-recently-added';
-	let showRecent = $state(true);
+	// ssr=false (see above), so localStorage is available at init — seed the saved
+	// preference directly instead of true-then-onMount (avoids a show→hide flash).
+	let showRecent = $state(localStorage.getItem(RECENT_KEY) !== '0');
 	function toggleRecent() {
 		showRecent = !showRecent;
 		localStorage.setItem(RECENT_KEY, showRecent ? '1' : '0');
 	}
 
 	onMount(() => {
-		showRecent = localStorage.getItem(RECENT_KEY) !== '0';
 		api.listPeople('count').then((r) => (peopleOptions = r.items ?? [])).catch(() => {});
 		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
 	});

@@ -39,7 +39,9 @@
 						<td class="py-2 pr-4 text-right tabular-nums text-muted">{count(r, r.updated)}</td>
 						<td class="py-2 pr-4 text-right tabular-nums text-muted">{count(r, r.removed)}</td>
 						<td
-							class="py-2 pr-4 text-right tabular-nums {r.errors > 0 ? 'text-warn' : 'text-muted'}"
+							class="py-2 pr-4 text-right tabular-nums {r.kind === 'scan' && r.errors > 0
+								? 'text-warn'
+								: 'text-muted'}"
 							>{count(r, r.errors)}</td
 						>
 						<td class="py-2">
