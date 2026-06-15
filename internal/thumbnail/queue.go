@@ -83,3 +83,10 @@ func (q *queue) depth() int {
 	defer q.mu.Unlock()
 	return len(q.high) + len(q.normal)
 }
+
+// counts returns the per-tier pending depths (F21.1 activity surface).
+func (q *queue) counts() (high, normal int) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.high), len(q.normal)
+}

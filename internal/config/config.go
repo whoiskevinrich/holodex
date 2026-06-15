@@ -6,6 +6,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,6 +25,12 @@ type Config struct {
 	Host     string `yaml:"host"` // bind address; empty = all interfaces (Docker default)
 	Port     int    `yaml:"port"`
 	LogLevel string `yaml:"log_level"`
+
+	// AdminToken gates the owner-only admin surface (F21.7, ADR-030). Empty =
+	// open (single-user, zero-config); set = the X-Admin-Token header is required
+	// on /admin routes. Recommended whenever the server is reachable beyond
+	// loopback.
+	AdminToken string `yaml:"admin_token"`
 
 	// Scanner (ADR-011, ADR-018)
 	ScanIntervalSeconds int  `yaml:"scan_interval_seconds"`
@@ -110,6 +117,23 @@ func Load(yamlPath string) (Config, error) {
 	return cfg, nil
 }
 
+// ExposedBind reports whether Host binds beyond loopback (reachable from other
+// hosts). An empty Host means "all interfaces" (the Docker default) and is
+// therefore exposed; an unparseable/DNS host is treated as exposed (fail-safe).
+// Drives the F21.7 fail-loud warning when the admin surface has no token.
+func (c Config) ExposedBind() bool {
+	switch c.Host {
+	case "localhost":
+		return false
+	case "":
+		return true
+	}
+	if ip := net.ParseIP(c.Host); ip != nil {
+		return !ip.IsLoopback()
+	}
+	return true
+}
+
 // derive fills computed defaults that depend on other fields.
 func (c *Config) derive() {
 	if c.DatabasePath == "" {
@@ -161,6 +185,7 @@ func applyEnv(c *Config) {
 	c.Host = envStr("HOST", c.Host)
 	c.Port = envInt("PORT", c.Port)
 	c.LogLevel = envStr("LOG_LEVEL", c.LogLevel)
+	c.AdminToken = envStr("ADMIN_TOKEN", c.AdminToken)
 
 	c.ScanIntervalSeconds = envInt("SCAN_INTERVAL_SECONDS", c.ScanIntervalSeconds)
 	c.ScanWorkers = envInt("SCAN_WORKERS", c.ScanWorkers)

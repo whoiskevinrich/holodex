@@ -100,7 +100,12 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 	return mcp.New(repo.New(database), log, mappings).ServeStdio()
 }
 
+// version is the build identifier surfaced in the activity read-model (F21.1).
+// Overridable via -ldflags "-X main.version=...".
+var version = "dev"
+
 func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
+	startedAt := time.Now()
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
@@ -177,10 +182,31 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	sc.SetThumbnailer(thumbs)
 	sc.SetBaseContext(ctx)
 	sc.SetMetrics(reg)
+	sc.SetJobRecorder(repository) // persist scan history (F21.3, ADR-028)
+
+	// Trim any history past the retention window once at startup (F21.3); a
+	// long-idle instance shouldn't wait for its next scan to prune.
+	if n, err := repository.PruneJobRuns(ctx); err != nil {
+		log.Warn("prune job history failed", "err", err)
+	} else if n > 0 {
+		log.Info("pruned old job history", "removed", n)
+	}
 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
+	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
+
+	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user
+	// zero-config default; on a non-loopback bind that means the admin surface is
+	// reachable without a token — warn loudly (fail-loud condition 1).
+	auth := api.NewAuth(cfg.AdminToken)
+	exposedBind := cfg.ExposedBind()
+	if !auth.Required() && exposedBind {
+		log.Warn("admin controls are reachable WITHOUT a token on a non-loopback bind; set ADMIN_TOKEN to require authentication",
+			"host", cfg.Host)
+	}
+	handlers.SetAuth(auth, exposedBind)
 	apiHandler := api.Router(log, health, handlers, reg.Handler())
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.

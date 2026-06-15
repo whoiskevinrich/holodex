@@ -15,6 +15,7 @@ import (
 	"holodex/internal/db"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/thumbnail"
 )
 
 // stubThumbs implements the API's thumbnailer seam.
@@ -26,7 +27,10 @@ type stubThumbs struct {
 
 func (s *stubThumbs) EnqueueHigh(ids []int64) { s.enqueued = append(s.enqueued, ids...) }
 func (s *stubThumbs) QueueDepth() int         { return s.depth }
-func (s *stubThumbs) Enabled() bool           { return s.enabled }
+func (s *stubThumbs) QueueStats() thumbnail.QueueStats {
+	return thumbnail.QueueStats{Depth: s.depth, Normal: s.depth}
+}
+func (s *stubThumbs) Enabled() bool { return s.enabled }
 
 func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo, string) {
 	t.Helper()

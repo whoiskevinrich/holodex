@@ -50,3 +50,48 @@ export function toMessage(e: unknown): string {
 export function videoCount(n: number): string {
 	return `${n} video${n === 1 ? '' : 's'}`;
 }
+
+// formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").
+export function formatAgo(iso?: string | null): string {
+	if (!iso) return '';
+	const then = new Date(iso).getTime();
+	if (Number.isNaN(then)) return '';
+	const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+	if (s < 60) return `${s}s ago`;
+	const m = Math.floor(s / 60);
+	if (m < 60) return `${m}m ago`;
+	const h = Math.floor(m / 60);
+	if (h < 24) return `${h}h ago`;
+	return `${Math.floor(h / 24)}d ago`;
+}
+
+// formatUntil renders a future ISO timestamp as "in 4m" (or "due now").
+export function formatUntil(iso?: string | null): string {
+	if (!iso) return '';
+	const t = new Date(iso).getTime();
+	if (Number.isNaN(t)) return '';
+	const s = Math.round((t - Date.now()) / 1000);
+	if (s <= 0) return 'due now';
+	if (s < 60) return `in ${s}s`;
+	return `in ${Math.floor(s / 60)}m`;
+}
+
+// formatDurMs renders a millisecond duration compactly ("120ms", "8.4s", "1m 12s").
+export function formatDurMs(ms: number): string {
+	if (ms < 1000) return `${ms}ms`;
+	const s = ms / 1000;
+	if (s < 60) return `${s.toFixed(1)}s`;
+	const m = Math.floor(s / 60);
+	return `${m}m ${Math.round(s % 60)}s`;
+}
+
+// formatUptime renders a seconds uptime as "3d 4h" / "10h 2m" / "5m".
+export function formatUptime(sec?: number): string {
+	if (!sec || sec <= 0) return '—';
+	const d = Math.floor(sec / 86400);
+	const h = Math.floor((sec % 86400) / 3600);
+	const m = Math.floor((sec % 3600) / 60);
+	if (d > 0) return `${d}d ${h}h`;
+	if (h > 0) return `${h}h ${m}m`;
+	return `${m}m`;
+}

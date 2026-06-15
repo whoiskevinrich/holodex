@@ -33,7 +33,9 @@ func (m *Manager) worker(ctx context.Context) {
 		if m.queue.depth() > 0 {
 			m.queue.signal()
 		}
+		m.inFlight.Add(1)
 		m.process(ctx, id)
+		m.inFlight.Add(-1)
 		m.queue.done(id)
 	}
 }

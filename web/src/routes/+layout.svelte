@@ -2,6 +2,8 @@
 	import '../app.css';
 	import { goto } from '$app/navigation';
 	import { theme, THEMES, THEME_LABELS } from '$lib/theme.svelte';
+	import { activity } from '$lib/activity.svelte';
+	import ActivityIndicator from '$lib/components/ActivityIndicator.svelte';
 
 	let { children } = $props();
 
@@ -11,6 +13,13 @@
 	// Apply the saved skin on mount (data-theme on <html>).
 	$effect(() => {
 		theme.init();
+	});
+
+	// Poll system activity app-wide so the header indicator reflects background
+	// work on every page (F21.5); ref-counted with the /status page.
+	$effect(() => {
+		activity.start();
+		return () => activity.stop();
 	});
 
 	// Ctrl-/Cmd-K focuses the global search (F4.10).
@@ -43,14 +52,22 @@
 		/>
 	</form>
 
-	<nav class="flex items-center gap-4 text-sm text-muted">
+	<nav class="flex items-center gap-3 text-sm text-muted">
 		<a href="/" class="hover:text-ink">Media</a>
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
-		<a href="/keys" class="hover:text-ink">Keys</a>
+
+		<!-- Library tools, separated from the content nav so the bar reads in two groups. -->
+		<span class="flex items-center gap-3 border-l border-rule pl-3">
+			<a href="/keys" class="hover:text-ink">Keys</a>
+			<a href="/status" class="hover:text-ink">Status</a>
+		</span>
+
+		<ActivityIndicator />
 
 		<!-- Skin switcher as a first-class segmented control: each option shows that
-		     skin's own accent (the swatch re-scopes --accent via data-theme). -->
+		     skin's own accent (the swatch re-scopes --accent via data-theme). Only the
+		     active skin shows its label, keeping the bar compact. -->
 		<div
 			class="flex items-center gap-0.5 rounded-theme border border-rule p-0.5"
 			role="group"
@@ -68,7 +85,7 @@
 						: 'text-muted hover:text-ink'}"
 				>
 					<span data-theme={t} class="h-2.5 w-2.5 rounded-full bg-accent ring-1 ring-black/20"></span>
-					<span class="hidden md:inline">{THEME_LABELS[t]}</span>
+					{#if theme.current === t}<span class="hidden sm:inline">{THEME_LABELS[t]}</span>{/if}
 				</button>
 			{/each}
 		</div>

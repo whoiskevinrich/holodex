@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"holodex/internal/model"
 	"holodex/internal/repo"
@@ -56,10 +57,11 @@ type Config struct {
 // Manager owns the queue and worker pool. A single instance is shared by the
 // scanner (Tier 1 + new-file enqueue) and the API handlers (Tier 3 + serving).
 type Manager struct {
-	cfg   Config
-	log   *slog.Logger
-	repo  Repository
-	queue *queue
+	cfg      Config
+	log      *slog.Logger
+	repo     Repository
+	queue    *queue
+	inFlight atomic.Int64 // jobs currently being generated (F21.1)
 
 	// Binary-invoking seams, overridable in tests so the pipeline can be
 	// exercised without real ffmpeg/exiftool. Defaulted in New.
@@ -158,6 +160,28 @@ func (m *Manager) EnqueueHigh(ids []int64) {
 // QueueDepth is the count of pending jobs, surfaced as thumbnail_queue_depth
 // (F11.8; full Prometheus deferred).
 func (m *Manager) QueueDepth() int { return m.queue.depth() }
+
+// QueueStats is the thumbnail-pipeline snapshot for the activity surface (F21.1).
+type QueueStats struct {
+	Depth    int `json:"depth"`
+	High     int `json:"high"`
+	Normal   int `json:"normal"`
+	InFlight int `json:"in_flight"`
+	Workers  int `json:"workers"`
+}
+
+// QueueStats reports pending depth (per tier), in-flight generations, and the
+// worker-pool size for the activity read-model.
+func (m *Manager) QueueStats() QueueStats {
+	high, normal := m.queue.counts()
+	return QueueStats{
+		Depth:    high + normal,
+		High:     high,
+		Normal:   normal,
+		InFlight: int(m.inFlight.Load()),
+		Workers:  m.cfg.Workers,
+	}
+}
 
 // ExtractEmbedded performs Tier 1: writes the container's embedded cover art for
 // an indexed file to disk and marks the video "embedded". Returns ok=false (no

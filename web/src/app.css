@@ -22,6 +22,7 @@
 	--color-rule: var(--rule);
 	--color-accent: var(--accent);
 	--color-accent-ink: var(--accent-ink);
+	--color-warn: var(--warn);
 	--font-display: var(--font-display);
 	--font-ui: var(--font-ui);
 	--radius-theme: var(--radius);
@@ -48,6 +49,7 @@
 	--rule: #2a2622;
 	--accent: #e8a33d;
 	--accent-ink: #1a1206;
+	--warn: #e2603f; /* distinct from the gold accent — error/attention only */
 	--font-display: 'Fraunces Variable', serif;
 	--font-ui: 'Archivo Variable', sans-serif;
 	--radius: 2px;
@@ -63,6 +65,7 @@
 	--rule: #1a2240;
 	--accent: #36e0d0;
 	--accent-ink: #04121a;
+	--warn: #ff6f61; /* coral red — reads as alert against the cyan accent */
 	--font-display: 'VT323', monospace;
 	--font-ui: 'Share Tech Mono', monospace;
 	--radius: 0px;
@@ -78,6 +81,7 @@
 	--rule: #333333;
 	--accent: #d6ff3f;
 	--accent-ink: #0a0a0a;
+	--warn: #ff5e3a; /* hot red-orange — distinct from the lime accent */
 	--font-display: 'Spline Sans Mono Variable', monospace;
 	--font-ui: 'Spline Sans Mono Variable', monospace;
 	--radius: 0px;
@@ -247,6 +251,24 @@
 		}
 		to {
 			background-position: -120% 0;
+		}
+	}
+
+	/* Live activity dot (F21.5): pulses while background work is in progress. Uses
+	   bg-accent, so each skin's accent flows through automatically; motion is
+	   opt-in per reduced-motion, like the grid/shimmer animations above. */
+	@media (prefers-reduced-motion: no-preference) {
+		.activity-dot {
+			animation: activity-pulse 1.4s ease-in-out infinite;
+		}
+	}
+	@keyframes activity-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.35;
 		}
 	}
 }
