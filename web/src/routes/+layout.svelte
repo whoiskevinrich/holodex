@@ -137,6 +137,7 @@
 								onmousedown={(e) => {
 									e.preventDefault();
 									searchHistory.remove(q);
+									activeIdx = -1; // list shifted — drop the (now stale) highlight
 								}}
 							>
 								×
@@ -151,6 +152,7 @@
 						onmousedown={(e) => {
 							e.preventDefault();
 							searchHistory.clear();
+							activeIdx = -1;
 						}}
 					>
 						Clear history
