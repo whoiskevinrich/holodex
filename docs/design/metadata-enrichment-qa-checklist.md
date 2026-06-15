@@ -17,7 +17,7 @@
 ## 1. Setup / preconditions
 
 - [ ] 1.1 **Create the provider config**: copy `metadata-sources.yaml.example` → `metadata-sources.yaml` (gitignored). Default location is `./metadata-sources.yaml` in the server's CWD (repo root in dev; container WORKDIR in Docker); override via `METADATA_SOURCES_PATH` / `metadata_sources_path` / Docker mount.
-- [ ] 1.2 **Enable one provider** (`name`, `enabled: true`, `entity_types: [person]`, `base_url`) pointing at a **running** provider speaking the contract (`/describe` `/resolve` `/enrich` `/healthz`). The in-process `enrich.Fake` is test-only; for manual QA run a small **stub HTTP server** (or the real sidecar) at `base_url` — e.g. `http://127.0.0.1:9100`. No network/keys needed for a stub (F22.10).
+- [ ] 1.2 **Enable one provider** (`name`, `enabled: true`, `entity_types: [person]`, `base_url`) pointing at a **running** provider speaking the contract (`/describe` `/resolve` `/enrich` `/healthz`). For manual QA, start the bundled fake provider with **`preview_start enrich-stub`** (or `node testdata/enrich-stub/stub.js`) on `http://127.0.0.1:9100` and uncomment the `fake` block in `metadata-sources.yaml` — no network/keys needed (see [`testdata/enrich-stub/README.md`](../../testdata/enrich-stub/README.md), F22.10). *(The in-process `enrich.Fake` is `go test`-only — not runnable as a server.)*
 - [ ] 1.3 **Core boots clean**: `POST /admin/reload-config` (or restart) loads it; `/status` lists the provider **ok** with a version; no protocol error in logs (F22.1, F22.8a).
 - [ ] 1.4 Pick a **Person the provider matches** (note its `/people/[id]` URL) and a **Person it does not** (for the no-results path).
 - [ ] 1.5 Exercise **both token states**: `ADMIN_TOKEN` unset (open) vs set (locked, then unlocked via `/status`).
@@ -46,7 +46,7 @@
 - [x] 3.1 **Owner** (open, or token + unlocked): "Enrich from {provider}" button renders (solid accent CTA, top-right of the person panel) (F22.5a).
 - [x] 3.2 **Non-owner** (token set, none entered): button **absent from the DOM** — not hidden (F22.9a; a11y tree clean).
 - [x] 3.3 **Needs-token**: locked state shows the `/status`-style unlock form; after the correct token the button appears.
-- [ ] 3.4 ⚠ **No provider configured**: button is correctly **absent**, but the handoff's muted "No metadata source configured" hint **isn't rendered**. *(gap — TASKS.)*
+- [x] 3.4 ⚠ **No provider configured**: button is correctly **absent**, but the handoff's muted "No metadata source configured" hint **isn't rendered**. *(gap — TASKS.)*
 
 **Picker flow**
 

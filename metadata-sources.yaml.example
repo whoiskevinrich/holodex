@@ -27,3 +27,12 @@ sources:
     base_url: http://holodex-tmdb:9100
     entity_types: [person]
     enabled: false
+
+  # --- Local manual-QA stub (no network/keys) ---
+  # Run the bundled fake provider, then enable this entry:
+  #   preview_start enrich-stub          (or: node testdata/enrich-stub/stub.js)
+  # See testdata/enrich-stub/README.md.
+  # - name: fake
+  #   base_url: http://127.0.0.1:9100
+  #   entity_types: [person]
+  #   enabled: true
