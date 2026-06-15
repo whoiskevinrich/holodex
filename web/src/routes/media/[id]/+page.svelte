@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import type { ExtraMetadata, MappedField, Video } from '$lib/types';
+	import type { ExtraMetadata, MappedField, RelatedResponse, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
 	let fields = $state<MappedField[]>([]);
+	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
 	let error = $state('');
 	let playFailed = $state(false);
@@ -31,20 +33,59 @@
 		}
 	}
 
+	// Hide the full-viewport atmosphere overlay (.app-atmosphere::after, z-40) while a
+	// video plays so the scan/vignette flourishes don't sit on top of the picture —
+	// worst in Broadcast. Pure-CSS-gated: we only toggle the class; app.css owns the rule.
+	function setPlaying(on: boolean) {
+		document.body?.classList.toggle('is-playing', on);
+	}
+	// Restore the atmosphere on teardown (navigate away mid-play). The data-load effect
+	// below also resets it per id — this route's component is REUSED across /media/[id]
+	// param changes, so a play state from the previous item would otherwise linger.
+	$effect(() => () => setPlaying(false));
+
 	$effect(() => {
 		const current = id;
+		let cancelled = false; // ignore a stale response if id changes before it resolves
 		loading = true;
 		error = '';
 		playFailed = false;
+		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
 		api
 			.getMedia(current)
 			.then((res) => {
+				if (cancelled) return;
 				video = res.video;
 				extra = res.metadata ?? [];
 				fields = res.fields ?? [];
 			})
-			.catch((e) => (error = toMessage(e)))
-			.finally(() => (loading = false));
+			.catch((e) => {
+				if (!cancelled) error = toMessage(e);
+			})
+			.finally(() => {
+				if (!cancelled) loading = false;
+			});
+		return () => (cancelled = true);
+	});
+
+	// Related "More with …" shelves (QW2/QW3). Non-blocking and tracks ONLY `id`, so it
+	// fetches once per page view and the shelves don't reshuffle on incidental re-renders
+	// (skin switch, thumbnail regenerate) — "stable per page view" (ADR-031). A fresh
+	// item id draws anew; an error just omits the shelves. The cancel guard prevents a
+	// slow response for a previous item from landing on the current one.
+	$effect(() => {
+		const current = id;
+		let cancelled = false;
+		related = null;
+		api
+			.related(current)
+			.then((res) => {
+				if (!cancelled) related = res;
+			})
+			.catch(() => {
+				if (!cancelled) related = null;
+			});
+		return () => (cancelled = true);
 	});
 </script>
 
@@ -78,6 +119,9 @@
 					controls
 					preload="metadata"
 					class="aspect-video w-full bg-black"
+					onplay={() => setPlaying(true)}
+					onpause={() => setPlaying(false)}
+					onended={() => setPlaying(false)}
 					onerror={() => (playFailed = true)}
 				></video>
 				<button
@@ -185,6 +229,19 @@
 					</table>
 				{/if}
 			</section>
+		{/if}
+
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+		     its block is null or empty, so an item with no siblings shows no rail. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
 		{/if}
 	</article>
 {/if}

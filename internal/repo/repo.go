@@ -771,6 +771,138 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 }
 
 // ---------------------------------------------------------------------------
+// Related media — "More with …" shelves (ADR-031, QW2/QW3)
+// ---------------------------------------------------------------------------
+
+// RelatedShelf is one "More with <entity>" set: the chosen person or tag and up to
+// N random sibling videos, excluding the source item. Items is always non-nil (an
+// empty shelf is valid — the entity exists on the item but has no other siblings).
+type RelatedShelf struct {
+	ID    int64         `json:"id"`
+	Name  string        `json:"name"`
+	Items []model.Video `json:"items"`
+}
+
+// RelatedMedia carries the person- and tag-keyed shelves for a media item. Either
+// field is nil when the item has no people / no tags (ADR-031).
+type RelatedMedia struct {
+	Person *RelatedShelf `json:"person"`
+	Tag    *RelatedShelf `json:"tag"`
+}
+
+// Related builds the two "More with …" shelves for a media item (ADR-031): one keyed
+// to its most-connected person, one to its most distinctive tag, each filled with up
+// to `limit` random sibling videos (excluding the item). Returns ErrNotFound if the
+// item is missing or inactive.
+func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedMedia, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	var active int
+	switch err := r.db.QueryRowContext(ctx,
+		`SELECT active FROM videos WHERE id = ?`, videoID).Scan(&active); {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, ErrNotFound
+	case err != nil:
+		return nil, fmt.Errorf("related: load item: %w", err)
+	case active == 0:
+		return nil, ErrNotFound
+	}
+
+	out := &RelatedMedia{}
+	var err error
+
+	// Person shelf — the item's person with the highest global active-video count
+	// (most-connected → most likely to populate the shelf); tie-break lowest id.
+	if out.Person, err = r.relatedShelf(ctx, videoID, limit, "person", "video_people", "person_id", `
+		SELECT p.id, p.name
+		FROM people p
+		JOIN video_people vp ON vp.person_id = p.id
+		WHERE vp.video_id = ?
+		ORDER BY (SELECT COUNT(*) FROM video_people vp2 JOIN videos v ON v.id = vp2.video_id
+		          WHERE vp2.person_id = p.id AND v.active = 1) DESC,
+		         p.id ASC
+		LIMIT 1`); err != nil {
+		return nil, err
+	}
+
+	// Tag shelf — the item's most *distinctive* tag: maximize c·(1 − c/N), where c is
+	// the tag's global active-video count and N is the total active videos. Rewards
+	// shared tags but demotes near-universal ones (ADR-031); tie-break higher c, lowest id.
+	if out.Tag, err = r.relatedShelf(ctx, videoID, limit, "tag", "video_tags", "tag_id", `
+		SELECT id, name FROM (
+			SELECT t.id AS id, t.name AS name,
+			       (SELECT COUNT(*) FROM video_tags vt2 JOIN videos v ON v.id = vt2.video_id
+			        WHERE vt2.tag_id = t.id AND v.active = 1) AS cnt
+			FROM tags t
+			JOIN video_tags vt ON vt.tag_id = t.id
+			WHERE vt.video_id = ?
+		)
+		CROSS JOIN (SELECT COUNT(*) AS total FROM videos WHERE active = 1) AS n
+		ORDER BY (cnt * (1.0 - cnt * 1.0 / n.total)) DESC, cnt DESC, id ASC
+		LIMIT 1`); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// relatedShelf picks one keyed entity for a media item via pickQuery (which scans
+// id, name and takes the video id as its only arg), then fills the shelf with random
+// siblings sharing that entity through junction/fk. Returns (nil, nil) when the item
+// has no such entity — a present-but-empty shelf still comes back with id/name.
+func (r *Repo) relatedShelf(ctx context.Context, videoID int64, limit int, label, junction, fk, pickQuery string) (*RelatedShelf, error) {
+	var id int64
+	var name string
+	switch err := r.db.QueryRowContext(ctx, pickQuery, videoID).Scan(&id, &name); {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, nil
+	case err != nil:
+		return nil, fmt.Errorf("related: pick %s: %w", label, err)
+	}
+	items, err := r.randomSiblings(ctx, junction, fk, id, videoID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &RelatedShelf{ID: id, Name: name, Items: items}, nil
+}
+
+// randomSiblings returns up to `limit` active videos that share entity keyID via the
+// junction table (video_people/person_id or video_tags/tag_id), excluding excludeID,
+// in random order. junction and fk are caller-controlled constants, never user input.
+// This is the project's only ORDER BY RANDOM() (ADR-031) — kept here rather than in
+// VideoFilter so the general list path stays deterministically ordered.
+func (r *Repo) randomSiblings(ctx context.Context, junction, fk string, keyID, excludeID int64, limit int) ([]model.Video, error) {
+	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width, v.height,
+	             v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
+	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
+	      FROM videos v
+	      WHERE v.active = 1 AND v.id != ?
+	        AND EXISTS (SELECT 1 FROM ` + junction + ` j WHERE j.video_id = v.id AND j.` + fk + ` = ?)
+	      ORDER BY RANDOM() LIMIT ?`
+	rows, err := r.db.QueryContext(ctx, q, excludeID, keyID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("related siblings: %w", err)
+	}
+	defer rows.Close()
+	out := make([]model.Video, 0, limit) // non-nil → empty shelf serializes as []
+	for rows.Next() {
+		v, err := scanVideo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachAssociations(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ---------------------------------------------------------------------------
 // Global search (ADR-017, F4.10)
 // ---------------------------------------------------------------------------
 

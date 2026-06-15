@@ -83,6 +83,19 @@ export interface SearchResponse {
 	tags: Tag[] | null;
 }
 
+// "More with …" related-media shelves (ADR-031, QW2/QW3). Either block is null when
+// the item has no people / no tags; items is [] when the entity has no other siblings.
+export interface RelatedShelf {
+	id: number;
+	name: string;
+	items: Video[];
+}
+
+export interface RelatedResponse {
+	person: RelatedShelf | null;
+	tag: RelatedShelf | null;
+}
+
 // System Activity — "under the hood" read-model (F21, ADR-028).
 export interface ScanSummary {
 	trigger: string;

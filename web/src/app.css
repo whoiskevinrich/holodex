@@ -116,6 +116,12 @@
 		pointer-events: none;
 		z-index: 40;
 	}
+	/* While a media video is playing, drop the atmosphere so the picture is clean.
+	   Toggled by the media detail page via `.is-playing` on <body>. `display: none`
+	   (not opacity) so the Broadcast vignette/scanlines fully clear, all skins together. */
+	.app-atmosphere.is-playing::after {
+		display: none;
+	}
 
 	/* Cinémathèque: film grain + vignette. */
 	[data-theme='cinematheque'] .app-atmosphere::after {

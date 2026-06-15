@@ -15,6 +15,7 @@ import type {
 	MetadataKey,
 	Person,
 	PersonDetailResponse,
+	RelatedResponse,
 	SearchResponse,
 	Tag,
 	Video
@@ -69,6 +70,10 @@ export const api = {
 
 	getMedia: (id: number, fetchFn?: typeof fetch) =>
 		get<MediaDetailResponse>(`/media/${id}`, fetchFn),
+
+	// "More with …" related shelves for a media item (ADR-031).
+	related: (id: number, fetchFn?: typeof fetch) =>
+		get<RelatedResponse>(`/media/${id}/related`, fetchFn),
 
 	streamURL: (id: number) => `${BASE}/media/${id}/stream`,
 
