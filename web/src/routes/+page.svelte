@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { browseCache } from '$lib/browse.svelte';
 	import { DEFAULT_SORT, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { MediaFilters, Person, Resolution, SortOrder, Tag, Video } from '$lib/types';
@@ -94,14 +96,63 @@
 		loadPage(false);
 	}
 
+	// Restore the grid from the browse cache exactly once, on mount, when returning
+	// from a detail page with the same filters (QW4 / ADR-032). Seeds synchronously so
+	// the content height is correct and scroll can be restored without a re-fetch flash.
+	let firstLoad = true;
+	// The last filter signature we actually loaded. Guards against reloading when the
+	// effect re-runs but the filters didn't truly change — e.g. MappedFacets loading
+	// rewrites `mapped` to an equivalent value (which would otherwise clobber a restored
+	// page with a fresh page-0 fetch). Also trims a redundant fetch on every grid mount.
+	let lastQs: string | null = null;
+
 	// Reading activeParams tracks every filter var, so this re-runs on any change:
 	// sync the URL and reload from page 0 (debounced for the text query, F4.1).
 	$effect(() => {
 		const qs = activeParams.toString();
-		history.replaceState(null, '', qs ? `/?${qs}` : '/');
+
+		if (firstLoad) {
+			firstLoad = false;
+			// On mount the URL already reflects the initial filters, so don't touch
+			// history here. Try the browse cache first (QW4): if we're returning to the
+			// grid with the same filters, seed synchronously and skip the page-0 fetch.
+			const cached = browseCache.take(qs);
+			if (cached) {
+				videos = cached.videos;
+				total = cached.total;
+				offset = cached.offset;
+				loading = false;
+				lastQs = qs;
+				// Restore scroll once the seeded grid paints (correct height by then).
+				tick().then(() => window.scrollTo(0, cached.scrollY));
+				return;
+			}
+		} else if (qs !== lastQs) {
+			// Real filter/sort change: sync the URL via SvelteKit's router (not raw
+			// history.replaceState, which wipes the router state and breaks back-nav),
+			// and show the new result set from the top.
+			replaceState(qs ? `/?${qs}` : '/', {});
+			window.scrollTo(0, 0);
+		}
+
+		if (qs === lastQs) return; // no actual filter change — don't reload
+		lastQs = qs;
 		clearTimeout(debounce);
 		debounce = setTimeout(() => loadPage(true), q ? 200 : 0);
 		return () => clearTimeout(debounce);
+	});
+
+	// Snapshot the grid (loaded set + paging + scroll) when navigating away, so Back
+	// restores it. Filters round-trip through the URL already; this adds only the
+	// in-memory grid/scroll cache. A filter change invalidates it via the signature.
+	beforeNavigate(() => {
+		browseCache.save({
+			signature: activeParams.toString(),
+			videos,
+			total,
+			offset,
+			scrollY: window.scrollY
+		});
 	});
 
 	function clearAll() {
