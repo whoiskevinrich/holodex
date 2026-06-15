@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
 	import { DEFAULT_SORT, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
@@ -39,7 +40,19 @@
 	// Facet options for the people/tag autocomplete (F4.2/F4.3), fetched once.
 	let peopleOptions = $state<Person[]>([]);
 	let tagOptions = $state<Tag[]>([]);
+
+	// "Recently Added" shelf is redundant with the default newest-first sort, so the
+	// owner can toggle it off. Per-browser preference; defaults on.
+	const isOwner = $derived(activity.isOwner);
+	const RECENT_KEY = 'holodex:show-recently-added';
+	let showRecent = $state(true);
+	function toggleRecent() {
+		showRecent = !showRecent;
+		localStorage.setItem(RECENT_KEY, showRecent ? '1' : '0');
+	}
+
 	onMount(() => {
+		showRecent = localStorage.getItem(RECENT_KEY) !== '0';
 		api.listPeople('count').then((r) => (peopleOptions = r.items ?? [])).catch(() => {});
 		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
 	});
@@ -95,6 +108,19 @@
 		offset += PAGE_SIZE;
 		loadPage(false);
 	}
+
+	// Refresh the unfiltered grid when a background scan finishes (running -> idle) so
+	// the count + list reflect newly indexed files without a manual reload — fixes the
+	// stale count seen during the initial scan. The activity feed is owner-gated, so
+	// non-owners pick up changes on their next reload (acceptable).
+	let prevScanState: string | undefined;
+	$effect(() => {
+		const s = activity.data?.scan.state;
+		if (prevScanState === 'running' && s === 'idle' && !hasFilters && !loading) {
+			loadPage(true);
+		}
+		prevScanState = s;
+	});
 
 	// Restore the grid from the browse cache exactly once, on mount, when returning
 	// from a detail page with the same filters (QW4 / ADR-032). Seeds synchronously so
@@ -222,7 +248,7 @@
 	<!-- Recently Added shelf (F12.3): the default landing view only; hidden once
 	     the user filters/sorts so results stay the focus. Sliced from the grid's
 	     newest-first page, so it costs no extra request. -->
-	{#if !hasFilters}
+	{#if !hasFilters && showRecent}
 		<RecentlyAddedShelf {videos} />
 	{/if}
 
@@ -299,6 +325,14 @@
 
 	<div class="flex items-center justify-between text-sm text-muted">
 		<span>{loading ? 'Loading…' : videoCount(total)}</span>
+		{#if isOwner && !hasFilters}
+			<button
+				onclick={toggleRecent}
+				class="rounded-theme border border-rule px-2 py-1 text-xs text-muted hover:text-ink"
+			>
+				{showRecent ? 'Hide' : 'Show'} “Recently Added”
+			</button>
+		{/if}
 	</div>
 
 	{#if error}

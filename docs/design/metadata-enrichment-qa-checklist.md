@@ -16,6 +16,8 @@
 
 ## 1. Setup / preconditions
 
+> **Who does this:** §1 gets the environment ready and is normally done by **whoever sets up the session** (a developer or the agent) — *not* the human running §4. If you're doing the human pass, you don't need to touch `go test`, `curl`, or YAML; just make sure the app is open and someone has started the fake provider for you. **Quick "is it ready?" check:** open the app, go to **People → Hayao Miyazaki**, and confirm you see an **"Enrich from fake"** button and fields tagged **"from fake"**. If you do, skip to §4.
+
 - [ ] 1.1 **Create the provider config**: copy `metadata-sources.yaml.example` → `metadata-sources.yaml` (gitignored). Default location is `./metadata-sources.yaml` in the server's CWD (repo root in dev; container WORKDIR in Docker); override via `METADATA_SOURCES_PATH` / `metadata_sources_path` / Docker mount.
 - [ ] 1.2 **Enable one provider** (`name`, `enabled: true`, `entity_types: [person]`, `base_url`) pointing at a **running** provider speaking the contract (`/describe` `/resolve` `/enrich` `/healthz`). For manual QA, start the bundled fake provider with **`preview_start enrich-stub`** (or `node testdata/enrich-stub/stub.js`) on `http://127.0.0.1:9100` and uncomment the `fake` block in `metadata-sources.yaml` — no network/keys needed (see [`testdata/enrich-stub/README.md`](../../testdata/enrich-stub/README.md), F22.10). *(The in-process `enrich.Fake` is `go test`-only — not runnable as a server.)*
 - [ ] 1.3 **Core boots clean**: `POST /admin/reload-config` (or restart) loads it; `/status` lists the provider **ok** with a version; no protocol error in logs (F22.1, F22.8a).
@@ -100,20 +102,26 @@
 
 ## 4. Human — needs a human's eye
 
-**Per-skin legibility (repeat for each skin)**
+> **First, get to the enrichment screen** (someone sets up §1 for you):
+> 1. Open **http://localhost:5173** in a browser.
+> 2. If a bar near the top asks for an **admin token**: click **Status** in the top navigation → type the token (ask whoever set this up — in this session it's `secret`) → **Unlock**. If you're never asked, you're already good.
+> 3. Click **People** (top nav) → click **Hayao Miyazaki** → you're on the person page. The **"Enrich from fake"** button (top-right of the **Enrichment** box) opens the search popup ("the picker").
+> 4. Change the look with the **three coloured dots** at the top-right — **Cinémathèque** (gold), **Broadcast** (cyan), **Brutalist** (lime). Several items below say "repeat in all 3 skins" — click each dot and look again.
+>
+> Filing a miss: note the **item number** (e.g. "4.2") and **which skin**. "Pass" = it looks right; you don't need to understand the code.
 
-- [ ] 4.1 **Provenance chips read correctly**: file = muted pill on `bg-surface-2`; provider = outlined-accent pill that's legible on `bg-surface` and clearly **not** an error color (compare against `--warn` `#e2603f` / `#ff6f61` / `#ff5e3a`) and distinct from a solid-accent CTA.
-- [ ] 4.2 **Confidence chip** ("Strong match") accent text is legible on each accent (gold / bright cyan / bright lime).
-- [ ] 4.3 **Focus ring** (`focus:border-accent`) is visible on the input + buttons.
-- [ ] 4.4 **Loading / empty / error / populated** states are all themed — no raw white/black, no hardcoded color leaking through.
-- [ ] 4.5 Provenance chip does **not collide** with the resolution/quality badge or the active-accent state at any viewport (desktop / mobile <640).
+**Appearance — repeat in all 3 skins (the coloured dots)**
 
-**Content / rendering**
+- [ ] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold / cyan / lime), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
+- [ ] 4.2 **"Strong match" is easy to read.** Click **Enrich from fake** to open the picker; the match row shows **"Strong match"** in the theme colour on the right. Confirm it's comfortably readable against the popup background.
+- [ ] 4.3 **You can always see what's selected.** Click into the picker's search box, and Tab between buttons — whatever is focused gets a visible **coloured outline**. Nothing should be focused "invisibly".
+- [ ] 4.4 **Nothing looks unstyled.** Glance at each situation and confirm none show plain white boxes or off-theme colours: **searching** (type in the picker), **empty** (clear the box → grey help text), **results** (a match row), **filled** (the field list on the person page).
+- [ ] 4.5 **Tags don't overlap or overflow.** At normal width, then with the window narrowed to phone size (~375px wide), the "from fake" pills shouldn't bump into other badges or spill off the edge.
 
-- [ ] 4.6 **CJK aliases** (e.g. 宮崎駿) render **without tofu** (boxes) in the `<dl>` and alias chips — re-check in each mono-faced skin (Broadcast / Brutalist).
-- [ ] 4.7 **Photo asset — success** *(DEFERRED v1 — `assets` parsed but not fetched; skip until the person-photo slice)*: stored at `${DATABASE_PATH}/images/people/<id>.{jpg,png}` (F14.3), `thumb-shimmer` while downloading.
-- [ ] 4.8 **Photo asset — fallback** *(DEFERRED v1)*: broken/absent photo → existing no-photo treatment, field display not blocked.
+**Text & feel**
 
-**Feel**
+- [ ] 4.6 **Japanese characters show properly.** The person's **Aliases** field includes **宮崎駿**. Confirm those are real characters, **not** empty boxes/▯ ("tofu"). Re-check especially in **Broadcast** and **Brutalist** (their blocky fonts are where tofu shows up first).
+- [ ] 4.7 **A provider problem shows a tidy message, not a crash.** With the picker open, if the fake provider is stopped (ask the dev, or it's already down), typing a name shows a short error line and **the rest of the page keeps working** — no blank screen, no raw error dump. *(Known nitpick: today's wording is technical — already logged. You're only checking the page survives.)*
+- [ ] 4.8 **Opening the picker feels smooth.** It should pop in with a quick, subtle fade — no jarring jump or flicker. If your OS **"reduce motion"** setting is on, it should just appear instantly (no animation) — that's correct, not a bug.
 
-- [ ] 4.9 The picker open **feels instant**; with `prefers-reduced-motion: reduce` there's no fade/scale (eyeball — pairs with the computed check 3.33).
+> **Skipped in v1:** person **photos** aren't built yet, so there's nothing to check there.

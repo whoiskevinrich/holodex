@@ -101,9 +101,10 @@
 									<button
 										onclick={clearProvider}
 										disabled={busy === 'clear'}
+										title={`Remove the enrichment data ${provider} added to this person`}
 										class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
 									>
-										Clear {provider}
+										Clear {provider} data
 									</button>
 								{/if}
 							</div>

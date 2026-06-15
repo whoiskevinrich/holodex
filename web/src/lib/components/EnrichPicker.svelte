@@ -2,6 +2,7 @@
 	// Disambiguation picker (F22.5b): a modal listbox of provider candidates the
 	// owner searches and confirms. Mirrors the search-history combobox a11y
 	// (role=listbox + aria-activedescendant, ↑/↓/Enter/Esc). Tokens only; QA 3 skins.
+	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
@@ -33,9 +34,12 @@
 
 	const listId = 'enrich-candidates';
 
-	$effect(() => {
+	onMount(() => {
 		input?.focus();
 		input?.select();
+		// Auto-search the pre-filled name on open so a confident match shows
+		// immediately — the owner shouldn't have to retype the person's own name.
+		if (query.trim().length >= 2) void search(query.trim());
 	});
 
 	// Debounced provider search; below 2 chars we don't call.
@@ -148,8 +152,10 @@
 				<span class="text-warn">{error}</span>
 			{:else if query.trim().length < 2}
 				Type at least two characters to search.
+			{:else if candidates.length}
+				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — click one (or press Enter) to apply
 			{:else}
-				{candidates.length} match{candidates.length === 1 ? '' : 'es'}
+				No matches for “{query.trim()}”.
 			{/if}
 		</p>
 
