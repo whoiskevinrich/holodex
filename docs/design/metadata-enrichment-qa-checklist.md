@@ -79,9 +79,9 @@
 **Accessibility**
 
 - [x] 3.22 Dialog: `role="dialog" aria-modal="true"`, `aria-labelledby` → the heading.
-- [x] 3.23 **Esc** (and backdrop / close button) closes the picker. ⚠ focus does **not** return to the Enrich button (goes to `<body>`) — the focus-trap follow-up. *(gap — TASKS.)*
+- [x] 3.23 **Esc** (and backdrop / ✕) closes the picker; **Tab is trapped** in the dialog and **focus returns** to the Enrich button on close.
 - [x] 3.24 Input `role="combobox"` + `aria-controls="enrich-candidates"` + `aria-expanded`; list `role="listbox"`; rows `role="option" aria-selected`.
-- [x] 3.25 `aria-activedescendant` tracks the active row.
+- [x] 3.25 **Roving tabindex**: the active result is the lone tab stop (`tabindex=0`), so **Tab** reaches the results (`input → result → ✕`) and **↑/↓** move focus through them; the focused row carries the accent highlight.
 - [x] 3.26 `aria-live="polite"` region announces the count ("1 match").
 - [x] 3.27 Confidence is conveyed by the **word** ("Strong match"), not color alone (color-blind safe).
 - [x] 3.28 Provenance badges carry `aria-label="source: from {provider}"` (full phrase).
@@ -114,7 +114,7 @@
 
 - [x] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold / cyan / lime), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
 - [x] 4.2 **"Strong match" is easy to read.** Click **Enrich from fake** to open the picker; the match row shows **"Strong match"** in the theme colour on the right. Confirm it's comfortably readable against the popup background.
-- [ ] 4.3 **You can tell what's highlighted, and Tab stays inside the popup.** Open the picker (**Enrich from fake**). The matching row has a **coloured left bar + faint tint**; if there are several matches, **↑/↓** moves that highlight. Press **Tab** a few times — focus should cycle between the **search box** and the **✕** close button and **stay inside the popup** (never jump to the page behind), each showing a coloured outline. Press **Esc** (or click ✕) — focus returns to the **Enrich from fake** button. *(You pick a match with ↑/↓ + Enter, or by clicking it — Tab is for the box/buttons, not for choosing a match.)*
+- [ ] 4.3 **You can reach and pick a match with the keyboard, and focus stays in the popup.** Open the picker (**Enrich from fake**). Press **Tab** repeatedly — focus moves **search box → the highlighted match → the ✕ button** and wraps back, **never leaving the popup**. **↑/↓** also move through the matches (the highlighted one shows a **coloured left bar**). Press **Enter** on a match (or click it) to apply. Press **Esc** (or ✕) — focus jumps back to the **Enrich from fake** button. Each focused thing shows a visible coloured outline/highlight.
 - [x] 4.4 **Nothing looks unstyled.** Glance at each situation and confirm none show plain white boxes or off-theme colours: **searching** (type in the picker), **empty** (clear the box → grey help text), **results** (a match row), **filled** (the field list on the person page).
 - [x] 4.5 **Tags don't overlap or overflow.** At normal width, then with the window narrowed to phone size (~375px wide), the "from fake" pills shouldn't bump into other badges or spill off the edge.
 

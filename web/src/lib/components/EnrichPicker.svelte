@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Disambiguation picker (F22.5b): a modal listbox of provider candidates the
-	// owner searches and confirms. Mirrors the search-history combobox a11y
-	// (role=listbox + aria-activedescendant, ↑/↓/Enter/Esc). Tokens only; QA 3 skins.
+	// owner searches and confirms. role=combobox + role=listbox with roving
+	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
+	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
@@ -47,11 +48,11 @@
 		return () => trigger?.focus?.();
 	});
 
-	// Trap Tab within the dialog so it can't escape to the page behind (the rows
-	// aren't tab stops — they're chosen with ↑/↓ — so this cycles input ↔ close).
+	// Trap Tab within the dialog so it can't escape to the page behind. Tab stops:
+	// the search box, the active result row (roving tabindex=0), and the ✕ button.
 	function trapTab(e: KeyboardEvent) {
 		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button')].filter(
+		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]')].filter(
 			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
 		);
 		if (f.length === 0) return;
@@ -108,19 +109,42 @@
 		}
 	}
 
+	// Keys while the search box is focused: Enter applies the active match, ↓ moves
+	// focus down into the results list.
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			onclose();
-		} else if (e.key === 'ArrowDown') {
+		} else if (e.key === 'ArrowDown' && candidates.length) {
 			e.preventDefault();
-			if (candidates.length) active = (active + 1) % candidates.length;
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			if (candidates.length) active = (active - 1 + candidates.length) % candidates.length;
+			focusOption(0);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
 			void confirm(candidates[active]);
 		}
+	}
+
+	// Keys while a result row is focused (roving tabindex): Enter/Space apply, ↑/↓
+	// move between rows (↑ from the top returns to the search box).
+	function onOptionKey(e: KeyboardEvent, i: number) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			void confirm(candidates[i]);
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			focusOption((i + 1) % candidates.length);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (i === 0) input?.focus();
+			else focusOption(i - 1);
+		} else if (e.key === 'Escape') {
+			onclose();
+		}
+	}
+
+	// Move the roving focus to result i (it becomes the lone tab stop in the list).
+	function focusOption(i: number) {
+		active = i;
+		dialogEl?.querySelector<HTMLElement>(`#enrich-opt-${i}`)?.focus();
 	}
 
 	function matchLabel(c: number): { text: string; accent: boolean } {
@@ -167,7 +191,6 @@
 			role="combobox"
 			aria-expanded={candidates.length > 0}
 			aria-controls={listId}
-			aria-activedescendant={candidates.length ? `enrich-opt-${active}` : undefined}
 			placeholder="Search {provider} by name…"
 			class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
 		/>
@@ -181,7 +204,7 @@
 				Type at least two characters to search.
 			{:else if candidates.length}
 				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — {candidates.length > 1
-					? '↑/↓ to choose, then '
+					? 'Tab or ↑/↓ to choose, then '
 					: ''}click or press Enter to apply
 			{:else}
 				No matches for “{query.trim()}”.
@@ -191,15 +214,16 @@
 		<ul id={listId} role="listbox" aria-label="Candidates" class="mt-2 flex-1 overflow-y-auto">
 			{#each candidates as c, i (c.external_id)}
 				{@const m = matchLabel(c.confidence)}
-				<!-- Keyboard nav is handled at the combobox input (↑/↓/Enter via
-				     aria-activedescendant), the WAI-ARIA listbox pattern; per-option key
-				     handlers would be redundant. -->
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- Roving tabindex: the active row is the lone tab stop; Tab/↑/↓ reach it,
+				     Enter/Space/click apply. -->
 				<li
 					id="enrich-opt-{i}"
 					role="option"
+					tabindex={i === active ? 0 : -1}
 					aria-selected={i === active}
 					onclick={() => confirm(c)}
+					onkeydown={(e) => onOptionKey(e, i)}
+					onfocus={() => (active = i)}
 					onmouseenter={() => (active = i)}
 					class="cursor-pointer rounded-theme border-l-2 px-3 py-2 {i === active
 						? 'border-accent bg-surface-2'
