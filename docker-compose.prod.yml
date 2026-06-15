@@ -2,9 +2,9 @@
 # Runs the prebuilt image from GHCR; no source tree or build toolchain required.
 #
 #   1. (optional) point Holodex at your library:
-#        PowerShell:  $env:HOLODEX_MEDIA_PATH = "D:\Videos"
-#        bash:        export HOLODEX_MEDIA_PATH=/srv/media
-#      Defaults to ./media next to this file if unset.
+#        PowerShell:  $env:MEDIA_PATH = "D:\Videos"
+#        bash:        export MEDIA_PATH=/srv/media
+#      (or set MEDIA_PATH in a .env next to this file). Defaults to ./media if unset.
 #   2. docker compose -f docker-compose.prod.yml up -d
 #   3. open http://localhost:7800
 #
@@ -23,7 +23,9 @@ services:
       PORT: "7800"
       LOG_LEVEL: info
     volumes:
-      - ${HOLODEX_MEDIA_PATH:-./media}:/media:ro   # your library (read-only)
+      # host library path from .env / shell ${MEDIA_PATH}, mounted read-only at the
+      # container's MEDIA_PATH (=/media above). Defaults to ./media if unset.
+      - ${MEDIA_PATH:-./media}:/media:ro            # your library (read-only)
       - holodex-data:/data                          # index, thumbnails, config
     restart: unless-stopped
 

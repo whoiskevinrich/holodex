@@ -52,7 +52,7 @@ You need only Docker and the one compose file — no source tree, no Go/Node too
 
 ```bash
 # 1. Point Holodex at your library (defaults to ./media if unset)
-export HOLODEX_MEDIA_PATH=/srv/media          # PowerShell: $env:HOLODEX_MEDIA_PATH = "D:\Videos"
+export MEDIA_PATH=/srv/media          # PowerShell: $env:MEDIA_PATH = "D:\Videos"
 
 # 2. Run the prebuilt image from GHCR
 docker compose -f docker-compose.prod.yml up -d
