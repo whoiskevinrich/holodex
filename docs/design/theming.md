@@ -23,6 +23,7 @@ mapped Tailwind utilities, never a literal palette.
 | `--rule` | `border-rule` | borders, dividers |
 | `--accent` | `bg-accent` / `text-accent` | accent fills & emphasis |
 | `--accent-ink` | `text-accent-ink` | text on an accent fill |
+| `--warn` | `text-warn` / `border-warn` | error / attention states (deliberately distinct from `--accent`, which doubles as the active/primary color) |
 | `--font-display` | `font-display` | titles / wordmark (`.skin-title`) |
 | `--font-ui` | `font-ui` | body & UI (default on `<body>`) |
 | `--radius` | `rounded-theme` | corner radius (0 for the mono skins) |

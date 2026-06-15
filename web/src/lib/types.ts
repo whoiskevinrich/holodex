@@ -83,6 +83,81 @@ export interface SearchResponse {
 	tags: Tag[] | null;
 }
 
+// System Activity — "under the hood" read-model (F21, ADR-028).
+export interface ScanSummary {
+	trigger: string;
+	finished_at: string;
+	duration_ms: number;
+	seen: number;
+	added: number;
+	updated: number;
+	removed: number;
+	skipped: number;
+	errors: number;
+}
+
+export interface ScanStatus {
+	state: 'idle' | 'running';
+	trigger?: string;
+	started_at?: string | null;
+	last_run: ScanSummary | null;
+	next_scheduled_at?: string | null;
+}
+
+export interface ThumbnailStats {
+	depth: number;
+	high: number;
+	normal: number;
+	in_flight: number;
+	workers: number;
+}
+
+export interface LibraryCounts {
+	videos_active: number;
+	videos_inactive: number;
+	people: number;
+	tags: number;
+}
+
+export interface ActivitySystem {
+	ready: boolean;
+	version: string;
+	media_path_present: boolean;
+	controls_unauthenticated: boolean;
+	uptime_seconds?: number;
+}
+
+export interface Activity {
+	scan: ScanStatus;
+	thumbnails: ThumbnailStats;
+	library: LibraryCounts;
+	system: ActivitySystem;
+}
+
+// JobRun is one row of the 30-day activity history (F21.3).
+export interface JobRun {
+	id: number;
+	kind: string;
+	trigger: string;
+	status: string;
+	started_at: string;
+	finished_at: string;
+	duration_ms: number;
+	seen: number;
+	added: number;
+	updated: number;
+	removed: number;
+	skipped: number;
+	errors: number;
+	error_message?: string;
+}
+
+// Capabilities tells the SPA whether it may act as owner (F21.7).
+export interface Capabilities {
+	owner: boolean;
+	auth_required: boolean;
+}
+
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.

@@ -78,7 +78,7 @@ Phase 1 (MVP) and the tiered cover-art pipeline are implemented. Next up
 
 ## Development
 
-Requires Go 1.25+ and Node 20+.
+Requires Go 1.25+ and Node 22+.
 
 ```bash
 go mod tidy                       # first time
@@ -89,6 +89,10 @@ MEDIA_PATH=/path/to/videos go run ./cmd/holodex   # -> http://localhost:7800
 # Frontend dev server (separate terminal; proxies /api -> :7800)
 cd web && npm install && npm run dev              # -> http://localhost:5173
 ```
+
+> **Using git worktrees?** `web/node_modules` is gitignored and branch-specific — run
+> `npm ci` in `web/` for *each* worktree (don't symlink/junction one worktree's to another's,
+> as deps differ by branch). Without it the dev server fails with `'vite' is not recognized`.
 
 Config precedence is **CLI flags > env > `holodex.yaml` > defaults**
 ([ADR-014](docs/architecture/ADR-014-configuration-and-data-layout.md)); e.g.
@@ -138,7 +142,7 @@ docs/                architecture (ADRs), specs, testing strategy
 
 ## Docs
 
-[`docs/architecture`](docs/architecture/README.md) (24 ADRs) ·
+[`docs/architecture`](docs/architecture/README.md) (29 ADRs) ·
 [`docs/specs`](docs/specs) (phase + showcase specs) ·
 [`docs/design/theming.md`](docs/design/theming.md) ·
 [`docs/testing-strategy.md`](docs/testing-strategy.md)

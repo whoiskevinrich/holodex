@@ -34,9 +34,11 @@ The UI is built on semantic design tokens with three switchable skins (see
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
   utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
   `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
-  `rounded-theme`). **Never** a literal palette or value in a component: no `zinc-*`,
-  `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px` radii. A hardcoded
-  value is a theming bug — it won't react to the skin. Skin-specific flourishes belong in
+  `rounded-theme`, `text-warn`/`border-warn`). **Never** a literal palette or value in a
+  component: no `zinc-*`, `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px`
+  radii. A hardcoded value is a theming bug — it won't react to the skin. Use `--warn`
+  (`text-warn`/`border-warn`) for error/attention states — deliberately distinct from
+  `--accent`, which doubles as the active/primary color. Skin-specific flourishes belong in
   `app.css` gated by `[data-theme]`, attached to the shared hook classes
   (`.app-atmosphere`, `.video-frame`, `.video-grid`, `.skin-title`) — not as per-component
   markup. Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
