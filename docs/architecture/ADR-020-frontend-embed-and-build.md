@@ -81,5 +81,10 @@ sees where to connect without consulting docs.
 - `docker compose up --build` now serves the SPA at `http://localhost:7800/`.
 - The `production` build tag remains mandatory for any image that should serve the UI;
   a plain `go build` yields an API-only binary by design (dev workflow).
-- `MEDIA_PATH` (read by the binary) and `HOLODEX_MEDIA_PATH` (compose volume
-  substitution, optionally via `.env`) remain distinct and unrelated to UI serving.
+- `MEDIA_PATH` is unrelated to UI serving: the binary reads it as the library root, and
+  docker-compose substitutes the same `${MEDIA_PATH}` into the host media bind-mount
+  (the in-container `MEDIA_PATH` stays `/media`).
+  *(Updated 2026-06-15, PR #22: the compose host var was originally a separate
+  `HOLODEX_MEDIA_PATH`; it was unified to `MEDIA_PATH` so one name serves both the bind
+  source and the binary — reducing devex cognitive load. This note amends the original
+  "remain distinct" wording rather than superseding the ADR's decision.)*
