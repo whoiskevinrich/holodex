@@ -24,6 +24,19 @@ preview_start enrich-stub
 node testdata/enrich-stub/stub.js          # 127.0.0.1:9100 (override with PORT / HOST)
 ```
 
+## Slow-network mode (QA 3.18 / 3.21)
+
+`DELAY_MS` slows the user-facing `/resolve` + `/enrich` (not `/healthz` / `/describe`)
+to simulate a slow provider — so the picker's **loading** ("Searching…") and
+**slow-connection** states are actually visible. Run the **`enrich-stub-slow`** launch
+config (same port 9100, `DELAY_MS=1500`):
+
+```
+preview_start enrich-stub-slow        # or: $env:DELAY_MS='1500'; node testdata/enrich-stub/stub.js
+```
+
+It's the same port as `enrich-stub`, so stop the fast one first (run one or the other).
+
 ## Wire Holodex to it
 
 1. `metadata-sources.yaml` (repo root; gitignored — copy from `metadata-sources.yaml.example`,

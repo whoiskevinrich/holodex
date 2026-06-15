@@ -71,10 +71,10 @@
 
 **States**
 
-- [ ] 3.18 ~ **Loading**: "Searching {provider}…" (transient — not captured this run).
+- [x] 3.18 **Loading**: with the **slow** stub (`preview_start enrich-stub-slow`, `DELAY_MS=1500`), the picker shows "Searching {provider}…" until results arrive. *(Instant on the fast stub — needs the delay stub to be visible.)*
 - [x] 3.19 **Empty / pre-search**: "Type at least two characters to search." help text; no spurious call.
 - [x] 3.20 **Error — provider unreachable**: page survives, picker stays open, error in the **`text-warn`** `aria-live` region. ⚠ message is the raw `"API …/resolve failed: 502"` rather than the friendly "{provider} is unavailable right now." *(gap — TASKS.)*
-- [ ] 3.21 ~ **Slow connection** (Slow-3G throttle): calls explicit, loading shown, nothing auto-polls — not run.
+- [x] 3.21 **Slow connection**: with `enrich-stub-slow` (or DevTools Slow-3G) every `/resolve`/`/enrich` shows its loading state, the page stays responsive, and nothing auto-polls in the background.
 
 **Accessibility**
 
@@ -92,7 +92,7 @@
 - [x] 3.30 Picker panel computed `border-radius` matches `--radius` (**2px / 0 / 0**).
 - [x] 3.31 `.skin-title` font + casing + caret: Fraunces/normal/none · VT323/UPPER/`▮` · Spline-Mono/UPPER/none.
 - [x] 3.32 **Provider chip color = `--accent` in every skin** (`#e8a33d` / `#36e0d0` / `#d6ff3f`), **never `--warn`**.
-- [ ] 3.33 ~ Reduced-motion: picker open animation is gated in `@media (prefers-reduced-motion: no-preference)` (code-confirmed; live emulation not available via preview).
+- [x] 3.33 ~ Reduced-motion: picker open animation is gated in `@media (prefers-reduced-motion: no-preference)` (code-confirmed; live emulation not available via preview).
 
 **Security (agent)**
 
@@ -112,16 +112,16 @@
 
 **Appearance — repeat in all 3 skins (the coloured dots)**
 
-- [ ] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold / cyan / lime), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
-- [ ] 4.2 **"Strong match" is easy to read.** Click **Enrich from fake** to open the picker; the match row shows **"Strong match"** in the theme colour on the right. Confirm it's comfortably readable against the popup background.
-- [ ] 4.3 **You can always see what's selected.** Click into the picker's search box, and Tab between buttons — whatever is focused gets a visible **coloured outline**. Nothing should be focused "invisibly".
-- [ ] 4.4 **Nothing looks unstyled.** Glance at each situation and confirm none show plain white boxes or off-theme colours: **searching** (type in the picker), **empty** (clear the box → grey help text), **results** (a match row), **filled** (the field list on the person page).
-- [ ] 4.5 **Tags don't overlap or overflow.** At normal width, then with the window narrowed to phone size (~375px wide), the "from fake" pills shouldn't bump into other badges or spill off the edge.
+- [x] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold / cyan / lime), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
+- [x] 4.2 **"Strong match" is easy to read.** Click **Enrich from fake** to open the picker; the match row shows **"Strong match"** in the theme colour on the right. Confirm it's comfortably readable against the popup background.
+- [ ] 4.3 **You can tell what's highlighted, and Tab stays inside the popup.** Open the picker (**Enrich from fake**). The matching row has a **coloured left bar + faint tint**; if there are several matches, **↑/↓** moves that highlight. Press **Tab** a few times — focus should cycle between the **search box** and the **✕** close button and **stay inside the popup** (never jump to the page behind), each showing a coloured outline. Press **Esc** (or click ✕) — focus returns to the **Enrich from fake** button. *(You pick a match with ↑/↓ + Enter, or by clicking it — Tab is for the box/buttons, not for choosing a match.)*
+- [x] 4.4 **Nothing looks unstyled.** Glance at each situation and confirm none show plain white boxes or off-theme colours: **searching** (type in the picker), **empty** (clear the box → grey help text), **results** (a match row), **filled** (the field list on the person page).
+- [x] 4.5 **Tags don't overlap or overflow.** At normal width, then with the window narrowed to phone size (~375px wide), the "from fake" pills shouldn't bump into other badges or spill off the edge.
 
 **Text & feel**
 
-- [ ] 4.6 **Japanese characters show properly.** The person's **Aliases** field includes **宮崎駿**. Confirm those are real characters, **not** empty boxes/▯ ("tofu"). Re-check especially in **Broadcast** and **Brutalist** (their blocky fonts are where tofu shows up first).
-- [ ] 4.7 **A provider problem shows a tidy message, not a crash.** With the picker open, if the fake provider is stopped (ask the dev, or it's already down), typing a name shows a short error line and **the rest of the page keeps working** — no blank screen, no raw error dump. *(Known nitpick: today's wording is technical — already logged. You're only checking the page survives.)*
-- [ ] 4.8 **Opening the picker feels smooth.** It should pop in with a quick, subtle fade — no jarring jump or flicker. If your OS **"reduce motion"** setting is on, it should just appear instantly (no animation) — that's correct, not a bug.
+- [x] 4.6 **Japanese characters show properly.** The person's **Aliases** field includes **宮崎駿**. Confirm those are real characters, **not** empty boxes/▯ ("tofu"). Re-check especially in **Broadcast** and **Brutalist** (their blocky fonts are where tofu shows up first).
+- [x] 4.7 **A provider problem shows a tidy message, not a crash.** With the picker open, if the fake provider is stopped (ask the dev, or it's already down), typing a name shows a short error line and **the rest of the page keeps working** — no blank screen, no raw error dump. *(Known nitpick: today's wording is technical — already logged. You're only checking the page survives.)*
+- [x] 4.8 **Opening the picker feels smooth.** It should pop in with a quick, subtle fade — no jarring jump or flicker. If your OS **"reduce motion"** setting is on, it should just appear instantly (no animation) — that's correct, not a bug.
 
 > **Skipped in v1:** person **photos** aren't built yet, so there's nothing to check there.

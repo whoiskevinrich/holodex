@@ -25,6 +25,11 @@ const http = require('http');
 const PORT = Number(process.env.PORT) || 9100;
 const HOST = process.env.HOST || '127.0.0.1';
 const NAME = 'fake';
+// DELAY_MS slows the user-facing /resolve + /enrich (not /healthz or /describe) to
+// simulate a slow network — exercises the picker's loading + slow-connection states
+// (QA 3.18 / 3.21). 0 = instant. Set via the `enrich-stub-slow` launch config.
+const DELAY_MS = Number(process.env.DELAY_MS) || 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const fields = {
   bio: ['Japanese filmmaker and co-founder of Studio Ghibli.'],
@@ -48,6 +53,7 @@ http
   .createServer(async (req, res) => {
     res.setHeader('content-type', 'application/json');
     const url = req.url.split('?')[0];
+    if (DELAY_MS && (url === '/resolve' || url === '/enrich')) await sleep(DELAY_MS);
     if (url === '/healthz') {
       return res.end(JSON.stringify({ status: 'ok', provider: NAME, version: 'stub-1' }));
     }

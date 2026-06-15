@@ -31,16 +31,40 @@
 	let applying = $state(false);
 	let error = $state('');
 	let input = $state<HTMLInputElement | null>(null);
+	let dialogEl = $state<HTMLElement | null>(null);
+	let trigger: HTMLElement | null = null;
 
 	const listId = 'enrich-candidates';
 
 	onMount(() => {
+		trigger = document.activeElement as HTMLElement | null; // the Enrich button
 		input?.focus();
 		input?.select();
 		// Auto-search the pre-filled name on open so a confident match shows
 		// immediately — the owner shouldn't have to retype the person's own name.
 		if (query.trim().length >= 2) void search(query.trim());
+		// Focus-return: send focus back to the Enrich button when the picker closes.
+		return () => trigger?.focus?.();
 	});
+
+	// Trap Tab within the dialog so it can't escape to the page behind (the rows
+	// aren't tab stops — they're chosen with ↑/↓ — so this cycles input ↔ close).
+	function trapTab(e: KeyboardEvent) {
+		if (e.key !== 'Tab' || !dialogEl) return;
+		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button')].filter(
+			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
+		);
+		if (f.length === 0) return;
+		const first = f[0];
+		const last = f[f.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
 
 	// Debounced provider search; below 2 chars we don't call.
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -115,6 +139,9 @@
 	}}
 >
 	<div
+		bind:this={dialogEl}
+		onkeydown={trapTab}
+		tabindex="-1"
 		class="enrich-pop flex max-h-[80vh] w-full max-w-lg flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
 		role="dialog"
 		aria-modal="true"
@@ -153,7 +180,9 @@
 			{:else if query.trim().length < 2}
 				Type at least two characters to search.
 			{:else if candidates.length}
-				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — click one (or press Enter) to apply
+				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — {candidates.length > 1
+					? '↑/↓ to choose, then '
+					: ''}click or press Enter to apply
 			{:else}
 				No matches for “{query.trim()}”.
 			{/if}
@@ -172,7 +201,9 @@
 					aria-selected={i === active}
 					onclick={() => confirm(c)}
 					onmouseenter={() => (active = i)}
-					class="cursor-pointer rounded-theme px-3 py-2 {i === active ? 'bg-surface-2' : ''}"
+					class="cursor-pointer rounded-theme border-l-2 px-3 py-2 {i === active
+						? 'border-accent bg-surface-2'
+						: 'border-transparent'}"
 				>
 					<div class="flex items-center justify-between gap-2">
 						<span class="truncate text-sm text-ink">{c.label}</span>
