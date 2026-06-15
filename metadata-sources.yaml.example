@@ -1,13 +1,29 @@
-# Holodex metadata source providers (F22, ADR-033)
-# Copy to metadata-sources.yaml (path via METADATA_SOURCES_PATH). A missing file
-# simply means no providers — enrichment is then unavailable.
+# Holodex metadata source providers (F22, ADR-033).
 #
-# Each provider is a SIDECAR container speaking the small HTTP contract
+# Copy to metadata-sources.yaml (next to holodex.yaml, or set METADATA_SOURCES_PATH)
+# to enrich People with data the files don't carry (bios, birthdates, photos) from
+# external sources. A missing file simply means no providers — enrichment is then
+# unavailable and the "Enrich" button never appears. Editing this file takes effect
+# on POST /api/v1/admin/reload-config (or a restart) — no re-scan needed.
+#
+# Each provider is a SIDECAR container speaking a small HTTP contract
 # (/describe, /resolve, /enrich, /healthz). Core only ever dials a base_url listed
-# here (the SSRF allowlist) and holds NO upstream API keys — each provider owns
-# its own key in its own container env. Enrichment is owner-gated and on-demand.
+# here (the SSRF allowlist) and holds NO upstream API keys — each provider owns its
+# own key in its own container env. Enrichment is owner-gated (ADMIN_TOKEN) and
+# strictly on-demand: nothing is fetched without an explicit click.
+#
+# Each entry:
+#   name          provider id (shown in the UI and on /status; lowercase)
+#   base_url      where core reaches the sidecar (compose service name on the
+#                 internal network, or host:port). THIS is the SSRF allowlist —
+#                 core never follows a provider response to any other host.
+#   entity_types  what the provider can enrich; v1 supports [person]
+#                 (series/video reuse the same design later)
+#   enabled       false keeps it configured-but-off; flip to true once the sidecar
+#                 is running and reachable at base_url
+
 sources:
   - name: tmdb
-    base_url: http://holodex-tmdb:9100   # compose service name on the internal network
-    entity_types: [person]               # v1 enriches People; series/video later
-    enabled: false                       # flip to true once the sidecar is running
+    base_url: http://holodex-tmdb:9100
+    entity_types: [person]
+    enabled: false
