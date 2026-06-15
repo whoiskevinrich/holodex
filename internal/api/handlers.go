@@ -123,6 +123,7 @@ func (h *Handlers) controlsUnauthenticated() bool {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
 	r.Get("/media/{id}", h.getMedia)
+	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
 	r.Get("/media/{id}/thumbnail", h.serveThumbnail)
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
@@ -187,19 +188,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list media", err)
 		return
 	}
-	// One pass: set the serving URL on ready videos, and collect never-attempted
-	// ones to enqueue at high priority (Tier 3). Previously-failed items are left
-	// to the startup sweep so a broken file isn't re-attempted on every browse.
-	var pending []int64
-	for i := range items {
-		setThumbnailURL(&items[i])
-		if items[i].ThumbnailState == model.ThumbnailNone {
-			pending = append(pending, items[i].ID)
-		}
-	}
-	if h.thumbs != nil && len(pending) > 0 {
-		h.thumbs.EnqueueHigh(pending)
-	}
+	h.prepareThumbnails(items)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
@@ -209,6 +198,22 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 func setThumbnailURL(v *model.Video) {
 	if model.HasThumbnailImage(v.ThumbnailState) {
 		v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail", v.ID)
+	}
+}
+
+// prepareThumbnails sets the serving URL on each video and enqueues never-attempted
+// covers at high priority (Tier 3, ADR-009). Previously-failed items are left to the
+// startup sweep so a broken file isn't re-attempted on every browse.
+func (h *Handlers) prepareThumbnails(videos []model.Video) {
+	var pending []int64
+	for i := range videos {
+		setThumbnailURL(&videos[i])
+		if videos[i].ThumbnailState == model.ThumbnailNone {
+			pending = append(pending, videos[i].ID)
+		}
+	}
+	if h.thumbs != nil && len(pending) > 0 {
+		h.thumbs.EnqueueHigh(pending)
 	}
 }
 
@@ -232,6 +237,32 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		fields = h.mappings.Current().Resolve(extra)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"video": v, "metadata": extra, "fields": fields})
+}
+
+// getRelated handles GET /media/{id}/related — the "More with …" shelves (ADR-031):
+// a person-keyed and a tag-keyed set of up to 5 random sibling videos. 404 if the
+// item is missing/inactive (consistent with getMedia).
+func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	related, err := h.repo.Related(r.Context(), id, 5)
+	if errors.Is(err, repo.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "media not found")
+		return
+	}
+	if err != nil {
+		h.fail(w, "related media", err)
+		return
+	}
+	// Same cover-art treatment as the grid, per shelf.
+	for _, shelf := range []*repo.RelatedShelf{related.Person, related.Tag} {
+		if shelf != nil {
+			h.prepareThumbnails(shelf.Items)
+		}
+	}
+	writeJSON(w, http.StatusOK, related)
 }
 
 // streamMedia serves the file by ID with HTTP Range support (ADR-015). The path

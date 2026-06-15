@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-10  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -137,6 +137,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
 | **Owner gating seam** (ADR-030, F21.7) | Unit + Integration | Open (no token) vs gated (token set) on every owner route; **constant-time** token compare; **fail-loud** on non-loopback bind + no token; **CSRF** rejection of cross-site admin POST; frontend capability-flag toggle hides controls | ~95% |
+| **Related-media endpoint** (ADR-031, QW2/QW3) | Unit + Integration | Person key = highest **global** video count (tie-break lowest id); tag key = **most distinctive** by `c·(1−c/N)` (a **near-universal tag is demoted** below a mid-frequency one; tie-break higher `c`, then lowest id); items **exclude current item**, **active-only**, **≤5**; `items:[]` valid when no siblings; `person`/`tag` null when the item has none; **404** unknown/inactive id; attached people/tags present (**no N+1**). Selection is **deterministic** (pin the chosen key); only the item *draw* is `RANDOM()` — assert **set membership / exclusion / count**, never order. **Stability** (client fetch-once-per-view) is a page-level test (§5), not the endpoint's | ~90% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -147,6 +148,7 @@ assert.JSONEq(t, string(want), string(got))
 - **Migration safety**: user-authored Phase 3 data (aliases, enrichment) survives an up-migration.
 - **Activity leaks no secrets**: `/admin/activity` and `/admin/activity/history` never serialize a filesystem path, env value, or token (incl. `job_runs.error_message`).
 - **Gate is real and loud**: an owner-only route is unreachable without the token when `ADMIN_TOKEN` is set; when unset on a non-loopback bind, the server warns and flags it (never a silent open control surface).
+- **Related never includes self**: `GET /media/{id}/related` must never return the current item in `person.items` or `tag.items` — the exclusion holds even when the item is the *only* sibling (→ empty `items:[]`, not itself). Selection (which person/tag is keyed) is fully deterministic; only the item *draw* is random, so tests pin the chosen key + membership and tolerate any order.
 
 ---
 
@@ -162,6 +164,12 @@ assert.JSONEq(t, string(want), string(got))
 | Keyboard nav (F12.5) | Interaction | Playwright | `/` focus, arrows, Enter, Esc — no mouse |
 | Accessibility (F8.3) | Automated | Playwright + axe-core | WCAG AA contrast; roles/labels |
 | Responsive (F12.6) | Visual | Playwright | 375px/768px reflow |
+| **Search-history store** (`searchHistory.ts`, QW1) | Unit | Vitest | Record-on-submit; **case-insensitive dedupe → move-to-top**; **cap 10** eviction; clear / single-remove; **malformed-JSON → reads empty** (defensive, never throws); whitespace-only not recorded |
+| **Search-history dropdown** (QW1) | Component/Interaction | Vitest | Opens on focus of an **empty** box when history non-empty; **hides the instant the user types** (`!searchTerm.trim()` gate — no filter-as-you-type); reopens after clearing + re-focus; ↓/↑ highlight, Enter runs, Esc closes; **click runs query before blur closes** (`onmousedown`); **no network call**; 3-skin: square corners (Broadcast/Brutalist), **no `▮` caret on rows** |
+| **Atmosphere overlay on playback** (overlay bugfix) | Component/Interaction | Vitest + Playwright | `onplay` toggles `body.is-playing` → `.app-atmosphere::after` hidden; `onpause`/`onended`/unmount restore it; **all 3 skins** (Broadcast scanlines+vignette fully cleared during play) |
+| **RelatedShelf** (QW3) | Component | Vitest | Shelf **omitted** when block null or `items` empty; renders heading link (`/people|tags/{id}`) + **≤5 VideoCards**; cards wrapped in `.video-grid` so **Brutalist counter restarts per shelf**; loading/error never blocks primary detail content |
+| **Related shelves — stable per view** (QW2/QW3) | Interaction | Vitest | The media page's `$effect` tracks **only `id`** — an incidental re-render (skin switch, thumbnail regenerate) **does not refetch** `/related` (shelves don't reshuffle); changing `id` triggers exactly one fresh fetch |
+| **Browse-state preservation** (`browse.svelte.ts`, QW4) | Unit | Vitest | **Signature match → reuse** cached set (no refetch); **mismatch → fetch page 0**; **invalidate** on filter/sort change; scroll capture/restore round-trip; single-entry replace (no accumulation) |
 
 ---
 
@@ -178,6 +186,9 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 8. (Phase 2) MCP `search_videos` over HTTP returns same ids as the UI filter.
 9. (Phase 2) Add a `studio` mapping → reload-config → Studio facet appears & filters.
 10. Add a file to the watched dir → appears within scan interval (F1.2).
+11. **(Quick Wins · QW1)** Run a search → open another → focus the search box → the prior query appears in history → click it re-runs the search (URL `/search?q=…`); remove + clear empty the list.
+12. **(Quick Wins · QW3)** Open a detail page with shared people/tags → a "More with `<person>`" and/or "More with `<tag>`" shelf renders ≤5 cards → click a card navigates onward; an item with no siblings shows no empty rail.
+13. **(Quick Wins · QW4)** Scroll the grid, "Load more" ×2 (150 items), open an item, press **Back** → **same scroll position** (±a few px) **and** all 150 items still present **and** the opened item on screen **and** **zero** `GET /api/v1/media` fired **and** no `Loading…` flash. Then change a filter → resets to top + refetches; hard-reload → rebuilds page 0 at top.
 
 ---
 
@@ -245,6 +256,12 @@ Conventions:
 - **Activity read-model** (ADR-028): scanner `Status()` states/triggers + last-run counts; `job_runs` insert + 30-day prune + restart survival; library-count caching; no-secrets invariant (incl. history `error_message`).
 - **Owner gating seam** (ADR-030): open-vs-gated across all owner routes; constant-time compare; fail-loud on non-loopback + no token; CSRF rejection of cross-site admin POST; frontend capability-flag toggle.
 - **Activity page + header indicator**: polled refresh reflects state within one interval; loading/empty/error states; **all 3 skins** (tokens-only, per CLAUDE.md). SSE (F21.8) tests land with ADR-029.
+
+### Quick Wins batch — post–Phase 2
+- **Overlay bugfix**: `.app-atmosphere.is-playing::after` suppression toggled by the media-page `<video>` (`onplay`/`onpause`/`onended`), restored on unmount; verified in **all 3 skins** (Broadcast is the load-bearing case).
+- **Search history** (QW1): `searchHistory.ts` store unit tests (dedupe/cap/defensive-parse/clear) + dropdown interaction (keyboard, click-before-blur, no network); 3-skin dropdown render.
+- **Related-media** (ADR-031, QW2/QW3): repo random-select methods + `GET /media/{id}/related` handler — selection determinism, self-exclusion, active-only, ≤5, null/empty blocks, 404, no-N+1; **assert membership/count not order** (RANDOM()). `RelatedShelf` component tests incl. per-shelf Brutalist counter reset.
+- **Fluid Back** (ADR-032, QW4): `browse.svelte.ts` store unit tests (signature reuse/invalidate, scroll round-trip) + the **E2E scroll+pages restoration** flow (no refetch, no flash). This is the first Playwright assertion on scroll restoration — establishes the pattern for future paginated views.
 
 ### Phase 3 — enrichment (mock externals)
 - People/tag aliases resolve in search/filter; tag-graph DAG traversal (incl. cycle handling).
@@ -360,6 +377,59 @@ Then no response field contains a filesystem path, env value, or token
  And system.media_path_present is a boolean, not the path
 ```
 
+**Related-media selection + self-exclusion (ADR-031, QW2)**
+```
+Given a library of N=10 active videos
+  And item V with people [A (global count 5), B (global count 2)]
+  And tags [T_universal (global count 9), T_theme (global count 4)]
+  And other active items share A, B, and both tags in various combinations
+When GET /api/v1/media/{V}/related
+Then person.id == A   (highest global count; tie-break lowest id)
+ And tag.id == T_theme — the DISTINCTIVE tag wins over the near-universal one:
+     score(T_universal) = 9·(1−9/10) = 0.9  <  score(T_theme) = 4·(1−4/10) = 2.4
+ And every id in person.items shares A and != V
+ And every id in tag.items shares T_theme and != V
+ And len(person.items) <= 5 and len(tag.items) <= 5
+ And all returned items are active, each with its people/tags attached
+   (selection is deterministic; item order is not — assert the set, never the sequence)
+```
+
+**Related-media empty + null blocks (ADR-031, QW2)**
+```
+Given item V whose only person A appears on no other active item
+  And V has no tags
+When GET /api/v1/media/{V}/related
+Then person.id == A and person.items == []   (block present, no siblings)
+ And tag == null                              (item has no tags)
+When the same is requested for a non-existent or inactive id
+Then status 404
+```
+
+**Fluid Back — scroll + loaded pages restored (ADR-032, QW4)**
+```
+Given the browse grid scrolled down past "Load more" ×2 (150 items loaded)
+  And the window scrolled to Y
+When an item is opened and the browser Back button is pressed
+Then the grid renders all 150 items from cache (no GET /api/v1/media fires)
+ And window.scrollY == Y (within a few px), with no jump-to-top or Loading… flash
+When instead a filter is changed (signature differs)
+Then the cache is discarded, the grid refetches from offset 0, scroll resets to top
+When instead the page is hard-reloaded
+Then the grid rebuilds from the URL filters at page 0 (no stale restore)
+```
+
+**Search history — dedupe, cap, defensive parse (QW1)**
+```
+Given an empty search history
+When queries are submitted: "amv", "AMV editor:foo", "amv"
+Then history == ["amv", "AMV editor:foo"]   (case-insensitive dedupe; "amv" moved to top)
+When 10 further distinct queries are submitted
+Then len(history) == 10 and the oldest entry was evicted
+Given localStorage holds malformed JSON under the history key
+When the store reads history
+Then it returns [] and search still works (never throws into the UI)
+```
+
 ---
 
 ## 11. Known Gaps & Open Questions
@@ -369,3 +439,5 @@ Then no response field contains a filesystem path, env value, or token
 - **50k perf dataset**: confirm target hardware profile for the CI perf runner so thresholds are meaningful.
 - **Visual regression baseline churn**: decide tolerance/diff threshold to avoid flaky screenshot tests.
 - **mkvpropedit/mkv tag XML** authoring in fixtures needs mkvtoolnix in the CI image (in addition to ffmpeg/exiftool) — add to the test image.
+- **`ORDER BY RANDOM()` non-determinism** (ADR-031): related-media tests must assert set membership / exclusion / count, never a fixed order or a seeded sequence — over-specifying order would make them flaky. If a future change needs reproducible draws, that's a seed decision to revisit in ADR-031, not a test workaround.
+- **Scroll-restoration E2E reliability** (ADR-032): the QW4 Back-restoration assertion depends on layout settling before the scroll check; allow a small Y tolerance and wait for the cached grid to paint, or it will flake. First scroll-restoration test in the suite — treat as the reference pattern.
