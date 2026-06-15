@@ -151,4 +151,7 @@ type JobRun struct {
 	Skipped      int       `json:"skipped"`
 	Errors       int       `json:"errors"`
 	ErrorMessage string    `json:"error_message,omitempty"`
+	// Detail is a short human description for non-scan jobs (F22.6b) — e.g.
+	// "tmdb → person #18 (5 fields)". Empty for scans (their counts say it all).
+	Detail string `json:"detail,omitempty"`
 }

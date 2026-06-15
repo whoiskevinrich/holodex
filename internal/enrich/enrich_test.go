@@ -209,6 +209,36 @@ func TestServiceProtocolMismatch(t *testing.T) {
 	}
 }
 
+// A successful enrich records a kind=enrich pass in the activity history with a
+// provider/entity detail and no leaked secrets (F22.6b, ADR-028).
+func TestServiceEnrichRecordsJobRun(t *testing.T) {
+	svc, r := newSvc(t, NewFake("fake"))
+	ctx := context.Background()
+	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, 7, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	runs, err := r.ListJobRuns(ctx, 1)
+	if err != nil {
+		t.Fatalf("list job runs: %v", err)
+	}
+	var job *model.JobRun
+	for i := range runs {
+		if runs[i].Kind == model.JobKindEnrich {
+			job = &runs[i]
+			break
+		}
+	}
+	if job == nil {
+		t.Fatal("no kind=enrich job recorded")
+	}
+	if job.Status != model.JobStatusOK {
+		t.Errorf("status = %q, want success", job.Status)
+	}
+	if !strings.Contains(job.Detail, "fake") || !strings.Contains(job.Detail, "#7") {
+		t.Errorf("detail = %q, want provider + entity ref", job.Detail)
+	}
+}
+
 // Untrusted-response bounding (F22.9b).
 func TestSanitizeValue(t *testing.T) {
 	if got := sanitizeValue("a\x00b\nc"); got != "ab c" {

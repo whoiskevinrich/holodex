@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"holodex/internal/model"
@@ -42,6 +43,9 @@ type EnrichRepo interface {
 	EnrichmentForEntity(ctx context.Context, entityType string, entityID int64) ([]repo.EnrichmentRow, error)
 	MatchExternalID(ctx context.Context, entityType string, entityID int64, provider string) (string, bool, error)
 	DeleteEnrichmentByProvider(ctx context.Context, entityType string, entityID int64, provider string) (int64, error)
+	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
+	// effort — a recording failure never fails the enrichment.
+	RecordJobRun(ctx context.Context, run model.JobRun) error
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -158,8 +162,18 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 
 // Enrich fetches an external record's fields for an entity, sanitizes and stores
 // them in the shadow layer, and returns the entity's resolved fields with
-// provenance (F22.5/F22.7). Asset download (photos) is deferred (v1 non-goal).
+// provenance (F22.5/F22.7). It records the pass in the activity history (F22.6b).
+// Asset download (photos) is deferred (v1 non-goal).
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
+	started := time.Now()
+	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID)
+	s.recordEnrichJob(ctx, started, provider, entityType, entityID, len(fields), err)
+	return fields, err
+}
+
+// runEnrich is the core fetch → sanitize → store → re-read; Enrich wraps it with
+// activity-history recording.
+func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
 	c, err := s.verifiedClient(ctx, provider, entityType)
 	if err != nil {
 		return nil, err
@@ -173,6 +187,38 @@ func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64,
 		return nil, err
 	}
 	return s.Fields(ctx, entityType, entityID)
+}
+
+// recordEnrichJob appends the enrich pass to the 30-day activity history (F22.6b).
+// Best effort — a recording failure is logged, never returned. The detail carries
+// provider + entity + field count only: no filesystem path, env value, or token
+// (the no-secrets invariant, ADR-028); on error the raw provider error is omitted
+// because it can include the provider base_url.
+func (s *Service) recordEnrichJob(ctx context.Context, started time.Time, provider, entityType string, entityID int64, n int, enrichErr error) {
+	now := time.Now()
+	run := model.JobRun{
+		Kind:       model.JobKindEnrich,
+		Trigger:    model.TriggerManual,
+		Status:     model.JobStatusOK,
+		StartedAt:  started,
+		FinishedAt: now,
+		DurationMs: now.Sub(started).Milliseconds(),
+	}
+	if enrichErr != nil {
+		run.Status = model.JobStatusErr
+		run.Errors = 1
+		run.Detail = fmt.Sprintf("%s → %s #%d (failed)", provider, entityType, entityID)
+		run.ErrorMessage = "enrichment failed"
+	} else {
+		field := "fields"
+		if n == 1 {
+			field = "field"
+		}
+		run.Detail = fmt.Sprintf("%s → %s #%d (%d %s)", provider, entityType, entityID, n, field)
+	}
+	if err := s.repo.RecordJobRun(ctx, run); err != nil {
+		s.log.Warn("record enrich job", "err", err)
+	}
 }
 
 // Clear removes a provider's contribution for an entity (F22.7b).

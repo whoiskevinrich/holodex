@@ -163,6 +163,7 @@ export interface JobRun {
 	skipped: number;
 	errors: number;
 	error_message?: string;
+	detail?: string; // short description for non-scan jobs, e.g. enrich (F22.6b)
 }
 
 // Capabilities tells the SPA whether it may act as owner (F21.7).
