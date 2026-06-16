@@ -1,9 +1,17 @@
 // Shape of the REST payloads (mirrors internal/model + handlers, ADR-006).
 
+// PersonAlias is one owner-curated alternate name (F23, ADR-036). The id is the
+// stable handle the delete control uses.
+export interface PersonAlias {
+	id: number;
+	alias: string;
+}
+
 export interface Person {
 	id: number;
 	name: string;
 	video_count?: number;
+	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 
 export interface Tag {

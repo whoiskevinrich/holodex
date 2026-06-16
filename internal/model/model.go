@@ -55,6 +55,16 @@ type Person struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// Aliases are owner-curated alternate names (F23, ADR-036), each searchable.
+	// Populated only on the person-detail read; omitted (nil) elsewhere.
+	Aliases []PersonAlias `json:"aliases,omitempty"`
+}
+
+// PersonAlias is one owner-curated alternate name for a person (F23, ADR-036).
+// The id gives the UI and the delete endpoint a stable handle.
+type PersonAlias struct {
+	ID    int64  `json:"id"`
+	Alias string `json:"alias"`
 }
 
 type Tag struct {

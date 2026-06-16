@@ -142,8 +142,11 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 
+	// People resolve through the alias table (F23, ADR-036) so a merged-in name
+	// routes to the canonical person and the merge survives re-scans; tags use the
+	// plain name lookup (tag aliases are a future feature).
 	for _, p := range people {
-		pid, err := getOrCreateByName(ctx, tx, "people", p.Name)
+		pid, err := resolveOrCreatePerson(ctx, tx, p.Name)
 		if err != nil {
 			return err
 		}
@@ -753,7 +756,26 @@ func (r *Repo) GetPerson(ctx context.Context, id int64) (*model.Person, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	return &p, err
+	if err != nil {
+		return nil, err
+	}
+	// Attach owner-curated aliases (F23, ADR-036) for the detail view.
+	if p.Aliases, err = r.AliasesForPerson(ctx, id); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// PersonExists reports a person id is present (ErrNotFound otherwise), skipping
+// the video-count and alias fetches GetPerson does — for cheap existence checks
+// on the write path (e.g. before adding an alias).
+func (r *Repo) PersonExists(ctx context.Context, id int64) error {
+	var x int
+	err := r.db.QueryRowContext(ctx, `SELECT 1 FROM people WHERE id = ?`, id).Scan(&x)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
 }
 
 // GetTag returns a tag by id with video count, or ErrNotFound.
@@ -932,6 +954,8 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 	}
 	res.Videos = vids
 
+	// People: canonical-name matches first, then alias-only matches (F23, ADR-036),
+	// deduped by id so a person matching both name and an alias appears once.
 	pr, err := r.db.QueryContext(ctx, `
 		SELECT p.id, p.name FROM people_fts f JOIN people p ON p.id = f.rowid
 		WHERE people_fts MATCH ? LIMIT ?`, match, limit)
@@ -939,12 +963,33 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 		return res, fmt.Errorf("search people: %w", err)
 	}
 	defer pr.Close()
+	seen := make(map[int64]struct{})
 	for pr.Next() {
 		var p model.Person
 		if err := pr.Scan(&p.ID, &p.Name); err != nil {
 			return res, err
 		}
+		seen[p.ID] = struct{}{}
 		res.People = append(res.People, p)
+	}
+	if err := pr.Err(); err != nil {
+		return res, err
+	}
+	if remaining := limit - len(res.People); remaining > 0 {
+		aliasHits, err := r.searchPeopleByAlias(ctx, match, remaining)
+		if err != nil {
+			return res, err
+		}
+		for _, p := range aliasHits {
+			if _, dup := seen[p.ID]; dup {
+				continue
+			}
+			seen[p.ID] = struct{}{}
+			res.People = append(res.People, p)
+			if len(res.People) >= limit {
+				break
+			}
+		}
 	}
 
 	tr, err := r.db.QueryContext(ctx, `

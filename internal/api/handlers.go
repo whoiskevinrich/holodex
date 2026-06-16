@@ -155,6 +155,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/admin/reload-config", h.adminReloadConfig)
 		// Metadata source plugins — People enrichment (F22, ADR-033).
 		h.mountEnrich(r)
+		// Person aliases — owner-curated alternate names (F23, ADR-036).
+		h.mountAliases(r)
 	})
 }
 
