@@ -38,14 +38,17 @@ const timeLayout = time.RFC3339
 // ---------------------------------------------------------------------------
 
 // VideoStat is the minimal row the scanner reads to decide whether a file needs
-// re-extraction (ADR-018).
+// re-extraction (ADR-018). Active lets the change-detection fast-path notice a row
+// that was deactivated (e.g. by a transient empty walk) so it can be reactivated
+// without re-extraction when the file reappears unchanged (issue #26).
 type VideoStat struct {
-	ID    int64
-	Size  int64
-	Mtime time.Time
+	ID     int64
+	Size   int64
+	Mtime  time.Time
+	Active bool
 }
 
-// StatByPath returns the stored (id, size, mtime) for a canonical path, or
+// StatByPath returns the stored (id, size, mtime, active) for a canonical path, or
 // ok=false if the file has never been indexed.
 func (r *Repo) StatByPath(ctx context.Context, path string) (VideoStat, bool, error) {
 	var (
@@ -53,8 +56,8 @@ func (r *Repo) StatByPath(ctx context.Context, path string) (VideoStat, bool, er
 		mtimeStr string
 	)
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, file_size, file_mtime FROM videos WHERE file_path = ?`, path,
-	).Scan(&st.ID, &st.Size, &mtimeStr)
+		`SELECT id, file_size, file_mtime, active FROM videos WHERE file_path = ?`, path,
+	).Scan(&st.ID, &st.Size, &mtimeStr, &st.Active)
 	if errors.Is(err, sql.ErrNoRows) {
 		return VideoStat{}, false, nil
 	}
@@ -214,6 +217,22 @@ func (r *Repo) DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, er
 		return 0, fmt.Errorf("deactivate missing: %w", err)
 	}
 	return res.RowsAffected()
+}
+
+// Reactivate flips active=1 for a single row whose file has reappeared unchanged
+// (issue #26). It is the cheap counterpart to a full re-index: the metadata is
+// already current (size + mtime matched), so the scanner only needs to undo a
+// prior deactivation, no ffprobe/exiftool re-extraction.
+func (r *Repo) Reactivate(ctx context.Context, id int64) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE videos SET active = 1 WHERE id = ?`, id,
+	); err != nil {
+		return fmt.Errorf("reactivate: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

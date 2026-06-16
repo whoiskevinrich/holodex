@@ -42,6 +42,7 @@ type Repository interface {
 	StatByPath(ctx context.Context, path string) (stat repo.VideoStat, ok bool, err error)
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
 	DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, error)
+	Reactivate(ctx context.Context, id int64) error
 }
 
 // Extractor reads embedded metadata for one file.
@@ -256,9 +257,20 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	close(jobs)
 	wg.Wait()
 
-	removed, err := s.repo.DeactivateExcept(ctx, st.seenIDs)
-	if err != nil {
+	// Guard against mass-deactivation from a transiently empty/unreadable media
+	// root (issue #26): a single walk that sees zero media files would otherwise
+	// deactivate the entire library. A genuinely-empty root is indistinguishable
+	// from a mount glitch, so err toward keeping rows — a later walk that sees the
+	// files reactivates them, whereas a wrongful sweep hides everything until manual
+	// recovery. (When the library is truly empty there are no active rows to sweep.)
+	var removed int64
+	if st.seen == 0 {
+		s.log.Warn("scan saw zero media files; skipping deactivation to avoid hiding a transiently-empty media root",
+			"media_path", s.cfg.MediaPath)
+	} else if n, err := s.repo.DeactivateExcept(ctx, st.seenIDs); err != nil {
 		s.log.Error("reconcile removed files failed", "err", err)
+	} else {
+		removed = n
 	}
 
 	dur := time.Since(start)
@@ -334,8 +346,19 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		return
 	}
 	if ok && prev.Size == info.Size() && prev.Mtime.Equal(mtime) {
-		st.incSkipped()
-		st.recordSeen(prev.ID) // unchanged but still present
+		// Unchanged but still present. If a prior pass deactivated the row (e.g. a
+		// transient empty/unreadable walk), reactivate it cheaply — the metadata is
+		// already current, so there's no need to re-extract (issue #26).
+		if prev.Active {
+			st.incSkipped()
+		} else if err := s.repo.Reactivate(ctx, prev.ID); err != nil {
+			st.incErrors()
+			s.log.Warn("reactivate failed", "path", path, "err", err)
+			return
+		} else {
+			st.incUpdated()
+		}
+		st.recordSeen(prev.ID)
 		return
 	}
 
