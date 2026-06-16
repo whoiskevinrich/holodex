@@ -10,8 +10,16 @@ on:
 permissions: {}
 
 jobs:
+  # Gate the release on the same checks that gate a PR merge — a tag can point at any
+  # commit, so re-run CI here rather than trust that the tagged commit passed on main.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   # Reuse the image pipeline; the tag ref makes metadata-action emit semver + latest.
   image:
+    needs: ci
     uses: ./.github/workflows/image.yml
     permissions:
       contents: read

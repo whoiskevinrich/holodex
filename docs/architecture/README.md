@@ -37,6 +37,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [032](ADR-032-browse-state-preservation.md) | Browse-state preservation — **module-scoped grid+scroll cache for fluid Back** | Proposed (spec Quick Wins QW4; extends ADR-002) |
 | [033](ADR-033-metadata-source-plugins.md) | Metadata source plugins — **sidecar providers** over a unified resolution layer | Accepted (spec F22; generalizes ADR-013) |
 | [034](ADR-034-release-notes-and-deployments.md) | Release notes — **git-cliff changelog** + GHCR **deployment linkage** + package link | Accepted (extends ADR-023/024) |
+| [035](ADR-035-ci-cd-scoping-and-release-gate.md) | CI/CD refinements — **image path-scoping** + CodeQL concurrency + **release test-gate** | Accepted (extends ADR-023/024) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
