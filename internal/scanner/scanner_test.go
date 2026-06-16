@@ -32,6 +32,9 @@ func (f *fakeRepo) StatByPath(_ context.Context, path string) (repo.VideoStat, b
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	st, ok := f.byPath[path]
+	if ok {
+		st.Active = f.active[st.ID]
+	}
 	return st, ok, nil
 }
 
@@ -48,6 +51,13 @@ func (f *fakeRepo) UpsertVideo(_ context.Context, v *model.Video, _ []model.Extr
 	f.byPath[v.FilePath] = st
 	f.active[st.ID] = true
 	return st.ID, nil
+}
+
+func (f *fakeRepo) Reactivate(_ context.Context, id int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.active[id] = true
+	return nil
 }
 
 func (f *fakeRepo) DeactivateExcept(_ context.Context, seen []int64) (int64, error) {
@@ -246,14 +256,8 @@ func TestScanAddsSkipsAndRemoves(t *testing.T) {
 	if err := s.ScanOnce(ctx); err != nil {
 		t.Fatalf("scan 3: %v", err)
 	}
-	activeCount := 0
-	for _, a := range fr.active {
-		if a {
-			activeCount++
-		}
-	}
-	if activeCount != 1 {
-		t.Errorf("active after removal = %d, want 1", activeCount)
+	if n := activeCount(fr); n != 1 {
+		t.Errorf("active after removal = %d, want 1", n)
 	}
 }
 
@@ -300,5 +304,95 @@ func TestChangedFileIsReindexed(t *testing.T) {
 	_ = s.ScanOnce(ctx)
 	if fr.uparts != 2 {
 		t.Errorf("upserts after change = %d, want 2", fr.uparts)
+	}
+}
+
+func activeCount(fr *fakeRepo) int {
+	fr.mu.Lock()
+	defer fr.mu.Unlock()
+	n := 0
+	for _, a := range fr.active {
+		if a {
+			n++
+		}
+	}
+	return n
+}
+
+// Issue #26: a row deactivated by a transient empty walk must be reactivated when
+// the file reappears unchanged — without re-extraction (no new upsert).
+func TestReactivatesUnchangedFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.mkv")
+	writeFile(t, path, 100)
+
+	fr := newFakeRepo()
+	s := newTestScanner(dir, fr)
+	ctx := context.Background()
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+	if activeCount(fr) != 1 {
+		t.Fatalf("active after first scan = %d, want 1", activeCount(fr))
+	}
+
+	// Simulate a prior pass having deactivated the row (e.g. a one-off empty walk).
+	if _, err := fr.DeactivateExcept(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	if activeCount(fr) != 0 {
+		t.Fatalf("active after forced deactivation = %d, want 0", activeCount(fr))
+	}
+
+	// Next scan sees the file unchanged: it must reactivate without re-extracting.
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 2: %v", err)
+	}
+	if activeCount(fr) != 1 {
+		t.Errorf("active after reactivation scan = %d, want 1", activeCount(fr))
+	}
+	if fr.uparts != 1 {
+		t.Errorf("upserts after reactivation = %d, want still 1 (no re-extract)", fr.uparts)
+	}
+	if st := s.Status(); st.LastRun == nil || st.LastRun.Updated != 1 {
+		t.Errorf("reactivation should count as 1 updated; last run = %+v", st.LastRun)
+	}
+}
+
+// Issue #26: a walk that sees zero media files (a transiently empty/unreadable
+// media root) must NOT mass-deactivate the existing library.
+func TestZeroFileWalkSkipsDeactivation(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.mkv"), 100)
+	writeFile(t, filepath.Join(dir, "b.mp4"), 200)
+
+	fr := newFakeRepo()
+	s := newTestScanner(dir, fr)
+	ctx := context.Background()
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+	if activeCount(fr) != 2 {
+		t.Fatalf("active after first scan = %d, want 2", activeCount(fr))
+	}
+
+	// Media root goes momentarily empty (mount glitch): remove every file.
+	for _, name := range []string{"a.mkv", "b.mp4"} {
+		if err := os.Remove(filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 2: %v", err)
+	}
+
+	// The library must remain intact rather than being mass-hidden.
+	if activeCount(fr) != 2 {
+		t.Errorf("active after zero-file walk = %d, want 2 (deactivation skipped)", activeCount(fr))
+	}
+	if st := s.Status(); st.LastRun == nil || st.LastRun.Removed != 0 {
+		t.Errorf("zero-file walk should remove nothing; last run = %+v", st.LastRun)
 	}
 }

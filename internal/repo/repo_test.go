@@ -226,6 +226,35 @@ func TestDeactivateExcept(t *testing.T) {
 	}
 }
 
+// Issue #26: Reactivate flips a deactivated row back to active without touching
+// its metadata; StatByPath surfaces the active flag the scanner's fast-path needs.
+func TestReactivate(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	id, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+
+	if _, err := r.DeactivateExcept(ctx, nil); err != nil {
+		t.Fatalf("deactivate: %v", err)
+	}
+	st, ok, err := r.StatByPath(ctx, "/m/a.mkv")
+	if err != nil || !ok {
+		t.Fatalf("stat: ok=%v err=%v", ok, err)
+	}
+	if st.Active {
+		t.Fatal("row should be inactive after deactivation")
+	}
+
+	if err := r.Reactivate(ctx, id); err != nil {
+		t.Fatalf("reactivate: %v", err)
+	}
+	if st, _, _ := r.StatByPath(ctx, "/m/a.mkv"); !st.Active {
+		t.Error("row should be active after reactivate")
+	}
+	if _, total, _ := r.ListVideos(ctx, repo.VideoFilter{}); total != 1 {
+		t.Errorf("reactivated row should be listed: total=%d, want 1", total)
+	}
+}
+
 func TestMetadataFacetsKeysAndFilter(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
