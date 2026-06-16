@@ -225,7 +225,11 @@ func (r *Repo) DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, er
 type VideoFilter struct {
 	Query                          string
 	PersonIDs                      []int64
-	TagIDs                         []int64
+	// PersonIDsAny matches videos credited to ANY of these people (OR), unlike
+	// PersonIDs which ANDs. Used by global search to fold a matched person's media
+	// (incl. alias matches) into the results (F23, ADR-036).
+	PersonIDsAny []int64
+	TagIDs       []int64
 	DurationMinSec, DurationMaxSec int
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
@@ -329,6 +333,10 @@ func (f VideoFilter) build() (string, []any) {
 	for _, pid := range f.PersonIDs {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_people vp WHERE vp.video_id = v.id AND vp.person_id = ?)")
 		args = append(args, pid)
+	}
+	if len(f.PersonIDsAny) > 0 {
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_people vp WHERE vp.video_id = v.id AND vp.person_id IN ("+placeholders(len(f.PersonIDsAny))+"))")
+		args = append(args, toAnySlice(f.PersonIDsAny)...)
 	}
 	for _, tid := range f.TagIDs {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id = ?)")
@@ -948,14 +956,9 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 	}
 	match := ftsPrefixQuery(q)
 
-	vids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit})
-	if err != nil {
-		return res, err
-	}
-	res.Videos = vids
-
-	// People: canonical-name matches first, then alias-only matches (F23, ADR-036),
-	// deduped by id so a person matching both name and an alias appears once.
+	// People first (so their media can be folded into the video results below):
+	// canonical-name matches, then alias-only matches (F23, ADR-036), deduped by id
+	// so a person matching both its name and an alias appears once.
 	pr, err := r.db.QueryContext(ctx, `
 		SELECT p.id, p.name FROM people_fts f JOIN people p ON p.id = f.rowid
 		WHERE people_fts MATCH ? LIMIT ?`, match, limit)
@@ -987,6 +990,38 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 			seen[p.ID] = struct{}{}
 			res.People = append(res.People, p)
 			if len(res.People) >= limit {
+				break
+			}
+		}
+	}
+
+	// Videos: title matches first, then the media of any matched person (incl. alias
+	// matches) so searching a person's name OR alias returns their library — the merge
+	// promise (F23, ADR-036). Deduped by id, capped at limit.
+	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit})
+	if err != nil {
+		return res, err
+	}
+	res.Videos = titleVids
+	if len(res.Videos) < limit && len(res.People) > 0 {
+		peopleIDs := make([]int64, len(res.People))
+		for i, p := range res.People {
+			peopleIDs[i] = p.ID
+		}
+		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit})
+		if err != nil {
+			return res, err
+		}
+		seenV := make(map[int64]struct{}, len(res.Videos))
+		for _, v := range res.Videos {
+			seenV[v.ID] = struct{}{}
+		}
+		for _, v := range pvids {
+			if _, dup := seenV[v.ID]; dup {
+				continue
+			}
+			res.Videos = append(res.Videos, v)
+			if len(res.Videos) >= limit {
 				break
 			}
 		}

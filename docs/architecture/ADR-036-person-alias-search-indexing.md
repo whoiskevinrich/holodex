@@ -83,6 +83,14 @@ Its person hits are appended to `res.People`, **deduplicated by person id** (a p
 its canonical name and an alias appears once), and the combined slice is capped to the per-group limit.
 Canonical-name matches keep priority (appended first).
 
+**Search returns the matched person's media, not just the chip.** Global search builds people first,
+then the video results = **title matches ∪ the media of every matched person** (name or alias),
+de-duped by video id and capped at the limit. The person-media half reuses `ListVideos` via a new
+OR-semantics `VideoFilter.PersonIDsAny` (the existing `PersonIDs` AND-s, which is wrong for a union).
+This is what makes the headline true — *searching either name returns the merged union* — in the
+results themselves, not only after clicking through to the person page. (Title-only matches are
+unchanged, so searching a word that is only a video title still works.)
+
 **Scan-time resolution (the load-bearing decision).** The people branch of the scanner write path
 resolves each extracted name *through the alias table* before creating a person:
 

@@ -325,6 +325,53 @@ func TestPersonConflict(t *testing.T) {
 	}
 }
 
+func TestSearchReturnsPersonMedia(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	// The video TITLE deliberately shares no terms with the person/alias, so a hit
+	// can only come from person association (the merge promise), not title FTS.
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Untitled Clip", []string{"Zeta Person"}, nil), nil); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	zeta := personIDByName(t, r, "Zeta Person")
+
+	res, err := r.Search(ctx, "zeta", 10)
+	if err != nil {
+		t.Fatalf("search by name: %v", err)
+	}
+	if !hasVideoTitle(res.Videos, "Untitled Clip") {
+		t.Errorf("search by name: videos = %v, want the person's media", videoTitles(res.Videos))
+	}
+
+	if _, err := r.AddPersonAlias(ctx, zeta, "Zed"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	res, err = r.Search(ctx, "zed", 10)
+	if err != nil {
+		t.Fatalf("search by alias: %v", err)
+	}
+	if !hasVideoTitle(res.Videos, "Untitled Clip") {
+		t.Errorf("search by alias: videos = %v, want the person's media", videoTitles(res.Videos))
+	}
+}
+
+func hasVideoTitle(vids []model.Video, title string) bool {
+	for _, v := range vids {
+		if v.Title == title {
+			return true
+		}
+	}
+	return false
+}
+
+func videoTitles(vids []model.Video) []string {
+	out := make([]string, len(vids))
+	for i, v := range vids {
+		out[i] = v.Title
+	}
+	return out
+}
+
 func countPeople(people []model.Person, id int64) int {
 	n := 0
 	for _, p := range people {

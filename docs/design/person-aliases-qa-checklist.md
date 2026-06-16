@@ -60,9 +60,9 @@
 
 **Search integration (ADR-036 end-to-end)**
 
-- [ ] 3.10 Add alias "Ziggy" to a person → type "zig" in the global search box → the **person appears** in results → click → lands on that person's page.
-- [ ] 3.11 With a person whose **name and an alias both match** a query, they appear **once** in the people group.
-- [ ] 3.12 Delete the alias → the same query **no longer surfaces** them via that alias.
+- [ ] 3.10 Add alias "Ziggy" to a person → type "zig" in the global search box → the **person appears** in the people group **and that person's videos appear in the videos section** (even videos whose titles don't contain "zig" — matched via person, not title) → clicking the person lands on their page.
+- [ ] 3.11 Searching the person's **canonical name** likewise returns their media in the videos section (the merge "search either name → the union" promise). A person matching by both name and an alias appears **once** in the people group, and their videos are **not duplicated** in the videos section.
+- [ ] 3.12 A title-only query (a word that's only a video title, no matching person) still returns that video with no person attached. Delete an alias → the same query **no longer surfaces** the person via that alias.
 
 **Merge — person page**
 

@@ -43,8 +43,10 @@ merge holds across re-scans.
 - **Aliases are honored at scan time.** When the scanner reads a person name from a file, it resolves
   through the alias table to the canonical person, so a merge **survives every re-scan** (the file
   still says "J Law", but it links to "Jennifer Lawrence").
-- **Search matches aliases.** A global-search query matching any alias returns the canonical person
-  (once). Because merge moves associations, that person's video list is already the merged union.
+- **Search matches aliases and returns the person's media.** A global-search query matching any alias
+  (or the canonical name) returns the canonical person (once) **and that person's videos** in the
+  results — so the headline "search either name → the merged union" holds in the results, not only on
+  the person page. (Title matches are still included and de-duped.)
 - **Never auto-merge on a name collision.** Same-name people can be genuinely different (two "Chris
   Evans"; Michael Keaton's legal name is "Michael Douglas"). Adding an alias that already names a
   different person surfaces that person *with context* (video count) for the owner to confirm — merge
@@ -77,7 +79,7 @@ merge holds across re-scans.
 | F23.2 | The owner can **add** an alias to a person. | `POST /people/{id}/aliases {"alias":"Rob"}` (owner-gated) creates the alias and returns the person's full alias list. Adding an existing alias is idempotent (no duplicate, no error). |
 | F23.3 | The owner can **delete** an alias from a person. | `DELETE /people/{id}/aliases/{aliasId}` (owner-gated) removes exactly that alias; deleting an unknown id returns 404. |
 | F23.4 | The person detail response includes the person's aliases. | `GET /people/{id}` returns `aliases: [{id, alias}, …]` (empty array when none). |
-| F23.5 | **Global search matches aliases.** | After adding alias "Ziggy" to "David Bowie", `GET /search?q=zig` returns the David Bowie person. The person appears **once** even if both the canonical name and an alias match. |
+| F23.5 | **Global search matches aliases — and returns the matched person's media.** | After adding alias "Ziggy" to "David Bowie", `GET /search?q=zig` returns the David Bowie person (**once**, even if name and alias both match) **and his videos in the results' video section** — i.e. searching a person's name *or* any alias surfaces their library, not only the person chip. This is what makes "search either name → the merged union" true (the union is materialized by merge; both names route to the same person). Title matches are still included and de-duped. |
 | F23.6 | Aliases display on the person page; add/delete controls are owner-only. | Non-owners see the alias chips (read-only); owners additionally see an add field and per-chip delete. |
 | F23.7 | Aliases cascade with their person at the DB level. | `person_aliases.person_id` has `ON DELETE CASCADE`; an alias never outlives its person row. |
 | F23.8 | **Scan-time resolution.** The scanner resolves each extracted person name via the alias table before creating a person. | After "J Law" is an alias of "Jennifer Lawrence", indexing a file tagged "J Law" links it to Jennifer Lawrence — no "J Law" person is (re)created — and a re-scan keeps it merged. |

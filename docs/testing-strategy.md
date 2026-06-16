@@ -146,7 +146,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Enrichment security** (ADR-033, F22.9) | Unit + Integration | Enrich endpoints behind `requireOwner` (401 without token); **SSRF allowlist** — core calls only configured `base_url`s, ignores provider-supplied redirect hosts; **untrusted response** values length-capped/sanitized, asset downloads size+content-type limited; **no upstream API key** in config/logs/read-model | ~95% |
 | **MCP enriched fields** (ADR-033, F22.5f) | Integration | `get_person`/`list_people` return enriched fields **with provenance**; parity with REST | ~85% |
 | **Person aliases — store** (ADR-036, F23.1–F23.3) | Integration | `person_aliases` CRUD: add (trim, non-empty, ≤200 chars); **per-person case-insensitive uniqueness** (`COLLATE NOCASE`, idempotent add — no dup, no error); same alias allowed on two people; delete by id scoped to person (404 on unknown/foreign id); **`ON DELETE CASCADE`** removes aliases with the person | ~90% |
-| **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias (or several aliases) appears **once**; per-group `LIMIT` respected; canonical-name matches still first | ~90% |
+| **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped | ~90% |
 | **Person aliases — scan-time resolution** (ADR-036, F23.8) | Integration | the scanner write path resolves an extracted name **name → alias → create**: a file tagged with an alias links to the **canonical** person (no duplicate created) and a **re-scan keeps it merged** (cardinal merge invariant); name-hit fast path unchanged | ~90% |
 | **Person merge** (ADR-036, F23.9) | Integration | `MergePersons` moves `video_people` as a **de-duped union** (a file under both names collapses to one); merged name → alias; prior aliases re-point to canonical; shadow enrichment dropped; duplicate row deleted; **self-merge & unknown-id error** | ~90% |
 | **Alias/merge collision** (ADR-036, F23.10) | Integration | `PersonConflict` detects a name already owned by a *different* person (by name or another's alias), returns it with context, ignores the self case; add endpoint returns **409 with the conflict person** (never a silent merge) | ~90% |
@@ -451,6 +451,16 @@ And DELETE …/aliases/:unknownId → 404; DELETE of another person's alias id �
 Given a person with alias "Ziggy"
 When a full re-scan runs (rebuilding people/video_people)
 Then the alias "Ziggy" is still present and still search-matchable
+```
+
+**Search returns a matched person's media (ADR-036, F23.5)**
+```
+Given a person "Zeta Person" with a video titled "Untitled Clip" (title shares no terms with the name)
+When GET /api/v1/search?q=zeta is requested
+Then "Untitled Clip" is in the video results (matched via person, not title)
+When the alias "Zed" is added and GET /api/v1/search?q=zed is requested
+Then "Untitled Clip" is still in the video results
+And a title-only query (q=untitled) still returns it, with no person attached, video ids de-duped
 ```
 
 **Person merge + scan-time routing (ADR-036, F23.8/F23.9) — cardinal invariant**
