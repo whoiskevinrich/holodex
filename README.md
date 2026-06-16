@@ -68,15 +68,16 @@ volume. Pin a release with `HOLODEX_TAG=1.2.0` instead of `latest`. See
 ## Roadmap
 
 **Shipped** — Phase 1 (MVP: automatic indexing, FTS search, faceted browse, in-browser
-playback) and Phase 2 (an MCP server exposing the library to AI assistants like Claude Desktop,
+playback), Phase 2 (an MCP server exposing the library to AI assistants like Claude Desktop,
 the tiered cover-art pipeline, sort controls + a "Recently added" shelf + keyboard nav +
-responsive layout, Prometheus metrics, and configurable metadata field mapping). Plus a
-**System Activity** "under the hood" surface and quick-win discovery features (search history,
-"More with…" related shelves, fluid Back).
+responsive layout, Prometheus metrics, and configurable metadata field mapping), a
+**System Activity** "under the hood" surface with quick-win discovery features (search history,
+"More with…" related shelves, fluid Back), and the **Phase 3 enrichment foundation**: external
+**metadata source plugins** (F22) that enrich People from IMDB/TMDB-style providers — owner-gated,
+with provider candidates previewed and stored in a provenance-tracked shadow layer
+([ADR-033](docs/architecture/ADR-033-metadata-source-plugins.md)).
 
-**In progress / next** ([`docs/specs`](docs/specs)) — **Phase 3, enrichment foundation**:
-external **metadata source plugins** that enrich People from IMDB/TMDB-style providers
-(F22 — the first slice, landing now), then people/tag aliases and hierarchy, opt-in metadata
+**Next** ([`docs/specs`](docs/specs)) — people/tag aliases and hierarchy, opt-in metadata
 writeback to source files, and hover-preview trailers.
 
 ## Development
@@ -160,7 +161,7 @@ docs/                architecture (ADRs), specs, testing strategy
 
 ## Docs
 
-[`docs/architecture`](docs/architecture/README.md) (32 ADRs) ·
+[`docs/architecture`](docs/architecture/README.md) (34 ADRs) ·
 [`docs/specs`](docs/specs) (phase + showcase specs) ·
 [`docs/design/theming.md`](docs/design/theming.md) ·
 [`docs/design/metadata-enrichment-handoff.md`](docs/design/metadata-enrichment-handoff.md) ·
