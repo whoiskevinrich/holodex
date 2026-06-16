@@ -14,6 +14,7 @@ import type {
 	MediaListResponse,
 	MetadataKey,
 	Person,
+	PersonAlias,
 	PersonDetailResponse,
 	RelatedResponse,
 	SearchResponse,
@@ -147,5 +148,37 @@ export const api = {
 		}),
 
 	enrichClear: (personId: number, provider: string) =>
-		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/enrich/${encodeURIComponent(provider)}`)
+		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/enrich/${encodeURIComponent(provider)}`),
+
+	// Person aliases & merge (F23, ADR-036). All owner-gated.
+	//
+	// addAlias returns either the updated alias list, or — when the name already
+	// belongs to another person — that person as a `conflict` (HTTP 409), so the UI
+	// can offer a merge instead of silently collapsing possibly-distinct people.
+	addAlias: async (
+		personId: number,
+		alias: string
+	): Promise<{ aliases?: PersonAlias[]; conflict?: Person }> => {
+		const res = await fetch(`${BASE}/people/${personId}/aliases`, {
+			method: 'POST',
+			headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+			body: JSON.stringify({ alias })
+		});
+		if (res.status === 409) {
+			const body = await res.json().catch(() => ({}));
+			return { conflict: body.conflict as Person };
+		}
+		if (!res.ok) {
+			throw new Error(`API /people/${personId}/aliases failed: ${res.status}`);
+		}
+		return { aliases: ((await res.json()) as { aliases: PersonAlias[] }).aliases };
+	},
+
+	deleteAlias: (personId: number, aliasId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/aliases/${aliasId}`),
+
+	// Merge `fromId` into `canonicalId`: the from-person's videos move to canonical,
+	// its name becomes an alias, and it is deleted. Returns the updated canonical.
+	mergePersons: (canonicalId: number, fromId: number) =>
+		sendAuthed<{ person: Person }>('POST', `/people/${canonicalId}/merge`, { from_id: fromId })
 };

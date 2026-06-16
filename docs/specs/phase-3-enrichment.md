@@ -34,7 +34,7 @@ Extend the People and Tags data models to support rich metadata, aliases, and gr
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F14.1 | A Person record supports N aliases; any alias matches in search and filter | Adding alias "Rob" to "Robert Smith" causes videos tagged "Rob" to surface when filtering by "Robert Smith" |
+| F14.1 | A Person record supports N aliases; any alias matches in search and filter | Adding alias "Rob" to "Robert Smith" causes videos tagged "Rob" to surface when filtering by "Robert Smith" — **realized (search slice) in the dedicated [Person Aliases spec (F23)](person-aliases.md) + [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)**; the merge reading (folding distinct extracted people) is scoped out there as a future person-merge feature |
 | F14.2 | Configurable extra metadata fields per Person via a JSON schema defined in app config (e.g., `birthdate`, `website`, `nationality`) | Config file declares fields; UI renders them on person detail page |
 | F14.3 | Person profile image stored at `DATABASE_PATH/images/people/:person_id.{jpg,png}` | Uploading an image via UI stores it and displays it on the person's page and index card |
 | F14.4 | Person detail page displays all enrichment fields alongside video list | All configured fields visible |

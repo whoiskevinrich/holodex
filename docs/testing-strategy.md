@@ -145,6 +145,12 @@ assert.JSONEq(t, string(want), string(got))
 | **Matching paths** (ADR-033, F22.5b) | Unit + Integration | Embedded-ID present → deterministic auto-resolve; absent → name-search candidates returned for manual confirm; ambiguous/no-result handled; confidence surfaced advisory (never auto-applied in v1) | ~90% |
 | **Enrichment security** (ADR-033, F22.9) | Unit + Integration | Enrich endpoints behind `requireOwner` (401 without token); **SSRF allowlist** — core calls only configured `base_url`s, ignores provider-supplied redirect hosts; **untrusted response** values length-capped/sanitized, asset downloads size+content-type limited; **no upstream API key** in config/logs/read-model | ~95% |
 | **MCP enriched fields** (ADR-033, F22.5f) | Integration | `get_person`/`list_people` return enriched fields **with provenance**; parity with REST | ~85% |
+| **Person aliases — store** (ADR-036, F23.1–F23.3) | Integration | `person_aliases` CRUD: add (trim, non-empty, ≤200 chars); **per-person case-insensitive uniqueness** (`COLLATE NOCASE`, idempotent add — no dup, no error); same alias allowed on two people; delete by id scoped to person (404 on unknown/foreign id); **`ON DELETE CASCADE`** removes aliases with the person | ~90% |
+| **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped | ~90% |
+| **Person aliases — scan-time resolution** (ADR-036, F23.8) | Integration | the scanner write path resolves an extracted name **name → alias → create**: a file tagged with an alias links to the **canonical** person (no duplicate created) and a **re-scan keeps it merged** (cardinal merge invariant); name-hit fast path unchanged | ~90% |
+| **Person merge** (ADR-036, F23.9) | Integration | `MergePersons` moves `video_people` as a **de-duped union** (a file under both names collapses to one); merged name → alias; prior aliases re-point to canonical; shadow enrichment dropped; duplicate row deleted; **self-merge & unknown-id error** | ~90% |
+| **Alias/merge collision** (ADR-036, F23.10) | Integration | `PersonConflict` detects a name already owned by a *different* person (by name or another's alias), returns it with context, ignores the self case; add endpoint returns **409 with the conflict person** (never a silent merge) | ~90% |
+| **Person aliases/merge — endpoints** (ADR-036, F23.2–F23.4/F23.9–F23.11) | Integration | `GET /people/{id}` includes `aliases`; `POST …/aliases` + `DELETE …/{aliasId}` + `POST …/merge` **behind `requireOwner`** (401 without token when gated); `400` empty/over-long alias, missing `from_id`, self-merge; `404` unknown person/alias; `409` colliding alias | ~90% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -153,6 +159,8 @@ assert.JSONEq(t, string(want), string(got))
 - **Resolution tolerance**: 3456→4K+, 3455→FHD; exact boundary behavior is pinned.
 - **Mapping precedence**: file with both `Publisher` and `Studio` resolves per `sources` list order.
 - **Migration safety**: user-authored Phase 3 data (aliases, enrichment) survives an up-migration.
+- **A merge survives re-scan**: the scanner *reads* `person_aliases` to route an extracted name to its canonical person but never *writes* the table; a full re-scan (rebuilding `people`/`video_people`) leaves aliases intact and re-links alias-named files to the canonical person — it must never re-create a merged-away duplicate. (Ties to migration safety; the scanner-writes-nothing half mirrors the enrichment shadow layer.)
+- **Never auto-merge same-named people**: adding an alias that already names a *different* person returns a 409 for owner confirmation; no code path silently collapses two distinct person rows or silently routes a homonym's files.
 - **Activity leaks no secrets**: `/admin/activity` and `/admin/activity/history` never serialize a filesystem path, env value, or token (incl. `job_runs.error_message`).
 - **Gate is real and loud**: an owner-only route is unreachable without the token when `ADMIN_TOKEN` is set; when unset on a non-loopback bind, the server warns and flags it (never a silent open control surface).
 - **Related never includes self**: `GET /media/{id}/related` must never return the current item in `person.items` or `tag.items` — the exclusion holds even when the item is the *only* sibling (→ empty `items:[]`, not itself). Selection (which person/tag is keyed) is fully deterministic; only the item *draw* is random, so tests pin the chosen key + membership and tolerate any order.
@@ -182,6 +190,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Browse-state preservation** (`browse.svelte.ts`, QW4) | Unit | Vitest | **Signature match → reuse** cached set (no refetch); **mismatch → fetch page 0**; **invalidate** on filter/sort change; scroll capture/restore round-trip; single-entry replace (no accumulation) |
 | Enrich picker (F22.5b) | Interaction + a11y | Vitest + Playwright | Owner-only render; debounced search → candidates; **combobox/listbox keyboard nav** (↑/↓/Enter/Esc, `aria-activedescendant`); dialog focus-trap + focus-return; confirm → fields populate; empty/error states |
 | Provenance badges (F22.7) | Component + visual | Vitest + Playwright | file=muted pill vs provider=outlined-accent pill; `aria-label` long-form; **legible in all 3 skins**, never uses `--warn`; confidence label is text not color-only |
+| Person aliases panel (F23.6) | Component/Interaction + visual | Vitest + Playwright | Chips render from `person.aliases`; **owner-only** add field + per-chip ✕ (absent from DOM for non-owner); add clears input + keeps focus (multi-add); **optimistic delete** restores chip on failure; inline `text-warn` for invalid/over-long (words, not color-only); panel hidden when no aliases & not owner; **all 3 skins** (muted pill, `rounded-full`, ✕ accent-on-hover never `--warn`); CJK alias no tofu |
 
 ---
 
@@ -202,6 +211,8 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 12. **(Quick Wins · QW3)** Open a detail page with shared people/tags → a "More with `<person>`" and/or "More with `<tag>`" shelf renders ≤5 cards → click a card navigates onward; an item with no siblings shows no empty rail.
 13. **(Quick Wins · QW4)** Scroll the grid, "Load more" ×2 (150 items), open an item, press **Back** → **same scroll position** (±a few px) **and** all 150 items still present **and** the opened item on screen **and** **zero** `GET /api/v1/media` fired **and** no `Loading…` flash. Then change a filter → resets to top + refetches; hard-reload → rebuilds page 0 at top.
 14. (Phase 3, F22) With the **fake provider** wired in compose and `ADMIN_TOKEN` set: open a person → Enrich → name-search → pick a candidate → fields populate with "from <provider>" provenance; re-enrich skips the picker; clearing the provider falls the field back. Assert no provider call fires without the click, and a token-less client sees no Enrich control.
+15. **(Phase 3, F23)** With `ADMIN_TOKEN` set: open a person → add alias "Ziggy" (chip appears) → type "zig" in the global search box → the person appears → click → lands on the same person; delete the alias → "zig" no longer surfaces them. A token-less client sees the chips read-only (no add field, no ✕).
+16. **(Phase 3, F23 — merge)** Library has duplicate people "Jennifer Lawrence" and "J Law". As owner, on Jennifer's page click **Merge a person in…** → pick "J Law" → confirm (both video counts shown) → Jennifer's video list grows to the union, "J Law" appears as an alias, the standalone "J Law" page is gone (404). Searching either name lands on Jennifer. **Trigger a re-scan** → still merged (no "J Law" person reappears). Also: typing "J Law" into the add-alias field of a *different* person surfaces the collision prompt (never a silent merge); and the `/people` list **Merge people…** multi-select → "Keep which name?" achieves the same merge.
 
 ---
 
@@ -286,8 +297,17 @@ Conventions:
 - **Security**: `requireOwner` 401s, SSRF allowlist + no-redirect, untrusted-response sanitization/size limits, no-keys-in-core.
 - **Frontend**: enrich picker (combobox/listbox a11y, focus trap), provenance badges in **all 3 skins** (tokens-only). MCP enriched-field parity.
 
+**Person aliases & merge (F23, ADR-036)** — the first People slice, fully CI-testable, no network:
+- **Store**: `person_aliases` CRUD; per-person case-insensitive uniqueness (idempotent add); same alias on two people allowed; delete scoped to person; `ON DELETE CASCADE`.
+- **Search**: `person_aliases_fts` MATCH surfaces the person by any alias (diacritic-folded), deduped with name matches (person appears once), per-group limit respected.
+- **Scan-time resolution**: extracted name routes name → alias → create; alias-tagged file links to the canonical person; **merge survives re-scan** (cardinal invariant).
+- **Merge**: de-duped video union; merged name → alias; prior aliases re-pointed; enrichment dropped; duplicate deleted; self-merge/unknown-id guarded.
+- **Collision**: same-name belonging to a different person → 409 for confirmation, never auto-merge (homonyms).
+- **Endpoints**: alias add/delete + merge owner-gated (401), 400 invalid/self-merge, 404 unknown, 409 collision; `GET /people/{id}` carries `aliases`.
+- **Frontend**: aliases panel + `PersonPicker` merge + collision prompt + `/people` multi-select merge — owner-only controls, optimistic delete, inline validation, **all 3 skins** (tokens-only, `accent-accent` checkboxes).
+
 **Later Phase-3 slices (future specs/ADRs):**
-- People/tag aliases resolve in search/filter; tag-graph DAG traversal (incl. cycle handling).
+- Tag aliases / tag-graph DAG traversal (incl. cycle handling); person-merge (folding distinct extracted people); promoting provider-sourced aliases into searchable `person_aliases`.
 - **Writeback** (consumes the F22 shadow layer): round-trip (write → re-scan → read-back equal); **backup created before write**; atomic-failure leaves original intact; `WRITEBACK_ENABLED` gating.
 - Preview-trailer generation gating + storage budget.
 
@@ -402,6 +422,64 @@ Given ADMIN_TOKEN is set
 When POST /api/v1/people/:id/enrich is requested WITHOUT the token
 Then status 401 and no provider call is made
   And the SPA renders no Enrich control for that (non-owner) client
+```
+
+**Person alias — search match + dedup (ADR-036, F23.5)**
+```
+Given a person "David Bowie" with aliases "Ziggy" and "Bowie"
+When GET /api/v1/search?q=zig is requested
+Then "David Bowie" appears in the people results exactly once
+When GET /api/v1/search?q=bowie is requested (matches both name and an alias)
+Then "David Bowie" still appears exactly once (id-deduped)
+And the diacritic-folded alias "Beyoncé" is matched by q=beyonce
+```
+
+**Person alias — owner-gated CRUD (ADR-036, F23.2/F23.3)**
+```
+Given ADMIN_TOKEN is set
+When POST /api/v1/people/:id/aliases is requested WITHOUT the token
+Then status 401 and no alias is created
+When POST … WITH the token and body {"alias":"  Rob  "}
+Then status 200, the alias stored trimmed as "Rob", returned in the list
+And re-POSTing "rob" is idempotent (list unchanged, no error)
+And POST with an empty/200+char alias → 400
+And DELETE …/aliases/:unknownId → 404; DELETE of another person's alias id → 404
+```
+
+**Aliases survive a re-scan (ADR-036)**
+```
+Given a person with alias "Ziggy"
+When a full re-scan runs (rebuilding people/video_people)
+Then the alias "Ziggy" is still present and still search-matchable
+```
+
+**Search returns a matched person's media (ADR-036, F23.5)**
+```
+Given a person "Zeta Person" with a video titled "Untitled Clip" (title shares no terms with the name)
+When GET /api/v1/search?q=zeta is requested
+Then "Untitled Clip" is in the video results (matched via person, not title)
+When the alias "Zed" is added and GET /api/v1/search?q=zed is requested
+Then "Untitled Clip" is still in the video results
+And a title-only query (q=untitled) still returns it, with no person attached, video ids de-duped
+```
+
+**Person merge + scan-time routing (ADR-036, F23.8/F23.9) — cardinal invariant**
+```
+Given separate people "Jennifer Lawrence" and "J Law", and a film credited under both
+When the owner merges "J Law" into "Jennifer Lawrence"
+Then "Jennifer Lawrence" owns the de-duped union of their videos (the dual-credited film counts once)
+  And "J Law" is one of her aliases and is search-matchable
+  And the "J Law" person no longer exists
+When a file tagged "J Law" is (re-)scanned
+Then it links to "Jennifer Lawrence" — no "J Law" person is recreated (the merge holds)
+```
+
+**Same-name collision is surfaced, not auto-merged (ADR-036, F23.10)**
+```
+Given a person "Chris Evans" (actor) and another person being edited
+When the owner adds the alias "Chris Evans" to the other person
+Then the API responds 409 with the actor as `conflict` (id, name, video_count)
+  And no merge happens and no alias is created until the owner confirms
 ```
 
 **Owner gate — open vs. gated (ADR-030, F21.7)**
