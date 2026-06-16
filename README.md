@@ -161,7 +161,7 @@ docs/                architecture (ADRs), specs, testing strategy
 
 ## Docs
 
-[`docs/architecture`](docs/architecture/README.md) (33 ADRs) ·
+[`docs/architecture`](docs/architecture/README.md) (34 ADRs) ·
 [`docs/specs`](docs/specs) (phase + showcase specs) ·
 [`docs/design/theming.md`](docs/design/theming.md) ·
 [`docs/design/metadata-enrichment-handoff.md`](docs/design/metadata-enrichment-handoff.md) ·
