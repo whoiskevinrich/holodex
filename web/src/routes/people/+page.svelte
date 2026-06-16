@@ -4,6 +4,7 @@
 	import { toMessage, videoCount } from '$lib/format';
 	import type { Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
+	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<'name' | 'count'>('name');
@@ -115,7 +116,7 @@
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
 	{:else}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-			{#each people as p (p.id)}
+			{#each people as p, i (p.id)}
 				<li>
 					{#if selecting}
 						<label
@@ -131,15 +132,17 @@
 								checked={selectedIds.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
+							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
 							<span class="flex-1 truncate">{p.name}</span>
 							<span class="text-xs text-muted">{p.video_count}</span>
 						</label>
 					{:else}
 						<a
 							href={`/people/${p.id}`}
-							class="flex items-center justify-between rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
+							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 						>
-							<span class="truncate">{p.name}</span>
+							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
+							<span class="flex-1 truncate">{p.name}</span>
 							<span class="text-xs text-muted">{p.video_count}</span>
 						</a>
 					{/if}

@@ -239,6 +239,138 @@ func TestServiceEnrichRecordsJobRun(t *testing.T) {
 	}
 }
 
+// --- F24 asset download ---
+
+// recordingSink captures StoreAsset calls instead of touching disk, so the asset
+// orchestration is testable with no filesystem.
+type recordingSink struct {
+	stored []storedAsset
+}
+
+type storedAsset struct {
+	personID   int64
+	role       string
+	provider   string
+	externalID string
+	bytes      int
+}
+
+func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID string, raw []byte) error {
+	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, len(raw)})
+	return nil
+}
+
+// A person enrich run with image assets fetches each through the (test-injected)
+// SSRF-guarded asset client and stores it via the sink, mapping kinds → core roles.
+func TestEnrichDownloadsAssets(t *testing.T) {
+	// An origin that serves any path some bytes — stands in for the provider's asset
+	// host. The injected fetcher hits it directly.
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = []Asset{
+		{Kind: "photo", URL: origin.URL + "/p.jpg"},
+		{Kind: "banner", URL: origin.URL + "/b.jpg"},
+		{Kind: "mystery", URL: origin.URL + "/x.jpg"}, // unknown kind → skipped
+	}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	// Inject an asset fetcher that just GETs the URL (the SSRF host-pinning is unit-
+	// tested separately in TestAssetClientSSRF); here we exercise the orchestration.
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 2 {
+		t.Fatalf("stored %d assets, want 2 (unknown kind skipped): %+v", len(sink.stored), sink.stored)
+	}
+	roles := map[string]bool{}
+	for _, a := range sink.stored {
+		roles[a.role] = true
+		if a.provider != "fake" || a.externalID != "tmdb:608" {
+			t.Errorf("asset provenance = %+v, want provider=fake external=tmdb:608", a)
+		}
+	}
+	if !roles[model.PersonImageHeadshot] || !roles[model.PersonImageBanner] {
+		t.Errorf("asset roles = %v, want headshot+banner", roles)
+	}
+}
+
+// passthroughFetcher fetches a URL with no host allowlist — used only to drive the
+// orchestration test above (the real guard is TestAssetClientSSRF).
+type passthroughFetcher struct{}
+
+func (passthroughFetcher) Fetch(ctx context.Context, rawURL string) ([]byte, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
+}
+
+// The asset client refuses any host other than the provider's configured base_url
+// host (the SSRF allowlist), and rejects non-http(s) schemes.
+func TestAssetClientSSRF(t *testing.T) {
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("should-never-be-read"))
+	}))
+	defer internal.Close()
+
+	// The provider is configured for some other host; an asset URL pointing at the
+	// internal server must be refused before any request is made.
+	c := newAssetClient(Source{BaseURL: "http://provider.example:9100"})
+	if _, err := c.Fetch(context.Background(), internal.URL+"/secret"); err == nil {
+		t.Error("expected refusal of off-allowlist asset host")
+	}
+	if _, err := c.Fetch(context.Background(), "file:///etc/passwd"); err == nil {
+		t.Error("expected refusal of non-http scheme")
+	}
+
+	// An asset on the provider's own host is allowed.
+	prov := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok-bytes"))
+	}))
+	defer prov.Close()
+	allow := newAssetClient(Source{BaseURL: prov.URL})
+	got, err := allow.Fetch(context.Background(), prov.URL+"/photo.jpg")
+	if err != nil {
+		t.Fatalf("same-host fetch should succeed: %v", err)
+	}
+	if string(got) != "ok-bytes" {
+		t.Errorf("fetched %q, want ok-bytes", got)
+	}
+}
+
+// A failed asset fetch never fails the field enrichment (best-effort, guarded).
+func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = []Asset{{Kind: "photo", URL: "http://unreachable.invalid/x.jpg"}}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	svc.SetImageSink(&recordingSink{})
+	// Default real asset client: the fake's source host is "fake:9100", so the
+	// invalid asset host is refused — the enrich must still return fields.
+	fields, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 9, "fake", "tmdb:608")
+	if err != nil {
+		t.Fatalf("enrich must not fail on a bad asset: %v", err)
+	}
+	if len(fields) == 0 {
+		t.Error("fields empty despite successful field enrichment")
+	}
+}
+
 // Untrusted-response bounding (F22.9b).
 func TestSanitizeValue(t *testing.T) {
 	if got := sanitizeValue("a\x00b\nc"); got != "ab c" {

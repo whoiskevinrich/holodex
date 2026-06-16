@@ -177,6 +177,60 @@
 		);
 	}
 
+	/* ---- Reusable person-image frame (F24, ADR-037) ----
+	   Aspect-locked well for the three person-image ratios, parallel to
+	   .video-frame. The base owns the shared mechanics (token background,
+	   overflow clip, object-fit:cover on the child); the modifiers only set the
+	   ratio. Skin flourishes attach here under [data-theme] — never per-component. */
+	.portrait-frame {
+		position: relative;
+		overflow: hidden;
+		background: var(--surface-2);
+		border: 1px solid var(--rule);
+		border-radius: var(--radius);
+	}
+	.portrait-frame--1x1 {
+		aspect-ratio: 1 / 1;
+	}
+	.portrait-frame--16x9 {
+		aspect-ratio: 16 / 9;
+	}
+	.portrait-frame--2x3 {
+		aspect-ratio: 2 / 3;
+	}
+	.portrait-frame > img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	/* Cross-fade the real image in once it decodes (placeholder shows first). */
+	@media (prefers-reduced-motion: no-preference) {
+		.portrait-frame > img.is-loaded {
+			animation: portrait-fade 0.18s ease-out both;
+		}
+	}
+	@keyframes portrait-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+	/* Broadcast: faint scanline wash, mirroring .video-frame. */
+	[data-theme='broadcast'] .portrait-frame::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: repeating-linear-gradient(
+			0deg,
+			transparent 0 3px,
+			rgba(54, 224, 208, 0.06) 3px 4px
+		);
+	}
+
 	/* Display headings honor the skin's display face + casing. */
 	.skin-title {
 		font-family: var(--font-display);

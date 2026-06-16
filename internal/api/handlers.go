@@ -75,6 +75,14 @@ type Handlers struct {
 	// fail-loud "controls reachable without a token" condition.
 	auth        *Auth
 	exposedBind bool
+
+	// Person images (F24, ADR-037). personImageDir is the on-disk root; the bounds
+	// guard untrusted uploads. Zero personImageDir leaves the image endpoints serving
+	// placeholders only (no on-disk store wired) — but uploads then fail closed.
+	personImageDir      string
+	personImageMaxBytes int64
+	personImageMaxDim   int
+	defaultSkin         string
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -96,6 +104,17 @@ func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
 // service disables the enrichment endpoints and the person-page enriched fields.
 // Called once at startup before serving.
 func (h *Handlers) SetEnrichment(svc *enrich.Service) { h.enrich = svc }
+
+// SetPersonImages wires per-person image storage (F24, ADR-037): the on-disk root,
+// the upload bounds, and the default skin used when a placeholder is served without
+// a ?skin= query. An empty dir leaves the public serving endpoint working (it falls
+// back to placeholders) but uploads fail closed. Called once at startup.
+func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defaultSkin string) {
+	h.personImageDir = dir
+	h.personImageMaxBytes = maxBytes
+	h.personImageMaxDim = maxDim
+	h.defaultSkin = defaultSkin
+}
 
 // SetActivity wires the read-only activity surface (F21.1, ADR-028): the scanner
 // status source, the health state, the build version, the process start time
@@ -136,6 +155,10 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	r.Get("/people", h.listPeople)
 	r.Get("/people/{id}", h.getPerson)
+	// Person images (F24, ADR-037) — public reads: a filled role serves the on-disk
+	// JPEG, an empty role the themed placeholder SVG. Mutations are gated below.
+	r.Get("/people/{id}/image/{role}", h.servePersonImageByRole)
+	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
 	r.Get("/search", h.search)
@@ -157,6 +180,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountEnrich(r)
 		// Person aliases — owner-curated alternate names (F23, ADR-036).
 		h.mountAliases(r)
+		// Person images — owner-gated upload/delete/promote/reorder (F24, ADR-037).
+		h.mountPersonImages(r)
 	})
 }
 
@@ -512,6 +537,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"person": p, "items": items, "total": total,
 		"enriched": h.personEnrichment(r, id), // F22.5/F22.7: plugin fields w/ provenance
+		"images":   h.personImageSet(r, id),   // F24: per-role presence + version + gallery
 	})
 }
 

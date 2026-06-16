@@ -14,7 +14,7 @@ import (
 // tiny "person" source: name-search returns candidates, enrich returns fields.
 type Fake struct {
 	Name     string
-	Protocol int // 0 => use the supported ProtocolVersion
+	Protocol int                   // 0 => use the supported ProtocolVersion
 	People   map[string]FakePerson // keyed by external id (e.g. "tmdb:608")
 	Calls    int                   // number of network-equivalent calls made
 }
@@ -23,6 +23,7 @@ type Fake struct {
 type FakePerson struct {
 	Label  string
 	Fields map[string][]string
+	Assets []Asset // optional image assets (F24) the enrich response carries
 }
 
 // NewFake builds a fake person provider with one well-known record.
@@ -88,7 +89,7 @@ func (f *Fake) Enrich(_ context.Context, _, externalID string) (EnrichResult, er
 	if !ok {
 		return EnrichResult{}, fmt.Errorf("unknown record %q", externalID)
 	}
-	return EnrichResult{Fields: p.Fields}, nil
+	return EnrichResult{Fields: p.Fields, Assets: p.Assets}, nil
 }
 
 func idNamespace(id string) string {

@@ -4,6 +4,7 @@
 	import type { ExtraMetadata, MappedField, RelatedResponse, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
+	import PersonPoster from '$lib/components/PersonPoster.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -161,13 +162,23 @@
 		{#if video.people?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">People</h2>
-				<div class="flex flex-wrap gap-2">
+				<!-- F24: 2:3 poster cards (placeholder when a person has no poster). -->
+				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
 					{#each video.people as p (p.id)}
-						<a href={`/people/${p.id}`} class="rounded-full border border-rule px-3 py-1 text-sm text-ink hover:border-accent">
-							{p.name}
-						</a>
+						<li>
+							<a
+								href={`/people/${p.id}`}
+								class="group block space-y-1.5 text-ink"
+								title={p.name}
+							>
+								<div class="rounded-theme transition group-hover:opacity-90">
+									<PersonPoster personId={p.id} name={p.name} />
+								</div>
+								<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
+							</a>
+						</li>
 					{/each}
-				</div>
+				</ul>
 			</section>
 		{/if}
 

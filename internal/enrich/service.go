@@ -48,27 +48,52 @@ type EnrichRepo interface {
 	RecordJobRun(ctx context.Context, run model.JobRun) error
 }
 
+// ImageSink stores a downloaded, normalized provider asset as a person image (F24,
+// ADR-037). It is satisfied by an adapter over personimage + the repo, wired in
+// main; nil disables asset download (the v1-without-images path). Kept an interface
+// so the enrich package needn't import personimage/repo for the image write and so
+// tests can assert what would be stored with no disk.
+type ImageSink interface {
+	// StoreAsset normalizes raw image bytes (metadata strip) and stores them as the
+	// given core role for a person, recording provenance (provider + externalID).
+	StoreAsset(ctx context.Context, personID int64, role, provider, externalID string, raw []byte) error
+}
+
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
 // dials a provider, and only from an explicit owner action — there is no
 // scheduler and no enrich-on-scan (F22.6). newClient is injectable so tests run
 // against a fake with no network.
 type Service struct {
-	store     *Store
-	repo      EnrichRepo
-	log       *slog.Logger
-	newClient func(Source) ProviderClient
+	store       *Store
+	repo        EnrichRepo
+	log         *slog.Logger
+	newClient   func(Source) ProviderClient
+	images      ImageSink // F24 asset download; nil = disabled
+	newAssetGet func(Source) assetFetcher
+}
+
+// assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
+// injectable so tests fetch from an httptest server without a real provider host.
+type assetFetcher interface {
+	Fetch(ctx context.Context, rawURL string) ([]byte, error)
 }
 
 // NewService wires the enrichment service over the provider registry and the
 // shadow store. The default client is the HTTP transport.
 func NewService(store *Store, r EnrichRepo, log *slog.Logger) *Service {
 	return &Service{
-		store:     store,
-		repo:      r,
-		log:       log,
-		newClient: func(s Source) ProviderClient { return newHTTPClient(s) },
+		store:       store,
+		repo:        r,
+		log:         log,
+		newClient:   func(s Source) ProviderClient { return newHTTPClient(s) },
+		newAssetGet: func(s Source) assetFetcher { return newAssetClient(s) },
 	}
 }
+
+// SetImageSink wires person-image asset download (F24, ADR-037). With a sink set, a
+// person enrich run that returns image assets fetches and stores them; without one,
+// assets are ignored (the field-only path). Called once at startup.
+func (s *Service) SetImageSink(sink ImageSink) { s.images = sink }
 
 // NewServiceWithClient is NewService with an injected client factory — used by
 // tests and a future in-process provider to run with no network.
@@ -186,7 +211,39 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
+	// Download any image assets the provider returned (F24, ADR-037). People-only in
+	// v1; best-effort — a failed fetch/normalize is logged and skipped, never failing
+	// the field enrichment that already succeeded.
+	if s.images != nil && entityType == model.EnrichEntityPerson && len(res.Assets) > 0 {
+		s.downloadAssets(ctx, entityID, provider, externalID, res.Assets)
+	}
 	return s.Fields(ctx, entityType, entityID)
+}
+
+// downloadAssets fetches each provider image asset through the SSRF-guarded asset
+// client and stores it via the image sink (F24, ADR-037). Each asset is independent:
+// one bad URL/host/decode is skipped, the rest proceed. Nothing is stored when the
+// fetch or normalize fails (the sink normalizes; a normalize error means no write).
+func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
+	src, ok := s.store.Current().ByName(provider)
+	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
+		return
+	}
+	fetcher := s.newAssetGet(src)
+	for _, a := range assets {
+		role, ok := assetRoleFor(a.Kind)
+		if !ok {
+			continue // unknown asset kind — don't guess a role
+		}
+		raw, err := fetcher.Fetch(ctx, a.URL)
+		if err != nil {
+			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
+			continue
+		}
+		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
+			s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+		}
+	}
 }
 
 // recordEnrichJob appends the enrich pass to the 30-day activity history (F22.6b).

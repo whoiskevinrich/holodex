@@ -14,6 +14,31 @@ export interface Person {
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 
+// Person image roles (F24, ADR-037). Three single-slot core roles plus the
+// free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
+export type PersonImageRole = 'headshot' | 'banner' | 'poster' | 'extra';
+
+// PersonImage is one stored gallery image in the person-detail read model (F24).
+// Version mirrors the id and drives the `?v=` cache-buster on serving URLs.
+export interface PersonImage {
+	id: number;
+	role: PersonImageRole;
+	source: string; // 'upload' | 'enrichment' | 'promoted'
+	version: number;
+	width: number;
+	height: number;
+	sort_order: number;
+	created_at: string;
+}
+
+// PersonImageSet is the person-detail image read model (F24): which core roles are
+// filled (with the `?v=` version) and the ordered gallery. Empty core roles are
+// simply absent from `roles`.
+export interface PersonImageSet {
+	roles: Record<string, { present: boolean; version: number }>;
+	gallery: PersonImage[];
+}
+
 export interface Tag {
 	id: number;
 	name: string;
@@ -215,6 +240,7 @@ export interface PersonDetailResponse {
 	items: Video[];
 	total: number;
 	enriched?: EnrichedField[] | null;
+	images?: PersonImageSet; // F24: per-role presence + version + ordered gallery
 }
 
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';

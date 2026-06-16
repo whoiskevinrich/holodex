@@ -16,6 +16,8 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
+	PersonImageRole,
+	PersonImageSet,
 	RelatedResponse,
 	SearchResponse,
 	Tag,
@@ -60,6 +62,22 @@ async function sendAuthed<T>(method: 'POST' | 'DELETE', path: string, body?: unk
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
 
+// uploadAuthed POSTs multipart FormData on the owner surface with the token header
+// (no Content-Type — the browser sets the multipart boundary). Returns the decoded
+// JSON body. A 409 is surfaced verbatim so callers can show "gallery is full".
+async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
+	const res = await fetch(`${BASE}${path}`, {
+		method: 'POST',
+		headers: adminHeaders(),
+		body: form
+	});
+	if (!res.ok) {
+		const body = (await res.json().catch(() => ({}))) as { error?: string };
+		throw new Error(body.error || `API ${path} failed: ${res.status}`);
+	}
+	return res.json() as Promise<T>;
+}
+
 function buildQuery(f: MediaFilters): string {
 	const s = filtersToParams(f).toString();
 	return s ? `?${s}` : '';
@@ -87,6 +105,60 @@ export const api = {
 			throw new Error(`regenerate thumbnail failed: ${res.status}`);
 		}
 	},
+
+	// Person images (F24, ADR-037). Reads are public; a filled role serves the real
+	// JPEG, an empty one a themed placeholder (the server reads the active skin from
+	// ?skin= and the person's gender). Always pass the active skin; pass version for
+	// the immutable cache-bust after a replace.
+	personImageURL: (
+		id: number,
+		role: PersonImageRole,
+		opts?: { version?: number; skin?: string }
+	): string => {
+		const q = new URLSearchParams();
+		if (opts?.skin) q.set('skin', opts.skin);
+		if (opts?.version) q.set('v', String(opts.version));
+		const s = q.toString();
+		return `${BASE}/people/${id}/image/${role}${s ? `?${s}` : ''}`;
+	},
+
+	// A specific gallery image by id, version-stamped for the immutable cache. Mirrors
+	// personImageURL's opts so callers don't hand-append the skin/version query.
+	personGalleryImageURL: (
+		id: number,
+		imageId: number,
+		opts?: { version?: number; skin?: string }
+	): string => {
+		const q = new URLSearchParams();
+		if (opts?.skin) q.set('skin', opts.skin);
+		if (opts?.version) q.set('v', String(opts.version));
+		const s = q.toString();
+		return `${BASE}/people/${id}/images/${imageId}${s ? `?${s}` : ''}`;
+	},
+
+	// Owner-gated mutations (ADR-030). Upload posts a multipart {image, role};
+	// 409 surfaces "gallery is full" via uploadAuthed's error.
+	uploadPersonImage: (id: number, file: File, role: PersonImageRole) => {
+		const form = new FormData();
+		form.append('image', file);
+		form.append('role', role);
+		return uploadAuthed<{ id: number; version: number }>(`/people/${id}/image`, form);
+	},
+
+	deletePersonImage: (id: number, imageId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/people/${id}/images/${imageId}`),
+
+	// Promote a gallery extra into a core slot (a copy; the original is untouched).
+	promotePersonImage: (id: number, imageId: number, role: PersonImageRole) =>
+		sendAuthed<{ id: number; version: number }>(
+			'POST',
+			`/people/${id}/images/${imageId}/promote`,
+			{ role }
+		),
+
+	// Persist gallery order; returns the refreshed image set.
+	reorderPersonImages: (id: number, order: number[]) =>
+		sendAuthed<{ images: PersonImageSet }>('POST', `/people/${id}/images/reorder`, { order }),
 
 	listPeople: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
 		get<{ items: Person[] }>(`/people${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
