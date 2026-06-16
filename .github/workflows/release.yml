@@ -1,5 +1,6 @@
-# Release on a v* tag: publish the image (semver + latest) and cut a GitHub Release.
-# Tag a release with:  git tag v0.1.0 && git push origin v0.1.0
+# Release on a v* tag: publish the image (semver + latest) and cut a GitHub Release
+# with a Conventional-Commits changelog (git-cliff), a GHCR Deployment link, and a
+# package link (ADR-034). Tag a release with:  git tag v0.1.0 && git push origin v0.1.0
 name: Release
 
 on:
@@ -23,20 +24,36 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write          # create the GitHub Release
+    # Records a GitHub Deployment to the `ghcr` environment on this tagged run,
+    # linking Release ↔ Deployments ↔ Environments; the URL is the package page
+    # (ADR-034). The runner records it natively — no deployments:write needed.
+    environment:
+      name: ghcr
+      url: ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0        # full history for auto-generated notes
+          fetch-depth: 0        # full history for the changelog
+
+      - name: Generate changelog (Conventional Commits)
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
           body: |
+            ${{ steps.changelog.outputs.content }}
+
             ### Container image
             ```
             docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ```
             Or pin in `docker-compose.prod.yml`:
             `HOLODEX_TAG=${{ github.ref_name }} docker compose -f docker-compose.prod.yml up -d`
+
+            📦 **Package:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
