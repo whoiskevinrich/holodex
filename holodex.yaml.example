@@ -6,7 +6,7 @@
 # Local dev: a `.env` in the working directory is loaded into the environment at
 # startup (ADR-027), so you can set MEDIA_PATH / HOST / etc. there instead of
 # exporting vars — e.g. `MEDIA_PATH=E:/Media`. Real env vars and CLI flags still
-# win. Note: the binary reads MEDIA_PATH (not the compose-only HOLODEX_MEDIA_PATH).
+# win. The same MEDIA_PATH also feeds the docker-compose media bind-mount.
 
 # --- Paths ---
 media_path: ""              # MEDIA_PATH   (required for scanning; read-only library root)
@@ -56,3 +56,10 @@ thumbnail_width: 400        # THUMBNAIL_WIDTH
 # separate file (copy metadata-mappings.yaml.example -> metadata-mappings.yaml);
 # this is the path to it. A missing file simply means no configurable fields.
 metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH
+
+# --- Metadata source plugins (Phase 3, F22, ADR-033) ---
+# Sidecar providers (IMDB/TMDB, …) that enrich People (v1) with external data.
+# Declared in a separate file (copy metadata-sources.yaml.example ->
+# metadata-sources.yaml); a missing file means no providers. Enrichment is
+# owner-gated and on-demand; core holds no upstream API keys (each provider does).
+metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH

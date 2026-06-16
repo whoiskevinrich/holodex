@@ -84,7 +84,7 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	}
 
 	// Upsert the base row by unique file_path.
-	res, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO videos (file_path, file_size, title, duration_sec, width, height,
 		                    video_codec, audio_codec, bitrate_kbps, container,
 		                    recorded_at, indexed_at, file_mtime, active)
@@ -106,18 +106,18 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
 		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
 		recorded, now, v.FileMtime.UTC().Format(timeLayout),
-	)
-	if err != nil {
+	); err != nil {
 		return 0, fmt.Errorf("upsert video: %w", err)
 	}
 
-	// ON CONFLICT does not report LastInsertId for the updated row, so resolve id.
-	id, _ := res.LastInsertId()
-	if id == 0 {
-		if err := tx.QueryRowContext(ctx,
-			`SELECT id FROM videos WHERE file_path = ?`, v.FilePath).Scan(&id); err != nil {
-			return 0, fmt.Errorf("resolve video id: %w", err)
-		}
+	// Resolve the id by the unique file_path rather than LastInsertId(): on the
+	// ON CONFLICT update path the latter reflects the connection's last INSERT —
+	// which may be an unrelated row (e.g. an enrichment write between scans) — so
+	// it can return the wrong id. The unique-key lookup is always correct.
+	var id int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT id FROM videos WHERE file_path = ?`, v.FilePath).Scan(&id); err != nil {
+		return 0, fmt.Errorf("resolve video id: %w", err)
 	}
 
 	if err := replaceAssociations(ctx, tx, id, v.People, v.Tags, extra); err != nil {

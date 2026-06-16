@@ -4,6 +4,9 @@ import { filtersToParams } from './filters';
 import type {
 	Activity,
 	Capabilities,
+	EnrichCandidate,
+	EnrichedField,
+	EnrichSource,
 	Facet,
 	JobRun,
 	MediaDetailResponse,
@@ -11,6 +14,7 @@ import type {
 	MediaListResponse,
 	MetadataKey,
 	Person,
+	PersonDetailResponse,
 	RelatedResponse,
 	SearchResponse,
 	Tag,
@@ -40,6 +44,20 @@ function adminHeaders(): HeadersInit {
 
 // getAuthed is get() carrying the X-Admin-Token header for the owner surface.
 const getAuthed = <T>(path: string): Promise<T> => get<T>(path, fetch, { headers: adminHeaders() });
+
+// sendAuthed issues a write (POST/DELETE) on the owner surface with the token
+// header and an optional JSON body, returning the decoded response (or {}).
+async function sendAuthed<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+	const res = await fetch(`${BASE}${path}`, {
+		method,
+		headers: { ...adminHeaders(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+		body: body ? JSON.stringify(body) : undefined
+	});
+	if (!res.ok && res.status !== 204) {
+		throw new Error(`API ${path} failed: ${res.status}`);
+	}
+	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
+}
 
 function buildQuery(f: MediaFilters): string {
 	const s = filtersToParams(f).toString();
@@ -73,7 +91,7 @@ export const api = {
 		get<{ items: Person[] }>(`/people${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
-		get<{ person: Person; items: Video[]; total: number }>(`/people/${id}`, fetchFn),
+		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
 
 	listTags: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
 		get<{ items: Tag[] }>(`/tags${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
@@ -103,24 +121,31 @@ export const api = {
 	// Trigger a full re-index (F13.3). 202 + {started:false} means a scan was
 	// already running — not an error.
 	rescan: async (): Promise<{ started: boolean }> => {
-		const res = await fetch(`${BASE}/admin/rescan`, { method: 'POST', headers: adminHeaders() });
-		if (!res.ok && res.status !== 202) {
-			throw new Error(`rescan failed: ${res.status}`);
-		}
-		const body = await res.json().catch(() => ({}));
+		const body = await sendAuthed<{ started?: boolean }>('POST', `/admin/rescan`);
 		return { started: Boolean(body.started) };
 	},
 
-	// Reload metadata-mappings.yaml without a restart (F20.10).
+	// Reload metadata-mappings.yaml + metadata-sources.yaml without a restart (F20.10/F22.2d).
 	reloadConfig: async (): Promise<{ fields: number }> => {
-		const res = await fetch(`${BASE}/admin/reload-config`, {
-			method: 'POST',
-			headers: adminHeaders()
-		});
-		if (!res.ok) {
-			throw new Error(`reload failed: ${res.status}`);
-		}
-		const body = await res.json().catch(() => ({}));
+		const body = await sendAuthed<{ fields?: number }>('POST', `/admin/reload-config`);
 		return { fields: Number(body.fields ?? 0) };
-	}
+	},
+
+	// Metadata source plugins — People enrichment (F22). All owner-gated.
+	enrichSources: () => getAuthed<{ sources: EnrichSource[] }>(`/enrich/sources`),
+
+	enrichResolve: (personId: number, provider: string, query: string) =>
+		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/people/${personId}/enrich/resolve`, {
+			provider,
+			query
+		}),
+
+	enrichApply: (personId: number, provider: string, externalId: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/people/${personId}/enrich`, {
+			provider,
+			external_id: externalId
+		}),
+
+	enrichClear: (personId: number, provider: string) =>
+		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/enrich/${encodeURIComponent(provider)}`)
 };

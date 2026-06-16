@@ -272,7 +272,7 @@
 			<p class="section-lede">Just Docker and one compose file — no source tree or toolchain.</p>
 			<div class="steps"><span><b>1</b> point at your library</span><span><b>2</b> compose up</span><span><b>3</b> open the browser</span></div>
 <pre><span class="c"># 1. Point Holodex at your library (defaults to ./media)</span>
-export HOLODEX_MEDIA_PATH=<span class="a">/srv/media</span>
+export MEDIA_PATH=<span class="a">/srv/media</span>
 
 <span class="c"># 2. Run the prebuilt image from GHCR</span>
 docker compose -f docker-compose.prod.yml up -d

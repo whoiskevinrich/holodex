@@ -27,6 +27,7 @@
 # Local config / overrides
 /holodex.yaml
 /metadata-mappings.yaml
+/metadata-sources.yaml
 /docker-compose.override.yml
 
 # Secrets / personal — never commit

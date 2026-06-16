@@ -2,7 +2,7 @@
 
 **Status**: Draft (Future)  
 **Phase**: 3 of 3  
-**Depends on**: Phase 2 complete; **future ADRs (TBD)** — Plugin architecture (metadata source plugins), Writeback strategy (safe edit-back to source files). These decisions are deferred until Phase 3 design begins.
+**Depends on**: Phase 2 complete. Plugin architecture is now **decided** — see the dedicated [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) (sidecar providers over a unified resolution layer). Writeback strategy (safe edit-back to source files, F17) remains a **future ADR**, designed to consume the F22 shadow layer.
 
 ---
 
@@ -51,6 +51,8 @@ Extend the People and Tags data models to support rich metadata, aliases, and gr
 | F15.5 | MCP `list_tags` returns alias and parent/child relationships | Verified via MCP tool call |
 
 ### F16: Metadata Source Plugins
+
+> **Detailed and made concrete in the [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/ADR-033-metadata-source-plugins.md).** Decisions locked: providers are **sidecar containers** speaking a small HTTP contract; **People** is the v1 slice; matching is **embedded-ID-first with a name-search fallback**; provider data is a shadow layer merged through ADR-013's precedence model. The high-level F16 table below is retained for roadmap context.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|

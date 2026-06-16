@@ -24,12 +24,12 @@ func (r *Repo) RecordJobRun(ctx context.Context, run model.JobRun) error {
 	if _, err := r.db.ExecContext(ctx, `
 		INSERT INTO job_runs (kind, trigger, status, started_at, finished_at,
 		                      duration_ms, seen, added, updated, removed, skipped,
-		                      errors, error_message)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                      errors, error_message, detail)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		run.Kind, run.Trigger, run.Status,
 		run.StartedAt.UTC().Format(timeLayout), run.FinishedAt.UTC().Format(timeLayout),
 		run.DurationMs, run.Seen, run.Added, run.Updated, run.Removed, run.Skipped,
-		run.Errors, run.ErrorMessage,
+		run.Errors, run.ErrorMessage, run.Detail,
 	); err != nil {
 		return fmt.Errorf("record job run: %w", err)
 	}
@@ -62,7 +62,7 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(timeLayout)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, kind, trigger, status, started_at, finished_at, duration_ms,
-		       seen, added, updated, removed, skipped, errors, error_message
+		       seen, added, updated, removed, skipped, errors, error_message, detail
 		FROM job_runs WHERE started_at >= ?
 		ORDER BY started_at DESC, id DESC`, cutoff)
 	if err != nil {
@@ -79,7 +79,7 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 		)
 		if err := rows.Scan(&j.ID, &j.Kind, &j.Trigger, &j.Status, &startedStr, &finStr,
 			&j.DurationMs, &j.Seen, &j.Added, &j.Updated, &j.Removed, &j.Skipped,
-			&j.Errors, &j.ErrorMessage); err != nil {
+			&j.Errors, &j.ErrorMessage, &j.Detail); err != nil {
 			return nil, err
 		}
 		j.StartedAt, _ = time.Parse(timeLayout, startedStr)

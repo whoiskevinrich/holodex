@@ -1,0 +1,263 @@
+<script lang="ts">
+	// Disambiguation picker (F22.5b): a modal listbox of provider candidates the
+	// owner searches and confirms. role=combobox + role=listbox with roving
+	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
+	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
+	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
+	import { toMessage } from '$lib/format';
+	import type { EnrichCandidate, EnrichedField } from '$lib/types';
+
+	let {
+		personId,
+		personName,
+		provider,
+		onclose,
+		onapplied
+	}: {
+		personId: number;
+		personName: string;
+		provider: string;
+		onclose: () => void;
+		onapplied: (fields: EnrichedField[]) => void;
+	} = $props();
+
+	// Seed the search box with the person's name; we want the initial value only
+	// (the prop never changes for a given picker instance).
+	// svelte-ignore state_referenced_locally
+	let query = $state(personName);
+	let candidates = $state<EnrichCandidate[]>([]);
+	let active = $state(0);
+	let loading = $state(false);
+	let applying = $state(false);
+	let error = $state('');
+	let input = $state<HTMLInputElement | null>(null);
+	let dialogEl = $state<HTMLElement | null>(null);
+	let trigger: HTMLElement | null = null;
+
+	const listId = 'enrich-candidates';
+
+	onMount(() => {
+		trigger = document.activeElement as HTMLElement | null; // the Enrich button
+		input?.focus();
+		input?.select();
+		// Auto-search the pre-filled name on open so a confident match shows
+		// immediately — the owner shouldn't have to retype the person's own name.
+		if (query.trim().length >= 2) void search(query.trim());
+		// Focus-return: send focus back to the Enrich button when the picker closes.
+		return () => trigger?.focus?.();
+	});
+
+	// Trap Tab within the dialog so it can't escape to the page behind. Tab stops:
+	// the search box, the active result row (roving tabindex=0), and the ✕ button.
+	function trapTab(e: KeyboardEvent) {
+		if (e.key !== 'Tab' || !dialogEl) return;
+		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]')].filter(
+			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
+		);
+		if (f.length === 0) return;
+		const first = f[0];
+		const last = f[f.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+
+	// Debounced provider search; below 2 chars we don't call.
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	function onInput() {
+		clearTimeout(timer);
+		const q = query.trim();
+		if (q.length < 2) {
+			candidates = [];
+			return;
+		}
+		timer = setTimeout(() => void search(q), 300);
+	}
+
+	async function search(q: string) {
+		loading = true;
+		error = '';
+		try {
+			const res = await api.enrichResolve(personId, provider, q);
+			candidates = res.candidates ?? [];
+			active = 0;
+		} catch (e) {
+			error = toMessage(e);
+			candidates = [];
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function confirm(c: EnrichCandidate | undefined) {
+		if (!c || applying) return;
+		applying = true;
+		error = '';
+		try {
+			const res = await api.enrichApply(personId, provider, c.external_id);
+			onapplied(res.enriched ?? []);
+			onclose();
+		} catch (e) {
+			error = toMessage(e);
+		} finally {
+			applying = false;
+		}
+	}
+
+	// Keys while the search box is focused: Enter applies the active match, ↓ moves
+	// focus down into the results list. (Escape is handled by the window listener.)
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'ArrowDown' && candidates.length) {
+			e.preventDefault();
+			focusOption(0);
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			void confirm(candidates[active]);
+		}
+	}
+
+	// Keys while a result row is focused (roving tabindex): Enter/Space apply, ↑/↓
+	// move between rows (↑ from the top returns to the search box).
+	function onOptionKey(e: KeyboardEvent, i: number) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			void confirm(candidates[i]);
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			focusOption((i + 1) % candidates.length);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (i === 0) input?.focus();
+			else focusOption(i - 1);
+		}
+	}
+
+	// Move the roving focus to result i (it becomes the lone tab stop in the list).
+	function focusOption(i: number) {
+		active = i;
+		dialogEl?.querySelector<HTMLElement>(`#enrich-opt-${i}`)?.focus();
+	}
+
+	function matchLabel(c: number): { text: string; accent: boolean } {
+		if (c >= 0.85) return { text: 'Strong match', accent: true };
+		if (c >= 0.5) return { text: 'Possible match', accent: false };
+		return { text: 'Weak match', accent: false };
+	}
+</script>
+
+<!-- Backdrop: token color + opacity; click closes. -->
+<div
+	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
+	role="presentation"
+	onclick={(e) => {
+		if (e.target === e.currentTarget) onclose();
+	}}
+>
+	<div
+		bind:this={dialogEl}
+		onkeydown={trapTab}
+		tabindex="-1"
+		class="enrich-pop flex max-h-[80vh] w-full max-w-lg flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="enrich-title"
+	>
+		<div class="mb-3 flex items-start justify-between gap-3">
+			<h2 id="enrich-title" class="skin-title text-lg font-semibold text-ink">
+				Enrich from {provider}
+			</h2>
+			<button
+				onclick={onclose}
+				aria-label="Close"
+				class="rounded-theme px-2 py-0.5 text-muted hover:text-ink">✕</button
+			>
+		</div>
+
+		<!-- svelte-ignore a11y_role_has_required_aria_props -->
+		<input
+			bind:this={input}
+			bind:value={query}
+			oninput={onInput}
+			onkeydown={onKey}
+			role="combobox"
+			aria-expanded={candidates.length > 0}
+			aria-controls={listId}
+			placeholder="Search {provider} by name…"
+			class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+		/>
+
+		<p class="mt-2 text-xs text-muted" aria-live="polite">
+			{#if loading}
+				Searching {provider}…
+			{:else if error}
+				<span class="text-warn">{error}</span>
+			{:else if query.trim().length < 2}
+				Type at least two characters to search.
+			{:else if candidates.length}
+				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — {candidates.length > 1
+					? 'Tab or ↑/↓ to choose, then '
+					: ''}click or press Enter to apply
+			{:else}
+				No matches for “{query.trim()}”.
+			{/if}
+		</p>
+
+		<ul id={listId} role="listbox" aria-label="Candidates" class="mt-2 flex-1 overflow-y-auto">
+			{#each candidates as c, i (c.external_id)}
+				{@const m = matchLabel(c.confidence)}
+				<!-- Roving tabindex: the active row is the lone tab stop; Tab/↑/↓ reach it,
+				     Enter/Space/click apply. -->
+				<li
+					id="enrich-opt-{i}"
+					role="option"
+					tabindex={i === active ? 0 : -1}
+					aria-selected={i === active}
+					onclick={() => confirm(c)}
+					onkeydown={(e) => onOptionKey(e, i)}
+					onfocus={() => (active = i)}
+					onmouseenter={() => (active = i)}
+					class="cursor-pointer rounded-theme border-l-2 px-3 py-2 {i === active
+						? 'border-accent bg-surface-2'
+						: 'border-transparent'}"
+				>
+					<div class="flex items-center justify-between gap-2">
+						<span class="truncate text-sm text-ink">{c.label}</span>
+						<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
+					</div>
+					{#if c.disambiguation}
+						<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+
+		{#if applying}
+			<p class="mt-2 text-xs text-muted">Enriching…</p>
+		{/if}
+	</div>
+</div>
+
+<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
+
+<style>
+	@media (prefers-reduced-motion: no-preference) {
+		.enrich-pop {
+			animation: enrich-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+		}
+	}
+	@keyframes enrich-rise {
+		from {
+			opacity: 0;
+			transform: scale(0.98);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+</style>

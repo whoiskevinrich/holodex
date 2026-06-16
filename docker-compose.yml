@@ -12,7 +12,10 @@ services:
       PORT: "7800"
       LOG_LEVEL: info
     volumes:
-      - ${HOLODEX_MEDIA_PATH:-./media}:/media:ro   # your library (read-only)
+      # host library path from .env / shell ${MEDIA_PATH}, mounted read-only at the
+      # container's MEDIA_PATH (=/media above). Same var name as the in-container one
+      # by design — you set MEDIA_PATH once. Defaults to ./media if unset.
+      - ${MEDIA_PATH:-./media}:/media:ro            # your library (read-only)
       - holodex-data:/data                          # index, thumbnails, config
     restart: unless-stopped
 

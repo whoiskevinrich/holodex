@@ -138,6 +138,13 @@ assert.JSONEq(t, string(want), string(got))
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
 | **Owner gating seam** (ADR-030, F21.7) | Unit + Integration | Open (no token) vs gated (token set) on every owner route; **constant-time** token compare; **fail-loud** on non-loopback bind + no token; **CSRF** rejection of cross-site admin POST; frontend capability-flag toggle hides controls | ~95% |
 | **Related-media endpoint** (ADR-031, QW2/QW3) | Unit + Integration | Person key = highest **global** video count (tie-break lowest id); tag key = **most distinctive** by `c·(1−c/N)` (a **near-universal tag is demoted** below a mid-frequency one; tie-break higher `c`, then lowest id); items **exclude current item**, **active-only**, **≤5**; `items:[]` valid when no siblings; `person`/`tag` null when the item has none; **404** unknown/inactive id; attached people/tags present (**no N+1**). Selection is **deterministic** (pin the chosen key); only the item *draw* is `RANDOM()` — assert **set membership / exclusion / count**, never order. **Stability** (client fetch-once-per-view) is a page-level test (§5), not the endpoint's | ~90% |
+| **Provider client + contract** (ADR-033, F22.1) | Unit + Integration | `ProviderClient` against the **in-process fake**: `/describe` capability parse + `protocol_version` mismatch rejected; `/resolve` candidate ranking; `/enrich` field+asset shape; timeout/5xx/garbage → single fetch fails, server survives; **mocked, never live** | ~90% |
+| **Provider registry / config** (ADR-033, F22.2) | Unit | Load `metadata-sources.yaml` (missing file → empty, no error); enable/disable; **atomic reload** (mirrors mapping store); disabled/unreachable provider skipped not fatal | ~90% |
+| **Unified field resolution** (ADR-033, F22.3) | Unit | `sources` list **interleaving `file:` keys and providers** resolves first-present-wins; provider never overwrites a file-extracted first-class field unless ordered ahead of `file:`; pure re-interpretation (precedence change needs no re-fetch) | ~95% |
+| **Shadow enrichment store** (ADR-033, F22.4) | Integration | `entity_enrichment` upsert keyed by (entity_type,entity_id,provider,field_key); confirmed `external_id` persists → re-enrich skips identity; **re-scan does not touch shadow rows**; clearing a provider removes only its rows | ~90% |
+| **Matching paths** (ADR-033, F22.5b) | Unit + Integration | Embedded-ID present → deterministic auto-resolve; absent → name-search candidates returned for manual confirm; ambiguous/no-result handled; confidence surfaced advisory (never auto-applied in v1) | ~90% |
+| **Enrichment security** (ADR-033, F22.9) | Unit + Integration | Enrich endpoints behind `requireOwner` (401 without token); **SSRF allowlist** — core calls only configured `base_url`s, ignores provider-supplied redirect hosts; **untrusted response** values length-capped/sanitized, asset downloads size+content-type limited; **no upstream API key** in config/logs/read-model | ~95% |
+| **MCP enriched fields** (ADR-033, F22.5f) | Integration | `get_person`/`list_people` return enriched fields **with provenance**; parity with REST | ~85% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -149,6 +156,9 @@ assert.JSONEq(t, string(want), string(got))
 - **Activity leaks no secrets**: `/admin/activity` and `/admin/activity/history` never serialize a filesystem path, env value, or token (incl. `job_runs.error_message`).
 - **Gate is real and loud**: an owner-only route is unreachable without the token when `ADMIN_TOKEN` is set; when unset on a non-loopback bind, the server warns and flags it (never a silent open control surface).
 - **Related never includes self**: `GET /media/{id}/related` must never return the current item in `person.items` or `tag.items` — the exclusion holds even when the item is the *only* sibling (→ empty `items:[]`, not itself). Selection (which person/tag is keyed) is fully deterministic; only the item *draw* is random, so tests pin the chosen key + membership and tolerate any order.
+- **Enrichment never overwrites the file**: file-extracted first-class fields (title/people/tags/date) survive a re-scan even after a provider enriched the same canonical field, unless the owner explicitly ordered the provider ahead of `file:` (ADR-033 F22.3c). Shadow data is additive.
+- **No outbound call without intent**: no provider HTTP request is issued except as a direct result of an owner-initiated enrich/resolve (no scheduler, no enrich-on-scan). Asserted by a fake provider whose call-count stays zero across a scan pass.
+- **Enrichment can't be an SSRF vector**: core only ever connects to an allowlisted provider `base_url`; a `/resolve`/`/enrich` response cannot redirect it to another host, and no upstream API key is ever serialized into config dumps, logs, or the read-model.
 
 ---
 
@@ -170,6 +180,8 @@ assert.JSONEq(t, string(want), string(got))
 | **RelatedShelf** (QW3) | Component | Vitest | Shelf **omitted** when block null or `items` empty; renders heading link (`/people|tags/{id}`) + **≤5 VideoCards**; cards wrapped in `.video-grid` so **Brutalist counter restarts per shelf**; loading/error never blocks primary detail content |
 | **Related shelves — stable per view** (QW2/QW3) | Interaction | Vitest | The media page's `$effect` tracks **only `id`** — an incidental re-render (skin switch, thumbnail regenerate) **does not refetch** `/related` (shelves don't reshuffle); changing `id` triggers exactly one fresh fetch |
 | **Browse-state preservation** (`browse.svelte.ts`, QW4) | Unit | Vitest | **Signature match → reuse** cached set (no refetch); **mismatch → fetch page 0**; **invalidate** on filter/sort change; scroll capture/restore round-trip; single-entry replace (no accumulation) |
+| Enrich picker (F22.5b) | Interaction + a11y | Vitest + Playwright | Owner-only render; debounced search → candidates; **combobox/listbox keyboard nav** (↑/↓/Enter/Esc, `aria-activedescendant`); dialog focus-trap + focus-return; confirm → fields populate; empty/error states |
+| Provenance badges (F22.7) | Component + visual | Vitest + Playwright | file=muted pill vs provider=outlined-accent pill; `aria-label` long-form; **legible in all 3 skins**, never uses `--warn`; confidence label is text not color-only |
 
 ---
 
@@ -189,6 +201,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 11. **(Quick Wins · QW1)** Run a search → open another → focus the search box → the prior query appears in history → click it re-runs the search (URL `/search?q=…`); remove + clear empty the list.
 12. **(Quick Wins · QW3)** Open a detail page with shared people/tags → a "More with `<person>`" and/or "More with `<tag>`" shelf renders ≤5 cards → click a card navigates onward; an item with no siblings shows no empty rail.
 13. **(Quick Wins · QW4)** Scroll the grid, "Load more" ×2 (150 items), open an item, press **Back** → **same scroll position** (±a few px) **and** all 150 items still present **and** the opened item on screen **and** **zero** `GET /api/v1/media` fired **and** no `Loading…` flash. Then change a filter → resets to top + refetches; hard-reload → rebuilds page 0 at top.
+14. (Phase 3, F22) With the **fake provider** wired in compose and `ADMIN_TOKEN` set: open a person → Enrich → name-search → pick a candidate → fields populate with "from <provider>" provenance; re-enrich skips the picker; clearing the provider falls the field back. Assert no provider call fires without the click, and a token-less client sees no Enrich control.
 
 ---
 
@@ -263,10 +276,19 @@ Conventions:
 - **Related-media** (ADR-031, QW2/QW3): repo random-select methods + `GET /media/{id}/related` handler — selection determinism, self-exclusion, active-only, ≤5, null/empty blocks, 404, no-N+1; **assert membership/count not order** (RANDOM()). `RelatedShelf` component tests incl. per-shelf Brutalist counter reset.
 - **Fluid Back** (ADR-032, QW4): `browse.svelte.ts` store unit tests (signature reuse/invalidate, scroll round-trip) + the **E2E scroll+pages restoration** flow (no refetch, no flash). This is the first Playwright assertion on scroll restoration — establishes the pattern for future paginated views.
 
-### Phase 3 — enrichment (mock externals)
+### Phase 3 — enrichment
+
+**Metadata source plugins — People (F22, ADR-033)** — the first slice, fully CI-testable with **no network or API keys**:
+- **Provider contract** conformance via an **in-process fake** implementing `/describe` `/resolve` `/enrich` `/healthz`; `protocol_version` mismatch rejected; timeout/5xx/garbage tolerated (fetch fails, server lives). Real TMDB/IMDB containers are exercised only by manual/staging checks, **never live in CI**.
+- **Unified resolution**: `sources` interleaving `file:` keys + providers, first-present-wins, file-first-class fields preserved on re-scan (the cardinal enrichment invariant).
+- **Shadow store** `entity_enrichment`: upsert, persisted `external_id` (re-enrich skips identity), re-scan non-destructiveness, clear-provider isolation, **migration preserves user enrichment** (ties to the migration-safety invariant).
+- **Matching**: embedded-ID auto vs name-search-confirm paths.
+- **Security**: `requireOwner` 401s, SSRF allowlist + no-redirect, untrusted-response sanitization/size limits, no-keys-in-core.
+- **Frontend**: enrich picker (combobox/listbox a11y, focus trap), provenance badges in **all 3 skins** (tokens-only). MCP enriched-field parity.
+
+**Later Phase-3 slices (future specs/ADRs):**
 - People/tag aliases resolve in search/filter; tag-graph DAG traversal (incl. cycle handling).
-- **Metadata plugins** with **mocked** IMDB/TMDB HTTP (record/replay); never hit live APIs in CI.
-- **Writeback**: round-trip (write → re-scan → read-back equal); **backup created before write**; atomic-failure leaves original intact; `WRITEBACK_ENABLED` gating.
+- **Writeback** (consumes the F22 shadow layer): round-trip (write → re-scan → read-back equal); **backup created before write**; atomic-failure leaves original intact; `WRITEBACK_ENABLED` gating.
 - Preview-trailer generation gating + storage budget.
 
 ---
@@ -326,6 +348,60 @@ Given mapping studio.sources = [Publisher, Studio]
   And a file with Publisher="A" and Studio="B"
 When the Studio field resolves
 Then value == "A" (first source in precedence order)
+```
+
+**Unified resolution — provider/file interleave (ADR-033, F22.3)**
+```
+Given field birthdate.sources = [tmdb, file:Birthdate]
+  And a person with a file-sourced Birthdate="1970-01-01"
+  And a TMDB-enriched birthdate="1941-01-05" in the shadow store
+When the birthdate field resolves
+Then value == "1941-01-05" (provider first in precedence)
+  And with sources = [file:Birthdate, tmdb] it resolves "1970-01-01"
+```
+
+**Enrichment is non-destructive on re-scan (ADR-033, F22.3c) — cardinal invariant**
+```
+Given a video whose file title is "AMV Original"
+  And a provider enriched the canonical title to "Official Title" (file-first config)
+When the file is re-scanned
+Then video.title remains "AMV Original"
+  And the shadow enrichment row is untouched
+```
+
+**Matching — ID-first, search fallback (ADR-033, F22.5b)**
+```
+Given a person with no embedded external id
+When the owner searches "Miyazaki" via the picker
+Then /resolve returns ranked candidates and NO field is applied yet
+  And only after the owner confirms a candidate does /enrich run
+When instead an embedded tmdb id is present
+Then resolve auto-selects it without showing the picker
+```
+
+**Enrichment SSRF allowlist + no leaked keys (ADR-033, F22.9)**
+```
+Given a provider configured with base_url http://holodex-fake:9100
+When /resolve returns a candidate whose asset url points to http://169.254.169.254/
+Then core does NOT fetch that host (only allowlisted base_url + same-origin assets)
+  And no response, log line, or /admin/activity field contains the provider's API key
+```
+
+**Untrusted provider response (ADR-033, F22.9b)**
+```
+Given the fake provider returns a 100 KB "bio" and a non-image "photo" asset
+When the person is enriched
+Then the stored/displayed bio is length-capped
+  And the photo asset is rejected on content-type, field display still succeeds
+  And a malformed JSON response fails just that fetch (server stays up)
+```
+
+**Enrich endpoint owner-gated (ADR-033, F22.9a)**
+```
+Given ADMIN_TOKEN is set
+When POST /api/v1/people/:id/enrich is requested WITHOUT the token
+Then status 401 and no provider call is made
+  And the SPA renders no Enrich control for that (non-owner) client
 ```
 
 **Owner gate — open vs. gated (ADR-030, F21.7)**

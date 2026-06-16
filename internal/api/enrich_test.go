@@ -1,0 +1,136 @@
+package api_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"holodex/internal/api"
+	"holodex/internal/db"
+	"holodex/internal/enrich"
+	"holodex/internal/model"
+	"holodex/internal/repo"
+)
+
+// enrichServer wires the owner-gated enrichment surface over the in-process fake
+// provider (no network). token="" leaves the gate open (single-user default).
+func enrichServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64) {
+	t.Helper()
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+
+	sp := filepath.Join(dir, "sources.yaml")
+	if err := os.WriteFile(sp, []byte("sources:\n  - name: fake\n    base_url: http://fake:9100\n    entity_types: [person]\n    enabled: true\n"), 0o644); err != nil {
+		t.Fatalf("write sources: %v", err)
+	}
+	store, err := enrich.NewStore(sp)
+	if err != nil {
+		t.Fatalf("sources store: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient { return enrich.NewFake("fake") })
+
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetEnrichment(svc)
+	h.SetAuth(api.NewAuth(token), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	// Seed a person matching the fake's canned record.
+	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: "/m/x.mkv", Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+		People:    []model.Person{{Name: "Hayao Miyazaki"}},
+	}, nil); err != nil {
+		t.Fatalf("seed person: %v", err)
+	}
+	pid, _, err := r.PersonIDByName(context.Background(), "Hayao Miyazaki")
+	if err != nil {
+		t.Fatalf("person id: %v", err)
+	}
+	return srv, r, pid
+}
+
+func postTok(t *testing.T, url, token string, body any) (int, map[string]any) {
+	t.Helper()
+	buf, _ := json.Marshal(body)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(buf))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set(api.AdminTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	var out map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
+// Full owner flow (open gate): resolve → apply → person detail shows provenance.
+func TestEnrichFlow(t *testing.T) {
+	srv, _, pid := enrichServer(t, "")
+	base := srv.URL + "/api/v1/people/" + itoa(pid)
+
+	code, body := postTok(t, base+"/enrich/resolve", "", map[string]string{"provider": "fake", "query": "miyazaki"})
+	if code != http.StatusOK {
+		t.Fatalf("resolve code = %d", code)
+	}
+	cands, _ := body["candidates"].([]any)
+	if len(cands) != 1 {
+		t.Fatalf("candidates = %v", body["candidates"])
+	}
+
+	code, body = postTok(t, base+"/enrich", "", map[string]string{"provider": "fake", "external_id": "tmdb:608"})
+	if code != http.StatusOK {
+		t.Fatalf("apply code = %d", code)
+	}
+	if enriched, _ := body["enriched"].([]any); len(enriched) == 0 {
+		t.Fatalf("enriched empty: %v", body["enriched"])
+	}
+
+	// Person detail now carries the enriched fields with provenance.
+	code, pbody := getJSON(t, base)
+	if code != http.StatusOK {
+		t.Fatalf("person code = %d", code)
+	}
+	enriched, _ := pbody["enriched"].([]any)
+	if len(enriched) == 0 {
+		t.Fatalf("person enriched empty")
+	}
+	first, _ := enriched[0].(map[string]any)
+	if first["provider"] != "fake" {
+		t.Errorf("provenance = %v, want fake", first["provider"])
+	}
+}
+
+// Owner gate (F22.9a): with a token set, enrichment controls require it.
+func TestEnrichGated(t *testing.T) {
+	srv, _, pid := enrichServer(t, "s3cret")
+	url := srv.URL + "/api/v1/people/" + itoa(pid) + "/enrich/resolve"
+
+	if code, _ := postTok(t, url, "", map[string]string{"provider": "fake", "query": "x"}); code != http.StatusUnauthorized {
+		t.Errorf("no-token resolve = %d, want 401", code)
+	}
+	if code, _ := postTok(t, url, "s3cret", map[string]string{"provider": "fake", "query": "miyazaki"}); code != http.StatusOK {
+		t.Errorf("token resolve = %d, want 200", code)
+	}
+	if code, _ := getJSON(t, srv.URL+"/api/v1/enrich/sources"); code != http.StatusUnauthorized {
+		t.Errorf("ungated sources read = %d, want 401 (owner-only)", code)
+	}
+}

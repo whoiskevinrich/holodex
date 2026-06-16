@@ -52,7 +52,7 @@ You need only Docker and the one compose file — no source tree, no Go/Node too
 
 ```bash
 # 1. Point Holodex at your library (defaults to ./media if unset)
-export HOLODEX_MEDIA_PATH=/srv/media          # PowerShell: $env:HOLODEX_MEDIA_PATH = "D:\Videos"
+export MEDIA_PATH=/srv/media          # PowerShell: $env:MEDIA_PATH = "D:\Videos"
 
 # 2. Run the prebuilt image from GHCR
 docker compose -f docker-compose.prod.yml up -d
@@ -67,14 +67,17 @@ volume. Pin a release with `HOLODEX_TAG=1.2.0` instead of `latest`. See
 
 ## Roadmap
 
-Phase 1 (MVP) and the tiered cover-art pipeline are implemented. Next up
-([`docs/specs`](docs/specs)):
+**Shipped** — Phase 1 (MVP: automatic indexing, FTS search, faceted browse, in-browser
+playback) and Phase 2 (an MCP server exposing the library to AI assistants like Claude Desktop,
+the tiered cover-art pipeline, sort controls + a "Recently added" shelf + keyboard nav +
+responsive layout, Prometheus metrics, and configurable metadata field mapping). Plus a
+**System Activity** "under the hood" surface and quick-win discovery features (search history,
+"More with…" related shelves, fluid Back).
 
-- **Phase 2** — an MCP server exposing the library to AI assistants (Claude Desktop, etc.),
-  sort controls, a "Recently added" shelf, keyboard navigation, a responsive mobile layout,
-  Prometheus metrics, and configurable metadata field mapping (map raw tags to custom facets).
-- **Phase 3** — people/tag aliases and hierarchy, external metadata plugins (IMDB/TMDB),
-  opt-in metadata writeback to source files, and hover-preview trailers.
+**In progress / next** ([`docs/specs`](docs/specs)) — **Phase 3, enrichment foundation**:
+external **metadata source plugins** that enrich People from IMDB/TMDB-style providers
+(F22 — the first slice, landing now), then people/tag aliases and hierarchy, opt-in metadata
+writeback to source files, and hover-preview trailers.
 
 ## Development
 
@@ -97,8 +100,18 @@ cd web && npm install && npm run dev              # -> http://localhost:5173
 Config precedence is **CLI flags > env > `holodex.yaml` > defaults**
 ([ADR-014](docs/architecture/ADR-014-configuration-and-data-layout.md)); e.g.
 `holodex -port 8080 -media-path /srv/videos`. Other vars: `DATA_PATH` (index/thumbnails/config),
-`PORT`, and `HOST` (bind address; default all interfaces — set `127.0.0.1` for loopback only).
-See [`holodex.yaml.example`](holodex.yaml.example).
+`PORT`, `HOST` (bind address; default all interfaces — set `127.0.0.1` for loopback only), and
+`ADMIN_TOKEN` (gates owner-only controls — set it whenever the server is reachable beyond loopback).
+
+Each config file ships a committed `*.example` template; copy it (dropping `.example`) and edit.
+The real files are gitignored:
+
+| File | Purpose | Example |
+|------|---------|---------|
+| `holodex.yaml` | Main server config (paths, server, scanner, thumbnails, MCP, …) | [`holodex.yaml.example`](holodex.yaml.example) |
+| `metadata-mappings.yaml` | Map raw container tags to custom facets/labels — F20, [ADR-013](docs/architecture/ADR-013-metadata-field-mapping.md) | [`metadata-mappings.yaml.example`](metadata-mappings.yaml.example) |
+| `metadata-sources.yaml` | External metadata source providers (People enrichment) — F22, [ADR-033](docs/architecture/ADR-033-metadata-source-plugins.md) | [`metadata-sources.yaml.example`](metadata-sources.yaml.example) |
+| `.env` | Docker Compose env (host media path) | [`.env.example`](.env.example) |
 
 ### Try it without a library
 
@@ -133,8 +146,13 @@ internal/
   scanner            filesystem scan + incremental change detection — ADR-011/018
   thumbnail          tiered cover-art / frame pipeline — ADR-009
   db                 SQLite open + embedded migrations — ADR-003/016
+  repo               data-access layer (typed SQL, FTS) — ADR-003/017
   cache              cache interface (in-process / noop) — ADR-008
-  api                chi router, REST handlers, health — ADR-006/019
+  mapping            configurable metadata field mapping — F20/ADR-013
+  enrich             metadata source plugins (People enrichment) — F22/ADR-033
+  mcp                MCP server for AI-assistant access — ADR-005
+  metrics            Prometheus exposition — ADR-019/026
+  api                chi router, REST handlers, health, owner gating — ADR-006/019/030
 web/                 SvelteKit SPA (Tailwind, semantic tokens) — ADR-002/021
 testdata/            fixture generator + golden files; demo/ showcase corpus
 docs/                architecture (ADRs), specs, testing strategy
@@ -142,7 +160,8 @@ docs/                architecture (ADRs), specs, testing strategy
 
 ## Docs
 
-[`docs/architecture`](docs/architecture/README.md) (29 ADRs) ·
+[`docs/architecture`](docs/architecture/README.md) (32 ADRs) ·
 [`docs/specs`](docs/specs) (phase + showcase specs) ·
 [`docs/design/theming.md`](docs/design/theming.md) ·
+[`docs/design/metadata-enrichment-handoff.md`](docs/design/metadata-enrichment-handoff.md) ·
 [`docs/testing-strategy.md`](docs/testing-strategy.md)
