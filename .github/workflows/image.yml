@@ -7,6 +7,18 @@ name: Build image
 on:
   push:
     branches: [main]
+    # Only rebuild when something that lands in the image changes. Docs/site/spec-only
+    # merges skip the (~5 min multi-arch) build. workflow_dispatch and workflow_call
+    # (release.yml on a v* tag) ignore paths, so tagged releases always build.
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'web/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/image.yml'
   workflow_dispatch:
   workflow_call:
 

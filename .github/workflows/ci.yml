@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_call:   # release.yml reuses these exact checks to gate the image build
 
 concurrency:
   group: ci-${{ github.ref }}
