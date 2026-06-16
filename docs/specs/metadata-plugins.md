@@ -239,4 +239,11 @@ fields:
 3. **First real provider container (TMDB)** — packaged + published image (ADR-023/024), its own API key, documented compose wiring.
 4. **Generalize** (separate specs/ADRs): Series/Title entity, Video content-metadata, then writeback (F17) as a consumer of the shadow layer.
 
+> **Provider hand-off specs (for external teams).** The provider HTTP contract is also
+> published as self-contained, source-neutral hand-off documents so other teams can build
+> their own provider images in separate repos without the Holodex source tree:
+> - [Metadata Provider Contract](metadata-provider-contract.md) — the generic, source-neutral
+>   spec (any upstream, any language).
+> - [TMDB Provider](tmdb-provider.md) — a worked example mapping that contract onto TMDB.
+
 > **Routing reminder (CLAUDE.md):** this feature touches infrastructure (new deployable services, outbound network) and access (owner-gated, SSRF surface) → **`/security-review` is required before merge**, and **`/testing-strategy`** must gain the provider-contract + resolution + provenance cases. Frontend (picker, provenance badges) must use semantic tokens and QA all three skins — see the [design handoff](../design/metadata-enrichment-handoff.md).
