@@ -9,6 +9,12 @@ on:
   schedule:
     - cron: "23 5 * * 1"   # weekly, Monday 05:23 UTC
 
+# Cancel superseded runs on the same ref so iterative PR pushes don't pile up
+# (CI, image, and pages already do this; CodeQL was the gap).
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
