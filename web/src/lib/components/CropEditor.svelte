@@ -27,7 +27,7 @@
 
 	const frameClass: Record<typeof role, string> = {
 		headshot: 'crop-frame crop-frame--1x1',
-		banner: 'crop-frame crop-frame--16x9',
+		banner: 'crop-frame crop-frame--banner',
 		poster: 'crop-frame crop-frame--2x3'
 	};
 	const roleLabel: Record<typeof role, string> = {

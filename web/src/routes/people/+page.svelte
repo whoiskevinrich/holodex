@@ -5,10 +5,12 @@
 	import type { Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
+	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<'name' | 'count'>('name');
 	let loading = $state(true);
+	let loadError = $state('');
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into. See [[ADR-036]].
@@ -23,21 +25,9 @@
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
 	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
-	// the first person under each letter. Non-alphabetic names group under '#'.
+	// the first person under each letter. Logic lives in $lib/peopleNav (unit-tested).
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-	function firstLetter(name: string): string {
-		const c = name.trim().charAt(0).toUpperCase();
-		return c >= 'A' && c <= 'Z' ? c : '#';
-	}
-	// letter → index of the first person under it (people are alphabetical when sort='name').
-	const letterAnchors = $derived.by(() => {
-		const m: Record<string, number> = {};
-		people.forEach((p, i) => {
-			const L = firstLetter(p.name);
-			if (!(L in m)) m[L] = i;
-		});
-		return m;
-	});
+	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.name)));
 	function jumpTo(letter: string) {
 		const el = document.getElementById(`pl-${letter}`);
 		if (!el) return;
@@ -47,9 +37,15 @@
 
 	function reload() {
 		loading = true;
+		loadError = '';
 		api
 			.listPeople(sort)
 			.then((res) => (people = res.items ?? []))
+			.catch((err) => {
+				// Surface a failed fetch instead of masking it as the empty "no people" state.
+				loadError = toMessage(err);
+				people = [];
+			})
 			.finally(() => (loading = false));
 	}
 
@@ -135,6 +131,8 @@
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
+	{:else if loadError}
+		<p class="py-16 text-center text-sm text-warn">Couldn’t load people: {loadError}</p>
 	{:else if people.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
 	{:else}

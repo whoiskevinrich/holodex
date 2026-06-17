@@ -74,9 +74,9 @@ under `[data-theme]`, mirroring `.video-frame`.
 | Component | Variant/Role | Key props | Notes |
 |---|---|---|---|
 | `PersonAvatar` | headshot 1:1 | `personId, src, gender, name, size, eager` | List card + person header |
-| `PersonBanner` | banner 16:9 | `personId, src, gender, name` | Person hero |
+| `PersonBanner` | banner (stored 16:9; rendered as a **5:1 band ≤270px**) | `personId, src, gender, name` | Person hero |
 | `PersonPoster` | poster 2:3 | `personId, src, gender, name` | Video credits |
-| `PersonGallery` | extra | `personId, items[], owner` | Grid + (owner) add/reorder/promote |
+| `PersonGallery` | extra | `personId, name, items[], owner` | **Single scroll row** + (owner) add/reorder/promote |
 | `PlaceholderImage` | resolved | `role, gender, skin` | Rendered by the frame; programmatic SVG |
 | `ImageUploader` (owner) | — | `personId, role` | Dropzone/file-pick; client-validates then POSTs multipart |
 | `CropEditor` (owner, P1) | promote | `sourceImageId, targetRole` | Zoom/crop a **copy** to the target ratio |
@@ -93,16 +93,16 @@ under `[data-theme]`, mirroring `.video-frame`.
 | Upload | In progress | Control disabled + spinner; optimistic frame swap on success |
 | Upload | Rejected (type/size/decode) | Inline `text-warn` words (not color-only); nothing written; control re-enabled |
 | Gallery (owner) | At 20 extras | "Add" tile disabled + `border-warn`/`text-warn` "Gallery is full (20 max)." (server also enforces) |
-| Gallery item (owner) | Drag | Drag-handle reorders; `--accent` drop indicator; persists `sort_order` |
+| Gallery item (owner) | Reorder | Keyboard ←/→ buttons (in the hover/focus overlay) move an item one step; persists `sort_order` (no drag) |
 | Promote (owner) | Crop | Modal crop editor on a **copy**; saving creates/replaces the core role; gallery original untouched |
 
 ## Responsive behavior
 
 | Breakpoint | Changes |
 |---|---|
-| Desktop (>1024px) | List: existing column count + avatar. Person: banner full width, avatar overlap, gallery 4–6 cols. Video: poster cards ~`size-lg` wide. |
-| Tablet (768–1024px) | Gallery 3 cols; banner keeps 16:9; avatar overlap reduced. |
-| Mobile (<768px) | Gallery 2 cols; avatar drops below the banner (no overlap) or centers; poster cards scroll horizontally; upload affordances become an explicit "Edit" button (no hover on touch). |
+| Desktop (>1024px) | List: existing column count + avatar. Person: banner full-width 5:1 band (≤270px), avatar overlap, gallery is a single horizontally-scrollable row of uniform-height thumbs. Video: poster cards ~`size-lg` wide. |
+| Tablet (768–1024px) | Gallery stays a single scroll row; banner is the 5:1 band; avatar overlap reduced. |
+| Mobile (<768px) | Gallery stays a single scroll row; avatar drops below the banner (no overlap) or centers; poster cards scroll horizontally. (Owner controls reveal on hover/focus — limited on touch.) |
 
 ## Edge cases
 
@@ -124,7 +124,7 @@ under `[data-theme]`, mirroring `.video-frame`.
 | Frame | Image ready | Cross-fade placeholder→image | 150–200ms | ease-out | Disabled under `prefers-reduced-motion` |
 | Well | Loading | Shimmer sweep | ~1.2s loop | linear | Reduced-motion → static well |
 | Owner affordances | Hover | Fade-in overlay | 120ms | ease | Touch → no hover; explicit Edit button |
-| Gallery reorder | Drag | Position transition | 150ms | ease | Reduced-motion → instant |
+| Gallery reorder | ←/→ button | Re-fetch + re-render in new order | — | — | No drag; keyed list preserves focus |
 
 ## Placeholder system (programmatic SVG)
 

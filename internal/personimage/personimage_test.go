@@ -113,6 +113,15 @@ func forgePNGDims(p []byte, w, h uint32) []byte {
 	return out
 }
 
+func TestNormalizeRejectsOversizePerSide(t *testing.T) {
+	// 12001×4 is well under the 60 MP total-pixel cap but over the 12000-px-per-side
+	// limit, so it isolates the per-side guard (the decompression-bomb test trips both).
+	wide := forgePNGDims(pngBytes(t, 4, 4), 12001, 4)
+	if _, _, _, err := Normalize(wide, 0); err == nil {
+		t.Error("expected rejection for a dimension over the per-side limit")
+	}
+}
+
 func TestNormalizeDownscales(t *testing.T) {
 	out, w, h, err := Normalize(jpegBytes(t, 1000, 500), 200)
 	if err != nil {

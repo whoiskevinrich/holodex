@@ -252,6 +252,11 @@
 	.crop-frame--2x3 {
 		aspect-ratio: 2 / 3;
 	}
+	/* Banner crop frame: matches the rendered hero band's 5:1 ratio (PersonBanner uses
+	   aspect-[5/1]) so the crop preview reflects what the hero will actually show. */
+	.crop-frame--banner {
+		aspect-ratio: 5 / 1;
+	}
 	.crop-frame > img {
 		display: block;
 		width: 100%;

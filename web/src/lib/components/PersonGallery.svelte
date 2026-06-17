@@ -3,7 +3,7 @@
 	// row of uniform-height, uncropped thumbnails. Read-only for viewers. Owner-aware: an
 	// "Add image" tile (multi-select upload, role=extra), and per-item controls revealed
 	// on hover/focus — set-as-{headshot|banner|poster} (via the crop editor), delete, and
-	// keyboard move-up/down reorder. The 20-extra cap disables Add with a themed warn
+	// keyboard move-left/right reorder. The 20-extra cap disables Add with a themed warn
 	// message (the server also enforces it). Tokens only; QA all three skins.
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';
@@ -62,7 +62,12 @@
 				added++;
 			}
 		} catch (err) {
-			error = toMessage(err);
+			// Make a partial batch explicit so the user knows what landed vs. was dropped
+			// (e.g. 3 of 5 added, then the gallery cap stopped the rest).
+			error =
+				added > 0
+					? `Added ${added} of ${files.length}. ${files.length - added} not added: ${toMessage(err)}`
+					: toMessage(err);
 		} finally {
 			uploading = false;
 			if (added) onchanged(); // refresh whatever made it in before any failure
@@ -110,10 +115,13 @@
 		<ul class="flex gap-3 overflow-x-auto pb-2">
 			{#each items as img, i (img.id)}
 				<li class="group relative shrink-0">
+					<!-- eager, NOT lazy: a w-auto image collapses to a zero-area box before it
+					     loads, and browsers won't fire native lazy-loading for a zero-area element,
+					     so the gallery would never load. The gallery is a small bounded set (≤20). -->
 					<img
 						src={thumbSrc(img)}
 						alt={`${name} — gallery image ${i + 1}`}
-						loading="lazy"
+						loading="eager"
 						decoding="async"
 						class="h-40 w-auto rounded-theme border border-rule bg-surface-2"
 					/>
@@ -136,21 +144,30 @@
 							</div>
 							<div class="flex items-center justify-between gap-1">
 								<div class="flex gap-1">
+									<!-- aria-disabled (not disabled) at the ends: move() no-ops out of bounds, and
+									     keeping the button focusable means a keyboard reorder to an end doesn't drop
+									     focus (which would collapse this hover/focus overlay). -->
 									<button
 										onclick={() => move(i, -1)}
-										disabled={i === 0}
+										aria-disabled={i === 0}
 										aria-label="Move image left"
 										title="Move left"
-										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-40"
+										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent {i ===
+										0
+											? 'opacity-40'
+											: ''}"
 									>
 										←
 									</button>
 									<button
 										onclick={() => move(i, 1)}
-										disabled={i === items.length - 1}
+										aria-disabled={i === items.length - 1}
 										aria-label="Move image right"
 										title="Move right"
-										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-40"
+										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent {i ===
+										items.length - 1
+											? 'opacity-40'
+											: ''}"
 									>
 										→
 									</button>
