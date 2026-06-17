@@ -159,6 +159,19 @@
 			</div>
 		</header>
 
+		{#if video.tags?.length}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
+				<div class="flex flex-wrap gap-2">
+					{#each video.tags as t (t.id)}
+						<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
+							{t.name}
+						</a>
+					{/each}
+				</div>
+			</section>
+		{/if}
+
 		{#if video.people?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">People</h2>
@@ -179,19 +192,6 @@
 						</li>
 					{/each}
 				</ul>
-			</section>
-		{/if}
-
-		{#if video.tags?.length}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
-				<div class="flex flex-wrap gap-2">
-					{#each video.tags as t (t.id)}
-						<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
-							{t.name}
-						</a>
-					{/each}
-				</div>
 			</section>
 		{/if}
 
