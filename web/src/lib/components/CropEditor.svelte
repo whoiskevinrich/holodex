@@ -142,7 +142,7 @@
 		<!-- Preview well in the target ratio; the full original is shown (object-fit:contain)
 		     and is pannable/zoomable inside it. Uses .crop-frame (not .portrait-frame) so no
 		     skin scanline/grain flourish sits over the image being framed. -->
-		<div class="{frameClass[role]} w-full">
+		<div class="{frameClass[role]} relative w-full">
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<img
 				{src}
@@ -154,6 +154,15 @@
 				onpointerup={up}
 				onpointercancel={up}
 			/>
+			<!-- Rule-of-thirds guide: fixed to the frame (does NOT move with the image), so
+			     the owner can align the subject on the thirds while panning/zooming under it.
+			     Lines use the ink token (light in every skin) at low opacity; non-interactive. -->
+			<div class="pointer-events-none absolute inset-0" aria-hidden="true">
+				<div class="absolute inset-y-0 left-1/3 w-px bg-ink/40"></div>
+				<div class="absolute inset-y-0 left-2/3 w-px bg-ink/40"></div>
+				<div class="absolute inset-x-0 top-1/3 h-px bg-ink/40"></div>
+				<div class="absolute inset-x-0 top-2/3 h-px bg-ink/40"></div>
+			</div>
 		</div>
 
 		<label class="flex items-center gap-2 text-xs text-muted">
