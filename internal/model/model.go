@@ -22,23 +22,23 @@ func HasThumbnailImage(state string) bool {
 // Video is one indexed media file. file metadata is the source of truth; this
 // record is a rebuildable cache of it (ADR-003/004).
 type Video struct {
-	ID         int64      `json:"id"`
-	FilePath   string     `json:"file_path"` // canonical absolute path (ADR-011)
-	FileSize   int64      `json:"file_size"`
-	Title      string     `json:"title"`
-	Duration   int        `json:"duration_sec"`
-	Width      int        `json:"width"`
-	Height     int        `json:"height"`
+	ID       int64  `json:"id"`
+	FilePath string `json:"file_path"` // canonical absolute path (ADR-011)
+	FileSize int64  `json:"file_size"`
+	Title    string `json:"title"`
+	Duration int    `json:"duration_sec"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
 	// Stream/container details from ffprobe (F12.4). Empty/zero until a file has
 	// been (re)indexed after migration 0003.
-	VideoCodec  string `json:"video_codec,omitempty"`
-	AudioCodec  string `json:"audio_codec,omitempty"`
-	BitrateKbps int    `json:"bitrate_kbps,omitempty"`
-	Container   string `json:"container,omitempty"`
+	VideoCodec  string     `json:"video_codec,omitempty"`
+	AudioCodec  string     `json:"audio_codec,omitempty"`
+	BitrateKbps int        `json:"bitrate_kbps,omitempty"`
+	Container   string     `json:"container,omitempty"`
 	RecordedAt  *time.Time `json:"recorded_at,omitempty"`
-	IndexedAt  time.Time  `json:"indexed_at"`
-	FileMtime  time.Time  `json:"file_mtime"`
-	Active     bool       `json:"-"`
+	IndexedAt   time.Time  `json:"indexed_at"`
+	FileMtime   time.Time  `json:"file_mtime"`
+	Active      bool       `json:"-"`
 
 	// ThumbnailState is the cover-image pipeline state (ADR-009): "" (none yet),
 	// "embedded", "generated", or "failed". Internal bookkeeping — the API exposes
@@ -65,6 +65,73 @@ type Person struct {
 type PersonAlias struct {
 	ID    int64  `json:"id"`
 	Alias string `json:"alias"`
+}
+
+// Person image roles (F25, ADR-038). The three "core" roles are single-slot per
+// person (one headshot, one banner, one poster); "extra" is the unbounded-but-
+// capped gallery. Centralized here so the migration's partial unique index, the
+// repo, the personimage placeholder resolver, and the API agree on one vocabulary.
+const (
+	PersonImageHeadshot = "headshot" // 1:1 portrait — the default avatar
+	PersonImageBanner   = "banner"   // 16:9 wide header
+	PersonImagePoster   = "poster"   // 2:3 tall poster
+	PersonImageExtra    = "extra"    // gallery item (no single-slot constraint)
+)
+
+// Person image sources (F25, ADR-038): how a stored image arrived, for provenance.
+const (
+	PersonImageSourceUpload     = "upload"     // owner-uploaded file
+	PersonImageSourceEnrichment = "enrichment" // fetched from a metadata provider asset
+	PersonImageSourcePromoted   = "promoted"   // copied from a gallery item into a core slot
+)
+
+// CorePersonImageRole reports whether a role is a single-slot core role (not the
+// gallery). The empty string and unknown roles are not core.
+func CorePersonImageRole(role string) bool {
+	switch role {
+	case PersonImageHeadshot, PersonImageBanner, PersonImagePoster:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidPersonImageRole reports whether role is one of the four known roles —
+// the enum every request value is validated against (never a filesystem path).
+func ValidPersonImageRole(role string) bool {
+	return CorePersonImageRole(role) || role == PersonImageExtra
+}
+
+// PersonImage is one stored image for a person (F25, ADR-038). The bytes live on
+// disk; this is the metadata index. Version mirrors the id and drives the
+// cache-busting `?v=` on serving URLs (a replaced core slot gets a new id → new
+// version → the browser re-fetches past the immutable cache).
+type PersonImage struct {
+	ID        int64     `json:"id"`
+	Role      string    `json:"role"`
+	Source    string    `json:"source"`
+	Version   int64     `json:"version"` // == ID; the ?v= cache-buster
+	Width     int       `json:"width"`
+	Height    int       `json:"height"`
+	SortOrder int       `json:"sort_order"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// PersonImageSet is the person-detail read model for images (F25, ADR-038): which
+// core roles are filled (with their version for the `?v=` URL) and the ordered
+// gallery image ids. The frontend builds /people/{id}/image/{role}?v={version} for
+// filled roles and falls back to the themed placeholder for empty ones. Roles is
+// always non-nil so it serializes as {} not null.
+type PersonImageSet struct {
+	Roles   map[string]PersonImageSlot `json:"roles"`
+	Gallery []PersonImage              `json:"gallery"`
+}
+
+// PersonImageSlot is one filled core role: present=true with the version that
+// busts the cache. An absent role is simply missing from PersonImageSet.Roles.
+type PersonImageSlot struct {
+	Present bool  `json:"present"`
+	Version int64 `json:"version"`
 }
 
 type Tag struct {

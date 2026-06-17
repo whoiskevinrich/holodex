@@ -3,19 +3,37 @@
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
-	import type { EnrichedField, EnrichSource, Person, PersonAlias, Video } from '$lib/types';
+	import type {
+		EnrichedField,
+		EnrichSource,
+		Person,
+		PersonAlias,
+		PersonImageRole,
+		PersonImageSet,
+		Video
+	} from '$lib/types';
 	import AsyncState from '$lib/components/AsyncState.svelte';
 	import EntityVideos from '$lib/components/EntityVideos.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
+	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
+	import PersonBanner from '$lib/components/PersonBanner.svelte';
+	import PersonGallery from '$lib/components/PersonGallery.svelte';
 	import { videoCount } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
 	let enriched = $state<EnrichedField[]>([]);
+	let images = $state<PersonImageSet>({ roles: {}, gallery: [] });
 	let loading = $state(true);
 	let error = $state('');
+
+	// Owner core-slot upload (F25): one hidden file input, retargeted per role.
+	let coreInput = $state<HTMLInputElement | null>(null);
+	let uploadRole = $state<PersonImageRole>('headshot');
+	let uploadBusy = $state('');
+	let imageError = $state('');
 
 	// Owner-curated aliases (F23, ADR-036). Read from the person payload; add/delete
 	// are owner-gated. Errors render inline in the panel, never page-level.
@@ -53,6 +71,7 @@
 				person = res.person;
 				videos = res.items ?? [];
 				enriched = res.enriched ?? [];
+				images = res.images ?? { roles: {}, gallery: [] };
 				aliases = res.person.aliases ?? [];
 				aliasError = '';
 			})
@@ -150,6 +169,45 @@
 			aliasError = toMessage(err);
 		}
 	}
+
+	// Version stamp for a core role's serving URL, or undefined (empty slot → the
+	// backend serves the themed placeholder; no ?v= needed).
+	function roleVersion(role: PersonImageRole): number | undefined {
+		return images.roles[role]?.version || undefined;
+	}
+
+	// Owner: open the file picker targeting a specific core role (F25.7).
+	function pickCore(role: PersonImageRole) {
+		uploadRole = role;
+		coreInput?.click();
+	}
+
+	async function onCorePick(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || uploadBusy) return;
+		uploadBusy = uploadRole;
+		imageError = '';
+		try {
+			await api.uploadPersonImage(id, file, uploadRole);
+			load(id); // refresh so the new ?v= stamp busts the cache everywhere
+		} catch (err) {
+			imageError = toMessage(err);
+		} finally {
+			uploadBusy = '';
+		}
+	}
+
+	// Re-read the image set after a gallery change without refetching 500 videos.
+	async function reloadImages() {
+		try {
+			const res = await api.getPerson(id);
+			images = res.images ?? { roles: {}, gallery: [] };
+		} catch {
+			// non-fatal; the next full load reconciles.
+		}
+	}
 </script>
 
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
@@ -161,6 +219,73 @@
 		empty="No videos for this person."
 	>
 		{#snippet detail()}
+			<!-- F25 hero: 16:9 banner with the 1:1 avatar overlapping its lower-left.
+			     Owner gets a "Replace" affordance over each core slot; empty slots show
+			     the themed placeholder served by the backend. -->
+			<div class="relative">
+				{#if isOwner}
+					<button
+						onclick={() => pickCore('banner')}
+						disabled={uploadBusy === 'banner'}
+						class="absolute right-2 top-2 z-10 rounded-theme bg-bg/70 px-2.5 py-1 text-xs font-semibold text-ink hover:text-accent disabled:opacity-60"
+					>
+						{uploadBusy === 'banner' ? 'Uploading…' : 'Replace banner'}
+					</button>
+				{/if}
+				<PersonBanner
+					personId={id}
+					name={person?.name ?? ''}
+					version={roleVersion('banner')}
+					eager
+				/>
+				<div class="-mt-10 flex items-end gap-3 pl-3 sm:-mt-12">
+					<div class="relative shrink-0">
+						<PersonAvatar
+							personId={id}
+							name={person?.name ?? ''}
+							version={roleVersion('headshot')}
+							size="lg"
+							eager
+						/>
+						{#if isOwner}
+							<button
+								onclick={() => pickCore('headshot')}
+								disabled={uploadBusy === 'headshot'}
+								aria-label="Replace headshot"
+								title="Replace headshot"
+								class="absolute bottom-1 right-1 rounded-theme bg-bg/70 px-1.5 py-0.5 text-xs font-semibold text-ink hover:text-accent disabled:opacity-60"
+							>
+								{uploadBusy === 'headshot' ? '…' : 'Edit'}
+							</button>
+						{/if}
+					</div>
+					{#if isOwner}
+						<button
+							onclick={() => pickCore('poster')}
+							disabled={uploadBusy === 'poster'}
+							class="mb-1 rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:border-accent disabled:opacity-60"
+						>
+							{uploadBusy === 'poster' ? 'Uploading…' : 'Replace poster'}
+						</button>
+					{/if}
+				</div>
+			</div>
+
+			{#if isOwner}
+				<input
+					bind:this={coreInput}
+					onchange={onCorePick}
+					type="file"
+					accept="image/*"
+					class="hidden"
+					aria-hidden="true"
+					tabindex="-1"
+				/>
+			{/if}
+			{#if imageError}
+				<p class="text-sm text-warn">{imageError}</p>
+			{/if}
+
 			{#if aliases.length || isOwner}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-center justify-between gap-2">
@@ -293,6 +418,18 @@
 					{#if actionError}
 						<p class="text-sm text-warn">{actionError}</p>
 					{/if}
+				</section>
+			{/if}
+
+			{#if images.gallery.length || isOwner}
+				<section class="rounded-theme border border-rule bg-surface p-4">
+					<PersonGallery
+						personId={id}
+						name={person?.name ?? ''}
+						items={images.gallery}
+						owner={isOwner}
+						onchanged={reloadImages}
+					/>
 				</section>
 			{/if}
 		{/snippet}

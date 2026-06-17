@@ -27,6 +27,7 @@ import (
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
+	"holodex/internal/personimage"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
@@ -104,6 +105,11 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 // version is the build identifier surfaced in the activity read-model (F21.1).
 // Overridable via -ldflags "-X main.version=...".
 var version = "dev"
+
+// defaultSkin is the app's default theme (ADR-021), used as the placeholder skin
+// label when a person-image request omits ?skin=. The placeholder is token-driven
+// so it re-themes via the page's [data-theme] regardless; this is just the label.
+const defaultSkin = "cinematheque"
 
 func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
 	startedAt := time.Now()
@@ -202,10 +208,19 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	enrichSvc := enrich.NewService(sources, repository, log)
 	log.Info("metadata source providers loaded", "path", cfg.MetadataSourcesPath, "enabled", len(sources.Current().Enabled()))
 
+	// Person images (F25, ADR-038): on-disk store under DATA_PATH/person-images. The
+	// enrichment asset path and the upload handler share one normalize+store sink so a
+	// provider photo gets the same metadata strip as an upload.
+	if err := os.MkdirAll(cfg.PersonImagePath, 0o755); err != nil {
+		log.Warn("person image dir create failed", "dir", cfg.PersonImagePath, "err", err)
+	}
+	enrichSvc.SetImageSink(personimage.NewSink(repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension))
+
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
 	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user

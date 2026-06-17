@@ -48,6 +48,14 @@ type Config struct {
 	ThumbnailWidth       int    `yaml:"thumbnail_width"`
 	ThumbnailPath        string `yaml:"-"` // derived: DataPath/thumbnails
 
+	// Person images (F25, ADR-038). Bytes live at DataPath/person-images/{personID}/
+	// {id}.jpg; the path is derived like ThumbnailPath. The bounds guard untrusted
+	// uploads: PersonImageMaxBytes caps the request body, PersonImageMaxDimension the
+	// stored (downscaled) longest side.
+	PersonImagePath         string `yaml:"-"` // derived: DataPath/person-images
+	PersonImageMaxBytes     int64  `yaml:"person_image_max_bytes"`
+	PersonImageMaxDimension int    `yaml:"person_image_max_dimension"`
+
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
 	CacheMaxMemoryMB int    `yaml:"cache_max_memory_mb"`
@@ -85,6 +93,9 @@ func Defaults() Config {
 		ThumbnailNice:        true,
 		ThumbnailSeekPercent: 10,
 		ThumbnailWidth:       400,
+
+		PersonImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
+		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
@@ -147,6 +158,9 @@ func (c *Config) derive() {
 	if c.ThumbnailPath == "" {
 		c.ThumbnailPath = filepath.Join(c.DataPath, "thumbnails")
 	}
+	if c.PersonImagePath == "" {
+		c.PersonImagePath = filepath.Join(c.DataPath, "person-images")
+	}
 }
 
 // Overrides carries CLI-flag values — the highest-precedence layer (ADR-014,
@@ -176,6 +190,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.DataPath = o.DataPath
 		c.DatabasePath = "" // re-derive under the new data dir
 		c.ThumbnailPath = ""
+		c.PersonImagePath = ""
 	}
 	if o.LogLevel != "" {
 		c.LogLevel = o.LogLevel
@@ -204,6 +219,9 @@ func applyEnv(c *Config) {
 	c.ThumbnailNice = envBool("THUMBNAIL_NICE", c.ThumbnailNice)
 	c.ThumbnailSeekPercent = envInt("THUMBNAIL_SEEK_PERCENT", c.ThumbnailSeekPercent)
 	c.ThumbnailWidth = envInt("THUMBNAIL_WIDTH", c.ThumbnailWidth)
+
+	c.PersonImageMaxBytes = envInt64("PERSON_IMAGE_MAX_BYTES", c.PersonImageMaxBytes)
+	c.PersonImageMaxDimension = envInt("PERSON_IMAGE_MAX_DIMENSION", c.PersonImageMaxDimension)
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
@@ -258,6 +276,15 @@ func envStr(key, def string) string {
 func envInt(key string, def int) int {
 	if v, ok := os.LookupEnv(key); ok {
 		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+func envInt64(key string, def int64) int64 {
+	if v, ok := os.LookupEnv(key); ok {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return n
 		}
 	}

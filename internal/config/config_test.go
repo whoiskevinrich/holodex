@@ -112,6 +112,39 @@ func TestDatabasePathDerivation(t *testing.T) {
 	if cfg.ThumbnailPath != wantThumb {
 		t.Errorf("ThumbnailPath = %q, want %q", cfg.ThumbnailPath, wantThumb)
 	}
+	// PersonImagePath derives the same way (F25, ADR-038).
+	wantPI := filepath.Join("/srv/holo", "person-images")
+	if cfg.PersonImagePath != wantPI {
+		t.Errorf("PersonImagePath = %q, want %q", cfg.PersonImagePath, wantPI)
+	}
+}
+
+func TestPersonImageConfig(t *testing.T) {
+	// Defaults (F25, ADR-038).
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PersonImageMaxBytes != 10<<20 || cfg.PersonImageMaxDimension != 2000 {
+		t.Errorf("unexpected person-image defaults: bytes=%d dim=%d", cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension)
+	}
+
+	// Env overrides.
+	t.Setenv("PERSON_IMAGE_MAX_BYTES", "5242880")
+	t.Setenv("PERSON_IMAGE_MAX_DIMENSION", "1024")
+	cfg, err = Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PersonImageMaxBytes != 5242880 || cfg.PersonImageMaxDimension != 1024 {
+		t.Errorf("person-image env overrides not applied: bytes=%d dim=%d", cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension)
+	}
+
+	// DataPath override re-derives the image path (ADR-014).
+	cfg.ApplyOverrides(Overrides{DataPath: filepath.FromSlash("/data2")})
+	if cfg.PersonImagePath != filepath.Join("/data2", "person-images") {
+		t.Errorf("PersonImagePath not re-derived on override: %q", cfg.PersonImagePath)
+	}
 }
 
 func TestThumbnailConfig(t *testing.T) {
