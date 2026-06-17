@@ -1,5 +1,5 @@
 <script lang="ts">
-	// 2:3 poster card for the video credits surface (F24, ADR-037) — a thin wrapper over
+	// 2:3 poster card for the video credits surface (F25, ADR-038) — a thin wrapper over
 	// PersonImageFrame fixing the poster role at full width. The consumer wraps it in a
 	// link to /people/{id} with the name beneath.
 	import PersonImageFrame from './PersonImageFrame.svelte';

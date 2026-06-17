@@ -1,19 +1,19 @@
-# ADR-037: Person images — on-disk store, typed real-or-placeholder serving, shared ingest normalization
+# ADR-038: Person images — on-disk store, typed real-or-placeholder serving, shared ingest normalization
 
 **Status**: Proposed
 **Date**: 2026-06-16
 **Deciders**: Project owner
-**Relates to**: spec [People Images (F24)](../specs/people-images.md); extends [ADR-009](ADR-009-thumbnail-strategy.md) (on-disk image store), [ADR-014](ADR-014-configuration-and-data-layout.md) (data layout), [ADR-015](ADR-015-media-file-serving.md) (serving discipline), [ADR-016](ADR-016-database-migrations.md) (migrations), [ADR-030](ADR-030-access-control-gating-seam.md) (owner gate — reused, **not** changed), [ADR-033](ADR-033-metadata-source-plugins.md) (enrichment providers & asset URLs), [ADR-013](ADR-013-metadata-field-mapping.md) (canonical field vocabulary — adds `gender`), [ADR-021](ADR-021-frontend-theming-and-skins.md)/[ADR-025](ADR-025-tailwind-v4-css-first.md) (skins/tokens).
+**Relates to**: spec [People Images (F25)](../specs/people-images.md); extends [ADR-009](ADR-009-thumbnail-strategy.md) (on-disk image store), [ADR-014](ADR-014-configuration-and-data-layout.md) (data layout), [ADR-015](ADR-015-media-file-serving.md) (serving discipline), [ADR-016](ADR-016-database-migrations.md) (migrations), [ADR-030](ADR-030-access-control-gating-seam.md) (owner gate — reused, **not** changed), [ADR-033](ADR-033-metadata-source-plugins.md) (enrichment providers & asset URLs), [ADR-013](ADR-013-metadata-field-mapping.md) (canonical field vocabulary — adds `gender`), [ADR-021](ADR-021-frontend-theming-and-skins.md)/[ADR-025](ADR-025-tailwind-v4-css-first.md) (skins/tokens).
 
 ---
 
 ## Context
 
-People are name-only rows today (`people(id, name)`, [ADR-036](ADR-036-person-alias-search-indexing.md)). Spec F24 gives each person up to four image **roles** — `headshot` (1:1), `banner` (16:9), `poster` (2:3), and a multi-image `extra` gallery — sourced from **owner uploads** and **enrichment asset download** (the deferred F22 asset path), and falls back to **themed + gendered placeholders** when a role is empty. The forces:
+People are name-only rows today (`people(id, name)`, [ADR-036](ADR-036-person-alias-search-indexing.md)). Spec F25 gives each person up to four image **roles** — `headshot` (1:1), `banner` (16:9), `poster` (2:3), and a multi-image `extra` gallery — sourced from **owner uploads** and **enrichment asset download** (the deferred F22 asset path), and falls back to **themed + gendered placeholders** when a role is empty. The forces:
 
 - **Modest hardware** (NAS/Pi), single process, SQLite ([ADR-003](ADR-003-database.md)/008). The thumbnail decision ([ADR-009](ADR-009-thumbnail-strategy.md)) already established the project's posture for binary images: **on disk, generated/stored once, served with cache headers and the OS, never as DB BLOBs**. Person images should not invent a second storage philosophy.
 - **Untrusted bytes.** Even though uploads are owner-only, the system now ingests arbitrary image files (upload) and remote bytes (enrichment download). Both must be neutralized before they touch disk or a browser.
-- **No new access model.** F24 reverted open contribution; mutations are owner-only and must reuse the existing `requireOwner` choke point ([ADR-030](ADR-030-access-control-gating-seam.md)) rather than add identity machinery.
+- **No new access model.** F25 reverted open contribution; mutations are owner-only and must reuse the existing `requireOwner` choke point ([ADR-030](ADR-030-access-control-gating-seam.md)) rather than add identity machinery.
 - **Skins.** Placeholders and image frames must react to the active skin (Cinémathèque/Broadcast/Brutalist) and to gender — a `skin × role × gender` matrix — without shipping per-skin component markup ([ADR-021](ADR-021-frontend-theming-and-skins.md)).
 - **Correctness under caching.** A replaced core image must not be masked by the long `max-age` that on-disk images want for efficiency.
 
@@ -108,7 +108,7 @@ Add `gender` to the canonical person field vocabulary ([metadata-provider-contra
 ## Consequences
 
 - **New package** `internal/personimage` (store + on-disk paths + the normalization pipeline + placeholder resolver), parallel to `internal/thumbnail`; `internal/api` gains the public serving routes and the owner-gated mutation group; `internal/enrich` gains an asset-fetch that feeds the shared normalizer.
-- **Migration** `0008_person_images` ([ADR-016](ADR-016-database-migrations.md), embedded golang-migrate) creates the table + partial unique index.
+- **Migration** `0009_person_images` ([ADR-016](ADR-016-database-migrations.md), embedded golang-migrate) creates the table + partial unique index.
 - **go.mod**: image decode/encode uses the **standard library** (`image`, `image/jpeg`, `image/png`) plus a small resize helper; a decompression-bomb dimension guard is added before decode. No heavy dependency.
 - **Config**: `DATA_PATH/person-images/` derived like `ThumbnailPath`; optional placeholder-override dir; upload bounds (max bytes, max dimension) as env vars with safe defaults.
 - **Frontend**: a shared image-frame/avatar component + gallery + (P1) a client-side zoom/crop editor for promote; all token-only, QA'd across the three skins; thumbnail-style lazy/placeholder-first rendering avoids layout shift.
@@ -119,7 +119,7 @@ Add `gender` to the canonical person field vocabulary ([metadata-provider-contra
 
 ## Action items
 
-1. [ ] Migration `0008_person_images` (+ down).
+1. [ ] Migration `0009_person_images` (+ down).
 2. [ ] `internal/personimage`: store, on-disk path helper, normalization pipeline, placeholder resolver + programmatic SVG matrix.
 3. [ ] `internal/enrich`: asset fetch (reuse SSRF guards) → shared normalizer; wire into the person enrich run.
 4. [ ] `internal/api`: public serving routes (version-stamped) + owner-gated mutation group; extend person read model with per-role presence + `?v=` stamp + gallery ids.

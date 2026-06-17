@@ -1,5 +1,5 @@
 <script lang="ts">
-	// 1:1 headshot frame (F24, ADR-037) — a thin wrapper over PersonImageFrame fixing
+	// 1:1 headshot frame (F25, ADR-038) — a thin wrapper over PersonImageFrame fixing
 	// the headshot role and mapping `size` to a width.
 	import PersonImageFrame from './PersonImageFrame.svelte';
 

@@ -48,8 +48,8 @@ type EnrichRepo interface {
 	RecordJobRun(ctx context.Context, run model.JobRun) error
 }
 
-// ImageSink stores a downloaded, normalized provider asset as a person image (F24,
-// ADR-037). It is satisfied by an adapter over personimage + the repo, wired in
+// ImageSink stores a downloaded, normalized provider asset as a person image (F25,
+// ADR-038). It is satisfied by an adapter over personimage + the repo, wired in
 // main; nil disables asset download (the v1-without-images path). Kept an interface
 // so the enrich package needn't import personimage/repo for the image write and so
 // tests can assert what would be stored with no disk.
@@ -68,7 +68,7 @@ type Service struct {
 	repo        EnrichRepo
 	log         *slog.Logger
 	newClient   func(Source) ProviderClient
-	images      ImageSink // F24 asset download; nil = disabled
+	images      ImageSink // F25 asset download; nil = disabled
 	newAssetGet func(Source) assetFetcher
 }
 
@@ -90,7 +90,7 @@ func NewService(store *Store, r EnrichRepo, log *slog.Logger) *Service {
 	}
 }
 
-// SetImageSink wires person-image asset download (F24, ADR-037). With a sink set, a
+// SetImageSink wires person-image asset download (F25, ADR-038). With a sink set, a
 // person enrich run that returns image assets fetches and stores them; without one,
 // assets are ignored (the field-only path). Called once at startup.
 func (s *Service) SetImageSink(sink ImageSink) { s.images = sink }
@@ -211,7 +211,7 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
-	// Download any image assets the provider returned (F24, ADR-037). People-only in
+	// Download any image assets the provider returned (F25, ADR-038). People-only in
 	// v1; best-effort — a failed fetch/normalize is logged and skipped, never failing
 	// the field enrichment that already succeeded.
 	if s.images != nil && entityType == model.EnrichEntityPerson && len(res.Assets) > 0 {
@@ -221,7 +221,7 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 }
 
 // downloadAssets fetches each provider image asset through the SSRF-guarded asset
-// client and stores it via the image sink (F24, ADR-037). Each asset is independent:
+// client and stores it via the image sink (F25, ADR-038). Each asset is independent:
 // one bad URL/host/decode is skipped, the rest proceed. Nothing is stored when the
 // fetch or normalize fails (the sink normalizes; a normalize error means no write).
 func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {

@@ -23,7 +23,7 @@ type Fake struct {
 type FakePerson struct {
 	Label  string
 	Fields map[string][]string
-	Assets []Asset // optional image assets (F24) the enrich response carries
+	Assets []Asset // optional image assets (F25) the enrich response carries
 }
 
 // NewFake builds a fake person provider with one well-known record.

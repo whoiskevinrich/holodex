@@ -7,7 +7,7 @@ import (
 	"holodex/internal/model"
 )
 
-// Gender buckets for placeholder silhouettes (ADR-037 F24). Only three buckets so
+// Gender buckets for placeholder silhouettes (ADR-038 F25). Only three buckets so
 // the asset set stays tiny; everything unknown collapses to neutral. The bucket
 // only nudges the silhouette's shoulder width — it is never asserted as fact about
 // a person, just a visual default behind a missing photo.
@@ -84,7 +84,7 @@ func paletteFor(skin string) skinPalette {
 }
 
 // Placeholder builds a deterministic, themed SVG silhouette for an empty role
-// (ADR-037 F24). It is pure (same inputs → identical bytes) and resolves concrete
+// (ADR-038 F25). It is pure (same inputs → identical bytes) and resolves concrete
 // per-skin colors from `skin` (see skinPalette) so the empty state is correctly
 // themed even though the SVG is served standalone via <img>. The silhouette is
 // role-shaped: a centered head+torso scaled to the role's aspect box, with a subtle

@@ -208,7 +208,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	enrichSvc := enrich.NewService(sources, repository, log)
 	log.Info("metadata source providers loaded", "path", cfg.MetadataSourcesPath, "enabled", len(sources.Current().Enabled()))
 
-	// Person images (F24, ADR-037): on-disk store under DATA_PATH/person-images. The
+	// Person images (F25, ADR-038): on-disk store under DATA_PATH/person-images. The
 	// enrichment asset path and the upload handler share one normalize+store sink so a
 	// provider photo gets the same metadata strip as an upload.
 	if err := os.MkdirAll(cfg.PersonImagePath, 0o755); err != nil {

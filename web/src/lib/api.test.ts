@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { api } from './api';
 
-// Person image serving URLs (F24, ADR-037). The frontend always appends the active
+// Person image serving URLs (F25, ADR-038). The frontend always appends the active
 // skin (so the backend's empty-slot placeholder matches the current skin) and the
 // `?v=` cache-buster only when a version is known — a replaced core slot gets a new
 // version and so a new, non-cached URL.

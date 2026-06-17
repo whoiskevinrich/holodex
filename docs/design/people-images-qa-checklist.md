@@ -1,6 +1,6 @@
-# Manual QA Checklist: People Images (F24)
+# Manual QA Checklist: People Images (F25)
 
-**Spec**: [People Images (F24)](../specs/people-images.md) · **ADR**: [ADR-037](../architecture/ADR-037-person-images.md) · **Design**: [handoff](people-images-handoff.md) + [system pattern](people-images-design-system.md)
+**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) · **Design**: [handoff](people-images-handoff.md) + [system pattern](people-images-design-system.md)
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
@@ -27,17 +27,17 @@
 
 ## 2. Smoke — automated (green in CI)
 
-- [ ] 2.1 **Ingest normalization strips metadata + re-encodes** — a JPEG/PNG/GIF/WebP decodes and re-encodes to the safe format; an image with planted EXIF/GPS comes out with **none**; output dimensions/bytes bounded (F24.9, spec T1/T8). *(personimage `TestNormalizeStripsMetadata`, `TestNormalizeReencodes`.)*
-- [ ] 2.2 **Ingest rejects hostile bytes, writes nothing** — renamed-non-image / truncated / polyglot → error, no file on disk; a decompression-bomb (huge declared dimensions) rejected **before** full decode (F24.9, T1/T4). *(personimage `TestNormalizeRejectsNonImage`, `TestNormalizeRejectsBomb`.)*
-- [ ] 2.3 **Placeholder resolution is deterministic + bucketed** — `(skin,role,gender)` → asset; `nonbinary`+unknown+absent → `neutral`; never persisted/counted (F24.5). *(personimage `TestPlaceholderResolution`, golden SVG per cell.)*
-- [ ] 2.4 **Repo CRUD + core-slot uniqueness** — insert/get/list/delete; a 2nd `headshot` **replaces** (one row, new id), never two; reorder updates `sort_order` (F24.1/F24.7/F24.15). *(repo `TestPersonImagesCRUD`, `TestCoreSlotReplace`.)*
-- [ ] 2.5 **20-extra gallery cap transactional; core unaffected** — 21st `extra` rejected; filling a core role is never blocked by the cap (F24.8). *(repo `TestGalleryCap`.)*
-- [ ] 2.6 **Cascade on person delete** — deleting the person removes its `person_images` rows (ADR-037). *(repo `TestPersonImagesCascade`.)*
-- [ ] 2.7 **Serving returns real-or-placeholder, version-stamped** — filled role → real image + `?v=` + `Cache-Control: …immutable`; empty role → resolved placeholder (not 404); unknown role → 400; unknown person → 404; replace emits a **new `?v=`** (F24.6, T7). *(api `TestServePersonImage`, `TestServeReplaceBustsVersion`.)*
-- [ ] 2.8 **Upload validation + owner-gating** — multipart `POST …/image`: missing field/bad role/oversized/bad image → 400; `MaxBytesReader` enforced; **401 without token when gated**, 201 with it; `DELETE`/reorder/promote likewise gated (F24.7/F24.11, T2/T6). *(api `TestUploadValidated`, `TestPersonImageEndpointsGated`.)*
-- [ ] 2.9 **Enrichment asset download through SSRF guards + normalization** — a provider asset URL is fetched via the allowlist + no-cross-host-redirect + size-cap, normalized, stored with provenance (`source=enrichment`); a hostile URL (internal/redirect-to-internal/oversized/non-image) is refused, nothing written (F24.10, T3). *(enrich `TestEnrichDownloadsAsset`, `TestEnrichAssetSSRFRefused`.)*
+- [ ] 2.1 **Ingest normalization strips metadata + re-encodes** — a JPEG/PNG/GIF/WebP decodes and re-encodes to the safe format; an image with planted EXIF/GPS comes out with **none**; output dimensions/bytes bounded (F25.9, spec T1/T8). *(personimage `TestNormalizeStripsMetadata`, `TestNormalizeReencodes`.)*
+- [ ] 2.2 **Ingest rejects hostile bytes, writes nothing** — renamed-non-image / truncated / polyglot → error, no file on disk; a decompression-bomb (huge declared dimensions) rejected **before** full decode (F25.9, T1/T4). *(personimage `TestNormalizeRejectsNonImage`, `TestNormalizeRejectsBomb`.)*
+- [ ] 2.3 **Placeholder resolution is deterministic + bucketed** — `(skin,role,gender)` → asset; `nonbinary`+unknown+absent → `neutral`; never persisted/counted (F25.5). *(personimage `TestPlaceholderResolution`, golden SVG per cell.)*
+- [ ] 2.4 **Repo CRUD + core-slot uniqueness** — insert/get/list/delete; a 2nd `headshot` **replaces** (one row, new id), never two; reorder updates `sort_order` (F25.1/F25.7/F25.15). *(repo `TestPersonImagesCRUD`, `TestCoreSlotReplace`.)*
+- [ ] 2.5 **20-extra gallery cap transactional; core unaffected** — 21st `extra` rejected; filling a core role is never blocked by the cap (F25.8). *(repo `TestGalleryCap`.)*
+- [ ] 2.6 **Cascade on person delete** — deleting the person removes its `person_images` rows (ADR-038). *(repo `TestPersonImagesCascade`.)*
+- [ ] 2.7 **Serving returns real-or-placeholder, version-stamped** — filled role → real image + `?v=` + `Cache-Control: …immutable`; empty role → resolved placeholder (not 404); unknown role → 400; unknown person → 404; replace emits a **new `?v=`** (F25.6, T7). *(api `TestServePersonImage`, `TestServeReplaceBustsVersion`.)*
+- [ ] 2.8 **Upload validation + owner-gating** — multipart `POST …/image`: missing field/bad role/oversized/bad image → 400; `MaxBytesReader` enforced; **401 without token when gated**, 201 with it; `DELETE`/reorder/promote likewise gated (F25.7/F25.11, T2/T6). *(api `TestUploadValidated`, `TestPersonImageEndpointsGated`.)*
+- [ ] 2.9 **Enrichment asset download through SSRF guards + normalization** — a provider asset URL is fetched via the allowlist + no-cross-host-redirect + size-cap, normalized, stored with provenance (`source=enrichment`); a hostile URL (internal/redirect-to-internal/oversized/non-image) is refused, nothing written (F25.10, T3). *(enrich `TestEnrichDownloadsAsset`, `TestEnrichAssetSSRFRefused`.)*
 - [ ] 2.10 **Path safety** — no request value (role/person/filename) is concatenated into a filesystem path; a traversal attempt still resolves to a server-assigned path (T2). *(personimage `TestImagePathServerAssigned`.)*
-- [ ] 2.11 **`personImageURL` cache-bust** — builds `…/image/{role}?v=n`; omits `?v=` when version absent (F24.6). *(web `api.test.ts`.)*
+- [ ] 2.11 **`personImageURL` cache-bust** — builds `…/image/{role}?v=n`; omits `?v=` when version absent (F25.6). *(web `api.test.ts`.)*
 - [ ] 2.12 **`svelte-check`** passes with the new image types + page/component changes.
 - [ ] 2.13 **Token-discipline guard** empty over the new components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` (a `rounded-full` avatar, if used, is the only intentional fixed radius).
 
@@ -50,7 +50,7 @@
 - [ ] 3.1 `/people` cards show a **1:1 headshot** well above the name; with no image it's the themed placeholder, not a broken-image box; the grid does **not** reflow as images load (box reserved).
 - [ ] 3.2 `/people/[id]` shows a **16:9 banner** hero and a **1:1 avatar** by the name; empty → placeholders; the Aliases (F23) and Enrichment (F22) panels still render below, unchanged.
 - [ ] 3.3 `/media/[id]` renders each credited person as a **2:3 poster card** linking to `/people/{id}`; missing poster → placeholder; name reads beneath.
-- [ ] 3.4 **Placeholder bucket** follows enriched gender: the female-gender person shows the female silhouette, the male one the male, and the **no-gender** person the **neutral** one (F24.5). Switching skins swaps the placeholder art.
+- [ ] 3.4 **Placeholder bucket** follows enriched gender: the female-gender person shows the female silhouette, the male one the male, and the **no-gender** person the **neutral** one (F25.5). Switching skins swaps the placeholder art.
 - [ ] 3.5 **Error fallback**: force a real image URL to 404 (e.g. bad `?v=`) → the frame shows the **placeholder**, never a broken-image glyph or a 404 box.
 
 **Owner gating & controls**
@@ -68,7 +68,7 @@
 
 **Promote (P1)**
 
-- [ ] 3.13 Owner picks a gallery extra → **"Set as poster"** opens a **2:3 crop editor**; saving creates/replaces the `poster` from a **cropped copy**; the **original extra still appears** in the gallery (it's a copy, F24.15); no orphaned files.
+- [ ] 3.13 Owner picks a gallery extra → **"Set as poster"** opens a **2:3 crop editor**; saving creates/replaces the `poster` from a **cropped copy**; the **original extra still appears** in the gallery (it's a copy, F25.15); no orphaned files.
 
 **A11y & network**
 

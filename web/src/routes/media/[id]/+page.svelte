@@ -162,7 +162,7 @@
 		{#if video.people?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">People</h2>
-				<!-- F24: 2:3 poster cards (placeholder when a person has no poster). -->
+				<!-- F25: 2:3 poster cards (placeholder when a person has no poster). -->
 				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
 					{#each video.people as p (p.id)}
 						<li>

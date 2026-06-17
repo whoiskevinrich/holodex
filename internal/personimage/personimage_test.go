@@ -152,7 +152,7 @@ func TestPlaceholderResolution(t *testing.T) {
 		t.Error("Placeholder is not deterministic for identical inputs")
 	}
 
-	// Themed with CONCRETE per-skin colors resolved server-side (ADR-037): the SVG is
+	// Themed with CONCRETE per-skin colors resolved server-side (ADR-038): the SVG is
 	// served standalone via <img>, an isolated document that can't read the page's
 	// CSS variables, so bare var(--…) would render un-themed black. Each skin's accent
 	// must appear; switching skins must change the bytes; an unknown skin defaults to

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Person-page extra-image gallery (F24, ADR-037). Read-only for viewers: a grid of
+	// Person-page extra-image gallery (F25, ADR-038). Read-only for viewers: a grid of
 	// 1:1 thumbnails. Owner-aware: an "Add image" tile (uploads role=extra), per-item
 	// delete + set-as-{headshot|banner|poster} (via the crop editor) + keyboard
 	// move-up/down reorder. The 20-extra cap disables Add with a themed warn message

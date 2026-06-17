@@ -239,7 +239,7 @@ func TestServiceEnrichRecordsJobRun(t *testing.T) {
 	}
 }
 
-// --- F24 asset download ---
+// --- F25 asset download ---
 
 // recordingSink captures StoreAsset calls instead of touching disk, so the asset
 // orchestration is testable with no filesystem.

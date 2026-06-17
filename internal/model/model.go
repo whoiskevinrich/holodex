@@ -67,7 +67,7 @@ type PersonAlias struct {
 	Alias string `json:"alias"`
 }
 
-// Person image roles (F24, ADR-037). The three "core" roles are single-slot per
+// Person image roles (F25, ADR-038). The three "core" roles are single-slot per
 // person (one headshot, one banner, one poster); "extra" is the unbounded-but-
 // capped gallery. Centralized here so the migration's partial unique index, the
 // repo, the personimage placeholder resolver, and the API agree on one vocabulary.
@@ -78,7 +78,7 @@ const (
 	PersonImageExtra    = "extra"    // gallery item (no single-slot constraint)
 )
 
-// Person image sources (F24, ADR-037): how a stored image arrived, for provenance.
+// Person image sources (F25, ADR-038): how a stored image arrived, for provenance.
 const (
 	PersonImageSourceUpload     = "upload"     // owner-uploaded file
 	PersonImageSourceEnrichment = "enrichment" // fetched from a metadata provider asset
@@ -102,7 +102,7 @@ func ValidPersonImageRole(role string) bool {
 	return CorePersonImageRole(role) || role == PersonImageExtra
 }
 
-// PersonImage is one stored image for a person (F24, ADR-037). The bytes live on
+// PersonImage is one stored image for a person (F25, ADR-038). The bytes live on
 // disk; this is the metadata index. Version mirrors the id and drives the
 // cache-busting `?v=` on serving URLs (a replaced core slot gets a new id → new
 // version → the browser re-fetches past the immutable cache).
@@ -117,7 +117,7 @@ type PersonImage struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// PersonImageSet is the person-detail read model for images (F24, ADR-037): which
+// PersonImageSet is the person-detail read model for images (F25, ADR-038): which
 // core roles are filled (with their version for the `?v=` URL) and the ordered
 // gallery image ids. The frontend builds /people/{id}/image/{role}?v={version} for
 // filled roles and falls back to the themed placeholder for empty ones. Roles is

@@ -1,8 +1,8 @@
-# Design Handoff — People Images (F24)
+# Design Handoff — People Images (F25)
 
 **Status**: Proposed
 **Date**: 2026-06-16
-**Spec**: [People Images (F24)](../specs/people-images.md) · **ADR**: [ADR-037](../architecture/ADR-037-person-images.md) · **System pattern**: [people-images-design-system.md](people-images-design-system.md)
+**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) · **System pattern**: [people-images-design-system.md](people-images-design-system.md)
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Stack: SvelteKit SPA + Tailwind v4 (CSS-first, `@theme inline`). All values below are **token

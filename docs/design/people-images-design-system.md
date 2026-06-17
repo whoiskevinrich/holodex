@@ -1,9 +1,9 @@
-# Design System — People Images (F24) pattern extension
+# Design System — People Images (F25) pattern extension
 
 **Status**: Proposed
 **Date**: 2026-06-16
 **Mode**: extend
-**Refs**: spec [People Images (F24)](../specs/people-images.md) · [ADR-037](../architecture/ADR-037-person-images.md) · theming contract [`theming.md`](theming.md) · [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)
+**Refs**: spec [People Images (F25)](../specs/people-images.md) · [ADR-038](../architecture/ADR-038-person-images.md) · theming contract [`theming.md`](theming.md) · [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)
 
 This extends the existing design system; it introduces **no new color/type/radius tokens**. Person
 images reuse the semantic token contract and follow the same "skins own the look via a shared hook
@@ -14,7 +14,7 @@ with three aspect variants** and a small family of components built on it.
 
 ## Problem
 
-People are rendered as bare text everywhere (lists, person header, video credits). F24 adds four image
+People are rendered as bare text everywhere (lists, person header, video credits). F25 adds four image
 **roles** — `headshot` 1:1, `banner` 16:9, `poster` 2:3, and a free-form `extra` gallery — each of which
 must: (a) crop cleanly to a fixed ratio, (b) show a themed + gendered **placeholder** when empty, (c)
 load without layout shift, and (d) read correctly in all three skins. We need a reusable frame, not
@@ -85,11 +85,11 @@ Tokens used: `--surface-2` (well), `--rule` (border), `--radius` (corner; 0 in m
 | Ready | Real image, `object-fit: cover` | Version-stamped URL; `immutable` cached |
 | Error (real image failed) | Falls back to placeholder; no broken-image glyph | Logs; never shows a 404 box (matches thumbnail contract) |
 | Owner hover (P1) | Edit/replace/delete affordance over the frame | Owner-gated; hidden for viewers |
-| Over-cap (gallery) | Disabled add + `--warn` inline message | Server also enforces (F24.8) |
+| Over-cap (gallery) | Disabled add + `--warn` inline message | Server also enforces (F25.8) |
 
 ### Placeholder system (programmatic SVG)
 
-Placeholders are **generated SVG**, not bundled binaries (ADR-037 §4). A resolver maps
+Placeholders are **generated SVG**, not bundled binaries (ADR-038 §4). A resolver maps
 `(skin × role × gender-bucket)` → an SVG built from the active skin's tokens: a role-shaped silhouette on
 `--surface-2`, accented per skin, neutral by default. Three buckets only (`nonbinary` + unknown →
 `neutral`). The matrix is 3 skins × 3 core roles × 3 buckets = 27 generated cells; an owner override dir

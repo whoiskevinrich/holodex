@@ -1,5 +1,5 @@
-// Package personimage is the storage + security spine for per-person images (F24,
-// ADR-037): on-disk path layout, untrusted-bytes normalization, atomic writes, and
+// Package personimage is the storage + security spine for per-person images (F25,
+// ADR-038): on-disk path layout, untrusted-bytes normalization, atomic writes, and
 // the themed placeholder served when a role is empty.
 //
 // Unlike the thumbnail pipeline (ADR-009) there is no ffmpeg/exiftool and no
@@ -31,7 +31,7 @@ import (
 	_ "image/png"
 )
 
-// Decompression-bomb and output bounds (ADR-037 F24). These guard a single decode
+// Decompression-bomb and output bounds (ADR-038 F25). These guard a single decode
 // of untrusted bytes: the config is read BEFORE the full decode so a tiny file
 // claiming 100000×100000 is rejected without ever allocating the pixels.
 const (
@@ -40,7 +40,7 @@ const (
 	jpegQuality  = 85               // re-encode quality
 )
 
-// ImagePath is the on-disk location for a person's image (ADR-037/ADR-014):
+// ImagePath is the on-disk location for a person's image (ADR-038/ADR-014):
 // {dir}/{personID}/{imageID}.jpg. The id is server-assigned (an integer), never a
 // request value, so traversal is structurally impossible. The per-person subdir is
 // NOT created here — callers that write use Store, which creates it.
@@ -54,7 +54,7 @@ func personDir(dir string, personID int64) string {
 }
 
 // Normalize sniffs, decodes, and re-encodes untrusted image bytes to a clean JPEG
-// (ADR-037 F24 — the metadata strip + decompression-bomb guard). It returns the
+// (ADR-038 F25 — the metadata strip + decompression-bomb guard). It returns the
 // re-encoded bytes and the stored dimensions. Steps:
 //
 //  1. DecodeConfig (cheap, no pixel allocation) → reject oversize dims/area before

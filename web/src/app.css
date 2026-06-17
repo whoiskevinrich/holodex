@@ -177,7 +177,7 @@
 		);
 	}
 
-	/* ---- Reusable person-image frame (F24, ADR-037) ----
+	/* ---- Reusable person-image frame (F25, ADR-038) ----
 	   Aspect-locked well for the three person-image ratios, parallel to
 	   .video-frame. The base owns the shared mechanics (token background,
 	   overflow clip, object-fit:cover on the child); the modifiers only set the

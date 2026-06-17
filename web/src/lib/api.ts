@@ -106,7 +106,7 @@ export const api = {
 		}
 	},
 
-	// Person images (F24, ADR-037). Reads are public; a filled role serves the real
+	// Person images (F25, ADR-038). Reads are public; a filled role serves the real
 	// JPEG, an empty one a themed placeholder (the server reads the active skin from
 	// ?skin= and the person's gender). Always pass the active skin; pass version for
 	// the immutable cache-bust after a replace.

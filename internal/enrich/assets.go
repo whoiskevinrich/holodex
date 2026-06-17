@@ -11,7 +11,7 @@ import (
 	"holodex/internal/model"
 )
 
-// Asset download (F24, ADR-037 / ADR-033 F14.3). A person enrich run can return
+// Asset download (F25, ADR-038 / ADR-033 F14.3). A person enrich run can return
 // asset URLs (e.g. a portrait); these are fetched through the SAME SSRF perimeter
 // as the provider's API calls and never an unguarded http.Get:
 //
@@ -97,7 +97,7 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 	return data, nil
 }
 
-// assetRoleFor maps a provider asset kind to a person-image core role (F24). photo
+// assetRoleFor maps a provider asset kind to a person-image core role (F25). photo
 // → headshot is the default; banner/poster map through when a provider supplies
 // them. An unknown kind returns ok=false so the asset is skipped (never stored under
 // a guessed role).

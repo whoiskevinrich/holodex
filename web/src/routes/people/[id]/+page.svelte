@@ -29,7 +29,7 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	// Owner core-slot upload (F24): one hidden file input, retargeted per role.
+	// Owner core-slot upload (F25): one hidden file input, retargeted per role.
 	let coreInput = $state<HTMLInputElement | null>(null);
 	let uploadRole = $state<PersonImageRole>('headshot');
 	let uploadBusy = $state('');
@@ -176,7 +176,7 @@
 		return images.roles[role]?.version || undefined;
 	}
 
-	// Owner: open the file picker targeting a specific core role (F24.7).
+	// Owner: open the file picker targeting a specific core role (F25.7).
 	function pickCore(role: PersonImageRole) {
 		uploadRole = role;
 		coreInput?.click();
@@ -219,7 +219,7 @@
 		empty="No videos for this person."
 	>
 		{#snippet detail()}
-			<!-- F24 hero: 16:9 banner with the 1:1 avatar overlapping its lower-left.
+			<!-- F25 hero: 16:9 banner with the 1:1 avatar overlapping its lower-left.
 			     Owner gets a "Replace" affordance over each core slot; empty slots show
 			     the themed placeholder served by the backend. -->
 			<div class="relative">

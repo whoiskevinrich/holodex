@@ -15,13 +15,13 @@ import (
 	"holodex/internal/repo"
 )
 
-// Person images (F24, ADR-037). Public reads serve the on-disk JPEG for a filled
+// Person images (F25, ADR-038). Public reads serve the on-disk JPEG for a filled
 // role or a themed placeholder SVG for an empty one; owner-gated mutations
 // upload/delete/promote/reorder. A role from a request is always validated against
 // the enum (model.ValidPersonImageRole) — a filesystem path is only ever built from
 // the server-assigned integer id, never a request value.
 
-// mountPersonImages registers the owner-gated image mutations (ADR-037 F24). The
+// mountPersonImages registers the owner-gated image mutations (ADR-038 F25). The
 // public reads are mounted ungated in Mount; only the controls are gated.
 func (h *Handlers) mountPersonImages(r chi.Router) {
 	r.Post("/people/{id}/image", h.uploadPersonImage)
@@ -30,7 +30,7 @@ func (h *Handlers) mountPersonImages(r chi.Router) {
 	r.Post("/people/{id}/images/reorder", h.reorderPersonImages)
 }
 
-// servePersonImageByRole serves a person's image for a core role (ADR-037 F24).
+// servePersonImageByRole serves a person's image for a core role (ADR-038 F25).
 // A filled role streams the on-disk JPEG with a long immutable cache; an empty role
 // (or any role with no stored image) falls back to the themed placeholder SVG built
 // from the person's enriched gender. Unknown role → 400; unknown person → 404.
@@ -65,7 +65,7 @@ func (h *Handlers) servePersonImageByRole(w http.ResponseWriter, r *http.Request
 }
 
 // servePersonImageByID serves one gallery (or any) image of a person by its id
-// (ADR-037 F24). 404 when the image does not belong to the person. There is no
+// (ADR-038 F25). 404 when the image does not belong to the person. There is no
 // placeholder fallback for an id fetch — a missing id is genuinely not found.
 func (h *Handlers) servePersonImageByID(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
@@ -153,7 +153,7 @@ func (h *Handlers) personGender(r *http.Request, personID int64) string {
 
 // uploadPersonImage ingests a multipart upload (`image` file + `role` field),
 // normalizes the bytes (metadata strip + bomb guard), stores them on disk, and
-// records the row (ADR-037 F24). 400 on a bad role / missing field / undecodable
+// records the row (ADR-038 F25). 400 on a bad role / missing field / undecodable
 // image; 409 when the gallery is full; 201 with {id, version} on success.
 func (h *Handlers) uploadPersonImage(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
@@ -253,7 +253,7 @@ func (h *Handlers) deletePersonImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // promotePersonImage copies an existing image (typically a gallery item) into a
-// core slot (ADR-037 F24): it re-reads the stored file, re-normalizes it, and
+// core slot (ADR-038 F25): it re-reads the stored file, re-normalizes it, and
 // inserts a new row with source=promoted into the target role — replacing whatever
 // filled that slot. The original gallery item is left in place. Body: {role}.
 func (h *Handlers) promotePersonImage(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +299,7 @@ func (h *Handlers) promotePersonImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // reorderPersonImages sets the gallery order from a body list of image ids
-// (ADR-037 F24). Ids not belonging to the person are ignored. 200 with the new
+// (ADR-038 F25). Ids not belonging to the person are ignored. 200 with the new
 // image set so the caller can refresh without a second round-trip.
 func (h *Handlers) reorderPersonImages(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)

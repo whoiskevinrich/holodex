@@ -1,10 +1,10 @@
-# Spec: People Images (F24)
+# Spec: People Images (F25)
 
 **Status**: Draft
 **Phase**: 3 (Enrichment foundation)
 **Depends on**: the thumbnail pipeline ([ADR-009](../architecture/ADR-009-thumbnail-strategy.md)), media-file/asset serving ([ADR-015](../architecture/ADR-015-media-file-serving.md)), the data layout ([ADR-014](../architecture/ADR-014-configuration-and-data-layout.md)), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), metadata source plugins / enrichment ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
 **Realizes / supersedes**: [Phase 3 F14.3](phase-3-enrichment.md) (person profile image) and the deferred F22 photo-download follow-up — expanded from a single profile image to four image roles, themed/gendered placeholders, and an owner upload path.
-**Architecture**: [ADR-037](../architecture/ADR-037-person-images.md) — person image on-disk store, typed real-or-placeholder serving (version-stamped cache), shared ingest normalization, and placeholder resolution. Access reuses the existing owner gate (ADR-030) — no access-model change.
+**Architecture**: [ADR-038](../architecture/ADR-038-person-images.md) — person image on-disk store, typed real-or-placeholder serving (version-stamped cache), shared ingest normalization, and placeholder resolution. Access reuses the existing owner gate (ADR-030) — no access-model change.
 **Design handoff (to be produced)**: `docs/design/people-images-handoff.md` (placeholder artwork set across all three skins; upload/gallery UI; loading/empty/error states).
 
 ---
@@ -73,7 +73,7 @@ the gallery holds up to **20 extra images per person** on top of those.
 - **Server-side / automatic cropping — face detection, smart-crop.** Direct uploads and
   enrichment-downloaded images are stored normalized and displayed with CSS `object-fit: cover` at each
   target ratio; the owner picks the role and is responsible for a reasonable source crop. The **one**
-  in-app crop is the manual **zoom/crop on promote** (F24.15), where an arbitrary-ratio gallery extra
+  in-app crop is the manual **zoom/crop on promote** (F25.15), where an arbitrary-ratio gallery extra
   must be fitted to a fixed core ratio — that is a client-side, owner-driven crop, not automatic.
 - **Non-owner / contributor uploads.** Uploads are **owner-only** in this spec (reverted from an earlier
   open-contribution model). Letting viewers contribute images would be a separate access-model change
@@ -82,7 +82,7 @@ the gallery holds up to **20 extra images per person** on top of those.
 - **MCP exposure** of person image URLs (`get_person` / `list_people`) — mirrors the deferred F22.5f /
   F14.5 MCP-parity follow-ups.
 - **Animated images / video avatars, EXIF-derived attribution, broader in-app editing** (rotate, filters,
-  crop-on-direct-upload). The only in-app editing in v1 is the zoom/crop on **promote** (F24.15).
+  crop-on-direct-upload). The only in-app editing in v1 is the zoom/crop on **promote** (F25.15).
 
 ---
 
@@ -129,39 +129,39 @@ Ordered by priority.
 
 | ID | Requirement | Acceptance criteria |
 |----|-------------|---------------------|
-| F24.1 | A person has images, each with a **role** (`headshot` \| `banner` \| `poster` \| `extra`) and a normalized stored asset. Core roles are single-slot; `extra` is a multi-image gallery. | Given a person with one `headshot` image, `GET` its headshot route returns that image; the role is queryable on the person read model. |
-| F24.2 | **Headshot (1:1)** renders on the people list cards and as the person-page avatar. | Given a person with a headshot, the `/people` card and the person header show it cropped to a square; given none, both show the resolved placeholder. |
-| F24.3 | **Banner (16:9)** renders as the person-page hero. | Given a banner, the person page shows a 16:9 hero; given none, it shows the resolved 16:9 placeholder. |
-| F24.4 | **Poster (2:3)** renders for each person on the video detail page. | Given a video with people, each person appears as a 2:3 poster card linking to the person; missing posters show the placeholder. |
-| F24.5 | **Placeholder resolution** picks `(active skin × role × gender)`; gender comes from the enriched gender field, defaulting to **neutral** when absent. | Switching skins changes the placeholder; a person with enriched `gender=female` shows the female placeholder; a person with no enriched gender shows the neutral one. |
-| F24.6 | **Typed serving route per role** returns the real image if present, else the resolved placeholder; never 404s for a valid person+role; never accepts a client-supplied filesystem path. Real-image URLs are **version-stamped** (`?v=<image_id>`) so a replace busts caches immediately. | `GET /api/v1/people/{id}/image/{role}` returns 200 with an image for any existing person and valid role; an unknown role → 400; an unknown person → 404. A real-image response carries a `?v=` stamp and a long `Cache-Control: public, max-age=…, immutable`; after a replace the read-model emits a new `?v=`. |
-| F24.7 | **The owner can upload** an image for a person and assign its role; the image is normalized server-side before storage. Uploading again for a **filled core role replaces** the current image (old asset cleaned up). Upload is behind the owner gate (ADR-030); non-owners cannot upload. | An owner POST with a valid image stores a normalized asset (re-encoded, metadata stripped, dimensions/bytes bounded) and it appears on the relevant surface; a second upload for a filled core role swaps it with no orphaned files; a non-owner POST is rejected by the gate. |
-| F24.8 | **Gallery cap of 20 `extra` images per person** (core slots are separate and not counted). | The 21st `extra` for a person is rejected with a clear, themed error; the cap is enforced server-side regardless of client. Filling/replacing a core role is never blocked by the gallery cap. |
-| F24.9 | **Upload validation**: only real raster images of an allowed type and within size/dimension bounds are accepted; the bytes are decoded to confirm they are an image (not a polyglot/renamed file). | A non-image, oversized, or malformed file is rejected with a clear error and nothing is written to disk. |
-| F24.10 | **Enrichment asset download**: provider-supplied image URLs are fetched (through the existing enrich SSRF allowlist + redirect refusal + response caps), normalized, and stored as person images with provenance. | After enriching a person whose provider returns an asset, the corresponding core role shows the downloaded image (replacing any current one for that role); the fetch obeys the F22 network guards. |
-| F24.11 | **Owner can delete any image** (a core-role image or a gallery extra). | An owner delete removes the asset and its DB row; a deleted core-role image leaves that role empty (placeholder resolves); a deleted extra leaves the gallery; a non-owner cannot delete. |
-| F24.12 | **All three skins** render every people image surface and every loading/empty/error state correctly, using semantic tokens only (no hardcoded palette/radii/fonts). | QA in Cinémathèque, Broadcast, and Brutalist: lists, person page, video page, gallery, and placeholders all read correctly; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty. |
+| F25.1 | A person has images, each with a **role** (`headshot` \| `banner` \| `poster` \| `extra`) and a normalized stored asset. Core roles are single-slot; `extra` is a multi-image gallery. | Given a person with one `headshot` image, `GET` its headshot route returns that image; the role is queryable on the person read model. |
+| F25.2 | **Headshot (1:1)** renders on the people list cards and as the person-page avatar. | Given a person with a headshot, the `/people` card and the person header show it cropped to a square; given none, both show the resolved placeholder. |
+| F25.3 | **Banner (16:9)** renders as the person-page hero. | Given a banner, the person page shows a 16:9 hero; given none, it shows the resolved 16:9 placeholder. |
+| F25.4 | **Poster (2:3)** renders for each person on the video detail page. | Given a video with people, each person appears as a 2:3 poster card linking to the person; missing posters show the placeholder. |
+| F25.5 | **Placeholder resolution** picks `(active skin × role × gender)`; gender comes from the enriched gender field, defaulting to **neutral** when absent. | Switching skins changes the placeholder; a person with enriched `gender=female` shows the female placeholder; a person with no enriched gender shows the neutral one. |
+| F25.6 | **Typed serving route per role** returns the real image if present, else the resolved placeholder; never 404s for a valid person+role; never accepts a client-supplied filesystem path. Real-image URLs are **version-stamped** (`?v=<image_id>`) so a replace busts caches immediately. | `GET /api/v1/people/{id}/image/{role}` returns 200 with an image for any existing person and valid role; an unknown role → 400; an unknown person → 404. A real-image response carries a `?v=` stamp and a long `Cache-Control: public, max-age=…, immutable`; after a replace the read-model emits a new `?v=`. |
+| F25.7 | **The owner can upload** an image for a person and assign its role; the image is normalized server-side before storage. Uploading again for a **filled core role replaces** the current image (old asset cleaned up). Upload is behind the owner gate (ADR-030); non-owners cannot upload. | An owner POST with a valid image stores a normalized asset (re-encoded, metadata stripped, dimensions/bytes bounded) and it appears on the relevant surface; a second upload for a filled core role swaps it with no orphaned files; a non-owner POST is rejected by the gate. |
+| F25.8 | **Gallery cap of 20 `extra` images per person** (core slots are separate and not counted). | The 21st `extra` for a person is rejected with a clear, themed error; the cap is enforced server-side regardless of client. Filling/replacing a core role is never blocked by the gallery cap. |
+| F25.9 | **Upload validation**: only real raster images of an allowed type and within size/dimension bounds are accepted; the bytes are decoded to confirm they are an image (not a polyglot/renamed file). | A non-image, oversized, or malformed file is rejected with a clear error and nothing is written to disk. |
+| F25.10 | **Enrichment asset download**: provider-supplied image URLs are fetched (through the existing enrich SSRF allowlist + redirect refusal + response caps), normalized, and stored as person images with provenance. | After enriching a person whose provider returns an asset, the corresponding core role shows the downloaded image (replacing any current one for that role); the fetch obeys the F22 network guards. |
+| F25.11 | **Owner can delete any image** (a core-role image or a gallery extra). | An owner delete removes the asset and its DB row; a deleted core-role image leaves that role empty (placeholder resolves); a deleted extra leaves the gallery; a non-owner cannot delete. |
+| F25.12 | **All three skins** render every people image surface and every loading/empty/error state correctly, using semantic tokens only (no hardcoded palette/radii/fonts). | QA in Cinémathèque, Broadcast, and Brutalist: lists, person page, video page, gallery, and placeholders all read correctly; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty. |
 
 ### Nice-to-have (P1)
 
 | ID | Requirement | Acceptance criteria |
 |----|-------------|---------------------|
-| F24.13 | **Free-form gallery** on the person page: owner adds/removes/reorders extra images. | Extras render in an ordered gallery on the person page only; not shown on lists or video pages. |
-| F24.14 | **Admin override of the global placeholder set** — owner supplies replacement artwork for the `skin × role × gender` matrix; built-ins are the fallback when no override exists. | After the owner installs an override for `(brutalist, banner, neutral)`, every person lacking a banner shows the override under the Brutalist skin; other cells keep the built-in. |
-| F24.15 | **Promote a gallery extra into a core slot.** The owner picks a gallery image, **zooms/crops** it to the target role's aspect ratio in a client-side editor, and saves it as a **new core image — a copy**; the gallery original is left untouched. The cropped copy is normalized server-side like any upload. | Promoting an `extra` as `poster` opens a 2:3 crop tool; saving creates a `poster` (replacing any current one) from the cropped copy; the original `extra` still appears in the gallery; no orphaned files remain. |
-| F24.16 | **Lazy / progressive load** of images on grids; the placeholder shows immediately while a real image loads (no layout shift). | Scrolling the people list shows no broken-image flashes and no cumulative layout shift as images resolve. |
-| F24.17 | **Activity history** records image events (uploaded / downloaded-via-enrichment / deleted), consistent with F21/ADR-028. | Uploading and deleting an image each appear in the activity surface. |
+| F25.13 | **Free-form gallery** on the person page: owner adds/removes/reorders extra images. | Extras render in an ordered gallery on the person page only; not shown on lists or video pages. |
+| F25.14 | **Admin override of the global placeholder set** — owner supplies replacement artwork for the `skin × role × gender` matrix; built-ins are the fallback when no override exists. | After the owner installs an override for `(brutalist, banner, neutral)`, every person lacking a banner shows the override under the Brutalist skin; other cells keep the built-in. |
+| F25.15 | **Promote a gallery extra into a core slot.** The owner picks a gallery image, **zooms/crops** it to the target role's aspect ratio in a client-side editor, and saves it as a **new core image — a copy**; the gallery original is left untouched. The cropped copy is normalized server-side like any upload. | Promoting an `extra` as `poster` opens a 2:3 crop tool; saving creates a `poster` (replacing any current one) from the cropped copy; the original `extra` still appears in the gallery; no orphaned files remain. |
+| F25.16 | **Lazy / progressive load** of images on grids; the placeholder shows immediately while a real image loads (no layout shift). | Scrolling the people list shows no broken-image flashes and no cumulative layout shift as images resolve. |
+| F25.17 | **Activity history** records image events (uploaded / downloaded-via-enrichment / deleted), consistent with F21/ADR-028. | Uploading and deleting an image each appear in the activity surface. |
 
 ### Future considerations (P2)
 
 | ID | Requirement | Notes |
 |----|-------------|-------|
-| F24.18 | Extend the crop editor to **direct upload** (and add rotate) — not just promote. | v1 ships zoom/crop on promote only (F24.15); applying it to every upload avoids "uploader must pre-crop". |
-| F24.18b | A distinct **nonbinary placeholder** art bucket (→ 36 assets across skins/roles). | v1 collapses nonbinary→neutral art while storing the true value; a 4th art bucket is purely additional artwork. |
-| F24.19 | Non-owner / contributor uploads (open contribution) with moderation queue, reporting, and identity-keyed rate limits. | A separate access-model change (own ADR + security review); reverted out of this spec. |
-| F24.20 | MCP `get_person` / `list_people` expose image URLs. | Mirrors deferred F22.5f / F14.5. |
-| F24.21 | Tag images reuse this storage/serving/placeholder model (F15.3). | Same machinery, different entity. |
-| F24.22 | Owner-editable gender (and other person attributes) feeding placeholder selection when enrichment has none. | Removes the "neutral-only when unenriched" limitation. |
+| F25.18 | Extend the crop editor to **direct upload** (and add rotate) — not just promote. | v1 ships zoom/crop on promote only (F25.15); applying it to every upload avoids "uploader must pre-crop". |
+| F25.18b | A distinct **nonbinary placeholder** art bucket (→ 36 assets across skins/roles). | v1 collapses nonbinary→neutral art while storing the true value; a 4th art bucket is purely additional artwork. |
+| F25.19 | Non-owner / contributor uploads (open contribution) with moderation queue, reporting, and identity-keyed rate limits. | A separate access-model change (own ADR + security review); reverted out of this spec. |
+| F25.20 | MCP `get_person` / `list_people` expose image URLs. | Mirrors deferred F22.5f / F14.5. |
+| F25.21 | Tag images reuse this storage/serving/placeholder model (F15.3). | Same machinery, different entity. |
+| F25.22 | Owner-editable gender (and other person attributes) feeding placeholder selection when enrichment has none. | Removes the "neutral-only when unenriched" limitation. |
 
 ---
 
@@ -191,7 +191,7 @@ occupy a core slot or count against the gallery cap).
 Placeholder **art** has only **three buckets** — `male`, `female`, `neutral`. Mapping value → art bucket:
 `male→male`, `female→female`, and **both `nonbinary` and unknown/absent → `neutral`**. (We collapse art
 to three variants without erasing the underlying data; a distinct nonbinary placeholder is a P2 art
-follow-up, F24.18b.) No gender is persisted on the `people` row in v1.
+follow-up, F25.18b.) No gender is persisted on the `people` row in v1.
 
 ---
 
@@ -319,9 +319,9 @@ None outstanding. The three that shaped this spec are resolved below.
   "Gender source & vocabulary"; requires adding `gender` to the provider contract — see "Artifacts".)*
 - **[design] Promote a gallery extra into a core slot** → **yes**, ships with the gallery slice. The
   promoted image is a **copy** (gallery original untouched) and the owner **zooms/crops** it to the
-  target ratio in a client-side editor. *(F24.15.)*
+  target ratio in a client-side editor. *(F25.15.)*
 - **[ops] Cache invalidation on replace** → **versioned URLs** (`?v=<image_id>`) with long `immutable`
-  caching; a replace yields a new id → new URL → instant bust. *(F24.6; serving section.)*
+  caching; a replace yields a new id → new URL → instant bust. *(F25.6; serving section.)*
 
 ---
 
@@ -337,7 +337,7 @@ owner-gated throughout — there is no access-model change to sequence around.
    people. Pure system actor; reuses existing network guards.
 3. **Slice 3 — Gallery + 20-extra cap + promote-with-crop** (P1). The free-form extras gallery
    (add/remove/reorder), the 20-extra cap enforcement, and the **promote-a-gallery-extra-into-a-core-slot**
-   flow with client-side zoom/crop (F24.15). (Core-slot replace-on-reupload itself ships with slice 1.)
+   flow with client-side zoom/crop (F25.15). (Core-slot replace-on-reupload itself ships with slice 1.)
 4. **Slice 4 — Admin global placeholder override** (P1 polish).
 
 **Dependencies / gates:**
@@ -351,7 +351,7 @@ owner-gated throughout — there is no access-model change to sequence around.
 ## Artifacts to produce (project working agreements)
 
 - [ ] This spec (`docs/specs/people-images.md`) — **done** (draft).
-- [x] **ADR**: [ADR-037](../architecture/ADR-037-person-images.md) — storage, serving, ingest
+- [x] **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) — storage, serving, ingest
       normalization, placeholder resolution. Access reuses ADR-030; no access-model change.
 - [x] **Design handoff**: [people-images-handoff.md](../design/people-images-handoff.md) + system pattern
       [people-images-design-system.md](people-images-design-system.md) (`.portrait-frame`, components,
@@ -360,7 +360,7 @@ owner-gated throughout — there is no access-model change to sequence around.
       [metadata-provider-contract.md §4.2](metadata-provider-contract.md) (value vocabulary
       `male`/`female`/`nonbinary`/`unknown`) with a label + precedence entry per ADR-013/ADR-033, and
       note it in the [TMDB provider spec](tmdb-provider.md) (native code → canonical mapping).
-- [x] **Testing strategy** — F24 block added to [testing-strategy.md](../testing-strategy.md) §9
+- [x] **Testing strategy** — F25 block added to [testing-strategy.md](../testing-strategy.md) §9
       (ingest normalization, placeholder resolution, repo/API/enrichment/frontend).
 - [ ] **Security review** before slice 1 merges — binary file ingest + serving (`/security-review`).
 - [ ] Cross-reference from [Phase 3 enrichment spec](phase-3-enrichment.md) F14.3 and the

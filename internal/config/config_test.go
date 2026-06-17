@@ -112,7 +112,7 @@ func TestDatabasePathDerivation(t *testing.T) {
 	if cfg.ThumbnailPath != wantThumb {
 		t.Errorf("ThumbnailPath = %q, want %q", cfg.ThumbnailPath, wantThumb)
 	}
-	// PersonImagePath derives the same way (F24, ADR-037).
+	// PersonImagePath derives the same way (F25, ADR-038).
 	wantPI := filepath.Join("/srv/holo", "person-images")
 	if cfg.PersonImagePath != wantPI {
 		t.Errorf("PersonImagePath = %q, want %q", cfg.PersonImagePath, wantPI)
@@ -120,7 +120,7 @@ func TestDatabasePathDerivation(t *testing.T) {
 }
 
 func TestPersonImageConfig(t *testing.T) {
-	// Defaults (F24, ADR-037).
+	// Defaults (F25, ADR-038).
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatal(err)

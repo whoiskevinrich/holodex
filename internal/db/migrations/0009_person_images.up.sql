@@ -1,4 +1,4 @@
--- F24 (ADR-037): per-person images (headshot / banner / poster + a gallery of
+-- F25 (ADR-038): per-person images (headshot / banner / poster + a gallery of
 -- extras). Like thumbnails (migration 0002), the image BYTES live on disk at
 -- DATA_PATH/person-images/{person_id}/{id}.jpg (ADR-014) and never in the DB; this
 -- table is only the metadata index the API serves and orders from.

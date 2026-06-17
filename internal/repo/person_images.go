@@ -10,14 +10,14 @@ import (
 	"holodex/internal/model"
 )
 
-// Person images (F24, ADR-037): the metadata index for per-person images whose
+// Person images (F25, ADR-038): the metadata index for per-person images whose
 // bytes live on disk. Core roles (headshot/banner/poster) are single-slot — a new
 // image for a filled core role replaces the old one (delete + insert in a tx) so
 // the partial unique index never trips. The 'extra' gallery is capped at
 // GalleryCap, enforced transactionally. Writes take writeMu like the rest of the
 // write path; reads are unlocked (WAL).
 
-// GalleryCap bounds the per-person 'extra' gallery (ADR-037 F24). Beyond it,
+// GalleryCap bounds the per-person 'extra' gallery (ADR-038 F25). Beyond it,
 // InsertPersonImage refuses an extra with ErrGalleryFull.
 const GalleryCap = 20
 
@@ -232,7 +232,7 @@ func (r *Repo) ReorderGallery(ctx context.Context, personID int64, orderedIDs []
 	return nil
 }
 
-// PersonImageSet builds the person-detail image read model (ADR-037 F24): which
+// PersonImageSet builds the person-detail image read model (ADR-038 F25): which
 // core roles are filled (with version) and the ordered gallery. One query, grouped
 // in Go. Roles is always non-nil.
 func (r *Repo) PersonImageSet(ctx context.Context, personID int64) (model.PersonImageSet, error) {

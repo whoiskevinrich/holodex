@@ -1,5 +1,5 @@
 <script lang="ts">
-	// 16:9 banner hero (F24, ADR-037) — a thin wrapper over PersonImageFrame fixing the
+	// 16:9 banner hero (F25, ADR-038) — a thin wrapper over PersonImageFrame fixing the
 	// banner role at full width.
 	import PersonImageFrame from './PersonImageFrame.svelte';
 

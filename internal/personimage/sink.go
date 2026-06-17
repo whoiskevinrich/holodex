@@ -14,7 +14,7 @@ type imageRepo interface {
 	DeletePersonImage(ctx context.Context, personID, imageID int64) error
 }
 
-// Sink stores enrichment-downloaded image bytes as person images (F24, ADR-037),
+// Sink stores enrichment-downloaded image bytes as person images (F25, ADR-038),
 // satisfying enrich.ImageSink. It is the one place the enrichment asset path meets
 // the same normalize-then-atomic-write storage the upload handler uses, so a
 // provider photo gets the identical metadata strip and bomb guard as an upload.

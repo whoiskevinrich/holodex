@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Shared person-image frame (F24, ADR-037) backing PersonAvatar/Banner/Poster.
+	// Shared person-image frame (F25, ADR-038) backing PersonAvatar/Banner/Poster.
 	// Builds the role-serving URL with the active skin (so the backend's empty-slot
 	// placeholder matches the current skin) and the `?v=` cache-buster. The backend
 	// always returns a usable image (real or themed placeholder), so an `img` error

@@ -1,10 +1,10 @@
 <script lang="ts">
-	// Minimal promote-with-crop editor (F24.15, P1). Previews a gallery image inside
+	// Minimal promote-with-crop editor (F25.15, P1). Previews a gallery image inside
 	// the target core-role aspect frame with a zoom slider + drag-to-position, then
 	// saves by calling promotePersonImage. The backend re-normalizes the stored copy;
 	// this editor is currently a *visual preview* of the framing — the exact pixel
 	// crop is not yet sent to the server.
-	// TODO(F24): send crop coordinates so the server stores the exact framed copy
+	// TODO(F25): send crop coordinates so the server stores the exact framed copy
 	// (today promote re-normalizes the whole source image; the zoom/pan is preview-only).
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';

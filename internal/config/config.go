@@ -48,7 +48,7 @@ type Config struct {
 	ThumbnailWidth       int    `yaml:"thumbnail_width"`
 	ThumbnailPath        string `yaml:"-"` // derived: DataPath/thumbnails
 
-	// Person images (F24, ADR-037). Bytes live at DataPath/person-images/{personID}/
+	// Person images (F25, ADR-038). Bytes live at DataPath/person-images/{personID}/
 	// {id}.jpg; the path is derived like ThumbnailPath. The bounds guard untrusted
 	// uploads: PersonImageMaxBytes caps the request body, PersonImageMaxDimension the
 	// stored (downscaled) longest side.
