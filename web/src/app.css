@@ -231,6 +231,34 @@
 		);
 	}
 
+	/* ---- Crop-editor preview frame (F25, ADR-038) ----
+	   Aspect-locked well like .portrait-frame, but deliberately NOT a .portrait-frame:
+	   (1) no skin ::after flourish — scanlines/grain must never sit over the image you
+	   are framing; (2) object-fit:contain so the WHOLE original is visible to crop,
+	   not a pre-cropped cover view. The editor's own transform handles pan/zoom. */
+	.crop-frame {
+		position: relative;
+		overflow: hidden;
+		background: var(--surface-2);
+		border: 1px solid var(--rule);
+		border-radius: var(--radius);
+	}
+	.crop-frame--1x1 {
+		aspect-ratio: 1 / 1;
+	}
+	.crop-frame--16x9 {
+		aspect-ratio: 16 / 9;
+	}
+	.crop-frame--2x3 {
+		aspect-ratio: 2 / 3;
+	}
+	.crop-frame > img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+
 	/* Display headings honor the skin's display face + casing. */
 	.skin-title {
 		font-family: var(--font-display);

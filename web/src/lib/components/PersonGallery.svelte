@@ -1,9 +1,10 @@
 <script lang="ts">
-	// Person-page extra-image gallery (F25, ADR-038). Read-only for viewers: a grid of
-	// 1:1 thumbnails. Owner-aware: an "Add image" tile (uploads role=extra), per-item
-	// delete + set-as-{headshot|banner|poster} (via the crop editor) + keyboard
-	// move-up/down reorder. The 20-extra cap disables Add with a themed warn message
-	// (the server also enforces it). Tokens only; QA all three skins.
+	// Person-page extra-image gallery (F25, ADR-038). A single horizontally-scrollable
+	// row of uniform-height, uncropped thumbnails. Read-only for viewers. Owner-aware: an
+	// "Add image" tile (multi-select upload, role=extra), and per-item controls revealed
+	// on hover/focus — set-as-{headshot|banner|poster} (via the crop editor), delete, and
+	// keyboard move-up/down reorder. The 20-extra cap disables Add with a themed warn
+	// message (the server also enforces it). Tokens only; QA all three skins.
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';
 	import { toMessage } from '$lib/format';
@@ -48,18 +49,23 @@
 
 	async function onPick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		input.value = ''; // allow re-picking the same file after an error
-		if (!file || uploading) return;
+		const files = input.files ? Array.from(input.files) : [];
+		input.value = ''; // allow re-picking the same file(s) after an error
+		if (!files.length || uploading) return;
 		uploading = true;
 		error = '';
+		let added = 0;
 		try {
-			await api.uploadPersonImage(personId, file, 'extra');
-			onchanged();
+			// Upload sequentially; a server-side cap rejection (409) stops the batch.
+			for (const file of files) {
+				await api.uploadPersonImage(personId, file, 'extra');
+				added++;
+			}
 		} catch (err) {
 			error = toMessage(err);
 		} finally {
 			uploading = false;
+			if (added) onchanged(); // refresh whatever made it in before any failure
 		}
 	}
 
@@ -101,62 +107,76 @@
 	{#if !items.length && !owner}
 		<p class="text-sm text-muted">No gallery images.</p>
 	{:else}
-		<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+		<ul class="flex gap-3 overflow-x-auto pb-2">
 			{#each items as img, i (img.id)}
-				<li class="space-y-1.5">
-					<div class="portrait-frame portrait-frame--1x1 w-full">
-						<img src={thumbSrc(img)} alt={`${name} — gallery image ${i + 1}`} loading="lazy" decoding="async" />
-					</div>
+				<li class="group relative shrink-0">
+					<img
+						src={thumbSrc(img)}
+						alt={`${name} — gallery image ${i + 1}`}
+						loading="lazy"
+						decoding="async"
+						class="h-40 w-auto rounded-theme border border-rule bg-surface-2"
+					/>
 					{#if owner}
-						<div class="flex flex-wrap items-center gap-1">
-							{#each CORE_ROLES as role (role)}
+						<!-- Controls reveal on hover (mouse) or focus-within (keyboard). -->
+						<div
+							class="absolute inset-0 flex flex-col justify-between rounded-theme bg-bg/55 p-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+						>
+							<div class="flex items-center gap-1">
+								{#each CORE_ROLES as role (role)}
+									<button
+										onclick={() => promote(img, role)}
+										aria-label={`Set as ${ROLE_LABEL[role]}`}
+										title={`Set as ${ROLE_LABEL[role]}`}
+										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent"
+									>
+										{ROLE_LABEL[role].charAt(0).toUpperCase()}
+									</button>
+								{/each}
+							</div>
+							<div class="flex items-center justify-between gap-1">
+								<div class="flex gap-1">
+									<button
+										onclick={() => move(i, -1)}
+										disabled={i === 0}
+										aria-label="Move image left"
+										title="Move left"
+										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-40"
+									>
+										←
+									</button>
+									<button
+										onclick={() => move(i, 1)}
+										disabled={i === items.length - 1}
+										aria-label="Move image right"
+										title="Move right"
+										class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-40"
+									>
+										→
+									</button>
+								</div>
 								<button
-									onclick={() => promote(img, role)}
-									aria-label={`Set as ${ROLE_LABEL[role]}`}
-									title={`Set as ${ROLE_LABEL[role]}`}
-									class="rounded-theme border border-rule px-1.5 py-0.5 text-xs text-ink hover:border-accent"
+									onclick={() => remove(img)}
+									aria-label="Delete image"
+									title="Delete"
+									class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-muted hover:border-warn hover:text-warn"
 								>
-									{ROLE_LABEL[role].charAt(0).toUpperCase()}
+									✕
 								</button>
-							{/each}
-							<button
-								onclick={() => move(i, -1)}
-								disabled={i === 0}
-								aria-label="Move image up"
-								title="Move up"
-								class="rounded-theme border border-rule px-1.5 py-0.5 text-xs text-ink hover:border-accent disabled:opacity-40"
-							>
-								↑
-							</button>
-							<button
-								onclick={() => move(i, 1)}
-								disabled={i === items.length - 1}
-								aria-label="Move image down"
-								title="Move down"
-								class="rounded-theme border border-rule px-1.5 py-0.5 text-xs text-ink hover:border-accent disabled:opacity-40"
-							>
-								↓
-							</button>
-							<button
-								onclick={() => remove(img)}
-								aria-label="Delete image"
-								title="Delete"
-								class="rounded-theme border border-rule px-1.5 py-0.5 text-xs text-muted hover:border-warn hover:text-warn"
-							>
-								✕
-							</button>
+							</div>
 						</div>
 					{/if}
 				</li>
 			{/each}
 
 			{#if owner}
-				<li>
+				<li class="shrink-0">
 					<button
 						onclick={() => fileInput?.click()}
 						disabled={full || uploading}
-						aria-label="Add image"
-						class="portrait-frame portrait-frame--1x1 flex w-full items-center justify-center text-3xl text-muted hover:text-accent disabled:opacity-50"
+						aria-label="Add images"
+						title="Add images"
+						class="flex h-40 w-40 items-center justify-center rounded-theme border border-rule bg-surface-2 text-3xl text-muted hover:text-accent disabled:opacity-50"
 					>
 						{uploading ? '…' : '+'}
 					</button>
@@ -165,6 +185,7 @@
 						onchange={onPick}
 						type="file"
 						accept="image/*"
+						multiple
 						class="hidden"
 						aria-hidden="true"
 						tabindex="-1"

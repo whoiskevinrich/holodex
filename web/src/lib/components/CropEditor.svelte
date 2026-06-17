@@ -26,9 +26,9 @@
 	} = $props();
 
 	const frameClass: Record<typeof role, string> = {
-		headshot: 'portrait-frame--1x1',
-		banner: 'portrait-frame--16x9',
-		poster: 'portrait-frame--2x3'
+		headshot: 'crop-frame crop-frame--1x1',
+		banner: 'crop-frame crop-frame--16x9',
+		poster: 'crop-frame crop-frame--2x3'
 	};
 	const roleLabel: Record<typeof role, string> = {
 		headshot: 'headshot',
@@ -139,8 +139,10 @@
 
 		<p class="text-xs text-muted">Position and zoom, then save a cropped copy. The gallery original stays.</p>
 
-		<!-- Preview well in the target ratio; the image is pannable/zoomable inside it. -->
-		<div class="portrait-frame {frameClass[role]} w-full">
+		<!-- Preview well in the target ratio; the full original is shown (object-fit:contain)
+		     and is pannable/zoomable inside it. Uses .crop-frame (not .portrait-frame) so no
+		     skin scanline/grain flourish sits over the image being framed. -->
+		<div class="{frameClass[role]} w-full">
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<img
 				{src}

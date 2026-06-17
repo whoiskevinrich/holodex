@@ -30,15 +30,22 @@ zoom/crop step. Everything is built on the shared `.portrait-frame` hook class s
 
 ### B. Person page (`/people/[id]`) — banner hero + gallery + owner tools
 
+> **QA revision (2026-06-16):** the hero is a **fixed 270px-tall band** (not a full 16:9 box, which
+> over-dominated on wide viewports); the gallery is a **single horizontally-scrollable row** of
+> **uniform-height, uncropped** thumbnails (height fixed, width natural — never cover-cropped); gallery
+> item controls **reveal on hover/focus** (overlaid on the thumb), not stacked below it; the **Add tile
+> accepts multiple files**; reorder is keyboard ←/→ (not drag).
+
 Top-to-bottom:
-1. **`PersonBanner` (16:9)** hero spanning the content width, with the **`PersonAvatar` (1:1)** overlapping
-   bottom-left (avatar overlaps the banner's lower edge by ~`size-md`/2), name + alias panel to its right.
-   On empty banner the hero shows the themed 16:9 placeholder; the page never looks "missing."
+1. **`PersonBanner`** hero spanning the content width as a fixed **270px-tall** band (cover-cropped), with
+   the **`PersonAvatar` (1:1)** overlapping bottom-left (~`size-md`/2 overlap), name + alias panel to its
+   right. On empty banner the hero shows the themed placeholder; the page never looks "missing."
 2. Existing **Aliases** (F23) and **Enrichment** (F22) panels, unchanged.
-3. **`PersonGallery`** — the `extra` images in a responsive grid (see Responsive). Person-page only.
+3. **`PersonGallery`** — the `extra` images as a **single scrollable row** of uniform-height, uncropped
+   thumbnails (see Responsive). Person-page only.
 4. **Owner tools** (owner flag only): an upload control per core slot (over the banner/avatar on hover)
-   + a gallery "Add image" tile; each gallery item gets hover affordances (set-as-headshot/banner/poster,
-   delete, drag-handle to reorder).
+   + a gallery **multi-select** "Add image" tile; each gallery item's controls (set-as-headshot/banner/poster,
+   delete, keyboard ←/→ reorder) **reveal on hover/focus** over the thumbnail.
 
 ### C. Video page (`/media/[id]`) — poster cards
 
