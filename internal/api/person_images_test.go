@@ -25,6 +25,12 @@ import (
 // personImageServer wires the person-image surface with an on-disk store. token=""
 // leaves the owner gate open (single-user default).
 func personImageServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64) {
+	return personImageServerCfg(t, token, 10<<20)
+}
+
+// personImageServerCfg is personImageServer with a configurable upload byte cap (so
+// the size-cap path can be exercised with a small limit).
+func personImageServerCfg(t *testing.T, token string, maxBytes int64) (*httptest.Server, *repo.Repo, int64) {
 	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
@@ -36,7 +42,7 @@ func personImageServer(t *testing.T, token string) (*httptest.Server, *repo.Repo
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
-	h.SetPersonImages(filepath.Join(dir, "person-images"), 10<<20, 2000, "cinematheque")
+	h.SetPersonImages(filepath.Join(dir, "person-images"), maxBytes, 2000, "cinematheque")
 	h.SetAuth(api.NewAuth(token), false)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
@@ -185,6 +191,22 @@ func TestUploadValidated(t *testing.T) {
 	}
 	if c, _ := uploadImage(t, base+"/image", "", "extra", pngUpload(t, 16, 16)); c != http.StatusConflict {
 		t.Errorf("over-cap upload = %d, want 409", c)
+	}
+}
+
+// TestUploadRejectsOversize: a body over the configured byte cap is rejected by the
+// MaxBytesReader at parse time (400) — the disk/memory-exhaustion backstop — before
+// any decode. Uses a tiny 256 B cap so a normal PNG exceeds it.
+func TestUploadRejectsOversize(t *testing.T) {
+	const cap = 256
+	srv, _, pid := personImageServerCfg(t, "", cap)
+	big := pngUpload(t, 200, 200)
+	if len(big) <= cap {
+		t.Fatalf("test png is %d bytes; need > %d to exceed the cap", len(big), cap)
+	}
+	url := srv.URL + "/api/v1/people/" + itoa(pid) + "/image"
+	if c, _ := uploadImage(t, url, "", model.PersonImageHeadshot, big); c != http.StatusBadRequest {
+		t.Errorf("oversize upload = %d, want 400", c)
 	}
 }
 

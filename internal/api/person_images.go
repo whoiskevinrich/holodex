@@ -141,6 +141,10 @@ func (h *Handlers) personGender(r *http.Request, personID int64) string {
 	}
 	fields, err := h.enrich.Fields(r.Context(), model.EnrichEntityPerson, personID)
 	if err != nil {
+		// A real lookup error (vs. "no gender stored") still fails soft to the neutral
+		// placeholder, but log it so a systemic enrichment-store fault is traceable
+		// rather than every placeholder silently going neutral.
+		h.log.Warn("placeholder gender lookup failed", "person", personID, "err", err)
 		return ""
 	}
 	for _, f := range fields {

@@ -5,10 +5,12 @@
 	import type { Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
+	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<'name' | 'count'>('name');
 	let loading = $state(true);
+	let loadError = $state('');
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into. See [[ADR-036]].
@@ -22,11 +24,28 @@
 	const isOwner = $derived(activity.isOwner);
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
+	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
+	// the first person under each letter. Logic lives in $lib/peopleNav (unit-tested).
+	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.name)));
+	function jumpTo(letter: string) {
+		const el = document.getElementById(`pl-${letter}`);
+		if (!el) return;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+	}
+
 	function reload() {
 		loading = true;
+		loadError = '';
 		api
 			.listPeople(sort)
 			.then((res) => (people = res.items ?? []))
+			.catch((err) => {
+				// Surface a failed fetch instead of masking it as the empty "no people" state.
+				loadError = toMessage(err);
+				people = [];
+			})
 			.finally(() => (loading = false));
 	}
 
@@ -112,12 +131,39 @@
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
+	{:else if loadError}
+		<p class="py-16 text-center text-sm text-warn">Couldn’t load people: {loadError}</p>
 	{:else if people.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
 	{:else}
+		{#if sort === 'name'}
+			<nav
+				aria-label="Jump to letter"
+				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"
+			>
+				{#each ALPHABET as L (L)}
+					{#if L in letterAnchors}
+						<button
+							onclick={() => jumpTo(L)}
+							aria-label={`Jump to ${L === '#' ? 'non-alphabetic names' : L}`}
+							class="rounded-theme px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-accent"
+						>
+							{L}
+						</button>
+					{:else}
+						<span class="px-1.5 py-0.5 text-xs text-muted opacity-30" aria-hidden="true">{L}</span>
+					{/if}
+				{/each}
+			</nav>
+		{/if}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 			{#each people as p, i (p.id)}
-				<li>
+				<li
+					id={sort === 'name' && letterAnchors[firstLetter(p.name)] === i
+						? `pl-${firstLetter(p.name)}`
+						: undefined}
+					class="scroll-mt-16"
+				>
 					{#if selecting}
 						<label
 							class="flex cursor-pointer items-center gap-3 rounded-theme border bg-surface px-4 py-2.5 text-ink {selectedIds.includes(

@@ -204,8 +204,10 @@
 		try {
 			const res = await api.getPerson(id);
 			images = res.images ?? { roles: {}, gallery: [] };
-		} catch {
-			// non-fatal; the next full load reconciles.
+		} catch (err) {
+			// Non-fatal (the mutation already succeeded; a full reload reconciles), but log
+			// it so a persistently failing refresh is debuggable rather than silent.
+			console.error('reloadImages: image set refresh failed', err);
 		}
 	}
 </script>
@@ -219,9 +221,9 @@
 		empty="No videos for this person."
 	>
 		{#snippet detail()}
-			<!-- F25 hero: 16:9 banner with the 1:1 avatar overlapping its lower-left.
-			     Owner gets a "Replace" affordance over each core slot; empty slots show
-			     the themed placeholder served by the backend. -->
+			<!-- F25 hero: a 5:1 banner band (≤270px tall) with the 1:1 avatar overlapping its
+			     lower-left. Owner gets a "Replace" affordance over each core slot; empty slots
+			     show the themed placeholder served by the backend. -->
 			<div class="relative">
 				{#if isOwner}
 					<button
