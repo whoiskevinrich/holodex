@@ -94,7 +94,7 @@ under `[data-theme]`, mirroring `.video-frame`.
 | Upload | Rejected (type/size/decode) | Inline `text-warn` words (not color-only); nothing written; control re-enabled |
 | Gallery (owner) | At 20 extras | "Add" tile disabled + `border-warn`/`text-warn` "Gallery is full (20 max)." (server also enforces) |
 | Gallery item (owner) | Reorder | Keyboard ←/→ buttons (in the hover/focus overlay) move an item one step; persists `sort_order` (no drag) |
-| Promote (owner) | Crop | Modal crop editor on a **copy** with a **rule-of-thirds guide** (fixed to the frame); saving creates/replaces the core role; gallery original untouched |
+| Promote (owner) | Crop | Modal crop editor on a **copy**: drag to pan, **slider or mouse-wheel** to zoom, **rule-of-thirds guide** (fixed to the frame). Save renders the framed crop to a canvas at the target ratio (WYSIWYG) and uploads it as the core role; gallery original untouched |
 
 ## Responsive behavior
 

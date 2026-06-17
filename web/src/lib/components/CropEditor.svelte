@@ -1,14 +1,14 @@
 <script lang="ts">
-	// Minimal promote-with-crop editor (F25.15, P1). Previews a gallery image inside
-	// the target core-role aspect frame with a zoom slider + drag-to-position, then
-	// saves by calling promotePersonImage. The backend re-normalizes the stored copy;
-	// this editor is currently a *visual preview* of the framing — the exact pixel
-	// crop is not yet sent to the server.
-	// TODO(F25): send crop coordinates so the server stores the exact framed copy
-	// (today promote re-normalizes the whole source image; the zoom/pan is preview-only).
+	// Promote-with-crop editor (F25.15). Previews a gallery image inside the target
+	// core-role aspect frame with zoom (slider or mouse wheel) + drag-to-position.
+	// Saving is WYSIWYG: the framed crop is rendered to a canvas at the target ratio
+	// (replicating the preview's object-fit:contain + translate/scale transform) and
+	// uploaded as the core-role image — so what you frame is exactly what's stored, no
+	// server-side crop geometry needed. The gallery original is untouched.
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';
 	import { toMessage } from '$lib/format';
+	import { cropAffine } from '$lib/cropGeometry';
 	import type { PersonImage, PersonImageRole } from '$lib/types';
 
 	let {
@@ -40,6 +40,14 @@
 		api.personGalleryImageURL(personId, image.id, { version: image.version, skin: theme.current })
 	);
 
+	// Output dimensions per core role — match each role's display aspect so the stored
+	// crop needs no further cover-cropping (headshot 1:1, banner 5:1, poster 2:3).
+	const TARGET: Record<typeof role, [number, number]> = {
+		headshot: [600, 600],
+		banner: [1500, 300],
+		poster: [600, 900]
+	};
+
 	let zoom = $state(1);
 	let offsetX = $state(0);
 	let offsetY = $state(0);
@@ -49,6 +57,8 @@
 	let busy = $state(false);
 	let error = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
+	let frameEl = $state<HTMLElement | null>(null);
+	let imgEl = $state<HTMLImageElement | null>(null);
 	let trigger: HTMLElement | null = null;
 
 	const transform = $derived(
@@ -70,12 +80,63 @@
 		dragging = false;
 	}
 
+	// Mouse-wheel zoom over the frame (clamped to the slider's 1–3). A Svelte action so
+	// the listener is non-passive and can preventDefault the page scroll. Zooms about the
+	// frame centre, matching the slider and the CSS transform-origin.
+	function wheelZoom(node: HTMLElement) {
+		const onWheel = (e: WheelEvent) => {
+			e.preventDefault();
+			zoom = Math.min(3, Math.max(1, zoom - e.deltaY * 0.0015));
+		};
+		node.addEventListener('wheel', onWheel, { passive: false });
+		return { destroy: () => node.removeEventListener('wheel', onWheel) };
+	}
+
+	// renderCrop rasterises the framed crop to a canvas at the target ratio, replicating
+	// the preview's object-fit:contain base + translate/scale transform so the output
+	// matches the frame pixel-for-pixel. Returns a JPEG blob.
+	async function renderCrop(): Promise<Blob> {
+		const img = imgEl;
+		const frame = frameEl;
+		if (!img || !frame || !img.complete || !img.naturalWidth) {
+			throw new Error('Image is still loading — try again.');
+		}
+		const [cw, ch] = TARGET[role];
+		const { ax, ay, ex, fy } = cropAffine({
+			fw: frame.clientWidth,
+			fh: frame.clientHeight,
+			nw: img.naturalWidth,
+			nh: img.naturalHeight,
+			zoom,
+			offsetX,
+			offsetY,
+			cw,
+			ch
+		});
+
+		const canvas = document.createElement('canvas');
+		canvas.width = cw;
+		canvas.height = ch;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Canvas is not supported.');
+		ctx.fillStyle = '#000'; // letterbox fill if the image doesn't cover the frame
+		ctx.fillRect(0, 0, cw, ch);
+		ctx.imageSmoothingQuality = 'high';
+		ctx.setTransform(ax, 0, 0, ay, ex, fy);
+		ctx.drawImage(img, 0, 0);
+		return await new Promise<Blob>((resolve, reject) =>
+			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode the crop.'))), 'image/jpeg', 0.9)
+		);
+	}
+
 	async function save() {
 		if (busy) return;
 		busy = true;
 		error = '';
 		try {
-			await api.promotePersonImage(personId, image.id, role);
+			const blob = await renderCrop();
+			const file = new File([blob], `${role}.jpg`, { type: 'image/jpeg' });
+			await api.uploadPersonImage(personId, file, role);
 			onpromoted();
 			onclose();
 		} catch (e) {
@@ -137,14 +198,15 @@
 			>
 		</div>
 
-		<p class="text-xs text-muted">Position and zoom, then save a cropped copy. The gallery original stays.</p>
+		<p class="text-xs text-muted">Drag to position, scroll or use the slider to zoom, then save. The gallery original stays.</p>
 
 		<!-- Preview well in the target ratio; the full original is shown (object-fit:contain)
 		     and is pannable/zoomable inside it. Uses .crop-frame (not .portrait-frame) so no
 		     skin scanline/grain flourish sits over the image being framed. -->
-		<div class="{frameClass[role]} relative w-full">
+		<div bind:this={frameEl} use:wheelZoom class="{frameClass[role]} relative w-full">
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<img
+				bind:this={imgEl}
 				{src}
 				alt={`Cropping ${roleLabel[role]}`}
 				draggable="false"
