@@ -1,14 +1,15 @@
 # Spec: Delete a Media Item (F24)
 
-**Status**: Draft
+**Status**: Accepted
 **Phase**: Media management (user-facing)
 **Depends on**: the owner gate (ADR-030, `requireOwner`); scanner reconciliation (ADR-018);
 the activity read-model / `job_runs` history (ADR-028).
 **Related**: distinct from the scanner's `active=0` reconciliation (ADR-018) — that hides files
 that *vanished from disk*; this hides files the *owner chose* to remove. Interacts with the
 reactivation fast-path ([issue #26](https://github.com/whoiskevinrich/holodex/issues/26)).
-**Architecture**: ADR-037 (TBD — soft-delete state model + grace-period purge job).
-**Design handoff**: `docs/design/delete-media-handoff.md` (TBD).
+**Architecture**: [ADR-037](../architecture/ADR-037-soft-delete-and-purge.md) — `deleted_at` axis
+orthogonal to `active` + dedicated purge job.
+**Design handoff**: [`docs/design/delete-media-handoff.md`](../design/delete-media-handoff.md).
 
 ---
 
@@ -106,7 +107,10 @@ videos
 -- (active = disk presence, ADR-018; deleted_at = owner intent, F24 — orthogonal axes)
 ```
 
-Migration **0008** (next after 0007). `deleted_at` is additive and nullable — existing rows
+Migration **0010** (next free after `0009_person_images`; the F25 person-images work merged `0009`
+after this spec was drafted, so what the spec first sketched as "0008" is now `0010` — golang-migrate
+only applies versions *above* the current one, so a retroactive lower number would never run). See
+[ADR-037](../architecture/ADR-037-soft-delete-and-purge.md). `deleted_at` is additive and nullable — existing rows
 default to live (`NULL`). Hard-delete relies on the existing `ON DELETE CASCADE` foreign keys
 (`video_people`/`video_tags`/`video_metadata`) and the `videos_ad` FTS trigger, so purging a row
 cleans up its junctions and search index automatically.
