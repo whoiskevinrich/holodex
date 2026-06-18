@@ -39,6 +39,14 @@ type Config struct {
 	ScanMaxDepth        int  `yaml:"scan_max_depth"`
 	ScanMinAgeSeconds   int  `yaml:"scan_min_age_seconds"`
 
+	// Soft-delete + purge (F24, ADR-037). A soft-deleted item lingers in Trash for
+	// DeleteGracePeriodSeconds (0 disables auto-purge — manual only), then the purge
+	// sweep (every PurgeIntervalSeconds) hard-deletes it; DeleteRemoveFiles controls
+	// whether purge also unlinks the file (false = DB-only, for read-only mounts).
+	DeleteGracePeriodSeconds int  `yaml:"delete_grace_period_seconds"`
+	DeleteRemoveFiles        bool `yaml:"delete_remove_files"`
+	PurgeIntervalSeconds     int  `yaml:"purge_interval_seconds"`
+
 	// Thumbnails (ADR-009)
 	ThumbnailEnabled     bool   `yaml:"thumbnail_enabled"`
 	ThumbnailBackfill    string `yaml:"thumbnail_backfill"` // "eager" | "lazy"
@@ -86,6 +94,11 @@ func Defaults() Config {
 		FollowSymlinks:      true,
 		ScanMaxDepth:        64,
 		ScanMinAgeSeconds:   5,
+
+		// F24/ADR-037 settled defaults: 7-day grace, auto-purge on, remove files.
+		DeleteGracePeriodSeconds: 604800, // 7 days
+		DeleteRemoveFiles:        true,   // "delete means delete"
+		PurgeIntervalSeconds:     3600,   // hourly sweep
 
 		ThumbnailEnabled:     true,
 		ThumbnailBackfill:    "eager",
@@ -212,6 +225,10 @@ func applyEnv(c *Config) {
 	c.FollowSymlinks = envBool("FOLLOW_SYMLINKS", c.FollowSymlinks)
 	c.ScanMaxDepth = envInt("SCAN_MAX_DEPTH", c.ScanMaxDepth)
 	c.ScanMinAgeSeconds = envInt("SCAN_MIN_AGE_SECONDS", c.ScanMinAgeSeconds)
+
+	c.DeleteGracePeriodSeconds = envInt("DELETE_GRACE_PERIOD_SECONDS", c.DeleteGracePeriodSeconds)
+	c.DeleteRemoveFiles = envBool("DELETE_REMOVE_FILES", c.DeleteRemoveFiles)
+	c.PurgeIntervalSeconds = envInt("PURGE_INTERVAL_SECONDS", c.PurgeIntervalSeconds)
 
 	c.ThumbnailEnabled = envBool("THUMBNAIL_ENABLED", c.ThumbnailEnabled)
 	c.ThumbnailBackfill = envStr("THUMBNAIL_BACKFILL", c.ThumbnailBackfill)

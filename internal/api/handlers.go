@@ -83,6 +83,12 @@ type Handlers struct {
 	personImageMaxBytes int64
 	personImageMaxDim   int
 	defaultSkin         string
+
+	// Soft-delete + purge (F24, ADR-037). purger executes purge-now; deleteGrace
+	// drives the Trash view's purge_at. Both optional — nil purger disables only
+	// purge-now (soft-delete/restore/Trash still work).
+	purger      purger
+	deleteGrace time.Duration
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -182,6 +188,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountAliases(r)
 		// Person images — owner-gated upload/delete/promote/reorder (F25, ADR-038).
 		h.mountPersonImages(r)
+		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
+		h.mountDelete(r)
 	})
 }
 
@@ -342,6 +350,16 @@ func (h *Handlers) streamMedia(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) serveThumbnail(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
+		return
+	}
+	// Hide a soft-deleted item's cover during the grace window (F24/ADR-037 §4) —
+	// the only way to reach it is a guessed id, but keep the bytes consistent with
+	// the 404 its detail/stream now return. One indexed PK lookup; negligible.
+	if visible, err := h.repo.VideoVisible(r.Context(), id); err != nil {
+		h.fail(w, "thumbnail visibility", err)
+		return
+	} else if !visible {
+		writeError(w, http.StatusNotFound, "thumbnail not ready")
 		return
 	}
 	f, err := os.Open(thumbnail.ThumbPath(h.thumbDir, id))

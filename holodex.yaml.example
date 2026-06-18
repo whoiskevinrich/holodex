@@ -33,6 +33,14 @@ follow_symlinks: true       # FOLLOW_SYMLINKS
 scan_max_depth: 64          # SCAN_MAX_DEPTH
 scan_min_age_seconds: 5     # SCAN_MIN_AGE_SECONDS (skip files modified more recently — mid-copy guard)
 
+# --- Soft-delete + purge (F24, ADR-037) ---
+# An owner delete is a soft-delete: the item hides immediately but its row and file
+# survive the grace period, restorable from Trash. The purge sweep then hard-deletes
+# expired items (and, by default, removes the file from disk).
+delete_grace_period_seconds: 604800  # DELETE_GRACE_PERIOD_SECONDS (7 days; 0 disables auto-purge — Trash holds until you purge manually)
+delete_remove_files: true            # DELETE_REMOVE_FILES (true = purge unlinks the file; false = DB-only, for read-only/externally-managed libraries)
+purge_interval_seconds: 3600         # PURGE_INTERVAL_SECONDS (how often the grace-period purge sweep runs)
+
 # --- Cache (ADR-008) ---
 cache_backend: "memory"    # CACHE_BACKEND (memory|redis|none)
 cache_max_memory_mb: 128    # CACHE_MAX_MEMORY_MB

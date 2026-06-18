@@ -17,15 +17,16 @@ import (
 
 // fakeRepo is an in-memory Repository keyed by canonical path.
 type fakeRepo struct {
-	mu     sync.Mutex
-	nextID int64
-	byPath map[string]repo.VideoStat
-	active map[int64]bool
-	uparts int // upsert call count
+	mu      sync.Mutex
+	nextID  int64
+	byPath  map[string]repo.VideoStat
+	active  map[int64]bool
+	deleted map[int64]bool // soft-deleted ids (F24)
+	uparts  int            // upsert call count
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}}
+	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}, deleted: map[int64]bool{}}
 }
 
 func (f *fakeRepo) StatByPath(_ context.Context, path string) (repo.VideoStat, bool, error) {
@@ -34,8 +35,16 @@ func (f *fakeRepo) StatByPath(_ context.Context, path string) (repo.VideoStat, b
 	st, ok := f.byPath[path]
 	if ok {
 		st.Active = f.active[st.ID]
+		st.Deleted = f.deleted[st.ID]
 	}
 	return st, ok, nil
+}
+
+// markDeleted simulates an owner soft-delete on an already-indexed row (F24).
+func (f *fakeRepo) markDeleted(id int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleted[id] = true
 }
 
 func (f *fakeRepo) UpsertVideo(_ context.Context, v *model.Video, _ []model.ExtraMetadata) (int64, error) {
@@ -357,6 +366,49 @@ func TestReactivatesUnchangedFile(t *testing.T) {
 	}
 	if st := s.Status(); st.LastRun == nil || st.LastRun.Updated != 1 {
 		t.Errorf("reactivation should count as 1 updated; last run = %+v", st.LastRun)
+	}
+}
+
+// F24.3 (the cardinal invariant): a soft-deleted row whose file is still on disk
+// must survive a re-scan untouched — never reactivated, never re-extracted, never
+// deactivated (it's recorded as seen). This is what storing the delete in `active`
+// could not guarantee: the #26 reactivation fast-path would otherwise resurrect it.
+func TestSoftDeletedRowSurvivesRescan(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.mkv")
+	writeFile(t, path, 100)
+
+	fr := newFakeRepo()
+	s := newTestScanner(dir, fr)
+	ctx := context.Background()
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+	if fr.uparts != 1 || activeCount(fr) != 1 {
+		t.Fatalf("after first scan: upserts=%d active=%d", fr.uparts, activeCount(fr))
+	}
+
+	// Owner soft-deletes the row; its file remains on disk, unchanged.
+	fr.markDeleted(1)
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 2: %v", err)
+	}
+	// No re-extract (upserts unchanged) and not deactivated by end-of-scan
+	// reconciliation (recorded as seen → still "active" on the disk-presence axis).
+	if fr.uparts != 1 {
+		t.Errorf("upserts after rescan of soft-deleted file = %d, want still 1 (no re-extract)", fr.uparts)
+	}
+	if !fr.active[1] {
+		t.Errorf("soft-deleted row was deactivated by the rescan; it should be left as-is")
+	}
+	if !fr.deleted[1] {
+		t.Errorf("soft-delete flag was cleared by the rescan")
+	}
+	// The pass counts it as skipped, not added/updated.
+	if st := s.Status(); st.LastRun == nil || st.LastRun.Added != 0 || st.LastRun.Updated != 0 {
+		t.Errorf("soft-deleted file should not count as added/updated; last run = %+v", st.LastRun)
 	}
 }
 
