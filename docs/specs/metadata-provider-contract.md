@@ -123,7 +123,8 @@ provider loudly.
   "protocol_version": 1,
   "entity_types": ["person"],
   "id_namespaces": ["<name>"],
-  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "photo"]
+  "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
+  "asset_kinds": ["photo"]
 }
 ```
 
@@ -134,7 +135,8 @@ provider loudly.
 | `protocol_version` | integer | yes | **MUST be `1`.** Holodex refuses any other major version |
 | `entity_types` | string[] | yes | The entity types you support. v1: `["person"]` (see [§3](#3-entity-types-and-matching)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces you understand (see [§4.1](#41-external-ids-and-namespaces)). Usually `["<name>"]`; include more if you can resolve foreign IDs (e.g. an `imdb` id) |
-| `fields` | string[] | yes | The canonical field keys you can supply (see [§4.2](#42-canonical-fields)) |
+| `fields` | string[] | yes | The canonical **text** field keys you can supply (see [§4.2](#42-canonical-fields)). **Do not list `photo` here** — a portrait is an *asset*, not a field; advertise it in `asset_kinds` |
+| `asset_kinds` | string[] | optional | The binary asset kinds you can supply (see [§4.3](#43-assets)). v1 person kinds: `"photo"`, `"banner"`, `"poster"`. Omit if you supply no assets. **Backward compat:** a provider may instead still list `photo` in `fields` during the deprecation window — Holodex treats that as `asset_kinds: ["photo"]` — but new providers SHOULD use `asset_kinds` |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -214,16 +216,20 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `fields` | object | yes | Map of **canonical field key → array of string values**. Always an array, even single-valued (e.g. `"birthdate": ["1815-12-10"]`). Keys SHOULD be drawn from the `fields` advertised in `/describe`. Holodex sanitizes every value (control chars stripped, newlines → space, capped 4096 chars), caps **50 values per field** and **40 fields total** |
-| `assets` | array | optional | Binary assets (e.g. a portrait). **See the asset note below** |
-| `assets[].kind` | string | yes (if asset present) | Asset kind. For a person portrait use `"photo"` |
-| `assets[].url` | string | yes (if asset present) | Absolute URL to the binary |
+| `assets` | array | optional | Binary assets (e.g. a portrait). **Omit when empty** — never send `[]` (mirrors the `fields` omit rule). Preference-ordered, most-preferred first within a kind. Full rules in [§4.3](#43-assets) |
+| `assets[].kind` | string | yes (if asset present) | Asset kind, from the v1 enum: `"photo"` (portrait), `"banner"` (16:9), `"poster"` (2:3). Unknown kinds are **ignored** by Holodex (forward-compat) — see [§4.3](#43-assets) |
+| `assets[].url` | string | yes (if asset present) | Absolute, directly-fetchable URL to the image (see [§4.3](#43-assets) for the scheme/host/credential rules) |
 
-**Asset note (load-bearing).** Holodex's v1 client **parses** `assets` but **does not
-download** them — asset storage is a deferred Holodex follow-up. Include the `assets[]`
-array so it is ready when Holodex enables download, but do **not** depend on it being
-fetched in v1, and do **not** put an image into a `fields` entry expecting it to render as an
-image (`fields` values are text). Asset URLs MUST be absolute, on a host you control or
-trust, and resolvable **directly** (no redirect) — see [§6](#6-security-requirements).
+**Asset note (load-bearing).** Holodex **downloads** `assets` during the owner's enrich
+action (the asset-storage follow-up has shipped — [ADR-038](../architecture/ADR-038-person-images.md)/[ADR-039](../architecture/ADR-039-provider-asset-urls.md)). It fetches each asset URL through the **same SSRF
+perimeter** as the provider API calls, runs the bytes through an ingest normalizer
+(decode → bound → **re-encode → strip all metadata**), and stores its own copy. Practical
+consequences for you: (1) an asset's `url` host must be **allowlisted** — your own
+`base_url` host, or a host the *operator* listed in `asset_hosts` (see [§4.3](#43-assets)/[§6](#6-security-requirements)); a cross-host
+URL on an un-allowlisted host is refused; (2) Holodex serves a **normalized copy**, so EXIF,
+animation, and transparency are **not** preserved — don't depend on them; (3) never put an
+image into a `fields` entry expecting it to render (`fields` values are text). Full asset
+rules, formats, sizes, and aspect guidance are in [§4.3](#43-assets).
 
 ### 2.5 Status codes summary
 
@@ -287,7 +293,7 @@ vocabulary rather than your source's native names. The recommended v1 **person**
 | `nationality` | Nationality / country | single or few | Plain text (e.g. `"British"`). Omit if you cannot derive it confidently |
 | `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text |
 | `aliases` | Alternate / native-script names | multi | One name per array element. Include native-script forms (e.g. CJK) directly — feeds Holodex's Person aliases store |
-| `photo` | Portrait | — | **Not a `fields` entry** — emit as an `assets[]` entry with `kind: "photo"` |
+| `photo` | Portrait | — | **Not a `fields` entry** — emit as an `assets[]` entry with `kind: "photo"` and advertise it in `asset_kinds` (see [§4.3](#43-assets)) |
 
 Rules:
 
@@ -305,16 +311,78 @@ Rules:
 
 ### 4.3 Assets
 
-If you can supply a portrait, emit one `assets[]` entry per asset:
+An asset is a binary image Holodex downloads, normalizes, and stores against the entity.
+Emit one `assets[]` entry per image:
 
 ```json
-{ "kind": "photo", "url": "https://<your-host>/<path>.jpg" }
+{ "kind": "photo", "url": "https://image.tmdb.org/t/p/original/<path>.jpg" }
 ```
 
-- The URL MUST be **absolute**, point at a host you control or trust, and be fetchable
-  **directly** (no redirect to another host).
-- Omit the `assets` array entirely when you have no asset.
-- Remember Holodex does not download assets in v1 (see [§2.4](#24-post-enrich--fetch-fields)).
+The object has exactly two defined keys in v1; **Holodex ignores any other key** (so future
+hints like `expires_at`/`width` can be added later without a protocol bump):
+
+| Key | Type | Required | Notes |
+|---|---|---|---|
+| `kind` | string | yes | One of the v1 enum below. An **unknown kind is ignored** (the asset is skipped), so a provider may emit future kinds safely |
+| `url` | string | yes | Absolute image URL meeting the scheme/host/credential rules below |
+
+#### Asset kinds (v1 enum)
+
+| `kind` | Meaning | Target aspect | Notes |
+|---|---|---|---|
+| `photo` | Person portrait / headshot | ~1:1 (square) | The common case. Synonyms `portrait`/`headshot` are also accepted |
+| `banner` | Wide hero image | ~16:9 | Synonym `backdrop` accepted |
+| `poster` | Tall poster | ~2:3 | |
+
+Holodex maps each kind to one image **role**; an unknown kind is **dropped** (never stored
+under a guessed role). Holodex does **not** crop to the target aspect (cropping is a separate
+owner action), so supply an image already close to the role's aspect to avoid letterboxing.
+
+#### URL rules (what makes a URL fetchable)
+
+- **Absolute**, and **directly fetchable** — respond `2xx` with the image bytes; **no
+  cross-host redirect** (a 30x to another host is refused, [§6](#6-security-requirements)).
+- **Scheme:** use **`https` for any cross-host (public-internet) URL** (e.g. a CDN like
+  `image.tmdb.org`). Plain `http` is accepted **only** for your own `base_url` host on the
+  trusted internal network.
+- **Host must be allowlisted.** Holodex only fetches an asset whose host is either **your
+  provider's `base_url` host** *or* a host the **operator** has listed in `asset_hosts` for
+  your source (see [§10](#10-deliverable--operator-wiring)). Trust comes from operator config,
+  never from your response — so if your images live on a CDN host different from your sidecar
+  (the usual case), **tell operators which host(s) to allowlist** in your provider's docs.
+- **No credentials in the URL.** Holodex fetches **without** auth and without your upstream
+  token; the URL must be retrievable anonymously. Never embed your API key/signature-secret.
+  Short-lived/**signed** CDN URLs are fine **if valid at enrich time** — Holodex fetches
+  promptly (fetch-soon) and stores its own copy, so it does not persist or re-use your URL.
+
+#### Image fitness (Holodex normalizes untrusted bytes)
+
+Holodex treats your image as untrusted and runs every asset through a fixed pipeline —
+**sniff type → bound dimensions/area → decode → re-encode → strip all metadata** — then
+serves its own copy. Stay inside these so nothing is rejected or silently altered:
+
+- **Format:** supply **JPEG, PNG, or GIF** (the formats Holodex decodes today). **WebP and AVIF
+  are not currently decoded — do not send them.** **Raster only:** **no SVG, HTML, or PDF**
+  (rejected as unsafe vector/markup formats). Holodex re-encodes whatever you send to JPEG.
+- **Size:** each asset body is capped at **16 MiB**; oversized bodies are rejected. A portrait
+  is realistically well under 2 MiB.
+- **Dimensions:** Holodex bounds dimensions/pixel-area before decode (a decompression-bomb
+  guard). Keep the **longest edge ≤ 4096 px** (≈1500 px is plenty for display); absurd
+  dimensions are rejected.
+- **Not preserved:** because Holodex re-encodes and strips, **EXIF/metadata, animation
+  (animated GIF/WebP collapse to a still frame), and transparency (flattened)** do **not**
+  survive. Don't rely on them.
+- **`Content-Type`:** send a correct `image/*` content-type, but note Holodex **sniffs** the
+  bytes and ignores the declared type/extension for safety.
+
+#### Multiple assets, ordering, and emptiness
+
+- You MAY return more than one asset. Within a `kind`, order them **most-preferred first**;
+  Holodex uses the **first one of that role it can successfully fetch and store**, then stops
+  for that role. Realistically emit **at most one per kind**.
+- **Omit `assets` entirely when you have none** — never send `[]`.
+- If a response approaches the 1 MiB body cap, **shed `assets` before dropping any `fields`**
+  (fields are canonical text; an asset URL is recoverable on a later enrich).
 
 ### 4.4 Upstream credentials & rate limits (provider-owned)
 
@@ -346,6 +414,9 @@ truncated.
 | **No secrets in output** | Upstream credentials MUST NOT appear in any response body, `/healthz`, `/describe`, error message, or log line |
 | **Graceful upstream outage** | On upstream outage/timeout/`5xx`/rate-limit-exhausted, return a non-2xx (e.g. `502`/`503`) **within the timeout**. Holodex maps it to a single failed call and shows the owner a generic error; it never blocks page loads or other providers |
 | **No newlines in values** | Holodex uses newline as its multi-value separator and strips control chars; send multi-value data as separate array elements |
+| **Asset body size** | Each downloaded asset ≤ **16 MiB** (Holodex rejects beyond). A portrait is realistically < 2 MiB |
+| **Asset dimensions** | Longest edge ≤ **4096 px** (Holodex bounds dimensions/area before decode — a decompression-bomb guard); ≈1500 px is plenty for display |
+| **Asset format** | **JPEG/PNG/GIF** decoded today (**not** WebP/AVIF); **raster only — no SVG/HTML/PDF**. Holodex re-encodes to JPEG + strips metadata, so EXIF/animation/transparency are not preserved (see [§4.3](#43-assets)) |
 
 ---
 
@@ -359,7 +430,9 @@ truncated.
 | S4 | **Treat upstream data as untrusted.** Validate types, coerce to the contract shapes, drop unexpected fields, and keep values within the caps in [§5](#5-non-functional-requirements). (Holodex also sanitizes on its side — strips control characters, caps lengths/counts — but do not rely solely on that; defense in depth) |
 | S5 | **Bounded responses.** Keep every response under 1 MiB and cap list sizes, so Holodex's 1 MiB read never truncates a body mid-JSON |
 | S6 | **Minimal surface.** Expose only the four contract endpoints. Reject unknown paths/methods. Do not add a debug/proxy/exec endpoint to the same service |
-| S7 | **Asset URLs point only at trusted hosts.** Any `assets[].url` must point at a host you control or trust and be directly fetchable (no redirect), since Holodex (when it later downloads) enforces size/content-type limits and the same no-cross-host-redirect rule |
+| S7 | **Asset URLs point only at allowlisted hosts.** Holodex downloads `assets[].url` through the same SSRF perimeter as the API: it fetches **only** a host that is your `base_url` host **or** one the operator listed in `asset_hosts` for your source — trust comes from operator config, never from your response. The URL must be **directly fetchable** (no cross-host redirect) and use **`https` for any cross-host host** (`http` only for your own internal `base_url` host). Holodex caps the body (16 MiB), bounds dimensions, sniffs the type, and re-encodes/strips metadata. See [§4.3](#43-assets) |
+| S8 | **No credentials in asset URLs.** An `assets[].url` must be fetchable **anonymously** — never embed your upstream API key, token, or signing secret. (Signed CDN URLs that are valid at enrich time are fine; Holodex fetches promptly and stores its own copy.) |
+| S9 | **Assets are raster images only.** Emit JPEG/PNG (or WebP/GIF); **never** SVG/HTML/PDF or other markup/vector formats — Holodex rejects them as an unsafe parse/script surface |
 
 > **Why these matter.** Holodex deliberately treats every provider as a semi-trusted source
 > on an internal network: it allowlists your `base_url`, refuses redirects off that host,
@@ -415,7 +488,8 @@ GET /describe
   "protocol_version": 1,
   "entity_types": ["person"],
   "id_namespaces": ["acme"],
-  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "photo"]
+  "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
+  "asset_kinds": ["photo"]
 }
 ```
 
@@ -496,13 +570,16 @@ A conforming provider should satisfy each of these:
 
 1. **Health** — `GET /healthz` returns `200` with `provider` equal to your configured name.
 2. **Describe** — `GET /describe` returns `200`, `protocol_version: 1`, `entity_types`
-   contains `"person"`, and a non-empty `fields` list.
+   contains `"person"`, and a non-empty `fields` list. If you supply portraits, `asset_kinds`
+   contains `"photo"` (and `photo` is **not** in `fields`) — or, transitionally, `photo`
+   appears in `fields`.
 3. **Resolve hit** — `POST /resolve` with a known name returns `200` with ≥1 candidate whose
    `external_id` is `<namespace>:<id>` and whose `namespace` matches the prefix.
 4. **Resolve miss** — a nonsense query returns `200` with `{ "candidates": [] }` (no error).
 5. **Enrich** — `POST /enrich` with the `external_id` from step 3 returns `200`, a `fields`
    object whose values are **arrays of strings**, and (when you have a portrait) an `assets`
-   entry with `kind: "photo"` and an absolute, directly-fetchable URL.
+   entry with `kind: "photo"` and an absolute, directly-fetchable URL. The `photo` is **not**
+   present as a `fields` key.
 6. **Enrich bad id** — `POST /enrich` with a bogus `external_id` returns a non-2xx (not a
    crash, not a 2xx with garbage).
 7. **Caps** — no response exceeds 1 MiB; no single value exceeds 4096 chars; the candidate
@@ -510,6 +587,15 @@ A conforming provider should satisfy each of these:
 8. **No secrets** — grep responses and logs: no upstream credential ever appears.
 9. **Timeout** — every endpoint answers within 8 s even under a slow upstream (bound your own
    upstream calls and return a non-2xx rather than hanging).
+10. **No-photo omits assets** — `POST /enrich` for a person with no portrait **omits** the
+    `assets` key entirely (does not send `[]`).
+11. **Asset URL fetchable** — the asset `url` is absolute, retrievable **anonymously** (no
+    embedded credential), `https` if cross-host, and resolves with **no cross-host redirect**;
+    its host is your `base_url` host or one you document for operators to put in `asset_hosts`.
+12. **Asset is a bounded raster** — the asset is a JPEG/PNG (not SVG/HTML/PDF), under 16 MiB,
+    with a longest edge ≤ 4096 px.
+13. **Degradation order** — under an oversized response, `assets` is shed before any `fields`
+    value.
 
 A reasonable acceptance gate is to point a Holodex instance at the container
 (`metadata-sources.yaml` entry, `enabled: true`), run an end-to-end enrich of one Person, and
@@ -552,8 +638,18 @@ sources:
   - name: acme
     base_url: http://holodex-acme:9100   # the Compose service name on the internal network
     entity_types: [person]
+    asset_hosts: [cdn.acme.example]      # OPTIONAL: extra image hosts to allow (see below)
     enabled: true
 ```
+
+**`asset_hosts` (asset download allowlist).** Holodex fetches an `assets[].url` only from
+your `base_url` host *or* a host listed here — this is the **operator's** explicit trust
+decision, never taken from your provider response. **If your portraits live on a CDN host
+different from your sidecar** (e.g. a TMDB-backed provider serving from `image.tmdb.org`),
+the operator **must** add that host here or the photo fetch is refused. So your provider docs
+should state exactly which image host(s) to list. Omit `asset_hosts` if you serve images from
+your own `base_url` host (then no extra config is needed). Hosts are matched **exactly** (no
+wildcards).
 
 **(c) Activate** without restarting Holodex: `POST /api/v1/admin/reload-config` (with the
 admin token if one is set). The owner-only "Enrich from `<name>`" action then appears on the
@@ -574,6 +670,12 @@ truth if a clarification is needed:
   provider protocol, registry/allowlist, shadow store, People v1 slice.
 - **ADR-033** — Metadata source plugins ([`docs/architecture/ADR-033-metadata-source-plugins.md`](../architecture/ADR-033-metadata-source-plugins.md)):
   the sidecar decision, SSRF perimeter, untrusted-response handling, on-demand-only posture.
+- **ADR-038** — Person images ([`docs/architecture/ADR-038-person-images.md`](../architecture/ADR-038-person-images.md)):
+  the on-disk image store and the ingest normalizer (decode → bound → re-encode → strip) that
+  every downloaded asset passes through.
+- **ADR-039** — Provider asset URLs ([`docs/architecture/ADR-039-provider-asset-urls.md`](../architecture/ADR-039-provider-asset-urls.md)):
+  the asset object schema, `asset_kinds` advertisement, and the operator-configured
+  `asset_hosts` download allowlist this section ([§4.3](#43-assets)) specifies.
 - **Worked example** — TMDB provider spec ([`docs/specs/tmdb-provider.md`](tmdb-provider.md)):
   this same contract mapped onto a real upstream (TMDB), with a concrete field-mapping table.
 - **Reference stub** — `testdata/enrich-stub/` (Node, dependency-free): the worked contract
