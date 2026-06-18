@@ -23,6 +23,7 @@
 	--color-accent: var(--accent);
 	--color-accent-ink: var(--accent-ink);
 	--color-warn: var(--warn);
+	--color-warn-ink: var(--warn-ink);
 	--font-display: var(--font-display);
 	--font-ui: var(--font-ui);
 	--radius-theme: var(--radius);
@@ -50,6 +51,7 @@
 	--accent: #e8a33d;
 	--accent-ink: #1a1206;
 	--warn: #e2603f; /* distinct from the gold accent — error/attention only */
+	--warn-ink: #fdf1ee; /* readable ink on a solid --warn fill (destructive CTA) */
 	--font-display: 'Fraunces Variable', serif;
 	--font-ui: 'Archivo Variable', sans-serif;
 	--radius: 2px;
@@ -66,6 +68,7 @@
 	--accent: #36e0d0;
 	--accent-ink: #04121a;
 	--warn: #ff6f61; /* coral red — reads as alert against the cyan accent */
+	--warn-ink: #0a0610; /* dark ink reads on the lighter coral fill */
 	--font-display: 'VT323', monospace;
 	--font-ui: 'Share Tech Mono', monospace;
 	--radius: 0px;
@@ -82,6 +85,7 @@
 	--accent: #d6ff3f;
 	--accent-ink: #0a0a0a;
 	--warn: #ff5e3a; /* hot red-orange — distinct from the lime accent */
+	--warn-ink: #0a0a0a; /* near-black ink reads on the hot red-orange fill */
 	--font-display: 'Spline Sans Mono Variable', monospace;
 	--font-ui: 'Spline Sans Mono Variable', monospace;
 	--radius: 0px;

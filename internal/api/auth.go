@@ -60,5 +60,12 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, struct {
 		Owner        bool `json:"owner"`
 		AuthRequired bool `json:"auth_required"`
-	}{Owner: h.auth.authorized(r), AuthRequired: h.auth.Required()})
+		// DeleteGracePeriodSeconds drives the delete-confirm copy ("…in N days") and
+		// the Trash purge-window text (F24, ADR-037); 0 = auto-purge disabled.
+		DeleteGracePeriodSeconds int `json:"delete_grace_period_seconds"`
+	}{
+		Owner:                    h.auth.authorized(r),
+		AuthRequired:             h.auth.Required(),
+		DeleteGracePeriodSeconds: int(h.deleteGrace.Seconds()),
+	})
 }

@@ -345,6 +345,16 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		s.log.Warn("stat lookup failed", "path", path, "err", err)
 		return
 	}
+	// Owner soft-delete (F24, ADR-037) is orthogonal to disk presence: leave a
+	// soft-deleted row exactly as-is and record it as seen so end-of-scan
+	// reconciliation never deactivates it — and crucially so the #26 reactivation
+	// fast-path below can't resurrect it. The purge job (not the scanner) is the
+	// only thing that removes a soft-deleted row.
+	if ok && prev.Deleted {
+		st.incSkipped()
+		st.recordSeen(prev.ID)
+		return
+	}
 	if ok && prev.Size == info.Size() && prev.Mtime.Equal(mtime) {
 		// Unchanged but still present. If a prior pass deactivated the row (e.g. a
 		// transient empty/unreadable walk), reactivate it cheaply — the metadata is

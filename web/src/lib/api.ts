@@ -21,6 +21,7 @@ import type {
 	RelatedResponse,
 	SearchResponse,
 	Tag,
+	TrashEntry,
 	Video
 } from './types';
 
@@ -252,5 +253,19 @@ export const api = {
 	// Merge `fromId` into `canonicalId`: the from-person's videos move to canonical,
 	// its name becomes an alias, and it is deleted. Returns the updated canonical.
 	mergePersons: (canonicalId: number, fromId: number) =>
-		sendAuthed<{ person: Person }>('POST', `/people/${canonicalId}/merge`, { from_id: fromId })
+		sendAuthed<{ person: Person }>('POST', `/people/${canonicalId}/merge`, { from_id: fromId }),
+
+	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
+	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace
+	// period); { purge: true } hard-deletes now, bypassing the grace period.
+	deleteMedia: (id: number, opts?: { purge?: boolean }) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/media/${id}${opts?.purge ? '?purge=true' : ''}`
+		),
+
+	restoreMedia: (id: number) =>
+		sendAuthed<{ video: Video }>('POST', `/media/${id}/restore`),
+
+	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`)
 };

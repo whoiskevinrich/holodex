@@ -65,7 +65,8 @@ export function formatAgo(iso?: string | null): string {
 	return `${Math.floor(h / 24)}d ago`;
 }
 
-// formatUntil renders a future ISO timestamp as "in 4m" (or "due now").
+// formatUntil renders a future ISO timestamp as "in 4m" / "in 6h" / "in 5d"
+// (or "due now"). Scales past minutes so a multi-day purge window reads sanely.
 export function formatUntil(iso?: string | null): string {
 	if (!iso) return '';
 	const t = new Date(iso).getTime();
@@ -73,7 +74,11 @@ export function formatUntil(iso?: string | null): string {
 	const s = Math.round((t - Date.now()) / 1000);
 	if (s <= 0) return 'due now';
 	if (s < 60) return `in ${s}s`;
-	return `in ${Math.floor(s / 60)}m`;
+	const m = Math.floor(s / 60);
+	if (m < 60) return `in ${m}m`;
+	const h = Math.floor(m / 60);
+	if (h < 24) return `in ${h}h`;
+	return `in ${Math.floor(h / 24)}d`;
 }
 
 // formatDurMs renders a millisecond duration compactly ("120ms", "8.4s", "1m 12s").

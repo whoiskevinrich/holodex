@@ -109,12 +109,12 @@ func (r *Repo) LibraryCounts(ctx context.Context) (LibraryCounts, error) {
 	var c LibraryCounts
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
-		  (SELECT COUNT(*) FROM videos WHERE active = 1),
-		  (SELECT COUNT(*) FROM videos WHERE active = 0),
+		  (SELECT COUNT(*) FROM videos WHERE active = 1 AND deleted_at IS NULL),
+		  (SELECT COUNT(*) FROM videos WHERE active = 0 AND deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vp.person_id) FROM video_people vp
-		     JOIN videos v ON v.id = vp.video_id AND v.active = 1),
+		     JOIN videos v ON v.id = vp.video_id AND v.active = 1 AND v.deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vt.tag_id) FROM video_tags vt
-		     JOIN videos v ON v.id = vt.video_id AND v.active = 1)`).
+		     JOIN videos v ON v.id = vt.video_id AND v.active = 1 AND v.deleted_at IS NULL)`).
 		Scan(&c.VideosActive, &c.VideosInactive, &c.People, &c.Tags)
 	if err != nil {
 		return LibraryCounts{}, fmt.Errorf("library counts: %w", err)

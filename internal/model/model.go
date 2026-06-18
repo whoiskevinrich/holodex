@@ -161,6 +161,7 @@ const (
 const (
 	JobKindScan   = "scan"
 	JobKindEnrich = "enrich"
+	JobKindPurge  = "purge" // grace-period hard-delete sweep (F24, ADR-037)
 	JobStatusOK   = "success"
 	JobStatusErr  = "error"
 )

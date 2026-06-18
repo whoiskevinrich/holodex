@@ -171,6 +171,11 @@
 		<span class="flex items-center gap-3 border-l border-rule pl-3">
 			<a href="/keys" class="hover:text-ink">Keys</a>
 			<a href="/status" class="hover:text-ink">Status</a>
+			<!-- Trash is owner-only (F24): the link renders only for the owner; the page
+			     and API are independently gated. -->
+			{#if activity.isOwner}
+				<a href="/trash" class="hover:text-ink">Trash</a>
+			{/if}
 		</span>
 
 		<ActivityIndicator />

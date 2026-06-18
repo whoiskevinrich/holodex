@@ -28,6 +28,7 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
 	"holodex/internal/personimage"
+	"holodex/internal/purge"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
@@ -223,6 +224,17 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
+	// Soft-delete purge job (F24, ADR-037): a dedicated ticker that hard-deletes
+	// items whose grace has expired — independent of the scanner's clock and runs
+	// even when scanning is disabled. Records each pass in the activity history.
+	purgeCfg := purge.Config{
+		Grace:       time.Duration(cfg.DeleteGracePeriodSeconds) * time.Second,
+		Interval:    time.Duration(cfg.PurgeIntervalSeconds) * time.Second,
+		RemoveFiles: cfg.DeleteRemoveFiles,
+	}
+	purger := purge.New(repository, purgeCfg, log)
+	handlers.SetDelete(purger, purgeCfg.Grace)
+
 	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user
 	// zero-config default; on a non-loopback bind that means the admin surface is
 	// reachable without a token — warn loudly (fail-loud condition 1).
@@ -259,6 +271,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
+	go purger.Run(ctx)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).

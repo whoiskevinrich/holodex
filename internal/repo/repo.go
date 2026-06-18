@@ -46,18 +46,23 @@ type VideoStat struct {
 	Size   int64
 	Mtime  time.Time
 	Active bool
+	// Deleted is true when the owner soft-deleted the row (F24, ADR-037). The
+	// scanner short-circuits a soft-deleted row before the change-detection
+	// fast-path so a delete is never undone by a re-scan of a still-present file.
+	Deleted bool
 }
 
-// StatByPath returns the stored (id, size, mtime, active) for a canonical path, or
-// ok=false if the file has never been indexed.
+// StatByPath returns the stored (id, size, mtime, active, deleted) for a canonical
+// path, or ok=false if the file has never been indexed.
 func (r *Repo) StatByPath(ctx context.Context, path string) (VideoStat, bool, error) {
 	var (
 		st       VideoStat
 		mtimeStr string
 	)
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, file_size, file_mtime, active FROM videos WHERE file_path = ?`, path,
-	).Scan(&st.ID, &st.Size, &mtimeStr, &st.Active)
+		`SELECT id, file_size, file_mtime, active, deleted_at IS NOT NULL
+		   FROM videos WHERE file_path = ?`, path,
+	).Scan(&st.ID, &st.Size, &mtimeStr, &st.Active, &st.Deleted)
 	if errors.Is(err, sql.ErrNoRows) {
 		return VideoStat{}, false, nil
 	}
@@ -106,6 +111,9 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 			indexed_at   = excluded.indexed_at,
 			file_mtime   = excluded.file_mtime,
 			active       = 1`,
+		// NB: deleted_at is deliberately NOT in the UPDATE set — a soft-deleted row
+		// whose file changes on disk stays soft-deleted (F24/ADR-037). The scanner
+		// also short-circuits soft-deleted rows before reaching here.
 		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
 		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
 		recorded, now, v.FileMtime.UTC().Format(timeLayout),
@@ -343,7 +351,11 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 func (f VideoFilter) build() (string, []any) {
 	var clauses []string
 	var args []any
-	clauses = append(clauses, "v.active = 1")
+	// Library visibility: a row is visible only when on disk (active, ADR-018) AND
+	// not owner-soft-deleted (deleted_at NULL, F24/ADR-037). This is the central
+	// read-path seam every list/count/search surface flows through; the by-id reads
+	// (GetVideo/PathByID/Related subject) carry the same `deleted_at IS NULL` guard.
+	clauses = append(clauses, "v.active = 1 AND v.deleted_at IS NULL")
 
 	if q := strings.TrimSpace(f.Query); q != "" {
 		clauses = append(clauses, "v.id IN (SELECT rowid FROM videos_fts WHERE videos_fts MATCH ?)")
@@ -410,13 +422,15 @@ func (f VideoFilter) build() (string, []any) {
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
-// GetVideo returns a single active-or-inactive video with its people, tags, and
-// raw metadata, or ErrNotFound.
+// GetVideo returns a single (active-or-inactive) non-soft-deleted video with its
+// people, tags, and raw metadata, or ErrNotFound. A soft-deleted row 404s here
+// just as it is absent from every list surface (F24.2/ADR-037 §4).
 func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, file_path, file_size, title, duration_sec, width, height,
 		        video_codec, audio_codec, bitrate_kbps, container,
-		        recorded_at, indexed_at, file_mtime, thumbnail_state FROM videos WHERE id = ?`, id)
+		        recorded_at, indexed_at, file_mtime, thumbnail_state
+		   FROM videos WHERE id = ? AND deleted_at IS NULL`, id)
 	v, err := scanVideo(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, ErrNotFound
@@ -439,7 +453,11 @@ func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.Ex
 // handler so clients never supply paths (ADR-015 security).
 func (r *Repo) PathByID(ctx context.Context, id int64) (string, error) {
 	var path string
-	err := r.db.QueryRowContext(ctx, `SELECT file_path FROM videos WHERE id = ?`, id).Scan(&path)
+	// Soft-deleted rows 404 from streaming too — the bytes are hidden during the
+	// grace window (F24/ADR-037 §4). The purge job reads the path via PurgePath,
+	// which deliberately ignores deleted_at.
+	err := r.db.QueryRowContext(ctx,
+		`SELECT file_path FROM videos WHERE id = ? AND deleted_at IS NULL`, id).Scan(&path)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
 	}
@@ -490,7 +508,7 @@ func (r *Repo) ThumbnailBackfillCandidates(ctx context.Context, limit int) ([]Th
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, file_path, duration_sec FROM videos
-		WHERE active = 1 AND (thumbnail_state IS NULL OR thumbnail_state = ?)
+		WHERE active = 1 AND deleted_at IS NULL AND (thumbnail_state IS NULL OR thumbnail_state = ?)
 		ORDER BY indexed_at DESC, id DESC LIMIT ?`, model.ThumbnailFailed, limit)
 	if err != nil {
 		return nil, fmt.Errorf("thumbnail backfill candidates: %w", err)
@@ -614,7 +632,7 @@ func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetVal
 	}
 	q := `SELECT m.value, COUNT(DISTINCT m.video_id) AS cnt
 	      FROM video_metadata m
-	      JOIN videos v ON v.id = m.video_id AND v.active = 1
+	      JOIN videos v ON v.id = m.video_id AND v.active = 1 AND v.deleted_at IS NULL
 	      WHERE m.source_key COLLATE NOCASE IN (` + placeholders(len(sourceKeys)) + `)
 	      GROUP BY m.value ORDER BY cnt DESC, m.value COLLATE NOCASE`
 	rows, err := r.db.QueryContext(ctx, q, toAnySlice(sourceKeys)...)
@@ -650,7 +668,7 @@ func (r *Repo) MetadataKeys(ctx context.Context, sampleLimit int) ([]MetadataKey
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT m.source_key, COUNT(DISTINCT m.video_id) AS cnt
 		FROM video_metadata m
-		JOIN videos v ON v.id = m.video_id AND v.active = 1
+		JOIN videos v ON v.id = m.video_id AND v.active = 1 AND v.deleted_at IS NULL
 		GROUP BY m.source_key COLLATE NOCASE
 		ORDER BY cnt DESC, m.source_key COLLATE NOCASE`)
 	if err != nil {
@@ -730,7 +748,7 @@ func namedCountQuery(table, junction, fk string, sortByCount bool) string {
 		SELECT e.id, e.name, COUNT(j.video_id) AS cnt
 		FROM %s e
 		JOIN %s j     ON j.%s = e.id
-		JOIN videos v ON v.id = j.video_id AND v.active = 1
+		JOIN videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
 		GROUP BY e.id, e.name
 		ORDER BY %s`, table, junction, fk, order)
 }
@@ -778,7 +796,7 @@ func (r *Repo) GetPerson(ctx context.Context, id int64) (*model.Person, error) {
 	err := r.db.QueryRowContext(ctx, `
 		SELECT p.id, p.name,
 		       (SELECT COUNT(*) FROM video_people vp JOIN videos v ON v.id = vp.video_id
-		        WHERE vp.person_id = p.id AND v.active = 1)
+		        WHERE vp.person_id = p.id AND v.active = 1 AND v.deleted_at IS NULL)
 		FROM people p WHERE p.id = ?`, id).Scan(&p.ID, &p.Name, &p.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -811,7 +829,7 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	err := r.db.QueryRowContext(ctx, `
 		SELECT t.id, t.name,
 		       (SELECT COUNT(*) FROM video_tags vt JOIN videos v ON v.id = vt.video_id
-		        WHERE vt.tag_id = t.id AND v.active = 1)
+		        WHERE vt.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL)
 		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &t.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -847,9 +865,11 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 	if limit <= 0 {
 		limit = 5
 	}
+	// The subject item must itself be visible (on disk, not soft-deleted) — a
+	// soft-deleted item has no "more with" shelves, consistent with its 404 detail.
 	var active int
 	switch err := r.db.QueryRowContext(ctx,
-		`SELECT active FROM videos WHERE id = ?`, videoID).Scan(&active); {
+		`SELECT active FROM videos WHERE id = ? AND deleted_at IS NULL`, videoID).Scan(&active); {
 	case errors.Is(err, sql.ErrNoRows):
 		return nil, ErrNotFound
 	case err != nil:
@@ -869,7 +889,7 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 		JOIN video_people vp ON vp.person_id = p.id
 		WHERE vp.video_id = ?
 		ORDER BY (SELECT COUNT(*) FROM video_people vp2 JOIN videos v ON v.id = vp2.video_id
-		          WHERE vp2.person_id = p.id AND v.active = 1) DESC,
+		          WHERE vp2.person_id = p.id AND v.active = 1 AND v.deleted_at IS NULL) DESC,
 		         p.id ASC
 		LIMIT 1`); err != nil {
 		return nil, err
@@ -882,12 +902,12 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 		SELECT id, name FROM (
 			SELECT t.id AS id, t.name AS name,
 			       (SELECT COUNT(*) FROM video_tags vt2 JOIN videos v ON v.id = vt2.video_id
-			        WHERE vt2.tag_id = t.id AND v.active = 1) AS cnt
+			        WHERE vt2.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL) AS cnt
 			FROM tags t
 			JOIN video_tags vt ON vt.tag_id = t.id
 			WHERE vt.video_id = ?
 		)
-		CROSS JOIN (SELECT COUNT(*) AS total FROM videos WHERE active = 1) AS n
+		CROSS JOIN (SELECT COUNT(*) AS total FROM videos WHERE active = 1 AND deleted_at IS NULL) AS n
 		ORDER BY (cnt * (1.0 - cnt * 1.0 / n.total)) DESC, cnt DESC, id ASC
 		LIMIT 1`); err != nil {
 		return nil, err
@@ -926,7 +946,7 @@ func (r *Repo) randomSiblings(ctx context.Context, junction, fk string, keyID, e
 	             v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
 	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v
-	      WHERE v.active = 1 AND v.id != ?
+	      WHERE v.active = 1 AND v.deleted_at IS NULL AND v.id != ?
 	        AND EXISTS (SELECT 1 FROM ` + junction + ` j WHERE j.video_id = v.id AND j.` + fk + ` = ?)
 	      ORDER BY RANDOM() LIMIT ?`
 	rows, err := r.db.QueryContext(ctx, q, excludeID, keyID, limit)
