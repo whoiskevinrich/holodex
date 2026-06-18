@@ -1,6 +1,6 @@
 # ADR-039: Provider asset URLs — contract clarification + operator-configured asset-host allowlist
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-06-16
 **Deciders**: Project owner
 **Relates to**: spec [Metadata Provider Contract](../specs/metadata-provider-contract.md) (the external-facing hand-off spec); extends [ADR-033](ADR-033-metadata-source-plugins.md) (metadata source plugins — provider protocol & SSRF perimeter) and [ADR-038](ADR-038-person-images.md) (person images — the asset-fetch that consumes provider URLs). Responds to an external provider team's RFC, "Specify how photo (and other asset) URLs are returned".
