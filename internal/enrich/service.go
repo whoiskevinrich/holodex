@@ -220,20 +220,27 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	return s.Fields(ctx, entityType, entityID)
 }
 
-// downloadAssets fetches each provider image asset through the SSRF-guarded asset
-// client and stores it via the image sink (F25, ADR-038). Each asset is independent:
-// one bad URL/host/decode is skipped, the rest proceed. Nothing is stored when the
-// fetch or normalize fails (the sink normalizes; a normalize error means no write).
+// downloadAssets fetches provider image assets through the SSRF-guarded asset client
+// and stores them via the image sink (F25, ADR-038 / ADR-039). Within a role the
+// assets array is preference-ordered (most-preferred first), so the FIRST one that
+// successfully fetches and stores wins and the rest for that role are skipped — a
+// provider can list fallbacks without Holodex storing duplicates into a single-slot
+// core role. Each asset is independent: one bad URL/host/decode is skipped, the rest
+// proceed. Nothing is stored when the fetch or normalize fails.
 func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
 	fetcher := s.newAssetGet(src)
+	filled := make(map[string]bool) // roles already stored — first success per role wins
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
 		if !ok {
 			continue // unknown asset kind — don't guess a role
+		}
+		if filled[role] {
+			continue // a higher-preference asset already filled this role (ADR-039 §5)
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
@@ -242,7 +249,9 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		}
 		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
 			s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+			continue
 		}
+		filled[role] = true
 	}
 }
 

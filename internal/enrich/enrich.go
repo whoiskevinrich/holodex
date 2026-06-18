@@ -32,7 +32,12 @@ type Source struct {
 	Name        string   `yaml:"name"`
 	BaseURL     string   `yaml:"base_url"`
 	EntityTypes []string `yaml:"entity_types"`
-	Enabled     bool     `yaml:"enabled"`
+	// AssetHosts is the operator's per-source allowlist of extra hosts the asset
+	// fetch may target beyond base_url's own host (ADR-039) — e.g. a CDN like
+	// image.tmdb.org. Trust comes only from this config, never from a provider
+	// response. Empty means assets may come only from the base_url host.
+	AssetHosts []string `yaml:"asset_hosts"`
+	Enabled    bool     `yaml:"enabled"`
 }
 
 // Supports reports whether the source advertises an entity type (case-insensitive).
@@ -70,6 +75,7 @@ func parse(data []byte) (*Registry, error) {
 		if s.Name == "" || s.BaseURL == "" {
 			continue // skip malformed entries rather than failing the whole load
 		}
+		s.AssetHosts = normalizeHosts(s.AssetHosts)
 		reg.sources = append(reg.sources, s)
 	}
 	return reg, nil
@@ -157,6 +163,11 @@ type Manifest struct {
 	EntityTypes     []string `json:"entity_types"`
 	IDNamespaces    []string `json:"id_namespaces"`
 	Fields          []string `json:"fields"`
+	// AssetKinds advertises the binary asset kinds the provider can supply (ADR-039),
+	// parallel to Fields. Advisory/display only — Holodex does not gate the asset
+	// fetch on it (an unknown kind is skipped at download time). A provider that still
+	// lists "photo" in Fields is tolerated during the deprecation window.
+	AssetKinds []string `json:"asset_kinds"`
 }
 
 // Hint is the identity input to a resolve call: embedded external ids (the
@@ -177,15 +188,15 @@ type Candidate struct {
 }
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and
-// optional asset URLs. Asset download (e.g. person photos) is deferred (ADR-033
-// non-goal for v1 — see Phase 3 F14.3), so Assets is parsed but not yet fetched.
+// optional asset URLs. Image assets are downloaded through the SSRF-guarded asset
+// client and stored as person images (F25, ADR-038/ADR-039).
 type EnrichResult struct {
 	Fields map[string][]string `json:"fields"`
 	Assets []Asset             `json:"assets,omitempty"`
 }
 
-// Asset is a binary the provider can supply (e.g. a portrait). Reserved; not
-// fetched in v1.
+// Asset is a binary the provider can supply (e.g. a portrait). Kind maps to a
+// person-image role via assetRoleFor; an unknown kind is skipped at download time.
 type Asset struct {
 	Kind string `json:"kind"`
 	URL  string `json:"url"`

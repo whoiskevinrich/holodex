@@ -19,6 +19,14 @@
 #                 core never follows a provider response to any other host.
 #   entity_types  what the provider can enrich; v1 supports [person]
 #                 (series/video reuse the same design later)
+#   asset_hosts   OPTIONAL extra image hosts the asset download may fetch from, beyond
+#                 base_url's own host (ADR-039). Core fetches a provider portrait URL
+#                 only from base_url's host OR a host listed here — this is YOUR
+#                 explicit trust decision, never taken from the provider's response.
+#                 Needed when a provider serves images from a CDN host different from
+#                 its sidecar (e.g. a TMDB provider → image.tmdb.org). Matched exactly
+#                 (no wildcards); cross-host URLs must be https. Omit if the provider
+#                 serves images from its own base_url host.
 #   enabled       false keeps it configured-but-off; flip to true once the sidecar
 #                 is running and reachable at base_url
 
@@ -26,6 +34,7 @@ sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100
     entity_types: [person]
+    asset_hosts: [image.tmdb.org]   # the TMDB image CDN (portraits live here, not on the sidecar)
     enabled: false
 
   # --- Local manual-QA stub (no network/keys) ---

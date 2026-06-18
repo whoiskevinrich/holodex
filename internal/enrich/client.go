@@ -29,21 +29,25 @@ func newHTTPClient(src Source) *httpClient {
 	return &httpClient{
 		base: src.base(),
 		hc: &http.Client{
-			Timeout: requestTimeout,
-			// Disallow cross-host redirects: a 30x to another host is treated as the
-			// final response (not followed), closing the SSRF redirect vector. Same-host
-			// redirects (rare for an API) are still followed.
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) > 0 && req.URL.Host != via[0].URL.Host {
-					return http.ErrUseLastResponse
-				}
-				if len(via) >= 5 {
-					return http.ErrUseLastResponse
-				}
-				return nil
-			},
+			Timeout:       requestTimeout,
+			CheckRedirect: refuseCrossHostRedirect,
 		},
 	}
+}
+
+// refuseCrossHostRedirect is the shared SSRF redirect policy for both enrich HTTP
+// clients (the provider API client and the asset fetcher): a 30x to a host other
+// than the original request's is treated as the final response (not followed),
+// closing the redirect vector, and the hop count is capped. Same-host redirects
+// (rare) are still followed.
+func refuseCrossHostRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) > 0 && req.URL.Host != via[0].URL.Host {
+		return http.ErrUseLastResponse
+	}
+	if len(via) >= 5 {
+		return http.ErrUseLastResponse
+	}
+	return nil
 }
 
 // base normalizes the configured URL to have no trailing slash.

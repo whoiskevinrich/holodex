@@ -260,6 +260,26 @@ func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, prov
 	return nil
 }
 
+// fakeWithAssets returns a fake provider whose tmdb:608 person carries the given assets.
+func fakeWithAssets(assets ...Asset) *Fake {
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = assets
+	fake.People["tmdb:608"] = rec
+	return fake
+}
+
+// newAssetSvc wires a service with a recording sink and a passthrough (no-allowlist)
+// asset fetcher — the orchestration harness for the asset-download tests. The real
+// SSRF host-pinning is unit-tested separately (TestAssetClientSSRF / …AssetHosts…).
+func newAssetSvc(t *testing.T, fake *Fake) (*Service, *recordingSink) {
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+	return svc, sink
+}
+
 // A person enrich run with image assets fetches each through the (test-injected)
 // SSRF-guarded asset client and stores it via the sink, mapping kinds → core roles.
 func TestEnrichDownloadsAssets(t *testing.T) {
@@ -270,21 +290,12 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	fake := NewFake("fake")
-	rec := fake.People["tmdb:608"]
-	rec.Assets = []Asset{
-		{Kind: "photo", URL: origin.URL + "/p.jpg"},
-		{Kind: "banner", URL: origin.URL + "/b.jpg"},
-		{Kind: "mystery", URL: origin.URL + "/x.jpg"}, // unknown kind → skipped
-	}
-	fake.People["tmdb:608"] = rec
-
-	svc, _ := newSvc(t, fake)
-	sink := &recordingSink{}
-	svc.SetImageSink(sink)
-	// Inject an asset fetcher that just GETs the URL (the SSRF host-pinning is unit-
-	// tested separately in TestAssetClientSSRF); here we exercise the orchestration.
-	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+	fake := fakeWithAssets(
+		Asset{Kind: "photo", URL: origin.URL + "/p.jpg"},
+		Asset{Kind: "banner", URL: origin.URL + "/b.jpg"},
+		Asset{Kind: "mystery", URL: origin.URL + "/x.jpg"}, // unknown kind → skipped
+	)
+	svc, sink := newAssetSvc(t, fake)
 
 	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
 		t.Fatalf("enrich: %v", err)
@@ -353,10 +364,7 @@ func TestAssetClientSSRF(t *testing.T) {
 
 // A failed asset fetch never fails the field enrichment (best-effort, guarded).
 func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
-	fake := NewFake("fake")
-	rec := fake.People["tmdb:608"]
-	rec.Assets = []Asset{{Kind: "photo", URL: "http://unreachable.invalid/x.jpg"}}
-	fake.People["tmdb:608"] = rec
+	fake := fakeWithAssets(Asset{Kind: "photo", URL: "http://unreachable.invalid/x.jpg"})
 
 	svc, _ := newSvc(t, fake)
 	svc.SetImageSink(&recordingSink{})
@@ -368,6 +376,109 @@ func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
 	}
 	if len(fields) == 0 {
 		t.Error("fields empty despite successful field enrichment")
+	}
+}
+
+// asset_hosts (ADR-039): an operator-allowlisted CDN host is fetchable over https,
+// a host that isn't listed is refused, and a cross-host asset over plain http is
+// refused (https required off the base_url host).
+func TestAssetClientAssetHostsAllowlist(t *testing.T) {
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("cdn-bytes"))
+	}))
+	defer cdn.Close()
+	cdnHost := cdn.Listener.Addr().String()
+
+	// Sidecar at one host; the CDN host operator-allowlisted via asset_hosts.
+	c := newAssetClient(Source{BaseURL: "http://provider.example:9100", AssetHosts: []string{cdnHost}})
+	c.hc = cdn.Client() // trust the test TLS cert — the allowlist logic is what we assert
+
+	got, err := c.Fetch(context.Background(), cdn.URL+"/portrait.jpg")
+	if err != nil {
+		t.Fatalf("allowlisted https CDN fetch should succeed: %v", err)
+	}
+	if string(got) != "cdn-bytes" {
+		t.Errorf("fetched %q, want cdn-bytes", got)
+	}
+
+	// A host that is neither base_url nor in asset_hosts is refused before any request.
+	if _, err := c.Fetch(context.Background(), "https://not-listed.example/x.jpg"); err == nil {
+		t.Error("expected refusal of a host not on the allowlist")
+	}
+
+	// The allowlisted CDN host over plain http is refused — https is required off the
+	// base_url host.
+	if _, err := c.Fetch(context.Background(), "http://"+cdnHost+"/x.jpg"); err == nil {
+		t.Error("expected refusal of a cross-host http asset (https required)")
+	}
+}
+
+// Within a role the assets array is preference-ordered: the first that fetches+stores
+// wins and later same-role assets are skipped; a different role still fills (ADR-039 §5).
+func TestEnrichAssetDedupPerRole(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(r.URL.Path)) // echo the path so the sink's byte count identifies the asset
+	}))
+	defer origin.Close()
+
+	fake := fakeWithAssets(
+		Asset{Kind: "photo", URL: origin.URL + "/first.jpg"},  // headshot — wins
+		Asset{Kind: "photo", URL: origin.URL + "/second.jpg"}, // headshot — skipped (already filled)
+		Asset{Kind: "banner", URL: origin.URL + "/banner.jpg"},
+	)
+	svc, sink := newAssetSvc(t, fake)
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 7, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 2 {
+		t.Fatalf("stored %d, want 2 (one headshot + one banner): %+v", len(sink.stored), sink.stored)
+	}
+	for _, a := range sink.stored {
+		if a.role == model.PersonImageHeadshot && a.bytes != len("/first.jpg") {
+			t.Errorf("headshot kept %d bytes, want first.jpg (%d) — dedup picked the wrong asset", a.bytes, len("/first.jpg"))
+		}
+	}
+}
+
+// A failed fetch does not fill the role, so the next same-role asset is the fallback.
+func TestEnrichAssetRoleFallbackOnFailure(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+
+	fake := fakeWithAssets(
+		Asset{Kind: "photo", URL: "http://unreachable.invalid/first.jpg"}, // fails → role unfilled
+		Asset{Kind: "photo", URL: origin.URL + "/second.jpg"},             // fallback → stored
+	)
+	svc, sink := newAssetSvc(t, fake)
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 8, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 || sink.stored[0].role != model.PersonImageHeadshot {
+		t.Fatalf("want 1 headshot from the fallback, got %+v", sink.stored)
+	}
+}
+
+// asset_hosts entries are trimmed, lowercased, and de-emptied on config load (ADR-039).
+func TestParseNormalizesAssetHosts(t *testing.T) {
+	reg, err := parse([]byte("sources:\n" +
+		"  - name: tmdb\n" +
+		"    base_url: http://holodex-tmdb:9100\n" +
+		"    entity_types: [person]\n" +
+		"    asset_hosts: [\"  Image.TMDB.org  \", \"\", cdn.example]\n" +
+		"    enabled: true\n"))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	src, ok := reg.ByName("tmdb")
+	if !ok {
+		t.Fatal("tmdb source not found")
+	}
+	if len(src.AssetHosts) != 2 || src.AssetHosts[0] != "image.tmdb.org" || src.AssetHosts[1] != "cdn.example" {
+		t.Errorf("asset_hosts = %v, want [image.tmdb.org cdn.example]", src.AssetHosts)
 	}
 }
 
