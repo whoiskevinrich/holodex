@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { activity } from '$lib/activity.svelte';
 	import type { ExtraMetadata, MappedField, RelatedResponse, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -17,7 +20,38 @@
 	let regenerating = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 
+	// Owner-only delete (F24, ADR-037). confirmMode drives which confirm dialog shows.
+	let confirmMode = $state<'soft' | 'purge' | null>(null);
+	let deleteBusy = $state(false);
+	let deleteError = $state('');
+
 	const id = $derived(Number($page.params.id));
+
+	const graceDays = $derived(
+		activity.caps?.delete_grace_period_seconds
+			? Math.round(activity.caps.delete_grace_period_seconds / 86400)
+			: 0
+	);
+
+	function openConfirm(mode: 'soft' | 'purge') {
+		deleteError = '';
+		confirmMode = mode;
+	}
+
+	async function confirmDelete() {
+		if (!video || deleteBusy) return;
+		deleteBusy = true;
+		deleteError = '';
+		try {
+			await api.deleteMedia(video.id, { purge: confirmMode === 'purge' });
+			// The item is gone from the library — returning to the grid (where it no
+			// longer appears) is the feedback (no toast system yet, per the handoff).
+			goto('/');
+		} catch (e) {
+			deleteError = toMessage(e);
+			deleteBusy = false; // keep the dialog open so the message is visible
+		}
+	}
 
 	async function regenerateThumbnail() {
 		if (!video) return;
@@ -254,5 +288,63 @@
 		{#if related?.tag}
 			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
 		{/if}
+
+		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+		     content and the Back link so a delete is never adjacent to navigation. -->
+		{#if activity.isOwner}
+			<section class="space-y-2 border-t border-rule pt-4">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={() => openConfirm('soft')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Move to Trash
+					</button>
+					<button
+						onclick={() => openConfirm('purge')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Delete permanently
+					</button>
+				</div>
+			</section>
+		{/if}
 	</article>
+
+	{#if confirmMode === 'soft'}
+		<ConfirmDialog
+			title="Move to Trash?"
+			confirmLabel="Move to Trash"
+			busy={deleteBusy}
+			error={deleteError}
+			onconfirm={confirmDelete}
+			oncancel={() => (confirmMode = null)}
+		>
+			{#snippet body()}
+				<p>
+					<span class="font-semibold">{video?.title}</span> will be hidden from your library{graceDays
+						? ` and permanently deleted in ${graceDays} ${graceDays === 1 ? 'day' : 'days'}`
+						: ''}. You can restore it from Trash{graceDays ? ' until then' : ''}.
+				</p>
+			{/snippet}
+		</ConfirmDialog>
+	{:else if confirmMode === 'purge'}
+		<ConfirmDialog
+			title="Delete permanently?"
+			confirmLabel="Delete permanently"
+			busy={deleteBusy}
+			error={deleteError}
+			onconfirm={confirmDelete}
+			oncancel={() => (confirmMode = null)}
+		>
+			{#snippet body()}
+				<p>
+					<span class="font-semibold">{video?.title}</span> and its file will be
+					<span class="font-semibold">permanently removed</span> from disk. This cannot be undone.
+				</p>
+				<p class="truncate font-mono text-xs text-muted" title={video?.file_path}>{video?.file_path}</p>
+			{/snippet}
+		</ConfirmDialog>
+	{/if}
 {/if}

@@ -102,6 +102,7 @@ func (h *Handlers) restoreMedia(w http.ResponseWriter, r *http.Request) {
 type trashItem struct {
 	ID        int64      `json:"id"`
 	Title     string     `json:"title"`
+	Path      string     `json:"path"` // shown in the owner-only permanent-delete confirm
 	DeletedAt time.Time  `json:"deleted_at"`
 	PurgeAt   *time.Time `json:"purge_at"`
 }
@@ -116,7 +117,7 @@ func (h *Handlers) listTrash(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]trashItem, 0, len(items))
 	for _, it := range items {
-		t := trashItem{ID: it.ID, Title: it.Title, DeletedAt: it.DeletedAt}
+		t := trashItem{ID: it.ID, Title: it.Title, Path: it.FilePath, DeletedAt: it.DeletedAt}
 		if h.deleteGrace > 0 {
 			pa := it.DeletedAt.Add(h.deleteGrace)
 			t.PurgeAt = &pa

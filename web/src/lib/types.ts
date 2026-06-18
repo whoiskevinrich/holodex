@@ -89,6 +89,16 @@ export interface MediaDetailResponse {
 	fields: MappedField[] | null;
 }
 
+// A soft-deleted item in the owner's Trash view (F24, ADR-037). purge_at is null
+// when auto-purge is disabled (grace = 0) — it lingers until purged manually.
+export interface TrashEntry {
+	id: number;
+	title: string;
+	path: string;
+	deleted_at: string;
+	purge_at: string | null;
+}
+
 export interface FacetValue {
 	value: string;
 	count: number;
@@ -203,6 +213,8 @@ export interface JobRun {
 export interface Capabilities {
 	owner: boolean;
 	auth_required: boolean;
+	// Soft-delete grace window in seconds (F24); 0 = auto-purge disabled.
+	delete_grace_period_seconds: number;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
