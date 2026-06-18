@@ -361,9 +361,9 @@ Holodex treats your image as untrusted and runs every asset through a fixed pipe
 **sniff type → bound dimensions/area → decode → re-encode → strip all metadata** — then
 serves its own copy. Stay inside these so nothing is rejected or silently altered:
 
-- **Format:** supply **JPEG or PNG** (guaranteed). WebP / static GIF are likely accepted but
-  not guaranteed — confirm with maintainers. **Raster only:** **no SVG, HTML, or PDF** (these
-  are rejected as unsafe vector/markup formats).
+- **Format:** supply **JPEG, PNG, or GIF** (the formats Holodex decodes today). **WebP and AVIF
+  are not currently decoded — do not send them.** **Raster only:** **no SVG, HTML, or PDF**
+  (rejected as unsafe vector/markup formats). Holodex re-encodes whatever you send to JPEG.
 - **Size:** each asset body is capped at **16 MiB**; oversized bodies are rejected. A portrait
   is realistically well under 2 MiB.
 - **Dimensions:** Holodex bounds dimensions/pixel-area before decode (a decompression-bomb
@@ -416,7 +416,7 @@ truncated.
 | **No newlines in values** | Holodex uses newline as its multi-value separator and strips control chars; send multi-value data as separate array elements |
 | **Asset body size** | Each downloaded asset ≤ **16 MiB** (Holodex rejects beyond). A portrait is realistically < 2 MiB |
 | **Asset dimensions** | Longest edge ≤ **4096 px** (Holodex bounds dimensions/area before decode — a decompression-bomb guard); ≈1500 px is plenty for display |
-| **Asset format** | **JPEG/PNG** guaranteed (WebP/static-GIF likely); **raster only — no SVG/HTML/PDF**. Holodex re-encodes + strips metadata, so EXIF/animation/transparency are not preserved (see [§4.3](#43-assets)) |
+| **Asset format** | **JPEG/PNG/GIF** decoded today (**not** WebP/AVIF); **raster only — no SVG/HTML/PDF**. Holodex re-encodes to JPEG + strips metadata, so EXIF/animation/transparency are not preserved (see [§4.3](#43-assets)) |
 
 ---
 
