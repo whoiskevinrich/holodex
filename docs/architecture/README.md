@@ -42,6 +42,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [037](ADR-037-soft-delete-and-purge.md) | Soft-delete media — **`deleted_at` axis orthogonal to `active`** + dedicated purge job | Accepted (spec F24; extends ADR-018/028/030) |
 | [038](ADR-038-person-images.md) | Person images — **on-disk store + typed real-or-placeholder serving** + shared ingest normalization | Proposed (spec F25; extends ADR-009/030/033) |
 | [039](ADR-039-provider-asset-urls.md) | Provider asset URLs — contract clarification + **operator-configured `asset_hosts` allowlist** | Accepted (extends ADR-033/038; updates metadata-provider-contract) |
+| [040](ADR-040-tmdb-provider-repo-placement.md) | TMDB provider source placement — **monorepo `providers/tmdb/` subdirectory** | Accepted (extends ADR-033/039/023/024) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 

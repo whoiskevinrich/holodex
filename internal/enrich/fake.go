@@ -57,7 +57,8 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		ProtocolVersion: p,
 		EntityTypes:     []string{model.EnrichEntityPerson},
 		IDNamespaces:    []string{"tmdb", "imdb"},
-		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases", "photo"},
+		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases"},
+		AssetKinds:      []string{"photo"},
 	}, nil
 }
 

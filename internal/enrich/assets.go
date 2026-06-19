@@ -6,46 +6,58 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"holodex/internal/model"
 )
 
-// Asset download (F25, ADR-038 / ADR-033 F14.3). A person enrich run can return
-// asset URLs (e.g. a portrait); these are fetched through the SAME SSRF perimeter
-// as the provider's API calls and never an unguarded http.Get:
+// Asset download (F25, ADR-038 / ADR-039). A person enrich run can return asset
+// URLs (e.g. a portrait); these are fetched through the SSRF perimeter:
 //
-//   - The asset URL host must equal the provider's configured base_url host (the
-//     allowlist already vetted base_url from trusted config). A provider cannot
-//     point the fetch at an arbitrary internal address.
-//   - Cross-host redirects are refused (same CheckRedirect as the API client).
+//   - The asset URL host must be on the allowlist: the provider's own base_url host
+//     (implicit, always allowed) OR a host the operator listed in asset_hosts for
+//     this source (ADR-039 §3). A provider cannot reach an unlisted address.
+//   - Any host other than the provider's base_url host MUST use https (public CDN).
+//   - Cross-host redirects are refused (the redirect target must be re-checked).
 //   - The body is size-capped and the request timeout-bounded.
 //
 // The bytes are returned raw; the caller runs them through personimage.Normalize
 // (the metadata strip) before anything is written to disk.
 
-// maxAssetBytes caps a downloaded asset (a portrait is small; this stops a hostile
-// provider streaming an unbounded body). Larger than the JSON response cap because
+// maxAssetBytes caps a downloaded asset. Larger than the JSON response cap because
 // images legitimately exceed 1 MiB.
 const maxAssetBytes = 16 << 20 // 16 MiB
 
 // AssetClient fetches a provider asset URL under the SSRF guard. Constructed per
-// Source so it carries that source's host allowlist.
+// Source so it carries that source's per-source allowlist (ADR-039).
 type AssetClient struct {
-	allowedHost string
-	hc          *http.Client
+	baseHost     string              // provider's own base_url host; http is allowed here
+	allowedHosts map[string]struct{} // {baseHost} ∪ asset_hosts; non-base hosts require https
+	hc           *http.Client
 }
 
-// newAssetClient builds an asset fetcher pinned to the source's base_url host.
+// newAssetClient builds an asset fetcher whose host allowlist is the provider's
+// base_url host (always included) plus any operator-listed asset_hosts (ADR-039 §3).
 func newAssetClient(src Source) *AssetClient {
-	host := ""
-	if u, err := url.Parse(src.base()); err == nil {
-		host = u.Host
+	hosts := make(map[string]struct{})
+	baseHost := ""
+	if u, err := url.Parse(src.base()); err == nil && u.Host != "" {
+		baseHost = u.Host
+		hosts[u.Host] = struct{}{}
+	}
+	for _, h := range src.AssetHosts {
+		if h = strings.TrimSpace(h); h != "" {
+			hosts[h] = struct{}{}
+		}
 	}
 	return &AssetClient{
-		allowedHost: host,
+		baseHost:     baseHost,
+		allowedHosts: hosts,
 		hc: &http.Client{
 			Timeout: 15 * time.Second,
+			// Cross-host redirects stop at the 30x — the redirect target is not on the
+			// allowlist even if the origin was. Same-host redirects (≤5) are followed.
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) > 0 && req.URL.Host != via[0].URL.Host {
 					return http.ErrUseLastResponse
@@ -59,9 +71,9 @@ func newAssetClient(src Source) *AssetClient {
 	}
 }
 
-// Fetch downloads an asset URL, refusing any host other than the provider's own
-// (the SSRF allowlist) and capping the body. Returns the raw bytes for the caller
-// to normalize.
+// Fetch downloads an asset URL through the per-source SSRF guard and returns the
+// raw bytes for the caller to normalize. The host must be on the allowlist; any
+// host other than the provider's own base host additionally requires https.
 func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -70,10 +82,12 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("asset url scheme %q not allowed", u.Scheme)
 	}
-	if c.allowedHost == "" || u.Host != c.allowedHost {
-		// The provider may only serve assets from the host we already trust via its
-		// configured base_url — never bounce the fetch onto another address.
+	if _, ok := c.allowedHosts[u.Host]; !ok {
 		return nil, fmt.Errorf("asset host %q not on the provider allowlist", u.Host)
+	}
+	// Non-base hosts are public-internet CDNs; require https to prevent MitM (ADR-039 §3).
+	if u.Host != c.baseHost && u.Scheme != "https" {
+		return nil, fmt.Errorf("asset host %q requires https", u.Host)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {

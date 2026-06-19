@@ -1,16 +1,14 @@
 # Spec: TMDB Metadata Provider Sidecar
 
-**Status**: Draft (hand-off spec for an external implementation team)
+**Status**: Accepted
 **Feature block**: F22 (Metadata Source Plugins) — first real provider container
-**Audience**: A separate development team building the TMDB sidecar image in a **different repository**
+**Audience**: Implementers of the TMDB sidecar at **`providers/tmdb/`** in this repository ([ADR-040](../architecture/ADR-040-tmdb-provider-repo-placement.md))
 **Implements**: The Holodex provider HTTP contract defined by [F22 / ADR-033](#references) — protocol version **1**. This is a **worked example** of the source-neutral [Metadata Provider Contract](metadata-provider-contract.md); that document is the generic spec, this one maps it onto TMDB.
 
 > **Self-contained by design.** This document specifies everything the container
-> must do without any access to the Holodex source tree. The endpoints, request/response
-> schemas, headers, timeouts, and size caps below are the **exact** contract the Holodex
-> client enforces; conform to them and the container drops in with no Holodex code change.
-> Where the contract is genuinely unspecified, items are marked **TBD / confirm with
-> Holodex maintainers** rather than guessed.
+> must do. The endpoints, request/response schemas, headers, timeouts, and size caps
+> below are the **exact** contract the Holodex client enforces; conform to them and the
+> container drops in with no Holodex code change.
 
 ---
 
@@ -108,7 +106,8 @@ provider loudly.
   "protocol_version": 1,
   "entity_types": ["person"],
   "id_namespaces": ["tmdb", "imdb"],
-  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "photo"]
+  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "deathdate"],
+  "asset_kinds": ["photo"]
 }
 ```
 
@@ -119,7 +118,8 @@ provider loudly.
 | `protocol_version` | integer | yes | **MUST be `1`.** Holodex refuses any other major version |
 | `entity_types` | string[] | yes | v1: `["person"]` (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
-| `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Recommended: `["bio", "birthdate", "nationality", "website", "aliases", "photo"]` |
+| `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
+| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies portraits: `["photo"]` |
 
 ### 2.3 Entity type and matching fields
 
@@ -210,12 +210,13 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 | `assets[].kind` | string | yes (if asset present) | Asset kind. For a person portrait use `"photo"` |
 | `assets[].url` | string | yes (if asset present) | Absolute URL to the binary |
 
-**Asset note (load-bearing).** Holodex's v1 client **parses** `assets` but **does not
-download** them — person-photo storage is a deferred Holodex follow-up. Include the
-`assets[]` array with a `kind: "photo"` entry so it is ready when Holodex enables download,
-but do **not** depend on it being fetched in v1, and do **not** put the photo into a `fields`
-entry expecting it to render as an image (`fields` values are text). Asset URLs MUST be
-absolute, on a TMDB image host, and resolvable directly (no redirect) — see [§6](#6-security-requirements).
+**Asset note (load-bearing).** Holodex **downloads** assets synchronously at enrich time
+(ADR-038/039). The photo URL is fetched, normalized (decode → strip EXIF → re-encode), and
+stored as a person image immediately when the owner clicks Enrich. Do **not** put the photo
+into a `fields` entry — `fields` values are text; photos belong in `assets[]` with
+`kind: "photo"`. Asset URLs MUST be absolute, on `image.tmdb.org` (an operator-allowlisted
+CDN host per ADR-039), served over `https`, and directly fetchable without a cross-host
+redirect — see [§6](#6-security-requirements) and [§8.d](#8-reference-contract-examples).
 
 ### 2.6 Status codes summary
 
@@ -263,7 +264,7 @@ Map each TMDB result to a candidate:
 | `external_id` | `"tmdb:" + id` | `id` is the TMDB person id (integer) |
 | `namespace` | `"tmdb"` | constant |
 | `label` | `name` | |
-| `confidence` | derived from `popularity` and/or search rank | TMDB has no match score; a reasonable mapping is rank-based (first result highest) optionally blended with `popularity`. **Exact formula TBD / confirm with Holodex maintainers** — Holodex does not threshold on it, so any sensible 0–1 monotonic value is acceptable |
+| `confidence` | derived from search rank and `popularity` | Rank-based: `1.0 − rank × 0.08` (first result = 1.0, second = 0.92, …), clamped to ≥0.1. Apply a +0.05 boost when `popularity > 10` if the result is not already ≥0.95. Holodex does not threshold on this value — any monotonic 0–1 score is acceptable |
 | `disambiguation` | `known_for_department` + a representative `known_for[].title`/`known_for[].name` (+ year if available) | e.g. `"Directing · Spirited Away"`. Keep it short |
 
 For `hint.external_ids` (deterministic path): if an id with namespace `tmdb` is present,
@@ -284,14 +285,14 @@ Map TMDB person fields → canonical `fields` (each value an array of strings):
 
 | Canonical field | TMDB source | Mapping notes |
 |---|---|---|
-| `bio` | `biography` | Single value. Trim to a sane length (Holodex caps at 4096 chars/value; prefer trimming on a sentence boundary). Omit the field entirely if empty |
+| `bio` | `biography` | Single value. Trim to ≤4000 chars at a sentence boundary (Holodex hard-caps at 4096). Omit the field entirely if empty |
 | `birthdate` | `birthday` | `YYYY-MM-DD` string as TMDB returns it. Omit if null |
-| `nationality` | `place_of_birth` | TMDB has no nationality field; derive a country/nationality from `place_of_birth` (e.g. last comma-segment → country). **Derivation is lossy — mark the precise rule TBD / confirm with Holodex maintainers.** If you cannot derive confidently, omit the field rather than guess |
+| `nationality` | `place_of_birth` | Pass `place_of_birth` as-is (e.g. `"Tokyo, Japan"` or `"Bunkyo, Tokyo, Japan"`). Do not attempt country extraction — it is lossy and Holodex operators can read the full value. Omit if null |
+| `deathdate` | `deathday` | `YYYY-MM-DD` string as TMDB returns it. Omit if null. Canonical key is `deathdate` |
 | `website` | `homepage` | TMDB person details rarely include `homepage`; include only when present and non-empty |
 | `aliases` | `also_known_as` | Array → array of strings directly. Include the native-script name (e.g. `宮崎駿`) as TMDB provides it. Feeds Holodex's Person aliases store |
-| `photo` | `profile_path` | **Not a `fields` entry** — emit as an `assets[]` entry (see below) |
-| (optional) `deathday` | `deathday` | **Not in the recommended v1 field set.** If you choose to expose it, propose a canonical key (e.g. `deathdate`) and confirm with Holodex maintainers so the label/precedence config can include it. Otherwise omit |
-| (optional) `known_for_department` | `known_for_department` | Better used inside `disambiguation` than as a standalone field. Exposing it as a field is **TBD / confirm with Holodex maintainers** |
+| `photo` | `profile_path` | **Not a `fields` entry.** Emit as an `assets[]` entry with `kind: "photo"` (see [§4.3](#43-photo--profile_path--asset-url)) |
+| `known_for_department` | `known_for_department` | Use inside `disambiguation` string, not as a standalone field |
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.
 
@@ -373,7 +374,7 @@ The container is configured entirely by environment variables (no config file re
 | `TMDB_API_TOKEN` | yes (this **or** `TMDB_API_KEY`) | — | TMDB v3 **Read Access Token** (bearer). Preferred |
 | `TMDB_API_KEY` | alternative | — | Legacy TMDB v3 API key (query param). Used only if `TMDB_API_TOKEN` is unset |
 | `PORT` | no | `9100` | Port the HTTP server listens on (Holodex's example compose uses `9100`) |
-| `HOST` / bind address | no | `0.0.0.0` (in-container) | Bind address. **TBD / confirm naming** — pick a conventional one (`HOST` or `BIND_ADDR`) |
+| `HOST` | no | `""` (all interfaces) | Bind address. Empty string binds all interfaces inside the container, which is correct for a compose sidecar |
 | `LOG_LEVEL` | no | `info` | Log verbosity (`debug`/`info`/`warn`/`error`). Logs MUST never include the token/key |
 | `TMDB_LANGUAGE` | no | `en-US` | Optional language for TMDB calls (`language=` param) |
 
@@ -551,6 +552,7 @@ sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100   # the Compose service name on the internal network
     entity_types: [person]
+    asset_hosts: [image.tmdb.org]        # TMDB CDN host for portrait downloads (ADR-039)
     enabled: true
 ```
 
@@ -577,10 +579,13 @@ truth if a clarification is needed:
 - **Reference stub** — `testdata/enrich-stub/` (Node, dependency-free): the worked
   contract example mirrored in [§9](#9-testing--conformance).
 
-### Open items flagged for Holodex maintainers
+### Decisions made
 
-- **`confidence` formula** for `/resolve` — TMDB has no native match score ([§4.1](#41-resolve-name-search)); Holodex doesn't threshold on it, so any monotonic 0–1 value is fine, but confirm if a specific scheme is wanted.
-- **`nationality` derivation** from `place_of_birth` is lossy ([§4.2](#42-enrich-person-details)); confirm the exact country-extraction rule (or whether to omit when uncertain).
-- **`deathday` / `known_for_department`** as standalone canonical fields ([§4.2](#42-enrich-person-details)) — not in the recommended v1 set; propose canonical keys if desired.
-- **`/healthz` upstream signal** — whether to reflect TMDB reachability or stay a pure liveness check ([§2.1](#21-get-healthz--liveness--readiness)).
-- **Bind-address env var name** ([§7](#7-configuration)) — pick a convention (`HOST` vs `BIND_ADDR`).
+All previously-open items were resolved when building `providers/tmdb/`:
+
+- **`confidence` formula** — rank-based (`1.0 − rank × 0.08`) with popularity bonus; documented in [§4.1](#41-resolve-name-search).
+- **`nationality`** — pass `place_of_birth` as-is; no country extraction; documented in [§4.2](#42-enrich-person-details).
+- **`deathdate`** — included as a v1 field; documented in [§4.2](#42-enrich-person-details).
+- **`/healthz`** — pure liveness (container health only, not upstream TMDB); documented in [§2.1](#21-get-healthz--liveness--readiness).
+- **Bind address** — env var `HOST`, default `""` (all interfaces); documented in [§7](#7-configuration).
+- **`asset_hosts`** — `image.tmdb.org` listed in `metadata-sources.yaml`; documented in [§8.d](#8-reference-contract-examples).

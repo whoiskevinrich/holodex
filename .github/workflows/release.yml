@@ -27,8 +27,18 @@ jobs:
       security-events: write
     secrets: inherit
 
+  # Build the TMDB provider sidecar image alongside the main image on every release.
+  provider-tmdb:
+    needs: ci
+    uses: ./.github/workflows/provider-tmdb.yml
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    secrets: inherit
+
   github-release:
-    needs: image
+    needs: [image, provider-tmdb]
     runs-on: ubuntu-latest
     permissions:
       contents: write          # create the GitHub Release
@@ -57,11 +67,11 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.content }}
 
-            ### Container image
+            ### Container images
             ```
             docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker pull ghcr.io/${{ github.repository }}-provider-tmdb:${{ github.ref_name }}
             ```
-            Or pin in `docker-compose.prod.yml`:
-            `HOLODEX_TAG=${{ github.ref_name }} docker compose -f docker-compose.prod.yml up -d`
 
-            📦 **Package:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
+            📦 **Holodex:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
+            📦 **TMDB provider:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex-provider-tmdb

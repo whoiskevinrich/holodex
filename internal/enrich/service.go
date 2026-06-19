@@ -188,7 +188,7 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // Enrich fetches an external record's fields for an entity, sanitizes and stores
 // them in the shadow layer, and returns the entity's resolved fields with
 // provenance (F22.5/F22.7). It records the pass in the activity history (F22.6b).
-// Asset download (photos) is deferred (v1 non-goal).
+// For a person, any image assets are fetched and stored as person images (F25).
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
 	started := time.Now()
 	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID)
@@ -220,20 +220,21 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	return s.Fields(ctx, entityType, entityID)
 }
 
-// downloadAssets fetches each provider image asset through the SSRF-guarded asset
-// client and stores it via the image sink (F25, ADR-038). Each asset is independent:
-// one bad URL/host/decode is skipped, the rest proceed. Nothing is stored when the
-// fetch or normalize fails (the sink normalizes; a normalize error means no write).
+// downloadAssets fetches provider image assets through the SSRF-guarded asset client
+// and stores them via the image sink (F25, ADR-038/039). Assets are preference-ordered;
+// only the first successful fetch per role is stored — later entries of the same kind
+// are treated as fallbacks and skipped once a role is filled (ADR-039 §5).
 func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
 	fetcher := s.newAssetGet(src)
+	done := make(map[string]bool) // role → already stored successfully
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
-		if !ok {
-			continue // unknown asset kind — don't guess a role
+		if !ok || done[role] {
+			continue // unknown kind or role already filled
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
@@ -242,7 +243,9 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		}
 		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
 			s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+			continue
 		}
+		done[role] = true
 	}
 }
 

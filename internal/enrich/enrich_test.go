@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -348,6 +349,106 @@ func TestAssetClientSSRF(t *testing.T) {
 	}
 	if string(got) != "ok-bytes" {
 		t.Errorf("fetched %q, want ok-bytes", got)
+	}
+}
+
+// ADR-039: operator-listed asset_hosts expand the allowlist beyond the base host.
+// We verify the allowlist layer independently of the https-enforcement layer (which
+// is tested in TestAssetClientNonBaseHostRequiresHTTPS). A listed host gets past the
+// allowlist check — if it then fails on https enforcement, that's correct behaviour
+// (in production the URL would be https://). An unlisted host is rejected before
+// https is even checked.
+func TestAssetClientAssetHosts(t *testing.T) {
+	evil := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("should-not-reach"))
+	}))
+	defer evil.Close()
+	unrelated := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("should-not-reach"))
+	}))
+	defer unrelated.Close()
+
+	listedHost := func(rawURL string) string {
+		u, _ := url.Parse(rawURL)
+		return u.Host
+	}
+
+	c := newAssetClient(Source{
+		BaseURL:    "http://provider.example:9100",
+		AssetHosts: []string{listedHost(evil.URL)},
+	})
+
+	// Listed host: passes the allowlist check. Fails on https enforcement because
+	// httptest uses http — the error must mention "https", not "not on the provider allowlist".
+	_, err := c.Fetch(context.Background(), evil.URL+"/photo.jpg")
+	if err == nil {
+		// This would only succeed if somehow https enforcement was skipped.
+		t.Error("expected https enforcement error for listed non-base http host")
+	} else if strings.Contains(err.Error(), "not on the provider allowlist") {
+		t.Errorf("listed host should pass allowlist check; got: %v", err)
+	}
+
+	// Unlisted host: rejected at the allowlist layer, not at https.
+	_, err = c.Fetch(context.Background(), unrelated.URL+"/x")
+	if err == nil {
+		t.Error("unlisted host should be refused")
+	} else if !strings.Contains(err.Error(), "not on the provider allowlist") {
+		t.Errorf("expected allowlist error for unlisted host, got: %v", err)
+	}
+}
+
+// ADR-039 §3: a non-base host in asset_hosts requires https (not http).
+// We cannot start a real https server in a unit test without certs, so we verify
+// the guard fires before the request is made: a URL with scheme "http" pointing at
+// a listed-but-non-base host must be refused with a scheme error, not a network error.
+func TestAssetClientNonBaseHostRequiresHTTPS(t *testing.T) {
+	c := newAssetClient(Source{
+		BaseURL:    "http://provider.example:9100",
+		AssetHosts: []string{"image.tmdb.org"},
+	})
+	_, err := c.Fetch(context.Background(), "http://image.tmdb.org/t/p/original/photo.jpg")
+	if err == nil {
+		t.Fatal("expected https enforcement error for non-base asset host")
+	}
+	if !strings.Contains(err.Error(), "https") {
+		t.Errorf("error should mention https requirement, got: %v", err)
+	}
+}
+
+// ADR-039 §5: first-success-per-role — only the first fetchable asset of a given
+// role is stored; subsequent entries of the same kind are skipped.
+func TestDownloadAssetsFirstSuccessPerRole(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("bytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	// Two photos: only the first should be stored (first-success-per-role).
+	rec.Assets = []Asset{
+		{Kind: "photo", URL: origin.URL + "/first.jpg"},
+		{Kind: "photo", URL: origin.URL + "/second.jpg"},
+	}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	// Exactly one headshot stored, not two.
+	var headshots int
+	for _, a := range sink.stored {
+		if a.role == model.PersonImageHeadshot {
+			headshots++
+		}
+	}
+	if headshots != 1 {
+		t.Errorf("stored %d headshots, want 1 (first-success-per-role)", headshots)
 	}
 }
 
