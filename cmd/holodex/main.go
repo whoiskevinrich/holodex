@@ -3,6 +3,8 @@
 // the background scanner, shutting down gracefully on SIGINT/SIGTERM.
 package main
 
+//go:generate rsrc -manifest holodex.manifest -arch amd64 -o holodex_windows_amd64.syso
+
 import (
 	"context"
 	"flag"

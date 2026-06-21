@@ -42,8 +42,10 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [037](ADR-037-soft-delete-and-purge.md) | Soft-delete media — **`deleted_at` axis orthogonal to `active`** + dedicated purge job | Accepted (spec F24; extends ADR-018/028/030) |
 | [038](ADR-038-person-images.md) | Person images — **on-disk store + typed real-or-placeholder serving** + shared ingest normalization | Proposed (spec F25; extends ADR-009/030/033) |
 | [039](ADR-039-provider-asset-urls.md) | Provider asset URLs — contract clarification + **operator-configured `asset_hosts` allowlist** | Accepted (extends ADR-033/038; updates metadata-provider-contract) |
+| [042](ADR-042-windows-asInvoker-manifest.md) | Windows build — **`asInvoker` application manifest** embedded via `.syso` to suppress UAC prompt | Accepted (spec windows-uac-manifest) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
+> **Reserved:** ADR-040, ADR-041 — in-flight on the F26/F27/F28 branch (TMDB provider, field resolver, writeback).
 
 ## Phase specs
 - [Phase 1 — MVP](../specs/phase-1-mvp.md)
