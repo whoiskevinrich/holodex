@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/go-chi/chi/v5"
 
@@ -11,6 +12,10 @@ import (
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
+
+// imdbPathRe extracts an IMDb ID from a Plex/Jellyfin-style path component like
+// "{imdb-tt1160419}" so it can be forwarded as an external-ID hint to providers.
+var imdbPathRe = regexp.MustCompile(`\{imdb-(tt\d+)\}`)
 
 // mountEnrich registers the owner-gated enrichment endpoints (F22.5/F22.9a). They
 // are mounted inside the requireOwner group set up in Mount.
@@ -156,11 +161,16 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if _, _, err := h.repo.GetVideo(r.Context(), id); err != nil {
+	v, _, err := h.repo.GetVideo(r.Context(), id)
+	if err != nil {
 		h.videoLookupError(w, err)
 		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, enrich.Hint{Query: body.Query})
+	hint := enrich.Hint{Query: body.Query}
+	if m := imdbPathRe.FindStringSubmatch(v.FilePath); m != nil {
+		hint.ExternalIDs = []string{"imdb:" + m[1]}
+	}
+	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, hint)
 	if err != nil {
 		h.log.Warn("video enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
