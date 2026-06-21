@@ -355,6 +355,9 @@ func (c *tmdbClient) fetchMovieDetails(ctx context.Context, id int) (movieDetail
 
 func buildMovieEnrichResponse(det movieDetails) enrichResponse {
 	fields := make(map[string][]string)
+	if v := strings.TrimSpace(det.Title); v != "" {
+		fields["title"] = []string{v}
+	}
 	if v := strings.TrimSpace(det.Overview); v != "" {
 		fields["overview"] = []string{trimAtSentence(v, 4000)}
 	}

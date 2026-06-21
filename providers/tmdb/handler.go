@@ -38,7 +38,7 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 			// person fields
 			"bio", "birthdate", "nationality", "deathdate", "website", "aliases",
 			// video/film fields
-			"overview", "release_date", "runtime", "genres", "tagline", "homepage",
+			"title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
 			"original_language", "original_title", "status", "imdb_id", "poster_url",
 		},
 		AssetKinds: []string{"photo"},
