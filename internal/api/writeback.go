@@ -98,15 +98,20 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		items = append(items, resolved{f.Field, tagName, cleaned, f.Source})
 	}
 
-	if len(unmapped) > 0 {
-		writeError(w, http.StatusUnprocessableEntity,
-			"fields have no tag mapping for "+v.Container+": "+strings.Join(unmapped, ", "))
-		return
-	}
 	if len(items) == 0 {
-		writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
+		// Every checked field either had no mapping for this container or was
+		// empty after sanitization. Tell the client which fields lacked a mapping
+		// so the operator knows they need to uncheck them.
+		if len(unmapped) > 0 {
+			writeError(w, http.StatusUnprocessableEntity,
+				"fields have no tag mapping for "+v.Container+": "+strings.Join(unmapped, ", "))
+		} else {
+			writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
+		}
 		return
 	}
+	// Unmapped fields are silently skipped — only the mappable subset is written.
+	// The audit rows below record exactly what was written.
 
 	// Single exiftool invocation for all fields.
 	batchFields := make([]writeback.FieldWrite, len(items))
