@@ -525,10 +525,12 @@
 			oncancel={() => (writebackTarget = null)}
 		>
 			{#snippet body()}
-				<p>Write <strong>{writebackTarget.display === 'long_text' ? writebackTarget.values[0].slice(0, 120) + (writebackTarget.values[0].length > 120 ? '…' : '') : writebackTarget.values.join(', ')}</strong> to the <em>{writebackTarget.label}</em> tag in:</p>
-				<p class="truncate font-mono text-xs text-muted" title={video.file_path}>{video.file_path}</p>
-				{#if writebackTarget.winning_source}
-					<p class="text-xs text-muted">Source: {writebackTarget.winning_source}</p>
+				{@const target = writebackTarget!}
+				{@const vid = video!}
+				<p>Write <strong>{target.display === 'long_text' ? target.values[0].slice(0, 120) + (target.values[0].length > 120 ? '…' : '') : target.values.join(', ')}</strong> to the <em>{target.label}</em> tag in:</p>
+				<p class="truncate font-mono text-xs text-muted" title={vid.file_path}>{vid.file_path}</p>
+				{#if target.winning_source}
+					<p class="text-xs text-muted">Source: {target.winning_source}</p>
 				{/if}
 			{/snippet}
 		</ConfirmDialog>
