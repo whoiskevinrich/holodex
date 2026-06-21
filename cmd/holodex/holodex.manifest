@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Windows application manifest for holodex.exe.
+
+  Declares requestedExecutionLevel=asInvoker so Windows runs the process with
+  the caller's existing privileges and never triggers a UAC elevation prompt.
+  Without an explicit manifest Go binaries can trip the installer-detection
+  heuristic and prompt even when no admin rights are needed.
+
+  Regenerate the companion .syso after editing this file:
+    go generate ./cmd/holodex/...
+  (requires github.com/akavel/rsrc: go install github.com/akavel/rsrc@latest)
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+</assembly>
