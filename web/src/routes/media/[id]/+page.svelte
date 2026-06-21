@@ -3,15 +3,19 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { ExtraMetadata, MappedField, RelatedResponse, Video } from '$lib/types';
+	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video, WritebackRequest } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
+	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
 	let fields = $state<MappedField[]>([]);
+	let resolved = $state<ResolvedField[]>([]);
+	let enriched = $state<EnrichedField[]>([]);
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
 	let error = $state('');
@@ -25,7 +29,28 @@
 	let deleteBusy = $state(false);
 	let deleteError = $state('');
 
+	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
+	let sources = $state<EnrichSource[]>([]);
+	let pickerOpen = $state(false);
+	let enrichBusy = $state('');
+	let enrichError = $state('');
+
+	// Metadata writeback (F28, ADR-041). writebackTarget drives the confirm dialog;
+	// writebackDone tracks the last successfully-written canonical so the write
+	// button is replaced with "Written ✓" until the next page navigation.
+	let writebackTarget = $state<ResolvedField | null>(null);
+	let writebackBusy = $state(false);
+	let writebackError = $state('');
+	let writebackDone = $state<string | null>(null);
+
 	const id = $derived(Number($page.params.id));
+	const isOwner = $derived(activity.isOwner);
+	// Prefer the resolved title (may come from an enrichment provider) over the
+	// filename-derived video.title. Falls back gracefully when no mapping is configured.
+	const displayTitle = $derived(
+		resolved.find((f) => f.canonical === 'title')?.values[0] ?? video?.title ?? ''
+	);
+	const provider = $derived(sources.find((s) => s.entity_types.includes('video'))?.name ?? '');
 
 	const graceDays = $derived(
 		activity.caps?.delete_grace_period_seconds
@@ -93,6 +118,8 @@
 				video = res.video;
 				extra = res.metadata ?? [];
 				fields = res.fields ?? [];
+				resolved = res.resolved ?? [];
+				enriched = res.enriched ?? [];
 			})
 			.catch((e) => {
 				if (!cancelled) error = toMessage(e);
@@ -102,6 +129,55 @@
 			});
 		return () => (cancelled = true);
 	});
+
+	// Load providers once the client is confirmed owner.
+	$effect(() => {
+		if (isOwner && sources.length === 0) {
+			api
+				.enrichSources()
+				.then((res) => (sources = res.sources ?? []))
+				.catch(() => {});
+		}
+	});
+
+	function onApplied(f: EnrichedField[]) {
+		enriched = f;
+	}
+
+	async function doWriteback() {
+		if (!writebackTarget || writebackBusy) return;
+		writebackBusy = true;
+		writebackError = '';
+		const target = writebackTarget;
+		try {
+			const req: WritebackRequest = {
+				field: target.canonical,
+				values: target.values,
+				source: target.winning_source ?? ''
+			};
+			await api.writebackMedia(id, req);
+			writebackDone = target.canonical;
+			writebackTarget = null;
+		} catch (e) {
+			writebackError = toMessage(e);
+		} finally {
+			writebackBusy = false;
+		}
+	}
+
+	async function clearProvider() {
+		if (!provider) return;
+		enrichBusy = 'clear';
+		enrichError = '';
+		try {
+			await api.enrichVideoClear(id, provider);
+			enriched = enriched.filter((f) => f.provider !== provider);
+		} catch (e) {
+			enrichError = toMessage(e);
+		} finally {
+			enrichBusy = '';
+		}
+	}
 
 	// Related "More with …" shelves (QW2/QW3). Non-blocking and tracks ONLY `id`, so it
 	// fetches once per page view and the shelves don't reshuffle on incidental re-renders
@@ -181,7 +257,7 @@
 		</div>
 
 		<header class="space-y-2">
-			<h1 class="skin-title text-2xl font-semibold text-ink">{video.title}</h1>
+			<h1 class="skin-title text-2xl font-semibold text-ink">{displayTitle}</h1>
 			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
 				<span>{video.width}×{video.height}</span>
@@ -229,7 +305,66 @@
 			</section>
 		{/if}
 
-		{#if fields.length}
+		<!-- Unified Details section (F27): resolved (merged file + enrichment sources)
+		     supersedes the legacy file-only fields when the operator has configured
+		     namespaced source mappings. Falls back to file-only fields if no resolver
+		     output is present (e.g. no mappings configured). -->
+		{#if resolved.length}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
+					{#each resolved as f (f.canonical)}
+						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
+						{@const canWrite = isOwner && !!winnerProvider && f.display !== 'image_url'}
+						{#if f.display === 'image_url'}
+							<div class="sm:col-span-2">
+								<dt class="mb-1 text-muted">{f.label}:</dt>
+								<dd>
+									<img
+										src={f.values[0]}
+										alt={f.label}
+										class="max-h-64 rounded-theme border border-rule object-contain"
+									/>
+								</dd>
+								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+							</div>
+						{:else if f.display === 'long_text'}
+							<div class="sm:col-span-2">
+								<dt class="inline text-muted">{f.label}:</dt>
+								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								{#if writebackDone === f.canonical}
+									<span class="ml-1 text-xs text-accent" aria-live="polite">Written ✓</span>
+								{:else if canWrite}
+									<button
+										onclick={() => { writebackTarget = f; writebackError = ''; }}
+										aria-label="Write {f.label} to file"
+										title="Write to file"
+										class="ml-1 rounded-theme p-0.5 text-muted hover:text-accent focus-visible:text-accent"
+									><svg class="inline h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l-7 7-7-7"/><path d="M12 3v13M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
+								{/if}
+							</div>
+						{:else}
+							<div>
+								<dt class="inline text-muted">{f.label}:</dt>
+								<dd class="inline text-ink">{f.values.join(', ')}</dd>
+								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								{#if writebackDone === f.canonical}
+									<span class="ml-1 text-xs text-accent" aria-live="polite">Written ✓</span>
+								{:else if canWrite}
+									<button
+										onclick={() => { writebackTarget = f; writebackError = ''; }}
+										aria-label="Write {f.label} to file"
+										title="Write to file"
+										class="ml-1 rounded-theme p-0.5 text-muted hover:text-accent focus-visible:text-accent"
+									><svg class="inline h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l-7 7-7-7"/><path d="M12 3v13M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
+								{/if}
+							</div>
+						{/if}
+					{/each}
+				</dl>
+			</section>
+		{:else if fields.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
 				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
@@ -289,6 +424,73 @@
 			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
 		{/if}
 
+		<!-- Film enrichment panel (F26). Visible to all when data exists; controls owner-gated. -->
+		{#if enriched.length || (isOwner && provider)}
+			<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
+				<div class="flex flex-wrap items-start justify-between gap-2">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Film Details</h2>
+					{#if isOwner && provider}
+						<div class="flex flex-wrap items-center gap-2">
+							<button
+								onclick={() => (pickerOpen = true)}
+								class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
+							>
+								Enrich from {provider}
+							</button>
+							{#if provider && enriched.some((f) => f.provider === provider)}
+								<button
+									onclick={clearProvider}
+									disabled={enrichBusy === 'clear'}
+									title={`Remove ${provider} enrichment data from this video`}
+									class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+								>
+									Clear {provider} data
+								</button>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				{#if enriched.length}
+					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+						{#each enriched as f (f.canonical + f.provider)}
+							{#if f.display === 'image_url'}
+								<div class="sm:col-span-2">
+									<dt class="mb-1 text-muted">{f.label}:</dt>
+									<dd>
+										<img
+											src={f.values[0]}
+											alt={f.label}
+											class="max-h-64 rounded-theme border border-rule object-contain"
+										/>
+									</dd>
+									<ProvenanceBadge provider={f.provider} label={f.provider} />
+								</div>
+							{:else if f.display === 'long_text'}
+								<div class="sm:col-span-2">
+									<dt class="inline text-muted">{f.label}:</dt>
+									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+									<ProvenanceBadge provider={f.provider} label={f.provider} />
+								</div>
+							{:else}
+								<div>
+									<dt class="inline text-muted">{f.label}:</dt>
+									<dd class="inline text-ink">{f.values.join(', ')}</dd>
+									<ProvenanceBadge provider={f.provider} label={f.provider} />
+								</div>
+							{/if}
+						{/each}
+					</dl>
+				{:else}
+					<p class="text-sm text-muted">No enrichment yet.</p>
+				{/if}
+
+				{#if enrichError}
+					<p class="text-sm text-warn">{enrichError}</p>
+				{/if}
+			</section>
+		{/if}
+
 		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
 		     content and the Back link so a delete is never adjacent to navigation. -->
 		{#if activity.isOwner}
@@ -311,6 +513,37 @@
 			</section>
 		{/if}
 	</article>
+
+	{#if writebackTarget && video}
+		<ConfirmDialog
+			title="Write to file?"
+			confirmLabel="Write to file"
+			variant="accent"
+			busy={writebackBusy}
+			error={writebackError}
+			onconfirm={doWriteback}
+			oncancel={() => (writebackTarget = null)}
+		>
+			{#snippet body()}
+				<p>Write <strong>{writebackTarget.display === 'long_text' ? writebackTarget.values[0].slice(0, 120) + (writebackTarget.values[0].length > 120 ? '…' : '') : writebackTarget.values.join(', ')}</strong> to the <em>{writebackTarget.label}</em> tag in:</p>
+				<p class="truncate font-mono text-xs text-muted" title={video.file_path}>{video.file_path}</p>
+				{#if writebackTarget.winning_source}
+					<p class="text-xs text-muted">Source: {writebackTarget.winning_source}</p>
+				{/if}
+			{/snippet}
+		</ConfirmDialog>
+	{/if}
+
+	{#if pickerOpen && provider && video}
+		<EnrichPicker
+			entityName={video.title}
+			{provider}
+			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
+			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
+			onclose={() => (pickerOpen = false)}
+			onapplied={onApplied}
+		/>
+	{/if}
 
 	{#if confirmMode === 'soft'}
 		<ConfirmDialog

@@ -134,6 +134,46 @@ A provider is an HTTP/JSON service. Core calls it; it owns its upstream API key,
 | F22.10a | A **fake provider** implements the same contract for CI/dev | The People-enrichment flow runs end-to-end in CI against the fake — no network, no real API keys |
 | F22.10b | The fake is served in-process (httptest) and/or as a tiny stub container | Resolution, precedence, shadow-store, and provenance are unit/integration tested against it |
 
+### F27 — Unified field resolution (implements F22.3)
+
+**Status: Implemented** (see `internal/registry/`, `internal/resolver/`, `internal/mapping/`)
+
+F27 delivers the namespaced source syntax and the unified resolver that F22.3 described.
+
+| ID | Requirement | Acceptance Criteria |
+|----|-------------|---------------------|
+| F27.1 | Namespaced source syntax in `metadata-mappings.yaml`: `sources: [tmdb:title, file:Title]` | Each entry is `<namespace>:<key>`; bare keys treated as `file:<key>` for backwards compat |
+| F27.2 | Canonical field registry (`internal/registry`) — source of truth for labels, display hints, and descriptions | Unknown keys synthesize a title-cased label rather than erroring |
+| F27.3 | Unified resolver (`internal/resolver`) — `Resolve(video, extra, enrichment, fields) → []ResolvedField{Canonical, Label, Display, Values, WinningSource}` | First non-empty source wins; `WinningSource` records the provider for the provenance badge |
+| F27.4 | `browse: true` flag on a mapping field overwrites `video.Title` in the list response so browse cards show the highest-precedence title | Batch enrichment query (`EnrichmentForVideos`) avoids N+1; only browse fields are resolved per-list |
+| F27.5 | Detail page returns `resolved[]` alongside `fields` and `enriched`; SPA uses `resolved` when present | ProvenanceBadge shown for provider-sourced fields; image_url/long_text render dispatched from registry Display hint |
+| F27.6 | `enrich/service.go` imports `internal/registry` instead of carrying a duplicate `fieldMeta` map | Local `fieldRegistry` removed; `metaFor()` delegates to `registry.Lookup()` |
+| F27.7 | Canonical fields documented in `docs/reference/canonical-fields.md` | Video + person + example file-metadata fields covered with render mode and description |
+
+**Operator config example** (updated namespace syntax):
+
+```yaml
+# metadata-mappings.yaml
+fields:
+  - canonical: title
+    browse: true          # overwrite browse-card titles with the resolved value
+    sources:
+      - tmdb:title        # prefer TMDB title
+      - file:title        # fall back to the filename-derived title
+  - canonical: overview
+    sources:
+      - tmdb:overview
+  - canonical: genres
+    multi: true
+    sources:
+      - tmdb:genres
+  - canonical: studio
+    label: Studio
+    sources:
+      - file:Publisher    # raw file tag (case-insensitive key match)
+      - file:Label
+```
+
 ---
 
 ## Data Model (additions)
@@ -247,3 +287,62 @@ fields:
 > - [TMDB Provider](tmdb-provider.md) — a worked example mapping that contract onto TMDB.
 
 > **Routing reminder (CLAUDE.md):** this feature touches infrastructure (new deployable services, outbound network) and access (owner-gated, SSRF surface) → **`/security-review` is required before merge**, and **`/testing-strategy`** must gain the provider-contract + resolution + provenance cases. Frontend (picker, provenance badges) must use semantic tokens and QA all three skins — see the [design handoff](../design/metadata-enrichment-handoff.md).
+
+---
+
+## F28: Metadata Writeback
+
+**Status**: Implemented ([ADR-041](../architecture/ADR-041-metadata-writeback.md))  
+**QA**: [qa-writeback.md](qa-writeback.md)
+
+### Summary
+
+Per-field, operator-confirmed write-back of enrichment-sourced values into the media file's actual tags via exiftool. **Explicit mode only** in v1 — one field at a time, confirmed by the owner before each write.
+
+### Endpoint
+
+`POST /api/media/{id}/writeback` — owner-gated (`requireOwner`).
+
+**Request body:**
+```json
+{ "field": "title", "values": ["My Film"], "source": "tmdb" }
+```
+
+**Responses:**
+- `204` — write succeeded; audit row inserted in `file_writebacks`
+- `400` — field/values missing or empty after sanitization
+- `422` — field has no tag mapping for the file's container (e.g. `.avi`)
+- `503` — writeback unavailable (no `WriteFunc` wired)
+
+### File safety model (ADR-041)
+
+1. Copy the original to `<path>.holodex-tmp` (same directory = same FS partition)
+2. Run `exiftool -TAG=VALUE … -m -overwrite_original <tmp>`
+3. On success: `os.Rename(tmp, path)` — atomic on the same partition
+4. On any failure: remove the temp file; original is untouched
+
+### Format mapping
+
+Tag names are resolved by `internal/writeback.TagForField(canonical, container)` using the container value from `videos.container` (set by the scanner's `normalizeContainer()`). Supported containers: `Matroska`, `MP4`, `WebM`, `mp3`, `flac`. A `422` is returned for any unrecognized container.
+
+### Audit
+
+Every successful write appends one row to `file_writebacks` (migration 0011):
+```sql
+(video_id, field_key, tag_name, value, source, written_at)
+```
+Multi-value fields (e.g. genres) are joined with `\n` in the `value` column.
+
+### Frontend
+
+- **Write button**: ghost icon (`text-muted hover:text-accent`), shown per resolved field when `isOwner && winnerProvider && display !== 'image_url'`
+- **Confirm dialog**: `ConfirmDialog` with `variant="accent"`, previewing the value, source, and file path
+- **Post-write state**: "Written ✓" inline span; no page reload needed
+
+### Backlog (deferred from v1)
+
+- Rule-based writeback (auto-apply winning value for configured fields)
+- Batch writeback (write all enriched fields in one action)
+- Prior-value capture / undo (read the existing tag before overwriting)
+- Extended format mapping via operator config (override/add tag names without a code change)
+- Activity history integration (surface writeback events in the admin activity feed)

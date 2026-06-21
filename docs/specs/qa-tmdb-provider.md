@@ -26,7 +26,7 @@ $env:PORT = "9200"
 ```
 
 **1.1** [smoke] `GET http://localhost:9200/healthz` → `200`, body contains `"provider":"tmdb"` and `"status":"ok"`  
-**1.2** [smoke] `GET http://localhost:9200/describe` → `200`, body contains `"protocol_version":1`, `"entity_types":["person"]`, `"asset_kinds":["photo"]`; `"fields"` list does **not** contain `"photo"`  
+**1.2** [smoke] `GET http://localhost:9200/describe` → `200`, body contains `"protocol_version":1`, `entity_types` contains both `"person"` **and** `"video"`, `"asset_kinds":["photo"]`; `"fields"` list includes person fields (`bio`, `birthdate`, …) and video fields (`overview`, `release_date`, `genres`, `poster_url`, …); `"photo"` is **not** in `fields`  
 **1.3** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"person","hint":{"query":"Hayao Miyazaki"}}` → `200`, at least one candidate with `external_id` prefixed `tmdb:` and `namespace:"tmdb"`  
 **1.4** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"person","hint":{"query":"xyzzy_no_match_999"}}` → `200`, `{"candidates":[]}`  
 **1.5** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"person","external_id":"tmdb:608"}` → `200`, fields object contains `bio`, `birthdate`, `aliases`; `assets` array contains `{"kind":"photo","url":"https://image.tmdb.org/..."}` (when Miyazaki has a photo on TMDB)  
@@ -62,7 +62,7 @@ Set up local Holodex pointing at the provider sidecar:
   sources:
     - name: tmdb
       base_url: http://127.0.0.1:9200
-      entity_types: [person]
+      entity_types: [person, video]
       asset_hosts: [image.tmdb.org]
       enabled: true
   ```
@@ -118,3 +118,33 @@ Set up local Holodex pointing at the provider sidecar:
 **6.4** [smoke] A response where `biography` > 4000 chars is trimmed to a sentence boundary before being returned (test with a mock response)  
 **6.5** [smoke] A candidate list > 10 items from TMDB is capped at 10 in the response  
 **6.6** [smoke] `/describe` response body is well under 1 MiB; `/resolve` and `/enrich` are under 1 MiB even for rich results
+
+---
+
+## 7. Film / Video enrichment (F26)
+
+### 7a. Provider contract — video entity type
+
+**7a.1** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"query":"Fight Club"}}` → `200`, at least one candidate with `external_id:"tmdb:550"`, `label:"Fight Club"`, `disambiguation:"1999"`  
+**7a.2** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"query":"xyzzy_no_match_999"}}` → `200`, `{"candidates":[]}`  
+**7a.3** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"video","external_id":"tmdb:550"}` → `200`, fields include `overview`, `release_date:"1999-10-15"`, `runtime:"139"`, `genres:["Drama","Thriller"]`, `tagline`, `imdb_id:"tt0137523"`, `poster_url` starts with `"https://image.tmdb.org/t/p/original/"`; **no** `assets[]` in the response  
+**7a.4** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"external_ids":["imdb:tt0137523"]}}` → `200`, candidate for Fight Club  
+**7a.5** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"external_ids":["tmdb:550"]}}` → `200`, single candidate for Fight Club with `confidence:1.0`  
+**7a.6** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"video","external_id":"tmdb:999999999"}` → non-2xx  
+**7a.7** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"series","hint":{"query":"anything"}}` → `200`, `{"candidates":[]}` (unknown entity type returns empty, not an error)  
+
+### 7b. End-to-end via Holodex UI
+
+**7b.1** [human] Navigate to a Media detail page (`/media/{id}`) while logged in as owner with the TMDB provider configured for `entity_types: [person, video]` → a **Film Details** section appears with an "Enrich from tmdb" button  
+**7b.2** [human] Click "Enrich from tmdb" on the Media page → the resolver picker opens pre-filled with the video's title; type a film name → movie candidates appear with year disambiguation (e.g. `"1999"`)  
+**7b.3** [human] Select "Fight Club (1999)" from the candidates → enrichment applies → Film Details section shows:
+  - Overview text (multi-sentence synopsis) with "from tmdb" provenance badge
+  - Poster rendered as an `<img>` element (not raw URL text)
+  - Release date, runtime (minutes), genres (comma-joined list), tagline, IMDb ID, language — each with "from tmdb" badge
+  - "Clear tmdb data" button now visible
+
+**7b.4** [human] After enrichment, reload the page → Film Details persist (enrichment is stored, not session-state)  
+**7b.5** [human] Click "Clear tmdb data" → all Film Details fields removed; the "Enrich from tmdb" button is the only control remaining; page no longer shows enrichment rows  
+**7b.6** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): Film Details section and poster `<img>` render correctly in all three; no hardcoded colors  
+**7b.7** [human] Navigate to System Activity → the video enrich run appears in job history with `status: ok` and a detail line referencing the provider and video id  
+**7b.8** [human] On a Media page with no video-capable provider configured (provider `entity_types` contains only `person`): Film Details section does **not** appear  

@@ -11,6 +11,7 @@
 		body,
 		busy = false,
 		error = '',
+		variant = 'destructive',
 		onconfirm,
 		oncancel
 	}: {
@@ -19,6 +20,8 @@
 		body: Snippet;
 		busy?: boolean;
 		error?: string;
+		/** 'destructive' (default) uses warn colours; 'accent' for non-destructive confirmations. */
+		variant?: 'destructive' | 'accent';
 		onconfirm: () => void;
 		oncancel: () => void;
 	} = $props();
@@ -91,7 +94,9 @@
 			<button
 				onclick={onconfirm}
 				disabled={busy}
-				class="rounded-theme bg-warn px-3 py-1.5 text-sm font-semibold text-warn-ink disabled:opacity-60"
+				class="rounded-theme px-3 py-1.5 text-sm font-semibold disabled:opacity-60 {variant === 'accent'
+					? 'bg-accent text-accent-ink'
+					: 'bg-warn text-warn-ink'}"
 			>
 				{busy ? 'Working…' : confirmLabel}
 			</button>

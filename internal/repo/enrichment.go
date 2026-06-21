@@ -110,6 +110,58 @@ func (r *Repo) MatchExternalID(ctx context.Context, entityType string, entityID 
 	return id, true, nil
 }
 
+// EnrichmentForVideos returns stored enrichment rows for a batch of video IDs,
+// grouped by id — a single query so list pages avoid N+1 (F27). The returned map
+// only has keys for ids that actually have rows; a missing key means no enrichment.
+func (r *Repo) EnrichmentForVideos(ctx context.Context, ids []int64) (map[int64][]EnrichmentRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := append([]any{"video"}, toAnySlice(ids)...)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT entity_id, provider, field_key, value, external_id, fetched_at
+		FROM entity_enrichment
+		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
+		ORDER BY entity_id, provider, field_key`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("enrichment for videos: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int64][]EnrichmentRow, len(ids))
+	for rows.Next() {
+		var (
+			eid        int64
+			er         EnrichmentRow
+			value      string
+			fetchedStr string
+		)
+		if err := rows.Scan(&eid, &er.Provider, &er.FieldKey, &value, &er.ExternalID, &fetchedStr); err != nil {
+			return nil, err
+		}
+		er.Values = strings.Split(value, enrichMultiSep)
+		er.FetchedAt, _ = time.Parse(timeLayout, fetchedStr)
+		out[eid] = append(out[eid], er)
+	}
+	return out, rows.Err()
+}
+
+// InsertWriteback appends one successful file-writeback to the audit log (F28,
+// ADR-041). Called only after Write() returns nil — a failed write must never
+// produce an audit row.
+func (r *Repo) InsertWriteback(ctx context.Context, videoID int64, fieldKey, tagName, value, source string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO file_writebacks (video_id, field_key, tag_name, value, source, written_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		videoID, fieldKey, tagName, value, source, time.Now().UTC().Format(timeLayout))
+	if err != nil {
+		return fmt.Errorf("insert writeback: %w", err)
+	}
+	return nil
+}
+
 // DeleteEnrichmentByProvider removes one provider's contribution for an entity so
 // the affected fields fall back to their next source (F22.7b). Returns the number
 // of rows removed.

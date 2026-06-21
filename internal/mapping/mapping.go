@@ -1,8 +1,20 @@
-// Package mapping implements configurable metadata field mapping (F20, ADR-013):
-// it maps one or more raw container tag keys to a single canonical Holodex field
-// with a display label, honoring source precedence and optional multi-value
-// splitting. Because the scanner already captures every raw tag at index time
-// (F2.9), enabling or changing a mapping is pure re-interpretation — no re-scan.
+// Package mapping implements configurable metadata field mapping (F20/F27, ADR-013):
+// it maps one or more namespaced sources to a single canonical Holodex field with a
+// display label, honoring source precedence and optional multi-value splitting.
+//
+// # Source namespace syntax
+//
+// Each entry in the `sources` list is a namespaced reference:
+//
+//	file:title        — special alias for videos.title (the scanner's primary title)
+//	file:<Key>        — raw file tag from extra_metadata (case-insensitive key match)
+//	<provider>:<key>  — enrichment shadow field: provider name + field key
+//	                    e.g. "tmdb:title", "tmdb:genres"
+//
+// Legacy entries without a colon are treated as file:<Key> for backwards compat.
+//
+// Because the scanner already captures every raw tag at index time (F2.9),
+// enabling or changing a mapping is pure re-interpretation — no re-scan.
 package mapping
 
 import (
@@ -14,16 +26,40 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"holodex/internal/model"
+	"holodex/internal/registry"
 )
 
-// Field is one canonical field built from a precedence-ordered list of source
-// tag keys.
+// Source is a parsed namespaced source reference from the `sources` list.
+type Source struct {
+	// Namespace is "file" for file-sourced data, or a provider name ("tmdb", …)
+	// for enrichment shadow data.
+	Namespace string
+	// Key is the field key within the namespace:
+	//   file namespace:     "title" (special alias for videos.title) or a raw tag key
+	//   provider namespace: the enrichment field_key (e.g. "title", "genres")
+	Key string
+}
+
+// IsFileTitle reports whether this source refers to videos.title directly.
+func (s Source) IsFileTitle() bool {
+	return s.Namespace == "file" && strings.ToLower(s.Key) == "title"
+}
+
+// Field is one canonical field built from a precedence-ordered list of namespaced
+// sources. The first source with a non-empty value wins.
 type Field struct {
-	Canonical  string   `yaml:"canonical"`
-	Label      string   `yaml:"label"`
-	Sources    []string `yaml:"sources"` // order = precedence; first present wins
-	Filterable bool     `yaml:"filterable"`
-	Multi      bool     `yaml:"multi"` // split/aggregate multiple values
+	Canonical string   `yaml:"canonical"`
+	Label     string   `yaml:"label"`
+	// Sources is the raw list as written in YAML (e.g. ["tmdb:title", "file:Title"]).
+	// ParsedSources is the authoritative form after parse().
+	Sources       []string `yaml:"sources"`
+	ParsedSources []Source `yaml:"-"`
+	Filterable    bool     `yaml:"filterable"`
+	Multi         bool     `yaml:"multi"` // split/aggregate multiple values
+	// Browse, when true, means the resolved value for this field should replace
+	// video.Title in the list-media response so browse cards reflect the
+	// highest-precedence source (e.g. a TMDB title over a filename-derived title).
+	Browse bool `yaml:"browse"`
 }
 
 type fileConfig struct {
@@ -51,11 +87,41 @@ func parse(data []byte) (*Mappings, error) {
 			continue // skip malformed entries rather than failing the whole load
 		}
 		if f.Label == "" {
-			f.Label = f.Canonical
+			// Fall back to the registry label, then to the canonical name.
+			if def := registry.Lookup(f.Canonical); def.Label != "" {
+				f.Label = def.Label
+			} else {
+				f.Label = f.Canonical
+			}
 		}
+		f.ParsedSources = parseSources(f.Sources)
 		m.fields = append(m.fields, f)
 	}
 	return m, nil
+}
+
+// parseSources splits each raw source string on the first colon.
+// "tmdb:title"  → {Namespace:"tmdb", Key:"title"}
+// "file:Title"  → {Namespace:"file", Key:"Title"}
+// "Title"       → {Namespace:"file", Key:"Title"}  (legacy: no colon → file tag)
+func parseSources(raw []string) []Source {
+	out := make([]Source, 0, len(raw))
+	for _, s := range raw {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if i := strings.IndexByte(s, ':'); i > 0 {
+			out = append(out, Source{
+				Namespace: strings.ToLower(s[:i]),
+				Key:       s[i+1:],
+			})
+		} else {
+			// Legacy bare key — treat as a file tag.
+			out = append(out, Source{Namespace: "file", Key: s})
+		}
+	}
+	return out
 }
 
 // Load reads mappings from path. A missing file yields Empty (mappings are
@@ -100,16 +166,22 @@ func (m *Mappings) ByCanonical(canonical string) (Field, bool) {
 	return Field{}, false
 }
 
-// Resolved is a canonical field with the value(s) found for one video.
+// Resolved is a canonical field with the value(s) found for one video via the
+// legacy file-only resolution path (Resolve). The unified resolver that merges
+// enrichment sources lives in internal/resolver.
 type Resolved struct {
 	Canonical string   `json:"canonical"`
 	Label     string   `json:"label"`
 	Values    []string `json:"values"`
 }
 
-// Resolve interprets a video's raw metadata through the mappings: for each field,
-// the first source key present (precedence) supplies the value; multi fields
-// split/aggregate that source's values, single-valued fields take the first.
+// Resolve interprets a video's raw metadata through the file-only sources in the
+// mappings: for each field, the first file: source key present (precedence)
+// supplies the value. Provider sources (tmdb:*, …) are skipped — the unified
+// resolver in internal/resolver handles those.
+//
+// This method preserves backwards compatibility for callers that don't yet have
+// enrichment data available (e.g. the MCP server, the facets endpoint).
 func (m *Mappings) Resolve(extra []model.ExtraMetadata) []Resolved {
 	bySource := make(map[string][]string, len(extra))
 	for _, e := range extra {
@@ -120,29 +192,33 @@ func (m *Mappings) Resolve(extra []model.ExtraMetadata) []Resolved {
 	out := make([]Resolved, 0, len(m.fields))
 	for _, f := range m.fields {
 		var values []string
-		for _, src := range f.Sources {
-			vals := bySource[strings.ToLower(strings.TrimSpace(src))]
+		for _, src := range f.ParsedSources {
+			if src.Namespace != "file" || src.IsFileTitle() {
+				continue // skip provider sources and the special file:title alias
+			}
+			vals := bySource[strings.ToLower(strings.TrimSpace(src.Key))]
 			if len(vals) == 0 {
 				continue
 			}
 			if f.Multi {
 				for _, v := range vals {
-					values = append(values, splitMulti(v)...)
+					values = append(values, SplitMulti(v)...)
 				}
 			} else {
 				values = []string{strings.TrimSpace(vals[0])}
 			}
 			break // precedence: first present source wins
 		}
-		if values = dedupe(values); len(values) > 0 {
+		if values = Dedupe(values); len(values) > 0 {
 			out = append(out, Resolved{Canonical: f.Canonical, Label: f.Label, Values: values})
 		}
 	}
 	return out
 }
 
-// splitMulti splits a multi-valued tag on common separators and trims each.
-func splitMulti(s string) []string {
+// SplitMulti splits a multi-valued tag on common separators and trims each part.
+// Exported so the resolver package can reuse it without duplicating the logic.
+func SplitMulti(s string) []string {
 	fields := strings.FieldsFunc(s, func(r rune) bool {
 		return r == ',' || r == ';' || r == '/' || r == '\n'
 	})
@@ -155,7 +231,9 @@ func splitMulti(s string) []string {
 	return out
 }
 
-func dedupe(in []string) []string {
+// Dedupe removes case-insensitive duplicates from a string slice, preserving
+// the first occurrence of each value. Exported for use by the resolver package.
+func Dedupe(in []string) []string {
 	if len(in) == 0 {
 		return nil
 	}

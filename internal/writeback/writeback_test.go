@@ -1,0 +1,173 @@
+package writeback
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func requireExiftool(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("exiftool"); err != nil {
+		t.Skip("exiftool not on PATH — skipping writeback I/O tests")
+	}
+}
+
+// minimalMKV is a minimal EBML/Matroska header that carries the magic bytes
+// exiftool uses to identify the format. Success-path tests use this so
+// exiftool can at least attempt a write; they still skip if exiftool rejects
+// it with a hard format error (real media files needed for a guaranteed pass).
+var minimalMKV = []byte{
+	// EBML element ID
+	0x1A, 0x45, 0xDF, 0xA3,
+	// size VINT (31 bytes of header follow)
+	0x9F,
+	// EBMLVersion = 1
+	0x42, 0x86, 0x81, 0x01,
+	// EBMLReadVersion = 1
+	0x42, 0xF7, 0x81, 0x01,
+	// EBMLMaxIDLength = 4
+	0x42, 0xF2, 0x81, 0x04,
+	// EBMLMaxSizeLength = 8
+	0x42, 0xF3, 0x81, 0x08,
+	// DocType = "matroska" (8 bytes)
+	0x42, 0x82, 0x88, 'm', 'a', 't', 'r', 'o', 's', 'k', 'a',
+	// DocTypeVersion = 4
+	0x42, 0x87, 0x81, 0x04,
+	// DocTypeReadVersion = 2
+	0x42, 0x85, 0x81, 0x02,
+}
+
+// TestWrite_OriginalUnchangedOnExiftoolFailure verifies that a bad tag name
+// causes exiftool to exit non-zero and leaves the original file byte-for-byte
+// unchanged with no temp file leaking.
+func TestWrite_OriginalUnchangedOnExiftoolFailure(t *testing.T) {
+	requireExiftool(t)
+	dir := t.TempDir()
+	orig := filepath.Join(dir, "clip.mkv")
+	sentinel := []byte("sentinel-original-content")
+	if err := os.WriteFile(orig, sentinel, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A blank tag name makes exiftool exit non-zero.
+	_ = Write(context.Background(), orig, "", []string{"value"})
+
+	got, err := os.ReadFile(orig)
+	if err != nil || !bytes.Equal(got, sentinel) {
+		t.Errorf("original was modified on failure: len=%d err=%v", len(got), err)
+	}
+	// No temp file left behind.
+	for _, e := range mustReadDir(t, dir) {
+		if strings.Contains(e, "holodex-tmp") {
+			t.Errorf("temp file leaked: %s", e)
+		}
+	}
+}
+
+// TestWrite_TempFileCleanedOnSuccess verifies no .holodex-tmp remains after a
+// successful write (the rename replaces the original, temp path is gone).
+// The test skips if exiftool rejects the synthetic file (requires real media
+// for a format-passing write; the critical atomicity invariant is covered by
+// TestWrite_OriginalUnchangedOnExiftoolFailure for the failure path).
+func TestWrite_TempFileCleanedOnSuccess(t *testing.T) {
+	requireExiftool(t)
+	dir := t.TempDir()
+	orig := filepath.Join(dir, "clip.mkv")
+	if err := os.WriteFile(orig, minimalMKV, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Write(context.Background(), orig, "Title", []string{"Test Title"})
+	if err != nil {
+		if strings.Contains(err.Error(), "not supported") || strings.Contains(err.Error(), "Corrupted") {
+			t.Skipf("synthetic MKV not writable by exiftool; atomicity covered by failure test: %v", err)
+		}
+		t.Fatalf("Write returned error: %v", err)
+	}
+	// Original still present.
+	if _, err := os.Stat(orig); err != nil {
+		t.Errorf("original missing after write: %v", err)
+	}
+	// No temp file.
+	for _, e := range mustReadDir(t, dir) {
+		if strings.Contains(e, "holodex-tmp") {
+			t.Errorf("temp file not cleaned up: %s", e)
+		}
+	}
+}
+
+// TestWrite_MultiValue verifies that multiple values are accepted without error.
+func TestWrite_MultiValue(t *testing.T) {
+	requireExiftool(t)
+	dir := t.TempDir()
+	orig := filepath.Join(dir, "clip.mkv")
+	if err := os.WriteFile(orig, minimalMKV, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Write(context.Background(), orig, "GENRE", []string{"Drama", "Thriller"})
+	if err != nil {
+		if strings.Contains(err.Error(), "not supported") || strings.Contains(err.Error(), "Corrupted") {
+			t.Skipf("synthetic MKV not writable by exiftool: %v", err)
+		}
+		t.Fatalf("multi-value write failed: %v", err)
+	}
+}
+
+// TestWrite_ContextCancelled verifies a pre-cancelled context leaves the
+// original untouched.
+func TestWrite_ContextCancelled(t *testing.T) {
+	requireExiftool(t)
+	dir := t.TempDir()
+	orig := filepath.Join(dir, "clip.mkv")
+	sentinel := []byte("cancel-sentinel")
+	if err := os.WriteFile(orig, sentinel, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_ = Write(ctx, orig, "Title", []string{"x"})
+
+	got, _ := os.ReadFile(orig)
+	if !bytes.Equal(got, sentinel) {
+		t.Error("original modified despite cancelled context")
+	}
+}
+
+// TestWrite_EmptyValues returns an error without touching the file.
+func TestWrite_EmptyValues(t *testing.T) {
+	dir := t.TempDir()
+	orig := filepath.Join(dir, "clip.mkv")
+	sentinel := []byte("sentinel")
+	if err := os.WriteFile(orig, sentinel, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Write(context.Background(), orig, "Title", nil); err == nil {
+		t.Error("expected error for empty values slice")
+	}
+	got, _ := os.ReadFile(orig)
+	if !bytes.Equal(got, sentinel) {
+		t.Error("original modified despite error return")
+	}
+}
+
+func mustReadDir(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.Name()
+	}
+	return names
+}

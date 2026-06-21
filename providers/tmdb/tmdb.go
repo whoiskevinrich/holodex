@@ -97,12 +97,53 @@ type personDetails struct {
 }
 
 type findResult struct {
-	PersonResults []tmdbPerson `json:"person_results"`
+	PersonResults []tmdbPerson       `json:"person_results"`
+	MovieResults  []movieSearchEntry `json:"movie_results"`
+}
+
+// ---- movie types ----
+
+type movieSearchResult struct {
+	Results []movieSearchEntry `json:"results"`
+}
+
+type movieSearchEntry struct {
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	ReleaseDate string  `json:"release_date"`
+	Popularity  float64 `json:"popularity"`
+}
+
+type movieGenre struct {
+	Name string `json:"name"`
+}
+
+type movieDetails struct {
+	ID               int          `json:"id"`
+	Title            string       `json:"title"`
+	OriginalTitle    string       `json:"original_title"`
+	Overview         string       `json:"overview"`
+	ReleaseDate      string       `json:"release_date"`
+	Runtime          int          `json:"runtime"`
+	Genres           []movieGenre `json:"genres"`
+	Tagline          string       `json:"tagline"`
+	Homepage         string       `json:"homepage"`
+	OriginalLanguage string       `json:"original_language"`
+	Status           string       `json:"status"`
+	IMDbID           string       `json:"imdb_id"`
+	PosterPath       string       `json:"poster_path"`
 }
 
 // ---- resolve ----
 
-func (c *tmdbClient) resolve(ctx context.Context, h hintBody) ([]candidate, error) {
+func (c *tmdbClient) resolve(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
+	if entityType == "video" {
+		return c.resolveMovie(ctx, h)
+	}
+	return c.resolvePerson(ctx, h)
+}
+
+func (c *tmdbClient) resolvePerson(ctx context.Context, h hintBody) ([]candidate, error) {
 	// Embedded-ID path: fast and deterministic.
 	for _, id := range h.ExternalIDs {
 		ns, val, ok := splitID(id)
@@ -135,12 +176,49 @@ func (c *tmdbClient) resolve(ctx context.Context, h hintBody) ([]candidate, erro
 			}
 		}
 	}
-
-	// Name-search fallback.
 	if h.Query == "" {
 		return []candidate{}, nil
 	}
 	return c.searchPerson(ctx, h.Query)
+}
+
+func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate, error) {
+	for _, id := range h.ExternalIDs {
+		ns, val, ok := splitID(id)
+		if !ok {
+			continue
+		}
+		switch ns {
+		case "tmdb":
+			n, err := strconv.Atoi(val)
+			if err != nil {
+				continue
+			}
+			det, err := c.fetchMovieDetails(ctx, n)
+			if err != nil {
+				return nil, err
+			}
+			return []candidate{{
+				ExternalID:     fmt.Sprintf("tmdb:%d", det.ID),
+				Namespace:      "tmdb",
+				Label:          det.Title,
+				Confidence:     1.0,
+				Disambiguation: movieDisambiguate(det),
+			}}, nil
+		case "imdb":
+			cands, err := c.findMovieByIMDB(ctx, val)
+			if err != nil {
+				return nil, err
+			}
+			if len(cands) > 0 {
+				return cands, nil
+			}
+		}
+	}
+	if h.Query == "" {
+		return []candidate{}, nil
+	}
+	return c.searchMovie(ctx, h.Query)
 }
 
 func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidate, error) {
@@ -192,9 +270,143 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 	return out, nil
 }
 
+func (c *tmdbClient) searchMovie(ctx context.Context, query string) ([]candidate, error) {
+	var result movieSearchResult
+	if err := c.get(ctx, "/3/search/movie", url.Values{
+		"query":    {query},
+		"language": {c.language},
+		"page":     {"1"},
+	}, &result); err != nil {
+		return nil, err
+	}
+	out := make([]candidate, 0, len(result.Results))
+	for i, m := range result.Results {
+		if i >= 10 {
+			break
+		}
+		out = append(out, candidate{
+			ExternalID:     fmt.Sprintf("tmdb:%d", m.ID),
+			Namespace:      "tmdb",
+			Label:          m.Title,
+			Confidence:     rankConfidence(i, m.Popularity),
+			Disambiguation: movieYear(m.ReleaseDate),
+		})
+	}
+	return out, nil
+}
+
+func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]candidate, error) {
+	var result findResult
+	if err := c.get(ctx, "/3/find/"+url.PathEscape(imdbID), url.Values{
+		"external_source": {"imdb_id"},
+		"language":        {c.language},
+	}, &result); err != nil {
+		return nil, err
+	}
+	out := make([]candidate, 0, len(result.MovieResults))
+	for _, m := range result.MovieResults {
+		dis := ""
+		if len(m.ReleaseDate) >= 4 {
+			dis = m.ReleaseDate[:4]
+		}
+		out = append(out, candidate{
+			ExternalID:     fmt.Sprintf("tmdb:%d", m.ID),
+			Namespace:      "tmdb",
+			Label:          m.Title,
+			Confidence:     0.95,
+			Disambiguation: dis,
+		})
+	}
+	return out, nil
+}
+
+func (c *tmdbClient) fetchMovieDetails(ctx context.Context, id int) (movieDetails, error) {
+	var det movieDetails
+	err := c.get(ctx, fmt.Sprintf("/3/movie/%d", id), url.Values{
+		"language": {c.language},
+	}, &det)
+	return det, err
+}
+
+func buildMovieEnrichResponse(det movieDetails) enrichResponse {
+	fields := make(map[string][]string)
+	if v := strings.TrimSpace(det.Overview); v != "" {
+		fields["overview"] = []string{trimAtSentence(v, 4000)}
+	}
+	if det.ReleaseDate != "" {
+		fields["release_date"] = []string{det.ReleaseDate}
+	}
+	if det.Runtime > 0 {
+		fields["runtime"] = []string{strconv.Itoa(det.Runtime)}
+	}
+	if len(det.Genres) > 0 {
+		genres := make([]string, 0, len(det.Genres))
+		for _, g := range det.Genres {
+			if g.Name != "" {
+				genres = append(genres, g.Name)
+			}
+		}
+		if len(genres) > 0 {
+			fields["genres"] = genres
+		}
+	}
+	if v := strings.TrimSpace(det.Tagline); v != "" {
+		fields["tagline"] = []string{v}
+	}
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["homepage"] = []string{v}
+	}
+	if det.OriginalLanguage != "" {
+		fields["original_language"] = []string{det.OriginalLanguage}
+	}
+	if ot := strings.TrimSpace(det.OriginalTitle); ot != "" && ot != strings.TrimSpace(det.Title) {
+		fields["original_title"] = []string{ot}
+	}
+	if det.Status != "" {
+		fields["status"] = []string{det.Status}
+	}
+	if det.IMDbID != "" {
+		fields["imdb_id"] = []string{det.IMDbID}
+	}
+	if det.PosterPath != "" {
+		fields["poster_url"] = []string{"https://image.tmdb.org/t/p/original" + det.PosterPath}
+	}
+	return enrichResponse{Fields: fields}
+}
+
+func movieYear(releaseDate string) string {
+	if len(releaseDate) >= 4 {
+		return releaseDate[:4]
+	}
+	return ""
+}
+
+func movieDisambiguate(det movieDetails) string {
+	var parts []string
+	if y := movieYear(det.ReleaseDate); y != "" {
+		parts = append(parts, y)
+	}
+	for i, g := range det.Genres {
+		if i >= 2 {
+			break
+		}
+		if g.Name != "" {
+			parts = append(parts, g.Name)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
 // ---- enrich ----
 
-func (c *tmdbClient) enrich(ctx context.Context, externalID string) (enrichResponse, error) {
+func (c *tmdbClient) enrich(ctx context.Context, externalID, entityType string) (enrichResponse, error) {
+	if entityType == "video" {
+		return c.enrichMovie(ctx, externalID)
+	}
+	return c.enrichPerson(ctx, externalID)
+}
+
+func (c *tmdbClient) enrichPerson(ctx context.Context, externalID string) (enrichResponse, error) {
 	ns, val, ok := splitID(externalID)
 	if !ok || ns != "tmdb" {
 		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
@@ -208,6 +420,22 @@ func (c *tmdbClient) enrich(ctx context.Context, externalID string) (enrichRespo
 		return enrichResponse{}, err
 	}
 	return buildEnrichResponse(det), nil
+}
+
+func (c *tmdbClient) enrichMovie(ctx context.Context, externalID string) (enrichResponse, error) {
+	ns, val, ok := splitID(externalID)
+	if !ok || ns != "tmdb" {
+		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
+	}
+	det, err := c.fetchMovieDetails(ctx, n)
+	if err != nil {
+		return enrichResponse{}, err
+	}
+	return buildMovieEnrichResponse(det), nil
 }
 
 func (c *tmdbClient) fetchDetails(ctx context.Context, id int) (personDetails, error) {

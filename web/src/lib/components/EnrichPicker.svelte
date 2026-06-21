@@ -4,28 +4,29 @@
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
 
 	let {
-		personId,
-		personName,
+		entityName,
 		provider,
+		resolve,
+		apply,
 		onclose,
 		onapplied
 	}: {
-		personId: number;
-		personName: string;
+		entityName: string;
 		provider: string;
+		resolve: (provider: string, query: string) => Promise<{ candidates: EnrichCandidate[] }>;
+		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
 		onclose: () => void;
 		onapplied: (fields: EnrichedField[]) => void;
 	} = $props();
 
-	// Seed the search box with the person's name; we want the initial value only
+	// Seed the search box with the entity's name; we want the initial value only
 	// (the prop never changes for a given picker instance).
 	// svelte-ignore state_referenced_locally
-	let query = $state(personName);
+	let query = $state(entityName);
 	let candidates = $state<EnrichCandidate[]>([]);
 	let active = $state(0);
 	let loading = $state(false);
@@ -42,7 +43,7 @@
 		input?.focus();
 		input?.select();
 		// Auto-search the pre-filled name on open so a confident match shows
-		// immediately — the owner shouldn't have to retype the person's own name.
+		// immediately — the owner shouldn't have to retype the entity's own name.
 		if (query.trim().length >= 2) void search(query.trim());
 		// Focus-return: send focus back to the Enrich button when the picker closes.
 		return () => trigger?.focus?.();
@@ -83,7 +84,7 @@
 		loading = true;
 		error = '';
 		try {
-			const res = await api.enrichResolve(personId, provider, q);
+			const res = await resolve(provider, q);
 			candidates = res.candidates ?? [];
 			active = 0;
 		} catch (e) {
@@ -99,7 +100,7 @@
 		applying = true;
 		error = '';
 		try {
-			const res = await api.enrichApply(personId, provider, c.external_id);
+			const res = await apply(provider, c.external_id);
 			onapplied(res.enriched ?? []);
 			onclose();
 		} catch (e) {
@@ -203,7 +204,7 @@
 					? 'Tab or ↑/↓ to choose, then '
 					: ''}click or press Enter to apply
 			{:else}
-				No matches for “{query.trim()}”.
+				No matches for "{query.trim()}".
 			{/if}
 		</p>
 

@@ -17,11 +17,13 @@
 ### What this is
 
 A **Holodex metadata provider sidecar** is a standalone HTTP/JSON service that Holodex
-calls to enrich local **People** records with data the media files do not carry — bios,
-birthdates, nationality, websites, aliases, and a portrait photo. This spec covers the
-**TMDB** (The Movie Database) provider: a container that translates Holodex's small,
-provider-agnostic contract into calls against the public TMDB API and maps the responses
-back into Holodex's canonical enrichment fields.
+calls to enrich local entities with data the media files do not carry. This spec covers the
+**TMDB** (The Movie Database) provider, which supports two entity types:
+
+- **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
+- **Films / Video** (`entity_type: "video"`) — overview, release date, runtime, genres, tagline, homepage, language, IMDb ID, and a poster URL.
+
+The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
 
 ### How Holodex consumes it (architecture context)
 
@@ -104,9 +106,13 @@ provider loudly.
   "provider": "tmdb",
   "version": "1.0.0",
   "protocol_version": 1,
-  "entity_types": ["person"],
+  "entity_types": ["person", "video"],
   "id_namespaces": ["tmdb", "imdb"],
-  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "deathdate"],
+  "fields": [
+    "bio", "birthdate", "nationality", "website", "aliases", "deathdate",
+    "overview", "release_date", "runtime", "genres", "tagline", "homepage",
+    "original_language", "original_title", "status", "imdb_id", "poster_url"
+  ],
   "asset_kinds": ["photo"]
 }
 ```
@@ -116,16 +122,19 @@ provider loudly.
 | `provider` | string | yes | Provider id, lowercase — `"tmdb"` |
 | `version` | string | yes | Container version (display) |
 | `protocol_version` | integer | yes | **MUST be `1`.** Holodex refuses any other major version |
-| `entity_types` | string[] | yes | v1: `["person"]` (see [§2.3](#23-entity-type-and-matching-fields)) |
+| `entity_types` | string[] | yes | `["person", "video"]` — person for People enrichment, video for film enrichment (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
-| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies portraits: `["photo"]` |
+| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies portraits: `["photo"]` (for person only; poster is a text field for video) |
 
 ### 2.3 Entity type and matching fields
 
-v1 supports **one** `entity_type`: the literal string **`"person"`**. Holodex sends this
-verbatim in `/resolve` and `/enrich`. The container should accept `"person"` and MAY return
-an error for unknown entity types (Holodex will not send others in v1).
+The TMDB provider supports two `entity_type` values:
+
+- **`"person"`** — People enrichment: name search against `/3/search/person`, details from `/3/person/{id}`, photo asset.
+- **`"video"`** — Film enrichment: title search against `/3/search/movie`, details from `/3/movie/{id}`, poster stored as a text URL field (`poster_url`).
+
+The same `external_id` namespace (`tmdb:NNN`, `imdb:tt…`) is used for both entity types; the `entity_type` field in the request disambiguates which TMDB resource to look up. Holodex sends one or the other and the container dispatches accordingly. Unknown entity types should return `200` with `{"candidates":[]}` for resolve, or a non-2xx for enrich.
 
 ### 2.4 `POST /resolve` — identity match (disambiguation)
 
@@ -317,7 +326,55 @@ configuration. Emit:
 
 Omit the `assets` array entirely when `profile_path` is null.
 
-### 4.4 Auth & rate-limit handling (provider-owned)
+### 4.4 Film / Video enrichment
+
+#### 4.4a `/resolve` (movie search)
+
+For `hint.query`, call TMDB **Search › Movie**:
+
+```
+GET https://api.themoviedb.org/3/search/movie?query=<urlencoded>&language=en-US&page=1
+```
+
+Map each result to a candidate — same shape as person candidates but using movie fields:
+
+| Candidate field | From TMDB search result | Notes |
+|---|---|---|
+| `external_id` | `"tmdb:" + id` | TMDB movie id (integer) |
+| `namespace` | `"tmdb"` | constant |
+| `label` | `title` | The movie's title |
+| `confidence` | same rank formula as person | `1.0 − rank × 0.08` + popularity boost |
+| `disambiguation` | release year (first 4 chars of `release_date`) | e.g. `"1999"` |
+
+For `hint.external_ids` — if a `tmdb:NNN` id is present, call **Movie › Details** directly and return a single high-confidence candidate. If an `imdb:tt…` id is present, call TMDB **Find** (`GET /3/find/{imdb_id}?external_source=imdb_id`) and use `movie_results[]`.
+
+#### 4.4b `/enrich` (movie details)
+
+Call TMDB **Movie › Details**:
+
+```
+GET https://api.themoviedb.org/3/movie/{id}?language=en-US
+```
+
+Map TMDB movie fields → canonical `fields` (each value an array of strings):
+
+| Canonical field | TMDB source | Notes |
+|---|---|---|
+| `overview` | `overview` | Single value. Trim to ≤4000 chars at a sentence boundary. Omit if empty |
+| `release_date` | `release_date` | `YYYY-MM-DD` string. Omit if empty |
+| `runtime` | `runtime` | Integer minutes, serialized as a string (e.g. `"139"`). Omit if 0 |
+| `genres` | `genres[].name` | Multi-value — one element per genre (e.g. `["Drama", "Thriller"]`) |
+| `tagline` | `tagline` | Single value. Omit if empty |
+| `homepage` | `homepage` | Single value. Omit if empty |
+| `original_language` | `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
+| `original_title` | `original_title` | Only include if different from `title` (avoid redundancy) |
+| `status` | `status` | e.g. `"Released"`. Omit if empty |
+| `imdb_id` | `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
+| `poster_url` | `poster_path` | **Text field** (not an asset). Construct the absolute URL: `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
+
+**No `assets[]` for movies.** The poster is a text `fields` entry (`poster_url`), not an asset download — there is no film poster sink that maps to a stored image slot (unlike person photos which map to the headshot role). Holodex renders the URL directly as an image in the UI.
+
+### 4.5 Auth & rate-limit handling (provider-owned)
 
 - **Auth:** TMDB v3 accepts either the **API Read Access Token** (a bearer token, preferred:
   `Authorization: Bearer <token>`) or the legacy **API key** as a query param
@@ -551,7 +608,7 @@ services:
 sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100   # the Compose service name on the internal network
-    entity_types: [person]
+    entity_types: [person, video]        # person = People pages; video = Media detail pages
     asset_hosts: [image.tmdb.org]        # TMDB CDN host for portrait downloads (ADR-039)
     enabled: true
 ```

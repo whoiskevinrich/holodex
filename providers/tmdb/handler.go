@@ -32,10 +32,16 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 		Provider:        "tmdb",
 		Version:         providerVersion,
 		ProtocolVersion: 1,
-		EntityTypes:     []string{"person"},
+		EntityTypes:     []string{"person", "video"},
 		IDNamespaces:    []string{"tmdb", "imdb"},
-		Fields:          []string{"bio", "birthdate", "nationality", "deathdate", "website", "aliases"},
-		AssetKinds:      []string{"photo"},
+		Fields: []string{
+			// person fields
+			"bio", "birthdate", "nationality", "deathdate", "website", "aliases",
+			// video/film fields
+			"overview", "release_date", "runtime", "genres", "tagline", "homepage",
+			"original_language", "original_title", "status", "imdb_id", "poster_url",
+		},
+		AssetKinds: []string{"photo"},
 	})
 }
 
@@ -55,13 +61,13 @@ func (h *handler) resolve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if req.EntityType != "person" {
+	if req.EntityType != "person" && req.EntityType != "video" {
 		writeJSON(w, http.StatusOK, map[string]any{"candidates": []any{}})
 		return
 	}
-	candidates, err := h.tmdb.resolve(r.Context(), req.Hint)
+	candidates, err := h.tmdb.resolve(r.Context(), req.Hint, req.EntityType)
 	if err != nil {
-		h.log.Warn("resolve failed", "err", err)
+		h.log.Warn("resolve failed", "entity_type", req.EntityType, "err", err)
 		http.Error(w, "upstream error", http.StatusBadGateway)
 		return
 	}
@@ -79,17 +85,17 @@ func (h *handler) enrich(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if req.EntityType != "person" {
+	if req.EntityType != "person" && req.EntityType != "video" {
 		http.Error(w, "unsupported entity type", http.StatusBadRequest)
 		return
 	}
-	result, err := h.tmdb.enrich(r.Context(), req.ExternalID)
+	result, err := h.tmdb.enrich(r.Context(), req.ExternalID, req.EntityType)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		h.log.Warn("enrich failed", "external_id", req.ExternalID, "err", err)
+		h.log.Warn("enrich failed", "entity_type", req.EntityType, "external_id", req.ExternalID, "err", err)
 		http.Error(w, "upstream error", http.StatusBadGateway)
 		return
 	}

@@ -17,8 +17,7 @@
 #   base_url      where core reaches the sidecar (compose service name on the
 #                 internal network, or host:port). THIS is the SSRF allowlist —
 #                 core never follows a provider response to any other host.
-#   entity_types  what the provider can enrich; v1 supports [person]
-#                 (series/video reuse the same design later)
+#   entity_types  what the provider can enrich; supports [person] and/or [video]
 #   asset_hosts   extra CDN hostnames whose asset URLs core is allowed to fetch
 #                 (ADR-039). The sidecar's own base_url host is always implicitly
 #                 allowed. Any listed host requires https. Example: TMDB serves
@@ -29,7 +28,7 @@
 sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100
-    entity_types: [person]
+    entity_types: [person, video]
     asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait downloads
     enabled: false
 

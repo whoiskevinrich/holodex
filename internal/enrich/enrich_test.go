@@ -474,11 +474,11 @@ func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
 
 // Untrusted-response bounding (F22.9b).
 func TestSanitizeValue(t *testing.T) {
-	if got := sanitizeValue("a\x00b\nc"); got != "ab c" {
+	if got := SanitizeValue("a\x00b\nc"); got != "ab c" {
 		t.Errorf("sanitizeValue = %q, want %q", got, "ab c")
 	}
 	long := strings.Repeat("x", maxFieldLen+10)
-	if got := sanitizeValue(long); len(got) != maxFieldLen {
+	if got := SanitizeValue(long); len(got) != maxFieldLen {
 		t.Errorf("length cap = %d, want %d", len(got), maxFieldLen)
 	}
 }

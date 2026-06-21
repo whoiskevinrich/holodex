@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"holodex/internal/model"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 )
 
@@ -23,19 +24,6 @@ const (
 	maxCandidates     = 25
 )
 
-// personFieldLabels gives the canonical person fields human display labels
-// (F22.5c). v1 is People-only; when series/video providers are added, labeling
-// should move to a per-entity map (or be pushed to the provider Manifest / SPA),
-// so a non-person field doesn't silently fall through to the title-cased default.
-// Unknown keys fall back to a title-cased label.
-var personFieldLabels = map[string]string{
-	"bio":         "Bio",
-	"birthdate":   "Born",
-	"nationality": "Nationality",
-	"website":     "Website",
-	"aliases":     "Aliases",
-	"photo":       "Photo",
-}
 
 // EnrichRepo is the shadow-store subset the service needs (satisfied by *repo.Repo).
 type EnrichRepo interface {
@@ -298,11 +286,23 @@ func (s *Service) Fields(ctx context.Context, entityType string, entityID int64)
 	if err != nil {
 		return nil, err
 	}
+	return s.FieldsFromRows(rows), nil
+}
+
+// FieldsFromRows converts pre-fetched enrichment rows to display fields. It lets
+// callers that already hold the rows (e.g. getMedia, which uses the same rows for
+// the resolver) avoid a second repo round-trip.
+func (s *Service) FieldsFromRows(rows []repo.EnrichmentRow) []model.EnrichedField {
+	if len(rows) == 0 {
+		return nil
+	}
 	out := make([]model.EnrichedField, 0, len(rows))
 	for _, r := range rows {
+		def := registry.Lookup(r.FieldKey)
 		out = append(out, model.EnrichedField{
 			Canonical:  r.FieldKey,
-			Label:      labelFor(r.FieldKey),
+			Label:      def.Label,
+			Display:    def.Display,
 			Values:     r.Values,
 			Provider:   r.Provider,
 			ExternalID: r.ExternalID,
@@ -310,18 +310,7 @@ func (s *Service) Fields(ctx context.Context, entityType string, entityID int64)
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Label < out[j].Label })
-	return out, nil
-}
-
-func labelFor(key string) string {
-	if l, ok := personFieldLabels[strings.ToLower(strings.TrimSpace(key))]; ok {
-		return l
-	}
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return ""
-	}
-	return strings.ToUpper(key[:1]) + key[1:]
+	return out
 }
 
 // sanitizeFields bounds an untrusted provider field map (F22.9b): strips control
@@ -341,7 +330,7 @@ func sanitizeFields(in map[string][]string) map[string][]string {
 			if len(cleaned) >= maxValuesPerField {
 				break
 			}
-			if v = sanitizeValue(v); v != "" {
+			if v = SanitizeValue(v); v != "" {
 				cleaned = append(cleaned, v)
 			}
 		}
@@ -357,18 +346,18 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in = in[:maxCandidates]
 	}
 	for i := range in {
-		in[i].Label = sanitizeValue(in[i].Label)
-		in[i].Disambiguation = sanitizeValue(in[i].Disambiguation)
+		in[i].Label = SanitizeValue(in[i].Label)
+		in[i].Disambiguation = SanitizeValue(in[i].Disambiguation)
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
 	}
 	return in
 }
 
-// sanitizeValue removes control characters (keeping normal whitespace), collapses
+// SanitizeValue removes control characters (keeping normal whitespace), collapses
 // surrounding space, and caps length. Newline is stripped because the shadow
-// store uses it as the multi-value separator.
-func sanitizeValue(v string) string {
+// store uses it as the multi-value separator. Also used by the writeback handler.
+func SanitizeValue(v string) string {
 	v = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\r' || r == '\t' {
 			return ' '

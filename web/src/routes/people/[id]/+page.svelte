@@ -440,9 +440,10 @@
 
 {#if pickerOpen && provider}
 	<EnrichPicker
-		personId={id}
-		personName={person?.name ?? ''}
+		entityName={person?.name ?? ''}
 		{provider}
+		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
+		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
 		onclose={() => (pickerOpen = false)}
 		onapplied={onApplied}
 	/>
