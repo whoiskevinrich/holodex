@@ -139,12 +139,12 @@
 	}
 </script>
 
-<!-- Backdrop -->
+<!-- Backdrop + centering wrapper -->
 <div
-	class="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm"
+	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
 	aria-hidden="true"
-	onclick={() => !busy && onclose()}
-></div>
+	onclick={(e) => { if (e.target === e.currentTarget && !busy) onclose(); }}
+>
 
 <!-- Dialog -->
 <div
@@ -154,7 +154,7 @@
 	aria-labelledby="writeback-title"
 	tabindex="-1"
 	onkeydown={onKeydown}
-	class="fixed inset-x-4 top-16 z-50 mx-auto max-w-xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg sm:inset-x-auto sm:w-full"
+	class="w-full max-w-xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
 >
 	<div class="flex items-center justify-between border-b border-rule px-4 py-3">
 		<h2 id="writeback-title" class="text-sm font-semibold text-ink">Write metadata to file</h2>
@@ -274,4 +274,5 @@
 			</button>
 		</div>
 	</div>
+</div>
 </div>
