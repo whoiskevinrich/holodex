@@ -3,13 +3,14 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video, WritebackRequest } from '$lib/types';
+	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
+	import WritebackFormDialog from '$lib/components/WritebackFormDialog.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -35,13 +36,8 @@
 	let enrichBusy = $state('');
 	let enrichError = $state('');
 
-	// Metadata writeback (F28, ADR-041). writebackTarget drives the confirm dialog;
-	// writebackDone tracks the last successfully-written canonical so the write
-	// button is replaced with "Written ✓" until the next page navigation.
-	let writebackTarget = $state<ResolvedField | null>(null);
-	let writebackBusy = $state(false);
-	let writebackError = $state('');
-	let writebackDone = $state<string | null>(null);
+	// Metadata writeback (F28, ADR-041). writebackOpen drives the batch form dialog.
+	let writebackOpen = $state(false);
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.isOwner);
@@ -51,6 +47,12 @@
 		resolved.find((f) => f.canonical === 'title')?.values[0] ?? video?.title ?? ''
 	);
 	const provider = $derived(sources.find((s) => s.entity_types.includes('video'))?.name ?? '');
+	const canWriteback = $derived(
+		isOwner &&
+			resolved.some(
+				(f) => !!f.winning_source && !f.winning_source.startsWith('file:') && f.display !== 'image_url'
+			)
+	);
 
 	const graceDays = $derived(
 		activity.caps?.delete_grace_period_seconds
@@ -142,27 +144,6 @@
 
 	function onApplied(f: EnrichedField[]) {
 		enriched = f;
-	}
-
-	async function doWriteback() {
-		if (!writebackTarget || writebackBusy) return;
-		writebackBusy = true;
-		writebackError = '';
-		const target = writebackTarget;
-		try {
-			const req: WritebackRequest = {
-				field: target.canonical,
-				values: target.values,
-				source: target.winning_source ?? ''
-			};
-			await api.writebackMedia(id, req);
-			writebackDone = target.canonical;
-			writebackTarget = null;
-		} catch (e) {
-			writebackError = toMessage(e);
-		} finally {
-			writebackBusy = false;
-		}
 	}
 
 	async function clearProvider() {
@@ -311,11 +292,22 @@
 		     output is present (e.g. no mappings configured). -->
 		{#if resolved.length}
 			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+				<div class="flex items-center justify-between">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+					{#if canWriteback}
+						<button
+							onclick={() => (writebackOpen = true)}
+							class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+							title="Write enriched values to file tags"
+						>
+							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+							Write to file
+						</button>
+					{/if}
+				</div>
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 					{#each resolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
-						{@const canWrite = isOwner && !!winnerProvider && f.display !== 'image_url'}
 						{#if f.display === 'image_url'}
 							<div class="sm:col-span-2">
 								<dt class="mb-1 text-muted">{f.label}:</dt>
@@ -333,32 +325,12 @@
 								<dt class="inline text-muted">{f.label}:</dt>
 								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
-								{#if writebackDone === f.canonical}
-									<span class="ml-1 text-xs text-accent" aria-live="polite">Written ✓</span>
-								{:else if canWrite}
-									<button
-										onclick={() => { writebackTarget = f; writebackError = ''; }}
-										aria-label="Write {f.label} to file"
-										title="Write to file"
-										class="ml-1 rounded-theme p-0.5 text-muted hover:text-accent focus-visible:text-accent"
-									><svg class="inline h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l-7 7-7-7"/><path d="M12 3v13M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
-								{/if}
 							</div>
 						{:else}
 							<div>
 								<dt class="inline text-muted">{f.label}:</dt>
 								<dd class="inline text-ink">{f.values.join(', ')}</dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
-								{#if writebackDone === f.canonical}
-									<span class="ml-1 text-xs text-accent" aria-live="polite">Written ✓</span>
-								{:else if canWrite}
-									<button
-										onclick={() => { writebackTarget = f; writebackError = ''; }}
-										aria-label="Write {f.label} to file"
-										title="Write to file"
-										class="ml-1 rounded-theme p-0.5 text-muted hover:text-accent focus-visible:text-accent"
-									><svg class="inline h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9l-7 7-7-7"/><path d="M12 3v13M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
-								{/if}
 							</div>
 						{/if}
 					{/each}
@@ -514,26 +486,15 @@
 		{/if}
 	</article>
 
-	{#if writebackTarget && video}
-		<ConfirmDialog
-			title="Write to file?"
-			confirmLabel="Write to file"
-			variant="accent"
-			busy={writebackBusy}
-			error={writebackError}
-			onconfirm={doWriteback}
-			oncancel={() => (writebackTarget = null)}
-		>
-			{#snippet body()}
-				{@const target = writebackTarget!}
-				{@const vid = video!}
-				<p>Write <strong>{target.display === 'long_text' ? target.values[0].slice(0, 120) + (target.values[0].length > 120 ? '…' : '') : target.values.join(', ')}</strong> to the <em>{target.label}</em> tag in:</p>
-				<p class="truncate font-mono text-xs text-muted" title={vid.file_path}>{vid.file_path}</p>
-				{#if target.winning_source}
-					<p class="text-xs text-muted">Source: {target.winning_source}</p>
-				{/if}
-			{/snippet}
-		</ConfirmDialog>
+	{#if writebackOpen && video}
+		<WritebackFormDialog
+			fields={resolved}
+			videoId={id}
+			filePath={video.file_path}
+			writeback={api.writebackMedia}
+			onclose={() => (writebackOpen = false)}
+			onapplied={() => {}}
+		/>
 	{/if}
 
 	{#if pickerOpen && provider && video}
