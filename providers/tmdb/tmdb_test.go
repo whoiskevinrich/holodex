@@ -447,6 +447,36 @@ func (t rebaseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(clone)
 }
 
+func TestParseReleaseFilename(t *testing.T) {
+	cases := []struct {
+		in    string
+		title string
+		year  string
+	}{
+		// Standard release-group patterns
+		{"Dune.2021.2160p.HMAX.WEB-DL.DDP5.1.Atmos.HDR.HEVC-CMRG", "Dune", "2021"},
+		{"Dune.Part.Two.2024.2160p.HMAX.WEB-DL", "Dune Part Two", "2024"},
+		{"Fight.Club.1999.1080p.BluRay.x264", "Fight Club", "1999"},
+		{"2001.A.Space.Odyssey.1968.1080p.BluRay", "2001 A Space Odyssey", "1968"},
+		// Fewer than 3 dots — not a recognisable filename, pass through unchanged
+		{"Rio.2011", "Rio.2011", ""},
+		// Plain search queries — must pass through unchanged
+		{"Dune", "Dune", ""},
+		{"Fight Club", "Fight Club", ""},
+		{"Dune 2021", "Dune 2021", ""},   // spaces not dots, < 3 dots
+		{"Dune.2021", "Dune.2021", ""},   // only 1 dot — too few
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			title, year := parseReleaseFilename(tc.in)
+			if title != tc.title || year != tc.year {
+				t.Errorf("parseReleaseFilename(%q) = (%q, %q), want (%q, %q)",
+					tc.in, title, year, tc.title, tc.year)
+			}
+		})
+	}
+}
+
 func newDiscardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

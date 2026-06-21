@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -182,6 +183,25 @@ func (c *tmdbClient) resolvePerson(ctx context.Context, h hintBody) ([]candidate
 	return c.searchPerson(ctx, h.Query)
 }
 
+// releaseFilenameRe matches release-group video filenames (e.g.
+// "Dune.2021.2160p.WEB-DL...") so we can extract a clean title and year before
+// sending to TMDB's search API. Requires 3+ dots in the query to avoid
+// false-positives on ordinary search strings that happen to contain a year.
+var releaseFilenameRe = regexp.MustCompile(`^(.+?)\.((?:19|20)\d{2})(?:\.|$)`)
+
+// parseReleaseFilename extracts (title, year) from a dotted release-group
+// filename. Returns (original, "") when the pattern is not recognised.
+func parseReleaseFilename(q string) (title, year string) {
+	if strings.Count(q, ".") < 3 {
+		return q, ""
+	}
+	m := releaseFilenameRe.FindStringSubmatch(q)
+	if m == nil {
+		return q, ""
+	}
+	return strings.ReplaceAll(m[1], ".", " "), m[2]
+}
+
 func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate, error) {
 	for _, id := range h.ExternalIDs {
 		ns, val, ok := splitID(id)
@@ -218,7 +238,8 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 	if h.Query == "" {
 		return []candidate{}, nil
 	}
-	return c.searchMovie(ctx, h.Query)
+	title, year := parseReleaseFilename(h.Query)
+	return c.searchMovie(ctx, title, year)
 }
 
 func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidate, error) {
@@ -270,13 +291,17 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 	return out, nil
 }
 
-func (c *tmdbClient) searchMovie(ctx context.Context, query string) ([]candidate, error) {
+func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]candidate, error) {
 	var result movieSearchResult
-	if err := c.get(ctx, "/3/search/movie", url.Values{
+	params := url.Values{
 		"query":    {query},
 		"language": {c.language},
 		"page":     {"1"},
-	}, &result); err != nil {
+	}
+	if year != "" {
+		params.Set("primary_release_year", year)
+	}
+	if err := c.get(ctx, "/3/search/movie", params, &result); err != nil {
 		return nil, err
 	}
 	out := make([]candidate, 0, len(result.Results))
