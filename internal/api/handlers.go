@@ -62,7 +62,7 @@ type Handlers struct {
 	mappings  *mapping.Store  // configurable metadata fields (F20); nil disables them
 	cache     cache.Cache     // facet-value cache (F20.8); nil disables caching
 	enrich    *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
-	writeback WriteFunc       // file tag write (F28, ADR-041); nil disables the endpoint
+	writeback WriteBatchFunc  // file tag write (F28, ADR-041); nil disables the endpoint
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.

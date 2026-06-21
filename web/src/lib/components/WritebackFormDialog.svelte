@@ -55,7 +55,6 @@
 
 	const checkedCount = $derived(rows.filter((r) => r.checked).length);
 	const hasErrors = $derived(rows.some((r) => r.status === 'error'));
-	const totalWritten = $derived(rows.filter((r) => r.status === 'done').length);
 
 	let busy = $state(false);
 	let dialogEl = $state<HTMLElement | null>(null);
@@ -109,33 +108,37 @@
 	async function submit() {
 		if (busy || checkedCount === 0) return;
 		busy = true;
-		const written: string[] = [];
 
-		for (const row of rows) {
-			if (!row.checked || row.status === 'done') continue;
+		// Mark all checked rows as in-progress, build the batch payload.
+		const checkedRows = rows.filter((r) => r.checked);
+		for (const row of checkedRows) {
 			row.status = 'writing';
 			row.error = '';
-			try {
-				const values = row.value
-					.split(/\s*,\s*/)
-					.map((v) => v.trim())
-					.filter((v) => v.length > 0);
-				await writeback(videoId, {
-					field: row.field.canonical,
-					values,
-					source: row.field.winning_source ?? ''
-				});
-				row.status = 'done';
-				written.push(row.field.canonical);
-			} catch (e) {
-				row.status = 'error';
-				row.error = toMessage(e);
-			}
 		}
 
-		busy = false;
-		onapplied(written);
-		if (!hasErrors) onclose();
+		const fields = checkedRows.map((r) => ({
+			field: r.field.canonical,
+			values: r.value
+				.split(/\s*,\s*/)
+				.map((v) => v.trim())
+				.filter((v) => v.length > 0),
+			source: r.field.winning_source ?? ''
+		}));
+
+		try {
+			await writeback(videoId, { fields });
+			for (const row of checkedRows) row.status = 'done';
+			onapplied(fields.map((f) => f.field));
+			onclose();
+		} catch (e) {
+			const msg = toMessage(e);
+			for (const row of checkedRows) {
+				row.status = 'error';
+				row.error = msg;
+			}
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
@@ -244,18 +247,10 @@
 	<!-- Footer -->
 	<div class="flex flex-col gap-2 border-t border-rule px-4 py-3">
 		{#if busy}
-			<div class="flex items-center gap-2 text-xs text-muted" aria-live="polite">
-				<span>Writing field {totalWritten + 1} of {checkedCount}…</span>
-				<div class="h-1 flex-1 overflow-hidden rounded-full bg-bg">
-					<div
-						class="h-full rounded-full bg-accent transition-all"
-						style="width: {checkedCount > 0 ? (totalWritten / checkedCount) * 100 : 0}%"
-					></div>
-				</div>
-			</div>
+			<p class="text-xs text-muted" aria-live="polite">Writing {checkedCount} field{checkedCount === 1 ? '' : 's'} to file…</p>
 		{:else if hasErrors}
 			<p class="text-xs text-warn" aria-live="polite">
-				Some fields failed — uncheck written fields and retry, or close to keep partial results.
+				Write failed — uncheck any fields you want to skip and try again.
 			</p>
 		{/if}
 

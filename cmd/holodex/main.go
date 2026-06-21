@@ -224,7 +224,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
-	handlers.SetWriteback(writeback.Write)
+	handlers.SetWriteback(writeback.WriteBatch)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 

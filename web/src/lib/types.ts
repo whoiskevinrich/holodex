@@ -102,13 +102,14 @@ export interface MediaDetailResponse {
 	enriched?: EnrichedField[] | null;
 }
 
-// WritebackRequest asks the server to embed a resolved field value into the
-// media file's tags (F28, ADR-041). values mirrors ResolvedField.values;
-// source mirrors ResolvedField.winning_source for the audit row.
+// WritebackRequest asks the server to embed a batch of resolved field values
+// into the media file's tags in a single exiftool pass (F28, ADR-041).
 export interface WritebackRequest {
-	field: string;
-	values: string[];
-	source: string;
+	fields: Array<{
+		field: string;
+		values: string[];
+		source: string;
+	}>;
 }
 
 // A soft-deleted item in the owner's Trash view (F24, ADR-037). purge_at is null

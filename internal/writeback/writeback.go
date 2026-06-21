@@ -9,41 +9,51 @@ import (
 	"strings"
 )
 
-// Write embeds tag values into the file at path using exiftool, via an atomic
-// copy → write → rename sequence so the original is never touched on failure
-// (ADR-041 §file-safety model).
+// FieldWrite is one tag assignment for WriteBatch.
+type FieldWrite struct {
+	TagName string   // exiftool tag name (e.g. "Title", "QuickTime:Genre")
+	Values  []string // one or more values; multi-valued tags get one -TAG=V per value
+}
+
+// WriteBatch embeds all tag values into the file at path in a single exiftool
+// invocation — one copy → one write → one atomic rename regardless of how many
+// fields are written (ADR-041 §file-safety model).
 //
-// tagName is an exiftool tag target (e.g. "QuickTime:Title", "GENRE") from the
-// format-mapping table; values is the ordered list of values to write (one for
-// scalar fields, many for multi-valued ones like genres). An empty tagName or
-// empty values slice is an error.
+// All FieldWrite entries must have a non-empty TagName and at least one value;
+// the call returns an error before touching the file if any entry is invalid.
+// On any exiftool failure the original is untouched.
 //
-// The caller is responsible for resolving canonical → tagName via TagForField
-// and for inserting the audit row on success.
-func Write(ctx context.Context, path, tagName string, values []string) error {
-	if tagName == "" {
-		return fmt.Errorf("writeback: empty tag name")
+// The caller is responsible for resolving canonical → TagName via TagForField
+// and for inserting audit rows on success.
+func WriteBatch(ctx context.Context, path string, fields []FieldWrite) error {
+	if len(fields) == 0 {
+		return fmt.Errorf("writeback: no fields to write")
 	}
-	if len(values) == 0 {
-		return fmt.Errorf("writeback: no values for tag %q", tagName)
+	for _, f := range fields {
+		if f.TagName == "" {
+			return fmt.Errorf("writeback: empty tag name in batch")
+		}
+		if len(f.Values) == 0 {
+			return fmt.Errorf("writeback: no values for tag %q", f.TagName)
+		}
 	}
 
 	tmp := path + ".holodex-tmp"
 
-	// Step 1: copy the original to a temp file in the same directory (same FS
-	// partition guarantees the later rename is atomic).
+	// Step 1: copy original to a temp in the same directory (same FS partition
+	// guarantees the later rename is atomic).
 	if err := copyFile(path, tmp); err != nil {
 		return fmt.Errorf("writeback copy: %w", err)
 	}
 
-	// Step 2: write the tag on the temp copy. Build discrete exiftool args —
-	// one -TAG=VALUE per value for multi-valued fields (e.g. genres).
-	// -m suppresses minor-error exits (e.g. incomplete file structure) so
-	// exiftool writes to imperfect-but-valid user files; the copy→rename ensures
-	// the original is never touched on any hard failure.
-	args := make([]string, 0, len(values)+3)
-	for _, v := range values {
-		args = append(args, fmt.Sprintf("-%s=%s", tagName, v))
+	// Step 2: write all tags in one exiftool call. One -TAG=VALUE per value for
+	// multi-valued fields (genres). -m suppresses minor-error exits so exiftool
+	// writes to imperfect-but-valid user files without aborting.
+	args := make([]string, 0, len(fields)*2+3)
+	for _, f := range fields {
+		for _, v := range f.Values {
+			args = append(args, fmt.Sprintf("-%s=%s", f.TagName, v))
+		}
 	}
 	args = append(args, "-m", "-overwrite_original", tmp)
 
@@ -59,6 +69,12 @@ func Write(ctx context.Context, path, tagName string, values []string) error {
 		return fmt.Errorf("writeback rename: %w", err)
 	}
 	return nil
+}
+
+// Write embeds a single tag into the file at path. Delegates to WriteBatch so
+// the atomicity and file-safety invariants are shared with the batch path.
+func Write(ctx context.Context, path, tagName string, values []string) error {
+	return WriteBatch(ctx, path, []FieldWrite{{TagName: tagName, Values: values}})
 }
 
 func copyFile(src, dst string) error {
