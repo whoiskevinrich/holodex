@@ -142,10 +142,11 @@
 	}
 </script>
 
-<!-- Backdrop + centering wrapper -->
+<!-- Backdrop + centering wrapper. aria-hidden must NOT be here — the dialog
+     inside is focusable. aria-modal="true" on the dialog signals to screen
+     readers that content outside it is inert. -->
 <div
 	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-	aria-hidden="true"
 	onclick={(e) => { if (e.target === e.currentTarget && !busy) onclose(); }}
 >
 

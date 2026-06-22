@@ -17,14 +17,13 @@ type FieldWrite struct {
 }
 
 // WriteBatch embeds all tag values into the file at path in a single tool
-// invocation — one copy → one write → one atomic rename (ADR-041 §file-safety).
+// invocation (ADR-041 §file-safety). The write tool is chosen by extension:
 //
-// The write tool is chosen by file extension:
-//   - .mkv / .mka / .mks / .webm → mkvpropedit (MKVToolNix)
+//   - .mkv / .mka / .mks / .webm → mkvpropedit if available, else ffmpeg
 //   - everything else             → exiftool
 //
+// On any failure the original is untouched; temp files are cleaned up.
 // All FieldWrite entries must have a non-empty TagName and at least one value.
-// On any failure the original is untouched.
 func WriteBatch(ctx context.Context, path string, fields []FieldWrite) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("writeback: no fields to write")
@@ -50,6 +49,15 @@ func WriteBatch(ctx context.Context, path string, fields []FieldWrite) error {
 // Write embeds a single tag into the file at path. Delegates to WriteBatch.
 func Write(ctx context.Context, path, tagName string, values []string) error {
 	return WriteBatch(ctx, path, []FieldWrite{{TagName: tagName, Values: values}})
+}
+
+// writeMKVBatch dispatches to mkvpropedit (fast, in-place) when available,
+// falling back to ffmpeg remux (already a required project dependency).
+func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error {
+	if _, err := exec.LookPath("mkvpropedit"); err == nil {
+		return writeMKVWithMkvpropedit(ctx, path, fields)
+	}
+	return writeMKVWithFFmpeg(ctx, path, fields)
 }
 
 // writeExiftoolBatch writes all fields in one exiftool invocation.
@@ -82,27 +90,22 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 	return nil
 }
 
-// writeMKVBatch writes Matroska tags using mkvpropedit (MKVToolNix).
-//
-// "Title" (case-insensitive) maps to the Segment Info title property via
-// --edit info --set title=VALUE. All other tags go into the global TAGS
-// element via a temp XML file (--tags global:file.xml), which replaces any
-// existing global tags — appropriate when writing enrichment data.
-func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error {
+// writeMKVWithMkvpropedit uses mkvpropedit (MKVToolNix) for fast in-place
+// Matroska tag writes. "Title" maps to the Segment Info title property;
+// all other tags go into the global TAGS element via a temp XML file.
+// Uses the same copy→write→rename safety model as the exiftool path.
+func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWrite) error {
 	tmp := path + ".holodex-tmp"
 	if err := copyFile(path, tmp); err != nil {
 		return fmt.Errorf("writeback copy: %w", err)
 	}
 
-	// Build the mkvpropedit argument list.
-	// We may write a tags XML; remove it after mkvpropedit finishes.
 	xmlPath := tmp + ".tags.xml"
 	var args []string
-
 	var xmlTags []FieldWrite
+
 	for _, f := range fields {
 		if strings.EqualFold(f.TagName, "Title") {
-			// Segment Info title — only one value; extras are ignored.
 			args = append(args, "--edit", "info", "--set", "title="+f.Values[0])
 		} else {
 			xmlTags = append(xmlTags, f)
@@ -110,14 +113,12 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 	}
 
 	if len(xmlTags) > 0 {
-		xml := buildTagsXML(xmlTags)
-		if err := os.WriteFile(xmlPath, []byte(xml), 0o600); err != nil {
+		if err := os.WriteFile(xmlPath, []byte(buildTagsXML(xmlTags)), 0o600); err != nil {
 			_ = os.Remove(tmp)
 			return fmt.Errorf("writeback: write tags XML: %w", err)
 		}
 		args = append(args, "--tags", "global:"+xmlPath)
 	}
-
 	args = append(args, tmp)
 
 	cmd := exec.CommandContext(ctx, "mkvpropedit", args...)
@@ -125,10 +126,6 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 	_ = os.Remove(xmlPath)
 	if err != nil {
 		_ = os.Remove(tmp)
-		// Surface a helpful message when mkvpropedit isn't installed.
-		if isNotFound(err) {
-			return fmt.Errorf("writeback: mkvpropedit not found — install MKVToolNix to write MKV metadata")
-		}
 		return fmt.Errorf("writeback mkvpropedit: %w — %s", err, strings.TrimSpace(string(out)))
 	}
 
@@ -137,6 +134,52 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 		return fmt.Errorf("writeback rename: %w", err)
 	}
 	return nil
+}
+
+// writeMKVWithFFmpeg remuxes the file with updated tags using ffmpeg (-c copy
+// keeps all streams byte-for-byte; only the container header is rebuilt).
+// ffmpeg is already required by the project (thumbnail pipeline), so this
+// path adds no extra dependency. Multi-value fields are joined with " / ".
+//
+// ffmpeg reads from the original and writes to a temp path; rename is atomic.
+func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) error {
+	newPath := path + ".holodex-new"
+
+	// -y: overwrite output; -map_metadata 0: carry existing tags forward
+	// (individual -metadata flags then add/override the specific keys).
+	args := []string{"-y", "-i", path, "-c", "copy", "-map_metadata", "0"}
+	for _, f := range fields {
+		key := ffmpegMetadataKey(f.TagName)
+		// ffmpeg doesn't support duplicate keys for multi-value; join with " / "
+		// which is the common separator in Matroska tooling.
+		args = append(args, "-metadata", key+"="+strings.Join(f.Values, " / "))
+	}
+	args = append(args, newPath)
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		_ = os.Remove(newPath)
+		if isNotFound(err) {
+			return fmt.Errorf("writeback: neither mkvpropedit nor ffmpeg found — install MKVToolNix or ffmpeg")
+		}
+		return fmt.Errorf("writeback ffmpeg: %w — %s", err, strings.TrimSpace(string(out)))
+	}
+
+	if err := os.Rename(newPath, path); err != nil {
+		_ = os.Remove(newPath)
+		return fmt.Errorf("writeback rename: %w", err)
+	}
+	return nil
+}
+
+// ffmpegMetadataKey converts our Matroska/ExifTool tag name to the key ffmpeg
+// expects for -metadata. Only "Title" is special: ffmpeg maps lowercase "title"
+// to both segment info and the TITLE tag; other names pass through unchanged.
+func ffmpegMetadataKey(tagName string) string {
+	if strings.EqualFold(tagName, "Title") {
+		return "title"
+	}
+	return tagName
 }
 
 // buildTagsXML renders a minimal Matroska Tags XML document for mkvpropedit.
