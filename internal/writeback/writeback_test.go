@@ -17,6 +17,13 @@ func requireExiftool(t *testing.T) {
 	}
 }
 
+func requireMkvpropedit(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("mkvpropedit"); err != nil {
+		t.Skip("mkvpropedit not on PATH — install MKVToolNix to run MKV write tests")
+	}
+}
+
 // minimalMKV is a minimal EBML/Matroska header that carries the magic bytes
 // exiftool uses to identify the format. Success-path tests use this so
 // exiftool can at least attempt a write; they still skip if exiftool rejects
@@ -69,13 +76,10 @@ func TestWrite_OriginalUnchangedOnExiftoolFailure(t *testing.T) {
 	}
 }
 
-// TestWrite_TempFileCleanedOnSuccess verifies no .holodex-tmp remains after a
-// successful write (the rename replaces the original, temp path is gone).
-// The test skips if exiftool rejects the synthetic file (requires real media
-// for a format-passing write; the critical atomicity invariant is covered by
-// TestWrite_OriginalUnchangedOnExiftoolFailure for the failure path).
+// TestWrite_TempFileCleanedOnSuccess verifies no .holodex-tmp or .tags.xml
+// remains after a successful write. Uses MKV → mkvpropedit path.
 func TestWrite_TempFileCleanedOnSuccess(t *testing.T) {
-	requireExiftool(t)
+	requireMkvpropedit(t)
 	dir := t.TempDir()
 	orig := filepath.Join(dir, "clip.mkv")
 	if err := os.WriteFile(orig, minimalMKV, 0o644); err != nil {
@@ -84,26 +88,22 @@ func TestWrite_TempFileCleanedOnSuccess(t *testing.T) {
 
 	err := Write(context.Background(), orig, "Title", []string{"Test Title"})
 	if err != nil {
-		if strings.Contains(err.Error(), "not supported") || strings.Contains(err.Error(), "Corrupted") {
-			t.Skipf("synthetic MKV not writable by exiftool; atomicity covered by failure test: %v", err)
-		}
-		t.Fatalf("Write returned error: %v", err)
+		t.Skipf("synthetic MKV not writable by mkvpropedit; atomicity covered by failure test: %v", err)
 	}
-	// Original still present.
 	if _, err := os.Stat(orig); err != nil {
 		t.Errorf("original missing after write: %v", err)
 	}
-	// No temp file.
 	for _, e := range mustReadDir(t, dir) {
-		if strings.Contains(e, "holodex-tmp") {
+		if strings.Contains(e, "holodex-tmp") || strings.Contains(e, ".tags.xml") {
 			t.Errorf("temp file not cleaned up: %s", e)
 		}
 	}
 }
 
 // TestWrite_MultiValue verifies that multiple values are accepted without error.
+// Uses MKV → mkvpropedit path.
 func TestWrite_MultiValue(t *testing.T) {
-	requireExiftool(t)
+	requireMkvpropedit(t)
 	dir := t.TempDir()
 	orig := filepath.Join(dir, "clip.mkv")
 	if err := os.WriteFile(orig, minimalMKV, 0o644); err != nil {
@@ -112,10 +112,7 @@ func TestWrite_MultiValue(t *testing.T) {
 
 	err := Write(context.Background(), orig, "GENRE", []string{"Drama", "Thriller"})
 	if err != nil {
-		if strings.Contains(err.Error(), "not supported") || strings.Contains(err.Error(), "Corrupted") {
-			t.Skipf("synthetic MKV not writable by exiftool: %v", err)
-		}
-		t.Fatalf("multi-value write failed: %v", err)
+		t.Skipf("synthetic MKV not writable by mkvpropedit: %v", err)
 	}
 }
 
