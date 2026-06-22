@@ -27,8 +27,8 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 }
 
 // writebackMedia writes a batch of enriched field values into the media file's
-// tags in a single exiftool pass (F28, ADR-041). The operator has already seen
-// and confirmed the values in the UI before this call.
+// tags in a single tool pass (exiftool for MP4/mp3/flac; mkvpropedit for
+// MKV/WebM — F28, ADR-041). The operator has confirmed the values in the UI.
 //
 // All canonical→tag-name mappings are validated before any write; if any field
 // has no mapping for the file's container a 422 is returned listing the
@@ -113,7 +113,7 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	// Unmapped fields are silently skipped — only the mappable subset is written.
 	// The audit rows below record exactly what was written.
 
-	// Single exiftool invocation for all fields.
+	// Single tool invocation for all fields (exiftool or mkvpropedit by extension).
 	batchFields := make([]writeback.FieldWrite, len(items))
 	for i, it := range items {
 		batchFields[i] = writeback.FieldWrite{TagName: it.tagName, Values: it.cleaned}
