@@ -119,20 +119,41 @@ type movieGenre struct {
 	Name string `json:"name"`
 }
 
+type productionCompany struct {
+	Name string `json:"name"`
+}
+
 type movieDetails struct {
-	ID               int          `json:"id"`
-	Title            string       `json:"title"`
-	OriginalTitle    string       `json:"original_title"`
-	Overview         string       `json:"overview"`
-	ReleaseDate      string       `json:"release_date"`
-	Runtime          int          `json:"runtime"`
-	Genres           []movieGenre `json:"genres"`
-	Tagline          string       `json:"tagline"`
-	Homepage         string       `json:"homepage"`
-	OriginalLanguage string       `json:"original_language"`
-	Status           string       `json:"status"`
-	IMDbID           string       `json:"imdb_id"`
-	PosterPath       string       `json:"poster_path"`
+	ID                  int                 `json:"id"`
+	Title               string              `json:"title"`
+	OriginalTitle       string              `json:"original_title"`
+	Overview            string              `json:"overview"`
+	ReleaseDate         string              `json:"release_date"`
+	Runtime             int                 `json:"runtime"`
+	Genres              []movieGenre        `json:"genres"`
+	Tagline             string              `json:"tagline"`
+	Homepage            string              `json:"homepage"`
+	OriginalLanguage    string              `json:"original_language"`
+	Status              string              `json:"status"`
+	IMDbID              string              `json:"imdb_id"`
+	PosterPath          string              `json:"poster_path"`
+	ProductionCompanies []productionCompany `json:"production_companies"`
+}
+
+// movieCredits holds the cast and crew from /3/movie/{id}/credits.
+type movieCredits struct {
+	Cast []movieCastEntry `json:"cast"`
+	Crew []movieCrewEntry `json:"crew"`
+}
+
+type movieCastEntry struct {
+	Name  string `json:"name"`
+	Order int    `json:"order"`
+}
+
+type movieCrewEntry struct {
+	Name string `json:"name"`
+	Job  string `json:"job"`
 }
 
 // ---- resolve ----
@@ -353,7 +374,15 @@ func (c *tmdbClient) fetchMovieDetails(ctx context.Context, id int) (movieDetail
 	return det, err
 }
 
-func buildMovieEnrichResponse(det movieDetails) enrichResponse {
+func (c *tmdbClient) fetchMovieCredits(ctx context.Context, id int) (movieCredits, error) {
+	var cred movieCredits
+	err := c.get(ctx, fmt.Sprintf("/3/movie/%d/credits", id), url.Values{
+		"language": {c.language},
+	}, &cred)
+	return cred, err
+}
+
+func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResponse {
 	fields := make(map[string][]string)
 	if v := strings.TrimSpace(det.Title); v != "" {
 		fields["title"] = []string{v}
@@ -398,6 +427,41 @@ func buildMovieEnrichResponse(det movieDetails) enrichResponse {
 	}
 	if det.PosterPath != "" {
 		fields["poster_url"] = []string{"https://image.tmdb.org/t/p/original" + det.PosterPath}
+	}
+	// production_companies → studio (multi-valued)
+	if len(det.ProductionCompanies) > 0 {
+		studios := make([]string, 0, len(det.ProductionCompanies))
+		for _, pc := range det.ProductionCompanies {
+			if pc.Name != "" {
+				studios = append(studios, pc.Name)
+			}
+		}
+		if len(studios) > 0 {
+			fields["studio"] = studios
+		}
+	}
+	// cast → actors (top 10 by billing order; TMDB returns them pre-sorted)
+	actors := make([]string, 0, 10)
+	for i, m := range credits.Cast {
+		if i >= 10 {
+			break
+		}
+		if m.Name != "" {
+			actors = append(actors, m.Name)
+		}
+	}
+	if len(actors) > 0 {
+		fields["actors"] = actors
+	}
+	// crew → director (job == "Director")
+	var directors []string
+	for _, m := range credits.Crew {
+		if m.Job == "Director" && m.Name != "" {
+			directors = append(directors, m.Name)
+		}
+	}
+	if len(directors) > 0 {
+		fields["director"] = directors
 	}
 	return enrichResponse{Fields: fields}
 }
@@ -459,11 +523,34 @@ func (c *tmdbClient) enrichMovie(ctx context.Context, externalID string) (enrich
 	if err != nil {
 		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
 	}
-	det, err := c.fetchMovieDetails(ctx, n)
-	if err != nil {
-		return enrichResponse{}, err
+	// Fetch movie details and credits concurrently to minimise round-trip latency.
+	type detResult struct {
+		det movieDetails
+		err error
 	}
-	return buildMovieEnrichResponse(det), nil
+	type credResult struct {
+		cred movieCredits
+		err  error
+	}
+	detCh := make(chan detResult, 1)
+	credCh := make(chan credResult, 1)
+	go func() {
+		det, err := c.fetchMovieDetails(ctx, n)
+		detCh <- detResult{det, err}
+	}()
+	go func() {
+		cred, err := c.fetchMovieCredits(ctx, n)
+		credCh <- credResult{cred, err}
+	}()
+	dr := <-detCh
+	if dr.err != nil {
+		return enrichResponse{}, dr.err
+	}
+	cr := <-credCh
+	if cr.err != nil {
+		return enrichResponse{}, cr.err
+	}
+	return buildMovieEnrichResponse(dr.det, cr.cred), nil
 }
 
 func (c *tmdbClient) fetchDetails(ctx context.Context, id int) (personDetails, error) {

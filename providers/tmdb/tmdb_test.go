@@ -281,6 +281,19 @@ func TestTMDBEnrichMovie(t *testing.T) {
 	if !strings.HasPrefix(res.Fields["poster_url"][0], "https://image.tmdb.org/") {
 		t.Errorf("poster_url = %q, want https://image.tmdb.org/...", res.Fields["poster_url"][0])
 	}
+	// Credits-sourced fields.
+	if len(res.Fields["actors"]) == 0 {
+		t.Error("actors field missing")
+	}
+	if res.Fields["actors"][0] != "Brad Pitt" {
+		t.Errorf("actors[0] = %q, want Brad Pitt", res.Fields["actors"][0])
+	}
+	if len(res.Fields["director"]) == 0 || res.Fields["director"][0] != "David Fincher" {
+		t.Errorf("director = %v, want [David Fincher]", res.Fields["director"])
+	}
+	if len(res.Fields["studio"]) == 0 {
+		t.Error("studio field missing")
+	}
 	// Movie fields go into Fields, not Assets.
 	if len(res.Assets) != 0 {
 		t.Errorf("movie enrich should have no assets, got %v", res.Assets)
@@ -295,7 +308,7 @@ func TestTMDBEnrichMovieNoPoster(t *testing.T) {
 		ReleaseDate: "1920-01-01",
 		PosterPath:  "",
 	}
-	res := buildMovieEnrichResponse(det)
+	res := buildMovieEnrichResponse(det, movieCredits{})
 	if _, ok := res.Fields["poster_url"]; ok {
 		t.Error("poster_url should not be set when PosterPath is empty")
 	}
@@ -410,8 +423,10 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
+		case r.URL.Path == "/3/movie/550/credits":
+			io.WriteString(w, `{"cast":[{"name":"Brad Pitt","order":0},{"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"name":"David Fincher","job":"Director"},{"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/movie/550":
-			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"}`) //nolint:errcheck
+			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"name":"Regency Enterprises"},{"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
 			http.NotFound(w, r)
 		case strings.HasPrefix(r.URL.Path, "/3/find/"):
