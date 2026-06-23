@@ -145,9 +145,17 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) error {
 	newPath := path + ".holodex-new"
 
+	// ffmpeg determines the output muxer from the file extension by default.
+	// Our temp file ends in ".holodex-new" which is unrecognised, so we must
+	// pass -f explicitly. webm and matroska are distinct muxers in ffmpeg.
+	format := "matroska"
+	if strings.ToLower(filepath.Ext(path)) == ".webm" {
+		format = "webm"
+	}
+
 	// -y: overwrite output; -map_metadata 0: carry existing tags forward
 	// (individual -metadata flags then add/override the specific keys).
-	args := []string{"-y", "-i", path, "-c", "copy", "-map_metadata", "0"}
+	args := []string{"-y", "-i", path, "-c", "copy", "-map_metadata", "0", "-f", format}
 	for _, f := range fields {
 		key := ffmpegMetadataKey(f.TagName)
 		// ffmpeg doesn't support duplicate keys for multi-value; join with " / "
