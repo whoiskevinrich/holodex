@@ -22,6 +22,7 @@
 	let error = $state('');
 	let playFailed = $state(false);
 	let showRaw = $state(false);
+	let showEnriched = $state(false);
 	let regenerating = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 
@@ -286,25 +287,47 @@
 			</section>
 		{/if}
 
-		<!-- Unified Details section (F27): resolved (merged file + enrichment sources)
-		     supersedes the legacy file-only fields when the operator has configured
-		     namespaced source mappings. Falls back to file-only fields if no resolver
-		     output is present (e.g. no mappings configured). -->
+		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
+		     enrichment controls and writeback inline in the header. Falls back to
+		     file-only fields when no resolver output is present. -->
 		{#if resolved.length}
 			<section class="space-y-1.5">
-				<div class="flex items-center justify-between">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
-					{#if canWriteback}
-						<button
-							onclick={() => (writebackOpen = true)}
-							class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
-							title="Write enriched values to file tags"
-						>
-							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-							Write to file
-						</button>
-					{/if}
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
+					<div class="flex flex-wrap items-center gap-2">
+						{#if isOwner && provider}
+							<button
+								onclick={() => (pickerOpen = true)}
+								class="rounded-theme bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
+							>
+								Enrich from {provider}
+							</button>
+							{#if enriched.some((f) => f.provider === provider)}
+								<button
+									onclick={clearProvider}
+									disabled={enrichBusy === 'clear'}
+									title={`Remove ${provider} enrichment data`}
+									class="rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:bg-surface-2 disabled:opacity-60"
+								>
+									Clear {provider}
+								</button>
+							{/if}
+						{/if}
+						{#if canWriteback}
+							<button
+								onclick={() => (writebackOpen = true)}
+								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+								title="Write enriched values to file tags"
+							>
+								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+								Write to file
+							</button>
+						{/if}
+					</div>
 				</div>
+				{#if enrichError}
+					<p class="text-xs text-warn">{enrichError}</p>
+				{/if}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 					{#each resolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
@@ -350,7 +373,9 @@
 			</section>
 		{/if}
 
-		<section class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
+		<section class="space-y-1.5">
+			<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
+			<div class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 			<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
 			{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
 			{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
@@ -361,6 +386,7 @@
 			<div class="truncate sm:col-span-2" title={video.file_path}>
 				<span class="text-muted">Path:</span> {video.file_path}
 			</div>
+		</div>
 		</section>
 
 		{#if extra.length}
@@ -383,6 +409,34 @@
 			</section>
 		{/if}
 
+		<!-- Enrichment data — demoted to a disclosure so it doesn't duplicate
+		     the Metadata section. Useful as an audit/debug view of the raw
+		     provider payload. -->
+		{#if enriched.length}
+			<section>
+				<button onclick={() => (showEnriched = !showEnriched)} class="text-sm text-muted hover:text-ink">
+					{showEnriched ? '▾' : '▸'} Enrichment data from {provider} ({enriched.length})
+				</button>
+				{#if showEnriched}
+					<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+						{#each enriched as f (f.canonical + f.provider)}
+							{#if f.display === 'image_url'}
+								<div class="sm:col-span-2">
+									<dt class="inline text-muted">{f.label}:</dt>
+									<dd class="inline text-ink">{f.values[0]}</dd>
+								</div>
+							{:else}
+								<div>
+									<dt class="inline text-muted">{f.label}:</dt>
+									<dd class="inline text-ink">{f.display === 'long_text' ? f.values[0].slice(0, 120) + '…' : f.values.join(', ')}</dd>
+								</div>
+							{/if}
+						{/each}
+					</dl>
+				{/if}
+			</section>
+		{/if}
+
 		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
 		     its block is null or empty, so an item with no siblings shows no rail. -->
 		{#if related?.person}
@@ -394,73 +448,6 @@
 		{/if}
 		{#if related?.tag}
 			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-		{/if}
-
-		<!-- Film enrichment panel (F26). Visible to all when data exists; controls owner-gated. -->
-		{#if enriched.length || (isOwner && provider)}
-			<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
-				<div class="flex flex-wrap items-start justify-between gap-2">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Film Details</h2>
-					{#if isOwner && provider}
-						<div class="flex flex-wrap items-center gap-2">
-							<button
-								onclick={() => (pickerOpen = true)}
-								class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
-							>
-								Enrich from {provider}
-							</button>
-							{#if provider && enriched.some((f) => f.provider === provider)}
-								<button
-									onclick={clearProvider}
-									disabled={enrichBusy === 'clear'}
-									title={`Remove ${provider} enrichment data from this video`}
-									class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-								>
-									Clear {provider} data
-								</button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-
-				{#if enriched.length}
-					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-						{#each enriched as f (f.canonical + f.provider)}
-							{#if f.display === 'image_url'}
-								<div class="sm:col-span-2">
-									<dt class="mb-1 text-muted">{f.label}:</dt>
-									<dd>
-										<img
-											src={f.values[0]}
-											alt={f.label}
-											class="max-h-64 rounded-theme border border-rule object-contain"
-										/>
-									</dd>
-									<ProvenanceBadge provider={f.provider} label={f.provider} />
-								</div>
-							{:else if f.display === 'long_text'}
-								<div class="sm:col-span-2">
-									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-									<ProvenanceBadge provider={f.provider} label={f.provider} />
-								</div>
-							{:else}
-								<div>
-									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="inline text-ink">{f.values.join(', ')}</dd>
-									<ProvenanceBadge provider={f.provider} label={f.provider} />
-								</div>
-							{/if}
-						{/each}
-					</dl>
-				{:else}
-					<p class="text-sm text-muted">No enrichment yet.</p>
-				{/if}
-
-				{#if enrichError}
-					<p class="text-sm text-warn">{enrichError}</p>
-				{/if}
-			</section>
 		{/if}
 
 		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
