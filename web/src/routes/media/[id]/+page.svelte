@@ -50,9 +50,7 @@
 	const provider = $derived(sources.find((s) => s.entity_types.includes('video'))?.name ?? '');
 	const canWriteback = $derived(
 		isOwner &&
-			resolved.some(
-				(f) => !!f.winning_source && !f.winning_source.startsWith('file:') && f.display !== 'image_url'
-			)
+			resolved.some((f) => !!f.winning_source && !f.winning_source.startsWith('file:'))
 	);
 
 	const graceDays = $derived(
@@ -143,8 +141,20 @@
 		}
 	});
 
-	function onApplied(f: EnrichedField[]) {
+	async function onApplied(f: EnrichedField[]) {
 		enriched = f;
+		// Re-fetch the full detail so resolved[] reflects the new enrichment
+		// (the resolver re-runs server-side on each GET).
+		try {
+			const res = await api.getMedia(id);
+			video = res.video;
+			extra = res.metadata ?? [];
+			fields = res.fields ?? [];
+			resolved = res.resolved ?? [];
+			enriched = res.enriched ?? [];
+		} catch {
+			// Non-fatal — enriched state is already updated above
+		}
 	}
 
 	async function clearProvider() {

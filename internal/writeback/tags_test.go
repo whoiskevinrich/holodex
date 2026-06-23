@@ -49,7 +49,7 @@ func TestTagForField(t *testing.T) {
 		// No mapping: unsupported container
 		{"title", "avi", "", false},
 		{"title", "", "", false},
-		// image_url fields are intentionally absent — no tag target for URLs
+		// image_url fields are intentionally absent from formatMap — handled by ImageTagForField
 		{"poster_url", "Matroska", "", false},
 	}
 	for _, tc := range cases {
@@ -57,6 +57,36 @@ func TestTagForField(t *testing.T) {
 			got, ok := TagForField(tc.canonical, tc.container)
 			if ok != tc.wantOK || got != tc.wantTag {
 				t.Errorf("TagForField(%q, %q) = (%q, %v), want (%q, %v)",
+					tc.canonical, tc.container, got, ok, tc.wantTag, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestImageTagForField(t *testing.T) {
+	cases := []struct {
+		canonical string
+		container string
+		wantTag   string
+		wantOK    bool
+	}{
+		{"poster_url", "Matroska", "cover.jpg", true},
+		{"poster_url", "WebM", "cover.jpg", true},
+		{"poster_url", "MP4", "QuickTime:CoverArt", true},
+		{"poster_url", "mp3", "Picture", true},
+		{"poster_url", "flac", "Picture", true},
+		// Non-image fields return false
+		{"title", "Matroska", "", false},
+		{"overview", "MP4", "", false},
+		// Unsupported container
+		{"poster_url", "avi", "", false},
+		{"poster_url", "", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.canonical+"/"+tc.container, func(t *testing.T) {
+			got, ok := ImageTagForField(tc.canonical, tc.container)
+			if ok != tc.wantOK || got != tc.wantTag {
+				t.Errorf("ImageTagForField(%q, %q) = (%q, %v), want (%q, %v)",
 					tc.canonical, tc.container, got, ok, tc.wantTag, tc.wantOK)
 			}
 		})

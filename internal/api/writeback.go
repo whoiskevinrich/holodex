@@ -72,6 +72,7 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		tagName string
 		cleaned []string
 		source  string
+		isImage bool
 	}
 	items := make([]resolved, 0, len(body.Fields))
 	var unmapped []string
@@ -90,12 +91,17 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		if len(cleaned) == 0 {
 			continue // skip fully-empty fields silently
 		}
+		// Image fields (e.g. poster_url) embed binary cover art — check before text tags.
+		if imgTag, ok := writeback.ImageTagForField(f.Field, v.Container); ok {
+			items = append(items, resolved{f.Field, imgTag, cleaned, f.Source, true})
+			continue
+		}
 		tagName, supported := writeback.TagForField(f.Field, v.Container)
 		if !supported {
 			unmapped = append(unmapped, f.Field)
 			continue
 		}
-		items = append(items, resolved{f.Field, tagName, cleaned, f.Source})
+		items = append(items, resolved{f.Field, tagName, cleaned, f.Source, false})
 	}
 
 	if len(items) == 0 {
@@ -116,7 +122,7 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	// Single tool invocation for all fields (exiftool or mkvpropedit by extension).
 	batchFields := make([]writeback.FieldWrite, len(items))
 	for i, it := range items {
-		batchFields[i] = writeback.FieldWrite{TagName: it.tagName, Values: it.cleaned}
+		batchFields[i] = writeback.FieldWrite{TagName: it.tagName, Values: it.cleaned, IsImage: it.isImage}
 	}
 	if err := h.writeback(r.Context(), v.FilePath, batchFields); err != nil {
 		h.log.Warn("writeback batch failed", "id", id, "fields", len(items), "err", err)

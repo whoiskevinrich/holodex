@@ -34,23 +34,20 @@
 		error: string;
 	}
 
-	// Exclude image_url fields (no tag mapping). Provider-won fields start checked;
-	// file-only fields start unchecked so the operator opts in explicitly.
+	// Provider-won fields start checked; file-only fields start unchecked so the
+	// operator opts in explicitly. image_url fields show as thumbnail + URL (read-only).
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(
-		fields
-			.filter((f) => f.display !== 'image_url')
-			.map((f) => {
-				const providerWon =
-					!!f.winning_source && !f.winning_source.startsWith('file:');
-				return {
-					field: f,
-					value: f.values.join(', '),
-					checked: providerWon,
-					status: 'idle' as RowStatus,
-					error: ''
-				};
-			})
+		fields.map((f) => {
+			const providerWon = !!f.winning_source && !f.winning_source.startsWith('file:');
+			return {
+				field: f,
+				value: f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', '),
+				checked: providerWon,
+				status: 'idle' as RowStatus,
+				error: ''
+			};
+		})
 	);
 
 	const checkedCount = $derived(rows.filter((r) => r.checked).length);
@@ -118,10 +115,14 @@
 
 		const fields = checkedRows.map((r) => ({
 			field: r.field.canonical,
-			values: r.value
-				.split(/\s*,\s*/)
-				.map((v) => v.trim())
-				.filter((v) => v.length > 0),
+			// image_url fields: pass the URL as a single value (don't comma-split)
+			values:
+				r.field.display === 'image_url'
+					? [r.value].filter((v) => v.length > 0)
+					: r.value
+							.split(/\s*,\s*/)
+							.map((v) => v.trim())
+							.filter((v) => v.length > 0),
 			source: r.field.winning_source ?? ''
 		}));
 
@@ -218,7 +219,18 @@
 							class="mb-1 block text-xs font-medium text-muted"
 						>{row.field.label}</label>
 
-						{#if row.field.display === 'long_text'}
+						{#if row.field.display === 'image_url'}
+							<div class="flex items-start gap-2">
+								{#if row.value}
+									<img
+										src={row.value}
+										alt="cover"
+										class="h-14 w-10 shrink-0 rounded-theme border border-rule object-cover"
+									/>
+								{/if}
+								<p class="break-all text-xs text-muted">{row.value || '—'}</p>
+							</div>
+						{:else if row.field.display === 'long_text'}
 							<textarea
 								bind:value={row.value}
 								disabled={busy || isDone || isWriting}

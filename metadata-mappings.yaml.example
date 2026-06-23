@@ -72,3 +72,10 @@ fields:
     label: Collection
     sources: [Album, Collection]
     filterable: true
+
+  # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
+  # When written back, Holodex downloads the URL and embeds the image as cover art.
+  # - canonical: poster_url
+  #   label: Poster
+  #   sources:
+  #     - tmdb:poster_url

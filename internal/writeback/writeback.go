@@ -4,16 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // FieldWrite is one tag assignment for WriteBatch.
 type FieldWrite struct {
-	TagName string   // format-specific tag name from TagForField
-	Values  []string // one or more values; multi-valued tags get one entry per value
+	TagName string   // format-specific tag name from TagForField / ImageTagForField
+	Values  []string // one or more values; for IsImage fields Values[0] is a URL
+	IsImage bool     // when true, Values[0] is an https:// URL to download+embed as cover art
 }
 
 // WriteBatch embeds all tag values into the file at path in a single tool
@@ -60,7 +63,8 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 	return writeMKVWithFFmpeg(ctx, path, fields)
 }
 
-// writeExiftoolBatch writes all fields in one exiftool invocation.
+// writeExiftoolBatch writes all fields in one exiftool invocation. Text fields
+// use -TAG=VALUE; image fields use -TAG<=file (binary read from a temp download).
 func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) error {
 	tmp := path + ".holodex-tmp"
 	if err := copyFile(path, tmp); err != nil {
@@ -71,8 +75,19 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 	// minor-error exits so exiftool writes to imperfect-but-valid user files.
 	args := make([]string, 0, len(fields)*2+3)
 	for _, f := range fields {
-		for _, v := range f.Values {
-			args = append(args, fmt.Sprintf("-%s=%s", f.TagName, v))
+		if f.IsImage {
+			imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+			if err != nil {
+				_ = os.Remove(tmp)
+				return fmt.Errorf("writeback: %w", err)
+			}
+			defer cleanup()
+			// exiftool binary-write syntax: -TAG<=filepath reads the file content
+			args = append(args, fmt.Sprintf("-%s<=%s", f.TagName, imgPath))
+		} else {
+			for _, v := range f.Values {
+				args = append(args, fmt.Sprintf("-%s=%s", f.TagName, v))
+			}
 		}
 	}
 	args = append(args, "-m", "-overwrite_original", tmp)
@@ -93,6 +108,7 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 // writeMKVWithMkvpropedit uses mkvpropedit (MKVToolNix) for fast in-place
 // Matroska tag writes. "Title" maps to the Segment Info title property;
 // all other tags go into the global TAGS element via a temp XML file.
+// Image fields are attached as cover art via separate mkvpropedit invocations.
 // Uses the same copy→write→rename safety model as the exiftool path.
 func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWrite) error {
 	tmp := path + ".holodex-tmp"
@@ -103,30 +119,61 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 	xmlPath := tmp + ".tags.xml"
 	var args []string
 	var xmlTags []FieldWrite
+	var imgFields []FieldWrite
 
 	for _, f := range fields {
-		if strings.EqualFold(f.TagName, "Title") {
+		if f.IsImage {
+			imgFields = append(imgFields, f)
+		} else if strings.EqualFold(f.TagName, "Title") {
 			args = append(args, "--edit", "info", "--set", "title="+f.Values[0])
 		} else {
 			xmlTags = append(xmlTags, f)
 		}
 	}
 
-	if len(xmlTags) > 0 {
-		if err := os.WriteFile(xmlPath, []byte(buildTagsXML(xmlTags)), 0o600); err != nil {
-			_ = os.Remove(tmp)
-			return fmt.Errorf("writeback: write tags XML: %w", err)
+	if len(xmlTags) > 0 || len(args) > 0 {
+		if len(xmlTags) > 0 {
+			if err := os.WriteFile(xmlPath, []byte(buildTagsXML(xmlTags)), 0o600); err != nil {
+				_ = os.Remove(tmp)
+				return fmt.Errorf("writeback: write tags XML: %w", err)
+			}
+			args = append(args, "--tags", "global:"+xmlPath)
 		}
-		args = append(args, "--tags", "global:"+xmlPath)
-	}
-	args = append(args, tmp)
+		args = append(args, tmp)
 
-	cmd := exec.CommandContext(ctx, "mkvpropedit", args...)
-	out, err := cmd.CombinedOutput()
-	_ = os.Remove(xmlPath)
-	if err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("writeback mkvpropedit: %w — %s", err, strings.TrimSpace(string(out)))
+		cmd := exec.CommandContext(ctx, "mkvpropedit", args...)
+		out, err := cmd.CombinedOutput()
+		_ = os.Remove(xmlPath)
+		if err != nil {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("writeback mkvpropedit: %w — %s", err, strings.TrimSpace(string(out)))
+		}
+	}
+
+	// Handle cover art attachments. Each image field downloads its URL to a temp
+	// file, then mkvpropedit replaces (or adds) the named attachment on the temp copy.
+	for _, f := range imgFields {
+		imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+		if err != nil {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("writeback: %w", err)
+		}
+		defer cleanup()
+
+		// Remove any existing attachment with this name (ignore exit code — it
+		// may not exist; mkvpropedit exits 2 for warnings).
+		exec.CommandContext(ctx, "mkvpropedit", tmp, "--delete-attachment", "name:"+f.TagName).Run() //nolint:errcheck
+
+		// Add the new attachment.
+		addOut, addErr := exec.CommandContext(ctx, "mkvpropedit", tmp,
+			"--attachment-name", f.TagName,
+			"--attachment-mime-type", "image/jpeg",
+			"--add-attachment", imgPath,
+		).CombinedOutput()
+		if addErr != nil {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("writeback mkvpropedit cover art: %w — %s", addErr, strings.TrimSpace(string(addOut)))
+		}
 	}
 
 	if err := os.Rename(tmp, path); err != nil {
@@ -139,7 +186,8 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 // writeMKVWithFFmpeg remuxes the file with updated tags using ffmpeg (-c copy
 // keeps all streams byte-for-byte; only the container header is rebuilt).
 // ffmpeg is already required by the project (thumbnail pipeline), so this
-// path adds no extra dependency. Multi-value fields are joined with " / ".
+// path adds no extra dependency. Multi-value fields are joined with ", ".
+// Image fields are attached using ffmpeg's -attach option.
 //
 // ffmpeg reads from the original and writes to a temp path; rename is atomic.
 func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) error {
@@ -153,14 +201,42 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 		format = "webm"
 	}
 
-	// -y: overwrite output; -map_metadata 0: carry existing tags forward
-	// (individual -metadata flags then add/override the specific keys).
-	args := []string{"-y", "-i", path, "-c", "copy", "-map_metadata", "0", "-f", format}
+	// Separate image fields from text fields and download images upfront.
+	type imgEntry struct{ tagName, localPath string }
+	var imgEntries []imgEntry
 	for _, f := range fields {
+		if !f.IsImage {
+			continue
+		}
+		imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+		if err != nil {
+			return fmt.Errorf("writeback: %w", err)
+		}
+		defer cleanup()
+		imgEntries = append(imgEntries, imgEntry{f.TagName, imgPath})
+	}
+
+	// -y: overwrite output; -map_metadata 0: carry existing tags forward.
+	// When attaching images, -map 0 ensures all original streams are preserved.
+	args := []string{"-y", "-i", path}
+	if len(imgEntries) > 0 {
+		args = append(args, "-map", "0")
+	}
+	args = append(args, "-c", "copy", "-map_metadata", "0", "-f", format)
+
+	for _, f := range fields {
+		if f.IsImage {
+			continue
+		}
 		key := ffmpegMetadataKey(f.TagName)
-		// ffmpeg doesn't support duplicate keys for multi-value; join with " / "
-		// which is the common separator in Matroska tooling.
-		args = append(args, "-metadata", key+"="+strings.Join(f.Values, " / "))
+		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
+	}
+	for i, ie := range imgEntries {
+		args = append(args,
+			"-attach", ie.localPath,
+			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
+			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
+		)
 	}
 	args = append(args, newPath)
 
@@ -228,6 +304,46 @@ func xmlEscape(s string) string {
 // isNotFound reports whether err came from exec failing to find the binary.
 func isNotFound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "executable file not found")
+}
+
+// downloadImageToTemp downloads an https:// image URL to a temp file and
+// returns the path plus a cleanup function. Only https is accepted.
+// The response body is capped at 10 MiB; the caller must call cleanup() when done.
+func downloadImageToTemp(ctx context.Context, rawURL string) (path string, cleanup func(), err error) {
+	if !strings.HasPrefix(rawURL, "https://") {
+		return "", nil, fmt.Errorf("cover image: only https URLs are supported")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return "", nil, fmt.Errorf("cover image: bad URL: %w", err)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", nil, fmt.Errorf("cover image: download: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", nil, fmt.Errorf("cover image: server returned %d", resp.StatusCode)
+	}
+
+	ext := ".jpg"
+	if ct := resp.Header.Get("Content-Type"); strings.Contains(ct, "png") {
+		ext = ".png"
+	}
+	tmp, err := os.CreateTemp("", "holodex-cover-*"+ext)
+	if err != nil {
+		return "", nil, fmt.Errorf("cover image: create temp: %w", err)
+	}
+	if _, err := io.Copy(tmp, io.LimitReader(resp.Body, 10<<20)); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return "", nil, fmt.Errorf("cover image: write temp: %w", err)
+	}
+	tmp.Close()
+	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
 }
 
 func copyFile(src, dst string) error {

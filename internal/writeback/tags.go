@@ -3,6 +3,31 @@
 // function (writeback.go) are the only two public surfaces.
 package writeback
 
+// ImageTagForField returns (attachmentName, true) when the canonical field maps
+// to a binary image embedded in the file — either a cover art attachment (MKV/WebM)
+// or an exiftool binary tag (MP4/mp3/flac). Returns ("", false) when the field
+// has no image mapping for the given container. The tag name is the attachment
+// filename for MKV/WebM paths and the exiftool tag name for everything else.
+func ImageTagForField(canonical, container string) (string, bool) {
+	tags, ok := imageFormatMap[container]
+	if !ok {
+		return "", false
+	}
+	tag, ok := tags[canonical]
+	return tag, ok
+}
+
+// imageFormatMap maps canonical image fields to their per-container embedding
+// target. Matroska/WebM use the attachment filename; MP4/mp3/flac use the
+// exiftool binary-write tag name.
+var imageFormatMap = map[string]map[string]string{
+	"Matroska": {"poster_url": "cover.jpg"},
+	"WebM":     {"poster_url": "cover.jpg"},
+	"MP4":      {"poster_url": "QuickTime:CoverArt"},
+	"mp3":      {"poster_url": "Picture"},
+	"flac":     {"poster_url": "Picture"},
+}
+
 // TagForField returns the exiftool tag name and true for the given canonical
 // field in the given normalised container string (as produced by
 // internal/metadata.normalizeContainer — "Matroska", "MP4", "WebM", "mp3", …).
