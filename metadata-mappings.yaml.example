@@ -42,19 +42,33 @@ fields:
   #   sources:
   #     - tmdb:genres
 
-  # --- File-tag-only fields (legacy syntax, no enrichment) ---
+  # --- Cast, crew, and studio (enrichment wins; file tags as fallback) ---
+  - canonical: actors
+    label: Actors
+    sources:
+      - tmdb:actors     # top-10 billed cast from TMDB credits
+      - Artist          # file tag fallback
+    multi: true
+
+  - canonical: director
+    label: Director
+    sources:
+      - tmdb:director   # from TMDB credits (job == Director)
+      - Director        # file tag fallback
+    filterable: true
+    multi: true
+
   - canonical: studio
     label: Studio
-    sources: [Publisher, Label, Studio, ProductionCompany]
+    sources:
+      - tmdb:studio     # production companies from TMDB
+      - Publisher
+      - Label
+      - Studio
+      - ProductionCompany
     filterable: true
 
   - canonical: collection
     label: Collection
     sources: [Album, Collection]
     filterable: true
-
-  - canonical: director
-    label: Director
-    sources: [Director]
-    filterable: true
-    multi: true
