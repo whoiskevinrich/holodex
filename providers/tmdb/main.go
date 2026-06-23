@@ -9,12 +9,21 @@
 package main
 
 import (
+	"flag"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 )
 
 func main() {
+	// CLI flags take precedence over env vars (mirrors holodex backend pattern).
+	// --host empty → all interfaces (Docker/compose default);
+	// --host 127.0.0.1 → loopback-only (avoids Windows Firewall UAC prompt in dev).
+	hostFlag := flag.String("host", "", "bind address; empty = all interfaces, 127.0.0.1 = loopback-only")
+	portFlag := flag.String("port", "", "HTTP port (overrides PORT env var; default 9100)")
+	flag.Parse()
+
 	token := os.Getenv("TMDB_API_TOKEN")
 	apiKey := os.Getenv("TMDB_API_KEY")
 	if token == "" && apiKey == "" {
@@ -33,7 +42,14 @@ func main() {
 		language = "en-US"
 	}
 
-	port := os.Getenv("PORT")
+	host := *hostFlag
+	if host == "" {
+		host = os.Getenv("HOST")
+	}
+	port := *portFlag
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = "9100"
 	}
@@ -47,7 +63,7 @@ func main() {
 	mux.HandleFunc("POST /resolve", h.resolve)
 	mux.HandleFunc("POST /enrich", h.enrich)
 
-	addr := os.Getenv("HOST") + ":" + port
+	addr := net.JoinHostPort(host, port)
 	log.Info("holodex-provider-tmdb starting", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Error("server exited", "err", err)
