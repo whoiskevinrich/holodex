@@ -31,39 +31,49 @@ var formatMap = map[string]map[string]string{
 	"Matroska": {
 		"title":             "Title",
 		"original_title":    "OriginalMediaType",
-		"overview":          "Summary",
-		"tagline":           "Comment",
-		"release_date":      "DATE_RELEASED",
-		"genres":            "GENRE",
-		"original_language": "LANGUAGE",
+		"overview":          "Comment",   // plot summary → COMMENT tag
+		"tagline":           "Subtitle",  // short tagline → SUBTITLE (avoids Comment collision)
+		"release_date":      "Year",      // year/date → YEAR tag
+		"genres":            "Genre",
+		"original_language": "Language",
+		"actors":            "Artist",    // cast → ARTIST tag, comma-delimited
+		"studio":            "Publisher", // production company → PUBLISHER tag
 	},
 	"WebM": {
 		"title":             "Title",
-		"overview":          "Summary",
-		"tagline":           "Comment",
-		"release_date":      "DATE_RELEASED",
-		"genres":            "GENRE",
-		"original_language": "LANGUAGE",
+		"overview":          "Comment",
+		"tagline":           "Subtitle",
+		"release_date":      "Year",
+		"genres":            "Genre",
+		"original_language": "Language",
+		"actors":            "Artist",
+		"studio":            "Publisher",
 	},
 	"MP4": {
 		"title":             "QuickTime:Title",
 		"overview":          "QuickTime:Comment",
 		"tagline":           "QuickTime:Keywords",
-		"release_date":      "QuickTime:ContentCreateDate",
+		"release_date":      "QuickTime:Year",
 		"genres":            "QuickTime:Genre",
 		"original_language": "QuickTime:MediaLanguage",
+		"actors":            "QuickTime:Artist",
+		"studio":            "QuickTime:Publisher",
 	},
 	"mp3": {
 		"title":        "Title",
 		"overview":     "Comment",
 		"genres":       "Genre",
 		"release_date": "Year",
+		"actors":       "Artist",
+		"studio":       "Publisher",
 	},
 	"flac": {
 		"title":             "Title",
 		"overview":          "Comment",
 		"genres":            "Genre",
-		"release_date":      "Date",
+		"release_date":      "Year",
 		"original_language": "Language",
+		"actors":            "Artist",
+		"studio":            "Publisher",
 	},
 }

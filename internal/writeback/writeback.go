@@ -180,12 +180,16 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 	return nil
 }
 
-// ffmpegMetadataKey converts our Matroska/ExifTool tag name to the key ffmpeg
-// expects for -metadata. Only "Title" is special: ffmpeg maps lowercase "title"
-// to both segment info and the TITLE tag; other names pass through unchanged.
+// ffmpegMetadataKey converts our tag name to the key ffmpeg expects for
+// -metadata. ffmpeg's built-in Matroska codec mapping uses lowercase standard
+// keys; passing them capitalised causes them to be stored as custom tags with
+// the wrong name instead of the expected COMMENT/ARTIST/… element.
+// "Year" is intentionally left as-is so it lands in a YEAR custom tag rather
+// than being remapped to DATE_RELEASED via ffmpeg's "date" alias.
 func ffmpegMetadataKey(tagName string) string {
-	if strings.EqualFold(tagName, "Title") {
-		return "title"
+	switch strings.ToLower(tagName) {
+	case "title", "comment", "artist", "genre", "publisher", "subtitle":
+		return strings.ToLower(tagName)
 	}
 	return tagName
 }

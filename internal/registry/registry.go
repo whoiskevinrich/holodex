@@ -153,6 +153,12 @@ var KnownFields = []FieldDef{
 
 	// ---- File-metadata fields (examples; operators add more via metadata-mappings.yaml) ----
 	{
+		Canonical:   "actors",
+		Label:       "Actors",
+		Display:     "",
+		Description: "Cast members. Multi-valued; each value is one performer's name. Written as a comma-delimited Artist tag.",
+	},
+	{
 		Canonical:   "studio",
 		Label:       "Studio",
 		Display:     "",
