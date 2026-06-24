@@ -39,7 +39,7 @@ jobs:
       security-events: write   # upload the Trivy SARIF report
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up QEMU            # arm64 emulation for the multi-arch build
         uses: docker/setup-qemu-action@v4
