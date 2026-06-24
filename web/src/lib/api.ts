@@ -100,12 +100,21 @@ export const api = {
 
 	thumbnailURL: (id: number) => `${BASE}/media/${id}/thumbnail`,
 
-	// Request background re-extraction (202 Accepted; image appears once ready).
-	regenerateThumbnail: async (id: number, fetchFn: typeof fetch = fetch) => {
+	// Append a client-side reload counter to a thumbnail URL after a regenerate or
+	// writeback, forcing the <img>/<video poster> to re-fetch within the session.
+	// The base may already carry the server's ?v={mtime} token, so join with & when
+	// a query string is present. n=0 leaves the URL untouched (no cache-bust yet).
+	thumbnailReload: (url: string, n: number) =>
+		n > 0 ? `${url}${url.includes('?') ? '&' : '?'}r=${n}` : url,
+
+	// Request re-extraction. Returns the HTTP status: 200 = embedded art extracted
+	// synchronously, 202 = queued for frame generation.
+	regenerateThumbnail: async (id: number, fetchFn: typeof fetch = fetch): Promise<number> => {
 		const res = await fetchFn(`${BASE}/media/${id}/thumbnail`, { method: 'POST' });
 		if (!res.ok && res.status !== 202) {
 			throw new Error(`regenerate thumbnail failed: ${res.status}`);
 		}
+		return res.status;
 	},
 
 	// Person images (F25, ADR-038). Reads are public; a filled role serves the real

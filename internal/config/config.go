@@ -81,6 +81,11 @@ type Config struct {
 	// Metadata source plugins (Phase 3, F22, ADR-033). Path to metadata-sources.yaml
 	// declaring the sidecar providers; a missing file simply means no providers.
 	MetadataSourcesPath string `yaml:"metadata_sources_path"`
+
+	// CardLayout controls the aspect ratio used to display media cards in browse lists.
+	// "wide" (default) shows 16:9 thumbnails, suited to personal/AMV libraries.
+	// "poster" shows 2:3 cards, suited to film libraries with poster-format cover art.
+	CardLayout string `yaml:"card_layout"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -116,6 +121,7 @@ func Defaults() Config {
 		MCPPort:              7801,
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
+		CardLayout:           "wide",
 	}
 }
 
@@ -250,6 +256,10 @@ func applyEnv(c *Config) {
 
 	c.MetadataMappingsPath = envStr("METADATA_MAPPINGS_PATH", c.MetadataMappingsPath)
 	c.MetadataSourcesPath = envStr("METADATA_SOURCES_PATH", c.MetadataSourcesPath)
+	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
+	if c.CardLayout != "wide" && c.CardLayout != "poster" {
+		c.CardLayout = "wide"
+	}
 }
 
 // loadDotenv reads simple KEY=VALUE lines from path into the process environment

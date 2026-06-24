@@ -238,6 +238,9 @@ export interface Capabilities {
 	auth_required: boolean;
 	// Soft-delete grace window in seconds (F24); 0 = auto-purge disabled.
 	delete_grace_period_seconds: number;
+	// card_layout is the operator's preferred browse-grid aspect ratio:
+	// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
+	card_layout: 'wide' | 'poster';
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).

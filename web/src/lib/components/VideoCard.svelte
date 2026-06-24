@@ -14,7 +14,12 @@
 	let attempt = $state(0);
 	let loaded = $state(false);
 	let gaveUp = $state(false);
-	const src = $derived(api.thumbnailURL(video.id) + (attempt > 0 ? `?r=${attempt}` : ''));
+	// Prefer the server-provided URL — it carries a ?v={mtime} cache-bust token so a
+	// writeback that rewrites the cover art isn't masked by a stale browser cache.
+	// Fall back to the bare URL while the thumbnail is still generating (no
+	// thumbnail_url yet) so the 404-retry loop below still has something to poll.
+	const base = $derived(video.thumbnail_url || api.thumbnailURL(video.id));
+	const src = $derived(api.thumbnailReload(base, attempt));
 
 	function onError() {
 		if (attempt < MAX_RETRIES) {

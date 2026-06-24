@@ -30,9 +30,41 @@ func TestMapExiftool(t *testing.T) {
 	if ex.RecordedAt == nil || ex.RecordedAt.Year() != 2001 {
 		t.Errorf("recordedAt = %v", ex.RecordedAt)
 	}
-	// Publisher is captured; FileSize/CoverArt are excluded.
+	if !ex.HasCoverArt {
+		t.Errorf("HasCoverArt should be true for CoverArt key")
+	}
+	// Publisher is captured; FileSize/CoverArt are excluded from Extra.
 	if len(ex.Extra) != 1 || ex.Extra[0].SourceKey != "Publisher" || ex.Extra[0].Value != "UGC" {
 		t.Errorf("extra = %+v", ex.Extra)
+	}
+}
+
+// TestMapExiftoolCoverArtVariants checks all known exiftool key spellings for
+// MP4/QuickTime cover art across exiftool versions and key formats.
+func TestMapExiftoolCoverArtVariants(t *testing.T) {
+	const binary = "(Binary data 490323 bytes, use -b option to extract)"
+	cases := []struct {
+		key  string
+		desc string
+	}{
+		{"CoverArt", "QuickTime/MP4 no-space (older exiftool)"},
+		{"Cover Art", "QuickTime/MP4 with-space (exiftool JSON with space)"},
+		{"Artwork", "QuickTime/MP4 (exiftool 12+ covr atom rename)"},
+		{"Picture", "ID3v2 embedded art"},
+		{"AttachedFileMIMEType", "Matroska attachment MIME (image/ prefix triggers detection)"},
+	}
+	for _, tc := range cases {
+		raw := map[string]any{tc.key: binary}
+		if tc.key == "AttachedFileMIMEType" {
+			raw[tc.key] = "image/jpeg"
+		}
+		ex := mapExiftool(raw)
+		if !ex.HasCoverArt {
+			t.Errorf("key %q (%s): HasCoverArt = false, want true", tc.key, tc.desc)
+		}
+		if len(ex.Extra) != 0 {
+			t.Errorf("key %q (%s): cover art leaked into Extra: %+v", tc.key, tc.desc, ex.Extra)
+		}
 	}
 }
 

@@ -146,6 +146,30 @@ type movieCredits struct {
 	Crew []movieCrewEntry `json:"crew"`
 }
 
+// personProfile is one entry from /3/person/{id}/images profiles[].
+type personProfile struct {
+	FilePath    string  `json:"file_path"`
+	AspectRatio float64 `json:"aspect_ratio"`
+	VoteAverage float64 `json:"vote_average"`
+}
+
+// personImagesResult is the response from /3/person/{id}/images.
+type personImagesResult struct {
+	Profiles []personProfile `json:"profiles"`
+}
+
+// taggedImageEntry is one item from /3/person/{id}/tagged_images results[].
+// We only need the geometry to pick landscape-format backdrop images for the banner slot.
+type taggedImageEntry struct {
+	FilePath    string  `json:"file_path"`
+	AspectRatio float64 `json:"aspect_ratio"`
+}
+
+// taggedImagesResult is the response from /3/person/{id}/tagged_images.
+type taggedImagesResult struct {
+	Results []taggedImageEntry `json:"results"`
+}
+
 type movieCastEntry struct {
 	Name  string `json:"name"`
 	Order int    `json:"order"`
@@ -382,6 +406,25 @@ func (c *tmdbClient) fetchMovieCredits(ctx context.Context, id int) (movieCredit
 	return cred, err
 }
 
+// fetchPersonImages returns all profile photos for a person from /3/person/{id}/images.
+// TMDB returns them sorted by vote_average descending so the first is the best.
+func (c *tmdbClient) fetchPersonImages(ctx context.Context, id int) (personImagesResult, error) {
+	var res personImagesResult
+	err := c.get(ctx, fmt.Sprintf("/3/person/%d/images", id), url.Values{}, &res)
+	return res, err
+}
+
+// fetchTaggedImages returns backdrop-tagged images for a person from /3/person/{id}/tagged_images.
+// These are movie/show images the person appears in; backdrops (aspect_ratio ≥ 1.5) serve as banners.
+func (c *tmdbClient) fetchTaggedImages(ctx context.Context, id int) (taggedImagesResult, error) {
+	var res taggedImagesResult
+	err := c.get(ctx, fmt.Sprintf("/3/person/%d/tagged_images", id), url.Values{
+		"language": {c.language},
+		"page":     {"1"},
+	}, &res)
+	return res, err
+}
+
 func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResponse {
 	fields := make(map[string][]string)
 	if v := strings.TrimSpace(det.Title); v != "" {
@@ -507,11 +550,44 @@ func (c *tmdbClient) enrichPerson(ctx context.Context, externalID string) (enric
 	if err != nil {
 		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
 	}
-	det, err := c.fetchDetails(ctx, n)
-	if err != nil {
-		return enrichResponse{}, err
+	// Fetch details, profile images, and tagged backdrops concurrently.
+	// Details are required; the image calls are best-effort (failure → empty result).
+	type detResult struct {
+		det personDetails
+		err error
 	}
-	return buildEnrichResponse(det), nil
+	type imgResult struct {
+		imgs personImagesResult
+		err  error
+	}
+	type tagResult struct {
+		tags taggedImagesResult
+		err  error
+	}
+	detCh := make(chan detResult, 1)
+	imgCh := make(chan imgResult, 1)
+	tagCh := make(chan tagResult, 1)
+	go func() {
+		det, err := c.fetchDetails(ctx, n)
+		detCh <- detResult{det, err}
+	}()
+	go func() {
+		imgs, err := c.fetchPersonImages(ctx, n)
+		imgCh <- imgResult{imgs, err}
+	}()
+	go func() {
+		tags, err := c.fetchTaggedImages(ctx, n)
+		tagCh <- tagResult{tags, err}
+	}()
+	dr := <-detCh
+	ir := <-imgCh
+	tr := <-tagCh
+	if dr.err != nil {
+		return enrichResponse{}, dr.err
+	}
+	// ir.err and tr.err are ignored (best-effort): the image/tagged-image calls are
+	// optional, so a failure simply yields an empty result and no assets of that type.
+	return buildEnrichResponse(dr.det, ir.imgs, tr.tags), nil
 }
 
 func (c *tmdbClient) enrichMovie(ctx context.Context, externalID string) (enrichResponse, error) {
@@ -561,7 +637,10 @@ func (c *tmdbClient) fetchDetails(ctx context.Context, id int) (personDetails, e
 	return det, err
 }
 
-func buildEnrichResponse(det personDetails) enrichResponse {
+// maxPersonPhotos caps the total number of image assets returned per person enrich.
+const maxPersonPhotos = 20
+
+func buildEnrichResponse(det personDetails, imgs personImagesResult, tags taggedImagesResult) enrichResponse {
 	fields := make(map[string][]string)
 	if bio := strings.TrimSpace(det.Biography); bio != "" {
 		fields["bio"] = []string{trimAtSentence(bio, 4000)}
@@ -588,13 +667,52 @@ func buildEnrichResponse(det personDetails) enrichResponse {
 		fields["aliases"] = aliases
 	}
 
-	var assets []assetEntry
-	if det.ProfilePath != "" {
-		assets = []assetEntry{{
-			Kind: "photo",
-			URL:  "https://image.tmdb.org/t/p/original" + det.ProfilePath,
-		}}
+	// Build assets: profile photos + one banner backdrop (if available).
+	//
+	// Profile photos come from /3/person/{id}/images (sorted by vote_average desc).
+	// The first becomes the headshot; additional ones become gallery items.
+	// Fall back to profile_path from the details response when the images call failed
+	// or returned nothing (e.g. person has exactly one photo and it matches profile_path).
+	//
+	// The banner comes from /3/person/{id}/tagged_images: the first landscape-format
+	// result (aspect_ratio ≥ 1.5) maps to the banner slot. Best-effort — many people
+	// have no tagged backdrops.
+	profiles := imgs.Profiles
+	if len(profiles) == 0 && det.ProfilePath != "" {
+		profiles = []personProfile{{FilePath: det.ProfilePath}}
 	}
+
+	var assets []assetEntry
+	for _, p := range profiles {
+		if len(assets) >= maxPersonPhotos {
+			break // cap reached — stop
+		}
+		if p.FilePath == "" {
+			continue // skip a malformed entry but keep scanning for valid ones
+		}
+		// The first asset we actually keep is the headshot; the rest are gallery.
+		kind := "gallery"
+		if len(assets) == 0 {
+			kind = "headshot"
+		}
+		assets = append(assets, assetEntry{
+			Kind: kind,
+			URL:  "https://image.tmdb.org/t/p/original" + p.FilePath,
+		})
+	}
+	for _, t := range tags.Results {
+		if len(assets) >= maxPersonPhotos {
+			break
+		}
+		if t.FilePath != "" && t.AspectRatio >= 1.5 {
+			assets = append(assets, assetEntry{
+				Kind: "banner",
+				URL:  "https://image.tmdb.org/t/p/original" + t.FilePath,
+			})
+			break // one banner slot
+		}
+	}
+
 	return enrichResponse{Fields: fields, Assets: assets}
 }
 

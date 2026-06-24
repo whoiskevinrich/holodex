@@ -83,9 +83,12 @@
 		if (!video) return;
 		regenerating = true;
 		try {
-			await api.regenerateThumbnail(video.id);
-			// Give the worker a moment, then refresh the poster with a busted URL.
-			setTimeout(() => (thumbVersion += 1), 4000);
+			const status = await api.regenerateThumbnail(video.id);
+			if (status === 200) {
+				thumbVersion += 1; // embedded art extracted synchronously; bust now
+			} else {
+				setTimeout(() => (thumbVersion += 1), 4000); // queued; give the worker a moment
+			}
 		} catch (e) {
 			// Generation may be disabled (503) or the request may fail; non-fatal.
 			console.warn('thumbnail regenerate failed', e);
@@ -217,7 +220,7 @@
 				<video
 					src={api.streamURL(video.id)}
 					poster={video.thumbnail_url
-						? `${video.thumbnail_url}${thumbVersion ? `?r=${thumbVersion}` : ''}`
+						? api.thumbnailReload(video.thumbnail_url, thumbVersion)
 						: undefined}
 					controls
 					preload="metadata"
@@ -490,7 +493,7 @@
 			filePath={video.file_path}
 			writeback={api.writebackMedia}
 			onclose={() => (writebackOpen = false)}
-			onapplied={() => {}}
+			onapplied={() => (thumbVersion += 1)}
 		/>
 	{/if}
 

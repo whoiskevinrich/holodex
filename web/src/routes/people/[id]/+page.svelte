@@ -93,6 +93,7 @@
 
 	function onApplied(fields: EnrichedField[]) {
 		enriched = fields;
+		reloadImages(); // provider may have returned a photo — best-effort refresh
 	}
 
 	async function clearProvider() {

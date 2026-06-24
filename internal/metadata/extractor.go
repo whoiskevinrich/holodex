@@ -202,7 +202,18 @@ var (
 // coverArtKeys are the embedded cover-image tags exiftool surfaces. Their
 // presence flags Tier-1 art availability (ADR-009); the bytes are extracted
 // separately by the thumbnail pipeline via `exiftool -b`.
-var coverArtKeys = newKeySet("CoverArt", "Picture")
+//
+// Exiftool uses different names across versions / container groups:
+//   - "CoverArt"  — QuickTime/MP4 (older exiftool)
+//   - "Cover Art" — QuickTime/MP4 (newer exiftool prints with a space in JSON)
+//   - "Artwork"   — QuickTime/MP4 (exiftool 12+ renamed the covr atom tag)
+//   - "Picture"   — ID3v2 (embedded in MP3/FLAC) and generic fallback
+var coverArtKeys = newKeySet("CoverArt", "Cover Art", "Artwork", "Picture")
+
+// attachedFileMIMETypeKeys is the exiftool key for a Matroska file attachment's
+// MIME type. Unlike coverArtKeys (presence alone flags art), the attachment may be
+// a font/subtitle/etc., so the value must start with "image/" to count as cover art.
+var attachedFileMIMETypeKeys = newKeySet("AttachedFileMIMEType")
 
 // excludedKeys are filesystem/tool/binary keys never captured as human metadata
 // (ADR-013 excludes cover-art blobs, core-six source keys, and noise).
@@ -212,6 +223,9 @@ var excludedKeys = newKeySet(
 	"FilePermissions", "FileType", "FileTypeExtension", "MIMEType",
 	"ImageWidth", "ImageHeight", "ImageSize", "Megapixels", "Duration",
 	"ThumbnailImage", "PreviewImage",
+	// Matroska attachment fields — consumed by the cover-art path, not human metadata.
+	"AttachedFileName", "AttachedFileMIMEType", "AttachedFileData", "AttachedFileUID",
+	"AttachedFileDescription",
 )
 
 // mapExiftool converts exiftool's flat JSON object into normalized fields,
@@ -237,6 +251,11 @@ func mapExiftool(m map[string]any) Extracted {
 			}
 		case coverArtKeys.has(key):
 			ex.HasCoverArt = true
+		case attachedFileMIMETypeKeys.has(key):
+			// Matroska attachment: flag cover art when the attachment is an image.
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(val)), "image/") {
+				ex.HasCoverArt = true
+			}
 		case excludedKeys.has(key) || isBinaryValue(val):
 			// skip
 		default:

@@ -71,3 +71,9 @@ metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH
 # metadata-sources.yaml); a missing file means no providers. Enrichment is
 # owner-gated and on-demand; core holds no upstream API keys (each provider does).
 metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
+
+# --- Presentation ---
+# card_layout controls the aspect ratio of media cards in browse lists.
+#   "wide"   (default) — 16:9 thumbnails; suited to personal/AMV/video libraries.
+#   "poster"           — 2:3 poster cards; suited to film libraries with cover art.
+# card_layout: "wide"              # CARD_LAYOUT
