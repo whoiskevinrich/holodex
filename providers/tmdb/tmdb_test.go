@@ -442,6 +442,31 @@ func TestBuildEnrichResponseFallsBackToProfilePath(t *testing.T) {
 	}
 }
 
+func TestBuildEnrichResponseSkipsEmptyFilePath(t *testing.T) {
+	// A profile with an empty file_path must be skipped (continue), not terminate
+	// the loop (break) — later valid profiles still produce assets, and the headshot
+	// goes to the first kept entry, not the first array index.
+	det := personDetails{ID: 1, Name: "Sparse Photos"}
+	imgs := personImagesResult{
+		Profiles: []personProfile{
+			{FilePath: ""},           // malformed — skipped
+			{FilePath: "/good1.jpg"}, // becomes the headshot
+			{FilePath: ""},           // malformed — skipped
+			{FilePath: "/good2.jpg"}, // gallery
+		},
+	}
+	res := buildEnrichResponse(det, imgs, taggedImagesResult{})
+	if len(res.Assets) != 2 {
+		t.Fatalf("want 2 assets (empties skipped), got %d: %v", len(res.Assets), res.Assets)
+	}
+	if res.Assets[0].Kind != "headshot" || res.Assets[0].URL != "https://image.tmdb.org/t/p/original/good1.jpg" {
+		t.Errorf("assets[0] = %+v, want headshot /good1.jpg", res.Assets[0])
+	}
+	if res.Assets[1].Kind != "gallery" || res.Assets[1].URL != "https://image.tmdb.org/t/p/original/good2.jpg" {
+		t.Errorf("assets[1] = %+v, want gallery /good2.jpg", res.Assets[1])
+	}
+}
+
 func TestBuildEnrichResponseCapsAt20(t *testing.T) {
 	det := personDetails{ID: 1, Name: "Many Photos"}
 	var profiles []personProfile

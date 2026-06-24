@@ -585,7 +585,8 @@ func (c *tmdbClient) enrichPerson(ctx context.Context, externalID string) (enric
 	if dr.err != nil {
 		return enrichResponse{}, dr.err
 	}
-	// ir.err and tr.err are logged implicitly; empty results mean no assets of that type.
+	// ir.err and tr.err are ignored (best-effort): the image/tagged-image calls are
+	// optional, so a failure simply yields an empty result and no assets of that type.
 	return buildEnrichResponse(dr.det, ir.imgs, tr.tags), nil
 }
 
@@ -682,12 +683,16 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	}
 
 	var assets []assetEntry
-	for i, p := range profiles {
-		if len(assets) >= maxPersonPhotos || p.FilePath == "" {
-			break
+	for _, p := range profiles {
+		if len(assets) >= maxPersonPhotos {
+			break // cap reached — stop
 		}
+		if p.FilePath == "" {
+			continue // skip a malformed entry but keep scanning for valid ones
+		}
+		// The first asset we actually keep is the headshot; the rest are gallery.
 		kind := "gallery"
-		if i == 0 {
+		if len(assets) == 0 {
 			kind = "headshot"
 		}
 		assets = append(assets, assetEntry{

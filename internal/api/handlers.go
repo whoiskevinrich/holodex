@@ -264,9 +264,16 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // and detail page fetch a never-before-seen URL instead of a stale browser-cached
 // copy. Paired with the endpoint's no-cache header for revalidation.
 func setThumbnailURL(v *model.Video) {
-	if model.HasThumbnailImage(v.ThumbnailState) {
-		v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, v.FileMtime.Unix())
+	if !model.HasThumbnailImage(v.ThumbnailState) {
+		return
 	}
+	// Guard against a zero-value mtime, which would render a large negative token.
+	// Indexed videos always carry an mtime; fall back to 0 only for safety.
+	var ver int64
+	if !v.FileMtime.IsZero() {
+		ver = v.FileMtime.Unix()
+	}
+	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, ver)
 }
 
 // prepareThumbnails sets the serving URL on each video and enqueues never-attempted
