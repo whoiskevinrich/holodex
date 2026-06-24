@@ -123,6 +123,8 @@ func assetRoleFor(kind string) (string, bool) {
 		return model.PersonImageBanner, true
 	case "poster":
 		return model.PersonImagePoster, true
+	case "gallery":
+		return model.PersonImageExtra, true
 	default:
 		return "", false
 	}

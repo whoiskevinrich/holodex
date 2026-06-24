@@ -290,6 +290,7 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
+		"trigger", trigger, // initial | periodic | watch | manual — explains off-cadence passes
 		"seen", st.seen, "added", st.added, "updated", st.updated,
 		"removed", removed, "skipped", st.skipped, "errors", st.errors,
 		"duration_ms", dur.Milliseconds())
@@ -333,18 +334,16 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	}
 	mtime := info.ModTime().UTC().Truncate(time.Second)
 
-	// Mid-copy guard: skip files that changed within MinAge (F1.9).
-	if s.cfg.MinAge > 0 && time.Since(info.ModTime()) < s.cfg.MinAge {
-		st.incSkipped()
-		return
-	}
-
+	// Look up the existing row before the MinAge check so we can call recordSeen
+	// even when we skip — otherwise DeactivateExcept will flip active=false for
+	// recently-modified files (e.g. after a metadata writeback changes mtime).
 	prev, ok, err := s.repo.StatByPath(ctx, path)
 	if err != nil {
 		st.incErrors()
 		s.log.Warn("stat lookup failed", "path", path, "err", err)
 		return
 	}
+
 	// Owner soft-delete (F24, ADR-037) is orthogonal to disk presence: leave a
 	// soft-deleted row exactly as-is and record it as seen so end-of-scan
 	// reconciliation never deactivates it — and crucially so the #26 reactivation
@@ -353,6 +352,16 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	if ok && prev.Deleted {
 		st.incSkipped()
 		st.recordSeen(prev.ID)
+		return
+	}
+
+	// Mid-copy guard: skip files that changed within MinAge (F1.9). Record the
+	// row as seen so the end-of-scan reconciliation does not deactivate it.
+	if s.cfg.MinAge > 0 && time.Since(info.ModTime()) < s.cfg.MinAge {
+		st.incSkipped()
+		if ok {
+			st.recordSeen(prev.ID)
+		}
 		return
 	}
 	if ok && prev.Size == info.Size() && prev.Mtime.Equal(mtime) {

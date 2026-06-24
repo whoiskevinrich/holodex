@@ -33,6 +33,9 @@ class ActivityState {
 	get needToken(): boolean {
 		return !!this.caps && this.caps.auth_required && !this.caps.owner;
 	}
+	get cardLayout(): 'wide' | 'poster' {
+		return this.caps?.card_layout ?? 'wide';
+	}
 
 	async refresh() {
 		try {

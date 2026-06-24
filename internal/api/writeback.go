@@ -138,5 +138,15 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Re-check for embedded cover art in the (now-modified) file. This is a
+	// best-effort pick-up of any image field just written (e.g. poster_url) as
+	// well as any pre-existing art now detectable with the current extractor.
+	// Errors are non-fatal — the writeback itself succeeded.
+	if h.thumbs != nil && h.thumbs.Enabled() {
+		if _, err := h.thumbs.ExtractEmbedded(r.Context(), id, v.FilePath); err != nil {
+			h.log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
+		}
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

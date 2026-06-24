@@ -15,7 +15,7 @@ import (
 // called just for files that actually have art.
 func extractCoverArt(ctx context.Context, exiftoolPath, path, dst string) (bool, error) {
 	path = absPath(path)
-	for _, tag := range []string{"-CoverArt", "-Picture"} {
+	for _, tag := range []string{"-CoverArt", "-Artwork", "-Picture", "-AttachedFileData"} {
 		data, err := exec.CommandContext(ctx, exiftoolPath,
 			"-b", tag, "-api", "largefilesupport=1", path).Output()
 		if err != nil || len(data) == 0 {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -179,11 +180,28 @@ func TestTMDBEnrich(t *testing.T) {
 	if len(res.Fields["aliases"]) == 0 {
 		t.Error("aliases field missing")
 	}
-	if len(res.Assets) == 0 || res.Assets[0].Kind != "photo" {
-		t.Errorf("assets = %v, want [{kind:photo,...}]", res.Assets)
+	// Expect: headshot (first profile) + gallery (second profile) + banner (first backdrop).
+	if len(res.Assets) < 3 {
+		t.Errorf("want ≥3 assets (headshot+gallery+banner), got %d: %v", len(res.Assets), res.Assets)
+	}
+	if res.Assets[0].Kind != "headshot" {
+		t.Errorf("assets[0].kind = %q, want headshot", res.Assets[0].Kind)
 	}
 	if !strings.HasPrefix(res.Assets[0].URL, "https://image.tmdb.org/") {
 		t.Errorf("asset URL = %q, want https://image.tmdb.org/...", res.Assets[0].URL)
+	}
+	if res.Assets[1].Kind != "gallery" {
+		t.Errorf("assets[1].kind = %q, want gallery", res.Assets[1].Kind)
+	}
+	// Banner should be present (backdrop1.jpg, aspect_ratio 1.778 from tagged_images).
+	hasBanner := false
+	for _, a := range res.Assets {
+		if a.Kind == "banner" {
+			hasBanner = true
+		}
+	}
+	if !hasBanner {
+		t.Errorf("no banner asset found in %v", res.Assets)
 	}
 }
 
@@ -372,9 +390,67 @@ func TestEnrichNilAssetWhenNoProfilePath(t *testing.T) {
 		Birthday:    "1990-01-01",
 		ProfilePath: "", // no photo
 	}
-	res := buildEnrichResponse(det)
+	res := buildEnrichResponse(det, personImagesResult{}, taggedImagesResult{})
 	if len(res.Assets) != 0 {
 		t.Errorf("expected no assets when ProfilePath is empty, got %v", res.Assets)
+	}
+}
+
+func TestBuildEnrichResponseMultiplePhotos(t *testing.T) {
+	det := personDetails{ID: 1, Name: "Test Person", ProfilePath: "/fallback.jpg"}
+	imgs := personImagesResult{
+		Profiles: []personProfile{
+			{FilePath: "/photo1.jpg", AspectRatio: 0.667},
+			{FilePath: "/photo2.jpg", AspectRatio: 0.667},
+			{FilePath: "/photo3.jpg", AspectRatio: 0.667},
+		},
+	}
+	tags := taggedImagesResult{
+		Results: []taggedImageEntry{
+			{FilePath: "/portrait_tagged.jpg", AspectRatio: 0.667}, // skipped: portrait
+			{FilePath: "/backdrop.jpg", AspectRatio: 1.778},         // banner
+		},
+	}
+	res := buildEnrichResponse(det, imgs, tags)
+
+	if len(res.Assets) != 4 { // 1 headshot + 2 gallery + 1 banner
+		t.Fatalf("want 4 assets, got %d: %v", len(res.Assets), res.Assets)
+	}
+	if res.Assets[0].Kind != "headshot" || res.Assets[0].URL != "https://image.tmdb.org/t/p/original/photo1.jpg" {
+		t.Errorf("assets[0] = %+v, want headshot /photo1.jpg", res.Assets[0])
+	}
+	if res.Assets[1].Kind != "gallery" {
+		t.Errorf("assets[1].kind = %q, want gallery", res.Assets[1].Kind)
+	}
+	if res.Assets[2].Kind != "gallery" {
+		t.Errorf("assets[2].kind = %q, want gallery", res.Assets[2].Kind)
+	}
+	if res.Assets[3].Kind != "banner" || res.Assets[3].URL != "https://image.tmdb.org/t/p/original/backdrop.jpg" {
+		t.Errorf("assets[3] = %+v, want banner /backdrop.jpg", res.Assets[3])
+	}
+}
+
+func TestBuildEnrichResponseFallsBackToProfilePath(t *testing.T) {
+	det := personDetails{ID: 1, Name: "Fallback Person", ProfilePath: "/main.jpg"}
+	// Empty images result (e.g. the /images call failed)
+	res := buildEnrichResponse(det, personImagesResult{}, taggedImagesResult{})
+	if len(res.Assets) != 1 {
+		t.Fatalf("want 1 asset (fallback), got %d: %v", len(res.Assets), res.Assets)
+	}
+	if res.Assets[0].Kind != "headshot" {
+		t.Errorf("assets[0].kind = %q, want headshot", res.Assets[0].Kind)
+	}
+}
+
+func TestBuildEnrichResponseCapsAt20(t *testing.T) {
+	det := personDetails{ID: 1, Name: "Many Photos"}
+	var profiles []personProfile
+	for i := range 25 {
+		profiles = append(profiles, personProfile{FilePath: fmt.Sprintf("/photo%d.jpg", i), AspectRatio: 0.667})
+	}
+	res := buildEnrichResponse(det, personImagesResult{Profiles: profiles}, taggedImagesResult{})
+	if len(res.Assets) != maxPersonPhotos {
+		t.Errorf("want %d assets (cap), got %d", maxPersonPhotos, len(res.Assets))
 	}
 }
 
@@ -414,6 +490,10 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			}
 		case r.URL.Path == "/3/person/608":
 			io.WriteString(w, `{"id":608,"name":"Hayao Miyazaki","biography":"Japanese filmmaker and co-founder of Studio Ghibli.","birthday":"1941-01-05","place_of_birth":"Bunkyō, Tokyo, Japan","profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","also_known_as":["宮崎駿","Miyazaki Hayao"]}`) //nolint:errcheck
+		case r.URL.Path == "/3/person/608/images":
+			io.WriteString(w, `{"profiles":[{"file_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","aspect_ratio":0.667,"vote_average":5.4},{"file_path":"/secondprofile.jpg","aspect_ratio":0.667,"vote_average":4.8}]}`) //nolint:errcheck
+		case r.URL.Path == "/3/person/608/tagged_images":
+			io.WriteString(w, `{"results":[{"file_path":"/backdrop1.jpg","aspect_ratio":1.778},{"file_path":"/portrait_tagged.jpg","aspect_ratio":0.667}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/person/"):
 			http.NotFound(w, r)
 		case r.URL.Path == "/3/search/movie":

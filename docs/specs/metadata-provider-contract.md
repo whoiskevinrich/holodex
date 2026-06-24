@@ -333,6 +333,7 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `photo` | Person portrait / headshot | ~1:1 (square) | The common case. Synonyms `portrait`/`headshot` are also accepted |
 | `banner` | Wide hero image | ~16:9 | Synonym `backdrop` accepted |
 | `poster` | Tall poster | ~2:3 | |
+| `gallery` | Additional photos | any | Multiple assets allowed per enrich — see ordering note below |
 
 Holodex maps each kind to one image **role**; an unknown kind is **dropped** (never stored
 under a guessed role). Holodex does **not** crop to the target aspect (cropping is a separate
@@ -377,9 +378,12 @@ serves its own copy. Stay inside these so nothing is rejected or silently altere
 
 #### Multiple assets, ordering, and emptiness
 
-- You MAY return more than one asset. Within a `kind`, order them **most-preferred first**;
-  Holodex uses the **first one of that role it can successfully fetch and store**, then stops
-  for that role. Realistically emit **at most one per kind**.
+- You MAY return more than one asset. Order them **most-preferred first** within a `kind`.
+- **Core roles** (`photo`, `banner`, `poster`): Holodex fetches the first asset of each role
+  it can successfully store, then skips the rest of that role. Emit at most one per core kind.
+- **`gallery` role**: Holodex fetches all `gallery` assets in order until an operator-configured
+  cap is reached. You may include multiple `gallery` entries; they are stored as additional
+  photos for the person.
 - **Omit `assets` entirely when you have none** — never send `[]`.
 - If a response approaches the 1 MiB body cap, **shed `assets` before dropping any `fields`**
   (fields are canonical text; an asset URL is recoverable on a later enrich).

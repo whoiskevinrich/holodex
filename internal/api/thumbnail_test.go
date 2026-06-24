@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,9 +21,11 @@ import (
 
 // stubThumbs implements the API's thumbnailer seam.
 type stubThumbs struct {
-	enabled  bool
-	depth    int
-	enqueued []int64
+	enabled    bool
+	depth      int
+	enqueued   []int64
+	extractIDs []int64 // ids passed to ExtractEmbedded
+	extractOK  bool    // value ExtractEmbedded returns for ok
 }
 
 func (s *stubThumbs) EnqueueHigh(ids []int64) { s.enqueued = append(s.enqueued, ids...) }
@@ -31,6 +34,10 @@ func (s *stubThumbs) QueueStats() thumbnail.QueueStats {
 	return thumbnail.QueueStats{Depth: s.depth, Normal: s.depth}
 }
 func (s *stubThumbs) Enabled() bool { return s.enabled }
+func (s *stubThumbs) ExtractEmbedded(_ context.Context, id int64, _ string) (bool, error) {
+	s.extractIDs = append(s.extractIDs, id)
+	return s.extractOK, nil
+}
 
 func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo, string) {
 	t.Helper()
@@ -154,9 +161,16 @@ func TestListEnqueuesVisibleAndExposesURL(t *testing.T) {
 	for _, it := range items {
 		m := it.(map[string]any)
 		idF := m["id"].(float64)
-		_, hasURL := m["thumbnail_url"]
-		if int64(idF) == ready && !hasURL {
-			t.Errorf("ready video missing thumbnail_url")
+		url, hasURL := m["thumbnail_url"].(string)
+		if int64(idF) == ready {
+			if !hasURL {
+				t.Errorf("ready video missing thumbnail_url")
+			}
+			// The URL must carry a ?v= cache-bust token (file mtime) so a writeback
+			// that rewrites the file's cover art is not masked by a stale browser cache.
+			if !strings.Contains(url, "?v=") {
+				t.Errorf("thumbnail_url missing ?v= version token: %q", url)
+			}
 		}
 		if int64(idF) == pending && hasURL {
 			t.Errorf("pending video should not expose thumbnail_url yet")

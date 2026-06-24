@@ -151,9 +151,10 @@
 		border: 1px solid var(--rule);
 		border-radius: var(--radius);
 	}
-	/* Cinémathèque: letterbox bars. */
-	[data-theme='cinematheque'] .video-frame::before,
-	[data-theme='cinematheque'] .video-frame::after {
+	/* Cinémathèque: letterbox bars. Suppressed in poster mode — fixed-height bars
+	   read as widescreen chrome and look wrong on portrait cards. */
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		content: '';
 		position: absolute;
 		left: 0;
@@ -162,10 +163,10 @@
 		background: #000;
 		z-index: 1;
 	}
-	[data-theme='cinematheque'] .video-frame::before {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
 		top: 0;
 	}
-	[data-theme='cinematheque'] .video-frame::after {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		bottom: 0;
 	}
 	/* Broadcast: scanline wash over each still. */
@@ -179,6 +180,14 @@
 			transparent 0 3px,
 			rgba(54, 224, 208, 0.06) 3px 4px
 		);
+	}
+
+	/* ---- Poster card layout (card_layout: poster in holodex.yaml) ----
+	   Switches the video grid from 16:9 (wide) to 2:3 (poster), suited to film
+	   libraries with poster-format cover art. The Cinémathèque letterbox bars
+	   are suppressed by their own rules (above) via :not([data-layout='poster']). */
+	.video-grid[data-layout='poster'] .video-frame {
+		aspect-ratio: 2 / 3;
 	}
 
 	/* ---- Reusable person-image frame (F25, ADR-038) ----

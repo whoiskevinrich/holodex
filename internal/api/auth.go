@@ -63,9 +63,13 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		// DeleteGracePeriodSeconds drives the delete-confirm copy ("…in N days") and
 		// the Trash purge-window text (F24, ADR-037); 0 = auto-purge disabled.
 		DeleteGracePeriodSeconds int `json:"delete_grace_period_seconds"`
+		// CardLayout is the operator's preferred card aspect ratio for browse lists:
+		// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
+		CardLayout string `json:"card_layout"`
 	}{
 		Owner:                    h.auth.authorized(r),
 		AuthRequired:             h.auth.Required(),
 		DeleteGracePeriodSeconds: int(h.deleteGrace.Seconds()),
+		CardLayout:               h.cardLayout,
 	})
 }

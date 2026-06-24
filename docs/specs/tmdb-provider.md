@@ -113,7 +113,7 @@ provider loudly.
     "overview", "release_date", "runtime", "genres", "tagline", "homepage",
     "original_language", "original_title", "status", "imdb_id", "poster_url"
   ],
-  "asset_kinds": ["photo"]
+  "asset_kinds": ["headshot", "gallery", "banner"]
 }
 ```
 
@@ -125,7 +125,7 @@ provider loudly.
 | `entity_types` | string[] | yes | `["person", "video"]` — person for People enrichment, video for film enrichment (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
-| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies portraits: `["photo"]` (for person only; poster is a text field for video) |
+| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies person images: `["headshot", "gallery", "banner"]` (person only; video poster is a text `fields` entry) |
 
 ### 2.3 Entity type and matching fields
 
@@ -207,7 +207,9 @@ Given a chosen `external_id`, return the canonical field values plus optional as
     "aliases": ["宮崎駿", "Miyazaki Hayao"]
   },
   "assets": [
-    { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" }
+    { "kind": "headshot", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" },
+    { "kind": "gallery",  "url": "https://image.tmdb.org/t/p/original/secondprofile.jpg" },
+    { "kind": "banner",   "url": "https://image.tmdb.org/t/p/original/backdrop.jpg" }
   ]
 }
 ```
@@ -215,17 +217,17 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `fields` | object | yes | Map of **canonical field key → array of string values**. Always an array, even single-valued (e.g. `"birthdate": ["1941-01-05"]`). Keys SHOULD be drawn from the `fields` advertised in `/describe`. Holodex sanitizes every value (control chars stripped, newlines → space, capped 4096 chars), caps **50 values per field** and **40 fields total** |
-| `assets` | array | optional | Binary assets (e.g. portrait). **See the asset note below** |
-| `assets[].kind` | string | yes (if asset present) | Asset kind. For a person portrait use `"photo"` |
+| `assets` | array | optional | Binary assets. **See [§4.3](#43-person-photos--asset-urls) and the asset note below** |
+| `assets[].kind` | string | yes (if asset present) | Asset kind: `"headshot"` (primary portrait), `"gallery"` (additional portraits), or `"banner"` (landscape backdrop). See [§4.3](#43-person-photos--asset-urls) |
 | `assets[].url` | string | yes (if asset present) | Absolute URL to the binary |
 
 **Asset note (load-bearing).** Holodex **downloads** assets synchronously at enrich time
-(ADR-038/039). The photo URL is fetched, normalized (decode → strip EXIF → re-encode), and
-stored as a person image immediately when the owner clicks Enrich. Do **not** put the photo
-into a `fields` entry — `fields` values are text; photos belong in `assets[]` with
-`kind: "photo"`. Asset URLs MUST be absolute, on `image.tmdb.org` (an operator-allowlisted
-CDN host per ADR-039), served over `https`, and directly fetchable without a cross-host
-redirect — see [§6](#6-security-requirements) and [§8.d](#8-reference-contract-examples).
+(ADR-038/039). Each URL is fetched, normalized (decode → strip EXIF → re-encode), and
+stored as a person image immediately when the owner clicks Enrich. Do **not** put photos
+into `fields` entries — `fields` values are text; photos belong in `assets[]`.
+Asset URLs MUST be absolute, on `image.tmdb.org` (an operator-allowlisted CDN host per
+ADR-039), served over `https`, and directly fetchable without a cross-host redirect — see
+[§6](#6-security-requirements) and [§10](#10-deliverable--operator-wiring).
 
 ### 2.6 Status codes summary
 
@@ -305,26 +307,34 @@ Map TMDB person fields → canonical `fields` (each value an array of strings):
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.
 
-### 4.3 Photo / `profile_path` → asset URL
+### 4.3 Person photos → asset URLs
 
-TMDB returns `profile_path` as a path fragment (e.g. `/akhpeJSfFKMValElDDjsKi2jryl.jpg`).
-Construct an absolute image URL using the TMDB image base. Recommended:
+TMDB exposes three sources of person imagery, fetched concurrently alongside the details
+call. Details are required; image calls are best-effort (a failure yields an empty result,
+not an error).
 
-```
-https://image.tmdb.org/t/p/original<profile_path>
-```
+| TMDB endpoint | Purpose |
+|---|---|
+| `GET /3/person/{id}` | Details, including `profile_path` as a fallback |
+| `GET /3/person/{id}/images` | All profile photos sorted by `vote_average` descending |
+| `GET /3/person/{id}/tagged_images?language=en-US&page=1` | Images from films/shows the person appears in |
 
-(`original` is the full-size variant; a sized variant like `w500` is also acceptable.) The
-robust approach is to fetch the TMDB **configuration** (`GET /3/configuration`) once at
-startup and read `images.secure_base_url` + a `profile_sizes` entry, caching it — but the
-stable `https://image.tmdb.org/t/p/` host is acceptable if you prefer not to call
-configuration. Emit:
+**Building the asset list** (cap the total at **20** assets):
+
+1. Use `profiles[]` from `/images`. If the call fails or returns empty, fall back to `profile_path` from the details response as a single-entry list. If both are empty, emit no assets.
+2. First profile → `"headshot"`. Remaining profiles → `"gallery"`. Both use `https://image.tmdb.org/t/p/original<file_path>`.
+3. Scan `results[]` from `/tagged_images`. The first entry with `aspect_ratio >= 1.5` (landscape) → one `"banner"` asset. Stop after finding one banner.
+4. Emit assets in order: headshot first, gallery entries next, banner last.
 
 ```json
-{ "kind": "photo", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" }
+[
+  { "kind": "headshot", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" },
+  { "kind": "gallery",  "url": "https://image.tmdb.org/t/p/original/secondprofile.jpg" },
+  { "kind": "banner",   "url": "https://image.tmdb.org/t/p/original/backdrop.jpg" }
+]
 ```
 
-Omit the `assets` array entirely when `profile_path` is null.
+Omit `assets` entirely only when there are no profile photos and no fallback `profile_path`.
 
 ### 4.4 Film / Video enrichment
 
@@ -468,7 +478,8 @@ GET /describe
   "protocol_version": 1,
   "entity_types": ["person"],
   "id_namespaces": ["tmdb", "imdb"],
-  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "photo"]
+  "fields": ["bio", "birthdate", "nationality", "website", "aliases", "deathdate"],
+  "asset_kinds": ["headshot", "gallery", "banner"]
 }
 ```
 
@@ -517,12 +528,16 @@ Content-Type: application/json
     "aliases": ["宮崎駿", "Miyazaki Hayao", "Hayao Miyazaki"]
   },
   "assets": [
-    { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" }
+    { "kind": "headshot", "url": "https://image.tmdb.org/t/p/original/akhpeJSfFKMValElDDjsKi2jryl.jpg" },
+    { "kind": "gallery",  "url": "https://image.tmdb.org/t/p/original/secondprofile.jpg" },
+    { "kind": "banner",   "url": "https://image.tmdb.org/t/p/original/backdrop.jpg" }
   ]
 }
 ```
 
-(`website` is omitted here because TMDB returned no `homepage`; omit rather than send empty.)
+(`website` is omitted because TMDB returned no `homepage`; omit rather than send empty.
+`gallery` and `banner` are present when TMDB's `/images` and `/tagged_images` return
+additional photos — omit any asset for which no source image exists.)
 
 ---
 
@@ -556,8 +571,10 @@ A passing TMDB container should satisfy each of these (run with a valid `TMDB_AP
    `namespace` is `tmdb`.
 4. **Resolve miss** — a nonsense query returns `200` with `{ "candidates": [] }` (no error).
 5. **Enrich** — `POST /enrich` with the `external_id` from step 3 returns `200`, a `fields`
-   object whose values are **arrays of strings**, and (when TMDB has a `profile_path`) an
-   `assets` entry with `kind: "photo"` and an absolute `https://image.tmdb.org/…` URL.
+   object whose values are **arrays of strings**, and (when TMDB has profile images) one or
+   more `assets` entries: the first with `kind: "headshot"`, any additional profiles with
+   `kind: "gallery"`, and optionally one `kind: "banner"` from tagged landscape images. All
+   asset URLs are absolute `https://image.tmdb.org/…` URLs.
 6. **Enrich bad id** — `POST /enrich` with a bogus `external_id` returns a non-2xx (not a
    crash, not a 2xx with garbage).
 7. **Caps** — no response exceeds 1 MiB; no single value exceeds 4096 chars; candidate list

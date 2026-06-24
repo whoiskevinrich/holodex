@@ -2,6 +2,7 @@ package enrich
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -209,20 +210,22 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 }
 
 // downloadAssets fetches provider image assets through the SSRF-guarded asset client
-// and stores them via the image sink (F25, ADR-038/039). Assets are preference-ordered;
-// only the first successful fetch per role is stored — later entries of the same kind
-// are treated as fallbacks and skipped once a role is filled (ADR-039 §5).
+// and stores them via the image sink (F25, ADR-038/039). Assets are preference-ordered.
+// Core roles (headshot/banner/poster) fill on first success and then skip further
+// entries of the same role (ADR-039 §5). The gallery role (extra) is unbounded on the
+// provider side but capped at repo.GalleryCap by the store; once that cap is hit,
+// remaining gallery assets are skipped.
 func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
 	fetcher := s.newAssetGet(src)
-	done := make(map[string]bool) // role → already stored successfully
+	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
 		if !ok || done[role] {
-			continue // unknown kind or role already filled
+			continue
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
@@ -230,10 +233,17 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			continue
 		}
 		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
-			s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+			if errors.Is(err, repo.ErrGalleryFull) {
+				done[role] = true // cap reached; skip remaining gallery assets
+			} else {
+				s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+			}
 			continue
 		}
-		done[role] = true
+		if model.CorePersonImageRole(role) {
+			done[role] = true // core slots are single-occupancy; first success wins
+		}
+		// extra/gallery: don't mark done — allow additional items up to the cap
 	}
 }
 

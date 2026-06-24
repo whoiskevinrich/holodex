@@ -28,6 +28,7 @@ import (
 // visible/regenerated items (Tier 3) and report queue depth. Nil when thumbnail
 // generation is not wired (tests, or a build without it).
 type thumbnailer interface {
+	ExtractEmbedded(ctx context.Context, id int64, path string) (bool, error)
 	EnqueueHigh(ids []int64)
 	QueueDepth() int
 	QueueStats() thumbnail.QueueStats // pipeline snapshot for the activity surface (F21.1)
@@ -91,6 +92,10 @@ type Handlers struct {
 	// purge-now (soft-delete/restore/Trash still work).
 	purger      purger
 	deleteGrace time.Duration
+
+	// cardLayout is the operator's preferred card aspect ratio ("wide" or "poster"),
+	// surfaced via /capabilities so all visitors see a consistent grid presentation.
+	cardLayout string
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -144,6 +149,12 @@ func (h *Handlers) SetActivity(scan scanStatusSource, health *Health, version st
 func (h *Handlers) SetAuth(auth *Auth, exposedBind bool) {
 	h.auth = auth
 	h.exposedBind = exposedBind
+}
+
+// SetCardLayout wires the operator's preferred card aspect ratio. Config validates
+// the value to "wide" or "poster" before this is called; this is a simple assignment.
+func (h *Handlers) SetCardLayout(layout string) {
+	h.cardLayout = layout
 }
 
 // controlsUnauthenticated is true when the admin surface is reachable beyond
@@ -247,10 +258,14 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// setThumbnailURL fills ThumbnailURL when an image exists on disk (ADR-009).
+// setThumbnailURL fills ThumbnailURL when an image exists on disk (ADR-009). The
+// ?v= token is the file mtime (Unix seconds): it changes whenever the source file
+// is rewritten (e.g. a metadata writeback that embeds new cover art), so the grid
+// and detail page fetch a never-before-seen URL instead of a stale browser-cached
+// copy. Paired with the endpoint's no-cache header for revalidation.
 func setThumbnailURL(v *model.Video) {
 	if model.HasThumbnailImage(v.ThumbnailState) {
-		v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail", v.ID)
+		v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, v.FileMtime.Unix())
 	}
 }
 
@@ -406,14 +421,18 @@ func (h *Handlers) serveThumbnail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "thumbnail not ready")
 		return
 	}
-	// Cached for a day; regeneration rewrites the file (new mtime) and the client
-	// cache-busts, so a stale image is never pinned.
-	w.Header().Set("Cache-Control", "public, max-age=86400")
+	// no-cache so the browser always revalidates. http.ServeContent sets Last-Modified
+	// and handles If-Modified-Since, so unchanged thumbnails return 304 (no bytes
+	// transferred). max-age=86400 would pin a stale frame-grab for a day after a
+	// writeback or regenerate — the grid has no URL version parameter to bust with.
+	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
-// regenerateThumbnail forces re-extraction for one video (F11.6): it clears the
-// stored state and enqueues the id at high priority, returning 202 Accepted.
+// regenerateThumbnail forces re-extraction for one video (F11.6): tries embedded
+// cover art first (Tier 1); falls back to queued frame generation (Tier 2/3) when
+// no art is found. Returns 200 when art was extracted synchronously, 202 when
+// generation was queued.
 func (h *Handlers) regenerateThumbnail(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -423,7 +442,8 @@ func (h *Handlers) regenerateThumbnail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "thumbnail generation disabled")
 		return
 	}
-	if _, err := h.repo.PathByID(r.Context(), id); errors.Is(err, repo.ErrNotFound) {
+	path, err := h.repo.PathByID(r.Context(), id)
+	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "media not found")
 		return
 	} else if err != nil {
@@ -432,6 +452,13 @@ func (h *Handlers) regenerateThumbnail(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.repo.ResetThumbnailState(r.Context(), id); err != nil {
 		h.fail(w, "reset thumbnail state", err)
+		return
+	}
+	if extracted, err := h.thumbs.ExtractEmbedded(r.Context(), id, path); err != nil {
+		h.fail(w, "extract embedded cover art", err)
+		return
+	} else if extracted {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	h.thumbs.EnqueueHigh([]int64{id})
