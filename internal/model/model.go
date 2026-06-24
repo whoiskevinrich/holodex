@@ -166,19 +166,24 @@ const (
 	JobStatusErr  = "error"
 )
 
-// Enrichment entity types stored in entity_enrichment (F22, ADR-033). People is
-// the v1 slice; series/video reuse the same shadow table when the design
-// generalizes.
-const EnrichEntityPerson = "person"
+// Enrichment entity types stored in entity_enrichment (F22, ADR-033).
+const (
+	EnrichEntityPerson = "person"
+	EnrichEntityVideo  = "video"
+)
 
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the
 // file-extracted fields; Provider carries the provenance the UI labels
 // ("from <provider>"). An empty Provider would denote a file-sourced value when
 // the resolver later interleaves the two (designed-in; provider-only in v1).
+// Display hints how the SPA should render this field's value: "text" (default
+// inline), "long_text" (block paragraph), or "image_url" (render as <img>).
+// Populated by the service layer from the field-metadata registry.
 type EnrichedField struct {
 	Canonical  string    `json:"canonical"`
 	Label      string    `json:"label"`
+	Display    string    `json:"display,omitempty"` // "text" | "long_text" | "image_url"
 	Values     []string  `json:"values"`
 	Provider   string    `json:"provider"`
 	ExternalID string    `json:"external_id,omitempty"`

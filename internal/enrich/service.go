@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"holodex/internal/model"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 )
 
@@ -23,19 +24,6 @@ const (
 	maxCandidates     = 25
 )
 
-// personFieldLabels gives the canonical person fields human display labels
-// (F22.5c). v1 is People-only; when series/video providers are added, labeling
-// should move to a per-entity map (or be pushed to the provider Manifest / SPA),
-// so a non-person field doesn't silently fall through to the title-cased default.
-// Unknown keys fall back to a title-cased label.
-var personFieldLabels = map[string]string{
-	"bio":         "Bio",
-	"birthdate":   "Born",
-	"nationality": "Nationality",
-	"website":     "Website",
-	"aliases":     "Aliases",
-	"photo":       "Photo",
-}
 
 // EnrichRepo is the shadow-store subset the service needs (satisfied by *repo.Repo).
 type EnrichRepo interface {
@@ -188,7 +176,7 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // Enrich fetches an external record's fields for an entity, sanitizes and stores
 // them in the shadow layer, and returns the entity's resolved fields with
 // provenance (F22.5/F22.7). It records the pass in the activity history (F22.6b).
-// Asset download (photos) is deferred (v1 non-goal).
+// For a person, any image assets are fetched and stored as person images (F25).
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
 	started := time.Now()
 	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID)
@@ -220,20 +208,21 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	return s.Fields(ctx, entityType, entityID)
 }
 
-// downloadAssets fetches each provider image asset through the SSRF-guarded asset
-// client and stores it via the image sink (F25, ADR-038). Each asset is independent:
-// one bad URL/host/decode is skipped, the rest proceed. Nothing is stored when the
-// fetch or normalize fails (the sink normalizes; a normalize error means no write).
+// downloadAssets fetches provider image assets through the SSRF-guarded asset client
+// and stores them via the image sink (F25, ADR-038/039). Assets are preference-ordered;
+// only the first successful fetch per role is stored — later entries of the same kind
+// are treated as fallbacks and skipped once a role is filled (ADR-039 §5).
 func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
 	fetcher := s.newAssetGet(src)
+	done := make(map[string]bool) // role → already stored successfully
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
-		if !ok {
-			continue // unknown asset kind — don't guess a role
+		if !ok || done[role] {
+			continue // unknown kind or role already filled
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
@@ -242,7 +231,9 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		}
 		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
 			s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
+			continue
 		}
+		done[role] = true
 	}
 }
 
@@ -295,11 +286,23 @@ func (s *Service) Fields(ctx context.Context, entityType string, entityID int64)
 	if err != nil {
 		return nil, err
 	}
+	return s.FieldsFromRows(rows), nil
+}
+
+// FieldsFromRows converts pre-fetched enrichment rows to display fields. It lets
+// callers that already hold the rows (e.g. getMedia, which uses the same rows for
+// the resolver) avoid a second repo round-trip.
+func (s *Service) FieldsFromRows(rows []repo.EnrichmentRow) []model.EnrichedField {
+	if len(rows) == 0 {
+		return nil
+	}
 	out := make([]model.EnrichedField, 0, len(rows))
 	for _, r := range rows {
+		def := registry.Lookup(r.FieldKey)
 		out = append(out, model.EnrichedField{
 			Canonical:  r.FieldKey,
-			Label:      labelFor(r.FieldKey),
+			Label:      def.Label,
+			Display:    def.Display,
 			Values:     r.Values,
 			Provider:   r.Provider,
 			ExternalID: r.ExternalID,
@@ -307,18 +310,7 @@ func (s *Service) Fields(ctx context.Context, entityType string, entityID int64)
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Label < out[j].Label })
-	return out, nil
-}
-
-func labelFor(key string) string {
-	if l, ok := personFieldLabels[strings.ToLower(strings.TrimSpace(key))]; ok {
-		return l
-	}
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return ""
-	}
-	return strings.ToUpper(key[:1]) + key[1:]
+	return out
 }
 
 // sanitizeFields bounds an untrusted provider field map (F22.9b): strips control
@@ -338,7 +330,7 @@ func sanitizeFields(in map[string][]string) map[string][]string {
 			if len(cleaned) >= maxValuesPerField {
 				break
 			}
-			if v = sanitizeValue(v); v != "" {
+			if v = SanitizeValue(v); v != "" {
 				cleaned = append(cleaned, v)
 			}
 		}
@@ -354,18 +346,18 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in = in[:maxCandidates]
 	}
 	for i := range in {
-		in[i].Label = sanitizeValue(in[i].Label)
-		in[i].Disambiguation = sanitizeValue(in[i].Disambiguation)
+		in[i].Label = SanitizeValue(in[i].Label)
+		in[i].Disambiguation = SanitizeValue(in[i].Disambiguation)
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
 	}
 	return in
 }
 
-// sanitizeValue removes control characters (keeping normal whitespace), collapses
+// SanitizeValue removes control characters (keeping normal whitespace), collapses
 // surrounding space, and caps length. Newline is stripped because the shadow
-// store uses it as the multi-value separator.
-func sanitizeValue(v string) string {
+// store uses it as the multi-value separator. Also used by the writeback handler.
+func SanitizeValue(v string) string {
 	v = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\r' || r == '\t' {
 			return ' '

@@ -83,10 +83,33 @@ export interface MappedField {
 	values: string[];
 }
 
+// ResolvedField is one canonical field merged from all configured sources (F27).
+// winning_source is the namespace:key that supplied the value, e.g. "tmdb:title"
+// or "file:Title". display mirrors the registry hint for the canonical field.
+export interface ResolvedField {
+	canonical: string;
+	label: string;
+	display?: 'long_text' | 'image_url';
+	values: string[];
+	winning_source?: string; // e.g. "tmdb:title" | "file:Title"
+}
+
 export interface MediaDetailResponse {
 	video: Video;
 	metadata: ExtraMetadata[] | null;
 	fields: MappedField[] | null;
+	resolved?: ResolvedField[] | null; // unified merged view (F27); supersedes fields when present
+	enriched?: EnrichedField[] | null;
+}
+
+// WritebackRequest asks the server to embed a batch of resolved field values
+// into the media file's tags in a single exiftool pass (F28, ADR-041).
+export interface WritebackRequest {
+	fields: Array<{
+		field: string;
+		values: string[];
+		source: string;
+	}>;
 }
 
 // A soft-deleted item in the owner's Trash view (F24, ADR-037). purge_at is null
@@ -238,9 +261,12 @@ export interface EnrichCandidate {
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
 // source name ("from <provider>"); an empty Provider would denote a file value.
+// display hints the render mode: "image_url" → <img>, "long_text" → block paragraph,
+// absent/other → inline text.
 export interface EnrichedField {
 	canonical: string;
 	label: string;
+	display?: 'text' | 'long_text' | 'image_url';
 	values: string[];
 	provider: string;
 	external_id?: string;

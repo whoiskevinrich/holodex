@@ -22,7 +22,8 @@ import type {
 	SearchResponse,
 	Tag,
 	TrashEntry,
-	Video
+	Video,
+	WritebackRequest
 } from './types';
 
 const BASE = '/api/v1';
@@ -223,6 +224,22 @@ export const api = {
 	enrichClear: (personId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/enrich/${encodeURIComponent(provider)}`),
 
+	// Video/film enrichment (F26). All owner-gated.
+	enrichVideoResolve: (videoId: number, provider: string, query: string) =>
+		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/media/${videoId}/enrich/resolve`, {
+			provider,
+			query
+		}),
+
+	enrichVideoApply: (videoId: number, provider: string, externalId: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/media/${videoId}/enrich`, {
+			provider,
+			external_id: externalId
+		}),
+
+	enrichVideoClear: (videoId: number, provider: string) =>
+		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/enrich/${encodeURIComponent(provider)}`),
+
 	// Person aliases & merge (F23, ADR-036). All owner-gated.
 	//
 	// addAlias returns either the updated alias list, or — when the name already
@@ -267,5 +284,11 @@ export const api = {
 	restoreMedia: (id: number) =>
 		sendAuthed<{ video: Video }>('POST', `/media/${id}/restore`),
 
-	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`)
+	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`),
+
+	// Metadata writeback — embed a resolved field value into the media file's
+	// tags (F28, ADR-041). Owner-gated; 204 on success; 422 when the field has
+	// no tag mapping for the file's container.
+	writebackMedia: (id: number, req: WritebackRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/writeback`, req)
 };

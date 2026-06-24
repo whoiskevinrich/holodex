@@ -32,7 +32,11 @@ type Source struct {
 	Name        string   `yaml:"name"`
 	BaseURL     string   `yaml:"base_url"`
 	EntityTypes []string `yaml:"entity_types"`
-	Enabled     bool     `yaml:"enabled"`
+	// AssetHosts is the operator-configured CDN host allowlist for asset URLs (ADR-039).
+	// The provider's own base_url host is always implicitly allowed. Asset URLs whose
+	// host is neither the base host nor in this list are refused.
+	AssetHosts []string `yaml:"asset_hosts"`
+	Enabled    bool     `yaml:"enabled"`
 }
 
 // Supports reports whether the source advertises an entity type (case-insensitive).
@@ -157,6 +161,9 @@ type Manifest struct {
 	EntityTypes     []string `json:"entity_types"`
 	IDNamespaces    []string `json:"id_namespaces"`
 	Fields          []string `json:"fields"`
+	// AssetKinds advertises the asset kinds this provider may return in /enrich assets[].
+	// Advisory/display only; Holodex does not gate fetching on it (ADR-039 §2).
+	AssetKinds []string `json:"asset_kinds,omitempty"`
 }
 
 // Hint is the identity input to a resolve call: embedded external ids (the
@@ -177,15 +184,15 @@ type Candidate struct {
 }
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and
-// optional asset URLs. Asset download (e.g. person photos) is deferred (ADR-033
-// non-goal for v1 — see Phase 3 F14.3), so Assets is parsed but not yet fetched.
+// optional asset URLs. For a person, image assets are fetched through the SSRF-guarded
+// asset client and stored as person images (F25, ADR-038/039).
 type EnrichResult struct {
 	Fields map[string][]string `json:"fields"`
 	Assets []Asset             `json:"assets,omitempty"`
 }
 
-// Asset is a binary the provider can supply (e.g. a portrait). Reserved; not
-// fetched in v1.
+// Asset is a binary the provider can supply (e.g. a portrait). Kind maps to a
+// person-image role via assetRoleFor (F25); an unknown kind is skipped.
 type Asset struct {
 	Kind string `json:"kind"`
 	URL  string `json:"url"`

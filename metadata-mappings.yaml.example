@@ -1,25 +1,71 @@
-# Holodex configurable metadata field mapping (F20, ADR-013).
+# Holodex configurable metadata field mapping (F20/F27, ADR-013).
 #
 # Copy to metadata-mappings.yaml (next to holodex.yaml, or set
-# METADATA_MAPPINGS_PATH) to surface extra container tags under your own labels.
-# All raw tags are already captured at index time, so adding or changing a
-# mapping needs no re-scan — POST /api/v1/admin/reload-config (or restart) and
-# the new fields appear. Use the "Metadata keys" view (/keys) to discover which
-# raw source keys your files actually carry.
+# METADATA_MAPPINGS_PATH) to surface container tags and enrichment values under
+# your own labels. All raw tags are captured at index time, so adding or changing a
+# mapping needs no re-scan — POST /api/v1/admin/reload-config (or restart).
+# Use the "Metadata keys" view (/keys) to discover which raw source keys your
+# files actually carry.
 #
-# Each field maps one or more raw source keys to a single canonical field:
-#   canonical   internal id + default label + query-param name
-#   label       display label on the detail page
-#   sources     raw tag keys in PRECEDENCE order (first present wins); matched
-#               case-insensitively
+# Each field maps one or more namespaced sources to a single canonical field:
+#   canonical   stable id used in the API, as a query-param, and in the registry
+#   label       display label on the detail page (defaults to the registry label)
+#   sources     PRECEDENCE-ordered list; first non-empty value wins.
+#               Namespace syntax (F27):
+#                 file:title           videos.title column (scanner's primary title)
+#                 file:<Key>           raw file tag from extra_metadata (case-insensitive)
+#                 <provider>:<field>   enrichment shadow field, e.g. tmdb:title
+#                 <Key>                legacy bare key treated as file:<Key>
+#   browse      when true, the resolved value overwrites video.Title in browse lists
+#               so cards show the highest-precedence source instead of the raw filename
 #   filterable  when true, becomes a browse facet + a ?<canonical>= query param
-#               (web) / a search_videos `fields` entry (MCP)
-#   multi       when true, splits/aggregates multi-valued tags (e.g. directors)
+#   multi       when true, splits/aggregates multi-valued tags (e.g. genres)
 
 fields:
+  # --- Title (provider wins over filename-derived title in browse cards) ---
+  # Uncomment when a tmdb provider is configured in metadata-sources.yaml.
+  # - canonical: title
+  #   browse: true
+  #   sources:
+  #     - tmdb:title        # prefer TMDB title
+  #     - file:title        # fall back to the filename-derived title
+
+  # --- Plot overview from enrichment ---
+  # - canonical: overview
+  #   sources:
+  #     - tmdb:overview
+
+  # --- Genres (multi-valued from enrichment or file tag) ---
+  # - canonical: genres
+  #   multi: true
+  #   filterable: true
+  #   sources:
+  #     - tmdb:genres
+
+  # --- Cast, crew, and studio (enrichment wins; file tags as fallback) ---
+  - canonical: actors
+    label: Actors
+    sources:
+      - tmdb:actors     # top-10 billed cast from TMDB credits
+      - Artist          # file tag fallback
+    multi: true
+
+  - canonical: director
+    label: Director
+    sources:
+      - tmdb:director   # from TMDB credits (job == Director)
+      - Director        # file tag fallback
+    filterable: true
+    multi: true
+
   - canonical: studio
     label: Studio
-    sources: [Publisher, Label, Studio, ProductionCompany]
+    sources:
+      - tmdb:studio     # production companies from TMDB
+      - Publisher
+      - Label
+      - Studio
+      - ProductionCompany
     filterable: true
 
   - canonical: collection
@@ -27,8 +73,9 @@ fields:
     sources: [Album, Collection]
     filterable: true
 
-  - canonical: director
-    label: Director
-    sources: [Director]
-    filterable: true
-    multi: true
+  # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
+  # When written back, Holodex downloads the URL and embeds the image as cover art.
+  # - canonical: poster_url
+  #   label: Poster
+  #   sources:
+  #     - tmdb:poster_url

@@ -20,6 +20,7 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
 )
 
@@ -58,9 +59,10 @@ type Handlers struct {
 	thumbDir string
 	scanner  rescanner
 	metrics  searchMetrics
-	mappings *mapping.Store  // configurable metadata fields (F20); nil disables them
-	cache    cache.Cache     // facet-value cache (F20.8); nil disables caching
-	enrich   *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
+	mappings  *mapping.Store  // configurable metadata fields (F20); nil disables them
+	cache     cache.Cache     // facet-value cache (F20.8); nil disables caching
+	enrich    *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
+	writeback WriteBatchFunc  // file tag write (F28, ADR-041); nil disables the endpoint
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -190,6 +192,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
+		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
+		h.mountWriteback(r)
 	})
 }
 
@@ -233,6 +237,11 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.prepareThumbnails(items)
+	// Browse-title resolution (F27): any field with browse:true overwrites video.Title
+	// with the highest-precedence source (e.g. tmdb:title before file:title).
+	if h.mappings != nil {
+		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
@@ -277,10 +286,34 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	setThumbnailURL(v)
 	var fields []mapping.Resolved
+	var resolved []resolver.ResolvedField
+	var enriched []model.EnrichedField
 	if h.mappings != nil {
-		fields = h.mappings.Current().Resolve(extra)
+		m := h.mappings.Current()
+		fields = m.Resolve(extra)
+		// Fetch enrichment rows once — the resolver (F27 merged view) and the raw
+		// enriched-display (F26 per-provider table) both read from the same rows,
+		// avoiding two identical DB round-trips for the same entity.
+		enrichRows, err2 := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityVideo, id)
+		if err2 != nil {
+			h.log.Warn("enrichment for detail", "id", id, "err", err2)
+		} else {
+			enr := enrichmentFromRows(enrichRows)
+			resolved = resolver.Resolve(v, extra, enr, m.Fields())
+			if h.enrich != nil {
+				enriched = h.enrich.FieldsFromRows(enrichRows)
+			}
+		}
+	} else if h.enrich != nil {
+		enriched = h.videoEnrichment(r, id)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"video": v, "metadata": extra, "fields": fields})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"video":    v,
+		"metadata": extra,
+		"fields":   fields,
+		"resolved": resolved,
+		"enriched": enriched,
+	})
 }
 
 // getRelated handles GET /media/{id}/related — the "More with …" shelves (ADR-031):
@@ -637,4 +670,53 @@ func atoiDefault(s string, def int) int {
 		return n
 	}
 	return def
+}
+
+// enrichmentFromRows converts repo enrichment rows to the resolver.Enrichment map
+// (provider → field → values). Returns nil when rows is empty so callers on hot
+// paths (browse list) avoid allocating a map for every non-enriched video.
+func enrichmentFromRows(rows []repo.EnrichmentRow) resolver.Enrichment {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make(resolver.Enrichment, 2)
+	for _, r := range rows {
+		if out[r.Provider] == nil {
+			out[r.Provider] = make(map[string][]string)
+		}
+		out[r.Provider][r.FieldKey] = r.Values
+	}
+	return out
+}
+
+// applyBrowseTitles resolves the highest-precedence title for each video (F27) and
+// overwrites video.Title when a provider source wins. Extra-metadata is not loaded
+// for list pages, so only file:title (already in Video.Title) and provider sources
+// participate; file:<Key> sources are skipped unless the video already has that
+// data in memory (it doesn't in the list path).
+func (h *Handlers) applyBrowseTitles(ctx context.Context, items []model.Video, fields []mapping.Field) {
+	var browseFields []mapping.Field
+	for _, f := range fields {
+		if f.Browse {
+			browseFields = append(browseFields, f)
+		}
+	}
+	if len(browseFields) == 0 {
+		return
+	}
+	ids := make([]int64, len(items))
+	for i, v := range items {
+		ids[i] = v.ID
+	}
+	batchEnrich, err := h.repo.EnrichmentForVideos(ctx, ids)
+	if err != nil {
+		h.log.Warn("batch enrichment for browse titles", "err", err)
+		return
+	}
+	for i := range items {
+		enr := enrichmentFromRows(batchEnrich[items[i].ID])
+		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, browseFields); t != "" {
+			items[i].Title = t
+		}
+	}
 }
