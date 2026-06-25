@@ -41,7 +41,9 @@ The UI is built on semantic design tokens with three switchable skins (see
   `--accent`, which doubles as the active/primary color. Skin-specific flourishes belong in
   `app.css` gated by `[data-theme]`, attached to the shared hook classes
   (`.app-atmosphere`, `.video-frame`, `.video-grid`, `.skin-title`) — not as per-component
-  markup. Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
+  markup. Layout-mode rules attach to `.video-grid[data-layout='...']` (operator-set
+  via `holodex.yaml: card_layout`; not a skin — do not gate with `[data-theme]`).
+  Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
 - **QA all three skins.** When verifying any UI change, render and eyeball **Cinémathèque,
   Broadcast, and Brutalist** (switch via the header picker), not just the default —
   regressions routinely appear in only one skin (e.g. a badge/counter collision, an accent
