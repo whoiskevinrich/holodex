@@ -12,6 +12,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 var errNotFound = errors.New("not found")
@@ -92,7 +97,6 @@ type personDetails struct {
 	Birthday     string   `json:"birthday"`
 	Deathday     string   `json:"deathday"`
 	PlaceOfBirth string   `json:"place_of_birth"`
-	Homepage     string   `json:"homepage"`
 	ProfilePath  string   `json:"profile_path"`
 	AlsoKnownAs  []string `json:"also_known_as"`
 }
@@ -132,7 +136,6 @@ type movieDetails struct {
 	Runtime             int                 `json:"runtime"`
 	Genres              []movieGenre        `json:"genres"`
 	Tagline             string              `json:"tagline"`
-	Homepage            string              `json:"homepage"`
 	OriginalLanguage    string              `json:"original_language"`
 	Status              string              `json:"status"`
 	IMDbID              string              `json:"imdb_id"`
@@ -453,9 +456,10 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 	if v := strings.TrimSpace(det.Tagline); v != "" {
 		fields["tagline"] = []string{v}
 	}
-	if v := strings.TrimSpace(det.Homepage); v != "" {
-		fields["homepage"] = []string{v}
-	}
+	// The "Website" link points to this movie's TMDB page, not det.Homepage (the
+	// studio's official/marketing site — often short-lived or region-gated). TMDB is
+	// the provider's own durable record and the more useful destination.
+	fields["homepage"] = []string{tmdbMovieURL(det.ID, det.Title)}
 	if det.OriginalLanguage != "" {
 		fields["original_language"] = []string{det.OriginalLanguage}
 	}
@@ -507,6 +511,59 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 		fields["director"] = directors
 	}
 	return enrichResponse{Fields: fields}
+}
+
+// tmdbMovieURL builds the canonical TMDB web page URL for a movie. TMDB looks the
+// movie up by numeric id and redirects to the canonical slug, so the trailing slug
+// we derive from the title is cosmetic — a missing or approximate slug (e.g. from a
+// non-Latin title that slugifies to empty) still resolves to the right page.
+func tmdbMovieURL(id int, title string) string {
+	return tmdbEntityURL("movie", id, title)
+}
+
+// tmdbPersonURL builds the canonical TMDB web page URL for a person — the people
+// analogue of tmdbMovieURL (same id-resolves, slug-is-cosmetic behaviour).
+func tmdbPersonURL(id int, name string) string {
+	return tmdbEntityURL("person", id, name)
+}
+
+// tmdbEntityURL assembles https://www.themoviedb.org/{kind}/{id}-{slug}, omitting
+// the slug when the name slugifies to empty (TMDB still resolves on the id alone).
+func tmdbEntityURL(kind string, id int, name string) string {
+	if s := slugify(name); s != "" {
+		return fmt.Sprintf("https://www.themoviedb.org/%s/%d-%s", kind, id, s)
+	}
+	return fmt.Sprintf("https://www.themoviedb.org/%s/%d", kind, id)
+}
+
+// asciiFold decomposes accented Latin letters and drops the combining marks
+// (é→e, ñ→n, ü→u) so slugs match TMDB's transliterated form rather than leaving a
+// gap. Non-decomposable runes (e.g. CJK) pass through untouched and are dropped by
+// slugify's [a-z0-9] filter.
+var asciiFold = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+
+// slugify folds Latin diacritics to ASCII, lowercases, and reduces s to [a-z0-9]
+// runs joined by single hyphens, approximating TMDB's URL slugs (which are cosmetic
+// — see tmdbEntityURL).
+func slugify(s string) string {
+	if folded, _, err := transform.String(asciiFold, s); err == nil {
+		s = folded
+	}
+	var b strings.Builder
+	prevHyphen := false
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevHyphen = false
+		default:
+			if b.Len() > 0 && !prevHyphen {
+				b.WriteByte('-')
+				prevHyphen = true
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
 }
 
 func movieYear(releaseDate string) string {
@@ -654,9 +711,9 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	if pob := strings.TrimSpace(det.PlaceOfBirth); pob != "" {
 		fields["nationality"] = []string{pob}
 	}
-	if hp := strings.TrimSpace(det.Homepage); hp != "" {
-		fields["website"] = []string{hp}
-	}
+	// The "Website" link points to this person's TMDB page, not det.Homepage (their
+	// personal/agency site — often stale or absent). TMDB is the durable record.
+	fields["website"] = []string{tmdbPersonURL(det.ID, det.Name)}
 	var aliases []string
 	for _, a := range det.AlsoKnownAs {
 		if a = strings.TrimSpace(a); a != "" {

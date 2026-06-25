@@ -180,6 +180,10 @@ func TestTMDBEnrich(t *testing.T) {
 	if len(res.Fields["aliases"]) == 0 {
 		t.Error("aliases field missing")
 	}
+	// website is the person's TMDB page (not their personal site).
+	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/person/608-hayao-miyazaki" {
+		t.Errorf("website = %v, want [https://www.themoviedb.org/person/608-hayao-miyazaki]", got)
+	}
 	// Expect: headshot (first profile) + gallery (second profile) + banner (first backdrop).
 	if len(res.Assets) < 3 {
 		t.Errorf("want ≥3 assets (headshot+gallery+banner), got %d: %v", len(res.Assets), res.Assets)
@@ -311,6 +315,10 @@ func TestTMDBEnrichMovie(t *testing.T) {
 	}
 	if len(res.Fields["studio"]) == 0 {
 		t.Error("studio field missing")
+	}
+	// homepage is the movie's TMDB page (not the studio's official site).
+	if got := res.Fields["homepage"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/movie/550-fight-club" {
+		t.Errorf("homepage = %v, want [https://www.themoviedb.org/movie/550-fight-club]", got)
 	}
 	// Movie fields go into Fields, not Assets.
 	if len(res.Assets) != 0 {
@@ -594,6 +602,27 @@ func TestParseReleaseFilename(t *testing.T) {
 					tc.in, title, year, tc.title, tc.year)
 			}
 		})
+	}
+}
+
+func TestTMDBMovieURL(t *testing.T) {
+	cases := []struct {
+		id    int
+		title string
+		want  string
+	}{
+		{438631, "Dune", "https://www.themoviedb.org/movie/438631-dune"},
+		{693134, "Dune: Part Two", "https://www.themoviedb.org/movie/693134-dune-part-two"},
+		{62, "2001: A Space Odyssey", "https://www.themoviedb.org/movie/62-2001-a-space-odyssey"},
+		// Latin diacritics fold to ASCII (é→e), matching TMDB's slug form.
+		{194, "Amélie", "https://www.themoviedb.org/movie/194-amelie"},
+		// Non-Latin title slugifies to empty → bare-id URL (TMDB redirects to the slug).
+		{129, "千と千尋の神隠し", "https://www.themoviedb.org/movie/129"},
+	}
+	for _, tc := range cases {
+		if got := tmdbMovieURL(tc.id, tc.title); got != tc.want {
+			t.Errorf("tmdbMovieURL(%d, %q) = %q, want %q", tc.id, tc.title, got, tc.want)
+		}
 	}
 }
 
