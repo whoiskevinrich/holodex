@@ -6,6 +6,7 @@
 	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
+	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
@@ -360,6 +361,12 @@
 							<div class="sm:col-span-2">
 								<dt class="inline text-muted">{f.label}:</dt>
 								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+							</div>
+						{:else if f.display === 'url'}
+							<div>
+								<dt class="inline text-muted">{f.label}:</dt>
+								<dd class="inline"><UrlValueList values={f.values} /></dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
 						{:else}

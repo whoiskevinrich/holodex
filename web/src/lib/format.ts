@@ -51,6 +51,15 @@ export function videoCount(n: number): string {
 	return `${n} video${n === 1 ? '' : 's'}`;
 }
 
+// isHttpUrl gates a provider-supplied value before it becomes a link `href`.
+// Enrichment text fields are bounded server-side (F22.9b) but NOT scheme-checked,
+// and Svelte does not sanitize `href` — so a value like "javascript:…" would be a
+// live XSS sink. Only http(s) values render as links; anything else falls back to
+// plain text. http(s)-only also rules out data:/blob:/file:/mailto:/etc.
+export function isHttpUrl(s: string): boolean {
+	return /^https?:\/\//i.test(s.trim());
+}
+
 // formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").
 export function formatAgo(iso?: string | null): string {
 	if (!iso) return '';

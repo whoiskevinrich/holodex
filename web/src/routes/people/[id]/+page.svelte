@@ -20,6 +20,7 @@
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
+	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import { videoCount } from '$lib/format';
 
 	let person = $state<Person | null>(null);
@@ -409,7 +410,11 @@
 							{#each enriched as f (f.canonical + f.provider)}
 								<div>
 									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="inline text-ink">{f.values.join(', ')}</dd>
+									{#if f.display === 'url'}
+										<dd class="inline"><UrlValueList values={f.values} /></dd>
+									{:else}
+										<dd class="inline text-ink">{f.values.join(', ')}</dd>
+									{/if}
 									<ProvenanceBadge provider={f.provider} label={f.provider} />
 								</div>
 							{/each}
