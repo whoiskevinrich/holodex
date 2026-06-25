@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video } from '$lib/types';
-	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import { formatBitrate, formatBytes, formatDuration, formatYear, isHttpUrl, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -366,14 +366,18 @@
 							<div>
 								<dt class="inline text-muted">{f.label}:</dt>
 								<dd class="inline">
-									{#each f.values as url, i (url)}
+									{#each f.values as url, i (i)}
 										{#if i > 0}<span class="text-muted">, </span>{/if}
-										<a
-											href={url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="break-all text-accent hover:underline"
-										>{url}</a>
+										{#if isHttpUrl(url)}
+											<a
+												href={url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="break-all text-accent hover:underline"
+											>{url}<span class="sr-only"> (opens in a new tab)</span></a>
+										{:else}
+											<span class="break-all text-ink">{url}</span>
+										{/if}
 									{/each}
 								</dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}

@@ -20,7 +20,7 @@
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
-	import { videoCount } from '$lib/format';
+	import { isHttpUrl, videoCount } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -411,14 +411,18 @@
 									<dt class="inline text-muted">{f.label}:</dt>
 									{#if f.display === 'url'}
 										<dd class="inline">
-											{#each f.values as url, i (url)}
+											{#each f.values as url, i (i)}
 												{#if i > 0}<span class="text-muted">, </span>{/if}
-												<a
-													href={url}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="break-all text-accent hover:underline"
-												>{url}</a>
+												{#if isHttpUrl(url)}
+													<a
+														href={url}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="break-all text-accent hover:underline"
+													>{url}<span class="sr-only"> (opens in a new tab)</span></a>
+												{:else}
+													<span class="break-all text-ink">{url}</span>
+												{/if}
 											{/each}
 										</dd>
 									{:else}
