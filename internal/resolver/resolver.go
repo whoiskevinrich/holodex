@@ -19,7 +19,7 @@ import (
 type ResolvedField struct {
 	Canonical     string   `json:"canonical"`
 	Label         string   `json:"label"`
-	Display       string   `json:"display,omitempty"` // "" | "long_text" | "image_url"
+	Display       string   `json:"display,omitempty"` // "" | "long_text" | "image_url" | "url"
 	Values        []string `json:"values"`
 	WinningSource string   `json:"winning_source,omitempty"` // e.g. "tmdb:title", "file:Title"
 }

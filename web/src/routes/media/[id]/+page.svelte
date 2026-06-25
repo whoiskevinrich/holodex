@@ -362,6 +362,22 @@
 								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
+						{:else if f.display === 'url'}
+							<div>
+								<dt class="inline text-muted">{f.label}:</dt>
+								<dd class="inline">
+									{#each f.values as url, i (url)}
+										{#if i > 0}<span class="text-muted">, </span>{/if}
+										<a
+											href={url}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="break-all text-accent hover:underline"
+										>{url}</a>
+									{/each}
+								</dd>
+								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+							</div>
 						{:else}
 							<div>
 								<dt class="inline text-muted">{f.label}:</dt>

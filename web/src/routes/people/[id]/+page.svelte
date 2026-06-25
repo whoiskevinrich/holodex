@@ -409,7 +409,21 @@
 							{#each enriched as f (f.canonical + f.provider)}
 								<div>
 									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="inline text-ink">{f.values.join(', ')}</dd>
+									{#if f.display === 'url'}
+										<dd class="inline">
+											{#each f.values as url, i (url)}
+												{#if i > 0}<span class="text-muted">, </span>{/if}
+												<a
+													href={url}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="break-all text-accent hover:underline"
+												>{url}</a>
+											{/each}
+										</dd>
+									{:else}
+										<dd class="inline text-ink">{f.values.join(', ')}</dd>
+									{/if}
 									<ProvenanceBadge provider={f.provider} label={f.provider} />
 								</div>
 							{/each}

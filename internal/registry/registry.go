@@ -25,6 +25,7 @@ type FieldDef struct {
 	//   ""           — inline text (default)
 	//   "long_text"  — block paragraph
 	//   "image_url"  — render as <img src=…>
+	//   "url"        — render as a link (opens in a new tab)
 	Display string
 	// Description documents the field for operators and provider authors.
 	Description string
@@ -91,8 +92,8 @@ var KnownFields = []FieldDef{
 	{
 		Canonical:   "homepage",
 		Label:       "Website",
-		Display:     "",
-		Description: "Official website URL for the film.",
+		Display:     "url",
+		Description: "Official website URL for the film. Rendered as a link (opens in a new tab).",
 	},
 	{
 		Canonical:   "imdb_id",
@@ -135,8 +136,8 @@ var KnownFields = []FieldDef{
 	{
 		Canonical:   "website",
 		Label:       "Website",
-		Display:     "",
-		Description: "Personal or professional website URL.",
+		Display:     "url",
+		Description: "Personal or professional website URL. Rendered as a link (opens in a new tab).",
 	},
 	{
 		Canonical:   "aliases",

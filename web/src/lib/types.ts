@@ -89,7 +89,7 @@ export interface MappedField {
 export interface ResolvedField {
 	canonical: string;
 	label: string;
-	display?: 'long_text' | 'image_url';
+	display?: 'long_text' | 'image_url' | 'url';
 	values: string[];
 	winning_source?: string; // e.g. "tmdb:title" | "file:Title"
 }
@@ -265,11 +265,11 @@ export interface EnrichCandidate {
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
 // source name ("from <provider>"); an empty Provider would denote a file value.
 // display hints the render mode: "image_url" → <img>, "long_text" → block paragraph,
-// absent/other → inline text.
+// "url" → link (opens in a new tab), absent/other → inline text.
 export interface EnrichedField {
 	canonical: string;
 	label: string;
-	display?: 'text' | 'long_text' | 'image_url';
+	display?: 'text' | 'long_text' | 'image_url' | 'url';
 	values: string[];
 	provider: string;
 	external_id?: string;

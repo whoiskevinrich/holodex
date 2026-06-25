@@ -178,12 +178,13 @@ const (
 // ("from <provider>"). An empty Provider would denote a file-sourced value when
 // the resolver later interleaves the two (designed-in; provider-only in v1).
 // Display hints how the SPA should render this field's value: "text" (default
-// inline), "long_text" (block paragraph), or "image_url" (render as <img>).
+// inline), "long_text" (block paragraph), "image_url" (render as <img>), or
+// "url" (render as a link that opens in a new tab).
 // Populated by the service layer from the field-metadata registry.
 type EnrichedField struct {
 	Canonical  string    `json:"canonical"`
 	Label      string    `json:"label"`
-	Display    string    `json:"display,omitempty"` // "text" | "long_text" | "image_url"
+	Display    string    `json:"display,omitempty"` // "text" | "long_text" | "image_url" | "url"
 	Values     []string  `json:"values"`
 	Provider   string    `json:"provider"`
 	ExternalID string    `json:"external_id,omitempty"`
