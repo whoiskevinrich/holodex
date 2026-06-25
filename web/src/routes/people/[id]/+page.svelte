@@ -20,7 +20,8 @@
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
-	import { isHttpUrl, videoCount } from '$lib/format';
+	import UrlValueList from '$lib/components/UrlValueList.svelte';
+	import { videoCount } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -410,21 +411,7 @@
 								<div>
 									<dt class="inline text-muted">{f.label}:</dt>
 									{#if f.display === 'url'}
-										<dd class="inline">
-											{#each f.values as url, i (i)}
-												{#if i > 0}<span class="text-muted">, </span>{/if}
-												{#if isHttpUrl(url)}
-													<a
-														href={url}
-														target="_blank"
-														rel="noopener noreferrer"
-														class="break-all text-accent hover:underline"
-													>{url}<span class="sr-only"> (opens in a new tab)</span></a>
-												{:else}
-													<span class="break-all text-ink">{url}</span>
-												{/if}
-											{/each}
-										</dd>
+										<dd class="inline"><UrlValueList values={f.values} /></dd>
 									{:else}
 										<dd class="inline text-ink">{f.values.join(', ')}</dd>
 									{/if}

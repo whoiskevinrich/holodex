@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -624,6 +625,24 @@ func TestTMDBMovieURL(t *testing.T) {
 			t.Errorf("tmdbMovieURL(%d, %q) = %q, want %q", tc.id, tc.title, got, tc.want)
 		}
 	}
+}
+
+// TestSlugifyConcurrent exercises slugify from many goroutines. slugify builds its
+// transform.Chain per call precisely because the transformer is stateful; this guards
+// against a regression to a shared one — `go test -race` (CI) would flag the race.
+func TestSlugifyConcurrent(t *testing.T) {
+	const want = "https://www.themoviedb.org/movie/194-amelie-le-fabuleux-destin"
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if got := tmdbMovieURL(194, "Amélie: Le Fabuleux Destin"); got != want {
+				t.Errorf("tmdbMovieURL = %q, want %q", got, want)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func newDiscardLogger() *slog.Logger {

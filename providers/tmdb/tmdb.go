@@ -536,34 +536,20 @@ func tmdbEntityURL(kind string, id int, name string) string {
 	return fmt.Sprintf("https://www.themoviedb.org/%s/%d", kind, id)
 }
 
-// asciiFold decomposes accented Latin letters and drops the combining marks
-// (é→e, ñ→n, ü→u) so slugs match TMDB's transliterated form rather than leaving a
-// gap. Non-decomposable runes (e.g. CJK) pass through untouched and are dropped by
-// slugify's [a-z0-9] filter.
-var asciiFold = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+// slugNonAlnum matches runs of non-slug characters, each collapsed to one hyphen.
+var slugNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
 
-// slugify folds Latin diacritics to ASCII, lowercases, and reduces s to [a-z0-9]
-// runs joined by single hyphens, approximating TMDB's URL slugs (which are cosmetic
-// — see tmdbEntityURL).
+// slugify folds Latin diacritics to ASCII (é→e, ñ→n, ü→u), lowercases, and reduces s
+// to [a-z0-9] runs joined by single hyphens, approximating TMDB's URL slugs (which
+// are cosmetic — see tmdbEntityURL). A non-Latin string (e.g. CJK) slugifies to "".
 func slugify(s string) string {
-	if folded, _, err := transform.String(asciiFold, s); err == nil {
+	// transform.Chain is stateful, so build it per call rather than sharing one
+	// transformer across the sidecar's concurrent request goroutines (data race).
+	fold := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+	if folded, _, err := transform.String(fold, s); err == nil {
 		s = folded
 	}
-	var b strings.Builder
-	prevHyphen := false
-	for _, r := range strings.ToLower(s) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			prevHyphen = false
-		default:
-			if b.Len() > 0 && !prevHyphen {
-				b.WriteByte('-')
-				prevHyphen = true
-			}
-		}
-	}
-	return strings.TrimRight(b.String(), "-")
+	return strings.Trim(slugNonAlnum.ReplaceAllString(strings.ToLower(s), "-"), "-")
 }
 
 func movieYear(releaseDate string) string {
