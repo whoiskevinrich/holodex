@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
@@ -6,6 +8,7 @@
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
+	import { peopleScroll } from '$lib/peopleScroll.svelte';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<'name' | 'count'>('name');
@@ -35,6 +38,11 @@
 		el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
 	}
 
+	// On the first load only, restore the scroll position stashed when we last left the
+	// list (← Back from a person), once the re-fetched list has painted. Later reloads
+	// (sort change, post-merge) intentionally stay at the top.
+	let firstLoad = true;
+
 	function reload() {
 		loading = true;
 		loadError = '';
@@ -46,12 +54,25 @@
 				loadError = toMessage(err);
 				people = [];
 			})
-			.finally(() => (loading = false));
+			.finally(() => {
+				loading = false;
+				if (firstLoad) {
+					firstLoad = false;
+					const y = peopleScroll.take(sort);
+					if (y != null) tick().then(() => window.scrollTo(0, y));
+				}
+			});
 	}
 
 	$effect(() => {
 		void sort; // re-run on sort change
 		reload();
+	});
+
+	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
+	// where the list was. Keyed by sort; a sort change invalidates it (peopleScroll.take).
+	beforeNavigate(() => {
+		peopleScroll.save({ sort, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {

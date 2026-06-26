@@ -394,3 +394,26 @@ owner-gated throughout — there is no access-model change to sequence around.
 - [ ] **Security review** before slice 1 merges — binary file ingest + serving (`/security-review`).
 - [ ] Cross-reference from [Phase 3 enrichment spec](phase-3-enrichment.md) F14.3 and the
       [metadata-plugins spec](metadata-plugins.md) (asset download) to this spec; update the ADR index.
+
+---
+
+## F25.26–28 — Person-page polish (follow-ups)
+
+Post-F25 refinements to the person hero and people list. No data-model or access change — UI only,
+tokens-only, all on the existing `.portrait-frame` seam (ADR-038). Design handoff +
+QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) ·
+[`person-page-polish-qa-checklist.md`](../design/person-page-polish-qa-checklist.md).
+
+- **F25.26 — Taller parallax banner.** The hero banner band goes from **5:1 (≤270px)** to **5:2
+  (≤540px)**; its image drifts opposite to page scroll (depth) via a `--banner-shift` CSS variable updated
+  by a passive, rAF-throttled scroll listener in `PersonBanner` (the image's overflow-hidden frame makes a
+  pure-CSS `view()` timeline inert). Respects `prefers-reduced-motion`; collapses to a static cover crop
+  where motion is off or frames aren't produced. `.crop-frame--banner` is kept at **5:2** in lockstep so
+  the crop preview matches the rendered hero. (Supersedes the "16:9 banner" wording in the Objective —
+  the realized banner ratio is the wide 5:N band, now 5:2.)
+- **F25.27 — Poster on the person page.** The 2:3 **poster** now renders inline in the person hero (it
+  was previously only on the video credits surface). Visitors see it only when present; the owner always
+  sees the slot with a `Replace` overlay (replacing the old standalone "Replace poster" button).
+- **F25.28 — People-list scroll restoration.** Returning from a person detail page to `/people` restores
+  the prior scroll position (module-scoped, sort-keyed, one-shot cache — the ADR-032 browse pattern
+  applied to the people list). New module `web/src/lib/peopleScroll.svelte.ts`.

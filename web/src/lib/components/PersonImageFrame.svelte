@@ -15,7 +15,8 @@
 		name,
 		frameClass,
 		version,
-		eager = false
+		eager = false,
+		alt
 	}: {
 		personId: number;
 		role: PersonImageRole;
@@ -23,10 +24,14 @@
 		frameClass: string;
 		version?: number;
 		eager?: boolean;
+		// Override the alt text. Defaults to `name`; pass "" to mark the image decorative
+		// (e.g. a poster shown alongside a headshot that already announces the person).
+		alt?: string;
 	} = $props();
 
 	// The URL re-derives when the skin flips so the placeholder re-themes live.
 	const src = $derived(api.personImageURL(personId, role, { version, skin: theme.current }));
+	const altText = $derived(alt ?? name);
 
 	let loaded = $state(false);
 </script>
@@ -34,7 +39,7 @@
 <div class="portrait-frame {frameClass}">
 	<img
 		{src}
-		alt={name}
+		alt={altText}
 		loading={eager ? 'eager' : 'lazy'}
 		decoding="async"
 		class={loaded ? 'is-loaded' : ''}
