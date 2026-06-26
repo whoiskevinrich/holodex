@@ -139,6 +139,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 
 	repository := repo.New(database)
+	repository.SetGalleryCap(cfg.PersonGalleryMax) // per-person gallery cap (F25, PERSON_GALLERY_MAX)
 
 	extractor := metadata.NewExtractor()
 	if err := extractor.Available(); err != nil {

@@ -243,9 +243,11 @@ func TestServiceEnrichRecordsJobRun(t *testing.T) {
 // --- F25 asset download ---
 
 // recordingSink captures StoreAsset calls instead of touching disk, so the asset
-// orchestration is testable with no filesystem.
+// orchestration is testable with no filesystem. suppress is the set of URLs it
+// reports as owner-deleted (F25/ADR-043 suppression).
 type recordingSink struct {
-	stored []storedAsset
+	stored   []storedAsset
+	suppress map[string]struct{}
 }
 
 type storedAsset struct {
@@ -253,12 +255,17 @@ type storedAsset struct {
 	role       string
 	provider   string
 	externalID string
+	url        string
 	bytes      int
 }
 
-func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID string, raw []byte) error {
-	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, len(raw)})
+func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, url, len(raw)})
 	return nil
+}
+
+func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return s.suppress, nil
 }
 
 // A person enrich run with image assets fetches each through the (test-injected)
@@ -302,6 +309,38 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 	}
 	if !roles[model.PersonImageHeadshot] || !roles[model.PersonImageBanner] {
 		t.Errorf("asset roles = %v, want headshot+banner", roles)
+	}
+}
+
+// A re-enrich skips an asset whose URL the owner previously deleted (F25/ADR-043):
+// the suppressed URL is never fetched or stored, while other assets still flow.
+func TestEnrichSkipsSuppressedAssets(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = []Asset{
+		{Kind: "gallery", URL: origin.URL + "/keep.jpg"},
+		{Kind: "gallery", URL: origin.URL + "/deleted.jpg"}, // owner removed this before
+	}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{suppress: map[string]struct{}{origin.URL + "/deleted.jpg": {}}}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 {
+		t.Fatalf("stored %d assets, want 1 (suppressed url skipped): %+v", len(sink.stored), sink.stored)
+	}
+	if sink.stored[0].url != origin.URL+"/keep.jpg" {
+		t.Errorf("stored url = %q, want the non-suppressed keep.jpg", sink.stored[0].url)
 	}
 }
 

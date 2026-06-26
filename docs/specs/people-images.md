@@ -136,7 +136,7 @@ Ordered by priority.
 | F25.5 | **Placeholder resolution** picks `(active skin × role × gender)`; gender comes from the enriched gender field, defaulting to **neutral** when absent. | Switching skins changes the placeholder; a person with enriched `gender=female` shows the female placeholder; a person with no enriched gender shows the neutral one. |
 | F25.6 | **Typed serving route per role** returns the real image if present, else the resolved placeholder; never 404s for a valid person+role; never accepts a client-supplied filesystem path. Real-image URLs are **version-stamped** (`?v=<image_id>`) so a replace busts caches immediately. | `GET /api/v1/people/{id}/image/{role}` returns 200 with an image for any existing person and valid role; an unknown role → 400; an unknown person → 404. A real-image response carries a `?v=` stamp and a long `Cache-Control: public, max-age=…, immutable`; after a replace the read-model emits a new `?v=`. |
 | F25.7 | **The owner can upload** an image for a person and assign its role; the image is normalized server-side before storage. Uploading again for a **filled core role replaces** the current image (old asset cleaned up). Upload is behind the owner gate (ADR-030); non-owners cannot upload. | An owner POST with a valid image stores a normalized asset (re-encoded, metadata stripped, dimensions/bytes bounded) and it appears on the relevant surface; a second upload for a filled core role swaps it with no orphaned files; a non-owner POST is rejected by the gate. |
-| F25.8 | **Gallery cap of 20 `extra` images per person** (core slots are separate and not counted). | The 21st `extra` for a person is rejected with a clear, themed error; the cap is enforced server-side regardless of client. Filling/replacing a core role is never blocked by the gallery cap. |
+| F25.8 | **Gallery cap on `extra` images per person** — default **20**, configurable via `PERSON_GALLERY_MAX` (core slots are separate and never counted; see F25.23–25). | An over-cap `extra` for a person is rejected with a clear, themed error; the cap is enforced server-side regardless of client. **Filling/replacing a core role (headshot/banner/poster) is never blocked by the gallery cap** — proven by repo + API tests inserting a core role at a full gallery (the F25.8 bug fix). |
 | F25.9 | **Upload validation**: only real raster images of an allowed type and within size/dimension bounds are accepted; the bytes are decoded to confirm they are an image (not a polyglot/renamed file). | A non-image, oversized, or malformed file is rejected with a clear error and nothing is written to disk. |
 | F25.10 | **Enrichment asset download**: provider-supplied image URLs are fetched (through the existing enrich SSRF allowlist + redirect refusal + response caps), normalized, and stored as person images with provenance. | After enriching a person whose provider returns an asset, the corresponding core role shows the downloaded image (replacing any current one for that role); the fetch obeys the F22 network guards. |
 | F25.11 | **Owner can delete any image** (a core-role image or a gallery extra). | An owner delete removes the asset and its DB row; a deleted core-role image leaves that role empty (placeholder resolves); a deleted extra leaves the gallery; a non-owner cannot delete. |
@@ -162,6 +162,35 @@ Ordered by priority.
 | F25.20 | MCP `get_person` / `list_people` expose image URLs. | Mirrors deferred F22.5f / F14.5. |
 | F25.21 | Tag images reuse this storage/serving/placeholder model (F15.3). | Same machinery, different entity. |
 | F25.22 | Owner-editable gender (and other person attributes) feeding placeholder selection when enrichment has none. | Removes the "neutral-only when unenriched" limitation. |
+
+---
+
+## Addendum — configurable cap, owner override & enrichment suppression ([ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md), 2026-06-25)
+
+A follow-up slice that hardens the gallery cap and gives the owner control over it,
+plus a "don't bring back what I deleted" guarantee for enrichment. Motivated by a
+bug report ("setting the headshot/poster at a full gallery errored with *gallery
+full*") — which on investigation was **already** correct in the backend (core roles
+skip the cap), so the fix is regression coverage + a non-alarming UI for the full
+state (F25.8 acceptance, and the banner re-tone below).
+
+| ID | Requirement | Acceptance criteria |
+|----|-------------|---------------------|
+| F25.23 | **Configurable gallery cap.** The per-person `extra` cap is set by `PERSON_GALLERY_MAX` (default 20, env/yaml `person_gallery_max`); a non-positive value falls back to 20. The effective cap is advertised to the SPA via `/capabilities` (`person_gallery_max`) so the UI warns at the right number. | Setting `PERSON_GALLERY_MAX=3` makes the 4th `extra` the one rejected; `/capabilities` reports `3`; the gallery's "full" note reads "3 of 3". |
+| F25.24 | **Owner over-cap override.** The owner-gated upload accepts `allow_over_cap`; when set, the insert bypasses the cap (no 409). **Enrichment never sets it** — provider-driven growth stays bounded. The default UI still warns at the cap and offers an explicit **"Add anyway"** action that sets the flag. | At a full gallery, a normal `extra` upload → 409; the same upload with `allow_over_cap=true` → 201; an enrichment run never exceeds the cap. |
+| F25.25 | **Enrichment URL suppression on delete.** Deleting a gallery `extra` that arrived from a provider records its source asset URL in a per-person suppression list; a later re-enrich **skips** that URL so the deleted image is not silently re-added. Core-role deletions do **not** suppress (a re-enrich may legitimately refill an empty headshot/banner/poster). Owner uploads have no source URL and never suppress. | Enrich a person (stores a gallery image from URL *U*); delete it; re-enrich → *U* is not re-fetched/stored. Deleting an enrichment **headshot** does not suppress. |
+
+**Data/architecture (ADR-043).** Migration `0012` adds `person_images.source_url`
+(empty for uploads/promotes) and a `person_image_suppressions(person_id, source_url,
+created_at)` table (composite PK, `ON DELETE CASCADE`). `InsertPersonImage` takes a
+`PersonImageInsert` struct (adds `SourceURL` + `OverCap`); `DeletePersonImage`
+records suppression in the same write transaction; `downloadAssets` consults the
+per-person suppressed set (fail-open) before fetching each asset.
+
+**Frontend.** The full-gallery state is **informational, not an error** — neutral
+tokens (`text-muted`, `border-rule`, `bg-surface-2`), never `text-warn`; a full
+gallery is a status, not a failure of the action just taken. The "Add anyway" button
+issues the over-cap upload. Suppression is entirely server-side (no UI).
 
 ---
 

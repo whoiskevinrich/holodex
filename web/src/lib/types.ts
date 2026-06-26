@@ -241,6 +241,9 @@ export interface Capabilities {
 	// card_layout is the operator's preferred browse-grid aspect ratio:
 	// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
 	card_layout: 'wide' | 'poster';
+	// person_gallery_max is the per-person 'extra' gallery cap (F25), so the gallery
+	// can warn at the limit and offer the owner an explicit over-cap "add anyway".
+	person_gallery_max: number;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).

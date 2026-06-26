@@ -5,13 +5,15 @@ import (
 	"fmt"
 
 	"holodex/internal/model"
+	"holodex/internal/repo"
 )
 
 // imageRepo is the repo subset the asset sink needs (satisfied by *repo.Repo). Kept
 // an interface so personimage stays free of an import on repo.
 type imageRepo interface {
-	InsertPersonImage(ctx context.Context, personID int64, role, source, provider, externalID string, w, h, byteSize int) (int64, error)
+	InsertPersonImage(ctx context.Context, in repo.PersonImageInsert) (int64, error)
 	DeletePersonImage(ctx context.Context, personID, imageID int64) error
+	SuppressedPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Sink stores enrichment-downloaded image bytes as person images (F25, ADR-038),
@@ -30,17 +32,28 @@ func NewSink(r imageRepo, dir string, maxDim int) *Sink {
 	return &Sink{repo: r, dir: dir, maxDim: maxDim}
 }
 
-// StoreAsset normalizes raw provider bytes and stores them as the given core role
-// for a person, recording enrichment provenance (provider + externalID). A decode
+// StoreAsset normalizes raw provider bytes and stores them as the given role for a
+// person, recording enrichment provenance (provider + externalID) and the upstream
+// asset URL (so a later delete can suppress re-adding it, F25/ADR-043). A decode
 // failure means nothing is written (the guard the spec requires). On a disk-write
 // failure the just-inserted row is rolled back so the index never points at a
 // missing file.
-func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, externalID string, raw []byte) error {
+func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
 	norm, w, h, err := Normalize(raw, s.maxDim)
 	if err != nil {
 		return fmt.Errorf("normalize asset: %w", err)
 	}
-	id, err := s.repo.InsertPersonImage(ctx, personID, role, model.PersonImageSourceEnrichment, provider, externalID, w, h, len(norm))
+	id, err := s.repo.InsertPersonImage(ctx, repo.PersonImageInsert{
+		PersonID:   personID,
+		Role:       role,
+		Source:     model.PersonImageSourceEnrichment,
+		Provider:   provider,
+		ExternalID: externalID,
+		SourceURL:  url,
+		Width:      w,
+		Height:     h,
+		ByteSize:       len(norm),
+	})
 	if err != nil {
 		return fmt.Errorf("insert asset row: %w", err)
 	}
@@ -49,4 +62,10 @@ func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, e
 		return fmt.Errorf("store asset: %w", err)
 	}
 	return nil
+}
+
+// SuppressedAssetURLs returns the asset URLs the owner has deleted for this person,
+// so enrichment skips re-adding them (F25, ADR-043).
+func (s *Sink) SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	return s.repo.SuppressedPersonImageURLs(ctx, personID)
 }

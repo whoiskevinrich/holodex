@@ -26,9 +26,30 @@ var ErrNotFound = errors.New("not found")
 type Repo struct {
 	db      *sql.DB
 	writeMu sync.Mutex
+	// galleryCap overrides the per-person 'extra' gallery cap (PERSON_GALLERY_MAX,
+	// F25). Zero means "unset" — GalleryCapValue then falls back to GalleryCap so a
+	// bare New(db) (tests, MCP stdio) keeps the built-in default.
+	galleryCap int
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
+
+// SetGalleryCap overrides the per-person 'extra' gallery cap (F25). A value < 1 is
+// ignored, leaving the built-in default. Called once at startup from config.
+func (r *Repo) SetGalleryCap(n int) {
+	if n >= 1 {
+		r.galleryCap = n
+	}
+}
+
+// GalleryCapValue is the effective per-person gallery cap: the configured override
+// or the built-in GalleryCap default. Exposed so the API can advertise it to the SPA.
+func (r *Repo) GalleryCapValue() int {
+	if r.galleryCap >= 1 {
+		return r.galleryCap
+	}
+	return GalleryCap
+}
 
 // timeLayout is the storage format for timestamps (ISO-8601, UTC).
 const timeLayout = time.RFC3339

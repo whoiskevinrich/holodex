@@ -36,6 +36,10 @@ class ActivityState {
 	get cardLayout(): 'wide' | 'poster' {
 		return this.caps?.card_layout ?? 'wide';
 	}
+	// Per-person gallery cap (F25). Falls back to 20 (the server default) until caps load.
+	get galleryMax(): number {
+		return this.caps?.person_gallery_max ?? 20;
+	}
 
 	async refresh() {
 		try {

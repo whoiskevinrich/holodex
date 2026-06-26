@@ -45,6 +45,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [040](ADR-040-tmdb-provider-repo-placement.md) | TMDB provider source placement — **monorepo `providers/tmdb/` subdirectory** | Accepted (extends ADR-033/039/023/024) |
 | [041](ADR-041-metadata-writeback.md) | Metadata writeback — **explicit per-field write-back** to media files via copy→write→rename | Proposed (extends ADR-004/013/033; spec F28) |
 | [042](ADR-042-windows-asInvoker-manifest.md) | Windows build — **`asInvoker` application manifest** embedded via `.syso` to suppress UAC prompt | Accepted (spec windows-uac-manifest) |
+| [043](ADR-043-gallery-cap-and-enrichment-suppression.md) | Person gallery — **configurable cap (`PERSON_GALLERY_MAX`) + owner over-cap override + enrichment URL suppression on delete** | Accepted (spec F25.23–25; extends ADR-038/039) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 

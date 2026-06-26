@@ -43,9 +43,13 @@ type EnrichRepo interface {
 // so the enrich package needn't import personimage/repo for the image write and so
 // tests can assert what would be stored with no disk.
 type ImageSink interface {
-	// StoreAsset normalizes raw image bytes (metadata strip) and stores them as the
-	// given core role for a person, recording provenance (provider + externalID).
-	StoreAsset(ctx context.Context, personID int64, role, provider, externalID string, raw []byte) error
+	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
+	// given role for a person, recording provenance (provider + externalID) and the
+	// upstream asset URL (for delete-suppression, F25/ADR-043).
+	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
+	// re-enrich skips re-adding them (F25, ADR-043).
+	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -220,6 +224,14 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
+	// Asset URLs the owner has deleted before — skip them so a re-enrich doesn't
+	// silently re-add an image the owner removed (F25, ADR-043). A lookup failure
+	// fails open (logs, treats nothing as suppressed) rather than blocking enrichment.
+	suppressed, err := s.images.SuppressedAssetURLs(ctx, entityID)
+	if err != nil {
+		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		suppressed = nil
+	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
 	for _, a := range assets {
@@ -227,12 +239,15 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		if !ok || done[role] {
 			continue
 		}
+		if _, skip := suppressed[a.URL]; skip {
+			continue // owner deleted this exact image before; don't bring it back
+		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
 			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
 			continue
 		}
-		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
+		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw); err != nil {
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
 			} else {

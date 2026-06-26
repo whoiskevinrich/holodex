@@ -9,24 +9,20 @@ import (
 	"testing"
 
 	"holodex/internal/model"
+	"holodex/internal/repo"
 )
 
 // fakeImageRepo records InsertPersonImage/DeletePersonImage calls so a Sink test can
 // assert provenance and the store-failure rollback without a real DB.
 type fakeImageRepo struct {
-	inserts []insertCall
-	deletes []int64
-	nextID  int64
+	inserts    []repo.PersonImageInsert
+	deletes    []int64
+	suppressed map[string]struct{}
+	nextID     int64
 }
 
-type insertCall struct {
-	personID                           int64
-	role, source, provider, externalID string
-	w, h, byteSize                     int
-}
-
-func (f *fakeImageRepo) InsertPersonImage(_ context.Context, personID int64, role, source, provider, externalID string, w, h, byteSize int) (int64, error) {
-	f.inserts = append(f.inserts, insertCall{personID, role, source, provider, externalID, w, h, byteSize})
+func (f *fakeImageRepo) InsertPersonImage(_ context.Context, in repo.PersonImageInsert) (int64, error) {
+	f.inserts = append(f.inserts, in)
 	f.nextID++
 	return f.nextID, nil
 }
@@ -34,6 +30,10 @@ func (f *fakeImageRepo) InsertPersonImage(_ context.Context, personID int64, rol
 func (f *fakeImageRepo) DeletePersonImage(_ context.Context, _ int64, imageID int64) error {
 	f.deletes = append(f.deletes, imageID)
 	return nil
+}
+
+func (f *fakeImageRepo) SuppressedPersonImageURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return f.suppressed, nil
 }
 
 func TestSinkStoreAssetNormalizes(t *testing.T) {
@@ -47,7 +47,7 @@ func TestSinkStoreAssetNormalizes(t *testing.T) {
 	marker := []byte("EXIFGPS:secret-location")
 	polluted := append(append([]byte{}, src...), marker...)
 
-	if err := sink.StoreAsset(context.Background(), 7, model.PersonImageBanner, "tmdb", "tt42", polluted); err != nil {
+	if err := sink.StoreAsset(context.Background(), 7, model.PersonImageBanner, "tmdb", "tt42", "https://cdn/x.jpg", polluted); err != nil {
 		t.Fatalf("StoreAsset: %v", err)
 	}
 
@@ -55,8 +55,8 @@ func TestSinkStoreAssetNormalizes(t *testing.T) {
 		t.Fatalf("inserts = %d, want 1", len(fr.inserts))
 	}
 	c := fr.inserts[0]
-	if c.personID != 7 || c.role != model.PersonImageBanner || c.source != model.PersonImageSourceEnrichment ||
-		c.provider != "tmdb" || c.externalID != "tt42" || c.w != 80 || c.h != 120 {
+	if c.PersonID != 7 || c.Role != model.PersonImageBanner || c.Source != model.PersonImageSourceEnrichment ||
+		c.Provider != "tmdb" || c.ExternalID != "tt42" || c.SourceURL != "https://cdn/x.jpg" || c.Width != 80 || c.Height != 120 {
 		t.Errorf("insert provenance/dims = %+v", c)
 	}
 	if len(fr.deletes) != 0 {
@@ -78,7 +78,7 @@ func TestSinkStoreAssetNormalizes(t *testing.T) {
 func TestSinkRejectsBadAsset(t *testing.T) {
 	fr := &fakeImageRepo{}
 	sink := NewSink(fr, t.TempDir(), 0)
-	if err := sink.StoreAsset(context.Background(), 1, model.PersonImageHeadshot, "p", "x", []byte("not an image")); err == nil {
+	if err := sink.StoreAsset(context.Background(), 1, model.PersonImageHeadshot, "p", "x", "", []byte("not an image")); err == nil {
 		t.Error("expected error for a non-image asset")
 	}
 	if len(fr.inserts) != 0 {
@@ -96,7 +96,7 @@ func TestSinkRollsBackOnStoreFailure(t *testing.T) {
 	fr := &fakeImageRepo{}
 	sink := NewSink(fr, dir, 0)
 
-	if err := sink.StoreAsset(context.Background(), 9, model.PersonImageHeadshot, "p", "x", jpegBytes(t, 40, 40)); err == nil {
+	if err := sink.StoreAsset(context.Background(), 9, model.PersonImageHeadshot, "p", "x", "", jpegBytes(t, 40, 40)); err == nil {
 		t.Fatal("expected a store failure")
 	}
 	if len(fr.inserts) != 1 {
