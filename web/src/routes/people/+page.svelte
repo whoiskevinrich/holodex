@@ -58,8 +58,8 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const y = peopleScroll.take(sort);
-					if (y != null) tick().then(() => window.scrollTo(0, y));
+					const snap = peopleScroll.take(sort);
+					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
 	}
@@ -72,7 +72,7 @@
 	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
 	// where the list was. Keyed by sort; a sort change invalidates it (peopleScroll.take).
 	beforeNavigate(() => {
-		peopleScroll.save({ sort, scrollY: window.scrollY });
+		peopleScroll.save({ key: sort, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {
