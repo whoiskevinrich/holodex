@@ -177,6 +177,14 @@
 				{/each}
 			</nav>
 		{/if}
+		<!-- Shared row body for both modes — the only difference between select mode and
+		     nav mode is the wrapper (checkbox label vs link), so the avatar/name/count live
+		     here once. -->
+		{#snippet personRow(p: Person, i: number)}
+			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
+			<span class="flex-1 truncate">{p.name}</span>
+			<span class="text-xs text-muted">{p.video_count}</span>
+		{/snippet}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 			{#each people as p, i (p.id)}
 				<li
@@ -199,30 +207,14 @@
 								checked={selectedIds.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
-							<PersonAvatar
-								personId={p.id}
-								name={p.name}
-								version={p.headshot_version}
-								size="sm"
-								eager={i < 6}
-							/>
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</label>
 					{:else}
 						<a
 							href={`/people/${p.id}`}
 							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 						>
-							<PersonAvatar
-								personId={p.id}
-								name={p.name}
-								version={p.headshot_version}
-								size="sm"
-								eager={i < 6}
-							/>
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</a>
 					{/if}
 				</li>
