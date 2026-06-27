@@ -11,6 +11,10 @@ export interface Person {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
+	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
+	// the stale cached image (F25.29). Absent/0 = no headshot (placeholder).
+	headshot_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 
@@ -241,6 +245,9 @@ export interface Capabilities {
 	// card_layout is the operator's preferred browse-grid aspect ratio:
 	// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
 	card_layout: 'wide' | 'poster';
+	// person_gallery_max is the per-person 'extra' gallery cap (F25), so the gallery
+	// can warn at the limit and offer the owner an explicit over-cap "add anyway".
+	person_gallery_max: number;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).

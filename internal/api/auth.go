@@ -66,10 +66,14 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		// CardLayout is the operator's preferred card aspect ratio for browse lists:
 		// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
 		CardLayout string `json:"card_layout"`
+		// PersonGalleryMax is the per-person 'extra' gallery cap (F25), so the SPA can
+		// warn at the limit and offer the owner an explicit over-cap "add anyway".
+		PersonGalleryMax int `json:"person_gallery_max"`
 	}{
 		Owner:                    h.auth.authorized(r),
 		AuthRequired:             h.auth.Required(),
 		DeleteGracePeriodSeconds: int(h.deleteGrace.Seconds()),
 		CardLayout:               h.cardLayout,
+		PersonGalleryMax:         h.repo.GalleryCapValue(),
 	})
 }

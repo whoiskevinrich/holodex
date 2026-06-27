@@ -1,4 +1,4 @@
-# ADR-043: Automated version computation + release-PR gate (Release Please)
+# ADR-044: Automated version computation + release-PR gate (Release Please)
 
 **Status**: Accepted
 **Date**: 2026-06-27

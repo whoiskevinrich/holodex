@@ -72,6 +72,13 @@ metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH
 # owner-gated and on-demand; core holds no upstream API keys (each provider does).
 metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 
+# --- Person images (F25, ADR-038/043) ---
+# Per-person portrait/banner/poster + a free-form gallery of extra images.
+# person_gallery_max bounds the gallery (extra images) per person; the three core
+# slots are separate and never counted against it. The owner can deliberately exceed
+# it per-upload ("Add anyway"); enrichment never does. (default 20)
+# person_gallery_max: 20           # PERSON_GALLERY_MAX
+
 # --- Presentation ---
 # card_layout controls the aspect ratio of media cards in browse lists.
 #   "wide"   (default) — 16:9 thumbnails; suited to personal/AMV/video libraries.

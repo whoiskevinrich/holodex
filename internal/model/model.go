@@ -55,6 +55,12 @@ type Person struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// HeadshotVersion is the headshot image id (== its ?v= cache-buster) on the
+	// people-list read, so the list avatar URL changes when the headshot does (e.g.
+	// after enrichment) instead of serving the stale cached image (F25.29). 0 = no
+	// headshot (the placeholder is served). Omitted on the detail read (which carries
+	// the full image set).
+	HeadshotVersion int64 `json:"headshot_version,omitempty"`
 	// Aliases are owner-curated alternate names (F23, ADR-036), each searchable.
 	// Populated only on the person-detail read; omitted (nil) elsewhere.
 	Aliases []PersonAlias `json:"aliases,omitempty"`

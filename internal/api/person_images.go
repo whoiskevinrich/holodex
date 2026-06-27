@@ -199,20 +199,35 @@ func (h *Handlers) uploadPersonImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.storeNormalized(w, r, id, role, model.PersonImageSourceUpload, "", "", raw)
+	// allow_over_cap lets the owner deliberately exceed the gallery cap (F25). It is
+	// honored only here, on the owner-gated upload path — enrichment never sets it.
+	overCap, _ := strconv.ParseBool(r.FormValue("allow_over_cap"))
+	h.storeNormalized(w, r, id, role, model.PersonImageSourceUpload, "", "", overCap, raw)
 }
 
 // storeNormalized normalizes raw bytes, inserts the row, and writes the file —
 // the shared tail of upload and promote. It maps a full gallery to 409 and an
 // undecodable/oversize image to 400, and emits 201 {id, version} on success.
-func (h *Handlers) storeNormalized(w http.ResponseWriter, r *http.Request, personID int64, role, source, provider, externalID string, raw []byte) {
+// overCap bypasses the gallery cap (owner over-cap upload); it is ignored for core
+// roles, which are never capped.
+func (h *Handlers) storeNormalized(w http.ResponseWriter, r *http.Request, personID int64, role, source, provider, externalID string, overCap bool, raw []byte) {
 	norm, iw, ih, err := personimage.Normalize(raw, h.personImageMaxDim)
 	if err != nil {
 		h.log.Warn("person image normalize failed", "person", personID, "err", err)
 		writeError(w, http.StatusBadRequest, "unsupported or invalid image")
 		return
 	}
-	imgID, err := h.repo.InsertPersonImage(r.Context(), personID, role, source, provider, externalID, iw, ih, len(norm))
+	imgID, err := h.repo.InsertPersonImage(r.Context(), repo.PersonImageInsert{
+		PersonID: personID,
+		Role:     role,
+		Source:   source,
+		Provider: provider,
+		ExternalID: externalID,
+		Width:    iw,
+		Height:   ih,
+		ByteSize:     len(norm),
+		OverCap:  overCap,
+	})
 	if errors.Is(err, repo.ErrGalleryFull) {
 		writeError(w, http.StatusConflict, "gallery is full")
 		return
@@ -299,7 +314,8 @@ func (h *Handlers) promotePersonImage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "promote: read image", err)
 		return
 	}
-	h.storeNormalized(w, r, id, role, model.PersonImageSourcePromoted, "", "", raw)
+	// Promote always targets a core role (validated above), which is never gallery-capped.
+	h.storeNormalized(w, r, id, role, model.PersonImageSourcePromoted, "", "", false, raw)
 }
 
 // reorderPersonImages sets the gallery order from a body list of image ids

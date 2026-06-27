@@ -43,9 +43,17 @@ type EnrichRepo interface {
 // so the enrich package needn't import personimage/repo for the image write and so
 // tests can assert what would be stored with no disk.
 type ImageSink interface {
-	// StoreAsset normalizes raw image bytes (metadata strip) and stores them as the
-	// given core role for a person, recording provenance (provider + externalID).
-	StoreAsset(ctx context.Context, personID int64, role, provider, externalID string, raw []byte) error
+	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
+	// given role for a person, recording provenance (provider + externalID) and the
+	// upstream asset URL (for delete-suppression, F25/ADR-043).
+	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
+	// (no-op otherwise), so a poster can be seeded from the headshot portrait without
+	// clobbering an existing owner/provider image (F25.29).
+	StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
+	// re-enrich skips re-adding them (F25, ADR-043).
+	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -220,19 +228,34 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
+	// Asset URLs the owner has deleted before — skip them so a re-enrich doesn't
+	// silently re-add an image the owner removed (F25, ADR-043). A lookup failure
+	// fails open (logs, treats nothing as suppressed) rather than blocking enrichment.
+	suppressed, err := s.images.SuppressedAssetURLs(ctx, entityID)
+	if err != nil {
+		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		suppressed = nil
+	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
+	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
+	// it after the loop (F25.29) — provider profiles are 2:3, a natural poster.
+	var headshotRaw []byte
+	var headshotURL string
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
 		if !ok || done[role] {
 			continue
+		}
+		if _, skip := suppressed[a.URL]; skip {
+			continue // owner deleted this exact image before; don't bring it back
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
 			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
 			continue
 		}
-		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
+		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw); err != nil {
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
 			} else {
@@ -240,10 +263,23 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			}
 			continue
 		}
+		if role == model.PersonImageHeadshot {
+			headshotRaw, headshotURL = raw, a.URL
+		}
 		if model.CorePersonImageRole(role) {
 			done[role] = true // core slots are single-occupancy; first success wins
 		}
 		// extra/gallery: don't mark done — allow additional items up to the cap
+	}
+	// Seed a poster from the headshot portrait when this run filled a headshot but no
+	// poster (F25.29) — the same image reused with no extra download, so people read
+	// richly on video-credit surfaces. Only fills an EMPTY slot; never overwrites an
+	// existing owner/provider poster. Like other core roles it refills on re-enrich
+	// (core deletes don't suppress, ADR-043 F25.25). Best-effort.
+	if headshotRaw != nil && !done[model.PersonImagePoster] {
+		if err := s.images.StoreAssetIfAbsent(ctx, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
+			s.log.Warn("poster seed from headshot failed", "provider", provider, "person", entityID, "err", err)
+		}
 	}
 }
 
