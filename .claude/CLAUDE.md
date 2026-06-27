@@ -3,6 +3,19 @@
 These rules govern how changes are made in this repo. They keep **specs, architecture,
 design, tests, and security in lockstep**. Follow them for every change.
 
+## Commands
+
+Backend (Go) via `Makefile`; frontend (`web/`) via npm:
+
+| Task | Command |
+|---|---|
+| Run the server | `make run` (`go run ./cmd/holodex`) |
+| Production build | `make build` |
+| Go tests | `make test` · integration: `make test-integration` |
+| Frontend dev server | `make web-dev` (or `cd web && npm run dev`) |
+| Frontend type-check / tests | `cd web && npm run check` · `npm run test` |
+| Full stack in Docker | `make docker` (`docker compose up --build`) |
+
 ## Change-routing rules
 
 While making a change, route it through the right skill based on what it touches:

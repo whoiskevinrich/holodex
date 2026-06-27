@@ -1,0 +1,37 @@
+# Release Please: maintain a rolling "release PR" on main that accumulates the next
+# version + CHANGELOG from Conventional Commits. Merging that PR creates the vX.Y.Z tag
+# and a GitHub Release — which fires the existing release.yml (CI → semver/latest images
+# → git-cliff release body + ghcr Deployment, ADR-034).
+#
+# IMPORTANT — the tag MUST be created by a non-GITHUB_TOKEN identity, or GitHub's recursion
+# guard suppresses release.yml (a GITHUB_TOKEN-pushed tag never triggers another workflow).
+# Provide a fine-grained PAT (or GitHub App token) as the RELEASE_PLEASE_TOKEN secret with
+# Contents: read/write on this repo. Without it, the release PR still works but no images
+# build and no GitHub Release is published.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a run that may be cutting a release
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # commit the release PR + create the tag/release
+      pull-requests: write      # open and update the release PR
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # PAT/App token so the created tag triggers release.yml. Falls back to
+          # GITHUB_TOKEN — which still opens/merges the release PR, but the resulting
+          # tag will NOT trigger release.yml (no images, no published release).
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
