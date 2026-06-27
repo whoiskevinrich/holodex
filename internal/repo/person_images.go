@@ -17,26 +17,42 @@ import (
 // GalleryCap, enforced transactionally. Writes take writeMu like the rest of the
 // write path; reads are unlocked (WAL).
 
-// GalleryCap bounds the per-person 'extra' gallery (ADR-038 F25). Beyond it,
-// InsertPersonImage refuses an extra with ErrGalleryFull.
+// GalleryCap is the built-in default per-person 'extra' gallery bound (ADR-038
+// F25), used when no PERSON_GALLERY_MAX override is configured. Beyond the
+// effective cap, InsertPersonImage refuses an extra with ErrGalleryFull unless the
+// insert is marked OverCap.
 const GalleryCap = 20
 
-// ErrGalleryFull is returned when an 'extra' insert would exceed GalleryCap.
+// ErrGalleryFull is returned when an 'extra' insert would exceed the gallery cap
+// and the insert is not an explicit owner over-cap upload.
 var ErrGalleryFull = errors.New("gallery is full")
+
+// PersonImageInsert carries the fields for InsertPersonImage (F25). Role and Source
+// are required; Provider/ExternalID/SourceURL are enrichment provenance, empty for
+// owner uploads and promotes. OverCap lets an owner upload bypass the gallery cap
+// deliberately (the cap still applies to enrichment, which never sets it).
+type PersonImageInsert struct {
+	PersonID            int64
+	Role, Source        string
+	Provider, ExternalID string
+	SourceURL           string // upstream asset URL (enrichment only); '' for uploads
+	Width, Height, ByteSize int
+	OverCap             bool
+}
 
 // InsertPersonImage stores one image row for a person and returns its id. For a
 // core role it replaces any existing image in that slot (delete + insert) so the
-// single-slot invariant holds; for 'extra' it appends, refusing past GalleryCap.
-// All in one transaction under the write lock. A single INSERT + LastInsertId() is
-// safe here: this table has no ON CONFLICT upsert (the warning in repo.go applies
-// only to upserts whose LastInsertId can reflect an unrelated row), and the insert
-// is the last statement on the tx connection.
+// single-slot invariant holds; for 'extra' it appends, refusing past the effective
+// gallery cap (unless in.OverCap). All in one transaction under the write lock. A
+// single INSERT + LastInsertId() is safe here: this table has no ON CONFLICT upsert
+// (the warning in repo.go applies only to upserts whose LastInsertId can reflect an
+// unrelated row), and the insert is the last statement on the tx connection.
 //
 // The caller (handler/enricher) writes the bytes to disk under the returned id
 // AFTER this succeeds, since the id is the on-disk filename.
-func (r *Repo) InsertPersonImage(ctx context.Context, personID int64, role, source, provider, externalID string, w, h, byteSize int) (int64, error) {
-	if !model.ValidPersonImageRole(role) {
-		return 0, fmt.Errorf("invalid person image role %q", role)
+func (r *Repo) InsertPersonImage(ctx context.Context, in PersonImageInsert) (int64, error) {
+	if !model.ValidPersonImageRole(in.Role) {
+		return 0, fmt.Errorf("invalid person image role %q", in.Role)
 	}
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
@@ -48,28 +64,32 @@ func (r *Repo) InsertPersonImage(ctx context.Context, personID int64, role, sour
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
 	sortOrder := 0
-	if model.CorePersonImageRole(role) {
+	if model.CorePersonImageRole(in.Role) {
 		// Replace the core slot: remove any existing row (its on-disk file is cleaned
 		// up by the handler, which lists-then-deletes; an orphaned file is harmless).
+		// Core roles are single-slot and never counted against the gallery cap.
 		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM person_images WHERE person_id = ? AND role = ?`, personID, role); err != nil {
+			`DELETE FROM person_images WHERE person_id = ? AND role = ?`, in.PersonID, in.Role); err != nil {
 			return 0, fmt.Errorf("replace core slot: %w", err)
 		}
 	} else {
-		// Gallery: enforce the cap and append after the current max sort_order.
-		var count int
-		if err := tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM person_images WHERE person_id = ? AND role = ?`,
-			personID, model.PersonImageExtra).Scan(&count); err != nil {
-			return 0, fmt.Errorf("count gallery: %w", err)
-		}
-		if count >= GalleryCap {
-			return 0, ErrGalleryFull
+		// Gallery: enforce the cap (unless an explicit owner over-cap upload) and
+		// append after the current max sort_order.
+		if !in.OverCap {
+			var count int
+			if err := tx.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM person_images WHERE person_id = ? AND role = ?`,
+				in.PersonID, model.PersonImageExtra).Scan(&count); err != nil {
+				return 0, fmt.Errorf("count gallery: %w", err)
+			}
+			if count >= r.GalleryCapValue() {
+				return 0, ErrGalleryFull
+			}
 		}
 		var maxOrder sql.NullInt64
 		if err := tx.QueryRowContext(ctx,
 			`SELECT MAX(sort_order) FROM person_images WHERE person_id = ? AND role = ?`,
-			personID, model.PersonImageExtra).Scan(&maxOrder); err != nil {
+			in.PersonID, model.PersonImageExtra).Scan(&maxOrder); err != nil {
 			return 0, fmt.Errorf("max gallery order: %w", err)
 		}
 		if maxOrder.Valid {
@@ -80,9 +100,9 @@ func (r *Repo) InsertPersonImage(ctx context.Context, personID int64, role, sour
 	now := time.Now().UTC().Format(timeLayout)
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO person_images
-			(person_id, role, source, provider, external_id, width, height, byte_size, sort_order, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		personID, role, source, provider, externalID, w, h, byteSize, sortOrder, now)
+			(person_id, role, source, provider, external_id, source_url, width, height, byte_size, sort_order, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		in.PersonID, in.Role, in.Source, in.Provider, in.ExternalID, in.SourceURL, in.Width, in.Height, in.ByteSize, sortOrder, now)
 	if err != nil {
 		return 0, fmt.Errorf("insert person image: %w", err)
 	}
@@ -183,25 +203,70 @@ func (r *Repo) CountGalleryImages(ctx context.Context, personID int64) (int, err
 	return n, nil
 }
 
-// DeletePersonImage removes one image row scoped to its person, returning the
-// removed row's role/id (so the handler can also delete the on-disk file).
-// ErrNotFound when no such image belongs to the person.
+// DeletePersonImage removes one image row scoped to its person. ErrNotFound when no
+// such image belongs to the person. When the removed row is a gallery 'extra' that
+// arrived from enrichment (non-empty source_url), its URL is recorded in the
+// per-person suppression list so a later re-enrich does not silently re-add it
+// (F25, ADR-043). Core-slot deletions never suppress — a re-enrich may legitimately
+// refill an empty headshot/banner/poster. The read + delete + suppress run in one
+// transaction under the write lock.
 func (r *Repo) DeletePersonImage(ctx context.Context, personID, imageID int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
-	res, err := r.db.ExecContext(ctx,
-		`DELETE FROM person_images WHERE id = ? AND person_id = ?`, imageID, personID)
-	if err != nil {
-		return fmt.Errorf("delete person image: %w", err)
-	}
-	n, err := res.RowsAffected()
+
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if n == 0 {
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	var role, sourceURL string
+	err = tx.QueryRowContext(ctx,
+		`SELECT role, source_url FROM person_images WHERE id = ? AND person_id = ?`,
+		imageID, personID).Scan(&role, &sourceURL)
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
+	if err != nil {
+		return fmt.Errorf("lookup person image for delete: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM person_images WHERE id = ? AND person_id = ?`, imageID, personID); err != nil {
+		return fmt.Errorf("delete person image: %w", err)
+	}
+
+	if role == model.PersonImageExtra && sourceURL != "" {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO person_image_suppressions (person_id, source_url, created_at)
+			VALUES (?, ?, ?)`, personID, sourceURL, time.Now().UTC().Format(timeLayout)); err != nil {
+			return fmt.Errorf("suppress image url: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete person image: %w", err)
+	}
 	return nil
+}
+
+// SuppressedPersonImageURLs returns the set of asset URLs the owner has deleted for
+// a person, so re-enrichment skips re-adding them (F25, ADR-043). Always non-nil.
+func (r *Repo) SuppressedPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT source_url FROM person_image_suppressions WHERE person_id = ?`, personID)
+	if err != nil {
+		return nil, fmt.Errorf("list suppressed image urls: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		out[u] = struct{}{}
+	}
+	return out, rows.Err()
 }
 
 // ReorderGallery sets the sort_order of a person's gallery images to match the

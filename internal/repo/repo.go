@@ -26,9 +26,30 @@ var ErrNotFound = errors.New("not found")
 type Repo struct {
 	db      *sql.DB
 	writeMu sync.Mutex
+	// galleryCap overrides the per-person 'extra' gallery cap (PERSON_GALLERY_MAX,
+	// F25). Zero means "unset" — GalleryCapValue then falls back to GalleryCap so a
+	// bare New(db) (tests, MCP stdio) keeps the built-in default.
+	galleryCap int
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
+
+// SetGalleryCap overrides the per-person 'extra' gallery cap (F25). A value < 1 is
+// ignored, leaving the built-in default. Called once at startup from config.
+func (r *Repo) SetGalleryCap(n int) {
+	if n >= 1 {
+		r.galleryCap = n
+	}
+}
+
+// GalleryCapValue is the effective per-person gallery cap: the configured override
+// or the built-in GalleryCap default. Exposed so the API can advertise it to the SPA.
+func (r *Repo) GalleryCapValue() int {
+	if r.galleryCap >= 1 {
+		return r.galleryCap
+	}
+	return GalleryCap
+}
 
 // timeLayout is the storage format for timestamps (ISO-8601, UTC).
 const timeLayout = time.RFC3339
@@ -753,20 +774,40 @@ func namedCountQuery(table, junction, fk string, sortByCount bool) string {
 		ORDER BY %s`, table, junction, fk, order)
 }
 
-// ListPeople returns every person with at least one active video, with counts.
-// sortByCount orders by video count desc (else name asc).
+// ListPeople returns every person with at least one active video, with counts and the
+// headshot image id (the list avatar's ?v= cache-buster, so it refreshes when the
+// headshot changes — F25.29). sortByCount orders by video count desc (else name asc).
 func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("people", "video_people", "person_id", sortByCount))
+	order := "e.name COLLATE NOCASE ASC"
+	if sortByCount {
+		order = "cnt DESC, e.name COLLATE NOCASE ASC"
+	}
+	// People-specific (not namedCountQuery, which is shared with tags): the correlated
+	// subquery pulls the current headshot image id so the list avatar URL can carry a
+	// version that busts the browser cache after enrichment fills/replaces the headshot.
+	q := fmt.Sprintf(`
+		SELECT e.id, e.name, COUNT(j.video_id) AS cnt,
+		       (SELECT id FROM person_images WHERE person_id = e.id AND role = 'headshot') AS headshot_id
+		FROM people e
+		JOIN video_people j ON j.person_id = e.id
+		JOIN videos v       ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		GROUP BY e.id, e.name
+		ORDER BY %s`, order)
+	rows, err := r.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("list people: %w", err)
 	}
 	defer rows.Close()
 	var out []model.Person
 	for rows.Next() {
-		var p model.Person
-		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
+		var (
+			p          model.Person
+			headshotID sql.NullInt64
+		)
+		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount, &headshotID); err != nil {
 			return nil, err
 		}
+		p.HeadshotVersion = headshotID.Int64 // 0 when no headshot row (placeholder)
 		out = append(out, p)
 	}
 	return out, rows.Err()

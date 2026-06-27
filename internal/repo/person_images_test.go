@@ -19,12 +19,51 @@ func seedPerson(t *testing.T, r *repo.Repo, name string) int64 {
 	return personIDByName(t, r, name)
 }
 
+// ListPeople carries the headshot image id as the list avatar's ?v= cache-buster
+// (F25.29): 0 when the person has no headshot, then the new image id once one is added —
+// so the avatar URL changes (and the browser cache busts) after enrichment.
+func TestListPeopleHeadshotVersion(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	people, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list people: %v", err)
+	}
+	if v := headshotVersionOf(people, pid); v != 0 {
+		t.Fatalf("headshot_version with no headshot = %d, want 0", v)
+	}
+
+	hsID, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert headshot: %v", err)
+	}
+
+	people, err = r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list people: %v", err)
+	}
+	if v := headshotVersionOf(people, pid); v != hsID {
+		t.Fatalf("headshot_version = %d, want the new image id %d", v, hsID)
+	}
+}
+
+func headshotVersionOf(people []model.Person, id int64) int64 {
+	for _, p := range people {
+		if p.ID == id {
+			return p.HeadshotVersion
+		}
+	}
+	return -1
+}
+
 func TestPersonImagesCRUD(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 	pid := seedPerson(t, r, "Alice")
 
-	id, err := r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 100, 80, 1234)
+	id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 100, Height: 80, ByteSize: 1234})
 	if err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -67,11 +106,11 @@ func TestCoreSlotReplace(t *testing.T) {
 	ctx := context.Background()
 	pid := seedPerson(t, r, "Alice")
 
-	first, err := r.InsertPersonImage(ctx, pid, model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "", 10, 10, 1)
+	first, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
 	if err != nil {
 		t.Fatalf("insert 1: %v", err)
 	}
-	second, err := r.InsertPersonImage(ctx, pid, model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "", 20, 20, 2)
+	second, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 20, Height: 20, ByteSize: 2})
 	if err != nil {
 		t.Fatalf("insert 2 (replace): %v", err)
 	}
@@ -105,7 +144,7 @@ func TestGalleryCap(t *testing.T) {
 	pid := seedPerson(t, r, "Alice")
 
 	for i := 0; i < repo.GalleryCap; i++ {
-		if _, err := r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 10, 10, 1); err != nil {
+		if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1}); err != nil {
 			t.Fatalf("insert %d: %v", i, err)
 		}
 	}
@@ -113,11 +152,11 @@ func TestGalleryCap(t *testing.T) {
 		t.Fatalf("gallery count = %d, want %d", n, repo.GalleryCap)
 	}
 	// The 21st is refused with the typed error.
-	if _, err := r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 10, 10, 1); !errors.Is(err, repo.ErrGalleryFull) {
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1}); !errors.Is(err, repo.ErrGalleryFull) {
 		t.Errorf("over-cap insert = %v, want ErrGalleryFull", err)
 	}
 	// A core role is NOT bounded by the gallery cap.
-	if _, err := r.InsertPersonImage(ctx, pid, model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "", 10, 10, 1); err != nil {
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1}); err != nil {
 		t.Errorf("core insert blocked by gallery cap: %v", err)
 	}
 }
@@ -129,7 +168,7 @@ func TestReorderGallery(t *testing.T) {
 
 	var ids []int64
 	for i := 0; i < 3; i++ {
-		id, err := r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 10, 10, 1)
+		id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
 		if err != nil {
 			t.Fatalf("insert: %v", err)
 		}
@@ -158,8 +197,8 @@ func TestPersonImageSet(t *testing.T) {
 	ctx := context.Background()
 	pid := seedPerson(t, r, "Alice")
 
-	hs, _ := r.InsertPersonImage(ctx, pid, model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "", 10, 10, 1)
-	_, _ = r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 10, 10, 1)
+	hs, _ := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+	_, _ = r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
 
 	set, err := r.PersonImageSet(ctx, pid)
 	if err != nil {
@@ -181,7 +220,7 @@ func TestPersonImagesCascade(t *testing.T) {
 	r, database := newRepoDB(t)
 	ctx := context.Background()
 	pid := seedPerson(t, r, "Alice")
-	if _, err := r.InsertPersonImage(ctx, pid, model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "", 10, 10, 1); err != nil {
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1}); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 	// Deleting the person cascades to its images (FK ON DELETE CASCADE).
@@ -197,7 +236,81 @@ func TestInsertPersonImageRejectsBadRole(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 	pid := seedPerson(t, r, "Alice")
-	if _, err := r.InsertPersonImage(ctx, pid, "avatar", model.PersonImageSourceUpload, "", "", 10, 10, 1); err == nil {
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: "avatar", Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1}); err == nil {
 		t.Error("expected error for invalid role")
+	}
+}
+
+// TestGalleryCapConfigurable: SetGalleryCap changes the effective bound, and an
+// explicit OverCap insert bypasses it (F25).
+func TestGalleryCapConfigurable(t *testing.T) {
+	r := newRepo(t)
+	r.SetGalleryCap(2)
+	if r.GalleryCapValue() != 2 {
+		t.Fatalf("cap value = %d, want 2", r.GalleryCapValue())
+	}
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	for i := 0; i < 2; i++ {
+		if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1}); err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+	// The 3rd is refused at the configured cap.
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1}); !errors.Is(err, repo.ErrGalleryFull) {
+		t.Errorf("over-cap insert = %v, want ErrGalleryFull", err)
+	}
+	// OverCap bypasses the cap.
+	if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1, OverCap: true}); err != nil {
+		t.Errorf("over-cap insert with OverCap = %v, want success", err)
+	}
+	if n, _ := r.CountGalleryImages(ctx, pid); n != 3 {
+		t.Errorf("gallery count = %d, want 3 (cap bypassed)", n)
+	}
+}
+
+// TestDeleteSuppressesEnrichmentURL: deleting an enrichment-sourced gallery image
+// records its URL for suppression; deleting an upload (no URL) or a core role does
+// not (F25, ADR-043).
+func TestDeleteSuppressesEnrichmentURL(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	// An enrichment gallery image carrying a source URL.
+	enr, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceEnrichment, Provider: "tmdb", SourceURL: "https://cdn/a.jpg", Width: 1, Height: 1, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert enrichment extra: %v", err)
+	}
+	// An owner upload with no source URL.
+	up, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert upload extra: %v", err)
+	}
+	// A core role with a source URL (must NOT suppress on delete).
+	core, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceEnrichment, Provider: "tmdb", SourceURL: "https://cdn/head.jpg", Width: 1, Height: 1, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert core: %v", err)
+	}
+
+	for _, id := range []int64{enr, up, core} {
+		if err := r.DeletePersonImage(ctx, pid, id); err != nil {
+			t.Fatalf("delete %d: %v", id, err)
+		}
+	}
+
+	sup, err := r.SuppressedPersonImageURLs(ctx, pid)
+	if err != nil {
+		t.Fatalf("suppressed urls: %v", err)
+	}
+	if _, ok := sup["https://cdn/a.jpg"]; !ok {
+		t.Errorf("enrichment extra url not suppressed; set = %v", sup)
+	}
+	if _, ok := sup["https://cdn/head.jpg"]; ok {
+		t.Error("core-role url should not be suppressed")
+	}
+	if len(sup) != 1 {
+		t.Errorf("suppressed count = %d, want 1 (upload had no url)", len(sup))
 	}
 }

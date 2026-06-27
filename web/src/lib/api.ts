@@ -148,11 +148,13 @@ export const api = {
 	},
 
 	// Owner-gated mutations (ADR-030). Upload posts a multipart {image, role};
-	// 409 surfaces "gallery is full" via uploadAuthed's error.
-	uploadPersonImage: (id: number, file: File, role: PersonImageRole) => {
+	// 409 surfaces "gallery is full" via uploadAuthed's error. allowOverCap lets the
+	// owner deliberately exceed the gallery cap (F25); ignored for core roles.
+	uploadPersonImage: (id: number, file: File, role: PersonImageRole, allowOverCap = false) => {
 		const form = new FormData();
 		form.append('image', file);
 		form.append('role', role);
+		if (allowOverCap) form.append('allow_over_cap', 'true');
 		return uploadAuthed<{ id: number; version: number }>(`/people/${id}/image`, form);
 	},
 

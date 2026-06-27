@@ -171,10 +171,10 @@
 
 	// Snapshot the grid (loaded set + paging + scroll) when navigating away, so Back
 	// restores it. Filters round-trip through the URL already; this adds only the
-	// in-memory grid/scroll cache. A filter change invalidates it via the signature.
+	// in-memory grid/scroll cache. A filter change invalidates it via the key.
 	beforeNavigate(() => {
 		browseCache.save({
-			signature: activeParams.toString(),
+			key: activeParams.toString(),
 			videos,
 			total,
 			offset,

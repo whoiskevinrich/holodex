@@ -78,11 +78,19 @@ func pngUpload(t *testing.T, w, h int) []byte {
 
 // uploadImage posts a multipart image+role to the upload endpoint.
 func uploadImage(t *testing.T, url, token, role string, fileBytes []byte) (int, map[string]any) {
+	return uploadImageForm(t, url, token, role, fileBytes, nil)
+}
+
+// uploadImageForm is uploadImage with extra multipart fields (e.g. allow_over_cap).
+func uploadImageForm(t *testing.T, url, token, role string, fileBytes []byte, fields map[string]string) (int, map[string]any) {
 	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	if role != "" {
 		_ = mw.WriteField("role", role)
+	}
+	for k, v := range fields {
+		_ = mw.WriteField(k, v)
 	}
 	if fileBytes != nil {
 		fw, _ := mw.CreateFormFile("image", "upload.png")
@@ -183,14 +191,35 @@ func TestUploadValidated(t *testing.T) {
 		t.Errorf("non-image = %d, want 400", c)
 	}
 	// A valid gallery upload over the cap → 409.
-	ctx := context.Background()
-	for i := 0; i < repo.GalleryCap; i++ {
-		if _, err := r.InsertPersonImage(ctx, pid, model.PersonImageExtra, model.PersonImageSourceUpload, "", "", 1, 1, 1); err != nil {
-			t.Fatalf("seed gallery: %v", err)
-		}
-	}
+	fillGallery(t, r, pid, repo.GalleryCap)
 	if c, _ := uploadImage(t, base+"/image", "", "extra", pngUpload(t, 16, 16)); c != http.StatusConflict {
 		t.Errorf("over-cap upload = %d, want 409", c)
+	}
+
+	// A core-role upload is NEVER blocked by a full gallery (the reported bug): setting
+	// the headshot or poster at the cap must still succeed (201), not 409.
+	for _, role := range []string{model.PersonImageHeadshot, model.PersonImagePoster, model.PersonImageBanner} {
+		if c, _ := uploadImage(t, base+"/image", "", role, pngUpload(t, 16, 16)); c != http.StatusCreated {
+			t.Errorf("core %q upload at full gallery = %d, want 201", role, c)
+		}
+	}
+
+	// The owner can deliberately exceed the cap with allow_over_cap (F25) → 201.
+	if c, _ := uploadImageForm(t, base+"/image", "", "extra", pngUpload(t, 16, 16), map[string]string{"allow_over_cap": "true"}); c != http.StatusCreated {
+		t.Errorf("over-cap upload with allow_over_cap = %d, want 201", c)
+	}
+}
+
+// fillGallery seeds n 'extra' gallery rows for a person via the repo (the handler
+// path is what the surrounding test exercises).
+func fillGallery(t *testing.T, r *repo.Repo, pid int64, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		if _, err := r.InsertPersonImage(context.Background(), repo.PersonImageInsert{
+			PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1,
+		}); err != nil {
+			t.Fatalf("seed gallery: %v", err)
+		}
 	}
 }
 

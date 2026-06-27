@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
@@ -6,6 +8,7 @@
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
+	import { peopleScroll } from '$lib/peopleScroll.svelte';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<'name' | 'count'>('name');
@@ -35,6 +38,11 @@
 		el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
 	}
 
+	// On the first load only, restore the scroll position stashed when we last left the
+	// list (← Back from a person), once the re-fetched list has painted. Later reloads
+	// (sort change, post-merge) intentionally stay at the top.
+	let firstLoad = true;
+
 	function reload() {
 		loading = true;
 		loadError = '';
@@ -46,12 +54,25 @@
 				loadError = toMessage(err);
 				people = [];
 			})
-			.finally(() => (loading = false));
+			.finally(() => {
+				loading = false;
+				if (firstLoad) {
+					firstLoad = false;
+					const snap = peopleScroll.take(sort);
+					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
+				}
+			});
 	}
 
 	$effect(() => {
 		void sort; // re-run on sort change
 		reload();
+	});
+
+	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
+	// where the list was. Keyed by sort; a sort change invalidates it (peopleScroll.take).
+	beforeNavigate(() => {
+		peopleScroll.save({ key: sort, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {
@@ -156,6 +177,14 @@
 				{/each}
 			</nav>
 		{/if}
+		<!-- Shared row body for both modes — the only difference between select mode and
+		     nav mode is the wrapper (checkbox label vs link), so the avatar/name/count live
+		     here once. -->
+		{#snippet personRow(p: Person, i: number)}
+			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
+			<span class="flex-1 truncate">{p.name}</span>
+			<span class="text-xs text-muted">{p.video_count}</span>
+		{/snippet}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 			{#each people as p, i (p.id)}
 				<li
@@ -178,18 +207,14 @@
 								checked={selectedIds.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</label>
 					{:else}
 						<a
 							href={`/people/${p.id}`}
 							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 						>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</a>
 					{/if}
 				</li>

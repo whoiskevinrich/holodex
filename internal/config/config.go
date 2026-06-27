@@ -63,6 +63,10 @@ type Config struct {
 	PersonImagePath         string `yaml:"-"` // derived: DataPath/person-images
 	PersonImageMaxBytes     int64  `yaml:"person_image_max_bytes"`
 	PersonImageMaxDimension int    `yaml:"person_image_max_dimension"`
+	// PersonGalleryMax bounds the per-person 'extra' gallery (F25). Core roles
+	// (headshot/banner/poster) are never counted against it. The owner can still
+	// exceed it deliberately via an explicit over-cap upload; enrichment never does.
+	PersonGalleryMax int `yaml:"person_gallery_max"`
 
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
@@ -114,6 +118,7 @@ func Defaults() Config {
 
 		PersonImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
+		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
@@ -245,6 +250,10 @@ func applyEnv(c *Config) {
 
 	c.PersonImageMaxBytes = envInt64("PERSON_IMAGE_MAX_BYTES", c.PersonImageMaxBytes)
 	c.PersonImageMaxDimension = envInt("PERSON_IMAGE_MAX_DIMENSION", c.PersonImageMaxDimension)
+	c.PersonGalleryMax = envInt("PERSON_GALLERY_MAX", c.PersonGalleryMax)
+	if c.PersonGalleryMax < 1 {
+		c.PersonGalleryMax = 20 // a non-positive cap would block all gallery adds; fall back to the default
+	}
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
