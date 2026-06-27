@@ -58,13 +58,33 @@ so scroll-driven motion and screenshots don't render there).
   the headshot + poster sit cleanly over its lower edge without colliding, and corners match the skin
   (rounded in Cinémathèque; square in Broadcast/Brutalist). In **Broadcast**, the faint scanline wash
   should sit over the banner and poster (they share `.portrait-frame`).
-- [ ] **3.4 [human] Poster visibility — visitor vs owner.** As an **owner**, a person with **no** uploaded
-  poster still shows the poster slot (a themed placeholder) with an **Edit** overlay; clicking **Edit**
-  opens the file picker and an upload replaces it. As a **visitor** (non-owner), a person with **no**
-  poster shows **no** poster card at all (no placeholder clutter); a person **with** a poster shows it.
+- [ ] **3.4 [human] Poster visibility — present-only.** The hero poster shows **only when a real poster
+  exists** (owner and visitor alike) — a person with no poster shows **no** poster card (no placeholder
+  slot beside the headshot). An owner sets a missing poster from the **gallery** below ("Set as poster" →
+  crop), or it's auto-seeded by enrichment (F25.29). When a poster is present, the owner gets the **Edit**
+  overlay on it.
 - [ ] **3.5 [human] Scroll restore feels right.** On a long `/people` list, scroll well down, open a
   person, then use the in-app **← All people** link (and separately the browser **Back** button) — both
   should drop you back roughly where you were, not at the top. Switching the **sort** (name ⇄ count) and
   then returning should **not** restore an old position (the list reordered) — top is correct there.
 - [ ] **3.6 [human] Banner replace still works.** As owner, **Replace banner** uploads a new image; after
   it lands, the new banner shows at the taller 5:2 size and the crop you chose matches what's displayed.
+
+## F25.29 — Post-enrichment image freshness
+
+- [x] **4.1 [agent]** `GET /api/v1/people` returns **`headshot_version`** per person (the headshot image
+  id); the people-list avatar URL carries it as `?v=` (`…/headshot?skin=…&v=44` after enrich), while a
+  person with no headshot has **no** `?v=` (placeholder). Verified after enriching a person — the list
+  payload's version updated to the new headshot id and the rendered `<img src>` matched.
+- [x] **4.2 [agent]** Enriching a person who had a **headshot but no poster** seeds the poster
+  (`images.roles.poster.present` flips to true) from the same portrait; a re-enrich of someone with an
+  existing poster does **not** add a second. (`go test ./internal/enrich/...` + live enrich of a TMDB
+  person.)
+- [x] **4.3 [agent]** `go test ./...` green (new `TestEnrichSeedsPosterFromHeadshot`,
+  `TestListPeopleHeadshotVersion`; updated `TestEnrichDownloadsAssets` now expects the seeded poster).
+- [ ] **4.4 [human] Back-nav shows the new headshot.** On `/people`, open a person with only a placeholder
+  headshot, **Enrich** them (owner), then use **← All people** / browser **Back**. The list should show
+  the **real headshot immediately** (no manual refresh). Previously it stayed a placeholder until reload.
+- [ ] **4.5 [human] Posters look richer on media pages.** After enriching some people, open a film's media
+  page (poster `card_layout`): the person credits/posters should now show **real 2:3 portraits**, not
+  placeholders.
