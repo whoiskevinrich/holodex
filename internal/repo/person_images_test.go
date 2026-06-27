@@ -19,6 +19,45 @@ func seedPerson(t *testing.T, r *repo.Repo, name string) int64 {
 	return personIDByName(t, r, name)
 }
 
+// ListPeople carries the headshot image id as the list avatar's ?v= cache-buster
+// (F25.29): 0 when the person has no headshot, then the new image id once one is added —
+// so the avatar URL changes (and the browser cache busts) after enrichment.
+func TestListPeopleHeadshotVersion(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	people, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list people: %v", err)
+	}
+	if v := headshotVersionOf(people, pid); v != 0 {
+		t.Fatalf("headshot_version with no headshot = %d, want 0", v)
+	}
+
+	hsID, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert headshot: %v", err)
+	}
+
+	people, err = r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list people: %v", err)
+	}
+	if v := headshotVersionOf(people, pid); v != hsID {
+		t.Fatalf("headshot_version = %d, want the new image id %d", v, hsID)
+	}
+}
+
+func headshotVersionOf(people []model.Person, id int64) int64 {
+	for _, p := range people {
+		if p.ID == id {
+			return p.HeadshotVersion
+		}
+	}
+	return -1
+}
+
 func TestPersonImagesCRUD(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

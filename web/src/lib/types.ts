@@ -11,6 +11,10 @@ export interface Person {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
+	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
+	// the stale cached image (F25.29). Absent/0 = no headshot (placeholder).
+	headshot_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 

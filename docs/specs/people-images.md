@@ -397,10 +397,11 @@ owner-gated throughout — there is no access-model change to sequence around.
 
 ---
 
-## F25.26–28 — Person-page polish (follow-ups)
+## F25.26–29 — Person-page polish (follow-ups)
 
-Post-F25 refinements to the person hero and people list. No data-model or access change — UI only,
-tokens-only, all on the existing `.portrait-frame` seam (ADR-038). Design handoff +
+Post-F25 refinements to the person hero and people list (F25.26–28 are UI-only, tokens-only, on the
+existing `.portrait-frame` seam — ADR-038; F25.29 adds a list-payload field + an enrichment-ingest
+policy, no access change). Design handoff +
 QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) ·
 [`person-page-polish-qa-checklist.md`](../design/person-page-polish-qa-checklist.md).
 
@@ -417,3 +418,17 @@ QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) �
 - **F25.28 — People-list scroll restoration.** Returning from a person detail page to `/people` restores
   the prior scroll position (module-scoped, sort-keyed, one-shot cache — the ADR-032 browse pattern
   applied to the people list). New module `web/src/lib/peopleScroll.svelte.ts`.
+- **F25.29 — Post-enrichment image freshness.** Two QA fixes so newly-enriched people read correctly
+  without a manual refresh:
+  - **List headshot cache-bust.** The people-list avatar URL carried no `?v=`, so the browser's
+    `immutable` cache (and the 5-min placeholder cache) kept showing the stale image after enrichment.
+    `GET /api/v1/people` now returns `headshot_version` per person (the headshot image id; `0`/absent =
+    none), and the list avatar passes it as the `?v=` cache-buster — so the URL changes when the headshot
+    does and the browser fetches fresh on Back. Mirrors the detail page, which already versioned its
+    avatar. (`model.Person.HeadshotVersion`, a people-specific `ListPeople` subquery, `Person.headshot_version`.)
+  - **Auto-seed the poster from the headshot.** Provider profiles (e.g. TMDB) are 2:3 portraits — a
+    natural poster — but enrichment only filled the headshot, leaving posters empty and video-credit
+    surfaces drab. Enrichment now seeds the poster from the **already-fetched** headshot bytes (no extra
+    download) when the run filled a headshot but **no** poster and the poster slot is empty. Never
+    overwrites an existing owner/provider poster; like other core roles it refills on re-enrich (core
+    deletes don't suppress — ADR-043 F25.25). (`enrich.downloadAssets`, `ImageSink.StoreAssetIfAbsent`.)

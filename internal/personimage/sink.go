@@ -2,6 +2,7 @@ package personimage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"holodex/internal/model"
@@ -14,6 +15,9 @@ type imageRepo interface {
 	InsertPersonImage(ctx context.Context, in repo.PersonImageInsert) (int64, error)
 	DeletePersonImage(ctx context.Context, personID, imageID int64) error
 	SuppressedPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// CorePersonImage returns the filled core-role image, or repo.ErrNotFound when the
+	// slot is empty — used by StoreAssetIfAbsent to avoid clobbering.
+	CorePersonImage(ctx context.Context, personID int64, role string) (model.PersonImage, error)
 }
 
 // Sink stores enrichment-downloaded image bytes as person images (F25, ADR-038),
@@ -62,6 +66,20 @@ func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, e
 		return fmt.Errorf("store asset: %w", err)
 	}
 	return nil
+}
+
+// StoreAssetIfAbsent stores the asset under a core role only when that slot is empty,
+// so enrichment can seed a poster from the headshot portrait (F25.29) without
+// clobbering an existing owner- or provider-set image. A filled slot is left untouched.
+func (s *Sink) StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+	switch _, err := s.repo.CorePersonImage(ctx, personID, role); {
+	case err == nil:
+		return nil // slot already filled — leave it
+	case errors.Is(err, repo.ErrNotFound):
+		return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw)
+	default:
+		return fmt.Errorf("check core slot: %w", err)
+	}
 }
 
 // SuppressedAssetURLs returns the asset URLs the owner has deleted for this person,

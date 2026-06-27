@@ -199,7 +199,13 @@
 								checked={selectedIds.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
+							<PersonAvatar
+								personId={p.id}
+								name={p.name}
+								version={p.headshot_version}
+								size="sm"
+								eager={i < 6}
+							/>
 							<span class="flex-1 truncate">{p.name}</span>
 							<span class="text-xs text-muted">{p.video_count}</span>
 						</label>
@@ -208,7 +214,13 @@
 							href={`/people/${p.id}`}
 							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 						>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
+							<PersonAvatar
+								personId={p.id}
+								name={p.name}
+								version={p.headshot_version}
+								size="sm"
+								eager={i < 6}
+							/>
 							<span class="flex-1 truncate">{p.name}</span>
 							<span class="text-xs text-muted">{p.video_count}</span>
 						</a>

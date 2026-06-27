@@ -47,6 +47,10 @@ type ImageSink interface {
 	// given role for a person, recording provenance (provider + externalID) and the
 	// upstream asset URL (for delete-suppression, F25/ADR-043).
 	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
+	// (no-op otherwise), so a poster can be seeded from the headshot portrait without
+	// clobbering an existing owner/provider image (F25.29).
+	StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
 	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
 	// re-enrich skips re-adding them (F25, ADR-043).
 	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
@@ -234,6 +238,10 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
+	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
+	// it after the loop (F25.29) — provider profiles are 2:3, a natural poster.
+	var headshotRaw []byte
+	var headshotURL string
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
 		if !ok || done[role] {
@@ -255,10 +263,23 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			}
 			continue
 		}
+		if role == model.PersonImageHeadshot {
+			headshotRaw, headshotURL = raw, a.URL
+		}
 		if model.CorePersonImageRole(role) {
 			done[role] = true // core slots are single-occupancy; first success wins
 		}
 		// extra/gallery: don't mark done — allow additional items up to the cap
+	}
+	// Seed a poster from the headshot portrait when this run filled a headshot but no
+	// poster (F25.29) — the same image reused with no extra download, so people read
+	// richly on video-credit surfaces. Only fills an EMPTY slot; never overwrites an
+	// existing owner/provider poster. Like other core roles it refills on re-enrich
+	// (core deletes don't suppress, ADR-043 F25.25). Best-effort.
+	if headshotRaw != nil && !done[model.PersonImagePoster] {
+		if err := s.images.StoreAssetIfAbsent(ctx, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
+			s.log.Warn("poster seed from headshot failed", "provider", provider, "person", entityID, "err", err)
+		}
 	}
 }
 

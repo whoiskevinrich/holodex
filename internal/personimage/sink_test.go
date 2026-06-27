@@ -18,6 +18,7 @@ type fakeImageRepo struct {
 	inserts    []repo.PersonImageInsert
 	deletes    []int64
 	suppressed map[string]struct{}
+	core       map[string]bool // core roles reported as already filled
 	nextID     int64
 }
 
@@ -34,6 +35,13 @@ func (f *fakeImageRepo) DeletePersonImage(_ context.Context, _ int64, imageID in
 
 func (f *fakeImageRepo) SuppressedPersonImageURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
 	return f.suppressed, nil
+}
+
+func (f *fakeImageRepo) CorePersonImage(_ context.Context, _ int64, role string) (model.PersonImage, error) {
+	if f.core[role] {
+		return model.PersonImage{Role: role}, nil
+	}
+	return model.PersonImage{}, repo.ErrNotFound
 }
 
 func TestSinkStoreAssetNormalizes(t *testing.T) {
