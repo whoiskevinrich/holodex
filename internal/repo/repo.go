@@ -291,6 +291,10 @@ type VideoFilter struct {
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
+	// Seed parameterizes the "random" sort's deterministic shuffle (ADR-045): a
+	// fixed seed makes holo_shuffle(id, seed) a stable order, so LIMIT/OFFSET
+	// pages tile without duplicate or skipped rows. Ignored unless Sort=="random".
+	Seed int64
 }
 
 // MappedFilter matches videos carrying a metadata row whose source_key is one of
@@ -301,26 +305,31 @@ type MappedFilter struct {
 }
 
 // orderBy maps the sort key to a safe ORDER BY clause (whitelist — the key is
-// never interpolated). The id tiebreaker keeps pagination stable. "Resolution"
-// sorts by width, consistent with the width-based resolution buckets (ADR-012).
-func (f VideoFilter) orderBy() string {
+// never interpolated) plus any bound args the clause needs. The id tiebreaker
+// keeps pagination stable. "Resolution" sorts by width, consistent with the
+// width-based resolution buckets (ADR-012). "random" orders by the deterministic
+// holo_shuffle(id, seed) function (ADR-045) with the seed as a bound parameter, so
+// one seed yields a single shuffle that tiles across LIMIT/OFFSET pages.
+func (f VideoFilter) orderBy() (string, []any) {
 	switch f.Sort {
 	case "title_asc":
-		return "v.title COLLATE NOCASE ASC, v.id ASC"
+		return "v.title COLLATE NOCASE ASC, v.id ASC", nil
 	case "title_desc":
-		return "v.title COLLATE NOCASE DESC, v.id DESC"
+		return "v.title COLLATE NOCASE DESC, v.id DESC", nil
 	case "added_asc":
-		return "v.indexed_at ASC, v.id ASC"
+		return "v.indexed_at ASC, v.id ASC", nil
 	case "duration_desc":
-		return "v.duration_sec DESC, v.id DESC"
+		return "v.duration_sec DESC, v.id DESC", nil
 	case "duration_asc":
-		return "v.duration_sec ASC, v.id ASC"
+		return "v.duration_sec ASC, v.id ASC", nil
 	case "resolution_desc":
-		return "v.width DESC, v.height DESC, v.id DESC"
+		return "v.width DESC, v.height DESC, v.id DESC", nil
 	case "resolution_asc":
-		return "v.width ASC, v.height ASC, v.id ASC"
+		return "v.width ASC, v.height ASC, v.id ASC", nil
+	case "random":
+		return "holo_shuffle(v.id, ?), v.id ASC", []any{f.Seed}
 	default: // "added_desc" and anything unrecognized
-		return "v.indexed_at DESC, v.id DESC"
+		return "v.indexed_at DESC, v.id DESC", nil
 	}
 }
 
@@ -340,12 +349,19 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if limit <= 0 {
 		limit = 50
 	}
+	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
 	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v ` + where +
-		` ORDER BY ` + f.orderBy() + ` LIMIT ? OFFSET ?`
-	rows, err := r.db.QueryContext(ctx, q, append(args, limit, f.Offset)...)
+		` ORDER BY ` + orderClause + ` LIMIT ? OFFSET ?`
+	// Order args (the random seed) sit between the WHERE args and LIMIT/OFFSET,
+	// matching the clause position. Build a fresh slice so args isn't mutated.
+	qArgs := make([]any, 0, len(args)+len(orderArgs)+2)
+	qArgs = append(qArgs, args...)
+	qArgs = append(qArgs, orderArgs...)
+	qArgs = append(qArgs, limit, f.Offset)
+	rows, err := r.db.QueryContext(ctx, q, qArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list videos: %w", err)
 	}
