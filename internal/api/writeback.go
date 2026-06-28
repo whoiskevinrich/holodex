@@ -9,6 +9,7 @@ import (
 
 	"holodex/internal/enrich"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // WriteBatchFunc is the file-write contract injected into Handlers (F28, ADR-041).
@@ -19,6 +20,11 @@ type WriteBatchFunc func(ctx context.Context, path string, fields []writeback.Fi
 // SetWriteback wires the file-write function (F28, ADR-041). A nil fn disables
 // the writeback endpoint (503). Called once at startup before serving.
 func (h *Handlers) SetWriteback(fn WriteBatchFunc) { h.writeback = fn }
+
+// SetWriteQueue wires the durable batch-write queue (F30, ADR-048). When set, the
+// writeback endpoint enqueues (202) instead of writing synchronously. Nil keeps the
+// legacy synchronous behavior (204). Called once at startup before serving.
+func (h *Handlers) SetWriteQueue(q *writequeue.Queue) { h.writeQueue = q }
 
 // mountWriteback registers the owner-gated writeback endpoint. Mounted inside
 // the requireOwner group set up in Mount.
@@ -34,7 +40,7 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 // has no mapping for the file's container a 422 is returned listing the
 // unmappable fields. On success one audit row per field is inserted.
 func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
-	if h.writeback == nil {
+	if h.writeback == nil && h.writeQueue == nil {
 		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
 		return
 	}
@@ -62,6 +68,41 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	v, _, err := h.repo.GetVideo(r.Context(), id)
 	if err != nil {
 		h.videoLookupError(w, err)
+		return
+	}
+
+	// Queued path (F30, ADR-048): when the durable queue is wired, sanitize and
+	// enqueue one batch job (202). Tag-name resolution + the actual write happen in
+	// the worker so the request returns immediately and writes are throttled.
+	if h.writeQueue != nil {
+		jobFields := make([]writequeue.JobField, 0, len(body.Fields))
+		for _, f := range body.Fields {
+			if f.Field == "" || len(f.Values) == 0 {
+				writeError(w, http.StatusBadRequest, "each field entry requires field and values")
+				return
+			}
+			cleaned := make([]string, 0, len(f.Values))
+			for _, val := range f.Values {
+				if s := enrich.SanitizeValue(val); s != "" {
+					cleaned = append(cleaned, s)
+				}
+			}
+			if len(cleaned) == 0 {
+				continue
+			}
+			jobFields = append(jobFields, writequeue.JobField{Field: f.Field, Values: cleaned, Source: f.Source})
+		}
+		if len(jobFields) == 0 {
+			writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
+			return
+		}
+		jobID, enqErr := h.writeQueue.Enqueue(r.Context(), id, jobFields)
+		if enqErr != nil {
+			h.fail(w, "enqueue writeback", enqErr)
+			return
+		}
+		depth, _ := h.writeQueue.Depth(r.Context())
+		writeJSON(w, http.StatusAccepted, map[string]any{"job_id": jobID, "queued": depth})
 		return
 	}
 

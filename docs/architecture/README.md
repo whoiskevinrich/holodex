@@ -49,6 +49,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [044](ADR-044-automated-version-and-release-pr.md) | Release versioning — **Release Please** release-PR + PAT-driven tag in front of unchanged `release.yml` | Accepted (extends ADR-024/034/035; revisits ADR-034's "no release-please") |
 | [045](ADR-045-seeded-random-ordering.md) | Seeded random ordering — **deterministic `holo_shuffle(id, seed)` SQL function** for paginated Media + named-sort enum for People/Tags | Proposed (spec sort-persistence SP2/SP3; extends ADR-006/003/017; relates ADR-031) |
 | [046](ADR-046-owner-session-persistence.md) | Owner session persistence — **HttpOnly signed token-exchange cookie** (`POST /session`), gate accepts cookie-or-header | Proposed (spec owner-session-persistence; amends ADR-030's "in-memory only" condition) |
+| [048](ADR-048-metadata-curation-and-write-queue.md) | Granular metadata curation — **cross-source dedup merge + `manual` source/tombstones** + **durable bounded-concurrency batch-writeback queue** | Proposed (spec F30; generalizes ADR-013; extends ADR-033/041/028/030; partially realizes ADR-041 Option C) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
