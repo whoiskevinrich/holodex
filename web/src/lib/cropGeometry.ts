@@ -1,6 +1,34 @@
 // Crop geometry for the promote-with-crop editor (F25.15). Pure math, extracted from
 // the component so it can be unit-tested without a DOM/canvas.
 
+import type { CoreRole } from './types';
+
+// SINGLE SOURCE OF TRUTH for core-role aspect ratios. These MUST stay in sync with the
+// `.portrait-frame--*` (display) and `.crop-frame--*` (preview) `aspect-ratio` rules in
+// app.css — the crop preview frame, the rendered display frame, and the stored output all
+// share one ratio so the crop is WYSIWYG (no anamorphic stretch, no extra cover-crop).
+// Changing a ratio here means updating the matching CSS frame (and vice-versa); the dev
+// assertion in CropEditor flags drift between this map and the live frame.
+export const CORE_ROLE_ASPECT: Record<CoreRole, readonly [number, number]> = {
+	headshot: [1, 1],
+	banner: [5, 2],
+	poster: [2, 3]
+};
+
+// Shorter edge (px) of a rendered crop. The longer edge is derived from the role's aspect,
+// so output dimensions can never drift from the frame ratio.
+const CROP_SHORT_EDGE = 600;
+
+// cropTargetSize returns the output canvas [width, height] for a role, derived from its
+// aspect ratio with the shorter edge fixed at CROP_SHORT_EDGE (headshot 600×600,
+// banner 1500×600, poster 600×900).
+export function cropTargetSize(role: CoreRole): [number, number] {
+	const [aw, ah] = CORE_ROLE_ASPECT[role];
+	return aw >= ah
+		? [Math.round((CROP_SHORT_EDGE * aw) / ah), CROP_SHORT_EDGE]
+		: [CROP_SHORT_EDGE, Math.round((CROP_SHORT_EDGE * ah) / aw)];
+}
+
 export interface CropInput {
 	fw: number; // frame content width (the crop viewport)
 	fh: number; // frame content height

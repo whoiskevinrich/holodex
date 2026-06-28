@@ -59,6 +59,10 @@
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.isOwner);
+	// Banner renders only when a real one is set — for everyone, including the owner
+	// (F25.30). Not every person has a banner-sized image; an empty 5:2 placeholder band
+	// would dominate the page with generic art. Mirrors the poster rule (F25.27).
+	const hasBanner = $derived(images.roles.banner?.present ?? false);
 	// v1 enriches People from the first person-capable provider.
 	const provider = $derived(sources.find((s) => s.entity_types.includes('person'))?.name ?? '');
 	const enrichedByProvider = $derived(provider && enriched.some((f) => f.provider === provider));
@@ -193,7 +197,11 @@
 		imageError = '';
 		try {
 			await api.uploadPersonImage(id, file, uploadRole);
-			load(id); // refresh so the new ?v= stamp busts the cache everywhere
+			// Refresh just the image set — the new ?v= stamp busts the cache for the
+			// uploaded role — without flashing the whole page through the AsyncState
+			// loading view (a full load() would). Awaited so the busy label holds until
+			// the new image is in hand, giving a clean swap (e.g. add-banner → banner).
+			await reloadImages();
 		} catch (err) {
 			imageError = toMessage(err);
 		} finally {
@@ -246,9 +254,25 @@
 			     an empty poster slot would just duplicate the headshot's placeholder. Owners set a
 			     missing poster from the gallery below (promote-with-crop). -->
 			<div class="relative">
-				<PersonBanner personId={id} name={person?.name ?? ''} version={roleVersion('banner')} eager />
-				{@render editBtn('banner', 'right-2 top-2')}
-				<div class="-mt-10 flex items-end gap-3 pl-3 sm:-mt-12">
+				{#if hasBanner}
+					<PersonBanner personId={id} name={person?.name ?? ''} version={roleVersion('banner')} eager />
+					{@render editBtn('banner', 'right-2 top-2')}
+				{:else if isOwner}
+					<!-- No banner set: the owner gets an explicit add path here, since the band was the
+					     only entry point for setting one. Visitors see nothing — the row below sits flush
+					     at the top with no overhang. Reuses the core-slot upload (F25.30). -->
+					<button
+						onclick={() => pickCore('banner')}
+						disabled={uploadBusy === 'banner'}
+						title="Add banner"
+						class="flex w-full items-center justify-center gap-2 rounded-theme border border-dashed border-rule bg-surface px-3 py-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-60"
+					>
+						{uploadBusy === 'banner' ? 'Adding…' : '+ Add banner'}
+					</button>
+				{/if}
+				<!-- The headshot+name row overhangs the banner only when there is one; with no band it
+				     sits flush (a small gap below the owner's add-banner control). (F25.30) -->
+				<div class="flex items-end gap-3 pl-3 {hasBanner ? '-mt-10 sm:-mt-12' : isOwner ? 'mt-3' : ''}">
 					<div class="relative shrink-0">
 						<PersonImageFrame
 							personId={id}

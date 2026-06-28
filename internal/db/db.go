@@ -26,6 +26,12 @@ func Open(path string) (*sql.DB, error) {
 		}
 	}
 
+	// Register holo_shuffle() (ADR-045) before opening — it must exist for the
+	// connection the pool creates so the "Random" media sort can order by it.
+	if err := registerShuffle(); err != nil {
+		return nil, fmt.Errorf("register holo_shuffle: %w", err)
+	}
+
 	dsn := "file:" + path + "?" + url.Values{
 		"_pragma": []string{
 			"journal_mode(WAL)",
