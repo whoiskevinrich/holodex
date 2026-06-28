@@ -19,6 +19,7 @@ import type {
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	RefreshReport,
 	RelatedResponse,
 	SearchResponse,
 	Tag,
@@ -285,6 +286,11 @@ export const api = {
 
 	enrichVideoClear: (videoId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/enrich/${encodeURIComponent(provider)}`),
+
+	// Per-item metadata refresh (F31, ADR-047) — forced file re-extract + re-enrich
+	// of the item's linked providers. Owner-gated; returns the combined report.
+	refreshMedia: (videoId: number) =>
+		sendAuthed<RefreshReport>('POST', `/media/${videoId}/refresh`),
 
 	// Person aliases & merge (F23, ADR-036). All owner-gated.
 	//

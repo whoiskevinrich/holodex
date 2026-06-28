@@ -20,8 +20,11 @@ package refresh
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
+	"time"
 
 	"holodex/internal/enrich"
 	"holodex/internal/model"
@@ -43,6 +46,9 @@ type Store interface {
 	RefreshTarget(ctx context.Context, id int64) (path string, err error)
 	GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error)
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
+	// RecordJobRun appends one combined refresh row to the activity history
+	// (F31.6). Best-effort — a recording failure never fails the refresh.
+	RecordJobRun(ctx context.Context, run model.JobRun) error
 }
 
 // Enricher re-runs an entity's linked providers (F31.3) without recording its own
@@ -100,9 +106,21 @@ type Report struct {
 func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
 	path, err := s.store.RefreshTarget(ctx, id)
 	if err != nil {
-		return Report{}, err // ErrNotFound / ErrDeleted propagate to the handler
+		// ErrNotFound / ErrDeleted: a rejected request (404/409), not a run — not
+		// recorded in the activity history.
+		return Report{}, err
 	}
+	started := time.Now()
+	report, runErr := s.run(ctx, id, path)
+	s.record(started, report, runErr)
+	return report, runErr
+}
 
+// run does the refresh work and returns the report; Refresh wraps it with
+// activity recording. The file commit precedes every provider call, so a provider
+// failure is isolated and never undoes the file sync; a file-read failure aborts
+// before any write.
+func (s *Service) run(ctx context.Context, id int64, path string) (Report, error) {
 	// Old snapshot for change detection — best effort; a read failure just means
 	// we report the file as changed (we can't prove it wasn't).
 	oldV, oldExtra, _ := s.store.GetVideo(ctx, id)
@@ -110,12 +128,12 @@ func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
 	// plan (read): force re-extract. A file error aborts before any write.
 	newV, newExtra, err := s.ext.BuildVideoFromFile(ctx, path)
 	if err != nil {
-		return Report{}, err
+		return Report{VideoID: id}, err
 	}
 
 	// apply (write): file layer first, so it lands regardless of provider outcome.
 	if _, err := s.store.UpsertVideo(ctx, newV, newExtra); err != nil {
-		return Report{}, err
+		return Report{VideoID: id}, err
 	}
 
 	report := Report{VideoID: id}
@@ -133,6 +151,69 @@ func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
 		}
 	}
 	return report, nil
+}
+
+// record appends one combined refresh row to the activity history (F31.6,
+// ADR-047). Best-effort on a detached context (like the enrich/scanner recorders)
+// so a failed/cancelled refresh — the case history most needs — still records. The
+// detail carries the item id and per-source outcome only: no filesystem path, env
+// value, or token (the ADR-028 no-secrets invariant).
+func (s *Service) record(started time.Time, report Report, runErr error) {
+	now := time.Now()
+	run := model.JobRun{
+		Kind:       model.JobKindRefresh,
+		Trigger:    model.TriggerManual,
+		Status:     model.JobStatusOK,
+		StartedAt:  started,
+		FinishedAt: now,
+		DurationMs: now.Sub(started).Milliseconds(),
+	}
+	switch {
+	case runErr != nil:
+		run.Status = model.JobStatusErr
+		run.Errors = 1
+		run.Detail = fmt.Sprintf("#%d — file failed", report.VideoID)
+		run.ErrorMessage = "refresh failed"
+	default:
+		run.Detail = refreshDetail(report)
+		failed := 0
+		for _, sr := range report.Sources {
+			if !sr.OK {
+				failed++
+			}
+		}
+		if failed > 0 {
+			run.Status = model.JobStatusErr
+			run.Errors = failed
+			run.ErrorMessage = "one or more providers failed"
+		}
+	}
+	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.store.RecordJobRun(recCtx, run); err != nil {
+		s.warn("refresh: record job run", "err", err)
+	}
+}
+
+// refreshDetail renders a no-secrets one-line summary for the activity row, e.g.
+// "#42 — file changed; tmdb updated; imdb failed".
+func refreshDetail(r Report) string {
+	parts := make([]string, 0, len(r.Sources))
+	for _, sr := range r.Sources {
+		switch {
+		case sr.Source == "file":
+			if sr.Changed {
+				parts = append(parts, "file changed")
+			} else {
+				parts = append(parts, "file unchanged")
+			}
+		case sr.OK:
+			parts = append(parts, sr.Source+" updated")
+		default:
+			parts = append(parts, sr.Source+" failed")
+		}
+	}
+	return fmt.Sprintf("#%d — %s", r.VideoID, strings.Join(parts, "; "))
 }
 
 // reEnrichLinked re-fetches every provider the item is matched to, isolating each

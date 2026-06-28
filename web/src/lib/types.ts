@@ -292,6 +292,23 @@ export interface EnrichedField {
 	fetched_at?: string;
 }
 
+// Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted
+// source (file first, then each linked provider). sources_disagree is reserved
+// (populated by the future batch op, F31.11); single-item it is false.
+export interface RefreshSourceResult {
+	source: string; // "file" or the provider name
+	ok: boolean;
+	changed: boolean;
+	error?: string;
+}
+
+export interface RefreshReport {
+	video_id: number;
+	sources: RefreshSourceResult[];
+	changed: boolean;
+	sources_disagree: boolean;
+}
+
 export interface PersonDetailResponse {
 	person: Person;
 	items: Video[];

@@ -3,6 +3,7 @@ package refresh_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"holodex/internal/enrich"
@@ -35,6 +36,7 @@ type fakeStore struct {
 	oldExtra  []model.ExtraMetadata
 	upserts   int
 	gotVideo  *model.Video
+	recorded  []model.JobRun
 }
 
 func (f *fakeStore) RefreshTarget(_ context.Context, _ int64) (string, error) {
@@ -55,6 +57,11 @@ func (f *fakeStore) UpsertVideo(_ context.Context, v *model.Video, _ []model.Ext
 	f.upserts++
 	f.gotVideo = v
 	return 7, nil
+}
+
+func (f *fakeStore) RecordJobRun(_ context.Context, run model.JobRun) error {
+	f.recorded = append(f.recorded, run)
+	return nil
 }
 
 type fakeEnricher struct {
@@ -152,7 +159,38 @@ func TestRefreshResolveErrorsDoNotExtractOrPersist(t *testing.T) {
 			if ext.calls != 0 || store.upserts != 0 {
 				t.Fatalf("resolve error must short-circuit: extract=%d upsert=%d", ext.calls, store.upserts)
 			}
+			if len(store.recorded) != 0 {
+				t.Fatalf("a rejected request (404/409) is not a recorded run: %+v", store.recorded)
+			}
 		})
+	}
+}
+
+// Every refresh records exactly one combined job_runs row (kind=refresh), with a
+// partial-failure marked as an error and the item referenced as #id (no path).
+func TestRefreshRecordsOneCombinedJobRun(t *testing.T) {
+	ext := &fakeExt{v: &model.Video{FilePath: "/m/r.mp4", Title: "New"}}
+	store := &fakeStore{path: "/m/r.mp4", old: &model.Video{FilePath: "/m/r.mp4", Title: "Old"}}
+	enr := &fakeEnricher{
+		matches: []enrich.Match{{Provider: "tmdb", ExternalID: "1"}},
+		reErr:   map[string]error{"tmdb": errors.New("down")},
+	}
+
+	if _, err := refresh.NewService(ext, store, enr, nil).Refresh(context.Background(), 42); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if len(store.recorded) != 1 {
+		t.Fatalf("want exactly one job row, got %d", len(store.recorded))
+	}
+	run := store.recorded[0]
+	if run.Kind != model.JobKindRefresh || run.Trigger != model.TriggerManual {
+		t.Fatalf("kind/trigger = %q/%q", run.Kind, run.Trigger)
+	}
+	if run.Status != model.JobStatusErr || run.Errors != 1 {
+		t.Fatalf("a failed provider should mark the row errored: %+v", run)
+	}
+	if !strings.Contains(run.Detail, "#42") || strings.Contains(run.Detail, "/m/") {
+		t.Fatalf("detail must reference #id and carry no path: %q", run.Detail)
 	}
 }
 
