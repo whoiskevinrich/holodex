@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { cropAffine } from './cropGeometry';
+import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from './cropGeometry';
+import { CORE_ROLES } from './types';
+
+describe('cropTargetSize', () => {
+	it('derives output dimensions from each role aspect (short edge fixed)', () => {
+		expect(cropTargetSize('headshot')).toEqual([600, 600]);
+		expect(cropTargetSize('banner')).toEqual([1500, 600]);
+		expect(cropTargetSize('poster')).toEqual([600, 900]);
+	});
+
+	it('output ratio always equals the role aspect (no drift from the source of truth)', () => {
+		for (const role of CORE_ROLES) {
+			const [w, h] = cropTargetSize(role);
+			const [aw, ah] = CORE_ROLE_ASPECT[role];
+			expect(w / h).toBeCloseTo(aw / ah, 5);
+		}
+	});
+});
 
 describe('cropAffine', () => {
 	it('maps a square image filling a square frame to fill the canvas (no crop)', () => {
@@ -21,6 +38,18 @@ describe('cropAffine', () => {
 		expect(a.ex).toBe(600);
 		expect(a.ex + 100 * a.ax).toBe(900);
 		expect(a.fy).toBe(0);
+	});
+
+	it('uses a uniform scale only when the canvas aspect matches the frame aspect', () => {
+		// Regression for the banner crop bug: the crop preview frame is 5:2 but the output
+		// canvas was 5:1 (1500×300), so x was scaled 2× more than y — the stored JPEG came
+		// out anamorphically stretched and displayed at the wrong scale. A 5:2 frame must be
+		// paired with a 5:2 canvas (1500×600) so ax === ay (no distortion).
+		const frame = { fw: 500, fh: 200, nw: 100, nh: 100, zoom: 1, offsetX: 0, offsetY: 0 }; // 5:2 frame
+		const good = cropAffine({ ...frame, cw: 1500, ch: 600 }); // 5:2 canvas — matches
+		expect(good.ax).toBe(good.ay);
+		const bad = cropAffine({ ...frame, cw: 1500, ch: 300 }); // 5:1 canvas — the old bug
+		expect(bad.ax).not.toBe(bad.ay);
 	});
 
 	it('zoom scales about the frame centre (a centred point stays centred)', () => {
