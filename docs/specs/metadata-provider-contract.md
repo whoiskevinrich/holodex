@@ -137,6 +137,7 @@ provider loudly.
 | `id_namespaces` | string[] | yes | The external-ID namespaces you understand (see [§4.1](#41-external-ids-and-namespaces)). Usually `["<name>"]`; include more if you can resolve foreign IDs (e.g. an `imdb` id) |
 | `fields` | string[] | yes | The canonical **text** field keys you can supply (see [§4.2](#42-canonical-fields)). **Do not list `photo` here** — a portrait is an *asset*, not a field; advertise it in `asset_kinds` |
 | `asset_kinds` | string[] | optional | The binary asset kinds you can supply (see [§4.3](#43-assets)). v1 person kinds: `"photo"`, `"banner"`, `"poster"`. Omit if you supply no assets. **Backward compat:** a provider may instead still list `photo` in `fields` during the deprecation window — Holodex treats that as `asset_kinds: ["photo"]` — but new providers SHOULD use `asset_kinds` |
+| `credits` | boolean | optional | `true` when a `video`/`media` enrich response can include the structured **`people`** array (per-cast/crew person references + headshots — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit/`false` for flat `actors`/`director` text only. Additive — does not change the `person` entity contract |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -219,6 +220,7 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 | `assets` | array | optional | Binary assets (e.g. a portrait). **Omit when empty** — never send `[]` (mirrors the `fields` omit rule). Preference-ordered, most-preferred first within a kind. Full rules in [§4.3](#43-assets) |
 | `assets[].kind` | string | yes (if asset present) | Asset kind, from the v1 enum: `"photo"` (portrait), `"banner"` (16:9), `"poster"` (2:3). Unknown kinds are **ignored** by Holodex (forward-compat) — see [§4.3](#43-assets) |
 | `assets[].url` | string | yes (if asset present) | Absolute, directly-fetchable URL to the image (see [§4.3](#43-assets) for the scheme/host/credential rules) |
+| `people` | array | optional | **`video`/`media` only** — structured cast/crew with optional per-person headshots, enabling Holodex to create/link real Person records (additive; see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit for `person` enrichment or when returning flat `actors`/`director` text |
 
 **Asset note (load-bearing).** Holodex **downloads** `assets` during the owner's enrich
 action (the asset-storage follow-up has shipped — [ADR-038](../architecture/ADR-038-person-images.md)/[ADR-039](../architecture/ADR-039-provider-asset-urls.md)). It fetches each asset URL through the **same SSRF
@@ -398,6 +400,50 @@ serves its own copy. Stay inside these so nothing is rejected or silently altere
   retry, then return a non-2xx so Holodex fails the single call cleanly rather than hanging.
 - Any caching of upstream responses is internal to the provider and must not be required for
   correctness (the container stays stateless w.r.t. Holodex).
+
+### 4.5 Video credits — per-person cast/crew with headshots
+
+> **Status: additive extension** for `video`/`media` enrichment (Holodex F30 "populate",
+> [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)). **Backward
+> compatible:** a provider may keep returning cast/crew as flat text in `fields` (`actors`,
+> `director`); Holodex still consumes those. The structured `people` array below is the
+> richer, **opt-in** shape that lets Holodex create/link real **Person** records and download
+> their **headshots**. Advertise support with `"credits": true` in `/describe`
+> ([§2.2](#22-get-describe--capability-manifest)).
+
+A `video`/`media` `/enrich` response MAY include a top-level **`people`** array alongside
+`fields` and `assets`. Each entry is one cast or crew member:
+
+```json
+{
+  "fields": { "title": ["Dune"], "genres": ["Science Fiction", "Adventure"] },
+  "people": [
+    { "name": "Timothée Chalamet", "role": "actor", "external_id": "tmdb:1190668",
+      "order": 0, "headshot": { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/x.jpg" } },
+    { "name": "Denis Villeneuve", "role": "director", "external_id": "tmdb:137427" }
+  ]
+}
+```
+
+| Key | Type | Required | Notes |
+|---|---|---|---|
+| `people[].name` | string | yes | Display name. Holodex sanitizes (strips control chars, caps 4096) — it is the match key when `external_id` is absent |
+| `people[].role` | string | yes | Credit role. v1 enum: `"actor"`, `"director"`, `"writer"`, `"producer"`, `"composer"`, `"crew"`. An **unknown role is stored generically** (never dropped) — forward-compatible |
+| `people[].external_id` | string | optional | Namespace-qualified id (`<namespace>:<id>`, [§4.1](#41-external-ids-and-namespaces)). When present it is the **stable, deterministic** link Holodex stores; the same person across films de-duplicates to one record. Omit only if your source has no stable id |
+| `people[].order` | integer | optional | Billing order within a role (0 = top-billed) for display ordering. Holodex caps the list |
+| `people[].headshot` | object | optional | A single **asset object** ([§4.3](#43-assets)) — `{ "kind": "photo", "url": "…" }` — for that person's portrait. Subject to **all** the [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules: allowlisted host (your `base_url` host or an operator `asset_hosts` entry), `https` cross-host, no credentials in the URL, raster JPEG/PNG/GIF, ≤16 MiB, ≤4096 px. Omit when you have none |
+
+**How Holodex consumes it.** On the owner's video enrich, Holodex (a) resolve-or-creates a
+Person per entry — keyed by `external_id` when given, else by normalized `name` — and links it
+to the video with its `role`; (b) downloads each `headshot` through the **same SSRF perimeter**
+as every other asset ([§4.3](#43-assets)) and stores it as that person's headshot. The flat
+`fields.actors`/`fields.director` text remains the fallback for providers that don't emit
+`people`, so emitting both is harmless (Holodex prefers `people` when present).
+
+**Caps & degradation.** Holodex caps `people` (≈50 entries) and applies the per-value caps in
+[§5](#5-non-functional-requirements) to `name`. If a response nears the 1 MiB body cap, shed
+`people[].headshot` URLs before `fields` (a headshot is recoverable on a later enrich; canonical
+text is not) — same precedence as `assets` in [§4.3](#43-assets).
 
 ---
 
