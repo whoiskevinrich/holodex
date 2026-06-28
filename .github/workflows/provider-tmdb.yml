@@ -35,6 +35,11 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
+        with:
+          # Don't cache the binfmt image: its GHA cache key is global, so concurrent
+          # workflows (e.g. image.yml) race to save it and emit a benign but noisy
+          # "Unable to reserve cache" warning. The image is tiny and re-pulled fast.
+          cache-image: false
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
