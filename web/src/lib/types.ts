@@ -294,6 +294,7 @@ export interface PersonDetailResponse {
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045).
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
@@ -302,7 +303,14 @@ export type SortOrder =
 	| 'duration_desc'
 	| 'duration_asc'
 	| 'resolution_desc'
-	| 'resolution_asc';
+	| 'resolution_asc'
+	| 'random';
+
+// Sort options for the unpaged People/Tags indexes — the single source of truth for
+// both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
+// seeded shuffle of the name-ordered list (ADR-045 §3).
+export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
+export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
 
 export interface MediaFilters {
 	q?: string;
@@ -314,6 +322,10 @@ export interface MediaFilters {
 	year_min?: number;
 	year_max?: number;
 	sort?: SortOrder;
+	// seed parameterizes the "random" sort's deterministic shuffle (ADR-045); sent
+	// with the API request (paging param) but not the shareable URL. Ignored unless
+	// sort==='random'.
+	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
 	limit?: number;
 	offset?: number;
