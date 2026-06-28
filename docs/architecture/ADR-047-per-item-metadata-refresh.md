@@ -3,7 +3,7 @@
 **Status**: Proposed
 **Date**: 2026-06-28
 **Deciders**: Project owner
-**Relates to**: [ADR-004](ADR-004-metadata-extraction.md) (exiftool/ffprobe extraction), [ADR-018](ADR-018-scanner-change-detection.md) (scanner `(size, mtime)` change-detection — this forces past it), [ADR-013](ADR-013-metadata-field-mapping.md) (configurable field mapping / precedence), [ADR-033](ADR-033-metadata-source-plugins.md) (enrichment sidecars + shadow store + on-demand ethos), [ADR-028](ADR-028-activity-surface-and-job-history.md) (`job_runs` activity history), [ADR-030](ADR-030-access-control-gating-seam.md) (owner gating), [ADR-037](ADR-037-soft-delete-and-purge.md) (soft-delete / #26 reactivation guard), [ADR-041](ADR-041-metadata-writeback.md) (the complementary *write* path). Spec: [Refresh Metadata / F29](../specs/metadata-refresh.md).
+**Relates to**: [ADR-004](ADR-004-metadata-extraction.md) (exiftool/ffprobe extraction), [ADR-018](ADR-018-scanner-change-detection.md) (scanner `(size, mtime)` change-detection — this forces past it), [ADR-013](ADR-013-metadata-field-mapping.md) (configurable field mapping / precedence), [ADR-033](ADR-033-metadata-source-plugins.md) (enrichment sidecars + shadow store + on-demand ethos), [ADR-028](ADR-028-activity-surface-and-job-history.md) (`job_runs` activity history), [ADR-030](ADR-030-access-control-gating-seam.md) (owner gating), [ADR-037](ADR-037-soft-delete-and-purge.md) (soft-delete / #26 reactivation guard), [ADR-041](ADR-041-metadata-writeback.md) (the complementary *write* path). Spec: [Refresh Metadata / F31](../specs/metadata-refresh.md).
 
 ---
 
@@ -17,7 +17,7 @@ them; (2) even when mtime changes, there is no way to sync **one** file *now* sh
 pass. Separately, provider enrichment ([ADR-033](ADR-033-metadata-source-plugins.md)) is fetched once
 and has **no re-fetch UI** (the F22 re-enrich follow-up was deferred).
 
-F29 introduces a single owner action — **"Refresh metadata"** on one media item — that re-reads the
+F31 introduces a single owner action — **"Refresh metadata"** on one media item — that re-reads the
 file **and** re-pulls the providers it is matched to. This ADR decides *how* that action is built:
 its orchestration shape, the forced-extract seam, how a per-item job is recorded, its concurrency
 story, and — critically — the seams that keep a **future batch** version (with conflict resolution)
@@ -30,7 +30,7 @@ the separate, separately-gated F28 writeback ([ADR-041](ADR-041-metadata-writeba
 
 - **Forced, not opportunistic.** The headline value is catching external edits *including those that
   preserve mtime*, so refresh must re-extract **unconditionally**, bypassing the change-detection
-  fast-path. (Resolved with owner; see F29 Resolved Decisions.)
+  fast-path. (Resolved with owner; see F31 Resolved Decisions.)
 - **Non-destructive layering is load-bearing.** File-extracted and provider-enriched data are
   separate layers merged at display time by the resolver ([ADR-013](ADR-013-metadata-field-mapping.md)
   precedence, F27). Refresh must never flatten them into one stored value — this invariant is what
@@ -68,8 +68,8 @@ apply(plan)    → RefreshReport      // commit
   7. record one job_runs row (kind=refresh); return the report
 ```
 
-F29 calls `plan` then `apply` back-to-back, so the split is invisible for the single-item flow. A
-future batch (F29.11) runs `plan` across N items, interposes conflict resolution, then `apply`s —
+F31 calls `plan` then `apply` back-to-back, so the split is invisible for the single-item flow. A
+future batch (F31.11) runs `plan` across N items, interposes conflict resolution, then `apply`s —
 which is the entire reason the phases are separable. **No public `plan` endpoint** ships in v1.
 
 This is deliberately **not** a thin handler that calls two subsystems and lets each record its own
@@ -91,7 +91,7 @@ func (s *Scanner) RefreshOne(ctx context.Context, videoID int64) (FileExtractRes
 It reuses the existing pure `Extractor.Extract(ctx, path)` ([ADR-004](ADR-004-metadata-extraction.md))
 and `repo.UpsertVideo`, bypassing only the change-detection check in the normal index path. The same
 soft-delete guard the scanner already enforces applies. This seam is what a future bulk forced
-re-extract (F29.11) iterates.
+re-extract (F31.11) iterates.
 
 ### Non-destructive layering (the invariant)
 
@@ -221,7 +221,7 @@ change. Wrong granularity for a per-item action; provides no per-item report or 
 - The owner syncs one externally-edited file on demand — including silent (mtime-preserved) edits —
   without a full rescan, and re-pulls its providers in the same click (closing the deferred F22
   re-enrich gap).
-- A future **bulk forced re-extract with conflict resolution** (F29.11) layers on by driving the
+- A future **bulk forced re-extract with conflict resolution** (F31.11) layers on by driving the
   existing `plan`/`apply` seams across many items and filtering `RefreshReport`s for
   `sources_disagree` — no rework of the per-item path, because the non-destructive invariant keeps
   both raw layers intact for any policy.
@@ -235,12 +235,12 @@ change. Wrong granularity for a per-item action; provides no per-item report or 
 
 **What we will need to revisit**
 
-- **Bulk forced re-extract + conflict triage** (F29.11) — the batch driver and any throttling.
+- **Bulk forced re-extract + conflict triage** (F31.11) — the batch driver and any throttling.
 - **Per-item / per-field precedence override** — the most likely *new* store batch conflict
   resolution would add (operator pins "file wins" / "provider wins" for an item, overriding the
   global [ADR-013](ADR-013-metadata-field-mapping.md) precedence). Deliberately **not** built now;
   the non-destructive invariant is what lets it be added cleanly later.
-- **`last_refreshed_at`** (F29.9) — a per-item timestamp distinct from `indexed_at`, if staleness
+- **`last_refreshed_at`** (F31.9) — a per-item timestamp distinct from `indexed_at`, if staleness
   visibility proves useful.
 - **Thumbnail coupling** — refresh updates the cover-art flag but not the thumbnail image; if owners
   routinely run refresh then "Regenerate thumbnail" back-to-back, consider an opt-in chain.

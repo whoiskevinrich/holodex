@@ -1,6 +1,6 @@
-# Design Handoff: Refresh Metadata (per-item re-extract + re-enrich) (F29)
+# Design Handoff: Refresh Metadata (per-item re-extract + re-enrich) (F31)
 
-**Spec**: [Refresh Metadata (F29)](../specs/metadata-refresh.md) · **ADR**: [ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)
+**Spec**: [Refresh Metadata (F31)](../specs/metadata-refresh.md) · **ADR**: [ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
@@ -133,7 +133,7 @@ the matched provider (e.g. `TMDB`). No raw exception strings ever reach the line
 > **Single-item conflict display (v1 decision):** do **not** surface per-field `sources_disagree`
 > prominently. Where file and provider differ, the resolver already picks by precedence and the
 > existing **provenance chips** ("from TMDB" / "from file") show which won — that is sufficient at
-> single-item scale. Rich disagreement/triage UI is deferred to the future batch feature (F29.11), per
+> single-item scale. Rich disagreement/triage UI is deferred to the future batch feature (F31.11), per
 > the spec. Keeping v1 to one status line avoids inventing a conflict surface no one asked for yet.
 
 ---
@@ -145,7 +145,7 @@ the matched provider (e.g. `TMDB`). No raw exception strings ever reach the line
 | Refresh button | not owner | **Not rendered** (absent from DOM). |
 | Refresh button | owner, idle | Ghost `text-muted`; hover/focus → `text-accent`. |
 | Refresh button | click | Sets `refreshing = true`, clears the status line, `POST /media/{id}/refresh`. Icon spins; button `disabled`. |
-| Refresh button | in flight, second click | Ignored (button is `disabled`). Server also single-flights per item (ADR-047 / F29.7) so a stray duplicate returns "already running" and is treated as a no-op. |
+| Refresh button | in flight, second click | Ignored (button is `disabled`). Server also single-flights per item (ADR-047 / F31.7) so a stray duplicate returns "already running" and is treated as a no-op. |
 | On `202` (done) | success | Re-`getMedia(id)` → repopulate `resolved/enriched/extra/fields`; `thumbVersion += 1`; render the changed / no-change line; `refreshing = false`. |
 | On `202` (partial) | provider failed | Same refetch (file updates landed); render the `text-warn` partial line. |
 | On file error | failure | No data change; render the `text-warn` file-error line; `refreshing = false`. |
