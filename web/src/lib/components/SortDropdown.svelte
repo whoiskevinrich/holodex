@@ -1,19 +1,11 @@
 <script lang="ts">
 	import type { SortOrder } from '$lib/types';
+	import { MEDIA_SORTS } from '$lib/filters';
 
 	let { sort = $bindable() }: { sort: SortOrder } = $props();
 
-	// Label map drives the <option> list and its order (F12.1).
-	const OPTIONS: { value: SortOrder; label: string }[] = [
-		{ value: 'added_desc', label: 'Date added — newest' },
-		{ value: 'added_asc', label: 'Date added — oldest' },
-		{ value: 'title_asc', label: 'Title — A→Z' },
-		{ value: 'title_desc', label: 'Title — Z→A' },
-		{ value: 'duration_desc', label: 'Duration — longest' },
-		{ value: 'duration_asc', label: 'Duration — shortest' },
-		{ value: 'resolution_desc', label: 'Resolution — highest' },
-		{ value: 'resolution_asc', label: 'Resolution — lowest' }
-	];
+	// Options + order come from the single source of truth in filters.ts (F12.1).
+	const OPTIONS = MEDIA_SORTS;
 </script>
 
 <div>

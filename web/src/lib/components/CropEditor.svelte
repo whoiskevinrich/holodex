@@ -8,8 +8,8 @@
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';
 	import { toMessage } from '$lib/format';
-	import { cropAffine } from '$lib/cropGeometry';
-	import type { PersonImage, PersonImageRole } from '$lib/types';
+	import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from '$lib/cropGeometry';
+	import type { CoreRole, PersonImage } from '$lib/types';
 
 	let {
 		personId,
@@ -20,7 +20,7 @@
 	}: {
 		personId: number;
 		image: PersonImage;
-		role: Exclude<PersonImageRole, 'extra'>;
+		role: CoreRole;
 		onclose: () => void;
 		onpromoted: () => void;
 	} = $props();
@@ -40,14 +40,6 @@
 		api.personGalleryImageURL(personId, image.id, { version: image.version, skin: theme.current })
 	);
 
-	// Output dimensions per core role — match each role's display aspect so the stored
-	// crop needs no further cover-cropping (headshot 1:1, banner 5:1, poster 2:3).
-	const TARGET: Record<typeof role, [number, number]> = {
-		headshot: [600, 600],
-		banner: [1500, 300],
-		poster: [600, 900]
-	};
-
 	let zoom = $state(1);
 	let offsetX = $state(0);
 	let offsetY = $state(0);
@@ -64,6 +56,21 @@
 	const transform = $derived(
 		`translate(${offsetX}px, ${offsetY}px) scale(${zoom})`
 	);
+
+	// Dev guard: the live .crop-frame--{role} aspect MUST match CORE_ROLE_ASPECT (the source
+	// of truth the output is derived from). If the CSS frame ratio drifts from the map, the
+	// crop would no longer be WYSIWYG — warn loudly in dev so it's caught before shipping.
+	$effect(() => {
+		if (!import.meta.env.DEV || !frameEl) return;
+		const [aw, ah] = CORE_ROLE_ASPECT[role];
+		const expected = aw / ah;
+		const actual = frameEl.clientWidth / frameEl.clientHeight;
+		if (Math.abs(actual - expected) / expected > 0.02) {
+			console.warn(
+				`CropEditor: .crop-frame--${role} aspect ${actual.toFixed(3)} ≠ CORE_ROLE_ASPECT ${expected.toFixed(3)} — crop will not be WYSIWYG. Sync app.css with cropGeometry.ts.`
+			);
+		}
+	});
 
 	function down(e: PointerEvent) {
 		dragging = true;
@@ -101,7 +108,7 @@
 		if (!img || !frame || !img.complete || !img.naturalWidth) {
 			throw new Error('Image is still loading — try again.');
 		}
-		const [cw, ch] = TARGET[role];
+		const [cw, ch] = cropTargetSize(role);
 		const { ax, ay, ex, fy } = cropAffine({
 			fw: frame.clientWidth,
 			fh: frame.clientHeight,

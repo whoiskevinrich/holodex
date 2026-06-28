@@ -6,6 +6,24 @@ import type { MediaFilters, Resolution, SortOrder } from './types';
 // The default sort; omitted from the URL so a pristine browse view stays at `/`.
 export const DEFAULT_SORT: SortOrder = 'added_desc';
 
+// The single source of truth for the media sort options: their values, labels, and
+// order (F12.1). SortDropdown renders this; SORT_ORDERS derives the value set used
+// to validate a persisted preference (SP1) so a stale/unknown localStorage value
+// safely falls back to DEFAULT_SORT. "random" is a seeded shuffle (ADR-045).
+export const MEDIA_SORTS: readonly { value: SortOrder; label: string }[] = [
+	{ value: 'added_desc', label: 'Date added — newest' },
+	{ value: 'added_asc', label: 'Date added — oldest' },
+	{ value: 'title_asc', label: 'Title — A→Z' },
+	{ value: 'title_desc', label: 'Title — Z→A' },
+	{ value: 'duration_desc', label: 'Duration — longest' },
+	{ value: 'duration_asc', label: 'Duration — shortest' },
+	{ value: 'resolution_desc', label: 'Resolution — highest' },
+	{ value: 'resolution_asc', label: 'Resolution — lowest' },
+	{ value: 'random', label: 'Random' }
+];
+
+export const SORT_ORDERS: readonly SortOrder[] = MEDIA_SORTS.map((s) => s.value);
+
 // filtersToParams serializes filters to URLSearchParams. When paging is false,
 // limit/offset are omitted (used for the shareable browse URL).
 export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams {
@@ -25,6 +43,11 @@ export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams
 	if (paging) {
 		if (f.limit) p.set('limit', String(f.limit));
 		if (f.offset) p.set('offset', String(f.offset));
+		// The shuffle seed is fetch mechanics, not a shareable filter (like
+		// limit/offset): it rides the API request so paged "Load more" tiles under one
+		// seed (ADR-045), but stays out of the bookmarkable URL. Only meaningful for
+		// the random sort.
+		if (f.sort === 'random' && f.seed != null) p.set('seed', String(f.seed));
 	}
 	return p;
 }
