@@ -229,6 +229,9 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		Limit:          atoiDefault(q.Get("limit"), 50),
 		Offset:         atoiDefault(q.Get("offset"), 0),
 	}
+	if f.Sort == "random" {
+		f.Seed = parseSeedOrRandom(q.Get("seed"))
+	}
 	if b, ok := metadata.ParseResolutionBucket(q.Get("resolution")); ok {
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)
 	}
@@ -704,6 +707,19 @@ func atoiDefault(s string, def int) int {
 		return n
 	}
 	return def
+}
+
+// parseSeedOrRandom parses the client-supplied shuffle seed for the "random" sort
+// (ADR-045). A valid integer is used as-is so successive "Load more" pages share
+// one shuffle; a missing/invalid seed falls back to a per-request seed (the page
+// is still internally consistent, but the client always sends one so pages tile).
+// The value is only ever passed to holo_shuffle() as a bound parameter — never
+// interpolated into SQL.
+func parseSeedOrRandom(s string) int64 {
+	if n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64); err == nil {
+		return n
+	}
+	return time.Now().UnixNano()
 }
 
 // enrichmentFromRows converts repo enrichment rows to the resolver.Enrichment map
