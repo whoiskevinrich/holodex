@@ -31,6 +31,7 @@ import (
 	"holodex/internal/metrics"
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
+	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
@@ -225,6 +226,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
+	// forced-extract seam (no change-detection); the repo resolves the target and
+	// persists the file layer.
+	handlers.SetRefresh(refresh.NewService(sc, repository))
 	handlers.SetWriteback(writeback.WriteBatch)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
