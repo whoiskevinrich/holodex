@@ -58,7 +58,7 @@
 	async function submitToken(e: Event) {
 		e.preventDefault();
 		if (!tokenInput.trim()) return;
-		// Exchange the token for an HttpOnly session cookie (ADR-045). A 401 here is
+		// Exchange the token for an HttpOnly session cookie (ADR-046). A 401 here is
 		// the wrong token; the token is never stored client-side.
 		try {
 			await startSession(tokenInput, rememberDevice);

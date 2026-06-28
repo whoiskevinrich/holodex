@@ -1,4 +1,4 @@
-# ADR-045: Owner session persistence via HttpOnly token-exchange cookie
+# ADR-046: Owner session persistence via HttpOnly token-exchange cookie
 
 **Status**: Proposed (pending `/security-review` sign-off — auth/access change)
 **Date**: 2026-06-27

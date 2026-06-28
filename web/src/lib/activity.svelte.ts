@@ -48,7 +48,7 @@ class ActivityState {
 		} catch (e) {
 			this.error = toMessage(e);
 			// A 401 mid-session means the owner cookie expired or was revoked
-			// (ADR-045) — fall back cleanly to the token prompt / read-only view.
+			// (ADR-046) — fall back cleanly to the token prompt / read-only view.
 			if (e instanceof ApiError && e.status === 401) await this.dropIfNotOwner();
 		} finally {
 			this.loading = false;
@@ -57,7 +57,7 @@ class ActivityState {
 
 	// signOut ends the owner session (clears the cookie) and collapses the UI back
 	// to the read-only / token-prompt state. Lives here so every caller (status
-	// page, a future header control) logs out consistently (ADR-045).
+	// page, a future header control) logs out consistently (ADR-046).
 	async signOut() {
 		await endSession();
 		await this.dropIfNotOwner();

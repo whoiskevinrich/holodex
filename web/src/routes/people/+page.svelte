@@ -4,16 +4,29 @@
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { Person } from '$lib/types';
+	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
+	import SortReroll from '$lib/components/SortReroll.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { peopleScroll } from '$lib/peopleScroll.svelte';
+	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { seededShuffle } from '$lib/shuffle';
 
 	let people = $state<Person[]>([]);
-	let sort = $state<'name' | 'count'>('name');
+	let sort = $state<PeopleTagSort>(readSort('people', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
 	let loadError = $state('');
+
+	// Persist the chosen sort per page (SP1).
+	$effect(() => {
+		writeSort('people', sort);
+	});
+
+	// "Random" shuffles the name-ordered list client-side with the session seed (SP2,
+	// ADR-045) — stable across re-renders, reshuffled only on reroll/new session. The
+	// A–Z jump-nav stays tied to sort==='name', where `displayed` equals `people`.
+	const displayed = $derived(sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into. See [[ADR-036]].
@@ -142,6 +155,9 @@
 					</button>
 				{/if}
 			{/if}
+			{#if sort === 'random'}
+				<SortReroll onreroll={() => shuffleSeed.reroll()} />
+			{/if}
 			<SortToggle bind:sort />
 		</div>
 	</div>
@@ -186,7 +202,7 @@
 			<span class="text-xs text-muted">{p.video_count}</span>
 		{/snippet}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-			{#each people as p, i (p.id)}
+			{#each displayed as p, i (p.id)}
 				<li
 					id={sort === 'name' && letterAnchors[firstLetter(p.name)] === i
 						? `pl-${firstLetter(p.name)}`

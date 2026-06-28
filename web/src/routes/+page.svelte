@@ -4,21 +4,24 @@
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
-	import { DEFAULT_SORT, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
+	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { MediaFilters, Person, Resolution, SortOrder, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/VideoGrid.svelte';
 	import FacetFilter from '$lib/components/FacetFilter.svelte';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
+	import SortReroll from '$lib/components/SortReroll.svelte';
 	import RecentlyAddedShelf from '$lib/components/RecentlyAddedShelf.svelte';
 	import MappedFacets from '$lib/components/MappedFacets.svelte';
+	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
 
 	// Initialize filter state from the URL once, so shared links reproduce it
 	// (F4.7). SPA-only (ssr=false), so `location` is always available here.
-	const init = paramsToFilters(new URLSearchParams(location.search));
+	const initParams = new URLSearchParams(location.search);
+	const init = paramsToFilters(initParams);
 	let q = $state(init.q ?? '');
 	let resolution = $state<Resolution>(init.resolution ?? 'All');
 	let durationMin = $state<number | ''>(init.duration_min ?? '');
@@ -27,7 +30,20 @@
 	let yearMax = $state<number | ''>(init.year_max ?? '');
 	let personIDs = $state<number[]>(init.person ?? []);
 	let tagIDs = $state<number[]>(init.tag ?? []);
-	let sort = $state<SortOrder>(init.sort ?? DEFAULT_SORT);
+	// SP1 sort precedence: a sort in the URL (shared/deep link) wins; otherwise the
+	// per-page saved preference; otherwise the default. An invalid URL value is
+	// ignored so a crafted ?sort=bogus can't wedge the control.
+	const urlSort = initParams.get('sort');
+	let sort = $state<SortOrder>(
+		urlSort && SORT_ORDERS.includes(urlSort as SortOrder)
+			? (urlSort as SortOrder)
+			: readSort('media', SORT_ORDERS, DEFAULT_SORT)
+	);
+	// Remember the choice for next visit (SP1). Restoring 'random' re-enters random
+	// with a fresh session seed (a new shuffle), per spec.
+	$effect(() => {
+		writeSort('media', sort);
+	});
 	let mapped = $state<Record<string, string>>({}); // configurable mapped-field filters (F20.5)
 
 	let videos = $state<Video[]>([]);
@@ -71,6 +87,9 @@
 			person: personIDs,
 			tag: tagIDs,
 			sort,
+			// Seed rides the API request (not the shareable URL) so paged "Load more"
+			// tiles under one shuffle (ADR-045). Only sent for the random sort.
+			seed: sort === 'random' ? shuffleSeed.value : undefined,
 			mapped,
 			limit: PAGE_SIZE
 		};
@@ -108,6 +127,15 @@
 	function loadMore() {
 		offset += PAGE_SIZE;
 		loadPage(false);
+	}
+
+	// Reroll the random shuffle: draw a new seed and refetch from page 0. The seed
+	// isn't part of the URL/filter signature, so the filter effect won't react —
+	// this explicit refetch is the single reload (no double fetch).
+	function rerollMedia() {
+		shuffleSeed.reroll();
+		window.scrollTo(0, 0);
+		loadPage(true);
 	}
 
 	// Refresh the unfiltered grid when a background scan finishes (running -> idle) so
@@ -315,7 +343,12 @@
 				})}
 		/>
 
-		<SortDropdown bind:sort />
+		<div class="flex items-end gap-2">
+			<SortDropdown bind:sort />
+			{#if sort === 'random'}
+				<SortReroll onreroll={rerollMedia} />
+			{/if}
+		</div>
 
 		{#if hasFilters}
 			<button onclick={clearAll} class="rounded-theme border border-rule px-3 py-2 text-sm text-muted hover:text-ink">

@@ -113,7 +113,7 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
-// --- Owner session persistence (ADR-045) ---
+// --- Owner session persistence (ADR-046) ---
 
 const sessionCookieName = "holodex_session"
 

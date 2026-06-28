@@ -10,7 +10,7 @@ header scheme, and `GET /api/v1/capabilities` ([ADR-030](../architecture/ADR-030
 spec [F21 System Activity](system-activity.md) F21.7). No dependency on multi-user accounts (still out of scope).
 
 **New ADRs required**:
-- **ADR-045 (Proposed)** — *Owner session persistence via HttpOnly token-exchange cookie.* Establishes
+- **ADR-046 (Proposed)** — *Owner session persistence via HttpOnly token-exchange cookie.* Establishes
   a `POST /api/v1/session` exchange that validates `ADMIN_TOKEN` once and sets an **HttpOnly, Secure,
   SameSite=Strict** session cookie; teaches `requireOwner` to accept **either** the existing
   `X-Admin-Token` header **or** the cookie; adds `DELETE /api/v1/session` (sign-out). This **amends
@@ -103,18 +103,18 @@ A new ungated `POST /api/v1/session` accepts the owner token, validates it again
 
 - **Request.** The token is supplied in a way that does not persist it in the URL or logs — sent as a
   request **header** (`X-Admin-Token`, reusing the existing scheme) or a JSON body field, decided in
-  ADR-045. Never a query string.
+  ADR-046. Never a query string.
 - **Success → cookie.** On a valid token, respond `204` (or `200` with the capabilities payload) and set a
   cookie named e.g. `holodex_session` with attributes: **`HttpOnly`**, **`Secure`**, **`SameSite=Strict`**,
-  **`Path=/`**, and a bounded **`Max-Age`** (default lifetime defined in ADR-045, e.g. 7 days; revisit at
+  **`Path=/`**, and a bounded **`Max-Age`** (default lifetime defined in ADR-046, e.g. 7 days; revisit at
   review). The cookie **value is not the raw token** — it is a signed/opaque session value the server can
   validate, so the literal `ADMIN_TOKEN` never travels in a JS-reachable channel and is not sitting in the
   cookie jar verbatim.
 - **Failure.** Wrong/missing token → `401`, no cookie set. Constant-time compare (no early return that
   leaks length/equality by timing) — identical to `authorized()` today.
 - **Gate-open passthrough.** If `ADMIN_TOKEN` is unset, `POST /session` is a no-op success (or `404`/`409`
-  per ADR-045) — there is nothing to authenticate; the frontend never calls it in this mode.
-- **`Secure` and local dev.** `Secure` cookies require HTTPS; dev runs over plain HTTP on localhost. ADR-045
+  per ADR-046) — there is nothing to authenticate; the frontend never calls it in this mode.
+- **`Secure` and local dev.** `Secure` cookies require HTTPS; dev runs over plain HTTP on localhost. ADR-046
   must specify the rule (e.g. omit `Secure` only when the request is to `localhost`/loopback, set it
   otherwise) so the cookie works in `make web-dev` without weakening exposed deployments. *(Tracked as an
   Open Question for the security review to bless.)*
@@ -144,7 +144,7 @@ is present.
   routes `401`, `capabilities.owner: false`. The browser is told to drop it (expired `Set-Cookie`) so it
   doesn't keep sending a dead cookie.
 - **CSRF posture (load-bearing).** Adding a cookie reintroduces CSRF exposure that the header-only scheme
-  was immune to (ADR-030 condition 3). `SameSite=Strict` is the primary mitigation; ADR-045 must state the
+  was immune to (ADR-030 condition 3). `SameSite=Strict` is the primary mitigation; ADR-046 must state the
   full posture (e.g. `SameSite=Strict` is sufficient for these same-origin owner actions, and/or an
   additional check) and the security review must sign it off. State-changing routes must not be triggerable
   cross-site.
@@ -159,11 +159,11 @@ is present.
 - [ ] Given an expired/tampered session cookie, when I GET a gated route, then `401` and the response expires
       the cookie; `capabilities.owner` is `false`.
 - [ ] A cross-site form/`fetch` cannot drive a state-changing gated route using the cookie (CSRF posture
-      verified per ADR-045 / security review).
+      verified per ADR-046 / security review).
 
 #### OS3 — Sign-out endpoint ends the session
 
-A `DELETE /api/v1/session` (or `POST /api/v1/session/logout`, per ADR-045) clears the session.
+A `DELETE /api/v1/session` (or `POST /api/v1/session/logout`, per ADR-046) clears the session.
 
 - **Effect.** Responds `204` and sends a `Set-Cookie` that **expires** `holodex_session` immediately. After
   this, the cookie is gone and subsequent gated requests `401` until the owner re-authenticates.
@@ -186,7 +186,7 @@ The SPA authenticates via the exchange, then **relies on the cookie**, and refle
 - **Credentialed requests.** The authed fetch wrappers (`getAuthed`/`sendAuthed`/`uploadAuthed` in
   [api.ts](../../web/src/lib/api.ts)) send the cookie. Because the cookie is same-origin and the SPA is
   served from the same origin as the API (ADR-007), `fetch` must use `credentials: 'same-origin'` (or
-  `'include'` for the dev proxy case — ADR-045 to specify) so the cookie is actually attached.
+  `'include'` for the dev proxy case — ADR-046 to specify) so the cookie is actually attached.
 - **Reload behavior.** On cold load the SPA calls `capabilities`; if `owner` is true (cookie still valid) it
   renders the owner view **without** prompting for a token. The in-memory `adminToken` variable is no longer
   the source of truth for "am I owner" — `capabilities.owner` is.
@@ -240,9 +240,9 @@ default bounded session.
 
 - **Affordance.** A "Trust this device" checkbox (or equivalent) on the token-entry form. Unchecked is the
   default, bounded session (OS1's default `Max-Age`); checked issues a **longer `Max-Age`** cookie
-  (concrete value in ADR-045, e.g. 30 days).
+  (concrete value in ADR-046, e.g. 30 days).
 - **Wired through the exchange.** The choice is a parameter on `POST /session` (header/body field per
-  ADR-045) that the server reads to set the cookie's `Max-Age`. The server — not the client — decides the
+  ADR-046) that the server reads to set the cookie's `Max-Age`. The server — not the client — decides the
   two lifetime values; the client only signals which.
 - **Same security properties.** Both lifetimes use the identical cookie attributes (`HttpOnly`, `Secure`,
   `SameSite=Strict`); "trust this device" changes **only** duration, never the JS-readability or CSRF
@@ -267,7 +267,7 @@ An actively-used session does not expire out from under the owner; an idle one s
   server **re-issues** the cookie with a refreshed `Max-Age` (a fresh `Set-Cookie`), so continued activity
   keeps the session alive. An idle session (no requests) still expires at its last-issued lifetime.
 - **Bounded renewal.** Renewal slides the **same** lifetime class — a short (default) session renews to the
-  short window, a "trust this device" (OS6) session renews to its long window. ADR-045 decides whether to
+  short window, a "trust this device" (OS6) session renews to its long window. ADR-046 decides whether to
   throttle re-issue (e.g. only refresh when the cookie is past, say, half its life) to avoid a `Set-Cookie`
   on literally every request, and whether there is an absolute cap on total session age.
 - **Idle-then-return.** A session left idle past its window is expired on return → `401` → graceful drop to
@@ -280,7 +280,7 @@ An actively-used session does not expire out from under the owner; an idle one s
       not renewed.
 - [ ] Re-issue does not change the lifetime class or other cookie attributes; a short session never silently
       becomes a long one through renewal.
-- [ ] (If ADR-045 sets an absolute cap) a session cannot be renewed indefinitely past the absolute maximum
+- [ ] (If ADR-046 sets an absolute cap) a session cannot be renewed indefinitely past the absolute maximum
       age.
 
 ### Nice-to-Have (P1)
@@ -318,7 +318,7 @@ Single-user personal server → qualitative / self-observed:
 
 - **(security/eng — blocking) Cookie value scheme.** Signed token (HMAC of an opaque session id / expiry with
   a server secret) vs. an encrypted opaque value. Where does the signing secret come from (derive from
-  `ADMIN_TOKEN`? separate `SESSION_SECRET`?) and how is it rotated? Resolve in ADR-045 / security review.
+  `ADMIN_TOKEN`? separate `SESSION_SECRET`?) and how is it rotated? Resolve in ADR-046 / security review.
 - **(security — blocking) CSRF posture under a cookie.** Is `SameSite=Strict` alone sufficient for the
   same-origin owner actions, or is an additional anti-CSRF measure (e.g. continue to require the
   `X-Admin-Token` header *or* a double-submit token on state-changing routes) warranted? Security review must
@@ -336,7 +336,7 @@ Single-user personal server → qualitative / self-observed:
 ## Timeline / Phasing
 
 No hard deadline. Suggested order:
-1. **ADR-045** — decide cookie scheme, CSRF posture, `Secure`/dev rule, lifetime (resolves the blocking Open
+1. **ADR-046** — decide cookie scheme, CSRF posture, `Secure`/dev rule, lifetime (resolves the blocking Open
    Questions). Pair with an early `/security-review` read so the design is blessed before code.
 2. **OS1–OS3 + OS6–OS7 (backend)** — exchange endpoint (with the trust-this-device lifetime parameter),
    gate accepts cookie-or-header, sliding re-issue on use, sign-out; backend tests (OS5).

@@ -32,7 +32,7 @@ A value set by a higher-precedence layer always wins. `holodex.yaml` is the stan
 | `port` | `PORT` | `7800` | HTTP port. |
 | `log_level` | `LOG_LEVEL` | `info` | Log verbosity: `debug`, `info`, `warn`, or `error`. |
 | `admin_token` | `ADMIN_TOKEN` | *(none)* | Token for the owner-only admin surface. **Empty = open (single-user default).** Set this whenever the server is reachable beyond loopback — Holodex warns at startup if it binds non-loopback with no token. See [Authentication](#authentication). |
-| `session_secret` | `SESSION_SECRET` | *(derived from `admin_token`)* | Optional signing key for the owner session cookie (ADR-045). Empty derives the key from `admin_token`, so rotating the token invalidates all sessions; set it to rotate sessions independently. See [Authentication](#authentication). |
+| `session_secret` | `SESSION_SECRET` | *(derived from `admin_token`)* | Optional signing key for the owner session cookie (ADR-046). Empty derives the key from `admin_token`, so rotating the token invalidates all sessions; set it to rotate sessions independently. See [Authentication](#authentication). |
 
 ### CLI flags
 
@@ -55,7 +55,7 @@ The following CLI flags override config at the highest precedence level. Pass th
 `admin_token` is the single owner gate. With no token, all routes are open (zero-config single-user). With a token, admin routes (`/api/v1/admin/*`, enrichment, writeback) require owner authorization, established two ways:
 
 - **API / script clients** send the token directly as the `X-Admin-Token: <token>` header. This header path is CSRF-immune — cross-site forms cannot set custom headers (ADR-030).
-- **The SPA** exchanges the token once via `POST /api/v1/session`, which sets an **HttpOnly, `SameSite=Strict`** session cookie (ADR-045). The owner enters the token once in the UI and **stays signed in across reloads**; `DELETE /api/v1/session` signs out. The token itself is never stored in the browser (no `localStorage`/`sessionStorage`), and the cookie is unreadable by JavaScript, so an XSS payload cannot exfiltrate it. "Trust this device" issues a longer-lived cookie; active sessions slide their expiry, bounded by an absolute cap. `SameSite=Strict` is the CSRF mitigation for the cookie path. The cookie is marked `Secure` except over plain-HTTP loopback (local dev).
+- **The SPA** exchanges the token once via `POST /api/v1/session`, which sets an **HttpOnly, `SameSite=Strict`** session cookie (ADR-046). The owner enters the token once in the UI and **stays signed in across reloads**; `DELETE /api/v1/session` signs out. The token itself is never stored in the browser (no `localStorage`/`sessionStorage`), and the cookie is unreadable by JavaScript, so an XSS payload cannot exfiltrate it. "Trust this device" issues a longer-lived cookie; active sessions slide their expiry, bounded by an absolute cap. `SameSite=Strict` is the CSRF mitigation for the cookie path. The cookie is marked `Secure` except over plain-HTTP loopback (local dev).
 
 The session cookie is signed with `session_secret` (or a key derived from `admin_token` when unset).
 

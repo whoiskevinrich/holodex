@@ -185,7 +185,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/metadata-keys", h.metadataKeys)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
-	// Owner session exchange (ADR-045): POST validates the token and sets an
+	// Owner session exchange (ADR-046): POST validates the token and sets an
 	// HttpOnly cookie; DELETE signs out. Ungated — POST authenticates itself, and
 	// DELETE only clears a cookie. The cookie then authorizes the group below.
 	r.Post("/session", h.postSession)
@@ -233,6 +233,9 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		Sort:           q.Get("sort"),
 		Limit:          atoiDefault(q.Get("limit"), 50),
 		Offset:         atoiDefault(q.Get("offset"), 0),
+	}
+	if f.Sort == "random" {
+		f.Seed = parseSeedOrRandom(q.Get("seed"))
 	}
 	if b, ok := metadata.ParseResolutionBucket(q.Get("resolution")); ok {
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)
@@ -709,6 +712,19 @@ func atoiDefault(s string, def int) int {
 		return n
 	}
 	return def
+}
+
+// parseSeedOrRandom parses the client-supplied shuffle seed for the "random" sort
+// (ADR-045). A valid integer is used as-is so successive "Load more" pages share
+// one shuffle; a missing/invalid seed falls back to a per-request seed (the page
+// is still internally consistent, but the client always sends one so pages tile).
+// The value is only ever passed to holo_shuffle() as a bound parameter — never
+// interpolated into SQL.
+func parseSeedOrRandom(s string) int64 {
+	if n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64); err == nil {
+		return n
+	}
+	return time.Now().UnixNano()
 }
 
 // enrichmentFromRows converts repo enrichment rows to the resolver.Enrichment map

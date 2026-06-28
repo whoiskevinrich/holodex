@@ -16,10 +16,10 @@ import (
 // session exchange. The header path is CSRF-immune (a cross-site form cannot set
 // a custom header) and unchanged for API/script clients (F21.7 condition 3,
 // ADR-030). The browser SPA instead exchanges this token once for an HttpOnly
-// session cookie so the owner stays signed in across reloads (ADR-045).
+// session cookie so the owner stays signed in across reloads (ADR-046).
 const AdminTokenHeader = "X-Admin-Token"
 
-// Session cookie + signing details (ADR-045). The cookie value is a signed,
+// Session cookie + signing details (ADR-046). The cookie value is a signed,
 // self-contained claim ("iat|exp|class") — never the raw ADMIN_TOKEN — so the
 // token never enters a JS-readable channel and there is no server-side store.
 const (
@@ -28,7 +28,7 @@ const (
 	sessionClassLong  = "l" // opt-in "trust this device" session
 )
 
-// Session lifetimes (ADR-045 §5). Short is the default; long is the opt-in
+// Session lifetimes (ADR-046 §5). Short is the default; long is the opt-in
 // "trust this device" window. maxAge caps total renewal age so an actively-used
 // session cannot slide forever.
 const (
@@ -44,13 +44,13 @@ const (
 // source swaps into.
 type Auth struct {
 	token  string
-	secret []byte // HMAC key for session cookies (ADR-045); derived from token by default
+	secret []byte // HMAC key for session cookies (ADR-046); derived from token by default
 }
 
 // NewAuth builds the gate from the configured ADMIN_TOKEN (empty = open). The
 // session-signing secret defaults to a domain-separated derivation of the token,
 // so rotating ADMIN_TOKEN invalidates every issued session and no extra config
-// is required (ADR-045 §3). Use SetSessionSecret to override with SESSION_SECRET.
+// is required (ADR-046 §3). Use SetSessionSecret to override with SESSION_SECRET.
 func NewAuth(token string) *Auth {
 	t := strings.TrimSpace(token)
 	return &Auth{token: t, secret: deriveSessionSecret(t)}
@@ -69,7 +69,7 @@ func (a *Auth) SetSessionSecret(override string) {
 }
 
 // deriveSessionSecret turns a source secret into a fixed-length HMAC key with a
-// domain separator, so the same source can't collide with other uses (ADR-045).
+// domain separator, so the same source can't collide with other uses (ADR-046).
 func deriveSessionSecret(src string) []byte {
 	mac := hmac.New(sha256.New, []byte(src))
 	mac.Write([]byte("holodex/session/v1"))
@@ -85,7 +85,7 @@ func (a *Auth) Required() bool { return a != nil && a.token != "" }
 // false and access is open — which is why callers never need their own nil check.
 // A request authorizes via EITHER a constant-time match of the X-Admin-Token
 // header (F21.7 condition 2 — never a plain ==, to avoid leaking the token by
-// timing) OR a valid, unexpired session cookie (ADR-045). The header path is
+// timing) OR a valid, unexpired session cookie (ADR-046). The header path is
 // unchanged so API/script clients keep working.
 func (a *Auth) authorized(r *http.Request) bool {
 	if !a.Required() {
@@ -188,12 +188,12 @@ func ttlForClass(class string) time.Duration {
 func (h *Handlers) requireOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.auth.authorized(r) {
-			h.maybeRenewSession(w, r) // slide an active cookie's lifetime (ADR-045)
+			h.maybeRenewSession(w, r) // slide an active cookie's lifetime (ADR-046)
 			next.ServeHTTP(w, r)
 			return
 		}
 		// An expired/tampered cookie is no credential: tell the browser to drop it
-		// so it stops resending a dead value (ADR-045). Only when one was presented.
+		// so it stops resending a dead value (ADR-046). Only when one was presented.
 		if _, err := r.Cookie(sessionCookieName); err == nil {
 			http.SetCookie(w, h.expireSessionCookie(r))
 		}

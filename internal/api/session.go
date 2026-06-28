@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Owner session endpoints (ADR-045). The SPA exchanges the ADMIN_TOKEN once for
+// Owner session endpoints (ADR-046). The SPA exchanges the ADMIN_TOKEN once for
 // an HttpOnly session cookie so the owner stays signed in across reloads without
 // the token ever living in a JS-readable store. The header path (auth.go) is
 // untouched for API/script clients.
@@ -45,7 +45,7 @@ func (h *Handlers) deleteSession(w http.ResponseWriter, r *http.Request) {
 
 // maybeRenewSession slides an active cookie session's expiry when it is past
 // half its lifetime (the half-life throttle avoids a Set-Cookie on every
-// request), preserving its class and bounded by the absolute cap (ADR-045 §5,
+// request), preserving its class and bounded by the absolute cap (ADR-046 §5,
 // OS7). It never resurrects an expired cookie or upgrades a short session.
 func (h *Handlers) maybeRenewSession(w http.ResponseWriter, r *http.Request) {
 	if !h.auth.Required() {
@@ -74,7 +74,7 @@ func (h *Handlers) maybeRenewSession(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, h.sessionCookie(r, h.auth.mintSession(claims.iat, newExp, claims.class), time.Unix(newExp, 0)))
 }
 
-// baseSessionCookie carries the shared security attributes (ADR-045 §2/§6):
+// baseSessionCookie carries the shared security attributes (ADR-046 §2/§6):
 // HttpOnly (never JS-readable), SameSite=Strict (the CSRF mitigation), Path=/,
 // and Secure (except plain-HTTP loopback dev — see secureCookie). Callers fill in
 // the value and expiry.
@@ -106,7 +106,7 @@ func (h *Handlers) expireSessionCookie(r *http.Request) *http.Cookie {
 	return c
 }
 
-// secureCookie decides the Secure attribute (ADR-045 §6): set it unless the
+// secureCookie decides the Secure attribute (ADR-046 §6): set it unless the
 // request is plain HTTP to a loopback host (http://localhost dev). Keying on the
 // connection's TLS state plus a loopback host keeps `make web-dev` working while
 // every exposed/proxied deployment gets Secure. Host-header spoofing only lets a

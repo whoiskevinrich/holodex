@@ -16,6 +16,7 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
+	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
 	RelatedResponse,
@@ -50,7 +51,7 @@ async function get<T>(path: string, fetchFn: typeof fetch = fetch, init?: Reques
 	return res.json() as Promise<T>;
 }
 
-// Owner auth (ADR-045). The SPA authenticates once via POST /session, which sets
+// Owner auth (ADR-046). The SPA authenticates once via POST /session, which sets
 // an HttpOnly session cookie — the token itself is never held in JS (no
 // localStorage/sessionStorage; ADR-030 condition 2: avoid XSS exfiltration). The
 // cookie carries auth across reloads and rides every authed request via
@@ -203,14 +204,18 @@ export const api = {
 	reorderPersonImages: (id: number, order: number[]) =>
 		sendAuthed<{ images: PersonImageSet }>('POST', `/people/${id}/images/reorder`, { order }),
 
-	listPeople: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Person[] }>(`/people${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
+	// People/Tags accept name|count|random (ADR-045 §3). The server returns the full
+	// list in canonical name order for both 'name' and 'random' — the random shuffle
+	// is applied client-side (these lists are unpaged) — so only 'count' reorders
+	// server-side. 'random' is still sent so the contract is exercised/observable.
+	listPeople: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
+		get<{ items: Person[] }>(`/people${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
 
-	listTags: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Tag[] }>(`/tags${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
+	listTags: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
+		get<{ items: Tag[] }>(`/tags${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
 	getTag: (id: number, fetchFn?: typeof fetch) =>
 		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
@@ -226,7 +231,7 @@ export const api = {
 
 	// System Activity (F21). capabilities is ungated, but it carries the session
 	// cookie (credentials) so the server reports owner:true once authenticated —
-	// including across reloads, since the cookie persists (ADR-045).
+	// including across reloads, since the cookie persists (ADR-046).
 	capabilities: () => getAuthed<Capabilities>(`/capabilities`),
 
 	activity: () => getAuthed<Activity>(`/admin/activity`),

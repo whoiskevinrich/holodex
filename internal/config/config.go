@@ -33,7 +33,7 @@ type Config struct {
 	AdminToken string `yaml:"admin_token"`
 
 	// SessionSecret optionally overrides the owner session-cookie signing key
-	// (ADR-045). Empty = derive the key from AdminToken, so rotating the token
+	// (ADR-046). Empty = derive the key from AdminToken, so rotating the token
 	// invalidates all sessions; set it to rotate sessions independently.
 	SessionSecret string `yaml:"session_secret"`
 
