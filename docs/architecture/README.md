@@ -47,6 +47,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [042](ADR-042-windows-asInvoker-manifest.md) | Windows build — **`asInvoker` application manifest** embedded via `.syso` to suppress UAC prompt | Accepted (spec windows-uac-manifest) |
 | [043](ADR-043-gallery-cap-and-enrichment-suppression.md) | Person gallery — **configurable cap (`PERSON_GALLERY_MAX`) + owner over-cap override + enrichment URL suppression on delete** | Accepted (spec F25.23–25; extends ADR-038/039) |
 | [044](ADR-044-automated-version-and-release-pr.md) | Release versioning — **Release Please** release-PR + PAT-driven tag in front of unchanged `release.yml` | Accepted (extends ADR-024/034/035; revisits ADR-034's "no release-please") |
+| [045](ADR-045-owner-session-persistence.md) | Owner session persistence — **HttpOnly signed token-exchange cookie** (`POST /session`), gate accepts cookie-or-header | Proposed (spec owner-session-persistence; amends ADR-030's "in-memory only" condition) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 

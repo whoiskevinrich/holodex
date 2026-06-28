@@ -25,6 +25,10 @@ log_level: "info"          # LOG_LEVEL    (debug|info|warn|error)
                             #              loopback; clients then send it as the
                             #              X-Admin-Token header. The server warns at startup
                             #              if it binds non-loopback with no token set.
+# session_secret: ""        # SESSION_SECRET  optional signing key for the owner session
+                            #              cookie (ADR-045). Empty = derive from admin_token,
+                            #              so rotating the token signs everyone out. Set this
+                            #              to rotate sessions independently of the token.
 
 # --- Scanner (ADR-011, ADR-018) ---
 scan_interval_seconds: 300  # SCAN_INTERVAL_SECONDS

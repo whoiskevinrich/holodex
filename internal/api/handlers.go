@@ -185,6 +185,11 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/metadata-keys", h.metadataKeys)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
+	// Owner session exchange (ADR-045): POST validates the token and sets an
+	// HttpOnly cookie; DELETE signs out. Ungated — POST authenticates itself, and
+	// DELETE only clears a cookie. The cookie then authorizes the group below.
+	r.Post("/session", h.postSession)
+	r.Delete("/session", h.deleteSession)
 
 	// Owner-only surface (F21.7, ADR-030): the single choke point for the activity
 	// read-model, history, and the admin controls. Open when no ADMIN_TOKEN is set.

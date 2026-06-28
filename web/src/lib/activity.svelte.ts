@@ -3,7 +3,7 @@
 // transport-agnostic so SSE (F21.8) can later replace refresh() without touching
 // consumers. capabilities is fetched once (ungated, rarely changes); activity is
 // polled while the tab is visible.
-import { api } from './api';
+import { api, ApiError, endSession } from './api';
 import type { Activity, Capabilities } from './types';
 import { toMessage } from './format';
 
@@ -47,9 +47,28 @@ class ActivityState {
 			this.error = '';
 		} catch (e) {
 			this.error = toMessage(e);
+			// A 401 mid-session means the owner cookie expired or was revoked
+			// (ADR-045) — fall back cleanly to the token prompt / read-only view.
+			if (e instanceof ApiError && e.status === 401) await this.dropIfNotOwner();
 		} finally {
 			this.loading = false;
 		}
+	}
+
+	// signOut ends the owner session (clears the cookie) and collapses the UI back
+	// to the read-only / token-prompt state. Lives here so every caller (status
+	// page, a future header control) logs out consistently (ADR-045).
+	async signOut() {
+		await endSession();
+		await this.dropIfNotOwner();
+	}
+
+	// dropIfNotOwner re-reads capabilities and discards the now-unauthorized
+	// activity data when the session is no longer the owner. Shared by the 401
+	// fallback and explicit sign-out.
+	private async dropIfNotOwner() {
+		await this.refreshCaps();
+		if (!this.isOwner) this.data = null;
 	}
 
 	async refreshCaps() {
