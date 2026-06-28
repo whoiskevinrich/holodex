@@ -1,20 +1,29 @@
 // Package refresh implements per-item metadata refresh (F31, ADR-047): an
 // owner-gated action that re-reads one media file's embedded metadata — forced,
 // bypassing the scanner's (size, mtime) change-detection so it catches edits
-// another system made even when the file's mtime is unchanged — and persists the
-// file layer. A later slice adds re-enrich of the item's linked providers.
+// another system made even when the file's mtime is unchanged — AND re-pulls the
+// providers the item is matched to, as one operation.
 //
-// The service is split into a side-effect-free plan phase (read the file, build
-// the candidate row) and a committing apply phase (persist). F31 runs them
-// back-to-back; keeping them separable is what lets a future batch op interpose
-// conflict resolution between them (ADR-047). This slice covers the file layer
-// only — the typed per-source RefreshReport with change/disagreement detail
-// arrives with the re-enrich slice.
+// Two layers, kept strictly separate (the non-destructive layering invariant): the
+// file re-extract writes only the file layer (videos + video_metadata); the
+// re-enrich writes only each provider's shadow-store layer. Neither flattens the
+// other — the resolver remains the sole merge point, so any future conflict policy
+// stays implementable without re-extraction.
+//
+// The service reads the file (plan) then commits the file and re-enriches
+// (apply); the file commit lands before any provider call, so a provider failure
+// never undoes the file sync, and a file-read failure aborts before any write. A
+// future batch op (F31.11) is what needs the finer provider plan/apply split and
+// the per-field sources_disagree computation; this slice carries the report shape
+// for it but leaves SourcesDisagree reserved.
 package refresh
 
 import (
 	"context"
+	"log/slog"
+	"sort"
 
+	"holodex/internal/enrich"
 	"holodex/internal/model"
 )
 
@@ -25,67 +34,196 @@ type FileExtractor interface {
 	BuildVideoFromFile(ctx context.Context, path string) (*model.Video, []model.ExtraMetadata, error)
 }
 
-// Store resolves a refresh target and persists the file layer. Implemented by
-// *repo.Repo. RefreshTarget must distinguish a missing row from a soft-deleted
-// one (repo.ErrNotFound vs repo.ErrDeleted) so the handler can answer 404 vs 409;
-// those sentinels propagate unwrapped through Refresh.
+// Store resolves a refresh target, reads the current row for change detection,
+// and persists the file layer. Implemented by *repo.Repo. RefreshTarget must
+// distinguish a missing row from a soft-deleted one (repo.ErrNotFound vs
+// repo.ErrDeleted) so the handler can answer 404 vs 409; those sentinels
+// propagate unwrapped through Refresh.
 type Store interface {
 	RefreshTarget(ctx context.Context, id int64) (path string, err error)
+	GetVideo(ctx context.Context, id int64) (*model.Video, []model.ExtraMetadata, error)
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
+}
+
+// Enricher re-runs an entity's linked providers (F31.3) without recording its own
+// activity row. Implemented by *enrich.Service; nil disables the provider half
+// (a file-only refresh).
+type Enricher interface {
+	ProviderMatches(ctx context.Context, entityType string, entityID int64) ([]enrich.Match, error)
+	ReEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error)
 }
 
 // Service orchestrates a per-item refresh.
 type Service struct {
-	ext   FileExtractor
-	store Store
+	ext    FileExtractor
+	store  Store
+	enrich Enricher // nil = file-only refresh
+	log    *slog.Logger
 }
 
 // NewService wires the refresh service (F31). ext re-reads files (the scanner);
-// store resolves targets and persists (the repo).
-func NewService(ext FileExtractor, store Store) *Service {
-	return &Service{ext: ext, store: store}
+// store resolves targets and persists (the repo); enricher re-pulls linked
+// providers (the enrich service, or nil for file-only). log is best-effort and
+// may be nil.
+func NewService(ext FileExtractor, store Store, enricher Enricher, log *slog.Logger) *Service {
+	return &Service{ext: ext, store: store, enrich: enricher, log: log}
 }
 
-// Report is the outcome of a refresh. This slice reports only the file source;
-// per-source results, the changed-field counts, and the sources_disagree flag
-// are added with the re-enrich slice (F31.14).
+// SourceResult is the outcome for one source in a refresh. For the file source,
+// Changed reflects a real diff of the file layer. For a provider, OK reports the
+// re-fetch succeeded and Changed mirrors it (a precise provider value-diff is
+// deferred to the batch consumer); Error carries a generic message on failure.
+type SourceResult struct {
+	Source  string `json:"source"` // "file" or the provider name
+	OK      bool   `json:"ok"`
+	Changed bool   `json:"changed"`
+	Error   string `json:"error,omitempty"`
+}
+
+// Report is the typed outcome of a refresh — the single source of truth for the
+// HTTP response and (a later slice) the activity detail. Sources carries one entry
+// per attempted source (file first, then each provider). SourcesDisagree is
+// reserved: it is computed and consumed by the future batch conflict-resolution
+// op (F31.11), not surfaced single-item, so this slice leaves it false.
 type Report struct {
-	VideoID int64 `json:"video_id"`
-	FileOK  bool  `json:"file_ok"`
+	VideoID         int64          `json:"video_id"`
+	Sources         []SourceResult `json:"sources"`
+	Changed         bool           `json:"changed"`
+	SourcesDisagree bool           `json:"sources_disagree"`
 }
 
-// plan is the read phase: the candidate file layer for one item. No writes.
-// (Re-enrich adds provider fetch + diff here.)
-type plan struct {
-	video *model.Video
-	extra []model.ExtraMetadata
-}
-
-// doPlan resolves the target and re-extracts the file — no persistence. It
-// returns repo.ErrNotFound / repo.ErrDeleted unwrapped for the handler to map,
-// and never touches a soft-deleted row (RefreshTarget refuses it).
-func (s *Service) doPlan(ctx context.Context, id int64) (*plan, error) {
+// Refresh re-extracts one media file (forced) and re-enriches its linked
+// providers, returning a report. A missing/soft-deleted id, or a file that can't
+// be read, returns an error before any write — the row is never mutated on
+// failure. The file commit precedes every provider call, so a provider failure is
+// isolated to its own source result and never undoes the file sync.
+func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
 	path, err := s.store.RefreshTarget(ctx, id)
 	if err != nil {
-		return nil, err
+		return Report{}, err // ErrNotFound / ErrDeleted propagate to the handler
 	}
-	v, extra, err := s.ext.BuildVideoFromFile(ctx, path)
+
+	// Old snapshot for change detection — best effort; a read failure just means
+	// we report the file as changed (we can't prove it wasn't).
+	oldV, oldExtra, _ := s.store.GetVideo(ctx, id)
+
+	// plan (read): force re-extract. A file error aborts before any write.
+	newV, newExtra, err := s.ext.BuildVideoFromFile(ctx, path)
 	if err != nil {
-		return nil, err
+		return Report{}, err
 	}
-	return &plan{video: v, extra: extra}, nil
+
+	// apply (write): file layer first, so it lands regardless of provider outcome.
+	if _, err := s.store.UpsertVideo(ctx, newV, newExtra); err != nil {
+		return Report{}, err
+	}
+
+	report := Report{VideoID: id}
+	report.Sources = append(report.Sources, SourceResult{
+		Source:  "file",
+		OK:      true,
+		Changed: fileLayerChanged(oldV, oldExtra, newV, newExtra),
+	})
+
+	report.Sources = append(report.Sources, s.reEnrichLinked(ctx, id)...)
+
+	for _, sr := range report.Sources {
+		if sr.Changed {
+			report.Changed = true
+		}
+	}
+	return report, nil
 }
 
-// Refresh re-extracts one media file (forced) and persists the file layer,
-// returning a report. A missing/soft-deleted id, or a file that can't be read,
-// returns an error before any write — the row is never mutated on failure.
-func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
-	p, err := s.doPlan(ctx, id)
+// reEnrichLinked re-fetches every provider the item is matched to, isolating each
+// failure to its own source result (a flaky provider never fails the refresh).
+// Returns nil when there is no enricher or no match (a clean file-only refresh).
+func (s *Service) reEnrichLinked(ctx context.Context, id int64) []SourceResult {
+	if s.enrich == nil {
+		return nil
+	}
+	matches, err := s.enrich.ProviderMatches(ctx, model.EnrichEntityVideo, id)
 	if err != nil {
-		return Report{}, err
+		s.warn("refresh: list provider matches", "id", id, "err", err)
+		return nil
 	}
-	if _, err := s.store.UpsertVideo(ctx, p.video, p.extra); err != nil {
-		return Report{}, err
+	out := make([]SourceResult, 0, len(matches))
+	for _, m := range matches {
+		res := SourceResult{Source: m.Provider, OK: true, Changed: true}
+		if _, err := s.enrich.ReEnrich(ctx, model.EnrichEntityVideo, id, m.Provider, m.ExternalID); err != nil {
+			s.warn("refresh: re-enrich provider", "id", id, "provider", m.Provider, "err", err)
+			res.OK, res.Changed = false, false
+			res.Error = "provider lookup failed"
+		}
+		out = append(out, res)
 	}
-	return Report{VideoID: id, FileOK: true}, nil
+	return out
+}
+
+func (s *Service) warn(msg string, args ...any) {
+	if s.log != nil {
+		s.log.Warn(msg, args...)
+	}
+}
+
+// fileLayerChanged reports whether the re-extracted file layer differs from what
+// was stored. A nil old snapshot (read failure / brand-new) counts as changed.
+func fileLayerChanged(oldV *model.Video, oldExtra []model.ExtraMetadata, newV *model.Video, newExtra []model.ExtraMetadata) bool {
+	if oldV == nil || newV == nil {
+		return true
+	}
+	if oldV.Title != newV.Title ||
+		oldV.Duration != newV.Duration ||
+		oldV.Width != newV.Width || oldV.Height != newV.Height ||
+		oldV.VideoCodec != newV.VideoCodec || oldV.AudioCodec != newV.AudioCodec ||
+		oldV.BitrateKbps != newV.BitrateKbps || oldV.Container != newV.Container {
+		return true
+	}
+	if !sameNames(personNames(oldV.People), personNames(newV.People)) ||
+		!sameNames(tagNames(oldV.Tags), tagNames(newV.Tags)) ||
+		!sameNames(extraPairs(oldExtra), extraPairs(newExtra)) {
+		return true
+	}
+	return false
+}
+
+func personNames(ps []model.Person) []string {
+	out := make([]string, len(ps))
+	for i, p := range ps {
+		out[i] = p.Name
+	}
+	return out
+}
+
+func tagNames(ts []model.Tag) []string {
+	out := make([]string, len(ts))
+	for i, t := range ts {
+		out[i] = t.Name
+	}
+	return out
+}
+
+func extraPairs(extra []model.ExtraMetadata) []string {
+	out := make([]string, len(extra))
+	for i, e := range extra {
+		out[i] = e.SourceKey + "\x00" + e.Value
+	}
+	return out
+}
+
+// sameNames compares two string collections as multisets (order-independent).
+func sameNames(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	as := append([]string(nil), a...)
+	bs := append([]string(nil), b...)
+	sort.Strings(as)
+	sort.Strings(bs)
+	for i := range as {
+		if as[i] != bs[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"holodex/internal/enrich"
 	"holodex/internal/model"
 	"holodex/internal/refresh"
 	"holodex/internal/repo"
@@ -30,6 +31,8 @@ func (f *fakeExt) BuildVideoFromFile(_ context.Context, path string) (*model.Vid
 type fakeStore struct {
 	path      string
 	targetErr error
+	old       *model.Video
+	oldExtra  []model.ExtraMetadata
 	upserts   int
 	gotVideo  *model.Video
 }
@@ -41,32 +44,91 @@ func (f *fakeStore) RefreshTarget(_ context.Context, _ int64) (string, error) {
 	return f.path, nil
 }
 
+func (f *fakeStore) GetVideo(_ context.Context, _ int64) (*model.Video, []model.ExtraMetadata, error) {
+	if f.old == nil {
+		return nil, nil, repo.ErrNotFound
+	}
+	return f.old, f.oldExtra, nil
+}
+
 func (f *fakeStore) UpsertVideo(_ context.Context, v *model.Video, _ []model.ExtraMetadata) (int64, error) {
 	f.upserts++
 	f.gotVideo = v
 	return 7, nil
 }
 
+type fakeEnricher struct {
+	matches    []enrich.Match
+	matchesErr error
+	reErr      map[string]error // provider -> error
+	reCalls    []string
+}
+
+func (f *fakeEnricher) ProviderMatches(_ context.Context, _ string, _ int64) ([]enrich.Match, error) {
+	return f.matches, f.matchesErr
+}
+
+func (f *fakeEnricher) ReEnrich(_ context.Context, _ string, _ int64, provider, _ string) ([]model.EnrichedField, error) {
+	f.reCalls = append(f.reCalls, provider)
+	if f.reErr != nil {
+		if err := f.reErr[provider]; err != nil {
+			return nil, err
+		}
+	}
+	return []model.EnrichedField{{Canonical: "title"}}, nil
+}
+
+func sourceByName(rep refresh.Report, name string) (refresh.SourceResult, bool) {
+	for _, sr := range rep.Sources {
+		if sr.Source == name {
+			return sr, true
+		}
+	}
+	return refresh.SourceResult{}, false
+}
+
 // Refresh resolves the target, re-extracts, and persists unconditionally — there
 // is no (size, mtime) change-detection on this path (the forced re-extract that
-// lets a refresh catch an mtime-preserving edit).
+// lets a refresh catch an mtime-preserving edit). The file diff drives Changed.
 func TestRefreshForcesReExtractAndPersists(t *testing.T) {
-	want := &model.Video{FilePath: "/m/clip.mp4", Title: "New Title"}
-	ext := &fakeExt{v: want}
-	store := &fakeStore{path: "/m/clip.mp4"}
+	newV := &model.Video{FilePath: "/m/clip.mp4", Title: "New Title"}
+	ext := &fakeExt{v: newV}
+	store := &fakeStore{path: "/m/clip.mp4", old: &model.Video{FilePath: "/m/clip.mp4", Title: "Old Title"}}
 
-	rep, err := refresh.NewService(ext, store).Refresh(context.Background(), 42)
+	rep, err := refresh.NewService(ext, store, nil, nil).Refresh(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
-	if !rep.FileOK || rep.VideoID != 42 {
+	if rep.VideoID != 42 || !rep.Changed {
 		t.Fatalf("report = %+v", rep)
 	}
 	if ext.calls != 1 || ext.gotPath != "/m/clip.mp4" {
 		t.Fatalf("extractor not called with the resolved path: calls=%d path=%q", ext.calls, ext.gotPath)
 	}
-	if store.upserts != 1 || store.gotVideo != want {
+	if store.upserts != 1 || store.gotVideo != newV {
 		t.Fatalf("did not persist the extracted video unconditionally: upserts=%d", store.upserts)
+	}
+	if file, ok := sourceByName(rep, "file"); !ok || !file.OK || !file.Changed {
+		t.Fatalf("file source = %+v (ok=%v)", file, ok)
+	}
+}
+
+// An unchanged file re-extracts and persists, but reports the file source as not
+// changed (the "already in sync" signal).
+func TestRefreshUnchangedFileReportsNoChange(t *testing.T) {
+	same := func() *model.Video { return &model.Video{FilePath: "/m/a.mp4", Title: "T", Width: 1920} }
+	ext := &fakeExt{v: same()}
+	store := &fakeStore{path: "/m/a.mp4", old: same()}
+
+	rep, err := refresh.NewService(ext, store, nil, nil).Refresh(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if store.upserts != 1 {
+		t.Fatalf("forced re-extract still persists: upserts=%d", store.upserts)
+	}
+	if rep.Changed {
+		t.Fatalf("unchanged file should report no change: %+v", rep)
 	}
 }
 
@@ -83,7 +145,7 @@ func TestRefreshResolveErrorsDoNotExtractOrPersist(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ext := &fakeExt{}
 			store := &fakeStore{targetErr: tc.err}
-			_, err := refresh.NewService(ext, store).Refresh(context.Background(), 1)
+			_, err := refresh.NewService(ext, store, nil, nil).Refresh(context.Background(), 1)
 			if !errors.Is(err, tc.err) {
 				t.Fatalf("want %v, got %v", tc.err, err)
 			}
@@ -99,10 +161,86 @@ func TestRefreshResolveErrorsDoNotExtractOrPersist(t *testing.T) {
 func TestRefreshFileErrorDoesNotPersist(t *testing.T) {
 	ext := &fakeExt{err: errors.New("stat: no such file")}
 	store := &fakeStore{path: "/m/gone.mp4"}
-	if _, err := refresh.NewService(ext, store).Refresh(context.Background(), 5); err == nil {
+	if _, err := refresh.NewService(ext, store, nil, nil).Refresh(context.Background(), 5); err == nil {
 		t.Fatal("want an error when the file can't be read")
 	}
 	if store.upserts != 0 {
 		t.Fatalf("must not persist when extract fails: upserts=%d", store.upserts)
+	}
+}
+
+// Refresh re-enriches every linked provider after the file commit, one source
+// result each, reusing the persisted match (no picker).
+func TestRefreshReEnrichesLinkedProviders(t *testing.T) {
+	ext := &fakeExt{v: &model.Video{FilePath: "/m/x.mp4"}}
+	store := &fakeStore{path: "/m/x.mp4"}
+	enr := &fakeEnricher{matches: []enrich.Match{{Provider: "tmdb", ExternalID: "tmdb:1"}, {Provider: "imdb", ExternalID: "tt9"}}}
+
+	rep, err := refresh.NewService(ext, store, enr, nil).Refresh(context.Background(), 3)
+	if err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if store.upserts != 1 {
+		t.Fatalf("file must commit before providers: upserts=%d", store.upserts)
+	}
+	if len(enr.reCalls) != 2 {
+		t.Fatalf("expected both providers re-enriched, got %v", enr.reCalls)
+	}
+	for _, p := range []string{"tmdb", "imdb"} {
+		if sr, ok := sourceByName(rep, p); !ok || !sr.OK {
+			t.Fatalf("provider %q source missing/not ok: %+v", p, sr)
+		}
+	}
+}
+
+// A provider failure is isolated to its own source result; the file commit and
+// the other providers are unaffected and the refresh still succeeds.
+func TestRefreshProviderFailureIsolated(t *testing.T) {
+	ext := &fakeExt{v: &model.Video{FilePath: "/m/y.mp4"}}
+	store := &fakeStore{path: "/m/y.mp4"}
+	enr := &fakeEnricher{
+		matches: []enrich.Match{{Provider: "tmdb", ExternalID: "1"}, {Provider: "imdb", ExternalID: "2"}},
+		reErr:   map[string]error{"tmdb": errors.New("502 bad gateway")},
+	}
+
+	rep, err := refresh.NewService(ext, store, enr, nil).Refresh(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("a provider failure must not fail the refresh: %v", err)
+	}
+	if store.upserts != 1 {
+		t.Fatalf("file must still commit on provider failure: upserts=%d", store.upserts)
+	}
+	tmdb, _ := sourceByName(rep, "tmdb")
+	if tmdb.OK || tmdb.Error == "" {
+		t.Fatalf("failed provider should report not-ok with an error: %+v", tmdb)
+	}
+	if imdb, _ := sourceByName(rep, "imdb"); !imdb.OK {
+		t.Fatalf("healthy provider should be unaffected: %+v", imdb)
+	}
+}
+
+// No persisted match → the provider step is a clean no-op (no ReEnrich calls, no
+// error), and a nil enricher is file-only.
+func TestRefreshNoMatchesIsFileOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		enr  *fakeEnricher
+	}{
+		{"empty matches", &fakeEnricher{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ext := &fakeExt{v: &model.Video{FilePath: "/m/z.mp4"}}
+			store := &fakeStore{path: "/m/z.mp4"}
+			rep, err := refresh.NewService(ext, store, tc.enr, nil).Refresh(context.Background(), 2)
+			if err != nil {
+				t.Fatalf("Refresh: %v", err)
+			}
+			if len(tc.enr.reCalls) != 0 {
+				t.Fatalf("no match should not call ReEnrich: %v", tc.enr.reCalls)
+			}
+			if len(rep.Sources) != 1 || rep.Sources[0].Source != "file" {
+				t.Fatalf("expected only the file source: %+v", rep.Sources)
+			}
+		})
 	}
 }
