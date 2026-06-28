@@ -42,7 +42,7 @@
 	let writebackOpen = $state(false);
 
 	const id = $derived(Number($page.params.id));
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Prefer the resolved title (may come from an enrichment provider) over the
 	// filename-derived video.title. Falls back gracefully when no mapping is configured.
 	const displayTitle = $derived(
@@ -409,10 +409,50 @@
 		</div>
 		</section>
 
-		{#if extra.length}
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+		     its block is null or empty, so an item with no siblings shows no rail. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{/if}
+
+		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+		     content and the Back link so a delete is never adjacent to navigation.
+		     Effective gate (F29) so visitor view hides it. -->
+		{#if isOwner}
+			<section class="space-y-2 border-t border-rule pt-4">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={() => openConfirm('soft')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Move to Trash
+					</button>
+					<button
+						onclick={() => openConfirm('purge')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Delete permanently
+					</button>
+				</div>
+			</section>
+		{/if}
+
+		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
+		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
+		     the page (below Manage). Owner + Admin mode only (effectiveOwner); each
+		     self-omits when empty. Headings aligned to "Enrichment data: {source}". -->
+		{#if isOwner && extra.length}
 			<section>
 				<button onclick={() => (showRaw = !showRaw)} class="text-sm text-muted hover:text-ink">
-					{showRaw ? '▾' : '▸'} Raw extracted metadata ({extra.length})
+					{showRaw ? '▾' : '▸'} Enrichment data: File Extraction ({extra.length})
 				</button>
 				{#if showRaw}
 					<table class="mt-2 w-full text-left text-xs">
@@ -429,13 +469,10 @@
 			</section>
 		{/if}
 
-		<!-- Enrichment data — demoted to a disclosure so it doesn't duplicate
-		     the Metadata section. Useful as an audit/debug view of the raw
-		     provider payload. -->
-		{#if enriched.length}
+		{#if isOwner && enriched.length}
 			<section>
 				<button onclick={() => (showEnriched = !showEnriched)} class="text-sm text-muted hover:text-ink">
-					{showEnriched ? '▾' : '▸'} Enrichment data from {provider} ({enriched.length})
+					{showEnriched ? '▾' : '▸'} Enrichment data: {provider} ({enriched.length})
 				</button>
 				{#if showEnriched}
 					<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
@@ -454,41 +491,6 @@
 						{/each}
 					</dl>
 				{/if}
-			</section>
-		{/if}
-
-		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-		     its block is null or empty, so an item with no siblings shows no rail. -->
-		{#if related?.person}
-			<RelatedShelf
-				title={related.person.name}
-				href={`/people/${related.person.id}`}
-				items={related.person.items}
-			/>
-		{/if}
-		{#if related?.tag}
-			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-		{/if}
-
-		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
-		     content and the Back link so a delete is never adjacent to navigation. -->
-		{#if activity.isOwner}
-			<section class="space-y-2 border-t border-rule pt-4">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-				<div class="flex flex-wrap gap-2">
-					<button
-						onclick={() => openConfirm('soft')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Move to Trash
-					</button>
-					<button
-						onclick={() => openConfirm('purge')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Delete permanently
-					</button>
-				</div>
 			</section>
 		{/if}
 	</article>

@@ -4,6 +4,7 @@
 // consumers. capabilities is fetched once (ungated, rarely changes); activity is
 // polled while the tab is visible.
 import { api, ApiError, endSession } from './api';
+import { adminMode } from './adminMode.svelte';
 import type { Activity, Capabilities } from './types';
 import { toMessage } from './format';
 
@@ -29,6 +30,13 @@ class ActivityState {
 	// owner/locked state the same way (F21.7; future Pro-mode reuse).
 	get isOwner(): boolean {
 		return !!this.caps && this.caps.owner;
+	}
+	// Effective owner gate (F29): owner AND Admin mode on — the single source of truth
+	// for showing owner-only UI. Every surface reads this (not bare `isOwner`) so a new
+	// page can't silently forget the admin-mode half. Presentation only; the server
+	// gate (ADR-030) stays the sole authority — toggling Admin mode changes no token.
+	get effectiveOwner(): boolean {
+		return this.isOwner && adminMode.enabled;
 	}
 	get needToken(): boolean {
 		return !!this.caps && this.caps.auth_required && !this.caps.owner;
