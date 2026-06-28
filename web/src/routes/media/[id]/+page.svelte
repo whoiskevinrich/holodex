@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
+	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -103,6 +103,16 @@
 		}
 	}
 
+	// Apply a freshly-fetched media detail to the page state (shared by the initial
+	// load, post-enrich, and post-refresh refetches).
+	function applyMediaDetail(res: MediaDetailResponse) {
+		video = res.video;
+		extra = res.metadata ?? [];
+		fields = res.fields ?? [];
+		resolved = res.resolved ?? [];
+		enriched = res.enriched ?? [];
+	}
+
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
 	// then refetch the detail so resolved[] reflects the new data and bust the cover.
 	async function refreshMetadata() {
@@ -111,12 +121,7 @@
 		refreshStatus = null;
 		try {
 			const report = await api.refreshMedia(id);
-			const res = await api.getMedia(id);
-			video = res.video;
-			extra = res.metadata ?? [];
-			fields = res.fields ?? [];
-			resolved = res.resolved ?? [];
-			enriched = res.enriched ?? [];
+			applyMediaDetail(await api.getMedia(id));
 			thumbVersion += 1; // a re-extract may surface new embedded cover art
 			refreshStatus = summarizeRefresh(report);
 		} catch (e) {
@@ -166,11 +171,7 @@
 			.getMedia(current)
 			.then((res) => {
 				if (cancelled) return;
-				video = res.video;
-				extra = res.metadata ?? [];
-				fields = res.fields ?? [];
-				resolved = res.resolved ?? [];
-				enriched = res.enriched ?? [];
+				applyMediaDetail(res);
 			})
 			.catch((e) => {
 				if (!cancelled) error = toMessage(e);
@@ -196,12 +197,7 @@
 		// Re-fetch the full detail so resolved[] reflects the new enrichment
 		// (the resolver re-runs server-side on each GET).
 		try {
-			const res = await api.getMedia(id);
-			video = res.video;
-			extra = res.metadata ?? [];
-			fields = res.fields ?? [];
-			resolved = res.resolved ?? [];
-			enriched = res.enriched ?? [];
+			applyMediaDetail(await api.getMedia(id));
 		} catch {
 			// Non-fatal — enriched state is already updated above
 		}

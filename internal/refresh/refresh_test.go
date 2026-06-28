@@ -258,27 +258,20 @@ func TestRefreshProviderFailureIsolated(t *testing.T) {
 }
 
 // No persisted match → the provider step is a clean no-op (no ReEnrich calls, no
-// error), and a nil enricher is file-only.
+// error), leaving only the file source.
 func TestRefreshNoMatchesIsFileOnly(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		enr  *fakeEnricher
-	}{
-		{"empty matches", &fakeEnricher{}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ext := &fakeExt{v: &model.Video{FilePath: "/m/z.mp4"}}
-			store := &fakeStore{path: "/m/z.mp4"}
-			rep, err := refresh.NewService(ext, store, tc.enr, nil).Refresh(context.Background(), 2)
-			if err != nil {
-				t.Fatalf("Refresh: %v", err)
-			}
-			if len(tc.enr.reCalls) != 0 {
-				t.Fatalf("no match should not call ReEnrich: %v", tc.enr.reCalls)
-			}
-			if len(rep.Sources) != 1 || rep.Sources[0].Source != "file" {
-				t.Fatalf("expected only the file source: %+v", rep.Sources)
-			}
-		})
+	enr := &fakeEnricher{} // no matches
+	ext := &fakeExt{v: &model.Video{FilePath: "/m/z.mp4"}}
+	store := &fakeStore{path: "/m/z.mp4"}
+
+	rep, err := refresh.NewService(ext, store, enr, nil).Refresh(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if len(enr.reCalls) != 0 {
+		t.Fatalf("no match should not call ReEnrich: %v", enr.reCalls)
+	}
+	if len(rep.Sources) != 1 || rep.Sources[0].Source != "file" {
+		t.Fatalf("expected only the file source: %+v", rep.Sources)
 	}
 }
