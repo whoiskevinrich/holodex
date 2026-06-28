@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { goto } from '$app/navigation';
 	import { theme, THEMES, THEME_LABELS } from '$lib/theme.svelte';
+	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
 	import ActivityIndicator from '$lib/components/ActivityIndicator.svelte';
@@ -19,6 +20,7 @@
 	// Apply the saved skin + load search history on mount.
 	$effect(() => {
 		theme.init();
+		adminMode.init();
 		searchHistory.init();
 	});
 
@@ -171,14 +173,73 @@
 		<span class="flex items-center gap-3 border-l border-rule pl-3">
 			<a href="/keys" class="hover:text-ink">Keys</a>
 			<a href="/status" class="hover:text-ink">Status</a>
-			<!-- Trash is owner-only (F24): the link renders only for the owner; the page
-			     and API are independently gated. -->
-			{#if activity.isOwner}
+			<!-- Trash is owner-only (F24): renders only for the owner, and only in Admin
+			     mode (F29) so visitor view hides it (effectiveOwner); the page and API
+			     are independently gated. -->
+			{#if activity.effectiveOwner}
 				<a href="/trash" class="hover:text-ink">Trash</a>
 			{/if}
 		</span>
 
 		<ActivityIndicator />
+
+		<!-- Admin mode toggle (F29): a binary switch that hides ALL owner-only controls
+		     and data for a faithful visitor view. Owner-only; presentation only — it
+		     never changes the admin token or any server gate (ADR-030). ON = accent
+		     fill (the active/primary semantic, doubling as the "powers on" indicator);
+		     OFF = muted outline. Icon swaps open-eye/eye-slash so meaning isn't
+		     color-only. Label tucks away below `sm`, like the skin picker. -->
+		{#if activity.isOwner}
+			<button
+				type="button"
+				role="switch"
+				aria-checked={adminMode.enabled}
+				aria-label="Admin mode"
+				title={adminMode.enabled
+					? 'Admin mode on — switch to visitor view'
+					: 'Visitor view — switch to admin mode'}
+				onclick={() => adminMode.toggle()}
+				class="flex items-center gap-1.5 rounded-theme border px-2 py-1 text-xs transition {adminMode.enabled
+					? 'border-transparent bg-accent text-accent-ink'
+					: 'border-rule text-muted hover:text-ink'}"
+			>
+				{#if adminMode.enabled}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="h-3.5 w-3.5"
+						aria-hidden="true"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.183.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+						/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+					</svg>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="h-3.5 w-3.5"
+						aria-hidden="true"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+						/>
+					</svg>
+				{/if}
+				<span class="hidden sm:inline">Admin</span>
+			</button>
+		{/if}
 
 		<!-- Skin switcher as a first-class segmented control: each option shows that
 		     skin's own accent (the swatch re-scopes --accent via data-theme). Only the
@@ -206,6 +267,11 @@
 		</div>
 	</nav>
 </header>
+
+<!-- Announces Admin-mode changes that don't originate from the toggle itself
+     (auto-reveal on owner-only routes, F29 P0-6); the switch announces its own
+     manual flips via aria-checked. -->
+<p class="sr-only" role="status" aria-live="polite">{adminMode.announcement}</p>
 
 <main class="px-6 py-6">
 	{@render children()}
