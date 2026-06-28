@@ -168,14 +168,18 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 		return
 	}
 
-	batch, written, unmapped := buildBatch(fields, v.Container)
-	if len(batch) == 0 {
+	mapped, unmapped := buildBatch(fields, v.Container)
+	if len(mapped) == 0 {
 		// Nothing writable for this container — a success no-op, recorded so the
 		// operator sees why (e.g. .avi with no tag mapping).
 		finish(true, "", 0, detailLine(v.FilePath, 0, unmapped))
 		return
 	}
 
+	batch := make([]writeback.FieldWrite, len(mapped))
+	for i, m := range mapped {
+		batch[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage}
+	}
 	if err := q.write(ctx, v.FilePath, batch); err != nil {
 		q.log.Warn("writeback batch failed", "id", job.ID, "video", job.VideoID, "err", err)
 		finish(false, err.Error(), 0, detailLine(v.FilePath, 0, unmapped))
@@ -183,53 +187,33 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	}
 
 	// Audit rows — one per field, only on success (ADR-041 invariant).
-	for _, it := range written {
-		if auditErr := q.repo.InsertWriteback(ctx, job.VideoID, it.field, it.tagName, strings.Join(it.values, "\n"), it.source); auditErr != nil {
-			q.log.Warn("insert writeback audit", "id", job.ID, "field", it.field, "err", auditErr)
+	for _, m := range mapped {
+		if auditErr := q.repo.InsertWriteback(ctx, job.VideoID, m.Field, m.TagName, strings.Join(m.Values, "\n"), m.Source); auditErr != nil {
+			q.log.Warn("insert writeback audit", "id", job.ID, "field", m.Field, "err", auditErr)
 		}
 	}
 	if q.postWrite != nil {
 		q.postWrite(ctx, job.VideoID, v.FilePath)
 	}
-	finish(true, "", len(written), detailLine(v.FilePath, len(written), unmapped))
+	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped))
 }
 
-type writtenField struct {
-	field, tagName, source string
-	values                 []string
-}
-
-// buildBatch re-resolves canonical→tag for the container (never trusting a stored
-// tag — security C2) and sanitizes values defensively. Unmappable fields are skipped
-// and returned so the job_run detail can name them (per-field, not whole-batch — F30.4g).
-func buildBatch(fields []JobField, container string) (batch []writeback.FieldWrite, written []writtenField, unmapped []string) {
+// buildBatch sanitizes values defensively and re-resolves canonical→tag for the
+// container via the shared mapper the HTTP handler also uses
+// (writeback.ResolveForContainer) — never trusting a stored tag (security C2).
+// Unmappable fields are returned so the job_run detail can name them (per-field,
+// not whole-batch — F30.4g).
+func buildBatch(fields []JobField, container string) (mapped []writeback.Mapped, unmapped []string) {
+	specs := make([]writeback.FieldValues, 0, len(fields))
 	for _, f := range fields {
 		if f.Field == "" {
 			continue
 		}
-		cleaned := make([]string, 0, len(f.Values))
-		for _, val := range f.Values {
-			if s := enrich.SanitizeValue(val); s != "" {
-				cleaned = append(cleaned, s)
-			}
+		if cleaned := enrich.SanitizeValues(f.Values); len(cleaned) > 0 {
+			specs = append(specs, writeback.FieldValues{Field: f.Field, Values: cleaned, Source: f.Source})
 		}
-		if len(cleaned) == 0 {
-			continue
-		}
-		if imgTag, ok := writeback.ImageTagForField(f.Field, container); ok {
-			batch = append(batch, writeback.FieldWrite{TagName: imgTag, Values: cleaned, IsImage: true})
-			written = append(written, writtenField{f.Field, imgTag, f.Source, cleaned})
-			continue
-		}
-		tagName, ok := writeback.TagForField(f.Field, container)
-		if !ok {
-			unmapped = append(unmapped, f.Field)
-			continue
-		}
-		batch = append(batch, writeback.FieldWrite{TagName: tagName, Values: cleaned})
-		written = append(written, writtenField{f.Field, tagName, f.Source, cleaned})
 	}
-	return batch, written, unmapped
+	return writeback.ResolveForContainer(container, specs)
 }
 
 func detailLine(path string, n int, unmapped []string) string {

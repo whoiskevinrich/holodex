@@ -32,6 +32,15 @@ func validCurationAction(a string) bool {
 	return false
 }
 
+// validateCurationBody returns "" when the request has a field and a valid action,
+// else the owner-facing error message. Shared by set/clear so the contract is stated once.
+func validateCurationBody(b curationBody) string {
+	if b.Field == "" || !validCurationAction(b.Action) {
+		return "field and a valid action (add|suppress|nowrite) are required"
+	}
+	return ""
+}
+
 // setCuration records one value-level decision for a field of a video (F30.2/F30.5a).
 // The manual value is sanitized as untrusted input (security condition C4/F30.6b).
 func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +52,8 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if body.Field == "" || !validCurationAction(body.Action) {
-		writeError(w, http.StatusBadRequest, "field and a valid action (add|suppress|nowrite) are required")
+	if msg := validateCurationBody(body); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 	value := enrich.SanitizeValue(body.Value)
@@ -75,8 +84,8 @@ func (h *Handlers) clearCuration(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if body.Field == "" || !validCurationAction(body.Action) {
-		writeError(w, http.StatusBadRequest, "field and a valid action (add|suppress|nowrite) are required")
+	if msg := validateCurationBody(body); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 	if _, err := h.repo.ClearCuration(r.Context(), model.EnrichEntityVideo, id, body.Field, body.Value, body.Action); err != nil {

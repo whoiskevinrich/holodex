@@ -18,6 +18,7 @@
 package resolver
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -218,7 +219,7 @@ func resolveMerge(gather func(mapping.Source) []string, fc FieldCuration, f mapp
 				disp[nk] = part
 				order = append(order, nk)
 			}
-			if !containsStr(srcs[nk], ns) {
+			if !slices.Contains(srcs[nk], ns) {
 				srcs[nk] = append(srcs[nk], ns)
 			}
 			if ns == "manual" {
@@ -279,28 +280,13 @@ func applyCasing(s, mode string) string {
 // titleCase upper-cases the first rune of each whitespace-separated word, leaving
 // the remainder untouched so acronyms/mixed-case (e.g. "iMac") survive.
 func titleCase(s string) string {
-	return strings.Join(mapWords(strings.Fields(s), func(w string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
 		r := []rune(w)
 		r[0] = unicode.ToUpper(r[0])
-		return string(r)
-	}), " ")
-}
-
-func mapWords(in []string, fn func(string) string) []string {
-	out := make([]string, len(in))
-	for i, w := range in {
-		out[i] = fn(w)
+		words[i] = string(r)
 	}
-	return out
-}
-
-func containsStr(in []string, s string) bool {
-	for _, v := range in {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return strings.Join(words, " ")
 }
 
 // indexExtra builds a case-insensitive lookup map from ExtraMetadata.
