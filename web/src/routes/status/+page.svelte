@@ -4,7 +4,7 @@
 	// indicator) and owns history fetching.
 	import { onMount, onDestroy } from 'svelte';
 	import { activity } from '$lib/activity.svelte';
-	import { api, setAdminToken } from '$lib/api';
+	import { api, startSession } from '$lib/api';
 	import type { JobRun } from '$lib/types';
 	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
 	import StatusCard from '$lib/components/StatusCard.svelte';
@@ -12,6 +12,7 @@
 
 	let runs = $state<JobRun[]>([]);
 	let tokenInput = $state('');
+	let rememberDevice = $state(false);
 	let tokenError = $state('');
 	let toast = $state('');
 	let confirmingRescan = $state(false);
@@ -57,7 +58,14 @@
 	async function submitToken(e: Event) {
 		e.preventDefault();
 		if (!tokenInput.trim()) return;
-		setAdminToken(tokenInput);
+		// Exchange the token for an HttpOnly session cookie (ADR-046). A 401 here is
+		// the wrong token; the token is never stored client-side.
+		try {
+			await startSession(tokenInput, rememberDevice);
+		} catch {
+			tokenError = 'Incorrect token — try again.';
+			return;
+		}
 		tokenInput = '';
 		// Independent calls — run them together; both must finish before we judge owner.
 		await Promise.all([activity.refreshCaps(), activity.refresh()]);
@@ -67,6 +75,16 @@
 		}
 		tokenError = '';
 		await loadHistory();
+	}
+
+	async function signOut() {
+		busy = true;
+		try {
+			await activity.signOut();
+			if (!activity.isOwner) runs = []; // clear page-local history too
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function doRescan() {
@@ -117,6 +135,10 @@
 				<button type="submit" class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink">Unlock</button>
 				{#if tokenError}<span class="text-sm text-warn">{tokenError}</span>{/if}
 			</div>
+			<label class="flex items-center gap-2 text-sm text-muted">
+				<input type="checkbox" bind:checked={rememberDevice} class="accent-accent" />
+				Trust this device (stay signed in longer)
+			</label>
 		</form>
 	{:else if !a}
 		<p class="rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink">
@@ -198,6 +220,9 @@
 					{:else}
 						<button onclick={() => (confirmingRescan = true)} disabled={busy} class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60">Rescan library</button>
 						<button onclick={doReload} disabled={busy} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60">Reload config</button>
+						{#if activity.caps?.auth_required}
+							<button onclick={signOut} disabled={busy} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60">Sign out</button>
+						{/if}
 					{/if}
 					{#if toast}<span class="text-sm text-muted">{toast}</span>{/if}
 				</div>

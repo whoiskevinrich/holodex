@@ -244,6 +244,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// zero-config default; on a non-loopback bind that means the admin surface is
 	// reachable without a token — warn loudly (fail-loud condition 1).
 	auth := api.NewAuth(cfg.AdminToken)
+	auth.SetSessionSecret(cfg.SessionSecret) // optional independent session key (ADR-046)
 	exposedBind := cfg.ExposedBind()
 	if !auth.Required() && exposedBind {
 		log.Warn("admin controls are reachable WITHOUT a token on a non-loopback bind; set ADMIN_TOKEN to require authentication",

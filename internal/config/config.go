@@ -32,6 +32,11 @@ type Config struct {
 	// loopback.
 	AdminToken string `yaml:"admin_token"`
 
+	// SessionSecret optionally overrides the owner session-cookie signing key
+	// (ADR-046). Empty = derive the key from AdminToken, so rotating the token
+	// invalidates all sessions; set it to rotate sessions independently.
+	SessionSecret string `yaml:"session_secret"`
+
 	// Scanner (ADR-011, ADR-018)
 	ScanIntervalSeconds int  `yaml:"scan_interval_seconds"`
 	ScanWorkers         int  `yaml:"scan_workers"`
@@ -230,6 +235,7 @@ func applyEnv(c *Config) {
 	c.Port = envInt("PORT", c.Port)
 	c.LogLevel = envStr("LOG_LEVEL", c.LogLevel)
 	c.AdminToken = envStr("ADMIN_TOKEN", c.AdminToken)
+	c.SessionSecret = envStr("SESSION_SECRET", c.SessionSecret)
 
 	c.ScanIntervalSeconds = envInt("SCAN_INTERVAL_SECONDS", c.ScanIntervalSeconds)
 	c.ScanWorkers = envInt("SCAN_WORKERS", c.ScanWorkers)
