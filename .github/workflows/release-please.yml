@@ -27,7 +27,7 @@ jobs:
       contents: write          # commit the release PR + create the tag/release
       pull-requests: write      # open and update the release PR
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # PAT/App token so the created tag triggers release.yml. Falls back to
           # GITHUB_TOKEN — which still opens/merges the release PR, but the resulting
