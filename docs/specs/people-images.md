@@ -397,10 +397,10 @@ owner-gated throughout — there is no access-model change to sequence around.
 
 ---
 
-## F25.26–29 — Person-page polish (follow-ups)
+## F25.26–30 — Person-page polish (follow-ups)
 
-Post-F25 refinements to the person hero and people list (F25.26–28 are UI-only, tokens-only, on the
-existing `.portrait-frame` seam — ADR-038; F25.29 adds a list-payload field + an enrichment-ingest
+Post-F25 refinements to the person hero and people list (F25.26–28, F25.30 are UI-only, tokens-only, on
+the existing `.portrait-frame` seam — ADR-038; F25.29 adds a list-payload field + an enrichment-ingest
 policy, no access change). Design handoff +
 QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) ·
 [`person-page-polish-qa-checklist.md`](../design/person-page-polish-qa-checklist.md).
@@ -432,3 +432,20 @@ QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) �
     download) when the run filled a headshot but **no** poster and the poster slot is empty. Never
     overwrites an existing owner/provider poster; like other core roles it refills on re-enrich (core
     deletes don't suppress — ADR-043 F25.25). (`enrich.downloadAssets`, `ImageSink.StoreAssetIfAbsent`.)
+- **F25.30 — Banner only when set.** Not every person has a banner-sized image, and the placeholder
+  banner band — a 5:2 hero up to 540px tall — dominates the page with generic art when none exists. The
+  hero banner now renders **only when a real banner image is present** (`images.roles.banner?.present`),
+  for **everyone including the owner** — mirroring the F25.27 poster rule that "visitors see it only when
+  present." This supersedes F25.3's "given none → resolved 16:9 placeholder" *for the person-page hero*:
+  the banner placeholder is no longer shown there (placeholder resolution for the banner role still exists
+  in the serving layer and is unchanged).
+  - **No-banner layout (clean top, no overhang).** With no band above it, the headshot + name row no
+    longer overhangs the banner (the `-mt-10`/`-mt-12` negative top margin is conditional on a banner
+    being present). When there's no banner, the row sits flush at the top of the hero with normal spacing,
+    so the headshot never pulls up into empty space.
+  - **Owner add-banner affordance.** Because the banner band was the owner's only entry point for setting
+    one, hiding it for the owner removes that path. When no banner is present, the owner sees an explicit
+    **"Add banner"** control in the hero that reuses the existing core-slot upload (`pickCore('banner')`)
+    — the same path the old "Edit" overlay invoked. Once a banner exists it shows normally with the
+    `Replace` overlay as before; owners can still clear it via the gallery/delete path (F25.11), which
+    returns the page to the no-banner state.
