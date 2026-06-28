@@ -22,6 +22,15 @@ export interface Person {
 // free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
 export type PersonImageRole = 'headshot' | 'banner' | 'poster' | 'extra';
 
+// The three single-slot core roles (the croppable, promotable slots — not the `extra`
+// gallery). Canonical list + derived type, so the role set lives in exactly one place;
+// `satisfies` guarantees every entry is a real non-extra role.
+export const CORE_ROLES = ['headshot', 'banner', 'poster'] as const satisfies readonly Exclude<
+	PersonImageRole,
+	'extra'
+>[];
+export type CoreRole = (typeof CORE_ROLES)[number];
+
 // PersonImage is one stored gallery image in the person-detail read model (F25).
 // Version mirrors the id and drives the `?v=` cache-buster on serving URLs.
 export interface PersonImage {

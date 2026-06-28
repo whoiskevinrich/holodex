@@ -10,10 +10,9 @@
 	import { theme } from '$lib/theme.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
-	import type { PersonImage, PersonImageRole } from '$lib/types';
+	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
 	import CropEditor from './CropEditor.svelte';
 
-	const CORE_ROLES: Exclude<PersonImageRole, 'extra'>[] = ['headshot', 'banner', 'poster'];
 	const ROLE_LABEL: Record<string, string> = {
 		headshot: 'headshot',
 		banner: 'banner',
@@ -42,7 +41,7 @@
 	let pendingOverCap = $state(false);
 	// The gallery item being promoted (opens the crop editor) + its target role.
 	let cropImage = $state<PersonImage | null>(null);
-	let cropRole = $state<Exclude<PersonImageRole, 'extra'>>('headshot');
+	let cropRole = $state<CoreRole>('headshot');
 
 	const max = $derived(activity.galleryMax);
 	const full = $derived(items.length >= max);
@@ -97,7 +96,7 @@
 		}
 	}
 
-	function promote(img: PersonImage, role: Exclude<PersonImageRole, 'extra'>) {
+	function promote(img: PersonImage, role: CoreRole) {
 		cropRole = role;
 		cropImage = img;
 	}
