@@ -197,7 +197,11 @@
 		imageError = '';
 		try {
 			await api.uploadPersonImage(id, file, uploadRole);
-			load(id); // refresh so the new ?v= stamp busts the cache everywhere
+			// Refresh just the image set — the new ?v= stamp busts the cache for the
+			// uploaded role — without flashing the whole page through the AsyncState
+			// loading view (a full load() would). Awaited so the busy label holds until
+			// the new image is in hand, giving a clean swap (e.g. add-banner → banner).
+			await reloadImages();
 		} catch (err) {
 			imageError = toMessage(err);
 		} finally {
@@ -260,6 +264,7 @@
 					<button
 						onclick={() => pickCore('banner')}
 						disabled={uploadBusy === 'banner'}
+						title="Add banner"
 						class="flex w-full items-center justify-center gap-2 rounded-theme border border-dashed border-rule bg-surface px-3 py-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-60"
 					>
 						{uploadBusy === 'banner' ? 'Adding…' : '+ Add banner'}
