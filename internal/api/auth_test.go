@@ -78,6 +78,14 @@ func TestGateRequiresTokenWhenSet(t *testing.T) {
 	if code, _ := getTok(t, srv.URL+"/api/v1/admin/activity", "s3cret"); code != http.StatusOK {
 		t.Errorf("correct-token code = %d, want 200", code)
 	}
+	// Metadata-key discovery is owner-gated too (F35): it backs the owner-only
+	// /owner/keys tab, so it must require the token when one is set.
+	if code, _ := getTok(t, srv.URL+"/api/v1/metadata-keys", ""); code != http.StatusUnauthorized {
+		t.Errorf("missing-token metadata-keys code = %d, want 401", code)
+	}
+	if code, _ := getTok(t, srv.URL+"/api/v1/metadata-keys", "s3cret"); code != http.StatusOK {
+		t.Errorf("correct-token metadata-keys code = %d, want 200", code)
+	}
 	// A non-admin read endpoint stays public regardless.
 	if code, _ := getTok(t, srv.URL+"/api/v1/media", ""); code != http.StatusOK {
 		t.Errorf("public media code = %d, want 200", code)

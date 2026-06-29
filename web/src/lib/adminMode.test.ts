@@ -70,7 +70,7 @@ describe('adminMode store (F29)', () => {
 		store.set(false);
 		store.reveal();
 		expect(store.enabled).toBe(true);
-		expect(store.announcement).toBe('Admin mode on.');
+		expect(store.announcement).toBe('Owner view on.');
 	});
 
 	it('reveal is a no-op (no announcement) when already ON', () => {

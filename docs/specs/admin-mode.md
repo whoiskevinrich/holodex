@@ -7,8 +7,9 @@ the skin/theme preference pattern (`web/src/lib/theme.svelte.ts`, [ADR-021](../a
 **Related**: every owner-gated surface (enrichment F22, person images F25, writeback F28, delete-media,
 person aliases/merge F23, rescan/reload on `/status`).
 **Design handoff**: [`docs/design/admin-mode-handoff.md`](../design/admin-mode-handoff.md).
-**Follow-up:** consolidated **Admin page** (folding
-`/status`, `/trash`, `/keys` into one tabbed page) — tracked separately in `TASKS.md`, not part of F29.
+**Follow-up:** consolidated owner area (folding `/status`, `/trash`, `/keys` into one tabbed page) —
+now specced as **[Owner tooling hub F35](owner-tooling-hub.md)**, which also renames this feature's
+"Admin mode" toggle to **Preview / Owner view** (user-facing strings only). Not part of F29.
 
 ---
 

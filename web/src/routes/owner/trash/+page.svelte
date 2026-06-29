@@ -1,11 +1,10 @@
 <script lang="ts">
 	// Trash view (F24, ADR-037): owner-only list of soft-deleted items, each with
 	// Restore (safe — accent) and Delete permanently (destructive — warn, confirmed).
-	// Hidden from non-owners (the header link is gated too, and the API 401s). Tokens
-	// only; QA 3 skins.
+	// A tab under the Owner hub (F35); the /owner gate hides it from non-owners and the
+	// API 401s. Tokens only; QA 3 skins.
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import { adminMode } from '$lib/adminMode.svelte';
 	import { formatAgo, formatUntil, toMessage } from '$lib/format';
 	import type { TrashEntry } from '$lib/types';
 	import AsyncState from '$lib/components/AsyncState.svelte';
@@ -31,13 +30,10 @@
 	}
 
 	// Owner-gated: only fetch once we know the caller is the owner. caps load app-wide
-	// (layout); re-run when isOwner flips (e.g. after the token is entered).
+	// (layout); re-run when isOwner flips (e.g. after the token is entered). Auto-reveal
+	// (F29 P0-6) now fires once at the /owner layout gate (F35), not per page.
 	$effect(() => {
 		if (activity.isOwner) {
-			// Auto-reveal (F29 P0-6): /trash is an owner-only route, so landing here in
-			// visitor view flips Admin mode back on (and announces it) rather than
-			// stranding the owner on an empty page.
-			adminMode.reveal();
 			load();
 		} else loading = false;
 	});
