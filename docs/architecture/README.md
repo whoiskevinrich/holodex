@@ -52,6 +52,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [047](ADR-047-per-item-metadata-refresh.md) | Per-item metadata refresh — **unified forced re-extract + re-enrich** over a `plan`/`apply` seam; flat `kind=refresh` job row; non-destructive layering invariant | Proposed (spec F31; extends ADR-004/018/033/028/030; relates ADR-013/037/041) |
 | [048](ADR-048-metadata-curation-and-write-queue.md) | Granular metadata curation — **cross-source dedup merge + `manual` source/tombstones** + **durable bounded-concurrency batch-writeback queue** | Proposed (spec F30; generalizes ADR-013; extends ADR-033/041/028/030; partially realizes ADR-041 Option C) |
 | [049](ADR-049-manual-image-precedence.md) | Owner-set person images — **enrichment never overwrites an `upload`/`promoted` core slot** (provenance-implicit lock, no migration) | Proposed (spec F25.31/F33; extends ADR-038; sibling of ADR-043; image twin of ADR-048) |
+| [050](ADR-050-image-content-dedup.md) | Deduplicate enrichment photos by **image content hash** — gallery `extra` skipped when its sha256 matches any of the person's images; `source_url` fast-path; app-layer enforcement + one-time backfill (migration 0015) | Proposed (spec F34; extends ADR-038; byte-level sibling of ADR-043/ADR-049) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 

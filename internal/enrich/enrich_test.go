@@ -249,6 +249,7 @@ type recordingSink struct {
 	stored   []storedAsset
 	suppress map[string]struct{}
 	locked   map[string]struct{} // core roles the owner set by hand (F33, ADR-049)
+	existing map[string]struct{} // asset URLs already stored (F34/ADR-050 URL fast-path)
 }
 
 type storedAsset struct {
@@ -282,6 +283,10 @@ func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ int64) (map[str
 
 func (s *recordingSink) LockedCoreRoles(_ context.Context, _ int64) (map[string]struct{}, error) {
 	return s.locked, nil
+}
+
+func (s *recordingSink) ExistingAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return s.existing, nil
 }
 
 // A person enrich run with image assets fetches each through the (test-injected)
@@ -359,6 +364,39 @@ func TestEnrichSkipsSuppressedAssets(t *testing.T) {
 	}
 	if sink.stored[0].url != origin.URL+"/keep.jpg" {
 		t.Errorf("stored url = %q, want the non-suppressed keep.jpg", sink.stored[0].url)
+	}
+}
+
+// A re-enrich skips a gallery asset whose URL the person already holds (F34/ADR-050
+// URL fast-path): the already-stored URL is not re-fetched/re-stored, while a new
+// gallery URL still flows. Scoped to the gallery — core roles replace in place.
+func TestEnrichSkipsAlreadyHeldGalleryURL(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = []Asset{
+		{Kind: "gallery", URL: origin.URL + "/have.jpg"}, // already stored → skipped
+		{Kind: "gallery", URL: origin.URL + "/new.jpg"},  // fresh → stored
+	}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{existing: map[string]struct{}{origin.URL + "/have.jpg": {}}}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 {
+		t.Fatalf("stored %d assets, want 1 (already-held url skipped): %+v", len(sink.stored), sink.stored)
+	}
+	if sink.stored[0].url != origin.URL+"/new.jpg" {
+		t.Errorf("stored url = %q, want the fresh new.jpg", sink.stored[0].url)
 	}
 }
 

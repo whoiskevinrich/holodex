@@ -27,17 +27,27 @@ const GalleryCap = 20
 // and the insert is not an explicit owner over-cap upload.
 var ErrGalleryFull = errors.New("gallery is full")
 
+// ErrDuplicateImage is returned when an enrichment gallery 'extra' would duplicate
+// an image already stored for the person (matched by content_hash across any role,
+// F34/ADR-050). The caller treats it as a silent skip — like ErrGalleryFull, it is a
+// product-rule rejection, not a failure. Owner uploads are never deduped, so this is
+// only ever returned for an enrichment-sourced extra.
+var ErrDuplicateImage = errors.New("duplicate image")
+
 // PersonImageInsert carries the fields for InsertPersonImage (F25). Role and Source
 // are required; Provider/ExternalID/SourceURL are enrichment provenance, empty for
-// owner uploads and promotes. OverCap lets an owner upload bypass the gallery cap
-// deliberately (the cap still applies to enrichment, which never sets it).
+// owner uploads and promotes. ContentHash is the hex sha256 of the normalized bytes
+// (F34/ADR-050) — populated on every ingest, and the dedup key for enrichment extras.
+// OverCap lets an owner upload bypass the gallery cap deliberately (the cap still
+// applies to enrichment, which never sets it).
 type PersonImageInsert struct {
-	PersonID            int64
-	Role, Source        string
-	Provider, ExternalID string
-	SourceURL           string // upstream asset URL (enrichment only); '' for uploads
+	PersonID                int64
+	Role, Source            string
+	Provider, ExternalID    string
+	SourceURL               string // upstream asset URL (enrichment only); '' for uploads
+	ContentHash             string // hex sha256 of the normalized JPEG (F34/ADR-050)
 	Width, Height, ByteSize int
-	OverCap             bool
+	OverCap                 bool
 }
 
 // InsertPersonImage stores one image row for a person and returns its id. For a
@@ -73,6 +83,22 @@ func (r *Repo) InsertPersonImage(ctx context.Context, in PersonImageInsert) (int
 			return 0, fmt.Errorf("replace core slot: %w", err)
 		}
 	} else {
+		// Gallery dedup (F34/ADR-050): an enrichment-sourced extra whose normalized
+		// bytes already exist for this person — under ANY role — is a no-op, so a
+		// re-enrich / second provider / size variant can't re-pile the same photo (or
+		// echo the headshot) into the gallery. Owner uploads are deliberate and never
+		// deduped (only source=enrichment is checked). Core roles never run this — their
+		// single-slot replace and the F25.29 poster seed legitimately repeat a hash.
+		if in.Source == model.PersonImageSourceEnrichment && in.ContentHash != "" {
+			var dup int
+			if err := tx.QueryRowContext(ctx,
+				`SELECT 1 FROM person_images WHERE person_id = ? AND content_hash = ? LIMIT 1`,
+				in.PersonID, in.ContentHash).Scan(&dup); err == nil {
+				return 0, ErrDuplicateImage
+			} else if !errors.Is(err, sql.ErrNoRows) {
+				return 0, fmt.Errorf("dedup gallery: %w", err)
+			}
+		}
 		// Gallery: enforce the cap (unless an explicit owner over-cap upload) and
 		// append after the current max sort_order.
 		if !in.OverCap {
@@ -100,9 +126,9 @@ func (r *Repo) InsertPersonImage(ctx context.Context, in PersonImageInsert) (int
 	now := time.Now().UTC().Format(timeLayout)
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO person_images
-			(person_id, role, source, provider, external_id, source_url, width, height, byte_size, sort_order, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		in.PersonID, in.Role, in.Source, in.Provider, in.ExternalID, in.SourceURL, in.Width, in.Height, in.ByteSize, sortOrder, now)
+			(person_id, role, source, provider, external_id, source_url, content_hash, width, height, byte_size, sort_order, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		in.PersonID, in.Role, in.Source, in.Provider, in.ExternalID, in.SourceURL, in.ContentHash, in.Width, in.Height, in.ByteSize, sortOrder, now)
 	if err != nil {
 		return 0, fmt.Errorf("insert person image: %w", err)
 	}
@@ -293,6 +319,125 @@ func (r *Repo) SuppressedPersonImageURLs(ctx context.Context, personID int64) (m
 		out[u] = struct{}{}
 	}
 	return out, rows.Err()
+}
+
+// ExistingPersonImageURLs returns the set of upstream asset URLs already stored for
+// a person (non-empty source_url, any role), so enrichment can skip re-fetching a URL
+// it already holds before downloading anything (the F34/ADR-050 URL fast-path). The
+// content_hash check remains the authoritative guard for the same image under a
+// different URL. Always non-nil on success.
+func (r *Repo) ExistingPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT source_url FROM person_images WHERE person_id = ? AND source_url <> ''`, personID)
+	if err != nil {
+		return nil, fmt.Errorf("list existing image urls: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		out[u] = struct{}{}
+	}
+	return out, rows.Err()
+}
+
+// PersonImageRef identifies one image row by its person and id — enough to locate the
+// on-disk file (ImagePath) for cleanup after a backfill collapse (F34/ADR-050).
+type PersonImageRef struct {
+	PersonID, ID int64
+}
+
+// PersonImagesMissingHash returns the rows that have no content_hash yet — the
+// pre-F34 images the one-time backfill must hash from their on-disk bytes
+// (ADR-050). Returned in id order so the pass is deterministic. Always non-nil.
+func (r *Repo) PersonImagesMissingHash(ctx context.Context) ([]PersonImageRef, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT person_id, id FROM person_images WHERE content_hash = '' ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list unhashed person images: %w", err)
+	}
+	defer rows.Close()
+	out := []PersonImageRef{}
+	for rows.Next() {
+		var ref PersonImageRef
+		if err := rows.Scan(&ref.PersonID, &ref.ID); err != nil {
+			return nil, err
+		}
+		out = append(out, ref)
+	}
+	return out, rows.Err()
+}
+
+// SetPersonImageHash records the computed content_hash for one row (F34 backfill,
+// ADR-050). Under the write lock like every mutation.
+func (r *Repo) SetPersonImageHash(ctx context.Context, id int64, hash string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE person_images SET content_hash = ? WHERE id = ?`, hash, id); err != nil {
+		return fmt.Errorf("set person image hash: %w", err)
+	}
+	return nil
+}
+
+// CollapseDuplicateGalleryExtras deletes gallery 'extra' rows that duplicate another
+// of the person's images by content_hash, keeping the earliest occurrence; an extra
+// whose bytes match a CORE image is dropped in favor of the core image. Core images
+// are never deleted. It returns the deleted rows so the caller can remove their disk
+// files. One-time F34 backfill cleanup (ADR-050); idempotent (a deduped gallery has
+// nothing left to collapse). Select + delete run in one write-locked transaction.
+func (r *Repo) CollapseDuplicateGalleryExtras(ctx context.Context) ([]PersonImageRef, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	// An extra is a duplicate-to-delete when another image for the same person shares
+	// its hash and is "preferred": any core image wins (o.role <> 'extra'), else the
+	// earlier extra wins (o.id < e.id). So per (person, hash) the lowest-id extra
+	// survives unless a core image shares the hash, in which case every extra goes.
+	rows, err := tx.QueryContext(ctx, `
+		SELECT e.person_id, e.id FROM person_images e
+		WHERE e.role = ? AND e.content_hash <> ''
+		  AND EXISTS (
+			SELECT 1 FROM person_images o
+			WHERE o.person_id = e.person_id AND o.content_hash = e.content_hash
+			  AND o.id <> e.id AND (o.role <> ? OR o.id < e.id))
+		ORDER BY e.id`, model.PersonImageExtra, model.PersonImageExtra)
+	if err != nil {
+		return nil, fmt.Errorf("find duplicate gallery extras: %w", err)
+	}
+	var victims []PersonImageRef
+	for rows.Next() {
+		var ref PersonImageRef
+		if err := rows.Scan(&ref.PersonID, &ref.ID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		victims = append(victims, ref)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	for _, v := range victims {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM person_images WHERE id = ?`, v.ID); err != nil {
+			return nil, fmt.Errorf("delete duplicate gallery extra: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit collapse duplicates: %w", err)
+	}
+	return victims, nil
 }
 
 // ReorderGallery sets the sort_order of a person's gallery images to match the

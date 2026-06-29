@@ -350,3 +350,184 @@ func TestLockedCoreRoles(t *testing.T) {
 		t.Errorf("locked = %v, want exactly headshot+banner", locked)
 	}
 }
+
+// TestGalleryDedupEnrichment: an enrichment gallery 'extra' whose content_hash already
+// exists for the person — under any role — is rejected with ErrDuplicateImage, while
+// owner uploads and core roles are never deduped (F34/ADR-050).
+func TestGalleryDedupEnrichment(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	ins := func(role, source, hash, url string) (int64, error) {
+		return r.InsertPersonImage(ctx, repo.PersonImageInsert{
+			PersonID: pid, Role: role, Source: source, ContentHash: hash, SourceURL: url,
+			Provider: "tmdb", Width: 1, Height: 1, ByteSize: 1,
+		})
+	}
+
+	// A headshot with hash H.
+	if _, err := ins(model.PersonImageHeadshot, model.PersonImageSourceEnrichment, "H", "https://cdn/head.jpg"); err != nil {
+		t.Fatalf("insert headshot: %v", err)
+	}
+	// An enrichment extra duplicating the headshot's bytes (cross-role) → skipped.
+	if _, err := ins(model.PersonImageExtra, model.PersonImageSourceEnrichment, "H", "https://cdn/dup.jpg"); !errors.Is(err, repo.ErrDuplicateImage) {
+		t.Fatalf("cross-role dup extra = %v, want ErrDuplicateImage", err)
+	}
+	// A distinct enrichment extra (hash G) → stored.
+	if _, err := ins(model.PersonImageExtra, model.PersonImageSourceEnrichment, "G", "https://cdn/g.jpg"); err != nil {
+		t.Fatalf("distinct extra: %v", err)
+	}
+	// Re-enrich offering hash G again → skipped.
+	if _, err := ins(model.PersonImageExtra, model.PersonImageSourceEnrichment, "G", "https://cdn/g2.jpg"); !errors.Is(err, repo.ErrDuplicateImage) {
+		t.Fatalf("re-enrich dup extra = %v, want ErrDuplicateImage", err)
+	}
+	// An OWNER upload duplicating hash G → allowed (deliberate; never deduped).
+	if _, err := ins(model.PersonImageExtra, model.PersonImageSourceUpload, "G", ""); err != nil {
+		t.Fatalf("owner upload dup should be allowed: %v", err)
+	}
+	// A core role duplicating hash G (e.g. the F25.29 poster seed reusing headshot bytes)
+	// → allowed; core inserts are never deduped.
+	if _, err := ins(model.PersonImagePoster, model.PersonImageSourceEnrichment, "G", "https://cdn/g.jpg"); err != nil {
+		t.Fatalf("core insert dup should be allowed: %v", err)
+	}
+
+	// Net gallery: G (enrichment) + G (owner upload) = 2 extras; the two H/G dup
+	// enrichment extras were skipped.
+	n, err := r.CountGalleryImages(ctx, pid)
+	if err != nil {
+		t.Fatalf("count gallery: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("gallery count = %d, want 2", n)
+	}
+}
+
+// TestExistingPersonImageURLs returns every stored non-empty source_url for a person
+// (any role), the input to the enrichment URL fast-path (F34/ADR-050).
+func TestExistingPersonImageURLs(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	mk := func(role, source, url string) {
+		if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{
+			PersonID: pid, Role: role, Source: source, SourceURL: url, ContentHash: url,
+			Provider: "tmdb", Width: 1, Height: 1, ByteSize: 1,
+		}); err != nil {
+			t.Fatalf("insert %s: %v", url, err)
+		}
+	}
+	mk(model.PersonImageHeadshot, model.PersonImageSourceEnrichment, "https://cdn/head.jpg")
+	mk(model.PersonImageExtra, model.PersonImageSourceEnrichment, "https://cdn/g.jpg")
+	mk(model.PersonImageExtra, model.PersonImageSourceUpload, "") // upload, no url → not reported
+
+	urls, err := r.ExistingPersonImageURLs(ctx, pid)
+	if err != nil {
+		t.Fatalf("existing urls: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("existing urls = %v, want 2", urls)
+	}
+	if _, ok := urls["https://cdn/head.jpg"]; !ok {
+		t.Error("headshot url missing")
+	}
+	if _, ok := urls["https://cdn/g.jpg"]; !ok {
+		t.Error("gallery url missing")
+	}
+}
+
+// TestCollapseDuplicateGalleryExtras: the one-time backfill collapse keeps the earliest
+// extra of a hash, drops an extra that duplicates a CORE image (core wins), never
+// deletes a core image, and is idempotent (F34/ADR-050).
+func TestCollapseDuplicateGalleryExtras(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	ins := func(role, hash string) int64 {
+		// Pre-hashed rows simulate the post-backfill state; use upload source so the
+		// insert-time dedup (enrichment-only) doesn't reject the planted duplicates.
+		id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{
+			PersonID: pid, Role: role, Source: model.PersonImageSourceUpload, ContentHash: hash,
+			Width: 1, Height: 1, ByteSize: 1,
+		})
+		if err != nil {
+			t.Fatalf("insert %s/%s: %v", role, hash, err)
+		}
+		return id
+	}
+
+	head := ins(model.PersonImageHeadshot, "H") // core, hash H
+	g1 := ins(model.PersonImageExtra, "A")      // earliest A → kept
+	g2 := ins(model.PersonImageExtra, "A")      // dup A → dropped
+	g3 := ins(model.PersonImageExtra, "A")      // dup A → dropped
+	uniq := ins(model.PersonImageExtra, "B")    // unique → kept
+	gh := ins(model.PersonImageExtra, "H")      // matches the core headshot → dropped (core wins)
+
+	victims, err := r.CollapseDuplicateGalleryExtras(ctx)
+	if err != nil {
+		t.Fatalf("collapse: %v", err)
+	}
+	gotDeleted := map[int64]bool{}
+	for _, v := range victims {
+		gotDeleted[v.ID] = true
+	}
+	for _, id := range []int64{g2, g3, gh} {
+		if !gotDeleted[id] {
+			t.Errorf("expected %d collapsed", id)
+		}
+	}
+	for _, id := range []int64{head, g1, uniq} {
+		if gotDeleted[id] {
+			t.Errorf("did not expect %d collapsed", id)
+		}
+	}
+
+	// Survivors: headshot + g1(A) + uniq(B) — gallery has 2 extras, core intact.
+	if n, _ := r.CountGalleryImages(ctx, pid); n != 2 {
+		t.Errorf("post-collapse gallery = %d, want 2", n)
+	}
+	if _, err := r.GetPersonImage(ctx, pid, head); err != nil {
+		t.Errorf("core headshot should survive: %v", err)
+	}
+
+	// Idempotent: a second pass collapses nothing.
+	again, err := r.CollapseDuplicateGalleryExtras(ctx)
+	if err != nil {
+		t.Fatalf("collapse again: %v", err)
+	}
+	if len(again) != 0 {
+		t.Errorf("second collapse removed %d, want 0", len(again))
+	}
+}
+
+// TestPersonImagesMissingHashAndSet: the backfill's read/write of content_hash.
+func TestPersonImagesMissingHashAndSet(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	// A row inserted with no ContentHash is "missing".
+	id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageExtra, Source: model.PersonImageSourceUpload, Width: 1, Height: 1, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	missing, err := r.PersonImagesMissingHash(ctx)
+	if err != nil {
+		t.Fatalf("missing: %v", err)
+	}
+	if len(missing) != 1 || missing[0].ID != id {
+		t.Fatalf("missing = %+v, want exactly id %d", missing, id)
+	}
+	if err := r.SetPersonImageHash(ctx, id, "deadbeef"); err != nil {
+		t.Fatalf("set hash: %v", err)
+	}
+	missing, err = r.PersonImagesMissingHash(ctx)
+	if err != nil {
+		t.Fatalf("missing after set: %v", err)
+	}
+	if len(missing) != 0 {
+		t.Errorf("missing after set = %d, want 0", len(missing))
+	}
+}
