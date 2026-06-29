@@ -314,3 +314,39 @@ func TestDeleteSuppressesEnrichmentURL(t *testing.T) {
 		t.Errorf("suppressed count = %d, want 1 (upload had no url)", len(sup))
 	}
 }
+
+// TestLockedCoreRoles: only core slots the owner set by hand (upload/promoted) are
+// reported as locked; a provider-set (enrichment) core slot and gallery uploads are
+// not (F33, ADR-049).
+func TestLockedCoreRoles(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	mk := func(role, source string) {
+		if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: role, Source: source, Provider: "tmdb", Width: 1, Height: 1, ByteSize: 1}); err != nil {
+			t.Fatalf("insert %s/%s: %v", role, source, err)
+		}
+	}
+	mk(model.PersonImageHeadshot, model.PersonImageSourceUpload)   // owner-set → locked
+	mk(model.PersonImageBanner, model.PersonImageSourcePromoted)   // owner-set → locked
+	mk(model.PersonImagePoster, model.PersonImageSourceEnrichment) // provider-set → not locked
+	mk(model.PersonImageExtra, model.PersonImageSourceUpload)      // gallery upload → not a core slot
+
+	locked, err := r.LockedCoreRoles(ctx, pid)
+	if err != nil {
+		t.Fatalf("locked core roles: %v", err)
+	}
+	if _, ok := locked[model.PersonImageHeadshot]; !ok {
+		t.Error("uploaded headshot should be locked")
+	}
+	if _, ok := locked[model.PersonImageBanner]; !ok {
+		t.Error("promoted banner should be locked")
+	}
+	if _, ok := locked[model.PersonImagePoster]; ok {
+		t.Error("enrichment poster should not be locked")
+	}
+	if len(locked) != 2 {
+		t.Errorf("locked = %v, want exactly headshot+banner", locked)
+	}
+}

@@ -164,6 +164,32 @@ func (r *Repo) CorePersonImage(ctx context.Context, personID int64, role string)
 	return pi, nil
 }
 
+// LockedCoreRoles returns the set of core roles whose current image the owner set by
+// hand — source 'upload' or 'promoted' (F33, ADR-049). Enrichment treats these as
+// locked and never replaces them, so a re-enrich can't clobber an image the owner
+// chose; an empty or provider-set ('enrichment') slot is absent from the set and
+// stays refreshable. Always non-nil on success.
+func (r *Repo) LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT role FROM person_images
+		WHERE person_id = ? AND role IN (?, ?, ?) AND source IN (?, ?)`,
+		personID, model.PersonImageHeadshot, model.PersonImageBanner, model.PersonImagePoster,
+		model.PersonImageSourceUpload, model.PersonImageSourcePromoted)
+	if err != nil {
+		return nil, fmt.Errorf("locked core roles: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		out[role] = struct{}{}
+	}
+	return out, rows.Err()
+}
+
 // ListPersonImages returns all of a person's images ordered by role then gallery
 // sort_order then id, so the serialized set is stable. Always non-nil on success.
 func (r *Repo) ListPersonImages(ctx context.Context, personID int64) ([]model.PersonImage, error) {
