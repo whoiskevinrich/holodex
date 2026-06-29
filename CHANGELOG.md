@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/whoiskevinrich/holodex/compare/v1.0.0...v1.1.0) (2026-06-29)
+
+
+### 🚀 Features
+
+* **admin-mode:** Admin Mode toggle to hide owner UI for visitor view (F29) ([#54](https://github.com/whoiskevinrich/holodex/issues/54)) ([e18ddd1](https://github.com/whoiskevinrich/holodex/commit/e18ddd1799fd8a94ca4556297831baba82798809))
+* **metadata:** granular curation & merge + durable write queue (F30, ADR-048) ([#55](https://github.com/whoiskevinrich/holodex/issues/55)) ([bae434c](https://github.com/whoiskevinrich/holodex/commit/bae434c3d378aecc142c62a9efbc30ee4176bd15))
+* **refresh:** per-item Refresh Metadata — forced re-extract + re-enrich (F31) ([#56](https://github.com/whoiskevinrich/holodex/issues/56)) ([7a5c03c](https://github.com/whoiskevinrich/holodex/commit/7a5c03c0648a986bfd2a4ba2f320eeaba232be86))
+
+
+### ⚙️ CI / Build
+
+* stop caching binfmt image to silence cache-reserve warning ([#52](https://github.com/whoiskevinrich/holodex/issues/52)) ([541ed4e](https://github.com/whoiskevinrich/holodex/commit/541ed4e0c52c0934c339b31f284805ff20ccabfd))
+
 ## 1.0.0 (2026-06-28)
 
 
