@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/whoiskevinrich/holodex/compare/v1.2.0...v1.3.0) (2026-06-29)
+
+
+### 🚀 Features
+
+* **enrich:** deduplicate enrichment photos by content hash (F34, ADR-050) ([#60](https://github.com/whoiskevinrich/holodex/issues/60)) ([5f6c3ea](https://github.com/whoiskevinrich/holodex/commit/5f6c3eac0fb86d23009290eb6c61448b33e8e2ad))
+* **owner:** consolidate owner tooling into /owner hub + nav split (F35) ([#62](https://github.com/whoiskevinrich/holodex/issues/62)) ([d7faf61](https://github.com/whoiskevinrich/holodex/commit/d7faf6103a3ffdb6d8db7fb2119e49c1f9989314))
+
 ## [1.2.0](https://github.com/whoiskevinrich/holodex/compare/v1.1.0...v1.2.0) (2026-06-29)
 
 
