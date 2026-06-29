@@ -36,6 +36,7 @@ import (
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 func main() {
@@ -231,6 +232,19 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// persists the file layer; the enrich service re-pulls linked providers.
 	handlers.SetRefresh(refresh.NewService(sc, repository, enrichSvc, log))
 	handlers.SetWriteback(writeback.WriteBatch)
+	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
+	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)
+	// so bulk curation can't thrash the filesystem. Survives restart; on boot it
+	// recovers crash-interrupted jobs and sweeps orphan temp files.
+	writeQ := writequeue.New(repository, writeback.WriteBatch, log, cfg.WritebackConcurrency, cfg.MediaPath)
+	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
+		if thumbs != nil && thumbs.Enabled() {
+			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
+				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
+			}
+		}
+	})
+	handlers.SetWriteQueue(writeQ)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
@@ -284,6 +298,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
 	go purger.Run(ctx)
+	go writeQ.Start(ctx) // boot recovery + orphan sweep + worker pool (F30, ADR-048)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).

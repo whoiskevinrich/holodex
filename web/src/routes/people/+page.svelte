@@ -37,7 +37,7 @@
 	let merging = $state(false);
 	let mergeError = $state('');
 
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
 	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to

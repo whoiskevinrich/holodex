@@ -299,6 +299,31 @@ Conventions:
 - **Related-media** (ADR-031, QW2/QW3): repo random-select methods + `GET /media/{id}/related` handler — selection determinism, self-exclusion, active-only, ≤5, null/empty blocks, 404, no-N+1; **assert membership/count not order** (RANDOM()). `RelatedShelf` component tests incl. per-shelf Brutalist counter reset.
 - **Fluid Back** (ADR-032, QW4): `browse.svelte.ts` store unit tests (signature reuse/invalidate, scroll round-trip) + the **E2E scroll+pages restoration** flow (no refetch, no flash). This is the first Playwright assertion on scroll restoration — establishes the pattern for future paginated views.
 
+### Admin Mode toggle (F29) — post–Phase 2
+
+Frontend-only, presentation layer over the owner gate (no backend, no migration). Spec
+[`admin-mode.md`](specs/admin-mode.md), handoff + QA checklist under `docs/design/`.
+- **Store** (`adminMode.svelte.ts`, **done** — `adminMode.test.ts`): defaults **ON**; `set`/`toggle`
+  persist the boolean to `localStorage['holodex-admin-mode']`; `init` restores an explicit stored `"false"`
+  and keeps the default ON for an absent/garbage value; no-throw without `localStorage`; `reveal()` forces
+  ON + announces (auto-reveal), no-op when already on.
+- **Effective gate**: every owner-gated surface reads `activity.isOwner && adminMode.enabled` (the per-page
+  `isOwner` derived now folds in `adminMode`). With Admin mode **OFF**, the full hide-set (header Trash link,
+  home "Recently Added", media enrich/writeback/delete/regenerate + provenance + the raw "Enrichment data:
+  File Extraction"/"…: {provider}" disclosures (relocated under Manage, now owner-gated), person aliases/
+  merge/images/enrich, people-list merge, status rescan/reload) is **absent from the DOM** — agent-asserted,
+  not just
+  visually hidden. The `/status` token-unlock UI stays `needToken`-gated so visitor view never locks the
+  owner out.
+- **Auto-reveal (P0-6)**: landing on an owner-only route (`/trash`) while OFF flips Admin mode ON, renders
+  the page, and announces via the layout `aria-live` region; a public route does **not** flip it.
+- **Security invariant** (ties to ADR-030): the toggle is **presentation only** — it changes no token,
+  capability, or server authorization. An owner-only API still authorizes with Admin mode OFF; a true
+  non-owner is still rejected. (`/security-review` before merge.)
+- **3 skins / a11y**: `role="switch"` + `aria-checked`, accent-fill ON vs muted-outline OFF, open-eye/
+  eye-slash icon (meaning not color-only), label hides `<sm`; tokens-only (`rg` guard empty). Vitest/
+  Playwright UI coverage tracked with the broader frontend-suite debt (§9 Quick Wins / F21).
+
 ### Phase 3 — enrichment
 
 **Metadata source plugins — People (F22, ADR-033)** — the first slice, fully CI-testable with **no network or API keys**:

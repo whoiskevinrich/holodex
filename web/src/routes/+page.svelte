@@ -59,7 +59,7 @@
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the
 	// owner can toggle it off. Per-browser preference; defaults on.
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const RECENT_KEY = 'holodex:show-recently-added';
 	// ssr=false (see above), so localStorage is available at init — seed the saved
 	// preference directly instead of true-then-onMount (avoids a show→hide flash).

@@ -28,6 +28,47 @@ var imageFormatMap = map[string]map[string]string{
 	"flac":     {"poster_url": "Picture"},
 }
 
+// FieldValues is a curated canonical field plus its already-sanitized values,
+// the input to ResolveForContainer (F30).
+type FieldValues struct {
+	Field  string
+	Values []string
+	Source string // provenance, recorded in the audit log
+}
+
+// Mapped is one resolved write target: a container tag name plus the values and
+// provenance to write/audit. IsImage marks a binary cover-art embed.
+type Mapped struct {
+	Field   string
+	TagName string
+	Source  string
+	Values  []string
+	IsImage bool
+}
+
+// ResolveForContainer maps curated canonical fields to their per-container tag
+// targets (image fields first, then text), returning the writable set and the
+// canonical names that have no mapping for this container. It is the single place
+// the writeback HTTP handler and the durable queue worker share so they always
+// agree on what is writable (F30). Values are assumed already sanitized.
+func ResolveForContainer(container string, fields []FieldValues) (mapped []Mapped, unmapped []string) {
+	for _, f := range fields {
+		if len(f.Values) == 0 {
+			continue
+		}
+		if tag, ok := ImageTagForField(f.Field, container); ok {
+			mapped = append(mapped, Mapped{f.Field, tag, f.Source, f.Values, true})
+			continue
+		}
+		if tag, ok := TagForField(f.Field, container); ok {
+			mapped = append(mapped, Mapped{f.Field, tag, f.Source, f.Values, false})
+			continue
+		}
+		unmapped = append(unmapped, f.Field)
+	}
+	return mapped, unmapped
+}
+
 // TagForField returns the exiftool tag name and true for the given canonical
 // field in the given normalised container string (as produced by
 // internal/metadata.normalizeContainer — "Matroska", "MP4", "WebM", "mp3", …).
