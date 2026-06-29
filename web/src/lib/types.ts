@@ -96,15 +96,38 @@ export interface MappedField {
 	values: string[];
 }
 
-// ResolvedField is one canonical field merged from all configured sources (F27).
-// winning_source is the namespace:key that supplied the value, e.g. "tmdb:title"
-// or "file:Title". display mirrors the registry hint for the canonical field.
+// ResolvedValue is one surviving value of a field with its provenance + curation
+// state (F30). A value present in multiple sources is reported once, with every
+// contributing source namespace listed in `sources`.
+export interface ResolvedValue {
+	value: string;
+	sources: string[]; // contributing namespaces, e.g. ["tmdb","file"], ["manual"]
+	manual?: boolean; // owner-added value
+	no_write?: boolean; // shown but excluded from the file write
+}
+
+// ResolvedField is one canonical field merged from all configured sources (F27/F30).
+// `values` holds the surviving display values; `items` carries the per-value
+// provenance + curation state the curation UI consumes. winning_source is the
+// namespace:key that supplied the (first) value. display mirrors the registry hint.
 export interface ResolvedField {
 	canonical: string;
 	label: string;
 	display?: 'long_text' | 'image_url' | 'url';
 	values: string[];
-	winning_source?: string; // e.g. "tmdb:title" | "file:Title"
+	items?: ResolvedValue[];
+	multi?: boolean; // merge-mode (set) field: UI shows add + per-value remove
+	winning_source?: string; // e.g. "tmdb:title" | "file:Title" | "manual:genres"
+}
+
+// CurationAction is a value-level owner decision (F30, ADR-048).
+export type CurationAction = 'add' | 'suppress' | 'nowrite';
+
+// CurationRequest records or clears one value-level decision for a field.
+export interface CurationRequest {
+	field: string;
+	value: string;
+	action: CurationAction;
 }
 
 export interface MediaDetailResponse {

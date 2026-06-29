@@ -22,6 +22,7 @@ import (
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
+	"holodex/internal/writequeue"
 )
 
 // thumbnailer is the subset of the thumbnail pipeline the API needs: enqueue
@@ -62,8 +63,9 @@ type Handlers struct {
 	metrics  searchMetrics
 	mappings  *mapping.Store  // configurable metadata fields (F20); nil disables them
 	cache     cache.Cache     // facet-value cache (F20.8); nil disables caching
-	enrich    *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
-	writeback WriteBatchFunc  // file tag write (F28, ADR-041); nil disables the endpoint
+	enrich     *enrich.Service   // metadata source plugins (F22, ADR-033); nil disables them
+	writeback  WriteBatchFunc    // file tag write (F28, ADR-041); nil disables the endpoint
+	writeQueue *writequeue.Queue // durable batch-write queue (F30, ADR-048); nil → synchronous write
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -210,6 +212,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
 		h.mountWriteback(r)
+		// Value-level metadata curation — manual add/suppress/nowrite (F30, ADR-048).
+		h.mountCuration(r)
 	})
 }
 
@@ -329,7 +333,14 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			h.log.Warn("enrichment for detail", "id", id, "err", err2)
 		} else {
 			enr := enrichmentFromRows(enrichRows)
-			resolved = resolver.Resolve(v, extra, enr, m.Fields())
+			// Value-level curation (F30): manual adds, suppressions, no-write flags.
+			var cur resolver.Curation
+			if curRows, curErr := h.repo.CurationForEntity(r.Context(), model.EnrichEntityVideo, id); curErr != nil {
+				h.log.Warn("curation for detail", "id", id, "err", curErr)
+			} else {
+				cur = curationFromRows(curRows)
+			}
+			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields())
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
@@ -744,6 +755,35 @@ func enrichmentFromRows(rows []repo.EnrichmentRow) resolver.Enrichment {
 	return out
 }
 
+// curationFromRows converts repo curation rows to the resolver.Curation map
+// (field → adds/suppress/nowrite). Returns nil when rows is empty so hot paths
+// avoid allocating a map for every non-curated video.
+func curationFromRows(rows []repo.CurationRow) resolver.Curation {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make(resolver.Curation, 2)
+	for _, r := range rows {
+		fc := out[r.FieldKey]
+		switch r.Action {
+		case repo.CurationAdd:
+			fc.Add = append(fc.Add, r.Value)
+		case repo.CurationSuppress:
+			if fc.Suppress == nil {
+				fc.Suppress = make(map[string]bool)
+			}
+			fc.Suppress[r.NormValue] = true
+		case repo.CurationNoWrite:
+			if fc.NoWrite == nil {
+				fc.NoWrite = make(map[string]bool)
+			}
+			fc.NoWrite[r.NormValue] = true
+		}
+		out[r.FieldKey] = fc
+	}
+	return out
+}
+
 // applyBrowseTitles resolves the highest-precedence title for each video (F27) and
 // overwrites video.Title when a provider source wins. Extra-metadata is not loaded
 // for list pages, so only file:title (already in Video.Title) and provider sources
@@ -768,9 +808,16 @@ func (h *Handlers) applyBrowseTitles(ctx context.Context, items []model.Video, f
 		h.log.Warn("batch enrichment for browse titles", "err", err)
 		return
 	}
+	// Curation can override/suppress the browse title too (F30); batch-load it
+	// alongside enrichment to keep the list path free of N+1 queries.
+	batchCuration, err := h.repo.CurationForVideos(ctx, ids)
+	if err != nil {
+		h.log.Warn("batch curation for browse titles", "err", err)
+	}
 	for i := range items {
 		enr := enrichmentFromRows(batchEnrich[items[i].ID])
-		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, browseFields); t != "" {
+		cur := curationFromRows(batchCuration[items[i].ID])
+		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, cur, browseFields); t != "" {
 			items[i].Title = t
 		}
 	}

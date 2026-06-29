@@ -56,6 +56,13 @@ type Field struct {
 	ParsedSources []Source `yaml:"-"`
 	Filterable    bool     `yaml:"filterable"`
 	Multi         bool     `yaml:"multi"` // split/aggregate multiple values
+	// Merge (F30) forces merge-mode resolution (deduplicated cross-source union)
+	// even for a single-valued field. multi:true implies merge.
+	Merge bool `yaml:"merge"`
+	// Casing (F30, decision #4) sets the output casing applied to this field's
+	// resolved values: "" / "preserve" | "lower" | "upper" | "title". Dedup stays
+	// case-insensitive regardless; this only affects the displayed/written form.
+	Casing string `yaml:"casing"`
 	// Browse, when true, means the resolved value for this field should replace
 	// video.Title in the list-media response so browse cards reflect the
 	// highest-precedence source (e.g. a TMDB title over a filename-derived title).

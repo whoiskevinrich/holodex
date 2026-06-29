@@ -165,11 +165,12 @@ const (
 // Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
 // extensible; scan is the only producer today, with enrichment (F22) the next.
 const (
-	JobKindScan   = "scan"
-	JobKindEnrich = "enrich"
-	JobKindPurge  = "purge" // grace-period hard-delete sweep (F24, ADR-037)
-	JobStatusOK   = "success"
-	JobStatusErr  = "error"
+	JobKindScan      = "scan"
+	JobKindEnrich    = "enrich"
+	JobKindPurge     = "purge"     // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindWriteback = "writeback" // queued batch metadata write (F30, ADR-048)
+	JobStatusOK      = "success"
+	JobStatusErr     = "error"
 )
 
 // Enrichment entity types stored in entity_enrichment (F22, ADR-033).

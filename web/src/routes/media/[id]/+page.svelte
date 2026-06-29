@@ -12,6 +12,7 @@
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import WritebackFormDialog from '$lib/components/WritebackFormDialog.svelte';
+	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -145,10 +146,9 @@
 		}
 	});
 
-	async function onApplied(f: EnrichedField[]) {
-		enriched = f;
-		// Re-fetch the full detail so resolved[] reflects the new enrichment
-		// (the resolver re-runs server-side on each GET).
+	// reloadDetail re-fetches the detail so resolved[] reflects new enrichment or
+	// curation (the resolver re-runs server-side on each GET). Non-fatal on error.
+	async function reloadDetail() {
 		try {
 			const res = await api.getMedia(id);
 			video = res.video;
@@ -157,8 +157,13 @@
 			resolved = res.resolved ?? [];
 			enriched = res.enriched ?? [];
 		} catch {
-			// Non-fatal — enriched state is already updated above
+			// Non-fatal — caller's optimistic state stands.
 		}
+	}
+
+	async function onApplied(f: EnrichedField[]) {
+		enriched = f;
+		await reloadDetail();
 	}
 
 	async function clearProvider() {
@@ -370,10 +375,20 @@
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
 						{:else}
+							<!-- Curatable text/set field (F30): per-value chips with provenance,
+							     edit/remove/no-write, and an add affordance for set fields. -->
 							<div>
-								<dt class="inline text-muted">{f.label}:</dt>
-								<dd class="inline text-ink">{f.values.join(', ')}</dd>
-								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								<dt class="mb-1 text-muted">{f.label}:</dt>
+								<dd>
+									<CurationFieldRow
+										field={f}
+										videoId={id}
+										{isOwner}
+										people={video.people ?? []}
+										personStyle={f.canonical === 'actors' || f.canonical === 'director'}
+										onchanged={reloadDetail}
+									/>
+								</dd>
 							</div>
 						{/if}
 					{/each}

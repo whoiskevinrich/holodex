@@ -419,3 +419,16 @@ func SanitizeValue(v string) string {
 	}
 	return v
 }
+
+// SanitizeValues applies SanitizeValue to each input and drops any that are empty
+// after cleaning. Shared by the writeback handler and the durable write queue so
+// both apply identical input rules (F30).
+func SanitizeValues(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if s := SanitizeValue(v); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}

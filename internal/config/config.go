@@ -95,6 +95,11 @@ type Config struct {
 	// "wide" (default) shows 16:9 thumbnails, suited to personal/AMV libraries.
 	// "poster" shows 2:3 cards, suited to film libraries with poster-format cover art.
 	CardLayout string `yaml:"card_layout"`
+
+	// WritebackConcurrency bounds the durable batch-writeback queue's worker pool
+	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
+	// filesystem; raise only on fast storage. Clamped to ≥1.
+	WritebackConcurrency int `yaml:"writeback_concurrency"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -132,6 +137,7 @@ func Defaults() Config {
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
 		CardLayout:           "wide",
+		WritebackConcurrency: 1,
 	}
 }
 
@@ -271,6 +277,10 @@ func applyEnv(c *Config) {
 
 	c.MetadataMappingsPath = envStr("METADATA_MAPPINGS_PATH", c.MetadataMappingsPath)
 	c.MetadataSourcesPath = envStr("METADATA_SOURCES_PATH", c.MetadataSourcesPath)
+	c.WritebackConcurrency = envInt("WRITEBACK_CONCURRENCY", c.WritebackConcurrency)
+	if c.WritebackConcurrency < 1 {
+		c.WritebackConcurrency = 1 // a non-positive worker count would stall the queue
+	}
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"

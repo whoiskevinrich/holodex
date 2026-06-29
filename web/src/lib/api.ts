@@ -24,7 +24,8 @@ import type {
 	Tag,
 	TrashEntry,
 	Video,
-	WritebackRequest
+	WritebackRequest,
+	CurationRequest
 } from './types';
 
 const BASE = '/api/v1';
@@ -333,9 +334,18 @@ export const api = {
 
 	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`),
 
-	// Metadata writeback — embed a resolved field value into the media file's
-	// tags (F28, ADR-041). Owner-gated; 204 on success; 422 when the field has
-	// no tag mapping for the file's container.
+	// Metadata writeback — embed curated field values into the media file's tags.
+	// Owner-gated. Returns {job_id, queued} when the durable queue is wired (202,
+	// F30/ADR-048), or {} on the legacy synchronous path (204, F28). 422 when a
+	// field has no tag mapping for the file's container.
 	writebackMedia: (id: number, req: WritebackRequest) =>
-		sendAuthed<Record<string, never>>('POST', `/media/${id}/writeback`, req)
+		sendAuthed<{ job_id?: number; queued?: number }>('POST', `/media/${id}/writeback`, req),
+
+	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
+	// suppress / nowrite decision; clearMediaCuration removes one (restoring the
+	// underlying source value). Owner-gated; 204 on success.
+	curateMedia: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation`, req),
+	clearMediaCuration: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req)
 };
