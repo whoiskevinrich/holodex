@@ -218,15 +218,16 @@ func (h *Handlers) storeNormalized(w http.ResponseWriter, r *http.Request, perso
 		return
 	}
 	imgID, err := h.repo.InsertPersonImage(r.Context(), repo.PersonImageInsert{
-		PersonID: personID,
-		Role:     role,
-		Source:   source,
-		Provider: provider,
-		ExternalID: externalID,
-		Width:    iw,
-		Height:   ih,
-		ByteSize:     len(norm),
-		OverCap:  overCap,
+		PersonID:    personID,
+		Role:        role,
+		Source:      source,
+		Provider:    provider,
+		ExternalID:  externalID,
+		ContentHash: personimage.Hash(norm), // populated for all sources; only enrichment is deduped (F34)
+		Width:       iw,
+		Height:      ih,
+		ByteSize:    len(norm),
+		OverCap:     overCap,
 	})
 	if errors.Is(err, repo.ErrGalleryFull) {
 		writeError(w, http.StatusConflict, "gallery is full")

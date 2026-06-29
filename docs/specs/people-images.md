@@ -194,6 +194,65 @@ issues the over-cap upload. Suppression is entirely server-side (no UI).
 
 ---
 
+## Addendum — enrichment photos are deduplicated in the gallery ([ADR-050](../architecture/ADR-050-image-content-dedup.md), F34, 2026-06-29)
+
+The gallery `extra` role is the one append-only slot: where the three core roles are
+single-occupancy (replace-on-reupload) and already dedup *per role within a run*
+([ADR-039 §5](../architecture/ADR-039-provider-asset-urls.md)), gallery extras are
+stored unbounded-then-capped with **no dedup at all**. So the same photo lands in a
+person's gallery more than once whenever:
+
+1. **A re-enrich re-fetches a still-present URL.** Suppression ([ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md) F25.25)
+   only skips URLs the owner *deleted*; an image that's still in the gallery is fetched
+   and appended again on the next run.
+2. **A provider lists the same gallery URL twice** in one response (the per-run `done`
+   map tracks role, not URL, and gallery never marks the role done — [`service.go`](../../internal/enrich/service.go)).
+3. **Two providers — or a different size/crop variant from one provider — return the
+   same image under different URLs.** Nothing keys on the *bytes*, only the URL.
+4. **The headshot also appears as a gallery asset** (or the F25.29 poster-seed bytes
+   reappear as an `extra`), so the same face shows as both the avatar and a grid tile.
+
+> **Why this is needed.** A person enriched twice (or by two providers) accumulates a
+> gallery full of visible duplicates — the owner's only recourse is to delete each one
+> by hand, and a later re-enrich brings the non-deleted copies back. The fix is to stop
+> creating the duplicate rows in the first place, keyed on image **content** so it holds
+> across providers, URL variants, and runs — *"the rule should apply across any photo
+> enrichment,"* not just same-URL re-fetches.
+
+This is the byte-level sibling of two existing URL-level guards: F25.25 keeps a
+**deleted** provider image deleted (suppression by `source_url`); F25.31 keeps an
+**owner-set** core image from being overwritten (lock by `source`). F34 keeps a
+**duplicate** image from being stored at all (skip by `content_hash`). All three are
+ingest-time policies in `enrich.downloadAssets` / the image sink; none changes the
+access model or the read/serve path.
+
+| ID | Requirement | Acceptance criteria |
+|----|-------------|---------------------|
+| F34.1 | **Every stored person image records a content hash.** On ingest (upload, enrichment download, promote) the **normalized** JPEG bytes are hashed (sha256) and stored on the row, so identity is the bytes Holodex serves — independent of the source URL, provider, or original encoding. | A stored image has a non-empty `content_hash`; two ingests of byte-identical normalized output produce the same hash; re-encoding/metadata-strip differences in the *source* that normalize to identical output collide (intended). |
+| F34.2 | **An enrichment gallery `extra` is skipped when it duplicates any of the person's existing images** — matched by content hash across **all** roles (headshot/banner/poster/extra), not just the gallery. The skip is a silent no-op (not an error, not counted against the cap). | Enrich a person whose provider returns a gallery asset whose bytes equal the existing headshot → no new row, no disk file, gallery unchanged. Enrich twice with the same gallery image → exactly one row. A provider listing the same gallery URL twice in one response → one row. |
+| F34.3 | **URL fast-path: a gallery asset whose `source_url` is already stored for the person is skipped before fetching** — no download, no normalize. The content-hash check (F34.2) remains the authoritative guard for the same image under a *different* URL. | Re-enrich a person whose gallery still holds asset URL *U* → *U* is not re-fetched (observable: no asset HTTP request for *U*). A different URL pointing at the same bytes is fetched once, then dropped by the hash check. |
+| F34.4 | **Core-role semantics are unchanged.** The dedup applies only to `extra` inserts; single-slot replace (F25.7), the locked-core rule (F25.31), and the headshot→poster seed (F25.29) all still work — the poster seed may legitimately reuse the headshot's exact bytes under a *different* role. | Re-enrich a person with an `enrichment` headshot → headshot still refreshes (replace, not blocked by its own hash). The F25.29 poster seed still fills an empty poster from the headshot bytes even though that hash already exists as the headshot. |
+| F34.5 | **One-time backfill collapses existing duplicate gallery extras.** A startup repair pass hashes any image rows lacking a `content_hash`, then for each person removes duplicate `extra` rows (and their on-disk files), keeping the earliest occurrence; an `extra` whose bytes match a **core** image is removed in favor of the core image. Core images are never deleted by the backfill. The pass is idempotent and runs once (rows already hashed are skipped). | After upgrade, a gallery that held three copies of one photo shows one; an `extra` that duplicated the headshot is gone; running the pass again is a no-op; no core image is ever removed. |
+| F34.6 | **Owner uploads are hashed but never auto-skipped.** An owner deliberately uploading (or promoting) an image that duplicates an existing one is honored — dedup is an *enrichment* bound, consistent with the cap (enrichment bounded; owner may over-cap, ADR-043 F25.24). | An owner upload of a duplicate image succeeds and appears; only enrichment-sourced extras are silently deduped. |
+
+**Data/architecture ([ADR-050](../architecture/ADR-050-image-content-dedup.md)).** Migration
+`0015` adds `person_images.content_hash TEXT NOT NULL DEFAULT ''` plus a non-unique
+lookup index `(person_id, content_hash)`. Uniqueness is enforced in the **repo/sink
+layer** (a transactional existence check), not a DB constraint — the hash is computed in
+Go after normalization, core roles legitimately repeat a hash across a replace, and the
+backfill must collapse pre-existing dupes before any uniqueness could hold. `StoreAsset`
+computes the hash, threads it through `PersonImageInsert.ContentHash`, and for an
+enrichment `extra` returns a sentinel `ErrDuplicateImage` (treated as skip, like
+`ErrGalleryFull`) when the hash already exists for the person. `downloadAssets` gains an
+`ImageSink.ExistingAssetURLs(personID)` lookup for the URL fast-path (alongside the
+suppressed + locked sets it already loads). The backfill is a Go startup pass
+(SQL can't sha256 on-disk bytes) gated on rows with an empty `content_hash`.
+
+**Frontend.** None. Dedup is entirely server-side at ingest; the gallery renders whatever
+rows exist. Existing galleries clean up on the first post-upgrade start (F34.5).
+
+---
+
 ## Addendum — owner-set core images take precedence over enrichment ([ADR-049](../architecture/ADR-049-manual-image-precedence.md), F33, 2026-06-28)
 
 The sibling of F25.25's delete-suppression: where F25.25 keeps a *deleted* provider

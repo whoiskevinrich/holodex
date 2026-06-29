@@ -20,10 +20,15 @@ type fakeImageRepo struct {
 	suppressed map[string]struct{}
 	core       map[string]bool     // core roles reported as already filled
 	locked     map[string]struct{} // core roles the owner set by hand (F33, ADR-049)
+	existing   map[string]struct{} // asset URLs already stored (F34/ADR-050)
+	insertErr  error               // when set, InsertPersonImage returns it (e.g. ErrDuplicateImage)
 	nextID     int64
 }
 
 func (f *fakeImageRepo) InsertPersonImage(_ context.Context, in repo.PersonImageInsert) (int64, error) {
+	if f.insertErr != nil {
+		return 0, f.insertErr
+	}
 	f.inserts = append(f.inserts, in)
 	f.nextID++
 	return f.nextID, nil
@@ -47,6 +52,10 @@ func (f *fakeImageRepo) CorePersonImage(_ context.Context, _ int64, role string)
 
 func (f *fakeImageRepo) LockedCoreRoles(_ context.Context, _ int64) (map[string]struct{}, error) {
 	return f.locked, nil
+}
+
+func (f *fakeImageRepo) ExistingPersonImageURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return f.existing, nil
 }
 
 func TestSinkStoreAssetNormalizes(t *testing.T) {
@@ -85,6 +94,45 @@ func TestSinkStoreAssetNormalizes(t *testing.T) {
 	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(stored)); err != nil || format != "jpeg" {
 		t.Errorf("stored format = %q err=%v, want jpeg", format, err)
+	}
+}
+
+// TestSinkSkipsDuplicate: when the repo reports the asset duplicates one the person
+// already has (ErrDuplicateImage), StoreAsset is a silent no-op — no error to the
+// caller and no file written to disk (F34/ADR-050). It also threads a content hash.
+func TestSinkSkipsDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	fr := &fakeImageRepo{insertErr: repo.ErrDuplicateImage}
+	sink := NewSink(fr, dir, 0)
+
+	if err := sink.StoreAsset(context.Background(), 5, model.PersonImageExtra, "tmdb", "x", "https://cdn/dup.jpg", jpegBytes(t, 30, 30)); err != nil {
+		t.Fatalf("duplicate StoreAsset should be a silent skip, got %v", err)
+	}
+	// Nothing on disk (the id was never assigned, but assert the person dir stayed empty).
+	if entries, _ := os.ReadDir(filepath.Join(dir, "5")); len(entries) != 0 {
+		t.Errorf("duplicate skip wrote files: %v", entries)
+	}
+}
+
+// TestSinkThreadsContentHash: a stored asset carries the hash of its NORMALIZED bytes,
+// so the dedup key matches what's on disk regardless of the source encoding.
+func TestSinkThreadsContentHash(t *testing.T) {
+	fr := &fakeImageRepo{}
+	sink := NewSink(fr, t.TempDir(), 0)
+	raw := jpegBytes(t, 50, 50)
+	if err := sink.StoreAsset(context.Background(), 3, model.PersonImageExtra, "tmdb", "x", "https://cdn/a.jpg", raw); err != nil {
+		t.Fatalf("StoreAsset: %v", err)
+	}
+	if len(fr.inserts) != 1 || fr.inserts[0].ContentHash == "" {
+		t.Fatalf("insert content hash not set: %+v", fr.inserts)
+	}
+	// The hash is over the normalized output, not the raw input.
+	norm, _, _, err := Normalize(raw, 0)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if fr.inserts[0].ContentHash != Hash(norm) {
+		t.Errorf("content hash = %q, want hash of normalized bytes", fr.inserts[0].ContentHash)
 	}
 }
 

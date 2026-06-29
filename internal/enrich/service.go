@@ -58,6 +58,11 @@ type ImageSink interface {
 	// which enrichment must never overwrite (F33, ADR-049). An empty or provider-set
 	// slot is absent from the set and stays refreshable.
 	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// ExistingAssetURLs returns asset URLs already stored for this person, so a gallery
+	// asset whose URL we already hold is skipped before any download (F34/ADR-050 URL
+	// fast-path). The content-hash check (in StoreAsset) remains the authoritative
+	// guard for the same image under a different URL.
+	ExistingAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -248,6 +253,15 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		s.log.Warn("locked core roles lookup failed", "provider", provider, "person", entityID, "err", err)
 		locked = nil
 	}
+	// Asset URLs already stored for this person — skip re-fetching a gallery URL we
+	// already hold (F34/ADR-050 URL fast-path), so a re-enrich doesn't re-download and
+	// re-dedup the same image. Fails open like the lookups above. The content-hash
+	// check in the store still catches the same image under a *different* URL.
+	existingURLs, err := s.images.ExistingAssetURLs(ctx, entityID)
+	if err != nil {
+		s.log.Warn("existing asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		existingURLs = nil
+	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
 	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
@@ -264,6 +278,15 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		}
 		if _, skip := suppressed[a.URL]; skip {
 			continue // owner deleted this exact image before; don't bring it back
+		}
+		// URL fast-path (F34/ADR-050): a gallery asset whose URL we already store is a
+		// guaranteed duplicate — skip without downloading. Scoped to extra; core roles
+		// replace in place, so re-fetching their URL is harmless and the seed logic below
+		// relies on a fresh headshot fetch.
+		if role == model.PersonImageExtra {
+			if _, have := existingURLs[a.URL]; have {
+				continue
+			}
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
