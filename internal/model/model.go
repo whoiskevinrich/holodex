@@ -168,6 +168,7 @@ const (
 	JobKindScan      = "scan"
 	JobKindEnrich    = "enrich"
 	JobKindPurge     = "purge"     // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindRefresh   = "refresh"   // per-item forced re-extract + re-enrich (F31, ADR-047)
 	JobKindWriteback = "writeback" // queued batch metadata write (F30, ADR-048)
 	JobStatusOK      = "success"
 	JobStatusErr     = "error"

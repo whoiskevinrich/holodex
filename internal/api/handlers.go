@@ -19,6 +19,7 @@ import (
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
+	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
@@ -55,17 +56,18 @@ type scanStatusSource interface {
 
 // Handlers serves the REST API (ADR-006) over the repository.
 type Handlers struct {
-	repo     *repo.Repo
-	log      *slog.Logger
-	thumbs   thumbnailer
-	thumbDir string
-	scanner  rescanner
-	metrics  searchMetrics
-	mappings  *mapping.Store  // configurable metadata fields (F20); nil disables them
-	cache     cache.Cache     // facet-value cache (F20.8); nil disables caching
+	repo       *repo.Repo
+	log        *slog.Logger
+	thumbs     thumbnailer
+	thumbDir   string
+	scanner    rescanner
+	metrics    searchMetrics
+	mappings   *mapping.Store    // configurable metadata fields (F20); nil disables them
+	cache      cache.Cache       // facet-value cache (F20.8); nil disables caching
 	enrich     *enrich.Service   // metadata source plugins (F22, ADR-033); nil disables them
 	writeback  WriteBatchFunc    // file tag write (F28, ADR-041); nil disables the endpoint
 	writeQueue *writequeue.Queue // durable batch-write queue (F30, ADR-048); nil → synchronous write
+	refresh    *refresh.Service  // per-item forced re-extract + re-enrich (F31, ADR-047); nil disables it
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -119,6 +121,10 @@ func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
 // service disables the enrichment endpoints and the person-page enriched fields.
 // Called once at startup before serving.
 func (h *Handlers) SetEnrichment(svc *enrich.Service) { h.enrich = svc }
+
+// SetRefresh wires the per-item refresh service (F31, ADR-047). A nil service
+// disables POST /media/{id}/refresh (503). Called once at startup before serving.
+func (h *Handlers) SetRefresh(svc *refresh.Service) { h.refresh = svc }
 
 // SetPersonImages wires per-person image storage (F25, ADR-038): the on-disk root,
 // the upload bounds, and the default skin used when a placeholder is served without
@@ -214,6 +220,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountWriteback(r)
 		// Value-level metadata curation — manual add/suppress/nowrite (F30, ADR-048).
 		h.mountCuration(r)
+		// Per-item forced re-extract + re-enrich (F31, ADR-047).
+		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
 }
 

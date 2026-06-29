@@ -31,6 +31,7 @@ import (
 	"holodex/internal/metrics"
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
+	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
@@ -226,6 +227,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
+	// forced-extract seam (no change-detection); the repo resolves the target and
+	// persists the file layer; the enrich service re-pulls linked providers.
+	handlers.SetRefresh(refresh.NewService(sc, repository, enrichSvc, log))
 	handlers.SetWriteback(writeback.WriteBatch)
 	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
 	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)
