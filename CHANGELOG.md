@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/whoiskevinrich/holodex/compare/v1.1.0...v1.2.0) (2026-06-29)
+
+
+### 🚀 Features
+
+* **enrich:** don't overwrite owner-set person images on enrichment (F33, ADR-049) ([#57](https://github.com/whoiskevinrich/holodex/issues/57)) ([35b03bd](https://github.com/whoiskevinrich/holodex/commit/35b03bd3658c05130e53291d0cb6f9cffbd7ffcb))
+
+
+### 📚 Documentation
+
+* ADR-049 (+ index) and people-images spec F25.31 addendum. ([35b03bd](https://github.com/whoiskevinrich/holodex/commit/35b03bd3658c05130e53291d0cb6f9cffbd7ffcb))
+
 ## [1.1.0](https://github.com/whoiskevinrich/holodex/compare/v1.0.0...v1.1.0) (2026-06-29)
 
 
