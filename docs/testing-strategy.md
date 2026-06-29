@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -201,6 +201,7 @@ assert.JSONEq(t, string(want), string(got))
 | Provenance badges (F22.7) | Component + visual | Vitest + Playwright | file=muted pill vs provider=outlined-accent pill; `aria-label` long-form; **legible in all 3 skins**, never uses `--warn`; confidence label is text not color-only |
 | Person aliases panel (F23.6) | Component/Interaction + visual | Vitest + Playwright | Chips render from `person.aliases`; **owner-only** add field + per-chip ✕ (absent from DOM for non-owner); add clears input + keeps focus (multi-add); **optimistic delete** restores chip on failure; inline `text-warn` for invalid/over-long (words, not color-only); panel hidden when no aliases & not owner; **all 3 skins** (muted pill, `rounded-full`, ✕ accent-on-hover never `--warn`); CJK alias no tofu |
 | Delete / Trash (F24) | Component/Interaction + visual | Vitest + Playwright | **owner-only** Manage block + header Trash link (absent from DOM for non-owner); `ConfirmDialog` a11y — `role=dialog`/`aria-modal`, **focus starts on Cancel**, trap, Esc/backdrop cancel, focus-return; soft-confirm copy reflects the grace days; **purge confirm names the file path**; Trash rows show "deleted X ago · purges in Y", Restore=accent (no confirm) vs Delete-permanently=warn (confirmed); empty/loading/error states themed; **all 3 skins** — `--warn` destructive vs `--accent` restore stays distinct (load-bearing on Brutalist), solid-warn CTA uses readable `--warn-ink` |
+| **Owner hub + nav split** (F35) | Component/Interaction + visual | Vitest + Playwright | Content nav = **Media/People/Tags only** (Keys/Status/Trash links gone); **owner gear** absent from DOM for non-owner / Preview-OFF; gear active on `/owner` via `text-accent` + `aria-current` (never `bg-accent`); `/owner` shell renders `skin-title` "Owner" + tab row; **active tab `bg-surface-2 text-ink` + `aria-current`** (skin-picker idiom, NOT accent — that stays the single primary action); tab switch is in-group nav (no full reload); F29 toggle **relabeled "Owner view"** — no "Admin" string in `+layout.svelte`; gear label hides `<sm` (icon kept, `aria-label`); focus order `Activity → Owner-view → gear → skins`; **all 3 skins** (tokens-only, `rg` guard empty) |
 
 ---
 
@@ -224,6 +225,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 15. **(Phase 3, F23)** With `ADMIN_TOKEN` set: open a person → add alias "Ziggy" (chip appears) → type "zig" in the global search box → the person appears → click → lands on the same person; delete the alias → "zig" no longer surfaces them. A token-less client sees the chips read-only (no add field, no ✕).
 16. **(Phase 3, F23 — merge)** Library has duplicate people "Jennifer Lawrence" and "J Law". As owner, on Jennifer's page click **Merge a person in…** → pick "J Law" → confirm (both video counts shown) → Jennifer's video list grows to the union, "J Law" appears as an alias, the standalone "J Law" page is gone (404). Searching either name lands on Jennifer. **Trigger a re-scan** → still merged (no "J Law" person reappears). Also: typing "J Law" into the add-alias field of a *different* person surfaces the collision prompt (never a silent merge); and the `/people` list **Merge people…** multi-select → "Keep which name?" achieves the same merge.
 17. **(F24 — delete/restore)** With `ADMIN_TOKEN` set, as owner: open a detail page → **Move to Trash** → confirm → land back on the grid with the item **gone**; it is also absent from search and its people/tag pages, and `/media/{id}` 404s. Open **/trash** → the item shows "deleted … · purges …" → **Restore** → it returns to the library and Trash empties. A token-less client sees **no** Manage block, **no** Trash link, and `/trash` shows "Owner only." (Purge-now is exercised only against a throwaway fixture file — never the seed corpus — asserting the file is gone and the row hard-deleted; a read-only-mount variant asserts the item stays in Trash on a failed unlink.)
+18. **(F35 — owner hub + nav split)** As owner with **Owner view on**: the top nav shows only **Media · People · Tags**; click the **Owner** gear (near the skin picker) → land on `/owner` with tabs **Status · Metadata keys · Trash** → switch tabs (content swaps with **no** full-app reload / no jump to top). Paste the old `/status`, `/keys`, `/trash` URLs → each **redirects** to its `/owner/*` tab. Toggle **Owner view off** → the gear **disappears** and the bar is the clean visitor surface (no Keys/Status link leak); with it off, paste `/owner/trash` → it **auto-reveals** owner view and renders the page fully (announces "Owner view on."). A **token-less** client sees no gear and any `/owner*` URL redirects home with no owner data. Run the gear, tabs, and active-tab read in **all three skins**.
 
 ---
 
@@ -323,6 +325,39 @@ Frontend-only, presentation layer over the owner gate (no backend, no migration)
 - **3 skins / a11y**: `role="switch"` + `aria-checked`, accent-fill ON vs muted-outline OFF, open-eye/
   eye-slash icon (meaning not color-only), label hides `<sm`; tokens-only (`rg` guard empty). Vitest/
   Playwright UI coverage tracked with the broader frontend-suite debt (§9 Quick Wins / F21).
+
+### Owner tooling hub + nav split (F35) — post–Phase 2
+
+Information-architecture + visibility change over the owner gate — the consolidated owner area F29 parked.
+Spec [`owner-tooling-hub.md`](specs/owner-tooling-hub.md), handoff + QA checklist under `docs/design/`.
+Frontend-routing-led; **no new backend** beyond closing any ungated `/keys`/`/status` API exposure (verify
+in `/security-review`); the internal `adminMode` store/key are **unchanged** (the rename is deferred — P2).
+- **Routes & redirects**: the three pages move under `/owner/*` behind a shared `owner/+layout` shell;
+  `/status`, `/keys`, `/trash` **permanently redirect** to their `/owner/*` equivalents (old bookmarks and
+  F29's `/trash` references still resolve). `svelte-check` + a redirect loader test.
+- **Group gate + single auto-reveal (P0-6)**: `owner/+layout` enforces `effectiveOwner` (non-owner →
+  redirect home, **no owner data rendered**) and fires auto-reveal **once at the group level** (a Preview-ON
+  owner landing on any `/owner` route flips to owner view and announces "Owner view on."); nested children no
+  longer each re-implement it — consolidating F29's per-route behavior.
+- **Header rework**: content nav reduced to Media/People/Tags; an **Owner gear** in the owner-chrome cluster
+  (gated on `effectiveOwner`; active state `text-accent` + `aria-current`, **not** a fill; label hides
+  `<sm`); the F29 toggle **relabeled "Owner view"** — **string-only** (the word "Admin" leaves the header
+  UI — asserted by an `rg` over `+layout.svelte`), no behavior change.
+- **Hub shell + tabs**: `skin-title` "Owner" heading + tab row (Status/Metadata keys/Trash); **active tab
+  `bg-surface-2 text-ink` + `aria-current`** (the skin-picker idiom — never `bg-accent`, which stays
+  reserved for a page's single primary action like Status's Rescan); tab switch is in-group client nav (no
+  full reload); inner page content relocated **unchanged**.
+- **Visitor-leak invariant** (the bug this closes): with Preview OFF / as a non-owner, the gear and all
+  `/owner` content are **absent from the DOM** and the bar is exactly Media/People/Tags + search + skins —
+  closing the pre-F35 exposure of the `/keys` and `/status` nav links. Agent-asserted.
+- **Security** (ties to ADR-030): the relocation/relabel changes **no** client authorization. The one
+  server change is gating **`GET /metadata-keys`** behind `requireOwner` — it backs the now-owner-only Keys
+  tab, closing an F20-era public exposure the nav split surfaced (spec P0-4). Asserted in `auth_test.go`
+  (`TestGateRequiresTokenWhenSet`: 401 without token / 200 with, when a token is set); activity + trash were
+  already gated.
+- **3 skins / a11y**: gear + tabs tokens-only (`rg` guard empty); `aria-current`/`aria-label`; focus order
+  `ActivityIndicator → Owner-view toggle → Owner gear → skin picker`. Vitest/Playwright UI coverage tracked
+  with the broader frontend-suite debt.
 
 ### Phase 3 — enrichment
 

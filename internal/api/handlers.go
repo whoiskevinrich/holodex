@@ -190,7 +190,6 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/tags/{id}", h.getTag)
 	r.Get("/search", h.search)
 	r.Get("/facets", h.facets)
-	r.Get("/metadata-keys", h.metadataKeys)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
 	// Owner session exchange (ADR-046): POST validates the token and sets an
@@ -203,6 +202,11 @@ func (h *Handlers) Mount(r chi.Router) {
 	// read-model, history, and the admin controls. Open when no ADMIN_TOKEN is set.
 	r.Group(func(r chi.Router) {
 		r.Use(h.requireOwner)
+		// Raw metadata-key discovery powers the owner-only /owner/keys tab (F35). It
+		// enumerates container metadata keys + sample values across the library, so
+		// gate it like the rest of the owner tooling — closing the F20-era public
+		// exposure the F35 nav split surfaced (spec P0-4).
+		r.Get("/metadata-keys", h.metadataKeys)
 		r.Get("/admin/status", h.adminStatus)
 		r.Get("/admin/activity", h.adminActivity)
 		r.Get("/admin/activity/history", h.adminActivityHistory)

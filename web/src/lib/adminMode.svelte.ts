@@ -42,7 +42,7 @@ export class AdminModeState {
 	reveal() {
 		if (this.enabled) return;
 		this.set(true);
-		this.announcement = 'Admin mode on.';
+		this.announcement = 'Owner view on.';
 	}
 }
 
