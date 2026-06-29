@@ -194,6 +194,34 @@ issues the over-cap upload. Suppression is entirely server-side (no UI).
 
 ---
 
+## Addendum — owner-set core images take precedence over enrichment ([ADR-049](../architecture/ADR-049-manual-image-precedence.md), F33, 2026-06-28)
+
+The sibling of F25.25's delete-suppression: where F25.25 keeps a *deleted* provider
+image deleted, this keeps an *owner-set* core image from being overwritten. A person's
+core slots (headshot/banner/poster) already record `source ∈ {upload, promoted,
+enrichment}`; enrichment must yield to the first two and only ever (re)fill or refresh
+its own. No migration, no new config — the rule reads off the existing `source` column.
+
+| ID | Requirement | Acceptance criteria |
+|----|-------------|---------------------|
+| F25.31 | **Manual core images are never overwritten by enrichment.** A core slot whose current image has `source` `upload` or `promoted` is **locked**: an enrich/re-enrich skips the provider asset for that role (before fetching it) and does not seed a poster over a locked poster. An empty or `enrichment`-sourced slot is **not** locked — it still fills/refreshes. To let a provider image replace a manual one, the owner deletes theirs first. The lock lookup **fails open** (a query error locks nothing rather than blocking enrichment). Gallery `extra` is append-only and unaffected. | Upload a headshot (source=upload), then enrich a person whose provider returns a headshot + banner + gallery image, with the headshot owner-set → the headshot is kept, banner/gallery flow. Promote a gallery image to poster, then re-enrich → poster kept. An `enrichment` headshot is replaced on re-enrich (refresh). With only a portrait returned and the poster owner-set, the headshot seed does **not** overwrite the poster. |
+
+**Data/architecture (ADR-049).** New read `repo.LockedCoreRoles(personID)` returns the
+core roles with `source IN ('upload','promoted')` (one indexed query). Exposed to the
+enrich package via `ImageSink.LockedCoreRoles` (passthrough on `personimage.Sink`).
+`enrich.downloadAssets` loads the locked set once per run alongside the suppressed set
+and skips a locked core role before fetching its bytes; the poster auto-seed (F25.29) is
+skipped when poster is locked. The owner upload/promote write paths are unchanged (they
+must replace a core slot) — the precedence lives only in the enrichment orchestration.
+
+**Frontend.** No UI required for correctness (the protection is automatic, server-side).
+Deferred follow-up: an owner-view provenance badge ("Yours" / "from {provider}") on the
+core-image controls so the lock is legible — reuses the existing `ProvenanceBadge`
+vocabulary; and an explicit per-slot pin to also freeze a *provider* image (ADR-049
+"Alternatives").
+
+---
+
 ## Image model — roles, ratios, surfaces
 
 | Role | Ratio | Primary surface(s) | Placeholder? |

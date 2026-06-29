@@ -54,6 +54,10 @@ type ImageSink interface {
 	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
 	// re-enrich skips re-adding them (F25, ADR-043).
 	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted),
+	// which enrichment must never overwrite (F33, ADR-049). An empty or provider-set
+	// slot is absent from the set and stays refreshable.
+	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -236,6 +240,14 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
 		suppressed = nil
 	}
+	// Core roles the owner set by hand (upload/promoted): enrichment never overwrites
+	// them (F33, ADR-049). Like the suppression lookup this fails open — a lookup error
+	// locks nothing rather than blocking enrichment.
+	locked, err := s.images.LockedCoreRoles(ctx, entityID)
+	if err != nil {
+		s.log.Warn("locked core roles lookup failed", "provider", provider, "person", entityID, "err", err)
+		locked = nil
+	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
 	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
@@ -246,6 +258,9 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 		role, ok := assetRoleFor(a.Kind)
 		if !ok || done[role] {
 			continue
+		}
+		if _, owned := locked[role]; owned {
+			continue // owner set this core slot by hand; never overwrite (F33, ADR-049)
 		}
 		if _, skip := suppressed[a.URL]; skip {
 			continue // owner deleted this exact image before; don't bring it back
@@ -276,7 +291,7 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 	// richly on video-credit surfaces. Only fills an EMPTY slot; never overwrites an
 	// existing owner/provider poster. Like other core roles it refills on re-enrich
 	// (core deletes don't suppress, ADR-043 F25.25). Best-effort.
-	if headshotRaw != nil && !done[model.PersonImagePoster] {
+	if _, posterLocked := locked[model.PersonImagePoster]; headshotRaw != nil && !done[model.PersonImagePoster] && !posterLocked {
 		if err := s.images.StoreAssetIfAbsent(ctx, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
 			s.log.Warn("poster seed from headshot failed", "provider", provider, "person", entityID, "err", err)
 		}

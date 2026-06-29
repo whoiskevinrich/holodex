@@ -18,6 +18,9 @@ type imageRepo interface {
 	// CorePersonImage returns the filled core-role image, or repo.ErrNotFound when the
 	// slot is empty — used by StoreAssetIfAbsent to avoid clobbering.
 	CorePersonImage(ctx context.Context, personID int64, role string) (model.PersonImage, error)
+	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted),
+	// which enrichment must not overwrite (F33, ADR-049).
+	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Sink stores enrichment-downloaded image bytes as person images (F25, ADR-038),
@@ -86,4 +89,10 @@ func (s *Sink) StoreAssetIfAbsent(ctx context.Context, personID int64, role, pro
 // so enrichment skips re-adding them (F25, ADR-043).
 func (s *Sink) SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {
 	return s.repo.SuppressedPersonImageURLs(ctx, personID)
+}
+
+// LockedCoreRoles returns the core roles the owner set by hand, which enrichment must
+// not overwrite (F33, ADR-049).
+func (s *Sink) LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	return s.repo.LockedCoreRoles(ctx, personID)
 }
