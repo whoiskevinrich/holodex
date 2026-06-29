@@ -21,6 +21,9 @@ type imageRepo interface {
 	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted),
 	// which enrichment must not overwrite (F33, ADR-049).
 	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// ExistingPersonImageURLs returns the asset URLs already stored for a person, for
+	// the F34/ADR-050 URL fast-path (skip re-fetching a URL we already hold).
+	ExistingPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Sink stores enrichment-downloaded image bytes as person images (F25, ADR-038),
@@ -51,16 +54,22 @@ func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, e
 		return fmt.Errorf("normalize asset: %w", err)
 	}
 	id, err := s.repo.InsertPersonImage(ctx, repo.PersonImageInsert{
-		PersonID:   personID,
-		Role:       role,
-		Source:     model.PersonImageSourceEnrichment,
-		Provider:   provider,
-		ExternalID: externalID,
-		SourceURL:  url,
-		Width:      w,
-		Height:     h,
-		ByteSize:       len(norm),
+		PersonID:    personID,
+		Role:        role,
+		Source:      model.PersonImageSourceEnrichment,
+		Provider:    provider,
+		ExternalID:  externalID,
+		SourceURL:   url,
+		ContentHash: Hash(norm),
+		Width:       w,
+		Height:      h,
+		ByteSize:    len(norm),
 	})
+	// A gallery extra duplicating an image the person already has is a silent skip
+	// (F34/ADR-050) — nothing written, like a full gallery. The bytes never reach disk.
+	if errors.Is(err, repo.ErrDuplicateImage) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("insert asset row: %w", err)
 	}
@@ -95,4 +104,10 @@ func (s *Sink) SuppressedAssetURLs(ctx context.Context, personID int64) (map[str
 // not overwrite (F33, ADR-049).
 func (s *Sink) LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error) {
 	return s.repo.LockedCoreRoles(ctx, personID)
+}
+
+// ExistingAssetURLs returns the asset URLs already stored for a person, so enrichment
+// can skip re-fetching one it already holds before any download (F34/ADR-050).
+func (s *Sink) ExistingAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {
+	return s.repo.ExistingPersonImageURLs(ctx, personID)
 }

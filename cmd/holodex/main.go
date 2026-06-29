@@ -223,6 +223,15 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	enrichSvc.SetImageSink(personimage.NewSink(repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension))
 
+	// One-time content-hash backfill (F34, ADR-050): hash any pre-F34 person images
+	// from their on-disk bytes and collapse galleries that already hold duplicates.
+	// Idempotent — a no-op once every row is hashed and deduped, so it runs every boot.
+	if hashed, removed, err := personimage.Backfill(ctx, repository, cfg.PersonImagePath, log); err != nil {
+		log.Warn("person image content-hash backfill failed", "err", err)
+	} else if hashed > 0 || removed > 0 {
+		log.Info("person image content-hash backfill", "hashed", hashed, "removed_duplicates", removed)
+	}
+
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)

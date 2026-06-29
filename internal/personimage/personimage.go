@@ -17,6 +17,8 @@ package personimage
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -30,6 +32,16 @@ import (
 	_ "image/gif"
 	_ "image/png"
 )
+
+// Hash is the content identity of a stored image (F34/ADR-050): the hex sha256 of
+// the NORMALIZED bytes, so two ingests that re-encode to the same JPEG collide
+// regardless of their source URL, provider, or original container. Computed over
+// Normalize's output (not the raw download), so EXIF/ICC noise in the source can't
+// defeat the match.
+func Hash(normalized []byte) string {
+	sum := sha256.Sum256(normalized)
+	return hex.EncodeToString(sum[:])
+}
 
 // Decompression-bomb and output bounds (ADR-038 F25). These guard a single decode
 // of untrusted bytes: the config is read BEFORE the full decode so a tiny file
