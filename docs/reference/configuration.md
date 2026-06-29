@@ -31,7 +31,8 @@ A value set by a higher-precedence layer always wins. `holodex.yaml` is the stan
 | `host` | `HOST` | *(all interfaces)* | TCP bind address. Empty string binds all interfaces — the right default inside Docker. Set `127.0.0.1` for loopback-only (local dev; avoids the Windows Firewall prompt). |
 | `port` | `PORT` | `7800` | HTTP port. |
 | `log_level` | `LOG_LEVEL` | `info` | Log verbosity: `debug`, `info`, `warn`, or `error`. |
-| `admin_token` | `ADMIN_TOKEN` | *(none)* | Token for the owner-only admin surface (`X-Admin-Token` header). **Empty = open (single-user default).** Set this whenever the server is reachable beyond loopback — Holodex warns at startup if it binds non-loopback with no token. See [Authentication](#authentication). |
+| `admin_token` | `ADMIN_TOKEN` | *(none)* | Token for the owner-only admin surface. **Empty = open (single-user default).** Set this whenever the server is reachable beyond loopback — Holodex warns at startup if it binds non-loopback with no token. See [Authentication](#authentication). |
+| `session_secret` | `SESSION_SECRET` | *(derived from `admin_token`)* | Optional signing key for the owner session cookie (ADR-046). Empty derives the key from `admin_token`, so rotating the token invalidates all sessions; set it to rotate sessions independently. See [Authentication](#authentication). |
 
 ### CLI flags
 
@@ -51,9 +52,12 @@ The following CLI flags override config at the highest precedence level. Pass th
 
 ### Authentication
 
-`admin_token` is the single owner gate. With no token, all routes are open (zero-config single-user). With a token, admin routes (`/api/v1/admin/*`, enrichment, writeback) require the header `X-Admin-Token: <token>`. The SPA reads this from the `POST /api/v1/capabilities` response and stores it for the session — the owner enters it once in the UI.
+`admin_token` is the single owner gate. With no token, all routes are open (zero-config single-user). With a token, admin routes (`/api/v1/admin/*`, enrichment, writeback) require owner authorization, established two ways:
 
-The header-only scheme (no cookie) is CSRF-immune: cross-site forms cannot set custom headers (ADR-030).
+- **API / script clients** send the token directly as the `X-Admin-Token: <token>` header. This header path is CSRF-immune — cross-site forms cannot set custom headers (ADR-030).
+- **The SPA** exchanges the token once via `POST /api/v1/session`, which sets an **HttpOnly, `SameSite=Strict`** session cookie (ADR-046). The owner enters the token once in the UI and **stays signed in across reloads**; `DELETE /api/v1/session` signs out. The token itself is never stored in the browser (no `localStorage`/`sessionStorage`), and the cookie is unreadable by JavaScript, so an XSS payload cannot exfiltrate it. "Trust this device" issues a longer-lived cookie; active sessions slide their expiry, bounded by an absolute cap. `SameSite=Strict` is the CSRF mitigation for the cookie path. The cookie is marked `Secure` except over plain-HTTP loopback (local dev).
+
+The session cookie is signed with `session_secret` (or a key derived from `admin_token` when unset).
 
 ---
 
@@ -108,6 +112,7 @@ Portrait photos stored for people in the library. Uploaded manually or downloade
 |--------------------|---------|---------|-------------|
 | `person_image_max_bytes` | `PERSON_IMAGE_MAX_BYTES` | `10485760` (10 MiB) | Maximum allowed request-body size for a person image upload. Larger uploads are rejected with `413`. |
 | `person_image_max_dimension` | `PERSON_IMAGE_MAX_DIMENSION` | `2000` | Maximum stored image dimension (longest side, in pixels). Images exceeding this are downscaled before storage. |
+| `person_gallery_max` | `PERSON_GALLERY_MAX` | `20` | Maximum number of free-form **gallery** (`extra`) images per person. The three core slots (headshot/banner/poster) are separate and never counted against this. A non-positive value falls back to `20`. The owner can deliberately exceed it per-upload via the gallery's "Add anyway" control; enrichment never exceeds it. (F25, ADR-043) |
 
 ---
 

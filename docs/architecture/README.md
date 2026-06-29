@@ -45,6 +45,13 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [040](ADR-040-tmdb-provider-repo-placement.md) | TMDB provider source placement — **monorepo `providers/tmdb/` subdirectory** | Accepted (extends ADR-033/039/023/024) |
 | [041](ADR-041-metadata-writeback.md) | Metadata writeback — **explicit per-field write-back** to media files via copy→write→rename | Proposed (extends ADR-004/013/033; spec F28) |
 | [042](ADR-042-windows-asInvoker-manifest.md) | Windows build — **`asInvoker` application manifest** embedded via `.syso` to suppress UAC prompt | Accepted (spec windows-uac-manifest) |
+| [043](ADR-043-gallery-cap-and-enrichment-suppression.md) | Person gallery — **configurable cap (`PERSON_GALLERY_MAX`) + owner over-cap override + enrichment URL suppression on delete** | Accepted (spec F25.23–25; extends ADR-038/039) |
+| [044](ADR-044-automated-version-and-release-pr.md) | Release versioning — **Release Please** release-PR + PAT-driven tag in front of unchanged `release.yml` | Accepted (extends ADR-024/034/035; revisits ADR-034's "no release-please") |
+| [045](ADR-045-seeded-random-ordering.md) | Seeded random ordering — **deterministic `holo_shuffle(id, seed)` SQL function** for paginated Media + named-sort enum for People/Tags | Proposed (spec sort-persistence SP2/SP3; extends ADR-006/003/017; relates ADR-031) |
+| [046](ADR-046-owner-session-persistence.md) | Owner session persistence — **HttpOnly signed token-exchange cookie** (`POST /session`), gate accepts cookie-or-header | Proposed (spec owner-session-persistence; amends ADR-030's "in-memory only" condition) |
+| [047](ADR-047-per-item-metadata-refresh.md) | Per-item metadata refresh — **unified forced re-extract + re-enrich** over a `plan`/`apply` seam; flat `kind=refresh` job row; non-destructive layering invariant | Proposed (spec F31; extends ADR-004/018/033/028/030; relates ADR-013/037/041) |
+| [048](ADR-048-metadata-curation-and-write-queue.md) | Granular metadata curation — **cross-source dedup merge + `manual` source/tombstones** + **durable bounded-concurrency batch-writeback queue** | Proposed (spec F30; generalizes ADR-013; extends ADR-033/041/028/030; partially realizes ADR-041 Option C) |
+| [049](ADR-049-manual-image-precedence.md) | Owner-set person images — **enrichment never overwrites an `upload`/`promoted` core slot** (provenance-implicit lock, no migration) | Proposed (spec F25.31/F33; extends ADR-038; sibling of ADR-043; image twin of ADR-048) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
@@ -56,6 +63,8 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [Quick Wins — Search history & "More with …" shelves](../specs/quick-wins.md)
 - [Metadata Source Plugins (F22)](../specs/metadata-plugins.md) — keystone of Phase 3; detailed F16
 - [Person Aliases (F23)](../specs/person-aliases.md) — first Phase-3 People slice; detailed F14.1
+- [Sticky sort + Random sort](../specs/sort-persistence.md) — per-page localStorage sort + seeded Random (ADR-045)
+- [Refresh Metadata (F31)](../specs/metadata-refresh.md) — per-item forced re-extract + re-enrich (ADR-047)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing

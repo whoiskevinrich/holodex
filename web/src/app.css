@@ -127,6 +127,24 @@
 		display: none;
 	}
 
+	/* ---- Curation chips (F30) ---- Reveal a chip's per-value owner controls
+	   (edit / don't-write / remove) on hover or keyboard focus so a dense field
+	   (e.g. 10 actors) stays calm; always-on where there's no hover (touch).
+	   Interaction-only — no colors/tokens here, so it's not skin-gated. */
+	.curation-actions {
+		opacity: 0;
+		transition: opacity 120ms ease;
+	}
+	.curation-chip:hover .curation-actions,
+	.curation-chip:focus-within .curation-actions {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.curation-actions {
+			opacity: 1;
+		}
+	}
+
 	/* Cinémathèque: film grain + vignette. */
 	[data-theme='cinematheque'] .app-atmosphere::after {
 		box-shadow: inset 0 0 240px 40px rgba(0, 0, 0, 0.6);
@@ -217,6 +235,27 @@
 		height: 100%;
 		object-fit: cover;
 	}
+	/* Headshots are sourced from 2:3 portraits (e.g. TMDB profiles are 300×450) and
+	   cover-cropped into the 1:1 frame. The default centre crop lands on the chest and
+	   shoves the face to the top edge, so bias the crop upward to frame the face with
+	   natural headroom. A square source has no overflow, so this is a no-op for 1:1
+	   uploads/placeholders — it only reframes portrait sources. Applies everywhere a
+	   headshot renders (person page + people-list avatars). */
+	.portrait-frame--1x1 > img {
+		object-position: center 28%;
+	}
+	/* ---- Person hero banner (F25.26) ----
+	   A doubled-height (5:2) hero band with a subtle scroll parallax. The aspect ratio
+	   matches .crop-frame--banner so the crop preview reflects what the hero shows; the
+	   max height keeps it a backdrop, not a wall, on tall viewports. The image overhangs
+	   its frame (height > 100%) and drifts vertically as the band passes through the
+	   viewport via a CSS scroll-driven animation — no JS, GPU-composited. Gated on
+	   reduced-motion AND scroll-timeline support; otherwise it's a static 5:2 cover crop.
+	   Placed after `.portrait-frame > img` so the height override wins on source order. */
+	.portrait-frame--banner {
+		aspect-ratio: 5 / 2;
+		max-height: 540px;
+	}
 	/* Cross-fade the real image in once it decodes (placeholder shows first). */
 	@media (prefers-reduced-motion: no-preference) {
 		.portrait-frame > img.is-loaded {
@@ -229,6 +268,21 @@
 		}
 		to {
 			opacity: 1;
+		}
+	}
+	/* Banner parallax. The image overhangs its frame (height > 100%) and is translated
+	   opposite to page scroll via `--banner-shift`, which PersonBanner's rAF scroll
+	   handler updates as the hero passes the viewport — giving the band depth while
+	   always covering the frame. The default keeps it centred (fully covered) before the
+	   handler runs or if JS is unavailable; under reduced-motion the whole thing collapses
+	   to a static 5:2 cover crop. (A pure-CSS `view()` timeline can't drive this: the
+	   image's nearest scroll container is its own overflow:hidden frame, so the timeline
+	   is inert.) */
+	@media (prefers-reduced-motion: no-preference) {
+		.portrait-frame--banner > img {
+			height: 140%;
+			will-change: transform;
+			transform: translateY(var(--banner-shift, -14%));
 		}
 	}
 	/* Broadcast: faint scanline wash, mirroring .video-frame. */
@@ -265,10 +319,10 @@
 	.crop-frame--2x3 {
 		aspect-ratio: 2 / 3;
 	}
-	/* Banner crop frame: matches the rendered hero band's 5:1 ratio (PersonBanner uses
-	   aspect-[5/1]) so the crop preview reflects what the hero will actually show. */
+	/* Banner crop frame: matches the rendered hero band's 5:2 ratio (.portrait-frame--banner)
+	   so the crop preview reflects what the hero will actually show. */
 	.crop-frame--banner {
-		aspect-ratio: 5 / 1;
+		aspect-ratio: 5 / 2;
 	}
 	.crop-frame > img {
 		display: block;

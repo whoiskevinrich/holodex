@@ -6,10 +6,10 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
-	github.com/mark3labs/mcp-go v0.55.0
-	golang.org/x/text v0.31.0
+	github.com/mark3labs/mcp-go v0.55.1
+	golang.org/x/text v0.38.0
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.52.0
+	modernc.org/sqlite v1.53.0
 )
 
 require (
@@ -22,8 +22,8 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	modernc.org/libc v1.72.3 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	modernc.org/libc v1.73.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )

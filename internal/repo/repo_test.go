@@ -347,6 +347,69 @@ func TestListVideosSort(t *testing.T) {
 	}
 }
 
+// Random sort (ADR-045) must be a seeded, deterministic shuffle: under one seed a
+// paginated walk visits every row exactly once (no duplicate, no gap), the same
+// seed reproduces the order, and a different seed generally reorders.
+func TestListVideosRandomSeeded(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	const n = 30
+	for i := 0; i < n; i++ {
+		v := &model.Video{
+			FilePath:  "/m/v" + strconv.Itoa(i) + ".mkv",
+			Title:     "v" + strconv.Itoa(i),
+			FileMtime: time.Now().UTC().Truncate(time.Second),
+		}
+		if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+			t.Fatalf("upsert %d: %v", i, err)
+		}
+	}
+
+	// Walk the whole set in pages of 7 under a fixed seed and collect ids in order.
+	pagedIDs := func(seed int64) []int64 {
+		var ids []int64
+		for off := 0; off < n; off += 7 {
+			items, total, err := r.ListVideos(ctx, repo.VideoFilter{
+				Sort: "random", Seed: seed, Limit: 7, Offset: off,
+			})
+			if err != nil {
+				t.Fatalf("list random off=%d: %v", off, err)
+			}
+			if total != n {
+				t.Fatalf("total = %d, want %d", total, n)
+			}
+			for _, v := range items {
+				ids = append(ids, v.ID)
+			}
+		}
+		return ids
+	}
+
+	seedA := pagedIDs(12345)
+	// Tiling: every id appears exactly once across all pages — no dup, no gap.
+	if len(seedA) != n {
+		t.Fatalf("paged walk yielded %d ids, want %d", len(seedA), n)
+	}
+	seen := make(map[int64]bool, n)
+	for _, id := range seedA {
+		if seen[id] {
+			t.Fatalf("id %d appeared twice across pages (shuffle did not tile)", id)
+		}
+		seen[id] = true
+	}
+
+	// Stability: the same seed reproduces the same order.
+	if got := pagedIDs(12345); !slices.Equal(got, seedA) {
+		t.Errorf("same seed gave a different order:\n %v\n %v", got, seedA)
+	}
+
+	// A different seed should generally produce a different order (n=30 makes an
+	// accidental identical permutation astronomically unlikely).
+	if seedB := pagedIDs(67890); slices.Equal(seedB, seedA) {
+		t.Errorf("different seed produced an identical order: %v", seedB)
+	}
+}
+
 // Codec/container/bitrate (F12.4) survive a write and come back on both the
 // detail getter and the list query.
 func TestCodecRoundTrip(t *testing.T) {

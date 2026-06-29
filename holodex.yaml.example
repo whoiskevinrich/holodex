@@ -25,6 +25,10 @@ log_level: "info"          # LOG_LEVEL    (debug|info|warn|error)
                             #              loopback; clients then send it as the
                             #              X-Admin-Token header. The server warns at startup
                             #              if it binds non-loopback with no token set.
+# session_secret: ""        # SESSION_SECRET  optional signing key for the owner session
+                            #              cookie (ADR-046). Empty = derive from admin_token,
+                            #              so rotating the token signs everyone out. Set this
+                            #              to rotate sessions independently of the token.
 
 # --- Scanner (ADR-011, ADR-018) ---
 scan_interval_seconds: 300  # SCAN_INTERVAL_SECONDS
@@ -71,6 +75,13 @@ metadata_mappings_path: "./metadata-mappings.yaml"   # METADATA_MAPPINGS_PATH
 # metadata-sources.yaml); a missing file means no providers. Enrichment is
 # owner-gated and on-demand; core holds no upstream API keys (each provider does).
 metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
+
+# --- Person images (F25, ADR-038/043) ---
+# Per-person portrait/banner/poster + a free-form gallery of extra images.
+# person_gallery_max bounds the gallery (extra images) per person; the three core
+# slots are separate and never counted against it. The owner can deliberately exceed
+# it per-upload ("Add anyway"); enrichment never does. (default 20)
+# person_gallery_max: 20           # PERSON_GALLERY_MAX
 
 # --- Presentation ---
 # card_layout controls the aspect ratio of media cards in browse lists.

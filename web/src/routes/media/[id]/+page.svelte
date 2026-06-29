@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, RelatedResponse, ResolvedField, Video } from '$lib/types';
+	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -12,6 +12,7 @@
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import WritebackFormDialog from '$lib/components/WritebackFormDialog.svelte';
+	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -41,8 +42,13 @@
 	// Metadata writeback (F28, ADR-041). writebackOpen drives the batch form dialog.
 	let writebackOpen = $state(false);
 
+	// Per-item metadata refresh (F31, ADR-047). refreshing drives the spinner/disable;
+	// refreshStatus is the inline aria-live outcome line (no toast system).
+	let refreshing = $state(false);
+	let refreshStatus = $state<{ tone: 'muted' | 'warn'; text: string } | null>(null);
+
 	const id = $derived(Number($page.params.id));
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Prefer the resolved title (may come from an enrichment provider) over the
 	// filename-derived video.title. Falls back gracefully when no mapping is configured.
 	const displayTitle = $derived(
@@ -98,6 +104,51 @@
 		}
 	}
 
+	// Apply a freshly-fetched media detail to the page state (shared by the initial
+	// load, post-enrich, and post-refresh refetches).
+	function applyMediaDetail(res: MediaDetailResponse) {
+		video = res.video;
+		extra = res.metadata ?? [];
+		fields = res.fields ?? [];
+		resolved = res.resolved ?? [];
+		enriched = res.enriched ?? [];
+	}
+
+	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
+	// then refetch the detail so resolved[] reflects the new data and bust the cover.
+	async function refreshMetadata() {
+		if (!video || refreshing) return;
+		refreshing = true;
+		refreshStatus = null;
+		try {
+			const report = await api.refreshMedia(id);
+			applyMediaDetail(await api.getMedia(id));
+			thumbVersion += 1; // a re-extract may surface new embedded cover art
+			refreshStatus = summarizeRefresh(report);
+		} catch (e) {
+			refreshStatus = { tone: 'warn', text: toMessage(e) };
+		} finally {
+			refreshing = false;
+		}
+	}
+
+	// Build the inline status line from the report. A failed source reads as a warn
+	// line (the file still updated); otherwise muted "synced" / "already in sync".
+	function summarizeRefresh(r: RefreshReport): { tone: 'muted' | 'warn'; text: string } {
+		const failed = r.sources.filter((s) => !s.ok).map((s) => s.source);
+		if (failed.length) {
+			return { tone: 'warn', text: `${failed.join(', ')} lookup failed — file metadata still updated` };
+		}
+		if (!r.changed) {
+			return { tone: 'muted', text: 'Already in sync — nothing changed' };
+		}
+		const providers = r.sources.filter((s) => s.source !== 'file' && s.ok).map((s) => s.source);
+		return {
+			tone: 'muted',
+			text: providers.length ? `Synced from file and ${providers.join(', ')}` : 'Synced from file'
+		};
+	}
+
 	// Hide the full-viewport atmosphere overlay (.app-atmosphere::after, z-40) while a
 	// video plays so the scan/vignette flourishes don't sit on top of the picture —
 	// worst in Broadcast. Pure-CSS-gated: we only toggle the class; app.css owns the rule.
@@ -115,16 +166,13 @@
 		loading = true;
 		error = '';
 		playFailed = false;
+		refreshStatus = null; // a freshly-opened item starts with no refresh outcome
 		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
 		api
 			.getMedia(current)
 			.then((res) => {
 				if (cancelled) return;
-				video = res.video;
-				extra = res.metadata ?? [];
-				fields = res.fields ?? [];
-				resolved = res.resolved ?? [];
-				enriched = res.enriched ?? [];
+				applyMediaDetail(res);
 			})
 			.catch((e) => {
 				if (!cancelled) error = toMessage(e);
@@ -145,20 +193,19 @@
 		}
 	});
 
+	// reloadDetail re-fetches the detail so resolved[] reflects new enrichment or
+	// curation (the resolver re-runs server-side on each GET). Non-fatal on error.
+	async function reloadDetail() {
+		try {
+			applyMediaDetail(await api.getMedia(id));
+		} catch {
+			// Non-fatal — caller's optimistic state stands.
+		}
+	}
+
 	async function onApplied(f: EnrichedField[]) {
 		enriched = f;
-		// Re-fetch the full detail so resolved[] reflects the new enrichment
-		// (the resolver re-runs server-side on each GET).
-		try {
-			const res = await api.getMedia(id);
-			video = res.video;
-			extra = res.metadata ?? [];
-			fields = res.fields ?? [];
-			resolved = res.resolved ?? [];
-			enriched = res.enriched ?? [];
-		} catch {
-			// Non-fatal — enriched state is already updated above
-		}
+		await reloadDetail();
 	}
 
 	async function clearProvider() {
@@ -304,11 +351,32 @@
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 		     enrichment controls and writeback inline in the header. Falls back to
 		     file-only fields when no resolver output is present. -->
-		{#if resolved.length}
+		{#if resolved.length || fields.length || isOwner}
 			<section class="space-y-1.5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
 					<div class="flex flex-wrap items-center gap-2">
+						{#if isOwner}
+							<button
+								onclick={refreshMetadata}
+								disabled={refreshing}
+								title="Refresh metadata from the file and providers"
+								aria-label="Refresh metadata from the file and providers"
+								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent disabled:opacity-60"
+							>
+								<svg
+									class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"
+									fill="currentColor"
+									viewBox="0 0 24 24"
+									aria-hidden="true"
+								>
+									<path
+										d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+									/>
+								</svg>
+								{refreshing ? 'Refreshing…' : 'Refresh'}
+							</button>
+						{/if}
 						{#if isOwner && provider}
 							<button
 								onclick={() => (pickerOpen = true)}
@@ -342,6 +410,15 @@
 				{#if enrichError}
 					<p class="text-xs text-warn">{enrichError}</p>
 				{/if}
+				{#if refreshStatus}
+					<p
+						class="text-xs {refreshStatus.tone === 'warn' ? 'text-warn' : 'text-muted'}"
+						aria-live="polite"
+					>
+						{refreshStatus.text}
+					</p>
+				{/if}
+				{#if resolved.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 					{#each resolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
@@ -370,18 +447,25 @@
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
 						{:else}
+							<!-- Curatable text/set field (F30): per-value chips with provenance,
+							     edit/remove/no-write, and an add affordance for set fields. -->
 							<div>
-								<dt class="inline text-muted">{f.label}:</dt>
-								<dd class="inline text-ink">{f.values.join(', ')}</dd>
-								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								<dt class="mb-1 text-muted">{f.label}:</dt>
+								<dd>
+									<CurationFieldRow
+										field={f}
+										videoId={id}
+										{isOwner}
+										people={video.people ?? []}
+										personStyle={f.canonical === 'actors' || f.canonical === 'director'}
+										onchanged={reloadDetail}
+									/>
+								</dd>
 							</div>
 						{/if}
 					{/each}
 				</dl>
-			</section>
-		{:else if fields.length}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+				{:else if fields.length}
 				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 					{#each fields as f (f.canonical)}
 						<div>
@@ -390,6 +474,11 @@
 						</div>
 					{/each}
 				</dl>
+				{:else}
+				<p class="rounded-theme border border-rule bg-surface px-4 py-3 text-sm text-muted">
+					No metadata extracted yet.
+				</p>
+				{/if}
 			</section>
 		{/if}
 
@@ -409,10 +498,50 @@
 		</div>
 		</section>
 
-		{#if extra.length}
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+		     its block is null or empty, so an item with no siblings shows no rail. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{/if}
+
+		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+		     content and the Back link so a delete is never adjacent to navigation.
+		     Effective gate (F29) so visitor view hides it. -->
+		{#if isOwner}
+			<section class="space-y-2 border-t border-rule pt-4">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={() => openConfirm('soft')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Move to Trash
+					</button>
+					<button
+						onclick={() => openConfirm('purge')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Delete permanently
+					</button>
+				</div>
+			</section>
+		{/if}
+
+		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
+		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
+		     the page (below Manage). Owner + Admin mode only (effectiveOwner); each
+		     self-omits when empty. Headings aligned to "Enrichment data: {source}". -->
+		{#if isOwner && extra.length}
 			<section>
 				<button onclick={() => (showRaw = !showRaw)} class="text-sm text-muted hover:text-ink">
-					{showRaw ? '▾' : '▸'} Raw extracted metadata ({extra.length})
+					{showRaw ? '▾' : '▸'} Enrichment data: File Extraction ({extra.length})
 				</button>
 				{#if showRaw}
 					<table class="mt-2 w-full text-left text-xs">
@@ -429,13 +558,10 @@
 			</section>
 		{/if}
 
-		<!-- Enrichment data — demoted to a disclosure so it doesn't duplicate
-		     the Metadata section. Useful as an audit/debug view of the raw
-		     provider payload. -->
-		{#if enriched.length}
+		{#if isOwner && enriched.length}
 			<section>
 				<button onclick={() => (showEnriched = !showEnriched)} class="text-sm text-muted hover:text-ink">
-					{showEnriched ? '▾' : '▸'} Enrichment data from {provider} ({enriched.length})
+					{showEnriched ? '▾' : '▸'} Enrichment data: {provider} ({enriched.length})
 				</button>
 				{#if showEnriched}
 					<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
@@ -454,41 +580,6 @@
 						{/each}
 					</dl>
 				{/if}
-			</section>
-		{/if}
-
-		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-		     its block is null or empty, so an item with no siblings shows no rail. -->
-		{#if related?.person}
-			<RelatedShelf
-				title={related.person.name}
-				href={`/people/${related.person.id}`}
-				items={related.person.items}
-			/>
-		{/if}
-		{#if related?.tag}
-			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-		{/if}
-
-		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
-		     content and the Back link so a delete is never adjacent to navigation. -->
-		{#if activity.isOwner}
-			<section class="space-y-2 border-t border-rule pt-4">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-				<div class="flex flex-wrap gap-2">
-					<button
-						onclick={() => openConfirm('soft')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Move to Trash
-					</button>
-					<button
-						onclick={() => openConfirm('purge')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Delete permanently
-					</button>
-				</div>
 			</section>
 		{/if}
 	</article>

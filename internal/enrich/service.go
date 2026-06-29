@@ -43,9 +43,21 @@ type EnrichRepo interface {
 // so the enrich package needn't import personimage/repo for the image write and so
 // tests can assert what would be stored with no disk.
 type ImageSink interface {
-	// StoreAsset normalizes raw image bytes (metadata strip) and stores them as the
-	// given core role for a person, recording provenance (provider + externalID).
-	StoreAsset(ctx context.Context, personID int64, role, provider, externalID string, raw []byte) error
+	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
+	// given role for a person, recording provenance (provider + externalID) and the
+	// upstream asset URL (for delete-suppression, F25/ADR-043).
+	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
+	// (no-op otherwise), so a poster can be seeded from the headshot portrait without
+	// clobbering an existing owner/provider image (F25.29).
+	StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
+	// re-enrich skips re-adding them (F25, ADR-043).
+	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted),
+	// which enrichment must never overwrite (F33, ADR-049). An empty or provider-set
+	// slot is absent from the set and stays refreshable.
+	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -220,19 +232,45 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
+	// Asset URLs the owner has deleted before — skip them so a re-enrich doesn't
+	// silently re-add an image the owner removed (F25, ADR-043). A lookup failure
+	// fails open (logs, treats nothing as suppressed) rather than blocking enrichment.
+	suppressed, err := s.images.SuppressedAssetURLs(ctx, entityID)
+	if err != nil {
+		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		suppressed = nil
+	}
+	// Core roles the owner set by hand (upload/promoted): enrichment never overwrites
+	// them (F33, ADR-049). Like the suppression lookup this fails open — a lookup error
+	// locks nothing rather than blocking enrichment.
+	locked, err := s.images.LockedCoreRoles(ctx, entityID)
+	if err != nil {
+		s.log.Warn("locked core roles lookup failed", "provider", provider, "person", entityID, "err", err)
+		locked = nil
+	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
+	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
+	// it after the loop (F25.29) — provider profiles are 2:3, a natural poster.
+	var headshotRaw []byte
+	var headshotURL string
 	for _, a := range assets {
 		role, ok := assetRoleFor(a.Kind)
 		if !ok || done[role] {
 			continue
+		}
+		if _, owned := locked[role]; owned {
+			continue // owner set this core slot by hand; never overwrite (F33, ADR-049)
+		}
+		if _, skip := suppressed[a.URL]; skip {
+			continue // owner deleted this exact image before; don't bring it back
 		}
 		raw, err := fetcher.Fetch(ctx, a.URL)
 		if err != nil {
 			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
 			continue
 		}
-		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, raw); err != nil {
+		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw); err != nil {
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
 			} else {
@@ -240,10 +278,23 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			}
 			continue
 		}
+		if role == model.PersonImageHeadshot {
+			headshotRaw, headshotURL = raw, a.URL
+		}
 		if model.CorePersonImageRole(role) {
 			done[role] = true // core slots are single-occupancy; first success wins
 		}
 		// extra/gallery: don't mark done — allow additional items up to the cap
+	}
+	// Seed a poster from the headshot portrait when this run filled a headshot but no
+	// poster (F25.29) — the same image reused with no extra download, so people read
+	// richly on video-credit surfaces. Only fills an EMPTY slot; never overwrites an
+	// existing owner/provider poster. Like other core roles it refills on re-enrich
+	// (core deletes don't suppress, ADR-043 F25.25). Best-effort.
+	if _, posterLocked := locked[model.PersonImagePoster]; headshotRaw != nil && !done[model.PersonImagePoster] && !posterLocked {
+		if err := s.images.StoreAssetIfAbsent(ctx, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
+			s.log.Warn("poster seed from headshot failed", "provider", provider, "person", entityID, "err", err)
+		}
 	}
 }
 
@@ -382,4 +433,17 @@ func SanitizeValue(v string) string {
 		v = v[:maxFieldLen]
 	}
 	return v
+}
+
+// SanitizeValues applies SanitizeValue to each input and drops any that are empty
+// after cleaning. Shared by the writeback handler and the durable write queue so
+// both apply identical input rules (F30).
+func SanitizeValues(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if s := SanitizeValue(v); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

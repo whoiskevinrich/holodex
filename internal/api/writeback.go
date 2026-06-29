@@ -9,6 +9,7 @@ import (
 
 	"holodex/internal/enrich"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // WriteBatchFunc is the file-write contract injected into Handlers (F28, ADR-041).
@@ -19,6 +20,11 @@ type WriteBatchFunc func(ctx context.Context, path string, fields []writeback.Fi
 // SetWriteback wires the file-write function (F28, ADR-041). A nil fn disables
 // the writeback endpoint (503). Called once at startup before serving.
 func (h *Handlers) SetWriteback(fn WriteBatchFunc) { h.writeback = fn }
+
+// SetWriteQueue wires the durable batch-write queue (F30, ADR-048). When set, the
+// writeback endpoint enqueues (202) instead of writing synchronously. Nil keeps the
+// legacy synchronous behavior (204). Called once at startup before serving.
+func (h *Handlers) SetWriteQueue(q *writequeue.Queue) { h.writeQueue = q }
 
 // mountWriteback registers the owner-gated writeback endpoint. Mounted inside
 // the requireOwner group set up in Mount.
@@ -34,7 +40,7 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 // has no mapping for the file's container a 422 is returned listing the
 // unmappable fields. On success one audit row per field is inserted.
 func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
-	if h.writeback == nil {
+	if h.writeback == nil && h.writeQueue == nil {
 		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
 		return
 	}
@@ -65,49 +71,53 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize and resolve canonical→tag-name for every field before touching
-	// the file. Collect all unmappable fields and return a single 422.
-	type resolved struct {
-		field   string
-		tagName string
-		cleaned []string
-		source  string
-		isImage bool
+	// Queued path (F30, ADR-048): when the durable queue is wired, sanitize and
+	// enqueue one batch job (202). Tag-name resolution + the actual write happen in
+	// the worker so the request returns immediately and writes are throttled.
+	if h.writeQueue != nil {
+		jobFields := make([]writequeue.JobField, 0, len(body.Fields))
+		for _, f := range body.Fields {
+			if f.Field == "" || len(f.Values) == 0 {
+				writeError(w, http.StatusBadRequest, "each field entry requires field and values")
+				return
+			}
+			cleaned := enrich.SanitizeValues(f.Values)
+			if len(cleaned) == 0 {
+				continue
+			}
+			jobFields = append(jobFields, writequeue.JobField{Field: f.Field, Values: cleaned, Source: f.Source})
+		}
+		if len(jobFields) == 0 {
+			writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
+			return
+		}
+		jobID, enqErr := h.writeQueue.Enqueue(r.Context(), id, jobFields)
+		if enqErr != nil {
+			h.fail(w, "enqueue writeback", enqErr)
+			return
+		}
+		depth, _ := h.writeQueue.Depth(r.Context())
+		writeJSON(w, http.StatusAccepted, map[string]any{"job_id": jobID, "queued": depth})
+		return
 	}
-	items := make([]resolved, 0, len(body.Fields))
-	var unmapped []string
 
+	// Sanitize, then resolve canonical→tag-name via the shared mapper the queue
+	// worker also uses (writeback.ResolveForContainer) so both agree on what is
+	// writable for the container. Unmappable fields yield a single 422.
+	specs := make([]writeback.FieldValues, 0, len(body.Fields))
 	for _, f := range body.Fields {
 		if f.Field == "" || len(f.Values) == 0 {
 			writeError(w, http.StatusBadRequest, "each field entry requires field and values")
 			return
 		}
-		cleaned := make([]string, 0, len(f.Values))
-		for _, val := range f.Values {
-			if s := enrich.SanitizeValue(val); s != "" {
-				cleaned = append(cleaned, s)
-			}
+		if cleaned := enrich.SanitizeValues(f.Values); len(cleaned) > 0 {
+			specs = append(specs, writeback.FieldValues{Field: f.Field, Values: cleaned, Source: f.Source})
 		}
-		if len(cleaned) == 0 {
-			continue // skip fully-empty fields silently
-		}
-		// Image fields (e.g. poster_url) embed binary cover art — check before text tags.
-		if imgTag, ok := writeback.ImageTagForField(f.Field, v.Container); ok {
-			items = append(items, resolved{f.Field, imgTag, cleaned, f.Source, true})
-			continue
-		}
-		tagName, supported := writeback.TagForField(f.Field, v.Container)
-		if !supported {
-			unmapped = append(unmapped, f.Field)
-			continue
-		}
-		items = append(items, resolved{f.Field, tagName, cleaned, f.Source, false})
 	}
-
-	if len(items) == 0 {
-		// Every checked field either had no mapping for this container or was
-		// empty after sanitization. Tell the client which fields lacked a mapping
-		// so the operator knows they need to uncheck them.
+	mapped, unmapped := writeback.ResolveForContainer(v.Container, specs)
+	if len(mapped) == 0 {
+		// Every field either had no mapping for this container or was empty after
+		// sanitization. Name the unmapped fields so the operator can uncheck them.
 		if len(unmapped) > 0 {
 			writeError(w, http.StatusUnprocessableEntity,
 				"fields have no tag mapping for "+v.Container+": "+strings.Join(unmapped, ", "))
@@ -116,25 +126,25 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	// Unmapped fields are silently skipped — only the mappable subset is written.
-	// The audit rows below record exactly what was written.
+	// Unmapped fields are silently skipped — only the mappable subset is written;
+	// the audit rows below record exactly what was written.
 
 	// Single tool invocation for all fields (exiftool or mkvpropedit by extension).
-	batchFields := make([]writeback.FieldWrite, len(items))
-	for i, it := range items {
-		batchFields[i] = writeback.FieldWrite{TagName: it.tagName, Values: it.cleaned, IsImage: it.isImage}
+	batchFields := make([]writeback.FieldWrite, len(mapped))
+	for i, m := range mapped {
+		batchFields[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage}
 	}
 	if err := h.writeback(r.Context(), v.FilePath, batchFields); err != nil {
-		h.log.Warn("writeback batch failed", "id", id, "fields", len(items), "err", err)
+		h.log.Warn("writeback batch failed", "id", id, "fields", len(mapped), "err", err)
 		h.fail(w, "write to file", err)
 		return
 	}
 
 	// Audit rows — one per field, only on success (ADR-041 invariant).
-	for _, it := range items {
-		joined := strings.Join(it.cleaned, "\n")
-		if auditErr := h.repo.InsertWriteback(r.Context(), id, it.field, it.tagName, joined, it.source); auditErr != nil {
-			h.log.Warn("insert writeback audit row", "id", id, "field", it.field, "err", auditErr)
+	for _, m := range mapped {
+		joined := strings.Join(m.Values, "\n")
+		if auditErr := h.repo.InsertWriteback(r.Context(), id, m.Field, m.TagName, joined, m.Source); auditErr != nil {
+			h.log.Warn("insert writeback audit row", "id", id, "field", m.Field, "err", auditErr)
 		}
 	}
 

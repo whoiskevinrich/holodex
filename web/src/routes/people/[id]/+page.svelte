@@ -17,8 +17,8 @@
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
-	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
+	import PersonImageFrame from '$lib/components/PersonImageFrame.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import { videoCount } from '$lib/format';
@@ -58,7 +58,11 @@
 	let actionError = $state('');
 
 	const id = $derived(Number($page.params.id));
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	// Banner renders only when a real one is set — for everyone, including the owner
+	// (F25.30). Not every person has a banner-sized image; an empty 5:2 placeholder band
+	// would dominate the page with generic art. Mirrors the poster rule (F25.27).
+	const hasBanner = $derived(images.roles.banner?.present ?? false);
 	// v1 enriches People from the first person-capable provider.
 	const provider = $derived(sources.find((s) => s.entity_types.includes('person'))?.name ?? '');
 	const enrichedByProvider = $derived(provider && enriched.some((f) => f.provider === provider));
@@ -193,7 +197,11 @@
 		imageError = '';
 		try {
 			await api.uploadPersonImage(id, file, uploadRole);
-			load(id); // refresh so the new ?v= stamp busts the cache everywhere
+			// Refresh just the image set — the new ?v= stamp busts the cache for the
+			// uploaded role — without flashing the whole page through the AsyncState
+			// loading view (a full load() would). Awaited so the busy label holds until
+			// the new image is in hand, giving a clean swap (e.g. add-banner → banner).
+			await reloadImages();
 		} catch (err) {
 			imageError = toMessage(err);
 		} finally {
@@ -214,6 +222,22 @@
 	}
 </script>
 
+<!-- Uniform owner "Edit" overlay for a core image slot (banner/headshot/poster) — one
+     shape, one label, one scrim across all three, positioned per call site. -->
+{#snippet editBtn(role: PersonImageRole, position: string)}
+	{#if isOwner}
+		<button
+			onclick={() => pickCore(role)}
+			disabled={uploadBusy === role}
+			aria-label={`Replace ${role}`}
+			title={`Replace ${role}`}
+			class="absolute z-10 {position} rounded-theme bg-bg/80 px-2.5 py-1.5 text-xs font-semibold text-ink shadow-sm backdrop-blur-sm hover:text-accent disabled:opacity-60"
+		>
+			{uploadBusy === role ? '…' : 'Edit'}
+		</button>
+	{/if}
+{/snippet}
+
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
 	<EntityVideos
 		backHref="/people"
@@ -222,73 +246,81 @@
 		{videos}
 		empty="No videos for this person."
 	>
-		{#snippet detail()}
-			<!-- F25 hero: a 5:1 banner band (≤270px tall) with the 1:1 avatar overlapping its
-			     lower-left. Owner gets a "Replace" affordance over each core slot; empty slots
-			     show the themed placeholder served by the backend. -->
+		{#snippet hero()}
+			<!-- F25 hero: a 5:2 parallax banner with the 1:1 headshot overlapping its lower-left,
+			     beside the optional 2:3 poster and the name — so the name reads as one unit with
+			     the face (not stranded above the banner). Headshot + poster share a height (sized
+			     by height; width follows the aspect). The poster shows only when a real one exists:
+			     an empty poster slot would just duplicate the headshot's placeholder. Owners set a
+			     missing poster from the gallery below (promote-with-crop). -->
 			<div class="relative">
-				{#if isOwner}
+				{#if hasBanner}
+					<PersonBanner personId={id} name={person?.name ?? ''} version={roleVersion('banner')} eager />
+					{@render editBtn('banner', 'right-2 top-2')}
+				{:else if isOwner}
+					<!-- No banner set: the owner gets an explicit add path here, since the band was the
+					     only entry point for setting one. Visitors see nothing — the row below sits flush
+					     at the top with no overhang. Reuses the core-slot upload (F25.30). -->
 					<button
 						onclick={() => pickCore('banner')}
 						disabled={uploadBusy === 'banner'}
-						class="absolute right-2 top-2 z-10 rounded-theme bg-bg/70 px-2.5 py-1 text-xs font-semibold text-ink hover:text-accent disabled:opacity-60"
+						title="Add banner"
+						class="flex w-full items-center justify-center gap-2 rounded-theme border border-dashed border-rule bg-surface px-3 py-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-60"
 					>
-						{uploadBusy === 'banner' ? 'Uploading…' : 'Replace banner'}
+						{uploadBusy === 'banner' ? 'Adding…' : '+ Add banner'}
 					</button>
 				{/if}
-				<PersonBanner
-					personId={id}
-					name={person?.name ?? ''}
-					version={roleVersion('banner')}
-					eager
-				/>
-				<div class="-mt-10 flex items-end gap-3 pl-3 sm:-mt-12">
+				<!-- The headshot+name row overhangs the banner only when there is one; with no band it
+				     sits flush (a small gap below the owner's add-banner control). (F25.30) -->
+				<div class="flex items-end gap-3 pl-3 {hasBanner ? '-mt-10 sm:-mt-12' : isOwner ? 'mt-3' : ''}">
 					<div class="relative shrink-0">
-						<PersonAvatar
+						<PersonImageFrame
 							personId={id}
+							role="headshot"
 							name={person?.name ?? ''}
 							version={roleVersion('headshot')}
-							size="lg"
+							frameClass="portrait-frame--1x1 h-28 w-auto sm:h-36"
 							eager
 						/>
-						{#if isOwner}
-							<button
-								onclick={() => pickCore('headshot')}
-								disabled={uploadBusy === 'headshot'}
-								aria-label="Replace headshot"
-								title="Replace headshot"
-								class="absolute bottom-1 right-1 rounded-theme bg-bg/70 px-1.5 py-0.5 text-xs font-semibold text-ink hover:text-accent disabled:opacity-60"
-							>
-								{uploadBusy === 'headshot' ? '…' : 'Edit'}
-							</button>
-						{/if}
+						{@render editBtn('headshot', 'bottom-1 right-1')}
 					</div>
-					{#if isOwner}
-						<button
-							onclick={() => pickCore('poster')}
-							disabled={uploadBusy === 'poster'}
-							class="mb-1 rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:border-accent disabled:opacity-60"
-						>
-							{uploadBusy === 'poster' ? 'Uploading…' : 'Replace poster'}
-						</button>
+					{#if images.roles.poster?.present}
+						<div class="relative shrink-0">
+							<PersonImageFrame
+								personId={id}
+								role="poster"
+								name={person?.name ?? ''}
+								alt=""
+								version={roleVersion('poster')}
+								frameClass="portrait-frame--2x3 h-28 w-auto sm:h-36"
+								eager
+							/>
+							{@render editBtn('poster', 'bottom-1 right-1')}
+						</div>
 					{/if}
+					<div class="min-w-0 flex-1 pb-1">
+						<h1 class="skin-title truncate text-2xl font-semibold text-ink">{person?.name ?? ''}</h1>
+						<p class="text-sm text-muted">{videoCount(videos.length)}</p>
+					</div>
 				</div>
+				{#if isOwner}
+					<input
+						bind:this={coreInput}
+						onchange={onCorePick}
+						type="file"
+						accept="image/*"
+						class="hidden"
+						aria-hidden="true"
+						tabindex="-1"
+					/>
+				{/if}
+				{#if imageError}
+					<p class="mt-2 text-sm text-warn">{imageError}</p>
+				{/if}
 			</div>
+		{/snippet}
 
-			{#if isOwner}
-				<input
-					bind:this={coreInput}
-					onchange={onCorePick}
-					type="file"
-					accept="image/*"
-					class="hidden"
-					aria-hidden="true"
-					tabindex="-1"
-				/>
-			{/if}
-			{#if imageError}
-				<p class="text-sm text-warn">{imageError}</p>
-			{/if}
+		{#snippet detail()}
 
 			{#if aliases.length || isOwner}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">

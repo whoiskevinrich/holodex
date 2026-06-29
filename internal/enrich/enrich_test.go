@@ -243,9 +243,12 @@ func TestServiceEnrichRecordsJobRun(t *testing.T) {
 // --- F25 asset download ---
 
 // recordingSink captures StoreAsset calls instead of touching disk, so the asset
-// orchestration is testable with no filesystem.
+// orchestration is testable with no filesystem. suppress is the set of URLs it
+// reports as owner-deleted (F25/ADR-043 suppression).
 type recordingSink struct {
-	stored []storedAsset
+	stored   []storedAsset
+	suppress map[string]struct{}
+	locked   map[string]struct{} // core roles the owner set by hand (F33, ADR-049)
 }
 
 type storedAsset struct {
@@ -253,12 +256,32 @@ type storedAsset struct {
 	role       string
 	provider   string
 	externalID string
+	url        string
 	bytes      int
 }
 
-func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID string, raw []byte) error {
-	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, len(raw)})
+func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, url, len(raw)})
 	return nil
+}
+
+// StoreAssetIfAbsent records a core-role store only when that (person, role) slot has
+// not already been filled in this run — mirroring the real sink's empty-slot guard.
+func (s *recordingSink) StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+	for _, a := range s.stored {
+		if a.personID == personID && a.role == role {
+			return nil // slot already filled
+		}
+	}
+	return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw)
+}
+
+func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return s.suppress, nil
+}
+
+func (s *recordingSink) LockedCoreRoles(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return s.locked, nil
 }
 
 // A person enrich run with image assets fetches each through the (test-injected)
@@ -290,8 +313,10 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
-	if len(sink.stored) != 2 {
-		t.Fatalf("stored %d assets, want 2 (unknown kind skipped): %+v", len(sink.stored), sink.stored)
+	// 3 stored: the photo→headshot, the banner, and a poster auto-seeded from the
+	// headshot portrait (F25.29). The unknown kind is skipped.
+	if len(sink.stored) != 3 {
+		t.Fatalf("stored %d assets, want 3 (headshot, banner, seeded poster; unknown skipped): %+v", len(sink.stored), sink.stored)
 	}
 	roles := map[string]bool{}
 	for _, a := range sink.stored {
@@ -300,9 +325,165 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 			t.Errorf("asset provenance = %+v, want provider=fake external=tmdb:608", a)
 		}
 	}
-	if !roles[model.PersonImageHeadshot] || !roles[model.PersonImageBanner] {
-		t.Errorf("asset roles = %v, want headshot+banner", roles)
+	if !roles[model.PersonImageHeadshot] || !roles[model.PersonImageBanner] || !roles[model.PersonImagePoster] {
+		t.Errorf("asset roles = %v, want headshot+banner+poster", roles)
 	}
+}
+
+// A re-enrich skips an asset whose URL the owner previously deleted (F25/ADR-043):
+// the suppressed URL is never fetched or stored, while other assets still flow.
+func TestEnrichSkipsSuppressedAssets(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.People["tmdb:608"]
+	rec.Assets = []Asset{
+		{Kind: "gallery", URL: origin.URL + "/keep.jpg"},
+		{Kind: "gallery", URL: origin.URL + "/deleted.jpg"}, // owner removed this before
+	}
+	fake.People["tmdb:608"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{suppress: map[string]struct{}{origin.URL + "/deleted.jpg": {}}}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 {
+		t.Fatalf("stored %d assets, want 1 (suppressed url skipped): %+v", len(sink.stored), sink.stored)
+	}
+	if sink.stored[0].url != origin.URL+"/keep.jpg" {
+		t.Errorf("stored url = %q, want the non-suppressed keep.jpg", sink.stored[0].url)
+	}
+}
+
+// Enrichment never overwrites a core image the owner set by hand (F33, ADR-049):
+// a locked role is skipped before its bytes are even fetched, while empty/provider-set
+// roles still flow. A locked role left empty by enrichment also blocks the poster seed.
+func TestEnrichKeepsOwnerSetCoreImages(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	t.Run("locked headshot+banner are kept; gallery still flows", func(t *testing.T) {
+		fake := NewFake("fake")
+		rec := fake.People["tmdb:608"]
+		rec.Assets = []Asset{
+			{Kind: "photo", URL: origin.URL + "/p.jpg"},   // → headshot, owner-locked
+			{Kind: "banner", URL: origin.URL + "/b.jpg"},  // → banner, owner-locked
+			{Kind: "gallery", URL: origin.URL + "/g.jpg"}, // → extra, not a core slot
+		}
+		fake.People["tmdb:608"] = rec
+
+		svc, _ := newSvc(t, fake)
+		sink := &recordingSink{locked: map[string]struct{}{
+			model.PersonImageHeadshot: {}, model.PersonImageBanner: {},
+		}}
+		svc.SetImageSink(sink)
+		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+			t.Fatalf("enrich: %v", err)
+		}
+		// Only the gallery item stores: both locked core slots are skipped, and with no
+		// headshot stored there is nothing to seed a poster from.
+		if len(sink.stored) != 1 {
+			t.Fatalf("stored %d assets, want 1 (gallery only; locked headshot/banner kept): %+v", len(sink.stored), sink.stored)
+		}
+		if sink.stored[0].role != model.PersonImageExtra {
+			t.Errorf("stored role = %q, want the gallery extra", sink.stored[0].role)
+		}
+	})
+
+	t.Run("locked poster blocks the headshot seed", func(t *testing.T) {
+		fake := NewFake("fake")
+		rec := fake.People["tmdb:608"]
+		rec.Assets = []Asset{{Kind: "photo", URL: origin.URL + "/p.jpg"}} // → headshot only
+		fake.People["tmdb:608"] = rec
+
+		svc, _ := newSvc(t, fake)
+		sink := &recordingSink{locked: map[string]struct{}{model.PersonImagePoster: {}}}
+		svc.SetImageSink(sink)
+		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+			t.Fatalf("enrich: %v", err)
+		}
+		// Headshot flows (not locked); the poster seed is suppressed by the lock.
+		if len(sink.stored) != 1 || sink.stored[0].role != model.PersonImageHeadshot {
+			t.Fatalf("stored = %+v, want only the headshot (poster seed blocked by lock)", sink.stored)
+		}
+	})
+}
+
+// A person enrich that returns a portrait but no poster seeds the poster from the
+// headshot (F25.29) — the same 2:3 image, so people read richly on video credits. A
+// poster the person already has is left untouched.
+func TestEnrichSeedsPosterFromHeadshot(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	newFakeWithPhoto := func() *Fake {
+		fake := NewFake("fake")
+		rec := fake.People["tmdb:608"]
+		rec.Assets = []Asset{{Kind: "photo", URL: origin.URL + "/p.jpg"}}
+		fake.People["tmdb:608"] = rec
+		return fake
+	}
+
+	t.Run("empty poster is seeded from the headshot", func(t *testing.T) {
+		svc, _ := newSvc(t, newFakeWithPhoto())
+		sink := &recordingSink{}
+		svc.SetImageSink(sink)
+		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+			t.Fatalf("enrich: %v", err)
+		}
+		roles := map[string]int{}
+		var posterURL string
+		for _, a := range sink.stored {
+			roles[a.role]++
+			if a.role == model.PersonImagePoster {
+				posterURL = a.url
+			}
+		}
+		if roles[model.PersonImageHeadshot] != 1 || roles[model.PersonImagePoster] != 1 {
+			t.Fatalf("stored roles = %v, want one headshot + one seeded poster", roles)
+		}
+		if posterURL != origin.URL+"/p.jpg" {
+			t.Errorf("seeded poster url = %q, want the headshot url (same image)", posterURL)
+		}
+	})
+
+	t.Run("existing poster is not clobbered", func(t *testing.T) {
+		svc, _ := newSvc(t, newFakeWithPhoto())
+		// The person already has a poster (e.g. owner-set): the seed must leave it alone.
+		sink := &recordingSink{stored: []storedAsset{{personID: 5, role: model.PersonImagePoster, url: "owner.jpg"}}}
+		svc.SetImageSink(sink)
+		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+			t.Fatalf("enrich: %v", err)
+		}
+		posters := 0
+		for _, a := range sink.stored {
+			if a.role == model.PersonImagePoster {
+				posters++
+			}
+		}
+		if posters != 1 {
+			t.Fatalf("poster count = %d, want 1 (pre-existing kept, not re-seeded): %+v", posters, sink.stored)
+		}
+	})
 }
 
 // passthroughFetcher fetches a URL with no host allowlist — used only to drive the

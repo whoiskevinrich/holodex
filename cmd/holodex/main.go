@@ -31,10 +31,12 @@ import (
 	"holodex/internal/metrics"
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
+	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 func main() {
@@ -139,6 +141,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 
 	repository := repo.New(database)
+	repository.SetGalleryCap(cfg.PersonGalleryMax) // per-person gallery cap (F25, PERSON_GALLERY_MAX)
 
 	extractor := metadata.NewExtractor()
 	if err := extractor.Available(); err != nil {
@@ -224,7 +227,24 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
+	// forced-extract seam (no change-detection); the repo resolves the target and
+	// persists the file layer; the enrich service re-pulls linked providers.
+	handlers.SetRefresh(refresh.NewService(sc, repository, enrichSvc, log))
 	handlers.SetWriteback(writeback.WriteBatch)
+	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
+	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)
+	// so bulk curation can't thrash the filesystem. Survives restart; on boot it
+	// recovers crash-interrupted jobs and sweeps orphan temp files.
+	writeQ := writequeue.New(repository, writeback.WriteBatch, log, cfg.WritebackConcurrency, cfg.MediaPath)
+	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
+		if thumbs != nil && thumbs.Enabled() {
+			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
+				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
+			}
+		}
+	})
+	handlers.SetWriteQueue(writeQ)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
@@ -243,6 +263,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// zero-config default; on a non-loopback bind that means the admin surface is
 	// reachable without a token — warn loudly (fail-loud condition 1).
 	auth := api.NewAuth(cfg.AdminToken)
+	auth.SetSessionSecret(cfg.SessionSecret) // optional independent session key (ADR-046)
 	exposedBind := cfg.ExposedBind()
 	if !auth.Required() && exposedBind {
 		log.Warn("admin controls are reachable WITHOUT a token on a non-loopback bind; set ADMIN_TOKEN to require authentication",
@@ -277,6 +298,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
 	go purger.Run(ctx)
+	go writeQ.Start(ctx) // boot recovery + orphan sweep + worker pool (F30, ADR-048)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).

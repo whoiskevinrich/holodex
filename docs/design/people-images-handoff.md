@@ -92,7 +92,7 @@ under `[data-theme]`, mirroring `.video-frame`.
 | Core slot (owner) | Hover | Edit/replace + delete affordances fade in over the frame; `--accent` ring |
 | Upload | In progress | Control disabled + spinner; optimistic frame swap on success |
 | Upload | Rejected (type/size/decode) | Inline `text-warn` words (not color-only); nothing written; control re-enabled |
-| Gallery (owner) | At 20 extras | "Add" tile disabled + `border-warn`/`text-warn` "Gallery is full (20 max)." (server also enforces) |
+| Gallery (owner) | At the cap (default 20, `PERSON_GALLERY_MAX`; advertised via `/capabilities`) | "Add" tile disabled; an **informational** (not error) note — neutral tokens `text-muted`/`border-rule`/`bg-surface-2`, **never `text-warn`** — reading "Gallery full — {max} of {max}." A full gallery is a *status*, not a failure of the action just taken (the F25.8 fix). The note carries an **"Add anyway"** button that issues an over-cap upload (`allow_over_cap`); the server enforces both the cap and the override. (ADR-043) |
 | Gallery item (owner) | Reorder | Keyboard ←/→ buttons (in the hover/focus overlay) move an item one step; persists `sort_order` (no drag) |
 | Promote (owner) | Crop | Modal crop editor on a **copy**: drag to pan, **slider or mouse-wheel** to zoom, **rule-of-thirds guide** (fixed to the frame). Save renders the framed crop to a canvas at the target ratio (WYSIWYG) and uploads it as the core role; gallery original untouched |
 

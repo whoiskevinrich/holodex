@@ -32,6 +32,11 @@ type Config struct {
 	// loopback.
 	AdminToken string `yaml:"admin_token"`
 
+	// SessionSecret optionally overrides the owner session-cookie signing key
+	// (ADR-046). Empty = derive the key from AdminToken, so rotating the token
+	// invalidates all sessions; set it to rotate sessions independently.
+	SessionSecret string `yaml:"session_secret"`
+
 	// Scanner (ADR-011, ADR-018)
 	ScanIntervalSeconds int  `yaml:"scan_interval_seconds"`
 	ScanWorkers         int  `yaml:"scan_workers"`
@@ -63,6 +68,10 @@ type Config struct {
 	PersonImagePath         string `yaml:"-"` // derived: DataPath/person-images
 	PersonImageMaxBytes     int64  `yaml:"person_image_max_bytes"`
 	PersonImageMaxDimension int    `yaml:"person_image_max_dimension"`
+	// PersonGalleryMax bounds the per-person 'extra' gallery (F25). Core roles
+	// (headshot/banner/poster) are never counted against it. The owner can still
+	// exceed it deliberately via an explicit over-cap upload; enrichment never does.
+	PersonGalleryMax int `yaml:"person_gallery_max"`
 
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
@@ -86,6 +95,11 @@ type Config struct {
 	// "wide" (default) shows 16:9 thumbnails, suited to personal/AMV libraries.
 	// "poster" shows 2:3 cards, suited to film libraries with poster-format cover art.
 	CardLayout string `yaml:"card_layout"`
+
+	// WritebackConcurrency bounds the durable batch-writeback queue's worker pool
+	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
+	// filesystem; raise only on fast storage. Clamped to ≥1.
+	WritebackConcurrency int `yaml:"writeback_concurrency"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -114,6 +128,7 @@ func Defaults() Config {
 
 		PersonImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
+		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
@@ -122,6 +137,7 @@ func Defaults() Config {
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
 		CardLayout:           "wide",
+		WritebackConcurrency: 1,
 	}
 }
 
@@ -225,6 +241,7 @@ func applyEnv(c *Config) {
 	c.Port = envInt("PORT", c.Port)
 	c.LogLevel = envStr("LOG_LEVEL", c.LogLevel)
 	c.AdminToken = envStr("ADMIN_TOKEN", c.AdminToken)
+	c.SessionSecret = envStr("SESSION_SECRET", c.SessionSecret)
 
 	c.ScanIntervalSeconds = envInt("SCAN_INTERVAL_SECONDS", c.ScanIntervalSeconds)
 	c.ScanWorkers = envInt("SCAN_WORKERS", c.ScanWorkers)
@@ -245,6 +262,10 @@ func applyEnv(c *Config) {
 
 	c.PersonImageMaxBytes = envInt64("PERSON_IMAGE_MAX_BYTES", c.PersonImageMaxBytes)
 	c.PersonImageMaxDimension = envInt("PERSON_IMAGE_MAX_DIMENSION", c.PersonImageMaxDimension)
+	c.PersonGalleryMax = envInt("PERSON_GALLERY_MAX", c.PersonGalleryMax)
+	if c.PersonGalleryMax < 1 {
+		c.PersonGalleryMax = 20 // a non-positive cap would block all gallery adds; fall back to the default
+	}
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
@@ -256,6 +277,10 @@ func applyEnv(c *Config) {
 
 	c.MetadataMappingsPath = envStr("METADATA_MAPPINGS_PATH", c.MetadataMappingsPath)
 	c.MetadataSourcesPath = envStr("METADATA_SOURCES_PATH", c.MetadataSourcesPath)
+	c.WritebackConcurrency = envInt("WRITEBACK_CONCURRENCY", c.WritebackConcurrency)
+	if c.WritebackConcurrency < 1 {
+		c.WritebackConcurrency = 1 // a non-positive worker count would stall the queue
+	}
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"

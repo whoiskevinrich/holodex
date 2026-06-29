@@ -19,9 +19,11 @@ import (
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
+	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
+	"holodex/internal/writequeue"
 )
 
 // thumbnailer is the subset of the thumbnail pipeline the API needs: enqueue
@@ -54,16 +56,18 @@ type scanStatusSource interface {
 
 // Handlers serves the REST API (ADR-006) over the repository.
 type Handlers struct {
-	repo     *repo.Repo
-	log      *slog.Logger
-	thumbs   thumbnailer
-	thumbDir string
-	scanner  rescanner
-	metrics  searchMetrics
-	mappings  *mapping.Store  // configurable metadata fields (F20); nil disables them
-	cache     cache.Cache     // facet-value cache (F20.8); nil disables caching
-	enrich    *enrich.Service // metadata source plugins (F22, ADR-033); nil disables them
-	writeback WriteBatchFunc  // file tag write (F28, ADR-041); nil disables the endpoint
+	repo       *repo.Repo
+	log        *slog.Logger
+	thumbs     thumbnailer
+	thumbDir   string
+	scanner    rescanner
+	metrics    searchMetrics
+	mappings   *mapping.Store    // configurable metadata fields (F20); nil disables them
+	cache      cache.Cache       // facet-value cache (F20.8); nil disables caching
+	enrich     *enrich.Service   // metadata source plugins (F22, ADR-033); nil disables them
+	writeback  WriteBatchFunc    // file tag write (F28, ADR-041); nil disables the endpoint
+	writeQueue *writequeue.Queue // durable batch-write queue (F30, ADR-048); nil → synchronous write
+	refresh    *refresh.Service  // per-item forced re-extract + re-enrich (F31, ADR-047); nil disables it
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -117,6 +121,10 @@ func (h *Handlers) SetMetadataFields(store *mapping.Store, c cache.Cache) {
 // service disables the enrichment endpoints and the person-page enriched fields.
 // Called once at startup before serving.
 func (h *Handlers) SetEnrichment(svc *enrich.Service) { h.enrich = svc }
+
+// SetRefresh wires the per-item refresh service (F31, ADR-047). A nil service
+// disables POST /media/{id}/refresh (503). Called once at startup before serving.
+func (h *Handlers) SetRefresh(svc *refresh.Service) { h.refresh = svc }
 
 // SetPersonImages wires per-person image storage (F25, ADR-038): the on-disk root,
 // the upload bounds, and the default skin used when a placeholder is served without
@@ -185,6 +193,11 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/metadata-keys", h.metadataKeys)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
+	// Owner session exchange (ADR-046): POST validates the token and sets an
+	// HttpOnly cookie; DELETE signs out. Ungated — POST authenticates itself, and
+	// DELETE only clears a cookie. The cookie then authorizes the group below.
+	r.Post("/session", h.postSession)
+	r.Delete("/session", h.deleteSession)
 
 	// Owner-only surface (F21.7, ADR-030): the single choke point for the activity
 	// read-model, history, and the admin controls. Open when no ADMIN_TOKEN is set.
@@ -205,6 +218,10 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
 		h.mountWriteback(r)
+		// Value-level metadata curation — manual add/suppress/nowrite (F30, ADR-048).
+		h.mountCuration(r)
+		// Per-item forced re-extract + re-enrich (F31, ADR-047).
+		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
 }
 
@@ -228,6 +245,9 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		Sort:           q.Get("sort"),
 		Limit:          atoiDefault(q.Get("limit"), 50),
 		Offset:         atoiDefault(q.Get("offset"), 0),
+	}
+	if f.Sort == "random" {
+		f.Seed = parseSeedOrRandom(q.Get("seed"))
 	}
 	if b, ok := metadata.ParseResolutionBucket(q.Get("resolution")); ok {
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)
@@ -321,7 +341,14 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			h.log.Warn("enrichment for detail", "id", id, "err", err2)
 		} else {
 			enr := enrichmentFromRows(enrichRows)
-			resolved = resolver.Resolve(v, extra, enr, m.Fields())
+			// Value-level curation (F30): manual adds, suppressions, no-write flags.
+			var cur resolver.Curation
+			if curRows, curErr := h.repo.CurationForEntity(r.Context(), model.EnrichEntityVideo, id); curErr != nil {
+				h.log.Warn("curation for detail", "id", id, "err", curErr)
+			} else {
+				cur = curationFromRows(curRows)
+			}
+			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields())
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
@@ -706,6 +733,19 @@ func atoiDefault(s string, def int) int {
 	return def
 }
 
+// parseSeedOrRandom parses the client-supplied shuffle seed for the "random" sort
+// (ADR-045). A valid integer is used as-is so successive "Load more" pages share
+// one shuffle; a missing/invalid seed falls back to a per-request seed (the page
+// is still internally consistent, but the client always sends one so pages tile).
+// The value is only ever passed to holo_shuffle() as a bound parameter — never
+// interpolated into SQL.
+func parseSeedOrRandom(s string) int64 {
+	if n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64); err == nil {
+		return n
+	}
+	return time.Now().UnixNano()
+}
+
 // enrichmentFromRows converts repo enrichment rows to the resolver.Enrichment map
 // (provider → field → values). Returns nil when rows is empty so callers on hot
 // paths (browse list) avoid allocating a map for every non-enriched video.
@@ -719,6 +759,35 @@ func enrichmentFromRows(rows []repo.EnrichmentRow) resolver.Enrichment {
 			out[r.Provider] = make(map[string][]string)
 		}
 		out[r.Provider][r.FieldKey] = r.Values
+	}
+	return out
+}
+
+// curationFromRows converts repo curation rows to the resolver.Curation map
+// (field → adds/suppress/nowrite). Returns nil when rows is empty so hot paths
+// avoid allocating a map for every non-curated video.
+func curationFromRows(rows []repo.CurationRow) resolver.Curation {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make(resolver.Curation, 2)
+	for _, r := range rows {
+		fc := out[r.FieldKey]
+		switch r.Action {
+		case repo.CurationAdd:
+			fc.Add = append(fc.Add, r.Value)
+		case repo.CurationSuppress:
+			if fc.Suppress == nil {
+				fc.Suppress = make(map[string]bool)
+			}
+			fc.Suppress[r.NormValue] = true
+		case repo.CurationNoWrite:
+			if fc.NoWrite == nil {
+				fc.NoWrite = make(map[string]bool)
+			}
+			fc.NoWrite[r.NormValue] = true
+		}
+		out[r.FieldKey] = fc
 	}
 	return out
 }
@@ -747,9 +816,16 @@ func (h *Handlers) applyBrowseTitles(ctx context.Context, items []model.Video, f
 		h.log.Warn("batch enrichment for browse titles", "err", err)
 		return
 	}
+	// Curation can override/suppress the browse title too (F30); batch-load it
+	// alongside enrichment to keep the list path free of N+1 queries.
+	batchCuration, err := h.repo.CurationForVideos(ctx, ids)
+	if err != nil {
+		h.log.Warn("batch curation for browse titles", "err", err)
+	}
 	for i := range items {
 		enr := enrichmentFromRows(batchEnrich[items[i].ID])
-		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, browseFields); t != "" {
+		cur := curationFromRows(batchCuration[items[i].ID])
+		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, cur, browseFields); t != "" {
 			items[i].Title = t
 		}
 	}

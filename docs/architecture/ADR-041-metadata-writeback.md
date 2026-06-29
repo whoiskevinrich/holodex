@@ -182,6 +182,9 @@ and trusted.
 - **Rule-based writeback** (backlog) — the `writeback: if_empty|overwrite` flag in the mapping
   YAML, triggered on enrich completion, for automation at library scale.
 - **Batch writeback** (backlog) — admin bulk-apply with preview/diff before commit.
+  *(Update: [ADR-048](ADR-048-metadata-curation-and-write-queue.md) partially realizes Option C —
+  the "all curated fields at once" batch write via a durable, throttled queue — while keeping
+  it owner-triggered; rule-based/automatic writeback remains deferred.)*
 - **Extended format-mapping config** — operators may need to map canonical fields to
   non-standard tags for their container/tool combination; a config override table in
   `metadata-sources.yaml` is the natural home.

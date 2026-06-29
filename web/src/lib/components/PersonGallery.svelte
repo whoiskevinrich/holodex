@@ -3,16 +3,16 @@
 	// row of uniform-height, uncropped thumbnails. Read-only for viewers. Owner-aware: an
 	// "Add image" tile (multi-select upload, role=extra), and per-item controls revealed
 	// on hover/focus — set-as-{headshot|banner|poster} (via the crop editor), delete, and
-	// keyboard move-left/right reorder. The 20-extra cap disables Add with a themed warn
-	// message (the server also enforces it). Tokens only; QA all three skins.
+	// keyboard move-left/right reorder. The gallery cap (PERSON_GALLERY_MAX, default 20)
+	// disables the Add tile with an informational note and offers an explicit "Add anyway"
+	// over-cap upload (the server enforces both). Tokens only; QA all three skins.
 	import { api } from '$lib/api';
 	import { theme } from '$lib/theme.svelte';
+	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
-	import type { PersonImage, PersonImageRole } from '$lib/types';
+	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
 	import CropEditor from './CropEditor.svelte';
 
-	const MAX_EXTRAS = 20;
-	const CORE_ROLES: Exclude<PersonImageRole, 'extra'>[] = ['headshot', 'banner', 'poster'];
 	const ROLE_LABEL: Record<string, string> = {
 		headshot: 'headshot',
 		banner: 'banner',
@@ -37,28 +37,40 @@
 	let uploading = $state(false);
 	let error = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
+	// Whether the pending file-pick should bypass the gallery cap (owner "Add anyway").
+	let pendingOverCap = $state(false);
 	// The gallery item being promoted (opens the crop editor) + its target role.
 	let cropImage = $state<PersonImage | null>(null);
-	let cropRole = $state<Exclude<PersonImageRole, 'extra'>>('headshot');
+	let cropRole = $state<CoreRole>('headshot');
 
-	const full = $derived(items.length >= MAX_EXTRAS);
+	const max = $derived(activity.galleryMax);
+	const full = $derived(items.length >= max);
 
 	function thumbSrc(img: PersonImage): string {
 		return api.personGalleryImageURL(personId, img.id, { version: img.version, skin: theme.current });
+	}
+
+	// Open the file picker; overCap=true marks the batch as an explicit over-cap add.
+	function openPicker(overCap: boolean) {
+		pendingOverCap = overCap;
+		fileInput?.click();
 	}
 
 	async function onPick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
 		const files = input.files ? Array.from(input.files) : [];
 		input.value = ''; // allow re-picking the same file(s) after an error
+		const overCap = pendingOverCap;
+		pendingOverCap = false;
 		if (!files.length || uploading) return;
 		uploading = true;
 		error = '';
 		let added = 0;
 		try {
-			// Upload sequentially; a server-side cap rejection (409) stops the batch.
+			// Upload sequentially; a server-side cap rejection (409) stops the batch
+			// (unless this is an explicit over-cap add).
 			for (const file of files) {
-				await api.uploadPersonImage(personId, file, 'extra');
+				await api.uploadPersonImage(personId, file, 'extra', overCap);
 				added++;
 			}
 		} catch (err) {
@@ -84,7 +96,7 @@
 		}
 	}
 
-	function promote(img: PersonImage, role: Exclude<PersonImageRole, 'extra'>) {
+	function promote(img: PersonImage, role: CoreRole) {
 		cropRole = role;
 		cropImage = img;
 	}
@@ -189,7 +201,7 @@
 			{#if owner}
 				<li class="shrink-0">
 					<button
-						onclick={() => fileInput?.click()}
+						onclick={() => openPicker(false)}
 						disabled={full || uploading}
 						aria-label="Add images"
 						title="Add images"
@@ -213,9 +225,21 @@
 	{/if}
 
 	{#if owner && full}
-		<p class="rounded-theme border border-warn px-3 py-2 text-sm text-warn">
-			Gallery is full (20 max).
-		</p>
+		<!-- Informational (not an error): the gallery is at the cap, but the owner can
+		     still add deliberately. Neutral tokens, never text-warn — a full gallery is a
+		     status, not a failure of the action just taken. -->
+		<div
+			class="flex flex-wrap items-center gap-2 rounded-theme border border-rule bg-surface-2 px-3 py-2 text-sm text-muted"
+		>
+			<span>Gallery full — {max} of {max}.</span>
+			<button
+				onclick={() => openPicker(true)}
+				disabled={uploading}
+				class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-50"
+			>
+				Add anyway
+			</button>
+		</div>
 	{/if}
 
 	{#if error}

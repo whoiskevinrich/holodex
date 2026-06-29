@@ -421,6 +421,26 @@ func (s *Scanner) handleThumbnail(ctx context.Context, id int64, path string, ha
 	s.thumbs.Enqueue(id)
 }
 
+// BuildVideoFromFile re-reads one file's embedded metadata and builds the
+// model.Video + extra rows WITHOUT touching the database (F31, ADR-047). It is
+// the read half of a forced per-item refresh: the caller (internal/refresh) owns
+// the subsequent UpsertVideo, keeping extract (plan) separable from persist
+// (apply). Unlike the periodic index path it does NO (size, mtime)
+// change-detection — the file is always re-extracted, which is what lets a
+// refresh catch an in-place edit that preserved the file's mtime.
+func (s *Scanner) BuildVideoFromFile(ctx context.Context, path string) (*model.Video, []model.ExtraMetadata, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	mtime := info.ModTime().UTC().Truncate(time.Second)
+	ex, err := s.ext.Extract(ctx, path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildVideo(path, info, mtime, ex), ex.Extra, nil
+}
+
 func buildVideo(path string, info os.FileInfo, mtime time.Time, ex metadata.Extracted) *model.Video {
 	v := &model.Video{
 		FilePath:    path,

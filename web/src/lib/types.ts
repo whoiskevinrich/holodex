@@ -11,12 +11,25 @@ export interface Person {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
+	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
+	// the stale cached image (F25.29). Absent/0 = no headshot (placeholder).
+	headshot_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 
 // Person image roles (F25, ADR-038). Three single-slot core roles plus the
 // free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
 export type PersonImageRole = 'headshot' | 'banner' | 'poster' | 'extra';
+
+// The three single-slot core roles (the croppable, promotable slots — not the `extra`
+// gallery). Canonical list + derived type, so the role set lives in exactly one place;
+// `satisfies` guarantees every entry is a real non-extra role.
+export const CORE_ROLES = ['headshot', 'banner', 'poster'] as const satisfies readonly Exclude<
+	PersonImageRole,
+	'extra'
+>[];
+export type CoreRole = (typeof CORE_ROLES)[number];
 
 // PersonImage is one stored gallery image in the person-detail read model (F25).
 // Version mirrors the id and drives the `?v=` cache-buster on serving URLs.
@@ -83,15 +96,38 @@ export interface MappedField {
 	values: string[];
 }
 
-// ResolvedField is one canonical field merged from all configured sources (F27).
-// winning_source is the namespace:key that supplied the value, e.g. "tmdb:title"
-// or "file:Title". display mirrors the registry hint for the canonical field.
+// ResolvedValue is one surviving value of a field with its provenance + curation
+// state (F30). A value present in multiple sources is reported once, with every
+// contributing source namespace listed in `sources`.
+export interface ResolvedValue {
+	value: string;
+	sources: string[]; // contributing namespaces, e.g. ["tmdb","file"], ["manual"]
+	manual?: boolean; // owner-added value
+	no_write?: boolean; // shown but excluded from the file write
+}
+
+// ResolvedField is one canonical field merged from all configured sources (F27/F30).
+// `values` holds the surviving display values; `items` carries the per-value
+// provenance + curation state the curation UI consumes. winning_source is the
+// namespace:key that supplied the (first) value. display mirrors the registry hint.
 export interface ResolvedField {
 	canonical: string;
 	label: string;
 	display?: 'long_text' | 'image_url' | 'url';
 	values: string[];
-	winning_source?: string; // e.g. "tmdb:title" | "file:Title"
+	items?: ResolvedValue[];
+	multi?: boolean; // merge-mode (set) field: UI shows add + per-value remove
+	winning_source?: string; // e.g. "tmdb:title" | "file:Title" | "manual:genres"
+}
+
+// CurationAction is a value-level owner decision (F30, ADR-048).
+export type CurationAction = 'add' | 'suppress' | 'nowrite';
+
+// CurationRequest records or clears one value-level decision for a field.
+export interface CurationRequest {
+	field: string;
+	value: string;
+	action: CurationAction;
 }
 
 export interface MediaDetailResponse {
@@ -241,6 +277,9 @@ export interface Capabilities {
 	// card_layout is the operator's preferred browse-grid aspect ratio:
 	// "wide" (16:9, default) for personal/AMV libraries, "poster" (2:3) for film libraries.
 	card_layout: 'wide' | 'poster';
+	// person_gallery_max is the per-person 'extra' gallery cap (F25), so the gallery
+	// can warn at the limit and offer the owner an explicit over-cap "add anyway".
+	person_gallery_max: number;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
@@ -276,6 +315,23 @@ export interface EnrichedField {
 	fetched_at?: string;
 }
 
+// Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted
+// source (file first, then each linked provider). sources_disagree is reserved
+// (populated by the future batch op, F31.11); single-item it is false.
+export interface RefreshSourceResult {
+	source: string; // "file" or the provider name
+	ok: boolean;
+	changed: boolean;
+	error?: string;
+}
+
+export interface RefreshReport {
+	video_id: number;
+	sources: RefreshSourceResult[];
+	changed: boolean;
+	sources_disagree: boolean;
+}
+
 export interface PersonDetailResponse {
 	person: Person;
 	items: Video[];
@@ -287,6 +343,7 @@ export interface PersonDetailResponse {
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045).
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
@@ -295,7 +352,14 @@ export type SortOrder =
 	| 'duration_desc'
 	| 'duration_asc'
 	| 'resolution_desc'
-	| 'resolution_asc';
+	| 'resolution_asc'
+	| 'random';
+
+// Sort options for the unpaged People/Tags indexes — the single source of truth for
+// both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
+// seeded shuffle of the name-ordered list (ADR-045 §3).
+export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
+export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
 
 export interface MediaFilters {
 	q?: string;
@@ -307,6 +371,10 @@ export interface MediaFilters {
 	year_min?: number;
 	year_max?: number;
 	sort?: SortOrder;
+	// seed parameterizes the "random" sort's deterministic shuffle (ADR-045); sent
+	// with the API request (paging param) but not the shareable URL. Ignored unless
+	// sort==='random'.
+	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
 	limit?: number;
 	offset?: number;

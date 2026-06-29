@@ -1,16 +1,32 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { Person } from '$lib/types';
+	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
+	import SortReroll from '$lib/components/SortReroll.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
+	import { peopleScroll } from '$lib/peopleScroll.svelte';
+	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { seededShuffle } from '$lib/shuffle';
 
 	let people = $state<Person[]>([]);
-	let sort = $state<'name' | 'count'>('name');
+	let sort = $state<PeopleTagSort>(readSort('people', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
 	let loadError = $state('');
+
+	// Persist the chosen sort per page (SP1).
+	$effect(() => {
+		writeSort('people', sort);
+	});
+
+	// "Random" shuffles the name-ordered list client-side with the session seed (SP2,
+	// ADR-045) — stable across re-renders, reshuffled only on reroll/new session. The
+	// A–Z jump-nav stays tied to sort==='name', where `displayed` equals `people`.
+	const displayed = $derived(sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into. See [[ADR-036]].
@@ -21,7 +37,7 @@
 	let merging = $state(false);
 	let mergeError = $state('');
 
-	const isOwner = $derived(activity.isOwner);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
 	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
@@ -35,6 +51,11 @@
 		el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
 	}
 
+	// On the first load only, restore the scroll position stashed when we last left the
+	// list (← Back from a person), once the re-fetched list has painted. Later reloads
+	// (sort change, post-merge) intentionally stay at the top.
+	let firstLoad = true;
+
 	function reload() {
 		loading = true;
 		loadError = '';
@@ -46,12 +67,25 @@
 				loadError = toMessage(err);
 				people = [];
 			})
-			.finally(() => (loading = false));
+			.finally(() => {
+				loading = false;
+				if (firstLoad) {
+					firstLoad = false;
+					const snap = peopleScroll.take(sort);
+					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
+				}
+			});
 	}
 
 	$effect(() => {
 		void sort; // re-run on sort change
 		reload();
+	});
+
+	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
+	// where the list was. Keyed by sort; a sort change invalidates it (peopleScroll.take).
+	beforeNavigate(() => {
+		peopleScroll.save({ key: sort, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {
@@ -121,6 +155,9 @@
 					</button>
 				{/if}
 			{/if}
+			{#if sort === 'random'}
+				<SortReroll onreroll={() => shuffleSeed.reroll()} />
+			{/if}
 			<SortToggle bind:sort />
 		</div>
 	</div>
@@ -156,8 +193,16 @@
 				{/each}
 			</nav>
 		{/if}
+		<!-- Shared row body for both modes — the only difference between select mode and
+		     nav mode is the wrapper (checkbox label vs link), so the avatar/name/count live
+		     here once. -->
+		{#snippet personRow(p: Person, i: number)}
+			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
+			<span class="flex-1 truncate">{p.name}</span>
+			<span class="text-xs text-muted">{p.video_count}</span>
+		{/snippet}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-			{#each people as p, i (p.id)}
+			{#each displayed as p, i (p.id)}
 				<li
 					id={sort === 'name' && letterAnchors[firstLetter(p.name)] === i
 						? `pl-${firstLetter(p.name)}`
@@ -178,18 +223,14 @@
 								checked={selectedIds.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</label>
 					{:else}
 						<a
 							href={`/people/${p.id}`}
 							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 						>
-							<PersonAvatar personId={p.id} name={p.name} size="sm" eager={i < 6} />
-							<span class="flex-1 truncate">{p.name}</span>
-							<span class="text-xs text-muted">{p.video_count}</span>
+							{@render personRow(p, i)}
 						</a>
 					{/if}
 				</li>

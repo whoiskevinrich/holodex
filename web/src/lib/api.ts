@@ -16,66 +16,99 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
+	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	RefreshReport,
 	RelatedResponse,
 	SearchResponse,
 	Tag,
 	TrashEntry,
 	Video,
-	WritebackRequest
+	WritebackRequest,
+	CurationRequest
 } from './types';
 
 const BASE = '/api/v1';
 
+// ApiError carries the HTTP status so callers can branch on it (e.g. a 401 owner
+// expiry) without parsing the message string. Extends Error, so existing
+// toMessage()/catch sites keep working unchanged.
+export class ApiError extends Error {
+	constructor(
+		readonly status: number,
+		path: string,
+		message?: string
+	) {
+		super(message ?? `API ${path} failed: ${status}`);
+		this.name = 'ApiError';
+	}
+}
+
 async function get<T>(path: string, fetchFn: typeof fetch = fetch, init?: RequestInit): Promise<T> {
 	const res = await fetchFn(`${BASE}${path}`, init);
 	if (!res.ok) {
-		throw new Error(`API ${path} failed: ${res.status}`);
+		throw new ApiError(res.status, path);
 	}
 	return res.json() as Promise<T>;
 }
 
-// Owner token for the gated /admin surface (F21.7). Kept in memory only — never
-// localStorage (ADR-030 condition 2: avoid XSS exfiltration); re-entered after a
-// reload. Empty when no token is configured (the single-user open default).
-let adminToken = '';
-export function setAdminToken(t: string) {
-	adminToken = t.trim();
-}
-function adminHeaders(): HeadersInit {
-	return adminToken ? { 'X-Admin-Token': adminToken } : {};
+// Owner auth (ADR-046). The SPA authenticates once via POST /session, which sets
+// an HttpOnly session cookie — the token itself is never held in JS (no
+// localStorage/sessionStorage; ADR-030 condition 2: avoid XSS exfiltration). The
+// cookie carries auth across reloads and rides every authed request via
+// credentials: 'same-origin'.
+const CREDS: RequestCredentials = 'same-origin';
+
+// startSession exchanges the admin token for the session cookie. remember=true
+// requests the longer "trust this device" lifetime. The token travels only in the
+// X-Admin-Token header of this single request, never persisted client-side.
+export async function startSession(token: string, remember = false): Promise<void> {
+	const res = await fetch(`${BASE}/session${remember ? '?remember=1' : ''}`, {
+		method: 'POST',
+		credentials: CREDS,
+		headers: { 'X-Admin-Token': token.trim() }
+	});
+	if (!res.ok) {
+		throw new ApiError(res.status, '/session');
+	}
 }
 
-// getAuthed is get() carrying the X-Admin-Token header for the owner surface.
-const getAuthed = <T>(path: string): Promise<T> => get<T>(path, fetch, { headers: adminHeaders() });
+// endSession signs the owner out (clears the cookie). Best-effort.
+export async function endSession(): Promise<void> {
+	await fetch(`${BASE}/session`, { method: 'DELETE', credentials: CREDS }).catch(() => {});
+}
 
-// sendAuthed issues a write (POST/DELETE) on the owner surface with the token
-// header and an optional JSON body, returning the decoded response (or {}).
+// getAuthed is get() sending the session cookie for the owner surface.
+const getAuthed = <T>(path: string): Promise<T> => get<T>(path, fetch, { credentials: CREDS });
+
+// sendAuthed issues a write (POST/DELETE) on the owner surface carrying the
+// session cookie and an optional JSON body, returning the decoded response (or {}).
 async function sendAuthed<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, {
 		method,
-		headers: { ...adminHeaders(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+		credentials: CREDS,
+		headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) },
 		body: body ? JSON.stringify(body) : undefined
 	});
 	if (!res.ok && res.status !== 204) {
-		throw new Error(`API ${path} failed: ${res.status}`);
+		throw new ApiError(res.status, path);
 	}
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
 
-// uploadAuthed POSTs multipart FormData on the owner surface with the token header
-// (no Content-Type — the browser sets the multipart boundary). Returns the decoded
-// JSON body. A 409 is surfaced verbatim so callers can show "gallery is full".
+// uploadAuthed POSTs multipart FormData on the owner surface with the session
+// cookie (no Content-Type — the browser sets the multipart boundary). Returns the
+// decoded JSON body. A 409 is surfaced verbatim so callers can show "gallery is full".
 async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, {
 		method: 'POST',
-		headers: adminHeaders(),
+		credentials: CREDS,
 		body: form
 	});
 	if (!res.ok) {
 		const body = (await res.json().catch(() => ({}))) as { error?: string };
-		throw new Error(body.error || `API ${path} failed: ${res.status}`);
+		throw new ApiError(res.status, path, body.error);
 	}
 	return res.json() as Promise<T>;
 }
@@ -148,11 +181,13 @@ export const api = {
 	},
 
 	// Owner-gated mutations (ADR-030). Upload posts a multipart {image, role};
-	// 409 surfaces "gallery is full" via uploadAuthed's error.
-	uploadPersonImage: (id: number, file: File, role: PersonImageRole) => {
+	// 409 surfaces "gallery is full" via uploadAuthed's error. allowOverCap lets the
+	// owner deliberately exceed the gallery cap (F25); ignored for core roles.
+	uploadPersonImage: (id: number, file: File, role: PersonImageRole, allowOverCap = false) => {
 		const form = new FormData();
 		form.append('image', file);
 		form.append('role', role);
+		if (allowOverCap) form.append('allow_over_cap', 'true');
 		return uploadAuthed<{ id: number; version: number }>(`/people/${id}/image`, form);
 	},
 
@@ -171,14 +206,18 @@ export const api = {
 	reorderPersonImages: (id: number, order: number[]) =>
 		sendAuthed<{ images: PersonImageSet }>('POST', `/people/${id}/images/reorder`, { order }),
 
-	listPeople: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Person[] }>(`/people${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
+	// People/Tags accept name|count|random (ADR-045 §3). The server returns the full
+	// list in canonical name order for both 'name' and 'random' — the random shuffle
+	// is applied client-side (these lists are unpaged) — so only 'count' reorders
+	// server-side. 'random' is still sent so the contract is exercised/observable.
+	listPeople: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
+		get<{ items: Person[] }>(`/people${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
 
-	listTags: (sort: 'name' | 'count' = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Tag[] }>(`/tags${sort === 'count' ? '?sort=count' : ''}`, fetchFn),
+	listTags: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
+		get<{ items: Tag[] }>(`/tags${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
 	getTag: (id: number, fetchFn?: typeof fetch) =>
 		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
@@ -192,9 +231,9 @@ export const api = {
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),
 
-	// System Activity (F21). capabilities is ungated, but it still carries the
-	// X-Admin-Token header so the server can report owner:true once a token is set
-	// (otherwise controls would stay locked even with a valid token).
+	// System Activity (F21). capabilities is ungated, but it carries the session
+	// cookie (credentials) so the server reports owner:true once authenticated —
+	// including across reloads, since the cookie persists (ADR-046).
 	capabilities: () => getAuthed<Capabilities>(`/capabilities`),
 
 	activity: () => getAuthed<Activity>(`/admin/activity`),
@@ -249,6 +288,11 @@ export const api = {
 	enrichVideoClear: (videoId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/enrich/${encodeURIComponent(provider)}`),
 
+	// Per-item metadata refresh (F31, ADR-047) — forced file re-extract + re-enrich
+	// of the item's linked providers. Owner-gated; returns the combined report.
+	refreshMedia: (videoId: number) =>
+		sendAuthed<RefreshReport>('POST', `/media/${videoId}/refresh`),
+
 	// Person aliases & merge (F23, ADR-036). All owner-gated.
 	//
 	// addAlias returns either the updated alias list, or — when the name already
@@ -260,7 +304,8 @@ export const api = {
 	): Promise<{ aliases?: PersonAlias[]; conflict?: Person }> => {
 		const res = await fetch(`${BASE}/people/${personId}/aliases`, {
 			method: 'POST',
-			headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+			credentials: CREDS,
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ alias })
 		});
 		if (res.status === 409) {
@@ -268,7 +313,7 @@ export const api = {
 			return { conflict: body.conflict as Person };
 		}
 		if (!res.ok) {
-			throw new Error(`API /people/${personId}/aliases failed: ${res.status}`);
+			throw new ApiError(res.status, `/people/${personId}/aliases`);
 		}
 		return { aliases: ((await res.json()) as { aliases: PersonAlias[] }).aliases };
 	},
@@ -295,9 +340,18 @@ export const api = {
 
 	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`),
 
-	// Metadata writeback — embed a resolved field value into the media file's
-	// tags (F28, ADR-041). Owner-gated; 204 on success; 422 when the field has
-	// no tag mapping for the file's container.
+	// Metadata writeback — embed curated field values into the media file's tags.
+	// Owner-gated. Returns {job_id, queued} when the durable queue is wired (202,
+	// F30/ADR-048), or {} on the legacy synchronous path (204, F28). 422 when a
+	// field has no tag mapping for the file's container.
 	writebackMedia: (id: number, req: WritebackRequest) =>
-		sendAuthed<Record<string, never>>('POST', `/media/${id}/writeback`, req)
+		sendAuthed<{ job_id?: number; queued?: number }>('POST', `/media/${id}/writeback`, req),
+
+	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
+	// suppress / nowrite decision; clearMediaCuration removes one (restoring the
+	// underlying source value). Owner-gated; 204 on success.
+	curateMedia: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation`, req),
+	clearMediaCuration: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req)
 };

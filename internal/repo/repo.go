@@ -26,9 +26,30 @@ var ErrNotFound = errors.New("not found")
 type Repo struct {
 	db      *sql.DB
 	writeMu sync.Mutex
+	// galleryCap overrides the per-person 'extra' gallery cap (PERSON_GALLERY_MAX,
+	// F25). Zero means "unset" — GalleryCapValue then falls back to GalleryCap so a
+	// bare New(db) (tests, MCP stdio) keeps the built-in default.
+	galleryCap int
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
+
+// SetGalleryCap overrides the per-person 'extra' gallery cap (F25). A value < 1 is
+// ignored, leaving the built-in default. Called once at startup from config.
+func (r *Repo) SetGalleryCap(n int) {
+	if n >= 1 {
+		r.galleryCap = n
+	}
+}
+
+// GalleryCapValue is the effective per-person gallery cap: the configured override
+// or the built-in GalleryCap default. Exposed so the API can advertise it to the SPA.
+func (r *Repo) GalleryCapValue() int {
+	if r.galleryCap >= 1 {
+		return r.galleryCap
+	}
+	return GalleryCap
+}
 
 // timeLayout is the storage format for timestamps (ISO-8601, UTC).
 const timeLayout = time.RFC3339
@@ -270,6 +291,10 @@ type VideoFilter struct {
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
+	// Seed parameterizes the "random" sort's deterministic shuffle (ADR-045): a
+	// fixed seed makes holo_shuffle(id, seed) a stable order, so LIMIT/OFFSET
+	// pages tile without duplicate or skipped rows. Ignored unless Sort=="random".
+	Seed int64
 }
 
 // MappedFilter matches videos carrying a metadata row whose source_key is one of
@@ -280,26 +305,31 @@ type MappedFilter struct {
 }
 
 // orderBy maps the sort key to a safe ORDER BY clause (whitelist — the key is
-// never interpolated). The id tiebreaker keeps pagination stable. "Resolution"
-// sorts by width, consistent with the width-based resolution buckets (ADR-012).
-func (f VideoFilter) orderBy() string {
+// never interpolated) plus any bound args the clause needs. The id tiebreaker
+// keeps pagination stable. "Resolution" sorts by width, consistent with the
+// width-based resolution buckets (ADR-012). "random" orders by the deterministic
+// holo_shuffle(id, seed) function (ADR-045) with the seed as a bound parameter, so
+// one seed yields a single shuffle that tiles across LIMIT/OFFSET pages.
+func (f VideoFilter) orderBy() (string, []any) {
 	switch f.Sort {
 	case "title_asc":
-		return "v.title COLLATE NOCASE ASC, v.id ASC"
+		return "v.title COLLATE NOCASE ASC, v.id ASC", nil
 	case "title_desc":
-		return "v.title COLLATE NOCASE DESC, v.id DESC"
+		return "v.title COLLATE NOCASE DESC, v.id DESC", nil
 	case "added_asc":
-		return "v.indexed_at ASC, v.id ASC"
+		return "v.indexed_at ASC, v.id ASC", nil
 	case "duration_desc":
-		return "v.duration_sec DESC, v.id DESC"
+		return "v.duration_sec DESC, v.id DESC", nil
 	case "duration_asc":
-		return "v.duration_sec ASC, v.id ASC"
+		return "v.duration_sec ASC, v.id ASC", nil
 	case "resolution_desc":
-		return "v.width DESC, v.height DESC, v.id DESC"
+		return "v.width DESC, v.height DESC, v.id DESC", nil
 	case "resolution_asc":
-		return "v.width ASC, v.height ASC, v.id ASC"
+		return "v.width ASC, v.height ASC, v.id ASC", nil
+	case "random":
+		return "holo_shuffle(v.id, ?), v.id ASC", []any{f.Seed}
 	default: // "added_desc" and anything unrecognized
-		return "v.indexed_at DESC, v.id DESC"
+		return "v.indexed_at DESC, v.id DESC", nil
 	}
 }
 
@@ -319,12 +349,19 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if limit <= 0 {
 		limit = 50
 	}
+	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
 	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v ` + where +
-		` ORDER BY ` + f.orderBy() + ` LIMIT ? OFFSET ?`
-	rows, err := r.db.QueryContext(ctx, q, append(args, limit, f.Offset)...)
+		` ORDER BY ` + orderClause + ` LIMIT ? OFFSET ?`
+	// Order args (the random seed) sit between the WHERE args and LIMIT/OFFSET,
+	// matching the clause position. Build a fresh slice so args isn't mutated.
+	qArgs := make([]any, 0, len(args)+len(orderArgs)+2)
+	qArgs = append(qArgs, args...)
+	qArgs = append(qArgs, orderArgs...)
+	qArgs = append(qArgs, limit, f.Offset)
+	rows, err := r.db.QueryContext(ctx, q, qArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list videos: %w", err)
 	}
@@ -753,20 +790,40 @@ func namedCountQuery(table, junction, fk string, sortByCount bool) string {
 		ORDER BY %s`, table, junction, fk, order)
 }
 
-// ListPeople returns every person with at least one active video, with counts.
-// sortByCount orders by video count desc (else name asc).
+// ListPeople returns every person with at least one active video, with counts and the
+// headshot image id (the list avatar's ?v= cache-buster, so it refreshes when the
+// headshot changes — F25.29). sortByCount orders by video count desc (else name asc).
 func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("people", "video_people", "person_id", sortByCount))
+	order := "e.name COLLATE NOCASE ASC"
+	if sortByCount {
+		order = "cnt DESC, e.name COLLATE NOCASE ASC"
+	}
+	// People-specific (not namedCountQuery, which is shared with tags): the correlated
+	// subquery pulls the current headshot image id so the list avatar URL can carry a
+	// version that busts the browser cache after enrichment fills/replaces the headshot.
+	q := fmt.Sprintf(`
+		SELECT e.id, e.name, COUNT(j.video_id) AS cnt,
+		       (SELECT id FROM person_images WHERE person_id = e.id AND role = 'headshot') AS headshot_id
+		FROM people e
+		JOIN video_people j ON j.person_id = e.id
+		JOIN videos v       ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		GROUP BY e.id, e.name
+		ORDER BY %s`, order)
+	rows, err := r.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("list people: %w", err)
 	}
 	defer rows.Close()
 	var out []model.Person
 	for rows.Next() {
-		var p model.Person
-		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
+		var (
+			p          model.Person
+			headshotID sql.NullInt64
+		)
+		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount, &headshotID); err != nil {
 			return nil, err
 		}
+		p.HeadshotVersion = headshotID.Int64 // 0 when no headshot row (placeholder)
 		out = append(out, p)
 	}
 	return out, rows.Err()
