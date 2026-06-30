@@ -39,6 +39,52 @@ func TestMapExiftool(t *testing.T) {
 	}
 }
 
+// TestMapExiftoolMatroskaLangSuffix mirrors real MKV exiftool output, where each
+// localizable SimpleTag carries a language code ("-und", "-eng", …). Before the
+// fix these bypassed classification: Title stayed empty (filename-stem fallback)
+// and People/Tags were empty while the values sat in Extra (issue #63).
+func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
+	raw := map[string]any{
+		"Title-und":        "Some Title",
+		"Artist-und":       "Alex Morgan",
+		"Genre-und":        "Drama",
+		"Comment-und":      "a note", // no canonical field → Extra under the canonical key
+		"SeasonNumber-und": "2",      // unmapped → Extra as "SeasonNumber" (file:<Key>-addressable)
+		"EpisodeSort-und":  "5",
+		"CRC-32":           "deadbeef", // digit guard: must NOT be stripped to "CRC"
+	}
+	ex := mapExiftool(raw)
+
+	if ex.Title != "Some Title" {
+		t.Errorf("title = %q, want %q", ex.Title, "Some Title")
+	}
+	if len(ex.People) != 1 || ex.People[0] != "Alex Morgan" {
+		t.Errorf("people = %v, want [Alex Morgan]", ex.People)
+	}
+	if len(ex.Tags) != 1 || ex.Tags[0] != "Drama" {
+		t.Errorf("tags = %v, want [Drama]", ex.Tags)
+	}
+	// Unmapped tags land in Extra under their canonical (suffix-stripped) key so a
+	// single mapping source matches MKV and MP4 alike; CRC-32 is left intact.
+	extra := map[string]string{}
+	for _, e := range ex.Extra {
+		extra[e.SourceKey] = e.Value
+	}
+	for key, want := range map[string]string{
+		"Comment":      "a note",
+		"SeasonNumber": "2",
+		"EpisodeSort":  "5",
+		"CRC-32":       "deadbeef",
+	} {
+		if extra[key] != want {
+			t.Errorf("Extra[%q] = %q, want %q (all extra: %+v)", key, extra[key], want, ex.Extra)
+		}
+	}
+	if len(ex.Extra) != 4 {
+		t.Errorf("extra = %+v, want 4 entries", ex.Extra)
+	}
+}
+
 // TestMapExiftoolCoverArtVariants checks all known exiftool key spellings for
 // MP4/QuickTime cover art across exiftool versions and key formats.
 func TestMapExiftoolCoverArtVariants(t *testing.T) {
@@ -100,11 +146,11 @@ func TestMapFfprobe(t *testing.T) {
 
 func TestNormalizeContainer(t *testing.T) {
 	cases := map[string]string{
-		"matroska,webm":             "Matroska",
-		"mov,mp4,m4a,3gp,3g2,mj2":   "MP4",
-		"webm":                      "WebM",
-		"":                          "",
-		"avi":                       "avi",
+		"matroska,webm":           "Matroska",
+		"mov,mp4,m4a,3gp,3g2,mj2": "MP4",
+		"webm":                    "WebM",
+		"":                        "",
+		"avi":                     "avi",
 	}
 	for in, want := range cases {
 		if got := normalizeContainer(in); got != want {
