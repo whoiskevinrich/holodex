@@ -123,12 +123,21 @@ flow still works, you just install the app on your user account.
    a **Development** panel appears once a branch with the key exists. Make a throwaway
    `HOLODEX-1-test` branch to confirm, then delete it.
 
-### Phase 1 — Enable Releases (so `fixVersion` works)
+### Phase 1 — Enable Releases (OPTIONAL — `fixVersion` rollup only)
 
-1. **Project settings → Features** → toggle **Releases** on (a **Releases** item appears in
-   the left sidebar).
-2. **Releases → Create version** for the current line (e.g. `v1.3.1`); pre-create the next
-   one or add them at tag time.
+Releases/versions are **not required**. The **Released status** (Phase 2) tracks "shipped";
+versions only add a "what shipped in v1.3.1" rollup, which the **GitHub Releases** (git-cliff
+changelog per `v*` tag) already provide. Skip this phase unless you specifically want the
+in-Jira version report.
+
+- In the newer "Jira spaces" redesign, Releases is **not** a toggle on **Space settings →
+  Features** (which lists only Sprints / Estimation / Standups). Look for **Releases** in the
+  project's **main left nav** (alongside Board / Timeline / Code). If it's absent there too,
+  it may be gated behind a paid plan (versions are unavailable on some Free tiers).
+- If available: **Releases → Create version**, named to match the git tag exactly (`v1.3.1`,
+  `include-v-in-tag: true`), then set an issue's **Fix versions** to put it in that release.
+- If skipped: drop the **Fix versions** action from Rule 5 (keep only the Released
+  transition) and skip Rule 6.
 
 ### Phase 2 — Add the **Released** status
 
