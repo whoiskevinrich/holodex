@@ -73,6 +73,18 @@ fields:
     sources: [Album, Collection]
     filterable: true
 
+  # --- Series / episode ordering (file tags) ---
+  # Matroska records these as localizable SimpleTags; Holodex strips the language
+  # suffix at index time (SeasonNumber-und -> SeasonNumber), so one mapping matches
+  # MKV and MP4 alike. Uncomment to surface them on the detail page.
+  # - canonical: season
+  #   label: Season
+  #   sources: [SeasonNumber]
+  #   filterable: true
+  # - canonical: episode
+  #   label: Episode
+  #   sources: [EpisodeSort, PartNumber, EpisodeNumber]
+
   # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
   # When written back, Holodex downloads the URL and embeds the image as cover art.
   # - canonical: poster_url

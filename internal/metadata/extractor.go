@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -228,39 +229,60 @@ var excludedKeys = newKeySet(
 	"AttachedFileDescription",
 )
 
+// mkvLangSuffix matches the Matroska SimpleTag language code exiftool appends to
+// each localizable tag name (e.g. "Title-und", "Artist-eng"). "-und" =
+// "undetermined"; otherwise a 2-3 letter ISO-639 code. MP4/QuickTime atoms have
+// no such suffix. The "[a-z]{2,3}" guard (letters, not "\w") matches "und" and
+// every ISO-639 code while leaving keys like "CRC-32" and MP4 atom names alone.
+var mkvLangSuffix = regexp.MustCompile(`(?i)-[a-z]{2,3}$`)
+
+// canonicalKey strips a trailing Matroska language suffix so a tag is addressed
+// the same whether it came from an MKV (suffixed) or an MP4 atom (bare) — both
+// for classification and as the Extra SourceKey persisted to extra_metadata, so a
+// single mapping source (e.g. "file:SeasonNumber") matches across containers.
+func canonicalKey(key string) string {
+	return mkvLangSuffix.ReplaceAllString(strings.TrimSpace(key), "")
+}
+
 // mapExiftool converts exiftool's flat JSON object into normalized fields,
 // capturing every other human-meaningful tag into Extra (F2.9).
 func mapExiftool(m map[string]any) Extracted {
 	var ex Extracted
 	for key, raw := range m {
 		val := toString(raw)
+		// Canonicalize the key (strip any MKV language suffix) so MKV SimpleTags like
+		// "Title-und"/"Artist-und" classify — and are captured into Extra — the same
+		// as bare MP4 atoms (issue #63). Unmapped tags (PartNumber, SeasonNumber,
+		// EpisodeSort, …) thus land in extra_metadata under a container-agnostic key,
+		// ready for a `file:<Key>` mapping to consume.
+		ck := canonicalKey(key)
 		switch {
-		case titleKeys.has(key):
+		case titleKeys.has(ck):
 			if ex.Title == "" {
 				ex.Title = val
 			}
-		case peopleKeys.has(key):
+		case peopleKeys.has(ck):
 			ex.People = append(ex.People, splitMulti(val)...)
-		case tagKeys.has(key):
+		case tagKeys.has(ck):
 			ex.Tags = append(ex.Tags, splitMulti(val)...)
-		case dateKeys.has(key):
+		case dateKeys.has(ck):
 			if ex.RecordedAt == nil {
 				if t := parseDate(val); t != nil {
 					ex.RecordedAt = t
 				}
 			}
-		case coverArtKeys.has(key):
+		case coverArtKeys.has(ck):
 			ex.HasCoverArt = true
-		case attachedFileMIMETypeKeys.has(key):
+		case attachedFileMIMETypeKeys.has(ck):
 			// Matroska attachment: flag cover art when the attachment is an image.
 			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(val)), "image/") {
 				ex.HasCoverArt = true
 			}
-		case excludedKeys.has(key) || isBinaryValue(val):
+		case excludedKeys.has(ck) || isBinaryValue(val):
 			// skip
 		default:
 			if v := strings.TrimSpace(val); v != "" {
-				ex.Extra = append(ex.Extra, model.ExtraMetadata{SourceKey: key, Value: v})
+				ex.Extra = append(ex.Extra, model.ExtraMetadata{SourceKey: ck, Value: v})
 			}
 		}
 	}
