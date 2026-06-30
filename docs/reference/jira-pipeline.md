@@ -101,11 +101,74 @@ Notes:
 
 ---
 
-## Setup checklist (one-time, Jira UI)
+## One-time setup (Jira UI walkthrough)
 
-1. Add the **Released** status to the HOLODEX workflow, after Done.
-2. Create the four `needs-*` labels.
-3. Connect the `whoiskevinrich/holodex` repo in the GitHub for Jira app (Apps → Manage →
-   GitHub → Configure).
-4. Create automation rules 1–5 (6 optional) per the table above.
-5. Adopt the `HOLODEX-###-slug` branch-naming convention (already in CLAUDE.md).
+All of this is project-level in the team-managed HOLODEX project — no Jira admin rights
+needed. Do the phases in order; the dev-event triggers don't exist until the repo is
+connected.
+
+### Phase 0 — Connect the repo (first; nothing links without it)
+
+1. **Settings (gear, top-right) → Apps → GitHub** (the GitHub for Jira config), or
+   **Apps → Manage your apps → GitHub → Configure**.
+2. **Connect a GitHub organization** → the org that owns `whoiskevinrich/holodex`.
+3. **Only select repositories → `holodex`** (add the TMDB provider repo too if you want its
+   CI linked).
+4. Verify: open any issue → a **Development** panel appears once a branch with the key
+   exists. Make a throwaway `HOLODEX-1-test` branch to confirm, then delete it.
+
+### Phase 1 — Enable Releases (so `fixVersion` works)
+
+1. **Project settings → Features** → toggle **Releases** on (a **Releases** item appears in
+   the left sidebar).
+2. **Releases → Create version** for the current line (e.g. `v1.3.1`); pre-create the next
+   one or add them at tag time.
+
+### Phase 2 — Add the **Released** status
+
+1. **Project settings → Issue types → Story.**
+2. In the workflow editor, **+ Add status** → name **`Released`**, category **Done** (green)
+   — keeps `statusCategory = Done` JQL counting it as complete.
+3. Add a transition **Done → Released** (and optionally "Any status → Released"). **Save.**
+4. Repeat for **Task** and **Bug**. The status is shared by name, so you're only adding the
+   transition. The board shows it as a new right-most column.
+
+### Phase 3 — Create the four `needs-*` labels
+
+Labels are created by use, not an admin screen.
+
+1. Open any issue → **Labels** → type `needs-spec` ↵, then `needs-adr`, `needs-design`,
+   `needs-security-review`. They now autocomplete everywhere.
+2. Save a filter to keep the gates visible — **Filters → Create filter**:
+   ```
+   project = HOLODEX AND labels in (needs-spec, needs-adr, needs-design, needs-security-review) AND statusCategory != Done
+   ```
+   Star it or add it as a board quick-filter.
+
+### Phase 4 — Automation rules
+
+**Project settings → Automation → Create rule.** Each rule is Trigger → (Condition) →
+Action; the issue is auto-resolved from the branch/PR key. Build them per the
+[Automation rules](#automation-rules-jira-ui-project-settings--automation) table above:
+
+| Rule | Trigger | Key condition | Action |
+|---|---|---|---|
+| 1 | Branch created | Status **is** To Do | Transition → In Progress *(opt. assign)* |
+| 2 | Pull request created | Status one of To Do, In Progress | Transition → In Review |
+| 3 | Pull request merged | `{{pullRequest.destinationBranch}}` = `main` | Transition → Done; comment PR link |
+| 4 | Build status changed | status = failed | Comment only — **no transition** |
+| 5 | Deployment status changed | env = `ghcr` AND status = successful | Transition → Released; set Fix version |
+| 6 *(opt.)* | Pull request merged | title matches `chore\(main\): release` | Bulk-set Fix version on linked issues |
+
+Turn each rule on, then smoke-test: create `HOLODEX-###`, branch `HOLODEX-###-smoke`, open
+and merge a trivial PR, and watch it walk To Do → … → Done.
+
+### Gotchas
+
+- **The branch key is the linchpin.** Builds and deployments inherit their issue link from
+  the commit/branch they ran on, so Rules 4–5 only fire on issues whose branch was named
+  `HOLODEX-###-…`.
+- **Rules 4 & 5 need build/deployment data flowing.** If the Development panel shows
+  branches/PRs but no builds/deployments, the GitHub for Jira app isn't forwarding
+  Actions/Deployment data — recheck Phase 0.
+- **Branch convention** `HOLODEX-###-slug` is already documented in CLAUDE.md.
