@@ -54,6 +54,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [049](ADR-049-manual-image-precedence.md) | Owner-set person images — **enrichment never overwrites an `upload`/`promoted` core slot** (provenance-implicit lock, no migration) | Proposed (spec F25.31/F33; extends ADR-038; sibling of ADR-043; image twin of ADR-048) |
 | [050](ADR-050-image-content-dedup.md) | Deduplicate enrichment photos by **image content hash** — gallery `extra` skipped when its sha256 matches any of the person's images; `source_url` fast-path; app-layer enforcement + one-time backfill (migration 0015) | Proposed (spec F34; extends ADR-038; byte-level sibling of ADR-043/ADR-049) |
 | [051](ADR-051-per-field-source-of-truth-decisions.md) | Per-field **source-of-truth decisions** — file-baseline default + standing per-item `{file, provider:<name>, manual}` decision overriding precedence (source-pin, not value); drives display + writeback; **entity-generic + multi-provider** (migration 0016) | Proposed (supersedes ADR-047 F31.11 slice; extends ADR-013/033/041/048; relates ADR-030/036) |
+| [052](ADR-052-baseline-source-contract.md) | **`BaselineSource` contract** — resolver baseline-layer seam: entity-agnostic `ResolveFields` core over a `BaselineSource` interface, `Resolve` reduced to the video (file-layer) wrapper; behavior-preserving | Accepted (realizes ADR-051 §9 fast-follow ①; extends ADR-033/013; spec F36) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
