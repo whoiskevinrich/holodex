@@ -3,8 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
+	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import { isReplaceField, outOfSyncCount } from '$lib/f36';
+	import { applyMockDecisions, f36MockEnabled, mockClearDecision, mockSetDecision } from '$lib/f36mock';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
@@ -13,6 +15,7 @@
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import WritebackFormDialog from '$lib/components/WritebackFormDialog.svelte';
 	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
+	import SourceSelect from '$lib/components/SourceSelect.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -55,10 +58,11 @@
 		resolved.find((f) => f.canonical === 'title')?.values[0] ?? video?.title ?? ''
 	);
 	const provider = $derived(sources.find((s) => s.entity_types.includes('video'))?.name ?? '');
-	const canWriteback = $derived(
-		isOwner &&
-			resolved.some((f) => !!f.winning_source && !f.winning_source.startsWith('file:'))
-	);
+	// F36: "Write decisions to file" is available whenever the owner has resolved fields — a
+	// decided file value is just as writable as an adopted provider value (RD5/P0-4). The count
+	// of out-of-sync fields rides alongside it (RD2).
+	const canWriteback = $derived(isOwner && resolved.length > 0);
+	const outOfSyncN = $derived(outOfSyncCount(resolved));
 
 	const graceDays = $derived(
 		activity.caps?.delete_grace_period_seconds
@@ -110,8 +114,32 @@
 		video = res.video;
 		extra = res.metadata ?? [];
 		fields = res.fields ?? [];
-		resolved = res.resolved ?? [];
+		// F36: until the S1 backend ships the resolver `decision`/`candidates`/`in_sync`
+		// payload, synthesize it in dev so the SourceSelect control is exercisable (the mock
+		// is tree-shaken from production). Once the server actually supplies the fields the
+		// mock steps aside automatically — so this whole hook is a clean delete after S1 merges.
+		const serverHasF36 = (res.resolved ?? []).some((f) => f.candidates !== undefined);
+		resolved =
+			f36MockEnabled && !serverHasF36 ? applyMockDecisions(res, id) : (res.resolved ?? []);
 		enriched = res.enriched ?? [];
+	}
+
+	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
+	// (RD5) — no file write here; the file changes only via "Write decisions to file". Routes
+	// through the dev mock until the S1 endpoints land, else the owner-gated PUT/DELETE.
+	async function decideField(canonical: string, source: DecisionSource, manualValue?: string) {
+		if (f36MockEnabled) {
+			if (source === 'file') mockClearDecision(id, canonical);
+			else mockSetDecision(id, canonical, source, manualValue);
+		} else if (source === 'file') {
+			await api.clearFieldDecision(id, canonical);
+		} else {
+			await api.setFieldDecision(id, canonical, {
+				source,
+				...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
+			});
+		}
+		await reloadDetail();
 	}
 
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
@@ -399,10 +427,10 @@
 							<button
 								onclick={() => (writebackOpen = true)}
 								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
-								title="Write enriched values to file tags"
+								title="Write decided field values to the file tags"
 							>
 								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-								Write to file
+								Write decisions to file{#if outOfSyncN > 0}<span class="text-warn"> · {outOfSyncN} out of sync</span>{/if}
 							</button>
 						{/if}
 					</div>
@@ -452,14 +480,21 @@
 							<div>
 								<dt class="mb-1 text-muted">{f.label}:</dt>
 								<dd>
-									<CurationFieldRow
-										field={f}
-										videoId={id}
-										{isOwner}
-										people={video.people ?? []}
-										personStyle={f.canonical === 'actors' || f.canonical === 'director'}
-										onchanged={reloadDetail}
-									/>
+									{#if isReplaceField(f) && isOwner}
+										<!-- F36 (ADR-051): replace field gets the owner-only source control
+										     (resolved chip + SourceSelect + candidates). Merge fields and the
+										     visitor view keep the F30 CurationFieldRow read-only render. -->
+										<SourceSelect field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+									{:else}
+										<CurationFieldRow
+											field={f}
+											videoId={id}
+											{isOwner}
+											people={video.people ?? []}
+											personStyle={f.canonical === 'actors' || f.canonical === 'director'}
+											onchanged={reloadDetail}
+										/>
+									{/if}
 								</dd>
 							</div>
 						{/if}

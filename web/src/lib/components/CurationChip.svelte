@@ -23,9 +23,12 @@
 		isOwner: boolean;
 		showRemove?: boolean;
 		person?: { id: number; headshot_version?: number };
-		onedit: (oldValue: string, newValue: string) => void;
-		onremove: (value: string) => void;
-		ontogglewrite: (value: string, noWrite: boolean) => void;
+		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
+		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
+		// block, so an owner caller must still supply them.
+		onedit?: (oldValue: string, newValue: string) => void;
+		onremove?: (value: string) => void;
+		ontogglewrite?: (value: string, noWrite: boolean) => void;
 	} = $props();
 
 	let editing = $state(false);
@@ -42,7 +45,7 @@
 	function commitEdit() {
 		const next = draft.trim();
 		editing = false;
-		if (next && next !== item.value) onedit(item.value, next);
+		if (next && next !== item.value) onedit?.(item.value, next);
 	}
 	function onEditKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
@@ -95,7 +98,7 @@
 				     carry the state. -->
 				<button
 					type="button"
-					onclick={() => ontogglewrite(item.value, !item.no_write)}
+					onclick={() => ontogglewrite?.(item.value, !item.no_write)}
 					aria-pressed={item.no_write}
 					title={item.no_write ? 'Include in file write' : "Don't write to file"}
 					aria-label={item.no_write ? `Include ${item.value} in file write` : `Exclude ${item.value} from file write`}
@@ -104,7 +107,7 @@
 					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-6 4h6m4 4H5a2 2 0 01-2-2V5a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2z"/></svg>
 				</button>
 				{#if showRemove}
-					<button type="button" onclick={() => onremove(item.value)} aria-label={`Remove ${item.value}`} class={ctrl}>
+					<button type="button" onclick={() => onremove?.(item.value)} aria-label={`Remove ${item.value}`} class={ctrl}>
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
 					</button>
 				{/if}

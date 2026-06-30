@@ -26,7 +26,8 @@ import type {
 	TrashEntry,
 	Video,
 	WritebackRequest,
-	CurationRequest
+	CurationRequest,
+	DecisionRequest
 } from './types';
 
 const BASE = '/api/v1';
@@ -82,9 +83,9 @@ export async function endSession(): Promise<void> {
 // getAuthed is get() sending the session cookie for the owner surface.
 const getAuthed = <T>(path: string): Promise<T> => get<T>(path, fetch, { credentials: CREDS });
 
-// sendAuthed issues a write (POST/DELETE) on the owner surface carrying the
+// sendAuthed issues a write (POST/PUT/DELETE) on the owner surface carrying the
 // session cookie and an optional JSON body, returning the decoded response (or {}).
-async function sendAuthed<T>(method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+async function sendAuthed<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, {
 		method,
 		credentials: CREDS,
@@ -353,5 +354,22 @@ export const api = {
 	curateMedia: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation`, req),
 	clearMediaCuration: (id: number, req: CurationRequest) =>
-		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req)
+		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req),
+
+	// Per-field source-of-truth decision (F36, ADR-051 §7). Owner-gated. setFieldDecision
+	// pins a replace field to a source (file / provider:<name> / manual + literal);
+	// clearFieldDecision removes the decision, reverting the field to the file default.
+	// Both are DB-only — they never touch the file (RD5); the file changes solely via
+	// writebackMedia ("Write decisions to file").
+	setFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`,
+			req
+		),
+	clearFieldDecision: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		)
 };
