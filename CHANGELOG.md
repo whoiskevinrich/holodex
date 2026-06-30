@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/whoiskevinrich/holodex/compare/v1.3.0...v1.3.1) (2026-06-30)
+
+
+### 🐛 Bug Fixes
+
+* **metadata:** strip Matroska language suffix from tag keys ([#63](https://github.com/whoiskevinrich/holodex/issues/63)) ([#64](https://github.com/whoiskevinrich/holodex/issues/64)) ([30e570d](https://github.com/whoiskevinrich/holodex/commit/30e570da7bc68da59a79b054e14ea449e3c1051c))
+
 ## [1.3.0](https://github.com/whoiskevinrich/holodex/compare/v1.2.0...v1.3.0) (2026-06-29)
 
 
