@@ -29,6 +29,9 @@ While making a change, route it through the right skill based on what it touches
 | **Authentication, access, or infrastructure** | `/security-review` | a security sign-off before merge |
 
 A functional change with no spec update — or an infra change with no ADR — is **incomplete**.
+On the Jira side, the same gates surface as the `needs-spec` / `needs-adr` / `needs-design` /
+`needs-security-review` labels (see "Task tracking") — apply one when the change enters the
+matching row, clear it when the artifact lands.
 
 ## Pre-commit checklist (every commit)
 
@@ -69,11 +72,37 @@ The UI is built on semantic design tokens with three switchable skins (see
 2. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 3. Scan the working tree for secrets / PII (see "Secrets & publishing").
 
-## Task tracking
+## Task tracking (Jira)
 
-- **Tasks live in Jira — project `HOLODEX`** (`https://whoiskevinrich.atlassian.net`, team-managed). Migrated from the former `TASKS.md` on 2026-06-30. **Scope every Jira interaction to the HOLODEX project only.** Mirror the hierarchy **Epic → Story/Task → Sub-task**; map `[P·effort]` → Priority (P1→High, P2→Medium, P3→Low) + area labels; status To Do → In Progress → In Review → Done.
-- When you note a **TODO**, or **defer** an item (a stub, a "later", a "Phase 2", a known gap), create or update a Jira issue under the right Epic so it isn't lost in a code comment.
-- `TASKS.md` is **archived** (frozen, read-only — see the banner at its top). Do **not** add new tasks there; it is kept only for history.
+Tasks live in **Jira project HOLODEX** (`whoiskevinrich.atlassian.net`, team-managed) — scope
+every interaction to that project. Migrated from the former `TASKS.md` on 2026-06-30; that
+file is archived (frozen, read-only — see the banner at its top), so do not write tasks there.
+
+- **Hierarchy:** Epic (an F## feature / phase) → Story (`feat`) · Bug (`fix`) · Task
+  (`refactor`/`perf`/`docs`/`test`/`ci`/`build`/`chore`) → Sub-task. Team-managed: link a
+  child to its parent via the **`parent`** field (there is no "Epic Link").
+- **Priority / labels:** map `[P·effort]` → Priority (P1→High, P2→Medium, P3→Low) plus area
+  labels.
+- **Statuses:** To Do → In Progress → In Review → Done → Released. *Done* = merged to main;
+  *Released* = shipped in a tagged GHCR image (set by the `ghcr` deployment, see below).
+- **Artifact labels** mirror the change-routing table: tag an issue `needs-spec`,
+  `needs-adr`, `needs-design`, or `needs-security-review` so the lockstep gate is visible on
+  the board; clear the label when the artifact lands.
+- When you note a **TODO** or **defer** an item (a stub, a "later", a "Phase 2", a known
+  gap), capture it as a HOLODEX issue so it isn't lost in a code comment.
+
+### Branch ↔ Jira linkage (load-bearing)
+
+The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment to an issue
+**only when the issue key is present**. So:
+
+- **Name every branch/worktree with its key:** `HOLODEX-123-short-slug`. This drives the
+  Jira development panel and all automation; without it nothing links.
+- **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
+  `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
+  (it would pollute every CHANGELOG/Release line); the branch name carries it.
+- Transitions run off Jira automation on dev events (branch → In Progress, PR open → In
+  Review, merge → Done, `ghcr` deploy → Released), not Smart Commits — so commits stay clean.
 
 ## Secrets & publishing
 
