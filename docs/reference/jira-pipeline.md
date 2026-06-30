@@ -130,12 +130,12 @@ versions only add a "what shipped in v1.3.1" rollup, which the **GitHub Releases
 changelog per `v*` tag) already provide. Skip this phase unless you specifically want the
 in-Jira version report.
 
-- In the newer "Jira spaces" redesign, Releases is **not** a toggle on **Space settings →
-  Features** (which lists only Sprints / Estimation / Standups). Look for **Releases** in the
-  project's **main left nav** (alongside Board / Timeline / Code). If it's absent there too,
-  it may be gated behind a paid plan (versions are unavailable on some Free tiers).
-- If available: **Releases → Create version**, named to match the git tag exactly (`v1.3.1`,
+- In the "Jira spaces" redesign, Releases is **not** a Features toggle — it lives in the
+  space's **top nav** (Summary · Development · Board · **Releases** · List · Forms · …), with
+  a **Create release** button.
+- To use it: **Create release**, named to match the git tag exactly (`v1.3.1`,
   `include-v-in-tag: true`), then set an issue's **Fix versions** to put it in that release.
+  Create versions as you cut releases; no need to backfill historical tags.
 - If skipped: drop the **Fix versions** action from Rule 5 (keep only the Released
   transition) and skip Rule 6.
 
