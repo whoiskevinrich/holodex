@@ -15,6 +15,10 @@
 //
 // The resolver does no I/O — callers supply pre-loaded data, so changing config or
 // curation takes effect without re-fetching providers or re-scanning files.
+//
+// The baseline (file) layer is reached through a BaselineSource, which keeps the
+// merge core entity-agnostic: a video supplies the file layer, while a future
+// person/studio entity supplies its own scan-derived baseline (ADR-052).
 package resolver
 
 import (
@@ -73,8 +77,57 @@ type Curation map[string]FieldCuration
 // mapping.Dedupe so behavior matches the file-only path.
 func normKey(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// BaselineSource supplies an entity's baseline ("intrinsic") field values — the
+// layer that is the default source of truth before enrichment and curation are
+// layered on. For a video the baseline is the file layer: the file-tag columns
+// (video_metadata) plus the filename-derived videos.title. A future person or
+// studio entity supplies its own scan-derived baseline; only the baseline's
+// identity differs, so the merge core stays entity-agnostic (ADR-052, realizing
+// ADR-051 §9 fast-follow ①).
+//
+// Baseline reports (vals, true) when src targets this entity's baseline layer —
+// even when it carries no value, so resolution does not fall through to a provider
+// for a baseline source — and (nil, false) when src names a provider/enrichment
+// namespace. Deciding "which namespace is intrinsic" belongs to the baseline, not
+// the resolver, which is what keeps the merge core free of any "file" special-casing.
+type BaselineSource interface {
+	Baseline(src mapping.Source) (vals []string, ok bool)
+}
+
+// videoBaseline is the video implementation of BaselineSource: the file layer.
+type videoBaseline struct {
+	title     string              // filename-derived videos.title
+	byFileTag map[string][]string // normalized file-tag key → values (video_metadata)
+}
+
+// NewVideoBaseline builds the file-layer BaselineSource for a video from its row
+// and pre-loaded file-tag rows. v may be nil (an empty baseline).
+func NewVideoBaseline(v *model.Video, extra []model.ExtraMetadata) BaselineSource {
+	b := videoBaseline{byFileTag: indexExtra(extra)}
+	if v != nil {
+		b.title = v.Title
+	}
+	return b
+}
+
+// Baseline resolves a file-namespace source against the video's file layer:
+// file:title → videos.title, file:<tag> → the matching video_metadata values.
+func (b videoBaseline) Baseline(src mapping.Source) ([]string, bool) {
+	switch {
+	case src.IsFileTitle():
+		if b.title != "" {
+			return []string{b.title}, true
+		}
+		return nil, true
+	case src.Namespace == "file":
+		return b.byFileTag[normKey(src.Key)], true
+	}
+	return nil, false
+}
+
 // Resolve applies the configured fields to the supplied video data and returns the
-// merged, curated result in field declaration order. curation may be nil.
+// merged, curated result in field declaration order. curation may be nil. It is the
+// video wrapper over ResolveFields, supplying the file layer as the baseline.
 func Resolve(
 	v *model.Video,
 	extra []model.ExtraMetadata,
@@ -82,11 +135,23 @@ func Resolve(
 	curation Curation,
 	fields []mapping.Field,
 ) []ResolvedField {
-	byFileTag := indexExtra(extra)
+	return ResolveFields(NewVideoBaseline(v, extra), enrichment, curation, fields)
+}
 
+// ResolveFields is the entity-agnostic resolution core: it merges the supplied
+// baseline with enrichment + curation and returns the result in field declaration
+// order. Resolve wraps it with the video file layer; a person/studio entity wraps
+// it with its own BaselineSource — so they inherit the source model without
+// reopening this function (ADR-052). curation may be nil.
+func ResolveFields(
+	baseline BaselineSource,
+	enrichment Enrichment,
+	curation Curation,
+	fields []mapping.Field,
+) []ResolvedField {
 	out := make([]ResolvedField, 0, len(fields))
 	for _, f := range fields {
-		items, winner := resolveField(v, byFileTag, enrichment, curation[f.Canonical], f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], f)
 		if len(items) == 0 {
 			continue
 		}
@@ -126,12 +191,12 @@ func BrowseTitle(
 	curation Curation,
 	fields []mapping.Field,
 ) (title, source string) {
-	byFileTag := indexExtra(extra)
+	baseline := NewVideoBaseline(v, extra)
 	for _, f := range fields {
 		if !f.Browse {
 			continue
 		}
-		items, winner := resolveField(v, byFileTag, enrichment, curation[f.Canonical], f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], f)
 		if len(items) > 0 {
 			return items[0].Value, winner
 		}
@@ -140,24 +205,17 @@ func BrowseTitle(
 }
 
 func resolveField(
-	v *model.Video,
-	byFileTag map[string][]string,
+	baseline BaselineSource,
 	enrichment Enrichment,
 	fc FieldCuration,
 	f mapping.Field,
 ) (items []ResolvedValue, winner string) {
 	gather := func(src mapping.Source) []string {
-		switch {
-		case src.IsFileTitle():
-			if v != nil && v.Title != "" {
-				return []string{v.Title}
-			}
-		case src.Namespace == "file":
-			return byFileTag[normKey(src.Key)]
-		default:
-			if pFields, ok := enrichment[src.Namespace]; ok {
-				return pFields[src.Key]
-			}
+		if vals, ok := baseline.Baseline(src); ok {
+			return vals
+		}
+		if pFields, ok := enrichment[src.Namespace]; ok {
+			return pFields[src.Key]
 		}
 		return nil
 	}

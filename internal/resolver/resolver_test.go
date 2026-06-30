@@ -284,3 +284,56 @@ func TestResolve_ScalarManualOverride(t *testing.T) {
 		t.Errorf("want winning_source manual:title, got %q", got[0].WinningSource)
 	}
 }
+
+// fakeBaseline is a non-video BaselineSource: it owns one namespace and serves
+// canned values from a map. It exercises ResolveFields with a baseline that is
+// not the video file layer (ADR-052 entity-agnostic seam).
+type fakeBaseline struct {
+	ns   string
+	vals map[string][]string
+}
+
+func (b fakeBaseline) Baseline(src mapping.Source) ([]string, bool) {
+	if src.Namespace != b.ns {
+		return nil, false // not a baseline source → resolver consults enrichment
+	}
+	return b.vals[strings.ToLower(src.Key)], true // owned, even when empty
+}
+
+func TestResolveFields_DelegatesToVideoBaseline(t *testing.T) {
+	// Resolve is exactly ResolveFields wrapped with NewVideoBaseline.
+	fields := []mapping.Field{stubField("title", true, "tmdb:title", "file:title")}
+	want := resolver.Resolve(testVideo, testExtra, testEnrich, nil, fields)
+	got := resolver.ResolveFields(resolver.NewVideoBaseline(testVideo, testExtra), testEnrich, nil, fields)
+	if len(got) != len(want) {
+		t.Fatalf("want %d fields, got %d", len(want), len(got))
+	}
+	if got[0].Values[0] != want[0].Values[0] || got[0].WinningSource != want[0].WinningSource {
+		t.Errorf("ResolveFields(NewVideoBaseline) must equal Resolve: got %+v want %+v", got[0], want[0])
+	}
+}
+
+func TestResolveFields_EntityAgnosticBaseline(t *testing.T) {
+	// A person-like entity with no *model.Video: baseline namespace "person"
+	// supplies a name; a provider supplies the bio the baseline lacks.
+	baseline := fakeBaseline{ns: "person", vals: map[string][]string{"name": {"Jane Roe"}}}
+	enr := resolver.Enrichment{"tmdb": {"bio": {"An actor."}}}
+	fields := []mapping.Field{
+		stubField("name", false, "person:name", "tmdb:name"),
+		stubField("bio", false, "person:bio", "tmdb:bio"),
+	}
+	got := resolver.ResolveFields(baseline, enr, nil, fields)
+	if len(got) != 2 {
+		t.Fatalf("want 2 fields, got %d", len(got))
+	}
+	// Baseline owns the name and wins precedence over the provider.
+	if got[0].Values[0] != "Jane Roe" || got[0].WinningSource != "person:name" {
+		t.Errorf("baseline name should win: %+v", got[0])
+	}
+	// Baseline returns (nil, true) for the bio it lacks; precedence falls through
+	// to the next configured source (the provider), not to a provider for the same
+	// baseline source.
+	if got[1].Values[0] != "An actor." || got[1].WinningSource != "tmdb:bio" {
+		t.Errorf("provider bio should resolve via enrichment: %+v", got[1])
+	}
+}
