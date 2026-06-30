@@ -239,7 +239,9 @@ change. Wrong granularity for a per-item action; provides no per-item report or 
 - **Per-item / per-field precedence override** — the most likely *new* store batch conflict
   resolution would add (operator pins "file wins" / "provider wins" for an item, overriding the
   global [ADR-013](ADR-013-metadata-field-mapping.md) precedence). Deliberately **not** built now;
-  the non-destructive invariant is what lets it be added cleanly later.
+  the non-destructive invariant is what lets it be added cleanly later. **Superseded by
+  [ADR-051](ADR-051-per-field-source-of-truth-decisions.md)**, which builds exactly this as a
+  standing per-item, per-field source decision (file-baseline default).
 - **`last_refreshed_at`** (F31.9) — a per-item timestamp distinct from `indexed_at`, if staleness
   visibility proves useful.
 - **Thumbnail coupling** — refresh updates the cover-art flag but not the thumbnail image; if owners

@@ -65,15 +65,15 @@ The UI is built on semantic design tokens with three switchable skins (see
 
 ## Before pushing or opening a PR
 
-1. Run **`/productivity:update`** to sync task tracking (pull/triage tasks, refresh memory) — before every `git push` and `gh pr create`.
+1. Sync task tracking in **Jira (project `HOLODEX`)** — triage/refresh the affected issues (status, links) — before every `git push` and `gh pr create`.
 2. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 3. Scan the working tree for secrets / PII (see "Secrets & publishing").
 
 ## Task tracking
 
-- **Track tasks in the main worktree's `TASKS.md`** (the primary checkout's copy, shared across all worktrees) — never a per-worktree file — so task state stays aligned everywhere.
-- When you note a **TODO**, or **defer** an item (a stub, a "later", a "Phase 2", a known gap), run **`/productivity:update`** to capture it so it isn't lost in a code comment.
-- Keep deferred work visible in the task list, not only inline in the source.
+- **Tasks live in Jira — project `HOLODEX`** (`https://whoiskevinrich.atlassian.net`, team-managed). Migrated from the former `TASKS.md` on 2026-06-30. **Scope every Jira interaction to the HOLODEX project only.** Mirror the hierarchy **Epic → Story/Task → Sub-task**; map `[P·effort]` → Priority (P1→High, P2→Medium, P3→Low) + area labels; status To Do → In Progress → In Review → Done.
+- When you note a **TODO**, or **defer** an item (a stub, a "later", a "Phase 2", a known gap), create or update a Jira issue under the right Epic so it isn't lost in a code comment.
+- `TASKS.md` is **archived** (frozen, read-only — see the banner at its top). Do **not** add new tasks there; it is kept only for history.
 
 ## Secrets & publishing
 
