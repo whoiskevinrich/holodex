@@ -171,6 +171,15 @@ and merge a trivial PR, and watch it walk To Do → … → Done.
 
 ### Gotchas
 
+- **An empty Development panel ≠ a broken connection.** The panel is populated per issue from
+  refs that name the key, so it stays blank until some branch/commit/PR mentions that issue —
+  even with the app fully connected and backfill *finished*. Verified 2026-06-30: with the
+  `whoiskevinrich` connection healthy (7 repos, FULL ACCESS), HOLODEX-6's panel was empty
+  simply because nothing referenced it.
+- **A commitless branch may not surface.** A branch created off `main` with **no commits of
+  its own** (identical to `main`) can fail to appear even though its name carries the key.
+  Push at least one commit on the branch, then hard-refresh the issue — the branch then links
+  with its commit. (This was the actual fix during the 2026-06-30 smoke test.)
 - **The branch key is the linchpin.** Builds and deployments inherit their issue link from
   the commit/branch they ran on, so Rules 4–5 only fire on issues whose branch was named
   `HOLODEX-###-…`.
