@@ -98,6 +98,12 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 
 - **Name every branch/worktree with its key:** `HOLODEX-123-short-slug`. This drives the
   Jira development panel and all automation; without it nothing links.
+- **Auto-rename on start (agent default — don't wait to be asked).** When work begins on a
+  HOLODEX issue inside a worktree whose branch does **not** already carry the key (e.g. an
+  auto-generated `claude/<slug>`), rename it to the key **as the first action**, before any
+  commit: `git branch -m HOLODEX-123-short-slug`. The worktree directory name can stay as-is;
+  only the branch name must carry the key. The substring is enough — GitHub-for-Jira detects
+  the key anywhere in the branch name, so a `worktree-`/other prefix still links.
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
