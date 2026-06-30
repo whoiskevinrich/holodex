@@ -109,13 +109,19 @@ connected.
 
 ### Phase 0 — Connect the repo (first; nothing links without it)
 
+`holodex` is a repo under the **personal `whoiskevinrich` account**, not a GitHub org — the
+flow still works, you just install the app on your user account.
+
 1. **Settings (gear, top-right) → Apps → GitHub** (the GitHub for Jira config), or
    **Apps → Manage your apps → GitHub → Configure**.
-2. **Connect a GitHub organization** → the org that owns `whoiskevinrich/holodex`.
-3. **Only select repositories → `holodex`** (add the TMDB provider repo too if you want its
-   CI linked).
-4. Verify: open any issue → a **Development** panel appears once a branch with the key
-   exists. Make a throwaway `HOLODEX-1-test` branch to confirm, then delete it.
+2. Click **Connect GitHub organization**. The button is labelled "organization", but GitHub
+   treats user accounts the same way — on the GitHub screen that opens, **install the GitHub
+   for Jira app on your personal `whoiskevinrich` account** (it's listed alongside any orgs).
+3. On the GitHub install screen, choose **Only select repositories → `holodex`** (add the
+   TMDB provider repo too if you want its CI linked).
+4. Back in Jira the `whoiskevinrich` account now shows as connected. Verify: open any issue →
+   a **Development** panel appears once a branch with the key exists. Make a throwaway
+   `HOLODEX-1-test` branch to confirm, then delete it.
 
 ### Phase 1 — Enable Releases (so `fixVersion` works)
 
