@@ -92,6 +92,11 @@ resolved from the branch-name key.
 
 Notes:
 
+- **Keep every rule single-project (scoped to HOLODEX).** Single-project rules do **not**
+  count against the automation usage limit (100 runs/month on Free); only **global** and
+  **multi-project** rules do. Creating rules from *Project settings → Automation* scopes them
+  to HOLODEX by default — don't widen the scope to global, or they start metering the quota.
+  Consolidating rules saves nothing here; keep them focused and individually toggleable.
 - Rules 1–3 are the core flow and need only branch/PR events. Rule 5 depends on the `ghcr`
   Deployment already emitted by `release.yml`; nothing new is needed on the GitHub side.
 - Rule 4 deliberately **comments instead of transitioning** — a red build shouldn't yank an
