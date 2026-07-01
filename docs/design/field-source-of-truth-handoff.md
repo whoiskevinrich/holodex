@@ -5,19 +5,31 @@
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
+> **Refinement — HOLODEX-112 (shipped on top of PR #71).** The original control was three stacked
+> elements: a read-only resolved chip, a segmented `Keep file · Adopt {provider} · Custom` control, and
+> a muted candidates line. When file and a provider agreed, the value was drawn **three times** and the
+> candidates line repeated it verbatim; the segmented control also read as a different system from the
+> merge chips beside it. That is now collapsed to **one row of source-tagged, single-select value
+> chips** — the same `CurationChip` shell as merge fields, distinguished only by its **selector glyph**
+> (replace = a leading **● radio dot**, pick one; merge = the **✕-per-chip**, drop any). The sections
+> below are updated to the chip model; the segmented-control description is superseded.
+
 ---
 
 ## Overview
 
 On the media detail page (`/media/[id]`) Metadata section, each **replace (scalar) field** gains an
-owner-only **source selector**: `Keep file` / one `Adopt {provider}` per *matched* provider / `Custom`.
-It names which source is *true* for that field on this item — a **standing** choice that overrides
-global mapping precedence and drives both the displayed value and what writeback commits. The default
-(no decision) is the **file** value (file-first, RD4); a provider is shown as a *candidate*, never the
-silent winner. This is the user-facing fix for the F31 refresh-masking bug.
+owner-only **source-of-truth chip row**: the **file** baseline first (anchored, tagged `·file`), one
+chip per **distinct** candidate value (tagged with every source that supplies it), and a trailing
+**Custom** chip. Selecting a chip names which source is *true* for that field on this item — a
+**standing** choice that overrides global mapping precedence and drives both the displayed value and
+what writeback commits. The **selected chip *is* the resolved value**; the default (no decision) is the
+**file** chip (file-first, RD4). A provider is shown as a sibling *candidate chip*, never the silent
+winner. This is the user-facing fix for the F31 refresh-masking bug.
 
 **Merge (set) fields are unchanged** (RD1): they keep today's `CurationFieldRow` chips (union, per-value
-include/exclude, manual-add). The selector is **replace-only**.
+include/exclude, manual-add). The source-of-truth **radiogroup** is **replace-only** — but it now shares
+the merge fields' chip shell, so the two read as one vocabulary (see "RD1, revised" below).
 
 **Non-negotiable for devs (RD5):** changing a decision is a **DB write only — no file I/O, no spinner**.
 The file is written solely by the explicit **Write decisions to file** action, which batches *all*
@@ -26,83 +38,109 @@ write a file per toggle.
 
 ### Design-system fit (the `/design-system` check)
 
-**One new primitive** — a segmented single-select **`SourceSelect`** control — plus reuse of everything
-else:
+**Zero new primitives.** The refinement deletes the bespoke segmented control and instead reuses the
+`CurationChip` shell in a new **radio (pick-one) mode**:
 
-- **Chips + provenance** — reuse `CurationChip` (`·source` suffix; accent for provider, muted for
-  file/manual) and `ProvenanceBadge` verbatim for the resolved value + candidates.
-- **Custom input** — reuse the inline-edit input idiom from `CurationChip`/`CurationFieldRow`
-  (`rounded-theme border border-rule bg-bg px-2 py-0.5 text-xs … focus:ring-accent`; Enter commits,
-  Escape cancels, blur commits).
+- **Chips + provenance** — `CurationChip` gains a `radio` prop: a leading **● dot** (filled/accent when
+  selected, hollow otherwise) replaces the merge `✕`/edit controls; the `·source` suffix, provider-vs-
+  baseline colouring, and value/`—`-placeholder rendering are unchanged. One shared shell, one glyph
+  swap. No `ProvenanceBadge` and no separate resolved chip — the selected chip carries the provenance.
+- **Combined-provenance dedup** — a provider value equal to the file value folds into the file chip
+  (`·file + tmdb`) via the same `sources.join(' + ')` provenance `CurationChip` already renders; this is
+  what kills the "value shown twice when sources agree" wart. The view-model lives in `f36.ts`
+  (`sourceChips`, `selectedChipKey`) — pure, unit-tested.
+- **Custom input** — unchanged inline-edit idiom (Enter commits, Escape cancels + returns focus, blur
+  commits, empty cancels). The Custom chip is the opener when undecided and the frozen `·manual` value
+  chip once set.
 - **Write button** — reuse the existing **Write to file** ghost button (relabel + count).
 - **Owner gating + refetch-after-mutate** — `activity.effectiveOwner`; reuse `applyMediaDetail`
   (`+page.svelte`) so `resolved[]` reflects the new decision.
 
-The only thing genuinely new is `SourceSelect` (a themed segmented radiogroup). It uses **no new
-tokens** — `border-rule` / `bg-surface-2` / `text-muted` / `bg-accent`+`text-accent` for the selected
-segment, `rounded-theme` container.
+`SourceSelect` is now a thin **radiogroup wrapper** around `CurationChip` radios (roving tabindex,
+arrow-key debounce, optimistic selection). It uses **no new tokens** — `border-rule` / `bg-surface-2` /
+`text-muted` for idle chips, `border-accent` + an accent-filled dot for the selected one, `rounded-full`
+chip shape. The selected chip **stays on `bg-surface-2`** (not a filled `bg-accent`) so it doesn't read
+heavy in Brutalist; selection reads via the **dot + border + `aria-checked`**, never fill alone.
+
+### RD1, revised — shared chip vocabulary, distinct glyph
+
+The original handoff (RD1) kept replace and merge fields as **different-looking systems** ("one system
+per field shape") so the pick-one vs drop-any distinction was obvious. HOLODEX-112 **supersedes that
+rationale**: making the two *look* different fought the design system (a segmented control beside chips
+read as two unrelated components). Instead the two now **share one chip shell** and are told apart by how
+they **behave**, encoded in the **selector glyph**:
+
+| Field shape | Selection model | Glyph | Meaning |
+|---|---|---|---|
+| **Replace** (scalar) | single-select radiogroup | leading **● radio dot** | pick exactly one source |
+| **Merge** (set) | multi-select curation | trailing **✕ per chip** | drop any value from the union |
+
+The file chip stays **anchored first and always tagged `·file`** — the file-first mental model is the
+whole point of F36, so the baseline never becomes just another value in the row. Divergence is now
+**self-evident** (two different value chips), so the old "providers differ" hint is **deleted**.
 
 ---
 
 ## Layout
 
 Lives in the existing `Metadata` `<dl>` grid (`grid-cols-1 sm:grid-cols-2`,
-`rounded-theme border border-rule bg-surface p-4`). For a **replace** field the `dd` becomes a small
-two-row stack (owner view):
+`rounded-theme border border-rule bg-surface p-4`). For a **replace** field the `dd` is now a **single
+wrapping row** of chips (owner view):
 
 ```
 Metadata                         [Enrich ▾] [Clear …] [⤓ Write decisions to file · 2 out of sync]
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ Genres:  [ Drama ·file ✎ ✕ ] [ Thriller ·tmdb ✎ ✕ ] [ + Add ]               │ ← merge field: UNCHANGED (CurationFieldRow)
 │                                                                              │
-│ Title:   [ Blade Runner ·file ]                       ( file out of sync ⚠ ) │ ← row 1: resolved chip + per-field warn pill
-│          ( Keep file | Adopt TMDB | Custom )                                 │ ← row 2: SourceSelect (owner-only)
-│          candidates · file “Blade Runner”  tmdb “Blade Runner: Final Cut”    │ ← row 3: muted candidates (only if ≥1 provider)
-│                                                       providers differ ·      │   …with a muted "providers differ" hint (P1-1)
+│ Title:   [● Blade Runner ·file] [○ Blade Runner: Final Cut ·tmdb] [＋ Custom]│ ← replace field: one chip radiogroup
+│                                                       ( file out of sync ⚠ ) │   …+ trailing warn pill when decided ≠ in-file
+│                                                                              │
+│ Studio:  [● Legendary Pictures ·file + tmdb] [＋ Custom]                     │ ← agreeing sources FOLD to one chip (·file + tmdb)
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Row 1** — the resolved value as a `CurationChip` (`·source`), and, at the cell's end, the
-  **out-of-sync** pill *only when* decided ≠ in-file (RD2; the single `text-warn` signal on the field).
-- **Row 2** — `SourceSelect` (owner-only). Segments: `Keep file`, one `Adopt {provider}` per matched
-  provider, `Custom`. `flex flex-wrap` so it wraps under the chip on the `sm` single-column and on
-  narrow cells.
-- **Row 3** — muted candidates, rendered **only when there is ≥1 provider candidate** (a file-only
-  field shows nothing extra — the value is already in the chip). When ≥2 providers supply *different*
-  values, append a muted **"providers differ"** hint here (Open-Q3 resolution below).
-- **Visitor / non-owner** — rows 2–3 are absent; the field renders exactly as today (resolved chip +
-  provenance). `displayTitle` and all read-only rendering are unchanged.
+- **The chip row** — the file baseline first (anchored, `·file`), one `CurationChip` (radio mode) per
+  **distinct** candidate value, then the **Custom** chip. The **selected** chip carries the ● filled
+  dot + `border-accent` and *is* the resolved value (no separate resolved chip). `flex flex-wrap` so it
+  wraps within the cell at `sm` two-column and on narrow cells.
+- **Fold (dedup)** — a provider value equal to the file value folds into the file chip as
+  `·file + tmdb`; providers that agree with each other fold together. An agreed value is shown **once**.
+- **Out-of-sync pill** — trails the row, `text-warn`, *only when* decided ≠ in-file (RD2; the single
+  `text-warn` signal on the field). It sits **outside** the radiogroup (it is not a radio).
+- **Empty file baseline** — the file chip renders `—` (em-dash) when the file has no value for the
+  field, so file-first "Keep file" stays available and anchored.
+- **Visitor / non-owner** — the radiogroup is absent; the field renders read-only exactly as today.
+  `displayTitle` and all read-only rendering are unchanged.
 
-### Open-Q3 resolution — the two "warn-ish" signals don't collide
+### The two signals no longer collide (Open-Q3, resolved by construction)
 
-There is exactly **one** `text-warn` signal per field: the **out-of-sync** pill (row 1). The
-**"providers differ"** hint is **not** warn — it is **muted/informational** on the candidates line
-(row 3), because disagreement is informational, not an error (token rule: `--warn` is reserved for
-error/attention). The two are on different rows and different weights, so they never read as one alarm
-even when both are present.
+There is still exactly **one** `text-warn` signal per field: the **out-of-sync** pill. The old
+"providers differ" hint is **gone** — divergence is now self-evident (two different value chips), so
+there is nothing left to mistake for a second alarm.
 
 ---
 
-## The `SourceSelect` control
+## The source-of-truth chip radiogroup (`SourceSelect`)
 
-A themed segmented **single-select**. One row of segments inside a `rounded-theme border border-rule`
-container; the **selected** segment carries `bg-accent text-accent-ink` (or `bg-surface-2 text-accent`
-if a filled accent reads too heavy in Brutalist — pick one in QA, keep it a token pair). Idle segments
-are `text-muted`; hover/focus → `text-accent`.
+A themed **single-select radiogroup** of `CurationChip` radios. Each chip: `rounded-full border
+px-2 py-0.5 text-xs bg-surface-2`, a leading `● dot` (`h-2 w-2 rounded-full`), the value, and the
+`·provenance` suffix. **Selected** = `border-accent` + an accent-filled dot + `aria-checked` (the chip
+background stays `bg-surface-2` — no filled `bg-accent`, so Brutalist doesn't read heavy). Idle chips
+are `text-muted` → `text-ink` on hover.
 
-| Segment | When present | Selecting it |
+| Chip | When present | Selecting it |
 |---|---|---|
-| `Keep file` | always | decision → `file` (default; clears the row, source-pinned to the live file value) |
-| `Adopt {provider}` | one per **matched** provider | decision → `provider:{name}` (source-pinned to that provider's live value) |
-| `Custom` | always | opens the inline input; on commit, decision → `manual` + literal |
+| **file** baseline | always (anchored first, `·file`) | decision → `file` (default; source-pinned to the live file value) |
+| **provider value** | one per **distinct** matched-provider value (agreeing sources fold together) | decision → `provider:{name}` (source-pinned to that provider's live value) |
+| **Custom** | always (trailing) | opens the inline input; on commit, decision → `manual` + literal; once set it renders as the `·manual` value chip and re-opens on select |
 
-- **No-provider-matched** → just `Keep file | Custom` (two segments).
-- Selecting a segment issues `PUT …/decision` (or `DELETE` for `Keep file` when reverting to default);
-  on success, **refetch** the detail so the chip + provenance + sync recompute. **No file write, no
-  file-write spinner** (RD5). A brief inline busy/disabled on the control during the DB round-trip is
-  fine; it must not look like a file operation.
-- **Custom commit** keeps the input's existing affordance: Enter commits, Escape cancels, blur commits;
-  empty cancels.
+- **No-provider-matched** → just the **file** chip + **Custom** (two chips).
+- Selecting a chip issues `PUT …/decision` (or `DELETE` for the **file** chip when reverting to
+  default); on success, **refetch** so the row + provenance + sync recompute. **No file write, no
+  file-write spinner** (RD5). A brief inline `opacity-60`/`aria-busy` during the DB round-trip is fine;
+  it must not look like a file operation.
+- **Custom commit** keeps the input's existing affordance: Enter commits, Escape cancels (and returns
+  focus to the Custom chip), blur commits; empty cancels.
 
 ---
 
@@ -123,18 +161,18 @@ are `text-muted`; hover/focus → `text-accent`.
 | Token | Usage |
 |---|---|
 | `bg-surface` | metadata card background (unchanged) |
-| `bg-surface-2` | chip background; idle/segment background; file-baseline pill |
-| `border-rule` | card, chip, `SourceSelect` container, input borders |
-| `text-ink` | chip value text, input text |
-| `text-muted` | field label, candidates line, "providers differ" hint, idle segments |
-| `text-accent` / `border-accent` | provider provenance (via `ProvenanceBadge`), segment hover, focus ring |
-| `bg-accent` / `text-accent-ink` | **selected** `SourceSelect` segment; existing primary buttons |
-| `text-warn` / `border-warn` | **out-of-sync** pill + the header out-of-sync count — error/attention only; never the "providers differ" hint |
-| `rounded-theme` | `SourceSelect` container, inputs, cards |
-| `rounded-full` | chips, pills (intentional shape) |
+| `bg-surface-2` | chip background — **both** idle and selected (selection never fills the chip) |
+| `border-rule` | card + idle chip borders; input border |
+| `text-ink` | selected chip value, hover value, input text |
+| `text-muted` | field label, idle chip value + `·provenance` (baseline) |
+| `text-accent` / `border-accent` | **selected** chip border + dot; provider `·provenance`; focus ring |
+| `text-accent-ink` | primary buttons (unchanged); **not** used on chips |
+| `text-warn` / `border-warn` | **out-of-sync** pill + the header out-of-sync count — error/attention only |
+| `rounded-full` | chips, dot, pills (intentional shape) |
 | `font-ui` / `font-display` | inherited; no per-component font |
 
-No `zinc-/sky-/emerald-/amber-`, no hex, no fixed `rounded-lg/md/sm/xl`, no named fonts.
+No `zinc-/sky-/emerald-/amber-`, no hex, no fixed `rounded-lg/md/sm/xl`, no named fonts. The value span
+caps at `max-w-[14rem] truncate` (a layout clamp, not a token) so a long title can't overrun the cell.
 
 ---
 
@@ -142,15 +180,17 @@ No `zinc-/sky-/emerald-/amber-`, no hex, no fixed `rounded-lg/md/sm/xl`, no name
 
 | Element | State | Behavior |
 |---|---|---|
-| `SourceSelect` | undecided (default) | `Keep file` selected; chip shows file value `·file`; rows 2–3 present for owner |
-| `SourceSelect` | decided keep-file | same as default (an explicit `file` decision and the default render identically) |
-| `SourceSelect` | decided adopt-provider | `Adopt {provider}` selected; chip shows provider value `·{provider}` (accent) |
-| `SourceSelect` | decided custom | `Custom` selected; chip shows literal `·manual` (muted) |
-| `SourceSelect` | busy (DB round-trip) | control briefly disabled/`opacity-60`; **no** file-write spinner |
-| `SourceSelect` | no provider matched | only `Keep file | Custom` segments |
-| Custom input | open | inline input focused; Enter commit / Esc cancel / blur commit / empty cancel |
-| Out-of-sync pill (row 1) | decided ≠ in-file | `text-warn`/`border-warn` pill "file out of sync"; hidden when in sync |
-| "providers differ" hint (row 3) | ≥2 providers disagree | muted hint on candidates line; never `text-warn` |
+| chip row | undecided (default) | **file** chip selected (● dot, `·file`); provider(s) appear as sibling candidate chips |
+| chip row | decided keep-file | same as default (an explicit `file` decision and the default render identically) |
+| chip row | decided adopt-provider | the provider value chip selected; `·{provider}` (accent provenance) |
+| chip row | decided custom | the Custom chip is the `·manual` value chip, selected |
+| chip row | busy (DB round-trip) | row `opacity-60`/`aria-busy`; **no** file-write spinner |
+| chip row | no provider matched | only the **file** chip + **Custom** |
+| file chip | file has no value | renders `—` (em-dash) so the baseline stays anchored + selectable |
+| provider chips | two sources agree | fold to **one** chip tagged `·file + tmdb` / `·tmdb + imdb` (value shown once) |
+| Custom chip | undecided | opener: leading `＋` + "Custom"; opens the inline input on select |
+| Custom input | open | inline input focused; Enter commit / Esc cancel (+ focus back) / blur commit / empty cancel |
+| Out-of-sync pill | decided ≠ in-file | `text-warn`/`border-warn` pill "file out of sync" trailing the row; hidden when in sync |
 | Write button | n>0 out of sync | shows `· {n} out of sync` (warn count); spinner while the job is submitted |
 | Write button | n=0 | no count; enabled (no-op re-write allowed) |
 | Whole control | visitor / non-owner | absent; field renders read-only resolved value as today |
@@ -161,20 +201,29 @@ No `zinc-/sky-/emerald-/amber-`, no hex, no fixed `rounded-lg/md/sm/xl`, no name
 
 | Breakpoint | Changes |
 |---|---|
-| ≥ `sm` (two-column `dl`) | each field cell stacks rows 1–3; `SourceSelect` `flex flex-wrap` may wrap segments within the cell |
-| < `sm` (single column) | unchanged stacking; `SourceSelect` wraps under the chip; candidates line wraps freely |
+| ≥ `sm` (two-column `dl`) | the chip row `flex flex-wrap` wraps chips within the cell |
+| < `sm` (single column) | unchanged; chips wrap freely; the out-of-sync pill wraps to its own line |
 
-The `dl` grid itself is unchanged. Nothing in `SourceSelect` may set a fixed pixel width — segments size to content; the container wraps.
+The `dl` grid itself is unchanged. No chip sets a fixed pixel width — chips size to content (the value
+span caps at `max-w-[14rem] truncate`) and the row wraps.
 
 ---
 
 ## Edge Cases
 
-- **Long candidate values** (e.g. a long title) — candidates line truncates per-value with `line-clamp`/ellipsis; the chip itself wraps as today. Never force the cell wider than its grid column (`minmax(0,1fr)` semantics).
-- **Provider matched but no value for this field** — that provider's `Adopt` segment is **omitted** (you can't adopt an empty value); it reappears if a re-enrich populates the field.
-- **Custom equals the file value** — allowed; it still records a `manual` decision (the owner may want it frozen). Provenance reads `·manual`.
-- **All sources empty** — the field doesn't render today (resolver returns nothing); `SourceSelect` does not appear for a field with no value and no candidates.
-- **Decision references a provider later un-matched/cleared** — the field falls back to default (file) for display; surface nothing alarming (the stored decision is harmless; clearing the match is the existing F22/F31 path).
+- **Long candidate values** (e.g. a long title) — the chip value truncates at `max-w-[14rem]` with the
+  full value on `title`/`aria-label`; the row wraps. Never force the cell wider than its grid column
+  (`minmax(0,1fr)` semantics).
+- **Provider matched but no value for this field** — that provider contributes **no** chip (you can't
+  adopt an empty value); it reappears if a re-enrich populates the field.
+- **Provider value equals the file value** — folds into the file chip (`·file + tmdb`); selecting the
+  folded file chip still pins `file` (file-first).
+- **Custom equals the file value** — allowed; it still records a `manual` decision (the owner may want
+  it frozen). Provenance reads `·manual`.
+- **All sources empty** — the field doesn't render today (resolver returns nothing); the chip row does
+  not appear for a field with no value and no candidates.
+- **Decision references a provider later un-matched/cleared** — display falls back to the file chip; the
+  stored decision is harmless (clearing the match is the existing F22/F31 path).
 - **Out-of-sync after an external edit** — Refresh (F31) re-reads the file; sync recomputes on refetch.
 
 ---
@@ -183,23 +232,27 @@ The `dl` grid itself is unchanged. Nothing in `SourceSelect` may set a fixed pix
 
 | Element | Trigger | Animation | Duration | Easing |
 |---|---|---|---|---|
-| `SourceSelect` segment | select / hover | color/background token transition | ~150ms | default `transition` |
+| chip | select / hover | color/border token transition | ~150ms | default `transition` |
 | Custom input | open | none required (appears in place) | — | — |
 | Write button icon | submitting | reuse existing `animate-spin` | — | — |
 
-No layout-shifting animation; selecting a segment must not jump the grid.
+No layout-shifting animation; selecting a chip must not jump the grid (the dot is inline, the chip
+doesn't resize on select).
 
 ---
 
 ## Accessibility Notes
 
-- **`SourceSelect` = `role="radiogroup"`** with `role="radio"` segments and `aria-checked` on the
-  selected one. **Roving tabindex** (cf. [[feedback-keyboard-list-roving-tabindex]] / `EnrichPicker`):
-  the group is one Tab stop landing on the checked segment; **Left/Right (and Up/Down)** move and change
-  selection; selection applies on arrow (or Space/Enter) — match native radio semantics.
-- `aria-label` per segment names the value: `Keep file value "Blade Runner"`, `Adopt TMDB value "Blade Runner: Final Cut"`, `Custom value`.
-- The group has `aria-label="Source of truth for {field label}"`.
-- The out-of-sync pill uses `aria-label="{field label} is out of sync with the file"`; the "providers differ" hint is plain text (informational), not an alert.
-- The candidates line is readable text, associated with the field via proximity in the `dd`; no live region (it's static).
-- Focus-visible ring (`focus:ring-accent` idiom) on segments and the input; the Custom input traps nothing (inline), Escape returns focus to the `Custom` segment.
-- Color is never the only signal: selected segment also reads via `aria-checked`; provenance is text (`·source`), not just hue.
+- **`SourceSelect` = `role="radiogroup"`** (`tabindex="-1"`) with `role="radio"` **chips** and
+  `aria-checked` on the selected one. **Roving tabindex** (cf. [[feedback-keyboard-list-roving-tabindex]]
+  / `EnrichPicker`): the group is one Tab stop landing on the checked chip; **Left/Right (and Up/Down)**
+  move and change selection; selection applies on arrow (debounced) or Space/Enter — native radio semantics.
+- `aria-label` per chip names the value + provenance: `Blade Runner, from file`,
+  `Blade Runner: Final Cut, from tmdb`, `Set a custom value for {field}` (opener) /
+  `{literal}, from manual` (once set). The group has `aria-label="Source of truth for {field label}"`.
+- The out-of-sync pill uses `aria-label="{field label} is out of sync with the file"`.
+- Focus-visible ring (`focus:ring-accent`) on chips and the input; the Custom input traps nothing
+  (inline), and Escape returns focus to the Custom chip (`await tick()` before refocus).
+- **Colour is never the only signal:** selection reads via the **● dot + `aria-checked` + border**, not
+  fill/hue; provenance is text (`·source`), not colour. The pick-one vs drop-any distinction is the
+  **glyph** (dot vs ✕), not colour.

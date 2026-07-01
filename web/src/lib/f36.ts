@@ -42,12 +42,70 @@ export function providerCandidates(field: ResolvedField): FieldCandidate[] {
 	);
 }
 
-// providersDiffer is true when ≥2 provider candidates disagree on the value — the trigger for
-// the muted "providers differ" hint on the candidates line. Informational only, never warn
-// (Open-Q3): disagreement is not an error.
-export function providersDiffer(field: ResolvedField): boolean {
-	const values = new Set(providerCandidates(field).map((c) => c.value.trim()));
-	return values.size >= 2;
+// SourceChip is one selectable value chip in the unified source-of-truth control (HOLODEX-112).
+// It collapses the old resolved-chip + segmented-control + candidates-line into a single row of
+// source-tagged value chips: one chip per *distinct* candidate value, tagged with every source
+// that supplies it. `decisionSource` is what selecting the chip pins; `sources` feeds
+// CurationChip's `·provenance` suffix (and its provider-vs-baseline colouring).
+export interface SourceChip {
+	key: string; // stable DOM/selection key: 'file' | 'provider:<name>' | 'custom'
+	value: string; // display value ('' on the file chip ⇒ UI placeholder; '' on custom ⇒ opener)
+	sources: string[]; // provenance namespaces, e.g. ['file'], ['tmdb'], ['file','tmdb']
+	decisionSource: DecisionSource; // the decision selecting this chip pins
+	manual?: boolean; // the trailing Custom chip
+}
+
+// sourceChips builds the one-row chip model for a replace field. The file baseline is always the
+// first, anchored chip (tagged `·file`) — the file-first mental model is the whole point of F36,
+// so the baseline never becomes just another value in the row. A provider whose value equals the
+// file value folds into that file chip (`·file + tmdb`) rather than repeating the value; providers
+// that share a distinct value fold together too. Selecting a folded file chip still pins `file`.
+// The Custom chip is always last: the frozen manual literal when decided, else the inline-input opener.
+export function sourceChips(field: ResolvedField): SourceChip[] {
+	const fileVal = fileCandidateValue(field);
+	const file: SourceChip = { key: 'file', value: fileVal, sources: ['file'], decisionSource: 'file' };
+	const chips: SourceChip[] = [file];
+
+	for (const c of providerCandidates(field)) {
+		const name = c.provider || providerOf(c.source);
+		const v = c.value.trim();
+		if (fileVal.trim() !== '' && v === fileVal.trim()) {
+			if (!file.sources.includes(name)) file.sources.push(name);
+			continue;
+		}
+		const twin = chips.find((ch) => ch.decisionSource !== 'file' && ch.value.trim() === v);
+		if (twin) {
+			if (!twin.sources.includes(name)) twin.sources.push(name);
+		} else {
+			chips.push({
+				key: c.source,
+				value: c.value,
+				sources: [name],
+				decisionSource: c.source as DecisionSource
+			});
+		}
+	}
+
+	const manual = field.decision?.source === 'manual';
+	chips.push({
+		key: 'custom',
+		value: manual ? (field.decision?.manual_value ?? '') : '',
+		sources: ['manual'],
+		decisionSource: 'manual',
+		manual: true
+	});
+	return chips;
+}
+
+// selectedChipKey maps the field's decided source onto the chip that should read selected. A
+// provider decision resolves to whichever chip carries that provider (standalone or folded into
+// the file chip); an unmatched decision falls back to the file chip (harmless — the value is gone).
+export function selectedChipKey(field: ResolvedField, chips: SourceChip[]): string {
+	const src = decidedSource(field);
+	if (src === 'file') return 'file';
+	if (src === 'manual') return 'custom';
+	const name = providerOf(src);
+	return chips.find((c) => c.sources.includes(name))?.key ?? 'file';
 }
 
 // outOfSync is true when the field's decided value differs from the value embedded in the file

@@ -1,23 +1,24 @@
 <script lang="ts">
-	// Per-field source-of-truth control (F36, ADR-051). Owner-only, replace-field only.
-	// Three stacked rows in the Metadata <dl> cell:
-	//   row 1 — the resolved value as a read-only CurationChip (·source) + an out-of-sync pill
-	//           when the decided value differs from the file's embedded tag (the lone text-warn);
-	//   row 2 — the segmented `SourceSelect` radiogroup: Keep file · Adopt {provider}… · Custom,
-	//           with a roving tabindex (one tab stop) and native radio arrow semantics;
-	//   row 3 — the muted candidates line (file + each provider value), with an informational
-	//           "providers differ" hint when ≥2 providers disagree (never warn — Open-Q3).
-	// Changing a source is a DB-only decision (RD5): it calls `decide`, never a file write. The
-	// file is touched only by the header "Write decisions to file" action. Tokens only; QA 3 skins.
+	// Per-field source-of-truth control (F36, ADR-051; HOLODEX-112 refinement). Owner-only,
+	// replace-field only. One row of source-tagged, single-select value chips (a radiogroup):
+	//   • the file baseline first, anchored, always tagged ·file (the file-first mental model is
+	//     the whole point of F36 — the baseline never becomes just another value in the row);
+	//   • one chip per DISTINCT candidate value, tagged with every source that supplies it — a
+	//     provider that agrees with the file folds into the file chip (·file + tmdb), so an agreed
+	//     value is never shown twice (the old wart);
+	//   • a trailing Custom chip: the frozen manual literal when decided, else the inline-input opener;
+	//   • a trailing "file out of sync" warn pill when the decided value differs from the file's tag
+	//     (RD2 — the single text-warn signal per field).
+	// The SELECTED chip *is* the resolved value, so divergence is self-evident (two value chips): the
+	// old separate resolved chip, segmented control, candidates line, and "providers differ" hint are
+	// all gone. Replace chips lead with a ● radio dot (pick one); merge fields keep the ✕-per-chip
+	// CurationChip (drop any) — one shared shell, a different glyph per selection model.
+	// Changing a source is a DB-only decision (RD5): it calls `decide`, never a file write. The file
+	// is touched only by the header "Write decisions to file" action. Tokens only; QA 3 skins.
+	// Entity-agnostic: it knows only `field` + `decide`, so People/Studio fast-follows reuse it as-is.
+	import { tick } from 'svelte';
 	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
-	import {
-		decidedSource,
-		fileCandidateValue,
-		outOfSync,
-		providerCandidates,
-		providerOf,
-		providersDiffer
-	} from '$lib/f36';
+	import { outOfSync, selectedChipKey, sourceChips, type SourceChip } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import CurationChip from './CurationChip.svelte';
 
@@ -31,60 +32,19 @@
 		decide: (source: DecisionSource, manualValue?: string) => Promise<void>;
 	} = $props();
 
-	interface Segment {
-		key: string; // 'file' | 'provider:<name>' | 'custom' — also the data-seg / DOM id key
-		label: string;
-		source: DecisionSource;
-		value: string;
-		aria: string;
-	}
-
-	const fileVal = $derived(fileCandidateValue(field));
-	const provCands = $derived(providerCandidates(field));
-	const current = $derived(decidedSource(field)); // 'file' | 'provider:<name>' | 'manual'
-	// committedKey is the server's stored decision as a segment key (a manual decision maps to
-	// the Custom segment). pendingKey is an optimistic override while a selection is settling, so
-	// aria-checked tracks the arrow/click immediately (QA 3.14) before the debounced commit +
-	// refetch land. The effect below clears it once the server has caught up.
-	const committedKey = $derived(current === 'manual' ? 'custom' : current);
+	const chips = $derived(sourceChips(field));
+	// committedKey is the server's stored decision as a chip key (a manual decision maps to the
+	// Custom chip). pendingKey is an optimistic override while a selection settles, so the dot +
+	// aria-checked track the arrow/click immediately (QA 3.14) before the debounced commit + refetch
+	// land. The effect below clears it once the server has caught up.
+	const committedKey = $derived(selectedChipKey(field, chips));
 	let pendingKey = $state<string | null>(null);
 	const selectedKey = $derived(pendingKey ?? committedKey);
 
-	const segments = $derived<Segment[]>([
-		{
-			key: 'file',
-			label: 'Keep file',
-			source: 'file',
-			value: fileVal,
-			aria: fileVal ? `Keep file value "${fileVal}"` : 'Keep file'
-		},
-		...provCands.map((c) => {
-			const name = c.provider || providerOf(c.source);
-			return {
-				key: c.source,
-				label: `Adopt ${name}`,
-				source: c.source as DecisionSource,
-				value: c.value,
-				aria: `Adopt ${name} value "${c.value}"`
-			};
-		}),
-		{
-			key: 'custom',
-			label: 'Custom',
-			source: 'manual' as DecisionSource,
-			value: field.decision?.manual_value ?? '',
-			aria: 'Custom value'
-		}
-	]);
-
-	// The resolved value rendered as a read-only chip: file/manual read muted, a provider reads
-	// accent — CurationChip derives that from sources/manual, so we hand it the right provenance.
-	const chipItem = $derived<ResolvedValue>({
-		value: field.values[0] ?? '',
-		sources:
-			current === 'manual' ? ['manual'] : current === 'file' ? ['file'] : [providerOf(current)],
-		manual: current === 'manual'
-	});
+	// The value item CurationChip's radio mode renders (value + provenance from the chip's sources).
+	function itemFor(chip: SourceChip): ResolvedValue {
+		return { value: chip.value, sources: chip.sources, manual: chip.manual };
+	}
 
 	let busy = $state(false);
 	let error = $state('');
@@ -113,34 +73,38 @@
 			});
 	}
 
-	function focusSeg(key: string) {
+	function focusChip(key: string) {
 		groupEl?.querySelector<HTMLElement>(`[data-seg="${key}"]`)?.focus();
 	}
 
-	// Activate a segment now (click / Space / Enter): Custom opens the inline input (its commit
-	// decides); a file/provider segment commits immediately. Re-selecting the current source is a
-	// no-op. Focus already sits on the activated control, so this never moves focus.
-	function activate(seg: Segment) {
+	// Activate a chip now (click / Space / Enter): the Custom chip opens the inline input (its commit
+	// decides); a file/provider chip commits immediately. Re-selecting the current source is a no-op.
+	// Focus already sits on the activated chip, so this never moves focus.
+	function activate(chip: SourceChip) {
 		clearTimeout(commitTimer);
-		if (seg.key === 'custom') {
+		if (chip.key === 'custom') {
 			pendingKey = 'custom';
 			startCustom();
 			return;
 		}
-		if (seg.key === committedKey) {
+		if (chip.key === committedKey) {
 			pendingKey = null;
 			return;
 		}
-		pendingKey = seg.key;
-		commitDecision(seg.source);
+		pendingKey = chip.key;
+		commitDecision(chip.decisionSource);
 	}
 
 	// Roving radiogroup arrow keys move focus + selection optimistically (native radio semantics,
-	// QA 3.14), but the network commit is debounced — arrowing across segments issues ONE decision
-	// for the settled segment, not one per keypress (cf. EnrichPicker's debounce). Space/Enter
-	// commit the focused segment immediately.
-	function onSegKey(e: KeyboardEvent, i: number) {
-		const n = segments.length;
+	// QA 3.14), but the network commit is debounced — arrowing across chips issues ONE decision for
+	// the settled chip, not one per keypress (cf. EnrichPicker's debounce). Space/Enter commit the
+	// focused chip immediately. One handler on the group reads the focused chip via data-seg, so it
+	// covers both the CurationChip radios and the bespoke Custom chip without per-chip wiring.
+	function onGroupKey(e: KeyboardEvent) {
+		const focused = (e.target as HTMLElement | null)?.closest?.('[data-seg]') as HTMLElement | null;
+		const i = chips.findIndex((c) => c.key === focused?.dataset.seg);
+		if (i < 0) return; // key came from the inline input (no data-seg) — leave it alone
+		const n = chips.length;
 		const delta =
 			e.key === 'ArrowRight' || e.key === 'ArrowDown'
 				? 1
@@ -149,21 +113,21 @@
 					: 0;
 		if (delta) {
 			e.preventDefault();
-			const target = segments[(i + delta + n) % n];
+			const target = chips[(i + delta + n) % n];
 			pendingKey = target.key; // selection follows focus immediately
-			focusSeg(target.key);
+			focusChip(target.key);
 			clearTimeout(commitTimer);
 			if (target.key === 'custom') {
 				startCustom();
 			} else {
 				commitTimer = setTimeout(() => {
-					if (target.key !== committedKey) commitDecision(target.source);
+					if (target.key !== committedKey) commitDecision(target.decisionSource);
 					else pendingKey = null;
 				}, 250);
 			}
 		} else if (e.key === ' ' || e.key === 'Enter') {
 			e.preventDefault();
-			activate(segments[i]);
+			activate(chips[i]);
 		}
 	}
 
@@ -177,10 +141,11 @@
 		if (v) commitDecision('manual', v);
 		else cancelCustom();
 	}
-	function cancelCustom() {
+	async function cancelCustom() {
 		editing = false;
 		pendingKey = null; // drop the optimistic 'custom' selection — no decision was made
-		focusSeg('custom'); // Escape/empty returns focus to the Custom segment (handoff a11y)
+		await tick(); // let the chip button re-render before we move focus back onto it (a11y 3.15)
+		focusChip('custom'); // Escape/empty returns focus to the Custom chip (handoff a11y)
 	}
 	function onCustomKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
@@ -192,83 +157,100 @@
 		}
 	}
 
-	const showCandidates = $derived(provCands.length >= 1);
+	// The bespoke Custom-opener chip shares the CurationChip radio shell so the row reads as one
+	// system; it carries a + glyph instead of a value until a literal is committed. It renders only
+	// while there is no manual decision, so it never shows the selected state — hence a static idle
+	// class (the frozen literal, once set, is a CurationChip radio that owns the selected styling).
+	const openerCls =
+		'curation-chip inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent';
 </script>
 
-<div class="mt-1 space-y-1" class:opacity-60={busy} aria-busy={busy}>
-	<!-- Row 1 — resolved value chip + out-of-sync pill (the single text-warn signal). -->
-	<div class="flex flex-wrap items-center gap-2">
-		<!-- Read-only resolved chip: isOwner={false} hides the F30 edit/remove/no-write
-		     controls (the Custom segment is the edit affordance here). -->
-		<CurationChip item={chipItem} isOwner={false} />
-		{#if outOfSync(field)}
-			<span
-				class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn"
-				aria-label={`${field.label} is out of sync with the file`}
-			>
-				file out of sync
-			</span>
-		{/if}
-	</div>
-
-	<!-- Row 2 — the segmented SourceSelect radiogroup. -->
+<div class="mt-1 flex flex-wrap items-center gap-2" class:opacity-60={busy} aria-busy={busy}>
+	<!-- Roving-tabindex radiogroup: the group itself is not a tab stop (tabindex -1); the checked
+	     chip is (QA 3.14). One keydown handler serves every chip via data-seg. -->
 	<div
 		bind:this={groupEl}
 		role="radiogroup"
 		aria-label={`Source of truth for ${field.label}`}
-		class="inline-flex flex-wrap items-stretch overflow-hidden rounded-theme border border-rule bg-surface-2 text-xs"
+		tabindex={-1}
+		class="flex flex-wrap items-center gap-1.5"
+		onkeydown={onGroupKey}
 	>
-		{#each segments as seg, i (seg.key)}
-			{#if seg.key === 'custom' && editing}
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					bind:value={draft}
-					onkeydown={onCustomKey}
-					onblur={commitCustom}
-					autofocus
-					aria-label={`Custom value for ${field.label}`}
-					placeholder="Custom value…"
-					class="w-32 border-l border-rule bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
-				/>
+		{#each chips as chip (chip.key)}
+			{#if chip.key === 'custom'}
+				{#if editing}
+					<!-- svelte-ignore a11y_autofocus -->
+					<input
+						bind:value={draft}
+						onkeydown={onCustomKey}
+						onblur={commitCustom}
+						autofocus
+						aria-label={`Custom value for ${field.label}`}
+						placeholder="Custom value…"
+						class="w-32 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+					/>
+				{:else if chip.value}
+					<!-- Decided manual literal: a value chip (·manual) that re-opens the editor on select. -->
+					<CurationChip
+						item={itemFor(chip)}
+						isOwner={false}
+						radio={{
+							key: 'custom',
+							checked: selectedKey === 'custom',
+							tabindex: selectedKey === 'custom' ? 0 : -1,
+							onselect: () => activate(chip)
+						}}
+					/>
+				{:else}
+					<!-- Opener: choosing it opens the inline input; on commit it becomes the chip above. -->
+					<button
+						type="button"
+						role="radio"
+						data-seg="custom"
+						aria-checked={selectedKey === 'custom'}
+						tabindex={selectedKey === 'custom' ? 0 : -1}
+						aria-label={`Set a custom value for ${field.label}`}
+						onclick={() => activate(chip)}
+						class={openerCls}
+					>
+						<svg
+							class="h-3 w-3 shrink-0"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							aria-hidden="true"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+						</svg>
+						Custom
+					</button>
+				{/if}
 			{:else}
-				<button
-					type="button"
-					role="radio"
-					data-seg={seg.key}
-					aria-checked={seg.key === selectedKey}
-					aria-label={seg.aria}
-					tabindex={seg.key === selectedKey ? 0 : -1}
-					onclick={() => activate(seg)}
-					onkeydown={(e) => onSegKey(e, i)}
-					class="border-l border-rule px-2 py-0.5 first:border-l-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {seg.key ===
-					selectedKey
-						? 'bg-accent text-accent-ink'
-						: 'text-muted hover:text-accent'}"
-				>
-					{seg.label}
-				</button>
+				<CurationChip
+					item={itemFor(chip)}
+					isOwner={false}
+					radio={{
+						key: chip.key,
+						checked: selectedKey === chip.key,
+						tabindex: selectedKey === chip.key ? 0 : -1,
+						onselect: () => activate(chip)
+					}}
+				/>
 			{/if}
 		{/each}
 	</div>
 
-	<!-- Row 3 — muted candidates line (only when ≥1 provider candidate exists). -->
-	{#if showCandidates}
-		<p class="text-[0.7rem] text-muted">
-			<span class="uppercase tracking-wide">candidates</span>
-			{#if fileVal}
-				· <span>file</span> <span class="text-ink">"{fileVal}"</span>
-			{/if}
-			{#each provCands as c (c.source)}
-				· <span>{c.provider || providerOf(c.source)}</span>
-				<span class="text-ink">"{c.value}"</span>
-			{/each}
-			{#if providersDiffer(field)}
-				· <span class="italic">providers differ</span>
-			{/if}
-		</p>
+	{#if outOfSync(field)}
+		<span
+			class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn"
+			aria-label={`${field.label} is out of sync with the file`}
+		>
+			file out of sync
+		</span>
 	{/if}
 
 	{#if error}
-		<p class="text-xs text-warn" aria-live="polite">{error}</p>
+		<p class="w-full text-xs text-warn" aria-live="polite">{error}</p>
 	{/if}
 </div>
