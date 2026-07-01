@@ -36,7 +36,8 @@ flowchart TB
   classDef pending fill:#f1efe8,stroke:#888780,color:#2c2c2a;
   classDef gate fill:#faeeda,stroke:#ba7517,color:#412402;
 
-  class S0,S1,S3,S4,S5,S6 pending;
+  class S3,S4,S5,S6 pending;
+  class S0,S1 done;
   class S2 active;
   class M gate;
 ```
@@ -48,10 +49,10 @@ flowchart TB
 
 | ID | Scope | Depends on | Parallel with | Size | PR | Status |
 |----|-------|-----------|---------------|------|----|--------|
-| **S0** | `/architecture` addendum: pin the `BaselineSource` contract (video impl reads file cols + `video_metadata`); video-first but entity-generic | — | — | XS | fold into S1's PR | ☐ not started |
-| **S1** | F36 backend: migration 0016 `field_source_decisions`, repo CRUD, resolver decision short-circuit + file-first default + `default_source` config, `ResolvedField.decision` + sync compute, owner-gated `PUT/DELETE …/decision`, writeback writes decided value (one `WriteBatch`/file) | S0 | S2 | L | PR (backend) | ☐ not started |
-| **S2** | F36 frontend: `SourceSelect` radiogroup, wire into replace fields, candidates, sync indicators, "Write decisions to file" rename, 3-skin QA | frozen API/types contract (spec + handoff) | S1 | M | [#71](https://github.com/whoiskevinrich/holodex/pull/71) (draft) | ◐ in review (HOLODEX-7 — `SourceSelect.svelte`, `f36.ts`, typed payload in `types.ts`, dev mock `f36mock.ts`; svelte-check + token-guard + unit tests green; joins S1 at S3) |
-| **S3** | Integration + `/security-review` (owner gate, untrusted `manual_value`) + execute the QA checklist (smoke/agent/human-3-skin) | S1 + S2 | — | M | gates the merge | ☐ not started |
+| **S0** | `/architecture` addendum: pin the `BaselineSource` contract (video impl reads file cols + `video_metadata`); video-first but entity-generic | — | — | XS | [#69](https://github.com/whoiskevinrich/holodex/pull/69) | ☑ done (ADR-052; HOLODEX-5) |
+| **S1** | F36 backend: migration 0016 `field_source_decisions`, repo CRUD, resolver decision short-circuit + file-first default + `default_source` config, `ResolvedField.decision` + sync compute, owner-gated `PUT/DELETE …/decision`, writeback writes decided value (one `WriteBatch`/file) | S0 | S2 | L | [#72](https://github.com/whoiskevinrich/holodex/pull/72) | ☑ done (HOLODEX-6) |
+| **S2** | F36 frontend: `SourceSelect` radiogroup, wire into replace fields, candidates, sync indicators, "Write decisions to file" rename, 3-skin QA | frozen API/types contract (spec + handoff) | S1 | M | [#71](https://github.com/whoiskevinrich/holodex/pull/71) | ◐ integrated (HOLODEX-7 — merged main/S1 in; dev mock deleted, wired to the live decision API; the frozen types matched S1 exactly, zero drift. svelte-check + token-guard + unit tests + prod build green. Remaining: live agent/human 3-skin QA §3/§4 against enriched media = the S3 step) |
+| **S3** | Integration + `/security-review` (owner gate, untrusted `manual_value`) + execute the QA checklist (smoke/agent/human-3-skin) | S1 + S2 | — | M | gates the merge | ◐ unblocked — S1+S2 both landed; `/security-review` was S1's gate (backend diff, #72). Remaining = execute QA §3/§4 in all three skins against a running stack with an enriched replace field |
 | **S4** | Multi-provider (P1): inter-provider trust order config, one `Adopt` per matched provider, "providers differ" hint | F36 merged | S5/S6 | M | fast-follow | ☐ not started |
 | **S5** | ② People refactor: person detail through resolver + curation + decisions | ① (from S1) | S6 | L | fast-follow | ☐ not started |
 | **S6** | ③ Studio entity: table, scan resolve-or-create, FTS, page, facet → inherits decisions | ① (from S1) | S5 | L | fast-follow | ☐ not started |
