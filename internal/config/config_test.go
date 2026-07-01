@@ -147,6 +147,35 @@ func TestPersonImageConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultSourceConfig(t *testing.T) {
+	// Default is file-first (F36/RD4).
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DefaultSource != "file" {
+		t.Errorf("default_source default = %q, want file", cfg.DefaultSource)
+	}
+
+	// A valid override is honored.
+	t.Setenv("DEFAULT_SOURCE", "mapping")
+	if cfg, err = Load(""); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DefaultSource != "mapping" {
+		t.Errorf("default_source override = %q, want mapping", cfg.DefaultSource)
+	}
+
+	// An invalid value falls back to file rather than silently changing precedence.
+	t.Setenv("DEFAULT_SOURCE", "bogus")
+	if cfg, err = Load(""); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DefaultSource != "file" {
+		t.Errorf("invalid default_source = %q, want file fallback", cfg.DefaultSource)
+	}
+}
+
 func TestThumbnailConfig(t *testing.T) {
 	// Defaults (ADR-009).
 	cfg, err := Load("")

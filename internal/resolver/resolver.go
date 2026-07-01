@@ -15,6 +15,10 @@
 //
 // The resolver does no I/O — callers supply pre-loaded data, so changing config or
 // curation takes effect without re-fetching providers or re-scanning files.
+//
+// The baseline (file) layer is reached through a BaselineSource, which keeps the
+// merge core entity-agnostic: a video supplies the file layer, while a future
+// person/studio entity supplies its own scan-derived baseline (ADR-052).
 package resolver
 
 import (
@@ -22,6 +26,7 @@ import (
 	"strings"
 	"unicode"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/registry"
@@ -48,6 +53,77 @@ type ResolvedField struct {
 	Items         []ResolvedValue `json:"items,omitempty"`
 	Multi         bool            `json:"multi,omitempty"`          // merge-mode (set) field: UI shows add + per-value remove
 	WinningSource string          `json:"winning_source,omitempty"` // e.g. "tmdb:title", "file:Title", "manual:genres"
+
+	// F36 (ADR-051) — per-field source-of-truth, populated on replace (scalar)
+	// fields only. Decision is the standing source choice (Standing=false for the
+	// implicit file-first default); InSync is false when the decided value differs
+	// from the file-embedded value; Candidates feed the SourceSelect segments + the
+	// candidates line. Merge fields leave all three nil (replace-only, RD1).
+	Decision   *FieldDecision   `json:"decision,omitempty"`
+	InSync     *bool            `json:"in_sync,omitempty"`
+	Candidates []FieldCandidate `json:"candidates,omitempty"`
+}
+
+// FieldDecision is the per-field source-of-truth marker on a replace field (F36,
+// ADR-051). Source is "file" | "provider:<name>" | "manual"; Standing is true for an
+// explicit stored decision and false for the implicit file-first default (where
+// Source names whichever source currently wins). ManualValue is set only when
+// Source == "manual".
+type FieldDecision struct {
+	Source      string `json:"source"`
+	Standing    bool   `json:"standing"`
+	ManualValue string `json:"manual_value,omitempty"`
+}
+
+// FieldCandidate is one selectable source value for a replace field — the file
+// baseline value or a matched provider's value (F36, ADR-051). It feeds the
+// SourceSelect `Adopt` segments and the candidates line. The file candidate is
+// always present (its Value may be ""); a provider candidate is included only when
+// it has a non-empty value (you cannot adopt an empty value).
+type FieldCandidate struct {
+	Source   string `json:"source"`             // "file" | "provider:<name>"
+	Provider string `json:"provider,omitempty"` // provider name when Source is "provider:<name>"
+	Value    string `json:"value"`
+}
+
+// Default-source modes (F36, ADR-051). A decision pins a replace field to one
+// source (grammar in internal/fieldsource); the global DefaultSource governs the
+// *undecided* winner — file-first (the bug fix, RD4) or legacy mapping order.
+const (
+	DefaultSourceFile    = "file"    // undecided fields resolve file-first (default)
+	DefaultSourceMapping = "mapping" // undecided fields keep first-non-empty mapping order
+)
+
+// Decision is one pre-loaded standing decision (the resolver's input form): a
+// pinned Source plus the frozen ManualValue (only when Source == "manual").
+type Decision struct {
+	Source      string // "file" | "provider:<name>" | "manual"
+	ManualValue string
+}
+
+// Decisions is the pre-loaded standing decision map for one entity, keyed by
+// canonical field (lower-cased). Built from repo.DecisionsForEntity. The resolver
+// consults it before mapping order — no per-field query, resolution stays pure.
+type Decisions map[string]Decision
+
+// Options carries the F36 resolution inputs. The zero value means "no standing
+// decisions, file-first default" — the F36 default behavior (RD4).
+type Options struct {
+	Decisions     Decisions
+	DefaultSource string // DefaultSourceFile ("" default) | DefaultSourceMapping
+}
+
+// fileFirst reports whether undecided fields resolve file-first (the default) vs.
+// legacy mapping order.
+func (o Options) fileFirst() bool { return o.DefaultSource != DefaultSourceMapping }
+
+// lookup returns the standing decision for a canonical field, if any.
+func (o Options) lookup(canonical string) (Decision, bool) {
+	if o.Decisions == nil {
+		return Decision{}, false
+	}
+	d, ok := o.Decisions[normKey(canonical)]
+	return d, ok
 }
 
 // Enrichment holds the pre-loaded enrichment shadow data for one video, keyed by
@@ -73,20 +149,86 @@ type Curation map[string]FieldCuration
 // mapping.Dedupe so behavior matches the file-only path.
 func normKey(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// BaselineSource supplies an entity's baseline ("intrinsic") field values — the
+// layer that is the default source of truth before enrichment and curation are
+// layered on. For a video the baseline is the file layer: the file-tag columns
+// (video_metadata) plus the filename-derived videos.title. A future person or
+// studio entity supplies its own scan-derived baseline; only the baseline's
+// identity differs, so the merge core stays entity-agnostic (ADR-052, realizing
+// ADR-051 §9 fast-follow ①).
+//
+// Baseline reports (vals, true) when src targets this entity's baseline layer —
+// even when it carries no value, so resolution does not fall through to a provider
+// for a baseline source — and (nil, false) when src names a provider/enrichment
+// namespace. Deciding "which namespace is intrinsic" belongs to the baseline, not
+// the resolver, which is what keeps the merge core free of any "file" special-casing.
+type BaselineSource interface {
+	Baseline(src mapping.Source) (vals []string, ok bool)
+}
+
+// videoBaseline is the video implementation of BaselineSource: the file layer.
+type videoBaseline struct {
+	title     string              // filename-derived videos.title
+	byFileTag map[string][]string // normalized file-tag key → values (video_metadata)
+}
+
+// NewVideoBaseline builds the file-layer BaselineSource for a video from its row
+// and pre-loaded file-tag rows. v may be nil (an empty baseline).
+func NewVideoBaseline(v *model.Video, extra []model.ExtraMetadata) BaselineSource {
+	b := videoBaseline{byFileTag: indexExtra(extra)}
+	if v != nil {
+		b.title = v.Title
+	}
+	return b
+}
+
+// Baseline resolves a file-namespace source against the video's file layer:
+// file:title → videos.title, file:<tag> → the matching video_metadata values.
+func (b videoBaseline) Baseline(src mapping.Source) ([]string, bool) {
+	switch {
+	case src.IsFileTitle():
+		if b.title != "" {
+			return []string{b.title}, true
+		}
+		return nil, true
+	case src.Namespace == "file":
+		return b.byFileTag[normKey(src.Key)], true
+	}
+	return nil, false
+}
+
 // Resolve applies the configured fields to the supplied video data and returns the
-// merged, curated result in field declaration order. curation may be nil.
+// merged, curated result in field declaration order. curation may be nil. It is the
+// video wrapper over ResolveFields, supplying the file layer as the baseline. opts
+// carries the F36 standing decisions + default-source mode (the zero value is the
+// file-first default with no decisions).
 func Resolve(
 	v *model.Video,
 	extra []model.ExtraMetadata,
 	enrichment Enrichment,
 	curation Curation,
 	fields []mapping.Field,
+	opts Options,
 ) []ResolvedField {
-	byFileTag := indexExtra(extra)
+	return ResolveFields(NewVideoBaseline(v, extra), enrichment, curation, fields, opts)
+}
 
+// ResolveFields is the entity-agnostic resolution core: it merges the supplied
+// baseline with enrichment + curation and returns the result in field declaration
+// order. Resolve wraps it with the video file layer; a person/studio entity wraps
+// it with its own BaselineSource — so they inherit the source model without
+// reopening this function (ADR-052). curation may be nil. opts carries the F36
+// standing decisions + default-source mode.
+func ResolveFields(
+	baseline BaselineSource,
+	enrichment Enrichment,
+	curation Curation,
+	fields []mapping.Field,
+	opts Options,
+) []ResolvedField {
 	out := make([]ResolvedField, 0, len(fields))
 	for _, f := range fields {
-		items, winner := resolveField(v, byFileTag, enrichment, curation[f.Canonical], f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
 		if len(items) == 0 {
 			continue
 		}
@@ -99,7 +241,7 @@ func Resolve(
 		if label == "" {
 			label = def.Label
 		}
-		out = append(out, ResolvedField{
+		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
 			Display:       def.Display,
@@ -107,9 +249,25 @@ func Resolve(
 			Items:         items,
 			Multi:         f.Multi || f.Merge,
 			WinningSource: winner,
-		})
+		}
+		// F36 markers are replace-only (RD1): merge fields keep F30 per-value
+		// curation and carry no source decision.
+		if !rf.Multi {
+			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items)
+		}
+		out = append(out, rf)
 	}
 	return out
+}
+
+// optDecision returns the standing decision for a field as a pointer (nil when
+// undecided) so the marker helper can distinguish a standing choice from the
+// implicit default.
+func optDecision(opts Options, f mapping.Field) *Decision {
+	if d, ok := opts.lookup(f.Canonical); ok {
+		return &d
+	}
+	return nil
 }
 
 // BrowseTitle returns the highest-precedence title for a video given the configured
@@ -125,13 +283,14 @@ func BrowseTitle(
 	enrichment Enrichment,
 	curation Curation,
 	fields []mapping.Field,
+	opts Options,
 ) (title, source string) {
-	byFileTag := indexExtra(extra)
+	baseline := NewVideoBaseline(v, extra)
 	for _, f := range fields {
 		if !f.Browse {
 			continue
 		}
-		items, winner := resolveField(v, byFileTag, enrichment, curation[f.Canonical], f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
 		if len(items) > 0 {
 			return items[0].Value, winner
 		}
@@ -140,37 +299,131 @@ func BrowseTitle(
 }
 
 func resolveField(
-	v *model.Video,
-	byFileTag map[string][]string,
+	baseline BaselineSource,
 	enrichment Enrichment,
 	fc FieldCuration,
+	opts Options,
 	f mapping.Field,
 ) (items []ResolvedValue, winner string) {
 	gather := func(src mapping.Source) []string {
-		switch {
-		case src.IsFileTitle():
-			if v != nil && v.Title != "" {
-				return []string{v.Title}
-			}
-		case src.Namespace == "file":
-			return byFileTag[normKey(src.Key)]
-		default:
-			if pFields, ok := enrichment[src.Namespace]; ok {
-				return pFields[src.Key]
-			}
+		if vals, ok := baseline.Baseline(src); ok {
+			return vals
+		}
+		if pFields, ok := enrichment[src.Namespace]; ok {
+			return pFields[src.Key]
 		}
 		return nil
 	}
 
 	if f.Multi || f.Merge {
+		// Merge fields keep F30 per-value curation, untouched by F36 (RD1).
 		return resolveMerge(gather, fc, f)
 	}
-	return resolvePrecedence(gather, fc, f)
+	// Replace field: a standing decision short-circuits mapping order (F36); else
+	// the configured default-source order decides the undecided winner.
+	if dec, ok := opts.lookup(f.Canonical); ok {
+		return resolveDecided(baseline, enrichment, fc, dec, f)
+	}
+	return resolvePrecedence(gather, fc, f, orderedSources(baseline, f.ParsedSources, opts))
 }
 
-// resolvePrecedence resolves a scalar field: a manual value overrides; otherwise
-// the first non-empty, non-suppressed source wins a single value.
-func resolvePrecedence(gather func(mapping.Source) []string, fc FieldCuration, f mapping.Field) ([]ResolvedValue, string) {
+// resolveDecided returns the value of the decided source for a replace field (F36):
+// the file/baseline value, a matched provider's current value, or the frozen manual
+// literal. It pins the *source*, not the value, so a later refresh re-extract or
+// re-enrich flows straight through. A decided source with no current value yields no
+// item (the field drops), exactly as an undecided empty field would.
+func resolveDecided(baseline BaselineSource, enrichment Enrichment, fc FieldCuration, dec Decision, f mapping.Field) ([]ResolvedValue, string) {
+	if name := fieldsource.Provider(dec.Source); name != "" {
+		pFields := enrichment[name]
+		for _, src := range f.ParsedSources {
+			if src.Namespace != name {
+				continue
+			}
+			if cand := firstNonEmpty(pFields[src.Key]); cand != "" {
+				return decidedItem(cand, name, fc, f, false), name + ":" + src.Key
+			}
+		}
+		return nil, ""
+	}
+	switch dec.Source {
+	case fieldsource.File:
+		if cand, src, ok := baselineValue(baseline, f); ok {
+			return decidedItem(cand, src.Namespace, fc, f, false), src.Namespace + ":" + src.Key
+		}
+		return nil, ""
+	default: // manual
+		if cand := strings.TrimSpace(dec.ManualValue); cand != "" {
+			return decidedItem(cand, fieldsource.Manual, fc, f, true), fieldsource.Manual + ":" + f.Canonical
+		}
+		return nil, ""
+	}
+}
+
+// baselineValue returns the first baseline (file) source of the field that carries
+// a non-empty value, plus that value. It is the single "which file value backs this
+// field" scan shared by the decided-file path and the candidate/in-sync markers, so
+// the two never diverge on which source wins.
+func baselineValue(baseline BaselineSource, f mapping.Field) (val string, src mapping.Source, ok bool) {
+	for _, s := range f.ParsedSources {
+		vals, isBaseline := baseline.Baseline(s)
+		if !isBaseline {
+			continue
+		}
+		if v := firstNonEmpty(vals); v != "" {
+			return v, s, true
+		}
+	}
+	return "", mapping.Source{}, false
+}
+
+// decidedItem builds the single ResolvedValue for a decided replace field, applying
+// the field's output casing and carrying any F30 no-write flag for the value.
+func decidedItem(raw, ns string, fc FieldCuration, f mapping.Field, manual bool) []ResolvedValue {
+	val := applyCasing(strings.TrimSpace(raw), f.Casing)
+	return []ResolvedValue{{
+		Value:   val,
+		Sources: []string{ns},
+		Manual:  manual,
+		NoWrite: fc.NoWrite[normKey(val)],
+	}}
+}
+
+// orderedSources returns the field's sources in resolution order. Under the
+// file-first default (RD4) baseline sources are tried before provider sources (so a
+// provider no longer masks the file — the F31 bug fix); under DefaultSourceMapping
+// the configured order is preserved unchanged. Source identity ("which namespace is
+// the baseline") is asked of the BaselineSource, keeping this entity-agnostic.
+func orderedSources(baseline BaselineSource, srcs []mapping.Source, opts Options) []mapping.Source {
+	if !opts.fileFirst() {
+		return srcs
+	}
+	// Count first so the common single-namespace field (all-baseline or all-provider)
+	// returns unchanged with no allocation; only a mixed field is partitioned.
+	nBase := 0
+	for _, s := range srcs {
+		if _, ok := baseline.Baseline(s); ok {
+			nBase++
+		}
+	}
+	if nBase == 0 || nBase == len(srcs) {
+		return srcs
+	}
+	base := make([]mapping.Source, 0, nBase)
+	other := make([]mapping.Source, 0, len(srcs)-nBase)
+	for _, s := range srcs {
+		if _, ok := baseline.Baseline(s); ok {
+			base = append(base, s)
+		} else {
+			other = append(other, s)
+		}
+	}
+	return append(base, other...)
+}
+
+// resolvePrecedence resolves an undecided scalar field: a manual value overrides;
+// otherwise the first non-empty, non-suppressed source in the supplied order wins a
+// single value. The order is file-first or mapping order per the default-source mode.
+func resolvePrecedence(gather func(mapping.Source) []string, fc FieldCuration, f mapping.Field, sources []mapping.Source) ([]ResolvedValue, string) {
 	for _, mv := range fc.Add {
 		mv = strings.TrimSpace(mv)
 		if mv == "" || fc.Suppress[normKey(mv)] {
@@ -180,7 +433,7 @@ func resolvePrecedence(gather func(mapping.Source) []string, fc FieldCuration, f
 		return []ResolvedValue{{Value: val, Sources: []string{"manual"}, Manual: true, NoWrite: fc.NoWrite[normKey(mv)]}},
 			"manual:" + f.Canonical
 	}
-	for _, src := range f.ParsedSources {
+	for _, src := range sources {
 		vals := gather(src)
 		if len(vals) == 0 {
 			continue
@@ -194,6 +447,76 @@ func resolvePrecedence(gather func(mapping.Source) []string, fc FieldCuration, f
 			src.Namespace + ":" + src.Key
 	}
 	return nil, ""
+}
+
+// replaceMarkers computes the F36 source-of-truth markers for a replace field: the
+// candidate list (file value + each matched provider's value), the decision marker
+// (standing or the implicit file-first default winner), and the in-sync flag. A
+// field is out of sync only when a *standing* decision's value differs from the
+// file-embedded value — an undecided (file-default) field is in sync by construction.
+func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue) (*FieldDecision, []FieldCandidate, *bool) {
+	// File baseline candidate (always present; Value may be "").
+	fileRaw, _, _ := baselineValue(baseline, f)
+	fileVal := applyCasing(fileRaw, f.Casing)
+	candidates := []FieldCandidate{{Source: fieldsource.File, Value: fileVal}}
+
+	// One provider candidate per matched provider that supplies a non-empty value.
+	seen := map[string]bool{}
+	for _, src := range f.ParsedSources {
+		if _, ok := baseline.Baseline(src); ok {
+			continue // baseline source, already handled
+		}
+		name := src.Namespace
+		if seen[name] {
+			continue
+		}
+		pv := applyCasing(firstNonEmpty(enrichment[name][src.Key]), f.Casing)
+		if pv == "" {
+			continue // can't adopt an empty value
+		}
+		seen[name] = true
+		candidates = append(candidates, FieldCandidate{Source: fieldsource.ForProvider(name), Provider: name, Value: pv})
+	}
+
+	// Decision marker: a standing decision, else the implicit default winner so the
+	// SourceSelect highlights whichever source currently supplies the value.
+	marker := &FieldDecision{}
+	inSync := true
+	if dec != nil {
+		marker.Source = dec.Source
+		marker.Standing = true
+		if dec.Source == fieldsource.Manual {
+			marker.ManualValue = strings.TrimSpace(dec.ManualValue)
+		}
+		decided := ""
+		if len(items) > 0 {
+			decided = items[0].Value
+		}
+		inSync = decided == fileVal
+	} else {
+		marker.Source = winnerToDecisionSource(items)
+	}
+	return marker, candidates, &inSync
+}
+
+// winnerToDecisionSource maps the winning value's namespace to a decision source so
+// an undecided field reports its implicit selection ("file" / "provider:<name>" /
+// "manual"). Defaults to "file" when nothing resolved.
+func winnerToDecisionSource(items []ResolvedValue) string {
+	if len(items) == 0 || len(items[0].Sources) == 0 {
+		return fieldsource.File
+	}
+	return fieldsource.ForNamespace(items[0].Sources[0])
+}
+
+// firstNonEmpty returns the first trimmed non-empty value, or "".
+func firstNonEmpty(vals []string) string {
+	for _, v := range vals {
+		if t := strings.TrimSpace(v); t != "" {
+			return t
+		}
+	}
+	return ""
 }
 
 // resolveMerge resolves a set field: the deduplicated union of all sources plus the

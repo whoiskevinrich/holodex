@@ -280,6 +280,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
+	handlers.SetDefaultSource(cfg.DefaultSource)
 	apiHandler := api.Router(log, health, handlers, reg.Handler())
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.

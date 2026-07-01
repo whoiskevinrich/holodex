@@ -96,6 +96,13 @@ type Config struct {
 	// "poster" shows 2:3 cards, suited to film libraries with poster-format cover art.
 	CardLayout string `yaml:"card_layout"`
 
+	// DefaultSource governs the undecided per-field source of truth (F36, ADR-051).
+	// "file" (default) makes the file/baseline layer win when no per-field decision
+	// exists — a provider is a candidate, never an automatic winner (the F31
+	// refresh-masking fix). "mapping" restores the legacy first-non-empty mapping
+	// order for film-centric instances that want provider-first display.
+	DefaultSource string `yaml:"default_source"`
+
 	// WritebackConcurrency bounds the durable batch-writeback queue's worker pool
 	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
 	// filesystem; raise only on fast storage. Clamped to ≥1.
@@ -137,6 +144,7 @@ func Defaults() Config {
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
 		CardLayout:           "wide",
+		DefaultSource:        "file", // F36/RD4: file beats providers when undecided
 		WritebackConcurrency: 1,
 	}
 }
@@ -284,6 +292,10 @@ func applyEnv(c *Config) {
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"
+	}
+	c.DefaultSource = envStr("DEFAULT_SOURCE", c.DefaultSource)
+	if c.DefaultSource != "file" && c.DefaultSource != "mapping" {
+		c.DefaultSource = "file" // F36/RD4 default; reject typos rather than silently mapping-first
 	}
 }
 
