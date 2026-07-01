@@ -187,7 +187,7 @@ must not foreclose People/Studio") stays unproven until a second entity actually
 
 - **P2-1 — Promote provider alias → routing alias.** A per-chip explicit action that inserts a
   kept provider alias into `person_aliases`.
-- **P2-2 — Studio inherits** ([HOLODEX-11](https://whoiskevinrich.atlassian.net/browse/HOLODEX-11)) — same chips, `·record` baseline, no writeback.
+- **P2-2 — Studio inherits** ([HOLODEX-11](https://whoiskevinrich.atlassian.net/browse/HOLODEX-11), specced as [F38](studio-entity.md)) — same chips, `·record` baseline, no writeback.
 - **P2-3 — Multi-provider person UI** ([HOLODEX-119](https://whoiskevinrich.atlassian.net/browse/HOLODEX-119)).
 - **P2-4 — MCP `resolved[]` parity** (rides deferred F22.5f).
 
