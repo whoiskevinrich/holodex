@@ -34,7 +34,7 @@ func (h *Handlers) mountPersonDecisions(r chi.Router) {
 // rejected (RD1 — identity materializes via rename, it never pins); a provider
 // pick must be currently matched. DB-only, like the media path.
 func (h *Handlers) setPersonFieldDecision(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
+	id, field, ok := h.personDecisionTarget(w, r)
 	if !ok {
 		return
 	}
@@ -54,15 +54,6 @@ func (h *Handlers) setPersonFieldDecision(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
-
-	if err := h.repo.PersonExists(r.Context(), id); err != nil {
-		h.personLookupError(w, err)
-		return
-	}
-	field, ok := h.personReplaceField(w, chi.URLParam(r, "canonical"))
-	if !ok {
-		return
-	}
 	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r, model.EnrichEntityPerson, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this person")
 		return
@@ -79,15 +70,7 @@ func (h *Handlers) setPersonFieldDecision(w http.ResponseWriter, r *http.Request
 // reverting it to the record-first default. Clearing an undecided field is an
 // idempotent no-op success, as on the media path.
 func (h *Handlers) clearPersonFieldDecision(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	if err := h.repo.PersonExists(r.Context(), id); err != nil {
-		h.personLookupError(w, err)
-		return
-	}
-	field, ok := h.personReplaceField(w, chi.URLParam(r, "canonical"))
+	id, field, ok := h.personDecisionTarget(w, r)
 	if !ok {
 		return
 	}
@@ -96,6 +79,22 @@ func (h *Handlers) clearPersonFieldDecision(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// personDecisionTarget validates the {id}/{canonical} pair shared by the
+// decision handlers: the person must exist (404) and the canonical must name a
+// decidable replace field (404 unknown, 400 name/merge).
+func (h *Handlers) personDecisionTarget(w http.ResponseWriter, r *http.Request) (id int64, field mapping.Field, ok bool) {
+	id, ok = pathID(w, r)
+	if !ok {
+		return 0, mapping.Field{}, false
+	}
+	if err := h.repo.PersonExists(r.Context(), id); err != nil {
+		h.personLookupError(w, err)
+		return 0, mapping.Field{}, false
+	}
+	field, ok = h.personReplaceField(w, chi.URLParam(r, "canonical"))
+	return id, field, ok
 }
 
 // personReplaceField resolves a canonical name against the synthesized person

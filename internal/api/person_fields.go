@@ -71,12 +71,16 @@ func providerSources(providers []string, key string) []mapping.Source {
 	return out
 }
 
+// personSchema is the provider-independent synthesized schema used for field
+// validation. Field identity is static — the provider list only widens
+// sources — so it is built once, not per request.
+var personSchema = personFields(nil)
+
 // personFieldByCanonical resolves a canonical name against the synthesized
-// person schema. Field identity is static — the provider list only widens
-// sources — so validation needs no providers.
+// person schema.
 func personFieldByCanonical(canonical string) (mapping.Field, bool) {
 	canonical = strings.ToLower(strings.TrimSpace(canonical))
-	for _, f := range personFields(nil) {
+	for _, f := range personSchema {
 		if f.Canonical == canonical {
 			return f, true
 		}
@@ -107,26 +111,33 @@ func personizeResolved(fields []resolver.ResolvedField) []resolver.ResolvedField
 	for i := range fields {
 		f := &fields[i]
 		f.InSync = nil
-		if f.Decision != nil && f.Decision.Source == fieldsource.File {
-			f.Decision.Source = personRecordSource
+		if f.Decision != nil {
+			f.Decision.Source = recordize(f.Decision.Source)
 		}
 		for j := range f.Candidates {
-			if f.Candidates[j].Source == fieldsource.File {
-				f.Candidates[j].Source = personRecordSource
-			}
+			f.Candidates[j].Source = recordize(f.Candidates[j].Source)
 		}
-		if strings.HasPrefix(f.WinningSource, fieldsource.File+":") {
-			f.WinningSource = personRecordSource + strings.TrimPrefix(f.WinningSource, fieldsource.File)
-		}
+		f.WinningSource = recordize(f.WinningSource)
 		for j := range f.Items {
-			for k, ns := range f.Items[j].Sources {
-				if ns == fieldsource.File {
-					f.Items[j].Sources[k] = personRecordSource
-				}
+			for k := range f.Items[j].Sources {
+				f.Items[j].Sources[k] = recordize(f.Items[j].Sources[k])
 			}
 		}
 	}
 	return fields
+}
+
+// recordize maps the internal "file" token — bare or as a "file:<key>"
+// winning-source prefix — to the person vocabulary "record" (RD4); anything
+// else passes through.
+func recordize(s string) string {
+	if s == fieldsource.File {
+		return personRecordSource
+	}
+	if rest, ok := strings.CutPrefix(s, fieldsource.File+":"); ok {
+		return personRecordSource + ":" + rest
+	}
+	return s
 }
 
 // personResolved resolves a person's fields through the unified resolver (F37

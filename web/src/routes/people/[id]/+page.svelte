@@ -169,12 +169,6 @@
 		}
 	}
 
-	function onApplied() {
-		// The apply endpoint returns raw enriched fields, but the page renders resolved[]
-		// — refetch so chips (and a possibly-downloaded photo) reflect the new data.
-		reloadDetail();
-	}
-
 	async function clearProvider() {
 		if (!provider) return;
 		busy = 'clear';
@@ -712,7 +706,7 @@
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
 		onclose={() => (pickerOpen = false)}
-		onapplied={onApplied}
+		onapplied={reloadDetail}
 	/>
 {/if}
 
