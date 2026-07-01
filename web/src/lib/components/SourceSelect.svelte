@@ -15,7 +15,12 @@
 	// CurationChip (drop any) — one shared shell, a different glyph per selection model.
 	// Changing a source is a DB-only decision (RD5): it calls `decide`, never a file write. The file
 	// is touched only by the header "Write decisions to file" action. Tokens only; QA 3 skins.
-	// Entity-agnostic: it knows only `field` + `decide`, so People/Studio fast-follows reuse it as-is.
+	// Entity-agnostic: it knows only `field` + `decide` (+ the entity's `baselineKey` — 'file' for
+	// videos, 'record' for persons, F37 RD4), so People/Studio fast-follows reuse it as-is.
+	// The optional `onadopt` interceptor serves identity fields (F37 RD1 — the person name):
+	// selecting a non-baseline chip then calls `onadopt` INSTEAD of `decide` (no decision is ever
+	// written), letting the page open a confirm flow (rename). Selection stays at rest on the
+	// committed chip — nothing changes until the page's flow lands and the detail refetches.
 	import { tick } from 'svelte';
 	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
 	import { outOfSync, selectedChipKey, sourceChips, type SourceChip } from '$lib/f36';
@@ -24,20 +29,31 @@
 
 	let {
 		field,
-		decide
+		decide,
+		baselineKey = 'file',
+		groupLabel,
+		onadopt
 	}: {
 		field: ResolvedField;
-		// Persist a decision and refetch the detail (file ⇒ clear to default; manual ⇒ literal).
-		// Owned by the page so this control stays free of api/transport concerns (cf. EnrichPicker).
+		// Persist a decision and refetch the detail (baseline ⇒ page maps it to clear-or-pin;
+		// manual ⇒ literal). Owned by the page so this control stays free of api/transport
+		// concerns (cf. EnrichPicker). Never called while `onadopt` is set.
 		decide: (source: DecisionSource, manualValue?: string) => Promise<void>;
+		// The entity's baseline source key: 'file' (default, videos) or 'record' (persons).
+		baselineKey?: string;
+		// Radiogroup aria-label override (the name row announces its rename consequence).
+		groupLabel?: string;
+		// Intercept mode (F37 RD1): when set, activating a non-baseline chip (or committing the
+		// Custom input) invokes this with the candidate source + value instead of deciding.
+		onadopt?: (source: DecisionSource, value: string) => void;
 	} = $props();
 
-	const chips = $derived(sourceChips(field));
+	const chips = $derived(sourceChips(field, baselineKey));
 	// committedKey is the server's stored decision as a chip key (a manual decision maps to the
 	// Custom chip). pendingKey is an optimistic override while a selection settles, so the dot +
 	// aria-checked track the arrow/click immediately (QA 3.14) before the debounced commit + refetch
 	// land. The effect below clears it once the server has caught up.
-	const committedKey = $derived(selectedChipKey(field, chips));
+	const committedKey = $derived(selectedChipKey(field, chips, baselineKey));
 	let pendingKey = $state<string | null>(null);
 	const selectedKey = $derived(pendingKey ?? committedKey);
 
@@ -78,17 +94,23 @@
 	}
 
 	// Activate a chip now (click / Space / Enter): the Custom chip opens the inline input (its commit
-	// decides); a file/provider chip commits immediately. Re-selecting the current source is a no-op.
-	// Focus already sits on the activated chip, so this never moves focus.
+	// decides); a baseline/provider chip commits immediately. Re-selecting the current source is a
+	// no-op. Focus already sits on the activated chip, so this never moves focus.
+	// Intercept mode (RD1): a non-baseline activation hands off to `onadopt` — no decision, no
+	// optimistic selection (the confirm flow owns what happens next).
 	function activate(chip: SourceChip) {
 		clearTimeout(commitTimer);
 		if (chip.key === 'custom') {
-			pendingKey = 'custom';
+			if (!onadopt) pendingKey = 'custom';
 			startCustom();
 			return;
 		}
 		if (chip.key === committedKey) {
 			pendingKey = null;
+			return;
+		}
+		if (onadopt) {
+			onadopt(chip.decisionSource, chip.value);
 			return;
 		}
 		pendingKey = chip.key;
@@ -114,6 +136,13 @@
 		if (delta) {
 			e.preventDefault();
 			const target = chips[(i + delta + n) % n];
+			if (onadopt) {
+				// Intercept mode (RD1): arrows rove focus only — selection never follows focus,
+				// because nothing is decided until the page's confirm flow lands. Space/Enter
+				// (or click) activates the focused chip and opens that flow.
+				focusChip(target.key);
+				return;
+			}
 			pendingKey = target.key; // selection follows focus immediately
 			focusChip(target.key);
 			clearTimeout(commitTimer);
@@ -138,8 +167,17 @@
 	function commitCustom() {
 		const v = draft.trim();
 		editing = false;
-		if (v) commitDecision('manual', v);
-		else cancelCustom();
+		if (!v) {
+			cancelCustom();
+			return;
+		}
+		if (onadopt) {
+			// Intercept mode (RD1): a committed custom value routes into the confirm flow
+			// (e.g. the rename dialog with the typed name) — never a manual decision.
+			onadopt('manual', v);
+			return;
+		}
+		commitDecision('manual', v);
 	}
 	async function cancelCustom() {
 		editing = false;
@@ -171,7 +209,7 @@
 	<div
 		bind:this={groupEl}
 		role="radiogroup"
-		aria-label={`Source of truth for ${field.label}`}
+		aria-label={groupLabel ?? `Source of truth for ${field.label}`}
 		tabindex={-1}
 		class="flex flex-wrap items-center gap-1.5"
 		onkeydown={onGroupKey}

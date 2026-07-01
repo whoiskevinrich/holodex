@@ -8,6 +8,7 @@
 	let {
 		title,
 		confirmLabel,
+		cancelLabel = 'Cancel',
 		body,
 		busy = false,
 		error = '',
@@ -17,6 +18,8 @@
 	}: {
 		title: string;
 		confirmLabel: string;
+		/** Ghost-button label; override when "Cancel" misreads (e.g. "Keep separate", F37). */
+		cancelLabel?: string;
 		body: Snippet;
 		busy?: boolean;
 		error?: string;
@@ -89,7 +92,7 @@
 				disabled={busy}
 				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
 			>
-				Cancel
+				{cancelLabel}
 			</button>
 			<button
 				onclick={onconfirm}

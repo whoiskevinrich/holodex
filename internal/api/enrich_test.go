@@ -104,18 +104,27 @@ func TestEnrichFlow(t *testing.T) {
 		t.Fatalf("enriched empty: %v", body["enriched"])
 	}
 
-	// Person detail now carries the enriched fields with provenance.
+	// Person detail carries the resolved fields with provenance (F37: the raw
+	// enriched[] block is retired; resolved[] is the unified payload).
 	code, pbody := getJSON(t, base)
 	if code != http.StatusOK {
 		t.Fatalf("person code = %d", code)
 	}
-	enriched, _ := pbody["enriched"].([]any)
-	if len(enriched) == 0 {
-		t.Fatalf("person enriched empty")
+	if _, ok := pbody["enriched"]; ok {
+		t.Error("person payload must not carry enriched[] (retired by F37)")
 	}
-	first, _ := enriched[0].(map[string]any)
-	if first["provider"] != "fake" {
-		t.Errorf("provenance = %v, want fake", first["provider"])
+	resolved, _ := pbody["resolved"].([]any)
+	var bio map[string]any
+	for _, f := range resolved {
+		if m, _ := f.(map[string]any); m["canonical"] == "bio" {
+			bio = m
+		}
+	}
+	if bio == nil {
+		t.Fatalf("resolved bio missing: %v", pbody["resolved"])
+	}
+	if bio["winning_source"] != "fake:bio" {
+		t.Errorf("provenance = %v, want fake:bio", bio["winning_source"])
 	}
 }
 

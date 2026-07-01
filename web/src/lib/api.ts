@@ -16,6 +16,7 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
+	PersonRenameConflict,
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
@@ -371,5 +372,53 @@ export const api = {
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`
-		)
+		),
+
+	// Person per-field source decisions (F37, RD7) — the media pair mirrored onto
+	// /people/{id}. source ∈ record | provider:<name> | manual (RD4 — the person baseline
+	// is `record`); `name` is rejected server-side (400, RD1 — it renames, never pins).
+	// DB-only either way: persons have no writeback.
+	setPersonFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/people/${id}/fields/${encodeURIComponent(canonical)}/decision`,
+			req
+		),
+	clearPersonFieldDecision: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/people/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
+	// Person value-level curation (F37, RD2/RD7) — the media pair mirrored onto
+	// /people/{id}; drives the "Also known as" merge row (add / suppress).
+	curatePerson: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/people/${id}/curation`, req),
+	clearPersonCuration: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/people/${id}/curation/clear`, req),
+
+	// Rename a person, keeping the old name as an F23 alias (one transaction — search
+	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name
+	// already belongs to another person) returns that person as `conflict` so the UI
+	// can offer the existing merge flow instead — never an auto-merge.
+	renamePerson: async (
+		personId: number,
+		name: string
+	): Promise<{ conflict?: PersonRenameConflict }> => {
+		const path = `/people/${personId}/rename`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'POST',
+			credentials: CREDS,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name })
+		});
+		if (res.status === 409) {
+			const body = (await res.json().catch(() => ({}))) as PersonRenameConflict;
+			return { conflict: body };
+		}
+		if (!res.ok && res.status !== 204) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	}
 };

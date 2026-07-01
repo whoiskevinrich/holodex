@@ -132,9 +132,10 @@ export interface ResolvedField {
 // mapping precedence and drives both display and writeback. Merge (set) fields are
 // unchanged — they keep F30 per-value curation; the source decision is replace-only.
 
-// DecisionSource names the pinned source: the file baseline, a specific matched provider
-// (`provider:<name>`), or a frozen manual literal.
-export type DecisionSource = 'file' | `provider:${string}` | 'manual';
+// DecisionSource names the pinned source: the entity's baseline — `file` for videos,
+// `record` for persons (F37, RD4: the baseline label is per-entity) — a specific matched
+// provider (`provider:<name>`), or a frozen manual literal.
+export type DecisionSource = 'file' | 'record' | `provider:${string}` | 'manual';
 
 // FieldDecision is the per-field decision marker on a ResolvedField. `standing` is true for
 // an explicit stored decision and false for the implicit file default (undecided).
@@ -378,8 +379,19 @@ export interface PersonDetailResponse {
 	person: Person;
 	items: Video[];
 	total: number;
-	enriched?: EnrichedField[] | null;
+	// F37: unified resolved view (same shape as media detail's resolved[], baseline `record`;
+	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
+	resolved?: ResolvedField[] | null;
 	images?: PersonImageSet; // F25: per-role presence + version + ordered gallery
+}
+
+// PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the
+// existing person the new name collides with, so the UI can offer the F23 merge flow
+// (with both video counts) instead — never an auto-merge.
+export interface PersonRenameConflict {
+	id: number;
+	name: string;
+	video_count: number;
 }
 
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
