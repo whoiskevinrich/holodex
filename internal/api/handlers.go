@@ -203,6 +203,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk
 	// JPEG, an empty role the themed placeholder SVG. Mutations are gated below.
 	r.Get("/people/{id}/image/{role}", h.servePersonImageByRole)
+	r.Get("/people/{id}/images", h.getPersonImages)
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)

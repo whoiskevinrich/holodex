@@ -345,8 +345,7 @@
 	// Re-read the image set after a gallery change without refetching 500 videos.
 	async function reloadImages() {
 		try {
-			const res = await api.getPerson(id);
-			images = res.images ?? { roles: {}, gallery: [] };
+			images = await api.getPersonImages(id);
 		} catch (err) {
 			// Non-fatal (the mutation already succeeded; a full reload reconciles), but log
 			// it so a persistently failing refresh is debuggable rather than silent.

@@ -218,6 +218,11 @@ export const api = {
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
 
+	// The image read model alone — the post-mutation refresh, so an upload or
+	// gallery edit never refetches the full detail payload.
+	getPersonImages: (id: number, fetchFn?: typeof fetch) =>
+		get<PersonImageSet>(`/people/${id}/images`, fetchFn),
+
 	listTags: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
 		get<{ items: Tag[] }>(`/tags${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
