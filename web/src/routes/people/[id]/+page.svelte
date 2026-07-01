@@ -98,10 +98,9 @@
 			)
 	);
 
-	// Field partitions (F37 handoff): Name first, then the replace fields in payload
-	// (registry) order, then the merge fields ("Also known as") last within Details.
-	// A field with no value and no candidates doesn't render; visitors additionally
-	// see only fields that resolved to a value (read-only view).
+	// Field partitions (F37 handoff): Name first, then the replace fields, then the
+	// merge fields ("Also known as"). A field with no value and no candidates doesn't
+	// render; visitors additionally see only fields that resolved to a value.
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
 	const replaceFields = $derived(
 		resolved.filter(
@@ -113,6 +112,11 @@
 					: f.values.some((v) => v.trim() !== ''))
 		)
 	);
+	// Split the compact single-line vitals from the long-text prose (bio): the vitals
+	// tile the two-column grid up top, and the full-width prose reads last, so a long
+	// bio no longer buries the scannable facts (design-critique 2026-07-01).
+	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
+	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
 	const mergeFields = $derived(
 		resolved.filter((f) => !!f.multi && (isOwner || f.values.length > 0))
 	);
@@ -504,31 +508,8 @@
 								</div>
 							{/if}
 
-							{#each replaceFields as f (f.canonical)}
-								{#if f.display === 'long_text'}
-									<!-- Long-text fit (P1-1): the resolved value reads as full prose;
-									     the chip row beneath is the source selector, not the reading
-									     surface (chips keep their truncation clamp). -->
-									<div class="sm:col-span-2">
-										<dt class="inline text-muted">{f.label}:</dt>
-										{#if f.values[0]?.trim()}
-											<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-										{:else if isOwner}
-											<dd class="mt-1 block text-muted">—</dd>
-										{/if}
-										{#if isOwner}
-											<dd class="block">
-												<SourceSelect
-													field={f}
-													baselineKey="record"
-													decide={(s, mv) => decideField(f.canonical, s, mv)}
-												/>
-											</dd>
-										{:else if winnerProvider(f)}
-											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
-										{/if}
-									</div>
-								{:else if isOwner}
+							{#each compactFields as f (f.canonical)}
+								{#if isOwner}
 									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
 									<div>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
@@ -575,6 +556,32 @@
 											onchanged={reloadDetail}
 										/>
 									</dd>
+								</div>
+							{/each}
+
+							{#each longFields as f (f.canonical)}
+								<!-- Long-text (bio) reads last as a full-width prose block, so it
+								     doesn't bury the compact vitals above (design-critique 2026-07-01).
+								     Long-text fit (P1-1): the resolved value is the reading surface;
+								     the chip row beneath is the source selector (chips stay clamped). -->
+								<div class="sm:col-span-2">
+									<dt class="inline text-muted">{f.label}:</dt>
+									{#if f.values[0]?.trim()}
+										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+									{:else if isOwner}
+										<dd class="mt-1 block text-muted">—</dd>
+									{/if}
+									{#if isOwner}
+										<dd class="block">
+											<SourceSelect
+												field={f}
+												baselineKey="record"
+												decide={(s, mv) => decideField(f.canonical, s, mv)}
+											/>
+										</dd>
+									{:else if winnerProvider(f)}
+										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+									{/if}
 								</div>
 							{/each}
 						</dl>
