@@ -345,6 +345,21 @@ func (h *Handlers) reorderPersonImages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"images": set})
 }
 
+// getPersonImages serves the image read model alone — the lightweight refresh
+// the SPA uses after an image mutation, so updating a thumbnail never refetches
+// the person's full detail payload (resolved fields + up to 500 videos).
+func (h *Handlers) getPersonImages(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.repo.PersonExists(r.Context(), id); err != nil {
+		h.personLookupError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, h.personImageSet(r, id))
+}
+
 // personImageSet reads a person's image read model for the (ungated) detail view —
 // per-role presence + version + ordered gallery. Returns the zero set (empty roles +
 // gallery) on error so the detail response is always well-formed.

@@ -67,7 +67,7 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r, id, p) {
+	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r, model.EnrichEntityVideo, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this item")
 		return
 	}
@@ -145,8 +145,9 @@ func (h *Handlers) replaceField(w http.ResponseWriter, canonical string) (mappin
 
 // providerMatched reports whether a provider currently has enrichment rows for the
 // entity — the "matched provider" precondition for a provider decision (ADR-051 §1).
-func (h *Handlers) providerMatched(r *http.Request, id int64, provider string) bool {
-	rows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityVideo, id)
+// Entity-generic: the video and person decision paths share it (F37).
+func (h *Handlers) providerMatched(r *http.Request, entityType string, id int64, provider string) bool {
+	rows, err := h.repo.EnrichmentForEntity(r.Context(), entityType, id)
 	if err != nil {
 		h.log.Warn("enrichment lookup for decision", "id", id, "err", err)
 		return false

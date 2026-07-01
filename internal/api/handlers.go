@@ -203,6 +203,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk
 	// JPEG, an empty role the themed placeholder SVG. Mutations are gated below.
 	r.Get("/people/{id}/image/{role}", h.servePersonImageByRole)
+	r.Get("/people/{id}/images", h.getPersonImages)
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
@@ -244,6 +245,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountCuration(r)
 		// Per-field source-of-truth decisions — pin file/provider/manual (F36, ADR-051).
 		h.mountDecisions(r)
+		// People on the unified model — person decisions/curation + rename (F37).
+		h.mountPersonDecisions(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
@@ -680,8 +683,10 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"person": p, "items": items, "total": total,
-		"enriched": h.personEnrichment(r, id), // F22.5/F22.7: plugin fields w/ provenance
-		"images":   h.personImageSet(r, id),   // F25: per-role presence + version + gallery
+		// F37 (P0-2): the unified resolver payload — record vocabulary, no
+		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
+		"resolved": h.personResolved(r, id, p),
+		"images":   h.personImageSet(r, id), // F25: per-role presence + version + gallery
 	})
 }
 

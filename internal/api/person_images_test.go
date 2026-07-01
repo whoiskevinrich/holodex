@@ -348,3 +348,37 @@ func deleteReq(t *testing.T, url, token string) int {
 	resp.Body.Close()
 	return resp.StatusCode
 }
+
+// GET /people/{id}/images returns the image read model alone (the SPA's
+// post-mutation refresh) — public read, well-formed shape, 404 unknown person.
+func TestGetPersonImages(t *testing.T) {
+	srv, _, pid := personImageServer(t, "")
+
+	res, err := http.Get(srv.URL + "/api/v1/people/" + itoa(pid) + "/images")
+	if err != nil {
+		t.Fatalf("get images: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", res.StatusCode)
+	}
+	var set struct {
+		Roles   map[string]any `json:"roles"`
+		Gallery []any          `json:"gallery"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&set); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if set.Roles == nil || set.Gallery == nil {
+		t.Fatalf("image set must always be well-formed, got %+v", set)
+	}
+
+	res2, err := http.Get(srv.URL + "/api/v1/people/999999/images")
+	if err != nil {
+		t.Fatalf("get unknown: %v", err)
+	}
+	res2.Body.Close()
+	if res2.StatusCode != http.StatusNotFound {
+		t.Errorf("unknown person: want 404, got %d", res2.StatusCode)
+	}
+}

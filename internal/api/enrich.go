@@ -121,21 +121,6 @@ func (h *Handlers) enrichClear(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// personEnrichment reads a person's stored enrichment for the (ungated) person
-// detail view — enriched values are public metadata; only the controls are gated.
-// Returns nil when no enrichment service is wired.
-func (h *Handlers) personEnrichment(r *http.Request, id int64) []model.EnrichedField {
-	if h.enrich == nil {
-		return nil
-	}
-	fields, err := h.enrich.Fields(r.Context(), model.EnrichEntityPerson, id)
-	if err != nil {
-		h.log.Warn("read person enrichment", "id", id, "err", err)
-		return nil
-	}
-	return fields
-}
-
 func (h *Handlers) personLookupError(w http.ResponseWriter, err error) {
 	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "person not found")

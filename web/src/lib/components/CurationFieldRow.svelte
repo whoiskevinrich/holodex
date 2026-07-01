@@ -2,26 +2,44 @@
 	// One curated field row (F30): renders its values as chips and, for the owner,
 	// an inline "+ Add" affordance. Mutations call the curation API then ask the
 	// parent to reload so resolved[] reflects the new merged state. Tokens only; 3 skins.
+	//
+	// Entity-generic since F37: by default mutations hit the media curation endpoints
+	// (videoId), but a caller may supply its own `curate`/`clearCuration` transport (the
+	// person page passes the /people/{id}/curation pair) and hide the "don't write" toggle
+	// (`showWriteToggle={false}` — persons have no writeback).
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
-	import type { Person, ResolvedField, ResolvedValue } from '$lib/types';
+	import type { CurationRequest, Person, ResolvedField, ResolvedValue } from '$lib/types';
 	import CurationChip from './CurationChip.svelte';
 
 	let {
 		field,
-		videoId,
+		videoId = 0,
 		isOwner,
 		people = [],
 		personStyle = false,
+		showWriteToggle = true,
+		curate,
+		clearCuration,
 		onchanged
 	}: {
 		field: ResolvedField;
-		videoId: number;
+		videoId?: number;
 		isOwner: boolean;
 		people?: Person[];
 		personStyle?: boolean;
+		showWriteToggle?: boolean;
+		// Optional transport override (F37). When absent, the media endpoints are used.
+		curate?: (req: CurationRequest) => Promise<unknown>;
+		clearCuration?: (req: CurationRequest) => Promise<unknown>;
 		onchanged: () => Promise<void> | void;
 	} = $props();
+
+	// The effective transport: caller-supplied, else the media curation client (F30).
+	const doCurate = (req: CurationRequest) =>
+		curate ? curate(req) : api.curateMedia(videoId, req);
+	const doClear = (req: CurationRequest) =>
+		clearCuration ? clearCuration(req) : api.clearMediaCuration(videoId, req);
 
 	// For person fields (actors/director), match each value to a linked Person by name
 	// (case-insensitive) so the chip can show a headshot + link. Unmatched values (e.g.
@@ -63,7 +81,7 @@
 		const v = draft.trim();
 		adding = false;
 		draft = '';
-		if (v) run(() => api.curateMedia(videoId, { field: field.canonical, value: v, action: 'add' }));
+		if (v) run(() => doCurate({ field: field.canonical, value: v, action: 'add' }));
 	}
 	function onAddKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
@@ -77,13 +95,13 @@
 	}
 
 	function remove(value: string) {
-		run(() => api.curateMedia(videoId, { field: field.canonical, value, action: 'suppress' }));
+		run(() => doCurate({ field: field.canonical, value, action: 'suppress' }));
 	}
 	function toggleWrite(value: string, noWrite: boolean) {
 		run(() =>
 			noWrite
-				? api.curateMedia(videoId, { field: field.canonical, value, action: 'nowrite' })
-				: api.clearMediaCuration(videoId, { field: field.canonical, value, action: 'nowrite' })
+				? doCurate({ field: field.canonical, value, action: 'nowrite' })
+				: doClear({ field: field.canonical, value, action: 'nowrite' })
 		);
 	}
 	async function edit(oldValue: string, newValue: string) {
@@ -92,11 +110,11 @@
 			// Edit = drop the old value (clear a manual add, else tombstone a source
 			// value) + add the new one.
 			if (existing?.manual) {
-				await api.clearMediaCuration(videoId, { field: field.canonical, value: oldValue, action: 'add' });
+				await doClear({ field: field.canonical, value: oldValue, action: 'add' });
 			} else {
-				await api.curateMedia(videoId, { field: field.canonical, value: oldValue, action: 'suppress' });
+				await doCurate({ field: field.canonical, value: oldValue, action: 'suppress' });
 			}
-			await api.curateMedia(videoId, { field: field.canonical, value: newValue, action: 'add' });
+			await doCurate({ field: field.canonical, value: newValue, action: 'add' });
 		});
 	}
 </script>
@@ -107,6 +125,7 @@
 			item={it}
 			{isOwner}
 			showRemove={isSet}
+			{showWriteToggle}
 			person={personFor(it.value)}
 			onedit={edit}
 			onremove={remove}

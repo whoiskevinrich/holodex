@@ -14,6 +14,7 @@
 		item,
 		isOwner,
 		showRemove = true,
+		showWriteToggle = true,
 		person,
 		radio,
 		onedit,
@@ -23,6 +24,9 @@
 		item: ResolvedValue;
 		isOwner: boolean;
 		showRemove?: boolean;
+		// Hide the "don't write" toggle for entities with no writeback (F37: a person has
+		// no file, so `nowrite` has no referent on person merge fields).
+		showWriteToggle?: boolean;
 		person?: { id: number; headshot_version?: number };
 		// Pick-one (radio) mode for the F36 source-of-truth control (HOLODEX-112). When set, the
 		// same chip shell renders as a role="radio" button led by a ● dot instead of the merge
@@ -42,8 +46,11 @@
 	let editing = $state(false);
 	let draft = $state('');
 
-	// Provenance: providers read accented; file/manual baseline read muted.
-	const isProvider = $derived(item.sources.some((s) => s !== 'file' && s !== 'manual'));
+	// Provenance: providers read accented; the entity baseline (file for videos, record for
+	// persons — F37 RD4) and manual read muted.
+	const isProvider = $derived(
+		item.sources.some((s) => s !== 'file' && s !== 'record' && s !== 'manual')
+	);
 	const provenance = $derived(item.manual ? 'manual' : item.sources.join(' + '));
 
 	function startEdit() {
@@ -129,19 +136,21 @@
 				<button type="button" onclick={startEdit} aria-label={`Edit ${item.value}`} class={ctrl}>
 					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
 				</button>
-				<!-- "Don't write" toggle: a document glyph (distinct from the section's
-				     download-arrow Write button); aria-pressed + the chip's strikethrough
-				     carry the state. -->
-				<button
-					type="button"
-					onclick={() => ontogglewrite?.(item.value, !item.no_write)}
-					aria-pressed={item.no_write}
-					title={item.no_write ? 'Include in file write' : "Don't write to file"}
-					aria-label={item.no_write ? `Include ${item.value} in file write` : `Exclude ${item.value} from file write`}
-					class={ctrl}
-				>
-					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-6 4h6m4 4H5a2 2 0 01-2-2V5a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2z"/></svg>
-				</button>
+				{#if showWriteToggle}
+					<!-- "Don't write" toggle: a document glyph (distinct from the section's
+					     download-arrow Write button); aria-pressed + the chip's strikethrough
+					     carry the state. -->
+					<button
+						type="button"
+						onclick={() => ontogglewrite?.(item.value, !item.no_write)}
+						aria-pressed={item.no_write}
+						title={item.no_write ? 'Include in file write' : "Don't write to file"}
+						aria-label={item.no_write ? `Include ${item.value} in file write` : `Exclude ${item.value} from file write`}
+						class={ctrl}
+					>
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-6 4h6m4 4H5a2 2 0 01-2-2V5a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2z"/></svg>
+					</button>
+				{/if}
 				{#if showRemove}
 					<button type="button" onclick={() => onremove?.(item.value)} aria-label={`Remove ${item.value}`} class={ctrl}>
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>

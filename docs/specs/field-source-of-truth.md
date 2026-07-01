@@ -72,6 +72,7 @@ global rule decide for them.
 - **People / Studio entity pages** — this spec is **video fields only**. Person/Studio decisions
   ride the entity-agnostic-resolver and Studio-promotion fast-follows. *(Why: the resolver is
   video-shaped today; generalizing it is separate work.)* The model must not foreclose them.
+  *(Update 2026-07-01: the People slice is now specced — [F37](people-source-of-truth.md).)*
 - **F23 alias/merge offer on person fields** — adopting a provider's *person name* is also an
   identity question; that flow is deferred to the People refactor. We note the seam, build no copy.
 - **Synonym / fuzzy dedup** (`Sci-Fi` ≡ `Science Fiction`) — out of scope, as in [F30](metadata-curation.md).
@@ -160,7 +161,7 @@ global rule decide for them.
 
 ### Future considerations (P2)
 
-- **P2-1 — Entity generalization.** People/Studio decisions reuse the same primitive once the resolver is entity-agnostic and Studio is an entity (fast-follows; design the table/UI so `entity_type` is the only difference).
+- **P2-1 — Entity generalization.** People/Studio decisions reuse the same primitive once the resolver is entity-agnostic and Studio is an entity (fast-follows; design the table/UI so `entity_type` is the only difference). *People: specced as [F37](people-source-of-truth.md) (HOLODEX-10).*
 - **P2-2 — Person-field F23 offer.** Adopting a provider person value offers alias/merge (deferred, RD3).
 - **P2-3 — Bulk decisions / conflict triage.** Library-wide "prefer file / prefer provider X" via the F31.11 batch seam + `sources_disagree`.
 - **P2-4 — Commit-and-detach affordance.** An explicit "bake provider value into the file and revert to file" shortcut (today: adopt → write → clear).

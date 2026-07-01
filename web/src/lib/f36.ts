@@ -2,16 +2,22 @@
 // SourceSelect control: derive the segments/candidates from a ResolvedField's frozen
 // `decision` / `candidates` / `in_sync` payload. No I/O, no Svelte — unit-tested in isolation
 // (f36.test.ts), reused by SourceSelect.svelte and the media detail page.
+//
+// F37 generalizes the baseline: the anchored first chip's source key is the entity's
+// `baselineKey` — 'file' for videos (the default, so every F36 call site is untouched),
+// 'record' for persons (RD4: `·file` is factually wrong for a person). Only the key is
+// parameterized; the anchor/fold/select behavior is identical across entities.
 import type { DecisionSource, FieldCandidate, ResolvedField } from './types';
 
 const PROVIDER_PREFIX = 'provider:';
 
-// providerOf extracts the provider name from a `provider:<name>` source key; '' for file/manual.
+// providerOf extracts the provider name from a `provider:<name>` source key; '' for the
+// baseline (file/record) and manual.
 export function providerOf(source: DecisionSource | string): string {
 	return source.startsWith(PROVIDER_PREFIX) ? source.slice(PROVIDER_PREFIX.length) : '';
 }
 
-// isProviderSource is the source-kind guard used to split file/manual from a provider pick.
+// isProviderSource is the source-kind guard used to split baseline/manual from a provider pick.
 export function isProviderSource(source: DecisionSource | string): boolean {
 	return source.startsWith(PROVIDER_PREFIX);
 }
@@ -23,15 +29,21 @@ export function isReplaceField(field: ResolvedField): boolean {
 }
 
 // decidedSource is the field's currently-pinned source. An absent decision is the implicit
-// file default (file-first, RD4), so an undecided field reports 'file'.
-export function decidedSource(field: ResolvedField): DecisionSource {
-	return field.decision?.source ?? 'file';
+// baseline default (file-first, RD4), so an undecided field reports the baseline key.
+export function decidedSource(field: ResolvedField, baselineKey = 'file'): DecisionSource {
+	return field.decision?.source ?? (baselineKey as DecisionSource);
 }
 
-// fileCandidateValue is the file baseline value (the `Keep file` segment's value), or '' when
-// the file has no value for the field.
+// baselineCandidateValue is the entity's baseline value (the anchored first chip's value), or
+// '' when the baseline has no value for the field.
+export function baselineCandidateValue(field: ResolvedField, baselineKey = 'file'): string {
+	return (field.candidates ?? []).find((c) => c.source === baselineKey)?.value ?? '';
+}
+
+// fileCandidateValue is the video-entity spelling of baselineCandidateValue, kept so F36 call
+// sites and tests read unchanged.
 export function fileCandidateValue(field: ResolvedField): string {
-	return (field.candidates ?? []).find((c) => c.source === 'file')?.value ?? '';
+	return baselineCandidateValue(field, 'file');
 }
 
 // providerCandidates are the matched providers that actually supply a value — an empty provider
@@ -48,32 +60,38 @@ export function providerCandidates(field: ResolvedField): FieldCandidate[] {
 // that supplies it. `decisionSource` is what selecting the chip pins; `sources` feeds
 // CurationChip's `·provenance` suffix (and its provider-vs-baseline colouring).
 export interface SourceChip {
-	key: string; // stable DOM/selection key: 'file' | 'provider:<name>' | 'custom'
-	value: string; // display value ('' on the file chip ⇒ UI placeholder; '' on custom ⇒ opener)
-	sources: string[]; // provenance namespaces, e.g. ['file'], ['tmdb'], ['file','tmdb']
+	key: string; // stable DOM/selection key: baselineKey | 'provider:<name>' | 'custom'
+	value: string; // display value ('' on the baseline chip ⇒ UI placeholder; '' on custom ⇒ opener)
+	sources: string[]; // provenance namespaces, e.g. ['file'], ['record'], ['tmdb'], ['file','tmdb']
 	decisionSource: DecisionSource; // the decision selecting this chip pins
 	manual?: boolean; // the trailing Custom chip
 }
 
-// sourceChips builds the one-row chip model for a replace field. The file baseline is always the
-// first, anchored chip (tagged `·file`) — the file-first mental model is the whole point of F36,
-// so the baseline never becomes just another value in the row. A provider whose value equals the
-// file value folds into that file chip (`·file + tmdb`) rather than repeating the value; providers
-// that share a distinct value fold together too. Selecting a folded file chip still pins `file`.
+// sourceChips builds the one-row chip model for a replace field. The entity baseline is always
+// the first, anchored chip (tagged `·file` / `·record`) — the baseline-first mental model is the
+// whole point of F36, so the baseline never becomes just another value in the row. A provider
+// whose value equals the baseline value folds into that baseline chip (`·file + tmdb`,
+// `·record + tmdb`) rather than repeating the value; providers that share a distinct value fold
+// together too. Selecting a folded baseline chip still pins the baseline.
 // The Custom chip is always last: the frozen manual literal when decided, else the inline-input opener.
-export function sourceChips(field: ResolvedField): SourceChip[] {
-	const fileVal = fileCandidateValue(field);
-	const file: SourceChip = { key: 'file', value: fileVal, sources: ['file'], decisionSource: 'file' };
-	const chips: SourceChip[] = [file];
+export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceChip[] {
+	const baseVal = baselineCandidateValue(field, baselineKey);
+	const base: SourceChip = {
+		key: baselineKey,
+		value: baseVal,
+		sources: [baselineKey],
+		decisionSource: baselineKey as DecisionSource
+	};
+	const chips: SourceChip[] = [base];
 
 	for (const c of providerCandidates(field)) {
 		const name = c.provider || providerOf(c.source);
 		const v = c.value.trim();
-		if (fileVal.trim() !== '' && v === fileVal.trim()) {
-			if (!file.sources.includes(name)) file.sources.push(name);
+		if (baseVal.trim() !== '' && v === baseVal.trim()) {
+			if (!base.sources.includes(name)) base.sources.push(name);
 			continue;
 		}
-		const twin = chips.find((ch) => ch.decisionSource !== 'file' && ch.value.trim() === v);
+		const twin = chips.find((ch) => ch.decisionSource !== baselineKey && ch.value.trim() === v);
 		if (twin) {
 			if (!twin.sources.includes(name)) twin.sources.push(name);
 		} else {
@@ -99,18 +117,37 @@ export function sourceChips(field: ResolvedField): SourceChip[] {
 
 // selectedChipKey maps the field's decided source onto the chip that should read selected. A
 // provider decision resolves to whichever chip carries that provider (standalone or folded into
-// the file chip); an unmatched decision falls back to the file chip (harmless — the value is gone).
-export function selectedChipKey(field: ResolvedField, chips: SourceChip[]): string {
-	const src = decidedSource(field);
-	if (src === 'file') return 'file';
+// the baseline chip); an unmatched decision falls back to the baseline chip (harmless — the
+// value is gone). Undecided fields default to the baseline chip when the baseline has a value
+// (file-first, RD4) — but with an EMPTY baseline the resolver's winner is a provider value, so
+// the provider chip reads selected (F37 RD6: display identical to the raw enrichment list). An
+// explicit baseline decision (the blank-pin, RD3) still selects the `—` baseline chip.
+export function selectedChipKey(
+	field: ResolvedField,
+	chips: SourceChip[],
+	baselineKey = 'file'
+): string {
+	const src = decidedSource(field, baselineKey);
 	if (src === 'manual') return 'custom';
+	if (src === baselineKey) {
+		if (!field.decision && baselineCandidateValue(field, baselineKey).trim() === '') {
+			const resolved = (field.values?.[0] ?? '').trim();
+			const winner =
+				chips.find(
+					(c) => !c.manual && c.key !== baselineKey && resolved !== '' && c.value.trim() === resolved
+				) ?? chips.find((c) => !c.manual && c.key !== baselineKey);
+			if (winner) return winner.key;
+		}
+		return baselineKey;
+	}
 	const name = providerOf(src);
-	return chips.find((c) => c.sources.includes(name))?.key ?? 'file';
+	return chips.find((c) => c.sources.includes(name))?.key ?? baselineKey;
 }
 
 // outOfSync is true when the field's decided value differs from the value embedded in the file
 // (`in_sync === false`). This is the single per-field `text-warn` signal (RD2). An undecided
 // (file-default) field is in sync by construction, so only a decision can read out of sync.
+// Person fields never carry `in_sync` (F37 — a person has no file), so this is never true there.
 export function outOfSync(field: ResolvedField): boolean {
 	return field.in_sync === false;
 }

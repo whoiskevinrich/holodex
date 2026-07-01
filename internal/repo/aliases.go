@@ -176,6 +176,11 @@ func (r *Repo) MergePersons(ctx context.Context, canonicalID, mergedID int64) er
 		{"name → alias", `INSERT OR IGNORE INTO person_aliases (person_id, alias) VALUES (?, ?)`, []any{canonicalID, mergedName}},
 		// 4. Drop the merged person's shadow enrichment (canonical keeps its own).
 		{"drop enrichment", `DELETE FROM entity_enrichment WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
+		// 4b. Drop its field-source decisions and value curation the same way
+		// (F37 RD5): the canonical person's own rows win, nothing is migrated —
+		// otherwise the rows would orphan against the deleted id.
+		{"drop decisions", `DELETE FROM field_source_decisions WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
+		{"drop curation", `DELETE FROM metadata_curation WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
 		// 5. Remove the now-empty duplicate (cascade + FTS trigger clean up the rest).
 		{"delete person", `DELETE FROM people WHERE id = ?`, []any{mergedID}},
 		// 6. Tidy a degenerate self-alias (canonical's own name routed in via step 2).
@@ -190,6 +195,76 @@ func (r *Repo) MergePersons(ctx context.Context, canonicalID, mergedID int64) er
 		return fmt.Errorf("commit merge: %w", err)
 	}
 	return nil
+}
+
+// ErrNameTaken is returned by RenamePerson when the new name already belongs
+// to another person; the caller surfaces that person for the explicit merge
+// flow (F37 RD1 — a rename never silently collides or auto-merges).
+var ErrNameTaken = errors.New("name taken")
+
+// RenamePerson sets a person's name and keeps the previous name as an F23
+// alias in one transaction (F37 P0-5), so search and scan routing still match
+// the old spelling. The people_au / person_aliases_ai triggers keep both FTS
+// mirrors correct. When newName already names another person (exact match,
+// mirroring the people.name UNIQUE constraint's binary collation) it returns
+// that person's id with ErrNameTaken and mutates nothing. Renaming to the
+// current name is a no-op success. The caller validates/trims newName.
+func (r *Repo) RenamePerson(ctx context.Context, id int64, newName string) (conflictID int64, err error) {
+	if newName == "" {
+		return 0, errors.New("empty name")
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	var oldName string
+	switch err := tx.QueryRowContext(ctx, `SELECT name FROM people WHERE id = ?`, id).Scan(&oldName); {
+	case errors.Is(err, sql.ErrNoRows):
+		return 0, ErrNotFound
+	case err != nil:
+		return 0, fmt.Errorf("rename: load person: %w", err)
+	}
+	if oldName == newName {
+		return 0, nil // no-op: nothing to rename, nothing to alias
+	}
+	var cid int64
+	switch err := tx.QueryRowContext(ctx,
+		`SELECT id FROM people WHERE name = ? AND id <> ?`, newName, id).Scan(&cid); {
+	case err == nil:
+		return cid, ErrNameTaken
+	case !errors.Is(err, sql.ErrNoRows):
+		return 0, fmt.Errorf("rename: conflict check: %w", err)
+	}
+
+	for _, step := range []struct {
+		desc string
+		sql  string
+		args []any
+	}{
+		// 1. The rename itself; the people_au trigger refreshes people_fts.
+		{"set name", `UPDATE people SET name = ? WHERE id = ?`, []any{newName, id}},
+		// 2. Keep the old name reachable for search + scan routing (idempotent
+		//    per the (person_id, alias) NOCASE key, matching AddPersonAlias).
+		{"old name → alias", `INSERT OR IGNORE INTO person_aliases (person_id, alias) VALUES (?, ?)`, []any{id, oldName}},
+		// 3. Tidy a degenerate self-alias — renaming to one of the person's own
+		//    aliases leaves that alias equal to the canonical name (mirrors the
+		//    merge transaction's self-alias cleanup; NOCASE column comparison).
+		{"drop self-alias", `DELETE FROM person_aliases WHERE person_id = ? AND alias = ?`, []any{id, newName}},
+	} {
+		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
+			return 0, fmt.Errorf("rename (%s): %w", step.desc, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit rename: %w", err)
+	}
+	return 0, nil
 }
 
 func mergeLookupErr(err error) error {

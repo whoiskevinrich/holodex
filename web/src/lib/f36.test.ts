@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	baselineCandidateValue,
 	decidedSource,
 	fileCandidateValue,
 	isReplaceField,
@@ -157,6 +158,143 @@ describe('selectedChipKey', () => {
 	it('selects the Custom chip for a manual decision', () => {
 		const f = field({ decision: { source: 'manual', standing: true, manual_value: 'X' } });
 		expect(selectedChipKey(f, sourceChips(f))).toBe('custom');
+	});
+});
+
+// F37 — the entity-generic baseline (RD4): baselineKey='record' must anchor/fold/select
+// exactly like the 'file' default. Person fields carry `record` candidates and decisions.
+describe("baselineKey='record' (F37 person fields)", () => {
+	// A person bio: empty record baseline + one provider value (the common enrichment-only case).
+	function personField(over: Partial<ResolvedField> = {}): ResolvedField {
+		return {
+			canonical: 'bio',
+			label: 'Bio',
+			values: ['An American actress.'],
+			candidates: [
+				{ source: 'record', value: '' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'An American actress.' }
+			],
+			...over
+		};
+	}
+	// The name field: the record baseline is the live people.name.
+	function nameField(over: Partial<ResolvedField> = {}): ResolvedField {
+		return personField({
+			canonical: 'name',
+			label: 'Name',
+			values: ['Jennifer Lawrence'],
+			candidates: [
+				{ source: 'record', value: 'Jennifer Lawrence' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Jennifer Shrader Lawrence' }
+			],
+			...over
+		});
+	}
+
+	it('baselineCandidateValue reads the record candidate', () => {
+		expect(baselineCandidateValue(nameField(), 'record')).toBe('Jennifer Lawrence');
+		expect(baselineCandidateValue(personField(), 'record')).toBe('');
+	});
+
+	it('decidedSource defaults to record when undecided', () => {
+		expect(decidedSource(personField(), 'record')).toBe('record');
+	});
+
+	it('anchors the record baseline first, tagged record — even when empty (RD3)', () => {
+		const [first] = sourceChips(personField(), 'record');
+		expect(first).toMatchObject({
+			key: 'record',
+			value: '',
+			sources: ['record'],
+			decisionSource: 'record'
+		});
+	});
+
+	it('gives a diverging provider its own chip and appends Custom last', () => {
+		const chips = sourceChips(nameField(), 'record');
+		expect(chips.map((c) => c.key)).toEqual(['record', 'provider:tmdb', 'custom']);
+		expect(chips[1]).toMatchObject({ value: 'Jennifer Shrader Lawrence', sources: ['tmdb'] });
+	});
+
+	it('folds a provider that agrees with the record into the record chip (·record + tmdb)', () => {
+		const f = nameField({
+			candidates: [
+				{ source: 'record', value: 'Jennifer Lawrence' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Jennifer Lawrence' }
+			]
+		});
+		const chips = sourceChips(f, 'record');
+		expect(chips.map((c) => c.key)).toEqual(['record', 'custom']);
+		expect(chips[0]).toMatchObject({ value: 'Jennifer Lawrence', sources: ['record', 'tmdb'] });
+	});
+
+	it('an empty record baseline never folds providers into it', () => {
+		const chips = sourceChips(personField(), 'record');
+		expect(chips.map((c) => c.key)).toEqual(['record', 'provider:tmdb', 'custom']);
+	});
+
+	it('undecided + record has a value ⇒ record chip selected (record-first)', () => {
+		const f = nameField();
+		expect(selectedChipKey(f, sourceChips(f, 'record'), 'record')).toBe('record');
+	});
+
+	it('undecided + empty record ⇒ provider chip selected (RD6 — the raw-enrichment display)', () => {
+		const f = personField();
+		expect(selectedChipKey(f, sourceChips(f, 'record'), 'record')).toBe('provider:tmdb');
+	});
+
+	it('a standing record decision (blank-pin, RD3) selects the — record chip', () => {
+		const f = personField({ decision: { source: 'record', standing: true } });
+		expect(selectedChipKey(f, sourceChips(f, 'record'), 'record')).toBe('record');
+	});
+
+	it('a provider decision selects the provider chip; folded ⇒ the record chip', () => {
+		const decided = personField({ decision: { source: 'provider:tmdb', standing: true } });
+		expect(selectedChipKey(decided, sourceChips(decided, 'record'), 'record')).toBe(
+			'provider:tmdb'
+		);
+		const folded = nameField({
+			decision: { source: 'provider:tmdb', standing: true },
+			candidates: [
+				{ source: 'record', value: 'Same' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Same' }
+			]
+		});
+		expect(selectedChipKey(folded, sourceChips(folded, 'record'), 'record')).toBe('record');
+	});
+
+	it('a manual decision selects the Custom chip carrying the frozen literal', () => {
+		const f = personField({ decision: { source: 'manual', standing: true, manual_value: 'Mine' } });
+		const chips = sourceChips(f, 'record');
+		expect(chips.at(-1)).toMatchObject({ key: 'custom', value: 'Mine', manual: true });
+		expect(selectedChipKey(f, chips, 'record')).toBe('custom');
+	});
+
+	it('an unmatched provider decision falls back to the record chip', () => {
+		const f = personField({ decision: { source: 'provider:gone', standing: true } });
+		expect(selectedChipKey(f, sourceChips(f, 'record'), 'record')).toBe('record');
+	});
+
+	it('person fields never read out of sync (in_sync is absent by contract)', () => {
+		expect(outOfSync(personField())).toBe(false);
+		expect(outOfSyncCount([personField(), nameField()])).toBe(0);
+	});
+});
+
+// Default-key regression guard: the file spelling stays byte-compatible with F36.
+describe('baselineKey default (media page unchanged)', () => {
+	it('baselineCandidateValue defaults to the file baseline (fileCandidateValue parity)', () => {
+		const f: ResolvedField = {
+			canonical: 'title',
+			label: 'Title',
+			values: ['Blade Runner'],
+			candidates: [
+				{ source: 'file', value: 'Blade Runner' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Blade Runner: Final Cut' }
+			]
+		};
+		expect(baselineCandidateValue(f)).toBe(fileCandidateValue(f));
+		expect(baselineCandidateValue(f)).toBe('Blade Runner');
 	});
 });
 

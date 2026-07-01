@@ -230,7 +230,13 @@ func ResolveFields(
 	for _, f := range fields {
 		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
 		if len(items) == 0 {
-			continue
+			// A replace field with a *standing* decision stays in the output even
+			// when the decided value is empty (e.g. a blank-pin to an empty person
+			// baseline, F37 RD3) — dropping it would hide the pin and leave no
+			// control to change or clear it. Undecided empty fields drop as before.
+			if _, decided := opts.lookup(f.Canonical); !decided || f.Multi || f.Merge {
+				continue
+			}
 		}
 		values := make([]string, len(items))
 		for i, it := range items {
