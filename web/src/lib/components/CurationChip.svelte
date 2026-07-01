@@ -15,6 +15,7 @@
 		isOwner,
 		showRemove = true,
 		person,
+		radio,
 		onedit,
 		onremove,
 		ontogglewrite
@@ -23,6 +24,13 @@
 		isOwner: boolean;
 		showRemove?: boolean;
 		person?: { id: number; headshot_version?: number };
+		// Pick-one (radio) mode for the F36 source-of-truth control (HOLODEX-112). When set, the
+		// same chip shell renders as a role="radio" button led by a ● dot instead of the merge
+		// ✕/edit controls — one shared vocabulary, a different *glyph* per selection model (replace
+		// = pick one; merge = drop any). The parent radiogroup owns roving focus + arrow keys, so
+		// it hands down the key/checked/tabindex and gets an onselect back. Selection reads via the
+		// dot + aria-checked (+ accent border), never colour alone.
+		radio?: { key: string; checked: boolean; tabindex: number; onselect: () => void };
 		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
 		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
 		// block, so an owner caller must still supply them.
@@ -62,7 +70,35 @@
 	const ctrl = 'rounded p-1 -m-0.5 text-muted hover:text-accent focus-visible:text-accent';
 </script>
 
-{#if editing}
+{#if radio}
+	<!-- Pick-one source chip (F36 / HOLODEX-112): the same shell as a merge chip, but led by a
+	     ● radio dot and acting as the radiogroup's radio button. No per-chip edit/remove controls —
+	     choosing a source is the only action here. Empty file baseline renders an em-dash. -->
+	<button
+		type="button"
+		role="radio"
+		data-seg={radio.key}
+		aria-checked={radio.checked}
+		tabindex={radio.tabindex}
+		aria-label={`${item.value || 'no value'}, from ${provenance}`}
+		title={item.value || undefined}
+		onclick={radio.onselect}
+		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
+			? 'border-accent bg-surface-2 text-ink'
+			: 'border-rule bg-surface-2 text-muted hover:text-ink'}"
+	>
+		<span
+			class="h-2 w-2 shrink-0 rounded-full border {radio.checked
+				? 'border-accent bg-accent'
+				: 'border-current'}"
+			aria-hidden="true"
+		></span>
+		<span class="max-w-[14rem] truncate {radio.checked ? 'text-ink' : ''}">{item.value || '—'}</span>
+		<span class="{isProvider ? 'text-accent' : 'text-muted'} shrink-0 text-[0.65rem]"
+			>·{provenance}</span
+		>
+	</button>
+{:else if editing}
 	<!-- svelte-ignore a11y_autofocus -->
 	<input
 		bind:value={draft}

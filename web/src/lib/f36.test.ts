@@ -7,7 +7,8 @@ import {
 	outOfSyncCount,
 	providerCandidates,
 	providerOf,
-	providersDiffer
+	selectedChipKey,
+	sourceChips
 } from './f36';
 import type { ResolvedField } from './types';
 
@@ -90,28 +91,72 @@ describe('providerCandidates', () => {
 	});
 });
 
-describe('providersDiffer', () => {
-	it('is false with a single provider', () => {
-		expect(providersDiffer(field())).toBe(false);
+describe('sourceChips', () => {
+	it('anchors the file baseline first, tagged file', () => {
+		const [first] = sourceChips(field());
+		expect(first).toMatchObject({ key: 'file', value: 'Blade Runner', sources: ['file'] });
 	});
-	it('is true when two providers disagree', () => {
+	it('appends a Custom opener chip last', () => {
+		const chips = sourceChips(field());
+		expect(chips.at(-1)).toMatchObject({ key: 'custom', value: '', manual: true });
+	});
+	it('gives a diverging provider its own value chip', () => {
+		const chips = sourceChips(field()); // file "Blade Runner" vs tmdb "Blade Runner: Final Cut"
+		expect(chips.map((c) => c.key)).toEqual(['file', 'provider:tmdb', 'custom']);
+		expect(chips[1]).toMatchObject({ value: 'Blade Runner: Final Cut', sources: ['tmdb'] });
+	});
+	it('folds a provider that agrees with the file into the file chip (no repeated value)', () => {
 		const f = field({
+			values: ['Legendary Pictures'],
 			candidates: [
-				{ source: 'file', value: 'Blade Runner' },
-				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Final Cut' },
-				{ source: 'provider:imdb', provider: 'imdb', value: 'The Directors Cut' }
+				{ source: 'file', value: 'Legendary Pictures' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Legendary Pictures' }
 			]
 		});
-		expect(providersDiffer(f)).toBe(true);
+		const chips = sourceChips(f);
+		expect(chips.map((c) => c.key)).toEqual(['file', 'custom']);
+		expect(chips[0]).toMatchObject({ value: 'Legendary Pictures', sources: ['file', 'tmdb'] });
 	});
-	it('is false when two providers agree', () => {
+	it('folds two providers that agree with each other into one chip', () => {
 		const f = field({
 			candidates: [
-				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Same' },
-				{ source: 'provider:imdb', provider: 'imdb', value: 'Same' }
+				{ source: 'file', value: 'A' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'B' },
+				{ source: 'provider:imdb', provider: 'imdb', value: 'B' }
 			]
 		});
-		expect(providersDiffer(f)).toBe(false);
+		const chips = sourceChips(f);
+		expect(chips.map((c) => c.key)).toEqual(['file', 'provider:tmdb', 'custom']);
+		expect(chips[1].sources).toEqual(['tmdb', 'imdb']);
+	});
+	it('carries the frozen literal on the Custom chip when manual is decided', () => {
+		const f = field({ decision: { source: 'manual', standing: true, manual_value: 'My Title' } });
+		expect(sourceChips(f).at(-1)).toMatchObject({ key: 'custom', value: 'My Title', manual: true });
+	});
+});
+
+describe('selectedChipKey', () => {
+	it('selects the file chip when undecided (file-first)', () => {
+		const f = field();
+		expect(selectedChipKey(f, sourceChips(f))).toBe('file');
+	});
+	it('selects the provider chip a provider decision points at', () => {
+		const f = field({ decision: { source: 'provider:tmdb', standing: true } });
+		expect(selectedChipKey(f, sourceChips(f))).toBe('provider:tmdb');
+	});
+	it('selects the file chip when the decided provider folded into it', () => {
+		const f = field({
+			decision: { source: 'provider:tmdb', standing: true },
+			candidates: [
+				{ source: 'file', value: 'Same' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Same' }
+			]
+		});
+		expect(selectedChipKey(f, sourceChips(f))).toBe('file');
+	});
+	it('selects the Custom chip for a manual decision', () => {
+		const f = field({ decision: { source: 'manual', standing: true, manual_value: 'X' } });
+		expect(selectedChipKey(f, sourceChips(f))).toBe('custom');
 	});
 });
 

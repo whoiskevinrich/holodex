@@ -21,7 +21,7 @@
 
 ## 1. Setup / preconditions
 
-> **Who does this:** whoever sets up the session (developer or agent) — *not* the §4 human. **Quick "is it ready?" check:** open a media item as owner; under **Metadata**, a **replace** field (e.g. Title) shows a small **Keep file · Adopt {provider} · Custom** selector under its value, and the header button reads **Write decisions to file**.
+> **Who does this:** whoever sets up the session (developer or agent) — *not* the §4 human. **Quick "is it ready?" check:** open a media item as owner; under **Metadata**, a **replace** field (e.g. Title) shows a **row of value chips** — the file value first with a leading **● dot** and `·file`, one chip per provider value, and a **＋ Custom** chip — and the header button reads **Write decisions to file**. (HOLODEX-112 refinement: the old `Keep file · Adopt · Custom` segmented control + candidates line are replaced by this chip radiogroup.)
 
 - [ ] 1.1 App running with a library item that has, on at least one **replace** field, **both** a file value and a **provider** value (so a real choice exists). A second matched provider with a *different* value for some replace field enables the multi-provider checks (§3.9, §4.4). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`.
 - [ ] 1.2 At least one **merge** field present (genres/actors) to confirm it is **unchanged**.
@@ -33,8 +33,8 @@
 
 ## 2. Smoke — automated (green in CI)
 
-- [ ] 2.1 **`svelte-check`** passes with the new `SourceSelect` component, the `+page.svelte` replace-field changes, and the renamed write button.
-- [ ] 2.2 **Token-discipline guard** empty on the changed markup: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` — `SourceSelect` uses `rounded-theme`/`border-rule`/`bg-surface-2`/`bg-accent`/`text-accent`/`text-warn` only; any SVG uses `currentColor`.
+- [ ] 2.1 **`svelte-check`** passes with the `SourceSelect` chip radiogroup, the `CurationChip` `radio` mode, the `f36.ts` `sourceChips`/`selectedChipKey` helpers (+ `f36.test.ts`), and the `+page.svelte` replace-field wiring.
+- [ ] 2.2 **Token-discipline guard** empty on the changed markup: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` — the chips use `rounded-full`/`border-rule`/`bg-surface-2`/`border-accent`/`text-accent`/`text-warn` only (selection is `border-accent` + accent dot, **not** a filled `bg-accent`); any SVG uses `currentColor`.
 - [ ] 2.3 **Resolver — decision short-circuit (replace).** Unit: a decision pins display to the decided source over mapping order; absence of a decision resolves **file-first** under `default_source: file`; `default_source: mapping` restores first-non-empty. *(pure resolver test, no I/O.)*
 - [ ] 2.4 **Resolver — merge untouched.** Unit: merge-field resolution (union + per-value curation) is **byte-identical** with and without F36 (RD1 regression guard).
 - [ ] 2.5 **Source-pin follows live layer (P0-2).** Unit/integration: a `file` decision reflects a re-extracted changed file value; an `adopt provider` decision reflects a re-enriched value; a `manual` decision is frozen.
@@ -49,24 +49,24 @@
 
 ## 3. Agent — drive the running app
 
-**Selector presence & default (RD1/RD4)**
+**Chip row presence & default (RD1/RD4)**
 
-- [ ] 3.1 On a **replace** field, a `role="radiogroup"` `SourceSelect` renders for the owner with segments `Keep file`, one `Adopt {provider}` per matched provider, and `Custom`.
-- [ ] 3.2 **Undecided** replace field: the resolved chip shows the **file** value with `·file` provenance; `Keep file` is `aria-checked="true"`; the provider appears only as a muted **candidate** (row 3), not as the chip value.
-- [ ] 3.3 A **merge** field shows the unchanged `CurationFieldRow` chips (no `SourceSelect`) — RD1.
-- [ ] 3.4 The candidates line (row 3) renders **only** when ≥1 provider candidate exists; a file-only replace field shows no candidates line and no provider segment.
+- [ ] 3.1 On a **replace** field, a `role="radiogroup"` renders for the owner: a `role="radio"` **file** chip first (leading ● dot, `·file`), one chip per **distinct** provider value, and a trailing **Custom** chip.
+- [ ] 3.2 **Undecided** replace field: the **file** chip is `aria-checked="true"` and shows the file value `·file`; the provider appears as its **own sibling chip** (`·{provider}`), never as the file chip's value.
+- [ ] 3.3 A **merge** field shows the unchanged `CurationFieldRow` chips — same shell, but **✕-per-chip** (no ● dot, no radiogroup) — RD1.
+- [ ] 3.4 A file-only replace field (no matched provider value) shows just the **file** chip + **Custom**; a provider value equal to the file value **folds** into the file chip as `·file + {provider}` (the value appears once, not twice).
 
 **Decisions are DB-only (invariant 1 / RD5)**
 
-- [ ] 3.5 Selecting `Adopt {provider}` issues a single `PUT …/decision` (Network); **no** writeback POST, **no** `.holodex-tmp`/`.holodex-new` on disk, **no** file-write spinner. After refetch the chip shows the provider value `·{provider}` (accent).
-- [ ] 3.6 Selecting `Custom` opens the inline input; committing issues `PUT …/decision {source:"manual"}`; chip shows the literal `·manual` (muted). Escape/empty cancels with no call.
-- [ ] 3.7 Selecting `Keep file` from a decided state issues `DELETE …/decision` (or a `file` PUT) and returns the field to the file value/default.
-- [ ] 3.8 Source-pin: externally edit the file tag, run **Refresh**; a field decided `Keep file` updates to the new file value with no re-decision (P0-2).
+- [ ] 3.5 Selecting a **provider** chip issues a single `PUT …/decision` (Network); **no** writeback POST, **no** `.holodex-tmp`/`.holodex-new` on disk, **no** file-write spinner. After refetch that chip is `aria-checked` and shows `·{provider}` (accent).
+- [ ] 3.6 Selecting **Custom** opens the inline input; committing issues `PUT …/decision {source:"manual"}`; the Custom chip becomes the `·manual` value chip (selected). Escape/empty cancels with no call and **returns focus to the Custom chip**; a changed-then-Escaped value is **not** committed.
+- [ ] 3.7 Selecting the **file** chip from a decided state issues `DELETE …/decision` (or a `file` PUT) and returns the field to the file value/default.
+- [ ] 3.8 Source-pin: externally edit the file tag, run **Refresh**; a field decided to the **file** chip updates to the new file value with no re-decision (P0-2).
 
 **Multi-provider (P1-1/P1-2)**
 
-- [ ] 3.9 With two matched providers supplying **different** values for a replace field, both `Adopt` segments render and a **muted** "providers differ" hint shows on the candidates line — **not** a `text-warn` pill (Open-Q3).
-- [ ] 3.10 A provider with **no** value for the field has **no** `Adopt` segment (edge case).
+- [ ] 3.9 With two matched providers supplying **different** values for a replace field, **both** provider chips render (distinct values, self-evident divergence — no "providers differ" hint, no `text-warn`); two providers with the **same** value fold into **one** chip tagged `·{p1} + {p2}`.
+- [ ] 3.10 A provider with **no** value for the field contributes **no** chip (edge case).
 
 **Sync indicators (RD2)**
 
@@ -78,12 +78,12 @@
 
 **Owner gating (invariant 4)**
 
-- [ ] 3.13 As a **non-owner**, `SourceSelect`, the candidates line, the out-of-sync pill, and the write button are absent; the field renders the read-only resolved value exactly as today. Direct `PUT …/decision` still returns 401/403.
+- [ ] 3.13 As a **non-owner**, the chip radiogroup, the out-of-sync pill, and the write button are absent; the field renders the read-only resolved value exactly as today. Direct `PUT …/decision` still returns 401/403.
 
 **Keyboard / a11y (P0-8)**
 
-- [ ] 3.14 `SourceSelect` is **one** Tab stop (lands on the checked segment); **Left/Right/Up/Down** move and change selection (native radio semantics); `aria-checked` tracks selection; each segment's `aria-label` names its value.
-- [ ] 3.15 Focus-visible ring on segments and the Custom input; Escape in the Custom input returns focus to the `Custom` segment. No keyboard trap.
+- [ ] 3.14 The chip radiogroup is **one** Tab stop (lands on the checked chip; the group itself is `tabindex="-1"`); **Left/Right/Up/Down** move and change selection (native radio semantics, debounced commit); `aria-checked` tracks selection; each chip's `aria-label` names its value + source.
+- [ ] 3.15 Focus-visible ring on chips and the Custom input; Escape in the Custom input returns focus to the **Custom** chip. No keyboard trap.
 
 ---
 
@@ -91,10 +91,10 @@
 
 > **Nav:** open a media item with a provider-matched replace field, in **owner** mode. Switch skins via the header picker. For each skin below, eyeball the Metadata section.
 
-- [ ] 4.1 **The selector reads as a control, in every skin.** The `SourceSelect` looks like a segmented toggle (not stray text); the **selected** segment is unmistakably distinct from idle ones, and the distinction survives Brutalist (where a filled `bg-accent` can read heavy — confirm the chosen treatment still reads "selected" without shouting). No clipped corners, no collision with the chip.
-- [ ] 4.2 **Provenance + candidates are legible, not noisy.** The `·file`/`·{provider}`/`·manual` suffix and the muted candidates line are readable but clearly secondary to the value; the field doesn't feel cluttered at two-column width.
-- [ ] 4.3 **The two signals don't read as one alarm.** When a field is both out-of-sync (warn pill, row 1) and has "providers differ" (muted, row 3), they're visually separate and only the out-of-sync one carries warn weight. Confirm in all three skins (warn-on-surface contrast differs per skin).
-- [ ] 4.4 **Multi-provider choice is obvious.** With IMDB + TMDB both matched, the two `Adopt` options are distinguishable and the disagreement is noticeable at a glance without being alarming.
+- [ ] 4.1 **Selection reads at a glance, in every skin.** The **selected** chip is unmistakable via its **● filled dot + accent border** (not fill/colour alone), and the distinction survives Brutalist (the chip stays on `bg-surface-2` — confirm it reads "selected" without shouting). No clipped corners, no dot/value collision.
+- [ ] 4.2 **The row reads as one vocabulary with the merge chips.** The replace chips (● dot) and the merge chips (✕ on hover) sit in the same Metadata grid and clearly belong to one system; the `·source` suffix is readable but secondary; the field isn't cluttered at two-column width.
+- [ ] 4.3 **The dedup fix, felt.** On a field where file and provider **agree** (e.g. Studio), the value shows **once** as a single `·file + {provider}` chip — not twice. Confirm in all three skins.
+- [ ] 4.4 **Divergence is obvious without alarm.** Where file and provider (or two providers) **differ**, the two value chips make the disagreement self-evident at a glance; nothing reads as a warning (only a real out-of-sync decision shows the warn pill). Confirm warn-on-surface contrast in all three skins.
 - [ ] 4.5 **Write button.** "Write decisions to file · {n} out of sync" is legible; the count reads as attention (warn) but the button doesn't look broken when the count is hidden (n=0).
-- [ ] 4.6 **The fix, felt.** Edit a file tag externally → Refresh → the field shows **your file value** by default (no provider masking). Then Adopt the provider, confirm the value switches; Keep file, confirm it switches back. The mental model ("file is the baseline, I choose") is clear without instruction.
-- [ ] 4.7 **Empty/edge states themed.** A file-only field (no provider) shows just `Keep file | Custom`; a long title truncates gracefully; nothing overflows the card in any skin.
+- [ ] 4.6 **The fix, felt.** Edit a file tag externally → Refresh → the field shows **your file value** by default (no provider masking). Then pick the provider chip, confirm the value switches; pick the file chip, confirm it switches back. The mental model ("file is the baseline, I choose") is clear without instruction.
+- [ ] 4.7 **Empty/edge states themed.** A file-only field shows just the **file** chip + **Custom**; an empty file baseline shows `—`; a long title truncates gracefully (full value on hover); nothing overflows the card in any skin.
