@@ -21,22 +21,24 @@ flowchart TB
     S2["S2 · F36 frontend<br/>SourceSelect · starts now"]
   end
   S2 -. joins .-> S3
-  subgraph FF["Fast-follows after merge — ② &amp; ③ need ① (delivered by S1)"]
+  subgraph FF["Fast-follows after merge — do S7 first (② &amp; ③ inherit its chip pattern; need ① from S1)"]
     direction LR
-    S4["S4 · multi-provider<br/>P1 · optional"]
+    S7["S7 · chip redesign<br/>High · entity-generic"]
     S5["S5 · People ②<br/>person pages"]
     S6["S6 · Studio ③<br/>new entity · parallel w/ S5"]
+    S4["S4 · multi-provider<br/>P1 · optional · Low"]
   end
-  M --> S4
-  M --> S5
-  M --> S6
+  M --> S7
+  S7 --> S5
+  S7 --> S6
+  S7 --> S4
 
   classDef done fill:#1d9e75,stroke:#0f6e56,color:#ffffff;
   classDef active fill:#378add,stroke:#185fa5,color:#ffffff;
   classDef pending fill:#f1efe8,stroke:#888780,color:#2c2c2a;
   classDef gate fill:#faeeda,stroke:#ba7517,color:#412402;
 
-  class S4,S5,S6 pending;
+  class S4,S5,S6,S7 pending;
   class S0,S1,S2,S3 done;
   class M gate;
 ```
@@ -52,9 +54,22 @@ flowchart TB
 | **S1** | F36 backend: migration 0016 `field_source_decisions`, repo CRUD, resolver decision short-circuit + file-first default + `default_source` config, `ResolvedField.decision` + sync compute, owner-gated `PUT/DELETE …/decision`, writeback writes decided value (one `WriteBatch`/file) | S0 | S2 | L | [#72](https://github.com/whoiskevinrich/holodex/pull/72) | ☑ done (HOLODEX-6) |
 | **S2** | F36 frontend: `SourceSelect` radiogroup, wire into replace fields, candidates, sync indicators, "Write decisions to file" rename, 3-skin QA | frozen API/types contract (spec + handoff) | S1 | M | [#71](https://github.com/whoiskevinrich/holodex/pull/71) | ☑ done (HOLODEX-7 — integrated against merged S1, dev mock deleted, wired to the live decision API; frozen types matched S1 exactly. PR ready for review) |
 | **S3** | Integration + `/security-review` (owner gate, untrusted `manual_value`) + execute the QA checklist (smoke/agent/human-3-skin) | S1 + S2 | — | M | gates the merge | ☑ done — live QA §2/§3/§4 **passed** against the `backend-films` stack (TMDB-enriched Dune 2021): PUT/DELETE decision round-trips (204, DB-only — no writeback), `·file`/`·tmdb`/`·manual` provenance, out-of-sync pill + header count, visitor-view gating, roving tabindex; all three skins render (Brutalist filled-accent + warn pill read cleanly). `/security-review` was S1's gate (#72). §3.12 one-`WriteBatch` + §3.13 server 401/403 covered by S1 tests (not re-driven — would mutate real files) |
-| **S4** | Multi-provider (P1): inter-provider trust order config, one `Adopt` per matched provider, "providers differ" hint | F36 merged | S5/S6 | M | fast-follow | ☐ not started |
-| **S5** | ② People refactor: person detail through resolver + curation + decisions | ① (from S1) | S6 | L | fast-follow | ☐ not started |
-| **S6** | ③ Studio entity: table, scan resolve-or-create, FTS, page, facet → inherits decisions | ① (from S1) | S5 | L | fast-follow | ☐ not started |
+| **S4** | Multi-provider (P1): inter-provider trust order config, one `Adopt` per matched provider, "providers differ" hint | F36 merged | S5/S6 | M | [HOLODEX-9](https://whoiskevinrich.atlassian.net/browse/HOLODEX-9) · **Low** | ☐ not started (sequence **after** S7 — the chip redesign deletes the "providers differ" hint) |
+| **S5** | ② People refactor: person detail through resolver + curation + decisions | ① (from S1) | S6 | L | [HOLODEX-10](https://whoiskevinrich.atlassian.net/browse/HOLODEX-10) · **Medium** | ☐ not started (inherits S7's chip vocabulary) |
+| **S6** | ③ Studio entity: table, scan resolve-or-create, FTS, page, facet → inherits decisions | ① (from S1) | S5 | L | [HOLODEX-11](https://whoiskevinrich.atlassian.net/browse/HOLODEX-11) · **Medium** | ☐ not started (inherits S7's chip vocabulary) |
+| **S7** | Chip redesign: unify the source control on selectable source-chips (● radio for replace, ✕ for merge), reusing `CurationChip` + its provenance dedup; entity-generic. Deletes the resolved-chip / candidates-line / "providers differ" duplication | F36 merged | — | M | [HOLODEX-112](https://whoiskevinrich.atlassian.net/browse/HOLODEX-112) · **High** | ☐ not started — **do first of the fast-follows** (surfaced via `/design-critique`; gates the pattern S5/S6 copy) · `/design-handoff` to revise RD1 |
+| **—** | Extract shared `InlineEditInput` (Enter-commit/Escape-cancel/blur-commit) used by `CurationChip`/`CurationFieldRow`/`SourceSelect` — pre-existing duplication | — | — | S | [HOLODEX-111](https://whoiskevinrich.atlassian.net/browse/HOLODEX-111) · **Low** | ☐ not started (chore; non-blocking) |
+
+### Post-merge order (once PR #71 lands)
+
+The critical path `S0 → S1 → S2 → S3` is **done**; F36 merges when #71 lands. The Jira **priority** field
+tiers the fast-follows (High → do next); this list is the finer-grained sequence the 3-tier field can't hold:
+
+1. **S7 · chip redesign** ([HOLODEX-112](https://whoiskevinrich.atlassian.net/browse/HOLODEX-112), **High**) — reshapes the editable-field vocabulary; do it **before** People/Studio so they inherit one pattern (entity-generic by design). `/design-handoff` first.
+2. **② People** ([HOLODEX-10](https://whoiskevinrich.atlassian.net/browse/HOLODEX-10), **Medium**) — the keystone the S0/S1 resolver-generalization was built to unlock.
+3. **③ Studio** ([HOLODEX-11](https://whoiskevinrich.atlassian.net/browse/HOLODEX-11), **Medium**) — parallel with ② once S7 lands.
+4. **S4 multi-provider** ([HOLODEX-9](https://whoiskevinrich.atlassian.net/browse/HOLODEX-9), **Low**) — P1/optional; sequence after S7 (which removes the "providers differ" hint it would otherwise add).
+5. **`InlineEditInput` extract** ([HOLODEX-111](https://whoiskevinrich.atlassian.net/browse/HOLODEX-111), **Low**) — small chore; fold into S7 (which touches all three call sites) or take standalone.
 
 ## Why this sequence (speed · tokens · progress)
 
