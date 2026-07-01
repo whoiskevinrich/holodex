@@ -88,3 +88,14 @@ metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 #   "wide"   (default) — 16:9 thumbnails; suited to personal/AMV/video libraries.
 #   "poster"           — 2:3 poster cards; suited to film libraries with cover art.
 # card_layout: "wide"              # CARD_LAYOUT
+
+# --- Metadata source of truth (F36, ADR-051) ---
+# default_source governs which source wins a REPLACE (scalar) field when the owner
+# has made no per-field decision. It does not affect merge/set fields.
+#   "file"   (default) — the file/baseline value wins; a provider is a candidate the
+#                        owner adopts per-field (fixes provider values silently
+#                        masking your own file tags). Recommended for personal libraries.
+#   "mapping"          — legacy precedence: the first non-empty source in each field's
+#                        `sources` list wins (provider-first if you list it first).
+#                        Choose this for a film library that wants provider-first display.
+# default_source: "file"           # DEFAULT_SOURCE

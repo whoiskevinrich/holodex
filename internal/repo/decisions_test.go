@@ -1,0 +1,91 @@
+package repo_test
+
+import (
+	"context"
+	"testing"
+
+	"holodex/internal/model"
+	"holodex/internal/repo"
+)
+
+func TestDecisions_SetGetClear(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/d.mkv", "Film", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// No decisions initially.
+	if rows, err := r.DecisionsForEntity(ctx, model.EnrichEntityVideo, id); err != nil || len(rows) != 0 {
+		t.Fatalf("want no decisions, got %v err=%v", rows, err)
+	}
+
+	// Set a provider decision, then a manual one on a second field.
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "title", "provider:tmdb", ""); err != nil {
+		t.Fatalf("set provider decision: %v", err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "studio", "manual", "Acme Films"); err != nil {
+		t.Fatalf("set manual decision: %v", err)
+	}
+
+	rows, err := r.DecisionsForEntity(ctx, model.EnrichEntityVideo, id)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("want 2 decisions, got %v err=%v", rows, err)
+	}
+	byField := map[string]repo.DecisionRow{}
+	for _, d := range rows {
+		byField[d.FieldKey] = d
+	}
+	if byField["title"].Source != "provider:tmdb" || byField["title"].ManualValue != "" {
+		t.Errorf("title decision = %+v", byField["title"])
+	}
+	if byField["studio"].Source != "manual" || byField["studio"].ManualValue != "Acme Films" {
+		t.Errorf("studio decision = %+v", byField["studio"])
+	}
+
+	// Upsert the same field flips the source and clears a stale manual literal.
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "studio", "file", "ignored"); err != nil {
+		t.Fatalf("re-set studio: %v", err)
+	}
+	rows, _ = r.DecisionsForEntity(ctx, model.EnrichEntityVideo, id)
+	for _, d := range rows {
+		if d.FieldKey == "studio" && (d.Source != "file" || d.ManualValue != "") {
+			t.Errorf("upsert should flip source and blank manual_value, got %+v", d)
+		}
+	}
+
+	// Clear removes the row; clearing again is an idempotent no-op.
+	n, err := r.ClearDecision(ctx, model.EnrichEntityVideo, id, "title")
+	if err != nil || n != 1 {
+		t.Fatalf("clear: n=%d err=%v", n, err)
+	}
+	n, _ = r.ClearDecision(ctx, model.EnrichEntityVideo, id, "title")
+	if n != 0 {
+		t.Errorf("second clear should affect 0 rows, got %d", n)
+	}
+}
+
+func TestDecisions_ForVideosBatch(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	id1, _ := r.UpsertVideo(ctx, sampleVideo("/m/1.mkv", "One", nil, nil), nil)
+	id2, _ := r.UpsertVideo(ctx, sampleVideo("/m/2.mkv", "Two", nil, nil), nil)
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id1, "title", "manual", "Custom One"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+
+	got, err := r.DecisionsForVideos(ctx, []int64{id1, id2})
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if len(got[id1]) != 1 || got[id1][0].Source != "manual" {
+		t.Errorf("id1 decisions = %v", got[id1])
+	}
+	if len(got[id2]) != 0 {
+		t.Errorf("id2 should have no decisions, got %v", got[id2])
+	}
+}
+

@@ -10,25 +10,36 @@
 # Each field maps one or more namespaced sources to a single canonical field:
 #   canonical   stable id used in the API, as a query-param, and in the registry
 #   label       display label on the detail page (defaults to the registry label)
-#   sources     PRECEDENCE-ordered list; first non-empty value wins.
-#               Namespace syntax (F27):
+#   sources     ordered source list. Namespace syntax (F27):
 #                 file:title           videos.title column (scanner's primary title)
 #                 file:<Key>           raw file tag from extra_metadata (case-insensitive)
 #                 <provider>:<field>   enrichment shadow field, e.g. tmdb:title
 #                 <Key>                legacy bare key treated as file:<Key>
+#               How `sources` order is read depends on `default_source` (F36, ADR-051):
+#                 default_source: file (DEFAULT) — the FILE/baseline value wins any
+#                   undecided REPLACE field; providers are *candidates* the owner
+#                   adopts per-field via the source control. `sources` order is then
+#                   only the candidate suggestion order, NOT a display winner. List
+#                   file sources first anyway for clarity.
+#                 default_source: mapping — legacy precedence: first non-empty wins.
+#               MERGE fields (multi/merge) union every source regardless of order and
+#               are unaffected by decisions — order only sets first-seen display casing.
 #   browse      when true, the resolved value overwrites video.Title in browse lists
-#               so cards show the highest-precedence source instead of the raw filename
+#               (honoring any per-item source decision) so cards reflect the resolved
+#               source instead of the raw filename
 #   filterable  when true, becomes a browse facet + a ?<canonical>= query param
 #   multi       when true, splits/aggregates multi-valued tags (e.g. genres)
 
 fields:
-  # --- Title (provider wins over filename-derived title in browse cards) ---
-  # Uncomment when a tmdb provider is configured in metadata-sources.yaml.
+  # --- Title (file baseline; adopt a provider per-item via the source control) ---
+  # Uncomment when a tmdb provider is configured in metadata-sources.yaml. Under the
+  # default (default_source: file) the filename-derived title shows until you adopt
+  # TMDB for an item; set default_source: mapping for provider-first display instead.
   # - canonical: title
   #   browse: true
   #   sources:
-  #     - tmdb:title        # prefer TMDB title
-  #     - file:title        # fall back to the filename-derived title
+  #     - file:title        # baseline: the filename-derived title
+  #     - tmdb:title        # candidate: adopt per-item, or wins under default_source: mapping
 
   # --- Plot overview from enrichment ---
   # - canonical: overview
@@ -42,30 +53,31 @@ fields:
   #   sources:
   #     - tmdb:genres
 
-  # --- Cast, crew, and studio (enrichment wins; file tags as fallback) ---
+  # --- Cast & crew (MERGE fields: union of file tags + enrichment, order-agnostic) ---
   - canonical: actors
     label: Actors
     sources:
-      - tmdb:actors     # top-10 billed cast from TMDB credits
-      - Artist          # file tag fallback
+      - Artist          # file tag
+      - tmdb:actors     # top-10 billed cast from TMDB credits (joins the union)
     multi: true
 
   - canonical: director
     label: Director
     sources:
-      - tmdb:director   # from TMDB credits (job == Director)
-      - Director        # file tag fallback
+      - Director        # file tag
+      - tmdb:director   # from TMDB credits (job == Director; joins the union)
     filterable: true
     multi: true
 
+  # --- Studio (REPLACE field: file baseline wins undecided; adopt tmdb per-item) ---
   - canonical: studio
     label: Studio
     sources:
-      - tmdb:studio     # production companies from TMDB
-      - Publisher
+      - Publisher       # file tags first — the baseline under default_source: file
       - Label
       - Studio
       - ProductionCompany
+      - tmdb:studio     # candidate: production companies from TMDB
     filterable: true
 
   - canonical: collection
