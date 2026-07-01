@@ -6,7 +6,6 @@
 	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
-	import { applyMockDecisions, f36MockEnabled, mockClearDecision, mockSetDecision } from '$lib/f36mock';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
@@ -114,24 +113,15 @@
 		video = res.video;
 		extra = res.metadata ?? [];
 		fields = res.fields ?? [];
-		// F36: until the S1 backend ships the resolver `decision`/`candidates`/`in_sync`
-		// payload, synthesize it in dev so the SourceSelect control is exercisable (the mock
-		// is tree-shaken from production). Once the server actually supplies the fields the
-		// mock steps aside automatically — so this whole hook is a clean delete after S1 merges.
-		const serverHasF36 = (res.resolved ?? []).some((f) => f.candidates !== undefined);
-		resolved =
-			f36MockEnabled && !serverHasF36 ? applyMockDecisions(res, id) : (res.resolved ?? []);
+		resolved = res.resolved ?? [];
 		enriched = res.enriched ?? [];
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
-	// (RD5) — no file write here; the file changes only via "Write decisions to file". Routes
-	// through the dev mock until the S1 endpoints land, else the owner-gated PUT/DELETE.
+	// (RD5) — no file write here; the file changes only via "Write decisions to file". Selecting
+	// Keep file clears the decision (reverts to the file default), so it maps to DELETE.
 	async function decideField(canonical: string, source: DecisionSource, manualValue?: string) {
-		if (f36MockEnabled) {
-			if (source === 'file') mockClearDecision(id, canonical);
-			else mockSetDecision(id, canonical, source, manualValue);
-		} else if (source === 'file') {
+		if (source === 'file') {
 			await api.clearFieldDecision(id, canonical);
 		} else {
 			await api.setFieldDecision(id, canonical, {
