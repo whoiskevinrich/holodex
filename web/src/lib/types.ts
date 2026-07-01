@@ -118,6 +118,48 @@ export interface ResolvedField {
 	items?: ResolvedValue[];
 	multi?: boolean; // merge-mode (set) field: UI shows add + per-value remove
 	winning_source?: string; // e.g. "tmdb:title" | "file:Title" | "manual:genres"
+	// F36 (ADR-051) — per-field source-of-truth, present on replace (scalar) fields only.
+	// `decision` is the standing source choice (absent ⇒ implicit file default); `in_sync`
+	// is false when the decided value differs from the value embedded in the file; the
+	// `candidates` feed the SourceSelect segments + the candidates line.
+	decision?: FieldDecision;
+	in_sync?: boolean;
+	candidates?: FieldCandidate[];
+}
+
+// F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field
+// choice naming which source is *true* for a replace (scalar) field: it overrides global
+// mapping precedence and drives both display and writeback. Merge (set) fields are
+// unchanged — they keep F30 per-value curation; the source decision is replace-only.
+
+// DecisionSource names the pinned source: the file baseline, a specific matched provider
+// (`provider:<name>`), or a frozen manual literal.
+export type DecisionSource = 'file' | `provider:${string}` | 'manual';
+
+// FieldDecision is the per-field decision marker on a ResolvedField. `standing` is true for
+// an explicit stored decision and false for the implicit file default (undecided).
+// `manual_value` is present only when source === 'manual'.
+export interface FieldDecision {
+	source: DecisionSource;
+	standing: boolean;
+	manual_value?: string;
+}
+
+// FieldCandidate is one selectable source value for a replace field — the file value or a
+// matched provider's value — feeding the SourceSelect `Adopt` segments and the candidates
+// line. A provider candidate with an empty `value` yields no `Adopt` segment (you cannot
+// adopt an empty value).
+export interface FieldCandidate {
+	source: DecisionSource; // 'file' | 'provider:<name>'
+	provider?: string; // provider name when source is 'provider:<name>'
+	value: string;
+}
+
+// DecisionRequest is the body of PUT …/decision (F36, ADR-051 §7). `manual_value` is
+// required iff source === 'manual'; a `provider:<name>` must be a currently-matched provider.
+export interface DecisionRequest {
+	source: DecisionSource;
+	manual_value?: string;
 }
 
 // CurationAction is a value-level owner decision (F30, ADR-048).
