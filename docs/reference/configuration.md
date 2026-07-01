@@ -186,3 +186,26 @@ This is an operator setting: all visitors see the same layout. It is applied as 
 **`poster` (2:3)** — portrait orientation, like a DVD or film poster. Works best when your files have embedded poster art (from a rip or a tool like MakeMKV) so the cover image fills the tall card naturally. Frame-grab thumbnails will be letterboxed in this mode. The Cinémathèque skin's letterbox bars are suppressed automatically in poster mode.
 
 > **Related settings:** `thumbnail_width` controls the pixel width of the stored image; `card_layout` controls the display shape. Both are independent — changing `card_layout` does not regenerate thumbnails.
+
+## Metadata source of truth
+
+Controls which layer wins a **replace (scalar)** field when the owner has made no per-field decision (F36, [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)).
+
+| `holodex.yaml` key | Env var | Default | Description |
+|--------------------|---------|---------|-------------|
+| `default_source` | `DEFAULT_SOURCE` | `file` | Undecided-field winner: `file` (baseline wins; providers are candidates) or `mapping` (legacy first-non-empty precedence). See below. |
+
+### `default_source`
+
+```yaml
+default_source: "file"     # baseline wins undecided replace fields (default)
+default_source: "mapping"  # legacy: first non-empty source in each field's `sources` list wins
+```
+
+Holodex keeps three metadata layers per field — the **file** layer (your container tags), **provider** enrichment, and **manual** curation. For a replace field the owner can make a standing per-item decision (`keep file` / `adopt <provider>` / `custom`) via the detail-page source control; `default_source` only decides what happens **before** any such decision.
+
+**`file` (default)** — the file/baseline value is the source of truth; a provider value is shown as a *candidate* you adopt deliberately, never an automatic winner. This fixes the case where a provider silently masks your own file tags (and where writeback would then overwrite them). Recommended for personal libraries and any non-film provider. Under this mode the `sources` order in `metadata-mappings.yaml` is only **candidate suggestion order**, not a display winner.
+
+**`mapping`** — restores the legacy behavior: the first non-empty source in each field's `sources` list wins. Choose this for a film library that wants provider-first display without setting a decision on every item.
+
+> **Scope:** `default_source` applies only to **replace** fields. **Merge/set** fields (`multi`/`merge`, e.g. genres, actors) always union every source and are unaffected. A per-field decision, when set, overrides `default_source` for that field.

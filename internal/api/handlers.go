@@ -100,6 +100,11 @@ type Handlers struct {
 	// cardLayout is the operator's preferred card aspect ratio ("wide" or "poster"),
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
+
+	// defaultSource is the F36 undecided source-of-truth mode ("file" | "mapping",
+	// ADR-051/RD4). It feeds resolver.Options so an undecided field resolves
+	// file-first by default; empty means file-first.
+	defaultSource string
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -165,6 +170,19 @@ func (h *Handlers) SetCardLayout(layout string) {
 	h.cardLayout = layout
 }
 
+// SetDefaultSource wires the F36 undecided source-of-truth mode ("file" | "mapping",
+// ADR-051/RD4). Config validates the value before this is called. Empty means
+// file-first (the default). Called once at startup before serving.
+func (h *Handlers) SetDefaultSource(mode string) {
+	h.defaultSource = mode
+}
+
+// resolveOptions builds the resolver options for one video from its pre-loaded
+// standing decisions and the global default-source mode (F36).
+func (h *Handlers) resolveOptions(decisions resolver.Decisions) resolver.Options {
+	return resolver.Options{Decisions: decisions, DefaultSource: h.defaultSource}
+}
+
 // controlsUnauthenticated is true when the admin surface is reachable beyond
 // loopback with no token configured (F21.7 condition 1). Required() is
 // nil-receiver safe, so no separate h.auth nil check is needed.
@@ -224,6 +242,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountWriteback(r)
 		// Value-level metadata curation — manual add/suppress/nowrite (F30, ADR-048).
 		h.mountCuration(r)
+		// Per-field source-of-truth decisions — pin file/provider/manual (F36, ADR-051).
+		h.mountDecisions(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
@@ -352,7 +372,15 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			} else {
 				cur = curationFromRows(curRows)
 			}
-			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields())
+			// Standing per-field source decisions (F36): pre-loaded so the resolver
+			// short-circuits mapping order without a per-field query (pure resolution).
+			var dec resolver.Decisions
+			if decRows, decErr := h.repo.DecisionsForEntity(r.Context(), model.EnrichEntityVideo, id); decErr != nil {
+				h.log.Warn("decisions for detail", "id", id, "err", decErr)
+			} else {
+				dec = decisionsFromRows(decRows)
+			}
+			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields(), h.resolveOptions(dec))
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
@@ -796,6 +824,23 @@ func curationFromRows(rows []repo.CurationRow) resolver.Curation {
 	return out
 }
 
+// decisionsFromRows converts repo decision rows to the resolver.Decisions map
+// (canonical field → standing decision). Returns nil when rows is empty so hot paths
+// avoid allocating a map for every undecided video.
+func decisionsFromRows(rows []repo.DecisionRow) resolver.Decisions {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make(resolver.Decisions, len(rows))
+	for _, r := range rows {
+		out[strings.ToLower(strings.TrimSpace(r.FieldKey))] = resolver.Decision{
+			Source:      r.Source,
+			ManualValue: r.ManualValue,
+		}
+	}
+	return out
+}
+
 // applyBrowseTitles resolves the highest-precedence title for each video (F27) and
 // overwrites video.Title when a provider source wins. Extra-metadata is not loaded
 // for list pages, so only file:title (already in Video.Title) and provider sources
@@ -826,10 +871,17 @@ func (h *Handlers) applyBrowseTitles(ctx context.Context, items []model.Video, f
 	if err != nil {
 		h.log.Warn("batch curation for browse titles", "err", err)
 	}
+	// A standing per-field decision (F36) drives the browse title just as it drives
+	// the detail view, so an adopted-provider or custom title shows on the card.
+	batchDecisions, err := h.repo.DecisionsForVideos(ctx, ids)
+	if err != nil {
+		h.log.Warn("batch decisions for browse titles", "err", err)
+	}
 	for i := range items {
 		enr := enrichmentFromRows(batchEnrich[items[i].ID])
 		cur := curationFromRows(batchCuration[items[i].ID])
-		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, cur, browseFields); t != "" {
+		opts := h.resolveOptions(decisionsFromRows(batchDecisions[items[i].ID]))
+		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, cur, browseFields, opts); t != "" {
 			items[i].Title = t
 		}
 	}
