@@ -23,6 +23,8 @@ import type {
 	RefreshReport,
 	RelatedResponse,
 	SearchResponse,
+	Studio,
+	StudioDetailResponse,
 	Tag,
 	TrashEntry,
 	Video,
@@ -229,6 +231,15 @@ export const api = {
 	getTag: (id: number, fetchFn?: typeof fetch) =>
 		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
 
+	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
+	// random; random shuffled client-side). Detail carries resolved[] in the record
+	// vocabulary (no in_sync) plus the studio's videos.
+	listStudios: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
+		get<{ items: Studio[] }>(`/studios${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+
+	getStudio: (id: number, fetchFn?: typeof fetch) =>
+		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
+
 	search: (q: string, fetchFn?: typeof fetch) =>
 		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
 
@@ -401,6 +412,25 @@ export const api = {
 		sendAuthed<Record<string, never>>('POST', `/people/${id}/curation`, req),
 	clearPersonCuration: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/people/${id}/curation/clear`, req),
+
+	// Studio per-field source decisions + curation (F38, RD5) — the person pair
+	// mirrored onto /studios/{id}. source ∈ record | provider:<name> | manual; `name`
+	// is rejected server-side (read-only identity). DB-only: studios have no writeback.
+	setStudioFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/studios/${id}/fields/${encodeURIComponent(canonical)}/decision`,
+			req
+		),
+	clearStudioFieldDecision: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/studios/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+	curateStudio: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/studios/${id}/curation`, req),
+	clearStudioCuration: (id: number, req: CurationRequest) =>
+		sendAuthed<Record<string, never>>('POST', `/studios/${id}/curation/clear`, req),
 
 	// Rename a person, keeping the old name as an F23 alias (one transaction — search
 	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name
