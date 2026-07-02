@@ -17,11 +17,18 @@ entity-backed browse facet — and inherit the F36 decision model as the **third
 - video enrichment (F26/F27; TMDB emits multi-valued `studio` from `production_companies` — `providers/tmdb/tmdb.go` ~line 478)
 - the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
-**New ADR**: **Required at implementation** (next free number). Two decisions rise to ADR
-level: (1) the `studios` / `video_studios` data model, and (2) the **link-derivation rule** —
-entity links follow the *resolved* field value (RD1), a new pattern (person links are
-scan-time-only). Extends ADR-051 §9 / ADR-052; relates ADR-013 (mapping) and ADR-017 (FTS).
-Touches **access** (new owner-gated endpoints) → `/security-review` before merge.
+**ADR**: [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)
+(Proposed) records the two decisions that rise to ADR level: (1) the `studios` /
+`video_studios` data model, and (2) the **link-derivation rule** — entity links follow the
+*resolved* field value (RD1), a new pattern vs. person's scan-time-only links. Extends
+ADR-051 §9 / ADR-052; relates ADR-013 (mapping), ADR-017 (FTS), ADR-036 (the alias routing
+deliberately *not* adopted in v1). Touches **access** (new owner-gated endpoints) →
+`/security-review` before merge.
+
+**Implementation design**: [studio-entity-implementation.md](../plans/studio-entity-implementation.md)
+(component map, the `RelinkVideoStudios` reconcile algorithm, per-trigger sequences, API↔handler
+mapping). **Design handoff**: [studio-entity-handoff.md](../design/studio-entity-handoff.md)
+(pages, `·record` baseline, media-detail link, facet switch, 3-skin QA).
 
 **Related**: [F32 video credits](video-credits-people.md) (parallel; both add entity links to
 videos — keep the join-table idioms consistent), HOLODEX-118 (provider trust order —
@@ -268,15 +275,18 @@ Single-owner consistency feature:
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. **`/architecture`** — the new ADR (data model + resolved-value link derivation, RD1/RD2).
-2. **`/design-handoff`** — addendum: studios list/detail layout, facet block, media-detail
-   link treatment, empty-Details rule, 3-skin QA items.
-3. **`/testing-strategy`** — new section: derivation matrix (scan/enrich/decision/curation ×
+1. ✅ **`/architecture`** — [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)
+   (data model + resolved-value link derivation, RD1/RD2) + the
+   [implementation design](../plans/studio-entity-implementation.md).
+2. ✅ **`/design-handoff`** — [studio-entity-handoff.md](../design/studio-entity-handoff.md):
+   studios list/detail layout, facet block, media-detail link treatment, empty-Details rule,
+   3-skin QA.
+3. ☐ **`/testing-strategy`** — new section: derivation matrix (scan/enrich/decision/curation ×
    link outcomes), prune-on-empty, backfill idempotency, `studioBaseline` additivity,
-   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/3-skin.
-4. **`/security-review`** — new owner-gated surface (decisions/curation/enrich parity;
+   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/3-skin. *(Due at S1.)*
+4. ☐ **`/security-review`** — new owner-gated surface (decisions/curation/enrich parity;
    untrusted provider company data through the existing sanitize + asset perimeter; no file
-   writes anywhere in F38).
+   writes anywhere in F38). *(Due before merge.)*
 
 Slices: **S1** backend (migration 0017, derivation + backfill, studio API, `studioBaseline`,
 decision/curation endpoints) ∥ **S2** frontend (pages, facet, links — against the frozen
