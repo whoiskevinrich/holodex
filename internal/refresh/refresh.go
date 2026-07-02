@@ -63,7 +63,8 @@ type Enricher interface {
 type Service struct {
 	ext    FileExtractor
 	store  Store
-	enrich Enricher // nil = file-only refresh
+	enrich Enricher                           // nil = file-only refresh
+	relink func(context.Context, int64) error // F38: re-derive studio links post-refresh
 	log    *slog.Logger
 }
 
@@ -74,6 +75,12 @@ type Service struct {
 func NewService(ext FileExtractor, store Store, enricher Enricher, log *slog.Logger) *Service {
 	return &Service{ext: ext, store: store, enrich: enricher, log: log}
 }
+
+// SetRelinker wires studio-link derivation (F38, ADR-053): after a refresh
+// re-extracts + re-enriches an item, its studio links are re-derived from the new
+// resolved `studio` value. Best-effort — a relink error is logged, never failing the
+// refresh. Called once at startup; nil disables it.
+func (s *Service) SetRelinker(fn func(context.Context, int64) error) { s.relink = fn }
 
 // SourceResult is the outcome for one source in a refresh. For the file source,
 // Changed reflects a real diff of the file layer. For a provider, OK reports the
@@ -148,6 +155,12 @@ func (s *Service) run(ctx context.Context, id int64, path string) (Report, error
 	for _, sr := range report.Sources {
 		if sr.Changed {
 			report.Changed = true
+		}
+	}
+	// Re-derive studio links from the refreshed resolution (F38, ADR-053).
+	if s.relink != nil {
+		if err := s.relink(ctx, id); err != nil && s.log != nil {
+			s.log.Warn("studio relink after refresh failed", "id", id, "err", err)
 		}
 	}
 	return report, nil

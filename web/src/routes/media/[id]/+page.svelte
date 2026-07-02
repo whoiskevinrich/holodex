@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Video } from '$lib/types';
+	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
@@ -21,6 +21,9 @@
 	let fields = $state<MappedField[]>([]);
 	let resolved = $state<ResolvedField[]>([]);
 	let enriched = $state<EnrichedField[]>([]);
+	// Studio entities linked to this video (F38): the resolved studio value links to its
+	// /studios/{id} page; the link always matches the displayed value (RD1).
+	let studios = $state<Studio[]>([]);
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
 	let error = $state('');
@@ -115,6 +118,7 @@
 		fields = res.fields ?? [];
 		resolved = res.resolved ?? [];
 		enriched = res.enriched ?? [];
+		studios = res.studios ?? [];
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
@@ -484,7 +488,17 @@
 											personStyle={f.canonical === 'actors' || f.canonical === 'director'}
 											onchanged={reloadDetail}
 										/>
-									{/if}
+										{/if}
+										{#if f.canonical === 'studio' && studios.length}
+											<!-- F38 (ADR-053): link the resolved studio value to its entity. The
+											     target comes from video_studios, derived from this same resolution,
+											     so the link always matches the displayed value (RD1). -->
+											<div class="mt-1 flex flex-wrap gap-2 text-xs">
+												{#each studios as s (s.id)}
+													<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
+												{/each}
+											</div>
+										{/if}
 								</dd>
 							</div>
 						{/if}

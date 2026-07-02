@@ -47,6 +47,43 @@ func TestJobRunsRecordAndList(t *testing.T) {
 	}
 }
 
+// HasSuccessfulJobRun is the one-time-backfill marker (F38): false until a
+// successful run of the kind exists; a failed run does not count (so the task can
+// retry on the next boot).
+func TestHasSuccessfulJobRun(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	if ok, err := r.HasSuccessfulJobRun(ctx, model.JobKindStudioBackfill); err != nil || ok {
+		t.Fatalf("no runs yet: ok=%v err=%v, want false", ok, err)
+	}
+	// A failed run must not satisfy the marker.
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindStudioBackfill, Trigger: model.TriggerInitial, Status: model.JobStatusErr,
+		StartedAt: now, FinishedAt: now,
+	}); err != nil {
+		t.Fatalf("record failed run: %v", err)
+	}
+	if ok, _ := r.HasSuccessfulJobRun(ctx, model.JobKindStudioBackfill); ok {
+		t.Fatal("a failed run must not satisfy the marker")
+	}
+	// A successful run does.
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindStudioBackfill, Trigger: model.TriggerInitial, Status: model.JobStatusOK,
+		StartedAt: now, FinishedAt: now,
+	}); err != nil {
+		t.Fatalf("record ok run: %v", err)
+	}
+	if ok, _ := r.HasSuccessfulJobRun(ctx, model.JobKindStudioBackfill); !ok {
+		t.Fatal("a successful run should satisfy the marker")
+	}
+	// Scoped by kind — an unrelated successful scan doesn't leak.
+	if ok, _ := r.HasSuccessfulJobRun(ctx, "some-other-kind"); ok {
+		t.Fatal("marker must be scoped by kind")
+	}
+}
+
 func TestJobRunsRetention(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

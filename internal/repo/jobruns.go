@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,6 +40,27 @@ func (r *Repo) RecordJobRun(ctx context.Context, run model.JobRun) error {
 		return fmt.Errorf("prune job runs: %w", err)
 	}
 	return nil
+}
+
+// HasSuccessfulJobRun reports whether a successful job run of the given kind exists
+// in the history — a lightweight persistent marker for gating a one-time startup
+// task (F38 studio backfill). NOTE: job history is pruned after the retention
+// window, so this is a "ran recently" signal, not a permanent one; callers that
+// also have a cheaper positive signal (e.g. rows already exist) should check that
+// first, using this only for the edge case where the task legitimately produced no
+// rows (a library where nothing resolves to a studio).
+func (r *Repo) HasSuccessfulJobRun(ctx context.Context, kind string) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT 1 FROM job_runs WHERE kind = ? AND status = ? LIMIT 1`,
+		kind, model.JobStatusOK).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("has job run %q: %w", kind, err)
+	}
+	return true, nil
 }
 
 // PruneJobRuns removes runs older than the retention window, returning the count

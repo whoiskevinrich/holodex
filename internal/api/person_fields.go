@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/registry"
@@ -18,12 +17,9 @@ import (
 // person schema is a registry contract shared with the provider protocol, so
 // there is nothing for an operator to remap.
 
-// personRecordSource is the person-payload name of the baseline layer (F37
-// RD4): "file" is factually wrong for a person, whose baseline is the DB
-// record. The resolver and the decision store keep the internal "file" token
-// (spec Open Q1 — mapped at the handler edge, pinned by tests), so the
-// resolver core needs zero changes; these helpers translate at the API edge.
-const personRecordSource = "record"
+// The person baseline vocabulary ("record", F37 RD4) is the shared record vocab in
+// record_vocab.go, reused by studio (F38). personDecisionSource / personizeResolved
+// remain as the person-named entry points the F37 tests pin.
 
 // personScalarFields are the provider-backed replace person fields, in
 // registry documentation order. name is synthesized separately (the only
@@ -89,55 +85,15 @@ func personFieldByCanonical(canonical string) (mapping.Field, bool) {
 }
 
 // personDecisionSource maps a person-payload decision source to the internal
-// fieldsource grammar: "record" → "file"; provider/manual pass through. The
-// literal "file" is rejected — the person vocabulary is record | provider:<x> |
-// manual only (RD4), so the payload grammar stays per-entity and unambiguous.
-func personDecisionSource(s string) (string, bool) {
-	switch {
-	case s == personRecordSource:
-		return fieldsource.File, true
-	case s == fieldsource.Manual, fieldsource.Provider(s) != "":
-		return s, true
-	}
-	return "", false
-}
+// fieldsource grammar (the shared record vocab). Kept as the person-named entry
+// point the F37 tests pin.
+func personDecisionSource(s string) (string, bool) { return recordDecisionSource(s) }
 
-// personizeResolved converts resolver output to the person payload vocabulary
-// (RD4) and strips the writeback concept a person doesn't have: every "file"
-// token becomes "record" (decision source, candidate sources, winning-source
-// prefix, per-value provenance), and in_sync is omitted — a person has no file
-// to be out of sync with (spec Non-Goals). Mutates in place and returns fields.
+// personizeResolved converts resolver output to the person payload vocabulary via
+// the shared record vocab (record labels, no in_sync). Kept as the person-named
+// entry point the F37 tests pin.
 func personizeResolved(fields []resolver.ResolvedField) []resolver.ResolvedField {
-	for i := range fields {
-		f := &fields[i]
-		f.InSync = nil
-		if f.Decision != nil {
-			f.Decision.Source = recordize(f.Decision.Source)
-		}
-		for j := range f.Candidates {
-			f.Candidates[j].Source = recordize(f.Candidates[j].Source)
-		}
-		f.WinningSource = recordize(f.WinningSource)
-		for j := range f.Items {
-			for k := range f.Items[j].Sources {
-				f.Items[j].Sources[k] = recordize(f.Items[j].Sources[k])
-			}
-		}
-	}
-	return fields
-}
-
-// recordize maps the internal "file" token — bare or as a "file:<key>"
-// winning-source prefix — to the person vocabulary "record" (RD4); anything
-// else passes through.
-func recordize(s string) string {
-	if s == fieldsource.File {
-		return personRecordSource
-	}
-	if rest, ok := strings.CutPrefix(s, fieldsource.File+":"); ok {
-		return personRecordSource + ":" + rest
-	}
-	return s
+	return recordizeResolved(fields)
 }
 
 // personResolved resolves a person's fields through the unified resolver (F37

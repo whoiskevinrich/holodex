@@ -146,6 +146,15 @@ type Tag struct {
 	VideoCount int    `json:"video_count,omitempty"`
 }
 
+// Studio is a first-class production-company/publisher entity (F38, ADR-053). Its
+// name is a derived identity — video_studios links follow the resolved `studio`
+// field, not raw file extraction — so there is no alias/merge in v1 (RD4).
+type Studio struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	VideoCount int    `json:"video_count,omitempty"`
+}
+
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
 // field (ADR-013, F2.9).
 type ExtraMetadata struct {
@@ -165,19 +174,21 @@ const (
 // Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
 // extensible; scan is the only producer today, with enrichment (F22) the next.
 const (
-	JobKindScan      = "scan"
-	JobKindEnrich    = "enrich"
-	JobKindPurge     = "purge"     // grace-period hard-delete sweep (F24, ADR-037)
-	JobKindRefresh   = "refresh"   // per-item forced re-extract + re-enrich (F31, ADR-047)
-	JobKindWriteback = "writeback" // queued batch metadata write (F30, ADR-048)
-	JobStatusOK      = "success"
-	JobStatusErr     = "error"
+	JobKindScan           = "scan"
+	JobKindEnrich         = "enrich"
+	JobKindPurge          = "purge"           // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindRefresh        = "refresh"         // per-item forced re-extract + re-enrich (F31, ADR-047)
+	JobKindWriteback      = "writeback"       // queued batch metadata write (F30, ADR-048)
+	JobKindStudioBackfill = "studio-backfill" // one-time video→studio link derivation (F38, ADR-053)
+	JobStatusOK           = "success"
+	JobStatusErr          = "error"
 )
 
 // Enrichment entity types stored in entity_enrichment (F22, ADR-033).
 const (
 	EnrichEntityPerson = "person"
 	EnrichEntityVideo  = "video"
+	EnrichEntityStudio = "studio"
 )
 
 // EnrichedField is a canonical field resolved for one entity from a metadata

@@ -76,6 +76,8 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "set decision", err)
 		return
 	}
+	// A studio-field decision moves the resolved studio value → re-derive links (F38).
+	h.relinkIfStudio(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -100,6 +102,7 @@ func (h *Handlers) clearFieldDecision(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "clear decision", err)
 		return
 	}
+	h.relinkIfStudio(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
 }
 

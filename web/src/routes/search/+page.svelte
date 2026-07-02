@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import type { Person, Tag, Video } from '$lib/types';
+	import type { Person, Studio, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/VideoGrid.svelte';
 
 	let videos = $state<Video[]>([]);
 	let people = $state<Person[]>([]);
+	let studios = $state<Studio[]>([]);
 	let tags = $state<Tag[]>([]);
 	let loading = $state(true);
 
@@ -16,6 +17,7 @@
 		if (!term) {
 			videos = [];
 			people = [];
+			studios = [];
 			tags = [];
 			loading = false;
 			return;
@@ -26,12 +28,15 @@
 			.then((res) => {
 				videos = res.videos ?? [];
 				people = res.people ?? [];
+				studios = res.studios ?? [];
 				tags = res.tags ?? [];
 			})
 			.finally(() => (loading = false));
 	});
 
-	const empty = $derived(!loading && videos.length === 0 && people.length === 0 && tags.length === 0);
+	const empty = $derived(
+		!loading && videos.length === 0 && people.length === 0 && studios.length === 0 && tags.length === 0
+	);
 </script>
 
 <section class="space-y-6">
@@ -50,6 +55,17 @@
 				<div class="flex flex-wrap gap-2">
 					{#each people as p (p.id)}
 						<a href={`/people/${p.id}`} class="rounded-full border border-rule px-3 py-1 text-sm text-ink hover:border-accent">{p.name}</a>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		{#if studios.length}
+			<div class="space-y-2">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Studios</h2>
+				<div class="flex flex-wrap gap-2">
+					{#each studios as s (s.id)}
+						<a href={`/studios/${s.id}`} class="rounded-full border border-rule px-3 py-1 text-sm text-ink hover:border-accent">{s.name}</a>
 					{/each}
 				</div>
 			</div>

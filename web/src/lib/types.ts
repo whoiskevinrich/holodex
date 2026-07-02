@@ -58,6 +58,14 @@ export interface Tag {
 	video_count?: number;
 }
 
+// Studio is a first-class entity (F38, ADR-053). Same read shape as Tag; its name is
+// derived identity (video_studios follows the resolved studio field, no rename/merge).
+export interface Studio {
+	id: number;
+	name: string;
+	video_count?: number;
+}
+
 export interface ExtraMetadata {
 	source_key: string;
 	value: string;
@@ -179,6 +187,10 @@ export interface MediaDetailResponse {
 	fields: MappedField[] | null;
 	resolved?: ResolvedField[] | null; // unified merged view (F27); supersedes fields when present
 	enriched?: EnrichedField[] | null;
+	// Studio entities linked to this video (F38, ADR-053): the resolved studio value
+	// links to its /studios/{id} page; the link target always matches the displayed
+	// value because video_studios is derived from that same resolution (RD1).
+	studios?: Studio[] | null;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values
@@ -226,6 +238,7 @@ export interface SearchResponse {
 	videos: Video[] | null;
 	people: Person[] | null;
 	tags: Tag[] | null;
+	studios: Studio[] | null;
 }
 
 // "More with …" related-media shelves (ADR-031, QW2/QW3). Either block is null when
@@ -383,6 +396,16 @@ export interface PersonDetailResponse {
 	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
 	resolved?: ResolvedField[] | null;
 	images?: PersonImageSet; // F25: per-role presence + version + ordered gallery
+}
+
+// StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
+// and resolved[] in the record vocabulary (in_sync always absent — studios have no
+// file). Details render only when a field beyond `name` has a value or a decision.
+export interface StudioDetailResponse {
+	studio: Studio;
+	items: Video[];
+	total: number;
+	resolved?: ResolvedField[] | null;
 }
 
 // PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the

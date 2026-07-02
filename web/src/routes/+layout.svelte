@@ -168,6 +168,7 @@
 	<nav class="flex items-center gap-3 text-sm text-muted">
 		<a href="/" class="hover:text-ink">Media</a>
 		<a href="/people" class="hover:text-ink">People</a>
+		<a href="/studios" class="hover:text-ink">Studios</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
 
 		<!-- Owner chrome, separated from the content nav so the bar reads in tiers (F35):

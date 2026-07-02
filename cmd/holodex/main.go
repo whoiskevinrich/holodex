@@ -29,6 +29,7 @@ import (
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
+	"holodex/internal/model"
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
 	"holodex/internal/refresh"
@@ -239,7 +240,18 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
 	// forced-extract seam (no change-detection); the repo resolves the target and
 	// persists the file layer; the enrich service re-pulls linked providers.
-	handlers.SetRefresh(refresh.NewService(sc, repository, enrichSvc, log))
+	refreshSvc := refresh.NewService(sc, repository, enrichSvc, log)
+	handlers.SetRefresh(refreshSvc)
+
+	// Studio entity link derivation (F38, ADR-053): video_studios follows the resolved
+	// `studio` field. RelinkVideoStudios is the single resolution entry point; wire it
+	// into every path that changes a video's resolved studio value. The enrich /
+	// decision / curation triggers live in the handlers themselves.
+	sc.SetRelinker(handlers.RelinkVideoStudios)
+	refreshSvc.SetRelinker(handlers.RelinkVideoStudios)
+	// One-time backfill so promotion doesn't require a manual rescan (ADR-053 §5).
+	// Gated on an empty video_studios so it is genuinely one-time; idempotent.
+	backfillStudioLinks(ctx, repository, handlers.RelinkVideoStudios, log)
 	handlers.SetWriteback(writeback.WriteBatch)
 	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
 	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)
@@ -350,6 +362,70 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	log.Info("stopped cleanly")
 	return nil
+}
+
+// backfillStudioLinks derives video_studios for every existing video once, after
+// migration 0017, so studio promotion doesn't require a manual rescan (F38, ADR-053
+// §5). It is genuinely one-time via two gates: the common case skips once any link
+// exists (`StudioLinkCount > 0`); the edge case — a library where *nothing* resolves
+// to a studio, so no link is ever created — skips on a prior successful backfill job
+// run, so we don't re-scan the whole library (and re-record a job run) on every boot.
+// Best-effort — failures are logged, never fatal; the pass is idempotent. Runs to
+// completion before the server serves, matching the person-image startup backfill.
+func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.Context, int64) error, log *slog.Logger) {
+	n, err := r.StudioLinkCount(ctx)
+	if err != nil {
+		log.Warn("studio link backfill: count failed", "err", err)
+		return
+	}
+	if n > 0 {
+		return // links exist — the one-time pass already ran (common case)
+	}
+	// No links yet: either a fresh migration, or a library with no studios at all.
+	// The job-run marker distinguishes them so we don't re-pass every boot in the
+	// latter case. A marker lookup failure falls through and runs (safe — idempotent).
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindStudioBackfill); err != nil {
+		log.Warn("studio link backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	ids, err := r.AllActiveVideoIDs(ctx)
+	if err != nil {
+		log.Warn("studio link backfill: list videos failed", "err", err)
+		return
+	}
+	if len(ids) == 0 {
+		return // nothing to backfill; no marker needed (a later boot with videos runs)
+	}
+	started := time.Now()
+	var errs int
+	for _, id := range ids {
+		if err := relink(ctx, id); err != nil {
+			errs++
+			log.Warn("studio link backfill: relink failed", "id", id, "err", err)
+		}
+	}
+	finished := time.Now()
+	status := model.JobStatusOK
+	if errs > 0 {
+		status = model.JobStatusErr
+	}
+	// The job run doubles as the one-time marker (see the edge-case gate above), so
+	// it is recorded whether or not any link resulted. Detail states what it did —
+	// processed N videos — not how many links resulted (which may legitimately be 0).
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindStudioBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Errors:     errs,
+		Detail:     fmt.Sprintf("studio-link backfill: processed %d videos", len(ids)),
+	}); err != nil {
+		log.Warn("studio link backfill: record job run failed", "err", err)
+	}
+	log.Info("studio link backfill complete", "videos", len(ids), "errors", errs)
 }
 
 func newLogger(level string, w io.Writer) *slog.Logger {

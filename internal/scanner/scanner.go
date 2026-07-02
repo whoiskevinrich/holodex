@@ -79,8 +79,9 @@ type Scanner struct {
 	thumbs   Thumbnailer
 	metrics  Metrics
 	recorder JobRecorder
-	scanMu   sync.Mutex      // ensures only one reconciliation pass runs at a time
-	baseCtx  context.Context // server-lifetime ctx for manual rescans (F13.3)
+	relink   func(context.Context, int64) error // F38: re-derive studio links post-upsert
+	scanMu   sync.Mutex                         // ensures only one reconciliation pass runs at a time
+	baseCtx  context.Context                    // server-lifetime ctx for manual rescans (F13.3)
 
 	// Live status for the activity surface (F21.2), independent of scanMu so a
 	// status read never blocks behind a running pass.
@@ -111,6 +112,13 @@ func (s *Scanner) SetBaseContext(ctx context.Context) { s.baseCtx = ctx }
 // SetMetrics wires scan-duration / indexed-files instrumentation (F13.2). Called
 // once at startup before Run; nil leaves the scanner uninstrumented.
 func (s *Scanner) SetMetrics(m Metrics) { s.metrics = m }
+
+// SetRelinker wires studio-link derivation (F38, ADR-053): after each video upsert
+// the scanner re-derives the video's studio links from its resolved `studio` field.
+// Called once at startup before Run; nil disables it (links then rely on the startup
+// backfill + owner actions). Best-effort — a relink error is logged, never failing
+// the scan.
+func (s *Scanner) SetRelinker(fn func(context.Context, int64) error) { s.relink = fn }
 
 // SetJobRecorder wires durable job-history recording (F21.3). Called once at
 // startup before Run; nil disables recording.
@@ -400,6 +408,13 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		st.incUpdated()
 	} else {
 		st.incAdded()
+	}
+	// Derive studio links from the resolved studio field (F38, ADR-053). Best-effort:
+	// a failure is logged and the link is left for the next trigger / startup backfill.
+	if s.relink != nil {
+		if err := s.relink(ctx, id); err != nil {
+			s.log.Warn("studio relink failed", "id", id, "err", err)
+		}
 	}
 	s.handleThumbnail(ctx, id, path, ex.HasCoverArt)
 }
