@@ -310,15 +310,13 @@ Rules:
   Propose new canonical keys to the Holodex maintainers (e.g. a `deathdate`) rather than
   inventing display-only keys that won't be configured. Mark any such key **TBD / confirm
   with Holodex maintainers** in your provider's own docs.
-- **Reserved `_`-prefixed keys are internal sidecars.** A field key beginning with an
-  underscore is provider→core **plumbing**: Holodex persists it in the shadow store like any
-  other field but **never displays it** and **never resolves it** (it is not a canonical
-  field). Use one only for a defined contract — do not invent your own. v1 defines
-  **`_studio_external_ids`** (ADR-054): on a **video** enrich, one self-describing value
-  `"<namespace>:<id> <name>"` per production company (e.g. `"tmdb:174 Warner Bros. Pictures"`),
-  so Holodex can de-dup studio entities by provider company id. The id token has no space, so
-  the name is the unambiguous remainder; emit only companies with a non-empty name and a real
-  id. It rides the normal sanitize/caps and is aligned with the `studio` field.
+- **Reserved `_`-prefixed keys are internal sidecars — do not invent your own.** A `fields`
+  key beginning with an underscore (`_`) is a **defined provider→core plumbing channel**, not a
+  displayable field: Holodex persists it in the shadow store like any other field but **never
+  renders it** in the UI and **never resolves it** into a canonical value. You **MUST NOT** coin
+  your own `_`-prefixed keys — emit only the ones this contract defines, exactly as specified,
+  and a provider that omits them stays fully conformant. v1 defines one: **`_studio_external_ids`**
+  for studio de-dup — see [§4.6](#46-studio-external-ids-_studio_external_ids).
 
 ### 4.3 Assets
 
@@ -453,6 +451,62 @@ as every other asset ([§4.3](#43-assets)) and stores it as that person's headsh
 [§5](#5-non-functional-requirements) to `name`. If a response nears the 1 MiB body cap, shed
 `people[].headshot` URLs before `fields` (a headshot is recoverable on a later enrich; canonical
 text is not) — same precedence as `assets` in [§4.3](#43-assets).
+
+### 4.6 Studio external IDs (`_studio_external_ids`)
+
+> **Status: additive extension** for `video`/`media` enrichment ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).
+> **Backward compatible and opt-in:** it is an [internal sidecar](#42-canonical-fields) field, not
+> a capability — **do not advertise it in `/describe`**, and a provider that omits it stays fully
+> conformant (Holodex just falls back to de-duping studios by name). Emit it only if your upstream
+> exposes a stable **company / studio id** for a film's production companies.
+
+When a `video`/`media` `/enrich` response carries the `studio` field (production-company names),
+you MAY also emit the reserved sidecar field **`_studio_external_ids`** in the same `fields` map,
+carrying each company's provider id so Holodex can converge different spellings of the **same**
+company ("Warner Bros." vs "Warner Bros. Pictures") onto one studio entity and refresh it
+deterministically:
+
+```json
+{
+  "fields": {
+    "studio": ["Warner Bros. Pictures", "Legendary Pictures"],
+    "_studio_external_ids": ["tmdb:174 Warner Bros. Pictures", "tmdb:923 Legendary Pictures"]
+  }
+}
+```
+
+Each `_studio_external_ids` value is a **single self-describing string** pairing one company's id
+with its name:
+
+| Part | Rule |
+|---|---|
+| Format | `"<external_id> <name>"` — the namespace-qualified id ([§4.1](#41-external-ids-and-namespaces)), then **one ASCII space**, then the company name |
+| `<external_id>` | `<namespace>:<id>` (e.g. `tmdb:174`). The **id token contains no space**, so Holodex splits on the **first** space; everything after it is the name (which MAY contain spaces/punctuation) |
+| `<name>` | The company name **exactly as it appears** in the corresponding `studio` value — this is how Holodex ties the id to the resolved studio |
+| When to emit | One entry **per company that has both a non-empty name and a real id**. Omit a company entirely (from this field) if you have no id for it — its name still flows through `studio` and resolves by name |
+
+Rules:
+
+- **Self-describing, not positional.** Each value stands alone (id + name), so Holodex does **not**
+  rely on array order matching the `studio` array. Order is not significant.
+- **No embedded control characters.** The value rides the normal sanitize/caps ([§5](#5-non-functional-requirements)):
+  Holodex strips control chars and collapses newlines/tabs to spaces, so keep the id + name on one
+  line. The name may contain spaces — only the first space (after the id token) is the delimiter.
+- **One namespace per id.** Use the same `id_namespaces` you declare in `/describe` (e.g. `tmdb`).
+  A studio may accumulate ids from multiple providers over time; each provider emits its own.
+
+**How Holodex consumes it.** On the owner's video enrich, Holodex parses `_studio_external_ids`
+into a name→id map, and when it derives the video's studio links it resolves each studio **by id
+first, then by name** — so a company seen under two spellings (with the same id) converges to a
+single studio entity, and a stored id lets a later studio re-enrich re-fetch by id instead of
+re-searching by name. A `studio` value with **no** matching id (a custom or id-less name) simply
+resolves by name, exactly as before.
+
+**Caps & degradation.** Subject to the per-field caps in [§5](#5-non-functional-requirements)
+(≤ 50 values, ≤ 4096 chars each). If a response nears the 1 MiB body cap, you MAY drop
+`_studio_external_ids` before dropping `studio` itself — the names still group correctly by name,
+you only lose cross-spelling de-dup until the next enrich. Treat your upstream ids as untrusted
+like everything else (S4); this field triggers **no** new fetch or host access.
 
 ---
 
