@@ -278,6 +278,9 @@ type VideoFilter struct {
 	// (incl. alias matches) into the results (F23, ADR-036).
 	PersonIDsAny []int64
 	TagIDs       []int64
+	// StudioIDs matches videos linked to ALL of these studios (AND), like TagIDs —
+	// the entity-backed browse facet filter ?studio_id (F38, ADR-053).
+	StudioIDs []int64
 	DurationMinSec, DurationMaxSec int
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
@@ -409,6 +412,10 @@ func (f VideoFilter) build() (string, []any) {
 	for _, tid := range f.TagIDs {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id = ?)")
 		args = append(args, tid)
+	}
+	for _, sid := range f.StudioIDs {
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_studios vs WHERE vs.video_id = v.id AND vs.studio_id = ?)")
+		args = append(args, sid)
 	}
 	if f.DurationMinSec > 0 {
 		clauses = append(clauses, "v.duration_sec >= ?")
@@ -1034,9 +1041,10 @@ func (r *Repo) randomSiblings(ctx context.Context, junction, fk string, keyID, e
 
 // SearchResult is the mixed-entity payload for the global search box.
 type SearchResult struct {
-	Videos []model.Video  `json:"videos"`
-	People []model.Person `json:"people"`
-	Tags   []model.Tag    `json:"tags"`
+	Videos  []model.Video  `json:"videos"`
+	People  []model.Person `json:"people"`
+	Tags    []model.Tag    `json:"tags"`
+	Studios []model.Studio `json:"studios"`
 }
 
 // Search runs a prefix FTS query across videos, people, and tags (limit per
@@ -1137,7 +1145,26 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 		}
 		res.Tags = append(res.Tags, t)
 	}
-	return res, nil
+	if err := tr.Err(); err != nil {
+		return res, err
+	}
+
+	// Studios: FTS name matches, a new entity group (F38, ADR-053).
+	sr, err := r.db.QueryContext(ctx, `
+		SELECT s.id, s.name FROM studios_fts f JOIN studios s ON s.id = f.rowid
+		WHERE studios_fts MATCH ? LIMIT ?`, match, limit)
+	if err != nil {
+		return res, fmt.Errorf("search studios: %w", err)
+	}
+	defer sr.Close()
+	for sr.Next() {
+		var s model.Studio
+		if err := sr.Scan(&s.ID, &s.Name); err != nil {
+			return res, err
+		}
+		res.Studios = append(res.Studios, s)
+	}
+	return res, sr.Err()
 }
 
 // ---------------------------------------------------------------------------

@@ -198,6 +198,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/stream", h.streamMedia)
 	r.Get("/media/{id}/thumbnail", h.serveThumbnail)
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
+	r.Get("/studios", h.listStudios)
+	r.Get("/studios/{id}", h.getStudio)
 	r.Get("/people", h.listPeople)
 	r.Get("/people/{id}", h.getPerson)
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk
@@ -247,6 +249,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDecisions(r)
 		// People on the unified model — person decisions/curation + rename (F37).
 		h.mountPersonDecisions(r)
+		// Studio on the unified model — studio decisions/curation (F38, ADR-053).
+		h.mountStudioDecisions(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
@@ -265,6 +269,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		Query:          q.Get("q"),
 		PersonIDs:      parseIDs(q["person"]),
 		TagIDs:         parseIDs(q["tag"]),
+		StudioIDs:      parseIDs(q["studio_id"]),
 		DurationMinSec: atoiDefault(q.Get("duration_min"), 0) * 60,
 		DurationMaxSec: atoiDefault(q.Get("duration_max"), 0) * 60,
 		YearMin:        atoiDefault(q.Get("year_min"), 0),
@@ -391,12 +396,22 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	} else if h.enrich != nil {
 		enriched = h.videoEnrichment(r, id)
 	}
+	// Studio entities linked to this video (F38, ADR-053): the resolved studio
+	// value links to its /studios/{id} page, and the link target always matches the
+	// displayed value because video_studios is derived from that same resolution.
+	var studios []model.Studio
+	if byVideo, serr := h.repo.StudiosForVideos(r.Context(), []int64{id}); serr != nil {
+		h.log.Warn("studios for media detail", "id", id, "err", serr)
+	} else {
+		studios = byVideo[id]
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"video":    v,
 		"metadata": extra,
 		"fields":   fields,
 		"resolved": resolved,
 		"enriched": enriched,
+		"studios":  studios,
 	})
 }
 
