@@ -191,11 +191,20 @@ until it rides the decision model as a real entity.
 
 - **P2-1 — Studio aliases + merge** (F23 shape: routing at derivation time, never auto-merge
   same-name). Becomes worthwhile the first time two spellings of one real studio both carry
-  real libraries.
+  real libraries. *(The **deterministic** counterpart — dedup by provider id rather than by
+  name — is P2-5.)*
 - **P2-2 — Multi-studio UI** if the `studio` field is ever promoted to a merge field
   (schema already permits it, RD2).
 - **P2-3 — Studio logo in the image store** (F25 generalization) instead of a plain asset.
 - **P2-4 — MCP studio entities** (rides F22.5f).
+- **P2-5 — Studio external-id dedup** ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122))
+  — capture the TMDB `production_companies[].id` (today discarded) into a
+  `studio_external_ids` join table (F32 person-external-id shape) so studio enrichment refreshes
+  deterministically, videos can *hint* their studio's provider identity, and same-company
+  spellings converge without manual aliases/merge. The design crux (the company id lives in the
+  video's enrichment, not the resolved `studio` field the derivation reads) needs an ADR
+  extending [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md).
+  Companion to the S3 enrichment slice ([HOLODEX-121](https://whoiskevinrich.atlassian.net/browse/HOLODEX-121)).
 
 ## Behavior detail
 

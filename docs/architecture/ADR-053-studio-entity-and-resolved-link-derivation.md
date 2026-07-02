@@ -256,7 +256,12 @@ mold and re-deriving the F36 split.
 - **Studio aliases + merge** (P2) — add `studio_aliases` + routing at derivation time + a merge
   endpoint the first time two real spellings both carry libraries; mirrors ADR-036.
 - **Studio external-id de-dup** — if the enrichment slice needs deterministic provider-id matching,
-  add it as F32 does for people (join table), not a column.
+  add it as F32 does for people (join table), not a column. **Tracked as
+  [HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122)** (capture the TMDB
+  `production_companies[].id`, `studio_external_ids` join table, deterministic `resolveOrCreateStudio`)
+  — supports enrichment refresh, cross-enrichment hints, and same-company dedup. Its crux — the
+  company id lives in the video's enrichment, not the resolved `studio` field the derivation reads —
+  will need a follow-on ADR extending this one.
 - **Multi-studio UI** — only if `studio` is ever promoted to a merge field; the schema already
   permits it.
 
