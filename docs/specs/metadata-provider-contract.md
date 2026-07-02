@@ -310,6 +310,15 @@ Rules:
   Propose new canonical keys to the Holodex maintainers (e.g. a `deathdate`) rather than
   inventing display-only keys that won't be configured. Mark any such key **TBD / confirm
   with Holodex maintainers** in your provider's own docs.
+- **Reserved `_`-prefixed keys are internal sidecars.** A field key beginning with an
+  underscore is provider→core **plumbing**: Holodex persists it in the shadow store like any
+  other field but **never displays it** and **never resolves it** (it is not a canonical
+  field). Use one only for a defined contract — do not invent your own. v1 defines
+  **`_studio_external_ids`** (ADR-054): on a **video** enrich, one self-describing value
+  `"<namespace>:<id> <name>"` per production company (e.g. `"tmdb:174 Warner Bros. Pictures"`),
+  so Holodex can de-dup studio entities by provider company id. The id token has no space, so
+  the name is the unambiguous remainder; emit only companies with a non-empty name and a real
+  id. It rides the normal sanitize/caps and is aligned with the `studio` field.
 
 ### 4.3 Assets
 

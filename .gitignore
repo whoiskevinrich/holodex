@@ -1,6 +1,8 @@
 # Go
 /holodex
 /holodex.exe
+/providers/tmdb/tmdb
+/providers/tmdb/tmdb.exe
 *.test
 *.out
 

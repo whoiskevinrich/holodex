@@ -317,6 +317,18 @@ func TestTMDBEnrichMovie(t *testing.T) {
 	if len(res.Fields["studio"]) == 0 {
 		t.Error("studio field missing")
 	}
+	// The _studio_external_ids sidecar (ADR-054) carries each company's TMDB id,
+	// self-describing as "tmdb:<id> <name>" and aligned with the studio names.
+	sidecar := res.Fields[studioExternalIDsField]
+	if len(sidecar) != 2 {
+		t.Fatalf("_studio_external_ids = %v, want 2 entries", sidecar)
+	}
+	if sidecar[0] != "tmdb:508 Regency Enterprises" {
+		t.Errorf("sidecar[0] = %q, want %q", sidecar[0], "tmdb:508 Regency Enterprises")
+	}
+	if sidecar[1] != "tmdb:711 Fox 2000 Pictures" {
+		t.Errorf("sidecar[1] = %q, want %q", sidecar[1], "tmdb:711 Fox 2000 Pictures")
+	}
 	// homepage is the movie's TMDB page (not the studio's official site).
 	if got := res.Fields["homepage"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/movie/550-fight-club" {
 		t.Errorf("homepage = %v, want [https://www.themoviedb.org/movie/550-fight-club]", got)
@@ -540,7 +552,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/movie/550/credits":
 			io.WriteString(w, `{"cast":[{"name":"Brad Pitt","order":0},{"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"name":"David Fincher","job":"Director"},{"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/movie/550":
-			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"name":"Regency Enterprises"},{"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
+			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
 			http.NotFound(w, r)
 		case strings.HasPrefix(r.URL.Path, "/3/find/"):

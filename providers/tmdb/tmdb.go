@@ -21,6 +21,12 @@ import (
 
 var errNotFound = errors.New("not found")
 
+// studioExternalIDsField is the reserved "_"-prefixed sidecar field-key that hands
+// per production-company TMDB ids to Holodex studio-link de-dup (HOLODEX-122,
+// ADR-054). It must match holodex/internal/model.StudioExternalIDsField — this
+// provider is a standalone package, so the contract is the shared string literal.
+const studioExternalIDsField = "_studio_external_ids"
+
 // tmdbClient calls the TMDB v3 REST API. It holds no Holodex state; Holodex
 // persists all enrichment. The client is stateless with respect to Holodex so
 // restarting the container loses nothing Holodex relies on (spec §5).
@@ -124,6 +130,7 @@ type movieGenre struct {
 }
 
 type productionCompany struct {
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -475,16 +482,29 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 	if det.PosterPath != "" {
 		fields["poster_url"] = []string{"https://image.tmdb.org/t/p/original" + det.PosterPath}
 	}
-	// production_companies → studio (multi-valued)
+	// production_companies → studio (multi-valued), plus a self-describing sidecar
+	// carrying each company's TMDB id for studio-entity de-dup (HOLODEX-122, ADR-054).
+	// studioExternalIDsField is a "_"-prefixed internal key: the core persists it but
+	// never displays or resolves it; RelinkVideoStudios parses it into a name→id map.
+	// Each sidecar value is "tmdb:<id> <name>" — the id token has no space, so the name
+	// is the unambiguous remainder (robust to the core's value reordering/curation).
 	if len(det.ProductionCompanies) > 0 {
 		studios := make([]string, 0, len(det.ProductionCompanies))
+		companyIDs := make([]string, 0, len(det.ProductionCompanies))
 		for _, pc := range det.ProductionCompanies {
-			if pc.Name != "" {
-				studios = append(studios, pc.Name)
+			if pc.Name == "" {
+				continue
+			}
+			studios = append(studios, pc.Name)
+			if pc.ID > 0 {
+				companyIDs = append(companyIDs, fmt.Sprintf("tmdb:%d %s", pc.ID, pc.Name))
 			}
 		}
 		if len(studios) > 0 {
 			fields["studio"] = studios
+		}
+		if len(companyIDs) > 0 {
+			fields[studioExternalIDsField] = companyIDs
 		}
 	}
 	// cast → actors (top 10 by billing order; TMDB returns them pre-sorted)

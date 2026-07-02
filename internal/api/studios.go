@@ -193,12 +193,12 @@ func (h *Handlers) RelinkVideoStudios(ctx context.Context, videoID int64) error 
 	}
 	studioField, ok := h.mappings.Current().ByCanonical("studio")
 	if !ok {
-		return h.repo.ReconcileVideoStudios(ctx, videoID, nil)
+		return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
 	}
 	v, extra, err := h.repo.GetVideo(ctx, videoID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return h.repo.ReconcileVideoStudios(ctx, videoID, nil)
+			return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
 		}
 		return err
 	}
@@ -222,5 +222,35 @@ func (h *Handlers) RelinkVideoStudios(ctx context.Context, videoID int64) error 
 			names = append(names, rf.Values...)
 		}
 	}
-	return h.repo.ReconcileVideoStudios(ctx, videoID, names)
+	return h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(enrRows))
+}
+
+// studioExternalIDsFromRows builds a resolved-name → provider external-id side-map
+// from a video's internal _studio_external_ids sidecar rows (ADR-054). Each sidecar
+// value is "<external_id> <name>" (the id token has no space, so the name is the
+// remainder). Keyed by trimmed name so it survives the resolver's reordering/curation;
+// a name with no entry resolves by name only. Returns nil when no ids are present.
+func studioExternalIDsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	var out map[string]string
+	for _, row := range rows {
+		if row.FieldKey != model.StudioExternalIDsField {
+			continue
+		}
+		for _, v := range row.Values {
+			sep := strings.IndexByte(v, ' ')
+			if sep <= 0 {
+				continue
+			}
+			extID := strings.TrimSpace(v[:sep])
+			name := strings.TrimSpace(v[sep+1:])
+			if extID == "" || name == "" {
+				continue
+			}
+			if out == nil {
+				out = make(map[string]string)
+			}
+			out[name] = extID
+		}
+	}
+	return out
 }
