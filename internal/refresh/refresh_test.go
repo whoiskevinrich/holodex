@@ -207,6 +207,42 @@ func TestRefreshFileErrorDoesNotPersist(t *testing.T) {
 	}
 }
 
+// A successful refresh re-derives the item's studio links via the relink hook
+// (F38, ADR-053), and a relink failure is swallowed — the file + enrichment writes
+// already committed, so the derived link must never fail the refresh.
+func TestRefreshRelinksStudios(t *testing.T) {
+	ext := &fakeExt{v: &model.Video{FilePath: "/m/s.mp4", Title: "New"}}
+	store := &fakeStore{path: "/m/s.mp4", old: &model.Video{FilePath: "/m/s.mp4", Title: "Old"}}
+	svc := refresh.NewService(ext, store, nil, nil)
+
+	var relinked []int64
+	svc.SetRelinker(func(_ context.Context, id int64) error {
+		relinked = append(relinked, id)
+		return errors.New("relink boom") // must not fail the refresh
+	})
+
+	if _, err := svc.Refresh(context.Background(), 42); err != nil {
+		t.Fatalf("a relink error must not fail the refresh: %v", err)
+	}
+	if len(relinked) != 1 || relinked[0] != 42 {
+		t.Fatalf("relink should fire once with the refreshed id, got %v", relinked)
+	}
+}
+
+// A rejected refresh (missing/soft-deleted target) short-circuits before the relink
+// hook — no derived work for an item that was never touched.
+func TestRefreshResolveErrorSkipsRelink(t *testing.T) {
+	svc := refresh.NewService(&fakeExt{}, &fakeStore{targetErr: repo.ErrNotFound}, nil, nil)
+	called := false
+	svc.SetRelinker(func(_ context.Context, _ int64) error { called = true; return nil })
+	if _, err := svc.Refresh(context.Background(), 1); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+	if called {
+		t.Fatal("relink must not fire when the target resolve fails")
+	}
+}
+
 // Refresh re-enriches every linked provider after the file commit, one source
 // result each, reusing the persisted match (no picker).
 func TestRefreshReEnrichesLinkedProviders(t *testing.T) {

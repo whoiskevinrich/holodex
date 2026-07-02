@@ -158,9 +158,11 @@ func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
 	return &s, nil
 }
 
-// StudioLinkCount returns the total number of video_studios rows — used to gate the
-// one-time startup backfill (ADR-053 §5): a fresh post-migration DB has none, so the
-// backfill runs; once links exist it is skipped, making it genuinely one-time.
+// StudioLinkCount returns the total number of video_studios rows — the fast-path
+// gate for the one-time startup backfill (ADR-053 §5): once any link exists the
+// backfill is skipped. (A library where nothing resolves to a studio keeps a count
+// of 0; the backfill uses a job-run marker to avoid re-passing every boot in that
+// case — see cmd/holodex backfillStudioLinks.)
 func (r *Repo) StudioLinkCount(ctx context.Context) (int, error) {
 	var n int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM video_studios`).Scan(&n)

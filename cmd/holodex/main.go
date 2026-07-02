@@ -366,10 +366,12 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 // backfillStudioLinks derives video_studios for every existing video once, after
 // migration 0017, so studio promotion doesn't require a manual rescan (F38, ADR-053
-// §5). Gated on an empty video_studios so it is genuinely one-time; the relink is
-// idempotent, so a rare re-run (a library where nothing resolves to a studio) is a
-// safe no-op. Best-effort — failures are logged, never fatal. Recorded as a job run
-// for observability (F21).
+// §5). It is genuinely one-time via two gates: the common case skips once any link
+// exists (`StudioLinkCount > 0`); the edge case — a library where *nothing* resolves
+// to a studio, so no link is ever created — skips on a prior successful backfill job
+// run, so we don't re-scan the whole library (and re-record a job run) on every boot.
+// Best-effort — failures are logged, never fatal; the pass is idempotent. Runs to
+// completion before the server serves, matching the person-image startup backfill.
 func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.Context, int64) error, log *slog.Logger) {
 	n, err := r.StudioLinkCount(ctx)
 	if err != nil {
@@ -377,7 +379,15 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		return
 	}
 	if n > 0 {
-		return // already linked — one-time pass already ran
+		return // links exist — the one-time pass already ran (common case)
+	}
+	// No links yet: either a fresh migration, or a library with no studios at all.
+	// The job-run marker distinguishes them so we don't re-pass every boot in the
+	// latter case. A marker lookup failure falls through and runs (safe — idempotent).
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindStudioBackfill); err != nil {
+		log.Warn("studio link backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
 	}
 	ids, err := r.AllActiveVideoIDs(ctx)
 	if err != nil {
@@ -385,7 +395,7 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		return
 	}
 	if len(ids) == 0 {
-		return
+		return // nothing to backfill; no marker needed (a later boot with videos runs)
 	}
 	started := time.Now()
 	var errs int
@@ -400,6 +410,9 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 	if errs > 0 {
 		status = model.JobStatusErr
 	}
+	// The job run doubles as the one-time marker (see the edge-case gate above), so
+	// it is recorded whether or not any link resulted. Detail states what it did —
+	// processed N videos — not how many links resulted (which may legitimately be 0).
 	if err := r.RecordJobRun(ctx, model.JobRun{
 		Kind:       model.JobKindStudioBackfill,
 		Trigger:    model.TriggerInitial,
@@ -408,7 +421,7 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		FinishedAt: finished,
 		DurationMs: finished.Sub(started).Milliseconds(),
 		Errors:     errs,
-		Detail:     fmt.Sprintf("derived studio links for %d videos", len(ids)),
+		Detail:     fmt.Sprintf("studio-link backfill: processed %d videos", len(ids)),
 	}); err != nil {
 		log.Warn("studio link backfill: record job run failed", "err", err)
 	}
