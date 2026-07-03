@@ -310,13 +310,16 @@ func applyEnv(c *Config) {
 	if v, ok := os.LookupEnv("PROVIDER_TRUST_ORDER"); ok {
 		c.ProviderTrustOrder = strings.Split(v, ",")
 	}
-	// Normalize whether the list came from YAML or env: trim entries, drop blanks,
-	// and de-dup (a repeated provider would just rank the same namespace twice).
+	// Normalize whether the list came from YAML or env: trim, lower-case, drop
+	// blanks, and de-dup. Lower-casing is load-bearing — the resolver only ever
+	// matches against lower-cased mapping namespaces (mapping.ParseSource), so a
+	// raw "TMDB" would silently never rank; folding case here also makes the
+	// de-dup case-insensitive.
 	c.ProviderTrustOrder = normalizeList(c.ProviderTrustOrder)
 }
 
-// normalizeList trims each entry, drops empties, and removes later duplicates,
-// preserving first-seen order.
+// normalizeList trims each entry, lower-cases it, drops empties, and removes later
+// duplicates, preserving first-seen order.
 func normalizeList(in []string) []string {
 	if len(in) == 0 {
 		return in
@@ -324,7 +327,7 @@ func normalizeList(in []string) []string {
 	seen := make(map[string]bool, len(in))
 	out := make([]string, 0, len(in))
 	for _, s := range in {
-		if s = strings.TrimSpace(s); s == "" || seen[s] {
+		if s = strings.ToLower(strings.TrimSpace(s)); s == "" || seen[s] {
 			continue
 		}
 		seen[s] = true

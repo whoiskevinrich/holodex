@@ -186,8 +186,10 @@ func TestProviderTrustOrderConfig(t *testing.T) {
 		t.Errorf("default provider_trust_order = %v, want empty", cfg.ProviderTrustOrder)
 	}
 
-	// Comma-separated env is split, trimmed, blank-dropped, and de-duped in order.
-	t.Setenv("PROVIDER_TRUST_ORDER", " tmdb , other ,, tmdb ")
+	// Comma-separated env is split, trimmed, lower-cased, blank-dropped, and
+	// de-duped in order. Lower-casing matters: the resolver only matches lower-cased
+	// mapping namespaces, so "TMDB" must fold to "tmdb" (and de-dup against it).
+	t.Setenv("PROVIDER_TRUST_ORDER", " TMDB , other ,, tmdb ")
 	if cfg, err = Load(""); err != nil {
 		t.Fatal(err)
 	}
