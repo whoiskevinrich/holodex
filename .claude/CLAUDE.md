@@ -16,6 +16,28 @@ Backend (Go) via `Makefile`; frontend (`web/`) via npm:
 | Frontend type-check / tests | `cd web && npm run check` · `npm run test` |
 | Full stack in Docker | `make docker` (`docker compose up --build`) |
 
+## Codebase map
+
+Go backend + SvelteKit SPA. Where things live, and the one model that ties them together:
+
+| Path | Responsibility |
+|---|---|
+| `cmd/holodex` | Entrypoint + bootstrap — runs migrations, one-time backfills, wires services |
+| `internal/api` | HTTP handlers (chi); owner-gated mutations via `requireOwner` |
+| `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free) |
+| `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
+| `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter |
+| `internal/mapping`, `internal/registry` | Canonical field mapping (`holodex.yaml`) + per-field metadata (labels/display) |
+| `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` |
+| `providers/tmdb` | Standalone metadata-provider **sidecar** (see Gotchas) |
+| `web/` | SvelteKit SPA (see Frontend theming) |
+
+**The core model** (ADR-033/051/052): the file layer is the **baseline/default truth**; provider
+enrichment is an **additive shadow** (never flattened into the file layer); the **pure resolver** is
+the sole merge point; standing **per-field source decisions** + **curation** override precedence at
+resolve time. Person and Studio are **entities** riding that same decision model over a
+`BaselineSource`. Read the relevant ADR before changing any of these seams.
+
 ## Change-routing rules
 
 While making a change, route it through the right skill based on what it touches:
@@ -117,6 +139,16 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 - Generated/runtime data (`/data`, `*.db`, thumbnails, `web/node_modules`, build output, media fixtures)
   is gitignored — never commit it.
 - Before pushing to a public remote, scan the working tree for sensitive values.
+
+## Gotchas
+
+- **Migrations are append-only with a manual down.** Add the next sequential
+  `internal/db/migrations/NNNN_name.up.sql` **and** a matching `.down.sql` (golang-migrate; no
+  auto-rollback). Never edit a shipped migration — add a new one.
+- **`providers/tmdb` is a standalone sidecar in the same Go module.** It talks to the core only over
+  HTTP and **must not import `internal/*`**. Cross-boundary contracts (e.g. a reserved provider
+  field-key like `_studio_external_ids`) are **shared string literals** kept in sync by convention +
+  the provider-contract spec — change both sides together.
 
 ## Conventions
 
