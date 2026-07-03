@@ -275,12 +275,24 @@ decide how your data maps onto stable namespaces and canonical keys.
 
 - An `external_id` is **`<namespace>:<id>`** — a stable namespace prefix, a colon, then an
   id that is stable in your source (e.g. `acme:998211`, `wikidata:Q7259`).
+- **The id is mandatory and is the identity** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)).
+  Every record you resolve or enrich — a `/resolve` candidate, an `/enrich` target, and **every**
+  `people[]` credit ([§4.5](#45-video-credits-people)) — MUST carry a well-formed `<namespace>:<id>`.
+  Holodex uses it as the **sole identity/de-dup key** for the entity; there is **no name fallback**. A
+  record with an empty or malformed id is **refused**, not matched by name. If your source has no stable
+  id, synthesize a deterministic one (e.g. a stable hash of a canonical key) and advertise its namespace —
+  a source with no stable identity cannot be safely de-duplicated.
 - Pick a **lowercase namespace** that is stable across releases. Usually it equals your
-  provider `name`. If you can also resolve foreign ids (e.g. you accept an `imdb:` id and map
-  it internally), advertise those namespaces too in `/describe.id_namespaces`.
+  provider `name`. You MUST emit ids only in namespaces you advertise in `/describe.id_namespaces`
+  (Holodex validates this). If you can also resolve foreign ids (e.g. you accept an `imdb:` id and map
+  it internally), advertise those namespaces too — a **namespace is a shared identity space**: two
+  providers that both emit `imdb:tt1160419` refer to the **same** entity and Holodex converges them to one.
 - The `external_id` is the durable link Holodex stores to re-fetch the same record later, so
   it must be **stable and reversible**: the same input must resolve to the same id, and
   `/enrich` must accept any id your `/resolve` emitted.
+
+> **Enforcement is rolling out** (HOLODEX-124 perimeter validation, HOLODEX-125 person identity). Update
+> your provider to emit ids everywhere now; the name-fallback path is being removed.
 
 ### 4.2 Canonical fields
 
@@ -434,15 +446,16 @@ A `video`/`media` `/enrich` response MAY include a top-level **`people`** array 
 
 | Key | Type | Required | Notes |
 |---|---|---|---|
-| `people[].name` | string | yes | Display name. Holodex sanitizes (strips control chars, caps 4096) — it is the match key when `external_id` is absent |
+| `people[].name` | string | yes | Display name. Holodex sanitizes (strips control chars, caps 4096). **Display only** — it is *not* an identity/match key ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) |
 | `people[].role` | string | yes | Credit role. v1 enum: `"actor"`, `"director"`, `"writer"`, `"producer"`, `"composer"`, `"crew"`. An **unknown role is stored generically** (never dropped) — forward-compatible |
-| `people[].external_id` | string | optional | Namespace-qualified id (`<namespace>:<id>`, [§4.1](#41-external-ids-and-namespaces)). When present it is the **stable, deterministic** link Holodex stores; the same person across films de-duplicates to one record. Omit only if your source has no stable id |
+| `people[].external_id` | string | **yes** | Namespace-qualified id (`<namespace>:<id>`, [§4.1](#41-external-ids-and-namespaces)). The **stable, deterministic** identity Holodex stores; the same person across films de-duplicates to one record. **Required** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — a credit without one is refused, not name-matched. If your source lacks a stable person id, synthesize a deterministic namespaced one |
 | `people[].order` | integer | optional | Billing order within a role (0 = top-billed) for display ordering. Holodex caps the list |
 | `people[].headshot` | object | optional | A single **asset object** ([§4.3](#43-assets)) — `{ "kind": "photo", "url": "…" }` — for that person's portrait. Subject to **all** the [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules: allowlisted host (your `base_url` host or an operator `asset_hosts` entry), `https` cross-host, no credentials in the URL, raster JPEG/PNG/GIF, ≤16 MiB, ≤4096 px. Omit when you have none |
 
 **How Holodex consumes it.** On the owner's video enrich, Holodex (a) resolve-or-creates a
-Person per entry — keyed by `external_id` when given, else by normalized `name` — and links it
-to the video with its `role`; (b) downloads each `headshot` through the **same SSRF perimeter**
+Person per entry — keyed **by `external_id`** (the identity; a namespaced id that another provider
+already emitted converges to the same Person, [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) —
+and links it to the video with its `role`; (b) downloads each `headshot` through the **same SSRF perimeter**
 as every other asset ([§4.3](#43-assets)) and stores it as that person's headshot. The flat
 `fields.actors`/`fields.director` text remains the fallback for providers that don't emit
 `people`, so emitting both is harmless (Holodex prefers `people` when present).
