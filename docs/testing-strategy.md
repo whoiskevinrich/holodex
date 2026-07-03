@@ -438,6 +438,22 @@ in `/security-review`); the internal `adminMode` store/key are **unchanged** (th
 - **Sidecar is inert to display/resolve**: `FieldsFromRows` skips `InternalFieldPrefix` (`_`) keys so `_studio_external_ids` never reaches the media-detail `enriched[]` list (`internal/enrich/enrich_test.go`); it is not a mapped canonical field, so the resolver ignores it (unchanged `ResolveFields`). **No new provider host/asset/SSRF surface; no media-file write.**
 - **Deferred (tracked)**: the browse **facet** entity-switch (HOLODEX-120: `?studio_id` + a Studios dropzone replacing the legacy `?studio=` string facet) and the **TMDB company enrichment** slice (HOLODEX-121, S3) — the legacy `?studio=` string filter stays working meanwhile.
 
+**Universal enrichment unique-key invariant (HOLODEX-123, ADR-055)** — generalizes the studio dedup above
+into a cross-entity rule: **every provider record carries a namespaced id `<namespace>:<id>` and it is the
+sole identity/de-dup key; no name fallback for provider-supplied identity**, and a namespace is a **shared
+identity space** (two providers emitting the same id converge). This ADR is docs-only; the concrete tests
+land with the implementation issues and are enumerated there:
+- **Perimeter enforcement (HOLODEX-124)** — a `/resolve` candidate, `/enrich`, or `people[]` credit with an
+  empty or non-`<namespace>:<id>` id is **refused**; a namespace not advertised in `/describe.id_namespaces`
+  is rejected; a single `ParseExternalID` helper is the one place the grammar is enforced (adversarial:
+  bare id, empty namespace, embedded space, spoofed namespace).
+- **Person id-first identity (HOLODEX-125)** — `person_external_ids(external_id PK)` + external-id-first
+  resolve mirrors the studio precedence tests (dedup two spellings by shared id; cross-provider convergence;
+  a homonym with a *different* id stays a **separate** person — the collision the name path caused). The
+  **owner-curated** name-alias/merge path (F23) stays name-based and is unaffected — its tests are unchanged.
+- Note the studio "**name fallback when the id is absent**" (above) is the **owner-decided/custom** studio
+  value path (human intent), not a provider-supplied identity — the invariant leaves it intact.
+
 ---
 
 ## 10. Example Test Cases (concrete)
