@@ -11,7 +11,11 @@
 
 	onMount(async () => {
 		const r = await api.facets().catch(() => ({ facets: [] }));
-		facets = r.facets ?? [];
+		// `studio` is a first-class entity facet (F38): the browse page filters it via the
+		// entity-backed Studios control (?studio_id), so suppress the legacy mapped `studio`
+		// string facet here to avoid surfacing two studio filters (HOLODEX-120). The REST/MCP
+		// ?studio= filter still works for back-compat — only this UI stops generating it.
+		facets = (r.facets ?? []).filter((f) => f.canonical !== 'studio');
 		onfacets?.(facets);
 	});
 

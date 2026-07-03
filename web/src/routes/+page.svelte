@@ -6,7 +6,7 @@
 	import { browseCache } from '$lib/browse.svelte';
 	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { MediaFilters, Person, Resolution, SortOrder, Tag, Video } from '$lib/types';
+	import type { MediaFilters, Person, Resolution, SortOrder, Studio, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/VideoGrid.svelte';
 	import FacetFilter from '$lib/components/FacetFilter.svelte';
 	import SortDropdown from '$lib/components/SortDropdown.svelte';
@@ -30,6 +30,7 @@
 	let yearMax = $state<number | ''>(init.year_max ?? '');
 	let personIDs = $state<number[]>(init.person ?? []);
 	let tagIDs = $state<number[]>(init.tag ?? []);
+	let studioIDs = $state<number[]>(init.studio_id ?? []);
 	// SP1 sort precedence: a sort in the URL (shared/deep link) wins; otherwise the
 	// per-page saved preference; otherwise the default. An invalid URL value is
 	// ignored so a crafted ?sort=bogus can't wedge the control.
@@ -53,9 +54,10 @@
 	let loadingMore = $state(false);
 	let error = $state('');
 
-	// Facet options for the people/tag autocomplete (F4.2/F4.3), fetched once.
+	// Facet options for the people/tag/studio autocomplete (F4.2/F4.3, F38), fetched once.
 	let peopleOptions = $state<Person[]>([]);
 	let tagOptions = $state<Tag[]>([]);
+	let studioOptions = $state<Studio[]>([]);
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the
 	// owner can toggle it off. Per-browser preference; defaults on.
@@ -72,6 +74,7 @@
 	onMount(() => {
 		api.listPeople('count').then((r) => (peopleOptions = r.items ?? [])).catch(() => {});
 		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
+		api.listStudios('count').then((r) => (studioOptions = r.items ?? [])).catch(() => {});
 	});
 
 	const hasMore = $derived(videos.length < total);
@@ -86,6 +89,7 @@
 			year_max: yearMax || undefined,
 			person: personIDs,
 			tag: tagIDs,
+			studio_id: studioIDs,
 			sort,
 			// Seed rides the API request (not the shareable URL) so paged "Load more"
 			// tiles under one shuffle (ADR-045). Only sent for the random sort.
@@ -216,6 +220,7 @@
 		durationMin = durationMax = yearMin = yearMax = '';
 		personIDs = [];
 		tagIDs = [];
+		studioIDs = [];
 		sort = DEFAULT_SORT;
 		mapped = {};
 	}
@@ -330,6 +335,7 @@
 
 		<FacetFilter label="People" items={peopleOptions} bind:selected={personIDs} />
 		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
+		<FacetFilter label="Studios" items={studioOptions} bind:selected={studioIDs} />
 
 		<MappedFacets
 			bind:mapped

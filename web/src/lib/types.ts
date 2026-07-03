@@ -442,6 +442,10 @@ export interface MediaFilters {
 	q?: string;
 	person?: number[];
 	tag?: number[];
+	// Studio-entity filter (F38, HOLODEX-120): repeatable ?studio_id, filtering by the
+	// derived video_studios link. Distinct from the legacy mapped `studio` string filter
+	// (still under `mapped`, kept for REST/MCP back-compat but no longer surfaced in the UI).
+	studio_id?: number[];
 	duration_min?: number; // minutes
 	duration_max?: number; // minutes
 	resolution?: Resolution;
