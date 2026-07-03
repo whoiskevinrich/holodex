@@ -256,3 +256,38 @@ doesn't resize on select).
 - **Colour is never the only signal:** selection reads via the **● dot + `aria-checked` + border**, not
   fill/hue; provenance is text (`·source`), not colour. The pick-one vs drop-any distinction is the
   **glyph** (dot vs ✕), not colour.
+
+---
+
+## Addendum — Per-provider match/enrich UI (HOLODEX-119)
+
+Split from HOLODEX-9 (S4) and deferred until a **second real provider** existed. The backend was
+already per-provider (`entity_enrichment` keyed by provider; `/enrich/sources` lists every enabled
+provider; resolve/enrich/clear all take a `provider`). Only the **SPA** collapsed to the first capable
+provider (`provider = sources.find(…)`), so a second matched provider could never be
+matched/enriched/cleared from the UI. This widens that single assumption to a **per-provider list** on
+both detail pages — no new component, no resolver change.
+
+**Media page (`media/[id]`)** and **People page (`people/[id]`)**, owner view only:
+
+- The Metadata/Details header renders **one `Enrich from {p}`** button per entity-capable provider
+  (`sources.filter(s => s.entity_types.includes('video'|'person'))`), each opening its **own**
+  `EnrichPicker` targeted at that provider. `pickerProvider` (a provider name, `''` = closed) replaces
+  the old boolean `pickerOpen`.
+- A **`Clear {p}`** button appears next to a provider **only once it is linked** to the entity — media
+  keys this off the raw enrichment store (`enrichedByProvider.has(p)`), people off the resolved
+  candidates/items (`providerLinked(p)`, the F37 replacement for the retired `enriched[]`). Each clear is
+  independent (`busy`/`enrichBusy` holds the provider being cleared) and refetches so the chips drop that
+  provider's candidate too.
+- **Raw enrichment disclosures (media only)** — the foot-of-page audit block is now **one collapsible
+  per provider** (`Enrichment data: {p} ({n})`), grouped from `enriched` by `provider`; each has its own
+  open/closed flag (`openEnriched[p]`).
+- **Chips are unchanged.** `SourceSelect` already renders one chip per *distinct* matched-provider value
+  and folds agreeing providers into a shared `·{p1} + {p2}` chip (see the chip-row rules above). A
+  provider only contributes a chip when it is a configured source for that field in
+  `metadata-mappings.yaml` — the same rule as one provider; wiring a second provider into a field's
+  `sources:` is an operator config step, distinct from the registry that drives the Enrich/Clear buttons.
+
+**Deliberately unchanged:** no new visual vocabulary, no new tokens, no writeback/curation change; the
+button group is the same accent/`rounded-theme` shell repeated per provider, wrapping via
+`flex-wrap`. QA all three skins (the button group + folded chips must read in each).
