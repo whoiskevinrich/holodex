@@ -105,6 +105,11 @@ type Handlers struct {
 	// ADR-051/RD4). It feeds resolver.Options so an undecided field resolves
 	// file-first by default; empty means file-first.
 	defaultSource string
+
+	// providerTrustOrder ranks providers for the undecided winner among them on a
+	// replace field (F36 P1-2, ADR-051 §8). Fed into resolver.Options alongside
+	// defaultSource; empty means mapping order among providers.
+	providerTrustOrder []string
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
@@ -177,10 +182,23 @@ func (h *Handlers) SetDefaultSource(mode string) {
 	h.defaultSource = mode
 }
 
+// SetProviderTrustOrder wires the F36 inter-provider trust order (P1-2, ADR-051 §8):
+// the ranking that decides the undecided winner among providers on a replace field.
+// Config normalizes the list before this is called; empty leaves mapping order among
+// providers. Called once at startup before serving.
+func (h *Handlers) SetProviderTrustOrder(order []string) {
+	h.providerTrustOrder = order
+}
+
 // resolveOptions builds the resolver options for one video from its pre-loaded
-// standing decisions and the global default-source mode (F36).
+// standing decisions, the global default-source mode, and the inter-provider trust
+// order (F36).
 func (h *Handlers) resolveOptions(decisions resolver.Decisions) resolver.Options {
-	return resolver.Options{Decisions: decisions, DefaultSource: h.defaultSource}
+	return resolver.Options{
+		Decisions:          decisions,
+		DefaultSource:      h.defaultSource,
+		ProviderTrustOrder: h.providerTrustOrder,
+	}
 }
 
 // controlsUnauthenticated is true when the admin surface is reachable beyond

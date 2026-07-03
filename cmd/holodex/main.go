@@ -216,6 +216,17 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	enrichSvc := enrich.NewService(sources, repository, log)
 	log.Info("metadata source providers loaded", "path", cfg.MetadataSourcesPath, "enabled", len(sources.Current().Enabled()))
 
+	// Warn on provider_trust_order names that match no enabled provider (F36 P1-2):
+	// an unknown name is inert (it just never ranks any real source), so this is a
+	// fail-loud hint for a typo, not an error. Config can't do this check — provider
+	// identity is only known here, once the registry is loaded.
+	for _, name := range cfg.ProviderTrustOrder {
+		if _, ok := sources.Current().ByName(name); !ok {
+			log.Warn("provider_trust_order names an unknown or disabled provider; it will be ignored",
+				"provider", name)
+		}
+	}
+
 	// Person images (F25, ADR-038): on-disk store under DATA_PATH/person-images. The
 	// enrichment asset path and the upload handler share one normalize+store sink so a
 	// provider photo gets the same metadata strip as an upload.
@@ -293,6 +304,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
 	handlers.SetDefaultSource(cfg.DefaultSource)
+	handlers.SetProviderTrustOrder(cfg.ProviderTrustOrder)
 	apiHandler := api.Router(log, health, handlers, reg.Handler())
 
 	// In production the SvelteKit SPA is embedded; in dev Vite proxies /api here.

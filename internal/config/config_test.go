@@ -176,6 +176,32 @@ func TestDefaultSourceConfig(t *testing.T) {
 	}
 }
 
+func TestProviderTrustOrderConfig(t *testing.T) {
+	// Absent by default (mapping-order fallback among providers).
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.ProviderTrustOrder) != 0 {
+		t.Errorf("default provider_trust_order = %v, want empty", cfg.ProviderTrustOrder)
+	}
+
+	// Comma-separated env is split, trimmed, blank-dropped, and de-duped in order.
+	t.Setenv("PROVIDER_TRUST_ORDER", " tmdb , other ,, tmdb ")
+	if cfg, err = Load(""); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"tmdb", "other"}
+	if len(cfg.ProviderTrustOrder) != len(want) {
+		t.Fatalf("provider_trust_order = %v, want %v", cfg.ProviderTrustOrder, want)
+	}
+	for i, w := range want {
+		if cfg.ProviderTrustOrder[i] != w {
+			t.Errorf("provider_trust_order[%d] = %q, want %q", i, cfg.ProviderTrustOrder[i], w)
+		}
+	}
+}
+
 func TestThumbnailConfig(t *testing.T) {
 	// Defaults (ADR-009).
 	cfg, err := Load("")
