@@ -382,6 +382,11 @@ func (s *Service) FieldsFromRows(rows []repo.EnrichmentRow) []model.EnrichedFiel
 	}
 	out := make([]model.EnrichedField, 0, len(rows))
 	for _, r := range rows {
+		// Internal sidecar fields (ADR-054, e.g. _studio_external_ids) are provider→core
+		// plumbing the core reads directly — never display them.
+		if strings.HasPrefix(r.FieldKey, model.InternalFieldPrefix) {
+			continue
+		}
 		def := registry.Lookup(r.FieldKey)
 		out = append(out, model.EnrichedField{
 			Canonical:  r.FieldKey,

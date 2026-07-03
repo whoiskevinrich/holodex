@@ -715,3 +715,25 @@ func TestSanitizeFieldsCaps(t *testing.T) {
 		t.Error("blank field key should be dropped")
 	}
 }
+
+// TestFieldsFromRowsHidesInternal asserts that "_"-prefixed sidecar keys (ADR-054,
+// e.g. _studio_external_ids) are never surfaced as display fields — they are
+// provider→core plumbing the core reads directly.
+func TestFieldsFromRowsHidesInternal(t *testing.T) {
+	rows := []repo.EnrichmentRow{
+		{Provider: "tmdb", FieldKey: "overview", Values: []string{"A film."}},
+		{Provider: "tmdb", FieldKey: model.StudioExternalIDsField, Values: []string{"tmdb:174 Warner Bros."}},
+	}
+	got := (&Service{}).FieldsFromRows(rows)
+	if len(got) != 1 {
+		t.Fatalf("FieldsFromRows returned %d fields, want 1 (internal hidden): %+v", len(got), got)
+	}
+	if got[0].Canonical != "overview" {
+		t.Errorf("visible field = %q, want overview", got[0].Canonical)
+	}
+	for _, f := range got {
+		if strings.HasPrefix(f.Canonical, model.InternalFieldPrefix) {
+			t.Errorf("internal sidecar field leaked to display: %q", f.Canonical)
+		}
+	}
+}
