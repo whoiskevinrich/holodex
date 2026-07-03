@@ -21,7 +21,7 @@ calls to enrich local entities with data the media files do not carry. This spec
 **TMDB** (The Movie Database) provider, which supports two entity types:
 
 - **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
-- **Films / Video** (`entity_type: "video"`) — overview, release date, runtime, genres, tagline, homepage, language, IMDb ID, and a poster URL.
+- **Films / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)**.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
 
@@ -109,9 +109,10 @@ provider loudly.
   "entity_types": ["person", "video"],
   "id_namespaces": ["tmdb", "imdb"],
   "fields": [
-    "bio", "birthdate", "nationality", "website", "aliases", "deathdate",
-    "overview", "release_date", "runtime", "genres", "tagline", "homepage",
-    "original_language", "original_title", "status", "imdb_id", "poster_url"
+    "bio", "birthdate", "nationality", "deathdate", "website", "aliases",
+    "title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
+    "original_language", "original_title", "status", "imdb_id", "poster_url",
+    "actors", "director", "studio"
   ],
   "asset_kinds": ["headshot", "gallery", "banner"]
 }
@@ -257,8 +258,9 @@ codes beyond "2xx vs not" are for the container's own clarity/observability.
 
 ## 4. TMDB-specific field mapping
 
-The container translates TMDB's People API into the canonical contract fields. Use TMDB
-API **v3** (REST). Auth is via the provider's own credential (see [§7](#7-configuration)).
+The container translates TMDB's People and Movie APIs into the canonical contract fields. Use
+TMDB API **v3** (REST). Auth is via the provider's own credential (see [§7](#7-configuration)).
+Sections 4.1–4.3 cover **person** enrichment; §4.4 covers **movie/video** enrichment.
 
 ### 4.1 `/resolve` (name search)
 
@@ -358,29 +360,39 @@ Map each result to a candidate — same shape as person candidates but using mov
 
 For `hint.external_ids` — if a `tmdb:NNN` id is present, call **Movie › Details** directly and return a single high-confidence candidate. If an `imdb:tt…` id is present, call TMDB **Find** (`GET /3/find/{imdb_id}?external_source=imdb_id`) and use `movie_results[]`.
 
-#### 4.4b `/enrich` (movie details)
+#### 4.4b `/enrich` (movie details + credits)
 
-Call TMDB **Movie › Details**:
+Parse the TMDB id from `external_id` (strip the `tmdb:` prefix), then fetch **Movie › Details**
+and **Movie › Credits** — **concurrently, and both are required** (a failure of either fails the
+enrich; unlike person photos, credits is not best-effort):
 
 ```
 GET https://api.themoviedb.org/3/movie/{id}?language=en-US
+GET https://api.themoviedb.org/3/movie/{id}/credits?language=en-US
 ```
 
-Map TMDB movie fields → canonical `fields` (each value an array of strings):
+Map the responses → canonical `fields` (each value an array of strings):
 
 | Canonical field | TMDB source | Notes |
 |---|---|---|
-| `overview` | `overview` | Single value. Trim to ≤4000 chars at a sentence boundary. Omit if empty |
-| `release_date` | `release_date` | `YYYY-MM-DD` string. Omit if empty |
-| `runtime` | `runtime` | Integer minutes, serialized as a string (e.g. `"139"`). Omit if 0 |
-| `genres` | `genres[].name` | Multi-value — one element per genre (e.g. `["Drama", "Thriller"]`) |
-| `tagline` | `tagline` | Single value. Omit if empty |
-| `homepage` | `homepage` | Single value. Omit if empty |
-| `original_language` | `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
-| `original_title` | `original_title` | Only include if different from `title` (avoid redundancy) |
-| `status` | `status` | e.g. `"Released"`. Omit if empty |
-| `imdb_id` | `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
-| `poster_url` | `poster_path` | **Text field** (not an asset). Construct the absolute URL: `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
+| `title` | details `title` | Single value, trimmed. Omit if empty |
+| `overview` | details `overview` | Single value. Trim to ≤4000 chars at a sentence boundary (Holodex caps 4096). Omit if empty |
+| `release_date` | details `release_date` | `YYYY-MM-DD` string. Omit if empty |
+| `runtime` | details `runtime` | Integer minutes, serialized as a string (e.g. `"139"`). Omit if 0 |
+| `genres` | details `genres[].name` | Multi-value — one element per genre (drop empty names) |
+| `tagline` | details `tagline` | Single value, trimmed. Omit if empty |
+| `homepage` | *(derived)* the movie's **TMDB page** URL — `https://www.themoviedb.org/movie/{id}-{slug}` | **Not** TMDB's `homepage` field. TMDB `homepage` is the studio's own marketing site (often short-lived or region-gated); the film's TMDB page is the provider's durable record and the more useful destination. Always emitted (the id resolves even when the title slug is empty) |
+| `original_language` | details `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
+| `original_title` | details `original_title` | Emitted **only** when non-empty and different from `title` (avoid redundancy) |
+| `status` | details `status` | e.g. `"Released"`. Omit if empty |
+| `imdb_id` | details `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
+| `poster_url` | details `poster_path` | **Text field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
+| `studio` | details `production_companies[].name` | Multi-value — one per company (drop empty names) |
+| `actors` | credits `cast[].name` | Top **10** by billing order (TMDB returns `cast` pre-sorted). Drop empty names |
+| `director` | credits `crew[]` where `job == "Director"` | Multi-value (co-directors). Drop empty names |
+| `_studio_external_ids` | details `production_companies[].{id, name}` | **Internal sidecar** — see the contract's [§4.6](metadata-provider-contract.md#46-studio-external-ids-_studio_external_ids). One self-describing value `"tmdb:<id> <name>"` per company with a non-empty name **and** `id > 0`, paired with `studio`. **Not advertised in `/describe`** and never displayed or resolved — it powers studio-entity de-dup by company id (HOLODEX-122 / [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)). Omit when no company has an id |
+
+Omit any field whose TMDB value is null/empty rather than emitting an empty array.
 
 **No `assets[]` for movies.** The poster is a text `fields` entry (`poster_url`), not an asset download — there is no film poster sink that maps to a stored image slot (unlike person photos which map to the headshot role). Holodex renders the URL directly as an image in the UI.
 
