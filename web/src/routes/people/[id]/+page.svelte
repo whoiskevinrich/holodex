@@ -61,9 +61,11 @@
 	let conflict = $state<Person | null>(null);
 
 	// Enrichment controls (owner-only, F22). sources is loaded once when the client
-	// is confirmed owner; the picker drives a provider resolve→apply.
+	// is confirmed owner; the picker drives a provider resolve→apply. pickerProvider
+	// holds the provider whose EnrichPicker is open ('' = closed); busy holds the
+	// provider name currently being cleared (HOLODEX-119).
 	let sources = $state<EnrichSource[]>([]);
-	let pickerOpen = $state(false);
+	let pickerProvider = $state('');
 	let busy = $state('');
 	// Action errors render inline in the panel — never via the page-level `error`,
 	// which AsyncState uses to replace the whole page.
@@ -85,18 +87,20 @@
 	// (F25.30). Not every person has a banner-sized image; an empty 5:2 placeholder band
 	// would dominate the page with generic art. Mirrors the poster rule (F25.27).
 	const hasBanner = $derived(images.roles.banner?.present ?? false);
-	// v1 enriches People from the first person-capable provider.
-	const provider = $derived(sources.find((s) => s.entity_types.includes('person'))?.name ?? '');
-	// The provider is "linked" (Clear offered) when any resolved field carries one of its
-	// candidates or values — the F37 replacement for scanning the retired enriched[].
-	const enrichedByProvider = $derived(
-		!!provider &&
-			resolved.some(
-				(f) =>
-					(f.candidates ?? []).some((c) => providerOf(c.source) === provider) ||
-					(f.items ?? []).some((it) => it.sources.includes(provider))
-			)
+	// HOLODEX-119: every person-capable provider gets its own match/enrich/clear
+	// affordance (the backend is already per-provider). Was collapsed to the first.
+	const personProviders = $derived(
+		sources.filter((s) => s.entity_types.includes('person')).map((s) => s.name)
 	);
+	// A provider is "linked" (Clear offered) when a resolved field carries one of its
+	// candidates or merge values — the F37 replacement for scanning the retired enriched[].
+	function providerLinked(p: string): boolean {
+		return resolved.some(
+			(f) =>
+				(f.candidates ?? []).some((c) => providerOf(c.source) === p) ||
+				(f.items ?? []).some((it) => it.sources.includes(p))
+		);
+	}
 
 	// Field partitions (F37 handoff): Name first, then the replace fields, then the
 	// merge fields ("Also known as"). A field with no value and no candidates doesn't
@@ -173,12 +177,11 @@
 		}
 	}
 
-	async function clearProvider() {
-		if (!provider) return;
-		busy = 'clear';
+	async function clearProvider(p: string) {
+		busy = p;
 		actionError = '';
 		try {
-			await api.enrichClear(id, provider);
+			await api.enrichClear(id, p);
 			await reloadDetail();
 		} catch (e) {
 			actionError = toMessage(e);
@@ -461,28 +464,32 @@
 			     `record` baseline; `aliases` as the display-only "Also known as" merge row.
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
-			{#if resolved.length || (isOwner && provider)}
+			{#if resolved.length || (isOwner && personProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
-						{#if isOwner && provider}
+						{#if isOwner && personProviders.length}
+							<!-- HOLODEX-119: one Enrich (+ Clear once linked) per person-capable
+							     provider. Each opens its own EnrichPicker and clears independently. -->
 							<div class="flex flex-wrap items-center gap-2">
-								<button
-									onclick={() => (pickerOpen = true)}
-									class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
-								>
-									Enrich from {provider}
-								</button>
-								{#if enrichedByProvider}
+								{#each personProviders as p (p)}
 									<button
-										onclick={clearProvider}
-										disabled={busy === 'clear'}
-										title={`Remove the enrichment data ${provider} added to this person`}
-										class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+										onclick={() => (pickerProvider = p)}
+										class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
 									>
-										Clear {provider} data
+										Enrich from {p}
 									</button>
-								{/if}
+									{#if providerLinked(p)}
+										<button
+											onclick={() => clearProvider(p)}
+											disabled={busy === p}
+											title={`Remove the enrichment data ${p} added to this person`}
+											class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+										>
+											Clear {p} data
+										</button>
+									{/if}
+								{/each}
 							</div>
 						{/if}
 					</div>
@@ -705,13 +712,13 @@
 	</EntityVideos>
 </AsyncState>
 
-{#if pickerOpen && provider}
+{#if pickerProvider}
 	<EnrichPicker
 		entityName={person?.name ?? ''}
-		{provider}
+		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
-		onclose={() => (pickerOpen = false)}
+		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>
 {/if}

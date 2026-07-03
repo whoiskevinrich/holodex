@@ -23,7 +23,7 @@
 
 > **Who does this:** whoever sets up the session (developer or agent) — *not* the §4 human. **Quick "is it ready?" check:** open a media item as owner; under **Metadata**, a **replace** field (e.g. Title) shows a **row of value chips** — the file value first with a leading **● dot** and `·file`, one chip per provider value, and a **＋ Custom** chip — and the header button reads **Write decisions to file**. (HOLODEX-112 refinement: the old `Keep file · Adopt · Custom` segmented control + candidates line are replaced by this chip radiogroup.)
 
-- [ ] 1.1 App running with a library item that has, on at least one **replace** field, **both** a file value and a **provider** value (so a real choice exists). A second matched provider with a *different* value for some replace field enables the multi-provider checks (§3.9, §4.4). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`.
+- [ ] 1.1 App running with a library item that has, on at least one **replace** field, **both** a file value and a **provider** value (so a real choice exists). A second matched provider with a *different* value for some replace field enables the multi-provider checks (§3.9, §4.4). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`. **Two-provider setup (HOLODEX-119, §3.9a–d):** add a second entry to `metadata-sources.local.*.yaml` pointing at a second sidecar (e.g. a second `providers/tmdb` instance on `--port 9101`, `name: tmdb-b`), and — to exercise the *chip* fold — add that provider as a field `source:` in `metadata-mappings.local.*.yaml` (e.g. `tmdb-b:title`), then `POST /admin/reload-config`. The Enrich/Clear **buttons** appear from the provider registry alone; **chips** additionally require the mapping entry.
 - [ ] 1.2 At least one **merge** field present (genres/actors) to confirm it is **unchanged**.
 - [ ] 1.3 Owner setup: `ADMIN_TOKEN` unset (open/owner) or set then unlocked; know how to simulate a **non-owner** (token set, none entered) for §3.12.
 - [ ] 1.4 Devtools open — Console (errors), Network (watch the decision `PUT`/`DELETE` and the `writeback` POST), and a file-system watch on the media file's directory to confirm **no** `.holodex-tmp`/`.holodex-new` appears on a decision toggle (invariant 1).
@@ -67,6 +67,13 @@
 
 - [ ] 3.9 With two matched providers supplying **different** values for a replace field, **both** provider chips render (distinct values, self-evident divergence — no "providers differ" hint, no `text-warn`); two providers with the **same** value fold into **one** chip tagged `·{p1} + {p2}`.
 - [ ] 3.10 A provider with **no** value for the field contributes **no** chip (edge case).
+
+**Per-provider match/enrich UI (HOLODEX-119)** — needs two entity-capable providers enabled (e.g. a second sidecar; see the QA setup note in §1).
+
+- [ ] 3.9a With two providers registered for the entity, the owner header shows **one `Enrich from {p}`** per provider; each opens its **own** `EnrichPicker` titled for that provider and applies only to it.
+- [ ] 3.9b A **`Clear {p}`** button appears next to a provider **only after** it is matched/linked, and clearing it removes that provider's contribution (its chip/candidate and, on media, its raw disclosure) **without** touching the other provider.
+- [ ] 3.9c **(media)** The foot-of-page raw audit renders **one `Enrichment data: {p}`** collapsible per matched provider, each independently expandable.
+- [ ] 3.9d Enrich from **both** providers → both appear as adoptable chips: folded to `·file + {p1} + {p2}` when they agree (3.9), two distinct chips when they differ.
 
 **Sync indicators (RD2)**
 
