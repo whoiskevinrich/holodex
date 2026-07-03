@@ -29,7 +29,9 @@
 	let error = $state('');
 	let playFailed = $state(false);
 	let showRaw = $state(false);
-	let showEnriched = $state(false);
+	// Per-provider raw-enrichment disclosures (HOLODEX-119): one open/closed flag per
+	// provider name, since a video can now carry enrichment from several providers.
+	let openEnriched = $state<Record<string, boolean>>({});
 	let regenerating = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 
@@ -39,8 +41,10 @@
 	let deleteError = $state('');
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
+	// pickerProvider holds the provider whose EnrichPicker is open ('' = closed);
+	// enrichBusy holds the provider name currently being cleared (HOLODEX-119).
 	let sources = $state<EnrichSource[]>([]);
-	let pickerOpen = $state(false);
+	let pickerProvider = $state('');
 	let enrichBusy = $state('');
 	let enrichError = $state('');
 
@@ -59,7 +63,24 @@
 	const displayTitle = $derived(
 		resolved.find((f) => f.canonical === 'title')?.values[0] ?? video?.title ?? ''
 	);
-	const provider = $derived(sources.find((s) => s.entity_types.includes('video'))?.name ?? '');
+	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
+	// affordance (the backend is already per-provider — entity_enrichment keyed by
+	// provider). Was collapsed to the first capable provider, so a second matched
+	// provider could never be enriched or cleared from the UI.
+	const videoProviders = $derived(
+		sources.filter((s) => s.entity_types.includes('video')).map((s) => s.name)
+	);
+	// Stored enrichment grouped by provider — drives the per-provider Clear button
+	// (has(p)) and the per-provider raw disclosures at the foot of the page.
+	const enrichedByProvider = $derived.by(() => {
+		const m = new Map<string, EnrichedField[]>();
+		for (const f of enriched) {
+			const arr = m.get(f.provider);
+			if (arr) arr.push(f);
+			else m.set(f.provider, [f]);
+		}
+		return m;
+	});
 	// F36: "Write decisions to file" is available whenever the owner has resolved fields — a
 	// decided file value is just as writable as an adopted provider value (RD5/P0-4). The count
 	// of out-of-sync fields rides alongside it (RD2).
@@ -230,13 +251,14 @@
 		await reloadDetail();
 	}
 
-	async function clearProvider() {
-		if (!provider) return;
-		enrichBusy = 'clear';
+	async function clearProvider(p: string) {
+		enrichBusy = p;
 		enrichError = '';
 		try {
-			await api.enrichVideoClear(id, provider);
-			enriched = enriched.filter((f) => f.provider !== provider);
+			await api.enrichVideoClear(id, p);
+			// Refetch so the resolved chips drop this provider's candidates too, not just
+			// the raw disclosure — clearing removes it as an adoptable source (F36).
+			await reloadDetail();
 		} catch (e) {
 			enrichError = toMessage(e);
 		} finally {
@@ -399,23 +421,27 @@
 								{refreshing ? 'Refreshing…' : 'Refresh'}
 							</button>
 						{/if}
-						{#if isOwner && provider}
-							<button
-								onclick={() => (pickerOpen = true)}
-								class="rounded-theme bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
-							>
-								Enrich from {provider}
-							</button>
-							{#if enriched.some((f) => f.provider === provider)}
+						{#if isOwner}
+							<!-- HOLODEX-119: one Enrich (+ Clear once matched) per video-capable
+							     provider. Each opens its own EnrichPicker and clears independently. -->
+							{#each videoProviders as p (p)}
 								<button
-									onclick={clearProvider}
-									disabled={enrichBusy === 'clear'}
-									title={`Remove ${provider} enrichment data`}
-									class="rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:bg-surface-2 disabled:opacity-60"
+									onclick={() => (pickerProvider = p)}
+									class="rounded-theme bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
 								>
-									Clear {provider}
+									Enrich from {p}
 								</button>
-							{/if}
+								{#if enrichedByProvider.has(p)}
+									<button
+										onclick={() => clearProvider(p)}
+										disabled={enrichBusy === p}
+										title={`Remove ${p} enrichment data`}
+										class="rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:bg-surface-2 disabled:opacity-60"
+									>
+										Clear {p}
+									</button>
+								{/if}
+							{/each}
 						{/if}
 						{#if canWriteback}
 							<button
@@ -598,28 +624,32 @@
 		{/if}
 
 		{#if isOwner && enriched.length}
-			<section>
-				<button onclick={() => (showEnriched = !showEnriched)} class="text-sm text-muted hover:text-ink">
-					{showEnriched ? '▾' : '▸'} Enrichment data: {provider} ({enriched.length})
-				</button>
-				{#if showEnriched}
-					<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-						{#each enriched as f (f.canonical + f.provider)}
-							{#if f.display === 'image_url'}
-								<div class="sm:col-span-2">
-									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="inline text-ink">{f.values[0]}</dd>
-								</div>
-							{:else}
-								<div>
-									<dt class="inline text-muted">{f.label}:</dt>
-									<dd class="inline text-ink">{f.display === 'long_text' ? f.values[0].slice(0, 120) + '…' : f.values.join(', ')}</dd>
-								</div>
-							{/if}
-						{/each}
-					</dl>
-				{/if}
-			</section>
+			<!-- One raw-payload disclosure per provider (HOLODEX-119): a video may carry
+			     enrichment from several providers, each its own audit/debug block. -->
+			{#each [...enrichedByProvider] as [p, fields] (p)}
+				<section>
+					<button onclick={() => (openEnriched[p] = !openEnriched[p])} class="text-sm text-muted hover:text-ink">
+						{openEnriched[p] ? '▾' : '▸'} Enrichment data: {p} ({fields.length})
+					</button>
+					{#if openEnriched[p]}
+						<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+							{#each fields as f (f.canonical + f.provider)}
+								{#if f.display === 'image_url'}
+									<div class="sm:col-span-2">
+										<dt class="inline text-muted">{f.label}:</dt>
+										<dd class="inline text-ink">{f.values[0]}</dd>
+									</div>
+								{:else}
+									<div>
+										<dt class="inline text-muted">{f.label}:</dt>
+										<dd class="inline text-ink">{f.display === 'long_text' ? f.values[0].slice(0, 120) + '…' : f.values.join(', ')}</dd>
+									</div>
+								{/if}
+							{/each}
+						</dl>
+					{/if}
+				</section>
+			{/each}
 		{/if}
 	</article>
 
@@ -634,13 +664,13 @@
 		/>
 	{/if}
 
-	{#if pickerOpen && provider && video}
+	{#if pickerProvider && video}
 		<EnrichPicker
 			entityName={video.title}
-			{provider}
+			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
-			onclose={() => (pickerOpen = false)}
+			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>
 	{/if}

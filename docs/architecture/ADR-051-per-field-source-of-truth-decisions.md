@@ -174,7 +174,10 @@ absorbs the rest:
 
 The remaining multi-provider work is **UI + per-provider identity matching** (one match / `EnrichPicker` +
 enrich/clear per provider; the SPA's single-provider assumption `provider = sources.find(…)` widens to a
-per-provider list) — a spec/design concern, not an architecture change.
+per-provider list) — a spec/design concern, not an architecture change. *(Delivered in HOLODEX-119: the
+media + people detail pages render one Enrich/Clear + `EnrichPicker` per entity-capable provider, driven by
+the `/enrich/sources` registry; the chip fold was already per-provider. See the
+[handoff addendum](../design/field-source-of-truth-handoff.md#addendum--per-provider-matchenrich-ui-holodex-119).)*
 
 ### 9 — Generalization to People and Studios (entity-agnostic by construction)
 
