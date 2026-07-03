@@ -193,10 +193,14 @@ type movieCrewEntry struct {
 // ---- resolve ----
 
 func (c *tmdbClient) resolve(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
-	if entityType == "video" {
+	switch entityType {
+	case "video":
 		return c.resolveMovie(ctx, h)
+	case "studio":
+		return c.resolveStudio(ctx, h)
+	default:
+		return c.resolvePerson(ctx, h)
 	}
-	return c.resolvePerson(ctx, h)
 }
 
 func (c *tmdbClient) resolvePerson(ctx context.Context, h hintBody) ([]candidate, error) {
@@ -598,10 +602,14 @@ func movieDisambiguate(det movieDetails) string {
 // ---- enrich ----
 
 func (c *tmdbClient) enrich(ctx context.Context, externalID, entityType string) (enrichResponse, error) {
-	if entityType == "video" {
+	switch entityType {
+	case "video":
 		return c.enrichMovie(ctx, externalID)
+	case "studio":
+		return c.enrichStudio(ctx, externalID)
+	default:
+		return c.enrichPerson(ctx, externalID)
 	}
-	return c.enrichPerson(ctx, externalID)
 }
 
 func (c *tmdbClient) enrichPerson(ctx context.Context, externalID string) (enrichResponse, error) {
@@ -777,6 +785,135 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	}
 
 	return enrichResponse{Fields: fields, Assets: assets}
+}
+
+// ---- studio (company) ----
+
+// companySearchResult is the response from /3/search/company.
+type companySearchResult struct {
+	Results []companyEntry `json:"results"`
+}
+
+// companyEntry is one production company from /3/search/company results[].
+type companyEntry struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	LogoPath      string `json:"logo_path"`
+	OriginCountry string `json:"origin_country"`
+}
+
+// companyDetails is the response from /3/company/{id}.
+type companyDetails struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Homepage      string `json:"homepage"`
+	LogoPath      string `json:"logo_path"`
+	OriginCountry string `json:"origin_country"`
+}
+
+func (c *tmdbClient) resolveStudio(ctx context.Context, h hintBody) ([]candidate, error) {
+	// Embedded-ID path: fast and deterministic (a video's _studio_external_ids sidecar
+	// hands the company's tmdb id straight through, ADR-054).
+	for _, id := range h.ExternalIDs {
+		ns, val, ok := splitID(id)
+		if !ok || ns != "tmdb" {
+			continue
+		}
+		n, err := strconv.Atoi(val)
+		if err != nil {
+			continue
+		}
+		det, err := c.fetchCompanyDetails(ctx, n)
+		if err != nil {
+			return nil, err
+		}
+		return []candidate{{
+			ExternalID:     fmt.Sprintf("tmdb:%d", det.ID),
+			Namespace:      "tmdb",
+			Label:          det.Name,
+			Confidence:     1.0,
+			Disambiguation: det.OriginCountry,
+		}}, nil
+	}
+	if h.Query == "" {
+		return []candidate{}, nil
+	}
+	return c.searchCompany(ctx, h.Query)
+}
+
+// searchCompany matches production companies by name (/3/search/company). Company
+// search takes no language param and returns no popularity, so confidence is purely
+// rank-based; origin country is the disambiguation hint in the picker.
+func (c *tmdbClient) searchCompany(ctx context.Context, query string) ([]candidate, error) {
+	var result companySearchResult
+	err := c.get(ctx, "/3/search/company", url.Values{
+		"query": {query},
+		"page":  {"1"},
+	}, &result)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidate, 0, len(result.Results))
+	for i, co := range result.Results {
+		if i >= 10 {
+			break
+		}
+		out = append(out, candidate{
+			ExternalID:     fmt.Sprintf("tmdb:%d", co.ID),
+			Namespace:      "tmdb",
+			Label:          co.Name,
+			Confidence:     rankConfidence(i, 0),
+			Disambiguation: co.OriginCountry,
+		})
+	}
+	return out, nil
+}
+
+func (c *tmdbClient) enrichStudio(ctx context.Context, externalID string) (enrichResponse, error) {
+	ns, val, ok := splitID(externalID)
+	if !ok || ns != "tmdb" {
+		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
+	}
+	det, err := c.fetchCompanyDetails(ctx, n)
+	if err != nil {
+		return enrichResponse{}, err
+	}
+	return buildCompanyEnrichResponse(det), nil
+}
+
+func (c *tmdbClient) fetchCompanyDetails(ctx context.Context, id int) (companyDetails, error) {
+	var det companyDetails
+	err := c.get(ctx, fmt.Sprintf("/3/company/%d", id), url.Values{}, &det)
+	return det, err
+}
+
+// buildCompanyEnrichResponse maps TMDB company details onto Holodex studio fields.
+// The logo is an image_url field (the poster_url pattern) on image.tmdb.org, not a
+// downloaded asset — studios are not on the F25 image-store path (spec Non-Goal).
+func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
+	fields := make(map[string][]string)
+	if v := strings.TrimSpace(det.Description); v != "" {
+		fields["description"] = []string{trimAtSentence(v, 4000)}
+	}
+	if v := strings.TrimSpace(det.OriginCountry); v != "" {
+		fields["country"] = []string{v}
+	}
+	// Prefer the company's official homepage; fall back to its durable TMDB page when
+	// absent (mirrors the person/movie website behaviour — a link is always present).
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["website"] = []string{v}
+	} else {
+		fields["website"] = []string{tmdbEntityURL("company", det.ID, det.Name)}
+	}
+	if det.LogoPath != "" {
+		fields["logo"] = []string{"https://image.tmdb.org/t/p/original" + det.LogoPath}
+	}
+	return enrichResponse{Fields: fields}
 }
 
 // ---- HTTP transport ----

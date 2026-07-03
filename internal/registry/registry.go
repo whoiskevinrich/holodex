@@ -152,6 +152,26 @@ var KnownFields = []FieldDef{
 		Description: "Portrait image. Delivered as an asset (not a field value) by providers that support it.",
 	},
 
+	// ---- Studio-entity fields (F38 S3) ----
+	{
+		Canonical:   "description",
+		Label:       "Description",
+		Display:     "long_text",
+		Description: "Studio description or summary. Trimmed to ≤4000 chars at a sentence boundary.",
+	},
+	{
+		Canonical:   "country",
+		Label:       "Country",
+		Display:     "",
+		Description: "Origin country of the studio (ISO 3166-1 code as provided by the source).",
+	},
+	{
+		Canonical:   "logo",
+		Label:       "Logo",
+		Display:     "image_url",
+		Description: "Studio logo image URL. A plain field value on an operator-allowlisted CDN host (the poster_url pattern) — not a downloaded asset. Rendered as <img>.",
+	},
+
 	// ---- File-metadata fields (examples; operators add more via metadata-mappings.yaml) ----
 	{
 		Canonical:   "actors",

@@ -3,9 +3,18 @@
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
-	import type { DecisionSource, ResolvedField, Studio, StudioDetailResponse, Video } from '$lib/types';
+	import { providerOf } from '$lib/f36';
+	import type {
+		DecisionSource,
+		EnrichSource,
+		ResolvedField,
+		Studio,
+		StudioDetailResponse,
+		Video
+	} from '$lib/types';
 	import AsyncState from '$lib/components/AsyncState.svelte';
 	import EntityVideos from '$lib/components/EntityVideos.svelte';
+	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -15,15 +24,35 @@
 	// person page there is no rename, no aliases, no images, no writeback — a studio's
 	// name is derived identity, corrected by editing the studio field on its videos. The
 	// Details section is hidden until enrichment or a decision gives it something beyond
-	// `name` to curate (so a pre-enrichment studio is just name + videos).
+	// `name` to curate — OR the owner has a studio-capable provider to enrich from (S3).
 	let studio = $state<Studio | null>(null);
 	let videos = $state<Video[]>([]);
 	let resolved = $state<ResolvedField[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 
+	// Enrichment controls (owner-only, F38 S3). sources loads once the client is
+	// confirmed owner; the picker drives a provider resolve→apply. pickerProvider holds
+	// the provider whose EnrichPicker is open ('' = closed); busy holds the provider
+	// currently being cleared. Action errors render inline, never via the page `error`.
+	let sources = $state<EnrichSource[]>([]);
+	let pickerProvider = $state('');
+	let busy = $state('');
+	let actionError = $state('');
+
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
+
+	// Studio-capable providers offered as Enrich actions (one per provider, mirroring
+	// the person page's per-provider affordance).
+	const studioProviders = $derived(
+		sources.filter((s) => s.entity_types.includes('studio')).map((s) => s.name)
+	);
+	// A provider is "linked" (Clear offered) when a resolved field carries one of its
+	// candidates — the same signal the person page uses.
+	function providerLinked(p: string): boolean {
+		return resolved.some((f) => (f.candidates ?? []).some((c) => providerOf(c.source) === p));
+	}
 
 	// Replace fields other than `name` that have a value or (for the owner) a candidate.
 	// `name` is read-only identity — never a chip row.
@@ -37,9 +66,12 @@
 					: f.values.some((v) => v.trim() !== ''))
 		)
 	);
-	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
+	const imageFields = $derived(replaceFields.filter((f) => f.display === 'image_url'));
+	const compactFields = $derived(
+		replaceFields.filter((f) => f.display !== 'long_text' && f.display !== 'image_url')
+	);
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
-	// Hide the whole Details section until there's something beyond name to show.
+	// Show the section when there's something to curate, or (owner) a provider to enrich from.
 	const hasDetails = $derived(replaceFields.length > 0);
 
 	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
@@ -67,11 +99,34 @@
 
 	$effect(() => load(id));
 
+	// Load providers once the client is confirmed owner (the layout polls caps).
+	$effect(() => {
+		if (isOwner && sources.length === 0) {
+			api
+				.enrichSources()
+				.then((res) => (sources = res.sources ?? []))
+				.catch(() => {});
+		}
+	});
+
 	async function reloadDetail() {
 		try {
 			apply(await api.getStudio(id));
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
+		}
+	}
+
+	async function clearProvider(p: string) {
+		busy = p;
+		actionError = '';
+		try {
+			await api.enrichStudioClear(id, p);
+			await reloadDetail();
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			busy = '';
 		}
 	}
 
@@ -95,61 +150,131 @@
 		empty="No videos for this studio."
 	>
 		{#snippet detail()}
-			{#if hasDetails}
+			{#if hasDetails || (isOwner && studioProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
-					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-						{#each compactFields as f (f.canonical)}
-							{#if isOwner}
-								<div>
-									<dt class="mb-1 text-muted">{f.label}:</dt>
-									<dd>
-										<SourceSelect
-											field={f}
-											baselineKey="record"
-											decide={(s, mv) => decideField(f.canonical, s, mv)}
-										/>
-									</dd>
-								</div>
-							{:else}
-								<div>
-									<dt class="inline text-muted">{f.label}:</dt>
-									{#if f.display === 'url'}
-										<dd class="inline"><UrlValueList values={f.values} /></dd>
-									{:else}
-										<dd class="inline text-ink">{f.values.join(', ')}</dd>
+					<div class="flex flex-wrap items-start justify-between gap-2">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+						{#if isOwner && studioProviders.length}
+							<!-- One Enrich (+ Clear once linked) per studio-capable provider,
+							     mirroring the person page (F38 S3). -->
+							<div class="flex flex-wrap items-center gap-2">
+								{#each studioProviders as p (p)}
+									<button
+										onclick={() => (pickerProvider = p)}
+										class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
+									>
+										Enrich from {p}
+									</button>
+									{#if providerLinked(p)}
+										<button
+											onclick={() => clearProvider(p)}
+											disabled={busy === p}
+											title={`Remove the enrichment data ${p} added to this studio`}
+											class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+										>
+											Clear {p} data
+										</button>
 									{/if}
-									{#if winnerProvider(f)}
+								{/each}
+							</div>
+						{/if}
+					</div>
+
+					{#if actionError}
+						<p class="text-sm text-warn">{actionError}</p>
+					{/if}
+
+					{#if hasDetails}
+						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+							{#each imageFields as f (f.canonical)}
+								<div class="sm:col-span-2">
+									<dt class="mb-1 text-muted">{f.label}:</dt>
+									{#if f.values[0]?.trim()}
+										<dd class="mb-1">
+											<img
+												src={f.values[0]}
+												alt={f.label}
+												class="max-h-32 rounded-theme border border-rule bg-bg object-contain p-2"
+											/>
+										</dd>
+									{/if}
+									{#if isOwner}
+										<dd>
+											<SourceSelect
+												field={f}
+												baselineKey="record"
+												decide={(s, mv) => decideField(f.canonical, s, mv)}
+											/>
+										</dd>
+									{:else if winnerProvider(f)}
 										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 									{/if}
 								</div>
-							{/if}
-						{/each}
+							{/each}
 
-						{#each longFields as f (f.canonical)}
-							<div class="sm:col-span-2">
-								<dt class="inline text-muted">{f.label}:</dt>
-								{#if f.values[0]?.trim()}
-									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-								{:else if isOwner}
-									<dd class="mt-1 block text-muted">—</dd>
-								{/if}
+							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
-									<dd class="block">
-										<SourceSelect
-											field={f}
-											baselineKey="record"
-											decide={(s, mv) => decideField(f.canonical, s, mv)}
-										/>
-									</dd>
-								{:else if winnerProvider(f)}
-									<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+									<div>
+										<dt class="mb-1 text-muted">{f.label}:</dt>
+										<dd>
+											<SourceSelect
+												field={f}
+												baselineKey="record"
+												decide={(s, mv) => decideField(f.canonical, s, mv)}
+											/>
+										</dd>
+									</div>
+								{:else}
+									<div>
+										<dt class="inline text-muted">{f.label}:</dt>
+										{#if f.display === 'url'}
+											<dd class="inline"><UrlValueList values={f.values} /></dd>
+										{:else}
+											<dd class="inline text-ink">{f.values.join(', ')}</dd>
+										{/if}
+										{#if winnerProvider(f)}
+											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+										{/if}
+									</div>
 								{/if}
-							</div>
-						{/each}
-					</dl>
+							{/each}
+
+							{#each longFields as f (f.canonical)}
+								<div class="sm:col-span-2">
+									<dt class="inline text-muted">{f.label}:</dt>
+									{#if f.values[0]?.trim()}
+										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+									{:else if isOwner}
+										<dd class="mt-1 block text-muted">—</dd>
+									{/if}
+									{#if isOwner}
+										<dd class="block">
+											<SourceSelect
+												field={f}
+												baselineKey="record"
+												decide={(s, mv) => decideField(f.canonical, s, mv)}
+											/>
+										</dd>
+									{:else if winnerProvider(f)}
+										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+									{/if}
+								</div>
+							{/each}
+						</dl>
+					{/if}
 				</section>
 			{/if}
 		{/snippet}
 	</EntityVideos>
 </AsyncState>
+
+{#if pickerProvider}
+	<EnrichPicker
+		entityName={studio?.name ?? ''}
+		provider={pickerProvider}
+		resolve={(prov, q) => api.enrichStudioResolve(id, prov, q)}
+		apply={(prov, extId) => api.enrichStudioApply(id, prov, extId)}
+		onclose={() => (pickerProvider = '')}
+		onapplied={reloadDetail}
+	/>
+{/if}

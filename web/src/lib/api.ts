@@ -306,6 +306,24 @@ export const api = {
 	enrichVideoClear: (videoId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/enrich/${encodeURIComponent(provider)}`),
 
+	// Studio (company) enrichment (F38 S3). Mirrors the person enrich trio; all
+	// owner-gated. Studios have no file → no writeback and no relink (a studio-entity
+	// enrich changes the studio's own fields, not the video → studio links).
+	enrichStudioResolve: (studioId: number, provider: string, query: string) =>
+		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/studios/${studioId}/enrich/resolve`, {
+			provider,
+			query
+		}),
+
+	enrichStudioApply: (studioId: number, provider: string, externalId: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/studios/${studioId}/enrich`, {
+			provider,
+			external_id: externalId
+		}),
+
+	enrichStudioClear: (studioId: number, provider: string) =>
+		sendAuthed<Record<string, never>>('DELETE', `/studios/${studioId}/enrich/${encodeURIComponent(provider)}`),
+
 	// Per-item metadata refresh (F31, ADR-047) — forced file re-extract + re-enrich
 	// of the item's linked providers. Owner-gated; returns the combined report.
 	refreshMedia: (videoId: number) =>

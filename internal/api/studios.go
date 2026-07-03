@@ -23,8 +23,9 @@ import (
 // documentation order. name is synthesized separately (the only baseline-backed
 // field, read-only — no rename in v1, RD4/RD5). These are the fields the TMDB
 // company enrichment slice (S3) populates; before enrichment they resolve empty and
-// the detail page hides the Details section.
-var studioScalarFields = []string{"description", "country", "website"}
+// the detail page hides the Details section. logo is an image_url field (the
+// poster_url pattern) rendered as <img>, not an F25 image-store asset (spec Non-Goal).
+var studioScalarFields = []string{"description", "country", "website", "logo"}
 
 // studioFields synthesizes the []mapping.Field for studio resolution: name (record
 // baseline only — no provider name candidates, studio has no rename) then the scalar

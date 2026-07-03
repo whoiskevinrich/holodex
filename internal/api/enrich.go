@@ -27,6 +27,9 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 	r.Post("/media/{id}/enrich/resolve", h.enrichVideoResolve)
 	r.Post("/media/{id}/enrich", h.enrichVideoApply)
 	r.Delete("/media/{id}/enrich/{provider}", h.enrichVideoClear)
+	r.Post("/studios/{id}/enrich/resolve", h.enrichStudioResolve)
+	r.Post("/studios/{id}/enrich", h.enrichStudioApply)
+	r.Delete("/studios/{id}/enrich/{provider}", h.enrichStudioClear)
 }
 
 func (h *Handlers) enrichSources(w http.ResponseWriter, _ *http.Request) {
@@ -217,6 +220,92 @@ func (h *Handlers) enrichVideoClear(w http.ResponseWriter, r *http.Request) {
 	}
 	// Clearing a provider can change the resolved studio value → relink (F38).
 	h.relinkStudios(r.Context(), id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// enrichStudioResolve searches a provider for company candidates matching a studio
+// (F38 S3). Mirrors enrichResolve; nothing is applied here.
+func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if h.enrich == nil {
+		writeError(w, http.StatusServiceUnavailable, "enrichment unavailable")
+		return
+	}
+	var body struct {
+		Provider string `json:"provider"`
+		Query    string `json:"query"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if _, err := h.repo.GetStudio(r.Context(), id); err != nil {
+		h.studioLookupError(w, err)
+		return
+	}
+	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
+	if err != nil {
+		h.log.Warn("studio enrich resolve failed", "provider", body.Provider, "err", err)
+		writeError(w, http.StatusBadGateway, "provider lookup failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+}
+
+// enrichStudioApply fetches and stores company enrichment for a studio (F38 S3).
+// Unlike the video path there is no relink: a studio-entity enrich changes the
+// studio's own resolved fields (description/country/website/logo), never the
+// video → studio links (those derive from the video's studio field, RD1).
+func (h *Handlers) enrichStudioApply(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if h.enrich == nil {
+		writeError(w, http.StatusServiceUnavailable, "enrichment unavailable")
+		return
+	}
+	var body struct {
+		Provider   string `json:"provider"`
+		ExternalID string `json:"external_id"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.ExternalID == "" {
+		writeError(w, http.StatusBadRequest, "external_id required")
+		return
+	}
+	if _, err := h.repo.GetStudio(r.Context(), id); err != nil {
+		h.studioLookupError(w, err)
+		return
+	}
+	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityStudio, id, body.Provider, body.ExternalID)
+	if err != nil {
+		h.log.Warn("studio enrich apply failed", "provider", body.Provider, "err", err)
+		writeError(w, http.StatusBadGateway, "enrichment failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"enriched": fields})
+}
+
+// enrichStudioClear removes a provider's contribution for a studio (F38 S3).
+func (h *Handlers) enrichStudioClear(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if h.enrich == nil {
+		writeError(w, http.StatusServiceUnavailable, "enrichment unavailable")
+		return
+	}
+	provider := chi.URLParam(r, "provider")
+	if err := h.enrich.Clear(r.Context(), model.EnrichEntityStudio, id, provider); err != nil {
+		h.fail(w, "clear studio enrichment", err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

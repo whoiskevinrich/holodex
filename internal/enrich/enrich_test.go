@@ -133,7 +133,7 @@ func newSvc(t *testing.T, fake *Fake) (*Service, *repo.Repo) {
 sources:
   - name: fake
     base_url: http://fake:9100
-    entity_types: [person]
+    entity_types: [person, studio]
     enabled: true
 `))
 	if err != nil {
@@ -184,6 +184,49 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 		t.Fatalf("clear: %v", err)
 	}
 	if after, _ := svc.Fields(ctx, model.EnrichEntityPerson, 1); len(after) != 0 {
+		t.Errorf("fields after clear = %d, want 0", len(after))
+	}
+}
+
+// Studio entity end-to-end (F38 S3): resolve → enrich → provenance → clear against
+// the in-process fake studio. Proves the entity-generic Enrich service works for a
+// third entity type with no core diffs, and that the logo arrives as a plain field.
+func TestServiceStudioEnrich(t *testing.T) {
+	svc, _ := newSvc(t, NewFake("fake"))
+	ctx := context.Background()
+
+	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityStudio, Hint{Query: "ghibli"})
+	if err != nil {
+		t.Fatalf("resolve studio: %v", err)
+	}
+	if len(cands) != 1 || cands[0].ExternalID != "tmdb:10342" {
+		t.Fatalf("candidates = %+v", cands)
+	}
+
+	fields, err := svc.Enrich(ctx, model.EnrichEntityStudio, 7, "fake", "tmdb:10342")
+	if err != nil {
+		t.Fatalf("enrich studio: %v", err)
+	}
+	got := map[string]model.EnrichedField{}
+	for _, f := range fields {
+		got[f.Canonical] = f
+	}
+	if got["description"].Provider != "fake" {
+		t.Errorf("description provenance = %q, want fake", got["description"].Provider)
+	}
+	if got["country"].Values[0] != "JP" {
+		t.Errorf("country = %v, want [JP]", got["country"].Values)
+	}
+	// logo is a plain image_url field, rendered directly — never on the person-image
+	// asset-download path (which is gated to person; studios have no image store).
+	if got["logo"].Display != "image_url" {
+		t.Errorf("logo display = %q, want image_url", got["logo"].Display)
+	}
+
+	if err := svc.Clear(ctx, model.EnrichEntityStudio, 7, "fake"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if after, _ := svc.Fields(ctx, model.EnrichEntityStudio, 7); len(after) != 0 {
 		t.Errorf("fields after clear = %d, want 0", len(after))
 	}
 }

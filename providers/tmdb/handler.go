@@ -32,7 +32,7 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 		Provider:        "tmdb",
 		Version:         providerVersion,
 		ProtocolVersion: 1,
-		EntityTypes:     []string{"person", "video"},
+		EntityTypes:     []string{"person", "video", "studio"},
 		IDNamespaces:    []string{"tmdb", "imdb"},
 		Fields: []string{
 			// person fields
@@ -41,6 +41,10 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 			"title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
 			"original_language", "original_title", "status", "imdb_id", "poster_url",
 			"actors", "director", "studio",
+			// studio-entity fields (F38 S3). logo is an image_url field (the video
+			// poster_url pattern), not a downloaded asset — the F25 image store is not
+			// generalized to studios here (spec Non-Goal / P2-3). website is shared.
+			"description", "country", "logo",
 		},
 		AssetKinds: []string{"photo"},
 	})
@@ -62,7 +66,7 @@ func (h *handler) resolve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if req.EntityType != "person" && req.EntityType != "video" {
+	if !isSupportedEntity(req.EntityType) {
 		writeJSON(w, http.StatusOK, map[string]any{"candidates": []any{}})
 		return
 	}
@@ -86,7 +90,7 @@ func (h *handler) enrich(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if req.EntityType != "person" && req.EntityType != "video" {
+	if !isSupportedEntity(req.EntityType) {
 		http.Error(w, "unsupported entity type", http.StatusBadRequest)
 		return
 	}
@@ -101,6 +105,16 @@ func (h *handler) enrich(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// isSupportedEntity reports whether this provider handles the entity type. Keep in
+// sync with describe's EntityTypes and tmdbClient.resolve/enrich dispatch.
+func isSupportedEntity(entityType string) bool {
+	switch entityType {
+	case "person", "video", "studio":
+		return true
+	}
+	return false
 }
 
 func decode(body io.ReadCloser, v any) error {
