@@ -31,6 +31,7 @@ export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams
 	if (f.q) p.set('q', f.q);
 	for (const id of f.person ?? []) p.append('person', String(id));
 	for (const id of f.tag ?? []) p.append('tag', String(id));
+	for (const id of f.studio_id ?? []) p.append('studio_id', String(id));
 	if (f.duration_min) p.set('duration_min', String(f.duration_min));
 	if (f.duration_max) p.set('duration_max', String(f.duration_max));
 	if (f.resolution && f.resolution !== 'All') p.set('resolution', f.resolution);
@@ -77,6 +78,7 @@ export function paramsToFilters(p: URLSearchParams): MediaFilters {
 		year_max: num('year_max'),
 		person: p.getAll('person').map(Number).filter(Boolean),
 		tag: p.getAll('tag').map(Number).filter(Boolean),
+		studio_id: p.getAll('studio_id').map(Number).filter(Boolean),
 		sort: (p.get('sort') as SortOrder) || DEFAULT_SORT
 	};
 }
