@@ -194,6 +194,7 @@ Controls which layer wins a **replace (scalar)** field when the owner has made n
 | `holodex.yaml` key | Env var | Default | Description |
 |--------------------|---------|---------|-------------|
 | `default_source` | `DEFAULT_SOURCE` | `file` | Undecided-field winner: `file` (baseline wins; providers are candidates) or `mapping` (legacy first-non-empty precedence). See below. |
+| `provider_trust_order` | `PROVIDER_TRUST_ORDER` | *(empty)* | Ranks providers for the undecided winner *among providers* when several match. See below. |
 
 ### `default_source`
 
@@ -209,3 +210,24 @@ Holodex keeps three metadata layers per field — the **file** layer (your conta
 **`mapping`** — restores the legacy behavior: the first non-empty source in each field's `sources` list wins. Choose this for a film library that wants provider-first display without setting a decision on every item.
 
 > **Scope:** `default_source` applies only to **replace** fields. **Merge/set** fields (`multi`/`merge`, e.g. genres, actors) always union every source and are unaffected. A per-field decision, when set, overrides `default_source` for that field.
+
+### `provider_trust_order`
+
+When more than one provider is configured and **several matched providers supply a value** for the same undecided replace field, this global list decides which provider wins.
+
+```yaml
+provider_trust_order:      # PROVIDER_TRUST_ORDER="tmdb,imdb"
+  - tmdb
+  - imdb
+```
+
+The winner is the **first-listed** provider that has a value. Providers not named in the list rank **behind** every listed one, keeping their `metadata-mappings.yaml` `sources` order among themselves. With the list empty (the default), the winner among providers is simply the first non-empty source in mapping order — today's behavior, unchanged.
+
+This ranking sits **below** the two rules that already govern a replace field, so it never overrides them:
+
+1. A **per-field decision** (`keep file` / `adopt <provider>` / `custom`) always wins — trust order is consulted only for *undecided* fields.
+2. Under `default_source: file` (the default) the **file/baseline layer still beats every provider**; trust order only breaks the tie *among providers*, which surfaces when the file carries no value for the field (so the providers actually compete).
+
+Trust order is applied under the **file-first** default only. Under `default_source: mapping` the literal `sources` order in `metadata-mappings.yaml` is authoritative — rank providers there by listing them in the order you want.
+
+> **When this matters:** only with **two or more providers** enriching the same field, on a field where the file has no value of its own. A single-provider instance (the common case) is unaffected. The env form is a comma-separated list.

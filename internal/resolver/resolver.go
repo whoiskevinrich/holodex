@@ -107,15 +107,46 @@ type Decision struct {
 type Decisions map[string]Decision
 
 // Options carries the F36 resolution inputs. The zero value means "no standing
-// decisions, file-first default" — the F36 default behavior (RD4).
+// decisions, file-first default, mapping-order among providers" — the F36 default
+// behavior (RD4).
 type Options struct {
 	Decisions     Decisions
 	DefaultSource string // DefaultSourceFile ("" default) | DefaultSourceMapping
+
+	// ProviderTrustOrder ranks providers for the *undecided* winner among them on a
+	// replace field (F36 P1-2, ADR-051 §8): when several matched providers supply a
+	// value and no per-field decision exists, the first-listed provider wins. The
+	// file/baseline layer still wins overall under the file-first default, and a
+	// per-field decision always overrides. Unlisted providers keep mapping order
+	// behind the listed ones; empty means today's mapping-order fallback.
+	ProviderTrustOrder []string
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
 // legacy mapping order.
 func (o Options) fileFirst() bool { return o.DefaultSource != DefaultSourceMapping }
+
+// trustRank returns a provider namespace's position in the configured inter-provider
+// trust order, or a sentinel past the end for an unranked provider — so ranked
+// providers sort ahead of unranked ones, which keep their mapping order.
+func (o Options) trustRank(ns string) int {
+	if i := slices.Index(o.ProviderTrustOrder, ns); i >= 0 {
+		return i
+	}
+	return len(o.ProviderTrustOrder)
+}
+
+// sortByTrust stably orders provider sources by the configured trust order (a no-op
+// when none is configured: every source ranks equal, so the stable sort preserves
+// mapping order).
+func (o Options) sortByTrust(srcs []mapping.Source) {
+	if len(o.ProviderTrustOrder) == 0 {
+		return
+	}
+	slices.SortStableFunc(srcs, func(a, b mapping.Source) int {
+		return o.trustRank(a.Namespace) - o.trustRank(b.Namespace)
+	})
+}
 
 // lookup returns the standing decision for a canonical field, if any.
 func (o Options) lookup(canonical string) (Decision, bool) {
@@ -396,22 +427,25 @@ func decidedItem(raw, ns string, fc FieldCuration, f mapping.Field, manual bool)
 
 // orderedSources returns the field's sources in resolution order. Under the
 // file-first default (RD4) baseline sources are tried before provider sources (so a
-// provider no longer masks the file — the F31 bug fix); under DefaultSourceMapping
-// the configured order is preserved unchanged. Source identity ("which namespace is
-// the baseline") is asked of the BaselineSource, keeping this entity-agnostic.
+// provider no longer masks the file — the F31 bug fix), and the provider partition
+// is ranked by the configured inter-provider trust order (F36 P1-2); under
+// DefaultSourceMapping the configured order is preserved unchanged. Source identity
+// ("which namespace is the baseline") is asked of the BaselineSource, keeping this
+// entity-agnostic.
 func orderedSources(baseline BaselineSource, srcs []mapping.Source, opts Options) []mapping.Source {
 	if !opts.fileFirst() {
 		return srcs
 	}
-	// Count first so the common single-namespace field (all-baseline or all-provider)
-	// returns unchanged with no allocation; only a mixed field is partitioned.
+	// Count first so a single-namespace field returns unchanged with no allocation:
+	// all-baseline never reorders, and all-provider only reorders when a trust order
+	// is configured (otherwise it is already in mapping order).
 	nBase := 0
 	for _, s := range srcs {
 		if _, ok := baseline.Baseline(s); ok {
 			nBase++
 		}
 	}
-	if nBase == 0 || nBase == len(srcs) {
+	if nBase == len(srcs) || (nBase == 0 && len(opts.ProviderTrustOrder) == 0) {
 		return srcs
 	}
 	base := make([]mapping.Source, 0, nBase)
@@ -423,6 +457,7 @@ func orderedSources(baseline BaselineSource, srcs []mapping.Source, opts Options
 			other = append(other, s)
 		}
 	}
+	opts.sortByTrust(other) // rank matched providers among themselves (P1-2)
 	return append(base, other...)
 }
 

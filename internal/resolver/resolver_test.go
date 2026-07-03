@@ -169,6 +169,87 @@ func TestResolve_MultiValueSplit(t *testing.T) {
 	}
 }
 
+// ---- F36 P1-2: inter-provider trust order (HOLODEX-118) ----
+
+// twoProviderEnrich has two matched providers disagreeing on the studio field.
+var twoProviderEnrich = resolver.Enrichment{
+	"tmdb":  {"studio": {"TMDB Studio"}},
+	"other": {"studio": {"Other Studio"}},
+}
+
+func TestResolve_ProviderTrustOrder_PicksFirstListed(t *testing.T) {
+	// No file value for studio, so the two providers compete; the trust order
+	// decides the winner among them (all-provider field path).
+	fields := []mapping.Field{stubField("studio", false, "tmdb:studio", "other:studio")}
+
+	got := resolver.Resolve(testVideo, nil, twoProviderEnrich, nil, fields,
+		resolver.Options{ProviderTrustOrder: []string{"other", "tmdb"}})
+	if got[0].Values[0] != "Other Studio" {
+		t.Errorf("trust order [other,tmdb]: want Other Studio, got %q", got[0].Values[0])
+	}
+	if got[0].WinningSource != "other:studio" {
+		t.Errorf("want winning_source=other:studio, got %q", got[0].WinningSource)
+	}
+
+	// Reversing the trust order flips the winner — even though mapping order is
+	// unchanged (tmdb still listed first in the field's sources).
+	got = resolver.Resolve(testVideo, nil, twoProviderEnrich, nil, fields,
+		resolver.Options{ProviderTrustOrder: []string{"tmdb", "other"}})
+	if got[0].Values[0] != "TMDB Studio" {
+		t.Errorf("trust order [tmdb,other]: want TMDB Studio, got %q", got[0].Values[0])
+	}
+}
+
+func TestResolve_ProviderTrustOrder_FileStillWins(t *testing.T) {
+	// AC: the file/baseline layer stays ahead of all providers under the file-first
+	// default, no matter what the trust order says.
+	extra := []model.ExtraMetadata{{SourceKey: "Studio", Value: "File Studio"}}
+	fields := []mapping.Field{stubField("studio", false, "tmdb:studio", "other:studio", "file:Studio")}
+
+	got := resolver.Resolve(testVideo, extra, twoProviderEnrich, nil, fields,
+		resolver.Options{ProviderTrustOrder: []string{"other", "tmdb"}})
+	if got[0].Values[0] != "File Studio" {
+		t.Errorf("file must beat all providers under file-first, got %q", got[0].Values[0])
+	}
+}
+
+func TestResolve_ProviderTrustOrder_UnlistedKeepsMappingOrder(t *testing.T) {
+	// A provider absent from the trust order ranks behind every listed one but keeps
+	// its mapping order relative to other unlisted providers. Here only "other" is
+	// ranked, so it wins over the unlisted "tmdb" despite tmdb being listed first.
+	fields := []mapping.Field{stubField("studio", false, "tmdb:studio", "other:studio")}
+
+	got := resolver.Resolve(testVideo, nil, twoProviderEnrich, nil, fields,
+		resolver.Options{ProviderTrustOrder: []string{"other"}})
+	if got[0].Values[0] != "Other Studio" {
+		t.Errorf("ranked provider beats unlisted: want Other Studio, got %q", got[0].Values[0])
+	}
+}
+
+func TestResolve_MultiProvider_NoTrustOrderKeepsMappingOrder(t *testing.T) {
+	// AC: with no trust order configured, behavior is unchanged — the first source in
+	// the field's mapping order wins among providers.
+	fields := []mapping.Field{stubField("studio", false, "other:studio", "tmdb:studio")}
+
+	got := resolver.Resolve(testVideo, nil, twoProviderEnrich, nil, fields, resolver.Options{})
+	if got[0].Values[0] != "Other Studio" {
+		t.Errorf("no trust order: mapping order wins, want Other Studio, got %q", got[0].Values[0])
+	}
+}
+
+func TestResolve_ProviderTrustOrder_DecisionOverrides(t *testing.T) {
+	// AC: a standing per-field decision short-circuits the trust order entirely.
+	fields := []mapping.Field{stubField("studio", false, "tmdb:studio", "other:studio")}
+	opts := resolver.Options{
+		ProviderTrustOrder: []string{"tmdb", "other"}, // trust prefers tmdb
+		Decisions:          resolver.Decisions{"studio": {Source: "provider:other"}},
+	}
+	got := resolver.Resolve(testVideo, nil, twoProviderEnrich, nil, fields, opts)
+	if got[0].Values[0] != "Other Studio" {
+		t.Errorf("decision must override trust order: want Other Studio, got %q", got[0].Values[0])
+	}
+}
+
 // ---- F30: cross-source merge, dedup, casing, curation ----
 
 func mergeField(canonical string, sources ...string) mapping.Field {

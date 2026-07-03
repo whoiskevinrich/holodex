@@ -155,7 +155,7 @@ global rule decide for them.
 
 - **P1-1 — Multi-provider control.** One `Adopt` option per **matched** provider (`Keep file / IMDB / TMDB / Custom`).
   - Given two providers supply different values for a replace field, Then a per-field "sources disagree" hint shows and each provider is selectable.
-- **P1-2 — Inter-provider trust order.** A global config orders providers for the *undecided* winner among providers (file still ahead of all). Per-field decision overrides it.
+- **P1-2 — Inter-provider trust order.** ✅ **implemented** ([HOLODEX-118](https://whoiskevinrich.atlassian.net/browse/HOLODEX-118)): the `provider_trust_order` config orders providers for the *undecided* winner among providers (file still ahead of all under `default_source: file`; unlisted providers keep mapping order behind the listed ones). Per-field decision overrides it. Applied under the file-first default; `default_source: mapping` keeps literal `sources` order. Backend-only — the SourceSelect chips are already per-provider.
 - **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision.
 - **P1-4 — Candidate visibility.** Under a replace field, show the available candidates (file value, each provider value) so the choice is informed, not blind.
 

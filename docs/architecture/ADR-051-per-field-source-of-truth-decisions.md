@@ -303,5 +303,5 @@ one place decides each field's source of truth" — is worth it.
 9. [ ] `/testing-strategy`: decision short-circuit (replace + merge), file-first default, source-pin-follows-live-edit, writeback-uses-decided-value + sync state, escape-hatch.
 10. [ ] `/security-review` before merge (owner gate, untrusted `manual_value`).
 11. [ ] Add the ADR-051 row to `docs/architecture/README.md`; note in [ADR-047](ADR-047-per-item-metadata-refresh.md) that its F31.11 deferral is superseded here.
-12. [ ] Multi-provider (§8): decision control renders one `Adopt` per matched provider; add the global inter-provider trust order config + `sources_disagree` conflict hint; widen the SPA single-provider assumption.
+12. [ ] Multi-provider (§8): decision control renders one `Adopt` per matched provider; ~~add the global inter-provider trust order config~~ (**done — `provider_trust_order`, HOLODEX-118**) ~~+ `sources_disagree` conflict hint~~ (**obsolete — divergence is self-evident from distinct value chips, HOLODEX-112**); widen the SPA single-provider assumption.
 13. [ ] Entity generalization (§9): keep all stores + the primitive entity-typed; log the entity-agnostic-resolver and Studio-promotion fast-follows in `TASKS.md` with handoff detail.

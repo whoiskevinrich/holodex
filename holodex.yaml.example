@@ -99,3 +99,13 @@ metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 #                        `sources` list wins (provider-first if you list it first).
 #                        Choose this for a film library that wants provider-first display.
 # default_source: "file"           # DEFAULT_SOURCE
+#
+# provider_trust_order ranks providers for the UNDECIDED winner among them on a
+# replace field: when several matched providers supply a value and no per-field
+# decision exists, the first-listed provider wins. The file layer still wins overall
+# under default_source: "file", and a per-field decision always overrides. Unlisted
+# providers keep `sources` (mapping) order behind the listed ones; empty = mapping
+# order among providers. Env PROVIDER_TRUST_ORDER is comma-separated (e.g. "tmdb,imdb").
+# provider_trust_order:            # PROVIDER_TRUST_ORDER
+#   - tmdb
+#   - imdb

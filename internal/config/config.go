@@ -103,6 +103,15 @@ type Config struct {
 	// order for film-centric instances that want provider-first display.
 	DefaultSource string `yaml:"default_source"`
 
+	// ProviderTrustOrder ranks metadata providers for the *undecided* winner among
+	// them on a replace field (F36 P1-2, ADR-051 §8). When several matched providers
+	// supply a value and no per-field decision exists, the first-listed provider
+	// wins — but the file/baseline layer still wins overall under default_source:
+	// file (RD4), and a per-field decision always overrides. Unlisted providers keep
+	// mapping order behind the listed ones; empty means today's mapping-order
+	// fallback among providers. Env var PROVIDER_TRUST_ORDER is comma-separated.
+	ProviderTrustOrder []string `yaml:"provider_trust_order"`
+
 	// WritebackConcurrency bounds the durable batch-writeback queue's worker pool
 	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
 	// filesystem; raise only on fast storage. Clamped to ≥1.
@@ -297,6 +306,34 @@ func applyEnv(c *Config) {
 	if c.DefaultSource != "file" && c.DefaultSource != "mapping" {
 		c.DefaultSource = "file" // F36/RD4 default; reject typos rather than silently mapping-first
 	}
+
+	if v, ok := os.LookupEnv("PROVIDER_TRUST_ORDER"); ok {
+		c.ProviderTrustOrder = strings.Split(v, ",")
+	}
+	// Normalize whether the list came from YAML or env: trim, lower-case, drop
+	// blanks, and de-dup. Lower-casing is load-bearing — the resolver only ever
+	// matches against lower-cased mapping namespaces (mapping.ParseSource), so a
+	// raw "TMDB" would silently never rank; folding case here also makes the
+	// de-dup case-insensitive.
+	c.ProviderTrustOrder = normalizeList(c.ProviderTrustOrder)
+}
+
+// normalizeList trims each entry, lower-cases it, drops empties, and removes later
+// duplicates, preserving first-seen order.
+func normalizeList(in []string) []string {
+	if len(in) == 0 {
+		return in
+	}
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s = strings.ToLower(strings.TrimSpace(s)); s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // loadDotenv reads simple KEY=VALUE lines from path into the process environment
