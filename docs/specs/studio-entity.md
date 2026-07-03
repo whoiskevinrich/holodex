@@ -107,6 +107,17 @@ until it rides the decision model as a real entity.
   decision/curation endpoints mirror the person ones; **`name` decisions rejected (400)** —
   and unlike persons there is no rename materialization either (RD4): the name row renders
   as a plain read-only value in v1, not chips.
+- **RD6 — External-id de-dup converges same-company spellings** (HOLODEX-122, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).
+  The TMDB `production_companies[].id` (today discarded) is captured, stored in a
+  `studio_external_ids(external_id PK, studio_id)` join table, and consulted **before** exact
+  name in resolve-or-create — so "Warner Bros." and "Warner Bros. Pictures" that share TMDB id
+  `174` converge to **one** studio entity. This **refines RD1**: when a provider id proves two
+  spellings are one company, both videos link to a single entity carrying **one** canonical name
+  (the first spelling to create it — deterministic, never renamed on later re-derivation). The
+  common single-spelling case is unchanged (entity name == field value, RD1 verbatim); the
+  divergence appears only in the dedup scenario, where converging is the goal. Full-fidelity
+  (surfacing both spellings) is P2-1 aliases. The id also makes studio re-enrich (P1-1/S3)
+  deterministic and lets a video hint its studio's provider identity.
 
 ## User Stories
 
@@ -186,6 +197,30 @@ until it rides the decision model as a real entity.
   System Activity.
 - **P1-2 — Recently-added / landing parity.** Studio names on video cards (where the card
   layout shows them) become links.
+- **P1-3 — Studio external-id de-dup (RD6, HOLODEX-122, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).**
+  Capture the TMDB `production_companies[].id`, persist it, and de-dup studios by it.
+  - **Capture.** The TMDB movie mapping decodes `production_companies[].id` and emits a
+    self-describing **internal sidecar** field `_studio_external_ids` = `"<ns>:<id> <name>"` per
+    named, positive-id company (`tmdb:174 Warner Bros. Pictures`). `_`-prefixed field-keys are
+    provider→core plumbing: persisted in `entity_enrichment` unchanged but **never displayed**
+    (`FieldsFromRows` skips them) and **never resolved** (not a mapped canonical field).
+  - **Model.** `studio_external_ids(external_id PK, studio_id FK ON DELETE CASCADE)` — `external_id`
+    globally unique (one company id → one studio, the dedup key); a studio may carry *n* ids
+    (multi-provider headroom); pruned with its studio (prune-on-empty cascades).
+  - **Thread.** `RelinkVideoStudios` parses the video's `_studio_external_ids` rows into a
+    name→external_id side-map (keyed by name, robust to resolver reordering/curation) and passes it
+    to `ReconcileVideoStudios`; a custom/decided name with no company match falls back to name-only.
+  - **Resolve.** `resolveOrCreateStudio` matches `external_id` first, then exact name;
+    `INSERT OR IGNORE` attaches/back-fills the id (including onto a name-created studio).
+  - Given two videos whose resolved studio is "Warner Bros." and "Warner Bros. Pictures" and both
+    TMDB responses carry company id `174`, When both are derived, Then `GET /studios` shows **one**
+    studio (not two) and both videos link to it.
+  - Given a custom-value decision "My Home Movies" with no company id, When derived, Then it
+    resolves by name exactly as today (no id row).
+  - Given a studio's last video is removed, Then the studio **and** its `studio_external_ids` rows
+    are pruned; a later video carrying the same id re-creates and re-attaches deterministically.
+  - **No new provider host/asset/SSRF surface** (a field already in the `/movie/{id}` response) and
+    no media-file write (studios have no file).
 
 ### Future considerations (P2)
 
@@ -197,13 +232,8 @@ until it rides the decision model as a real entity.
   (schema already permits it, RD2).
 - **P2-3 — Studio logo in the image store** (F25 generalization) instead of a plain asset.
 - **P2-4 — MCP studio entities** (rides F22.5f).
-- **P2-5 — Studio external-id dedup** ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122))
-  — capture the TMDB `production_companies[].id` (today discarded) into a
-  `studio_external_ids` join table (F32 person-external-id shape) so studio enrichment refreshes
-  deterministically, videos can *hint* their studio's provider identity, and same-company
-  spellings converge without manual aliases/merge. The design crux (the company id lives in the
-  video's enrichment, not the resolved `studio` field the derivation reads) needs an ADR
-  extending [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md).
+- **P2-5 — Studio external-id dedup** — **promoted to P1-3 above** and decided in
+  [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md) ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122)).
   Companion to the S3 enrichment slice ([HOLODEX-121](https://whoiskevinrich.atlassian.net/browse/HOLODEX-121)).
 
 ## Behavior detail

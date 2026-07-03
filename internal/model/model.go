@@ -191,6 +191,21 @@ const (
 	EnrichEntityStudio = "studio"
 )
 
+// InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
+// persisted in entity_enrichment like any other field but is never displayed
+// (FieldsFromRows skips it) and never resolved (it is not a mapped canonical field).
+// It carries plumbing the core consumes directly. See StudioExternalIDsField and
+// ADR-054.
+const InternalFieldPrefix = "_"
+
+// StudioExternalIDsField is the wire field-key a video provider uses to hand per
+// production-company external ids to studio-link derivation (HOLODEX-122, ADR-054).
+// Each value is self-describing "<namespace>:<id> <name>" (the id token has no space,
+// so the name is the remainder), e.g. "tmdb:174 Warner Bros. Pictures".
+// RelinkVideoStudios parses these into a name→external_id side-map. It starts with
+// InternalFieldPrefix so it never displays or resolves.
+const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
+
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the
 // file-extracted fields; Provider carries the provenance the UI labels

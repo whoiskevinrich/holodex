@@ -17,24 +17,67 @@ import (
 // directly. Reads are lock-free (WAL); writes take writeMu like the rest of the
 // write path.
 
-// resolveOrCreateStudio returns the id of the studio named `name`, inserting it if
-// absent (exact-name, trimmed — no alias table in v1, RD4). Runs inside the
-// caller's transaction. The studios.name UNIQUE constraint + writeMu serialization
-// make the select-then-insert race-free.
-func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
+// resolveOrCreateStudio returns the id of the studio for (`name`, `externalID`),
+// inserting it if absent. It matches on the provider `externalID` FIRST, then exact
+// trimmed name (ADR-054 §4) — so two spellings that share a provider company id
+// ("Warner Bros." / "Warner Bros. Pictures", both tmdb:174) converge to one studio.
+// `externalID` is namespace-qualified ("tmdb:174") or empty (a custom/decided name,
+// or a provider that carries no id → name-only resolve, the ADR-053 behavior). Any
+// id in hand is attached to the resolved studio (back-filling a name-created one).
+// Runs inside the caller's transaction; the studios.name UNIQUE + studio_external_ids
+// PK + writeMu serialization make the select-then-insert race-free.
+func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name, externalID string) (int64, error) {
 	name = strings.TrimSpace(name)
+	externalID = strings.TrimSpace(externalID)
+
+	// 1. External-id first: a company id resolves to exactly one studio (the PK).
+	if externalID != "" {
+		var id int64
+		switch err := tx.QueryRowContext(ctx,
+			`SELECT studio_id FROM studio_external_ids WHERE external_id = ?`, externalID).Scan(&id); {
+		case err == nil:
+			return id, nil
+		case !errors.Is(err, sql.ErrNoRows):
+			return 0, fmt.Errorf("resolve studio external id: %w", err)
+		}
+	}
+
+	// 2. Exact name — attach the id (if any) to the matched studio.
 	var id int64
 	switch err := tx.QueryRowContext(ctx, `SELECT id FROM studios WHERE name = ?`, name).Scan(&id); {
 	case err == nil:
-		return id, nil
+		return id, attachStudioExternalID(ctx, tx, id, externalID)
 	case !errors.Is(err, sql.ErrNoRows):
 		return 0, fmt.Errorf("resolve studio name: %w", err)
 	}
+
+	// 3. Create, then attach the id.
 	res, err := tx.ExecContext(ctx, `INSERT INTO studios (name) VALUES (?)`, name)
 	if err != nil {
 		return 0, fmt.Errorf("insert studio: %w", err)
 	}
-	return res.LastInsertId()
+	id, err = res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, attachStudioExternalID(ctx, tx, id, externalID)
+}
+
+// attachStudioExternalID records external_id → studio_id idempotently (ADR-054); a
+// no-op when externalID is empty. INSERT OR IGNORE: the external_id PK means an id
+// already owned by another studio is left where it is — the id-first lookup in
+// resolveOrCreateStudio would already have returned that owner, so this only ever
+// records a genuinely new (id, studio) pair.
+func attachStudioExternalID(ctx context.Context, tx *sql.Tx, studioID int64, externalID string) error {
+	if externalID == "" {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO studio_external_ids (studio_id, external_id) VALUES (?, ?)`,
+		studioID, externalID); err != nil {
+		return fmt.Errorf("attach studio external id: %w", err)
+	}
+	return nil
 }
 
 // ReconcileVideoStudios makes video_studios for one video hold exactly the studios
@@ -44,8 +87,10 @@ func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name string) (int64,
 // §2 step 4 — what keeps a derived-identity studio honest without alias routing).
 // One write transaction under writeMu; idempotent. Passing nil/empty `names`
 // removes all of the video's studio links (and prunes) — the soft-delete/blank-pin
-// path.
-func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names []string) error {
+// path. `extIDByName` maps a resolved name → its provider external id (ADR-054), so
+// resolve-or-create can de-dup by company id; a name absent from the map (custom or
+// id-less) resolves by name only. Pass nil when no ids are known.
+func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names []string, extIDByName map[string]string) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
@@ -55,13 +100,14 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
-	// Desired set — resolve-or-create each distinct, non-empty name.
+	// Desired set — resolve-or-create each distinct, non-empty name (id-first).
 	desired := make(map[int64]struct{}, len(names))
 	for _, name := range names {
-		if strings.TrimSpace(name) == "" {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
 			continue
 		}
-		sid, err := resolveOrCreateStudio(ctx, tx, name)
+		sid, err := resolveOrCreateStudio(ctx, tx, trimmed, extIDByName[trimmed])
 		if err != nil {
 			return err
 		}
