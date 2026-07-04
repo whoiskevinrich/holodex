@@ -31,7 +31,7 @@ func TestAutoRegisterFields_PredicateExclusions(t *testing.T) {
 	}
 	rendered := map[string]bool{"already": true}
 
-	out := AutoRegisterFields(fields, rendered, nil, nil)
+	out := AutoRegisterFields(fields, rendered, nil)
 
 	if len(out) != 1 {
 		t.Fatalf("want 1 auto-registered field, got %d: %+v", len(out), out)
@@ -62,7 +62,7 @@ func TestAutoRegisterFields_HintLabelRenderAndOrder(t *testing.T) {
 		"tmdb\x00trivia": {Label: "Trivia", Display: "long_text", Group: "extended"},
 	})
 
-	out := AutoRegisterFields(fields, nil, hints, nil)
+	out := AutoRegisterFields(fields, nil, hints)
 
 	// attributes(zeta order5, alpha order10) before extended(trivia).
 	got := []string{out[0].Canonical, out[1].Canonical, out[2].Canonical}
@@ -83,25 +83,17 @@ func TestAutoRegisterFields_HintLabelRenderAndOrder(t *testing.T) {
 	}
 }
 
-func TestAutoRegisterFields_ImageURLAllowlistGate(t *testing.T) {
-	fields := []AutoField{
-		{Provider: "tmdb", Key: "badge_ok", Values: []string{"https://cdn.ok/x.png"}},
-		{Provider: "tmdb", Key: "badge_bad", Values: []string{"https://evil.example/x.png"}},
-	}
+// The image_url allowlist gate is applied by the caller (api.appendAutoRegistered),
+// not the pure resolver — so this pass emits image_url exactly as hinted. The gate
+// itself is covered by the enrich asset-host allowlist tests.
+func TestAutoRegisterFields_EmitsImageURLAsHinted(t *testing.T) {
+	fields := []AutoField{{Provider: "tmdb", Key: "badge", Values: []string{"https://cdn/x.png"}}}
 	hints := hintLookup(map[string]AutoHint{
-		"tmdb\x00badge_ok":  {Label: "OK", Display: "image_url", Group: "extended"},
-		"tmdb\x00badge_bad": {Label: "Bad", Display: "image_url", Group: "extended"},
+		"tmdb\x00badge": {Label: "Badge", Display: "image_url", Group: "extended"},
 	})
-	allowed := func(provider, url string) bool { return url == "https://cdn.ok/x.png" }
-
-	out := AutoRegisterFields(fields, nil, hints, allowed)
-
-	if ok, _ := fieldByKey(out, "badge_ok"); ok.Display != "image_url" {
-		t.Fatalf("allowlisted host should keep image_url, got %q", ok.Display)
-	}
-	// Non-allowlisted image degrades to text (no <img> beacon).
-	if bad, _ := fieldByKey(out, "badge_bad"); bad.Display != "" {
-		t.Fatalf("non-allowlisted image_url should fall back to text, got %q", bad.Display)
+	out := AutoRegisterFields(fields, nil, hints)
+	if b, _ := fieldByKey(out, "badge"); b.Display != "image_url" {
+		t.Fatalf("resolver should emit image_url as hinted (caller gates), got %q", b.Display)
 	}
 }
 
@@ -110,7 +102,7 @@ func TestAutoRegisterFields_MultiProviderMerge(t *testing.T) {
 		{Provider: "tmdb", Key: "credited_as", Values: []string{"A. King", "Ada"}},
 		{Provider: "acme", Key: "credited_as", Values: []string{"ada", "Countess"}}, // "ada" dupes "Ada"
 	}
-	out := AutoRegisterFields(fields, nil, nil, nil)
+	out := AutoRegisterFields(fields, nil, nil)
 	if len(out) != 1 {
 		t.Fatalf("want 1 merged field, got %d", len(out))
 	}
@@ -132,7 +124,7 @@ func TestAutoRegisterFields_MultiProviderMerge(t *testing.T) {
 
 func TestAutoRegisterFields_NoNonCanonical_Empty(t *testing.T) {
 	fields := []AutoField{{Provider: "tmdb", Key: "bio", Values: []string{"x"}}}
-	if out := AutoRegisterFields(fields, nil, nil, nil); len(out) != 0 {
+	if out := AutoRegisterFields(fields, nil, nil); len(out) != 0 {
 		t.Fatalf("only-canonical input should yield no auto-registered fields, got %+v", out)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 )
@@ -12,8 +13,7 @@ import (
 // non-canonical fields (F39, ADR-056) after an entity's canonically-resolved fields.
 // It is the shared glue for video/person/studio: rows are the entity's shadow-store
 // rows, resolved the canonical resolve result. Label/render/order come from the
-// persisted provider hints (tier 3) with the title-case floor (tier 4); an image_url
-// value is gated by the provider's asset-host allowlist.
+// cached provider hints (tier 3) with the title-case floor (tier 4).
 func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.EnrichmentRow, resolved []resolver.ResolvedField) []resolver.ResolvedField {
 	if len(rows) == 0 {
 		return resolved
@@ -30,10 +30,8 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 	}
 
 	var hints map[string]map[string]repo.ProviderFieldHint
-	if hm, err := h.repo.ProviderFieldHints(ctx); err != nil {
-		h.log.Warn("provider field hints for auto-registration", "err", err)
-	} else {
-		hints = hm
+	if h.enrich != nil {
+		hints = h.enrich.FieldHints(ctx)
 	}
 	hintFor := func(provider, key string) (resolver.AutoHint, bool) {
 		if byKey, ok := hints[provider]; ok {
@@ -44,13 +42,22 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 		return resolver.AutoHint{}, false
 	}
 
-	imageAllowed := func(provider, url string) bool {
-		return h.enrich != nil && h.enrich.ImageURLAllowed(provider, url)
-	}
-
-	auto := resolver.AutoRegisterFields(fields, rendered, hintFor, imageAllowed)
+	auto := resolver.AutoRegisterFields(fields, rendered, hintFor)
 	if len(auto) == 0 {
 		return resolved
+	}
+	// F39 security gate (ADR-039/056): an image_url value whose host is not on the
+	// provider's asset-host allowlist must not render as an <img> — degrade it to
+	// text. Applied here, next to the allowlist, rather than inside the pure resolver.
+	for i := range auto {
+		f := &auto[i]
+		if f.Display != registry.DisplayImageURL {
+			continue
+		}
+		provider, _, _ := strings.Cut(f.WinningSource, ":")
+		if len(f.Values) == 0 || h.enrich == nil || !h.enrich.ImageURLAllowed(provider, f.Values[0]) {
+			f.Display = registry.DisplayText
+		}
 	}
 	return append(resolved, auto...)
 }

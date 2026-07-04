@@ -10,16 +10,14 @@
 	// fields never come from the file/record baseline), so a ProvenanceBadge always
 	// shows the supplying provider.
 	import type { ResolvedField } from '$lib/types';
+	import { providerFromWinningSource } from '$lib/format';
 	import ProvenanceBadge from './ProvenanceBadge.svelte';
 	import UrlValueList from './UrlValueList.svelte';
 	import ChipValueList from './ChipValueList.svelte';
 
 	let { fields }: { fields: ResolvedField[] } = $props();
 
-	function provider(f: ResolvedField): string {
-		const ns = (f.winning_source ?? '').split(':')[0];
-		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
-	}
+	const provider = (f: ResolvedField) => providerFromWinningSource(f.winning_source);
 </script>
 
 {#if fields.length}

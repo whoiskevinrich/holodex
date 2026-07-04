@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestAssetHostAllowed(t *testing.T) {
+	src := Source{
+		Name:       "tmdb",
+		BaseURL:    "http://tmdb-sidecar:9100",
+		AssetHosts: []string{"image.tmdb.org"},
+	}
+	cases := []struct {
+		url  string
+		want bool
+	}{
+		{"http://tmdb-sidecar:9100/x.jpg", true},  // base host, http allowed
+		{"https://image.tmdb.org/x.jpg", true},    // operator asset_host, https
+		{"http://image.tmdb.org/x.jpg", false},    // non-base host must be https
+		{"https://evil.example/x.jpg", false},     // host not allowlisted
+		{"ftp://tmdb-sidecar:9100/x.jpg", false},  // non-http scheme
+		{"https://image.tmdb.org.evil/x", false},  // lookalike host, not exact
+		{"", false},                               // unparseable / no host
+	}
+	for _, c := range cases {
+		if got := assetHostAllowed(src, c.url); got != c.want {
+			t.Errorf("assetHostAllowed(%q) = %v, want %v", c.url, got, c.want)
+		}
+	}
+}
+
 func TestSanitizeFieldHints_DropsCanonicalReservedAndUnknownVocab(t *testing.T) {
 	in := map[string]FieldHint{
 		"bio":        {Label: "Biography", Render: "long_text"},        // canonical → dropped (registry owns it)

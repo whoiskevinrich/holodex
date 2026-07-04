@@ -51,19 +51,20 @@ type autoAcc struct {
 //     skipped here so a mapped/synthesized field is never double-rendered.
 //   - hintFor: returns the provider hint for a (provider, key), ok=false when none —
 //     the tier-3 lookup; absence falls through to the title-case floor (tier 4).
-//   - imageAllowed: reports whether an image_url value may render as an <img> (the
-//     ADR-039 asset-host allowlist); a disallowed value degrades to text.
 //
 // A key is included iff it has a non-empty value, is not reserved (`_`-prefix), is
 // non-canonical, and is not already rendered. Values for the same key from multiple
 // providers merge (dedup union, combined provenance). The result is sorted after the
 // canonical fields by (group rank, order, key) and every field carries
 // AutoRegistered=true with no decision/curation state.
+//
+// Render modes are emitted as hinted; the image_url asset-host allowlist gate
+// (ADR-039/056) is applied by the caller, next to the allowlist, so this pass stays
+// free of enrichment/security concerns.
 func AutoRegisterFields(
 	fields []AutoField,
 	rendered map[string]bool,
 	hintFor func(provider, key string) (AutoHint, bool),
-	imageAllowed func(provider, url string) bool,
 ) []ResolvedField {
 	byKey := map[string]*autoAcc{}
 	var keyOrder []string
@@ -104,17 +105,10 @@ func AutoRegisterFields(
 			items = append(items, ResolvedValue{Value: a.disp[nk], Sources: a.srcs[nk]})
 			values = append(values, a.disp[nk])
 		}
-		display := a.display
-		// F39 security: an image_url whose value host is not allowlisted (ADR-039)
-		// must not render as an <img>; degrade the field to text.
-		if display == registry.DisplayImageURL && len(values) > 0 &&
-			(imageAllowed == nil || !imageAllowed(a.provider, values[0])) {
-			display = registry.DisplayText
-		}
 		out = append(out, ResolvedField{
 			Canonical:      key,
 			Label:          a.label,
-			Display:        display,
+			Display:        a.display,
 			Values:         values,
 			Items:          items,
 			WinningSource:  a.provider + ":" + key,

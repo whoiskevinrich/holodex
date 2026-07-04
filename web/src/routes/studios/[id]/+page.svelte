@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
 	import type {
@@ -80,11 +80,8 @@
 	const hasDetails = $derived(replaceFields.length > 0 || extraFields.length > 0);
 
 	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
-	// it is the record baseline or a manual literal (mirrors the person page).
-	function winnerProvider(f: ResolvedField): string {
-		const ns = (f.winning_source ?? '').split(':')[0];
-		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
-	}
+	// it is a baseline source (record/file/manual). Shared with AutoFieldRows.
+	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
 
 	// When every shown field resolves from the SAME single provider, we hoist one
 	// "Enriched from …" note to the section header (visitor view) instead of repeating an

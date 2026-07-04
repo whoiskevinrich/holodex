@@ -30,7 +30,7 @@
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
-	import { videoCount } from '$lib/format';
+	import { videoCount, providerFromWinningSource } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -132,12 +132,8 @@
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 
 	// The provider name behind a visitor row's ProvenanceBadge — the winning namespace
-	// unless it is the record baseline or a manual literal (mirrors the media page's
-	// `file:` check with the person's `record:` prefix, RD4).
-	function winnerProvider(f: ResolvedField): string {
-		const ns = (f.winning_source ?? '').split(':')[0];
-		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
-	}
+	// unless it is a baseline source (record/file/manual). Shared with AutoFieldRows.
+	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
 
 	function applyPersonDetail(res: PersonDetailResponse) {
 		person = res.person;

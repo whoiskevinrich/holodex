@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -39,6 +41,9 @@ type EnrichRepo interface {
 	// hints (F39, ADR-056), refreshed whenever /describe is read. Best effort — a
 	// persistence failure never fails the provider action.
 	ReplaceProviderFieldHints(ctx context.Context, provider string, hints []repo.ProviderFieldHint) error
+	// ProviderFieldHints reads every stored hint, keyed by provider then field key —
+	// the source for the Service's in-memory cache the read path consults (F39).
+	ProviderFieldHints(ctx context.Context) (map[string]map[string]repo.ProviderFieldHint, error)
 }
 
 // ImageSink stores a downloaded, normalized provider asset as a person image (F25,
@@ -80,6 +85,10 @@ type Service struct {
 	newClient   func(Source) ProviderClient
 	images      ImageSink // F25 asset download; nil = disabled
 	newAssetGet func(Source) assetFetcher
+	// fieldHints caches the persisted provider render hints (F39, ADR-056) behind an
+	// atomic pointer — lazily loaded and refreshed on /describe, so the visitor read
+	// path never queries the table (mirrors the mapping/registry store idiom).
+	fieldHints atomic.Pointer[map[string]map[string]repo.ProviderFieldHint]
 }
 
 // assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
@@ -188,24 +197,52 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	return c, nil
 }
 
+// FieldHints returns the cached provider render-hint map (F39, ADR-056), keyed by
+// provider then field key. It is lazily loaded from the store on first use and
+// refreshed whenever /describe is persisted, so the visitor read path never queries
+// the table. Nil-safe for callers; the map is treated as immutable.
+func (s *Service) FieldHints(ctx context.Context) map[string]map[string]repo.ProviderFieldHint {
+	if p := s.fieldHints.Load(); p != nil {
+		return *p
+	}
+	return s.reloadFieldHints(ctx)
+}
+
+// reloadFieldHints reads the hint table and swaps it into the cache atomically. A
+// read error logs and caches an empty map (auto-registration then falls back to the
+// title-case floor) rather than failing the page.
+func (s *Service) reloadFieldHints(ctx context.Context) map[string]map[string]repo.ProviderFieldHint {
+	m, err := s.repo.ProviderFieldHints(ctx)
+	if err != nil {
+		s.log.Warn("load provider field hints", "err", err)
+		m = map[string]map[string]repo.ProviderFieldHint{}
+	}
+	s.fieldHints.Store(&m)
+	return m
+}
+
 // persistFieldHints refreshes the stored non-canonical render hints for a provider
-// from its /describe manifest (F39, ADR-056). Best effort: a failure logs and is
-// swallowed so it never blocks the owner's resolve/enrich action.
+// from its /describe manifest (F39, ADR-056). /describe is read on every owner
+// resolve/enrich, so the write is skipped when the provider's hints are unchanged
+// from the cache — avoiding writeMu contention on a no-op. Best effort: a failure
+// logs and is swallowed so it never blocks the owner's action.
 func (s *Service) persistFieldHints(ctx context.Context, provider string, m Manifest) {
 	sanitized := SanitizeFieldHints(m.FieldHints)
+	desired := make(map[string]repo.ProviderFieldHint, len(sanitized))
 	hints := make([]repo.ProviderFieldHint, 0, len(sanitized))
 	for key, h := range sanitized {
-		hints = append(hints, repo.ProviderFieldHint{
-			FieldKey: key,
-			Label:    h.Label,
-			Render:   h.Render,
-			Group:    h.Group,
-			Order:    h.Order,
-		})
+		ph := repo.ProviderFieldHint{FieldKey: key, Label: h.Label, Render: h.Render, Group: h.Group, Order: h.Order}
+		desired[key] = ph
+		hints = append(hints, ph)
+	}
+	if cur := s.fieldHints.Load(); cur != nil && maps.Equal((*cur)[provider], desired) {
+		return // unchanged since the last /describe — no write needed
 	}
 	if err := s.repo.ReplaceProviderFieldHints(ctx, provider, hints); err != nil {
 		s.log.Warn("persist provider field hints", "provider", provider, "err", err)
+		return
 	}
+	s.reloadFieldHints(ctx) // reflect the new state in the cache
 }
 
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
