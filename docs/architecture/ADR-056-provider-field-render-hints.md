@@ -300,15 +300,16 @@ same after a restart, the table earns its keep.
 
 ## Action Items
 
-1. [ ] ADR-056 recorded; add to `docs/architecture/README.md`. *(this change)*
-2. [ ] Provider-contract spec §4.7 — document `field_hints` (shape, defaults, unknown-keys rule, no protocol
-   bump, security posture). *(this change)*
-3. [ ] `docs/reference/canonical-fields.md` — note presence-driven auto-registration + the provider-hint tier
-   + the `chips` render mode. *(this change)*
+1. [x] ADR-056 recorded; added to `docs/architecture/README.md`.
+2. [x] Provider-contract spec §4.7 — `field_hints` documented (shape, defaults, unknown-keys rule, no protocol
+   bump, security posture); §2.2 manifest table + Open-items note updated.
+3. [x] `docs/reference/canonical-fields.md` — presence-driven auto-registration + the provider-hint tier +
+   the `chips` render mode noted; render-modes table updated.
 4. [ ] **Implementation (F39, HOLODEX-128)** — `enrich.Manifest.FieldHints`; migration
    `provider_field_hints`; refresh-on-describe; the tier-3/4 overlay; `mapping.Field.Display` +
    `ResolveFields` propagation; the per-entity presence-driven auto-registration append; SPA `chips` render +
    auto-registered read-only rows with provenance. Gates: `/write-spec` (done — F39 spec),
-   `/design-handoff` (done), `/testing-strategy`, `/security-review`.
-5. [ ] `docs/testing-strategy.md` — add the F39 block (ladder precedence, presence gate, `_`-key invisibility,
-   `image_url` allowlist gate, backward-compat: no `field_hints` = no change). Gate before merge.
+   `/design-handoff` (done — handoff + QA checklist), `/testing-strategy` (done — §9 F39 block),
+   `/security-review` (pending, before merge).
+5. [x] `docs/testing-strategy.md` — F39 block added (ladder precedence, presence gate, `_`-key invisibility,
+   `image_url` allowlist gate, display-only, backward-compat golden).
