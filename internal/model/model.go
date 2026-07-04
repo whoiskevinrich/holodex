@@ -153,6 +153,11 @@ type Studio struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// LogoURL is the studio's stored `logo` enrichment value, attached to the
+	// /studios list for scannability (HOLODEX-126). It is the raw provider-stored
+	// logo, NOT the resolved one — the detail page stays authoritative. Empty when
+	// no provider has stored a logo (the common case in a fresh library).
+	LogoURL string `json:"logo_url,omitempty"`
 }
 
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
@@ -205,6 +210,11 @@ const InternalFieldPrefix = "_"
 // RelinkVideoStudios parses these into a name→external_id side-map. It starts with
 // InternalFieldPrefix so it never displays or resolves.
 const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
+
+// StudioLogoField is the canonical enrichment field-key for a studio's logo image
+// (registry "logo", an image_url field). Named here so the /studios list logo attach
+// (HOLODEX-126) references the field vocabulary rather than a magic string.
+const StudioLogoField = "logo"
 
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the

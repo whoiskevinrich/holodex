@@ -26,6 +26,11 @@
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2).
 	const displayed = $derived(sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
 
+	// Monogram for the leading logo well when a studio has no logo: the real first
+	// glyph of the name (upper-cased), not the A–Z jump bucket — so "24 Frames" shows
+	// "2" and "東宝" shows "東", rather than the nav bar's catch-all "#".
+	const monogram = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
+
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const letterAnchors = $derived(computeLetterAnchors(studios.map((s) => s.name)));
 	function jumpTo(letter: string) {
@@ -116,6 +121,24 @@
 						href={`/studios/${s.id}`}
 						class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 					>
+						<!-- Leading logo well (HOLODEX-126): a consistent ~40×26 plate keeps rows
+						     aligned whether or not the studio has a logo. Enriched → real logo;
+						     otherwise a monogram (decorative — the name is adjacent). -->
+						<span
+							class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+						>
+							{#if s.logo_url}
+								<img
+									src={s.logo_url}
+									alt={`${s.name} logo`}
+									class="h-full w-full object-contain p-0.5"
+								/>
+							{:else}
+								<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
+									>{monogram(s.name)}</span
+								>
+							{/if}
+						</span>
 						<span class="flex-1 truncate">{s.name}</span>
 						<span class="text-xs text-muted">{s.video_count}</span>
 					</a>

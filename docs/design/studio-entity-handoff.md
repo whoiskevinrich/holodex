@@ -42,7 +42,8 @@ row with `<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>` a
 - Grid: `grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3` (identical to People).
 - Row: an `<a href={`/studios/${s.id}`}>` card —
   `flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent`.
-  No avatar slot; name takes the leading space.
+  A **leading logo well** (§1b, HOLODEX-126) opens the row; then name, then count.
+  - Well: `<span class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate">` (see §1b)
   - Name: `<span class="flex-1 truncate">{s.name}</span>`
   - Count: `<span class="text-xs text-muted">{s.video_count}</span>`
 - A–Z jump-nav (`sort === 'name'`): keep it — same `computeLetterAnchors` over studio names, same
@@ -62,6 +63,38 @@ row with `<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>` a
 | Populated | the grid above |
 
 The empty state is reachable on a fresh library or before the backfill (ADR-053 §5) has run.
+
+---
+
+## 1b. Leading logo well (HOLODEX-126, F38 follow-up)
+
+**Decided via `/design-critique` (2026-07-03).** Once studios can carry a `logo` enrichment field (S3,
+[HOLODEX-121](https://whoiskevinrich.atlassian.net/browse/HOLODEX-121)), surface it in the list for
+scannability — but as a **fixed leading well with a monogram fallback**, not a logo-card grid.
+
+- **The well is a constant ~40×26 plate** at the start of every row, on the `bg-logo-plate` token.
+  Its consistency is the **load-bearing constraint**: rows stay aligned whether or not the studio has
+  a logo, which is the common case in a fresh library. (Rejected: a logo-tile grid — mostly-monogram
+  tiles add scrolling and weight for little gain until logos are common.)
+- **Enriched studio → its real logo.** `<img src={s.logo_url} alt="{s.name} logo" class="h-full w-full
+  object-contain p-0.5" />` — `object-contain` so any logo aspect ratio fits the well without cropping.
+- **Every other studio → a monogram**: the name's real first glyph, upper-cased (so "24 Frames" shows
+  `2`, "東宝" shows `東` — not the A–Z jump bar's catch-all `#`), in `font-display`, `text-logo-plate-ink`.
+  The monogram is **decorative** (`aria-hidden`) — the studio name is adjacent, so it adds nothing for
+  a screen reader. The real logo `<img>`, by contrast, keeps a meaningful `alt`.
+- **New token**: `--logo-plate-ink` (a dark neutral tuned per skin) for the monogram glyph — the plate
+  is a light neutral in all three skins, so its ink must be dark to read. Lives in `app.css` alongside
+  `--logo-plate`, mapped through `@theme inline` to the `text-logo-plate-ink` utility.
+
+**Known edge (documented, acceptable):** `logo_url` is the *stored* provider logo, not the *resolved*
+one — an owner who blank-pins the logo would still see it in the list thumbnail. The detail page stays
+authoritative; the list is a scannability aid. A later, heavier option is a per-studio resolve.
+
+| Well state | Render | a11y |
+|---|---|---|
+| `logo_url` present | `<img>` real logo, `object-contain` | `alt="{name} logo"` |
+| no logo (common) | monogram (first glyph, upper-cased) | `aria-hidden` (name adjacent) |
+| empty name (shouldn't occur) | `?` monogram | `aria-hidden` |
 
 ---
 
@@ -142,10 +175,11 @@ This is already parameterized (`baselineKey`); studio passes `'record'`. No new 
 
 ## Design tokens used
 
-All inherited; no new tokens. For reference (from [theming.md](theming.md)):
+All inherited except `logo-plate-ink` (new — HOLODEX-126). For reference (from [theming.md](theming.md)):
 
 | Token | Usage here |
 |---|---|
+| `bg-logo-plate` / `text-logo-plate-ink` | leading logo well plate / monogram glyph (§1b) |
 | `text-ink` / `text-muted` | names / counts + secondary text |
 | `text-warn` / `border-warn` | error state; (no attention pills on studio) |
 | `bg-surface` / `bg-surface-2` | cards / hover |
@@ -227,6 +261,11 @@ verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` need
 ### §3 Agent live QA (preview tools against §1 stack)
 - **3.1** `[agent]` `/studios` renders the grid; counts match; A–Z jump works; sort toggle + Random
   reroll behave as on People. **All 3 skins.**
+- **3.1b** `[agent]` Leading logo well (§1b, HOLODEX-126): an enriched studio shows its real logo
+  (`object-contain`, `alt="{name} logo"`); a name-only studio shows a monogram (first glyph,
+  `aria-hidden`); logo rows and monogram rows have **identical height** (the alignment constraint).
+  Confirm the well plate (`bg-logo-plate`) and monogram ink (`text-logo-plate-ink`) read cleanly in
+  **all 3 skins** (plate is light in every skin; ink must stay dark/legible).
 - **3.2** `[agent]` Open a studio → name header + video grid; a name-only studio shows **no** Details
   section (not an empty box). **All 3 skins.**
 - **3.3** `[agent]` On an enriched studio (post-S3, or with a decision set), Details renders

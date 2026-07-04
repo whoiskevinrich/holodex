@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -196,6 +197,59 @@ func TestReconcileVideoStudios_ExternalIDBackfill(t *testing.T) {
 	}
 	if len(studios) != 1 || studios[0].Name != "Studio Ghibli" || studios[0].VideoCount != 3 {
 		t.Fatalf("studios = %+v, want one Studio Ghibli count=3 (id back-filled)", studios)
+	}
+}
+
+// studioByName returns the listed studio with the given name (or a fatal), so logo
+// assertions don't depend on list order.
+func studioByName(t *testing.T, r *repo.Repo, name string) model.Studio {
+	t.Helper()
+	studios, err := r.ListStudios(context.Background(), false)
+	if err != nil {
+		t.Fatalf("list studios: %v", err)
+	}
+	for _, s := range studios {
+		if s.Name == name {
+			return s
+		}
+	}
+	t.Fatalf("studio %q not in list %+v", name, studios)
+	return model.Studio{}
+}
+
+// TestListStudios_AttachesLogo covers HOLODEX-126: the list attaches the stored `logo`
+// enrichment value; a studio with no logo row carries an empty LogoURL; and when two
+// providers store a logo, the lowest provider name wins deterministically.
+func TestListStudios_AttachesLogo(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	if err := r.ReconcileVideoStudios(ctx, a, []string{"Acme"}, nil); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, b, []string{"Beta"}, nil); err != nil {
+		t.Fatalf("reconcile b: %v", err)
+	}
+
+	acmeID := studioByName(t, r, "Acme").ID
+	// Two providers store a logo for Acme; "atmdb" sorts before "ztmdb" and must win.
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityStudio, acmeID, "ztmdb", "ztmdb:9",
+		map[string][]string{"logo": {"https://cdn.example/z.png"}}); err != nil {
+		t.Fatalf("upsert z logo: %v", err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityStudio, acmeID, "atmdb", "atmdb:1",
+		map[string][]string{"logo": {"https://cdn.example/a.png"}}); err != nil {
+		t.Fatalf("upsert a logo: %v", err)
+	}
+
+	if got := studioByName(t, r, "Acme").LogoURL; got != "https://cdn.example/a.png" {
+		t.Fatalf("Acme logo = %q, want the lowest-provider logo", got)
+	}
+	// Beta has no logo enrichment → empty, not the other studio's logo.
+	if got := studioByName(t, r, "Beta").LogoURL; got != "" {
+		t.Fatalf("Beta logo = %q, want empty", got)
 	}
 }
 
