@@ -49,13 +49,24 @@ func newTMDBClient(token, apiKey, language string) *tmdbClient {
 // ---- provider wire types ----
 
 type describeResponse struct {
-	Provider        string   `json:"provider"`
-	Version         string   `json:"version"`
-	ProtocolVersion int      `json:"protocol_version"`
-	EntityTypes     []string `json:"entity_types"`
-	IDNamespaces    []string `json:"id_namespaces"`
-	Fields          []string `json:"fields"`
-	AssetKinds      []string `json:"asset_kinds,omitempty"`
+	Provider        string               `json:"provider"`
+	Version         string               `json:"version"`
+	ProtocolVersion int                  `json:"protocol_version"`
+	EntityTypes     []string             `json:"entity_types"`
+	IDNamespaces    []string             `json:"id_namespaces"`
+	Fields          []string             `json:"fields"`
+	AssetKinds      []string             `json:"asset_kinds,omitempty"`
+	FieldHints      map[string]fieldHint `json:"field_hints,omitempty"`
+}
+
+// fieldHint is a per-field presentation hint for a non-canonical advertised key
+// (Holodex F39 contract §4.7): label / render mode / ordering group. Purely
+// additive — a Holodex that predates the field ignores it.
+type fieldHint struct {
+	Label  string `json:"label,omitempty"`
+	Render string `json:"render,omitempty"`
+	Group  string `json:"group,omitempty"`
+	Order  int    `json:"order,omitempty"`
 }
 
 type candidate struct {
@@ -97,14 +108,15 @@ type knownFor struct {
 }
 
 type personDetails struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Biography    string   `json:"biography"`
-	Birthday     string   `json:"birthday"`
-	Deathday     string   `json:"deathday"`
-	PlaceOfBirth string   `json:"place_of_birth"`
-	ProfilePath  string   `json:"profile_path"`
-	AlsoKnownAs  []string `json:"also_known_as"`
+	ID                 int      `json:"id"`
+	Name               string   `json:"name"`
+	Biography          string   `json:"biography"`
+	Birthday           string   `json:"birthday"`
+	Deathday           string   `json:"deathday"`
+	PlaceOfBirth       string   `json:"place_of_birth"`
+	ProfilePath        string   `json:"profile_path"`
+	AlsoKnownAs        []string `json:"also_known_as"`
+	KnownForDepartment string   `json:"known_for_department"`
 }
 
 type findResult struct {
@@ -736,6 +748,12 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	}
 	if len(aliases) > 0 {
 		fields["aliases"] = aliases
+	}
+	// Non-canonical field surfaced via the F39 hint advertised in /describe: TMDB's
+	// primary department (e.g. "Acting", "Directing"). Holodex auto-registers it as a
+	// display-only "Known for" row — no per-operator mapping needed.
+	if dept := strings.TrimSpace(det.KnownForDepartment); dept != "" {
+		fields["known_for_department"] = []string{dept}
 	}
 
 	// Build assets: profile photos + one banner backdrop (if available).
