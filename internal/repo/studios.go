@@ -184,7 +184,62 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 		}
 		out = append(out, s)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachStudioLogos(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// attachStudioLogos fills LogoURL on each studio from the stored `logo` enrichment
+// field in ONE batch query, leaving the shared namedCountQuery untouched and avoiding
+// an N-way per-studio resolve on the list (HOLODEX-126). This is the raw provider-
+// stored logo, NOT the resolved one — an owner who blank-pins the logo would still see
+// it here; the detail page stays authoritative. When several providers have stored a
+// logo for one studio, the lowest provider name wins (deterministic).
+func (r *Repo) attachStudioLogos(ctx context.Context, studios []model.Studio) error {
+	if len(studios) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(studios))
+	for i, s := range studios {
+		ids[i] = s.ID
+	}
+	args := append([]any{model.EnrichEntityStudio, model.StudioLogoField}, toAnySlice(ids)...)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT entity_id, value FROM entity_enrichment
+		WHERE entity_type = ? AND field_key = ? AND entity_id IN (`+placeholders(len(ids))+`)
+		ORDER BY entity_id, provider`, args...)
+	if err != nil {
+		return fmt.Errorf("studio logos: %w", err)
+	}
+	defer rows.Close()
+	logos := make(map[int64]string, len(ids))
+	for rows.Next() {
+		var (
+			eid   int64
+			value string
+		)
+		if err := rows.Scan(&eid, &value); err != nil {
+			return err
+		}
+		if _, seen := logos[eid]; seen {
+			continue // first provider (alphabetical) wins
+		}
+		// logo is single-valued; SplitN is defensive against a stored multi-value.
+		if v := strings.SplitN(value, enrichMultiSep, 2)[0]; strings.TrimSpace(v) != "" {
+			logos[eid] = v
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range studios {
+		studios[i].LogoURL = logos[studios[i].ID]
+	}
+	return nil
 }
 
 // GetStudio returns a studio by id with active-video count, or ErrNotFound.

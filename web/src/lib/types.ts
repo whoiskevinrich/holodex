@@ -64,6 +64,9 @@ export interface Studio {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Stored `logo` enrichment value, surfaced in the /studios list well (HOLODEX-126).
+	// The raw provider-stored logo, not the resolved one; the detail page is authoritative.
+	logo_url?: string;
 }
 
 export interface ExtraMetadata {
