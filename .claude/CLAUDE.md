@@ -26,8 +26,8 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 | `internal/api` | HTTP handlers (chi); owner-gated mutations via `requireOwner` |
 | `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free) |
 | `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
-| `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter |
-| `internal/mapping`, `internal/registry` | Canonical field mapping (`holodex.yaml`) + per-field metadata (labels/display) |
+| `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter. Providers are declared (not compiled in) in `metadata-sources.yaml` — `base_url` **is** the SSRF allowlist, `asset_hosts` the image-download allowlist |
+| `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, ADR-013) + per-field metadata (labels/display) |
 | `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` |
 | `providers/tmdb` | Standalone metadata-provider **sidecar** (see Gotchas) |
 | `web/` | SvelteKit SPA (see Frontend theming) |
@@ -135,7 +135,9 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 ## Secrets & publishing
 
 - Never commit secrets, tokens, private keys, or PII. Configuration comes from environment
-  variables or `holodex.yaml` (gitignored); only `holodex.yaml.example` (placeholder values) is committed.
+  variables or three parallel gitignored YAML files — `holodex.yaml` (main config),
+  `metadata-mappings.yaml` (field mapping, ADR-013), `metadata-sources.yaml` (provider registry /
+  SSRF allowlist, ADR-033); only their `*.example` placeholders are committed.
 - Generated/runtime data (`/data`, `*.db`, thumbnails, `web/node_modules`, build output, media fixtures)
   is gitignored — never commit it.
 - Before pushing to a public remote, scan the working tree for sensitive values.
@@ -146,9 +148,15 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   `internal/db/migrations/NNNN_name.up.sql` **and** a matching `.down.sql` (golang-migrate; no
   auto-rollback). Never edit a shipped migration — add a new one.
 - **`providers/tmdb` is a standalone sidecar in the same Go module.** It talks to the core only over
-  HTTP and **must not import `internal/*`**. Cross-boundary contracts (e.g. a reserved provider
-  field-key like `_studio_external_ids`) are **shared string literals** kept in sync by convention +
-  the provider-contract spec — change both sides together.
+  HTTP (protocol v1: `/healthz` · `/describe` · `/resolve` · `/enrich`) and **must not import
+  `internal/*`**. The authoritative, source-neutral protocol — endpoints, caps, security rules — is
+  [`docs/specs/metadata-provider-contract.md`](../docs/specs/metadata-provider-contract.md); change it
+  and both sides together.
+- **`_`-prefixed enrichment field keys are internal provider→core sidecars, not display fields**
+  (`model.InternalFieldPrefix`, ADR-054). They're persisted in the shadow store but **never resolved
+  or rendered** (`enrich.FieldsFromRows` skips them). They're cross-boundary contracts shared as string
+  literals (core + every provider) — never invent new ones ad hoc. v1 defines `_studio_external_ids`
+  (studio de-dup by id).
 
 ## Conventions
 
