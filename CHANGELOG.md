@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.4.0](https://github.com/whoiskevinrich/holodex/compare/v1.3.1...v1.4.0) (2026-07-04)
+
+
+### 🚀 Features
+
+* **browse:** entity-backed studio filter via ?studio_id (F38) ([#81](https://github.com/whoiskevinrich/holodex/issues/81)) ([3bb486f](https://github.com/whoiskevinrich/holodex/commit/3bb486f4800ae0c2d550c047ca518345dd5a9e74))
+* **enrich:** per-provider match/enrich/clear UI on media + people detail ([#79](https://github.com/whoiskevinrich/holodex/issues/79)) ([726721c](https://github.com/whoiskevinrich/holodex/commit/726721c52e3f6d6e5afa006ede8cf093a3541ae3))
+* **enrich:** TMDB studio company enrichment (F38 S3) ([#82](https://github.com/whoiskevinrich/holodex/issues/82)) ([b900b9f](https://github.com/whoiskevinrich/holodex/commit/b900b9fc39d135c785e9e968009f44de117f75d5))
+* **metadata:** per-field source-of-truth SourceSelect control (F36) ([#71](https://github.com/whoiskevinrich/holodex/issues/71)) ([f0a8545](https://github.com/whoiskevinrich/holodex/commit/f0a8545b194761186201173f7eddeb0260929922))
+* **metadata:** unify source-of-truth control on selectable source chips (F36) ([#73](https://github.com/whoiskevinrich/holodex/issues/73)) ([a993022](https://github.com/whoiskevinrich/holodex/commit/a993022169e9775b86a9a90327232c064a4ff38b))
+* **people:** person detail on unified source-of-truth model (F37) ([#74](https://github.com/whoiskevinrich/holodex/issues/74)) ([0f5517b](https://github.com/whoiskevinrich/holodex/commit/0f5517b078376b220ed665f6e858a6bba69b2b87))
+* **resolver:** inter-provider trust order via provider_trust_order (F36 P1-2) ([#78](https://github.com/whoiskevinrich/holodex/issues/78)) ([f0813fc](https://github.com/whoiskevinrich/holodex/commit/f0813fc90173d7a3c4013850f660634712341b16))
+* **resolver:** per-field source-of-truth decisions backend (F36) ([#72](https://github.com/whoiskevinrich/holodex/issues/72)) ([2dc81f0](https://github.com/whoiskevinrich/holodex/commit/2dc81f0994a51b61e496ddfeb87ccddae10894d5))
+* **studios:** external-id de-dup via provider company id (ADR-054) ([#76](https://github.com/whoiskevinrich/holodex/issues/76)) ([746a5ac](https://github.com/whoiskevinrich/holodex/commit/746a5ac0e1d71be2e2af88da5ce1ddc7a44336b0))
+* **studios:** logo well + monogram in /studios list (F38) ([#83](https://github.com/whoiskevinrich/holodex/issues/83)) ([f1dd03c](https://github.com/whoiskevinrich/holodex/commit/f1dd03cb41d26b02b0ec127e5fbce0c76b069110))
+
+
+### 🚜 Refactor
+
+* **resolver:** pin BaselineSource contract for entity-agnostic resolution ([#69](https://github.com/whoiskevinrich/holodex/issues/69)) ([8e8884d](https://github.com/whoiskevinrich/holodex/commit/8e8884dc508c965159cd41b767bb95925a38e68d))
+
+
+### 📚 Documentation
+
+* **architecture:** ADR-055 universal enrichment unique-key invariant ([#80](https://github.com/whoiskevinrich/holodex/issues/80)) ([e779e27](https://github.com/whoiskevinrich/holodex/commit/e779e271792a51c1a1adfe85c9e41567b62fcc93))
+* **claude-md:** auto-rename worktree branch to its Jira key on start ([#70](https://github.com/whoiskevinrich/holodex/issues/70)) ([fa84b6a](https://github.com/whoiskevinrich/holodex/commit/fa84b6a07a99fac0ebf74c5163f356c6a0b140bf))
+* correct TMDB video field mapping + add CLAUDE.md codebase map ([#77](https://github.com/whoiskevinrich/holodex/issues/77)) ([ab2de60](https://github.com/whoiskevinrich/holodex/commit/ab2de60b92ab84bc4b14c1ed21020ed939dfa966))
+* **F36:** per-field source-of-truth decisions (ADR-051) design package ([#66](https://github.com/whoiskevinrich/holodex/issues/66)) ([12a984b](https://github.com/whoiskevinrich/holodex/commit/12a984b649f475a3bee1155dcbfafb21591d5c96))
+* Jira ↔ GitHub pipeline integration & Jira-native task tracking ([#67](https://github.com/whoiskevinrich/holodex/issues/67)) ([867aad0](https://github.com/whoiskevinrich/holodex/commit/867aad0c6a9712c253cb4c735ec9724cecc5bedd))
+* **specs:** studio entity promotion spec (F38) ([#75](https://github.com/whoiskevinrich/holodex/issues/75)) ([16a621a](https://github.com/whoiskevinrich/holodex/commit/16a621afbc95c12f436812a8bba5772999a7788b))
+
 ## [1.3.1](https://github.com/whoiskevinrich/holodex/compare/v1.3.0...v1.3.1) (2026-06-30)
 
 
