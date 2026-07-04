@@ -81,6 +81,15 @@
 		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
 	}
 
+	// When every shown field resolves from the SAME single provider, we hoist one
+	// "Enriched from …" note to the section header (visitor view) instead of repeating an
+	// identical badge on every row. Empty when providers differ (or none) — rows keep their
+	// per-field badges so the divergence stays visible.
+	const soleProvider = $derived.by(() => {
+		const set = new Set(replaceFields.map(winnerProvider).filter(Boolean));
+		return set.size === 1 ? [...set][0] : '';
+	});
+
 	function apply(res: StudioDetailResponse) {
 		studio = res.studio;
 		videos = res.items ?? [];
@@ -177,6 +186,12 @@
 									{/if}
 								{/each}
 							</div>
+						{:else if !isOwner && soleProvider}
+							<!-- Visitor: one section-level provenance note when every field shares a
+							     single provider, instead of an identical badge per row. -->
+							<span class="text-xs text-muted"
+								>Enriched from <span class="text-accent">{soleProvider}</span></span
+							>
 						{/if}
 					</div>
 
@@ -193,8 +208,8 @@
 										<dd class="mb-1">
 											<img
 												src={f.values[0]}
-												alt={f.label}
-												class="max-h-32 rounded-theme border border-rule bg-bg object-contain p-2"
+												alt={studio?.name ? `${studio.name} ${f.label.toLowerCase()}` : f.label}
+												class="max-h-32 rounded-theme border border-rule bg-logo-plate object-contain p-2"
 											/>
 										</dd>
 									{/if}
@@ -206,7 +221,7 @@
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
 											/>
 										</dd>
-									{:else if winnerProvider(f)}
+									{:else if !soleProvider && winnerProvider(f)}
 										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 									{/if}
 								</div>
@@ -214,7 +229,7 @@
 
 							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
-									<div>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
 											<SourceSelect
@@ -225,14 +240,14 @@
 										</dd>
 									</div>
 								{:else}
-									<div>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
-											<dd class="inline"><UrlValueList values={f.values} /></dd>
+											<dd class="inline"><UrlValueList values={f.values} hostname /></dd>
 										{:else}
 											<dd class="inline text-ink">{f.values.join(', ')}</dd>
 										{/if}
-										{#if winnerProvider(f)}
+										{#if !soleProvider && winnerProvider(f)}
 											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 										{/if}
 									</div>
@@ -255,7 +270,7 @@
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
 											/>
 										</dd>
-									{:else if winnerProvider(f)}
+									{:else if !soleProvider && winnerProvider(f)}
 										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 									{/if}
 								</div>
