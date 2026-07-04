@@ -3,13 +3,20 @@
 // transport-agnostic so SSE (F21.8) can later replace refresh() without touching
 // consumers. capabilities is fetched once (ungated, rarely changes); activity is
 // polled while the tab is visible.
-import { api, ApiError, endSession } from './api';
+import { api, ApiError, ReauthError, endSession } from './api';
 import { adminMode } from './adminMode.svelte';
 import type { Activity, Capabilities } from './types';
 import { toMessage } from './format';
 
 // Poll cadence for the activity read-model (ms). A property of the shared store.
 const POLL_MS = 3000;
+// Backoff ceiling: on sustained failure the poll interval doubles up to this, so a
+// down/unreachable endpoint is retried gently instead of hammered every 3 s
+// (HOLODEX-127 observed hundreds of doomed requests during one lapse).
+const MAX_POLL_MS = 30000;
+// Tolerate this many consecutive failures before surfacing a hard error, so a single
+// transient/opaque blip doesn't blank the surface (HOLODEX-127 acceptance criteria).
+const FAIL_GRACE = 3;
 
 class ActivityState {
 	data = $state<Activity | null>(null);
@@ -19,6 +26,12 @@ class ActivityState {
 
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private subscribers = 0;
+	// Consecutive-failure count + current backoff delay drive the poll gate below.
+	private failures = 0;
+	private delay = POLL_MS;
+	// Epoch ms before which the (still-ticking) interval skips its refresh — how the
+	// backoff is applied without tearing down the shared, ref-counted interval.
+	private nextPollAt = 0;
 
 	// active drives the header indicator: any background work in progress.
 	get active(): boolean {
@@ -53,11 +66,31 @@ class ActivityState {
 		try {
 			this.data = await api.activity();
 			this.error = '';
+			this.failures = 0;
+			this.delay = POLL_MS;
+			this.nextPollAt = 0;
 		} catch (e) {
-			this.error = toMessage(e);
-			// A 401 mid-session means the owner cookie expired or was revoked
-			// (ADR-046) — fall back cleanly to the token prompt / read-only view.
-			if (e instanceof ApiError && e.status === 401) await this.dropIfNotOwner();
+			if (e instanceof ReauthError) {
+				// The upstream ForwardAuth session lapsed (HOLODEX-127). A top-level
+				// re-auth is already underway (api.ts) — keep the last-good surface and
+				// don't flash an error before the document reloads.
+				return;
+			}
+			if (e instanceof ApiError && e.status === 401) {
+				// Holodex's *own* owner cookie expired or was revoked (ADR-046) — fall
+				// back cleanly to the token prompt / read-only view. Distinct from the
+				// ForwardAuth (Authentik) expiry handled above.
+				this.error = toMessage(e);
+				await this.dropIfNotOwner();
+				return;
+			}
+			// Transient/opaque failure (e.g. a network blip). Keep the last-good `data`
+			// on screen; only surface a hard error once failures are sustained, and back
+			// off the poll so a persistently-down endpoint isn't hammered.
+			this.failures++;
+			if (this.failures >= FAIL_GRACE) this.error = toMessage(e);
+			this.delay = Math.min(this.delay * 2, MAX_POLL_MS);
+			this.nextPollAt = Date.now() + this.delay;
 		} finally {
 			this.loading = false;
 		}
@@ -95,8 +128,12 @@ class ActivityState {
 		if (this.timer) return;
 		this.refreshCaps();
 		this.refresh();
+		// The interval keeps ticking at POLL_MS, but a refresh only fires when the tab
+		// is visible AND we're past any backoff window — so a failing endpoint backs
+		// off (nextPollAt) without disturbing the shared, ref-counted interval.
 		this.timer = setInterval(() => {
-			if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+			const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
+			if (visible && Date.now() >= this.nextPollAt) {
 				this.refresh();
 			}
 		}, POLL_MS);
