@@ -18,6 +18,7 @@
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
+	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
 
 	// Studio detail (F38, ADR-053): name header + video grid + a Details section that
 	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5). Unlike the
@@ -61,6 +62,7 @@
 			(f) =>
 				f.canonical !== 'name' &&
 				!f.multi &&
+				!f.auto_registered &&
 				(isOwner
 					? f.values.length > 0 || (f.candidates ?? []).length > 0
 					: f.values.some((v) => v.trim() !== ''))
@@ -71,8 +73,11 @@
 		replaceFields.filter((f) => f.display !== 'long_text' && f.display !== 'image_url')
 	);
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
-	// Show the section when there's something to curate, or (owner) a provider to enrich from.
-	const hasDetails = $derived(replaceFields.length > 0);
+	// F39 (ADR-056): display-only auto-registered non-canonical fields, read-only after
+	// the curatable ones.
+	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
+	// Show the section when there's something to curate or display, or (owner) a provider to enrich from.
+	const hasDetails = $derived(replaceFields.length > 0 || extraFields.length > 0);
 
 	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
 	// it is the record baseline or a manual literal (mirrors the person page).
@@ -275,6 +280,9 @@
 									{/if}
 								</div>
 							{/each}
+
+							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
+							<AutoFieldRows fields={extraFields} />
 						</dl>
 					{/if}
 				</section>

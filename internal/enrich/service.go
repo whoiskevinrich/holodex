@@ -35,6 +35,10 @@ type EnrichRepo interface {
 	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
 	// effort — a recording failure never fails the enrichment.
 	RecordJobRun(ctx context.Context, run model.JobRun) error
+	// ReplaceProviderFieldHints persists a provider's advertised non-canonical render
+	// hints (F39, ADR-056), refreshed whenever /describe is read. Best effort — a
+	// persistence failure never fails the provider action.
+	ReplaceProviderFieldHints(ctx context.Context, provider string, hints []repo.ProviderFieldHint) error
 }
 
 // ImageSink stores a downloaded, normalized provider asset as a person image (F25,
@@ -113,6 +117,19 @@ func NewServiceWithClient(store *Store, r EnrichRepo, log *slog.Logger, newClien
 // atomically alongside the mapping config (F22.2d).
 func (s *Service) Store() *Store { return s.store }
 
+// ImageURLAllowed reports whether a provider-hinted image_url value may render as an
+// <img> — i.e. its host is on that provider's asset-host allowlist (base_url host or
+// an operator asset_hosts entry, ADR-039). Used by F39 auto-registration to gate an
+// image_url render mode; a disallowed value falls back to text. An unknown/disabled
+// provider is not allowed.
+func (s *Service) ImageURLAllowed(provider, rawURL string) bool {
+	src, ok := s.store.Current().ByName(provider)
+	if !ok {
+		return false
+	}
+	return assetHostAllowed(src, rawURL)
+}
+
 // SourceInfo is the registry view the SPA needs to offer enrich actions (no
 // base_url or secrets — F22.9d).
 type SourceInfo struct {
@@ -167,7 +184,28 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	if err := verifyProtocol(m); err != nil {
 		return nil, err
 	}
+	s.persistFieldHints(ctx, provider, m)
 	return c, nil
+}
+
+// persistFieldHints refreshes the stored non-canonical render hints for a provider
+// from its /describe manifest (F39, ADR-056). Best effort: a failure logs and is
+// swallowed so it never blocks the owner's resolve/enrich action.
+func (s *Service) persistFieldHints(ctx context.Context, provider string, m Manifest) {
+	sanitized := SanitizeFieldHints(m.FieldHints)
+	hints := make([]repo.ProviderFieldHint, 0, len(sanitized))
+	for key, h := range sanitized {
+		hints = append(hints, repo.ProviderFieldHint{
+			FieldKey: key,
+			Label:    h.Label,
+			Render:   h.Render,
+			Group:    h.Group,
+			Order:    h.Order,
+		})
+	}
+	if err := s.repo.ReplaceProviderFieldHints(ctx, provider, hints); err != nil {
+		s.log.Warn("persist provider field hints", "provider", provider, "err", err)
+	}
 }
 
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any

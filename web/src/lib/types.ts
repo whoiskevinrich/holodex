@@ -124,11 +124,16 @@ export interface ResolvedValue {
 export interface ResolvedField {
 	canonical: string;
 	label: string;
-	display?: 'long_text' | 'image_url' | 'url';
+	display?: 'long_text' | 'image_url' | 'url' | 'chips';
 	values: string[];
 	items?: ResolvedValue[];
 	multi?: boolean; // merge-mode (set) field: UI shows add + per-value remove
 	winning_source?: string; // e.g. "tmdb:title" | "file:Title" | "manual:genres"
+	// F39 (ADR-056) — a display-only, presence-driven auto-registered non-canonical
+	// field: rendered read-only (label + values + provenance) with NO source-decision
+	// or curation controls, in the "Additional details" group after the curatable
+	// fields. Canonical/mapped fields omit it.
+	auto_registered?: boolean;
 	// F36 (ADR-051) — per-field source-of-truth, present on replace (scalar) fields only.
 	// `decision` is the standing source choice (absent ⇒ implicit file default); `in_sync`
 	// is false when the decided value differs from the value embedded in the file; the

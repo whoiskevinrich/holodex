@@ -407,6 +407,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				dec = decisionsFromRows(decRows)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields(), h.resolveOptions(dec))
+			resolved = h.appendAutoRegistered(r.Context(), enrichRows, resolved)
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}

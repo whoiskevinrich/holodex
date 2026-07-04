@@ -50,6 +50,11 @@ func (s Source) IsFileTitle() bool {
 type Field struct {
 	Canonical string   `yaml:"canonical"`
 	Label     string   `yaml:"label"`
+	// Display optionally overrides the registry render mode for this field (F39,
+	// ADR-056): "" defers to the registry, else one of the render-mode vocabulary
+	// ("long_text" | "url" | "image_url" | "chips"). An operator mapping may set it,
+	// and a synthesized auto-registered field carries the provider-hinted mode here.
+	Display string `yaml:"display"`
 	// Sources is the raw list as written in YAML (e.g. ["tmdb:title", "file:Title"]).
 	// ParsedSources is the authoritative form after parse().
 	Sources       []string `yaml:"sources"`

@@ -71,6 +71,39 @@ func newAssetClient(src Source) *AssetClient {
 	}
 }
 
+// assetHostAllowed reports whether rawURL passes the same host allowlist Fetch
+// enforces (scheme http/https, host on {base_url host} ∪ asset_hosts, https for any
+// non-base host) — WITHOUT fetching. It is the render-time gate for a provider-hinted
+// image_url value (F39, ADR-056/ADR-039): a value that would be refused as a download
+// must not be emitted as an <img> src either.
+func assetHostAllowed(src Source, rawURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	baseHost := ""
+	if b, err := url.Parse(src.base()); err == nil {
+		baseHost = b.Host
+	}
+	allowed := u.Host == baseHost
+	if !allowed {
+		for _, h := range src.AssetHosts {
+			if strings.TrimSpace(h) == u.Host {
+				allowed = true
+				break
+			}
+		}
+	}
+	if !allowed {
+		return false
+	}
+	// Non-base hosts are public-internet CDNs; require https (ADR-039 §3).
+	return u.Host == baseHost || u.Scheme == "https"
+}
+
 // Fetch downloads an asset URL through the per-source SSRF guard and returns the
 // raw bytes for the caller to normalize. The host must be on the allowlist; any
 // host other than the provider's own base host additionally requires https.
