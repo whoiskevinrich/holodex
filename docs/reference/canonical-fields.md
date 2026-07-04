@@ -7,6 +7,16 @@ Fields are registered in `internal/registry/registry.go`. Unknown keys still wor
 resolve with a title-cased label and default (text) rendering — but registered fields get
 accurate labels and correct render behaviour.
 
+> **Non-canonical provider fields (F39, [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)).**
+> A provider may advertise **non-canonical** keys (outside this registry) with per-field render hints in
+> `GET /describe.field_hints` (label / render mode / ordering group). Any such key that has a **stored value**
+> for an entity is **auto-registered** — surfaced as a **display-only** row on the video/person/studio detail
+> page — with **zero** `metadata-mappings.yaml` config, ordered after the canonical fields. Precedence for a
+> key's label/render/order is a four-tier ladder: **operator mapping > this code registry > provider hint >
+> title-case fallback** — so a provider hint applies only to keys this registry does not define, and an
+> operator mapping (or a canonical entry here) always wins. Auto-registered fields carry no source-decision or
+> curation controls; an operator promotes one to a first-class curatable field by adding a mapping entry.
+
 ## How to reference fields in `metadata-mappings.yaml`
 
 Use the namespaced source syntax:
@@ -94,10 +104,14 @@ documented examples; operators add their own via `metadata-mappings.yaml`.
 |-----------------|------------------------|
 | *(absent)* | Inline text: `Label: value1, value2` |
 | `long_text` | Block paragraph below the label |
-| `image_url` | `<img src=values[0]>` (thumbnail-sized, border-rule) |
+| `url` | Link(s) via `UrlValueList` (http/https only, opens in a new tab) |
+| `chips` | Static pill list (read-only; F39) — used by auto-registered multi-valued non-canonical fields |
+| `image_url` | `<img src=values[0]>` (thumbnail-sized, border-rule). A provider-hinted value renders as an image only if its host is on the `asset_hosts` allowlist (ADR-039/056); otherwise it falls back to text |
 
-`display` is set in `internal/registry/registry.go` and cannot be overridden per-mapping —
-it is a fixed property of the canonical field's type.
+For a **canonical** field, `display` is set in `internal/registry/registry.go`. Since F39
+([ADR-056](../architecture/ADR-056-provider-field-render-hints.md)) a mapping may also set `display:`
+explicitly (operator override), and a provider may suggest a render mode for a **non-canonical** key via
+`field_hints`; the resolution ladder is operator mapping > code registry > provider hint > default (text).
 
 ---
 
