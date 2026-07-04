@@ -320,12 +320,16 @@ No hard deadline. Per the change-routing rules, before/with implementation:
 2. ✅ **`/design-handoff`** — [studio-entity-handoff.md](../design/studio-entity-handoff.md):
    studios list/detail layout, facet block, media-detail link treatment, empty-Details rule,
    3-skin QA.
-3. ☐ **`/testing-strategy`** — new section: derivation matrix (scan/enrich/decision/curation ×
+3. ✅ **`/testing-strategy`** — derivation matrix (scan/enrich/decision/curation ×
    link outcomes), prune-on-empty, backfill idempotency, `studioBaseline` additivity,
-   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/3-skin. *(Due at S1.)*
-4. ☐ **`/security-review`** — new owner-gated surface (decisions/curation/enrich parity;
+   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/3-skin (S1), plus the
+   **S3 TMDB company enrichment** coverage (provider/service/endpoint/registry/frontend).
+4. ✅ **`/security-review`** — new owner-gated surface (decisions/curation/enrich parity;
    untrusted provider company data through the existing sanitize + asset perimeter; no file
-   writes anywhere in F38). *(Due before merge.)*
+   writes anywhere in F38). **S3 sign-off (2026-07-03): clean** — enrich routes owner-gated,
+   provider data through the existing `sanitizeFields`/`SanitizeValue` perimeter, `logo` a
+   client-rendered `image_url` field (no server-side fetch; asset download stays person-gated),
+   `website`/`logo` render via the existing scheme-gated `UrlValueList`/`<img>` patterns.
 
 Slices: **S1** backend (migration 0017, derivation + backfill, studio API, `studioBaseline`,
 decision/curation endpoints) ∥ **S2** frontend (pages, facet, links — against the frozen

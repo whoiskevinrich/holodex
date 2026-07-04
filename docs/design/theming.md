@@ -24,6 +24,7 @@ mapped Tailwind utilities, never a literal palette.
 | `--accent` | `bg-accent` / `text-accent` | accent fills & emphasis |
 | `--accent-ink` | `text-accent-ink` | text on an accent fill |
 | `--warn` | `text-warn` / `border-warn` | error / attention states (deliberately distinct from `--accent`, which doubles as the active/primary color) |
+| `--logo-plate` | `bg-logo-plate` | light neutral backing for arbitrary brand logos (e.g. studio logos, F38) — most are drawn for a light background, so a dark skin surface would hide black/white-on-transparent marks |
 | `--font-display` | `font-display` | titles / wordmark (`.skin-title`) |
 | `--font-ui` | `font-ui` | body & UI (default on `<body>`) |
 | `--radius` | `rounded-theme` | corner radius (0 for the mono skins) |

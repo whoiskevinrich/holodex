@@ -353,6 +353,110 @@ func TestTMDBEnrichMovieNoPoster(t *testing.T) {
 	}
 }
 
+func TestDescribeAdvertisesStudio(t *testing.T) {
+	h := newHandler(nil, newDiscardLogger())
+	w := httptest.NewRecorder()
+	h.describe(w, httptest.NewRequest("GET", "/describe", nil))
+	var body describeResponse
+	json.NewDecoder(w.Body).Decode(&body) //nolint:errcheck
+	hasType := false
+	for _, et := range body.EntityTypes {
+		if et == "studio" {
+			hasType = true
+		}
+	}
+	if !hasType {
+		t.Errorf("entity_types = %v, want to contain studio", body.EntityTypes)
+	}
+	for _, want := range []string{"description", "country", "logo"} {
+		found := false
+		for _, f := range body.Fields {
+			if f == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("fields missing %q; got %v", want, body.Fields)
+		}
+	}
+	// logo is a plain image_url field (poster_url pattern), NOT an asset kind.
+	for _, k := range body.AssetKinds {
+		if k == "logo" {
+			t.Error("logo must be a field, not an asset kind (spec Non-Goal / P2-3)")
+		}
+	}
+}
+
+func TestTMDBResolveStudioByName(t *testing.T) {
+	c := clientWith(fakeTMDB(t))
+	cands, err := c.resolve(context.Background(), hintBody{Query: "Ghibli"}, "studio")
+	if err != nil {
+		t.Fatalf("resolve studio: %v", err)
+	}
+	if len(cands) != 1 || cands[0].ExternalID != "tmdb:10342" {
+		t.Fatalf("candidates = %+v", cands)
+	}
+	if cands[0].Label != "Studio Ghibli" {
+		t.Errorf("label = %q, want Studio Ghibli", cands[0].Label)
+	}
+	// Origin country is the disambiguation hint shown in the picker.
+	if cands[0].Disambiguation != "JP" {
+		t.Errorf("disambiguation = %q, want JP", cands[0].Disambiguation)
+	}
+}
+
+func TestTMDBResolveStudioByID(t *testing.T) {
+	c := clientWith(fakeTMDB(t))
+	cands, err := c.resolve(context.Background(), hintBody{ExternalIDs: []string{"tmdb:10342"}}, "studio")
+	if err != nil {
+		t.Fatalf("resolve studio by id: %v", err)
+	}
+	if len(cands) != 1 || cands[0].ExternalID != "tmdb:10342" || cands[0].Confidence != 1.0 {
+		t.Fatalf("candidates = %+v, want one tmdb:10342 at confidence 1.0", cands)
+	}
+}
+
+func TestTMDBEnrichStudio(t *testing.T) {
+	c := clientWith(fakeTMDB(t))
+	res, err := c.enrich(context.Background(), "tmdb:10342", "studio")
+	if err != nil {
+		t.Fatalf("enrich studio: %v", err)
+	}
+	if len(res.Fields["description"]) == 0 {
+		t.Error("description field missing")
+	}
+	if got := res.Fields["country"]; len(got) == 0 || got[0] != "JP" {
+		t.Errorf("country = %v, want [JP]", got)
+	}
+	// homepage present → website is the official site.
+	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.ghibli.jp" {
+		t.Errorf("website = %v, want [https://www.ghibli.jp]", got)
+	}
+	// logo is a field on image.tmdb.org (poster_url pattern), never an asset.
+	if got := res.Fields["logo"]; len(got) == 0 || !strings.HasPrefix(got[0], "https://image.tmdb.org/") {
+		t.Errorf("logo = %v, want https://image.tmdb.org/...", got)
+	}
+	if len(res.Assets) != 0 {
+		t.Errorf("studio enrich should have no assets, got %v", res.Assets)
+	}
+}
+
+func TestTMDBEnrichStudioWebsiteFallback(t *testing.T) {
+	c := clientWith(fakeTMDB(t))
+	res, err := c.enrich(context.Background(), "tmdb:9999", "studio")
+	if err != nil {
+		t.Fatalf("enrich studio: %v", err)
+	}
+	// No homepage → website falls back to the durable TMDB company page.
+	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/company/9999-bare-films" {
+		t.Errorf("website = %v, want the TMDB company page fallback", got)
+	}
+	// No logo_path → no logo field (nothing to render).
+	if _, ok := res.Fields["logo"]; ok {
+		t.Error("logo should be absent when logo_path is empty")
+	}
+}
+
 func TestNoSecretsInResponses(t *testing.T) {
 	const secret = "super-secret-token-never-log-this"
 	h := newHandler(newTMDBClient(secret, "", "en-US"), newDiscardLogger())
@@ -554,6 +658,20 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/movie/550":
 			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
+			http.NotFound(w, r)
+		case r.URL.Path == "/3/search/company":
+			q := r.URL.Query().Get("query")
+			if strings.Contains(strings.ToLower(q), "ghibli") {
+				io.WriteString(w, `{"results":[{"id":10342,"name":"Studio Ghibli","logo_path":"/eS79pslnoLbjIeoBIkjfgDkD2LN.png","origin_country":"JP"}]}`) //nolint:errcheck
+			} else {
+				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
+			}
+		case r.URL.Path == "/3/company/10342":
+			io.WriteString(w, `{"id":10342,"name":"Studio Ghibli","description":"Studio Ghibli is a Japanese animation film studio.","homepage":"https://www.ghibli.jp","logo_path":"/eS79pslnoLbjIeoBIkjfgDkD2LN.png","origin_country":"JP"}`) //nolint:errcheck
+		case r.URL.Path == "/3/company/9999":
+			// A company with no homepage or logo — website falls back to the TMDB page.
+			io.WriteString(w, `{"id":9999,"name":"Bare Films","description":"A studio with no homepage.","origin_country":"US"}`) //nolint:errcheck
+		case strings.HasPrefix(r.URL.Path, "/3/company/"):
 			http.NotFound(w, r)
 		case strings.HasPrefix(r.URL.Path, "/3/find/"):
 			if strings.Contains(r.URL.Path, "nm0594503") {

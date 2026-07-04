@@ -18,10 +18,11 @@
 
 A **Holodex metadata provider sidecar** is a standalone HTTP/JSON service that Holodex
 calls to enrich local entities with data the media files do not carry. This spec covers the
-**TMDB** (The Movie Database) provider, which supports two entity types:
+**TMDB** (The Movie Database) provider, which supports three entity types:
 
 - **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
 - **Films / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)**.
+- **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, `website` (the company homepage, TMDB page as fallback), and a `logo` image URL. Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a plain `image_url` **field** (the `poster_url` pattern), not a downloaded asset.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
 
@@ -106,13 +107,14 @@ provider loudly.
   "provider": "tmdb",
   "version": "1.0.0",
   "protocol_version": 1,
-  "entity_types": ["person", "video"],
+  "entity_types": ["person", "video", "studio"],
   "id_namespaces": ["tmdb", "imdb"],
   "fields": [
     "bio", "birthdate", "nationality", "deathdate", "website", "aliases",
     "title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
     "original_language", "original_title", "status", "imdb_id", "poster_url",
-    "actors", "director", "studio"
+    "actors", "director", "studio",
+    "description", "country", "logo"
   ],
   "asset_kinds": ["headshot", "gallery", "banner"]
 }
@@ -123,19 +125,20 @@ provider loudly.
 | `provider` | string | yes | Provider id, lowercase — `"tmdb"` |
 | `version` | string | yes | Container version (display) |
 | `protocol_version` | integer | yes | **MUST be `1`.** Holodex refuses any other major version |
-| `entity_types` | string[] | yes | `["person", "video"]` — person for People enrichment, video for film enrichment (see [§2.3](#23-entity-type-and-matching-fields)) |
+| `entity_types` | string[] | yes | `["person", "video", "studio"]` — person for People enrichment, video for film enrichment, studio for production-company enrichment (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
 | `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies person images: `["headshot", "gallery", "banner"]` (person only; video poster is a text `fields` entry) |
 
 ### 2.3 Entity type and matching fields
 
-The TMDB provider supports two `entity_type` values:
+The TMDB provider supports three `entity_type` values:
 
 - **`"person"`** — People enrichment: name search against `/3/search/person`, details from `/3/person/{id}`, photo asset.
 - **`"video"`** — Film enrichment: title search against `/3/search/movie`, details from `/3/movie/{id}`, poster stored as a text URL field (`poster_url`).
+- **`"studio"`** — Studio/company enrichment (F38 S3): name search against `/3/search/company`, details from `/3/company/{id}`, logo stored as a text URL field (`logo`). See [§4.5](#45-studio--company-enrichment-f38-s3).
 
-The same `external_id` namespace (`tmdb:NNN`, `imdb:tt…`) is used for both entity types; the `entity_type` field in the request disambiguates which TMDB resource to look up. Holodex sends one or the other and the container dispatches accordingly. Unknown entity types should return `200` with `{"candidates":[]}` for resolve, or a non-2xx for enrich.
+The same `external_id` namespace (`tmdb:NNN`, `imdb:tt…`) is used for all entity types; the `entity_type` field in the request disambiguates which TMDB resource to look up. Holodex sends one or the other and the container dispatches accordingly. Unknown entity types should return `200` with `{"candidates":[]}` for resolve, or a non-2xx for enrich.
 
 ### 2.4 `POST /resolve` — identity match (disambiguation)
 
@@ -396,7 +399,59 @@ Omit any field whose TMDB value is null/empty rather than emitting an empty arra
 
 **No `assets[]` for movies.** The poster is a text `fields` entry (`poster_url`), not an asset download — there is no film poster sink that maps to a stored image slot (unlike person photos which map to the headshot role). Holodex renders the URL directly as an image in the UI.
 
-### 4.5 Auth & rate-limit handling (provider-owned)
+### 4.5 Studio / Company enrichment (F38 S3)
+
+Studio enrichment mirrors the person/movie shape onto TMDB **production companies**. It adds
+no new provider host, asset download, or SSRF surface — the logo is a plain field URL on the
+same `image.tmdb.org` host as posters/photos, rendered client-side (never fetched by the core).
+
+#### 4.5a `/resolve` (company search)
+
+For `hint.query`, call TMDB **Search › Company**:
+
+```
+GET https://api.themoviedb.org/3/search/company?query=<urlencoded>&page=1
+```
+
+Company search takes **no `language` param** and returns **no popularity**, so confidence is
+purely rank-based. Map each result (cap 10) to a candidate:
+
+| Candidate field | From TMDB search result | Notes |
+|---|---|---|
+| `external_id` | `"tmdb:" + id` | TMDB company id (integer) |
+| `namespace` | `"tmdb"` | constant |
+| `label` | `name` | The company name |
+| `confidence` | rank formula, popularity = 0 | `1.0 − rank × 0.08` (floored at 0.1) |
+| `disambiguation` | `origin_country` | e.g. `"US"`, `"JP"` — the picker hint (may be empty) |
+
+For `hint.external_ids` — if a `tmdb:NNN` id is present (a video's `_studio_external_ids`
+sidecar hands it straight through, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)),
+call **Company › Details** directly and return one high-confidence candidate.
+
+#### 4.5b `/enrich` (company details)
+
+Parse the TMDB id from `external_id`, then fetch **Company › Details**:
+
+```
+GET https://api.themoviedb.org/3/company/{id}
+```
+
+Map the response → canonical `fields` (each value an array of strings):
+
+| Canonical field | TMDB source | Notes |
+|---|---|---|
+| `description` | details `description` | Single value. Trim to ≤4000 chars at a sentence boundary. **Often empty upstream** — omit when so |
+| `country` | details `origin_country` | e.g. `"US"`. Omit if empty |
+| `website` | details `homepage`, else *(derived)* the company's TMDB page `https://www.themoviedb.org/company/{id}-{slug}` | Prefer the official homepage; fall back to the durable TMDB page so a link is always present (mirrors the person/movie website behaviour). Always emitted |
+| `logo` | details `logo_path` | **Text `image_url` field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `logo_path`. Holodex renders it as an `<img>`. Omit when `logo_path` is null |
+
+Omit any field whose TMDB value is null/empty rather than emitting an empty array.
+
+**No `assets[]` for studios.** The logo is a text `fields` entry (`logo`), not an asset
+download — studios are not on the F25 person-image path (spec Non-Goal / P2-3). Holodex renders
+the URL directly, exactly like the film `poster_url`.
+
+### 4.6 Auth & rate-limit handling (provider-owned)
 
 - **Auth:** TMDB v3 accepts either the **API Read Access Token** (a bearer token, preferred:
   `Authorization: Bearer <token>`) or the legacy **API key** as a query param

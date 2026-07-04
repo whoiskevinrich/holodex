@@ -24,6 +24,7 @@
 	--color-accent-ink: var(--accent-ink);
 	--color-warn: var(--warn);
 	--color-warn-ink: var(--warn-ink);
+	--color-logo-plate: var(--logo-plate);
 	--font-display: var(--font-display);
 	--font-ui: var(--font-ui);
 	--radius-theme: var(--radius);
@@ -52,6 +53,7 @@
 	--accent-ink: #1a1206;
 	--warn: #e2603f; /* distinct from the gold accent — error/attention only */
 	--warn-ink: #fdf1ee; /* readable ink on a solid --warn fill (destructive CTA) */
+	--logo-plate: #e9e0d0; /* light neutral plate for arbitrary brand logos (F38) — most are drawn for light bg; keeps black/white PNGs legible on the dark skin */
 	--font-display: 'Fraunces Variable', serif;
 	--font-ui: 'Archivo Variable', sans-serif;
 	--radius: 2px;
@@ -69,6 +71,7 @@
 	--accent-ink: #04121a;
 	--warn: #ff6f61; /* coral red — reads as alert against the cyan accent */
 	--warn-ink: #0a0610; /* dark ink reads on the lighter coral fill */
+	--logo-plate: #e4ebf8; /* light neutral plate for arbitrary brand logos (F38) */
 	--font-display: 'VT323', monospace;
 	--font-ui: 'Share Tech Mono', monospace;
 	--radius: 0px;
@@ -86,6 +89,7 @@
 	--accent-ink: #0a0a0a;
 	--warn: #ff5e3a; /* hot red-orange — distinct from the lime accent */
 	--warn-ink: #0a0a0a; /* near-black ink reads on the hot red-orange fill */
+	--logo-plate: #f0f0f0; /* light neutral plate for arbitrary brand logos (F38) */
 	--font-display: 'Spline Sans Mono Variable', monospace;
 	--font-ui: 'Spline Sans Mono Variable', monospace;
 	--radius: 0px;
