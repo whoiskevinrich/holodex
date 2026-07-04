@@ -49,8 +49,48 @@ export class ApiError extends Error {
 	}
 }
 
+// ReauthError signals that an upstream auth proxy (Authentik ForwardAuth) expired
+// and 302-redirected our request cross-origin to the IdP (HOLODEX-127). It is
+// deliberately distinct from ApiError 401 — that is Holodex's *own* owner-session
+// expiry (ADR-046). A background fetch cannot follow the cross-origin redirect (it
+// hits a CORS wall and rejects with an opaque TypeError), so we detect the redirect
+// with `redirect: 'manual'` and recover via a top-level navigation instead.
+export class ReauthError extends Error {
+	constructor() {
+		super('auth session expired (upstream redirect)');
+		this.name = 'ReauthError';
+	}
+}
+
+// triggerReauth recovers from a ForwardAuth expiry with a *top-level* navigation:
+// only a document-level request can follow the cross-origin 302, silently
+// re-establishing the outpost session via the still-valid Authentik SSO cookie (or
+// cleanly landing on the login flow if that has lapsed too). Guarded so the many
+// concurrent authed requests (the 3 s poll, in-flight loads) trigger at most one
+// reload; the flag resets naturally when the fresh document loads.
+let reauthTriggered = false;
+export function triggerReauth(): void {
+	if (reauthTriggered || typeof window === 'undefined') return;
+	reauthTriggered = true;
+	window.location.assign(window.location.href);
+}
+
+// checkRedirect turns a manually-handled ForwardAuth redirect into a recoverable
+// signal. With `redirect: 'manual'` the browser returns an opaque redirect
+// (type 'opaqueredirect', status 0) rather than following it into a CORS failure;
+// we kick off the top-level re-auth and throw ReauthError so callers can suppress
+// their transient error UI while the document reloads. Called before res.ok/json()
+// (json() would throw on an opaque response).
+function checkRedirect(res: Response): void {
+	if (res.type === 'opaqueredirect') {
+		triggerReauth();
+		throw new ReauthError();
+	}
+}
+
 async function get<T>(path: string, fetchFn: typeof fetch = fetch, init?: RequestInit): Promise<T> {
-	const res = await fetchFn(`${BASE}${path}`, init);
+	const res = await fetchFn(`${BASE}${path}`, { redirect: 'manual', ...init });
+	checkRedirect(res);
 	if (!res.ok) {
 		throw new ApiError(res.status, path);
 	}
@@ -92,9 +132,11 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, bo
 	const res = await fetch(`${BASE}${path}`, {
 		method,
 		credentials: CREDS,
+		redirect: 'manual',
 		headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) },
 		body: body ? JSON.stringify(body) : undefined
 	});
+	checkRedirect(res);
 	if (!res.ok && res.status !== 204) {
 		throw new ApiError(res.status, path);
 	}
@@ -108,8 +150,10 @@ async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, {
 		method: 'POST',
 		credentials: CREDS,
+		redirect: 'manual',
 		body: form
 	});
+	checkRedirect(res);
 	if (!res.ok) {
 		const body = (await res.json().catch(() => ({}))) as { error?: string };
 		throw new ApiError(res.status, path, body.error);
@@ -341,9 +385,11 @@ export const api = {
 		const res = await fetch(`${BASE}/people/${personId}/aliases`, {
 			method: 'POST',
 			credentials: CREDS,
+			redirect: 'manual',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ alias })
 		});
+		checkRedirect(res);
 		if (res.status === 409) {
 			const body = await res.json().catch(() => ({}));
 			return { conflict: body.conflict as Person };
@@ -462,9 +508,11 @@ export const api = {
 		const res = await fetch(`${BASE}${path}`, {
 			method: 'POST',
 			credentials: CREDS,
+			redirect: 'manual',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name })
 		});
+		checkRedirect(res);
 		if (res.status === 409) {
 			const body = (await res.json().catch(() => ({}))) as PersonRenameConflict;
 			return { conflict: body };

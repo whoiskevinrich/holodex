@@ -112,3 +112,74 @@ describe('person source-of-truth clients (F37)', () => {
 		await expect(api.renamePerson(3, 'x')).rejects.toMatchObject({ status: 400 });
 	});
 });
+
+// HOLODEX-127: when the upstream Authentik ForwardAuth session lapses, an authed
+// request is 302-redirected cross-origin to the IdP. `redirect: 'manual'` turns that
+// into an opaque redirect (not a CORS-blocked follow); we detect it, raise
+// ReauthError (distinct from a 401 owner-expiry), and recover with one top-level
+// reload. A fresh module per test resets the one-shot reauth guard.
+describe('ForwardAuth re-auth handling (HOLODEX-127)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	async function freshApi() {
+		vi.resetModules();
+		return import('./api');
+	}
+
+	// A `redirect: 'manual'` fetch returns an opaque redirect for a cross-origin 302;
+	// there's no public constructor, so fake the shape checkRedirect() reads.
+	function opaqueRedirect(): Response {
+		return {
+			type: 'opaqueredirect',
+			ok: false,
+			status: 0,
+			json: () => Promise.reject(new Error('opaque'))
+		} as unknown as Response;
+	}
+
+	function stubWindow(href = 'https://barclay.example/owner/status') {
+		const assign = vi.fn();
+		vi.stubGlobal('window', { location: { href, assign } });
+		return assign;
+	}
+
+	it('sends authed reads with redirect:manual and raises ReauthError on a ForwardAuth 302', async () => {
+		const { api, ReauthError } = await freshApi();
+		stubWindow();
+		const fetchMock = vi.fn().mockResolvedValue(opaqueRedirect());
+		vi.stubGlobal('fetch', fetchMock);
+
+		await expect(api.activity()).rejects.toBeInstanceOf(ReauthError);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/admin/activity',
+			expect.objectContaining({ redirect: 'manual', credentials: 'same-origin' })
+		);
+	});
+
+	it('raises ReauthError on an authed write too (not just the poll)', async () => {
+		const { api, ReauthError } = await freshApi();
+		stubWindow();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaqueRedirect()));
+		await expect(api.rescan()).rejects.toBeInstanceOf(ReauthError);
+	});
+
+	it('recovers via exactly one top-level reload across concurrent authed failures', async () => {
+		const { api } = await freshApi();
+		const assign = stubWindow('https://barclay.example/x');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaqueRedirect()));
+
+		await Promise.allSettled([api.activity(), api.capabilities(), api.trash()]);
+		expect(assign).toHaveBeenCalledTimes(1);
+		expect(assign).toHaveBeenCalledWith('https://barclay.example/x');
+	});
+
+	it('a normal 200 is unaffected by redirect:manual', async () => {
+		const { api } = await freshApi();
+		stubWindow();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(new Response(JSON.stringify({ owner: true }), { status: 200 }))
+		);
+		await expect(api.capabilities()).resolves.toEqual({ owner: true });
+	});
+});
