@@ -176,6 +176,20 @@ type Manifest struct {
 	// key is dropped, and only the render/group vocabulary in internal/registry is
 	// honored.
 	FieldHints map[string]FieldHint `json:"field_hints,omitempty"`
+	// BrandIcon is the provider's optional self-brand icon (ADR-059): one
+	// provider-level image URL Holodex downloads, normalizes, self-hosts, and shows in
+	// place of the repeated "from <provider>" provenance text. Additive/forward-
+	// compatible (an older Holodex ignores it; a provider that omits it is unaffected).
+	// A pointer so an absent key (drop any cached icon) is distinguishable from an empty
+	// object. The URL is fetched through the same ADR-039 asset perimeter as portraits.
+	BrandIcon *IconRef `json:"brand_icon,omitempty"`
+}
+
+// IconRef is a single provider-level image reference — currently only the brand icon
+// (ADR-059). Separate from Asset (which carries a per-entity Kind) because a brand icon
+// belongs to the provider, not to any entity or external_id.
+type IconRef struct {
+	URL string `json:"url"`
 }
 
 // FieldHint is one provider-advertised presentation hint for a non-canonical field

@@ -242,6 +242,13 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Warn("studio logo dir create failed", "dir", cfg.StudioLogoPath, "err", err)
 	}
 
+	// Self-hosted provider brand icon (HOLODEX-134, ADR-059): on-disk store under
+	// DATA_PATH/provider-icons. One normalized icon per provider, a cache of the URL the
+	// provider advertises in its /describe brand_icon; refreshed at boot + config-reload.
+	if err := os.MkdirAll(cfg.ProviderIconPath, 0o755); err != nil {
+		log.Warn("provider icon dir create failed", "dir", cfg.ProviderIconPath, "err", err)
+	}
+
 	// One-time content-hash backfill (F34, ADR-050): hash any pre-F34 person images
 	// from their on-disk bytes and collapse galleries that already hold duplicates.
 	// Idempotent — a no-op once every row is hashed and deduped, so it runs every boot.
@@ -291,6 +298,16 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// without a re-enrich. Runs after SetStudioImages + SetEnrichment (RelinkStudioLogo
 	// needs both). Gated one-time; best-effort.
 	backfillStudioLogos(ctx, repository, handlers.RelinkStudioLogo, log)
+	handlers.SetProviderIcons(cfg.ProviderIconPath, cfg.ProviderIconMaxDimension)
+	// Provider brand-icon refresh (ADR-059): fetch/normalize each enabled provider's
+	// advertised brand_icon and prune orphans. Off the main path in a bounded goroutine
+	// so boot never blocks on a slow/unreachable provider describe; best-effort per
+	// provider. Icons also refresh on config-reload; a brand mark is otherwise static.
+	go func() {
+		bg, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		handlers.RefreshProviderIcons(bg)
+	}()
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
 	// Soft-delete purge job (F24, ADR-037): a dedicated ticker that hard-deletes

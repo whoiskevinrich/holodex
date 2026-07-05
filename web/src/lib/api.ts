@@ -319,6 +319,10 @@ export const api = {
 	// Metadata source plugins — People enrichment (F22). All owner-gated.
 	enrichSources: () => getAuthed<{ sources: EnrichSource[] }>(`/enrich/sources`),
 
+	// Public provider directory (ADR-059): name → brand icon URL, for provenance badges
+	// and the website label that render for everyone (unlike owner-gated enrichSources).
+	providers: () => get<{ providers: EnrichSource[] }>(`/providers`),
+
 	enrichResolve: (personId: number, provider: string, query: string) =>
 		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/people/${personId}/enrich/resolve`, {
 			provider,

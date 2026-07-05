@@ -79,6 +79,13 @@ type Config struct {
 	StudioLogoPath         string `yaml:"-"` // derived: DataPath/studio-logos
 	StudioLogoMaxDimension int    `yaml:"studio_logo_max_dimension"`
 
+	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). One normalized icon per
+	// provider at DataPath/provider-icons/{id}.jpg, derived like StudioLogoPath.
+	// ProviderIconMaxDimension bounds the stored (downscaled) longest side — icons are
+	// tiny glyphs, so this is small.
+	ProviderIconPath         string `yaml:"-"` // derived: DataPath/provider-icons
+	ProviderIconMaxDimension int    `yaml:"provider_icon_max_dimension"`
+
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
 	CacheMaxMemoryMB int    `yaml:"cache_max_memory_mb"`
@@ -152,7 +159,8 @@ func Defaults() Config {
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
-		StudioLogoMaxDimension: 1000, // logos are small; downscale to ≤1000px longest side (ADR-057)
+		StudioLogoMaxDimension:   1000, // logos are small; downscale to ≤1000px longest side (ADR-057)
+		ProviderIconMaxDimension: 256,  // brand icons are tiny glyphs; downscale to ≤256px (ADR-059)
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
@@ -224,6 +232,9 @@ func (c *Config) derive() {
 	if c.StudioLogoPath == "" {
 		c.StudioLogoPath = filepath.Join(c.DataPath, "studio-logos")
 	}
+	if c.ProviderIconPath == "" {
+		c.ProviderIconPath = filepath.Join(c.DataPath, "provider-icons")
+	}
 }
 
 // Overrides carries CLI-flag values — the highest-precedence layer (ADR-014,
@@ -255,6 +266,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.ThumbnailPath = ""
 		c.PersonImagePath = ""
 		c.StudioLogoPath = ""
+		c.ProviderIconPath = ""
 	}
 	if o.LogLevel != "" {
 		c.LogLevel = o.LogLevel

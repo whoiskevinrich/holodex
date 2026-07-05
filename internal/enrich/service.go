@@ -196,6 +196,26 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	return c, nil
 }
 
+// DescribeProvider fetches and protocol-verifies a provider's /describe manifest
+// (ADR-059) — the accessor the provider-icon relink uses to read `brand_icon` without
+// running a resolve/enrich. An unknown/disabled provider is an error, never a dialed
+// URL (the SSRF allowlist). Does not persist field hints; icon relink is a boot /
+// config-reload concern, not part of the owner enrich hot path.
+func (s *Service) DescribeProvider(ctx context.Context, provider string) (Manifest, error) {
+	_, c, err := s.client(provider)
+	if err != nil {
+		return Manifest{}, err
+	}
+	m, err := c.Describe(ctx)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := verifyProtocol(m); err != nil {
+		return Manifest{}, err
+	}
+	return m, nil
+}
+
 // FieldHints returns the cached provider render-hint map (F39, ADR-056), keyed by
 // provider then field key. It is lazily loaded from the store on first use and
 // refreshed whenever /describe is persisted, so the visitor read path never queries

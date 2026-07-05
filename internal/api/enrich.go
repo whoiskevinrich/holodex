@@ -32,12 +32,15 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 	r.Delete("/studios/{id}/enrich/{provider}", h.enrichStudioClear)
 }
 
-func (h *Handlers) enrichSources(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) enrichSources(w http.ResponseWriter, r *http.Request) {
 	if h.enrich == nil {
 		writeJSON(w, http.StatusOK, map[string]any{"sources": []any{}})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sources": h.enrich.Sources()})
+	// Same shape the public /providers directory returns, so the owner enrich controls
+	// get the provider icon URL (ADR-059) without a second lookup. Extra icon_url field
+	// is ignored by any older SPA consuming just name/entity_types.
+	writeJSON(w, http.StatusOK, map[string]any{"sources": h.providerInfos(r.Context())})
 }
 
 // enrichResolve runs provider name-search for a person and returns candidates for

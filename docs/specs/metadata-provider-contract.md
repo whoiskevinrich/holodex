@@ -124,7 +124,8 @@ provider loudly.
   "entity_types": ["person"],
   "id_namespaces": ["<name>"],
   "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
-  "asset_kinds": ["photo"]
+  "asset_kinds": ["photo"],
+  "brand_icon": { "url": "https://<name>.example/brand-icon.png" }
 }
 ```
 
@@ -139,6 +140,7 @@ provider loudly.
 | `asset_kinds` | string[] | optional | The binary asset kinds you can supply (see [§4.3](#43-assets)). v1 person kinds: `"photo"`, `"banner"`, `"poster"`. Omit if you supply no assets. **Backward compat:** a provider may instead still list `photo` in `fields` during the deprecation window — Holodex treats that as `asset_kinds: ["photo"]` — but new providers SHOULD use `asset_kinds` |
 | `credits` | boolean | optional | `true` when a `video`/`media` enrich response can include the structured **`people`** array (per-cast/crew person references + headshots — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit/`false` for flat `actors`/`director` text only. Additive — does not change the `person` entity contract |
 | `field_hints` | object | optional | Per-field presentation hints (label / render mode / order) for **non-canonical** advertised keys, so they render first-class with **no** per-operator config — see [§4.7](#47-field-render-hints-describefield_hints). Keyed by field key; omit entirely if you have none. Additive (unknown key, ignored by older Holodex) |
+| `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -580,6 +582,49 @@ Rules:
 stored non-canonical field first-class with the hinted label/mode/order — **with zero per-operator mapping
 config**. An operator who wants to curate or re-source such a field can still add a `metadata-mappings.yaml`
 entry, which overrides your hint.
+
+---
+
+### 4.8 Provider brand icon (`/describe.brand_icon`)
+
+> **Status: additive extension** ([ADR-059](../architecture/ADR-059-provider-brand-icon.md), Holodex
+> HOLODEX-134). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider that
+> omits it stays fully conformant. **No protocol bump** — it rides the
+> [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule.
+
+Holodex badges each enriched field with its provenance. Rather than spell out "from `<your-name>`" on every
+row, it can show **your brand icon**. Advertise it as an [asset object](#43-assets) on `/describe`:
+
+```json
+{
+  "provider": "acme",
+  "protocol_version": 1,
+  "entity_types": ["person"],
+  "fields": ["bio", "birthdate"],
+  "brand_icon": { "url": "https://acme.example/brand-icon.png" }
+}
+```
+
+| Key | Type | Required | Notes |
+|---|---|---|---|
+| `brand_icon.url` | string | yes (if `brand_icon` present) | Absolute, directly-fetchable image URL for your brand mark |
+
+This is a **provider-level** asset — one image for your whole provider, unrelated to any entity or
+`external_id` (so it is **not** an `asset_kind`; those are per-entity images returned by `/enrich`). Holodex
+handles it exactly like every other ingested image:
+
+- **Same asset perimeter as [§4.3](#43-assets)/[§6](#6-security-requirements).** The `url` host must be your
+  `base_url` host or a host the **operator** allowlisted in `asset_hosts`; `https` for cross-host; no credentials
+  in the URL; the 16 MiB / 4096 px / 8 s-fetch caps apply. A URL on a non-allowlisted host is **refused**, and
+  your provider simply shows the monogram fallback (below). Tell operators which host to allowlist in your docs.
+- **Downloaded once, normalized, self-hosted.** Holodex fetches the icon when it reads your `/describe`, runs it
+  through the same **decode → bound → re-encode-to-JPEG → strip-metadata** ingest as person portraits, and serves
+  its **own** copy — viewers never hit your CDN. It re-fetches only when the advertised `url` changes.
+- **Raster, roughly square.** Any format your host serves is accepted on ingest, but Holodex stores a normalized
+  **JPEG** (SVG/animation/transparency are **not** preserved — the decoder rejects SVG/polyglots). Advertise a
+  reasonably square raster for crisp small-size rendering.
+- **Monogram fallback.** Omit `brand_icon`, advertise an un-allowlisted host, or serve an undecodable image, and
+  Holodex renders your provider's initial as a themed monogram instead — never a broken image.
 
 ---
 

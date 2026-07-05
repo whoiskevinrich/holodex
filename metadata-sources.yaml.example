@@ -22,6 +22,12 @@
 #                 (ADR-039). The sidecar's own base_url host is always implicitly
 #                 allowed. Any listed host requires https. Example: TMDB serves
 #                 portraits from image.tmdb.org, a different host from its sidecar.
+#                 This same allowlist gates a provider's brand_icon (ADR-059): a
+#                 provider that advertises a brand icon in /describe must serve it
+#                 from its base_url host or a host listed here, or core refuses it
+#                 and the UI shows a monogram. (The TMDB sidecar advertises a brand
+#                 icon only when TMDB_BRAND_ICON_URL is set to a raster on such a
+#                 host — its own logo is SVG, which core's raster ingest rejects.)
 #   enabled       false keeps it configured-but-off; flip to true once the sidecar
 #                 is running and reachable at base_url
 

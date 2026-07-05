@@ -51,6 +51,14 @@ export function videoCount(n: number): string {
 	return `${n} video${n === 1 ? '' : 's'}`;
 }
 
+// monogram is the fallback glyph for an entity with no logo/icon: the real first
+// glyph of the name (upper-cased), not an A–Z jump bucket — so "24 Frames" shows "2"
+// and "東宝" shows "東". Shared by the studios list well and the provider brand icon
+// (ADR-059). Empty/whitespace name → "?".
+export function monogram(name: string): string {
+	return name.trim().charAt(0).toUpperCase() || '?';
+}
+
 // isHttpUrl gates a provider-supplied value before it becomes a link `href`.
 // Enrichment text fields are bounded server-side (F22.9b) but NOT scheme-checked,
 // and Svelte does not sanitize `href` — so a value like "javascript:…" would be a
