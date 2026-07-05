@@ -235,6 +235,13 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	enrichSvc.SetImageSink(personimage.NewSink(repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension))
 
+	// Self-hosted studio logo (HOLODEX-130, ADR-057): on-disk store under
+	// DATA_PATH/studio-logos. Unlike person images there is no upload/gallery — the
+	// logo is a derived cache of the resolved `logo` field, synced by RelinkStudioLogo.
+	if err := os.MkdirAll(cfg.StudioLogoPath, 0o755); err != nil {
+		log.Warn("studio logo dir create failed", "dir", cfg.StudioLogoPath, "err", err)
+	}
+
 	// One-time content-hash backfill (F34, ADR-050): hash any pre-F34 person images
 	// from their on-disk bytes and collapse galleries that already hold duplicates.
 	// Idempotent — a no-op once every row is hashed and deduped, so it runs every boot.
@@ -278,6 +285,12 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	})
 	handlers.SetWriteQueue(writeQ)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
+	handlers.SetStudioImages(cfg.StudioLogoPath, cfg.StudioLogoMaxDimension)
+	// One-time studio-logo cache backfill (ADR-057): download+normalize the logo for
+	// studios already enriched before this feature, so existing libraries self-host
+	// without a re-enrich. Runs after SetStudioImages + SetEnrichment (RelinkStudioLogo
+	// needs both). Gated one-time; best-effort.
+	backfillStudioLogos(ctx, repository, handlers.RelinkStudioLogo, log)
 	handlers.SetActivity(sc, health, version, startedAt, cfg.MediaPath != "")
 
 	// Soft-delete purge job (F24, ADR-037): a dedicated ticker that hard-deletes
@@ -438,6 +451,63 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		log.Warn("studio link backfill: record job run failed", "err", err)
 	}
 	log.Info("studio link backfill complete", "videos", len(ids), "errors", errs)
+}
+
+// backfillStudioLogos downloads + self-hosts the logo for every studio already
+// enriched before HOLODEX-130 (ADR-057), so an existing library doesn't have to
+// re-enrich to move off the hotlinked provider CDN. Two gates make it one-time,
+// mirroring backfillStudioLinks: skip once any logo is cached (StudioLogoCount > 0);
+// otherwise skip on a prior successful marker so a library whose studios have no
+// provider logo doesn't re-pass every boot. Best-effort — each relink is best-effort
+// (a failed fetch/normalize is logged and skipped) and the pass is idempotent.
+func backfillStudioLogos(ctx context.Context, r *repo.Repo, relink func(context.Context, int64) error, log *slog.Logger) {
+	n, err := r.StudioLogoCount(ctx)
+	if err != nil {
+		log.Warn("studio logo backfill: count failed", "err", err)
+		return
+	}
+	if n > 0 {
+		return // logos exist — the one-time pass already ran (common case)
+	}
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindStudioLogo); err != nil {
+		log.Warn("studio logo backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	studios, err := r.ListStudios(ctx, false)
+	if err != nil {
+		log.Warn("studio logo backfill: list studios failed", "err", err)
+		return
+	}
+	if len(studios) == 0 {
+		return // nothing to backfill; no marker (a later boot with studios runs)
+	}
+	started := time.Now()
+	var errs int
+	for _, s := range studios {
+		if err := relink(ctx, s.ID); err != nil {
+			errs++
+			log.Warn("studio logo backfill: relink failed", "studio", s.ID, "err", err)
+		}
+	}
+	finished := time.Now()
+	status := model.JobStatusOK
+	if errs > 0 {
+		status = model.JobStatusErr
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindStudioLogo,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Errors:     errs,
+		Detail:     fmt.Sprintf("studio-logo backfill: processed %d studios", len(studios)),
+	}); err != nil {
+		log.Warn("studio logo backfill: record job run failed", "err", err)
+	}
+	log.Info("studio logo backfill complete", "studios", len(studios), "errors", errs)
 }
 
 func newLogger(level string, w io.Writer) *slog.Logger {

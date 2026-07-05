@@ -28,8 +28,8 @@
 sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100
-    entity_types: [person, video]
-    asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait downloads
+    entity_types: [person, video, studio]
+    asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait + studio-logo downloads
     enabled: false
 
   # --- Local manual-QA stub (no network/keys) ---

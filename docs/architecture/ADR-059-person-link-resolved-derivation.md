@@ -1,4 +1,4 @@
-# ADR-056: Person link resolved-derivation — role, orphan grace, and a generic `entity: person` reconcile
+# ADR-059: Person link resolved-derivation — role, orphan grace, and a generic `entity: person` reconcile
 
 **Status:** Proposed
 **Date:** 2026-07-04
@@ -21,7 +21,7 @@ no new perimeter) · [ADR-013](ADR-013-metadata-field-mapping.md) (field mapping
 marker and reconciled `sources`) · [ADR-030](ADR-030-access-control-gating-seam.md) (`requireOwner`) ·
 [ADR-055](ADR-055-enrichment-unique-key-invariant.md) (enrichment unique-key invariant — person
 external-id de-dup, HOLODEX-125; this ADR's name-based `resolveOrCreatePerson` **composes with** it,
-see Trade-off Analysis). **Spec:** [person-media-linking.md / F39](../specs/person-media-linking.md).
+see Trade-off Analysis). **Spec:** [person-media-linking.md / F40](../specs/person-media-linking.md).
 **Foundation for:** [F32 video-credits-people.md](../specs/video-credits-people.md) (headshots +
 external-id + billed order rebase onto this data model).
 
@@ -46,11 +46,11 @@ for _, p := range people {           // people == ex.People, straight from extra
 This is the *exact* situation ADR-053 faced for studio, and it decided (RD1) that a link whose
 displayed value can change via a **decision / curation / enrichment without a rescan** must derive
 from the **resolved** field, not raw extraction — otherwise the media detail shows one thing while
-grouping/navigation shows another (the F36 display-vs-truth split, one layer down). The moment F39
+grouping/navigation shows another (the F36 display-vs-truth split, one layer down). The moment F40
 lets the owner curate a person into the `actors` field, people inherit that exposure: a curated actor
 is not in `ex.People` (not in the file yet), so raw extraction omits them from `video_people`. ADR-053
 foresaw this — *"F32 and any future entity have a second worked example of entity promotion"* — and
-deliberately left people on the old pattern until a feature forced the move. F39 is that feature.
+deliberately left people on the old pattern until a feature forced the move. F40 is that feature.
 
 Three forces distinguish people from studio and rise to ADR level:
 
@@ -67,7 +67,7 @@ Three forces distinguish people from studio and rise to ADR level:
    person's only file is legitimately offline for a while.
 3. **Role matters for people.** A person is an actor *in this film* and maybe a director *in that
    one*. Studio has no analogous sub-typing. F32 (unbuilt) already proposed a `video_people.role`
-   column; F39 must decide role's home so the two specs don't each grow a `video_people` writer.
+   column; F40 must decide role's home so the two specs don't each grow a `video_people` writer.
 
 ### Constraints / forces
 
@@ -78,7 +78,7 @@ Three forces distinguish people from studio and rise to ADR level:
   (people/tags raw-extraction vs. studio resolved); adding a *third* (a parallel manual-link table)
   or leaving people half-migrated multiplies the hazard.
 - **No new writeback perimeter.** `actors → Artist` is already a mapped, sanitized, owner-gated write
-  (ADR-041); F39 adds an *input*, not a target or a format path. No media-file write beyond it.
+  (ADR-041); F40 adds an *input*, not a target or a format path. No media-file write beyond it.
 - **Inherit, don't reinvent.** `resolveOrCreatePerson` (alias routing, homonym safety), the F30
   curation endpoint, `EnrichPicker`, and the ADR-053 reconcile all exist — reuse them.
 
@@ -119,7 +119,7 @@ dedup; `''` keys cleanly and is presented as "unset" at the edge. The file is ne
 role (extraction is role-flat by design — `Artist` and `Director` both fold into `ex.People`); role is
 a Holodex-side projection of *which field* carries the name.
 
-This **subsumes F32's proposed `video_people.role`**. F39 owns the derivation + role data model; F32
+This **subsumes F32's proposed `video_people.role`**. F40 owns the derivation + role data model; F32
 rebases to its unique remainder (provider headshots, external-id de-dup, billed `order`).
 
 ### 3 — `entity: person` field marker; generic reconcile
@@ -186,7 +186,7 @@ one surfaced write over machinery people already build.
 
 ### What is explicitly *not* in this ADR
 
-- **Writeback mechanics** — unchanged (ADR-041). F39 asserts one invariant on top: writeback flattens
+- **Writeback mechanics** — unchanged (ADR-041). F40 asserts one invariant on top: writeback flattens
   `actors → Artist` using each person's **canonical** name always (deterministic round-trip). That is
   a spec/test invariant, not a new architecture decision.
 - **Provider headshots / external-id de-dup / billed order** — F32, rebased onto this model.
@@ -239,9 +239,9 @@ role decision as a separate later fork — the two-derivation-writer hazard unre
 
 #### C — Dedicated `video_credits` table (person, role, order, headshot-ref)
 
-**Pros:** Richest; F32's order/headshot have a natural home. **Cons:** Heavier than F39 needs now;
+**Pros:** Richest; F32's order/headshot have a natural home. **Cons:** Heavier than F40 needs now;
 duplicates `video_people`'s job. Deferred — F32 may promote to this later; the `role` column is the
-minimal step that unblocks F39 and de-risks F32.
+minimal step that unblocks F40 and de-risks F32.
 
 ### Person prune policy
 
@@ -368,5 +368,5 @@ server.
 12. [ ] **Studio parity (P0, ships with people, §6):** studio link picker (curate `studio`; reuse the
     person picker) + surface `studio → Publisher` writeback; note the ADR-053 non-goal reversal;
     studios stay on immediate prune. Covered by `/security-review` (studio counterpart of the person write).
-13. [ ] Add ADR-056 to `docs/architecture/README.md`; cross-reference from F39 spec; **update the F32
+13. [ ] Add ADR-059 to `docs/architecture/README.md`; cross-reference from F40 spec; **update the F32
     spec** to rebase onto this data model.

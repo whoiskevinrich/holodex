@@ -120,7 +120,7 @@ func (h *Handlers) personResolved(r *http.Request, id int64, p *model.Person) []
 	}
 	fields := personFields(h.personProviders(rows))
 	resolved := resolver.ResolveFields(resolver.NewPersonBaseline(p), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
-	return personizeResolved(resolved)
+	return h.appendAutoRegistered(r.Context(), rows, personizeResolved(resolved))
 }
 
 // personProviders lists the provider namespaces the synthesized person fields
