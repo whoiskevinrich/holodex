@@ -466,6 +466,75 @@ land with the implementation issues and are enumerated there:
 - Note the studio "**name fallback when the id is absent**" (above) is the **owner-decided/custom** studio
   value path (human intent), not a provider-supplied identity — the invariant leaves it intact.
 
+**Owner person & studio media linking + writeback (F39 / HOLODEX-114, ADR-056)** — the fourth entity slice:
+the owner *authors* a person/studio link and *persists it to the file*, and `video_people` migrates from
+scan-time raw-extraction to **resolved-value derivation** (the studio pattern, generalized). Fully
+CI-testable, no network (provider half against the in-process fake). Cardinal invariants: **one writer of
+`video_people`**, **lossless cutover** (derivation sources ⊇ extraction sources), **canonical-name
+round-trip closes**, **role is derived-from-field, never authored**, and the **person orphan-grace +
+authored-identity guard**. Maps to the [F39 design handoff](design/person-media-linking-handoff.md) 3-skin QA.
+- **Migration (P0-1)**: `video_people.role TEXT NOT NULL DEFAULT ''`, PK → `(video_id, person_id, role)`,
+  `people.orphaned_at TIMESTAMP NULL`; the **down** migration collapses duplicate-role rows to
+  `(video_id, person_id)` and drops the columns; **existing user links survive** the up→down→up cycle
+  (ties the migration-safety invariant). A person in two roles on one video is **two rows, distinct by
+  role**; a role-less link stores `''` and **re-derives stable** (no spurious second row — the
+  `NULL`-in-composite-PK hazard the sentinel avoids).
+- **Generalized reconcile — `RelinkVideoEntity` (repo, sole writer of `video_people` *and* `video_studios`)**:
+  the derivation matrix from F38 is re-run per person-typed field **and** studio — create / idempotent-repeat
+  / replace / empty each reconcile links to exactly the resolved names; a person/studio shared by two videos
+  is **not** pruned when only one is fixed; a multi-valued field yields one link per value; empty names
+  dropped. **Role assignment**: a name resolved from `actors` links `role='actor'`, from `director`
+  `role='director'`, from a role-less person-typed field `role=''` (`internal/repo`). *(derivation matrix
+  incl. unset role)*
+- **Studio regression under the generalization (P0-8, cardinal)**: the **entire existing
+  `internal/repo/studios_test.go` derivation + dedup suite passes byte-for-byte** against `RelinkVideoEntity`
+  — F38 behavior (link-follows-resolved-value, prune-on-empty, external-id precedence) is unchanged. This is
+  the regression guard that lets one function replace two.
+- **Single-writer guard (P0-3, cardinal)**: the raw-extraction people branch is **removed** from
+  `replaceAssociations` — a repo-level test asserts a scan upsert leaves `video_people` untouched **until**
+  the post-commit reconcile runs, and a **CI grep guard** (sibling of the token guard) asserts exactly one
+  `INSERT … INTO video_people` site in `internal/repo` (the reconcile). A curated actor not in the file
+  **appears** after the curation reconcile with no rescan (the display-vs-truth split is dead for people).
+- **Lossless cutover loss-guard (P0-4/RD9, cardinal)**: a fixture library whose people come from `Artist`,
+  `Cast`, `Performer`, **and** `Director` tags is migrated + backfilled; **post-backfill active link count
+  ≥ pre-migration** (the job records both and **fails loudly** on unexplained shrinkage). Adversarial:
+  removing `director` from the marked set (or a `peopleKeys` tag with no mapped field) trips the guard —
+  proving it catches a dropped source. Backfill is **idempotent** (second pass = 0 changes) and ordered
+  migrate → backfill → serve (the `''` default never surfaces a wrong role).
+- **Canonical-name round-trip (P0-7/P0-11, cardinal)**: writeback flattens resolved `actors` → `Artist`
+  (comma-delimited) and `studio` → `Publisher` using each entity's **canonical** name; a re-scan
+  `splitMulti`-splits `Artist` back and the reconcile re-links **exactly the same** person set — **no
+  duplicate person, no "Alice, Bob" single person**, studio re-links to the same entity. Adversarial: a
+  linked person whose file spelling was an **alias** is written as the **canonical** name, and the re-scan
+  still resolves to the same entity via `resolveOrCreatePerson` (the property that keeps the round-trip
+  stable). Reuses the F28 extractor round-trip fixture (`Artist="Audrey Tautou, Mathieu Kassovitz"` → 2).
+- **Orphan grace + sweep + authored-identity guard (P0-2/P0-9/RD8 — person only)**: clearing a person's
+  last link **stamps `orphaned_at`** (does **not** delete); a link returning **before** the sweep clears the
+  stamp. The sweep deletes `orphaned_at < now()−30d` **only** for people with **no authored identity** — an
+  orphaned person with an alias / merge history / curated headshot / manual field-edit or decision is
+  **kept and reported** past 40 days; a plain orphan is deleted past 30 days, kept before. **Studio keeps
+  immediate prune** (the F38 prune-on-empty test is unchanged — the grace is person-only). Enumerate the
+  "authored identity" predicate once and assert the sweep and its tests agree (spec Q7).
+- **Homonym safety (F23, cardinal)**: linking/deriving a person by a name that collides with a *different*
+  real person **never auto-merges** — `resolveOrCreatePerson` name routing is reused, so two same-name people
+  stay distinct (the existing F23 collision tests cover the seam; the picker surfaces disambiguation, it does
+  not merge).
+- **API / owner-gating (P0-6/P0-7/P0-10/P0-11)**: the link picker writes through the **existing** curation
+  `add` endpoint (no new route) and writeback through the existing `POST /media/{id}/writeback` — both
+  `requireOwner` (**401/403** without owner; **200/202** with). The reconcile fires post-commit on curation
+  add/suppress/clear and decision set/clear for a person-typed **or** studio field. Untrusted picker/curation
+  values sanitized on the F30 `manual` path; no name injection into the exiftool/mkv write (the
+  `/security-review` seam).
+- **Frontend** (Vitest + a11y): the new `LinkPicker` is a `role="combobox"` + `role="listbox"` popover with
+  **roving tabindex** (cf. `EnrichPicker`), Esc/click-outside close + **focus-return** to "+ Add", a
+  persistent **Create "<query>"** row (inline bare-create, RD10), and loading/empty/error `aria-live` status;
+  a name matching no entity creates name-only and links in one step; owner-only (**absent from the DOM** for
+  non-owners). The **role badge** on the person page tags videos by derived role (set = `text-accent`, unset
+  = "Appears in"), two tags when one person holds two roles on one video. **All 3 skins** (tokens-only — the
+  `rg 'zinc-|sky-|…'` guard stays empty; the accent left-border active-row and the role tags vs. the
+  active-state accent eyeballed per skin via the handoff `[human]` checklist across Cinémathèque / Broadcast
+  / Brutalist).
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -737,6 +806,35 @@ Then len(history) == 10 and the oldest entry was evicted
 Given localStorage holds malformed JSON under the history key
 When the store reads history
 Then it returns [] and search still works (never throws into the UI)
+```
+
+**Person link resolved-derivation — cutover + round-trip (F39/ADR-056) — adversarial**
+```
+Given a scanned library where person "Denis Villeneuve" exists ONLY via the file Director tag
+      and person "Roger Deakins" exists ONLY via the file Cast tag
+When migration 00NN runs and the one-time backfill re-derives video_people via RelinkVideoEntity
+Then both people still have their links (active link count >= pre-migration)
+ And their roles are director / actor respectively (derived from the source field)
+ And the backfill job row records pre and post counts and did NOT fail
+When instead `director` is (mistakenly) unmarked from the person-typed set
+Then the loss-guard trips (post < pre) and the backfill fails loudly — the dropped source is caught
+
+Given video V whose resolved actors = [canonical "Chloé Zhao", "Frances McDormand"]
+When the owner writes back actors -> Artist
+Then Artist == "Chloé Zhao, Frances McDormand" (canonical names, comma-delimited)
+When the file is re-scanned
+Then splitMulti yields exactly 2 people and RelinkVideoEntity re-links the SAME two entities
+ And there is no "Chloé Zhao, Frances McDormand" single person, no duplicate Chloé
+When instead the file had originally spelled her as an alias "Chloe Zhao"
+Then writeback still emits the canonical "Chloé Zhao" and the re-scan resolves to the same entity
+
+Given a curated actor "Carol Kane" added to V's actors field (NOT in the file)
+When the curation add commits
+Then Carol appears in video_people (role=actor) with NO rescan, and on her person page
+When the owner clears that curation and Carol has no other links
+Then Carol is stamped orphaned_at (NOT deleted); a re-add before the sweep clears the stamp
+When the 30-day sweep runs and Carol has a curated headshot
+Then Carol is KEPT (authored-identity guard); a plain orphan past 30 days is deleted
 ```
 
 ---

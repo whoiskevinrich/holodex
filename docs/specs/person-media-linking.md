@@ -382,11 +382,11 @@ No hard deadline. Per the change-routing rules, before/with implementation:
 2. ✅ **`/design-handoff`** — [person-media-linking-handoff.md](../design/person-media-linking-handoff.md):
    the owner-view person + studio link picker (combobox popover reusing `EnrichPicker`'s keyboard model;
    states, a11y, 3-skin QA) + person-page role badge (P1-1).
-3. **`/testing-strategy`** — derivation matrix (scan/enrich/decision/curation × person-typed field ×
-   link+role outcome, incl. **unset role**), **round-trip** (write→rescan→same set, person *and*
+3. ✅ **`/testing-strategy`** — [testing-strategy.md](../testing-strategy.md) §9 (F39 block) + §10
+   example cases: derivation matrix (incl. **unset role**), canonical-name **round-trip** (person *and*
    studio), orphan grace + sweep + authored-identity guard (RD8/P0-9), **lossless-cutover loss-guard**
-   (RD9/P0-4), backfill idempotency + no-link-lost cutover, **studio regression** under the
-   generalized reconcile, single-writer CI guard, curation/writeback owner-gating.
+   (RD9/P0-4), backfill idempotency, **studio regression** under the generalized reconcile,
+   single-writer CI guard, homonym safety, owner-gating, 3-skin picker + role-badge QA.
 4. **`/security-review`** — a **file-write path fed by owner-authored data** (person *and* studio):
    confirm curated person/studio names ride the existing `writeback` sanitize + `requireOwner` gate
    (no new perimeter, RD/Non-Goal), no name injection into the exiftool/mkv write, and the picker's
