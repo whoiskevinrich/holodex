@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"strings"
 )
 
 const providerVersion = "1.0.0"
@@ -28,7 +30,7 @@ func (h *handler) healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, describeResponse{
+	resp := describeResponse{
 		Provider:        "tmdb",
 		Version:         providerVersion,
 		ProtocolVersion: 1,
@@ -55,7 +57,13 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 		FieldHints: map[string]fieldHint{
 			"known_for_department": {Label: "Known for", Render: "text", Group: "attributes", Order: 10},
 		},
-	})
+	}
+	// Advertise the brand icon only when a deployment supplies a raster URL on an
+	// allowlisted host (ADR-059 §4.8). Omitted by default → Holodex shows a monogram.
+	if u := strings.TrimSpace(os.Getenv("TMDB_BRAND_ICON_URL")); u != "" {
+		resp.BrandIcon = &iconRef{URL: u}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 type resolveRequest struct {

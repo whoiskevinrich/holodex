@@ -2,7 +2,7 @@
 	import { tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { toMessage, monogram } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Studio } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import SortReroll from '$lib/components/SortReroll.svelte';
@@ -25,11 +25,6 @@
 
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2).
 	const displayed = $derived(sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
-
-	// Monogram for the leading logo well when a studio has no logo: the real first
-	// glyph of the name (upper-cased), not the A–Z jump bucket — so "24 Frames" shows
-	// "2" and "東宝" shows "東", rather than the nav bar's catch-all "#".
-	const monogram = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
 
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const letterAnchors = $derived(computeLetterAnchors(studios.map((s) => s.name)));

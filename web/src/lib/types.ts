@@ -348,11 +348,15 @@ export interface Capabilities {
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
 
-// EnrichSource is one configured provider the owner can enrich from (no base_url
-// or secrets — F22.9d).
+// EnrichSource is one configured provider (no base_url or secrets — F22.9d). Also the
+// shape of the public /providers directory (ADR-059), so both the owner enrich controls
+// and visitor provenance badges resolve a provider name to its brand icon the same way.
 export interface EnrichSource {
 	name: string;
 	entity_types: string[];
+	// icon_url is the served brand-icon URL (ADR-059), present only when a normalized
+	// icon is cached for this provider; absent → the SPA renders a monogram.
+	icon_url?: string;
 }
 
 // EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence

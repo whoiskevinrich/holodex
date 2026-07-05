@@ -106,35 +106,41 @@ studio id:
   (`ImagePath`/`Store`/`Remove`) and reuses `personimage.Normalize`/`Hash` — no second copy of
   the security-critical decode/re-encode spine (ADR-057 §5).
 
-### 3. `relinkProviderIcon` is the sole writer — hooked on the describe choke point
+### 3. `RelinkProviderIcon` is the sole writer — triggered at boot and config-reload
 
 The provider icon is **static per provider** and changes only when the provider's `/describe`
-changes — so, unlike the studio logo (re-synced on enrich/decision/curation), its natural
-trigger is **provider verification**, which already fetches `/describe`.
+changes — so, unlike the studio logo (re-synced on every enrich/decision/curation), it needs no
+per-action trigger at all. Two events cover every way the advertised icon can change: **boot**
+(a fresh install, or a provider whose icon URL changed since last run) and a **config-reload**
+(the operator added/removed a provider or edited the registry). Both are already places Holodex
+re-reads provider config.
 
-`enrich.Service.verifiedClient` (`internal/enrich/service.go`) is the choke point for every
-provider action (resolve, enrich, status) — it already calls `c.Describe(ctx)` and
-`persistFieldHints`. We add one best-effort call there with the `Manifest` already in hand:
+`Handlers.RelinkProviderIcon(ctx, provider)` (`internal/api/provider_icon.go`) is the single
+entry point. It reads the manifest via `enrich.Service.DescribeProvider` (a thin accessor that
+fetches + protocol-verifies `/describe` without running a resolve/enrich), then:
 
-1. `brand_icon` **absent/empty** → delete the row + remove the file (provider dropped its icon).
+1. `brand_icon` **absent/empty** → delete the row + remove the file (provider advertises none).
 2. Advertised URL **== stored `source_url`** → no-op (idempotent, the common path).
 3. **Otherwise** → `FetchAsset(ctx, provider, url)` (the unchanged ADR-039 per-provider asset
    client), `personimage.Normalize`, `ReplaceProviderIcon` (delete+insert → new id),
    `providericon.Store` the JPEG, remove the superseded file.
 
-It is **best-effort at every call site** — a fetch/normalize/store failure is logged and
-swallowed, never failing the resolve/enrich the owner triggered (same posture as
-`RelinkStudioLogo` and person asset download). A one-time **boot backfill** (gated on a job-run
-marker + an empty-table fast-path, like `backfillStudioLogos`) calls `/describe` once per
-enabled provider so already-configured providers get an icon without waiting for the first
-enrich.
+`Handlers.RefreshProviderIcons(ctx)` drives it across all enabled providers **and** prunes
+orphans (a provider that left the registry keeps no cached icon — there is no FK cascade). It is
+**best-effort** — a failed describe/fetch/store is logged and skipped, never failing boot or the
+reload — and runs **off the request path**: at boot in a bounded goroutine (so a slow/unreachable
+provider never blocks startup) and after a config-reload in a goroutine (so the reload response
+isn't held on provider I/O). No job-run marker or empty-table gate is needed: the describe +
+`source_url` short-circuit makes a redundant pass cheap, and providers are few.
 
-**Placement note (a deliberate divergence from ADR-057).** ADR-057 put `RelinkStudioLogo` in
-`internal/api` because it needs the resolver to read the resolved `logo` field. The provider
-icon needs **no resolver** — the URL comes straight off the `Manifest` — so its relink lives in
-`internal/enrich` beside `FetchAsset` and the describe call, where the data already is. The API
-layer only *serves* it and *exposes* its URL (below). `SetProviderIcons(dir, maxDim)` is wired
-to the service at boot, mirroring `SetStudioImages`.
+**Placement note (mirrors ADR-057, not the earlier draft of this ADR).** The relink lives in
+`internal/api` beside `RelinkStudioLogo`, importing `personimage`/`providericon` directly, exactly
+as the studio logo does — the blessed "download a URL, normalize, self-host, serve" shape. An
+earlier draft put it in `internal/enrich` hooked on the per-enrich `verifiedClient` choke point;
+that was dropped in favor of boot/reload triggers, which keep the enrich hot path free of an
+icon check and confine the only enrich-side addition to the `DescribeProvider` accessor +
+`Manifest.BrandIcon`. `SetProviderIcons(dir, maxDim)` is wired to the handlers at boot, mirroring
+`SetStudioImages`.
 
 ### 4. Serving — one public typed route, immutable cache, 404 → monogram
 
@@ -153,9 +159,8 @@ today via the "from {provider}" provenance badges, so serving their icons — an
 
 The icon URL must reach **two** render sites with different audiences:
 
-- **Owner** — the Enrich/Clear controls (HOLODEX-136). `SourceInfo` (`/enrich/sources`, owner-
-  gated) gains an optional `icon_url`, built the same way as `Studio.LogoURL`:
-  `/api/v1/providers/{name}/icon?v={id}` when a row exists, omitted otherwise.
+- **Owner** — the Enrich/Clear controls (HOLODEX-136). `/enrich/sources` (owner-gated) gains an
+  optional `icon_url` per provider, `/api/v1/providers/{name}/icon?v={id}` when a row exists.
 - **Visitor** — the provenance badges and website field (HOLODEX-135/137) render for everyone,
   but `/enrich/sources` is owner-only, so a visitor has no provider→icon map. We add a **public**
   `GET /api/v1/providers` directory returning `[{ "name", "entity_types", "icon_url"? }]` for all
@@ -163,9 +168,10 @@ The icon URL must reach **two** render sites with different audiences:
   field's `winning_source`) to an icon URL + version; `icon_url` is present iff an icon is cached,
   so the presence check drives real-vs-monogram, consistent with the `Studio.logo_url` idiom.
 
-`icon_url` on `SourceInfo` is retained (rather than folding the owner path onto the public list)
-so the existing owner enrich page keeps working with a one-field addition; both handlers build
-the URL through one shared helper, so there is a single source of truth for the string.
+Both responses are built by **one API-layer helper** (`Handlers.providerInfos`) — the enrich
+service stays a pure protocol client, unaware of the serve URL, and the URL string has a single
+source of truth. `/enrich/sources` keeps its existing `{ "sources": [...] }` envelope (the extra
+`icon_url` is ignored by an older SPA), so the owner enrich page keeps working with no shape break.
 
 **This §5 split is the one reversible design call** (see Consequences). The alternative —
 skip the directory and render `<img src="/api/v1/providers/{name}/icon" onerror=…>` with a
@@ -210,10 +216,11 @@ three skins (Cinémathèque, Broadcast, Brutalist).
 - **New public endpoint (`GET /api/v1/providers`).** The §5 split adds a small public surface.
   It exposes only what provenance already reveals (provider names) plus `entity_types`; revisit
   (collapse to the `onerror` fallback) if it earns its keep poorly.
-- **New network touch on the describe path.** `verifiedClient` now may fetch an icon. Guarded by
-  the `source_url` short-circuit (one string compare after first fetch) and the best-effort
-  posture, so a slow/broken icon host never degrades resolve/enrich.
-- **Registry churn leaves orphan rows** until the boot reconcile prunes them — cosmetic (an
+- **Icon refresh is boot/reload-only, not live.** An icon whose upstream URL changes mid-run is
+  not picked up until the next boot or config-reload. For a static brand mark this is a
+  non-issue, and it is the deliberate trade for keeping the enrich hot path free of any icon
+  network touch (an earlier draft's `verifiedClient` hook, dropped in §3).
+- **Registry churn leaves orphan rows** until the boot/reload reconcile prunes them — cosmetic (an
   unreferenced file), never served (the route resolves by current provider name).
 
 **Security review touch-points** (for the `/security-review` gate)
@@ -238,11 +245,13 @@ three skins (Cinémathèque, Broadcast, Brutalist).
       `personimage.Normalize`/`Hash`.
 - [ ] `repo`: `GetProviderIcon`/`ReplaceProviderIcon`/`DeleteProviderIcon`/`ProviderIconCount`
       + `ListProviderIcons` (for the directory + reconcile).
-- [ ] `enrich`: `Manifest.BrandIcon` (asset object) parse; `relinkProviderIcon(ctx, provider,
-      url)` hooked in `verifiedClient` (best-effort); `SetProviderIcons(dir, maxDim)`;
-      `SourceInfo.IconURL`; boot backfill + orphan reconcile in `cmd/holodex`.
-- [ ] `api`: `GET /providers/{name}/icon` serve route; public `GET /providers` directory;
-      shared `providerIconURL(name, id)` helper.
+- [ ] `enrich`: `Manifest.BrandIcon` (`IconRef`) parse + `DescribeProvider(ctx, provider)`
+      accessor. (No `verifiedClient` hook, no `SourceInfo` change — icon URL is built in the API
+      layer.)
+- [ ] `api`: `RelinkProviderIcon` + `RefreshProviderIcons` (relink-all + orphan prune, best-
+      effort) in `internal/api`, mirroring `RelinkStudioLogo`; `GET /providers/{name}/icon` serve
+      route; public `GET /providers` directory; `providerInfos` + `providerIconURL` helpers;
+      `SetProviderIcons(dir, maxDim)`; refresh fired at boot (goroutine) + on `adminReloadConfig`.
 - [ ] SPA: `ProviderIcon.svelte` (icon-or-monogram) + a providers store from `GET /providers`;
       `EnrichSource`/`SourceInfo` type gains `icon_url`. (Consumers HOLODEX-135/136/137 land
       separately.)

@@ -97,6 +97,13 @@ type Handlers struct {
 	studioLogoDir    string
 	studioLogoMaxDim int
 
+	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). providerIconDir is the
+	// on-disk root; providerIconMaxDim bounds the downscale. Zero providerIconDir leaves
+	// the icon serve route returning 404 (the SPA renders the monogram) and disables the
+	// cache. One icon per provider, keyed by the provider name.
+	providerIconDir    string
+	providerIconMaxDim int
+
 	// Soft-delete + purge (F24, ADR-037). purger executes purge-now; deleteGrace
 	// drives the Trash view's purge_at. Both optional — nil purger disables only
 	// purge-now (soft-delete/restore/Trash still work).
@@ -160,6 +167,15 @@ func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defau
 func (h *Handlers) SetStudioImages(dir string, maxDim int) {
 	h.studioLogoDir = dir
 	h.studioLogoMaxDim = maxDim
+}
+
+// SetProviderIcons wires the self-hosted provider brand-icon store (HOLODEX-134,
+// ADR-059): the on-disk root and the downscale bound. An empty dir leaves the icon
+// serve route returning 404 (the SPA renders the monogram) and disables the icon cache.
+// Called once at startup.
+func (h *Handlers) SetProviderIcons(dir string, maxDim int) {
+	h.providerIconDir = dir
+	h.providerIconMaxDim = maxDim
 }
 
 // SetActivity wires the read-only activity surface (F21.1, ADR-028): the scanner
@@ -236,6 +252,13 @@ func (h *Handlers) Mount(r chi.Router) {
 	// Self-hosted studio logo (HOLODEX-130, ADR-057): the on-disk normalized JPEG, or
 	// 404 (the SPA renders the monogram). Public read, like every other studio read.
 	r.Get("/studios/{id}/logo", h.serveStudioLogo)
+	// Provider directory + brand icons (HOLODEX-134, ADR-059) — PUBLIC: provenance
+	// badges render for everyone but can't reach the owner-gated /enrich/sources, so the
+	// visitor path resolves a provider name to its icon here. Exposes only names /
+	// entity types / icon URLs (provider names are already visitor-visible via
+	// provenance). The icon is the on-disk normalized JPEG, or 404 → monogram.
+	r.Get("/providers", h.listProviders)
+	r.Get("/providers/{name}/icon", h.serveProviderIcon)
 	r.Get("/people", h.listPeople)
 	r.Get("/people/{id}", h.getPerson)
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk
@@ -626,6 +649,10 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, "reload sources", err)
 			return
 		}
+		// Re-sync provider brand icons to the reloaded registry (ADR-059): a newly added
+		// provider gets its icon, a removed one is pruned. Off the request path — a
+		// provider describe/fetch must not block the reload response — and best-effort.
+		go h.RefreshProviderIcons(context.Background())
 	}
 	if h.cache != nil {
 		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)

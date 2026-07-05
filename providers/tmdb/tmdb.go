@@ -57,6 +57,18 @@ type describeResponse struct {
 	Fields          []string             `json:"fields"`
 	AssetKinds      []string             `json:"asset_kinds,omitempty"`
 	FieldHints      map[string]fieldHint `json:"field_hints,omitempty"`
+	// BrandIcon advertises this provider's brand mark (Holodex contract §4.8, ADR-059):
+	// a single provider-level image URL Holodex self-hosts and shows in place of the
+	// repeated "from tmdb" provenance text. Env-configured (TMDB_BRAND_ICON_URL) and
+	// omitted when unset, so a deployment supplies a raster on an allowlisted host
+	// (TMDB's own logo is SVG, which Holodex's raster ingest rejects) rather than
+	// shipping a brittle default. Additive — an older Holodex ignores it.
+	BrandIcon *iconRef `json:"brand_icon,omitempty"`
+}
+
+// iconRef is a single provider-level image reference (the brand icon, §4.8).
+type iconRef struct {
+	URL string `json:"url"`
 }
 
 // fieldHint is a per-field presentation hint for a non-canonical advertised key
