@@ -54,6 +54,12 @@ type ResolvedField struct {
 	Multi         bool            `json:"multi,omitempty"`          // merge-mode (set) field: UI shows add + per-value remove
 	WinningSource string          `json:"winning_source,omitempty"` // e.g. "tmdb:title", "file:Title", "manual:genres"
 
+	// AutoRegistered marks a display-only non-canonical field surfaced by F39
+	// auto-registration (ADR-056): rendered read-only (label + values + provenance)
+	// with no source-decision or curation controls. Canonical/mapped fields leave it
+	// false. The SPA renders these in the "Additional details" group.
+	AutoRegistered bool `json:"auto_registered,omitempty"`
+
 	// F36 (ADR-051) — per-field source-of-truth, populated on replace (scalar)
 	// fields only. Decision is the standing source choice (Standing=false for the
 	// implicit file-first default); InSync is false when the decided value differs
@@ -278,10 +284,16 @@ func ResolveFields(
 		if label == "" {
 			label = def.Label
 		}
+		// F39: an explicit mapping Display (operator override, or a synthesized
+		// auto-registered field's provider-hinted mode) wins over the registry's.
+		display := def.Display
+		if f.Display != "" {
+			display = f.Display
+		}
 		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
-			Display:       def.Display,
+			Display:       display,
 			Values:        values,
 			Items:         items,
 			Multi:         f.Multi || f.Merge,
