@@ -438,7 +438,7 @@ in `/security-review`); the internal `adminMode` store/key are **unchanged** (th
 - **Endpoints (`internal/api/enrich_test.go`)**: owner-gated `/studios/{id}/enrich/{resolve,,clear}` mirror the person trio — full apply flow surfaces `fake:description` provenance on the studio detail `resolved[]`; a token gate returns 401 without the header, 200 with. No relink on studio-entity enrich (it changes the studio's own fields, not the video→studio links).
 - **Registry**: `description` (long_text), `country`, and `logo` (image_url) added; `studioScalarFields` gains `logo`. Operators enable it by adding `studio` to the provider's `entity_types` (the `Supports` gate).
 
-**Self-hosted studio logo (HOLODEX-130, ADR-056)** — **supersedes** the S3 "logo is never downloaded / F25-store-not-generalized" note above (§F38 S3): the studio logo is now a downloaded, normalized, self-hosted **derived cache of the resolved `logo` field**, served from our own origin instead of the hotlinked provider CDN. The scope stays *minimal* (one logo per studio; no upload/gallery/suppression), so it reuses the person normalize spine and the ADR-039 asset perimeter rather than cloning the person-image subsystem. Fully CI-testable, no network (a live `httptest` "CDN" on the provider's base host serves a real JPEG).
+**Self-hosted studio logo (HOLODEX-130, ADR-057)** — **supersedes** the S3 "logo is never downloaded / F25-store-not-generalized" note above (§F38 S3): the studio logo is now a downloaded, normalized, self-hosted **derived cache of the resolved `logo` field**, served from our own origin instead of the hotlinked provider CDN. The scope stays *minimal* (one logo per studio; no upload/gallery/suppression), so it reuses the person normalize spine and the ADR-039 asset perimeter rather than cloning the person-image subsystem. Fully CI-testable, no network (a live `httptest` "CDN" on the provider's base host serves a real JPEG).
 - **Disk layout (`internal/studioimage/studioimage_test.go`)**: `ImagePath` builds `{dir}/{studioID}/{id}.jpg` from server-assigned integer ids only (no request-value path component, the ADR-038 traversal invariant); `Store`/`Remove` round-trip atomically (temp+rename, no leftover `.tmp`), and removing an absent file is not an error.
 - **Cache index (`internal/repo/studio_logos_test.go`)**: `ReplaceStudioLogo` is single-slot (`UNIQUE(studio_id)` — count stays 1 across replaces) and **advances the id** on each replace (the `?v=` cache-buster); `GetStudioLogo` round-trips the row and 404s when absent; `GetStudio`/`ListStudios` attach `LogoVersion` (the API turns it into the served URL). The prior HOLODEX-126 "lowest-provider-wins over the enrichment field" test is retired — the cache is a single row keyed by studio, tracking the *resolved* logo.
 - **Relink + serve + SSRF (`internal/api/studio_logo_test.go`)**: end-to-end `RelinkStudioLogo` fetches through the winning provider's SSRF-guarded client, normalizes, stores, and serves `GET /studios/{id}/logo` as **200 `image/jpeg` + `immutable`** (a decodable image); the `/studios` list carries the **self-hosted served URL**, not the CDN; the relink is **idempotent** (unchanged resolved URL → no re-download, stable id); a **blank-pin** decision (via the owner endpoint, exercising the trigger) clears the cache → 404; a resolved logo URL on an **off-allowlist host is refused** by `FetchAsset` and nothing is cached (the ADR-039 perimeter holds for studios, not just person portraits); a studio with no cached logo serves **404** (the SPA renders the monogram, no placeholder route).
@@ -471,6 +471,48 @@ land with the implementation issues and are enumerated there:
   **owner-curated** name-alias/merge path (F23) stays name-based and is unaffected — its tests are unchanged.
 - Note the studio "**name fallback when the id is absent**" (above) is the **owner-decided/custom** studio
   value path (human intent), not a provider-supplied identity — the invariant leaves it intact.
+
+**Provider render hints + non-canonical field auto-registration (F39, HOLODEX-128, ADR-056)** — a provider
+advertises per-field render hints in `/describe.field_hints`; Holodex persists them and **auto-registers**
+any stored **non-canonical** shadow field as a **display-only** row on video/person/studio, with zero
+per-operator mapping config. Fully CI-testable, **no network** (in-process fake advertising hints). Cardinal
+invariants: **the four-tier ladder** (operator mapping > code registry > provider hint > title-case; a hint
+never shadows a canonical or `_`-key), **presence-driven** (no value → no row), **display-only** (no
+decision/curation coupling), **`image_url` allowlist-gated**, and **backward-compat** (no hints/values →
+byte-identical to pre-F39). Maps to the [F39 QA checklist](design/provider-render-hints-qa-checklist.md).
+- **Contract decode (`internal/enrich`)**: `Manifest.FieldHints` parses a `field_hints` map; a manifest with
+  **no** `field_hints` decodes unchanged; hints are sanitized/validated on ingest — over-long `label` capped
+  and control-chars stripped, unknown `render`→`text`, unknown `group`→`extended`; a hint on a canonical key
+  or a `_`-prefixed key is dropped. *(QA 2.1)*
+- **Ladder precedence (pure)**: a small overlay resolves `(label,render,order)` for a key top-down (mapping ▸
+  registry ▸ persisted hint ▸ title-case); a provider hint governs **only** a key the code registry does not
+  define; canonical keys ignore hints. *(QA 2.2)*
+- **Persistence (`provider_field_hints`, repo)**: reading `/describe` in an owner action replaces that
+  provider's rows in one write txn (delete-where-provider + insert) under `writeMu`; the read path resolves
+  hints from the table with **no** provider call (migration `00NN` up/down applies cleanly). *(QA 2.3)*
+- **Auto-registration predicate + ordering (rides `ResolveFields`, all 3 entities)**: a shadow key is
+  surfaced iff present **and** non-`_` **and** non-canonical **and** not already mapped/synthesized; an
+  unmapped canonical key and a `_studio_external_ids` row are **not** surfaced; the presence gate drops
+  valueless keys; auto-registered fields sort after canonical ones by (group, order, key). Extends the
+  ADR-052 non-video-baseline unit to prove the append works for video, person, and studio with the resolver
+  core unchanged. *(QA 2.4, 2.5, 2.6, 2.7)*
+- **`mapping.Field.Display` propagation**: `ResolveFields` sets `Display = f.Display` if non-empty else
+  `registry.Lookup(...).Display`; empty `Display` reproduces today's output (regression guard). *(QA 2.9)*
+- **Security — `image_url` gate + display-only**: a hinted `image_url` value on an allowlisted host
+  (ADR-039 `asset_hosts` / `base_url`) resolves as an image; a non-allowlisted host resolves as `text` (the
+  field is marked non-image), so a provider cannot make the browser beacon an arbitrary host; `url` non-http
+  → text; an auto-registered field carries **no** `Decision`/`Candidates`/curation `Items`, and the
+  decision/curation endpoints reject its (unmapped) canonical key. *(QA 2.8, 2.10)*
+- **Backward-compat golden (cardinal)**: a provider with no `field_hints` and an entity with no non-canonical
+  values → resolved output **byte-identical** to pre-F39 (snapshot equality). *(QA 2.11)*
+- **Frontend** (Vitest + a11y): a read-only `ChipValueList` renders one `border-rule` pill per value (no
+  ✕/＋); the auto-registered read-only branch switches on `display` (text/long_text/chips/url/image_url) and
+  shows a single `ProvenanceBadge`, **no** owner controls for owner or visitor; the "Additional details"
+  group + divider render only when ≥1 field is present; tokens-only, QA'd across **all 3 skins** (token-guard
+  clean; badge-vs-chip collision eyeballed per skin). *(QA 2.12, §3–§4)*
+- **Promotion path (live QA)**: adding a `metadata-mappings.yaml` entry for an auto-registered key +
+  reload-config moves it into the curatable set with source chips — the provider hint no longer governs it
+  (frontend-observable; no new Go test beyond the ladder unit). *(QA 3.6)*
 
 ---
 

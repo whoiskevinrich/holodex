@@ -217,7 +217,7 @@ func studioByName(t *testing.T, r *repo.Repo, name string) model.Studio {
 	return model.Studio{}
 }
 
-// TestListStudios_AttachesLogoVersion covers ADR-056 (superseding HOLODEX-126): the
+// TestListStudios_AttachesLogoVersion covers ADR-057 (superseding HOLODEX-126): the
 // list attaches the cached logo row id as LogoVersion (the API turns it into the served
 // URL); a studio with no cached logo carries LogoVersion 0, not another studio's logo.
 func TestListStudios_AttachesLogoVersion(t *testing.T) {

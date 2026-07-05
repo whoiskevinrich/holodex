@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
 	import type {
@@ -18,6 +18,7 @@
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
+	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
 
 	// Studio detail (F38, ADR-053): name header + video grid + a Details section that
 	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5). Unlike the
@@ -61,6 +62,7 @@
 			(f) =>
 				f.canonical !== 'name' &&
 				!f.multi &&
+				!f.auto_registered &&
 				(isOwner
 					? f.values.length > 0 || (f.candidates ?? []).length > 0
 					: f.values.some((v) => v.trim() !== ''))
@@ -71,15 +73,15 @@
 		replaceFields.filter((f) => f.display !== 'long_text' && f.display !== 'image_url')
 	);
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
-	// Show the section when there's something to curate, or (owner) a provider to enrich from.
-	const hasDetails = $derived(replaceFields.length > 0);
+	// F39 (ADR-056): display-only auto-registered non-canonical fields, read-only after
+	// the curatable ones.
+	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
+	// Show the section when there's something to curate or display, or (owner) a provider to enrich from.
+	const hasDetails = $derived(replaceFields.length > 0 || extraFields.length > 0);
 
 	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
-	// it is the record baseline or a manual literal (mirrors the person page).
-	function winnerProvider(f: ResolvedField): string {
-		const ns = (f.winning_source ?? '').split(':')[0];
-		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
-	}
+	// it is a baseline source (record/file/manual). Shared with AutoFieldRows.
+	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
 
 	// When every shown field resolves from the SAME single provider, we hoist one
 	// "Enriched from …" note to the section header (visitor view) instead of repeating an
@@ -205,7 +207,7 @@
 								<div class="sm:col-span-2">
 									<dt class="mb-1 text-muted">{f.label}:</dt>
 									<!-- The logo renders from the self-hosted, normalized copy (studio.logo_url,
-									     served from our own origin — HOLODEX-130/ADR-056), not the hotlinked
+									     served from our own origin — HOLODEX-130/ADR-057), not the hotlinked
 									     provider URL in the resolved field. Present only when the cache is
 									     populated for the resolved logo; the chip below stays authoritative. -->
 									{#if f.canonical === 'logo' && studio?.logo_url}
@@ -279,6 +281,9 @@
 									{/if}
 								</div>
 							{/each}
+
+							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
+							<AutoFieldRows fields={extraFields} />
 						</dl>
 					{/if}
 				</section>

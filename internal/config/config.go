@@ -73,7 +73,7 @@ type Config struct {
 	// exceed it deliberately via an explicit over-cap upload; enrichment never does.
 	PersonGalleryMax int `yaml:"person_gallery_max"`
 
-	// Self-hosted studio logo (HOLODEX-130, ADR-056). One normalized logo per studio
+	// Self-hosted studio logo (HOLODEX-130, ADR-057). One normalized logo per studio
 	// at DataPath/studio-logos/{studioID}/{id}.jpg, derived like PersonImagePath.
 	// StudioLogoMaxDimension bounds the stored (downscaled) longest side.
 	StudioLogoPath         string `yaml:"-"` // derived: DataPath/studio-logos
@@ -152,7 +152,7 @@ func Defaults() Config {
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
-		StudioLogoMaxDimension: 1000, // logos are small; downscale to ≤1000px longest side (ADR-056)
+		StudioLogoMaxDimension: 1000, // logos are small; downscale to ≤1000px longest side (ADR-057)
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,

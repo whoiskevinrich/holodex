@@ -104,7 +104,7 @@ func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) []
 }
 
 // resolveStudio is the ctx-based core of studioResolved, so it is callable off the
-// request path (RelinkStudioLogo, ADR-056). Degraded reads log and resolve without the
+// request path (RelinkStudioLogo, ADR-057). Degraded reads log and resolve without the
 // failing layer.
 func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) []resolver.ResolvedField {
 	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityStudio, id)
@@ -126,7 +126,7 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 	}
 	fields := studioFields(h.studioProviders(rows))
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
-	return recordizeResolved(resolved)
+	return h.appendAutoRegistered(ctx, rows, recordizeResolved(resolved))
 }
 
 // listStudios handles GET /studios (F38): name-sorted (or count-sorted) studios with

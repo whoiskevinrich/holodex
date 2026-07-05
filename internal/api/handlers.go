@@ -91,7 +91,7 @@ type Handlers struct {
 	personImageMaxDim   int
 	defaultSkin         string
 
-	// Self-hosted studio logo (HOLODEX-130, ADR-056). studioLogoDir is the on-disk
+	// Self-hosted studio logo (HOLODEX-130, ADR-057). studioLogoDir is the on-disk
 	// root; studioLogoMaxDim bounds the downscale. Zero studioLogoDir leaves the logo
 	// serve route returning 404 (the SPA renders the monogram) and disables the cache.
 	studioLogoDir    string
@@ -153,7 +153,7 @@ func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defau
 	h.defaultSkin = defaultSkin
 }
 
-// SetStudioImages wires the self-hosted studio logo store (HOLODEX-130, ADR-056): the
+// SetStudioImages wires the self-hosted studio logo store (HOLODEX-130, ADR-057): the
 // on-disk root and the downscale bound. An empty dir leaves the logo serve route
 // returning 404 (the SPA renders the monogram) and disables the logo cache. Called
 // once at startup.
@@ -233,7 +233,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
-	// Self-hosted studio logo (HOLODEX-130, ADR-056): the on-disk normalized JPEG, or
+	// Self-hosted studio logo (HOLODEX-130, ADR-057): the on-disk normalized JPEG, or
 	// 404 (the SPA renders the monogram). Public read, like every other studio read.
 	r.Get("/studios/{id}/logo", h.serveStudioLogo)
 	r.Get("/people", h.listPeople)
@@ -425,6 +425,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				dec = decisionsFromRows(decRows)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, m.Fields(), h.resolveOptions(dec))
+			resolved = h.appendAutoRegistered(r.Context(), enrichRows, resolved)
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}

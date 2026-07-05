@@ -8,6 +8,7 @@
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
+	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
@@ -63,6 +64,10 @@
 	const displayTitle = $derived(
 		resolved.find((f) => f.canonical === 'title')?.values[0] ?? video?.title ?? ''
 	);
+	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
+	// auto-registered non-canonical fields, which render read-only after them.
+	const canonicalResolved = $derived(resolved.filter((f) => !f.auto_registered));
+	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider — entity_enrichment keyed by
 	// provider). Was collapsed to the first capable provider, so a second matched
@@ -468,7 +473,7 @@
 				{/if}
 				{#if resolved.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each resolved as f (f.canonical)}
+					{#each canonicalResolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 						{#if f.display === 'image_url'}
 							<div class="sm:col-span-2">
@@ -529,6 +534,9 @@
 							</div>
 						{/if}
 					{/each}
+
+					<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
+					<AutoFieldRows fields={extraFields} />
 				</dl>
 				{:else if fields.length}
 				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">

@@ -60,7 +60,7 @@ func (h *Handlers) setStudioFieldDecision(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// A logo decision (provider-pin / blank-pin) moves the resolved logo → sync the
-	// self-hosted cache (HOLODEX-130, ADR-056). Gated on the logo field so other
+	// self-hosted cache (HOLODEX-130, ADR-057). Gated on the logo field so other
 	// decisions don't pay for a resolve.
 	h.relinkStudioLogoIfLogo(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
@@ -78,7 +78,7 @@ func (h *Handlers) clearStudioFieldDecision(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Reverting a logo decision to the record-first default moves the resolved logo →
-	// sync the cache (HOLODEX-130, ADR-056).
+	// sync the cache (HOLODEX-130, ADR-057).
 	h.relinkStudioLogoIfLogo(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
 }

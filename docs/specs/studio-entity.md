@@ -75,7 +75,7 @@ until it rides the decision model as a real entity.
 - **Studio writeback / sync state** — a studio has no file; `in_sync` is **omitted** and
   there is no write button (same rationale as F37).
 - **Studio photos / logo galleries / owner-uploaded logos** — the *storage + serving* of the
-  single logo IS now hardened (self-hosted, normalized; [ADR-056](../architecture/ADR-056-self-hosted-studio-logo.md),
+  single logo IS now hardened (self-hosted, normalized; [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md),
   HOLODEX-130), but the rest of the F25 person-image pipeline (owner upload, delete-suppression,
   galleries, content-hash dedup, promote/reorder) is **not** generalized to studios — a studio
   has one logo, curated only via the existing provider/blank-pin decision. *(Why: a studio has
@@ -234,10 +234,10 @@ until it rides the decision model as a real entity.
 - **P2-2 — Multi-studio UI** if the `studio` field is ever promoted to a merge field
   (schema already permits it, RD2).
 - **P2-3 — Studio logo in the image store** (F25 generalization) — **realized** in
-  [ADR-056](../architecture/ADR-056-self-hosted-studio-logo.md)
+  [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md)
   ([HOLODEX-130](https://whoiskevinrich.atlassian.net/browse/HOLODEX-130)): the logo is now a
   self-hosted, normalized cache **derived from the resolved `logo` field** (`studio_logos`,
-  migration 0019), fetched through the ADR-039 asset perimeter and served from
+  migration 0020), fetched through the ADR-039 asset perimeter and served from
   `/studios/{id}/logo` — not the hotlinked provider URL. The *minimal* generalization only:
   one logo per studio, no upload/gallery/suppression (still out — see Non-Goals).
 - **P2-4 — MCP studio entities** (rides F22.5f).

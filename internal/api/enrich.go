@@ -289,7 +289,7 @@ func (h *Handlers) enrichStudioApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A provider's logo may now win the resolved `logo` field → sync the self-hosted
-	// logo cache (HOLODEX-130, ADR-056). Best-effort; never fails the enrich.
+	// logo cache (HOLODEX-130, ADR-057). Best-effort; never fails the enrich.
 	h.relinkStudioLogo(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{"enriched": fields})
 }

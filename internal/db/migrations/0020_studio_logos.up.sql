@@ -1,4 +1,4 @@
--- HOLODEX-130 (ADR-056): self-hosted studio logo. A studio's logo was a hotlinked
+-- HOLODEX-130 (ADR-057): self-hosted studio logo. A studio's logo was a hotlinked
 -- provider-CDN URL rendered straight from the `logo` enrichment field; this table is
 -- the metadata index for a downloaded, normalized (metadata-stripped) local copy —
 -- a derived cache of whatever URL the studio's `logo` field currently RESOLVES to.

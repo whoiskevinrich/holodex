@@ -1,5 +1,5 @@
 // Package studioimage is the on-disk layout for a studio's single self-hosted logo
-// (HOLODEX-130, ADR-056): path building, atomic write, and removal under
+// (HOLODEX-130, ADR-057): path building, atomic write, and removal under
 // DATA_PATH/studio-logos/{studio_id}/{id}.jpg.
 //
 // It deliberately does NOT reimplement the untrusted-bytes normalization — that
@@ -8,7 +8,7 @@
 // logo gets byte-for-byte the same hardening as a person portrait. This package owns
 // only the disk concerns that differ (a studio-logos root instead of person-images).
 // If a third entity ever needs image storage, promote Normalize/Hash to a shared
-// internal/imagenorm package (ADR-056 §5); until then reuse keeps one source of truth.
+// internal/imagenorm package (ADR-057 §5); until then reuse keeps one source of truth.
 package studioimage
 
 import (
@@ -18,7 +18,7 @@ import (
 	"strconv"
 )
 
-// ImagePath is the on-disk location for a studio's logo (ADR-056/ADR-014):
+// ImagePath is the on-disk location for a studio's logo (ADR-057/ADR-014):
 // {dir}/{studioID}/{imageID}.jpg. Both ids are server-assigned integers, never a
 // request value, so path traversal is structurally impossible (the ADR-038 rule).
 // The per-studio subdir is NOT created here — Store creates it.

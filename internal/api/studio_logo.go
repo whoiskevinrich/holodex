@@ -14,14 +14,14 @@ import (
 	"holodex/internal/studioimage"
 )
 
-// Self-hosted studio logo (HOLODEX-130, ADR-056). The studio `logo` field stays a
+// Self-hosted studio logo (HOLODEX-130, ADR-057). The studio `logo` field stays a
 // resolver field; downstream of resolution Holodex keeps an on-disk, normalized copy
 // of whatever URL it currently RESOLVES to and serves that copy from its own origin —
 // so viewers never hotlink the provider CDN. RelinkStudioLogo is the sole writer of
 // the studio_logos cache (the derived-cache twin of RelinkVideoStudios, ADR-053),
 // re-synced on every trigger that can move the resolved logo.
 
-// setStudioLogoURL fills LogoURL from the cached logo version (ADR-056), pointing at
+// setStudioLogoURL fills LogoURL from the cached logo version (ADR-057), pointing at
 // the served route on our own origin. Zero version → empty (the SPA renders the
 // monogram). Mirrors setThumbnailURL.
 func setStudioLogoURL(s *model.Studio) {
@@ -32,7 +32,7 @@ func setStudioLogoURL(s *model.Studio) {
 }
 
 // serveStudioLogo streams a studio's on-disk logo JPEG with a long immutable cache
-// (ADR-056). The ?v={id} the model emits changes when the logo is replaced, so a
+// (ADR-057). The ?v={id} the model emits changes when the logo is replaced, so a
 // stale image is never pinned. No placeholder: an absent logo is 404 and the SPA
 // falls back to the F38 monogram. Public read, like every other studio read.
 func (h *Handlers) serveStudioLogo(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func (h *Handlers) relinkStudioLogoIfLogo(ctx context.Context, studioID int64, c
 }
 
 // RelinkStudioLogo makes the studio_logos cache match the studio's RESOLVED `logo`
-// field (ADR-056). It is the single entry point behind every logo trigger (enrich
+// field (ADR-057). It is the single entry point behind every logo trigger (enrich
 // apply/clear, logo decision set/clear, boot backfill). Idempotent and safe to call
 // redundantly: it skips the download when the cached source_url already matches. Only
 // PROVIDER-sourced logos are cached — a record (blank-pin) or manual logo has no

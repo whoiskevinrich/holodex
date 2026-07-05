@@ -45,8 +45,16 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 			// poster_url pattern), not a downloaded asset — the F25 image store is not
 			// generalized to studios here (spec Non-Goal / P2-3). website is shared.
 			"description", "country", "logo",
+			// non-canonical person field, rendered first-class via a field hint (F39).
+			"known_for_department",
 		},
 		AssetKinds: []string{"photo"},
+		// F39 (Holodex contract §4.7): presentation hints for our non-canonical keys,
+		// so they render labeled and ordered with no per-operator config. Canonical
+		// keys are omitted here — Holodex's registry owns those.
+		FieldHints: map[string]fieldHint{
+			"known_for_department": {Label: "Known for", Render: "text", Group: "attributes", Order: 10},
+		},
 	})
 }
 

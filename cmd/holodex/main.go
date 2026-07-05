@@ -235,7 +235,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	enrichSvc.SetImageSink(personimage.NewSink(repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension))
 
-	// Self-hosted studio logo (HOLODEX-130, ADR-056): on-disk store under
+	// Self-hosted studio logo (HOLODEX-130, ADR-057): on-disk store under
 	// DATA_PATH/studio-logos. Unlike person images there is no upload/gallery — the
 	// logo is a derived cache of the resolved `logo` field, synced by RelinkStudioLogo.
 	if err := os.MkdirAll(cfg.StudioLogoPath, 0o755); err != nil {
@@ -286,7 +286,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers.SetWriteQueue(writeQ)
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetStudioImages(cfg.StudioLogoPath, cfg.StudioLogoMaxDimension)
-	// One-time studio-logo cache backfill (ADR-056): download+normalize the logo for
+	// One-time studio-logo cache backfill (ADR-057): download+normalize the logo for
 	// studios already enriched before this feature, so existing libraries self-host
 	// without a re-enrich. Runs after SetStudioImages + SetEnrichment (RelinkStudioLogo
 	// needs both). Gated one-time; best-effort.
@@ -454,7 +454,7 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 }
 
 // backfillStudioLogos downloads + self-hosts the logo for every studio already
-// enriched before HOLODEX-130 (ADR-056), so an existing library doesn't have to
+// enriched before HOLODEX-130 (ADR-057), so an existing library doesn't have to
 // re-enrich to move off the hotlinked provider CDN. Two gates make it one-time,
 // mirroring backfillStudioLinks: skip once any logo is cached (StudioLogoCount > 0);
 // otherwise skip on a prior successful marker so a library whose studios have no

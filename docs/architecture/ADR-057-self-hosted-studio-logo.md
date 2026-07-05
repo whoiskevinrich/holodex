@@ -1,4 +1,4 @@
-# ADR-056: Self-hosted studio logo — derived, normalized cache of the resolved `logo` field
+# ADR-057: Self-hosted studio logo — derived, normalized cache of the resolved `logo` field
 
 **Status:** Proposed
 **Date:** 2026-07-04
@@ -57,7 +57,7 @@ field, re-synced by `RelinkVideoStudios` on every write that can change that val
 cache is the same shape one layer over: a derived index over the resolved `logo` field, re-synced by
 **`RelinkStudioLogo`** on every write that can change *that* value.
 
-### 2. Data model — one logo per studio (migration 0019)
+### 2. Data model — one logo per studio (migration 0020)
 
 ```sql
 CREATE TABLE studio_logos (
@@ -195,7 +195,7 @@ list logo attach (`attachStudioLogos`) swaps its source table from `entity_enric
 
 ## Action items
 
-- [ ] Migration `0019_studio_logos.{up,down}.sql` (table + `UNIQUE(studio_id)`; down drops the table).
+- [ ] Migration `0020_studio_logos.{up,down}.sql` (table + `UNIQUE(studio_id)`; down drops the table).
 - [ ] `internal/studioimage` — `ImagePath` / `Store` / `Remove` (disk layout under `studio-logos/`),
       reusing `personimage.Normalize` / `Hash`.
 - [ ] `repo`: `GetStudioLogo` / `UpsertStudioLogo` / `DeleteStudioLogo`; `attachStudioLogos` reads

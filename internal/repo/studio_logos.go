@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Studio logos (HOLODEX-130, ADR-056). One self-hosted, normalized logo per studio —
+// Studio logos (HOLODEX-130, ADR-057). One self-hosted, normalized logo per studio —
 // a derived cache of the studio's RESOLVED `logo` field. The bytes live on disk
 // (studioimage); this table is the metadata index the serve route and list attach
 // read from. RelinkStudioLogo (api) is the sole writer via ReplaceStudioLogo /
@@ -18,7 +18,7 @@ import (
 // StudioLogo is one stored logo (the on-disk bytes are at
 // studioimage.ImagePath(dir, StudioID, ID)). ID doubles as the ?v= cache-buster: a
 // refresh is delete + insert, so a replaced logo gets a new id and the browser
-// re-fetches past the immutable cache (ADR-056 §2).
+// re-fetches past the immutable cache (ADR-057 §2).
 type StudioLogo struct {
 	ID        int64
 	StudioID  int64
@@ -109,7 +109,7 @@ func (r *Repo) DeleteStudioLogo(ctx context.Context, studioID int64) error {
 }
 
 // StudioLogoCount returns the number of cached studio logos — the fast-path gate for
-// the one-time boot backfill (ADR-056): once any logo exists the backfill is skipped.
+// the one-time boot backfill (ADR-057): once any logo exists the backfill is skipped.
 func (r *Repo) StudioLogoCount(ctx context.Context) (int, error) {
 	var n int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM studio_logos`).Scan(&n)

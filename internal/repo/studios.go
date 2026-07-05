@@ -194,7 +194,7 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 }
 
 // attachStudioLogos fills LogoVersion on each studio from the studio_logos cache in
-// ONE batch query (HOLODEX-130, ADR-056), leaving the shared namedCountQuery untouched
+// ONE batch query (HOLODEX-130, ADR-057), leaving the shared namedCountQuery untouched
 // and avoiding an N-way per-studio lookup on the list. The API turns a non-zero
 // LogoVersion into the served LogoURL. There is exactly one logo row per studio
 // (UNIQUE(studio_id)), and the cache tracks the RESOLVED logo — so a blank-pinned logo
