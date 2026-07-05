@@ -153,11 +153,16 @@ type Studio struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
-	// LogoURL is the studio's stored `logo` enrichment value, attached to the
-	// /studios list for scannability (HOLODEX-126). It is the raw provider-stored
-	// logo, NOT the resolved one — the detail page stays authoritative. Empty when
-	// no provider has stored a logo (the common case in a fresh library).
+	// LogoURL is the serving URL of the studio's self-hosted logo (HOLODEX-130,
+	// ADR-057), built by the API layer as /api/v1/studios/{id}/logo?v={LogoVersion}
+	// when a normalized logo is cached — pointing at Holodex's own origin, not the
+	// hotlinked provider CDN. Empty when no logo is cached (the SPA renders the
+	// monogram then). The cache is derived from the RESOLVED `logo` field, so a
+	// blank-pin clears it here and the list matches the detail page.
 	LogoURL string `json:"logo_url,omitempty"`
+	// LogoVersion is the studio_logos row id (the ?v= cache-buster); internal — the
+	// API turns it into LogoURL. Zero when no logo is cached.
+	LogoVersion int64 `json:"-"`
 }
 
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
@@ -185,6 +190,7 @@ const (
 	JobKindRefresh        = "refresh"         // per-item forced re-extract + re-enrich (F31, ADR-047)
 	JobKindWriteback      = "writeback"       // queued batch metadata write (F30, ADR-048)
 	JobKindStudioBackfill = "studio-backfill" // one-time video→studio link derivation (F38, ADR-053)
+	JobKindStudioLogo     = "studio-logo"     // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
 	JobStatusOK           = "success"
 	JobStatusErr          = "error"
 )
@@ -212,8 +218,8 @@ const InternalFieldPrefix = "_"
 const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 
 // StudioLogoField is the canonical enrichment field-key for a studio's logo image
-// (registry "logo", an image_url field). Named here so the /studios list logo attach
-// (HOLODEX-126) references the field vocabulary rather than a magic string.
+// (registry "logo", an image_url field). Named here so the studio-logo relink triggers
+// (ADR-057) reference the field vocabulary rather than a magic string.
 const StudioLogoField = "logo"
 
 // EnrichedField is a canonical field resolved for one entity from a metadata

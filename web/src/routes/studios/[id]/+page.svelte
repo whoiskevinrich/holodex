@@ -206,10 +206,14 @@
 							{#each imageFields as f (f.canonical)}
 								<div class="sm:col-span-2">
 									<dt class="mb-1 text-muted">{f.label}:</dt>
-									{#if f.values[0]?.trim()}
+									<!-- The logo renders from the self-hosted, normalized copy (studio.logo_url,
+									     served from our own origin — HOLODEX-130/ADR-057), not the hotlinked
+									     provider URL in the resolved field. Present only when the cache is
+									     populated for the resolved logo; the chip below stays authoritative. -->
+									{#if f.canonical === 'logo' && studio?.logo_url}
 										<dd class="mb-1">
 											<img
-												src={f.values[0]}
+												src={studio.logo_url}
 												alt={studio?.name ? `${studio.name} ${f.label.toLowerCase()}` : f.label}
 												class="max-h-32 rounded-theme border border-rule bg-logo-plate object-contain p-2"
 											/>

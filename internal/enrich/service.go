@@ -27,7 +27,6 @@ const (
 	maxCandidates     = 25
 )
 
-
 // EnrichRepo is the shadow-store subset the service needs (satisfied by *repo.Repo).
 type EnrichRepo interface {
 	UpsertEnrichment(ctx context.Context, entityType string, entityID int64, provider, externalID string, fields map[string][]string) error
@@ -430,6 +429,21 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 	if err := s.repo.RecordJobRun(recCtx, run); err != nil {
 		s.log.Warn("record enrich job", "err", err)
 	}
+}
+
+// FetchAsset downloads an asset URL through the named provider's SSRF-guarded asset
+// client (ADR-039) and returns the raw bytes for the caller to normalize+store. It is
+// the seam the studio-logo cache uses (HOLODEX-130, ADR-057): the resolved `logo`
+// field's URL is fetched under the winning provider's own host allowlist — the same
+// perimeter (host allowlist, https-for-cross-host, redirect refusal, 16 MiB / 15 s
+// caps) that person portraits pass. An unknown/disabled provider is an error, never a
+// dialed URL; the URL host must still be on that provider's allowlist or Fetch refuses.
+func (s *Service) FetchAsset(ctx context.Context, provider, rawURL string) ([]byte, error) {
+	src, ok := s.store.Current().ByName(provider)
+	if !ok {
+		return nil, fmt.Errorf("unknown provider %q", provider)
+	}
+	return s.newAssetGet(src).Fetch(ctx, rawURL)
 }
 
 // Clear removes a provider's contribution for an entity (F22.7b).

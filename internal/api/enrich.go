@@ -288,6 +288,9 @@ func (h *Handlers) enrichStudioApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "enrichment failed")
 		return
 	}
+	// A provider's logo may now win the resolved `logo` field → sync the self-hosted
+	// logo cache (HOLODEX-130, ADR-057). Best-effort; never fails the enrich.
+	h.relinkStudioLogo(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{"enriched": fields})
 }
 
@@ -306,6 +309,8 @@ func (h *Handlers) enrichStudioClear(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "clear studio enrichment", err)
 		return
 	}
+	// Clearing a provider can drop the winning logo → sync the cache (HOLODEX-130).
+	h.relinkStudioLogo(r.Context(), id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
