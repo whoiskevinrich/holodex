@@ -199,6 +199,70 @@ var KnownFields = []FieldDef{
 	},
 }
 
+// Render modes (the FieldDef.Display vocabulary). "" is inline text; the rest are
+// explicit. `chips` (F39) is a read-only pill list used by auto-registered
+// multi-valued non-canonical fields. A provider hint (ADR-056) may only *suggest*
+// one of these for a non-canonical key; an unknown value normalizes to text.
+const (
+	DisplayText     = ""
+	DisplayLongText = "long_text"
+	DisplayURL      = "url"
+	DisplayImageURL = "image_url"
+	DisplayChips    = "chips"
+)
+
+// NormalizeDisplay coerces an untrusted render-mode string to the known vocabulary,
+// defaulting to inline text. Used on the provider-hint ingest path (F39).
+func NormalizeDisplay(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case DisplayLongText:
+		return DisplayLongText
+	case DisplayURL:
+		return DisplayURL
+	case DisplayImageURL:
+		return DisplayImageURL
+	case DisplayChips:
+		return DisplayChips
+	default:
+		return DisplayText
+	}
+}
+
+// Ordering groups for auto-registered non-canonical fields (F39, ADR-056). They
+// sort a field into a coarse band *after* the canonical fields; within a band a
+// numeric order then the key break ties. `extended` is the default (lowest).
+const (
+	GroupPrimary    = "primary"
+	GroupAttributes = "attributes"
+	GroupExtended   = "extended"
+)
+
+// NormalizeGroup coerces an untrusted ordering-group string to the known vocabulary,
+// defaulting to the lowest band (extended).
+func NormalizeGroup(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case GroupPrimary:
+		return GroupPrimary
+	case GroupAttributes:
+		return GroupAttributes
+	default:
+		return GroupExtended
+	}
+}
+
+// GroupRank ranks a (normalized) ordering group for sorting: primary < attributes
+// < extended. Unknown groups rank as extended.
+func GroupRank(group string) int {
+	switch group {
+	case GroupPrimary:
+		return 0
+	case GroupAttributes:
+		return 1
+	default:
+		return 2
+	}
+}
+
 // index is built once at init time for O(1) lookup.
 var index map[string]FieldDef
 
@@ -207,6 +271,14 @@ func init() {
 	for _, f := range KnownFields {
 		index[f.Canonical] = f
 	}
+}
+
+// IsKnown reports whether a canonical key is registered (case-insensitive). A key
+// that is not known is "non-canonical" — the only kind a provider hint may govern
+// and the only kind F39 auto-registration surfaces (ADR-056).
+func IsKnown(canonical string) bool {
+	_, ok := index[strings.ToLower(strings.TrimSpace(canonical))]
+	return ok
 }
 
 // Lookup returns the FieldDef for a canonical key (case-insensitive). If the key

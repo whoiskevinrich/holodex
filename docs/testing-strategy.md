@@ -466,6 +466,48 @@ land with the implementation issues and are enumerated there:
 - Note the studio "**name fallback when the id is absent**" (above) is the **owner-decided/custom** studio
   value path (human intent), not a provider-supplied identity — the invariant leaves it intact.
 
+**Provider render hints + non-canonical field auto-registration (F39, HOLODEX-128, ADR-056)** — a provider
+advertises per-field render hints in `/describe.field_hints`; Holodex persists them and **auto-registers**
+any stored **non-canonical** shadow field as a **display-only** row on video/person/studio, with zero
+per-operator mapping config. Fully CI-testable, **no network** (in-process fake advertising hints). Cardinal
+invariants: **the four-tier ladder** (operator mapping > code registry > provider hint > title-case; a hint
+never shadows a canonical or `_`-key), **presence-driven** (no value → no row), **display-only** (no
+decision/curation coupling), **`image_url` allowlist-gated**, and **backward-compat** (no hints/values →
+byte-identical to pre-F39). Maps to the [F39 QA checklist](design/provider-render-hints-qa-checklist.md).
+- **Contract decode (`internal/enrich`)**: `Manifest.FieldHints` parses a `field_hints` map; a manifest with
+  **no** `field_hints` decodes unchanged; hints are sanitized/validated on ingest — over-long `label` capped
+  and control-chars stripped, unknown `render`→`text`, unknown `group`→`extended`; a hint on a canonical key
+  or a `_`-prefixed key is dropped. *(QA 2.1)*
+- **Ladder precedence (pure)**: a small overlay resolves `(label,render,order)` for a key top-down (mapping ▸
+  registry ▸ persisted hint ▸ title-case); a provider hint governs **only** a key the code registry does not
+  define; canonical keys ignore hints. *(QA 2.2)*
+- **Persistence (`provider_field_hints`, repo)**: reading `/describe` in an owner action replaces that
+  provider's rows in one write txn (delete-where-provider + insert) under `writeMu`; the read path resolves
+  hints from the table with **no** provider call (migration `00NN` up/down applies cleanly). *(QA 2.3)*
+- **Auto-registration predicate + ordering (rides `ResolveFields`, all 3 entities)**: a shadow key is
+  surfaced iff present **and** non-`_` **and** non-canonical **and** not already mapped/synthesized; an
+  unmapped canonical key and a `_studio_external_ids` row are **not** surfaced; the presence gate drops
+  valueless keys; auto-registered fields sort after canonical ones by (group, order, key). Extends the
+  ADR-052 non-video-baseline unit to prove the append works for video, person, and studio with the resolver
+  core unchanged. *(QA 2.4, 2.5, 2.6, 2.7)*
+- **`mapping.Field.Display` propagation**: `ResolveFields` sets `Display = f.Display` if non-empty else
+  `registry.Lookup(...).Display`; empty `Display` reproduces today's output (regression guard). *(QA 2.9)*
+- **Security — `image_url` gate + display-only**: a hinted `image_url` value on an allowlisted host
+  (ADR-039 `asset_hosts` / `base_url`) resolves as an image; a non-allowlisted host resolves as `text` (the
+  field is marked non-image), so a provider cannot make the browser beacon an arbitrary host; `url` non-http
+  → text; an auto-registered field carries **no** `Decision`/`Candidates`/curation `Items`, and the
+  decision/curation endpoints reject its (unmapped) canonical key. *(QA 2.8, 2.10)*
+- **Backward-compat golden (cardinal)**: a provider with no `field_hints` and an entity with no non-canonical
+  values → resolved output **byte-identical** to pre-F39 (snapshot equality). *(QA 2.11)*
+- **Frontend** (Vitest + a11y): a read-only `ChipValueList` renders one `border-rule` pill per value (no
+  ✕/＋); the auto-registered read-only branch switches on `display` (text/long_text/chips/url/image_url) and
+  shows a single `ProvenanceBadge`, **no** owner controls for owner or visitor; the "Additional details"
+  group + divider render only when ≥1 field is present; tokens-only, QA'd across **all 3 skins** (token-guard
+  clean; badge-vs-chip collision eyeballed per skin). *(QA 2.12, §3–§4)*
+- **Promotion path (live QA)**: adding a `metadata-mappings.yaml` entry for an auto-registered key +
+  reload-config moves it into the curatable set with source chips — the provider hint no longer governs it
+  (frontend-observable; no new Go test beyond the ladder unit). *(QA 3.6)*
+
 ---
 
 ## 10. Example Test Cases (concrete)

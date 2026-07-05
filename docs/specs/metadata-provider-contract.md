@@ -138,6 +138,7 @@ provider loudly.
 | `fields` | string[] | yes | The canonical **text** field keys you can supply (see [§4.2](#42-canonical-fields)). **Do not list `photo` here** — a portrait is an *asset*, not a field; advertise it in `asset_kinds` |
 | `asset_kinds` | string[] | optional | The binary asset kinds you can supply (see [§4.3](#43-assets)). v1 person kinds: `"photo"`, `"banner"`, `"poster"`. Omit if you supply no assets. **Backward compat:** a provider may instead still list `photo` in `fields` during the deprecation window — Holodex treats that as `asset_kinds: ["photo"]` — but new providers SHOULD use `asset_kinds` |
 | `credits` | boolean | optional | `true` when a `video`/`media` enrich response can include the structured **`people`** array (per-cast/crew person references + headshots — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit/`false` for flat `actors`/`director` text only. Additive — does not change the `person` entity contract |
+| `field_hints` | object | optional | Per-field presentation hints (label / render mode / order) for **non-canonical** advertised keys, so they render first-class with **no** per-operator config — see [§4.7](#47-field-render-hints-describefield_hints). Keyed by field key; omit entirely if you have none. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -521,6 +522,65 @@ resolves by name, exactly as before.
 you only lose cross-spelling de-dup until the next enrich. Treat your upstream ids as untrusted
 like everything else (S4); this field triggers **no** new fetch or host access.
 
+### 4.7 Field render hints (`/describe.field_hints`)
+
+> **Status: additive extension** ([ADR-056](../architecture/ADR-056-provider-field-render-hints.md), Holodex
+> F39). **Backward compatible and opt-in:** it is an optional key on the `/describe` manifest; a provider that
+> omits it stays fully conformant and renders exactly as before. **No protocol bump** — it rides the
+> [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule, so an older Holodex ignores it.
+
+By default a **non-canonical** field key (one outside the recommended vocabulary in [§4.2](#42-canonical-fields))
+renders with a **title-cased fallback label** derived from the key, as plain inline text, ordered after the
+canonical fields ([§4.2](#42-canonical-fields), "New keys are allowed but coordinate them"). `field_hints` lets
+you tell Holodex how to present those keys **without** asking each operator to hand-author a mapping. Add it
+alongside `fields` in `/describe`:
+
+```json
+{
+  "provider": "acme",
+  "protocol_version": 1,
+  "entity_types": ["person"],
+  "fields": ["bio", "birthdate", "gender", "trivia", "credited_as", "home_page"],
+  "field_hints": {
+    "gender":      { "label": "Gender",           "render": "text",      "group": "attributes", "order": 10 },
+    "credited_as": { "label": "Also credited as", "render": "chips",     "group": "attributes", "order": 20 },
+    "trivia":      { "label": "Trivia",           "render": "long_text", "group": "extended" },
+    "home_page":   { "label": "Home page",        "render": "url",       "group": "extended" }
+  }
+}
+```
+
+`field_hints` is an object **keyed by field key**. Each hint object has these optional keys; **Holodex ignores
+any other key** (forward-compat):
+
+| Key | Type | Meaning | Absent / invalid → |
+|---|---|---|---|
+| `label` | string | Display label | title-cased key. Sanitized (control chars stripped) and capped (~64 chars) |
+| `render` | string | Render mode: `text` \| `long_text` \| `chips` \| `url` \| `image_url` | `text`. An unknown mode falls back to `text` |
+| `group` | string | Ordering band: `primary` \| `attributes` \| `extended` | `extended` (lowest). Fields sort by group, then `order`, then key — always **after** canonical fields |
+| `order` | integer | Secondary sort within a group | `0` |
+
+Rules:
+
+- **Non-canonical keys only.** A hint on a **canonical** key (`bio`, `poster_url`, …) is **ignored** — Holodex's
+  own registry owns the canonical vocabulary's label/render, and an **operator** mapping overrides everything.
+  You cannot relabel a canonical field.
+- **Presence-driven.** A hinted field renders **only when your `/enrich` actually returns a value for it** for
+  that entity. Advertising a hint for a key you never populate shows nothing (no empty rows).
+- **Advisory + hardened.** Holodex sanitizes `label`, validates `render`/`group` against the enums above, and
+  treats the whole block as untrusted input (S4). Omit `field_hints` and nothing changes.
+- **`_`-prefixed keys never apply.** Reserved sidecar keys ([§4.2](#42-canonical-fields)) are never displayed,
+  so a hint for one is inert.
+- **`image_url` needs an allowlisted host.** If you hint `render: "image_url"`, the field's **value** must be
+  an image URL on a host the operator allowlisted (`asset_hosts`, [§10](#10-deliverable--operator-wiring)) — the
+  same trust gate as `poster_url`/`logo`. A value on a non-allowlisted host renders as **text**, not an image.
+  Same posture for `url` (`https`/`http` only). Tell operators which host(s) to allowlist in your provider docs.
+
+**How Holodex consumes it.** Holodex persists your advertised hints when it reads `/describe`, then renders any
+stored non-canonical field first-class with the hinted label/mode/order — **with zero per-operator mapping
+config**. An operator who wants to curate or re-source such a field can still add a `metadata-mappings.yaml`
+entry, which overrides your hint.
+
 ---
 
 ## 5. Non-functional requirements
@@ -811,9 +871,11 @@ truth if a clarification is needed:
 
 - **`confidence` semantics** for `/resolve` — Holodex does not threshold on it in v1, so any
   monotonic 0–1 value is acceptable; confirm if a specific scheme is ever required.
-- **New canonical field keys** ([§4.2](#42-canonical-fields)) — any key outside the
-  recommended person set needs a Holodex label + precedence entry to render/order well;
-  propose the key rather than inventing display-only keys.
+- **New canonical field keys** ([§4.2](#42-canonical-fields)) — a key outside the recommended set that
+  should become part of the shared **canonical** vocabulary (registered label + render, cross-provider
+  ordering) still needs a maintainer to add a registry entry; propose it. For a **provider-specific** extra
+  attribute you just want rendered well, prefer `field_hints` ([§4.7](#47-field-render-hints-describefield_hints),
+  ADR-056) — it needs no maintainer or operator config.
 - **`/healthz` upstream signal** ([§2.1](#21-get-healthz--liveness--readiness)) — whether it
   should reflect upstream reachability or stay a pure container-liveness check.
 - **Bind-address env var name** ([§7](#7-configuration)) — pick a convention (`HOST` vs

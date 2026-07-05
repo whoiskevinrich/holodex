@@ -119,7 +119,7 @@ func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) []
 	}
 	fields := studioFields(h.studioProviders(rows))
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
-	return recordizeResolved(resolved)
+	return h.appendAutoRegistered(r.Context(), rows, recordizeResolved(resolved))
 }
 
 // listStudios handles GET /studios (F38): name-sorted (or count-sorted) studios with

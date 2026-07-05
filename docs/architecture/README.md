@@ -58,6 +58,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [053](ADR-053-studio-entity-and-resolved-link-derivation.md) | **Studio entity** — `studios` + `video_studios` join + `studios_fts` (migration 0017); `video_studios` **derived from the resolved `studio` field** (re-linked on scan/enrich/decision/curation, prune-on-empty), not raw extraction; `studioBaseline`; identity ops deferred | Proposed (realizes ADR-051 §9 fast-follow ③; extends ADR-052/017/013; relates ADR-036; spec F38) |
 | [054](ADR-054-studio-external-id-dedup.md) | **Studio external-id de-dup** — `studio_external_ids(external_id PK, studio_id FK)` join (migration 0018); capture TMDB `production_companies[].id` via a self-describing **internal sidecar** enrichment field (`_`-prefix, never displayed/resolved); thread a name→external_id side-map into an **external-id-first** `resolveOrCreateStudio` so same-company spellings converge (refines ADR-053 RD1) | Proposed (extends ADR-053; relates ADR-033/036/047; spec F38 P2-5; HOLODEX-122) |
 | [055](ADR-055-enrichment-unique-key-invariant.md) | **Universal enrichment unique-key invariant** — every source MUST supply a namespaced id `<namespace>:<id>` and it is the **sole identity/de-dup key** for the entity (no name fallback); the namespace is a **shared identity space** so providers converge cross-provider; generalizes ADR-054 to all canonical entities (studio ✓, person → HOLODEX-125, video enrichment, future tags) | Proposed (generalizes ADR-054; extends ADR-033 contract; relates ADR-036/047/051; HOLODEX-123; impl HOLODEX-124/125) |
+| [056](ADR-056-provider-field-render-hints.md) | **Provider field render hints + auto-registration** — additive `/describe.field_hints` map (label/render/group/order) for **non-canonical** keys, no protocol bump; a **four-tier ladder** (operator mapping > code registry > provider hint > title-case) keeps operator/registry authority above the provider; **presence-driven, display-only** auto-registration surfaces stored non-canonical shadow fields on video/person/studio; hints persisted (`provider_field_hints`); `image_url` gated by the ADR-039 asset-host allowlist | Proposed (extends ADR-033/013/052/039; relates ADR-051/055; spec F39; HOLODEX-128) |
 
 > **Reserved:** ADR-029 — live activity transport (Server-Sent Events) for F21.8 (P1), to be drafted when SSE is scheduled.
 
@@ -72,6 +73,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [Sticky sort + Random sort](../specs/sort-persistence.md) — per-page localStorage sort + seeded Random (ADR-045)
 - [Refresh Metadata (F31)](../specs/metadata-refresh.md) — per-item forced re-extract + re-enrich (ADR-047)
 - [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) — standing per-item, per-field decision over precedence; file-first default (ADR-051)
+- [Provider render hints (F39)](../specs/provider-render-hints.md) — `/describe.field_hints` + presence-driven, display-only auto-registration of non-canonical fields (ADR-056)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing

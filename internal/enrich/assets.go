@@ -71,6 +71,34 @@ func newAssetClient(src Source) *AssetClient {
 	}
 }
 
+// checkHost enforces the asset URL host policy (ADR-039 §3): scheme http/https, host
+// on {base_url host} ∪ asset_hosts, and https for any non-base (public-CDN) host. It
+// is the single source of that policy — Fetch and assetHostAllowed both call it, so
+// the download gate and the render gate can never drift.
+func (c *AssetClient) checkHost(u *url.URL) error {
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("asset url scheme %q not allowed", u.Scheme)
+	}
+	if _, ok := c.allowedHosts[u.Host]; !ok {
+		return fmt.Errorf("asset host %q not on the provider allowlist", u.Host)
+	}
+	if u.Host != c.baseHost && u.Scheme != "https" {
+		return fmt.Errorf("asset host %q requires https", u.Host)
+	}
+	return nil
+}
+
+// assetHostAllowed reports whether rawURL passes checkHost WITHOUT fetching. It is the
+// render-time gate for a provider-hinted image_url value (F39, ADR-056/ADR-039): a
+// value that would be refused as a download must not be emitted as an <img> src either.
+func assetHostAllowed(src Source, rawURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return newAssetClient(src).checkHost(u) == nil
+}
+
 // Fetch downloads an asset URL through the per-source SSRF guard and returns the
 // raw bytes for the caller to normalize. The host must be on the allowlist; any
 // host other than the provider's own base host additionally requires https.
@@ -79,15 +107,8 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("parse asset url: %w", err)
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("asset url scheme %q not allowed", u.Scheme)
-	}
-	if _, ok := c.allowedHosts[u.Host]; !ok {
-		return nil, fmt.Errorf("asset host %q not on the provider allowlist", u.Host)
-	}
-	// Non-base hosts are public-internet CDNs; require https to prevent MitM (ADR-039 §3).
-	if u.Host != c.baseHost && u.Scheme != "https" {
-		return nil, fmt.Errorf("asset host %q requires https", u.Host)
+	if err := c.checkHost(u); err != nil {
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {

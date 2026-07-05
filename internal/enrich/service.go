@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -35,6 +37,13 @@ type EnrichRepo interface {
 	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
 	// effort — a recording failure never fails the enrichment.
 	RecordJobRun(ctx context.Context, run model.JobRun) error
+	// ReplaceProviderFieldHints persists a provider's advertised non-canonical render
+	// hints (F39, ADR-056), refreshed whenever /describe is read. Best effort — a
+	// persistence failure never fails the provider action.
+	ReplaceProviderFieldHints(ctx context.Context, provider string, hints []repo.ProviderFieldHint) error
+	// ProviderFieldHints reads every stored hint, keyed by provider then field key —
+	// the source for the Service's in-memory cache the read path consults (F39).
+	ProviderFieldHints(ctx context.Context) (map[string]map[string]repo.ProviderFieldHint, error)
 }
 
 // ImageSink stores a downloaded, normalized provider asset as a person image (F25,
@@ -76,6 +85,10 @@ type Service struct {
 	newClient   func(Source) ProviderClient
 	images      ImageSink // F25 asset download; nil = disabled
 	newAssetGet func(Source) assetFetcher
+	// fieldHints caches the persisted provider render hints (F39, ADR-056) behind an
+	// atomic pointer — lazily loaded and refreshed on /describe, so the visitor read
+	// path never queries the table (mirrors the mapping/registry store idiom).
+	fieldHints atomic.Pointer[map[string]map[string]repo.ProviderFieldHint]
 }
 
 // assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
@@ -112,6 +125,19 @@ func NewServiceWithClient(store *Store, r EnrichRepo, log *slog.Logger, newClien
 // Store exposes the provider registry store so the reload endpoint can swap it
 // atomically alongside the mapping config (F22.2d).
 func (s *Service) Store() *Store { return s.store }
+
+// ImageURLAllowed reports whether a provider-hinted image_url value may render as an
+// <img> — i.e. its host is on that provider's asset-host allowlist (base_url host or
+// an operator asset_hosts entry, ADR-039). Used by F39 auto-registration to gate an
+// image_url render mode; a disallowed value falls back to text. An unknown/disabled
+// provider is not allowed.
+func (s *Service) ImageURLAllowed(provider, rawURL string) bool {
+	src, ok := s.store.Current().ByName(provider)
+	if !ok {
+		return false
+	}
+	return assetHostAllowed(src, rawURL)
+}
 
 // SourceInfo is the registry view the SPA needs to offer enrich actions (no
 // base_url or secrets — F22.9d).
@@ -167,7 +193,56 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	if err := verifyProtocol(m); err != nil {
 		return nil, err
 	}
+	s.persistFieldHints(ctx, provider, m)
 	return c, nil
+}
+
+// FieldHints returns the cached provider render-hint map (F39, ADR-056), keyed by
+// provider then field key. It is lazily loaded from the store on first use and
+// refreshed whenever /describe is persisted, so the visitor read path never queries
+// the table. Nil-safe for callers; the map is treated as immutable.
+func (s *Service) FieldHints(ctx context.Context) map[string]map[string]repo.ProviderFieldHint {
+	if p := s.fieldHints.Load(); p != nil {
+		return *p
+	}
+	return s.reloadFieldHints(ctx)
+}
+
+// reloadFieldHints reads the hint table and swaps it into the cache atomically. A
+// read error logs and caches an empty map (auto-registration then falls back to the
+// title-case floor) rather than failing the page.
+func (s *Service) reloadFieldHints(ctx context.Context) map[string]map[string]repo.ProviderFieldHint {
+	m, err := s.repo.ProviderFieldHints(ctx)
+	if err != nil {
+		s.log.Warn("load provider field hints", "err", err)
+		m = map[string]map[string]repo.ProviderFieldHint{}
+	}
+	s.fieldHints.Store(&m)
+	return m
+}
+
+// persistFieldHints refreshes the stored non-canonical render hints for a provider
+// from its /describe manifest (F39, ADR-056). /describe is read on every owner
+// resolve/enrich, so the write is skipped when the provider's hints are unchanged
+// from the cache — avoiding writeMu contention on a no-op. Best effort: a failure
+// logs and is swallowed so it never blocks the owner's action.
+func (s *Service) persistFieldHints(ctx context.Context, provider string, m Manifest) {
+	sanitized := SanitizeFieldHints(m.FieldHints)
+	desired := make(map[string]repo.ProviderFieldHint, len(sanitized))
+	hints := make([]repo.ProviderFieldHint, 0, len(sanitized))
+	for key, h := range sanitized {
+		ph := repo.ProviderFieldHint{FieldKey: key, Label: h.Label, Render: h.Render, Group: h.Group, Order: h.Order}
+		desired[key] = ph
+		hints = append(hints, ph)
+	}
+	if cur := s.fieldHints.Load(); cur != nil && maps.Equal((*cur)[provider], desired) {
+		return // unchanged since the last /describe — no write needed
+	}
+	if err := s.repo.ReplaceProviderFieldHints(ctx, provider, hints); err != nil {
+		s.log.Warn("persist provider field hints", "provider", provider, "err", err)
+		return
+	}
+	s.reloadFieldHints(ctx) // reflect the new state in the cache
 }
 
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
