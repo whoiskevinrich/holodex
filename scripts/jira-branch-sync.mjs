@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Jira branch sync (ADR-056) — transition the single issue named by a PR's branch:
+// Jira branch sync (ADR-058) — transition the single issue named by a PR's branch:
 //   - PR opened  → In Review
 //   - PR merged  → Done
 //

@@ -1,4 +1,4 @@
-// Shared, dependency-free helpers for CI-side Jira status sync (ADR-056).
+// Shared, dependency-free helpers for CI-side Jira status sync (ADR-058).
 //
 // Two entry points build on this:
 //   - jira-branch-sync.mjs  → In Review (PR opened) / Done (PR merged), keyed off
@@ -15,7 +15,7 @@
 //
 // NOTE on baseUrl: it MUST be the Atlassian *gateway* host
 // `https://api.atlassian.com/ex/jira/<cloudId>` — a scoped API token 401s against
-// the `<site>.atlassian.net` URL (ADR-056 trap #2).
+// the `<site>.atlassian.net` URL (ADR-058 trap #2).
 
 export function makeLog(label = "jira-sync") {
   return {

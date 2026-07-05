@@ -1,4 +1,4 @@
-# ADR-056: Jira issue transitions via REST API (retire the Automation rules)
+# ADR-058: Jira issue transitions via REST API (retire the Automation rules)
 
 **Status**: Proposed
 **Date**: 2026-07-04

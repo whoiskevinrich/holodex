@@ -128,12 +128,12 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   the key anywhere in the branch name, so a `worktree-`/other prefix still links.
 - **Fire `In Progress` at that same start-of-work step (agent default).** Immediately after
   the rename, transition the issue to **In Progress** via the Jira MCP `transitionJiraIssue`.
-  Per ADR-056, `In Progress` is the one transition with no server-side event, so the agent
+  Per ADR-058, `In Progress` is the one transition with no server-side event, so the agent
   owns it (CI owns In Review/Done/Released) — it's a REST call, not a metered Automation run.
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
-- Transitions run via **direct Jira REST API calls** (ADR-056), not Jira Automation (which
+- Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
   meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
   **In Review** (PR open), **Done** (merge), and **Released** (`ghcr` deploy) are fired by CI
   (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart

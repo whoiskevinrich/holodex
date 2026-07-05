@@ -1,4 +1,4 @@
-# Jira sync (ADR-056) — transition the issue named by a PR's branch as the PR moves:
+# Jira sync (ADR-058) — transition the issue named by a PR's branch as the PR moves:
 #   opened → In Review, merged → Done. Replaces the old Jira Automation rules 2 & 3
 # (which metered the shared 100-run/month Free quota); the REST API is uncounted.
 #

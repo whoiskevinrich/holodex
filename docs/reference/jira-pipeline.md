@@ -2,7 +2,7 @@
 
 How Holodex work is tracked in Jira and kept in sync with the GitHub pipeline. Status
 **transitions** are driven by **direct Jira REST API calls** from CI and the agent
-([ADR-056](../architecture/ADR-056-jira-transitions-via-rest-api.md)); the **GitHub for
+([ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md)); the **GitHub for
 Jira** app is still installed, but only for the **development panel** (branch/commit/PR/
 build/deployment links on each issue) — it no longer drives transitions.
 
@@ -82,7 +82,7 @@ Both the GitHub-for-Jira dev panel *and* the CI transitions key off the issue ke
 ## CI transitions (REST API)
 
 The transitions are direct `POST /rest/api/3/issue/{key}/transitions` calls against the
-**gateway** base URL. Reference: [ADR-056](../architecture/ADR-056-jira-transitions-via-rest-api.md);
+**gateway** base URL. Reference: [ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md);
 scripts in [`scripts/`](../../scripts).
 
 | Transition | Trigger | Fired by | Key source |

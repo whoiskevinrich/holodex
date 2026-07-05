@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Jira release sync (ADR-056) — on the `ghcr` deploy of a `v*` tag, move every
+// Jira release sync (ADR-058) — on the `ghcr` deploy of a `v*` tag, move every
 // HOLODEX issue that is code-complete but not yet shipped to "Released".
 //
 // "What shipped" is read from JIRA STATE, not the diff: Holodex commit subjects are

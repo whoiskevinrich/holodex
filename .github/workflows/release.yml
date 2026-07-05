@@ -78,7 +78,7 @@ jobs:
 
       # This job IS the `ghcr` deployment (see environment above), so it's the point
       # at which the tag has shipped. Move every code-complete HOLODEX issue
-      # (status = Done) to Released (ADR-056, replaces the old Automation rule 5).
+      # (status = Done) to Released (ADR-058, replaces the old Automation rule 5).
       # Soft-fails: a Jira hiccup logs a warning and never red-builds a shipped release.
       - name: Set up Node
         uses: actions/setup-node@v6
