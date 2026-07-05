@@ -206,7 +206,10 @@ func TestStudioLogo_BlankPinClears(t *testing.T) {
 	if _, err := r.GetStudioLogo(context.Background(), sid); err == nil {
 		t.Fatalf("logo cache should be cleared after blank-pin")
 	}
-	resp, _ := http.Get(srv.URL + "/api/v1/studios/" + itoa(sid) + "/logo")
+	resp, err := http.Get(srv.URL + "/api/v1/studios/" + itoa(sid) + "/logo")
+	if err != nil {
+		t.Fatalf("get logo: %v", err)
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("logo code after blank-pin = %d, want 404", resp.StatusCode)
