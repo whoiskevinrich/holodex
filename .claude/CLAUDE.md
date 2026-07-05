@@ -119,18 +119,25 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 **only when the issue key is present**. So:
 
 - **Name every branch/worktree with its key:** `HOLODEX-123-short-slug`. This drives the
-  Jira development panel and all automation; without it nothing links.
+  Jira development panel and the CI transitions; without it nothing links.
 - **Auto-rename on start (agent default — don't wait to be asked).** When work begins on a
   HOLODEX issue inside a worktree whose branch does **not** already carry the key (e.g. an
   auto-generated `claude/<slug>`), rename it to the key **as the first action**, before any
   commit: `git branch -m HOLODEX-123-short-slug`. The worktree directory name can stay as-is;
   only the branch name must carry the key. The substring is enough — GitHub-for-Jira detects
   the key anywhere in the branch name, so a `worktree-`/other prefix still links.
+- **Fire `In Progress` at that same start-of-work step (agent default).** Immediately after
+  the rename, transition the issue to **In Progress** via the Jira MCP `transitionJiraIssue`.
+  Per ADR-058, `In Progress` is the one transition with no server-side event, so the agent
+  owns it (CI owns In Review/Done/Released) — it's a REST call, not a metered Automation run.
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
-- Transitions run off Jira automation on dev events (branch → In Progress, PR open → In
-  Review, merge → Done, `ghcr` deploy → Released), not Smart Commits — so commits stay clean.
+- Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
+  meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
+  **In Review** (PR open), **Done** (merge), and **Released** (`ghcr` deploy) are fired by CI
+  (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
+  Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
 
 ## Secrets & publishing
 
