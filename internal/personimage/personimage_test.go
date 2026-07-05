@@ -2,6 +2,7 @@ package personimage
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -11,6 +12,23 @@ import (
 
 	"holodex/internal/model"
 )
+
+// webpBytes decodes a small, still WebP fixture. x/image/webp is decode-only (there
+// is no WebP encoder in the stdlib or x/image), so the fixture is a fixed, known-good
+// still image rather than one synthesized per test like jpegBytes/pngBytes. If this
+// ever fails to decode, the fixture — not the code under test — is wrong.
+func webpBytes(t *testing.T) []byte {
+	t.Helper()
+	// A real 16×16 still WebP (VP8), generated with `ffmpeg -f lavfi -i color=...
+	// -c:v libwebp`. Base64 so the raw RIFF bytes don't have to live in the source as
+	// an escaped blob.
+	const fixture = "UklGRjgAAABXRUJQVlA4ICwAAACQAQCdASoQABAAAgA0JaACdLoAA5gA/vmTb/+QH/+QH/+QH/8gP+IXeyAwAA=="
+	raw, err := base64.StdEncoding.DecodeString(fixture)
+	if err != nil {
+		t.Fatalf("decode webp fixture base64: %v", err)
+	}
+	return raw
+}
 
 // jpegBytes encodes a solid w×h JPEG with a fake "EXIF-ish" trailing marker so a
 // test can assert re-encoding drops anything that isn't pixels.
@@ -55,6 +73,40 @@ func TestNormalizeReencodesToJPEG(t *testing.T) {
 	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(out)); err != nil || format != "jpeg" {
 		t.Errorf("output format = %q err=%v, want jpeg", format, err)
+	}
+}
+
+func TestNormalizeAcceptsWebP(t *testing.T) {
+	// F41: a still WebP is decoded and re-encoded to JPEG like any other input, so a
+	// provider that serves WebP is no longer silently dropped at the decode step.
+	out, w, h, err := Normalize(webpBytes(t), 0)
+	if err != nil {
+		t.Fatalf("normalize webp: %v", err)
+	}
+	if w != 16 || h != 16 {
+		t.Errorf("dims = %dx%d, want 16x16", w, h)
+	}
+	if _, format, err := image.DecodeConfig(bytes.NewReader(out)); err != nil || format != "jpeg" {
+		t.Errorf("output format = %q err=%v, want jpeg", format, err)
+	}
+}
+
+func TestNormalizeRejectsUndecodableWebP(t *testing.T) {
+	// x/image/webp is still-image only, so an animated WebP (VP8X + ANIM/ANMF chunks)
+	// does not decode — F41's fail-safe: the asset errors out and is skipped by the
+	// caller, never stored, rather than crashing. A truncated WebP takes the same path.
+	animated, err := base64.StdEncoding.DecodeString(
+		"UklGRmQBAABXRUJQVlA4WAoAAAASAAAADwAADwAAQU5JTQYAAAD/////AABBTk1GSAAAAAAAAAAAAA8AAA8AAPoAAABWUDggMAAAANABAJ0BKhAAEAACADQloAJ0ugH4AAOwAP7w6Pf/ILlhdcjX/yA/5Af8gP/48gAAAEFOTUZIAAAAAAAAAAAADwAADwAA+gAAAFZQOCAwAAAA0AEAnQEqEAAQAAIANCWgAnS6AfgAA7AA/vDo9/8guWF1yNf/ID/kB/yA//jyAAAAQU5NRkgAAAAAAAAAAAAPAAAPAAD6AAAAVlA4IDAAAADQAQCdASoQABAAAgA0JaACdLoB+AADsAD+8Oj3/yC5YXXI1/8gP+QH/ID/+PIAAABBTk1GSAAAAAAAAAAAAA8AAA8AAPoAAABWUDggMAAAANABAJ0BKhAAEAACADQloAJ0ugH4AAOwAP7w6Pf/ILlhdcjX/yA/5Af8gP/48gAAAA==")
+	if err != nil {
+		t.Fatalf("decode animated webp fixture base64: %v", err)
+	}
+	for name, in := range map[string][]byte{
+		"animated":  animated,
+		"truncated": webpBytes(t)[:20],
+	} {
+		if _, _, _, err := Normalize(in, 0); err == nil {
+			t.Errorf("%s webp: expected a decode error, got nil (should be skipped, not stored)", name)
+		}
 	}
 }
 

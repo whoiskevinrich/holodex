@@ -26,11 +26,14 @@ import (
 	"path/filepath"
 	"strconv"
 
-	// Register the decoders Normalize sniffs for. webp is intentionally omitted:
-	// golang.org/x/image is not a project dependency, so accepted inputs are
-	// jpeg/png/gif — all re-encoded to jpeg on the way in.
+	// Register the decoders Normalize sniffs for — jpeg/png/gif from the stdlib, all
+	// re-encoded to jpeg on the way in. webp (F41) comes from golang.org/x/image/webp,
+	// which is decode-only and still-image only: an animated or otherwise unsupported
+	// webp fails to decode and its asset is skipped (fail-safe), never stored.
 	_ "image/gif"
 	_ "image/png"
+
+	_ "golang.org/x/image/webp"
 )
 
 // Hash is the content identity of a stored image (F34/ADR-050): the hex sha256 of
@@ -111,8 +114,9 @@ func Normalize(input []byte, maxOutDimension int) (out []byte, w, h int, err err
 
 // downscale shrinks img so its longest side is at most maxSide, preserving aspect
 // ratio, via nearest-neighbour sampling (stdlib-only; quality is adequate for small
-// portraits and avoids a golang.org/x/image dependency). Images already within
-// bounds are returned unchanged.
+// portraits, so it does not reach for golang.org/x/image/draw even though x/image is
+// now on the module graph for webp decoding). Images already within bounds are
+// returned unchanged.
 func downscale(img image.Image, maxSide int) image.Image {
 	b := img.Bounds()
 	sw, sh := b.Dx(), b.Dy()
