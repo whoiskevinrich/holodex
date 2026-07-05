@@ -75,3 +75,20 @@ jobs:
 
             📦 **Holodex:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
             📦 **TMDB provider:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex-provider-tmdb
+
+      # This job IS the `ghcr` deployment (see environment above), so it's the point
+      # at which the tag has shipped. Move every code-complete HOLODEX issue
+      # (status = Done) to Released (ADR-056, replaces the old Automation rule 5).
+      # Soft-fails: a Jira hiccup logs a warning and never red-builds a shipped release.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Sync Jira → Released
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: node scripts/jira-release-sync.mjs

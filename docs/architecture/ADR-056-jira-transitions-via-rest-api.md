@@ -88,14 +88,22 @@ The three CI transitions attach to workflows that **already run** at the right m
 
 **`Released` is a batch transition, not a single-issue one — this distinguishes it from
 the other three.** `In Review` and `Done` fire on one issue: the key parsed from the PR's
-own branch. `Released` fires on a **tag** (cut when a Release-Please PR merges, ADR-044)
-that spans **every** feature PR merged since the previous release — so it must transition
-the **whole set** of `HOLODEX-<n>` keys in that release range, discovered from the commit
-log between the previous tag and this one. This is exactly the shape of Bookshelf's
-`jira-release-sync.mjs` (transition all issues in the promoted version), so that script is
-the direct reference for this step. Note the Release-Please **release PR itself** carries
-no issue key, so the `Done`-on-merge trigger naturally **no-ops** on it (key-regex finds
-nothing) — the release-PR merge is claimed by `Released` via the tag, not by `Done`.
+own branch (`github.head_ref`). `Released` fires on a **tag** (cut when a Release-Please PR
+merges, ADR-044) that ships **every** feature PR merged since the previous release — a
+whole set of issues, not one.
+
+**Where the set comes from — Jira state, not the diff.** Bookshelf discovers the set by
+parsing issue keys out of its release notes, because Bookshelf puts keys in commit
+subjects. **Holodex deliberately does not** — subjects stay clean Conventional Commits so
+`release-please`/`git-cliff` changelogs read well (see `docs/reference/jira-pipeline.md`),
+so the changelog and commit range carry **no keys to parse**. Instead we use the invariant
+that the `Done`-on-merge trigger already moved every merged PR's issue to `Done`: a release
+cut from `main` therefore ships exactly the current **`project = HOLODEX AND status = Done`**
+set. `Released` reads that set via a JQL search and transitions each to `Released`. This is
+the same *behavior contract* as Bookshelf's `jira-release-sync.mjs` (batch, idempotent,
+soft-fail) with a Holodex-appropriate *source* (Jira query vs. release-note parsing). Note
+the Release-Please **release PR itself** carries no issue key, so the `Done`-on-merge
+trigger naturally **no-ops** on it — the release-PR merge is claimed by `Released`, not `Done`.
 
 ### 2. Mechanism (ported from Bookshelf's `scripts/lib/jira-sync.mjs`)
 
@@ -119,11 +127,12 @@ Load-bearing behaviors (all three preserved from Bookshelf):
   branch carries no `HOLODEX-<n>` key (an un-keyed branch simply doesn't transition).
 
 **Single-issue vs. batch.** `In Review` and `Done` run the three calls above against **one**
-key (from the PR branch). The **`Released`** entry point instead collects **all** distinct
-`HOLODEX-<n>` keys from the commit range `<previous-tag>..<this-tag>` and runs the
-transition for each — the same behavior as Bookshelf's `jira-release-sync.mjs`. Each
-per-issue transition stays idempotent and soft-fails independently, so one already-`Released`
-(or one transient failure) never blocks the rest of the batch.
+key (from the PR branch). The **`Released`** entry point instead runs a JQL search
+(`project = HOLODEX AND status = Done`) to collect the shipping set, then runs the
+transition for each — same batch/idempotent/soft-fail contract as Bookshelf's
+`jira-release-sync.mjs`, sourced from Jira state rather than the (keyless) commit range.
+Each per-issue transition stays idempotent and soft-fails independently, so one
+already-`Released` (or one transient failure) never blocks the rest of the batch.
 
 ### 3. Relationship to Bookshelf's status model — converge the mechanism, not the semantics
 

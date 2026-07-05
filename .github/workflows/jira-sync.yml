@@ -1,0 +1,43 @@
+# Jira sync (ADR-056) — transition the issue named by a PR's branch as the PR moves:
+#   opened → In Review, merged → Done. Replaces the old Jira Automation rules 2 & 3
+# (which metered the shared 100-run/month Free quota); the REST API is uncounted.
+#
+# Plain `pull_request` (never `pull_request_target`): secrets are withheld from fork
+# PRs, so a fork simply no-ops instead of leaking the token. The issue key comes from
+# the branch name (Holodex convention) and is matched by an anchored regex in the
+# script. Soft-fail: a Jira hiccup logs a warning and never fails the PR.
+name: Jira sync
+
+on:
+  pull_request:
+    types: [opened, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jira-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  transition:
+    # opened → In Review; a merged PR → Done. A PR closed without merging is ignored.
+    if: ${{ github.event.action == 'opened' || github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Transition Jira issue
+        env:
+          BRANCH_REF: ${{ github.head_ref }}
+          JIRA_TARGET_STATUS: ${{ github.event.action == 'opened' && 'In Review' || 'Done' }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: node scripts/jira-branch-sync.mjs
