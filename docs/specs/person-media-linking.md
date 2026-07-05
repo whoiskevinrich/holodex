@@ -379,8 +379,9 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    `video_people` resolved-derivation + `role` column (unset-capable) + `entity:` marker + orphan grace
    + the `RelinkVideoEntity` generalization + the **studio-writeback amendment to ADR-053** (RD11).
    Extends ADR-053; relates ADR-036/041/013/030/052/055. **Update F32's spec** to rebase onto it (pending).
-2. **`/design-handoff`** — the owner-view person link picker (states, a11y, 3-skin QA), person-page
-   role badge (P1-1), **and the studio picker (P0-10)** — same component.
+2. ✅ **`/design-handoff`** — [person-media-linking-handoff.md](../design/person-media-linking-handoff.md):
+   the owner-view person + studio link picker (combobox popover reusing `EnrichPicker`'s keyboard model;
+   states, a11y, 3-skin QA) + person-page role badge (P1-1).
 3. **`/testing-strategy`** — derivation matrix (scan/enrich/decision/curation × person-typed field ×
    link+role outcome, incl. **unset role**), **round-trip** (write→rescan→same set, person *and*
    studio), orphan grace + sweep + authored-identity guard (RD8/P0-9), **lossless-cutover loss-guard**
