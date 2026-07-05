@@ -193,12 +193,13 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 	return out, nil
 }
 
-// attachStudioLogos fills LogoURL on each studio from the stored `logo` enrichment
-// field in ONE batch query, leaving the shared namedCountQuery untouched and avoiding
-// an N-way per-studio resolve on the list (HOLODEX-126). This is the raw provider-
-// stored logo, NOT the resolved one — an owner who blank-pins the logo would still see
-// it here; the detail page stays authoritative. When several providers have stored a
-// logo for one studio, the lowest provider name wins (deterministic).
+// attachStudioLogos fills LogoVersion on each studio from the studio_logos cache in
+// ONE batch query (HOLODEX-130, ADR-056), leaving the shared namedCountQuery untouched
+// and avoiding an N-way per-studio lookup on the list. The API turns a non-zero
+// LogoVersion into the served LogoURL. There is exactly one logo row per studio
+// (UNIQUE(studio_id)), and the cache tracks the RESOLVED logo — so a blank-pinned logo
+// is absent here and the list matches the detail page (this supersedes the HOLODEX-126
+// raw-vs-resolved caveat, which existed only because the list read the shadow field).
 func (r *Repo) attachStudioLogos(ctx context.Context, studios []model.Studio) error {
 	if len(studios) == 0 {
 		return nil
@@ -207,55 +208,51 @@ func (r *Repo) attachStudioLogos(ctx context.Context, studios []model.Studio) er
 	for i, s := range studios {
 		ids[i] = s.ID
 	}
-	args := append([]any{model.EnrichEntityStudio, model.StudioLogoField}, toAnySlice(ids)...)
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT entity_id, value FROM entity_enrichment
-		WHERE entity_type = ? AND field_key = ? AND entity_id IN (`+placeholders(len(ids))+`)
-		ORDER BY entity_id, provider`, args...)
+		SELECT studio_id, id FROM studio_logos
+		WHERE studio_id IN (`+placeholders(len(ids))+`)`, toAnySlice(ids)...)
 	if err != nil {
 		return fmt.Errorf("studio logos: %w", err)
 	}
 	defer rows.Close()
-	logos := make(map[int64]string, len(ids))
+	versions := make(map[int64]int64, len(ids))
 	for rows.Next() {
-		var (
-			eid   int64
-			value string
-		)
-		if err := rows.Scan(&eid, &value); err != nil {
+		var studioID, logoID int64
+		if err := rows.Scan(&studioID, &logoID); err != nil {
 			return err
 		}
-		if _, seen := logos[eid]; seen {
-			continue // first provider (alphabetical) wins
-		}
-		// logo is single-valued; SplitN is defensive against a stored multi-value.
-		if v := strings.SplitN(value, enrichMultiSep, 2)[0]; strings.TrimSpace(v) != "" {
-			logos[eid] = v
-		}
+		versions[studioID] = logoID
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
 	for i := range studios {
-		studios[i].LogoURL = logos[studios[i].ID]
+		studios[i].LogoVersion = versions[studios[i].ID]
 	}
 	return nil
 }
 
-// GetStudio returns a studio by id with active-video count, or ErrNotFound.
+// GetStudio returns a studio by id with active-video count and its cached logo version
+// (0 when none), or ErrNotFound.
 func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
-	var s model.Studio
+	var (
+		s      model.Studio
+		logoID sql.NullInt64
+	)
 	err := r.db.QueryRowContext(ctx, `
 		SELECT s.id, s.name,
 		       (SELECT COUNT(*) FROM video_studios vs JOIN videos v ON v.id = vs.video_id
-		        WHERE vs.studio_id = s.id AND v.active = 1 AND v.deleted_at IS NULL)
-		FROM studios s WHERE s.id = ?`, id).Scan(&s.ID, &s.Name, &s.VideoCount)
+		        WHERE vs.studio_id = s.id AND v.active = 1 AND v.deleted_at IS NULL),
+		       sl.id
+		FROM studios s LEFT JOIN studio_logos sl ON sl.studio_id = s.id
+		WHERE s.id = ?`, id).Scan(&s.ID, &s.Name, &s.VideoCount, &logoID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	s.LogoVersion = logoID.Int64
 	return &s, nil
 }
 

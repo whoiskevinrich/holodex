@@ -91,6 +91,12 @@ type Handlers struct {
 	personImageMaxDim   int
 	defaultSkin         string
 
+	// Self-hosted studio logo (HOLODEX-130, ADR-056). studioLogoDir is the on-disk
+	// root; studioLogoMaxDim bounds the downscale. Zero studioLogoDir leaves the logo
+	// serve route returning 404 (the SPA renders the monogram) and disables the cache.
+	studioLogoDir    string
+	studioLogoMaxDim int
+
 	// Soft-delete + purge (F24, ADR-037). purger executes purge-now; deleteGrace
 	// drives the Trash view's purge_at. Both optional — nil purger disables only
 	// purge-now (soft-delete/restore/Trash still work).
@@ -145,6 +151,15 @@ func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defau
 	h.personImageMaxBytes = maxBytes
 	h.personImageMaxDim = maxDim
 	h.defaultSkin = defaultSkin
+}
+
+// SetStudioImages wires the self-hosted studio logo store (HOLODEX-130, ADR-056): the
+// on-disk root and the downscale bound. An empty dir leaves the logo serve route
+// returning 404 (the SPA renders the monogram) and disables the logo cache. Called
+// once at startup.
+func (h *Handlers) SetStudioImages(dir string, maxDim int) {
+	h.studioLogoDir = dir
+	h.studioLogoMaxDim = maxDim
 }
 
 // SetActivity wires the read-only activity surface (F21.1, ADR-028): the scanner
@@ -218,6 +233,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
+	// Self-hosted studio logo (HOLODEX-130, ADR-056): the on-disk normalized JPEG, or
+	// 404 (the SPA renders the monogram). Public read, like every other studio read.
+	r.Get("/studios/{id}/logo", h.serveStudioLogo)
 	r.Get("/people", h.listPeople)
 	r.Get("/people/{id}", h.getPerson)
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk

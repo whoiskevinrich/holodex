@@ -100,19 +100,26 @@ func (h *Handlers) studioProviders(rows []repo.EnrichmentRow) []string {
 // vocabulary. Mirrors personResolved; degraded reads log and resolve without the
 // failing layer.
 func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) []resolver.ResolvedField {
-	rows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityStudio, id)
+	return h.resolveStudio(r.Context(), id, s)
+}
+
+// resolveStudio is the ctx-based core of studioResolved, so it is callable off the
+// request path (RelinkStudioLogo, ADR-056). Degraded reads log and resolve without the
+// failing layer.
+func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) []resolver.ResolvedField {
+	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityStudio, id)
 	if err != nil {
 		h.log.Warn("enrichment for studio detail", "id", id, "err", err)
 		rows = nil
 	}
 	var cur resolver.Curation
-	if curRows, curErr := h.repo.CurationForEntity(r.Context(), model.EnrichEntityStudio, id); curErr != nil {
+	if curRows, curErr := h.repo.CurationForEntity(ctx, model.EnrichEntityStudio, id); curErr != nil {
 		h.log.Warn("curation for studio detail", "id", id, "err", curErr)
 	} else {
 		cur = curationFromRows(curRows)
 	}
 	var dec resolver.Decisions
-	if decRows, decErr := h.repo.DecisionsForEntity(r.Context(), model.EnrichEntityStudio, id); decErr != nil {
+	if decRows, decErr := h.repo.DecisionsForEntity(ctx, model.EnrichEntityStudio, id); decErr != nil {
 		h.log.Warn("decisions for studio detail", "id", id, "err", decErr)
 	} else {
 		dec = decisionsFromRows(decRows)
@@ -130,6 +137,9 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list studios", err)
 		return
 	}
+	for i := range studios {
+		setStudioLogoURL(&studios[i])
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
 }
 
@@ -145,6 +155,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.studioLookupError(w, err)
 		return
 	}
+	setStudioLogoURL(s)
 	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{StudioIDs: []int64{id}, Limit: 500})
 	if err != nil {
 		h.fail(w, "studio videos", err)

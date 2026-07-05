@@ -217,10 +217,10 @@ func studioByName(t *testing.T, r *repo.Repo, name string) model.Studio {
 	return model.Studio{}
 }
 
-// TestListStudios_AttachesLogo covers HOLODEX-126: the list attaches the stored `logo`
-// enrichment value; a studio with no logo row carries an empty LogoURL; and when two
-// providers store a logo, the lowest provider name wins deterministically.
-func TestListStudios_AttachesLogo(t *testing.T) {
+// TestListStudios_AttachesLogoVersion covers ADR-056 (superseding HOLODEX-126): the
+// list attaches the cached logo row id as LogoVersion (the API turns it into the served
+// URL); a studio with no cached logo carries LogoVersion 0, not another studio's logo.
+func TestListStudios_AttachesLogoVersion(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
@@ -234,22 +234,20 @@ func TestListStudios_AttachesLogo(t *testing.T) {
 	}
 
 	acmeID := studioByName(t, r, "Acme").ID
-	// Two providers store a logo for Acme; "atmdb" sorts before "ztmdb" and must win.
-	if err := r.UpsertEnrichment(ctx, model.EnrichEntityStudio, acmeID, "ztmdb", "ztmdb:9",
-		map[string][]string{"logo": {"https://cdn.example/z.png"}}); err != nil {
-		t.Fatalf("upsert z logo: %v", err)
-	}
-	if err := r.UpsertEnrichment(ctx, model.EnrichEntityStudio, acmeID, "atmdb", "atmdb:1",
-		map[string][]string{"logo": {"https://cdn.example/a.png"}}); err != nil {
-		t.Fatalf("upsert a logo: %v", err)
+	logoID, err := r.ReplaceStudioLogo(ctx, repo.StudioLogoInsert{
+		StudioID: acmeID, SourceURL: "https://cdn.example/a.jpg", Provider: "tmdb",
+		Width: 100, Height: 40, ByteSize: 999,
+	})
+	if err != nil {
+		t.Fatalf("replace logo: %v", err)
 	}
 
-	if got := studioByName(t, r, "Acme").LogoURL; got != "https://cdn.example/a.png" {
-		t.Fatalf("Acme logo = %q, want the lowest-provider logo", got)
+	if got := studioByName(t, r, "Acme").LogoVersion; got != logoID {
+		t.Fatalf("Acme LogoVersion = %d, want %d", got, logoID)
 	}
-	// Beta has no logo enrichment → empty, not the other studio's logo.
-	if got := studioByName(t, r, "Beta").LogoURL; got != "" {
-		t.Fatalf("Beta logo = %q, want empty", got)
+	// Beta has no cached logo → version 0.
+	if got := studioByName(t, r, "Beta").LogoVersion; got != 0 {
+		t.Fatalf("Beta LogoVersion = %d, want 0", got)
 	}
 }
 

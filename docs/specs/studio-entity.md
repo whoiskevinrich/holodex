@@ -74,9 +74,12 @@ until it rides the decision model as a real entity.
   schema headroom, not a UI for multiple studios per video.
 - **Studio writeback / sync state** — a studio has no file; `in_sync` is **omitted** and
   there is no write button (same rationale as F37).
-- **Studio photos/logo galleries beyond the enrichment logo asset** — the F25 person-image
-  pipeline (upload, suppressions, content hashes) is not generalized here; the logo is a
-  plain enrichment asset. *(Why: separate image-store work; nothing here forecloses it.)*
+- **Studio photos / logo galleries / owner-uploaded logos** — the *storage + serving* of the
+  single logo IS now hardened (self-hosted, normalized; [ADR-056](../architecture/ADR-056-self-hosted-studio-logo.md),
+  HOLODEX-130), but the rest of the F25 person-image pipeline (owner upload, delete-suppression,
+  galleries, content-hash dedup, promote/reorder) is **not** generalized to studios — a studio
+  has one logo, curated only via the existing provider/blank-pin decision. *(Why: a studio has
+  no upload UI and one image slot; cloning the multi-role subsystem would be mostly-dead surface.)*
 - **MCP parity** — `search_videos` keeps the mapped `{"studio": "Acme"}` filter; exposing
   studio entities over MCP rides the deferred MCP-parity item (F22.5f).
 - **Backfilling historical scan data** — links derive from current resolved values (see
@@ -230,7 +233,13 @@ until it rides the decision model as a real entity.
   name — is P2-5.)*
 - **P2-2 — Multi-studio UI** if the `studio` field is ever promoted to a merge field
   (schema already permits it, RD2).
-- **P2-3 — Studio logo in the image store** (F25 generalization) instead of a plain asset.
+- **P2-3 — Studio logo in the image store** (F25 generalization) — **realized** in
+  [ADR-056](../architecture/ADR-056-self-hosted-studio-logo.md)
+  ([HOLODEX-130](https://whoiskevinrich.atlassian.net/browse/HOLODEX-130)): the logo is now a
+  self-hosted, normalized cache **derived from the resolved `logo` field** (`studio_logos`,
+  migration 0019), fetched through the ADR-039 asset perimeter and served from
+  `/studios/{id}/logo` — not the hotlinked provider URL. The *minimal* generalization only:
+  one logo per studio, no upload/gallery/suppression (still out — see Non-Goals).
 - **P2-4 — MCP studio entities** (rides F22.5f).
 - **P2-5 — Studio external-id dedup** — **promoted to P1-3 above** and decided in
   [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md) ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122)).
