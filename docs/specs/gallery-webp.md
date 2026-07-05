@@ -1,10 +1,10 @@
-# Spec: WebP support for provider-sourced images (F41)
+# Spec: WebP support for provider-sourced images (F42)
 
 **Status**: Draft
 **Phase**: Phase 3 enrichment follow-up
 **Owner**: Project owner
 **Date**: 2026-07-05
-**Feature block**: **F41** — stop silently dropping **WebP** images returned by metadata providers.
+**Feature block**: **F42** — stop silently dropping **WebP** images returned by metadata providers.
 Register a WebP decoder so provider WebP assets pass the person-image normalization gauntlet and are
 stored (re-encoded to JPEG) like any other accepted format.
 
@@ -54,7 +54,7 @@ growing share of otherwise-valid imagery.
   is purely an accepted-input change.)*
 - **Animated WebP.** `golang.org/x/image/webp` is decode-only and does not support animation; animated
   WebP continues to be skipped. *(Why: out of scope; fail-safe covers it.)*
-- **WebP for local media / thumbnails.** F41 is scoped to the **provider person-image** ingest path.
+- **WebP for local media / thumbnails.** F42 is scoped to the **provider person-image** ingest path.
   The video thumbnail pipeline (ffmpeg/exiftool, ADR-009) is separate and unchanged. *(Why: different
   pipeline, different perimeter; not the reported gap.)*
 - **A new dependency beyond `golang.org/x/image`.** Exactly one well-maintained Go sub-repo module is
@@ -109,11 +109,11 @@ today. No crash, no partial write.
 ## Acceptance Criteria
 
 1. A provider asset that is a valid still WebP (within the 16 MiB cap) is stored as a JPEG person-image
-   for its role (headshot/banner/poster/gallery), where before F41 it was dropped.
+   for its role (headshot/banner/poster/gallery), where before F42 it was dropped.
 2. The stored file is JPEG with metadata stripped — byte-format identical to a JPEG-sourced image.
 3. An animated or corrupt WebP is skipped cleanly (warn logged, enrichment proceeds, no row written).
 4. The SSRF/asset-host allowlist, cross-host-redirect refusal, and byte caps behave identically to
-   pre-F41 (WebP adds no new fetch target or relaxed limit).
+   pre-F42 (WebP adds no new fetch target or relaxed limit).
 5. Non-WebP formats (JPEG/PNG/GIF) are unaffected — identical behavior to today.
 6. `/security-review` signs off on the diff (new accepted input format through the unchanged gauntlet).
 

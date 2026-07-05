@@ -27,7 +27,7 @@ import (
 	"strconv"
 
 	// Register the decoders Normalize sniffs for — jpeg/png/gif from the stdlib, all
-	// re-encoded to jpeg on the way in. webp (F41) comes from golang.org/x/image/webp,
+	// re-encoded to jpeg on the way in. webp (F42) comes from golang.org/x/image/webp,
 	// which is decode-only and still-image only: an animated or otherwise unsupported
 	// webp fails to decode and its asset is skipped (fail-safe), never stored.
 	_ "image/gif"

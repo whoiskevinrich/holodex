@@ -77,7 +77,7 @@ func TestNormalizeReencodesToJPEG(t *testing.T) {
 }
 
 func TestNormalizeAcceptsWebP(t *testing.T) {
-	// F41: a still WebP is decoded and re-encoded to JPEG like any other input, so a
+	// F42: a still WebP is decoded and re-encoded to JPEG like any other input, so a
 	// provider that serves WebP is no longer silently dropped at the decode step.
 	out, w, h, err := Normalize(webpBytes(t), 0)
 	if err != nil {

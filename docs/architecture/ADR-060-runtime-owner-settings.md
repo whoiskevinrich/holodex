@@ -1,9 +1,9 @@
-# ADR-059: Runtime owner-editable settings — DB-backed override over startup config, debuting with the person gallery cap
+# ADR-060: Runtime owner-editable settings — DB-backed override over startup config, debuting with the person gallery cap
 
 **Status**: Proposed
 **Date**: 2026-07-05
 **Deciders**: Project owner
-**Relates to**: [ADR-014](ADR-014-configuration-and-data-layout.md) (config strategy & precedence — this adds a layer *above* it), [ADR-043](ADR-043-gallery-cap-and-enrichment-suppression.md) (`PERSON_GALLERY_MAX` + `Repo.GalleryCapValue()` — the first value promoted), [ADR-030](ADR-030-access-control-gating-seam.md) (`requireOwner` gate — the write surface), [ADR-016](ADR-016-database-migrations.md) (migrations). Spec: [Runtime settings (F40)](../specs/runtime-settings.md) ([HOLODEX-140](https://whoiskevinrich.atlassian.net/browse/HOLODEX-140)). Follow-up: [HOLODEX-142](https://whoiskevinrich.atlassian.net/browse/HOLODEX-142) (sidecar per-enrich count, see §Consequences).
+**Relates to**: [ADR-014](ADR-014-configuration-and-data-layout.md) (config strategy & precedence — this adds a layer *above* it), [ADR-043](ADR-043-gallery-cap-and-enrichment-suppression.md) (`PERSON_GALLERY_MAX` + `Repo.GalleryCapValue()` — the first value promoted), [ADR-030](ADR-030-access-control-gating-seam.md) (`requireOwner` gate — the write surface), [ADR-016](ADR-016-database-migrations.md) (migrations). Spec: [Runtime settings (F41)](../specs/runtime-settings.md) ([HOLODEX-140](https://whoiskevinrich.atlassian.net/browse/HOLODEX-140)). Follow-up: [HOLODEX-142](https://whoiskevinrich.atlassian.net/browse/HOLODEX-142) (sidecar per-enrich count, see §Consequences).
 
 ---
 
@@ -194,7 +194,7 @@ arrive.
 - `/capabilities` already carries the value, so the propagation-to-SPA path is unchanged.
 
 **Harder / newer**
-- A new persisted surface the owner can change → a **spec (F40)** and, because it touches the owner
+- A new persisted surface the owner can change → a **spec (F41)** and, because it touches the owner
   gate, a **`/security-review`** on the implementation: registry allowlist enforced (no arbitrary-key
   writes), server-side bounds validation, `requireOwner` on both read and write, and value coercion
   (reject non-int, clamp to `[min,max]`). No new SSRF/asset surface.
@@ -224,4 +224,4 @@ arrive.
 6. [ ] SPA: `/owner/settings` tab (fourth), token-themed, QA all three skins; render controls from the registry.
 7. [ ] Tests: registry validation (reject unknown key, out-of-bounds, wrong type); repo round-trip (write → reload → effective); API owner-gating (401 unauth) + `/capabilities` reflects the override.
 8. [ ] `/security-review` on the implementation diff (gate, allowlist, validation).
-9. [ ] Update the ADR index (README) and the F40 spec; file the deferred sidecar-count follow-up issue.
+9. [ ] Update the ADR index (README) and the F41 spec; file the deferred sidecar-count follow-up issue.
