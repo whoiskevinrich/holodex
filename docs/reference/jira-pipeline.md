@@ -1,12 +1,14 @@
 # Jira ↔ GitHub Pipeline Reference
 
-How Holodex work is tracked in Jira and kept in sync with the GitHub pipeline via the
-**GitHub for Jira** app. This is the source of truth for the Jira project shape; the
-automation rules below are configured in the Jira UI (Project settings → Automation) and
-mirrored here so they're version-controlled.
+How Holodex work is tracked in Jira and kept in sync with the GitHub pipeline. Status
+**transitions** are driven by **direct Jira REST API calls** from CI and the agent
+([ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md)); the **GitHub for
+Jira** app is still installed, but only for the **development panel** (branch/commit/PR/
+build/deployment links on each issue) — it no longer drives transitions.
 
 - **Site:** `https://whoiskevinrich.atlassian.net`
 - **Project:** HOLODEX (team-managed / next-gen, software). Scope all work to this project.
+- **Gateway base URL:** `https://api.atlassian.com/ex/jira/e7c03552-8036-43fa-bb8b-b415de46f9f6`
 
 ---
 
@@ -47,157 +49,171 @@ To Do → In Progress → In Review → Done → Released
 | Status | Meaning | Set by |
 |---|---|---|
 | **To Do** | Backlog / triaged | manual |
-| **In Progress** | Branch created, work underway | automation (branch created) |
-| **In Review** | PR open | automation (PR opened) |
-| **Done** | Merged to `main` (code complete) | automation (PR merged) |
-| **Released** | Shipped in a tagged GHCR image | automation (`ghcr` deployment succeeded) |
+| **In Progress** | Branch created, work underway | **agent/session** (MCP `transitionJiraIssue` at branch-rename) |
+| **In Review** | PR open | **CI** — `jira-sync.yml` on `pull_request: opened` |
+| **Done** | Merged to `main` (code complete) | **CI** — `jira-sync.yml` on `pull_request` merged |
+| **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `ghcr` deploy (batch) |
 
 `Done ≠ Released`: a merge to `main` is code-complete, but the artifact ships only when
 `release.yml` builds the `v*` image and records the **`ghcr` GitHub Deployment** (ADR-034).
-That deployment is the signal that drives the **Released** transition.
+Because releases are batched behind a Release-Please PR (ADR-044), a real *"merged but not
+yet shipped"* window exists — that's exactly what the `Done`→`Released` split captures.
 
-The released-in-version dimension is tracked with **Jira Releases (`fixVersion`)** set to the
-`release-please` version (`v1.3.1`, …), giving a "what shipped in 1.3.1" report aligned with
-the GitHub Release notes.
+The released-in-version dimension can additionally be tracked with **Jira Releases
+(`fixVersion`)** set to the `release-please` version, but the GitHub Releases (git-cliff
+changelog per `v*` tag) already provide the authoritative "what shipped in v1.3.1" report.
 
 ---
 
 ## Branch ↔ Jira linkage (prerequisite)
 
-The GitHub for Jira app links branches, commits, PRs, builds, and deployments to an issue
-**only when its key is present**. Holodex carries the key in the **branch name**:
+Both the GitHub-for-Jira dev panel *and* the CI transitions key off the issue key in the
+**branch name** — Holodex carries it there and **nowhere else**:
 
 - Branch / worktree name: `HOLODEX-123-short-slug`.
 - Commit subjects and PR titles stay **clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog, so the key must *not* appear there (it would
-  pollute every CHANGELOG/Release line). The branch name alone carries the linkage.
-- Transitions are driven by **automation on dev events**, not Smart Commits, so commit
-  hygiene is untouched. Smart Commits (`#comment`, `#time`) remain available ad hoc.
+  pollute every CHANGELOG/Release line). **The branch name alone carries the linkage**, which
+  is why the CI transitions read `github.head_ref` (the branch), not the commit message.
+- A branch with no `HOLODEX-<n>` key simply doesn't transition (the CI script no-ops).
 
 ---
 
-## Automation rules (Jira UI: Project settings → Automation)
+## CI transitions (REST API)
 
-Each rule's trigger comes from the GitHub for Jira app's development events; the issue is
-resolved from the branch-name key.
+The transitions are direct `POST /rest/api/3/issue/{key}/transitions` calls against the
+**gateway** base URL. Reference: [ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md);
+scripts in [`scripts/`](../../scripts).
 
-| # | Trigger | Condition | Action |
+| Transition | Trigger | Fired by | Key source |
 |---|---|---|---|
-| 1 | Branch created | branch name matches `HOLODEX-\d+` | Transition issue → **In Progress**; assign to project lead |
-| 2 | Pull request created | — | Transition issue → **In Review** |
-| 3 | Pull request merged | target branch = `main` | Transition issue → **Done**; comment with PR link |
-| 4 | Build status = failed | branch has issue key | Add comment "CI failed on {{branch}}" — **do not** transition |
-| 5 | Deployment succeeded | environment = `ghcr` | Transition issue → **Released**; set `fixVersion` = deployment tag |
-| 6 | Pull request merged | author = `release-please` (the release PR) | For every issue key in the release diff, set `fixVersion` = the new version *(optional bulk-stamp)* |
+| → **In Progress** | start-of-work (branch rename to key) | agent/session (MCP `transitionJiraIssue`) | current branch |
+| → **In Review** | `pull_request: opened` | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
+| → **Done** | `pull_request` merged | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
+| → **Released** | `ghcr` deploy (Release-Please tag) | `release.yml` → `scripts/jira-release-sync.mjs` | JQL `status = Done` (batch) |
 
-Notes:
+Design notes:
 
-- **Keep every rule single-project (scoped to HOLODEX).** Single-project rules do **not**
-  count against the automation usage limit (100 runs/month on Free); only **global** and
-  **multi-project** rules do. Creating rules from *Project settings → Automation* scopes them
-  to HOLODEX by default — don't widen the scope to global, or they start metering the quota.
-  Consolidating rules saves nothing here; keep them focused and individually toggleable.
-- Rules 1–3 are the core flow and need only branch/PR events. Rule 5 depends on the `ghcr`
-  Deployment already emitted by `release.yml`; nothing new is needed on the GitHub side.
-- Rule 4 deliberately **comments instead of transitioning** — a red build shouldn't yank an
-  issue backward out of In Review.
-- Rule 6 is optional; if skipped, set `fixVersion` manually at release time or rely on Rule 5
-  stamping each issue as the deployment lands.
+- **`In Review` / `Done` are single-issue** — one key parsed from the PR branch.
+- **`Released` is a batch** — Holodex commit subjects are keyless, so the shipping set is
+  read from **Jira state**, not the diff: every merged PR was already moved to `Done` by
+  the branch sync, so a release cut from `main` ships exactly the current
+  `project = HOLODEX AND status = Done` set. The release sync transitions them all.
+- **`In Progress` is agent-only** — it's the one transition with no server-side event, so
+  the session fires it (see CLAUDE.md → *Branch ↔ Jira linkage*). It won't fire on a rare
+  session-less start; the CI trio covers everything server-visible.
+- **Idempotent + soft-fail** — each script skips an issue already at the target, matches the
+  transition by destination status **name**, and on any failure (missing key/secret, Jira
+  outage, unreachable transition) logs a GitHub `::warning::` and **exits 0**. A Jira hiccup
+  never red-builds a deploy or blocks a merge.
+- **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
+  so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a
+  privileged context; the key is matched by an anchored `\bHOLODEX-\d+\b` regex; the token is
+  never logged. Verified by `/security-review` on the implementing PR.
+
+### CI credentials (one-time)
+
+A single **scoped** Atlassian API token, shared with the Bookshelf repo (the site-wide
+scopes cover every project). Scopes: `read:jira-work`, `write:jira-work`, `read:jira-user`.
+
+> **Trap:** a scoped token **401s** against `https://whoiskevinrich.atlassian.net/…`. It
+> only authenticates through the **gateway** host `https://api.atlassian.com/ex/jira/<cloudId>`.
+> Always set `JIRA_BASE_URL` to the gateway URL. Verify with the `/myself` probe (expect 200):
+>
+> ```bash
+> curl.exe -s -o /dev/null -w "%{http_code}\n" \
+>   -u "<account-email>:<token>" -H "Accept: application/json" \
+>   "https://api.atlassian.com/ex/jira/e7c03552-8036-43fa-bb8b-b415de46f9f6/rest/api/3/myself"
+> ```
+
+Set the config on the repo (`JIRA_BASE_URL` is a non-secret variable; email + token are secrets):
+
+```powershell
+gh variable set JIRA_BASE_URL   --repo whoiskevinrich/holodex --body "https://api.atlassian.com/ex/jira/e7c03552-8036-43fa-bb8b-b415de46f9f6"
+gh secret   set JIRA_USER_EMAIL --repo whoiskevinrich/holodex --body "<account-email>"
+gh secret   set JIRA_API_TOKEN  --repo whoiskevinrich/holodex   # paste the scoped token
+```
+
+**Rotation (annual — scoped tokens expire).** One password-manager entry is the source of
+truth; a single command fans it out to both repos that share the token:
+
+```powershell
+$t = Read-Host -AsSecureString "New Jira token"
+$plain = [System.Net.NetworkCredential]::new('', $t).Password
+'holodex','bookshelf' | ForEach-Object {
+  gh secret set JIRA_API_TOKEN --repo "whoiskevinrich/$_" --body $plain
+}
+```
 
 ---
 
-## One-time setup (Jira UI walkthrough)
+## One-time setup
 
-All of this is project-level in the team-managed HOLODEX project — no Jira admin rights
-needed. Do the phases in order; the dev-event triggers don't exist until the repo is
-connected.
+### Phase 0 — Connect the repo to GitHub for Jira (dev panel only)
 
-### Phase 0 — Connect the repo (first; nothing links without it)
+Still worth doing: it populates each issue's **Development** panel (branches, commits, PRs,
+builds, deployments). It no longer drives transitions.
 
 `holodex` is a repo under the **personal `whoiskevinrich` account**, not a GitHub org — the
-flow still works, you just install the app on your user account.
+flow still works; you install the app on your user account.
 
-1. **Settings (gear, top-right) → Apps → GitHub** (the GitHub for Jira config), or
-   **Apps → Manage your apps → GitHub → Configure**.
-2. Click **Connect GitHub organization**. The button is labelled "organization", but GitHub
-   treats user accounts the same way — on the GitHub screen that opens, **install the GitHub
-   for Jira app on your personal `whoiskevinrich` account** (it's listed alongside any orgs).
-3. On the GitHub install screen, choose **Only select repositories → `holodex`** (add the
-   TMDB provider repo too if you want its CI linked).
-4. Back in Jira the `whoiskevinrich` account now shows as connected. Verify: open any issue →
-   a **Development** panel appears once a branch with the key exists. Make a throwaway
-   `HOLODEX-1-test` branch to confirm, then delete it.
+1. **Settings (gear) → Apps → GitHub** (the GitHub for Jira config) → **Configure**.
+2. **Connect GitHub organization** — on the GitHub screen, install the GitHub for Jira app on
+   your personal `whoiskevinrich` account and choose **Only select repositories → `holodex`**.
+3. Back in Jira, verify an issue's **Development** panel populates once a branch with the key
+   exists (make a throwaway `HOLODEX-1-test` branch with one commit to confirm, then delete).
 
-### Phase 1 — Enable Releases (OPTIONAL — `fixVersion` rollup only)
+### Phase 1 — Add the **Released** status (if not already present)
 
-Releases/versions are **not required**. The **Released status** (Phase 2) tracks "shipped";
-versions only add a "what shipped in v1.3.1" rollup, which the **GitHub Releases** (git-cliff
-changelog per `v*` tag) already provide. Skip this phase unless you specifically want the
-in-Jira version report.
+1. **Project settings → Issue types → Story** → workflow editor → **+ Add status** →
+   **`Released`**, category **Done** (green). Add a **Done → Released** transition
+   (or "Any status → Released"). **Save.** Repeat for **Task** and **Bug**.
 
-- In the "Jira spaces" redesign, Releases is **not** a Features toggle — it lives in the
-  space's **top nav** (Summary · Development · Board · **Releases** · List · Forms · …), with
-  a **Create release** button.
-- To use it: **Create release**, named to match the git tag exactly (`v1.3.1`,
-  `include-v-in-tag: true`), then set an issue's **Fix versions** to put it in that release.
-  Create versions as you cut releases; no need to backfill historical tags.
-- If skipped: drop the **Fix versions** action from Rule 5 (keep only the Released
-  transition) and skip Rule 6.
+### Phase 2 — CI credentials
 
-### Phase 2 — Add the **Released** status
-
-1. **Project settings → Issue types → Story.**
-2. In the workflow editor, **+ Add status** → name **`Released`**, category **Done** (green)
-   — keeps `statusCategory = Done` JQL counting it as complete.
-3. Add a transition **Done → Released** (and optionally "Any status → Released"). **Save.**
-4. Repeat for **Task** and **Bug**. The status is shared by name, so you're only adding the
-   transition. The board shows it as a new right-most column.
+Create the scoped token and set the three config values (see *CI credentials* above).
 
 ### Phase 3 — Create the four `needs-*` labels
 
-Labels are created by use, not an admin screen.
+Open any issue → **Labels** → type `needs-spec` ↵, then `needs-adr`, `needs-design`,
+`needs-security-review`. Optionally save a filter to keep the gates visible:
 
-1. Open any issue → **Labels** → type `needs-spec` ↵, then `needs-adr`, `needs-design`,
-   `needs-security-review`. They now autocomplete everywhere.
-2. Save a filter to keep the gates visible — **Filters → Create filter**:
-   ```
-   project = HOLODEX AND labels in (needs-spec, needs-adr, needs-design, needs-security-review) AND statusCategory != Done
-   ```
-   Star it or add it as a board quick-filter.
+```
+project = HOLODEX AND labels in (needs-spec, needs-adr, needs-design, needs-security-review) AND statusCategory != Done
+```
 
-### Phase 4 — Automation rules
+### Phase 4 — Retire the Jira Automation rules (cutover)
 
-**Project settings → Automation → Create rule.** Each rule is Trigger → (Condition) →
-Action; the issue is auto-resolved from the branch/PR key. Build them per the
-[Automation rules](#automation-rules-jira-ui-project-settings--automation) table above:
+**Only after** the REST path is verified end-to-end (open a smoke PR, watch it walk To Do →
+In Progress → In Review → Done, cut a release, watch Released), delete the old transition
+rules so nothing double-fires and the quota stops metering: **Project settings → Automation**
+→ delete the branch-created, PR-created, PR-merged, and deployment-succeeded rules. Keep any
+non-transition rules you still want (e.g. a build-failed comment).
 
-| Rule | Trigger | Key condition | Action |
-|---|---|---|---|
-| 1 | Branch created | Status **is** To Do | Transition → In Progress *(opt. assign)* |
-| 2 | Pull request created | Status one of To Do, In Progress | Transition → In Review |
-| 3 | Pull request merged | `{{pullRequest.destinationBranch}}` = `main` | Transition → Done; comment PR link |
-| 4 | Build status changed | status = failed | Comment only — **no transition** |
-| 5 | Deployment status changed | env = `ghcr` AND status = successful | Transition → Released; set Fix version |
-| 6 *(opt.)* | Pull request merged | title matches `chore\(main\): release` | Bulk-set Fix version on linked issues |
+---
 
-Turn each rule on, then smoke-test: create `HOLODEX-###`, branch `HOLODEX-###-smoke`, open
-and merge a trivial PR, and watch it walk To Do → … → Done.
+## Quota note (why this migration exists)
 
-### Gotchas
+On the **Free** plan the site gets **100 automation flow runs per month, shared across every
+project** on the instance — and **every rule counts, single-project ones included**. (The
+"single-project rules are free" carve-out applies only to **paid** plans; an earlier version
+of this doc claimed it applied on Free, which is wrong and is what let the quota creep up
+unnoticed.) A rule firing on every branch/PR/merge/deploy silently exhausts the budget
+mid-month and then stops transitioning. The **REST API is not metered**, and GitHub Actions
+is unlimited on this public repo — so the CI transitions cost nothing against either budget.
 
+---
+
+## Gotchas
+
+- **The branch key is the linchpin.** Dev-panel links *and* CI transitions resolve the issue
+  from the `HOLODEX-<n>` in the branch name. No key → no link and no transition.
 - **An empty Development panel ≠ a broken connection.** The panel is populated per issue from
-  refs that name the key, so it stays blank until some branch/commit/PR mentions that issue —
-  even with the app fully connected and backfill *finished*. Verified 2026-06-30: with the
-  `whoiskevinrich` connection healthy (7 repos, FULL ACCESS), HOLODEX-6's panel was empty
-  simply because nothing referenced it.
-- **A commitless branch may not surface.** A branch created off `main` with **no commits of
-  its own** (identical to `main`) can fail to appear even though its name carries the key.
-  Push at least one commit on the branch, then hard-refresh the issue — the branch then links
-  with its commit. (This was the actual fix during the 2026-06-30 smoke test.)
-- **The branch key is the linchpin.** Builds and deployments inherit their issue link from
-  the commit/branch they ran on, so Rules 4–5 only fire on issues whose branch was named
-  `HOLODEX-###-…`.
-- **Rules 4 & 5 need build/deployment data flowing.** If the Development panel shows
-  branches/PRs but no builds/deployments, the GitHub for Jira app isn't forwarding
-  Actions/Deployment data — recheck Phase 0.
-- **Branch convention** `HOLODEX-###-slug` is already documented in CLAUDE.md.
+  refs that name the key, so it stays blank until some branch/commit/PR mentions that issue.
+- **A commitless branch may not surface** in the dev panel. Push at least one commit on the
+  branch, then hard-refresh the issue.
+- **`Released` moves the whole `Done` set.** If you deliberately parked an issue in `Done`
+  that you *don't* want released, move it elsewhere before cutting the release — the batch
+  sync treats every `Done` issue as shipping.
+- **Fork PRs no-op.** Secrets are withheld from `pull_request` runs on forks, so the branch
+  sync soft-fails there. For this solo repo, PRs come from same-repo branches (secrets present).

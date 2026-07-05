@@ -17,8 +17,12 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
+
+	"holodex/internal/model"
+	"holodex/internal/registry"
 )
 
 // ProtocolVersion is the provider contract major version this build speaks
@@ -164,6 +168,73 @@ type Manifest struct {
 	// AssetKinds advertises the asset kinds this provider may return in /enrich assets[].
 	// Advisory/display only; Holodex does not gate fetching on it (ADR-039 §2).
 	AssetKinds []string `json:"asset_kinds,omitempty"`
+	// FieldHints carries optional per-field presentation hints (label / render mode /
+	// ordering group) for the provider's advertised *non-canonical* keys (F39,
+	// ADR-056), keyed by field key. Additive and forward-compatible: an older Holodex
+	// ignores it, and a provider that omits it is unaffected. Hints are untrusted and
+	// sanitized on ingest (SanitizeFieldHints); a hint for a canonical or `_`-prefixed
+	// key is dropped, and only the render/group vocabulary in internal/registry is
+	// honored.
+	FieldHints map[string]FieldHint `json:"field_hints,omitempty"`
+}
+
+// FieldHint is one provider-advertised presentation hint for a non-canonical field
+// (F39, ADR-056). Every field is optional; absent/invalid values fall back to safe
+// defaults (title-cased label, text render, extended group, order 0).
+type FieldHint struct {
+	Label  string `json:"label,omitempty"`
+	Render string `json:"render,omitempty"`
+	Group  string `json:"group,omitempty"`
+	Order  int    `json:"order,omitempty"`
+}
+
+// maxHintLabelLen bounds an untrusted provider-supplied label (F39). Field values
+// are capped at maxFieldLen; a label is a short display string, capped tighter.
+const maxHintLabelLen = 64
+
+// SanitizeFieldHints coerces an untrusted /describe.field_hints map to storable,
+// display-safe hints (F39, ADR-056): it drops hints for canonical or `_`-prefixed
+// keys (a provider may not relabel a canonical field, and reserved sidecars never
+// display), strips control characters and caps the label, and normalizes the render
+// mode and ordering group to the known vocabulary. Returns nil when nothing survives.
+func SanitizeFieldHints(in map[string]FieldHint) map[string]FieldHint {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]FieldHint, len(in))
+	for key, h := range in {
+		k := strings.ToLower(strings.TrimSpace(key))
+		if k == "" || strings.HasPrefix(k, model.InternalFieldPrefix) || registry.IsKnown(k) {
+			continue // reserved sidecar, or canonical (registry owns it) — hint is inert
+		}
+		out[k] = FieldHint{
+			Label:  sanitizeHintLabel(h.Label),
+			Render: registry.NormalizeDisplay(h.Render),
+			Group:  registry.NormalizeGroup(h.Group),
+			Order:  h.Order,
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// sanitizeHintLabel strips control characters (collapsing to spaces), trims, and
+// caps a provider-supplied label. Rendering escapes it, so this only bounds size and
+// removes control noise.
+func sanitizeHintLabel(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' || unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
+	s = strings.TrimSpace(strings.Join(strings.Fields(s), " "))
+	if len(s) > maxHintLabelLen {
+		s = strings.TrimSpace(s[:maxHintLabelLen])
+	}
+	return s
 }
 
 // Hint is the identity input to a resolve call: embedded external ids (the

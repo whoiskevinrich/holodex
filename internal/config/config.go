@@ -73,6 +73,12 @@ type Config struct {
 	// exceed it deliberately via an explicit over-cap upload; enrichment never does.
 	PersonGalleryMax int `yaml:"person_gallery_max"`
 
+	// Self-hosted studio logo (HOLODEX-130, ADR-057). One normalized logo per studio
+	// at DataPath/studio-logos/{studioID}/{id}.jpg, derived like PersonImagePath.
+	// StudioLogoMaxDimension bounds the stored (downscaled) longest side.
+	StudioLogoPath         string `yaml:"-"` // derived: DataPath/studio-logos
+	StudioLogoMaxDimension int    `yaml:"studio_logo_max_dimension"`
+
 	// Cache (ADR-008)
 	CacheBackend     string `yaml:"cache_backend"`
 	CacheMaxMemoryMB int    `yaml:"cache_max_memory_mb"`
@@ -146,6 +152,8 @@ func Defaults() Config {
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
+		StudioLogoMaxDimension: 1000, // logos are small; downscale to ≤1000px longest side (ADR-057)
+
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
 		MCPTransport:         "http",
@@ -213,6 +221,9 @@ func (c *Config) derive() {
 	if c.PersonImagePath == "" {
 		c.PersonImagePath = filepath.Join(c.DataPath, "person-images")
 	}
+	if c.StudioLogoPath == "" {
+		c.StudioLogoPath = filepath.Join(c.DataPath, "studio-logos")
+	}
 }
 
 // Overrides carries CLI-flag values — the highest-precedence layer (ADR-014,
@@ -243,6 +254,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.DatabasePath = "" // re-derive under the new data dir
 		c.ThumbnailPath = ""
 		c.PersonImagePath = ""
+		c.StudioLogoPath = ""
 	}
 	if o.LogLevel != "" {
 		c.LogLevel = o.LogLevel

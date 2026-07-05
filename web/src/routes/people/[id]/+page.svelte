@@ -29,7 +29,8 @@
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
-	import { videoCount } from '$lib/format';
+	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
+	import { videoCount, providerFromWinningSource } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -111,6 +112,7 @@
 			(f) =>
 				f.canonical !== 'name' &&
 				!f.multi &&
+				!f.auto_registered &&
 				(isOwner
 					? f.values.length > 0 || (f.candidates ?? []).length > 0
 					: f.values.some((v) => v.trim() !== ''))
@@ -122,16 +124,16 @@
 	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
 	const mergeFields = $derived(
-		resolved.filter((f) => !!f.multi && (isOwner || f.values.length > 0))
+		resolved.filter((f) => !!f.multi && !f.auto_registered && (isOwner || f.values.length > 0))
 	);
+	// F39 (ADR-056): display-only auto-registered non-canonical fields — the provider's
+	// extra attributes, rendered read-only after the curatable fields under an
+	// "Additional details" divider. Same for owner and visitor (no controls).
+	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 
 	// The provider name behind a visitor row's ProvenanceBadge — the winning namespace
-	// unless it is the record baseline or a manual literal (mirrors the media page's
-	// `file:` check with the person's `record:` prefix, RD4).
-	function winnerProvider(f: ResolvedField): string {
-		const ns = (f.winning_source ?? '').split(':')[0];
-		return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
-	}
+	// unless it is a baseline source (record/file/manual). Shared with AutoFieldRows.
+	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
 
 	function applyPersonDetail(res: PersonDetailResponse) {
 		person = res.person;
@@ -591,6 +593,10 @@
 									{/if}
 								</div>
 							{/each}
+
+							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields —
+							     read-only rows under an "Additional details" divider (shared component). -->
+							<AutoFieldRows fields={extraFields} />
 						</dl>
 					{:else}
 						<p class="text-sm text-muted">No details yet.</p>

@@ -60,6 +60,15 @@ export function isHttpUrl(s: string): boolean {
 	return /^https?:\/\//i.test(s.trim());
 }
 
+// providerFromWinningSource extracts the enrichment provider namespace from a
+// ResolvedField's `winning_source` ("tmdb:bio" → "tmdb"), or "" when the winner is a
+// baseline source (file/record/manual) that gets no provenance badge. Shared by the
+// detail pages and AutoFieldRows so the baseline-namespace set lives in one place.
+export function providerFromWinningSource(winningSource?: string): string {
+	const ns = (winningSource ?? '').split(':')[0];
+	return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
+}
+
 // formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").
 export function formatAgo(iso?: string | null): string {
 	if (!iso) return '';

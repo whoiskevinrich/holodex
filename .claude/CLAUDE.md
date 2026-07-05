@@ -26,8 +26,8 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 | `internal/api` | HTTP handlers (chi); owner-gated mutations via `requireOwner` |
 | `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free) |
 | `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
-| `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter |
-| `internal/mapping`, `internal/registry` | Canonical field mapping (`holodex.yaml`) + per-field metadata (labels/display) |
+| `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter. Providers are declared (not compiled in) in `metadata-sources.yaml` — `base_url` **is** the SSRF allowlist, `asset_hosts` the image-download allowlist |
+| `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, ADR-013) + per-field metadata (labels/display) |
 | `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` |
 | `providers/tmdb` | Standalone metadata-provider **sidecar** (see Gotchas) |
 | `web/` | SvelteKit SPA (see Frontend theming) |
@@ -119,23 +119,32 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 **only when the issue key is present**. So:
 
 - **Name every branch/worktree with its key:** `HOLODEX-123-short-slug`. This drives the
-  Jira development panel and all automation; without it nothing links.
+  Jira development panel and the CI transitions; without it nothing links.
 - **Auto-rename on start (agent default — don't wait to be asked).** When work begins on a
   HOLODEX issue inside a worktree whose branch does **not** already carry the key (e.g. an
   auto-generated `claude/<slug>`), rename it to the key **as the first action**, before any
   commit: `git branch -m HOLODEX-123-short-slug`. The worktree directory name can stay as-is;
   only the branch name must carry the key. The substring is enough — GitHub-for-Jira detects
   the key anywhere in the branch name, so a `worktree-`/other prefix still links.
+- **Fire `In Progress` at that same start-of-work step (agent default).** Immediately after
+  the rename, transition the issue to **In Progress** via the Jira MCP `transitionJiraIssue`.
+  Per ADR-058, `In Progress` is the one transition with no server-side event, so the agent
+  owns it (CI owns In Review/Done/Released) — it's a REST call, not a metered Automation run.
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
-- Transitions run off Jira automation on dev events (branch → In Progress, PR open → In
-  Review, merge → Done, `ghcr` deploy → Released), not Smart Commits — so commits stay clean.
+- Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
+  meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
+  **In Review** (PR open), **Done** (merge), and **Released** (`ghcr` deploy) are fired by CI
+  (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
+  Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
 
 ## Secrets & publishing
 
 - Never commit secrets, tokens, private keys, or PII. Configuration comes from environment
-  variables or `holodex.yaml` (gitignored); only `holodex.yaml.example` (placeholder values) is committed.
+  variables or three parallel gitignored YAML files — `holodex.yaml` (main config),
+  `metadata-mappings.yaml` (field mapping, ADR-013), `metadata-sources.yaml` (provider registry /
+  SSRF allowlist, ADR-033); only their `*.example` placeholders are committed.
 - Generated/runtime data (`/data`, `*.db`, thumbnails, `web/node_modules`, build output, media fixtures)
   is gitignored — never commit it.
 - Before pushing to a public remote, scan the working tree for sensitive values.
@@ -146,9 +155,15 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   `internal/db/migrations/NNNN_name.up.sql` **and** a matching `.down.sql` (golang-migrate; no
   auto-rollback). Never edit a shipped migration — add a new one.
 - **`providers/tmdb` is a standalone sidecar in the same Go module.** It talks to the core only over
-  HTTP and **must not import `internal/*`**. Cross-boundary contracts (e.g. a reserved provider
-  field-key like `_studio_external_ids`) are **shared string literals** kept in sync by convention +
-  the provider-contract spec — change both sides together.
+  HTTP (protocol v1: `/healthz` · `/describe` · `/resolve` · `/enrich`) and **must not import
+  `internal/*`**. The authoritative, source-neutral protocol — endpoints, caps, security rules — is
+  [`docs/specs/metadata-provider-contract.md`](../docs/specs/metadata-provider-contract.md); change it
+  and both sides together.
+- **`_`-prefixed enrichment field keys are internal provider→core sidecars, not display fields**
+  (`model.InternalFieldPrefix`, ADR-054). They're persisted in the shadow store but **never resolved
+  or rendered** (`enrich.FieldsFromRows` skips them). They're cross-boundary contracts shared as string
+  literals (core + every provider) — never invent new ones ad hoc. v1 defines `_studio_external_ids`
+  (studio de-dup by id).
 
 ## Conventions
 
