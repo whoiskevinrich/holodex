@@ -69,13 +69,20 @@ func TestPersonAliasesCRUD(t *testing.T) {
 		t.Errorf("idempotent add returned id %d, want existing %d", a.ID, aliases[0].ID)
 	}
 
-	// The same alias is allowed on a different person.
+	// F43 (ADR-061 RD1): an alias key belongs to exactly one entity. The same alias
+	// on a different person is no longer silently allowed — it collides, and
+	// PersonConflict surfaces the current owner so the handler can 409 (merge or keep
+	// separate) instead of forking identity.
 	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"Bobby"}, nil), nil); err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
 	pid2 := personIDByName(t, r, "Bobby")
-	if _, err := r.AddPersonAlias(ctx, pid2, "Rob"); err != nil {
-		t.Fatalf("same alias on another person should be allowed: %v", err)
+	conflict, err := r.PersonConflict(ctx, pid2, "Rob")
+	if err != nil {
+		t.Fatalf("person conflict: %v", err)
+	}
+	if conflict == nil || conflict.ID != pid {
+		t.Fatalf("expected 'Rob' to collide with person %d, got %+v", pid, conflict)
 	}
 
 	// Empty alias is rejected by the repo guard.

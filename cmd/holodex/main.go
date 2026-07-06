@@ -258,6 +258,13 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("person image content-hash backfill", "hashed", hashed, "removed_duplicates", removed)
 	}
 
+	// One-time identity near-miss backfill (F43/RD10, ADR-061): migration 0022 already
+	// folded the pure-case hard pairs before the nameKey unique indexes; this seeds the
+	// review queue with the residual fuzzy near-misses (punctuation / internal-whitespace
+	// variants) for the owner to confirm — never merging any. Needs only the repo, so it
+	// runs here with the other startup backfills, after migrations have landed the spine.
+	seedIdentityReviewQueue(ctx, repository, log)
+
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
@@ -525,6 +532,50 @@ func backfillStudioLogos(ctx context.Context, r *repo.Repo, relink func(context.
 		log.Warn("studio logo backfill: record job run failed", "err", err)
 	}
 	log.Info("studio logo backfill complete", "studios", len(studios), "errors", errs)
+}
+
+// seedIdentityReviewQueue runs the one-time near-miss seed of identity_review_queue
+// (F43/RD10, HOLODEX-149): the fuzzy name near-misses the migration-0022 fold left
+// behind (it only auto-folds the provably-safe pure-case pairs) become review pairs
+// the owner works from the Duplicates tab (S5). Recorded as one observable job run
+// (ADR-028) whose detail is a bare count — no path or secret. Gated on a prior
+// successful run so a queue the owner has worked down is never re-seeded; correctness
+// does not depend on the gate, since the pass is INSERT OR IGNORE and skips
+// keep-separate pairs, so even a post-retention re-run only adds still-pending
+// near-misses. Best-effort: a failure is logged (status=error, so the gate lets the
+// next boot retry) and never blocks startup.
+func seedIdentityReviewQueue(ctx context.Context, r *repo.Repo, log *slog.Logger) {
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindIdentityBackfill); err != nil {
+		log.Warn("identity backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	started := time.Now()
+	queued, err := r.SeedIdentityReviewQueue(ctx)
+	finished := time.Now()
+	status := model.JobStatusOK
+	var errs int
+	detail := fmt.Sprintf("identity review-queue seed: queued %d near-miss pairs", queued)
+	if err != nil {
+		status, errs, detail = model.JobStatusErr, 1, "identity review-queue seed: failed"
+		log.Warn("identity backfill: seed failed", "err", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindIdentityBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Added:      int(queued),
+		Errors:     errs,
+		Detail:     detail,
+	}); err != nil {
+		log.Warn("identity backfill: record job run failed", "err", err)
+	}
+	if err == nil {
+		log.Info("identity review-queue seed complete", "queued", queued)
+	}
 }
 
 func newLogger(level string, w io.Writer) *slog.Logger {

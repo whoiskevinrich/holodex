@@ -184,22 +184,26 @@ const (
 // Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
 // extensible; scan is the only producer today, with enrichment (F22) the next.
 const (
-	JobKindScan           = "scan"
-	JobKindEnrich         = "enrich"
-	JobKindPurge          = "purge"           // grace-period hard-delete sweep (F24, ADR-037)
-	JobKindRefresh        = "refresh"         // per-item forced re-extract + re-enrich (F31, ADR-047)
-	JobKindWriteback      = "writeback"       // queued batch metadata write (F30, ADR-048)
-	JobKindStudioBackfill = "studio-backfill" // one-time video→studio link derivation (F38, ADR-053)
-	JobKindStudioLogo     = "studio-logo"     // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
-	JobStatusOK           = "success"
-	JobStatusErr          = "error"
+	JobKindScan             = "scan"
+	JobKindEnrich           = "enrich"
+	JobKindPurge            = "purge"             // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindRefresh          = "refresh"           // per-item forced re-extract + re-enrich (F31, ADR-047)
+	JobKindWriteback        = "writeback"         // queued batch metadata write (F30, ADR-048)
+	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
+	JobKindStudioLogo       = "studio-logo"       // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
+	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
+	JobStatusOK             = "success"
+	JobStatusErr            = "error"
 )
 
-// Enrichment entity types stored in entity_enrichment (F22, ADR-033).
+// Enrichment entity types stored in entity_enrichment (F22, ADR-033). Tag is not
+// enrichable, but shares the name-identity entity_type namespace (entity_aliases /
+// keep-separate / review-queue) with person and studio (F43, ADR-061).
 const (
 	EnrichEntityPerson = "person"
 	EnrichEntityVideo  = "video"
 	EnrichEntityStudio = "studio"
+	EntityTag          = "tag"
 )
 
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is

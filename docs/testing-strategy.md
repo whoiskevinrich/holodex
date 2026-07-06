@@ -168,6 +168,11 @@ assert.JSONEq(t, string(want), string(got))
 - **Migration safety**: user-authored Phase 3 data (aliases, enrichment) survives an up-migration.
 - **A merge survives re-scan**: the scanner *reads* `person_aliases` to route an extracted name to its canonical person but never *writes* the table; a full re-scan (rebuilding `people`/`video_people`) leaves aliases intact and re-links alias-named files to the canonical person — it must never re-create a merged-away duplicate. (Ties to migration safety; the scanner-writes-nothing half mirrors the enrichment shadow layer.)
 - **Never auto-merge same-named people**: adding an alias that already names a *different* person returns a 409 for owner confirmation; no code path silently collapses two distinct person rows or silently routes a homonym's files.
+- **Case/whitespace never forks identity** (F43/ADR-061): a per-entity `nameKey` is unique across canonical names **∪** aliases; `"fox"`/`"Fox"`, an edge-whitespace variant, and (tags only) an internal-whitespace variant all resolve to the **one** entity — a second can never be created at scan or in the editor. Per-entity scope is load-bearing: `"sci fi"`≡`"scifi"` for a **tag**, but `"Mary Jane"`≢`"MaryJane"` for a **person**.
+- **A merge survives re-derivation** (F43/ADR-061 RD6 — the derived-link analogue of "merge survives re-scan"): merging B→A registers B's name as an alias, so the derivation reconcile re-routes B's resolved name to A on the next pass; a rescan / re-enrich / decision change **never resurrects** the merged-away entity. **Studio** proves it via `RelinkVideoStudios`; **person** joins it under ADR-059 (F40), which makes `video_people` derived via the generic `RelinkVideoEntity` and routes person names through the alias table at derivation time — so a person merge without the registered alias is undone exactly as a studio one would be. Break this and the derivation silently undoes every merge on a derived-link entity.
+- **The identity backfill auto-folds only the provably-safe** (F43/RD10): the one-time pass merges the **pure-case hard pairs** (survivor = lower `id`, decisions/curation/enrichment **moved not dropped** where non-conflicting) and **never** auto-merges a fuzzy near-miss — near-misses only ever seed the review queue. Idempotent (second run = no-op); the unique-index build cannot fail on residual dupes because the fold precedes it.
+- **A kept-separate pair never nags** (F43/RD5): once the owner dismisses a near-miss (or picks "keep separate"/"create anyway"), no scan-time flagging or detector pass re-proposes that pair — the negative decision is as durable as an alias.
+- **Name-identity and provider-identity never cross** (F43/ADR-061 D5 × ADR-055): resolve is **id → name → create** — a provider-supplied record keys by `<namespace>:<id>` (name display-only), a file/owner-authored record keys by `nameKey`; neither path silently adopts the other's key.
 - **Activity leaks no secrets**: `/admin/activity` and `/admin/activity/history` never serialize a filesystem path, env value, or token (incl. `job_runs.error_message`).
 - **Gate is real and loud**: an owner-only route is unreachable without the token when `ADMIN_TOKEN` is set; when unset on a non-loopback bind, the server warns and flags it (never a silent open control surface).
 - **Related never includes self**: `GET /media/{id}/related` must never return the current item in `person.items` or `tag.items` — the exclusion holds even when the item is the *only* sibling (→ empty `items:[]`, not itself). Selection (which person/tag is keyed) is fully deterministic; only the item *draw* is random, so tests pin the chosen key + membership and tolerate any order.
@@ -589,6 +594,61 @@ byte-identical to pre-F39). Maps to the [F39 QA checklist](design/provider-rende
 - **Promotion path (live QA)**: adding a `metadata-mappings.yaml` entry for an auto-registered key +
   reload-config moves it into the curatable set with source chips — the provider hint no longer governs it
   (frontend-observable; no new Go test beyond the ladder unit). *(QA 3.6)*
+
+**Unified entity name-identity (F43, ADR-061)** — the **name** companion to ADR-055's provider-id invariant:
+one per-entity normalized `nameKey` (unique across canonical ∪ aliases) + a shared alias/merge/rename/
+keep-separate spine across **person / studio / tag**. Fixes the `"fox"`/`"Fox"` split and gives studios/tags
+the merge+alias people already have. Generalizes F23's tests to three entities; fully CI-testable, no network.
+Maps to the [F43 QA checklist](design/entity-identity-qa-checklist.md). Cardinal invariants (§4): **case/whitespace
+never forks identity**, **studio merge survives re-derivation**, **backfill auto-folds only the provably-safe**,
+**kept-separate never nags**, **id→name never cross**. Production probe: **14 hard pure-case pairs, 56 near-misses (41 tags)**.
+- **Name-identity core (`resolveOrCreateByName` + a per-entity `normalize` registry, repo)**: resolve order
+  **id→name→create** (external-id first per ADR-054/055, then `nameKey` over canonical ∪ aliases, then create);
+  a `nameKey` owned by a **canonical name or an alias** routes to the same entity. **Per-entity normalize**:
+  person/studio fold **case + edge whitespace** only, tag folds **case + all whitespace** — table-driven cases
+  assert `"fox"≡"Fox"≡" fox "` for all three, `"sci fi"≡"scifi"` for tag, and `"Mary Jane"≢"MaryJane"` for
+  person/studio. A change to a `normalize` fn is treated as a migration (index rebuild).
+- **Collision matrix — all three modes × scan/editor × entity** (`internal/repo` + `internal/api`): (1)
+  **canonical↔canonical case** — scan routes silently to the existing row (no second entity); an editor rename
+  onto another entity's `nameKey` → **409**, no mutation. (2) **canonical↔alias** — adding an alias equal to
+  another entity's canonical name → **409**; scanning that string routes to the alias's canonical. (3)
+  **alias↔alias** — two entities cannot both own the same alias `nameKey` (unique per type). No path auto-merges
+  (the homonym rule). Parameterized across person/studio/tag off a shared table.
+- **Merge (per entity, shared helper)**: de-duped association union; decisions/curation/enrichment **moved not
+  dropped** where non-conflicting (survivor's win on conflict); loser's name → alias; loser deleted;
+  self-merge/unknown-id → 400/404. **Derived-link entities (studio, and person under ADR-059)**: after the
+  merge, a derivation pass (`RelinkVideoStudios`, or the generic `RelinkVideoEntity` for person — scan/enrich/
+  decision) does **not** recreate the loser — the registered alias re-routes it (the cardinal re-derivation
+  invariant). When F43 and ADR-059/F40 both land, the person case runs against `RelinkVideoEntity`; until then it
+  is the re-scan case (F23 raw-extraction).
+- **One-time backfill (`internal/repo` + a `cmd/holodex` job, ADR-028)**: over the current library it auto-folds
+  the pure-case hard pairs (survivor = lower id, move-not-drop) and inserts `identity_review_queue` rows for the
+  near-misses — **never** merging a near-miss; recorded as one observable job run (no path/secret in `detail`);
+  **idempotent** (second pass folds/queues nothing); the fold ordering lets the unique `nameKey` index build clean.
+- **Review queue + keep-separate (`internal/repo` + `internal/api`)**: the loose-key detector flags a pair only
+  when it is a fuzzy near-miss (different `nameKey`), excluding exact matches (already collapsed) **and**
+  `entity_keep_separate` pairs; scan-time flagging is idempotent and inside the scan transaction (no prompt, no
+  merge). `GET /owner/duplicates` returns pairs grouped by type with counts; `dismiss` writes keep-separate and
+  the pair **never re-surfaces** on a subsequent scan/detector pass.
+- **Search / FTS parity (RD11)**: `person_aliases` migrates into the shared `entity_aliases` + `entity_aliases_fts`
+  (entity_type-filtered); the **F23 search-by-alias behavior is byte-identical** pre/post (existing F23 search
+  tests pass unmodified) before the old table is dropped; **studio + tag** aliases now surface their entity in
+  global search (diacritic-folded, deduped with name matches, per-group limit) — the F23.5 guarantee, three entities.
+- **Person conformance (RD11)**: the person `nameKey` becomes case-insensitive; all F23 endpoints/scan-routing/
+  search behavior are preserved (the F23 suite is the regression guard); the 6 person hard pairs fold in the backfill.
+- **Endpoints**: `alias add/delete`, `merge`, `rename` for **studio + tag** mirror the person shapes — owner-gated
+  (**401**), **400** invalid/self-merge/empty, **404** unknown, **409** cross-entity name collision; `GET
+  /owner/duplicates` + `POST …/dismiss` owner-gated. `httptest` over a real repo, parameterized by entity.
+- **Identity is DB-only (no media-file writes)**: no alias/merge/rename/dismiss path issues a `WriteBatch` or
+  touches `.holodex-tmp`/`.holodex-new`; zero `/writeback` calls on any identity surface (the F37/ADR-053 precedent,
+  asserted).
+- **Frontend** (Vitest + a11y, then live 3-skin): `AliasPanel` on person + studio (not tag); `EntityPicker`
+  (generalized `PersonPicker`, roving-tabindex/focus-trap/Esc/focus-return); `/tags` **manage mode** (selectable
+  pills + per-pill rename/alias/merge menu); the **exact-collision card** (bordered, blocking) vs the **near-miss
+  soft-warning** (muted, non-blocking, "create anyway"→keep-separate) render distinctly; the "N possible duplicates"
+  **banner** (`--warn`, owner-only) deep-links the tab; the `/owner/duplicates` tab (Option-A dense rows, tags
+  first, Merge/Keep-separate). Owner controls **absent from the DOM** for non-owners; tokens-only (`rg` guard empty);
+  the `--warn`/`--accent` separation holds on **Brutalist**; **all 3 skins**.
 
 ---
 
