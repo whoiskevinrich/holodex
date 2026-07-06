@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.0](https://github.com/whoiskevinrich/holodex/compare/v1.4.0...v1.5.0) (2026-07-05)
+
+
+### 🚀 Features
+
+* **enrich:** accept provider-sourced WebP images (F42) ([#94](https://github.com/whoiskevinrich/holodex/issues/94)) ([c7a60c8](https://github.com/whoiskevinrich/holodex/commit/c7a60c878a70ee1146edc47ea2bfddae7b3b2641))
+* **enrich:** provider field render hints + non-canonical auto-registration (F39) ([e3d6382](https://github.com/whoiskevinrich/holodex/commit/e3d63825d27713ff9b510eacd87ec790c4778f94))
+* **enrich:** self-hosted provider brand icon (ADR-059) ([#95](https://github.com/whoiskevinrich/holodex/issues/95)) ([435da9c](https://github.com/whoiskevinrich/holodex/commit/435da9cf07d41fc3701472b826015c1fb27bcd80))
+* **studios:** self-host studio logo instead of hotlinking the provider CDN ([#91](https://github.com/whoiskevinrich/holodex/issues/91)) ([ea48319](https://github.com/whoiskevinrich/holodex/commit/ea48319ed7732ab4f5ee80b6babb8dd4b4e23d22))
+
+
+### 🐛 Bug Fixes
+
+* **web:** auto-recover authed polls from ForwardAuth session expiry ([#84](https://github.com/whoiskevinrich/holodex/issues/84)) ([e88d075](https://github.com/whoiskevinrich/holodex/commit/e88d075584c7039b34a7839e9e5fe4538a6fb093))
+
+
+### 📚 Documentation
+
+* **architecture:** ADR-056 — Jira transitions via REST API ([#92](https://github.com/whoiskevinrich/holodex/issues/92)) ([6b434fc](https://github.com/whoiskevinrich/holodex/commit/6b434fcd5deb197e4b393f9e2cfdfce4caf51e37))
+* correct enrichment-provider docs in CLAUDE.md ([#88](https://github.com/whoiskevinrich/holodex/issues/88)) ([1ce0759](https://github.com/whoiskevinrich/holodex/commit/1ce07590bdb4b23b35abf6153c2ef2da8311591c))
+* F39 owner person + studio media linking (spec + ADR-056 + design + tests) ([#93](https://github.com/whoiskevinrich/holodex/issues/93)) ([8f71c09](https://github.com/whoiskevinrich/holodex/commit/8f71c09f2ff6dd09ac91622c27facadc8368a098))
+
 ## [1.4.0](https://github.com/whoiskevinrich/holodex/compare/v1.3.1...v1.4.0) (2026-07-04)
 
 
