@@ -832,7 +832,23 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 		}
 		out = append(out, t)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Attach owner-curated aliases (F43, ADR-061) in one batch — tags have no detail
+	// page, so the list is where the owner sees and manages them (RD7).
+	ids := make([]int64, len(out))
+	for i, t := range out {
+		ids[i] = t.ID
+	}
+	byTag, err := r.AliasesForEntities(ctx, model.EntityTag, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Aliases = byTag[out[i].ID]
+	}
+	return out, nil
 }
 
 // GetPerson returns a person by id with video count, or ErrNotFound.
@@ -879,7 +895,13 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	return &t, err
+	if err != nil {
+		return nil, err
+	}
+	if t.Aliases, err = r.AliasesForEntity(ctx, model.EntityTag, id); err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 // ---------------------------------------------------------------------------

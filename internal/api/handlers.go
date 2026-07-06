@@ -310,6 +310,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonDecisions(r)
 		// Studio on the unified model — studio decisions/curation (F38, ADR-053).
 		h.mountStudioDecisions(r)
+		// Studio + tag name-identity — alias/merge/rename over the shared spine (F43, ADR-061).
+		h.mountStudioTagIdentity(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})
