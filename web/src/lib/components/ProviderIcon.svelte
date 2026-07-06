@@ -16,9 +16,14 @@
 	}: { name: string; iconUrl?: string; size?: number; title?: string } = $props();
 
 	const label = $derived(title || name);
-	// Dynamic pixel sizing (not a themeable token) stays inline; colors/radius/font are
-	// all tokens below.
-	const box = $derived(`width:${size}px;height:${size}px`);
+	// A real logo keeps its own aspect: fixed HEIGHT, auto width, capped — so a wide
+	// wordmark (TMDB's, HOLODEX-161) reads legibly instead of squashing into a square.
+	// The monogram fallback stays a square plate (it's a single letter). Pixel sizing is
+	// inline (not a themeable token); colors/radius/font are all tokens below.
+	const imgStyle = $derived(`height:${size}px;width:auto;max-width:${size * 4}px`);
+	const monoStyle = $derived(
+		`width:${size}px;height:${size}px;font-size:${Math.round(size * 0.6)}px;line-height:1`
+	);
 </script>
 
 {#if iconUrl}
@@ -26,14 +31,14 @@
 		src={iconUrl}
 		alt={label}
 		{title}
-		style={box}
+		style={imgStyle}
 		class="inline-block shrink-0 rounded-theme bg-logo-plate object-contain align-middle"
 	/>
 {:else}
 	<span
 		{title}
 		aria-label={label}
-		style="{box};font-size:{Math.round(size * 0.6)}px;line-height:1"
+		style={monoStyle}
 		class="inline-flex shrink-0 items-center justify-center rounded-theme bg-logo-plate align-middle font-display font-semibold text-logo-plate-ink"
 		>{monogram(name)}</span
 	>

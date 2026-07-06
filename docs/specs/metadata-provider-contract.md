@@ -620,9 +620,11 @@ handles it exactly like every other ingested image:
 - **Downloaded once, normalized, self-hosted.** Holodex fetches the icon when it reads your `/describe`, runs it
   through the same **decode → bound → re-encode-to-JPEG → strip-metadata** ingest as person portraits, and serves
   its **own** copy — viewers never hit your CDN. It re-fetches only when the advertised `url` changes.
-- **Raster, roughly square.** Any format your host serves is accepted on ingest, but Holodex stores a normalized
-  **JPEG** (SVG/animation/transparency are **not** preserved — the decoder rejects SVG/polyglots). Advertise a
-  reasonably square raster for crisp small-size rendering.
+- **Raster of any shape.** Any format your host serves is accepted on ingest, but Holodex stores a normalized
+  **JPEG** (SVG/animation/transparency are **not** preserved — the decoder rejects SVG/polyglots). Holodex renders
+  the icon at a small fixed **height** with automatic width, so both a square mark and a wide **wordmark** read
+  correctly (e.g. TMDB self-hosts its rasterized wordmark). Since transparency is dropped, design the icon for a
+  light background.
 - **Monogram fallback.** Omit `brand_icon`, advertise an un-allowlisted host, or serve an undecodable image, and
   Holodex renders your provider's initial as a themed monogram instead — never a broken image.
 
