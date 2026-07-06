@@ -62,6 +62,8 @@ func main() {
 	mux.HandleFunc("GET /describe", h.describe)
 	mux.HandleFunc("POST /resolve", h.resolve)
 	mux.HandleFunc("POST /enrich", h.enrich)
+	// Self-served brand mark advertised by /describe.brand_icon (HOLODEX-161, ADR-059).
+	mux.HandleFunc("GET /brand-icon.png", h.brandIcon)
 
 	addr := net.JoinHostPort(host, port)
 	log.Info("holodex-provider-tmdb starting", "addr", addr)

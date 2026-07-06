@@ -29,7 +29,7 @@ func (h *handler) healthz(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
+func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 	resp := describeResponse{
 		Provider:        "tmdb",
 		Version:         providerVersion,
@@ -58,12 +58,30 @@ func (h *handler) describe(w http.ResponseWriter, _ *http.Request) {
 			"known_for_department": {Label: "Known for", Render: "text", Group: "attributes", Order: 10},
 		},
 	}
-	// Advertise the brand icon only when a deployment supplies a raster URL on an
-	// allowlisted host (ADR-059 §4.8). Omitted by default → Holodex shows a monogram.
+	// Advertise the bundled TMDB brand mark (HOLODEX-161), served by this sidecar at
+	// /brand-icon.png. Its host is the one Holodex used to reach /describe (the request
+	// Host) — i.e. the provider's own base host, always on Holodex's asset allowlist —
+	// so it self-hosts with no operator config. An operator can override it with a
+	// different raster on an allowlisted host via TMDB_BRAND_ICON_URL (e.g. a CDN copy).
 	if u := strings.TrimSpace(os.Getenv("TMDB_BRAND_ICON_URL")); u != "" {
 		resp.BrandIcon = &iconRef{URL: u}
+	} else if r.Host != "" {
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		resp.BrandIcon = &iconRef{URL: scheme + "://" + r.Host + "/brand-icon.png"}
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// brandIcon serves the bundled TMDB brand mark (HOLODEX-161) that /describe advertises.
+// A short cache is fine — Holodex downloads + self-hosts it once (ADR-059), so this is
+// hit rarely (on describe-time relink), not on every page view.
+func (h *handler) brandIcon(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(brandIconPNG)
 }
 
 type resolveRequest struct {
