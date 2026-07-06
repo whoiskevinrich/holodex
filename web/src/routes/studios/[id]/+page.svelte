@@ -237,12 +237,20 @@
 									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
-											<dd class="inline"><UrlValueList values={f.values} hostname /></dd>
+											<!-- HOLODEX-137: provider icon + host in the link folds in
+											     provenance; suppressed when soleProvider shows the section note. -->
+											<dd class="inline">
+												<UrlValueList
+													values={f.values}
+													hostname
+													provider={soleProvider ? '' : winnerProvider(f)}
+												/>
+											</dd>
 										{:else}
 											<dd class="inline text-ink">{f.values.join(', ')}</dd>
-										{/if}
-										{#if !soleProvider && winnerProvider(f)}
-											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{#if !soleProvider && winnerProvider(f)}
+												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{/if}
 										{/if}
 									</div>
 								{/if}

@@ -524,12 +524,14 @@
 									<div>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
-											<dd class="inline"><UrlValueList values={f.values} /></dd>
+											<!-- HOLODEX-137: the link leads with the provider icon + host,
+											     folding provenance in — so no separate badge on url rows. -->
+											<dd class="inline"><UrlValueList values={f.values} provider={winnerProvider(f)} /></dd>
 										{:else}
 											<dd class="inline text-ink">{f.values.join(', ')}</dd>
-										{/if}
-										{#if winnerProvider(f)}
-											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{#if winnerProvider(f)}
+												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{/if}
 										{/if}
 									</div>
 								{/if}

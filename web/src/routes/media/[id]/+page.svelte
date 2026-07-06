@@ -487,8 +487,8 @@
 						{:else if f.display === 'url'}
 							<div>
 								<dt class="inline text-muted">{f.label}:</dt>
-								<dd class="inline"><UrlValueList values={f.values} /></dd>
-								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								<!-- HOLODEX-137: provider icon + host in the link folds in provenance. -->
+								<dd class="inline"><UrlValueList values={f.values} provider={winnerProvider} /></dd>
 							</div>
 						{:else}
 							<!-- Curatable text/set field (F30): per-value chips with provenance,
