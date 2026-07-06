@@ -307,7 +307,7 @@ vocabulary rather than your source's native names. The recommended v1 **person**
 |---|---|---|---|
 | `bio` | Short biography / description | single | Plain text. Trim to a sane length on a clean boundary (Holodex caps 4096 chars/value) |
 | `birthdate` | Date of birth | single | `YYYY-MM-DD` preferred (partial dates acceptable if that is all you have) |
-| `nationality` | Nationality / country | single or few | Plain text (e.g. `"British"`). Omit if you cannot derive it confidently |
+| `nationality` | Nationality / country | single or few | Plain text (e.g. `"British"`, or a place of birth `"London, England, United Kingdom"`). Omit if you cannot derive it confidently. **Flag hint (HOLODEX-139):** Holodex derives a small country flag beside the person's name from this value, so **put the country last** in a place-of-birth string (it reads the segment after the final comma) — a plain nationality word (`"French"`) or bare country (`"Japan"`) also works. Unrecognized values simply render no flag |
 | `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text |
 | `aliases` | Alternate / native-script names | multi | One name per array element. Include native-script forms (e.g. CJK) directly — feeds Holodex's Person aliases store |
 | `photo` | Portrait | — | **Not a `fields` entry** — emit as an `assets[]` entry with `kind: "photo"` and advertise it in `asset_kinds` (see [§4.3](#43-assets)) |

@@ -13,6 +13,14 @@ export default defineConfig({
 	// vendor prefixing is now handled by Lightning CSS). Config is CSS-first in
 	// app.css — see ADR-025. The plugin must precede sveltekit().
 	plugins: [tailwindcss(), sveltekit()],
+	build: {
+		// Never inline the bundled flag SVGs (HOLODEX-139). Vite inlines assets under
+		// ~4 KB as data URIs; left unchecked, ~200 flags balloon the person-page chunk by
+		// hundreds of KB even though a page shows one flag. Emitting them as files keeps
+		// the chunk small and fetches only the flags actually rendered (cached, offline).
+		assetsInlineLimit: (filePath) =>
+			filePath.includes('flag-icons/flags/') ? false : undefined
+	},
 	server: {
 		// Proxy API + MCP to the Go backend during development (ADR-007).
 		proxy: {
