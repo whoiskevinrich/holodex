@@ -7,6 +7,7 @@
 	import type {
 		DecisionSource,
 		EnrichSource,
+		EntityRef,
 		Person,
 		PersonAlias,
 		PersonDetailResponse,
@@ -24,7 +25,7 @@
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
-	import PersonPicker from '$lib/components/PersonPicker.svelte';
+	import AliasPanel from '$lib/components/AliasPanel.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonImageFrame from '$lib/components/PersonImageFrame.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
@@ -50,17 +51,11 @@
 
 	// Owner-curated routing aliases (F23, ADR-036) — search & scan routing, deliberately a
 	// separate system from the display-only "Also known as" merge row in Details (F37 RD2).
-	// Read from the person payload; add/delete are owner-gated. Errors render inline.
+	// Read from the person payload and bound into AliasPanel (F43), which owns add/delete/
+	// merge. `conflict` is the collision offer AliasPanel renders — set either by an added
+	// alias (inside the panel) or by a rename collision (F37 RD1, routed in from below).
 	let aliases = $state<PersonAlias[]>([]);
-	let newAlias = $state('');
-	let aliasBusy = $state(false);
-	let aliasError = $state('');
-	let aliasInput = $state<HTMLInputElement | null>(null);
-	// Merge (F23): the picker for "merge another person in", and the collision prompt
-	// shown when an added alias — or a rename (F37 RD1) — already names a different,
-	// existing person.
-	let mergeOpen = $state(false);
-	let conflict = $state<Person | null>(null);
+	let conflict = $state<EntityRef | null>(null);
 
 	// Enrichment controls (owner-only, F22). sources is loaded once when the client
 	// is confirmed owner; the picker drives a provider resolve→apply. pickerProvider
@@ -151,7 +146,6 @@
 			.getPerson(current)
 			.then((res) => {
 				applyPersonDetail(res);
-				aliasError = '';
 			})
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
@@ -260,63 +254,9 @@
 		closeRename();
 	}
 
-	async function addAlias(e: SubmitEvent) {
-		e.preventDefault();
-		const value = newAlias.trim();
-		if (!value || aliasBusy) return;
-		aliasBusy = true;
-		aliasError = '';
-		try {
-			const res = await api.addAlias(id, value);
-			if (res.conflict) {
-				// The name already belongs to a real, separate person — never merge
-				// silently (homonyms exist). Surface it; the owner decides.
-				conflict = res.conflict;
-				return;
-			}
-			aliases = res.aliases ?? aliases;
-			newAlias = '';
-			aliasInput?.focus(); // keep focus for quick multi-add
-		} catch (err) {
-			aliasError = toMessage(err);
-		} finally {
-			aliasBusy = false;
-		}
-	}
-
-	// The owner confirmed the colliding person is the same human → merge them in.
-	async function mergeConflict() {
-		if (!conflict) return;
-		aliasBusy = true;
-		aliasError = '';
-		try {
-			await api.mergePersons(id, conflict.id);
-			conflict = null;
-			newAlias = '';
-			onMerged();
-		} catch (err) {
-			aliasError = toMessage(err);
-		} finally {
-			aliasBusy = false;
-		}
-	}
-
-	// After any merge, reload so the (now larger) video list + new alias show.
+	// After any merge (via AliasPanel), reload so the (now larger) video list + new alias show.
 	function onMerged() {
 		load(id);
-	}
-
-	async function removeAlias(a: PersonAlias) {
-		if (aliasBusy) return;
-		aliasError = '';
-		const prev = aliases;
-		aliases = aliases.filter((x) => x.id !== a.id); // optimistic
-		try {
-			await api.deleteAlias(id, a.id);
-		} catch (err) {
-			aliases = prev; // restore on failure
-			aliasError = toMessage(err);
-		}
 	}
 
 	// Version stamp for a core role's serving URL, or undefined (empty slot → the
@@ -599,99 +539,21 @@
 				</section>
 			{/if}
 
-			<!-- The F23 routing-alias card — deliberately its own system below Details (RD2):
-			     these names drive search and scan routing, unlike the display-only
-			     "Also known as" chips above. -->
-			{#if aliases.length || isOwner}
-				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Aliases</h2>
-						{#if isOwner}
-							<button
-								onclick={() => (mergeOpen = true)}
-								class="rounded-theme border border-rule px-3 py-1 text-sm text-ink hover:bg-surface-2"
-							>
-								Merge a person in…
-							</button>
-						{/if}
-					</div>
-					<p class="text-sm text-muted">
-						Searching either name finds this person, and future scans match it too.
-					</p>
-
-					<div class="flex flex-wrap gap-2" aria-live="polite">
-						{#each aliases as a (a.id)}
-							<span
-								class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-sm text-ink"
-							>
-								{a.alias}
-								{#if isOwner}
-									<button
-										onclick={() => removeAlias(a)}
-										disabled={aliasBusy}
-										aria-label={`Remove alias ${a.alias}`}
-										class="leading-none text-muted hover:text-accent focus:text-accent disabled:opacity-60"
-									>
-										×
-									</button>
-								{/if}
-							</span>
-						{/each}
-						{#if !aliases.length && isOwner}
-							<p class="text-sm text-muted">No aliases yet.</p>
-						{/if}
-					</div>
-
-					{#if isOwner}
-						<form onsubmit={addAlias} class="flex flex-wrap items-center gap-2">
-							<input
-								bind:this={aliasInput}
-								bind:value={newAlias}
-								type="text"
-								placeholder="Add an alias"
-								aria-label="Add an alias"
-								aria-describedby={aliasError ? 'alias-error' : undefined}
-								class="min-w-0 flex-1 rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
-							/>
-							<button
-								type="submit"
-								disabled={aliasBusy}
-								class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-							>
-								Add
-							</button>
-						</form>
-					{/if}
-
-					{#if conflict}
-						<div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
-							<p class="text-sm text-ink">
-								<span class="font-semibold">{conflict.name}</span> ({videoCount(conflict.video_count ?? 0)})
-								is already a separate person. Are they the same as {person?.name}?
-							</p>
-							<div class="flex flex-wrap items-center gap-2">
-								<button
-									onclick={mergeConflict}
-									disabled={aliasBusy}
-									class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-								>
-									Yes, merge them in
-								</button>
-								<button
-									onclick={() => { conflict = null; }}
-									disabled={aliasBusy}
-									class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
-								>
-									No, keep separate
-								</button>
-							</div>
-						</div>
-					{/if}
-
-					{#if aliasError}
-						<p id="alias-error" class="text-sm text-warn">{aliasError}</p>
-					{/if}
-				</section>
+			<!-- The F23 routing-alias card, now the shared AliasPanel (F43) — deliberately its
+			     own system below Details (RD2): these names drive search + scan routing, unlike
+			     the display-only "Also known as" chips above. Rename stays on the Name chip row
+			     (RD1), so the panel's own rename is off; the rename collision is routed in via
+			     `conflict`. -->
+			{#if person}
+				<AliasPanel
+					entityType="person"
+					entityId={id}
+					entityName={person.name}
+					bind:aliases
+					{isOwner}
+					bind:conflict
+					onmerged={onMerged}
+				/>
 			{/if}
 
 			{#if images.gallery.length || isOwner}
@@ -717,15 +579,6 @@
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
-	/>
-{/if}
-
-{#if mergeOpen && person}
-	<PersonPicker
-		canonicalId={id}
-		canonicalName={person.name}
-		onclose={() => (mergeOpen = false)}
-		onmerged={onMerged}
 	/>
 {/if}
 

@@ -7,6 +7,8 @@ import type {
 	EnrichCandidate,
 	EnrichedField,
 	EnrichSource,
+	EntityKind,
+	EntityRef,
 	Facet,
 	JobRun,
 	MediaDetailResponse,
@@ -34,6 +36,15 @@ import type {
 } from './types';
 
 const BASE = '/api/v1';
+
+// The REST base segment for each identity entity (F43, ADR-061) — the shared
+// alias/merge/rename client trio routes through this map instead of hardcoding a path
+// per entity.
+const ENTITY_BASE: Record<EntityKind, string> = {
+	person: 'people',
+	studio: 'studios',
+	tag: 'tags'
+};
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. a 401 owner
 // expiry) without parsing the message string. Extends Error, so existing
@@ -377,16 +388,21 @@ export const api = {
 	refreshMedia: (videoId: number) =>
 		sendAuthed<RefreshReport>('POST', `/media/${videoId}/refresh`),
 
-	// Person aliases & merge (F23, ADR-036). All owner-gated.
-	//
-	// addAlias returns either the updated alias list, or — when the name already
-	// belongs to another person — that person as a `conflict` (HTTP 409), so the UI
-	// can offer a merge instead of silently collapsing possibly-distinct people.
-	addAlias: async (
-		personId: number,
+	// Shared entity name-identity mutations (F43, ADR-061) — one owner-gated client trio
+	// over the per-entity routes (people | studios | tags), mirroring the F23 person shape.
+	// Person uses these too, so the AliasPanel/EntityPicker are entity-uniform; the person
+	// page's rename flow keeps its dedicated renamePerson (it carries the F37 name-chip UX).
+
+	// addEntityAlias adds an alias, returning the updated list — or, when the name already
+	// belongs to another entity of this kind, that entity as a `conflict` (409), so the UI
+	// offers a merge instead of silently folding two possibly-distinct entities.
+	addEntityAlias: async (
+		kind: EntityKind,
+		id: number,
 		alias: string
-	): Promise<{ aliases?: PersonAlias[]; conflict?: Person }> => {
-		const res = await fetch(`${BASE}/people/${personId}/aliases`, {
+	): Promise<{ aliases?: PersonAlias[]; conflict?: EntityRef }> => {
+		const path = `/${ENTITY_BASE[kind]}/${id}/aliases`;
+		const res = await fetch(`${BASE}${path}`, {
 			method: 'POST',
 			credentials: CREDS,
 			redirect: 'manual',
@@ -395,22 +411,54 @@ export const api = {
 		});
 		checkRedirect(res);
 		if (res.status === 409) {
-			const body = await res.json().catch(() => ({}));
-			return { conflict: body.conflict as Person };
+			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef };
+			return { conflict: body.conflict };
 		}
 		if (!res.ok) {
-			throw new ApiError(res.status, `/people/${personId}/aliases`);
+			throw new ApiError(res.status, path);
 		}
 		return { aliases: ((await res.json()) as { aliases: PersonAlias[] }).aliases };
 	},
 
-	deleteAlias: (personId: number, aliasId: number) =>
-		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/aliases/${aliasId}`),
+	deleteEntityAlias: (kind: EntityKind, id: number, aliasId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/${ENTITY_BASE[kind]}/${id}/aliases/${aliasId}`),
 
-	// Merge `fromId` into `canonicalId`: the from-person's videos move to canonical,
-	// its name becomes an alias, and it is deleted. Returns the updated canonical.
-	mergePersons: (canonicalId: number, fromId: number) =>
-		sendAuthed<{ person: Person }>('POST', `/people/${canonicalId}/merge`, { from_id: fromId }),
+	// Merge `fromId` into `canonicalId` for any identity entity. For studios the loser's
+	// name is registered as an alias so RelinkVideoStudios re-derivation won't resurrect it
+	// (RD6). The response wraps the survivor under a per-entity key; callers reload, so the
+	// decoded body is returned as-is.
+	mergeEntities: (kind: EntityKind, canonicalId: number, fromId: number) =>
+		sendAuthed<Record<string, unknown>>('POST', `/${ENTITY_BASE[kind]}/${canonicalId}/merge`, {
+			from_id: fromId
+		}),
+
+	// Rename an entity, keeping the old name as an alias (one transaction). 204 on success;
+	// a 409 (the name already belongs to another entity of this kind) returns that entity as
+	// `conflict` so the UI can offer merge instead — never an auto-merge. Studio/tag wrap the
+	// conflict under `conflict`; the person route returns it at top level — accept both.
+	renameEntity: async (
+		kind: EntityKind,
+		id: number,
+		name: string
+	): Promise<{ conflict?: EntityRef }> => {
+		const path = `/${ENTITY_BASE[kind]}/${id}/rename`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'POST',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name })
+		});
+		checkRedirect(res);
+		if (res.status === 409) {
+			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef } & EntityRef;
+			return { conflict: body.conflict ?? body };
+		}
+		if (!res.ok && res.status !== 204) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	},
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace
