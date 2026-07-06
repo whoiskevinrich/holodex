@@ -18,49 +18,16 @@ import (
 // write path.
 
 // resolveOrCreateStudio returns the id of the studio for (`name`, `externalID`),
-// inserting it if absent. It matches on the provider `externalID` FIRST, then exact
-// trimmed name (ADR-054 §4) — so two spellings that share a provider company id
-// ("Warner Bros." / "Warner Bros. Pictures", both tmdb:174) converge to one studio.
-// `externalID` is namespace-qualified ("tmdb:174") or empty (a custom/decided name,
-// or a provider that carries no id → name-only resolve, the ADR-053 behavior). Any
-// id in hand is attached to the resolved studio (back-filling a name-created one).
-// Runs inside the caller's transaction; the studios.name UNIQUE + studio_external_ids
-// PK + writeMu serialization make the select-then-insert race-free.
+// inserting it if absent. Routes through the shared name-identity spine (F43,
+// ADR-061): the provider `externalID` matches FIRST (ADR-054 §4 — so two spellings
+// sharing a provider company id converge), then the case/whitespace-folded nameKey
+// over canonical names and aliases (so "fox"/"Fox" converge and a merged-away studio
+// name survives RelinkVideoStudios re-derivation), then create. `externalID` is
+// namespace-qualified ("tmdb:174") or empty. Any id in hand is attached to the
+// resolved studio. Runs inside the caller's transaction; the nameKey unique index +
+// studio_external_ids PK + writeMu serialization make the select-then-insert race-free.
 func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name, externalID string) (int64, error) {
-	name = strings.TrimSpace(name)
-	externalID = strings.TrimSpace(externalID)
-
-	// 1. External-id first: a company id resolves to exactly one studio (the PK).
-	if externalID != "" {
-		var id int64
-		switch err := tx.QueryRowContext(ctx,
-			`SELECT studio_id FROM studio_external_ids WHERE external_id = ?`, externalID).Scan(&id); {
-		case err == nil:
-			return id, nil
-		case !errors.Is(err, sql.ErrNoRows):
-			return 0, fmt.Errorf("resolve studio external id: %w", err)
-		}
-	}
-
-	// 2. Exact name — attach the id (if any) to the matched studio.
-	var id int64
-	switch err := tx.QueryRowContext(ctx, `SELECT id FROM studios WHERE name = ?`, name).Scan(&id); {
-	case err == nil:
-		return id, attachStudioExternalID(ctx, tx, id, externalID)
-	case !errors.Is(err, sql.ErrNoRows):
-		return 0, fmt.Errorf("resolve studio name: %w", err)
-	}
-
-	// 3. Create, then attach the id.
-	res, err := tx.ExecContext(ctx, `INSERT INTO studios (name) VALUES (?)`, name)
-	if err != nil {
-		return 0, fmt.Errorf("insert studio: %w", err)
-	}
-	id, err = res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	return id, attachStudioExternalID(ctx, tx, id, externalID)
+	return resolveOrCreateByName(ctx, tx, model.EnrichEntityStudio, name, externalID)
 }
 
 // attachStudioExternalID records external_id → studio_id idempotently (ADR-054); a
