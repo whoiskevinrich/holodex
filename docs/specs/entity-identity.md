@@ -115,11 +115,15 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   lists (`/people`, `/studios`, `/tags`) show a "N possible duplicates" banner linking to a **Duplicates tab
   in the Owner hub** (F35) where the whole queue is worked. The editor near-miss prompt is **non-blocking**
   ("looks like X — merge instead?" with "create/rename anyway" → records keep-separate).
-- **RD10 — Backfill: auto-fold the safe, queue the ambiguous** (ADR-061 migration). A one-time job auto-folds
-  the **14 hard pure-case pairs** (survivor = lower `id`; loser's name → alias; move — not drop —
-  decisions/curation/enrichment where non-conflicting) and **seeds the review queue** with the ~56
-  near-misses. It **never** auto-merges a near-miss. Recorded as an observable, idempotent System Activity job
-  (ADR-028). The unique-index build cannot fail on residual dupes because the fold runs first.
+- **RD10 — Backfill: auto-fold the safe, queue the ambiguous** (ADR-061 migration). The **hard pure-case
+  pairs** (survivor = lower `id`; loser's name → alias; associations moved onto the survivor; loser's shadow
+  rows dropped, matching `MergePersons`) are folded **in-SQL inside migration 0022, immediately before the
+  nameKey unique indexes are built** — the unique-index build cannot fail on residual dupes because the fold
+  runs first, in the same migration. *(As-built refinement: bootstrap applies migrations **before** the Go
+  one-time backfills — `cmd/holodex/main.go` — so the fold cannot live in a post-migrate boot job; it is
+  data-driven, correct for any number of dupes, not just today's 14.)* The **~56 near-misses** are seeded
+  into the review queue by the S5 job — an observable, idempotent System Activity job (ADR-028) — which
+  **never** auto-merges a near-miss.
 - **RD11 — Person conforms to the spine.** F23's `person_aliases` migrates into the shared store; the
   canonical person `nameKey` becomes case-insensitive (RD2); F23's endpoints, search behavior, and
   scan-routing are **preserved**; `person_aliases_fts` is replaced by the shared `entity_aliases_fts`
@@ -155,7 +159,7 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 
 ### Must-have (P0) — the identity fix + merge/alias capability
 
-- **P0-1 — `nameKey` uniqueness (migration 0019).** Per-entity normalized-key uniqueness replaces binary
+- **P0-1 — `nameKey` uniqueness (migration 0022).** Per-entity normalized-key uniqueness replaces binary
   `UNIQUE(name)`: a unique expression index on `lower(trim(name))` for `people`/`studios` and on the
   all-whitespace-folded key for `tags` (RD2). The shared spine tables land here too (see Data model).
   - Given a studio `"fox"` exists, When resolve-or-create is asked for `"Fox"` or `" fox "`, Then it returns
@@ -181,13 +185,13 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   merge (homonym rule).
 - **P0-6 — `keep_separate` store (RD5).** A durable per-type "these two ids are distinct" record, written on
   every "keep separate" choice; consulted by all near-miss detection.
-- **P0-7 — One-time backfill (RD10).** After migration 0019, an idempotent System Activity job auto-folds the
-  14 hard pairs (survivor = lower id; loser name → alias; move decisions/curation/enrichment where
-  non-conflicting) and records the ~56 near-misses as queue rows (P1 consumes them). No near-miss is
-  auto-merged.
-  - Given the current library, When the backfill runs, Then `/studios`, `/people`, `/tags` each drop their
-    pure-case duplicates and every affected association survives on the surviving entity; a second run is a
-    no-op.
+- **P0-7 — Hard-pair fold + near-miss seed (RD10).** Migration 0022 folds the 14 hard pairs in-SQL before it
+  builds the nameKey unique indexes (survivor = lower id; loser name → alias; associations moved; loser shadow
+  rows dropped). A later idempotent System Activity job (S5) records the ~56 near-misses as queue rows (P1
+  consumes them). No near-miss is auto-merged.
+  - Given a library with pure-case duplicates, When migration 0022 applies, Then `/studios`, `/people`,
+    `/tags` each drop their pure-case duplicates and every affected association survives on the surviving
+    entity; re-applying (a fresh boot) is a no-op.
 - **P0-8 — Person conformance (RD11).** `person_aliases` migrates into the shared store; person `nameKey`
   becomes case-insensitive; F23 endpoints/search/scan behavior preserved; search parity verified before the
   old FTS table drops.
@@ -244,12 +248,15 @@ studios the registered alias is what makes the merge survive `RelinkVideoStudios
 people/tags it makes the merge survive re-scan. Irreversible; the confirm shows both counts.
 
 ### Backfill (RD10)
-A startup job (ADR-028, idempotent): for each entity type, group by `nameKey`; where a group has >1 row (the
-14 hard pairs — all pure-case 2-way canonical), keep the lowest `id`, merge the rest in (P0-7 semantics);
-then run the loose-key detector and insert queue rows for the ~56 near-misses (no merge). Ordering guarantees
-the unique-index build sees a clean set.
+Two parts, split by ordering necessity. **The hard-pair fold runs in-SQL inside migration 0022** (bootstrap
+applies migrations before the Go boot backfills, so the fold must precede the unique-index build it enables):
+for each entity type, group by `nameKey`; where a group has >1 row (the 14 hard pairs — all pure-case 2-way
+canonical), keep the lowest `id`, move associations onto it, register the loser name as an alias, drop the
+loser's shadow rows, delete the loser; then build the unique indexes on the now-clean set. **The near-miss
+seed is a separate boot job (S5, ADR-028, idempotent):** the loose-key detector inserts queue rows for the ~56
+near-misses (no merge).
 
-## Data model (migration 0019 — final DDL per ADR-061 §Shape / engineering)
+## Data model (migration 0022 — final DDL per ADR-061 §Shape / engineering)
 
 ```
 entity_aliases                         -- polymorphic; person_aliases migrates in (RD11)
@@ -367,8 +374,10 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    input; queue/keep-separate leak no paths/secrets (ADR-028). **Re-run on the implementation diff** before
    merge (the gating + no-file-write assertions are pinned in QA §2.14–2.15).
 
-**Slices:** **S1** identity core (migration 0019, `resolveOrCreateByName` + normalize registry, `nameKey`
-indexes, person conformance) → **S2** studio + tag alias/merge/rename endpoints + routing + list actions ∥
-**S3** search (shared `entity_aliases_fts`, alias hits for studio/tag) → **S4** backfill job (auto-fold +
-queue seed) → **P1: S5** review queue (detection, scan flagging, `/owner` tab + banner, editor soft-warning)
-→ **S6** QA + security. P0 = S1–S4; P1 = S5. Effort: **L**.
+**Slices:** **S1** identity core (migration 0022 — spine tables, shared FTS, delete-cleanup triggers,
+**in-migration hard-pair fold**, `nameKey` indexes; `resolveOrCreateByName` + normalize registry; person
+conformance) → **S2** studio + tag alias/merge/rename endpoints + routing + list actions ∥ **S3** search
+(shared `entity_aliases_fts`, alias hits for studio/tag) → **S4** *(folded into S1's migration — the hard-pair
+auto-fold must precede the unique-index build; the residual near-miss **queue seed** moves to S5)* → **P1:
+S5** review queue (detection + near-miss seed, scan flagging, `/owner` tab + banner, editor soft-warning) →
+**S6** QA + security. P0 = S1–S3; P1 = S5. Effort: **L**.

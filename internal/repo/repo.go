@@ -174,9 +174,9 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 
-	// People resolve through the alias table (F23, ADR-036) so a merged-in name
-	// routes to the canonical person and the merge survives re-scans; tags use the
-	// plain name lookup (tag aliases are a future feature).
+	// People and tags both resolve through the shared name-identity spine (F43,
+	// ADR-061) so case/whitespace variants converge and a merged-away name routes to
+	// the canonical entity — the merge survives re-scans.
 	for _, p := range people {
 		pid, err := resolveOrCreatePerson(ctx, tx, p.Name)
 		if err != nil {
@@ -188,7 +188,7 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 	for _, t := range tags {
-		tid, err := getOrCreateByName(ctx, tx, "tags", t.Name)
+		tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, t.Name, "")
 		if err != nil {
 			return err
 		}
@@ -205,25 +205,6 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 	return nil
-}
-
-// getOrCreateByName resolves a people/tags row id by unique name, creating it if
-// absent. table is a trusted literal ("people" | "tags"), never user input.
-func getOrCreateByName(ctx context.Context, tx *sql.Tx, table, name string) (int64, error) {
-	name = strings.TrimSpace(name)
-	var id int64
-	err := tx.QueryRowContext(ctx, "SELECT id FROM "+table+" WHERE name = ?", name).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("lookup %s: %w", table, err)
-	}
-	res, err := tx.ExecContext(ctx, "INSERT INTO "+table+" (name) VALUES (?)", name)
-	if err != nil {
-		return 0, fmt.Errorf("insert %s: %w", table, err)
-	}
-	return res.LastInsertId()
 }
 
 // DeactivateExcept marks active=0 for every active video whose id is not in

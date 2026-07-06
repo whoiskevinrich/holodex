@@ -195,11 +195,14 @@ const (
 	JobStatusErr          = "error"
 )
 
-// Enrichment entity types stored in entity_enrichment (F22, ADR-033).
+// Enrichment entity types stored in entity_enrichment (F22, ADR-033). Tag is not
+// enrichable, but shares the name-identity entity_type namespace (entity_aliases /
+// keep-separate / review-queue) with person and studio (F43, ADR-061).
 const (
 	EnrichEntityPerson = "person"
 	EnrichEntityVideo  = "video"
 	EnrichEntityStudio = "studio"
+	EntityTag          = "tag"
 )
 
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is

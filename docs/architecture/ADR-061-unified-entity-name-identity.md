@@ -181,13 +181,19 @@ all keyed by `entity_type`, migration 0016), the spine is **polymorphic, not thr
 
 ### Migration + backfill (one-time, observable)
 
-Migration `NNNN` builds the unique name-key indexes and the two tables and consolidates `person_aliases`. A
-startup pass (a System Activity job, ADR-028, idempotent — the ADR-053 backfill pattern):
+Migration `0022` builds the spine tables, the shared FTS mirror + entity-delete cleanup triggers, consolidates
+`person_aliases`, folds the hard pairs, then builds the unique name-key indexes. The fold and the index build
+are **one migration, in this order**:
 
-- **Auto-folds the 14 hard pure-case pairs** — safe, since all are 2-way canonical case-only (survivor = the
-  lower `id`; the other's name becomes an alias; decisions/curation/enrichment move, not drop, where they
-  don't conflict). The index build cannot fail on residual dupes because the pass resolves them first.
-- **Seeds the review queue** with the ~56 near-misses — it does **not** auto-merge them.
+- **The hard pure-case pairs are folded in-SQL, inside the migration, before the index build** — safe, since
+  all are 2-way canonical case-only (survivor = the lower `id`; the other's name becomes an alias;
+  associations move; the loser's shadow rows drop, matching `MergePersons`). The index build cannot fail on
+  residual dupes because the fold precedes it *in the same migration*. **This must be in the migration, not a
+  post-migrate job:** bootstrap applies migrations before the Go one-time backfills (`cmd/holodex/main.go`),
+  so a boot job would run too late to unblock the index. The fold is data-driven (any dup count, not just the
+  probe's 14).
+- **The ~56 near-misses are seeded** into the review queue by a separate startup pass (a System Activity job,
+  ADR-028, idempotent — the ADR-053 backfill pattern) — it does **not** auto-merge them.
 
 ---
 
@@ -307,15 +313,16 @@ keeps a future contributor from "fixing" one by breaking the other.
 
 1. [ ] `/write-spec` — entity-identity (F43): resolve order (D5), per-entity normalize (D2), the two-path
    policy (D3), review-queue lifecycle + keep-separate (D4), tag scope (D7). Assign the feature number.
-2. [ ] Migration `NNNN`: unique expression indexes on `normalize_<entity>(name)` (person/studio/tag);
-   `entity_aliases` (+ shared `entity_aliases_fts`, migrate `person_aliases` in); `entity_keep_separate`;
-   matching `.down.sql`.
-3. [ ] `internal/repo` name-identity package: `resolveOrCreateByName`, `Merge`, `Alias`, `Rename`,
-   near-miss `Detect`, parameterized by entity type + normalize; re-point `resolveOrCreatePerson`,
-   `resolveOrCreateStudio`, and tag `getOrCreateByName` through it (D1/D5/D6).
+2. [x] Migration `0022` (**S1**): `entity_aliases` (+ shared `entity_aliases_fts`, migrate `person_aliases`
+   in) with a STORED generated `alias_key`; entity-delete cleanup triggers; `entity_keep_separate`;
+   `identity_review_queue`; **in-SQL hard-pair fold**; then unique expression indexes on
+   `normalize_<entity>(name)` (person/studio/tag); matching `.down.sql`.
+3. [x] `internal/repo` name-identity spine (**S1**): `resolveOrCreateByName` parameterized by entity type +
+   normalize; re-point `resolveOrCreatePerson`, `resolveOrCreateStudio`, and the tag resolve through it
+   (D1/D5/D6). `Merge`/`Alias`/`Rename` for studio + tag and near-miss `Detect` land in S2/S5.
 4. [ ] Scanner near-miss flagging → review queue (D3); ensure idempotent + inside the scan transaction discipline.
-5. [ ] One-time backfill job (ADR-028): auto-fold the 14 hard pairs (survivor = lower id, loser name→alias,
-   move-not-drop decisions/curation/enrichment); seed the queue with the ~56 near-misses; idempotent.
+5. [~] Backfill split by ordering: the **hard-pair auto-fold ran in migration 0022** (S1, must precede the
+   index build); the **near-miss queue seed** is the remaining ADR-028 boot job (S5), idempotent.
 6. [ ] Owner-gated (ADR-030) merge/alias/rename + review-queue resolve/dismiss endpoints for studio + tag
    (mirror the person endpoints); editor-side detect+prompt.
 7. [ ] Add this ADR to `docs/architecture/README.md`; cross-reference from the F43 spec, ADR-053 (RD4 now
