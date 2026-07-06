@@ -115,7 +115,7 @@
 		try {
 			// Fold every other selected person into the chosen canonical one.
 			for (const fromId of selectedIds.filter((id) => id !== canonicalId)) {
-				await api.mergePersons(canonicalId, fromId);
+				await api.mergeEntities('person', canonicalId, fromId);
 			}
 			cancelSelect();
 			reload();

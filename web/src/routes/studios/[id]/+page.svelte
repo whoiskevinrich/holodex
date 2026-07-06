@@ -7,12 +7,14 @@
 	import type {
 		DecisionSource,
 		EnrichSource,
+		PersonAlias,
 		ResolvedField,
 		Studio,
 		StudioDetailResponse,
 		Video
 	} from '$lib/types';
 	import AsyncState from '$lib/components/AsyncState.svelte';
+	import AliasPanel from '$lib/components/AliasPanel.svelte';
 	import EntityVideos from '$lib/components/EntityVideos.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
@@ -30,6 +32,10 @@
 	let studio = $state<Studio | null>(null);
 	let videos = $state<Video[]>([]);
 	let resolved = $state<ResolvedField[]>([]);
+	// Owner-curated routing aliases (F43, ADR-061), bound into AliasPanel. A studio's name
+	// is derived identity, so the panel also offers Rename (allowRename) — the merge/rename
+	// register the loser/old name as an alias so RelinkVideoStudios won't resurrect it (RD6).
+	let aliases = $state<PersonAlias[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 
@@ -97,6 +103,7 @@
 		studio = res.studio;
 		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
+		aliases = res.studio.aliases ?? [];
 	}
 
 	function load(current: number) {
@@ -162,6 +169,22 @@
 		empty="No videos for this studio."
 	>
 		{#snippet detail()}
+			<!-- Aliases are core identity, so the panel reads above the Details/enrichment
+			     shadow (F43 handoff §1). Studio name is derived identity → allowRename lets the
+			     owner correct it; the old name is kept as an alias so re-derivation survives. -->
+			{#if studio}
+				<AliasPanel
+					entityType="studio"
+					entityId={id}
+					entityName={studio.name}
+					bind:aliases
+					{isOwner}
+					allowRename
+					onmerged={() => load(id)}
+					onrenamed={() => load(id)}
+				/>
+			{/if}
+
 			{#if hasDetails || (isOwner && studioProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
