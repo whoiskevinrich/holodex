@@ -28,6 +28,7 @@
 	import AliasPanel from '$lib/components/AliasPanel.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonImageFrame from '$lib/components/PersonImageFrame.svelte';
+	import NationalityFlags from '$lib/components/NationalityFlags.svelte';
 	import PersonGallery from '$lib/components/PersonGallery.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -103,6 +104,12 @@
 	// merge fields ("Also known as"). A field with no value and no candidates doesn't
 	// render; visitors additionally see only fields that resolved to a value.
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	// HOLODEX-139: the resolved `nationality` values feed the hero flag beside the name.
+	// Free text (TMDB place of birth, or a plain nationality word) → country → flag,
+	// derived client-side; visitors see it too since resolved carries surviving values.
+	const nationalityValues = $derived(
+		resolved.find((f) => f.canonical === 'nationality')?.values ?? []
+	);
 	const replaceFields = $derived(
 		resolved.filter(
 			(f) =>
@@ -381,7 +388,12 @@
 						</div>
 					{/if}
 					<div class="min-w-0 flex-1 pb-1">
-						<h1 class="skin-title truncate text-2xl font-semibold text-ink">{person?.name ?? ''}</h1>
+						<div class="flex items-center gap-2">
+							<h1 class="skin-title min-w-0 truncate text-2xl font-semibold text-ink">
+								{person?.name ?? ''}
+							</h1>
+							<NationalityFlags values={nationalityValues} />
+						</div>
 						<p class="text-sm text-muted">{videoCount(videos.length)}</p>
 					</div>
 				</div>

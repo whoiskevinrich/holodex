@@ -122,8 +122,10 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   runs first, in the same migration. *(As-built refinement: bootstrap applies migrations **before** the Go
   one-time backfills — `cmd/holodex/main.go` — so the fold cannot live in a post-migrate boot job; it is
   data-driven, correct for any number of dupes, not just today's 14.)* The **~56 near-misses** are seeded
-  into the review queue by the S5 job — an observable, idempotent System Activity job (ADR-028) — which
-  **never** auto-merges a near-miss.
+  into the review queue by the **S4 backfill boot job** ([HOLODEX-149](https://whoiskevinrich.atlassian.net/browse/HOLODEX-149)) —
+  an observable, idempotent System Activity job (ADR-028) that runs the loose-key detector over canonical ∪
+  aliases and `INSERT OR IGNORE`s each near-miss pair — which **never** auto-merges a near-miss. (S5 then
+  *reuses* that same detector for scan-time flagging and consumes the queue in the `/owner` UI.)
 - **RD11 — Person conforms to the spine.** F23's `person_aliases` migrates into the shared store; the
   canonical person `nameKey` becomes case-insensitive (RD2); F23's endpoints, search behavior, and
   scan-routing are **preserved**; `person_aliases_fts` is replaced by the shared `entity_aliases_fts`
@@ -377,7 +379,8 @@ No hard deadline. Per the change-routing rules, before/with implementation:
 **Slices:** **S1** identity core (migration 0022 — spine tables, shared FTS, delete-cleanup triggers,
 **in-migration hard-pair fold**, `nameKey` indexes; `resolveOrCreateByName` + normalize registry; person
 conformance) → **S2** studio + tag alias/merge/rename endpoints + routing + list actions ∥ **S3** search
-(shared `entity_aliases_fts`, alias hits for studio/tag) → **S4** *(folded into S1's migration — the hard-pair
-auto-fold must precede the unique-index build; the residual near-miss **queue seed** moves to S5)* → **P1:
-S5** review queue (detection + near-miss seed, scan flagging, `/owner` tab + banner, editor soft-warning) →
-**S6** QA + security. P0 = S1–S3; P1 = S5. Effort: **L**.
+(shared `entity_aliases_fts`, alias hits for studio/tag) → **S4** one-time backfill: the hard-pair auto-fold
+*folded into S1's migration* (it must precede the unique-index build), leaving the **near-miss queue seed** as
+an idempotent System Activity boot job (`cmd/holodex` + `repo.SeedIdentityReviewQueue`) → **P1: S5** review
+queue (reuses the S4 detector for scan flagging; `/owner` tab + banner, editor soft-warning) → **S6** QA +
+security. P0 = S1–S3; P1 = S5. Effort: **L**.

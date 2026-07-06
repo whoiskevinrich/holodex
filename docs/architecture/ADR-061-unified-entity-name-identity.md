@@ -321,8 +321,11 @@ keeps a future contributor from "fixing" one by breaking the other.
    normalize; re-point `resolveOrCreatePerson`, `resolveOrCreateStudio`, and the tag resolve through it
    (D1/D5/D6). `Merge`/`Alias`/`Rename` for studio + tag and near-miss `Detect` land in S2/S5.
 4. [ ] Scanner near-miss flagging → review queue (D3); ensure idempotent + inside the scan transaction discipline.
-5. [~] Backfill split by ordering: the **hard-pair auto-fold ran in migration 0022** (S1, must precede the
-   index build); the **near-miss queue seed** is the remaining ADR-028 boot job (S5), idempotent.
+5. [x] Backfill split by ordering: the **hard-pair auto-fold ran in migration 0022** (S1, must precede the
+   index build); the **near-miss queue seed** is the **S4** ADR-028 boot job (HOLODEX-149) —
+   `repo.SeedIdentityReviewQueue` + a `cmd/holodex` startup pass, idempotent (`INSERT OR IGNORE`, honors
+   keep-separate), recorded as one observable job run with a count-only detail. S5 reuses the detector for
+   scan-time flagging.
 6. [ ] Owner-gated (ADR-030) merge/alias/rename + review-queue resolve/dismiss endpoints for studio + tag
    (mirror the person endpoints); editor-side detect+prompt.
 7. [ ] Add this ADR to `docs/architecture/README.md`; cross-reference from the F43 spec, ADR-053 (RD4 now
