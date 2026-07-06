@@ -23,6 +23,7 @@
 	import EntityVideos from '$lib/components/EntityVideos.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
+	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
 	import PersonBanner from '$lib/components/PersonBanner.svelte';
 	import PersonImageFrame from '$lib/components/PersonImageFrame.svelte';
@@ -471,28 +472,16 @@
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
 						{#if isOwner && personProviders.length}
-							<!-- HOLODEX-119: one Enrich (+ Clear once linked) per person-capable
-							     provider. Each opens its own EnrichPicker and clears independently. -->
-							<div class="flex flex-wrap items-center gap-2">
-								{#each personProviders as p (p)}
-									<button
-										onclick={() => (pickerProvider = p)}
-										class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
-									>
-										Enrich from {p}
-									</button>
-									{#if providerLinked(p)}
-										<button
-											onclick={() => clearProvider(p)}
-											disabled={busy === p}
-											title={`Remove the enrichment data ${p} added to this person`}
-											class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-										>
-											Clear {p} data
-										</button>
-									{/if}
-								{/each}
-							</div>
+							<!-- HOLODEX-136: one compact chip per person-capable provider (icon +
+							     name + Enrich), Clear in a ⋯ overflow once linked. Each opens its
+							     own EnrichPicker and clears independently. -->
+							<EnrichProviderChips
+								providers={personProviders}
+								linked={providerLinked}
+								{busy}
+								onenrich={(p) => (pickerProvider = p)}
+								onclear={clearProvider}
+							/>
 						{/if}
 					</div>
 

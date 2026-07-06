@@ -12,6 +12,7 @@
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
+	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import WritebackFormDialog from '$lib/components/WritebackFormDialog.svelte';
 	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
@@ -427,26 +428,16 @@
 							</button>
 						{/if}
 						{#if isOwner}
-							<!-- HOLODEX-119: one Enrich (+ Clear once matched) per video-capable
-							     provider. Each opens its own EnrichPicker and clears independently. -->
-							{#each videoProviders as p (p)}
-								<button
-									onclick={() => (pickerProvider = p)}
-									class="rounded-theme bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
-								>
-									Enrich from {p}
-								</button>
-								{#if enrichedByProvider.has(p)}
-									<button
-										onclick={() => clearProvider(p)}
-										disabled={enrichBusy === p}
-										title={`Remove ${p} enrichment data`}
-										class="rounded-theme border border-rule px-2.5 py-1 text-xs text-ink hover:bg-surface-2 disabled:opacity-60"
-									>
-										Clear {p}
-									</button>
-								{/if}
-							{/each}
+							<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
+							     Enrich), Clear in a ⋯ overflow once matched. -->
+							<EnrichProviderChips
+								providers={videoProviders}
+								linked={(p) => enrichedByProvider.has(p)}
+								busy={enrichBusy}
+								size="xs"
+								onenrich={(p) => (pickerProvider = p)}
+								onclear={clearProvider}
+							/>
 						{/if}
 						{#if canWriteback}
 							<button
