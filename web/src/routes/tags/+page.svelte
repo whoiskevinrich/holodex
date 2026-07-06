@@ -6,6 +6,7 @@
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import SortReroll from '$lib/components/SortReroll.svelte';
 	import EntityPicker from '$lib/components/EntityPicker.svelte';
+	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
@@ -20,12 +21,10 @@
 	// (rename / add alias / merge into…). No decision chips. Everything owner-gated.
 	let manage = $state(false);
 
-	// Select-to-merge: pick 2+ pills, then choose the surviving name (mirrors /people).
+	// Select-to-merge: pick 2+ pills, then choose the surviving name in MergeCanonicalDialog
+	// (mirrors /people).
 	let selectedIds = $state<number[]>([]);
-	let chooseCanonical = $state(false);
-	let canonicalId = $state<number | null>(null);
-	let merging = $state(false);
-	let mergeError = $state('');
+	let choosing = $state(false); // the "Keep which name?" dialog is open
 	let selectHint = $state('');
 	const selectedTags = $derived(tags.filter((t) => selectedIds.includes(t.id)));
 
@@ -67,9 +66,7 @@
 	function exitManage() {
 		manage = false;
 		selectedIds = [];
-		chooseCanonical = false;
-		canonicalId = null;
-		mergeError = '';
+		choosing = false;
 		selectHint = '';
 		closeMenu(false);
 	}
@@ -88,27 +85,7 @@
 			selectHint = 'Select two or more tags to merge.';
 			return;
 		}
-		canonicalId = selectedIds[0] ?? null;
-		mergeError = '';
-		chooseCanonical = true;
-	}
-
-	async function confirmMerge() {
-		if (!canonicalId || merging) return;
-		merging = true;
-		mergeError = '';
-		try {
-			for (const fromId of selectedIds.filter((x) => x !== canonicalId)) {
-				await api.mergeEntities('tag', canonicalId, fromId);
-			}
-			chooseCanonical = false;
-			selectedIds = [];
-			reload();
-		} catch (e) {
-			mergeError = toMessage(e);
-		} finally {
-			merging = false;
-		}
+		choosing = true;
 	}
 
 	// ── Per-pill ⋯ menu ────────────────────────────────────────────────────────────────
@@ -404,55 +381,16 @@
 
 <!-- "Keep which name?" — choose the surviving tag when merging a multi-select (mirrors
      /people). The others become its aliases and their videos move under it. -->
-{#if chooseCanonical}
-	<div
-		class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-		role="presentation"
-		onclick={(e) => {
-			if (e.target === e.currentTarget && !merging) chooseCanonical = false;
+{#if choosing}
+	<MergeCanonicalDialog
+		kind="tag"
+		items={selectedTags}
+		onclose={() => (choosing = false)}
+		onmerged={() => {
+			selectedIds = [];
+			reload();
 		}}
-	>
-		<div
-			class="flex w-full max-w-lg flex-col gap-3 rounded-theme border border-rule bg-surface p-4 shadow-xl"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="tag-merge-title"
-		>
-			<h2 id="tag-merge-title" class="skin-title text-lg font-semibold text-ink">Keep which name?</h2>
-			<p class="text-xs text-muted">
-				The chosen name stays; the others become its aliases and their videos move under it. This
-				can’t be auto-undone.
-			</p>
-			<fieldset class="space-y-1">
-				{#each selectedTags as t (t.id)}
-					<label class="flex cursor-pointer items-center gap-3 rounded-theme px-2 py-1.5 text-ink hover:bg-surface-2">
-						<input type="radio" name="tag-canonical" class="accent-accent" value={t.id} checked={canonicalId === t.id} onchange={() => (canonicalId = t.id)} />
-						<span class="flex-1 truncate">{t.name}</span>
-						<span class="text-xs text-muted">{videoCount(t.video_count ?? 0)}</span>
-					</label>
-				{/each}
-			</fieldset>
-			{#if mergeError}
-				<p class="text-sm text-warn">{mergeError}</p>
-			{/if}
-			<div class="flex flex-wrap items-center justify-end gap-2">
-				<button
-					onclick={() => (chooseCanonical = false)}
-					disabled={merging}
-					class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-				>
-					Back
-				</button>
-				<button
-					onclick={confirmMerge}
-					disabled={merging || !canonicalId}
-					class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-				>
-					{merging ? 'Merging…' : 'Merge'}
-				</button>
-			</div>
-		</div>
-	</div>
+	/>
 {/if}
 
 <!-- "Merge into…" from a pill's ⋯ menu: fold another tag into this one (this tag survives). -->
