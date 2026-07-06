@@ -40,11 +40,12 @@
 			{:else if f.display === 'chips'}
 				<dd class="mt-1 block"><ChipValueList values={f.values} /></dd>
 			{:else if f.display === 'url'}
-				<dd class="inline"><UrlValueList values={f.values} /></dd>
+				<!-- HOLODEX-137: provider icon + host in the link folds in provenance. -->
+				<dd class="inline"><UrlValueList values={f.values} provider={provider(f)} /></dd>
 			{:else}
 				<dd class="inline text-ink">{f.values.join(', ')}</dd>
 			{/if}
-			{#if provider(f)}
+			{#if provider(f) && f.display !== 'url'}
 				<ProvenanceBadge provider={provider(f)} label={provider(f)} />
 			{/if}
 		</div>

@@ -15,6 +15,7 @@
 	import AsyncState from '$lib/components/AsyncState.svelte';
 	import EntityVideos from '$lib/components/EntityVideos.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
+	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -166,28 +167,15 @@
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
 						{#if isOwner && studioProviders.length}
-							<!-- One Enrich (+ Clear once linked) per studio-capable provider,
-							     mirroring the person page (F38 S3). -->
-							<div class="flex flex-wrap items-center gap-2">
-								{#each studioProviders as p (p)}
-									<button
-										onclick={() => (pickerProvider = p)}
-										class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink"
-									>
-										Enrich from {p}
-									</button>
-									{#if providerLinked(p)}
-										<button
-											onclick={() => clearProvider(p)}
-											disabled={busy === p}
-											title={`Remove the enrichment data ${p} added to this studio`}
-											class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-										>
-											Clear {p} data
-										</button>
-									{/if}
-								{/each}
-							</div>
+							<!-- HOLODEX-136: one compact chip per studio-capable provider
+							     (icon + name + Enrich), Clear in a ⋯ overflow once linked. -->
+							<EnrichProviderChips
+								providers={studioProviders}
+								linked={providerLinked}
+								{busy}
+								onenrich={(p) => (pickerProvider = p)}
+								onclear={clearProvider}
+							/>
 						{:else if !isOwner && soleProvider}
 							<!-- Visitor: one section-level provenance note when every field shares a
 							     single provider, instead of an identical badge per row. -->
@@ -249,12 +237,20 @@
 									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
-											<dd class="inline"><UrlValueList values={f.values} hostname /></dd>
+											<!-- HOLODEX-137: provider icon + host in the link folds in
+											     provenance; suppressed when soleProvider shows the section note. -->
+											<dd class="inline">
+												<UrlValueList
+													values={f.values}
+													hostname
+													provider={soleProvider ? '' : winnerProvider(f)}
+												/>
+											</dd>
 										{:else}
 											<dd class="inline text-ink">{f.values.join(', ')}</dd>
-										{/if}
-										{#if !soleProvider && winnerProvider(f)}
-											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{#if !soleProvider && winnerProvider(f)}
+												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{/if}
 										{/if}
 									</div>
 								{/if}
