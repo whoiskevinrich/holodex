@@ -7,6 +7,7 @@
 	import SortReroll from '$lib/components/SortReroll.svelte';
 	import EntityPicker from '$lib/components/EntityPicker.svelte';
 	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
+	import { dismissable } from '$lib/actions/dismissable';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
@@ -163,28 +164,6 @@
 		}
 	}
 
-	// While a menu is open, Escape closes it (returning focus) and an outside click
-	// dismisses it. Mirrors EnrichProviderChips; skips closing while an inline editor has
-	// text so a stray outside click doesn't discard an in-progress rename/alias.
-	$effect(() => {
-		if (openMenu == null) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				e.stopPropagation();
-				closeMenu();
-			}
-		};
-		const onClick = (e: MouseEvent) => {
-			const t = e.target as Node;
-			if (!(t instanceof Element) || !t.closest('[data-tag-pill]')) closeMenu(false);
-		};
-		window.addEventListener('keydown', onKey, true);
-		window.addEventListener('click', onClick);
-		return () => {
-			window.removeEventListener('keydown', onKey, true);
-			window.removeEventListener('click', onClick);
-		};
-	});
 </script>
 
 <section class="space-y-4">
@@ -235,7 +214,10 @@
 	{:else if tags.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No tags indexed yet.</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div
+			class="flex flex-wrap gap-2"
+			use:dismissable={{ enabled: openMenu !== null, inside: '[data-tag-pill]', onclose: closeMenu }}
+		>
 			{#each displayed as t (t.id)}
 				{#if manage}
 					{@const selected = selectedIds.includes(t.id)}
