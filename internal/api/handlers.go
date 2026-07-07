@@ -312,6 +312,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountStudioDecisions(r)
 		// Studio + tag name-identity — alias/merge/rename over the shared spine (F43, ADR-061).
 		h.mountStudioTagIdentity(r)
+		// Near-miss review queue — the owner's Duplicates tab (F43 S5, ADR-061).
+		h.mountDuplicates(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 	})

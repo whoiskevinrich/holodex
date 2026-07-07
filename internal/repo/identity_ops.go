@@ -275,6 +275,11 @@ func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID
 			return fmt.Errorf("merge (%s): %w", step.desc, err)
 		}
 	}
+	// The merge resolves any review-queue pair touching the loser (F43 S5) — drop it so
+	// a merged-away duplicate leaves no stale row (covers person/studio/tag).
+	if err := dropReviewPairsFor(ctx, tx, entityType, mergedID); err != nil {
+		return err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit merge: %w", err)
