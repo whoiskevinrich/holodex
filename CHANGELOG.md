@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/whoiskevinrich/holodex/compare/v1.5.0...v1.6.0) (2026-07-07)
+
+
+### 🚀 Features
+
+* **identity:** one-time near-miss review-queue seed (F43 S4) ([#103](https://github.com/whoiskevinrich/holodex/issues/103)) ([6d129b6](https://github.com/whoiskevinrich/holodex/commit/6d129b6c74c66c60856c1a036b20925027282d26))
+* **identity:** unified entity name-identity spine (F43) ([#101](https://github.com/whoiskevinrich/holodex/issues/101)) ([1e6b1a8](https://github.com/whoiskevinrich/holodex/commit/1e6b1a8dfb53f330c1568c9f1d8d500a0189e23b))
+* **providers/tmdb:** self-host the real TMDB brand icon (HOLODEX-161) ([#100](https://github.com/whoiskevinrich/holodex/issues/100)) ([91b10ad](https://github.com/whoiskevinrich/holodex/commit/91b10adcf862b453174637bd3c6c46360038183f))
+* **web:** collapse enrich/clear buttons into provider chips (HOLODEX-136) ([#97](https://github.com/whoiskevinrich/holodex/issues/97)) ([5b35c35](https://github.com/whoiskevinrich/holodex/commit/5b35c35e3724d3ce17dcc271ad9f7cbf688173cd))
+* **web:** nationality flag beside the person name ([#102](https://github.com/whoiskevinrich/holodex/issues/102)) ([1121811](https://github.com/whoiskevinrich/holodex/commit/1121811f7f4f73d9e6df5e129f6937a0a490cdf4))
+* **web:** website field as provider icon + hostname (HOLODEX-137) ([#98](https://github.com/whoiskevinrich/holodex/issues/98)) ([708d05d](https://github.com/whoiskevinrich/holodex/commit/708d05d856c84f1f5cf27bc22cd4487d6a646fb7))
+
 ## [1.5.0](https://github.com/whoiskevinrich/holodex/compare/v1.4.0...v1.5.0) (2026-07-05)
 
 
