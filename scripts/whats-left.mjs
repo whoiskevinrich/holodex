@@ -100,7 +100,9 @@ export function findWorklog(k, dir = PLANS_DIR, fs = { readdirSync, readFileSync
   for (const f of byName ? [byName] : md) {
     const path = `${dir}/${f}`;
     const text = fs.readFileSync(path, "utf8");
-    if (byName || new RegExp(`^key:\\s*${k}\\s*$`, "im").test(text)) return { path, text };
+    // Compare via a literal frontmatter parse — never build a regex from `k`
+    // (a CLI argument), which would be a regex-injection sink.
+    if (byName || frontmatter(text, "key")?.toUpperCase() === k) return { path, text };
   }
   return null;
 }
