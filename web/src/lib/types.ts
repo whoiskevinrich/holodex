@@ -1,10 +1,34 @@
 // Shape of the REST payloads (mirrors internal/model + handlers, ADR-006).
 
 // PersonAlias is one owner-curated alternate name (F23, ADR-036). The id is the
-// stable handle the delete control uses.
+// stable handle the delete control uses. Shared verbatim by studio + tag aliases
+// (F43, ADR-061) — the server's EntityAlias has the same `{ id, alias }` shape.
 export interface PersonAlias {
 	id: number;
 	alias: string;
+}
+
+// EntityKind names the three identity entities that share the alias/merge/rename
+// spine (F43, ADR-061). Maps to the REST base (people | studios | tags) in the client.
+export type EntityKind = 'person' | 'studio' | 'tag';
+
+// EntityRef is the minimal shape Person/Studio/Tag all satisfy — used by the generic
+// identity surfaces (F43): the merge-picker rows and the collision/conflict card, and
+// the 409 conflict body of add-alias / rename.
+export interface EntityRef {
+	id: number;
+	name: string;
+	video_count?: number;
+}
+
+// DuplicatePair is one flagged possible-duplicate (F43 S5, ADR-061): two entities that
+// are a loose-key near-miss (not an exact-nameKey match) and the variation kind. Served
+// by GET /owner/duplicates, grouped tags-first.
+export interface DuplicatePair {
+	entity_type: EntityKind;
+	a: EntityRef;
+	b: EntityRef;
+	variation: string; // 'internal-whitespace' | 'punctuation'
 }
 
 export interface Person {
@@ -56,6 +80,9 @@ export interface Tag {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
+	// /tags list and the tag-detail read; omitted (undefined) elsewhere.
+	aliases?: PersonAlias[];
 }
 
 // Studio is a first-class entity (F38, ADR-053). Same read shape as Tag; its name is
@@ -67,6 +94,9 @@ export interface Studio {
 	// Stored `logo` enrichment value, surfaced in the /studios list well (HOLODEX-126).
 	// The raw provider-stored logo, not the resolved one; the detail page is authoritative.
 	logo_url?: string;
+	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
+	// studio-detail read; omitted (undefined) elsewhere.
+	aliases?: PersonAlias[];
 }
 
 export interface ExtraMetadata {

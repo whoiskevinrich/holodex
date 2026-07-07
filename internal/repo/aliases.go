@@ -5,268 +5,77 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"holodex/internal/model"
 )
 
-// Person aliases (F23, ADR-036): owner-curated alternate names, now stored in the
-// shared entity_aliases spine (F43, ADR-061, entity_type='person') and mirrored into
-// entity_aliases_fts by triggers so global search matches any alias. Reads are
-// unlocked (WAL); writes take writeMu like the rest of the write path.
-
-// personAliasKey is the SQL predicate matching a person alias by its normalized key —
-// the person-scoped read of the shared alias store. `?` binds the raw (trimmed) name.
-// Derived from nameKeyExpr so the person normalize rule has one source of truth.
-var personAliasKey = `entity_type = 'person' AND alias_key = ` + nameKeyExpr(model.EnrichEntityPerson, "?")
+// Person aliases (F23, ADR-036): owner-curated alternate names on the shared
+// entity_aliases spine (F43, ADR-061, entity_type='person'), mirrored into
+// entity_aliases_fts by triggers so global search matches any alias. These wrappers
+// delegate to the entity-generic identity ops (identity_ops.go) so person, studio, and
+// tag share one implementation; the person-typed signatures keep the F23 surface stable.
 
 // AliasesForPerson returns a person's aliases ordered case-insensitively by name.
-// Always returns a non-nil slice on success so the JSON serializes as [] not null.
 func (r *Repo) AliasesForPerson(ctx context.Context, personID int64) ([]model.PersonAlias, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, alias FROM entity_aliases WHERE entity_type = 'person' AND entity_id = ?
-		 ORDER BY alias COLLATE NOCASE`, personID)
-	if err != nil {
-		return nil, fmt.Errorf("aliases for person: %w", err)
-	}
-	defer rows.Close()
-	out := []model.PersonAlias{}
-	for rows.Next() {
-		var a model.PersonAlias
-		if err := rows.Scan(&a.ID, &a.Alias); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, rows.Err()
+	return r.AliasesForEntity(ctx, model.EnrichEntityPerson, personID)
 }
 
-// AddPersonAlias adds an alias to a person and returns the stored row. Adding an
-// alias the person already has (case-insensitively) is idempotent: the existing
-// row is returned, no duplicate, no error (ADR-036). The caller validates/trims the
-// alias, confirms the person exists, and runs PersonConflict first so the alias key
-// isn't already owned by another person (P0-5); an empty alias is rejected here as a
-// guard. The unique (entity_type, alias_key) constraint dedupes.
+// AddPersonAlias adds an alias to a person, idempotent by normalized key (ADR-036).
 func (r *Repo) AddPersonAlias(ctx context.Context, personID int64, alias string) (model.PersonAlias, error) {
-	if alias == "" {
-		return model.PersonAlias{}, errors.New("empty alias")
-	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
-
-	if _, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO entity_aliases (entity_type, entity_id, alias) VALUES ('person', ?, ?)`,
-		personID, alias); err != nil {
-		return model.PersonAlias{}, fmt.Errorf("add person alias: %w", err)
-	}
-	// Resolve the row (inserted or pre-existing) by the normalized key — folding
-	// means "rob" returns this person's existing "Rob".
-	var a model.PersonAlias
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT id, alias FROM entity_aliases WHERE entity_id = ? AND `+personAliasKey,
-		personID, alias).Scan(&a.ID, &a.Alias); err != nil {
-		return model.PersonAlias{}, fmt.Errorf("resolve person alias: %w", err)
-	}
-	return a, nil
+	return r.AddEntityAlias(ctx, model.EnrichEntityPerson, personID, alias)
 }
 
-// DeletePersonAlias removes one alias, scoped to its person so a mismatched
-// (alias, person) pair can't delete another person's alias. ErrNotFound when no
-// such alias belongs to the person.
+// DeletePersonAlias removes one alias, scoped to its person; ErrNotFound if absent.
 func (r *Repo) DeletePersonAlias(ctx context.Context, personID, aliasID int64) error {
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
-	res, err := r.db.ExecContext(ctx,
-		`DELETE FROM entity_aliases WHERE id = ? AND entity_type = 'person' AND entity_id = ?`,
-		aliasID, personID)
-	if err != nil {
-		return fmt.Errorf("delete person alias: %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return r.DeleteEntityAlias(ctx, model.EnrichEntityPerson, personID, aliasID)
 }
 
-// resolveOrCreatePerson resolves an extracted person name to a person id via the
-// shared name-identity spine (F43, ADR-061): case/whitespace variants converge, and a
-// merged-away name routes through the alias table so a merge survives a re-scan. Thin
-// wrapper over resolveOrCreateByName; runs inside the scan transaction.
+// resolveOrCreatePerson resolves an extracted person name to a person id via the shared
+// name-identity spine (F43, ADR-061): case/whitespace variants converge, and a merged-
+// away name routes through the alias table so a merge survives a re-scan. Thin wrapper
+// over resolveOrCreateByName; runs inside the scan transaction.
 func resolveOrCreatePerson(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
 	return resolveOrCreateByName(ctx, tx, model.EnrichEntityPerson, name, "")
 }
 
 // PersonConflict returns the existing OTHER person that a candidate alias already
-// resolves to — by an exact person name (NOCASE) or by being another person's
-// alias — or (nil, nil) if the name is free. Used to refuse a silent merge of
-// possibly-distinct same-named people (F23, ADR-036): the caller surfaces this for
-// the owner to confirm. selfID is the person the alias is being added to (excluded).
+// resolves to — by an exact person name or by being another person's alias — or
+// (nil, nil) if the name is free. Used to refuse a silent merge of possibly-distinct
+// same-named people (F23, ADR-036): the caller surfaces this for the owner to confirm.
+// selfID is the person the alias is being added to (excluded).
 func (r *Repo) PersonConflict(ctx context.Context, selfID int64, alias string) (*model.Person, error) {
-	alias = strings.TrimSpace(alias)
-	var id int64
-	err := r.db.QueryRowContext(ctx, `
-		SELECT id FROM people WHERE lower(trim(name)) = lower(trim(?)) AND id <> ?
-		UNION
-		SELECT entity_id FROM entity_aliases WHERE `+personAliasKey+` AND entity_id <> ?
-		LIMIT 1`, alias, selfID, alias, selfID).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("person conflict: %w", err)
+	id, found, err := r.EntityConflict(ctx, model.EnrichEntityPerson, selfID, alias)
+	if err != nil || !found {
+		return nil, err
 	}
 	return r.GetPerson(ctx, id)
 }
 
-// MergePersons folds the `merged` person into `canonical` (F23, ADR-036): moves the
-// merged person's videos (de-duped union), re-points its aliases, registers its name
-// as an alias of canonical, drops its shadow enrichment, and deletes it. One
-// transaction under the write lock. ErrNotFound if either person is missing; an
-// error if the two ids are equal.
+// MergePersons folds the `merged` person into `canonical` (F23, ADR-036): moves its
+// videos, re-points its aliases, registers its name as an alias of canonical, drops its
+// shadow enrichment/decisions/curation, and deletes it. See MergeEntities. ErrNotFound
+// if either person is missing; an error if the two ids are equal.
 func (r *Repo) MergePersons(ctx context.Context, canonicalID, mergedID int64) error {
-	if canonicalID == mergedID {
-		return errors.New("cannot merge a person into itself")
-	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck // no-op after Commit
-
-	// Both must exist; capture the merged name (becomes the new alias).
-	var canonicalName, mergedName string
-	if err := tx.QueryRowContext(ctx, `SELECT name FROM people WHERE id = ?`, canonicalID).Scan(&canonicalName); err != nil {
-		return mergeLookupErr(err)
-	}
-	if err := tx.QueryRowContext(ctx, `SELECT name FROM people WHERE id = ?`, mergedID).Scan(&mergedName); err != nil {
-		return mergeLookupErr(err)
-	}
-
-	for _, step := range []struct {
-		desc string
-		sql  string
-		args []any
-	}{
-		// 1. Move associations as a de-duped union (composite PK + OR IGNORE).
-		{"move videos", `INSERT OR IGNORE INTO video_people (video_id, person_id)
-			SELECT video_id, ? FROM video_people WHERE person_id = ?`, []any{canonicalID, mergedID}},
-		{"clear merged videos", `DELETE FROM video_people WHERE person_id = ?`, []any{mergedID}},
-		// 2. Preserve a prior merge chain: re-point merged's aliases, drop collisions.
-		{"repoint aliases", `UPDATE OR IGNORE entity_aliases SET entity_id = ? WHERE entity_type = 'person' AND entity_id = ?`, []any{canonicalID, mergedID}},
-		{"drop collided aliases", `DELETE FROM entity_aliases WHERE entity_type = 'person' AND entity_id = ?`, []any{mergedID}},
-		// 3. The merged person's name becomes an alias of canonical.
-		{"name → alias", `INSERT OR IGNORE INTO entity_aliases (entity_type, entity_id, alias) VALUES ('person', ?, ?)`, []any{canonicalID, mergedName}},
-		// 4. Drop the merged person's shadow enrichment (canonical keeps its own).
-		{"drop enrichment", `DELETE FROM entity_enrichment WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
-		// 4b. Drop its field-source decisions and value curation the same way
-		// (F37 RD5): the canonical person's own rows win, nothing is migrated —
-		// otherwise the rows would orphan against the deleted id.
-		{"drop decisions", `DELETE FROM field_source_decisions WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
-		{"drop curation", `DELETE FROM metadata_curation WHERE entity_type = ? AND entity_id = ?`, []any{model.EnrichEntityPerson, mergedID}},
-		// 5. Remove the now-empty duplicate (cascade + FTS trigger clean up the rest).
-		{"delete person", `DELETE FROM people WHERE id = ?`, []any{mergedID}},
-		// 6. Tidy a degenerate self-alias (canonical's own name routed in via step 2).
-		{"drop self-alias", `DELETE FROM entity_aliases WHERE entity_type = 'person' AND entity_id = ? AND alias = ?`, []any{canonicalID, canonicalName}},
-	} {
-		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
-			return fmt.Errorf("merge (%s): %w", step.desc, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit merge: %w", err)
-	}
-	return nil
+	return r.MergeEntities(ctx, model.EnrichEntityPerson, canonicalID, mergedID)
 }
 
-// ErrNameTaken is returned by RenamePerson when the new name already belongs
-// to another person; the caller surfaces that person for the explicit merge
-// flow (F37 RD1 — a rename never silently collides or auto-merges).
+// ErrNameTaken is returned by RenameEntity (and RenamePerson) when the new name already
+// belongs to another entity of the same type; the caller surfaces that entity for the
+// explicit merge flow (a rename never silently collides or auto-merges).
 var ErrNameTaken = errors.New("name taken")
 
-// RenamePerson sets a person's name and keeps the previous name as an alias in one
-// transaction (F37 P0-5), so search and scan routing still match the old spelling.
-// The people_au / entity_aliases_ai triggers keep both FTS mirrors correct. When
-// newName's nameKey already belongs to another person (case/whitespace-folded, RD11)
-// it returns that person's id with ErrNameTaken and mutates nothing. Renaming to the
-// current exact name is a no-op success; a pure-case self-rename ("Fox"→"fox")
-// proceeds and keeps the old spelling as an alias. The caller validates/trims newName.
+// RenamePerson sets a person's name and keeps the previous name as an alias so search
+// and scan routing still match the old spelling (F37 P0-5). See RenameEntity: it
+// returns the conflicting person id with ErrNameTaken when newName's nameKey already
+// belongs to another person, and mutates nothing.
 func (r *Repo) RenamePerson(ctx context.Context, id int64, newName string) (conflictID int64, err error) {
-	if newName == "" {
-		return 0, errors.New("empty name")
-	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback() //nolint:errcheck // no-op after Commit
-
-	var oldName string
-	switch err := tx.QueryRowContext(ctx, `SELECT name FROM people WHERE id = ?`, id).Scan(&oldName); {
-	case errors.Is(err, sql.ErrNoRows):
-		return 0, ErrNotFound
-	case err != nil:
-		return 0, fmt.Errorf("rename: load person: %w", err)
-	}
-	if oldName == newName {
-		return 0, nil // no-op: nothing to rename, nothing to alias
-	}
-	var cid int64
-	switch err := tx.QueryRowContext(ctx,
-		`SELECT id FROM people WHERE lower(trim(name)) = lower(trim(?)) AND id <> ?`, newName, id).Scan(&cid); {
-	case err == nil:
-		return cid, ErrNameTaken
-	case !errors.Is(err, sql.ErrNoRows):
-		return 0, fmt.Errorf("rename: conflict check: %w", err)
-	}
-
-	for _, step := range []struct {
-		desc string
-		sql  string
-		args []any
-	}{
-		// 1. The rename itself; the people_au trigger refreshes people_fts.
-		{"set name", `UPDATE people SET name = ? WHERE id = ?`, []any{newName, id}},
-		// 2. Keep the old name reachable for search + scan routing (idempotent
-		//    per the (entity_type, alias_key) key, matching AddPersonAlias).
-		{"old name → alias", `INSERT OR IGNORE INTO entity_aliases (entity_type, entity_id, alias) VALUES ('person', ?, ?)`, []any{id, oldName}},
-		// 3. Tidy a degenerate self-alias — renaming to one of the person's own
-		//    aliases leaves that alias equal to the canonical name (mirrors the
-		//    merge transaction's self-alias cleanup; exact-name comparison).
-		{"drop self-alias", `DELETE FROM entity_aliases WHERE entity_type = 'person' AND entity_id = ? AND alias = ?`, []any{id, newName}},
-	} {
-		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
-			return 0, fmt.Errorf("rename (%s): %w", step.desc, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit rename: %w", err)
-	}
-	return 0, nil
+	return r.RenameEntity(ctx, model.EnrichEntityPerson, id, newName)
 }
 
-func mergeLookupErr(err error) error {
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
-	return fmt.Errorf("merge: load person: %w", err)
-}
-
-// searchPeopleByAlias returns person ids/names whose any alias matches the FTS
-// query, deduped by person (a person with several matching aliases appears once).
-// The entity_type filter in the JOIN scopes the shared entity_aliases_fts to people
-// (F43, ADR-061); studio/tag alias search rides the same mirror (S3).
+// searchPeopleByAlias returns person ids/names whose any alias matches the FTS query,
+// deduped by person (a person with several matching aliases appears once). The
+// entity_type filter in the JOIN scopes the shared entity_aliases_fts to people (F43,
+// ADR-061); studio/tag alias search rides the same mirror (S3).
 func (r *Repo) searchPeopleByAlias(ctx context.Context, match string, limit int) ([]model.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT DISTINCT p.id, p.name

@@ -6,6 +6,7 @@
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Studio } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import SortReroll from '$lib/components/SortReroll.svelte';
+	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { peopleScroll } from '$lib/peopleScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
@@ -76,6 +77,8 @@
 			<SortToggle bind:sort />
 		</div>
 	</div>
+
+	<DuplicatesBanner entityType="studio" />
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
