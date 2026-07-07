@@ -110,13 +110,17 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		return 0, fmt.Errorf("resolve %s alias: %w", entityType, err)
 	}
 
-	// 4. Create, then attach the id (studios).
+	// 4. Create, then flag any loose-key near-miss for the review queue (F43 S5,
+	//    scan-time flagging — never merges) and attach the id (studios).
 	res, err := tx.ExecContext(ctx, q.insert, name)
 	if err != nil {
 		return 0, fmt.Errorf("insert %s: %w", entityType, err)
 	}
 	id, err = res.LastInsertId()
 	if err != nil {
+		return 0, err
+	}
+	if err := FlagNearMiss(ctx, tx, entityType, id); err != nil {
 		return 0, err
 	}
 	return id, attachExternalID(ctx, tx, entityType, id, externalID)

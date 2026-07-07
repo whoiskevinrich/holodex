@@ -7,6 +7,7 @@
 	// Shared by the person, media, and studio detail pages. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';
 	import { providers as providerDir } from '$lib/providers.svelte';
+	import { dismissable } from '$lib/actions/dismissable';
 
 	let {
 		providers,
@@ -56,32 +57,12 @@
 		if (openMenu === p) close();
 		else open(p);
 	}
-
-	// While a menu is open, Escape closes it (returning focus) and an outside click
-	// dismisses it (no focus move — the pointer already left). Mirrors the app's other
-	// dismissable popovers without pulling in a full modal focus trap for one action.
-	$effect(() => {
-		if (!openMenu) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				e.stopPropagation();
-				close();
-			}
-		};
-		const onClick = (e: MouseEvent) => {
-			const t = e.target as Node;
-			if (!(t instanceof Element) || !t.closest('[data-enrich-chip]')) close(false);
-		};
-		window.addEventListener('keydown', onKey, true);
-		window.addEventListener('click', onClick);
-		return () => {
-			window.removeEventListener('keydown', onKey, true);
-			window.removeEventListener('click', onClick);
-		};
-	});
 </script>
 
-<div class="flex flex-wrap items-center gap-2">
+<div
+	class="flex flex-wrap items-center gap-2"
+	use:dismissable={{ enabled: openMenu !== '', inside: '[data-enrich-chip]', onclose: close }}
+>
 	{#each providers as p (p)}
 		<div
 			data-enrich-chip

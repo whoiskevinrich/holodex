@@ -220,6 +220,10 @@ func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
 		return nil, err
 	}
 	s.LogoVersion = logoID.Int64
+	// Owner-curated aliases (F43, ADR-061) for the detail view.
+	if s.Aliases, err = r.AliasesForEntity(ctx, model.EnrichEntityStudio, id); err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 

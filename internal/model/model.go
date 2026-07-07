@@ -66,11 +66,26 @@ type Person struct {
 	Aliases []PersonAlias `json:"aliases,omitempty"`
 }
 
-// PersonAlias is one owner-curated alternate name for a person (F23, ADR-036).
-// The id gives the UI and the delete endpoint a stable handle.
-type PersonAlias struct {
+// EntityAlias is one owner-curated alternate name for a named entity — person,
+// studio, or tag — stored in the shared entity_aliases spine (F43, ADR-061). The id
+// gives the UI and the delete endpoint a stable handle.
+type EntityAlias struct {
 	ID    int64  `json:"id"`
 	Alias string `json:"alias"`
+}
+
+// PersonAlias is the person-entity alias (F23, ADR-036): the shared EntityAlias
+// shape under its original name, so the F23 person model and endpoints read unchanged.
+type PersonAlias = EntityAlias
+
+// EntityRef is the minimal identity of a named entity — id, name, and active-video
+// count — that Person/Studio/Tag all satisfy (F43 S5, ADR-061). Used by the near-miss
+// review queue to carry both sides of a possible-duplicate pair and the editor
+// soft-warning's look-alike, without pulling the full per-entity payload.
+type EntityRef struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	VideoCount int    `json:"video_count,omitempty"`
 }
 
 // Person image roles (F25, ADR-038). The three "core" roles are single-slot per
@@ -144,15 +159,23 @@ type Tag struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
+	// Populated on the tags-list read (tags have no detail page, RD7); omitted elsewhere.
+	Aliases []EntityAlias `json:"aliases,omitempty"`
 }
 
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its
 // name is a derived identity — video_studios links follow the resolved `studio`
-// field, not raw file extraction — so there is no alias/merge in v1 (RD4).
+// field, not raw file extraction. F43 (ADR-061) adds owner alias/merge/rename over
+// the shared name-identity spine: a merge registers the loser's name as an alias so
+// it survives RelinkVideoStudios re-derivation (superseding ADR-053 RD4).
 type Studio struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
+	// Populated on the studio-detail read; omitted (nil) elsewhere.
+	Aliases []EntityAlias `json:"aliases,omitempty"`
 	// LogoURL is the serving URL of the studio's self-hosted logo (HOLODEX-130,
 	// ADR-057), built by the API layer as /api/v1/studios/{id}/logo?v={LogoVersion}
 	// when a normalized logo is cached — pointing at Holodex's own origin, not the

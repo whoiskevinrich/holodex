@@ -3,6 +3,21 @@
 These rules govern how changes are made in this repo. They keep **specs, architecture,
 design, tests, and security in lockstep**. Follow them for every change.
 
+## Context discipline (token budget)
+
+The 5-hour usage window is spent on context that is **re-sent every turn**, so one wide read
+early taxes every later step. Keep per-turn context flat:
+
+- **Delegate exploration to subagents.** "Find / trace / where-is / list all callers" sweeps go
+  to a Task or Explore subagent so file dumps stay out of the main session — only the conclusion
+  returns. Don't grep or fan-read the tree inline when a subagent can.
+- **Read narrowly.** Prefer a targeted `rg` with a head limit and `Read` with offset/limit over
+  whole files "to be safe." **Never read `TASKS.md`** (80K, archived and frozen) — use Jira.
+- **Point at indexes, pull one doc.** Start from `docs/architecture/README.md` and open a single
+  ADR deliberately; don't read the ADR/spec tree. Same for `docs/specs/`.
+- **Clear between unrelated asks.** Prefer `/clear` or a fresh session when switching tasks so one
+  ask isn't billed for the previous one's accumulated context.
+
 ## Commands
 
 Backend (Go) via `Makefile`; frontend (`web/`) via npm:
@@ -28,9 +43,9 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 | `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
 | `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter. Providers are declared (not compiled in) in `metadata-sources.yaml` — `base_url` **is** the SSRF allowlist, `asset_hosts` the image-download allowlist |
 | `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, ADR-013) + per-field metadata (labels/display) |
-| `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` |
-| `providers/tmdb` | Standalone metadata-provider **sidecar** (see Gotchas) |
-| `web/` | SvelteKit SPA (see Frontend theming) |
+| `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` (see `.claude/rules/migrations.md`) |
+| `providers/tmdb` | Standalone metadata-provider **sidecar** (see `.claude/rules/provider-sidecar.md`) |
+| `web/` | SvelteKit SPA (see `.claude/rules/frontend-theming.md`) |
 
 **The core model** (ADR-033/051/052): the file layer is the **baseline/default truth**; provider
 enrichment is an **additive shadow** (never flattened into the file layer); the **pure resolver** is
@@ -61,32 +76,15 @@ matching row, clear it when the artifact lands.
 2. If the change touched **auth, access, or infrastructure** → run **`/security-review`**.
 3. Confirm the matching **spec / ADR / design / testing** artifacts (table above) were created or updated.
 4. Confirm **no secrets, credentials, or PII** in the diff (see "Secrets & publishing").
-5. If the change touched the **frontend** → honor the "Frontend theming" rules below: no hardcoded styling, and **QA all three skins**.
+5. If the change touched the **frontend** → honor the theming rules (auto-loaded from
+   `.claude/rules/frontend-theming.md` when you open a `web/**/*.svelte` file): no hardcoded
+   styling, and **QA all three skins**.
 
-## Frontend theming (component discipline)
+## Frontend theming
 
-The UI is built on semantic design tokens with three switchable skins (see
-[ADR-021](../docs/architecture/ADR-021-frontend-theming-and-skins.md) and
-[`docs/design/theming.md`](../docs/design/theming.md)). Two rules are load-bearing:
-
-- **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
-  utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
-  `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
-  `rounded-theme`, `text-warn`/`border-warn`). **Never** a literal palette or value in a
-  component: no `zinc-*`, `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px`
-  radii. A hardcoded value is a theming bug — it won't react to the skin. Use `--warn`
-  (`text-warn`/`border-warn`) for error/attention states — deliberately distinct from
-  `--accent`, which doubles as the active/primary color. Skin-specific flourishes belong in
-  `app.css` gated by `[data-theme]`, attached to the shared hook classes
-  (`.app-atmosphere`, `.video-frame`, `.video-grid`, `.skin-title`) — not as per-component
-  markup. Layout-mode rules attach to `.video-grid[data-layout='...']` (operator-set
-  via `holodex.yaml: card_layout`; not a skin — do not gate with `[data-theme]`).
-  Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
-- **QA all three skins.** When verifying any UI change, render and eyeball **Cinémathèque,
-  Broadcast, and Brutalist** (switch via the header picker), not just the default —
-  regressions routinely appear in only one skin (e.g. a badge/counter collision, an accent
-  that doesn't read on its background). Confirm fonts load offline and the
-  loading/empty/error/grid states are all themed.
+Tokens-only components + **QA all three skins**. The full, load-bearing rules live in
+`.claude/rules/frontend-theming.md` and load automatically when you open a `web/**/*.svelte`
+file (also ADR-021 and `docs/design/theming.md`).
 
 ## Before pushing or opening a PR
 
@@ -98,7 +96,7 @@ The UI is built on semantic design tokens with three switchable skins (see
 
 Tasks live in **Jira project HOLODEX** (`whoiskevinrich.atlassian.net`, team-managed) — scope
 every interaction to that project. Migrated from the former `TASKS.md` on 2026-06-30; that
-file is archived (frozen, read-only — see the banner at its top), so do not write tasks there.
+file is archived (frozen, read-only) — **do not read or write it**; use Jira.
 
 - **Hierarchy:** Epic (an F## feature / phase) → Story (`feat`) · Bug (`fix`) · Task
   (`refactor`/`perf`/`docs`/`test`/`ci`/`build`/`chore`) → Sub-task. Team-managed: link a
@@ -151,19 +149,11 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 
 ## Gotchas
 
-- **Migrations are append-only with a manual down.** Add the next sequential
-  `internal/db/migrations/NNNN_name.up.sql` **and** a matching `.down.sql` (golang-migrate; no
-  auto-rollback). Never edit a shipped migration — add a new one.
-- **`providers/tmdb` is a standalone sidecar in the same Go module.** It talks to the core only over
-  HTTP (protocol v1: `/healthz` · `/describe` · `/resolve` · `/enrich`) and **must not import
-  `internal/*`**. The authoritative, source-neutral protocol — endpoints, caps, security rules — is
-  [`docs/specs/metadata-provider-contract.md`](../docs/specs/metadata-provider-contract.md); change it
-  and both sides together.
-- **`_`-prefixed enrichment field keys are internal provider→core sidecars, not display fields**
-  (`model.InternalFieldPrefix`, ADR-054). They're persisted in the shadow store but **never resolved
-  or rendered** (`enrich.FieldsFromRows` skips them). They're cross-boundary contracts shared as string
-  literals (core + every provider) — never invent new ones ad hoc. v1 defines `_studio_external_ids`
-  (studio de-dup by id).
+- **Migrations** are append-only with a manual down — details in `.claude/rules/migrations.md`
+  (loads when you touch `internal/db/migrations/`).
+- **Provider sidecars** (`providers/tmdb`) talk to core over HTTP only and must not import
+  `internal/*`; `_`-prefixed enrichment keys are internal contracts — details in
+  `.claude/rules/provider-sidecar.md` (loads when you touch `providers/`).
 
 ## Conventions
 

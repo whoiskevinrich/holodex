@@ -3,11 +3,13 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount } from '$lib/format';
+	import { toMessage } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Person } from '$lib/types';
 	import SortToggle from '$lib/components/SortToggle.svelte';
 	import SortReroll from '$lib/components/SortReroll.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
+	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
+	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { peopleScroll } from '$lib/peopleScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
@@ -29,13 +31,11 @@
 	const displayed = $derived(sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
-	// one to fold the rest into. See [[ADR-036]].
+	// one to fold the rest into (the choose-survivor step lives in MergeCanonicalDialog).
+	// See [[ADR-036]].
 	let selecting = $state(false);
 	let selectedIds = $state<number[]>([]);
-	let chooseCanonical = $state(false);
-	let canonicalId = $state<number | null>(null);
-	let merging = $state(false);
-	let mergeError = $state('');
+	let choosing = $state(false); // the "Keep which name?" dialog is open
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
@@ -97,33 +97,7 @@
 	function cancelSelect() {
 		selecting = false;
 		selectedIds = [];
-		chooseCanonical = false;
-		canonicalId = null;
-		mergeError = '';
-	}
-
-	function openChoose() {
-		canonicalId = selectedIds[0] ?? null;
-		mergeError = '';
-		chooseCanonical = true;
-	}
-
-	async function confirmMerge() {
-		if (!canonicalId || merging) return;
-		merging = true;
-		mergeError = '';
-		try {
-			// Fold every other selected person into the chosen canonical one.
-			for (const fromId of selectedIds.filter((id) => id !== canonicalId)) {
-				await api.mergePersons(canonicalId, fromId);
-			}
-			cancelSelect();
-			reload();
-		} catch (e) {
-			mergeError = toMessage(e);
-		} finally {
-			merging = false;
-		}
+		choosing = false;
 	}
 </script>
 
@@ -134,7 +108,7 @@
 			{#if isOwner}
 				{#if selecting}
 					<button
-						onclick={openChoose}
+						onclick={() => (choosing = true)}
 						disabled={selectedIds.length < 2}
 						class="rounded-theme bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-60"
 					>
@@ -161,6 +135,8 @@
 			<SortToggle bind:sort />
 		</div>
 	</div>
+
+	<DuplicatesBanner entityType="person" />
 
 	{#if selecting}
 		<p class="text-sm text-muted">Select two or more people, then choose which name to keep.</p>
@@ -239,55 +215,15 @@
 	{/if}
 </section>
 
-{#if chooseCanonical}
-	<div
-		class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-		role="presentation"
-		onclick={(e) => {
-			if (e.target === e.currentTarget && !merging) chooseCanonical = false;
+<!-- "Keep which name?" — pick the survivor for a multi-select merge, then fold the rest in. -->
+{#if choosing}
+	<MergeCanonicalDialog
+		kind="person"
+		items={selectedPeople}
+		onclose={() => (choosing = false)}
+		onmerged={() => {
+			cancelSelect();
+			reload();
 		}}
-	>
-		<div
-			class="flex w-full max-w-lg flex-col gap-3 rounded-theme border border-rule bg-surface p-4 shadow-xl"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="merge-choose-title"
-		>
-			<h2 id="merge-choose-title" class="skin-title text-lg font-semibold text-ink">
-				Keep which name?
-			</h2>
-			<p class="text-xs text-muted">
-				The chosen name stays; the others become its aliases and their videos move under it. Confirm
-				these are the same person — this can’t be auto-undone.
-			</p>
-			<fieldset class="space-y-1">
-				{#each selectedPeople as p (p.id)}
-					<label class="flex cursor-pointer items-center gap-3 rounded-theme px-2 py-1.5 text-ink hover:bg-surface-2">
-						<input type="radio" name="canonical" class="accent-accent" value={p.id} checked={canonicalId === p.id} onchange={() => (canonicalId = p.id)} />
-						<span class="flex-1 truncate">{p.name}</span>
-						<span class="text-xs text-muted">{videoCount(p.video_count ?? 0)}</span>
-					</label>
-				{/each}
-			</fieldset>
-			{#if mergeError}
-				<p class="text-sm text-warn">{mergeError}</p>
-			{/if}
-			<div class="flex flex-wrap items-center justify-end gap-2">
-				<button
-					onclick={() => (chooseCanonical = false)}
-					disabled={merging}
-					class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-				>
-					Back
-				</button>
-				<button
-					onclick={confirmMerge}
-					disabled={merging || !canonicalId}
-					class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-				>
-					{merging ? 'Merging…' : 'Merge'}
-				</button>
-			</div>
-		</div>
-	</div>
+	/>
 {/if}
