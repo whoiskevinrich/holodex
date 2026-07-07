@@ -9,6 +9,7 @@
 	import SortReroll from '$lib/components/SortReroll.svelte';
 	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
 	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
+	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { peopleScroll } from '$lib/peopleScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
@@ -134,6 +135,8 @@
 			<SortToggle bind:sort />
 		</div>
 	</div>
+
+	<DuplicatesBanner entityType="person" />
 
 	{#if selecting}
 		<p class="text-sm text-muted">Select two or more people, then choose which name to keep.</p>

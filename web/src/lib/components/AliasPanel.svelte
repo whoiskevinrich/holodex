@@ -51,6 +51,52 @@
 	let renameError = $state('');
 	let renameInput = $state<HTMLInputElement | null>(null);
 
+	// Non-blocking near-miss (P1-5): after a successful add/rename, a fuzzy look-alike is
+	// surfaced as an advisory nudge (distinct from the exact-name `conflict` above). Studio
+	// only — person has no near-miss endpoint (`api.nearMiss` excludes it), so we guard.
+	let nearMiss = $state<EntityRef | null>(null);
+
+	async function flagNearMiss(name: string) {
+		if (entityType === 'person') return; // no person near-miss endpoint (RD-scoped)
+		try {
+			nearMiss = (await api.nearMiss(entityType, entityId, name)).near_miss;
+		} catch {
+			// Advisory only — a failed look-alike probe must never block the completed edit.
+			nearMiss = null;
+		}
+	}
+
+	// Fold the look-alike into this entity, or keep both (records keep-separate so the hint
+	// never returns for this pair).
+	async function mergeNearMiss() {
+		if (!nearMiss || aliasBusy) return;
+		aliasBusy = true;
+		aliasError = '';
+		try {
+			await api.mergeEntities(entityType, entityId, nearMiss.id);
+			nearMiss = null;
+			onmerged();
+		} catch (err) {
+			aliasError = toMessage(err);
+		} finally {
+			aliasBusy = false;
+		}
+	}
+
+	async function keepBoth() {
+		if (!nearMiss || aliasBusy) return;
+		aliasBusy = true;
+		aliasError = '';
+		try {
+			await api.dismissDuplicate(entityType, entityId, nearMiss.id);
+			nearMiss = null;
+		} catch (err) {
+			aliasError = toMessage(err);
+		} finally {
+			aliasBusy = false;
+		}
+	}
+
 	async function addAlias(e: SubmitEvent) {
 		e.preventDefault();
 		const value = newAlias.trim();
@@ -68,6 +114,7 @@
 			aliases = res.aliases ?? aliases;
 			newAlias = '';
 			aliasInput?.focus(); // keep focus for quick multi-add
+			await flagNearMiss(value);
 		} catch (err) {
 			aliasError = toMessage(err);
 		} finally {
@@ -139,6 +186,7 @@
 			}
 			cancelRename();
 			onrenamed?.();
+			await flagNearMiss(next);
 		} catch (err) {
 			renameError = toMessage(err);
 		} finally {
@@ -272,6 +320,33 @@
 						class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
 					>
 						No, keep separate
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		{#if nearMiss}
+			<!-- Non-blocking near-miss (P1-5): the edit already saved; this is an advisory nudge,
+			     visually lighter than the exact-name conflict card above. -->
+			<div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
+				<p class="text-sm text-ink">
+					Saved. Looks a lot like <span class="font-semibold">{nearMiss.name}</span>
+					({videoCount(nearMiss.video_count ?? 0)}) — merge them?
+				</p>
+				<div class="flex flex-wrap items-center gap-2">
+					<button
+						onclick={mergeNearMiss}
+						disabled={aliasBusy}
+						class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+					>
+						Merge them in
+					</button>
+					<button
+						onclick={keepBoth}
+						disabled={aliasBusy}
+						class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+					>
+						Keep both
 					</button>
 				</div>
 			</div>

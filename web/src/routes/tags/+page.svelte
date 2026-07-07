@@ -7,6 +7,7 @@
 	import SortReroll from '$lib/components/SortReroll.svelte';
 	import EntityPicker from '$lib/components/EntityPicker.svelte';
 	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
+	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
@@ -37,6 +38,9 @@
 	let actionBusy = $state(false);
 	let actionError = $state('');
 	let actionConflict = $state<EntityRef | null>(null);
+	// Non-blocking near-miss (P1-5): a fuzzy look-alike surfaced after a successful
+	// add/rename — advisory; "Keep both" records keep-separate so it won't nag again.
+	let actionNearMiss = $state<EntityRef | null>(null);
 	let menuTriggers = $state<Record<number, HTMLButtonElement | null>>({});
 	let firstItem = $state<HTMLButtonElement | null>(null);
 	let actionInput = $state<HTMLInputElement | null>(null);
@@ -96,6 +100,7 @@
 		actionValue = '';
 		actionError = '';
 		actionConflict = null;
+		actionNearMiss = null;
 		await Promise.resolve();
 		firstItem?.focus();
 	}
@@ -105,6 +110,7 @@
 		openMenu = null;
 		menuAction = 'menu';
 		actionConflict = null;
+		actionNearMiss = null;
 		if (returnFocus && id != null) menuTriggers[id]?.focus();
 	}
 
@@ -118,6 +124,7 @@
 		actionValue = kind === 'rename' ? tag.name : '';
 		actionError = '';
 		actionConflict = null;
+		actionNearMiss = null;
 		await Promise.resolve();
 		actionInput?.focus();
 		if (kind === 'rename') actionInput?.select();
@@ -140,8 +147,12 @@
 				actionConflict = res.conflict;
 				return;
 			}
-			closeMenu();
 			reload();
+			// Surface a fuzzy look-alike as a non-blocking hint; keep the menu open for it,
+			// else close.
+			const nm = await api.nearMiss('tag', tagId, value).then((r) => r.near_miss);
+			if (nm) actionNearMiss = nm;
+			else closeMenu();
 		} catch (err) {
 			actionError = toMessage(err);
 		} finally {
@@ -157,6 +168,37 @@
 			await api.mergeEntities('tag', tagId, actionConflict.id);
 			closeMenu();
 			reload();
+		} catch (err) {
+			actionError = toMessage(err);
+		} finally {
+			actionBusy = false;
+		}
+	}
+
+	// Near-miss hint actions (P1-5): fold the look-alike into the edited tag, or keep both
+	// (records keep-separate so the hint never returns for this pair).
+	async function mergeNearMiss(tagId: number) {
+		if (!actionNearMiss || actionBusy) return;
+		actionBusy = true;
+		actionError = '';
+		try {
+			await api.mergeEntities('tag', tagId, actionNearMiss.id);
+			closeMenu();
+			reload();
+		} catch (err) {
+			actionError = toMessage(err);
+		} finally {
+			actionBusy = false;
+		}
+	}
+
+	async function keepBoth(tagId: number) {
+		if (!actionNearMiss || actionBusy) return;
+		actionBusy = true;
+		actionError = '';
+		try {
+			await api.dismissDuplicate('tag', tagId, actionNearMiss.id);
+			closeMenu();
 		} catch (err) {
 			actionError = toMessage(err);
 		} finally {
@@ -186,6 +228,8 @@
 			<SortToggle bind:sort />
 		</div>
 	</div>
+
+	<DuplicatesBanner entityType="tag" />
 
 	{#if manage}
 		<!-- Merge bar: select 2+ pills, then choose the surviving name. Mirrors /people's
@@ -285,6 +329,37 @@
 									>
 										Merge into…
 									</button>
+								{:else if actionNearMiss}
+									<!-- Non-blocking near-miss (P1-5): the edit already saved; this is an
+									     advisory nudge. "Keep both" records keep-separate so it won't nag again. -->
+									<div class="space-y-2 p-1">
+										<p class="text-sm text-ink">
+											Saved. Looks a lot like
+											<span class="font-semibold">{actionNearMiss.name}</span>
+											({videoCount(actionNearMiss.video_count ?? 0)}) — merge them?
+										</p>
+										<div class="flex flex-wrap gap-2">
+											<button
+												type="button"
+												onclick={() => mergeNearMiss(t.id)}
+												disabled={actionBusy}
+												class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+											>
+												Merge them in
+											</button>
+											<button
+												type="button"
+												onclick={() => keepBoth(t.id)}
+												disabled={actionBusy}
+												class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+											>
+												Keep both
+											</button>
+										</div>
+										{#if actionError}
+											<p class="text-sm text-warn">{actionError}</p>
+										{/if}
+									</div>
 								{:else}
 									<!-- Inline rename/alias editor. A collision offers a merge instead of a
 									     silent fold (never auto-merge homonyms). -->

@@ -78,6 +78,16 @@ type EntityAlias struct {
 // shape under its original name, so the F23 person model and endpoints read unchanged.
 type PersonAlias = EntityAlias
 
+// EntityRef is the minimal identity of a named entity — id, name, and active-video
+// count — that Person/Studio/Tag all satisfy (F43 S5, ADR-061). Used by the near-miss
+// review queue to carry both sides of a possible-duplicate pair and the editor
+// soft-warning's look-alike, without pulling the full per-entity payload.
+type EntityRef struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	VideoCount int    `json:"video_count,omitempty"`
+}
+
 // Person image roles (F25, ADR-038). The three "core" roles are single-slot per
 // person (one headshot, one banner, one poster); "extra" is the unbounded-but-
 // capped gallery. Centralized here so the migration's partial unique index, the

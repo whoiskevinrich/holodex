@@ -21,6 +21,16 @@ export interface EntityRef {
 	video_count?: number;
 }
 
+// DuplicatePair is one flagged possible-duplicate (F43 S5, ADR-061): two entities that
+// are a loose-key near-miss (not an exact-nameKey match) and the variation kind. Served
+// by GET /owner/duplicates, grouped tags-first.
+export interface DuplicatePair {
+	entity_type: EntityKind;
+	a: EntityRef;
+	b: EntityRef;
+	variation: string; // 'internal-whitespace' | 'punctuation'
+}
+
 export interface Person {
 	id: number;
 	name: string;
