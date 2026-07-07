@@ -4,12 +4,11 @@
 	// become aliases). Shared by /people and /tags (HOLODEX-163 — was two verbatim copies).
 	// Entity-generic via `kind`; api.mergeEntities does the fold. The parent owns selection: it
 	// passes the chosen `items` and reacts to `onmerged` (reload + clear) / `onclose` (dismiss).
-	// Modal a11y — focus trap, Esc, backdrop, focus-return — matches its sibling EntityPicker.
-	// Tokens only; QA 3 skins.
-	import { onMount } from 'svelte';
+	// Modal chrome (focus trap, Esc, backdrop, focus-return) delegates to ConfirmDialog.
 	import { api } from '$lib/api';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { EntityKind, EntityRef } from '$lib/types';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let {
 		kind,
@@ -33,36 +32,6 @@
 	let merging = $state(false);
 	let mergeError = $state('');
 
-	let dialogEl = $state<HTMLElement | null>(null);
-	let trigger: HTMLElement | null = null;
-
-	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null;
-		dialogEl?.querySelector<HTMLElement>('input[type="radio"]:checked')?.focus();
-		return () => trigger?.focus?.();
-	});
-
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (f.length === 0) return;
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-
-	function cancel() {
-		if (!merging) onclose();
-	}
-
 	async function confirmMerge() {
 		if (canonical == null || merging) return;
 		merging = true;
@@ -82,25 +51,17 @@
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) cancel();
-	}}
+<ConfirmDialog
+	title="Keep which name?"
+	confirmLabel="Merge"
+	cancelLabel="Back"
+	busy={merging}
+	error={mergeError}
+	variant="accent"
+	onconfirm={confirmMerge}
+	oncancel={onclose}
 >
-	<div
-		bind:this={dialogEl}
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="merge-pop flex w-full max-w-lg flex-col gap-3 rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="merge-canonical-title"
-	>
-		<h2 id="merge-canonical-title" class="skin-title text-lg font-semibold text-ink">
-			Keep which name?
-		</h2>
+	{#snippet body()}
 		<p class="text-xs text-muted">
 			The chosen name stays; the others become its aliases and their videos move under it. Confirm
 			these are the same {noun} — this can’t be auto-undone.
@@ -114,44 +75,5 @@
 				</label>
 			{/each}
 		</fieldset>
-		{#if mergeError}
-			<p class="text-sm text-warn">{mergeError}</p>
-		{/if}
-		<div class="flex flex-wrap items-center justify-end gap-2">
-			<button
-				onclick={cancel}
-				disabled={merging}
-				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-			>
-				Back
-			</button>
-			<button
-				onclick={confirmMerge}
-				disabled={merging || canonical == null}
-				class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-			>
-				{merging ? 'Merging…' : 'Merge'}
-			</button>
-		</div>
-	</div>
-</div>
-
-<svelte:window onkeydown={(e) => e.key === 'Escape' && cancel()} />
-
-<style>
-	@media (prefers-reduced-motion: no-preference) {
-		.merge-pop {
-			animation: merge-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-		}
-	}
-	@keyframes merge-rise {
-		from {
-			opacity: 0;
-			transform: scale(0.98);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-</style>
+	{/snippet}
+</ConfirmDialog>

@@ -35,13 +35,16 @@
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
-		cancelBtn?.focus(); // safe default for a destructive dialog
+		// A checked radio in the body (e.g. a merge-target picker) takes initial focus;
+		// otherwise Cancel is the safe default so an accidental Enter never confirms.
+		const checkedRadio = dialogEl?.querySelector<HTMLElement>('input[type="radio"]:checked');
+		(checkedRadio ?? cancelBtn)?.focus();
 		return () => trigger?.focus?.();
 	});
 
 	function trapTab(e: KeyboardEvent) {
 		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('button')].filter(
+		const f = [...dialogEl.querySelectorAll<HTMLElement>('button, input, [tabindex="0"]')].filter(
 			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
 		);
 		if (f.length === 0) return;

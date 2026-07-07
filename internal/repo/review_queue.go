@@ -16,15 +16,6 @@ import (
 // the editor's near-miss lookup, and dropping a pair on merge. All reuse S4's
 // looseKeyExpr + the shared canonicalTable/nameKeyExpr, so detection stays identical.
 
-// orderedPair returns the two ids as (lo, hi) so a pair is stored/looked-up once
-// regardless of argument order (entity_keep_separate / identity_review_queue PKs).
-func orderedPair(a, b int64) (lo, hi int64) {
-	if a > b {
-		return b, a
-	}
-	return a, b
-}
-
 // reviewJunction maps each named entity type to its (junction table, fk column), for
 // the active-video counts shown on a review pair / near-miss look-alike.
 var reviewJunction = map[string][2]string{
@@ -132,7 +123,7 @@ func (r *Repo) DismissReviewPair(ctx context.Context, entityType string, idA, id
 	if canonicalTable(entityType) == "" {
 		return fmt.Errorf("dismiss: unknown entity type %q", entityType)
 	}
-	lo, hi := orderedPair(idA, idB)
+	lo, hi := orderPair(idA, idB)
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
