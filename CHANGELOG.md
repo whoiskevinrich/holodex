@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/whoiskevinrich/holodex/compare/v1.6.0...v1.6.1) (2026-07-07)
+
+
+### 📚 Documentation
+
+* session-state workflow (idea-to-merge manual + whats-left probe) ([#110](https://github.com/whoiskevinrich/holodex/issues/110)) ([caaae7a](https://github.com/whoiskevinrich/holodex/commit/caaae7aac305b68136af86d1c9514e0d2c5bb134))
+
 ## [1.6.0](https://github.com/whoiskevinrich/holodex/compare/v1.5.0...v1.6.0) (2026-07-07)
 
 
