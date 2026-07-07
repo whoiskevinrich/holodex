@@ -7,6 +7,7 @@ import type {
 	EnrichCandidate,
 	EnrichedField,
 	EnrichSource,
+	DuplicatePair,
 	EntityKind,
 	EntityRef,
 	Facet,
@@ -459,6 +460,26 @@ export const api = {
 		}
 		return {};
 	},
+
+	// Editor near-miss soft-warning lookup (F43 P1-5). Owner-gated read: a candidate name
+	// → the fuzzy near-miss entity (loose-key match, not an exact collision, not
+	// kept-separate) or null. kind is 'studio' | 'tag'.
+	nearMiss: (kind: Exclude<EntityKind, 'person'>, id: number, name: string) =>
+		getAuthed<{ near_miss: EntityRef | null }>(
+			`/${ENTITY_BASE[kind]}/${id}/near-miss?name=${encodeURIComponent(name)}`
+		),
+
+	// Near-miss review queue (F43 S5). Owner-gated. duplicates() lists every flagged
+	// possible-duplicate pair (grouped tags-first); dismissDuplicate records the pair
+	// keep-separate and removes it — it never re-surfaces.
+	duplicates: () => getAuthed<{ pairs: DuplicatePair[] }>(`/owner/duplicates`),
+
+	dismissDuplicate: (kind: EntityKind, idA: number, idB: number) =>
+		sendAuthed<Record<string, never>>('POST', `/owner/duplicates/dismiss`, {
+			entity_type: kind,
+			id_a: idA,
+			id_b: idB
+		}),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace
