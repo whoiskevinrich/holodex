@@ -47,8 +47,10 @@ func NewSink(r imageRepo, dir string, maxDim int) *Sink {
 // asset URL (so a later delete can suppress re-adding it, F25/ADR-043). A decode
 // failure means nothing is written (the guard the spec requires). On a disk-write
 // failure the just-inserted row is rolled back so the index never points at a
-// missing file.
-func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+// missing file. overCap, set for an owner/admin enrichment run (HOLODEX-174), lets a
+// gallery 'extra' bypass repo.GalleryCap the same way an owner's manual "Add anyway"
+// upload does; it has no effect on core roles, which are never capped.
+func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error {
 	norm, w, h, err := Normalize(raw, s.maxDim)
 	if err != nil {
 		return fmt.Errorf("normalize asset: %w", err)
@@ -64,6 +66,7 @@ func (s *Sink) StoreAsset(ctx context.Context, personID int64, role, provider, e
 		Width:       w,
 		Height:      h,
 		ByteSize:    len(norm),
+		OverCap:     overCap,
 	})
 	// A gallery extra duplicating an image the person already has is a silent skip
 	// (F34/ADR-050) — nothing written, like a full gallery. The bytes never reach disk.
@@ -88,7 +91,7 @@ func (s *Sink) StoreAssetIfAbsent(ctx context.Context, personID int64, role, pro
 	case err == nil:
 		return nil // slot already filled — leave it
 	case errors.Is(err, repo.ErrNotFound):
-		return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw)
+		return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw, false)
 	default:
 		return fmt.Errorf("check core slot: %w", err)
 	}
