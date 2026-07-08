@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/whoiskevinrich/holodex/compare/v1.6.1...v1.7.0) (2026-07-08)
+
+
+### 🚀 Features
+
+* **fields:** in-app promote/override for auto-registered enrichment fields (F44) ([#112](https://github.com/whoiskevinrich/holodex/issues/112)) ([7cdd9a7](https://github.com/whoiskevinrich/holodex/commit/7cdd9a7f49ca15d05cac58dfa12ea27f52787021))
+* **people:** owner/admin gallery cap bypass, grid + image viewer modals ([#114](https://github.com/whoiskevinrich/holodex/issues/114)) ([6057109](https://github.com/whoiskevinrich/holodex/commit/6057109c34ffb8dbb925c8313a0c610db7572791))
+
 ## [1.6.1](https://github.com/whoiskevinrich/holodex/compare/v1.6.0...v1.6.1) (2026-07-07)
 
 
