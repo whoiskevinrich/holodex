@@ -460,9 +460,7 @@
 							{/if}
 
 							{#snippet promotedEdit(f: ResolvedField)}
-								{#if isOwner && f.promoted}
-								<PromotedFieldEdit field={f} entityType="person" entityNoun="people" onchanged={reloadDetail} />
-							{/if}
+								<PromotedFieldEdit {isOwner} field={f} entityType="person" entityNoun="people" onchanged={reloadDetail} />
 							{/snippet}
 
 							{#each compactFields as f (f.canonical)}

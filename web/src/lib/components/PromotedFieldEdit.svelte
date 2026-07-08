@@ -4,7 +4,8 @@
 	// Promote pill that AutoFieldRows owns for un-promoted rows — so both sides of the
 	// promotion line use one component each, not per-page copies. Renders a small Edit
 	// pill that opens the shared PromoteFieldEditor (edit mode) in-flow beneath the row.
-	// The caller gates on `isOwner && field.promoted`; a visitor never sees this.
+	// The visibility gate (`isOwner && field.promoted`) lives here so every call site is
+	// unconditional — a visitor, or a non-promoted row, renders nothing.
 	import type { PromotionEntityType, ResolvedField } from '$lib/types';
 	import PromoteFieldEditor from './PromoteFieldEditor.svelte';
 
@@ -12,17 +13,20 @@
 		field,
 		entityType,
 		entityNoun,
+		isOwner,
 		onchanged
 	}: {
 		field: ResolvedField;
 		entityType: PromotionEntityType;
 		entityNoun: string;
+		isOwner: boolean;
 		onchanged: () => Promise<void> | void;
 	} = $props();
 
 	let open = $state(false);
 </script>
 
+{#if isOwner && field.promoted}
 <div class="-mt-1 sm:col-span-2">
 	{#if open}
 		<PromoteFieldEditor
@@ -47,3 +51,4 @@
 		</button>
 	{/if}
 </div>
+{/if}

@@ -525,9 +525,7 @@
 								</dd>
 							</div>
 						{/if}
-						{#if isOwner && f.promoted}
-							<PromotedFieldEdit field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
-						{/if}
+						<PromotedFieldEdit {isOwner} field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
 					{/each}
 
 					<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
