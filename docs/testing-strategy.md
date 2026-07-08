@@ -181,6 +181,11 @@ assert.JSONEq(t, string(want), string(got))
 - **Soft-delete is orthogonal to disk presence** (F24/ADR-037): a soft-deleted item stays hidden across a re-scan of its still-present file — `deleted_at` is never cleared by the scanner, and the #26 reactivation fast-path can never resurrect it. The delete is undone only by an explicit `Restore`.
 - **Disk and DB never desync on purge** (F24.8): a failed file unlink must leave the row soft-deleted (retried next sweep) — never a deleted row with a surviving file, nor a removed file with a live row. A *missing* file is the desired end state and finishes the row delete.
 - **Enrichment can't be an SSRF vector**: core only ever connects to an allowlisted provider `base_url`; a `/resolve`/`/enrich` response cannot redirect it to another host, and no upstream API key is ever serialized into config dumps, logs, or the read-model.
+- **A promoted key renders exactly once** (F44/ADR-062 FR3): promoting an auto-registered field materializes it as a `mapping.Field`, so `AutoRegisterFields` excludes it automatically — the field is either a display-only auto row **or** a curatable mapped row, never both. Break this and every promoted field doubles.
+- **Promotion presentation is global; value curation is per-entity** (F44/ADR-062 D1): one `field_promotions` row shapes label/render/group/order for *every* entity of the type, while `field_source_decisions`/`metadata_curation` stay keyed by `(entity_id, field_key)` — a value pinned/added/suppressed on person A must never leak to person B, and a relabel on the shared row must apply to both.
+- **De-/re-promote never loses curation** (F44/ADR-062 D-reversible): decisions/curation rows are keyed by `field_key`, independent of the promotion row, so `ClearPromotion` reverts the field to a display-only auto row **without touching** the shadow value or any prior decision/curation — which then re-apply verbatim on re-promotion. The delete is presentation-only.
+- **Promotion outranks operator YAML but never the schema contract** (F44/ADR-062 D3): the in-app promotion is tier-0 (above `metadata-mappings.yaml`) **only** for a non-canonical key; a promotion can never target a canonical (`registry.IsKnown`) or `_`-prefixed key (⇒ 422), so tier-2 registry keys keep their contract and a promotion can't shadow `bio` or reach a reserved sidecar key.
+- **Promotion is zero-impact when unused** (F44/ADR-062): with no `field_promotions` rows, resolved output and rendering are byte-identical to pre-F44 (the F39 baseline) — the golden no-op, on all three entities.
 
 ---
 
@@ -232,6 +237,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 16. **(Phase 3, F23 — merge)** Library has duplicate people "Jennifer Lawrence" and "J Law". As owner, on Jennifer's page click **Merge a person in…** → pick "J Law" → confirm (both video counts shown) → Jennifer's video list grows to the union, "J Law" appears as an alias, the standalone "J Law" page is gone (404). Searching either name lands on Jennifer. **Trigger a re-scan** → still merged (no "J Law" person reappears). Also: typing "J Law" into the add-alias field of a *different* person surfaces the collision prompt (never a silent merge); and the `/people` list **Merge people…** multi-select → "Keep which name?" achieves the same merge.
 17. **(F24 — delete/restore)** With `ADMIN_TOKEN` set, as owner: open a detail page → **Move to Trash** → confirm → land back on the grid with the item **gone**; it is also absent from search and its people/tag pages, and `/media/{id}` 404s. Open **/trash** → the item shows "deleted … · purges …" → **Restore** → it returns to the library and Trash empties. A token-less client sees **no** Manage block, **no** Trash link, and `/trash` shows "Owner only." (Purge-now is exercised only against a throwaway fixture file — never the seed corpus — asserting the file is gone and the row hard-deleted; a read-only-mount variant asserts the item stays in Trash on a failed unlink.)
 18. **(F35 — owner hub + nav split)** As owner with **Owner view on**: the top nav shows only **Media · People · Tags**; click the **Owner** gear (near the skin picker) → land on `/owner` with tabs **Status · Metadata keys · Trash** → switch tabs (content swaps with **no** full-app reload / no jump to top). Paste the old `/status`, `/keys`, `/trash` URLs → each **redirects** to its `/owner/*` tab. Toggle **Owner view off** → the gear **disappears** and the bar is the clean visitor surface (no Keys/Status link leak); with it off, paste `/owner/trash` → it **auto-reveals** owner view and renders the page fully (announces "Owner view on."). A **token-less** client sees no gear and any `/owner*` URL redirects home with no owner data. Run the gear, tabs, and active-tab read in **all three skins**.
+19. **(F44 — promote / override)** With the fake/TMDB provider wired and `ADMIN_TOKEN` set, enrich a person so a non-canonical field (e.g. `measurements`) shows under **Additional details**. As owner: the row shows a **Promote** pill → open the inline editor → set a label + `render:text` + group + order → Save → the field **leaves** Additional details and appears above as a curatable **`SourceSelect`** row (baseline `·record` chip + `provider` chip), rendered **once** (no doubled row). Pin a source, then open **Edit** (same editor, pre-filled) → **Remove promotion** → the field returns to a display-only auto row; **re-promote** → the prior source pin re-applies. Promote a `chips` field → it becomes a **`CurationFieldRow`** merge row (per-value ✕ / ＋ Add) instead. Confirm the label change shows on **another** person with the same key while a value suppressed on the first does **not**. A **token-less** client sees **no** Promote/Edit controls — just the curated label/value. Repeat the promote/edit/de-promote round-trip on `/studios/{id}` and `/media/{id}`. Run the affordance, the inline editor, and the post-promotion curatable row in **all three skins**.
 
 ---
 
@@ -651,6 +657,78 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   first, Merge/Keep-separate). Owner controls **absent from the DOM** for non-owners; tokens-only (`rg` guard empty);
   the `--warn`/`--accent` separation holds on **Brutalist**; **all 3 skins**.
 
+**In-app promote / override affordance (F44, HOLODEX-171, ADR-062)** — an owner-gated, DB-backed **tier-0**
+override (`field_promotions`) that materializes an auto-registered (F39) non-canonical field into a synthetic
+`mapping.Field`, making it a first-class **curatable** field via the *existing* F36 decision + F30 curation code
+paths, on all three entities — with **zero** `metadata-mappings.yaml` editing. Rides F39's auto-registration and
+F36/F30's resolver seams, so the diff is a synthetic field + a tier-0 fold, not a new editing model. Fully
+CI-testable, **no network** (in-process fake advertising the non-canonical values). Cardinal invariants (§4):
+**renders exactly once**, **presentation-global / curation-per-entity**, **de-/re-promote never loses curation**,
+**tier-0 outranks YAML but never a canonical key**, and **zero-impact when unused**. Maps to the
+[F44 QA checklist](design/promote-override-fields-qa-checklist.md) §2 smoke items.
+- **Store (`field_promotions`, `internal/repo/promotions.go`)**: `SetPromotion` upserts a
+  `(entity_type, field_key)` row under `writeMu` (stamping `created_at`/`updated_at` in `timeLayout`); a second
+  `SetPromotion` on the same key updates in place (no duplicate row); `ClearPromotion` deletes and is a **no-op on
+  a missing row**; `PromotionsForEntityType` returns only that type's rows. Mirrors `decisions.go`. Migration
+  `0023_field_promotions` up/down applies cleanly and **preserves user promotions** across the round-trip (ties
+  the migration-safety invariant). *(QA 2.1)*
+- **Ladder tier-0 (pure)**: for a promoted key `(label,render,group,order)` resolves **promotion ▸ operator YAML ▸
+  registry ▸ provider hint ▸ title-case** — first tier with an answer wins; a promotion's **empty** presentation
+  column falls through to the lower tiers **for that column only** (empty `label` inherits the hint/title-case
+  label while a non-empty `render` still wins). Extends the F39 four-tier overlay with tier-0. *(QA 2.2)*
+- **Tier-0 outranks YAML (D3, cardinal)**: a **video** key that has **both** a `metadata-mappings.yaml` mapping
+  **and** a promotion resolves the promotion's label/render/order **and** curatable status; the promotion
+  `mapping.Field` **replaces** the YAML one on the `canonical` collision, so the field renders **once**. Every
+  un-promoted key resolves exactly as ADR-056 defines (regression guard). *(QA 2.3)*
+- **Non-canonical guard (cardinal)**: `SetPromotion` and the `PUT` handler **reject** a canonical key
+  (`registry.IsKnown ⇒ 422`) and a `_`-prefixed key (`⇒ 422`); no row is created. The registry/schema contract
+  and reserved sidecar keys stay inviolate — you cannot promote `bio` or `_studio_external_ids`. *(QA 2.4)*
+- **Materialization + candidate derivation (D-candidate)**: a promoted key produces a synthetic
+  `mapping.Field{Canonical: key, Filterable: false, Multi: render=="chips"}` whose **`ParsedSources` = one
+  `provider:<ns>` per namespace present** for `(entity_type, entity_id, field_key)` in that entity's shadow rows
+  (union across providers); the **baseline** (`file`/intrinsic) is always a candidate (empty for a provider-only
+  person/studio key is fine); **`manual` is always available**. Candidates are entity-specific even though the
+  promotion row is global — computed at resolve assembly from the already-loaded `Enrichment` map, so purity
+  holds (no new per-field query). *(QA 2.5)*
+- **Decision/curation attach + auto-registration yields (F36/F30/FR3)**: after materialization, `ResolveFields`
+  attaches `Decision`/`Candidates`/`InSync` to a **scalar** promoted field and per-value union + F30 curation
+  items to a **`chips`** promoted field — via the existing code paths, with **no merge-core change**;
+  `ResolvedField.AutoRegistered == false`; and `AutoRegisterFields` **excludes** the now-mapped key with no new
+  predicate, so it renders once, not doubled. Extend the ADR-052 non-video-baseline unit to prove it for video,
+  person, and studio. *(QA 2.6, 2.7)*
+- **Presentation-global / curation-per-entity (cardinal)**: a `field_source_decisions` / `metadata_curation` row
+  on a promoted key for entity **A** does **not** affect entity **B**, while the label/render/order from the
+  global promotion is shared. *(QA 2.8)*
+- **De-/re-promote survives curation (cardinal)**: `ClearPromotion` reverts the key to an auto-registered row
+  (`AutoRegistered == true`, no `Decision`); prior decision/curation rows persist (keyed by `field_key`,
+  independent of the promotion row) and **re-apply** on a subsequent `SetPromotion`; the shadow value is never
+  touched. *(QA 2.9)*
+- **API (`PUT`/`DELETE`/`GET /admin/field-promotions/{entity_type}[/{field_key}]`)**: owner-gated (**401** unauth,
+  before the handler); `PUT` → 204 upsert (body `label?/render?/group?/order?`), `DELETE` → 204 **idempotent**,
+  `GET` lists a type's rows; `entity_type ∉ {video,person,studio}` → 4xx; canonical/`_` key → 422;
+  `render`/`group` coerced to the F39 vocabulary; `label` control-char-stripped + capped 64 (reuse the F39 ingest
+  sanitizer). A **type-global** route (not `/{entity}/{id}/fields/...`) — the URL must not imply per-entity scope.
+  `httptest` over a real repo, mirroring `person_decisions.go`. *(QA 2.10, 2.12)*
+- **Security (owner-authored config the resolver trusts)**: owner-supplied `label`/`render`/`group` are still
+  **sanitized/coerced on ingest** (defense in depth — over-long label capped, control-chars stripped, unknown
+  `render`→`text`), labels render as **escaped text** (Svelte, never HTML); a promoted **`image_url`** value on a
+  **non-allowlisted** host resolves as `text` not `<img>` (the ADR-039 asset perimeter is **not** widened by
+  promotion); `Filterable` is unconditionally **false**, so a promoted, provider-valued field never enters the
+  browse facet / query-param path (no unvalidated-value-into-browse surface). `/security-review` before merge.
+  *(QA 2.10, 2.11)*
+- **Backward-compat golden (cardinal)**: with **no** promotions, resolved output + rendering is **byte-identical**
+  to pre-F44 (the F39 baseline snapshot), on all three entities. *(QA 2.13)*
+- **Frontend** (Vitest + a11y): `AutoFieldRows.svelte` gains `isOwner` — the **Promote** control renders only for
+  the owner (**absent from the DOM** for a visitor); the inline editor emits the correct `PUT` body
+  (`label?/render?/group?/order?`) and `DELETE` on **Remove promotion**; the render `<select>` offers exactly
+  `text|long_text|chips|url|image_url`; after promotion the field leaves `extraFields` and renders through
+  `SourceSelect`/`CurationFieldRow` **for free** via the existing `!f.auto_registered` partition; the editor is an
+  **inline expander** (no popover/focus-trap machinery — DD1) that traps nothing but returns focus to the opening
+  button on Esc/close; tokens-only (the `rg 'zinc-|sky-|…'` guard stays empty). **Live 3-skin visual QA**
+  (Cinémathèque/Broadcast/Brutalist) per the QA checklist §4 `[human]` items — the Promote pill vs. the provider
+  badge, the accent-outlined editor box, the `--warn` Remove vs. accent Save separation, and the auto→mapped
+  partition move — remains the manual gate (needs a running backend + provider + owner session). *(QA 2.14, §3–§4)*
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -754,6 +832,38 @@ When the person is enriched
 Then the stored/displayed bio is length-capped
   And the photo asset is rejected on content-type, field display still succeeds
   And a malformed JSON response fails just that fetch (server stays up)
+```
+
+**Promotion tier-0 outranks YAML + renders once (F44/ADR-062, D3/FR3) — cardinal**
+```
+Given a video key "director_notes" with BOTH a metadata-mappings.yaml mapping
+      (label "Notes", render text) AND a field_promotions row
+      (label "Director's Notes", render long_text)
+When the media detail resolves
+Then the field's label == "Director's Notes" and render == "long_text" (promotion wins)
+  And the field is curatable (carries Decision/Candidates), AutoRegistered == false
+  And it appears exactly once (the promotion mapping.Field replaced the YAML one;
+      AutoRegisterFields excluded the now-mapped key)
+```
+
+**Promotion is presentation-global, curation is per-entity (F44/ADR-062, D1) — cardinal**
+```
+Given a person field_promotions row for "measurements" (label "Measurements")
+  And person A with a metadata_curation suppress on "measurements"
+When persons A and B (both carry the shadow key) resolve
+Then both show label "Measurements" (shared, from the global promotion row)
+  And A's value is suppressed while B's value is intact (per-entity curation)
+When the promotion row is cleared then re-created
+Then both revert to the auto-registered title-cased label, then relabel again
+  And A's suppress row (keyed by field_key) re-applies on re-promotion — never lost
+```
+
+**Promotion cannot shadow the schema contract (F44/ADR-062) — guard**
+```
+Given the code registry knows canonical key "bio"
+When PUT /admin/field-promotions/person/bio is called by the owner
+Then status 422 and no field_promotions row is created
+  And the same for a "_"-prefixed key (e.g. _studio_external_ids) → 422
 ```
 
 **Enrich endpoint owner-gated (ADR-033, F22.9a)**

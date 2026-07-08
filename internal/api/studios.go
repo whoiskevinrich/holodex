@@ -42,14 +42,10 @@ func studioFields(providers []string) []mapping.Field {
 // studioField builds one synthesized replace field; raw Sources mirror ParsedSources
 // so the field round-trips like a parsed YAML one.
 func studioField(canonical string, sources []mapping.Source) mapping.Field {
-	raw := make([]string, len(sources))
-	for i, s := range sources {
-		raw[i] = s.Namespace + ":" + s.Key
-	}
 	return mapping.Field{
 		Canonical:     canonical,
 		Label:         registry.Lookup(canonical).Label,
-		Sources:       raw,
+		Sources:       rawSources(sources),
 		ParsedSources: sources,
 	}
 }
@@ -125,7 +121,9 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 		dec = decisionsFromRows(decRows)
 	}
 	fields := studioFields(h.studioProviders(rows))
+	fields, promoted := h.mergePromotions(ctx, model.EnrichEntityStudio, fields, rows)
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
+	h.markPromoted(resolved, promoted)
 	return h.appendAutoRegistered(ctx, rows, recordizeResolved(resolved))
 }
 

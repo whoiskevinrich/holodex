@@ -33,6 +33,7 @@
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
+	import PromotedFieldEdit from '$lib/components/PromotedFieldEdit.svelte';
 	import { videoCount, providerFromWinningSource } from '$lib/format';
 
 	let person = $state<Person | null>(null);
@@ -458,6 +459,10 @@
 								</div>
 							{/if}
 
+							{#snippet promotedEdit(f: ResolvedField)}
+								<PromotedFieldEdit {isOwner} field={f} entityType="person" entityNoun="people" onchanged={reloadDetail} />
+							{/snippet}
+
 							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
 									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
@@ -487,6 +492,7 @@
 										{/if}
 									</div>
 								{/if}
+								{@render promotedEdit(f)}
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}
@@ -509,6 +515,7 @@
 										/>
 									</dd>
 								</div>
+								{@render promotedEdit(f)}
 							{/each}
 
 							{#each longFields as f (f.canonical)}
@@ -535,11 +542,18 @@
 										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 									{/if}
 								</div>
+								{@render promotedEdit(f)}
 							{/each}
 
 							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields —
 							     read-only rows under an "Additional details" divider (shared component). -->
-							<AutoFieldRows fields={extraFields} />
+							<AutoFieldRows
+								fields={extraFields}
+								{isOwner}
+								entityType="person"
+								entityNoun="people"
+								onchanged={reloadDetail}
+							/>
 						</dl>
 					{:else}
 						<p class="text-sm text-muted">No details yet.</p>

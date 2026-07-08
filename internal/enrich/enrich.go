@@ -234,6 +234,12 @@ func SanitizeFieldHints(in map[string]FieldHint) map[string]FieldHint {
 	return out
 }
 
+// SanitizeFieldLabel exposes the F39 label sanitizer for the in-app field-promotion
+// ingest (F44, ADR-062): an owner-supplied promotion label is owner-authored but still
+// bounded and control-char-stripped on the way in (defense in depth), sharing one
+// sanitizer with the provider-hint path so the two stay in lockstep.
+func SanitizeFieldLabel(s string) string { return sanitizeHintLabel(s) }
+
 // sanitizeHintLabel strips control characters (collapsing to spaces), trims, and
 // caps a provider-supplied label. Rendering escapes it, so this only bounds size and
 // removes control noise.

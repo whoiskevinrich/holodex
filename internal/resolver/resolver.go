@@ -60,6 +60,14 @@ type ResolvedField struct {
 	// false. The SPA renders these in the "Additional details" group.
 	AutoRegistered bool `json:"auto_registered,omitempty"`
 
+	// Promoted marks a non-canonical field that became first-class curatable via an
+	// in-app promotion (F44, ADR-062) rather than a native mapping. It is otherwise a
+	// normal mapped field (AutoRegistered=false, full Decision/Candidates/curation); the
+	// flag only tells the SPA to offer the owner-only Edit / Remove-promotion affordance.
+	// The resolver never sets it — the API layer stamps it after resolve for the keys it
+	// materialized from a promotion row.
+	Promoted bool `json:"promoted,omitempty"`
+
 	// F36 (ADR-051) — per-field source-of-truth, populated on replace (scalar)
 	// fields only. Decision is the standing source choice (Standing=false for the
 	// implicit file-first default); InSync is false when the decided value differs

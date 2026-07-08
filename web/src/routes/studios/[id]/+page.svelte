@@ -22,6 +22,8 @@
 	import SourceSelect from '$lib/components/SourceSelect.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
+	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
+	import PromotedFieldEdit from '$lib/components/PromotedFieldEdit.svelte';
 
 	// Studio detail (F38, ADR-053): name header + video grid + a Details section that
 	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5). Unlike the
@@ -80,11 +82,18 @@
 		replaceFields.filter((f) => f.display !== 'long_text' && f.display !== 'image_url')
 	);
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
+	// F44 (ADR-062): a chips-render promotion is a merge field — studio has no native
+	// merge field, but a promotion can introduce one, so it needs its own row.
+	const mergeFields = $derived(
+		resolved.filter((f) => !!f.multi && !f.auto_registered && (isOwner || f.values.length > 0))
+	);
 	// F39 (ADR-056): display-only auto-registered non-canonical fields, read-only after
 	// the curatable ones.
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 	// Show the section when there's something to curate or display, or (owner) a provider to enrich from.
-	const hasDetails = $derived(replaceFields.length > 0 || extraFields.length > 0);
+	const hasDetails = $derived(
+		replaceFields.length > 0 || mergeFields.length > 0 || extraFields.length > 0
+	);
 
 	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
 	// it is a baseline source (record/file/manual). Shared with AutoFieldRows.
@@ -244,6 +253,10 @@
 								</div>
 							{/each}
 
+							{#snippet promotedEdit(f: ResolvedField)}
+								<PromotedFieldEdit {isOwner} field={f} entityType="studio" entityNoun="studios" onchanged={reloadDetail} />
+							{/snippet}
+
 							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
 									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
@@ -277,6 +290,7 @@
 										{/if}
 									</div>
 								{/if}
+								{@render promotedEdit(f)}
 							{/each}
 
 							{#each longFields as f (f.canonical)}
@@ -299,10 +313,34 @@
 										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
 									{/if}
 								</div>
+								{@render promotedEdit(f)}
+							{/each}
+
+							{#each mergeFields as f (f.canonical)}
+								<div class="sm:col-span-2">
+									<dt class="mb-1 text-muted">{f.label}:</dt>
+									<dd>
+										<CurationFieldRow
+											field={f}
+											{isOwner}
+											showWriteToggle={false}
+											curate={(req) => api.curateStudio(id, req)}
+											clearCuration={(req) => api.clearStudioCuration(id, req)}
+											onchanged={reloadDetail}
+										/>
+									</dd>
+								</div>
+								{@render promotedEdit(f)}
 							{/each}
 
 							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
-							<AutoFieldRows fields={extraFields} />
+							<AutoFieldRows
+								fields={extraFields}
+								{isOwner}
+								entityType="studio"
+								entityNoun="studios"
+								onchanged={reloadDetail}
+							/>
 						</dl>
 					{/if}
 				</section>

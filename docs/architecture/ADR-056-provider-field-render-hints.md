@@ -107,9 +107,16 @@ No protocol bump: `field_hints` is additive and forward-compatible under the con
 
 ### D2 — The four-tier resolution ladder (who wins label / render / order)
 
+> **Amended by [ADR-062](ADR-062-in-app-field-promotion.md) (F44):** an owner **in-app field promotion**
+> (`field_promotions`) is a new **tier-0** above operator YAML for the promoted **non-canonical** key — the
+> owner's live promotion outranks their deploy-time `metadata-mappings.yaml` (the owner *is* the operator).
+> Tiers 1–4 below are unchanged for every un-promoted key; tier-2 registry authority over **canonical** keys
+> is untouched (a promotion, like a hint, can only target a non-canonical key).
+
 For a given field key, label/render/order resolve top-down, first tier with an answer wins:
 
-1. **Operator `metadata-mappings.yaml`** — explicit deployer intent. Always wins (AC).
+0. **In-app promotion** (`field_promotions`, ADR-062) — **non-canonical keys only**; the owner's live override.
+1. **Operator `metadata-mappings.yaml`** — explicit deployer intent. Wins over tiers 2–4 (but see tier-0).
 2. **Code registry** (`registry.FieldDef`) — the shared schema contract. A provider hint **cannot** touch a
    canonical key: `bio`, `poster_url`, `logo`, … keep their registry label/render regardless of what a
    provider advertises.
