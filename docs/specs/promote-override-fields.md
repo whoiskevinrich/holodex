@@ -273,14 +273,15 @@ New owner-gated routes in the `requireOwner` group (mirror `internal/api/person_
 
 ---
 
-## Open Items (to settle in `/architecture` + `/design-handoff`)
+## Open Items
 
-1. **`filterable` on a promotion?** Whether an owner can make a promoted field a **browse facet** (as YAML
-   `filterable: true` does). Deferring it keeps the security surface to render+curation only (FR6). Recommend
-   **defer** to a follow-up; note in ADR-062.
-2. **Candidate-source derivation** — the exact rule for a promoted field's F36 candidate sources from shadow-store
-   provenance (single provider + manual vs. multi-provider union). Settle in ADR-062 with the resolver change.
-3. **Editor placement/shape** — inline expander on the row vs. a small popover; whether promote + edit share one
+*Two prior architecture items are resolved in [ADR-062](../architecture/ADR-062-in-app-field-promotion.md):*
+`filterable` on a promotion — **deferred** (`Filterable` stays false in v1; browse-facet is a follow-up,
+ADR-062 D-filterable); and candidate-source derivation — **per-entity from shadow provenance** (one
+`provider:<ns>` per supplying namespace, union across providers, `manual` always available; no stored source
+list), with `Multi = render=="chips"` (ADR-062 D-candidate).
+
+1. **Editor placement/shape** — inline expander on the row vs. a small popover; whether promote + edit share one
    editor. For `/design-handoff`.
 
 ---
