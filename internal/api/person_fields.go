@@ -45,17 +45,24 @@ func personFields(providers []string) []mapping.Field {
 // personField builds one synthesized field; the raw Sources strings mirror
 // ParsedSources so the field round-trips like a parsed YAML one.
 func personField(canonical string, multi bool, sources []mapping.Source) mapping.Field {
+	return mapping.Field{
+		Canonical:     canonical,
+		Label:         registry.Lookup(canonical).Label,
+		Sources:       rawSources(sources),
+		ParsedSources: sources,
+		Multi:         multi,
+	}
+}
+
+// rawSources renders each parsed source back to its "namespace:key" string so a
+// synthesized field round-trips like a parsed YAML one. Shared by the person/studio
+// schema builders and the F44 promotion materializer.
+func rawSources(sources []mapping.Source) []string {
 	raw := make([]string, len(sources))
 	for i, s := range sources {
 		raw[i] = s.Namespace + ":" + s.Key
 	}
-	return mapping.Field{
-		Canonical:     canonical,
-		Label:         registry.Lookup(canonical).Label,
-		Sources:       raw,
-		ParsedSources: sources,
-		Multi:         multi,
-	}
+	return raw
 }
 
 // providerSources maps each provider to a namespaced source for one field key.

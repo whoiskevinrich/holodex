@@ -42,14 +42,10 @@ func studioFields(providers []string) []mapping.Field {
 // studioField builds one synthesized replace field; raw Sources mirror ParsedSources
 // so the field round-trips like a parsed YAML one.
 func studioField(canonical string, sources []mapping.Source) mapping.Field {
-	raw := make([]string, len(sources))
-	for i, s := range sources {
-		raw[i] = s.Namespace + ":" + s.Key
-	}
 	return mapping.Field{
 		Canonical:     canonical,
 		Label:         registry.Lookup(canonical).Label,
-		Sources:       raw,
+		Sources:       rawSources(sources),
 		ParsedSources: sources,
 	}
 }

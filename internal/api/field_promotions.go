@@ -98,10 +98,7 @@ func (h *Handlers) mergePromotions(ctx context.Context, entityType string, base 
 		// title-case floor (left "" here so ResolveFields applies it).
 		label := p.Label
 		render := registry.NormalizeDisplay(p.Render)
-		group := ""
-		if strings.TrimSpace(p.Group) != "" {
-			group = registry.NormalizeGroup(p.Group)
-		}
+		group := normalizeGroupOrEmpty(p.Group)
 		if (label == "" || p.Render == "" || group == "") && len(sources) > 0 {
 			if hint, ok := lookupHint(hints, sources[0].Namespace, key); ok {
 				if label == "" {
@@ -119,16 +116,12 @@ func (h *Handlers) mergePromotions(ctx context.Context, entityType string, base 
 			group = registry.GroupExtended
 		}
 
-		raw := make([]string, len(sources))
-		for i, s := range sources {
-			raw[i] = s.Namespace + ":" + s.Key
-		}
 		synth = append(synth, synthField{
 			field: mapping.Field{
 				Canonical:     key,
 				Label:         label,
 				Display:       render,
-				Sources:       raw,
+				Sources:       rawSources(sources),
 				ParsedSources: sources,
 				Multi:         render == registry.DisplayChips, // chips ⇒ merge field (D-candidate)
 				Filterable:    false,                           // D-filterable: never a browse facet in v1
@@ -227,6 +220,27 @@ func hasNonEmpty(vals []string) bool {
 	return false
 }
 
+// normalizeGroupOrEmpty normalizes a group name but preserves the empty string.
+// registry.NormalizeGroup("") returns the "extended" default, which would defeat
+// the empty-column-inherits-from-lower-tier fold — so an absent group must stay "".
+func normalizeGroupOrEmpty(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return ""
+	}
+	return registry.NormalizeGroup(s)
+}
+
+// parseEntityType reads and validates the {entity_type} URL param against the closed
+// promotable set, writing a 400 and returning ok=false when it names no known type.
+func parseEntityType(w http.ResponseWriter, r *http.Request) (string, bool) {
+	entityType := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "entity_type")))
+	if !slices.Contains(promotableEntityTypes, entityType) {
+		writeError(w, http.StatusBadRequest, "entity_type must be one of video, person, studio")
+		return "", false
+	}
+	return entityType, true
+}
+
 // mountFieldPromotions registers the owner-gated in-app field-promotion surface (F44,
 // ADR-062). Mounted inside the requireOwner group. A dedicated /admin/field-promotions
 // path (not /{entity}/{id}/fields/...) is used because a promotion is type-global, not
@@ -271,10 +285,7 @@ func (h *Handlers) setFieldPromotion(w http.ResponseWriter, r *http.Request) {
 	}
 	label := enrich.SanitizeFieldLabel(body.Label)
 	render := registry.NormalizeDisplay(body.Render)
-	group := ""
-	if strings.TrimSpace(body.Group) != "" {
-		group = registry.NormalizeGroup(body.Group)
-	}
+	group := normalizeGroupOrEmpty(body.Group)
 	if err := h.repo.SetPromotion(r.Context(), entityType, fieldKey, label, render, group, body.Order); err != nil {
 		h.fail(w, "set field promotion", err)
 		return
@@ -299,9 +310,8 @@ func (h *Handlers) clearFieldPromotion(w http.ResponseWriter, r *http.Request) {
 
 // listFieldPromotions returns all promotions for an entity type (owner tooling / debug).
 func (h *Handlers) listFieldPromotions(w http.ResponseWriter, r *http.Request) {
-	entityType := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "entity_type")))
-	if !slices.Contains(promotableEntityTypes, entityType) {
-		writeError(w, http.StatusBadRequest, "entity_type must be one of video, person, studio")
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
 		return
 	}
 	rows, err := h.repo.PromotionsForEntityType(r.Context(), entityType)
@@ -321,9 +331,8 @@ func (h *Handlers) listFieldPromotions(w http.ResponseWriter, r *http.Request) {
 // (422 — the registry owns canonical keys, you cannot promote `bio`) and non-reserved
 // (422 — `_`-prefixed sidecar keys never display).
 func (h *Handlers) promotionTarget(w http.ResponseWriter, r *http.Request) (entityType, fieldKey string, ok bool) {
-	entityType = strings.ToLower(strings.TrimSpace(chi.URLParam(r, "entity_type")))
-	if !slices.Contains(promotableEntityTypes, entityType) {
-		writeError(w, http.StatusBadRequest, "entity_type must be one of video, person, studio")
+	entityType, ok = parseEntityType(w, r)
+	if !ok {
 		return "", "", false
 	}
 	fieldKey = strings.ToLower(strings.TrimSpace(chi.URLParam(r, "field_key")))
