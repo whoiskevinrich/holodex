@@ -16,6 +16,8 @@ the tier-0 precedence ladder amending ADR-056 §D2, and per-entity candidate-sou
 **Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) +
 [QA checklist](../design/promote-override-fields-qa-checklist.md) *(written — inline expander editor,
 shared promote+edit component, partition-move states, three-skin QA)*
+**Testing**: [testing-strategy.md](../testing-strategy.md) *(written — F44 §9 Phase-3 block, five cardinal
+invariants §4, E2E flow §6.19, three Given/When/Then examples §10; maps to the QA checklist §2 smoke items)*
 
 **Depends on** (all shipped):
 - provider render hints + presence-driven auto-registration ([F39](provider-render-hints.md) /
@@ -256,6 +258,10 @@ New owner-gated routes in the `requireOwner` group (mirror `internal/api/person_
 ---
 
 ## Test Notes (for `/testing-strategy`)
+
+*Realized in [testing-strategy.md](../testing-strategy.md) — the F44 §9 Phase-3 block (per-seam plan mapped to
+QA §2 smoke), five cardinal invariants (§4), E2E flow §6.19, and concrete examples (§10). The briefs below are
+the source these were built from.*
 
 - **Store/repo** — `SetPromotion`/`ClearPromotion` upsert + delete under `writeMu`; `PromotionsForEntityType`.
 - **Ladder** — unit-test tier-0 precedence: promotion > YAML > registry > hint > title-case; empty promotion
