@@ -10,8 +10,9 @@ group-order and opting it into the F36 source-decision + F30 curation machinery 
 `metadata-mappings.yaml`**.
 
 **Issue**: [HOLODEX-171](https://whoiskevinrich.atlassian.net/browse/HOLODEX-171)
-**ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) *(to be written — the DB-backed override
-store, the revised precedence ladder, and the "app persists owner presentation intent" surface)*
+**ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) *(written — the DB-backed override store,
+the tier-0 precedence ladder amending ADR-056 §D2, and per-entity candidate-source derivation; settles the
+`filterable` deferral and the candidate rule left open here)*
 **Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) *(to be written)*
 
 **Depends on** (all shipped):
