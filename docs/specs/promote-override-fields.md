@@ -13,7 +13,9 @@ group-order and opting it into the F36 source-decision + F30 curation machinery 
 **ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) *(written — the DB-backed override store,
 the tier-0 precedence ladder amending ADR-056 §D2, and per-entity candidate-source derivation; settles the
 `filterable` deferral and the candidate rule left open here)*
-**Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) *(to be written)*
+**Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) +
+[QA checklist](../design/promote-override-fields-qa-checklist.md) *(written — inline expander editor,
+shared promote+edit component, partition-move states, three-skin QA)*
 
 **Depends on** (all shipped):
 - provider render hints + presence-driven auto-registration ([F39](provider-render-hints.md) /
@@ -281,8 +283,11 @@ ADR-062 D-filterable); and candidate-source derivation — **per-entity from sha
 `provider:<ns>` per supplying namespace, union across providers, `manual` always available; no stored source
 list), with `Multi = render=="chips"` (ADR-062 D-candidate).
 
-1. **Editor placement/shape** — inline expander on the row vs. a small popover; whether promote + edit share one
-   editor. For `/design-handoff`.
+1. ~~**Editor placement/shape** — inline expander on the row vs. a small popover; whether promote + edit share one
+   editor.~~ **Resolved** in the [design handoff](../design/promote-override-fields-handoff.md) (2026-07-07,
+   via mockup): **inline expander** (DD1 — no popover/focus-trap machinery, reuses the F30/F36 in-flow input
+   idiom) and **one shared promote+edit editor** (DD2 — Promote opens it empty, Edit opens it pre-filled +
+   adds Remove promotion; both `PUT`, Remove `DELETE`).
 
 ---
 
