@@ -281,6 +281,40 @@ vocabulary; and an explicit per-slot pin to also freeze a *provider* image (ADR-
 
 ---
 
+## Addendum — owner/admin cap bypass, gallery grid modal, image viewer (HOLODEX-174, 2026-07-08)
+
+Three related changes to `PersonGallery.svelte`'s Gallery section. No new ADR — this
+layers on the existing cap/access model (ADR-043) and read/serve path with no schema
+or precedence change; the full UX spec lives on the Jira issue (design-handoff, 2026-07-08).
+
+| ID | Requirement | Acceptance criteria |
+|----|-------------|---------------------|
+| F25.32 | **Owner/admin enrichment bypasses the gallery cap.** When an owner/admin triggers an enrichment run (`POST /people\|media\|studios/{id}/enrich*`), `downloadAssets`' gallery fill does not stop at `repo.GalleryCap` — it keeps adding the provider's assets, the same way the owner's manual "Add anyway" upload (F25.24) already bypasses it. Distinct from F25.24: that flag is per-*upload*; this is per-*enrichment-run*, and only for the caller who is already owner/admin — enrichment triggered by anyone else is impossible (every enrich/refresh route is owner-gated, ADR-030). | Enrich a person whose provider returns >20 gallery assets as the owner → all are stored, not capped at 20. `ErrGalleryFull`/dedup/suppression/lock checks (F25.23, F25.25, F33, F34) still apply — only the cap itself is bypassed. |
+| F25.33 | **Gallery grid modal.** A "Gallery (N)" trigger next to the section header opens a full-page, read-only grid of every gallery item (uniform `aspect-[3/4]` cells, responsive column count). No promote/move/delete here — owner editing stays in the inline row. Structural twin of `ConfirmDialog` (focus trap, Esc/backdrop/X close, focus return to the trigger). | Click "Gallery (N)" → a modal grid of all N items opens, first item focused; Escape/backdrop/X close it and return focus to the trigger. |
+| F25.34 | **Image viewer modal.** Clicking/Entering any thumbnail (inline row or grid modal) opens a full-page viewer: fit-to-modal image (never upscaled past native resolution), prev/next with no wraparound, and a position counter. Stacks over the grid modal with a darker backdrop; a single Escape closes only the topmost layer (viewer→grid→page), returning focus to whichever thumbnail opened it. | Open the viewer from the row → one Escape closes it, focus back on that row thumbnail. Open it from the grid → one Escape returns to the grid (focus on the grid item that opened it), a second Escape closes the grid. Arrow-key nav is inert unless the viewer is the open layer. |
+
+**Data/architecture.** `enrich.Service.Enrich`/`ReEnrich` take a new `bypassGalleryCap
+bool`, threaded through `downloadAssets` → `ImageSink.StoreAsset(..., overCap bool)` →
+`personimage.Sink` → `repo.PersonImageInsert.OverCap` — the exact field F25.24 already
+uses for the owner-upload bypass, just set from the enrichment path too. The three HTTP
+enrich-apply handlers (`internal/api/enrich.go`) and `ReEnrich`'s only caller
+(`POST /media/{id}/refresh`) pass `h.auth.authorized(r)` (or, for `ReEnrich`, a literal
+`true` — inert today since it's video-only and `downloadAssets` only fills a gallery for
+`EnrichEntityPerson`); every one of these routes is already mounted inside `requireOwner`
+(ADR-030), so this is a defensive derivation, not a new privilege check. No migration.
+
+**Frontend.** Two new components, `PersonGalleryModal.svelte` (grid) and
+`PersonImageViewer.svelte` (viewer), both following `ConfirmDialog`'s dialog idiom.
+Escape/arrow-key routing between the two stacked modals is centralized in
+`PersonGallery.svelte` (a single `<svelte:window onkeydown>`) rather than each modal
+owning its own window-level Escape listener, so one keypress can't close both layers at
+once. The inline row's owner-controls overlay uses `pointer-events-none` on the overlay
+with `pointer-events-auto` on its buttons, so a background click opens the viewer while a
+button click still only performs its own action — no click-target-equality guard needed.
+Tokens only; QA'd against all three skins.
+
+---
+
 ## Image model — roles, ratios, surfaces
 
 | Role | Ratio | Primary surface(s) | Placeholder? |

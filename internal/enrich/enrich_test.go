@@ -158,7 +158,7 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 		t.Fatalf("candidates = %+v", cands)
 	}
 
-	fields, err := svc.Enrich(ctx, model.EnrichEntityPerson, 1, "fake", "tmdb:608")
+	fields, err := svc.Enrich(ctx, model.EnrichEntityPerson, 1, "fake", "tmdb:608", false)
 	if err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestServiceStudioEnrich(t *testing.T) {
 		t.Fatalf("candidates = %+v", cands)
 	}
 
-	fields, err := svc.Enrich(ctx, model.EnrichEntityStudio, 7, "fake", "tmdb:10342")
+	fields, err := svc.Enrich(ctx, model.EnrichEntityStudio, 7, "fake", "tmdb:10342", false)
 	if err != nil {
 		t.Fatalf("enrich studio: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestServiceProtocolMismatch(t *testing.T) {
 func TestServiceEnrichRecordsJobRun(t *testing.T) {
 	svc, r := newSvc(t, NewFake("fake"))
 	ctx := context.Background()
-	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, 7, "fake", "tmdb:608"); err != nil {
+	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, 7, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	runs, err := r.ListJobRuns(ctx, 1)
@@ -302,10 +302,11 @@ type storedAsset struct {
 	externalID string
 	url        string
 	bytes      int
+	overCap    bool
 }
 
-func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
-	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, url, len(raw)})
+func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error {
+	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, url, len(raw), overCap})
 	return nil
 }
 
@@ -317,7 +318,7 @@ func (s *recordingSink) StoreAssetIfAbsent(ctx context.Context, personID int64, 
 			return nil // slot already filled
 		}
 	}
-	return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw)
+	return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw, false)
 }
 
 func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
@@ -358,7 +359,7 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 	// tested separately in TestAssetClientSSRF); here we exercise the orchestration.
 	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	// 3 stored: the photo→headshot, the banner, and a poster auto-seeded from the
@@ -399,7 +400,7 @@ func TestEnrichSkipsSuppressedAssets(t *testing.T) {
 	svc.SetImageSink(sink)
 	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	if len(sink.stored) != 1 {
@@ -432,7 +433,7 @@ func TestEnrichSkipsAlreadyHeldGalleryURL(t *testing.T) {
 	svc.SetImageSink(sink)
 	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	if len(sink.stored) != 1 {
@@ -469,7 +470,7 @@ func TestEnrichKeepsOwnerSetCoreImages(t *testing.T) {
 		svc.SetImageSink(sink)
 		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 			t.Fatalf("enrich: %v", err)
 		}
 		// Only the gallery item stores: both locked core slots are skipped, and with no
@@ -493,7 +494,7 @@ func TestEnrichKeepsOwnerSetCoreImages(t *testing.T) {
 		svc.SetImageSink(sink)
 		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 			t.Fatalf("enrich: %v", err)
 		}
 		// Headshot flows (not locked); the poster seed is suppressed by the lock.
@@ -526,7 +527,7 @@ func TestEnrichSeedsPosterFromHeadshot(t *testing.T) {
 		svc.SetImageSink(sink)
 		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 			t.Fatalf("enrich: %v", err)
 		}
 		roles := map[string]int{}
@@ -552,7 +553,7 @@ func TestEnrichSeedsPosterFromHeadshot(t *testing.T) {
 		svc.SetImageSink(sink)
 		svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+		if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 			t.Fatalf("enrich: %v", err)
 		}
 		posters := 0
@@ -699,7 +700,7 @@ func TestDownloadAssetsFirstSuccessPerRole(t *testing.T) {
 	svc.SetImageSink(sink)
 	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
 
-	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608"); err != nil {
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 5, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	// Exactly one headshot stored, not two.
@@ -725,7 +726,7 @@ func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
 	svc.SetImageSink(&recordingSink{})
 	// Default real asset client: the fake's source host is "fake:9100", so the
 	// invalid asset host is refused — the enrich must still return fields.
-	fields, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 9, "fake", "tmdb:608")
+	fields, err := svc.Enrich(context.Background(), model.EnrichEntityPerson, 9, "fake", "tmdb:608", false)
 	if err != nil {
 		t.Fatalf("enrich must not fail on a bad asset: %v", err)
 	}

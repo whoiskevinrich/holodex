@@ -100,7 +100,12 @@ func (h *Handlers) enrichApply(w http.ResponseWriter, r *http.Request) {
 		h.personLookupError(w, err)
 		return
 	}
-	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityPerson, id, body.Provider, body.ExternalID)
+	// Bypass the gallery auto-fill cap for an owner/admin caller (HOLODEX-174).
+	// Every /enrich/* route already sits behind requireOwner, so this is redundant
+	// with route-level gating today — but deriving it from the actual auth check
+	// (the single choke point documented on Auth, auth.go) rather than asserting a
+	// literal true keeps this correct if that mounting ever changes.
+	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityPerson, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
 		h.log.Warn("enrich apply failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "enrichment failed")
@@ -195,7 +200,7 @@ func (h *Handlers) enrichVideoApply(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
-	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityVideo, id, body.Provider, body.ExternalID)
+	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityVideo, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
 		h.log.Warn("video enrich apply failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "enrichment failed")
@@ -285,7 +290,7 @@ func (h *Handlers) enrichStudioApply(w http.ResponseWriter, r *http.Request) {
 		h.studioLookupError(w, err)
 		return
 	}
-	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityStudio, id, body.Provider, body.ExternalID)
+	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityStudio, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
 		h.log.Warn("studio enrich apply failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "enrichment failed")

@@ -69,7 +69,7 @@ func TestSinkStoreAssetNormalizes(t *testing.T) {
 	marker := []byte("EXIFGPS:secret-location")
 	polluted := append(append([]byte{}, src...), marker...)
 
-	if err := sink.StoreAsset(context.Background(), 7, model.PersonImageBanner, "tmdb", "tt42", "https://cdn/x.jpg", polluted); err != nil {
+	if err := sink.StoreAsset(context.Background(), 7, model.PersonImageBanner, "tmdb", "tt42", "https://cdn/x.jpg", polluted, false); err != nil {
 		t.Fatalf("StoreAsset: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestSinkSkipsDuplicate(t *testing.T) {
 	fr := &fakeImageRepo{insertErr: repo.ErrDuplicateImage}
 	sink := NewSink(fr, dir, 0)
 
-	if err := sink.StoreAsset(context.Background(), 5, model.PersonImageExtra, "tmdb", "x", "https://cdn/dup.jpg", jpegBytes(t, 30, 30)); err != nil {
+	if err := sink.StoreAsset(context.Background(), 5, model.PersonImageExtra, "tmdb", "x", "https://cdn/dup.jpg", jpegBytes(t, 30, 30), false); err != nil {
 		t.Fatalf("duplicate StoreAsset should be a silent skip, got %v", err)
 	}
 	// Nothing on disk (the id was never assigned, but assert the person dir stayed empty).
@@ -120,7 +120,7 @@ func TestSinkThreadsContentHash(t *testing.T) {
 	fr := &fakeImageRepo{}
 	sink := NewSink(fr, t.TempDir(), 0)
 	raw := jpegBytes(t, 50, 50)
-	if err := sink.StoreAsset(context.Background(), 3, model.PersonImageExtra, "tmdb", "x", "https://cdn/a.jpg", raw); err != nil {
+	if err := sink.StoreAsset(context.Background(), 3, model.PersonImageExtra, "tmdb", "x", "https://cdn/a.jpg", raw, false); err != nil {
 		t.Fatalf("StoreAsset: %v", err)
 	}
 	if len(fr.inserts) != 1 || fr.inserts[0].ContentHash == "" {
@@ -136,10 +136,24 @@ func TestSinkThreadsContentHash(t *testing.T) {
 	}
 }
 
+// TestSinkThreadsOverCap: overCap=true (an owner/admin enrichment run, HOLODEX-174)
+// threads through to PersonImageInsert.OverCap, so the repo's gallery-cap check is
+// bypassed the same way an owner's manual "Add anyway" upload bypasses it.
+func TestSinkThreadsOverCap(t *testing.T) {
+	fr := &fakeImageRepo{}
+	sink := NewSink(fr, t.TempDir(), 0)
+	if err := sink.StoreAsset(context.Background(), 3, model.PersonImageExtra, "tmdb", "x", "https://cdn/a.jpg", jpegBytes(t, 30, 30), true); err != nil {
+		t.Fatalf("StoreAsset: %v", err)
+	}
+	if len(fr.inserts) != 1 || !fr.inserts[0].OverCap {
+		t.Fatalf("insert OverCap = %+v, want true", fr.inserts)
+	}
+}
+
 func TestSinkRejectsBadAsset(t *testing.T) {
 	fr := &fakeImageRepo{}
 	sink := NewSink(fr, t.TempDir(), 0)
-	if err := sink.StoreAsset(context.Background(), 1, model.PersonImageHeadshot, "p", "x", "", []byte("not an image")); err == nil {
+	if err := sink.StoreAsset(context.Background(), 1, model.PersonImageHeadshot, "p", "x", "", []byte("not an image"), false); err == nil {
 		t.Error("expected error for a non-image asset")
 	}
 	if len(fr.inserts) != 0 {
@@ -157,7 +171,7 @@ func TestSinkRollsBackOnStoreFailure(t *testing.T) {
 	fr := &fakeImageRepo{}
 	sink := NewSink(fr, dir, 0)
 
-	if err := sink.StoreAsset(context.Background(), 9, model.PersonImageHeadshot, "p", "x", "", jpegBytes(t, 40, 40)); err == nil {
+	if err := sink.StoreAsset(context.Background(), 9, model.PersonImageHeadshot, "p", "x", "", jpegBytes(t, 40, 40), false); err == nil {
 		t.Fatal("expected a store failure")
 	}
 	if len(fr.inserts) != 1 {
