@@ -164,6 +164,10 @@ export interface ResolvedField {
 	// or curation controls, in the "Additional details" group after the curatable
 	// fields. Canonical/mapped fields omit it.
 	auto_registered?: boolean;
+	// F44 (ADR-062) — this non-canonical field became first-class curatable via an in-app
+	// promotion (not a native mapping). It is otherwise a normal mapped field; the flag only
+	// tells the SPA to offer the owner-only Edit / Remove-promotion affordance on this row.
+	promoted?: boolean;
 	// F36 (ADR-051) — per-field source-of-truth, present on replace (scalar) fields only.
 	// `decision` is the standing source choice (absent ⇒ implicit file default); `in_sync`
 	// is false when the decided value differs from the value embedded in the file; the
@@ -207,6 +211,35 @@ export interface FieldCandidate {
 export interface DecisionRequest {
 	source: DecisionSource;
 	manual_value?: string;
+}
+
+// F44 (ADR-062) — the render-mode vocabulary a promotion may set (F39's five modes; no
+// new modes). Empty/`text` is inline text.
+export type PromotionRender = '' | 'long_text' | 'chips' | 'url' | 'image_url';
+
+// FieldPromotionRequest is the body of PUT /admin/field-promotions/{entity_type}/{field_key}
+// (F44). Every field is optional; an omitted presentation column inherits from the lower
+// tiers (provider hint → title-case). `order` positions the field within its group.
+export interface FieldPromotionRequest {
+	label?: string;
+	render?: PromotionRender;
+	group?: 'primary' | 'attributes' | 'extended';
+	order?: number;
+}
+
+// The entity types a promotion may target — a promotion is global per (entity_type,
+// field_key), so the affordance passes the row's type, not the entity id being viewed.
+export type PromotionEntityType = 'video' | 'person' | 'studio';
+
+// FieldPromotionView is one stored promotion as returned by GET /admin/field-promotions/
+// {entity_type} — the Edit editor loads it to pre-fill group/order (not carried on the
+// resolved field) so a Save doesn't reset them.
+export interface FieldPromotionView {
+	field_key: string;
+	label?: string;
+	render?: PromotionRender;
+	group?: 'primary' | 'attributes' | 'extended';
+	order?: number;
 }
 
 // CurationAction is a value-level owner decision (F30, ADR-048).

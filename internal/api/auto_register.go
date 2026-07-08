@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 )
@@ -34,10 +33,8 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 		hints = h.enrich.FieldHints(ctx)
 	}
 	hintFor := func(provider, key string) (resolver.AutoHint, bool) {
-		if byKey, ok := hints[provider]; ok {
-			if ph, ok := byKey[key]; ok {
-				return resolver.AutoHint{Label: ph.Label, Display: ph.Render, Group: ph.Group, Order: ph.Order}, true
-			}
+		if ph, ok := lookupHint(hints, provider, key); ok {
+			return resolver.AutoHint{Label: ph.Label, Display: ph.Render, Group: ph.Group, Order: ph.Order}, true
 		}
 		return resolver.AutoHint{}, false
 	}
@@ -47,17 +44,10 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 		return resolved
 	}
 	// F39 security gate (ADR-039/056): an image_url value whose host is not on the
-	// provider's asset-host allowlist must not render as an <img> — degrade it to
-	// text. Applied here, next to the allowlist, rather than inside the pure resolver.
+	// provider's asset-host allowlist must not render as an <img> — degrade it to text.
+	// Shared with the F44 promotion path (markPromoted) via gateImageURL.
 	for i := range auto {
-		f := &auto[i]
-		if f.Display != registry.DisplayImageURL {
-			continue
-		}
-		provider, _, _ := strings.Cut(f.WinningSource, ":")
-		if len(f.Values) == 0 || h.enrich == nil || !h.enrich.ImageURLAllowed(provider, f.Values[0]) {
-			f.Display = registry.DisplayText
-		}
+		auto[i].Display = h.gateImageURL(auto[i].Display, auto[i].WinningSource, auto[i].Values)
 	}
 	return append(resolved, auto...)
 }

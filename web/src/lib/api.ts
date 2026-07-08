@@ -33,7 +33,10 @@ import type {
 	Video,
 	WritebackRequest,
 	CurationRequest,
-	DecisionRequest
+	DecisionRequest,
+	FieldPromotionRequest,
+	FieldPromotionView,
+	PromotionEntityType
 } from './types';
 
 const BASE = '/api/v1';
@@ -568,6 +571,26 @@ export const api = {
 		sendAuthed<Record<string, never>>('POST', `/studios/${id}/curation`, req),
 	clearStudioCuration: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/studios/${id}/curation/clear`, req),
+
+	// In-app field promotion (F44, ADR-062). Owner-gated, and — unlike decisions/curation —
+	// GLOBAL per (entity_type, field_key): promoting an auto-registered non-canonical field
+	// makes it first-class curatable for every entity of that type that has the key, with no
+	// metadata-mappings.yaml editing. `promoteField` upserts the presentation override;
+	// `unpromoteField` de-promotes (reverts to the F39 display-only row; the shadow value and
+	// any prior decisions/curation are untouched and re-apply on re-promotion).
+	promoteField: (entityType: PromotionEntityType, fieldKey: string, req: FieldPromotionRequest) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/admin/field-promotions/${entityType}/${encodeURIComponent(fieldKey)}`,
+			req
+		),
+	unpromoteField: (entityType: PromotionEntityType, fieldKey: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/admin/field-promotions/${entityType}/${encodeURIComponent(fieldKey)}`
+		),
+	listFieldPromotions: (entityType: PromotionEntityType) =>
+		getAuthed<FieldPromotionView[]>(`/admin/field-promotions/${entityType}`),
 
 	// Rename a person, keeping the old name as an F23 alias (one transaction — search
 	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name

@@ -125,7 +125,9 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 		dec = decisionsFromRows(decRows)
 	}
 	fields := studioFields(h.studioProviders(rows))
+	fields, promoted := h.mergePromotions(ctx, model.EnrichEntityStudio, fields, rows)
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
+	h.markPromoted(resolved, promoted)
 	return h.appendAutoRegistered(ctx, rows, recordizeResolved(resolved))
 }
 

@@ -9,6 +9,7 @@
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
+	import PromotedFieldEdit from '$lib/components/PromotedFieldEdit.svelte';
 	import PersonPoster from '$lib/components/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
@@ -524,10 +525,19 @@
 								</dd>
 							</div>
 						{/if}
+						{#if isOwner && f.promoted}
+							<PromotedFieldEdit field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
+						{/if}
 					{/each}
 
 					<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
-					<AutoFieldRows fields={extraFields} />
+					<AutoFieldRows
+						fields={extraFields}
+						{isOwner}
+						entityType="video"
+						entityNoun="videos"
+						onchanged={reloadDetail}
+					/>
 				</dl>
 				{:else if fields.length}
 				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">

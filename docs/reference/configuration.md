@@ -150,6 +150,32 @@ Maps raw container tags (iTunes atoms, Matroska tags) and enrichment fields to c
 
 See `metadata-mappings.yaml.example` for the full syntax. The canonical field vocabulary is in [canonical-fields.md](canonical-fields.md).
 
+### In-app field promotion overrides `metadata-mappings.yaml` (F44, ADR-062)
+
+`metadata-mappings.yaml` is **operator config** — the app never writes it. But an owner can, from an
+entity page, **promote** a provider's auto-registered non-canonical field (F39/ADR-056) into a first-class
+curatable field — setting its label, render mode, group, and order, and opting it into the source-decision
++ curation controls — with **no YAML editing**. These promotions live in the DB (`field_promotions`,
+migration `0023`), are owner-gated, and are global per `(entity_type, field_key)`.
+
+A live in-app promotion is a new **tier-0** that **outranks** an operator `metadata-mappings.yaml` entry for
+the same non-canonical key (the owner *is* the operator on a single-user server). Full precedence for a
+field's label/render/group/order and its curatable status:
+
+```
+0. In-app promotion  (field_promotions, this feature)   ← wins
+1. Operator metadata-mappings.yaml
+2. Code registry (canonical keys)
+3. Provider render hint (non-canonical keys)
+4. Title-case fallback
+```
+
+A promotion may only target a **non-canonical** key (one the registry does not know) — you cannot promote a
+canonical field like `bio`. Removing a promotion reverts the field to its display-only auto-registered state;
+the underlying shadow value and any per-entity decisions/curation are untouched. This affects **video, person,
+and studio** — person and studio have no `metadata-mappings.yaml` surface at all, so promotion is their only
+in-app remap path.
+
 ---
 
 ## Metadata source plugins
