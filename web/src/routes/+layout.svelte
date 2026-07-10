@@ -238,11 +238,15 @@
 
 		<!-- Owner tools hub entry (F35): a single gear in the owner-chrome cluster that
 		     opens /owner (Status · Metadata keys · Trash as tabs) — replacing the three
-		     former peer links. Gated on effectiveOwner, so visitor view hides it too.
+		     former peer links. Gated on effectiveOwner OR needToken, so a signed-out (or
+		     not-yet-authenticated) visitor still has a way back to the token prompt on
+		     /owner/status — effectiveOwner alone hid this entirely once
+		     signed out, since it also requires Owner view to be on. Visitor view (Owner
+		     view off) still hides it while genuinely owner, matching F29's intent.
 		     Active (on an /owner route) = text-accent + aria-current; never a fill, so
 		     the one solid accent stays the Owner-view ON state / a page's primary action.
 		     Label hides below `sm`, like the toggle and skin picker. -->
-		{#if activity.effectiveOwner}
+		{#if activity.effectiveOwner || activity.needToken}
 			{@const ownerActive = page.url.pathname.startsWith('/owner')}
 			<a
 				href="/owner"
