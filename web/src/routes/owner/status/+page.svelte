@@ -4,7 +4,7 @@
 	// indicator) and owns history fetching.
 	import { onMount, onDestroy } from 'svelte';
 	import { activity } from '$lib/activity.svelte';
-	import { api, startSession } from '$lib/api';
+	import { api, startSession, ReauthError } from '$lib/api';
 	import type { JobRun } from '$lib/types';
 	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
 	import StatusCard from '$lib/components/StatusCard.svelte';
@@ -64,7 +64,12 @@
 		// the wrong token; the token is never stored client-side.
 		try {
 			await startSession(tokenInput, rememberDevice);
-		} catch {
+		} catch (e) {
+			if (e instanceof ReauthError) {
+				// Upstream ForwardAuth session lapsed — a top-level re-auth is already
+				// underway (api.ts); don't flash a wrong-token error before the reload.
+				return;
+			}
 			tokenError = 'Incorrect token — try again.';
 			return;
 		}

@@ -126,16 +126,30 @@ export async function startSession(token: string, remember = false): Promise<voi
 	const res = await fetch(`${BASE}/session${remember ? '?remember=1' : ''}`, {
 		method: 'POST',
 		credentials: CREDS,
+		redirect: 'manual',
 		headers: { 'X-Admin-Token': token.trim() }
 	});
+	checkRedirect(res);
 	if (!res.ok) {
 		throw new ApiError(res.status, '/session');
 	}
 }
 
-// endSession signs the owner out (clears the cookie). Best-effort.
+// endSession signs the owner out (clears the cookie). Best-effort: a network
+// failure is swallowed. A lapsed ForwardAuth session still triggers the usual
+// top-level reauth reload (checkRedirect/triggerReauth) — only the resulting
+// ReauthError is swallowed here so the caller doesn't also see an error.
 export async function endSession(): Promise<void> {
-	await fetch(`${BASE}/session`, { method: 'DELETE', credentials: CREDS }).catch(() => {});
+	try {
+		const res = await fetch(`${BASE}/session`, {
+			method: 'DELETE',
+			credentials: CREDS,
+			redirect: 'manual'
+		});
+		checkRedirect(res);
+	} catch {
+		// best-effort — ignore
+	}
 }
 
 // getAuthed is get() sending the session cookie for the owner surface.
