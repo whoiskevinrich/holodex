@@ -80,6 +80,19 @@ export function providerFromWinningSource(winningSource?: string): string {
 	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns;
 }
 
+// calculatedFrom builds the transitive provenance phrase for a computed field (F45,
+// ADR-063) from its input LABELS — e.g. ["Born"] → "calculated from Born",
+// ["Born","Died"] → "calculated from Born and Died" (serial "and" for the last of 3+).
+// Shown as a hover tooltip on the derived value; "" when there are no inputs.
+export function calculatedFrom(labels: string[]): string {
+	if (labels.length === 0) return '';
+	let joined: string;
+	if (labels.length === 1) joined = labels[0];
+	else if (labels.length === 2) joined = `${labels[0]} and ${labels[1]}`;
+	else joined = `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+	return `calculated from ${joined}`;
+}
+
 // formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").
 export function formatAgo(iso?: string | null): string {
 	if (!iso) return '';

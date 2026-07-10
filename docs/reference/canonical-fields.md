@@ -141,6 +141,6 @@ explicitly (operator override), and a provider may suggest a render mode for a *
 When a field's value comes from an enrichment provider (i.e. `winning_source` does not
 start with `file:`), the SPA shows a **ProvenanceBadge** with the provider name so
 operators can tell at a glance which source won. File-sourced fields show no badge. A
-**computed** field (`winning_source` = `computed:<canonical>`, F45) shows a distinct
-**icon-only** "calculated" badge instead of a provider icon, with a "calculated from …"
-hover/`aria-label` naming its `derived_from` inputs.
+**computed** field (`winning_source` = `computed:<canonical>`, F45) shows **no badge**;
+instead the value carries a "calculated from …" **hover tooltip** (`title` + `aria-label`)
+naming its `derived_from` inputs.

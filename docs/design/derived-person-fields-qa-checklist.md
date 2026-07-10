@@ -47,29 +47,29 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
   increments the rendered Age with **no** DB write and **no** migration/column touched.
 - **2.10** `[smoke]` API integration: `personResolved` emits the derived row(s) in `resolved[]` for a
   birthdate-bearing person and **omits** them otherwise; owner and visitor payloads are identical (D3); the row
-  carries `derived_from` = dependency **labels** (e.g. `["Birthdate"]`).
+  carries `derived_from` = dependency **labels** (e.g. `["Born"]`).
 - **2.11** `[smoke]` Frontend (Vitest): `providerFromWinningSource("computed:age") === ""` (the §3 gotcha
-  guard); `ProvenanceBadge` with `computed` renders the muted glyph + `aria-label "calculated from Birthdate"`
-  and **no** `ProviderIcon`; the person page's compact loop renders a computed row with **no** `SourceSelect`
+  guard); `calculatedFrom(["Born"]) === "calculated from Born"`; the person page's compact loop renders a
+  computed row with the phrase on the value's `title` + `aria-label`, **no** icon/badge, **no** `SourceSelect`,
   and **no** promote pill for the owner.
 - **2.12** `[smoke]` Golden no-op: with no computed fields registered (or a person with no birthdate), resolved
   output + person render is unchanged from pre-F45.
 
 ## §3 Agent live QA (preview tools against §1 stack)
 
-- **3.1** `[agent]` Living person (1.2a): an **Age** row shows a bare integer directly under **Born**, with a
-  small muted computed icon; hovering the icon shows **"calculated from Birthdate"**.
+- **3.1** `[agent]` Living person (1.2a): an **Age** row shows a bare integer directly under **Born**; the value
+  carries `title="calculated from Born"` (hover tooltip) and there is **no** icon/badge on the row.
 - **3.2** `[agent]` Deceased person (1.2b): an **Age at death** row shows `floor(deathdate − birthdate)` and
-  **no** running Age row; the icon title reads "…from Birthdate and Death date".
+  **no** running Age row; the value tooltip reads "calculated from Born and Died".
 - **3.3** `[agent]` Missing input (1.2c): **neither** Age nor Age-at-death appears — as owner **and** as
   visitor; no placeholder, no "—", no nudge.
 - **3.4** `[agent]` Unparseable input (1.2d): **no** Age row, no error, no partial value.
 - **3.5** `[agent]` Owner == visitor: the Age row is byte-identical between the Admin-mode-on and visitor
   sessions — **no** `SourceSelect` chips, no promote pill, no Custom entry on it.
-- **3.6** `[agent]` No phantom provider: inspect the row — the badge is the computed glyph, **not** a
-  monogram "C" provider bubble (the §3 `providerFromWinningSource` gotcha).
+- **3.6** `[agent]` No phantom provider: inspect the row — there is **no** badge element at all (no computed
+  icon, no monogram "C" provider bubble — the §3 `providerFromWinningSource` gotcha).
 - **3.7** `[agent]` Payload check: the person detail response has the computed row with `computed: true`,
-  `winning_source: "computed:age"`, `derived_from: ["Birthdate"]`, and **no** `decision`/`candidates`/`in_sync`.
+  `winning_source: "computed:age"`, `derived_from: ["Born"]`, and **no** `decision`/`candidates`/`in_sync`.
 - **3.8** `[agent]` Decision endpoint refuses computed: a `POST` (or SourceSelect attempt) naming `age` /
   `computed:age` returns **400** and writes nothing.
 
@@ -83,19 +83,18 @@ facts sit under the person's photo in the **Details** list.
 - **4.1** `[human]` A new **Age** line appears right below the **Born** line, showing just a number (like
   `36`). It reads as a normal fact in the list — same text size and color as the other values — in all three
   skins.
-- **4.2** `[human]` Next to the age number is a **small, quiet grey symbol** (a little calculator/function
-  mark) — clearly a soft annotation, **not** a bright/colored badge and **not** a warning color. Hovering it
-  pops the tooltip **"calculated from Birthdate."** Confirm the symbol stays grey and legible in Cinémathèque
-  (gold accent), Broadcast (cyan), and Brutalist (lime) — it must **not** pick up the skin's accent color.
-- **4.3** `[human]` The little symbol never crowds or overlaps the number or the next line down, in any skin
-  (check the tightest one, Brutalist).
+- **4.2** `[human]` There is **no** symbol, icon, or badge next to the age number — it looks like any other
+  plain value. Resting the pointer on the number pops a tooltip reading **"calculated from Born."** Confirm the
+  line looks identical (no stray mark) in Cinémathèque, Broadcast, and Brutalist.
+- **4.3** `[human]` The Age line sits flush under Born with normal spacing — nothing crowds or overlaps the
+  number or the next line down, in any skin (check the tightest one, Brutalist).
 - **4.4** `[human]` Open a person who has **died** (has both a birth and a death date): the line reads **"Age at
-  death"** with a number, and there is **no** separate running "Age" line. Hovering the symbol says "calculated
-  from Birthdate and Death date".
+  death"** with a number, and there is **no** separate running "Age" line. Hovering the number says "calculated
+  from Born and Died".
 - **4.5** `[human]` Open a person with **no birth date**: there is **no** Age line at all — not a dash, not a
   blank, nothing — whether you're in Admin mode or viewing as a visitor.
 - **4.6** `[human]` In **Admin mode**, the Age line has **no** editing controls — no row of selectable source
   pills, no "Promote", no "Custom". It looks and behaves exactly like it does for a plain visitor. (Contrast:
   the Bio/Name lines above it *do* have those controls for the owner.)
 - **4.7** `[human]` Keyboard/reader: tabbing through the Details list **skips** the Age line (it has nothing to
-  click); a screen reader still reads the whole line including the "calculated from Birthdate" note.
+  click); a screen reader still reads the whole line including the "calculated from Born" note.

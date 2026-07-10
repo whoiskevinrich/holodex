@@ -8,8 +8,13 @@ This is an **addendum** to the [F37 people source-of-truth handoff](people-sourc
 [F39 provider render-hints handoff](provider-render-hints-handoff.md). The person Details section — the `Details`
 card, the `dt`/`dd` two-column grid, `SourceSelect`, `ProvenanceBadge`, the compact/long/merge field buckets —
 is **inherited unchanged**. This document specifies only what is new for F45: a **read-only derived row** placed
-directly under Birthdate, and a **computed treatment on `ProvenanceBadge`**. Everything is **tokens-only**
-(no literal palette/radius/font — see [theming.md](theming.md)) and must be QA'd in all three skins.
+directly under Birthdate, whose provenance is a **hover tooltip on the value itself** (no icon/badge).
+Everything is **tokens-only** (no literal palette/radius/font — see [theming.md](theming.md)).
+
+> **D5 revised (2026-07-10, owner):** the earlier icon-only computed badge is **cut**. A derived value carries
+> **no visible provenance mark**; the "calculated from …" phrase is surfaced only as a **hover tooltip
+> (`title`) on the data point**, with an `aria-label` on the value for screen readers. Sections below are
+> updated to match; the badge-treatment history is retained for context but is **not** the shipped behavior.
 
 Derived fields are a **distinct genre**: computed-on-read, source-less, **read-only for owner and visitor
 alike** (ADR-063 §D2/D3). They are never adoptable, never curatable — no source chips, no promote pill, no
@@ -21,11 +26,11 @@ edited.
 ## Overview
 
 When a person has an enriched `birthdate`, an **Age** row appears directly beneath **Born**, showing a bare
-integer (e.g. `36`) with a small muted **computed provenance icon** whose hover/label reads *"calculated from
-Birthdate."* When the person also has a `deathdate`, the running Age is **replaced** by an **Age at death** row
-(never both). When `birthdate` is missing or unparseable, **nothing renders** — no placeholder, no "—", no
-nudge, for owner and visitor alike (spec D3). The row is identical for owner and visitor: a derived value has
-no owner affordances.
+integer (e.g. `36`). Hovering the value shows a **tooltip** reading *"calculated from Birthdate"* — there is
+**no icon or badge** next to it. When the person also has a `deathdate`, the running Age is **replaced** by an
+**Age at death** row (never both). When `birthdate` is missing or unparseable, **nothing renders** — no
+placeholder, no "—", no nudge, for owner and visitor alike (spec D3). The row is identical for owner and
+visitor: a derived value has no owner affordances.
 
 ---
 
@@ -37,7 +42,7 @@ no owner affordances.
 | D2 | The row sits **directly under Birthdate** in the primary bio group — **not** the "Additional details" auto-field block. | spec D2 |
 | D3 | Missing/unparseable input → the row is **absent** for everyone. No placeholder, no "—", no enrichment nudge. | spec D3 |
 | D4 | `deathdate` present → **Age at death** replaces the running Age. Exactly one of the two ever renders. | spec FR3 |
-| **D5** | **Provenance treatment: icon-only** (this handoff, chosen 2026-07-10). A single muted glyph mirroring the ADR-059 provider brand-icon badge; the transitive phrase *"calculated from Birthdate"* lives in `title` + `aria-label`, never inline text. **Not** a provider brand icon, **not** the "file" text pill. | this doc §2 |
+| **D5** | **Provenance treatment: tooltip-only, no icon** (revised 2026-07-10, owner). The value carries the transitive phrase *"calculated from Birthdate"* as a hover `title`, plus an `aria-label` for screen readers. **No** icon, badge, provider brand icon, or "file" pill on the row. *(Supersedes the earlier "icon-only glyph" choice.)* | this doc §2 |
 
 ---
 
@@ -50,7 +55,7 @@ read-only replace field, minus every control.
 Details
   Name: Maya Rodriguez            ← canonical / curatable (unchanged)
   Born: 1990-03-14                ← birthdate (unchanged)
-  Age: 36  ⨏                      ← NEW derived row, directly under Born; ⨏ = computed icon
+  Age: 36                         ← NEW derived row, directly under Born; hover "36" → tooltip
   Nationality: American
   Bio: …
 ```
@@ -60,57 +65,40 @@ Details
   ordering** guarantee — the SPA adds no client sort.
 - **Row markup** matches the visitor compact branch already in
   [`people/[id]/+page.svelte`](../../web/src/routes/people/[id]/+page.svelte):
-  `<dt class="inline text-muted">{f.label}:</dt>` + `<dd class="inline text-ink">{f.values[0]}</dd>`, followed
-  by the computed `ProvenanceBadge` (§2). Single-column (not `sm:col-span-2`) — it's a compact vital, not prose.
+  `<dt class="inline text-muted">{f.label}:</dt>` + `<dd class="inline text-ink">{f.values[0]}</dd>` — with the
+  provenance tooltip on the `dd` (§2). Single-column (not `sm:col-span-2`) — it's a compact vital, not prose.
 - **Value** is `f.values[0]` verbatim — the backend emits the bare integer string; the SPA does no arithmetic
   and no formatting.
 
 ---
 
-## 2. Provenance — computed treatment on `ProvenanceBadge` (D5, chosen)
+## 2. Provenance — tooltip on the value (D5 revised, shipped)
 
-`ProvenanceBadge.svelte` gains a **third branch**, alongside the existing provider-icon and file-pill branches.
-It renders **icon-only**, exactly the shape of the ADR-059 provider brand icon (a 16px inline mark with the
-long form on `title`/`aria-label`), but with a **generic "calculated" glyph** instead of a provider logo and
-**no** monogram fallback.
+There is **no badge or icon** on a derived row. The "calculated from …" phrase is surfaced as a **hover
+tooltip on the value itself** (`title` on the `dd`), plus an `aria-label` restating value + provenance for
+screen readers. `ProvenanceBadge` is **not** used for computed rows (it keeps only its provider-icon and
+file-pill branches).
 
-**New props:**
+- The phrase is built by the shared [`calculatedFrom(labels)`](../../web/src/lib/format.ts) helper:
+  `["Born"]` → `"calculated from Born"`, `["Born","Died"]` → `"calculated from Born and Died"` (serial "and"
+  for the last of 3+).
+- The transitive **labels** come from the payload's `derived_from` (each dependency's **registry label**, see
+  §4), not a client lookup — so the copy tracks whatever the Birthdate row is actually labeled (today "Born").
+- The value stays plain `text-ink` — no tone change, no color. Provenance is a progressive-disclosure
+  affordance (hover / SR), never a visible mark competing with the one- or two-character value.
 
 ```svelte
-let {
-    provider = '',
-    label = '',
-    computed = false,            // NEW — render the derived treatment
-    derivedFrom = []             // NEW — dependency field LABELS, e.g. ["Birthdate"]
-}: { provider?: string; label?: string; computed?: boolean; derivedFrom?: string[] } = $props();
+{@const provenance = calculatedFrom(f.derived_from ?? [])}
+<dd class="inline text-ink" title={provenance} aria-label={`${f.values[0]}, ${provenance}`}>{f.values[0]}</dd>
 ```
 
-- When `computed` is true, render neither the `ProviderIcon` nor the file pill. Instead render a single inline
-  **SVG glyph** (a small function/calculator mark — see below), `size 16`, `text-muted`, `ml-2 inline-flex
-  align-middle`, with:
-  - `title` **and** `aria-label` = **`calculated from {derivedFrom joined}`** — e.g. `"calculated from
-    Birthdate"`, or for age-at-death `"calculated from Birthdate and Death date"`. Join with `", "` for 2 and a
-    serial-comma "and" for the last (there are at most two today).
-- **Glyph**: an inline SVG in the existing convention (cf. the promote arrow in `AutoFieldRows.svelte`),
-  `class="h-4 w-4"`, `stroke="currentColor"` / `fill="none"`, `aria-hidden="true"`, so it inherits `text-muted`
-  and reacts to every skin. Use a simple **function-curve / ƒ(x)** or **calculator** mark — nothing branded.
-  (Do not use a raster or an emoji.)
-- **Tone**: `text-muted` only — never `--accent` (which reads as active/selected) and never `--warn`. It must
-  read as a quiet, secondary annotation, like the "file" pill's muted tone.
-
-The transitive **labels** (`derivedFrom`) come from the payload, not a client-side registry lookup: the backend
-emits each dependency's **registry label** on the derived row (see §4), so the copy stays in sync with whatever
-the Birthdate row is actually labeled. The spec's example copy assumes that label is "Birthdate".
-
-> **Why icon-only (D5).** The provider badge already hides its long form ("from tmdb") behind a 16px icon +
-> `title` (ADR-059) so the value isn't out-shouted down the column; the computed badge matches that exact
-> restraint. Inline text ("calculated from Birthdate" as a visible pill) was considered and rejected — it
-> competes with the one-character value ("36") and crowds the compact vitals row. The phrase is preserved for
-> hover and screen readers.
+> **Why tooltip-only (D5 revised).** The icon-only badge (prior choice) still put a mark in the vitals column
+> next to a one-character value. The owner cut it entirely: the derived value should read like any other vital,
+> with the "it's calculated" fact available on demand (hover / screen reader) but never claiming visual space.
 
 ---
 
-## 3. The `computed:` winning-source gotcha (must-fix, or the badge breaks)
+## 3. The `computed:` winning-source gotcha (belt-and-suspenders)
 
 A derived row carries `winning_source = "computed:age"`. The shared helper
 [`providerFromWinningSource`](../../web/src/lib/format.ts) only strips the `record`/`file`/`manual` baseline
@@ -131,8 +119,8 @@ computed row as **provider-sourced** and render `<ProvenanceBadge provider="comp
 **Fix (two parts):**
 
 1. **Never route a computed row through the provider-badge path.** The SPA branches on `f.computed` *first*
-   (see §5) and passes `computed`/`derivedFrom` to `ProvenanceBadge` — it does **not** compute a `provider`
-   for it.
+   (see §5); the computed branch renders no `ProvenanceBadge` at all, so it never computes a `provider` for a
+   derived row.
 2. **Belt-and-suspenders:** add `computed` to the baseline-namespace guard in `providerFromWinningSource` so a
    `computed:*` winning source can never resolve to a phantom provider name anywhere:
    `ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns`.
@@ -146,16 +134,16 @@ Add to the TS type in [`web/src/lib/types.ts`](../../web/src/lib/types.ts), mirr
 
 ```ts
 // F45 (ADR-063) — a computed-on-read, source-less, read-only derived field. Renders a bare
-// value + the muted "calculated" provenance icon; carries NO decision/candidates/in_sync and
-// is never adoptable/curatable. winning_source is "computed:<canonical>".
+// value with a "calculated from …" hover tooltip (no icon); carries NO decision/candidates/
+// in_sync and is never adoptable/curatable. winning_source is "computed:<canonical>".
 computed?: boolean;
-// F45 — the human LABELS of the inputs this value was derived from (e.g. ["Birthdate"]),
+// F45 — the human LABELS of the inputs this value was derived from (e.g. ["Born"]),
 // for the "calculated from …" provenance copy. Backend-supplied so the SPA needs no registry.
 derived_from?: string[];
 ```
 
 - A computed row: `computed: true`, `winning_source: "computed:age"`, `multi: false`, `auto_registered:
-  false`, `values: ["36"]`, `derived_from: ["Birthdate"]`, and **`decision` / `candidates` / `in_sync` all
+  false`, `values: ["36"]`, `derived_from: ["Born"]`, and **`decision` / `candidates` / `in_sync` all
   absent** (structurally non-adoptable).
 - `age` vs `age_at_death` are mutually exclusive in the payload — only one is ever present on a person.
 
@@ -171,10 +159,12 @@ field never reaches `SourceSelect` or `promotedEdit`:
 {#each compactFields as f (f.canonical)}
     {#if f.computed}
         <!-- F45: derived read-only row — identical for owner and visitor, no controls. -->
+        {@const provenance = calculatedFrom(f.derived_from ?? [])}
         <div>
             <dt class="inline text-muted">{f.label}:</dt>
-            <dd class="inline text-ink">{f.values[0]}</dd>
-            <ProvenanceBadge computed derivedFrom={f.derived_from ?? []} />
+            <dd class="inline text-ink" title={provenance} aria-label={`${f.values[0]}, ${provenance}`}>
+                {f.values[0]}
+            </dd>
         </div>
     {:else if isOwner}
         <!-- …existing SourceSelect owner branch, unchanged… -->
@@ -197,7 +187,7 @@ field never reaches `SourceSelect` or `promotedEdit`:
 
 | State | Render |
 |---|---|
-| Birthdate present, no deathdate | **Age** row (bare integer) directly under Born + muted computed icon. |
+| Birthdate present, no deathdate | **Age** row (bare integer) directly under Born; value hover-tooltip "calculated from Born". |
 | Birthdate **and** deathdate present | **Age at death** row instead; **no** running Age row (exactly one). |
 | No birthdate | **Neither** row — for owner **and** visitor. No placeholder, no "—", no nudge (D3). |
 | Birthdate unparseable (e.g. `"unknown"`) | Same as "no birthdate" — the row is absent, no error, no partial value. |
@@ -210,19 +200,19 @@ field never reaches `SourceSelect` or `promotedEdit`:
 
 - **Field labels** (from the registry, ADR-063 §D1): `Age` and `Age at death`. Sentence case, no trailing
   punctuation beyond the `dt`'s `:`.
-- **Provenance label** (`title` + `aria-label`): `calculated from Birthdate` (Age) /
-  `calculated from Birthdate and Death date` (Age at death). Lower-case verb, the input names carried as
-  the dependency **registry labels** so they track the visible row labels. Serial comma if a future formula has
-  three inputs.
-- No visible pill text — the phrase is icon-hover / SR only (D5).
+- **Provenance tooltip** (`title` on the value + `aria-label`): `calculated from Born` (Age) /
+  `calculated from Born and Died` (Age at death) — the dependency **registry labels** (today "Born"/"Died"), so
+  the copy tracks the visible row labels. Serial comma if a future formula has three inputs. Built by
+  `calculatedFrom()`.
+- No visible text beyond the value — the phrase is hover-tooltip / SR only (D5 revised).
 
 ---
 
 ## 8. Accessibility
 
-- The computed glyph is **not** an interactive control — no tab stop, no button semantics. It is an annotation:
-  `aria-hidden="true"` on the inner SVG, and the **wrapping `<span>` carries the `aria-label`** (`calculated
-  from Birthdate`), so a screen reader announces the row as e.g. *"Age: 36, calculated from Birthdate."*
+- The provenance carries **no interactive control** and adds **no focusable element** — it is an annotation on
+  the value: `title` for the sighted hover tooltip and `aria-label` = `"{value}, {phrase}"` on the `dd`, so a
+  screen reader announces the row as e.g. *"Age: 36, calculated from Born."*
 - Focus order is unchanged — a derived row adds no focusable elements (contrast the owner curatable rows, which
   have the `SourceSelect` radiogroup).
 - The value must never be conveyed by color alone; it is plain `text-ink`.
@@ -231,25 +221,23 @@ field never reaches `SourceSelect` or `promotedEdit`:
 
 ---
 
-## 9. Three-skin QA (required)
+## 9. QA
 
-Render in **Cinémathèque, Broadcast, and Brutalist** (header picker), tokens only
+The row has no skin-dependent styling (no icon/badge — just a plain `text-ink` value), so the three-skin
+matrix is trivial; still keep the token discipline
 (`rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` stays empty):
 
-1. The **Age** row reads correctly against `bg-surface`, value in `text-ink`, label in `text-muted`, sitting
-   flush directly under **Born** in all three skins.
-2. The computed **glyph** renders in `text-muted` (never `--accent`, never `--warn`), aligned with the value
-   baseline (`align-middle`), and does **not** collide with the value or the next row in any skin — the
-   badge-vs-value collision class from F36/F39.
-3. Hovering the glyph shows **"calculated from Birthdate"**; a screen reader announces it from the wrapping
-   span's `aria-label`.
-4. A **deceased** person shows **Age at death** and **no** running Age; its glyph title reads "…from Birthdate
-   and Death date".
-5. A person with **no birthdate** shows **neither** row (owner and visitor) — confirm nothing shifts or leaves
+1. The **Age** row reads correctly, value in `text-ink`, label in `text-muted`, sitting flush directly under
+   **Born**. No icon, badge, or extra mark next to the value.
+2. **Hovering the value** ("36") shows the tooltip **"calculated from Born"**; a screen reader announces the
+   row as *"Age: 36, calculated from Born."*
+3. A **deceased** person shows **Age at death** and **no** running Age; its value tooltip reads "calculated
+   from Born and Died".
+4. A person with **no birthdate** shows **neither** row (owner and visitor) — confirm nothing shifts or leaves
    a gap.
-6. The derived row shows **no** owner controls in Admin mode — no `SourceSelect` chips, no promote pill, no
+5. The derived row shows **no** owner controls in Admin mode — no `SourceSelect` chips, no promote pill, no
    Custom entry — and is byte-identical between owner and visitor.
-7. No phantom **"C"** provider bubble anywhere on the row (the §3 gotcha) in any skin.
+6. No phantom **"C"** provider bubble anywhere on the row (the §3 gotcha).
 
 See [derived-person-fields-qa-checklist.md](derived-person-fields-qa-checklist.md) for the numbered, tagged QA
 items.
@@ -266,4 +254,7 @@ items.
   bare integer.
 - **Video / studio derived rows.** The genre is entity-generic, but F45 renders **person** only; a future
   computed field is a backend formula registration + this same one-branch render, not a new design.
-- **A new skin token or `[data-theme]` flourish.** F45 is pure token reuse — `text-muted` + an inline SVG.
+- **A new skin token or `[data-theme]` flourish.** F45 adds no styling at all — the value is a plain
+  `text-ink` vital; provenance lives in `title`/`aria-label`.
+- **A visible provenance mark** (icon, badge, pill, or inline text). Cut in D5-revised — provenance is
+  hover-tooltip / SR only.

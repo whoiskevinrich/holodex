@@ -18,8 +18,8 @@ provenance token + handler-injected clock; extends [ADR-052](../architecture/ADR
 [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)
 **Design**: [derived-person-fields-handoff.md](../design/derived-person-fields-handoff.md) +
 [QA checklist](../design/derived-person-fields-qa-checklist.md) — bare-number Age/Age-at-death row directly
-under Birthdate; **icon-only** computed provenance badge (D5) mirroring the ADR-059 provider brand icon, with
-"calculated from Birthdate" on `title`/`aria-label` (landed 2026-07-10)
+under Birthdate; provenance is a **hover tooltip on the value** — "calculated from Born" on `title` +
+`aria-label`, **no icon/badge** (D5 revised 2026-07-10, superseding the earlier icon-only badge)
 **Testing**: [testing-strategy.md](../testing-strategy.md) — F45 block landed (§4 component rows + cardinal
 invariants, §5 computed-row/provenance frontend row, §6 E2E flow 20, §9 phasing narrative, §10 concrete cases);
 the `deriveAge` / `deriveAgeAtDeath` unit tests (missing-input branch, deathdate branch, leap-day boundary) land
@@ -215,15 +215,16 @@ to the SPA and to any MCP `resolved`-field consumer for free, tagged `computed: 
 6. **Not adoptable / not curatable.** Given a rendered Age row, when inspected in the payload, then it carries
    `computed: true`, `winning_source = "computed:age"`, and **nil** `decision` / `candidates` / `in_sync`;
    and the SPA shows **no** promote pill, source-select, or curation control on it.
-7. **Transitive provenance.** Given a rendered Age row, then its provenance badge reads **"calculated from
-   Birthdate"** and shows the muted computed pill — **not** a provider brand icon and **not** a "file" pill.
+7. **Transitive provenance.** Given a rendered Age row, then hovering the value shows a tooltip reading
+   **"calculated from Born"** (the dependency's registry label), with the same phrase on `aria-label` — and the
+   row shows **no** icon, badge, provider brand icon, or "file" pill *(D5 revised)*.
 8. **Resolver stays pure.** `grep` over `internal/resolver/` finds **no** `time.Now` and no package-level
    clock; `Derive` takes `now` as a parameter. A resolver unit test passes a fixed `now` and asserts a
    deterministic Age.
 9. **Leap-day boundary.** Given `birthdate = 2000-02-29`, computing age on `2026-02-28` vs `2026-03-01`
    crosses the birthday exactly once (documented convention asserted in a unit test).
-10. **Three skins render.** The Age row and its computed provenance pill render correctly in all three skins
-    (theming QA).
+10. **Renders cleanly.** The Age row renders as a plain `text-ink` vital under Born with its hover tooltip and
+    no icon/badge; nothing skin-dependent (token discipline still holds).
 
 ## Test Notes (for /testing-strategy)
 
@@ -234,7 +235,7 @@ to the SPA and to any MCP `resolved`-field consumer for free, tagged `computed: 
   Birthdate); stamping (`Computed`, `computed:` source, nil Decision).
 - **API integration** — `personResolved` emits the derived rows in `resolved[]` for a birthdate-bearing
   person and omits them otherwise; owner and visitor see the same (D3).
-- **SPA** — read-only render, no owner affordances, computed provenance badge; three-skin QA.
+- **SPA** — read-only render, no owner affordances; provenance is the value's hover tooltip (no badge/icon).
 
 ## Open Items
 
@@ -245,10 +246,10 @@ to the SPA and to any MCP `resolved`-field consumer for free, tagged `computed: 
 - ~~**Design handoff** — final call on whether Age renders in the primary `<dl>` vs. an `AutoFieldRows`-style
   row, the exact computed-provenance pill (icon/label/tone), and copy for "calculated from Birthdate".~~ —
   **landed**: [derived-person-fields-handoff.md](../design/derived-person-fields-handoff.md). Renders in the
-  **primary bio `<dl>` directly under Birthdate** (D2, not an auto-field row); provenance is **icon-only** (D5)
-  mirroring the ADR-059 provider brand icon — a muted "calculated" glyph, phrase "calculated from Birthdate" on
-  `title`/`aria-label`. Handoff §3 also pins the `providerFromWinningSource("computed:…")` fix so the row
-  doesn't render a phantom provider bubble.
+  **primary bio `<dl>` directly under Birthdate** (D2, not an auto-field row); provenance is a **hover tooltip
+  on the value** (D5 revised 2026-07-10) — "calculated from Born" on `title` + `aria-label`, **no icon/badge**
+  (superseding the earlier icon-only glyph). Handoff §3 also pins the `providerFromWinningSource("computed:…")`
+  fix so the row doesn't render a phantom provider bubble.
 - **Age formatting locale** — bare integer whole years is decided (D1); if a future field needs unit/locale
   formatting that's a per-formula concern, not an engine change.
 - ~~Missing-input enrichment nudge~~ — **cut** (D3); revisit only if enrichment-completion prompts become a
