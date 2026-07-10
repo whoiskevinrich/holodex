@@ -43,5 +43,10 @@ func (s *Service) ProviderMatches(ctx context.Context, entityType string, entity
 // provider's shadow-store layer, never the file-extracted fields (the
 // non-destructive layering invariant).
 func (s *Service) ReEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
-	return s.runEnrich(ctx, entityType, entityID, provider, externalID)
+	// ReEnrich's only caller (POST /media/{id}/refresh, mounted inside requireOwner)
+	// is video-only — downloadAssets only runs for EnrichEntityPerson, so the gallery
+	// cap bypass (HOLODEX-174) is inert here today. Left true rather than plumbed
+	// from an actual auth check because refresh.Service has no request/auth
+	// awareness to derive it from; revisit if ReEnrich ever gains a person caller.
+	return s.runEnrich(ctx, entityType, entityID, provider, externalID, true)
 }

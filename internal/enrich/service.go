@@ -53,8 +53,10 @@ type EnrichRepo interface {
 type ImageSink interface {
 	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
 	// given role for a person, recording provenance (provider + externalID) and the
-	// upstream asset URL (for delete-suppression, F25/ADR-043).
-	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
+	// upstream asset URL (for delete-suppression, F25/ADR-043). overCap, set for an
+	// owner/admin enrichment run (HOLODEX-174), lets a gallery 'extra' bypass
+	// repo.GalleryCap the same way an owner's manual "Add anyway" upload does.
+	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error
 	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
 	// (no-op otherwise), so a poster can be seeded from the headshot portrait without
 	// clobbering an existing owner/provider image (F25.29).
@@ -289,16 +291,21 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // them in the shadow layer, and returns the entity's resolved fields with
 // provenance (F22.5/F22.7). It records the pass in the activity history (F22.6b).
 // For a person, any image assets are fetched and stored as person images (F25).
-func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
+// bypassGalleryCap, set when the caller is the owner/admin (HOLODEX-174), lets the
+// gallery auto-fill keep adding provider assets past repo.GalleryCap; every current
+// caller is behind requireOwner, so it is always true today, but the enrich service
+// itself must not assume that — it takes the caller's privilege as an explicit input
+// rather than inferring it.
+func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
 	started := time.Now()
-	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID)
+	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, bypassGalleryCap)
 	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), err)
 	return fields, err
 }
 
 // runEnrich is the core fetch → sanitize → store → re-read; Enrich wraps it with
 // activity-history recording.
-func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string) ([]model.EnrichedField, error) {
+func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
 	c, err := s.verifiedClient(ctx, provider, entityType)
 	if err != nil {
 		return nil, err
@@ -315,7 +322,7 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// v1; best-effort — a failed fetch/normalize is logged and skipped, never failing
 	// the field enrichment that already succeeded.
 	if s.images != nil && entityType == model.EnrichEntityPerson && len(res.Assets) > 0 {
-		s.downloadAssets(ctx, entityID, provider, externalID, res.Assets)
+		s.downloadAssets(ctx, entityID, provider, externalID, res.Assets, bypassGalleryCap)
 	}
 	return s.Fields(ctx, entityType, entityID)
 }
@@ -325,8 +332,10 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 // Core roles (headshot/banner/poster) fill on first success and then skip further
 // entries of the same role (ADR-039 §5). The gallery role (extra) is unbounded on the
 // provider side but capped at repo.GalleryCap by the store; once that cap is hit,
-// remaining gallery assets are skipped.
-func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset) {
+// remaining gallery assets are skipped — unless bypassGalleryCap is set (owner/admin
+// enrichment run, HOLODEX-174), in which case a cap hit is treated as a per-asset
+// skip rather than a role-wide stop, so later assets still get a shot at the store.
+func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset, bypassGalleryCap bool) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
@@ -387,7 +396,7 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
 			continue
 		}
-		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw); err != nil {
+		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw, bypassGalleryCap); err != nil {
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
 			} else {

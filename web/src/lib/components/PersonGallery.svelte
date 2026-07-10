@@ -12,6 +12,8 @@
 	import { toMessage } from '$lib/format';
 	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
 	import CropEditor from './CropEditor.svelte';
+	import PersonGalleryModal from './PersonGalleryModal.svelte';
+	import PersonImageViewer from './PersonImageViewer.svelte';
 
 	const ROLE_LABEL: Record<string, string> = {
 		headshot: 'headshot',
@@ -43,8 +45,39 @@
 	let cropImage = $state<PersonImage | null>(null);
 	let cropRole = $state<CoreRole>('headshot');
 
+	// Full-page grid modal + image viewer (HOLODEX-174). viewerIndex is non-null
+	// whether the viewer was opened from the row or from the grid modal; galleryOpen
+	// tracks the grid independently so closing the viewer returns to the grid (if it
+	// was open) or straight to the page (if it wasn't) — "two Escapes" behavior.
+	let galleryOpen = $state(false);
+	let viewerIndex = $state<number | null>(null);
+
 	const max = $derived(activity.galleryMax);
 	const full = $derived(items.length >= max);
+
+	function openViewer(i: number) {
+		viewerIndex = i;
+	}
+
+	// A single centralized keydown handler (rather than one per modal) so Escape and
+	// the arrow keys route to whichever layer is topmost: viewer over grid over page.
+	// If each modal owned its own window-level Escape listener, one keypress would
+	// fire both when stacked, closing viewer and grid at once.
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			if (viewerIndex !== null) viewerIndex = null;
+			else if (galleryOpen) galleryOpen = false;
+			return;
+		}
+		if (viewerIndex === null) return;
+		if (e.key === 'ArrowLeft' && viewerIndex > 0) {
+			e.preventDefault();
+			viewerIndex -= 1;
+		} else if (e.key === 'ArrowRight' && viewerIndex < items.length - 1) {
+			e.preventDefault();
+			viewerIndex += 1;
+		}
+	}
 
 	function thumbSrc(img: PersonImage): string {
 		return api.personGalleryImageURL(personId, img.id, { version: img.version, skin: theme.current });
@@ -119,7 +152,17 @@
 </script>
 
 <section class="space-y-3">
-	<h2 class="text-xs uppercase tracking-wide text-muted">Gallery</h2>
+	<div class="flex items-center justify-between gap-3">
+		<h2 class="text-xs uppercase tracking-wide text-muted">Gallery</h2>
+		{#if items.length}
+			<button
+				onclick={() => (galleryOpen = true)}
+				class="flex items-center gap-1 text-xs text-muted hover:text-accent"
+			>
+				Gallery ({items.length}) <span aria-hidden="true">›</span>
+			</button>
+		{/if}
+	</div>
 
 	{#if !items.length && !owner}
 		<p class="text-sm text-muted">No gallery images.</p>
@@ -130,19 +173,25 @@
 					<!-- eager, NOT lazy: a w-auto image collapses to a zero-area box before it
 					     loads, and browsers won't fire native lazy-loading for a zero-area element,
 					     so the gallery would never load. The gallery is a small bounded set (≤20). -->
-					<img
-						src={thumbSrc(img)}
-						alt={`${name} — gallery image ${i + 1}`}
-						loading="eager"
-						decoding="async"
-						class="h-40 w-auto rounded-theme border border-rule bg-surface-2"
-					/>
+					<button onclick={() => openViewer(i)} aria-label={`${name} — gallery image ${i + 1}`} class="block">
+						<img
+							src={thumbSrc(img)}
+							alt={`${name} — gallery image ${i + 1}`}
+							loading="eager"
+							decoding="async"
+							class="h-40 w-auto rounded-theme border border-rule bg-surface-2"
+						/>
+					</button>
 					{#if owner}
-						<!-- Controls reveal on hover (mouse) or focus-within (keyboard). -->
+						<!-- Controls reveal on hover (mouse) or focus-within (keyboard). The overlay
+						     itself is pointer-events-none — it sits above the <img> even when invisible,
+						     so without that a click on the image area would land here instead of the
+						     button underneath. Only its buttons (pointer-events-auto) are clickable;
+						     everywhere else, clicks fall through to the row's own image button. -->
 						<div
-							class="absolute inset-0 flex flex-col justify-between rounded-theme bg-bg/55 p-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+							class="pointer-events-none absolute inset-0 flex flex-col justify-between rounded-theme bg-bg/55 p-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
 						>
-							<div class="flex items-center gap-1">
+							<div class="pointer-events-auto flex items-center gap-1">
 								{#each CORE_ROLES as role (role)}
 									<button
 										onclick={() => promote(img, role)}
@@ -154,7 +203,7 @@
 									</button>
 								{/each}
 							</div>
-							<div class="flex items-center justify-between gap-1">
+							<div class="pointer-events-auto flex items-center justify-between gap-1">
 								<div class="flex gap-1">
 									<!-- aria-disabled (not disabled) at the ends: move() no-ops out of bounds, and
 									     keeping the button focusable means a keyboard reorder to an end doesn't drop
@@ -256,3 +305,26 @@
 		onpromoted={onchanged}
 	/>
 {/if}
+
+{#if galleryOpen}
+	<PersonGalleryModal
+		{personId}
+		{name}
+		{items}
+		onclose={() => (galleryOpen = false)}
+		onselect={openViewer}
+	/>
+{/if}
+
+{#if viewerIndex !== null}
+	<PersonImageViewer
+		{personId}
+		{name}
+		{items}
+		index={viewerIndex}
+		onclose={() => (viewerIndex = null)}
+		onnavigate={(i) => (viewerIndex = i)}
+	/>
+{/if}
+
+<svelte:window onkeydown={onKey} />
