@@ -168,6 +168,14 @@ export interface ResolvedField {
 	// promotion (not a native mapping). It is otherwise a normal mapped field; the flag only
 	// tells the SPA to offer the owner-only Edit / Remove-promotion affordance on this row.
 	promoted?: boolean;
+	// F45 (ADR-063) — a computed-on-read, source-less, read-only derived field (e.g. Age).
+	// Renders a bare value + the muted "calculated" provenance icon; carries NO
+	// decision/candidates/in_sync and is never adoptable/curatable. winning_source is
+	// "computed:<canonical>".
+	computed?: boolean;
+	// F45 — the human LABELS of the inputs this value was derived from (e.g. ["Born"]),
+	// for the "calculated from …" provenance copy. Backend-supplied so the SPA needs no registry.
+	derived_from?: string[];
 	// F36 (ADR-051) — per-field source-of-truth, present on replace (scalar) fields only.
 	// `decision` is the standing source choice (absent ⇒ implicit file default); `in_sync`
 	// is false when the decided value differs from the value embedded in the file; the

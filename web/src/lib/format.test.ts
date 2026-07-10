@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { formatYear, formatDuration, resolutionBucket } from './format';
+import {
+	formatYear,
+	formatDuration,
+	resolutionBucket,
+	providerFromWinningSource,
+	calculatedFrom
+} from './format';
 
 describe('formatYear', () => {
 	// Regression: recorded_at is a UTC instant. Reading the year in local time made
@@ -32,5 +38,26 @@ describe('resolutionBucket', () => {
 		expect(resolutionBucket(1280)).toBe('HD');
 		expect(resolutionBucket(1920)).toBe('FHD');
 		expect(resolutionBucket(3840)).toBe('4K');
+	});
+});
+
+describe('providerFromWinningSource', () => {
+	it('strips baseline namespaces (incl. the F45 computed guard) and keeps provider names', () => {
+		expect(providerFromWinningSource('tmdb:bio')).toBe('tmdb');
+		expect(providerFromWinningSource('file:Title')).toBe('');
+		expect(providerFromWinningSource('record:name')).toBe('');
+		expect(providerFromWinningSource('manual:genres')).toBe('');
+		// F45: a computed winning source must never resolve to a phantom "computed" provider.
+		expect(providerFromWinningSource('computed:age')).toBe('');
+		expect(providerFromWinningSource(undefined)).toBe('');
+	});
+});
+
+describe('calculatedFrom', () => {
+	it('builds the "calculated from …" phrase with a serial-comma join', () => {
+		expect(calculatedFrom(['Born'])).toBe('calculated from Born');
+		expect(calculatedFrom(['Born', 'Died'])).toBe('calculated from Born and Died');
+		expect(calculatedFrom(['A', 'B', 'C'])).toBe('calculated from A, B, and C');
+		expect(calculatedFrom([])).toBe('');
 	});
 });

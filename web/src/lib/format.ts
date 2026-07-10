@@ -74,7 +74,23 @@ export function isHttpUrl(s: string): boolean {
 // detail pages and AutoFieldRows so the baseline-namespace set lives in one place.
 export function providerFromWinningSource(winningSource?: string): string {
 	const ns = (winningSource ?? '').split(':')[0];
-	return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
+	// `computed` (F45, ADR-063) is a derived-field provenance namespace, not a provider:
+	// guard it here too so a "computed:age" winner can never resolve to a phantom "computed"
+	// provider bubble anywhere it slips past the caller's own f.computed branch.
+	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns;
+}
+
+// calculatedFrom builds the transitive provenance phrase for a computed field (F45,
+// ADR-063) from its input LABELS — e.g. ["Born"] → "calculated from Born",
+// ["Born","Died"] → "calculated from Born and Died" (serial "and" for the last of 3+).
+// Shown as a hover tooltip on the derived value; "" when there are no inputs.
+export function calculatedFrom(labels: string[]): string {
+	if (labels.length === 0) return '';
+	let joined: string;
+	if (labels.length === 1) joined = labels[0];
+	else if (labels.length === 2) joined = `${labels[0]} and ${labels[1]}`;
+	else joined = `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+	return `calculated from ${joined}`;
 }
 
 // formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").

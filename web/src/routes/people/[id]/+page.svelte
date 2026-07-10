@@ -34,7 +34,7 @@
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/PromotedFieldEdit.svelte';
-	import { videoCount, providerFromWinningSource } from '$lib/format';
+	import { videoCount, providerFromWinningSource, calculatedFrom } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -464,7 +464,24 @@
 							{/snippet}
 
 							{#each compactFields as f (f.canonical)}
-								{#if isOwner}
+								{#if f.computed}
+									<!-- F45 (ADR-063): derived read-only row (Age / Age at death) — identical
+									     for owner and visitor, no controls. Branches ahead of the owner/visitor
+									     split so a computed field never reaches SourceSelect or promotedEdit. The
+									     "calculated from …" provenance is a hover tooltip on the value itself —
+									     no separate badge/icon. aria-label restates value + provenance for SR. -->
+									{@const provenance = calculatedFrom(f.derived_from ?? [])}
+									<div>
+										<dt class="inline text-muted">{f.label}:</dt>
+										<dd
+											class="inline text-ink"
+											title={provenance}
+											aria-label={`${f.values[0]}, ${provenance}`}
+										>
+											{f.values[0]}
+										</dd>
+									</div>
+								{:else if isOwner}
 									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
 									<div>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
@@ -492,7 +509,7 @@
 										{/if}
 									</div>
 								{/if}
-								{@render promotedEdit(f)}
+								{#if !f.computed}{@render promotedEdit(f)}{/if}
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}

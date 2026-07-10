@@ -29,6 +29,16 @@ type FieldDef struct {
 	Display string
 	// Description documents the field for operators and provider authors.
 	Description string
+	// Computed marks a derived field genre (F45, ADR-063): source-less, read-only,
+	// computed-on-read from other resolved fields by the resolver's Derive post-pass.
+	// A computed field is never stored, never adoptable/curatable, and never produced
+	// by a provider or file — it is the fact a human reads off the data (e.g. Age).
+	Computed bool
+	// DependsOn lists the canonical inputs a computed field's formula reads (e.g.
+	// ["birthdate"]). It is the declarative contract the Derive pass uses to gather
+	// inputs and to name the transitive "calculated from …" provenance. Empty for a
+	// non-computed field.
+	DependsOn []string
 }
 
 // KnownFields is the full canonical field registry. Order is documentation order;
@@ -150,6 +160,27 @@ var KnownFields = []FieldDef{
 		Label:       "Photo",
 		Display:     "image_url",
 		Description: "Portrait image. Delivered as an asset (not a field value) by providers that support it.",
+	},
+
+	// ---- Derived / computed person fields (F45, ADR-063) ----
+	// Source-less, read-only, computed-on-read by resolver.Derive from the fields in
+	// DependsOn. age and age_at_death are mutually exclusive on a person: a living
+	// person shows a running age, a deceased one shows age-at-death instead.
+	{
+		Canonical:   "age",
+		Label:       "Age",
+		Display:     "",
+		Description: "Current age in whole years, computed on read from birthdate (floor(now − birthdate)). Only shown for a living person (no deathdate). Never stored.",
+		Computed:    true,
+		DependsOn:   []string{"birthdate"},
+	},
+	{
+		Canonical:   "age_at_death",
+		Label:       "Age at death",
+		Display:     "",
+		Description: "Age in whole years at the time of death (floor(deathdate − birthdate)). Replaces the running age for a deceased person. Never stored.",
+		Computed:    true,
+		DependsOn:   []string{"birthdate", "deathdate"},
 	},
 
 	// ---- Studio-entity fields (F38 S3) ----
