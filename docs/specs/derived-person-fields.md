@@ -16,8 +16,10 @@ curatable.
 provenance token + handler-injected clock; extends [ADR-052](../architecture/ADR-052-baseline-source-contract.md) /
 [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), sibling of
 [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)
-**Design**: _pending_ — the derived row treatment (bare-number value under Birthdate) + the computed
-provenance badge (`needs-design`)
+**Design**: [derived-person-fields-handoff.md](../design/derived-person-fields-handoff.md) +
+[QA checklist](../design/derived-person-fields-qa-checklist.md) — bare-number Age/Age-at-death row directly
+under Birthdate; **icon-only** computed provenance badge (D5) mirroring the ADR-059 provider brand icon, with
+"calculated from Birthdate" on `title`/`aria-label` (landed 2026-07-10)
 **Testing**: _pending_ — `docs/testing-strategy.md` block + unit tests for `deriveAge` / `deriveAgeAtDeath`
 (missing-input branch, deathdate branch, leap-day boundary)
 
@@ -238,9 +240,13 @@ to the SPA and to any MCP `resolved`-field consumer for free, tagged `computed: 
   [ADR-063](../architecture/ADR-063-derived-computed-fields.md) (registry `Computed`/`DependsOn`, pure
   `Derive(resolved, now)` post-pass, non-adoptable `computed:` provenance token kept out of the decision
   grammar, handler-injected clock). ADR D3 refines this spec's FR4.
-- **Design handoff** — final call on whether Age renders in the primary `<dl>` vs. an `AutoFieldRows`-style
-  row, the exact computed-provenance pill (icon/label/tone), and copy for "calculated from Birthdate".
-  *(`needs-design`)*
+- ~~**Design handoff** — final call on whether Age renders in the primary `<dl>` vs. an `AutoFieldRows`-style
+  row, the exact computed-provenance pill (icon/label/tone), and copy for "calculated from Birthdate".~~ —
+  **landed**: [derived-person-fields-handoff.md](../design/derived-person-fields-handoff.md). Renders in the
+  **primary bio `<dl>` directly under Birthdate** (D2, not an auto-field row); provenance is **icon-only** (D5)
+  mirroring the ADR-059 provider brand icon — a muted "calculated" glyph, phrase "calculated from Birthdate" on
+  `title`/`aria-label`. Handoff §3 also pins the `providerFromWinningSource("computed:…")` fix so the row
+  doesn't render a phantom provider bubble.
 - **Age formatting locale** — bare integer whole years is decided (D1); if a future field needs unit/locale
   formatting that's a per-formula concern, not an engine change.
 - ~~Missing-input enrichment nudge~~ — **cut** (D3); revisit only if enrichment-completion prompts become a
