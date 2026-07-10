@@ -85,6 +85,27 @@ Sources are walked left-to-right; the first non-empty value wins (`WinningSource
 
 ---
 
+## Derived / computed fields (F45, [ADR-063](../architecture/ADR-063-derived-computed-fields.md))
+
+A **third field genre** — beyond canonical (this registry) and non-canonical auto-registered (F39) — is
+**computed**: source-less, read-only, **calculated on read** from other resolved fields by a pure `Derive`
+pass, and **never stored** (a now-relative value would be stale the moment it was written). There is **nothing
+to configure** — no mapping, no source, no YAML; a computed field simply appears when its inputs resolve.
+
+| Canonical | Default Label | Computed from | Description |
+|-----------|--------------|---------------|-------------|
+| `age` | Age | `birthdate` | Current age in whole years — `floor(now − birthdate)`. Shown only for a **living** person (no `deathdate`). |
+| `age_at_death` | Age at death | `birthdate`, `deathdate` | Age in whole years at death — `floor(deathdate − birthdate)`. **Replaces** the running Age for a deceased person (never both). |
+
+A computed row carries `computed: true`, a `winning_source` of `computed:<canonical>`, and the human labels of
+its inputs in `derived_from` (for the "calculated from …" provenance icon). It carries **no**
+`decision`/`candidates` — it is **never adoptable or curatable** (a decision naming a computed field is
+rejected `400`). A missing or unparseable input yields **no row** (no placeholder). The genre is
+entity-generic; person Age/Age-at-death is the seed. Formulas are a **closed Go registry**
+(`internal/resolver/derive.go`) — there is no formula DSL.
+
+---
+
 ## Example file-metadata fields
 
 These are operator-defined and not required. The registry entries below exist as
@@ -119,4 +140,7 @@ explicitly (operator override), and a provider may suggest a render mode for a *
 
 When a field's value comes from an enrichment provider (i.e. `winning_source` does not
 start with `file:`), the SPA shows a **ProvenanceBadge** with the provider name so
-operators can tell at a glance which source won. File-sourced fields show no badge.
+operators can tell at a glance which source won. File-sourced fields show no badge. A
+**computed** field (`winning_source` = `computed:<canonical>`, F45) shows a distinct
+**icon-only** "calculated" badge instead of a provider icon, with a "calculated from …"
+hover/`aria-label` naming its `derived_from` inputs.

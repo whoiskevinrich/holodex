@@ -11,6 +11,7 @@ import (
 	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 )
 
@@ -98,9 +99,16 @@ func (h *Handlers) personDecisionTarget(w http.ResponseWriter, r *http.Request) 
 }
 
 // personReplaceField resolves a canonical name against the synthesized person
-// schema and confirms a decision may target it: unknown → 404, name → 400
-// (RD1 — no decision row ever exists for name), merge (aliases) → 400.
+// schema and confirms a decision may target it: computed → 400 (F45, ADR-063 §D3 —
+// a derived field is never adoptable), unknown → 404, name → 400 (RD1 — no decision
+// row ever exists for name), merge (aliases) → 400.
 func (h *Handlers) personReplaceField(w http.ResponseWriter, canonical string) (mapping.Field, bool) {
+	// A computed field is source-less and read-only: reject a pin explicitly rather
+	// than relying on it being absent from the synthesized schema (structural guard).
+	if registry.Lookup(canonical).Computed {
+		writeError(w, http.StatusBadRequest, "computed fields are read-only and cannot be pinned")
+		return mapping.Field{}, false
+	}
 	f, ok := personFieldByCanonical(canonical)
 	if !ok {
 		writeError(w, http.StatusNotFound, "unknown field")

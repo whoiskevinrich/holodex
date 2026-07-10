@@ -74,7 +74,10 @@ export function isHttpUrl(s: string): boolean {
 // detail pages and AutoFieldRows so the baseline-namespace set lives in one place.
 export function providerFromWinningSource(winningSource?: string): string {
 	const ns = (winningSource ?? '').split(':')[0];
-	return ns === 'record' || ns === 'file' || ns === 'manual' ? '' : ns;
+	// `computed` (F45, ADR-063) is a derived-field provenance namespace, not a provider:
+	// guard it here too so a "computed:age" winner can never resolve to a phantom "computed"
+	// provider bubble anywhere it slips past the caller's own f.computed branch.
+	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns;
 }
 
 // formatAgo renders a past ISO timestamp as a compact relative time ("3m ago").

@@ -464,7 +464,16 @@
 							{/snippet}
 
 							{#each compactFields as f (f.canonical)}
-								{#if isOwner}
+								{#if f.computed}
+									<!-- F45 (ADR-063): derived read-only row (Age / Age at death) — identical
+									     for owner and visitor, no controls. Branches ahead of the owner/visitor
+									     split so a computed field never reaches SourceSelect or promotedEdit. -->
+									<div>
+										<dt class="inline text-muted">{f.label}:</dt>
+										<dd class="inline text-ink">{f.values[0]}</dd>
+										<ProvenanceBadge computed derivedFrom={f.derived_from ?? []} />
+									</div>
+								{:else if isOwner}
 									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
 									<div>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
@@ -492,7 +501,7 @@
 										{/if}
 									</div>
 								{/if}
-								{@render promotedEdit(f)}
+								{#if !f.computed}{@render promotedEdit(f)}{/if}
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}

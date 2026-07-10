@@ -1,6 +1,6 @@
 # ADR-063: Derived / computed fields — a compute-on-read field genre
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-07-08
 **Deciders:** Project owner
 
@@ -194,10 +194,10 @@ The API layer **owns the clock**; the resolver package gains nothing. This is wh
 
 ## Action Items
 
-1. [ ] `registry.FieldDef` gains `Computed bool` + `DependsOn []string`; register `age` / `age_at_death` in `KnownFields` (D1).
-2. [ ] `fieldsource`: add `Computed` const + `ForComputed` + `IsComputed`; **do not** touch `Valid()`/`ForNamespace()`; add the decision-endpoint guard rejecting a `computed:`/`Computed`-canonical decision (D3).
-3. [ ] `resolver.Derive(resolved, now)` pure pass + `deriveAge` / `deriveAgeAtDeath` closed formula registry; add `Computed bool` to `ResolvedField` (D2/D4).
-4. [ ] `Handlers.now func() time.Time` seam (default `time.Now`); `personResolved` chains `Derive(resolved, h.now())` after `appendAutoRegistered`; position computed rows under `birthdate` (D5).
-5. [ ] Assert resolver purity: grep guard for no `time.Now` in `internal/resolver/`; unit tests for `deriveAge`/`deriveAgeAtDeath` (missing/unparseable input, deathdate branch, leap-day) with a fixed `now` (`/testing-strategy`).
-6. [ ] Update spec FR4 wording to match D3; cross-link this ADR from the spec and `docs/architecture/README.md`; add the derived-field genre to the canonical-fields / configuration reference.
-7. [ ] `/design-handoff` for the computed row + provenance pill (`needs-design`); `/security-review` is **N/A** (read-only computed values, no auth/access/infra change — recorded on the gate).
+1. [x] `registry.FieldDef` gains `Computed bool` + `DependsOn []string`; register `age` / `age_at_death` in `KnownFields` (D1).
+2. [x] `fieldsource`: add `Computed` const + `ForComputed` + `IsComputed`; **do not** touch `Valid()`/`ForNamespace()`; add the decision-endpoint guard rejecting a `computed:`/`Computed`-canonical decision (D3, `personReplaceField`).
+3. [x] `resolver.Derive(resolved, now)` pure pass + `deriveAge` / `deriveAgeAtDeath` closed formula registry (`internal/resolver/derive.go`); add `Computed bool` + `DerivedFrom []string` to `ResolvedField` (D2/D4).
+4. [x] `Handlers.now func() time.Time` seam (default `time.Now`, `SetNow` test override, nil-safe `clock()`); `personResolved` chains `Derive(resolved, h.clock())` after `appendAutoRegistered`; `Derive` inserts each computed row directly after its primary dependency, so Age sits under `birthdate` (D5).
+5. [x] Assert resolver purity: grep guard for no `time.Now` in `internal/resolver/` (`TestResolverPackageIsClockFree`); unit tests for `deriveAge`/`deriveAgeAtDeath` (missing/unparseable input, deathdate branch, leap-day) with a fixed `now`; API integration tests over `personResolved` (owner==visitor, computed-decision-rejected).
+6. [x] Spec FR4 wording matches D3; this ADR is cross-linked from the spec and `docs/architecture/README.md`; the derived-field genre is documented in the configuration reference.
+7. [x] `/design-handoff` for the computed row + provenance icon landed (`derived-person-fields-handoff.md`); `/security-review` is **N/A** (read-only computed values, no auth/access/infra change — recorded on the gate).
