@@ -158,6 +158,9 @@ assert.JSONEq(t, string(want), string(got))
 | **Soft-delete — restore / purge** (ADR-037, F24.4–F24.6) | Integration | `Restore` clears `deleted_at` (item returns to all views), `ErrNotFound` on a live item; `ExpiredSoftDeleted(cutoff)` selects only rows past the grace cutoff; `HardDelete` removes the row and **cascades** junctions/FTS; `PurgePath` reads a soft-deleted row's path (the one read that ignores `deleted_at`) | ~90% |
 | **Purge job** (ADR-037, F24.4/F24.8) | Unit | `Sweep` purges expired + records a `job_runs` (`kind=purge`) row (Removed/Errors counts); **grace=0 → no-op** (no expiry query, no run); `purgeItem` treats a **missing file as success** (finish row delete) but a **permission/read-only failure leaves the row** (no `HardDelete`, error run, retry); `RemoveFiles=false` purges DB-only and keeps the file; `PurgeNow` soft-deletes-then-removes and `ErrNotFound` propagates | ~90% |
 | **Soft-delete — endpoints** (ADR-037, F24.9–F24.10) | Integration | `DELETE /media/{id}` (soft, 204 + idempotent), `?purge=true` (hard now), `POST …/restore` (200/404), `GET /admin/trash` (purge_at computed) **behind `requireOwner`** (401 without token, nothing mutated); `404` unknown id / restore-of-live; purge-now disk failure surfaces a path-free message and leaves the item in Trash | ~90% |
+| **Derived-field engine — formulas + `Derive`** (ADR-063, F45) | Unit | `deriveAge`/`deriveAgeAtDeath` present/absent/**unparseable** input, deathdate-branch (⇒ no running age), `floor`, **leap-day boundary** (2000-02-29 crosses once); `Derive(resolved, now)` **purity** (fixed `now` → deterministic, no I/O), stamping (`Computed`, `computed:` source, **nil** Decision), **mutual exclusion** (exactly one of age/age-at-death), ordering (row adjacent to `birthdate`); **grep guard**: no `time.Now` in `internal/resolver/` (AC-8) | 100% (formulas) |
+| **Computed provenance token + guard** (ADR-063, F45, §D3) | Unit + Integration | `fieldsource.ForComputed`/`IsComputed`; `computed` **excluded from `Valid()`/`ForNamespace()`** (`Valid("computed:age")==false`); decision endpoint **rejects 400** a `Computed` canonical / any `computed:` source, writes nothing to `field_source_decisions` | ~95% |
+| **Derived person fields — API** (ADR-063, F45, FR5/FR7) | Integration | `personResolved` (with a fixed `Handlers.now`) emits derived rows in `resolved[]` for a birthdate-bearing person, **omits** otherwise; **owner == visitor** payload (D3); row carries `computed:true`, `winning_source:"computed:age"`, `derived_from:["Birthdate"]`, **no** decision/candidates/in_sync; **time-varying** — advancing `now` increments Age with **no DB write**; golden no-op when no birthdate | ~90% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -186,6 +189,11 @@ assert.JSONEq(t, string(want), string(got))
 - **De-/re-promote never loses curation** (F44/ADR-062 D-reversible): decisions/curation rows are keyed by `field_key`, independent of the promotion row, so `ClearPromotion` reverts the field to a display-only auto row **without touching** the shadow value or any prior decision/curation — which then re-apply verbatim on re-promotion. The delete is presentation-only.
 - **Promotion outranks operator YAML but never the schema contract** (F44/ADR-062 D3): the in-app promotion is tier-0 (above `metadata-mappings.yaml`) **only** for a non-canonical key; a promotion can never target a canonical (`registry.IsKnown`) or `_`-prefixed key (⇒ 422), so tier-2 registry keys keep their contract and a promotion can't shadow `bio` or reach a reserved sidecar key.
 - **Promotion is zero-impact when unused** (F44/ADR-062): with no `field_promotions` rows, resolved output and rendering are byte-identical to pre-F44 (the F39 baseline) — the golden no-op, on all three entities.
+- **The resolver stays clock-free** (F45/ADR-063 AC-8): `internal/resolver/` reads **no** wall clock — `Derive` takes `now` as a parameter, injected at the `Handlers.now` edge. A grep guard fails the build on any `time.Now` in the package. Break this and ADR-051's determinism (and its test suite) silently rots; time-varying Age becomes wall-clock-flaky instead of a controllable test input.
+- **A computed field is never adoptable** (F45/ADR-063 D3): a `computed:` row carries **nil** `Decision`/`Candidates` (so no SPA affordance, nothing to write) **and** the decision endpoint rejects a `Computed` canonical / `computed:` source with 400 — `computed` is deliberately absent from `Valid()`/`ForNamespace()`. Non-adoptability is structural *and* enforced at the API, never by convention alone.
+- **Age and age-at-death are mutually exclusive** (F45/ADR-063 D4): the two formulas are one function branching on `deathdate` — a living person shows exactly `age`, a deceased person exactly `age_at_death`, **never both**. A change to either formula must preserve the "exactly one row" property.
+- **Missing/unparseable input → no row, for everyone** (F45/spec D3): when a required input (`birthdate`, or `deathdate` for age-at-death) is absent or non-ISO, `computable=false` yields **no row** — no placeholder, no "—", no nudge — and owner and visitor payloads are **identical** (there is no owner-only branch on a computed row).
+- **Compute-on-read, never stored** (F45/ADR-063): derived values touch **no** migration, column, or shadow row; Age is time-varying and must be recomputed live (a stored value would be stale the instant after it is written). Asserted by AC-2 — advancing the injected `now` increments Age with zero DB writes.
 
 ---
 
@@ -213,6 +221,7 @@ assert.JSONEq(t, string(want), string(got))
 | Delete / Trash (F24) | Component/Interaction + visual | Vitest + Playwright | **owner-only** Manage block + header Trash link (absent from DOM for non-owner); `ConfirmDialog` a11y — `role=dialog`/`aria-modal`, **focus starts on Cancel**, trap, Esc/backdrop cancel, focus-return; soft-confirm copy reflects the grace days; **purge confirm names the file path**; Trash rows show "deleted X ago · purges in Y", Restore=accent (no confirm) vs Delete-permanently=warn (confirmed); empty/loading/error states themed; **all 3 skins** — `--warn` destructive vs `--accent` restore stays distinct (load-bearing on Brutalist), solid-warn CTA uses readable `--warn-ink` |
 | **Owner hub + nav split** (F35) | Component/Interaction + visual | Vitest + Playwright | Content nav = **Media/People/Tags only** (Keys/Status/Trash links gone); **owner gear** absent from DOM for non-owner / Preview-OFF; gear active on `/owner` via `text-accent` + `aria-current` (never `bg-accent`); `/owner` shell renders `skin-title` "Owner" + tab row; **active tab `bg-surface-2 text-ink` + `aria-current`** (skin-picker idiom, NOT accent — that stays the single primary action); tab switch is in-group nav (no full reload); F29 toggle **relabeled "Owner view"** — no "Admin" string in `+layout.svelte`; gear label hides `<sm` (icon kept, `aria-label`); focus order `Activity → Owner-view → gear → skins`; **all 3 skins** (tokens-only, `rg` guard empty) |
 | **Nationality flag** (HOLODEX-139) | Unit + Component + visual | Vitest + Playwright | `nationality.ts` value→country: **last comma segment** is the country (`"…, United Kingdom"` → gb), single-token **country name or demonym** (`"British"` → gb), synonym/diacritic folding (`USA`→us, `Türkiye`→tr), **dedupe by code**, empty/unknown → **null**; `NationalityFlags.svelte` renders primary flag + muted **`+N`** (aria-hidden; `alt`/`title` list all), **nothing when none resolve** (no flag, no gap); flag chrome is tokens-only (`rounded-theme`/`border-rule`); flags **self-hosted** (flag-icons, offline, not inlined into the page chunk); **all 3 skins** (square Broadcast/Brutalist, hairline reads on surface); **not owner-gated** (visitors see it) |
+| **Computed field row + provenance** (F45, ADR-063) | Unit + Component + visual | Vitest + Playwright | `providerFromWinningSource("computed:age") === ""` (the handoff §3 gotcha — **no phantom "C" provider bubble**); `ProvenanceBadge` with a `computed` source renders the **muted computed glyph** + `title`/`aria-label` **"calculated from Birthdate"** and **no** `ProviderIcon`; the person page compact loop renders a computed row **read-only** — **no** `SourceSelect`, **no** promote pill, **no** Custom entry — **identically for owner and visitor**; bare-integer value under **Born** in the primary `<dl>` (not the Additional-details block); tab **skips** the row (nothing focusable) while a screen reader reads the "calculated from Birthdate" note; tokens-only (`rg` guard empty); **all 3 skins** — the glyph stays **quiet grey**, never the skin accent, never `--warn`, legible on Brutalist |
 
 ---
 
@@ -238,6 +247,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 17. **(F24 — delete/restore)** With `ADMIN_TOKEN` set, as owner: open a detail page → **Move to Trash** → confirm → land back on the grid with the item **gone**; it is also absent from search and its people/tag pages, and `/media/{id}` 404s. Open **/trash** → the item shows "deleted … · purges …" → **Restore** → it returns to the library and Trash empties. A token-less client sees **no** Manage block, **no** Trash link, and `/trash` shows "Owner only." (Purge-now is exercised only against a throwaway fixture file — never the seed corpus — asserting the file is gone and the row hard-deleted; a read-only-mount variant asserts the item stays in Trash on a failed unlink.)
 18. **(F35 — owner hub + nav split)** As owner with **Owner view on**: the top nav shows only **Media · People · Tags**; click the **Owner** gear (near the skin picker) → land on `/owner` with tabs **Status · Metadata keys · Trash** → switch tabs (content swaps with **no** full-app reload / no jump to top). Paste the old `/status`, `/keys`, `/trash` URLs → each **redirects** to its `/owner/*` tab. Toggle **Owner view off** → the gear **disappears** and the bar is the clean visitor surface (no Keys/Status link leak); with it off, paste `/owner/trash` → it **auto-reveals** owner view and renders the page fully (announces "Owner view on."). A **token-less** client sees no gear and any `/owner*` URL redirects home with no owner data. Run the gear, tabs, and active-tab read in **all three skins**.
 19. **(F44 — promote / override)** With the fake/TMDB provider wired and `ADMIN_TOKEN` set, enrich a person so a non-canonical field (e.g. `measurements`) shows under **Additional details**. As owner: the row shows a **Promote** pill → open the inline editor → set a label + `render:text` + group + order → Save → the field **leaves** Additional details and appears above as a curatable **`SourceSelect`** row (baseline `·record` chip + `provider` chip), rendered **once** (no doubled row). Pin a source, then open **Edit** (same editor, pre-filled) → **Remove promotion** → the field returns to a display-only auto row; **re-promote** → the prior source pin re-applies. Promote a `chips` field → it becomes a **`CurationFieldRow`** merge row (per-value ✕ / ＋ Add) instead. Confirm the label change shows on **another** person with the same key while a value suppressed on the first does **not**. A **token-less** client sees **no** Promote/Edit controls — just the curated label/value. Repeat the promote/edit/de-promote round-trip on `/studios/{id}` and `/media/{id}`. Run the affordance, the inline editor, and the post-promotion curatable row in **all three skins**.
+20. **(F45 — derived person fields)** On the `backend-films` testbed (enriched people carry a clean ISO `birthdate`): open a **living** enriched person → an **Age** line shows a bare integer directly under **Born**, with a small muted computed glyph whose tooltip reads **"calculated from Birthdate"** — and **no** source-select / promote / Custom controls even as owner (identical to the visitor view). Open a **deceased** person (birth + death date) → an **Age at death** line with a number and **no** running Age line. Open a person with **no birthdate** → **no** Age line at all (no dash, no gap), as owner **and** visitor. Inspect the person detail response → the computed row carries `computed:true`, `winning_source:"computed:age"`, `derived_from:["Birthdate"]`, and no `decision`/`candidates`/`in_sync`; a decision `POST` naming `age`/`computed:age` returns **400**. Run the Age line, its glyph, and the tooltip in **all three skins** — the glyph stays quiet grey, never the accent.
 
 ---
 
@@ -729,6 +739,70 @@ CI-testable, **no network** (in-process fake advertising the non-canonical value
   badge, the accent-outlined editor box, the `--warn` Remove vs. accent Save separation, and the auto→mapped
   partition move — remains the manual gate (needs a running backend + provider + owner session). *(QA 2.14, §3–§4)*
 
+**Derived / computed person fields (F45, HOLODEX-73, ADR-063)** — a new **field-genre** (computed, source-less,
+read-only) appended by a **pure `Derive(resolved, now)` post-pass** over `[]ResolvedField`, driven by a **closed Go
+formula registry**, stamped with a **non-adoptable `computed:` provenance token**, with the **clock injected at the API
+handler boundary** so the resolver stays pure. Seeded with `age` (`now − birthdate`) and `age_at_death`
+(`deathdate − birthdate`) on Person. Rides F39's auto-registration append shape (ADR-056) and the ADR-052 entity-generic
+core, so the diff is *a pass + two registry fields + a provenance token*, not a new editing model. **No migration, no
+stored column, no auth/access/infra change** (`/security-review` N/A — recorded on the gate). Fully CI-testable, **no
+network** (fixed `now` injected; birthdate/deathdate come from the enrichment shadow store or an in-memory
+`[]ResolvedField`). Cardinal invariants (§4): **resolver stays clock-free**, **computed is never adoptable**,
+**age / age-at-death are mutually exclusive**, **missing/unparseable input → no row for everyone**, and
+**compute-on-read, never stored**. Maps to the [F45 QA checklist](design/derived-person-fields-qa-checklist.md) §2 smoke
+items; the tests land with the implementation.
+- **Registry genre marker (`registry.FieldDef.Computed`/`DependsOn`, `internal/registry`)**: `age`
+  (`DependsOn:["birthdate"]`) and `age_at_death` (`DependsOn:["birthdate","deathdate"]`) join `KnownFields`, both
+  `Computed:true` with labels "Age" / "Age at death"; `Lookup` returns them so label/display resolution and the SPA
+  field switch already know the canonicals; a `Computed` predicate is available without a second registry. Every existing
+  non-computed field keeps `Computed:false` (regression). *(QA 2.5)*
+- **Formula registry — `deriveAge` / `deriveAgeAtDeath` (`internal/resolver`, pure, table-driven)**: `deriveAge` =
+  `floor(now − birthdate)` whole years for a present, parseable ISO `birthdate`; `computable=false` (⇒ no row) when
+  `birthdate` is **absent or unparseable**; **`deathdate` present ⇒ `deriveAge` yields no row** (age-at-death takes over).
+  `deriveAgeAtDeath` = `floor(deathdate − birthdate)` requiring **both** inputs, `computable=false` if either is
+  missing/unparseable, with `floor` correctness pinned at exact-anniversary boundaries. A **fixed `now`** makes both
+  deterministic (no wall-clock flake). *(QA 2.1, 2.2)*
+- **Leap-day convention (AC-9)**: `birthdate = 2000-02-29`, computed on `2026-02-28` vs `2026-03-01`, crosses the
+  birthday **exactly once** — the documented convention asserted with a fixed `now`, so a future formula tweak that
+  regresses the boundary is caught. *(QA 2.3)*
+- **`Derive(resolved, now)` pure pass**: fixed `now` in ⇒ deterministic rows out, **no I/O, no package-level clock**;
+  each emitted row is stamped `Computed:true`, `WinningSource == fieldsource.ForComputed(canonical)`
+  (`"computed:<canonical>"`), registry `Label`/`Display`, and **nil** `Decision`/`Candidates`/`InSync` (structurally
+  non-adoptable, like an auto-registered row); **mutual exclusion** — a person with both inputs yields **exactly one**
+  row (`age_at_death`, never both), a living person exactly `age`; **ordering** — the computed row is positioned
+  **immediately after `birthdate`** in `resolved[]` (adjacency is a payload guarantee, FR5). Extends the ADR-052
+  non-video-baseline unit so the pass is proven entity-generic even though only Person seeds a formula today.
+  *(QA 2.4, 2.5, 2.6, 2.7)*
+- **Resolver purity guard (AC-8, cardinal)**: a **CI grep guard** (sibling of the token / single-writer guards) asserts
+  `internal/resolver/` contains **no** `time.Now` and no package-level clock — `Derive` takes `now` only as a parameter.
+  Break this and the resolver's determinism (load-bearing for ADR-051) silently rots. *(QA 2.4)*
+- **`computed:` provenance token (`internal/fieldsource`, ADR-063 §D3)**: `Computed` const + `ForComputed(canonical)`
+  formatter + `IsComputed` recognizer; the token is **deliberately kept out of `Valid()`/`ForNamespace()`** —
+  `Valid("computed:age") == false` and `computed` is **absent** from `ForNamespace` — because it is not an adoptable
+  decision source. A single definition backs both the SPA badge detection and the API guard (no drifting string
+  literals). *(QA 2.8)*
+- **Non-adoptable API guard (cardinal)**: a decision `PUT`/`POST` naming a `Computed` canonical (`age`/`age_at_death`)
+  **or** any `computed:` source is **rejected 400** and **never** written to `field_source_decisions` — non-adoptability
+  is enforced structurally (nil `Decision`) **and** at the endpoint, on person (and any future entity that seeds a
+  computed field). *(QA 2.8, §3.8)*
+- **API integration (`personResolved`, `internal/api`)**: with the `Handlers.now` seam set to a fixed clock,
+  `personResolved` chains `Derive(resolved, h.now())` after `appendAutoRegistered` and emits the derived row(s) in
+  `resolved[]` for a **birthdate-bearing** person, **omits** them otherwise; **owner and visitor payloads are identical**
+  (D3 — no owner-only branch); the row carries `computed: true`, `winning_source: "computed:age"`,
+  `derived_from` = dependency **labels** (e.g. `["Birthdate"]`), and **no** `decision`/`candidates`/`in_sync`.
+  **Time-varying, never stored (AC-2)**: advancing the injected `now` past the next birthday **increments** the rendered
+  Age with **no** DB write and **no** migration/column touched. *(QA 2.9, 2.10)*
+- **Backward-compat golden (cardinal)**: a person with **no** birthdate (or with the computed fields un-registered)
+  resolves + renders **byte-identical** to pre-F45 — the engine is zero-impact until an input is present. *(QA 2.12)*
+- **Frontend** (Vitest + a11y): `providerFromWinningSource("computed:age") === ""` (the handoff §3 gotcha guard — no
+  phantom "C" provider bubble); `ProvenanceBadge` with a `computed` source renders the **muted computed glyph** +
+  `aria-label`/`title` **"calculated from Birthdate"** and **no** `ProviderIcon`; the person page's compact field loop
+  renders a computed row **read-only** — **no** `SourceSelect`, **no** promote pill, **no** Custom entry — identically
+  for owner and visitor; the row sits directly under **Born** in the primary `<dl>`. **Live 3-skin visual QA**
+  (Cinémathèque/Broadcast/Brutalist) per the QA checklist §4 `[human]` items — the bare-number Age line under Born, the
+  quiet grey (never accent, never `--warn`) computed glyph, its tooltip, and the tab-skip / screen-reader behavior —
+  remains the manual gate (tokens-only; the `rg 'zinc-|sky-|…'` guard stays empty). *(QA 2.11, §3–§4)*
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -864,6 +938,40 @@ Given the code registry knows canonical key "bio"
 When PUT /admin/field-promotions/person/bio is called by the owner
 Then status 422 and no field_promotions row is created
   And the same for a "_"-prefixed key (e.g. _studio_external_ids) → 422
+```
+
+**Derived Age — compute-on-read + mutual exclusion (F45/ADR-063, D1/D4) — cardinal**
+```
+Given a person with birthdate=1990-03-14 and no deathdate
+When personResolved runs with a fixed now=2026-07-08
+Then an "age" ResolvedField follows birthdate in resolved[] with value "36"
+  And it carries computed:true, winning_source "computed:age", derived_from ["Birthdate"],
+      and nil decision/candidates/in_sync
+When now is advanced to 2027-03-15 (past the next birthday) — no DB write, no migration
+Then the same read yields value "37"        (time-varying, never stored)
+Given instead the person also has deathdate=2020-01-01
+Then resolved[] contains exactly ONE computed row — "age_at_death", value "29" —
+     and NO running "age" row
+```
+
+**Derived field — missing/unparseable input is absent for everyone (F45/spec D3)**
+```
+Given a person with NO birthdate
+When personResolved runs (as owner AND as visitor)
+Then neither an "age" nor an "age_at_death" row appears — no placeholder, no "—", no nudge
+  And the two payloads are byte-identical (no owner-only branch)
+Given instead birthdate="unknown" (non-ISO)
+Then deriveAge returns computable=false and no "age" row renders (no error, no partial value)
+```
+
+**Computed source is non-adoptable + resolver stays pure (F45/ADR-063, D3/AC-8) — guard**
+```
+Given a rendered "age" row with winning_source "computed:age"
+When PUT /media|people/{id}/fields/age/decision names "age" or source "computed:age"
+Then status 400 and nothing is written to field_source_decisions
+  And fieldsource.Valid("computed:age") == false; "computed" is absent from ForNamespace
+When grep scans internal/resolver/ for time.Now
+Then there are zero matches (Derive takes `now` as a parameter, injected at Handlers.now)
 ```
 
 **Enrich endpoint owner-gated (ADR-033, F22.9a)**

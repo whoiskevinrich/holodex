@@ -20,8 +20,10 @@ provenance token + handler-injected clock; extends [ADR-052](../architecture/ADR
 [QA checklist](../design/derived-person-fields-qa-checklist.md) — bare-number Age/Age-at-death row directly
 under Birthdate; **icon-only** computed provenance badge (D5) mirroring the ADR-059 provider brand icon, with
 "calculated from Birthdate" on `title`/`aria-label` (landed 2026-07-10)
-**Testing**: _pending_ — `docs/testing-strategy.md` block + unit tests for `deriveAge` / `deriveAgeAtDeath`
-(missing-input branch, deathdate branch, leap-day boundary)
+**Testing**: [testing-strategy.md](../testing-strategy.md) — F45 block landed (§4 component rows + cardinal
+invariants, §5 computed-row/provenance frontend row, §6 E2E flow 20, §9 phasing narrative, §10 concrete cases);
+the `deriveAge` / `deriveAgeAtDeath` unit tests (missing-input branch, deathdate branch, leap-day boundary) land
+with the implementation
 
 **Depends on** (all shipped):
 - the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/ADR-052-baseline-source-contract.md),
