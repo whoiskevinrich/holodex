@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { parseWorklog } from "./worklog.mjs";
 import { loadConfig, resolveKey } from "./config.mjs";
 import { readStdin, safeParse } from "./stdin.mjs";
+import { emitJson, relPath } from "./hookout.mjs";
 
 // Hook lives at <root>/flightplan/hooks/session-start.mjs → root is two levels up. Deriving the
 // root from the hook's own location (not cwd) makes it robust to being launched from a subdir.
@@ -96,7 +97,7 @@ function fireInProgress(key, scriptPath) {
 function buildBanner({ key, worklogPath, transition, scaffolded }) {
   if (scaffolded) {
     return [
-      `▸ ${key} · new worklog scaffolded at ${rel(worklogPath)}`,
+      `▸ ${key} · new worklog scaffolded at ${relPath(ROOT, worklogPath)}`,
       transition.line ? `  ${transition.line}` : null,
       `  Fill in its title, gates, and up-next as work begins — /handoff maintains it thereafter.`,
     ]
@@ -105,10 +106,13 @@ function buildBanner({ key, worklogPath, transition, scaffolded }) {
   }
 
   const wl = parseWorklog(worklogPath);
+  const last = wl.handoffPending
+    ? "⚠ last session left no handoff — reconstruct from git/PR, then leave one."
+    : (wl.lastHandoff ?? "(no prior handoff recorded)");
   const lines = [
     `▸ ${key} · ${wl.title ?? "(untitled)"} · ${wl.status ?? "?"} · gates ${wl.gatesDone}/${wl.gatesTotal}`,
     `  next: ${wl.next ?? "—"}`,
-    `  last: ${wl.lastHandoff ?? "(no prior handoff recorded)"}`,
+    `  last: ${last}`,
     `  ${wl.blockers.length ? "⛔ " + wl.blockers.join(" · ") : "⛔ none"}`,
   ];
   if (transition.line) lines.push(`  ${transition.line}`);
@@ -117,26 +121,16 @@ function buildBanner({ key, worklogPath, transition, scaffolded }) {
 
 // ---- utils ---------------------------------------------------------------
 
-function rel(p) {
-  return p.startsWith(ROOT) ? p.slice(ROOT.length + 1).replaceAll("\\", "/") : p;
-}
-
 function short(msg) {
   return (msg ?? "").split("\n")[0].slice(0, 80);
 }
 
 function emit(context) {
-  // Exit only once stdout has drained — the hook's stdout is a PIPE to Claude Code, and
-  // process.exit() before a flush truncates the banner. The write callback fires post-flush.
-  const payload =
-    JSON.stringify({
-      hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context },
-    }) + "\n";
-  process.stdout.write(payload, () => process.exit(0));
+  emitJson({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } });
 }
 
 // This module is only ever run as a hook (its pure parsers live in ./worklog.mjs, which tests
-// import directly). Never let a hook failure block the session: the keyed path exits from emit()'s
+// import directly). Never let a hook failure block the session: the keyed path exits from emitJson()'s
 // drain callback; the no-key / error paths fall through to a natural exit (the unref'd guard is the
 // only hard timeout). We deliberately do NOT process.exit() here — that would race the stdout flush.
 main().catch((e) => { if (process.env.FP_DEBUG) console.error("FP_DEBUG", e); });

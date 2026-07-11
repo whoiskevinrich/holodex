@@ -18,16 +18,22 @@ for the full design and rationale; this README is the operator's-eye view.
 | `hooks/session-start.mjs` | `SessionStart` — branch-key → `In Progress` + scaffold + orientation banner | ✅ this batch |
 | `hooks/post-tool-use.mjs` | `PostToolUse(Skill)` — log the skill run + flip its gate `[ ] → [/]` | ✅ this batch |
 | `hooks/worklog.mjs` | Pure worklog read (parsers) + write (`logSkillRun`/`flipGate`) helpers | ✅ this batch |
-| `hooks/config.mjs`, `hooks/stdin.mjs` | Shared config + key resolution + hook-stdin helpers | ✅ this batch |
-| `hooks/` (`Stop`) | Worklog-staleness nag (mechanical only) | ⏳ batch 1 (next) |
+| `hooks/config.mjs`, `hooks/stdin.mjs`, `hooks/hookout.mjs` | Shared config + key resolution + hook stdin/stdout helpers | ✅ this batch |
+| `hooks/stop.mjs` | `Stop` — nag when the worklog falls behind the code (mechanical only) | ✅ this batch |
 | `skills/handoff`, `skills/triage` | Judgment surfaces (`[x]`-done, `release_note`, inbox drain) | ⏳ batch 2 |
 
-Both hooks are wired in `.claude/settings.json` and read `.claude/flightplan.yaml` (via the shared
-`config.mjs`). `SessionStart` fires `In Progress` through `scripts/jira-transition.mjs` (ADR-058's
-shared lib) — with no local `JIRA_BASE_URL`/`JIRA_USER_EMAIL`/`JIRA_API_TOKEN` it soft-fails and the
-banner says so, while the offline scaffold + orientation always run. `PostToolUse(Skill)` maintains
-today's session-log entry and moves a gate to `[/]` when its producing skill runs — it never sets
-`[x]` (that judgment is `/handoff`'s, batch 2).
+All three hooks are wired in `.claude/settings.json` and read `.claude/flightplan.yaml` (via the
+shared `config.mjs`). `SessionStart` fires `In Progress` through `scripts/jira-transition.mjs`
+(ADR-058's shared lib) — with no local `JIRA_BASE_URL`/`JIRA_USER_EMAIL`/`JIRA_API_TOKEN` it
+soft-fails and the banner says so, while the offline scaffold + orientation always run.
+`PostToolUse(Skill)` maintains today's session-log entry and moves a gate to `[/]` when its producing
+skill runs — it never sets `[x]` (that judgment is `/handoff`'s, batch 2). `Stop` is the freshness
+watchdog: at the end of a turn, if a changed file is newer than the worklog, it nags (via a
+non-blocking `systemMessage`) to leave a handoff note before the thread is lost. It **cannot** write
+the note itself — a `Stop` hook must never invoke Claude (fork-bomb rule) — so it only makes the
+omission loud; the next `SessionStart` banner independently flags "last session left no handoff." The
+signal is self-clearing: the moment the worklog is touched it moves ahead of the code and the nag
+goes quiet, with no stored state.
 
 Packaged as a self-contained `flightplan/` dir so extraction to another Jira-tracked repo is a
 copy-out + a `.claude/flightplan.yaml` swap, not a rewrite.

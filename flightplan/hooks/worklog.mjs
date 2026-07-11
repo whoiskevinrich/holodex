@@ -18,6 +18,7 @@ export function parseWorklog(worklogPath) {
     gatesTotal: 0,
     next: null,
     lastHandoff: null,
+    handoffPending: false,
     blockers: [],
   };
   let text;
@@ -60,8 +61,23 @@ export function parseWorklog(worklogPath) {
     if (m[2].includes("⛔")) out.blockers.push(label.replace(/\s*⛔.*$/, "").trim());
   }
 
-  const hand = section(lines, "Session log").find((l) => /^- handoff:/.test(l)); // newest is on top
+  const log = section(lines, "Session log");
+  const hand = log.find((l) => /^- handoff:/.test(l)); // newest handoff anywhere (entries are top-down)
   if (hand) out.lastHandoff = hand.replace(/^- handoff:\s*/, "").trim();
+
+  // Did the NEWEST session entry leave a handoff? If it exists but has none, the last session ended
+  // without orienting the next — surface that distinctly (a stale older handoff would otherwise mask it).
+  const firstEntry = log.findIndex((l) => /^###\s/.test(l));
+  if (firstEntry >= 0) {
+    let hasHandoff = false;
+    for (let i = firstEntry + 1; i < log.length && !/^###\s/.test(log[i]); i++) {
+      if (/^- handoff:/.test(log[i])) {
+        hasHandoff = true;
+        break;
+      }
+    }
+    out.handoffPending = !hasHandoff;
+  }
 
   return out;
 }

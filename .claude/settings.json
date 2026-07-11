@@ -21,6 +21,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node flightplan/hooks/stop.mjs"
+          }
+        ]
+      }
     ]
   }
 }

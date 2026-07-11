@@ -18,7 +18,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 
 - [x] spec — n/a: infra/tooling, ADR-064 records no product spec (§Spec: none)
 - [x] architecture `architecture` → [ADR-064](../architecture/ADR-064-flightplan-plugin.md)
-- [/] backend — template + config seam + `jira-transition.mjs` + SessionStart & PostToolUse hooks + shared `config.mjs`/`stdin.mjs` done; Stop hook remains
+- [/] backend — template + config seam + `jira-transition.mjs` + all three batch-1 hooks (SessionStart, PostToolUse, Stop) + shared `config.mjs`/`stdin.mjs` done; batch-1 plumbing complete, batch 2 (`/handoff`, `/triage`) remains
 - [x] frontend — n/a: no web UI surface
 - [ ] testing `testing-strategy` — hook unit tests (batch 2)
 - [ ] security `security-review` — branch-name → REST-call injection, token handling, no token in logs
@@ -28,7 +28,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 1. [x] [backend] SessionStart hook — branch-key → In Progress + scaffold + orientation banner — `flightplan/hooks/session-start.mjs`
 2. [x] [backend] PostToolUse(Skill) hook — append skill runs to the session log; flip the gate to `[/]` — `flightplan/hooks/post-tool-use.mjs`
 3. [x] [backend] Extract shared `config.mjs` (config + key + gates) & `stdin.mjs`; both hooks reuse them — `flightplan/hooks/`
-4. [ ] [backend] `Stop` hook — staleness nag (code touched, worklog not updated) — last batch-1 hook
+4. [x] [backend] `Stop` hook — staleness nag (worklog behind code) + SessionStart "left no handoff" surface — `flightplan/hooks/stop.mjs`
 5. [ ] [testing] Hook unit tests — `parseWorklog`/`section`/`logSkillRun`/`flipGate` + config gates parse (batch 2)
 6. [ ] [security] `/security-review` — branch-name → REST injection (anchor the key regex), token never logged
 7. [ ] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) — follow-up
@@ -36,6 +36,10 @@ tracks HOLODEX epics with no reliance on agent memory.
 9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on living with batch 1 first
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-10 · Stop hook — worklog-staleness nag (batch-1 plumbing complete)
+- skills: simplify
+- handoff: Stop hook shipped (`flightplan/hooks/stop.mjs`) — nags via `systemMessage` when a changed file (git status) is newer than the worklog; stateless + self-clearing (worklog touch moves it ahead → quiet), `stop_hook_active`-guarded, exit-0, never re-enters Claude. /simplify dropped an early temp-file throttle (sole stateful wart; nag is user-only so repeats are cheap; ADR-064 defers any dampener to batch-4 tuning) and hoisted shared `hookout.mjs` (`emitJson`/`relPath`). Complementary SessionStart surface added: `parseWorklog.handoffPending` → banner shows "last session left no handoff" when the newest log entry has no handoff line. Tests green. **Batch 1 is done** (schema + config seam + all 3 hooks). Next: live with it, then batch 2 — `/handoff` (item 8) then `INBOX.md`+`/triage` (item 9). Pre-merge `security` gate (item 6) still open.
 
 ### 2026-07-10 · ADR-064 + worklog schema + SessionStart & PostToolUse hooks
 - skills: architecture, simplify
