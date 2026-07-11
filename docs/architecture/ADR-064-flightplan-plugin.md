@@ -3,6 +3,7 @@
 **Status:** Proposed
 **Date:** 2026-07-10
 **Deciders:** Project owner
+
 **Extends:** [ADR-058](ADR-058-jira-transitions-via-rest-api.md) (Jira REST transitions — Flightplan's `SessionStart` hook fires `In Progress` over the same uncounted REST path, not Automation; this ADR does not re-derive that mechanism). **Relates to:** [ADR-044](ADR-044-automated-version-and-release-pr.md) (Release Please's Done/Released split — the worklog's `release_note` promotion threads through it), `docs/reference/jira-pipeline.md` (the transition pipeline Flightplan's hook calls into). **Spec:** none — infra/tooling with no end-user-facing surface; the working agreement it automates is documented in CLAUDE.md, not a product spec. **Prior art:** [`field-source-of-truth-rollout.md`](../plans/field-source-of-truth-rollout.md), [`studio-entity-implementation.md`](../plans/studio-entity-implementation.md) — hand-rolled flight plans this formalizes; their existence and continued use is the evidence base. **One-pager this ADR supersedes as the design-of-record:** [`docs/plans/flightplan-plugin.md`](../plans/flightplan-plugin.md). **Issue:** [HOLODEX-182](https://whoiskevinrich.atlassian.net/browse/HOLODEX-182) (epic).
 
 ---
