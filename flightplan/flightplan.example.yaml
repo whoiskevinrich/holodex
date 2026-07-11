@@ -1,0 +1,31 @@
+# Flightplan config — the portability seam (ADR-064).
+# Copy to .claude/flightplan.yaml and edit for this repo. Nothing repo-specific is compiled into
+# the plugin; this file is the only thing that changes between repos.
+
+tracker:
+  system: jira                  # jira | linear | github-projects (only jira implemented; others deferred to extraction)
+  project: HOLODEX
+  branch_key: 'HOLODEX-\d+'     # SessionStart matches this against the branch to find the key
+  transitions:
+    # In Progress is agent-fired at start-of-work over the uncounted REST path (ADR-058), NOT Automation.
+    # In Review / Done / Released are fired by CI (see .github/workflows + scripts/), not by Flightplan.
+    in_progress: { via: rest, script: scripts/jira-transition.sh }
+
+worklog:
+  dir: docs/plans               # where <KEY>.md worklogs live (this repo's existing convention)
+  session_cap: 8                # keep the last N session-log entries inline; older → docs/plans/archive/
+  archive_dir: docs/plans/archive
+
+# The routing table — mirrors CLAUDE.md's change-routing rules. Each gate is a column in a worklog's
+# "Gates — definition of done" checklist. `skill` (optional) is the producing skill PostToolUse watches
+# to flip the gate to [/]; `artifact` (optional) is the glob whose presence a gate can be cross-checked against.
+gates:
+  - { id: spec,         skill: write-spec,        artifact: 'docs/specs/**' }
+  - { id: architecture, skill: architecture,      artifact: 'docs/architecture/ADR-*' }
+  - { id: backend }
+  - { id: frontend }
+  - { id: testing,      skill: testing-strategy }
+  - { id: security,     skill: security-review }
+
+capture:
+  inbox: docs/backlog/INBOX.md  # offline, append-only idea capture (batch 2); /triage drains it
