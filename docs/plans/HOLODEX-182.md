@@ -21,7 +21,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 - [/] backend — template + config seam + `jira-transition.mjs` + all three batch-1 hooks (SessionStart, PostToolUse, Stop) + shared `config.mjs`/`stdin.mjs` done; batch-1 plumbing complete, batch 2 (`/handoff`, `/triage`) remains
 - [x] frontend — n/a: no web UI surface
 - [ ] testing `testing-strategy` — hook unit tests (batch 2)
-- [ ] security `security-review` — branch-name → REST-call injection, token handling, no token in logs
+- [x] security `security-review` — clean (2026-07-11): key = matched substring under letters/digits/hyphen regex ⇒ no path traversal; argv (non-shell) spawns ⇒ no command injection; token confined to the auth header
 
 ## Up next — ordered (position = priority)
 
@@ -30,12 +30,16 @@ tracks HOLODEX epics with no reliance on agent memory.
 3. [x] [backend] Extract shared `config.mjs` (config + key + gates) & `stdin.mjs`; both hooks reuse them — `flightplan/hooks/`
 4. [x] [backend] `Stop` hook — staleness nag (worklog behind code) + SessionStart "left no handoff" surface — `flightplan/hooks/stop.mjs`
 5. [ ] [testing] Hook unit tests — `parseWorklog`/`section`/`logSkillRun`/`flipGate` + config gates parse (batch 2)
-6. [ ] [security] `/security-review` — branch-name → REST injection (anchor the key regex), token never logged
+6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [ ] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) — follow-up
 8. [ ] [backend] `/handoff` skill → batch 2 (own slice)
 9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on living with batch 1 first
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-11 · /security-review clean → merge #119
+- skills: security-review
+- handoff: `/security-review` on the batch-1 hooks came back clean — no HIGH/MEDIUM findings. All three flagged vectors are mitigated: `resolveKey` returns the regex-matched key substring (letters/digits/hyphen only) so the worklog path can't traverse; every subprocess is `execFileSync` argv (no shell) with the key passed as an env var, so no command injection; `JIRA_API_TOKEN` lives only in the Basic-auth header, never logged/urled/written. `security` gate + up-next item 6 flipped `[x]`. PR #119 merged → batch 1 landed on main. Next: live with the plumbing, then batch 2 — `/handoff` (item 8) then `INBOX.md`+`/triage` (item 9). Remaining open gate: `testing` (hook unit tests, batch 2).
 
 ### 2026-07-10 · Stop hook — worklog-staleness nag (batch-1 plumbing complete)
 - skills: simplify
