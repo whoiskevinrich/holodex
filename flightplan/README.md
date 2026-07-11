@@ -15,8 +15,15 @@ for the full design and rationale; this README is the operator's-eye view.
 | `templates/worklog.md` | The per-epic worklog **schema** — copy per epic to `<worklog.dir>/<KEY>.md` | ✅ this batch |
 | `examples/HOLODEX-6-field-source-of-truth.md` | A real rollout (F36) expressed in the schema — the migration example | ✅ this batch |
 | `flightplan.example.yaml` | The portability seam — each repo copies to `.claude/flightplan.yaml` | ✅ this batch |
-| `hooks/` | `SessionStart` / `PostToolUse(Skill)` / `Stop` (mechanical only) | ⏳ batch 1 (next) |
+| `hooks/session-start.mjs` | `SessionStart` — branch-key → `In Progress` + scaffold + orientation banner | ✅ this batch |
+| `hooks/worklog.mjs` | Pure worklog parsers shared by the hook and (batch 2) unit tests | ✅ this batch |
+| `hooks/` (`PostToolUse` / `Stop`) | Skill-run logging + staleness nag (mechanical only) | ⏳ batch 1 (next) |
 | `skills/handoff`, `skills/triage` | Judgment surfaces (`[x]`-done, `release_note`, inbox drain) | ⏳ batch 2 |
+
+The `SessionStart` hook is wired in `.claude/settings.json`; it reads `.claude/flightplan.yaml` and
+fires `In Progress` through `scripts/jira-transition.mjs` (ADR-058's shared lib). With no local
+`JIRA_BASE_URL`/`JIRA_USER_EMAIL`/`JIRA_API_TOKEN` it soft-fails and the banner says so — the offline
+scaffold + orientation always run regardless.
 
 Packaged as a self-contained `flightplan/` dir so extraction to another Jira-tracked repo is a
 copy-out + a `.claude/flightplan.yaml` swap, not a rewrite.
