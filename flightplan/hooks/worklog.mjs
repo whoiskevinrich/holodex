@@ -66,18 +66,10 @@ export function parseWorklog(worklogPath) {
   return out;
 }
 
-// Lines of a "## <name>" section up to the next "## " heading (JS regex has no \Z, so scan lines).
+// Lines of a "## <name>" section, up to the next "## " heading (empty when the section is absent).
 export function section(lines, name) {
-  const head = new RegExp(`^##\\s+${name}`);
-  let start = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (start === -1) {
-      if (head.test(lines[i])) start = i + 1;
-      continue;
-    }
-    if (/^##\s/.test(lines[i])) return lines.slice(start, i);
-  }
-  return start === -1 ? [] : lines.slice(start);
+  const b = sectionBounds(lines, name);
+  return b ? lines.slice(b.start, b.end) : [];
 }
 
 // Flatten inline markdown (code, links, emphasis) to plain text for the one-line banner.
@@ -87,4 +79,73 @@ export function stripMd(s) {
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/\*+/g, "")
     .trim();
+}
+
+// ---- write helpers (batch-1 PostToolUse) — pure string → string, CRLF-preserving ---------------
+
+// Record a skill run under today's session-log entry: append to its `- skills:` line (deduped),
+// creating a fresh `### <date> · session` entry at the top of the log when the newest one isn't
+// today's. Returns the (possibly unchanged) text — unchanged when the skill is already logged today.
+export function logSkillRun(text, skill, date) {
+  const nl = /\r\n/.test(text) ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  const b = sectionBounds(lines, "Session log");
+  if (!b) return text;
+
+  const firstEntry = lines.slice(b.start, b.end).findIndex((l) => /^###\s/.test(l));
+  const entryIdx = firstEntry < 0 ? -1 : b.start + firstEntry;
+
+  if (entryIdx >= 0 && lines[entryIdx].includes(date)) {
+    // Newest entry is today's — merge the skill into its `- skills:` line (or add that line).
+    for (let i = entryIdx + 1; i < b.end && !/^#{2,3}\s/.test(lines[i]); i++) {
+      const m = lines[i].match(/^-\s*skills:\s*(.*)$/i);
+      if (!m) continue;
+      const skills = m[1].split(",").map((s) => s.trim()).filter(Boolean);
+      if (skills.includes(skill)) return text; // already logged today → no-op
+      skills.push(skill);
+      lines[i] = `- skills: ${skills.join(", ")}`;
+      return lines.join(nl);
+    }
+    lines.splice(entryIdx + 1, 0, `- skills: ${skill}`);
+    return lines.join(nl);
+  }
+
+  // No entry for today — insert one at the top of the log body (before the first existing entry, or
+  // at the end of the section when there are none yet).
+  const at = entryIdx >= 0 ? entryIdx : b.end;
+  lines.splice(at, 0, `### ${date} · session`, `- skills: ${skill}`, "");
+  return lines.join(nl);
+}
+
+// Flip an untouched `- [ ] <gateId>` gate to `[/]` (in progress). No-op for a gate already
+// `[/]`/`[x]`/`[~]`, or when the id isn't found. Returns the (possibly unchanged) text.
+export function flipGate(text, gateId) {
+  const nl = /\r\n/.test(text) ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  const b = sectionBounds(lines, "Gates");
+  if (!b) return text;
+  for (let i = b.start; i < b.end; i++) {
+    const m = lines[i].match(/^-\s*\[ \]\s+(\S+)/); // only an untouched `[ ]` gate
+    if (m && m[1] === gateId) {
+      lines[i] = lines[i].replace(/^(-\s*\[) (\])/, "$1/$2");
+      return lines.join(nl);
+    }
+  }
+  return text;
+}
+
+// Start/end line indices of a "## <name>" section body ([start, end) excludes the heading; end is the
+// next "## " heading or EOF). null when the section is absent.
+function sectionBounds(lines, name) {
+  const head = new RegExp(`^##\\s+${name}`);
+  const start = lines.findIndex((l) => head.test(l));
+  if (start < 0) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return { start: start + 1, end };
 }

@@ -18,6 +18,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { parseWorklog } from "./worklog.mjs";
+import { loadConfig, resolveKey } from "./config.mjs";
+import { readStdin, safeParse } from "./stdin.mjs";
 
 // Hook lives at <root>/flightplan/hooks/session-start.mjs → root is two levels up. Deriving the
 // root from the hook's own location (not cwd) makes it robust to being launched from a subdir.
@@ -29,19 +31,12 @@ const ROOT = resolve(PLUGIN_DIR, "..");
 const guard = setTimeout(() => process.exit(0), 8000);
 guard.unref();
 
-const DEFAULTS = {
-  branchKey: "[A-Z][A-Z0-9]+-\\d+",
-  worklogDir: "docs/plans",
-  transitionScript: "scripts/jira-transition.mjs",
-};
-
 async function main() {
   const input = await readStdin();
   const source = safeParse(input)?.source ?? "startup"; // startup | resume | clear | compact
 
-  const cfg = loadConfig();
-  const branch = currentBranch();
-  const key = branch ? (branch.match(new RegExp(cfg.branchKey)) ?? [])[0] : null;
+  const cfg = loadConfig(ROOT);
+  const key = resolveKey(ROOT, cfg.branchKey);
   if (!key) return; // un-keyed branch → no-op silently (ADR-064)
 
   const worklogPath = join(ROOT, cfg.worklogDir, `${key}.md`);
@@ -55,40 +50,6 @@ async function main() {
 }
 
 // ---- steps ---------------------------------------------------------------
-
-function loadConfig() {
-  // Minimal, dependency-free read of the few fields the hook needs. A full structured YAML parse is
-  // deferred to the shared flightplan/lib config module (follow-up, when PostToolUse lands).
-  const out = { ...DEFAULTS };
-  try {
-    const text = readFileSync(join(ROOT, ".claude", "flightplan.yaml"), "utf8").replace(/\r\n/g, "\n");
-    // A single/double-quoted or bare scalar for a block-style `key:`, stopping before an inline comment.
-    const block = (k) => {
-      const m = text.match(new RegExp(`^\\s*${k}:\\s*(?:'([^']*)'|"([^"]*)"|([^\\s#]+))`, "m"));
-      return m ? (m[1] ?? m[2] ?? m[3]) : null;
-    };
-    out.branchKey = block("branch_key") ?? out.branchKey;
-    out.worklogDir = block("dir") ?? out.worklogDir;
-    // `script:` lives inside the inline flow map `in_progress: { via: rest, script: … }`, so it is
-    // not line-anchored; stop the bare scalar before a comment, comma, or the closing brace.
-    const scr = text.match(/\bscript:\s*(?:'([^']*)'|"([^"]*)"|([^\s#,}]+))/);
-    if (scr) out.transitionScript = scr[1] ?? scr[2] ?? scr[3];
-  } catch {
-    /* no config yet → defaults */
-  }
-  return out;
-}
-
-function currentBranch() {
-  try {
-    return execFileSync("git", ["branch", "--show-current"], {
-      cwd: ROOT,
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    return null;
-  }
-}
 
 // Returns true if it created the file this run.
 function ensureWorklog(worklogPath, key) {
@@ -172,25 +133,6 @@ function emit(context) {
       hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context },
     }) + "\n";
   process.stdout.write(payload, () => process.exit(0));
-}
-
-function safeParse(s) {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
-}
-
-async function readStdin() {
-  if (process.stdin.isTTY) return "";
-  const chunks = [];
-  try {
-    for await (const c of process.stdin) chunks.push(c);
-  } catch {
-    /* ignore */
-  }
-  return Buffer.concat(chunks).toString("utf8");
 }
 
 // This module is only ever run as a hook (its pure parsers live in ./worklog.mjs, which tests

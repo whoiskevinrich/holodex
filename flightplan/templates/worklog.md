@@ -44,9 +44,10 @@ this is the human framing.>
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-<!-- One entry per session, newest at the top. `skills:` is appended mechanically by PostToolUse(Skill);
-     `handoff:` is the one-line sentence /handoff writes — the next SessionStart banner echoes the latest. -->
-
-### YYYY-MM-DD · <one-line what happened>
-- skills: <auto-appended: write-spec, architecture, …>
-- handoff: <the sentence the next session should wake up to>
+<!-- One entry per session, newest at the top. PostToolUse(Skill) creates the entry + appends the
+     `- skills:` line mechanically; /handoff writes the `- handoff:` sentence the next SessionStart
+     banner echoes. Shape:
+### 2026-07-10 · what happened this session
+- skills: write-spec, architecture
+- handoff: the sentence the next session should wake up to
+-->
