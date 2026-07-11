@@ -123,14 +123,35 @@ type Handlers struct {
 	// replace field (F36 P1-2, ADR-051 §8). Fed into resolver.Options alongside
 	// defaultSource; empty means mapping order among providers.
 	providerTrustOrder []string
+
+	// now is the read-path clock for the F45 derived-field pass (ADR-063 §D5).
+	// Injected here so the resolver's Derive post-pass stays pure — the resolver
+	// package never reads the clock. Defaults to time.Now in NewHandlers; tests
+	// override it (via clock) for deterministic Age values. Use h.clock(), which is
+	// nil-safe for handlers built by a struct literal.
+	now func() time.Time
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):
 // they disable thumbnail bumping, admin rescan, and search instrumentation
 // respectively in tests or health-only mode.
 func NewHandlers(r *repo.Repo, log *slog.Logger, thumbs thumbnailer, thumbDir string, sc rescanner, m searchMetrics) *Handlers {
-	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir, scanner: sc, metrics: m}
+	return &Handlers{repo: r, log: log, thumbs: thumbs, thumbDir: thumbDir, scanner: sc, metrics: m, now: time.Now}
 }
+
+// clock returns the read-path time for the F45 derived-field pass (ADR-063 §D5),
+// falling back to time.Now when now is unset (a struct-literal handler in a test).
+func (h *Handlers) clock() time.Time {
+	if h.now != nil {
+		return h.now()
+	}
+	return time.Now()
+}
+
+// SetNow overrides the read-path clock (F45, ADR-063 §D5). Used by tests to make the
+// time-varying derived fields (Age) deterministic; production leaves the NewHandlers
+// default (time.Now).
+func (h *Handlers) SetNow(now func() time.Time) { h.now = now }
 
 // SetMetadataFields wires the configurable metadata field mapping (F20) and the
 // facet-value cache. Called once at startup before serving; a nil store disables

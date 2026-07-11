@@ -68,6 +68,15 @@ type ResolvedField struct {
 	// materialized from a promotion row.
 	Promoted bool `json:"promoted,omitempty"`
 
+	// Computed marks a derived, source-less, read-only row appended by the Derive
+	// post-pass (F45, ADR-063): computed-on-read from other resolved fields, never a
+	// stored value. Like an auto-registered row it carries no Decision/Candidates
+	// (structurally non-adoptable) and its WinningSource is "computed:<canonical>".
+	// DerivedFrom holds the human labels of the input fields (e.g. ["Born"]) for the
+	// transitive "calculated from …" provenance badge.
+	Computed    bool     `json:"computed,omitempty"`
+	DerivedFrom []string `json:"derived_from,omitempty"`
+
 	// F36 (ADR-051) — per-field source-of-truth, populated on replace (scalar)
 	// fields only. Decision is the standing source choice (Standing=false for the
 	// implicit file-first default); InSync is false when the decided value differs

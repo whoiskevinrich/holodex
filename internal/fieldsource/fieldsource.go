@@ -54,3 +54,16 @@ func ForNamespace(ns string) string {
 		return ForProvider(ns)
 	}
 }
+
+// Computed is the provenance namespace for a derived field (F45, ADR-063). It is
+// display metadata only — deliberately NOT a decision source: a computed value has
+// no underlying store to pin, so it can never be adopted. It is therefore kept out
+// of Valid() and ForNamespace() by design; a "computed:<canonical>" winning source
+// exists only to tag a derived row and drive its "calculated from …" badge.
+const Computed = "computed"
+
+// ForComputed formats a computed field's provenance token ("computed:<canonical>").
+func ForComputed(canonical string) string { return Computed + ":" + canonical }
+
+// IsComputed reports whether s is a computed provenance token ("computed:<...>").
+func IsComputed(s string) bool { return strings.HasPrefix(s, Computed+":") }

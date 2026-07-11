@@ -129,7 +129,11 @@ func (h *Handlers) personResolved(r *http.Request, id int64, p *model.Person) []
 	fields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityPerson, fields, rows)
 	resolved := resolver.ResolveFields(resolver.NewPersonBaseline(p), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 	h.markPromoted(resolved, promoted)
-	return h.appendAutoRegistered(r.Context(), rows, personizeResolved(resolved))
+	resolved = h.appendAutoRegistered(r.Context(), rows, personizeResolved(resolved))
+	// F45 (ADR-063 §D5): append the derived rows (Age / Age at death) last, with the
+	// clock injected here so the resolver stays pure. Derive positions each computed
+	// row directly under its dependency (Age under Born, spec D2).
+	return resolver.Derive(resolved, h.clock())
 }
 
 // personProviders lists the provider namespaces the synthesized person fields
