@@ -12,9 +12,10 @@ single-entity scope.
 **Issue**: [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) *(parent epic
 [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) — F46 Queryable person/video
 attributes)*
-**ADR**: TBD via `/architecture` — extends [ADR-062](../architecture/ADR-062-in-app-field-promotion.md)'s
-deferred D-filterable item and [ADR-063](../architecture/ADR-063-derived-computed-fields.md)'s derived-field
-genre to relationship scope (two-entity input, new injection boundary)
+**ADR**: [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md) —
+extends [ADR-062](../architecture/ADR-062-in-app-field-promotion.md)'s deferred D-filterable item and
+[ADR-063](../architecture/ADR-063-derived-computed-fields.md)'s derived-field genre to relationship scope
+(two-entity input, new injection boundary)
 **Design**: TBD via `/design-handoff` — cast-list age placement (the video page's people section is currently
 a bare poster grid with no subtitle text; fitting an age number in needs a UI call)
 **Testing**: TBD via `/testing-strategy`
@@ -204,11 +205,18 @@ measure. The metrics that matter are correctness and coverage:
 
 ## Open Questions
 
-- **Which existing canonicals get a `FieldType` in this pass** — all of them, or just enough to prove each of
-  the four types (the plan assumed in FR1)? *(engineering — confirm during `/architecture`)*
-- **Exact shape/injection boundary of the relationship-compute pass** (`DeriveRelationship` vs. folding into
-  the video/person handler directly vs. something else) — the ticket itself flagged "where the typed-field
-  registry lives" as open; this extends to where the two-entity pass lives. *(engineering — `/architecture`)*
+Two of the four were architecture-level and are now settled by [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md):
+
+- ~~Which existing canonicals get a `FieldType` in this pass~~ — **resolved (ADR-065 §D1):** the minimum set
+  that proves the taxonomy — `birthdate`/`release_date` → `date`, `age_in_media` → `numeric`, plus `title`
+  (`text`) and `status` (`categorical`) as one representative each. No other `KnownFields` entry is annotated
+  this phase.
+- ~~Exact shape/injection boundary of the relationship-compute pass~~ — **resolved (ADR-065 §D2/D3):** a new,
+  parallel `resolver.DeriveRelationship(person, video, now)` — `Derive`'s two-entity twin, not a bent version
+  of it — driven by a `PersonDependsOn`/`VideoDependsOn` registry marker. Its output has no home in either
+  entity's own `resolved[]`, so `getMedia` attaches it as a new top-level `related_person_fields` payload key
+  (avoiding a `model`↔`resolver` import cycle); each cast member's birthdate is fetched via the existing
+  `personResolved` call (reuse, for decision/curation correctness) rather than a new batched query.
 - **Cast poster layout for the age number** — the current poster grid (`PersonPoster.svelte`) has no
   subtitle/caption slot; where a bare integer fits without cluttering a dense grid is a real design question,
   not a copy-paste of F45's `<dl>` treatment (which had a labeled-row layout to work with). *(design —
