@@ -4,11 +4,11 @@ go 1.25.5
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-chi/chi/v5 v5.3.0
+	github.com/go-chi/chi/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
-	github.com/mark3labs/mcp-go v0.55.1
-	golang.org/x/image v0.43.0
-	golang.org/x/text v0.38.0
+	github.com/mark3labs/mcp-go v0.56.0
+	golang.org/x/image v0.44.0
+	golang.org/x/text v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.53.0
 )
