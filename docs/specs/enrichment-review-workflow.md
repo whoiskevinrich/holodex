@@ -41,10 +41,10 @@ stated v1 posture, "Holodex always shows the owner a picker and never auto-appli
 v1") and the new per-`(entity, provider)` `enrichment_dismissals` store, mirroring how ADR-061
 preceded F43.
 
-**Design handoff**: none yet — pending. Mockups explored live in the brainstorming session
-(review queue rows, per-provider status chips, the `EnrichPicker` "None of these match" +
-view-source link additions, and the provider chip's flipped primary action) are illustrative,
-not a ratified handoff.
+**Design handoff**: [enrichment-review-workflow-handoff.md](../design/enrichment-review-workflow-handoff.md)
+— the Enrichment tab (grouped queue rows, resolving Q3's grouping/ordering question below), the
+`EnrichPicker` "None of these match" + view-source-link additions, the provider chip's flipped
+Refresh/Re-match/Clear states, and Refresh-all's partial-result surfacing.
 
 ---
 
@@ -294,9 +294,11 @@ Existing `enrich/resolve`, `enrich` (apply), and `enrich/{provider}` (DELETE, cl
   state (not just the dismissed state) worth the write volume of an attempt-log row per resolve
   call? Deferred as P2-2; revisit if owners report confusion between "never tried" and "tried,
   found nothing."
-- **Q3 (design, non-blocking):** review-queue row grouping/ordering — by entity type (mirroring
-  Duplicates' tags-first), by recency, or by number of providers still needing attention? Decide
-  in the design handoff.
+- **Q3 (design, resolved):** review-queue row grouping/ordering — grouped by entity type in nav
+  order (People → Studios → Media, not Duplicates' frequency-driven tags-first, since no entity
+  type dominates the enrichment backlog the way tags dominate near-miss duplicates); within a
+  group, rows with an actionable provider (`needs_review`/`unreviewed`) sort above fully
+  `auto_applied`/`not_matched` rows. See the [design handoff](../design/enrichment-review-workflow-handoff.md#1-ownerenrichment--the-review-queue-tab).
 - **Q4 (engineering, non-blocking):** the provider contract's current §2.3 text ("Holodex always
   shows the owner a picker and never auto-applies a candidate in v1") needs an explicit amendment
   once P0-2 ships. Confirm this is documentation-only (no wire-format change — `confidence`'s
@@ -309,10 +311,11 @@ No hard deadline. Per the change-routing rules, before/with implementation:
 1. ✅ **`/architecture`** — [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md)
    records the auto-apply-with-revert model (the provider-contract posture change, Q4) and the
    `enrichment_dismissals` store, mirroring how ADR-061 preceded F43.
-2. ⬜ **`/design-handoff`** — the Enrichment tab under `/owner`, per-provider status chips, the
-   `EnrichPicker` "None of these match" + view-source link additions, the flipped-primary-action
-   chip states (RD7), Refresh-all's inline partial-result UI (P1-2). Resolve Q3. Tokens only;
-   QA Cinémathèque / Broadcast / Brutalist.
+2. ✅ **`/design-handoff`** — [enrichment-review-workflow-handoff.md](../design/enrichment-review-workflow-handoff.md):
+   the Enrichment tab under `/owner`, per-provider status chips, the `EnrichPicker` "None of these
+   match" + view-source link additions, the flipped-primary-action chip states (RD7), Refresh-all's
+   inline partial-result UI (P1-2). Q3 resolved (grouped People → Studios → Media, actionable rows
+   first). Tokens only; QA Cinémathèque / Broadcast / Brutalist.
 3. ⬜ **`/testing-strategy`** — queue population/lazy-resolve correctness (P0-1 never triggers a
    provider call), auto-apply threshold + revert (P0-2/P0-3), dismissal persistence + non-renag
    (P0-4), `profile_url` scheme validation (P1-1), Refresh/Refresh-all idempotency and
