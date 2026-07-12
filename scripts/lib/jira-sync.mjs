@@ -4,7 +4,7 @@
 //   - jira-branch-sync.mjs  → In Review (PR opened) / Done (PR merged), keyed off
 //                             the PR *branch name* (Holodex carries the key there,
 //                             never in the commit subject — see docs/reference/jira-pipeline.md)
-//   - jira-release-sync.mjs → Released, on the `ghcr` deploy: every HOLODEX issue
+//   - jira-release-sync.mjs → Released, on the `prod` deploy: every HOLODEX issue
 //                             currently in "Done" is what this tag ships (batch)
 //
 // All transitions are idempotent (skip a ticket already at the target) and
