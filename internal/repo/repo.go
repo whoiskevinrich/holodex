@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"holodex/internal/model"
@@ -30,6 +31,11 @@ type Repo struct {
 	// F25). Zero means "unset" — GalleryCapValue then falls back to GalleryCap so a
 	// bare New(db) (tests, MCP stdio) keeps the built-in default.
 	galleryCap int
+	// promotions caches field_promotions rows keyed by entity type behind an atomic
+	// pointer (F44 follow-up, mirrors enrich.Service.fieldHints) — lazily loaded and
+	// invalidated on SetPromotion/ClearPromotion, so the per-detail-resolve visitor
+	// read path never queries the table.
+	promotions atomic.Pointer[map[string][]PromotionRow]
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
