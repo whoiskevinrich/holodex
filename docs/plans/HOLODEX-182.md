@@ -33,7 +33,24 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [ ] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) — follow-up
 8. [ ] [backend] `/handoff` skill → batch 2 (own slice)
-9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on living with batch 1 first
+9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on the batch-1 retro checkpoint below
+
+## Batch-1 retro checkpoint (unblocks item 9)
+
+"Living with batch 1" was an open-ended vibe with no exit signal. Replacing it with a mechanical
+trigger + a fixed set of questions, so nobody has to remember to check in:
+
+- **Trigger** (first to occur): **3 real sessions** on this repo since PR #119 merged (2026-07-11),
+  or **2026-07-25** (2-week hard stop) — checkable from `git log`/session-log count, not a feeling.
+- **Who gathers what:** no passive feedback collection runs in between — the only ambient signal
+  already captured is the `PostToolUse` skill-run log (existing session-log entries below). Kevin
+  isn't expected to track anything as it happens. At the trigger, answer these once, append as a
+  session-log entry, and decide from that whether item 9 opens as originally scoped:
+  - **SessionStart** — did `In Progress` fire reliably? Was the orientation banner read/useful, or
+    ignored noise?
+  - **Stop nag** — did it catch real staleness, fire falsely, or miss staleness it should have caught?
+  - **PostToolUse gate-flips** — did `[/]` transitions track what actually happened, or drift?
+  - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
