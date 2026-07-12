@@ -264,14 +264,40 @@ type Hint struct {
 	ExternalIDs []string `json:"external_ids,omitempty"`
 }
 
-// Candidate is one ranked match from `POST /resolve`. Confidence is advisory —
-// v1 always has the owner confirm (no silent auto-apply).
+// Candidate is one ranked match from `POST /resolve`. Confidence stays
+// provider-native and non-normalized (ADR-033 §2.3); a single candidate at or above
+// StrongMatchThreshold auto-applies (ADR-065 D1) — any other outcome (0, 2+ strong, or
+// only possible/weak candidates) still stops at the owner.
 type Candidate struct {
 	ExternalID     string  `json:"external_id"`
 	Namespace      string  `json:"namespace"`
 	Label          string  `json:"label"`
 	Confidence     float64 `json:"confidence"`
 	Disambiguation string  `json:"disambiguation,omitempty"`
+}
+
+// StrongMatchThreshold is the auto-apply confidence cutoff (ADR-065 D1) — mirrors the
+// frontend's EnrichPicker.matchLabel "Strong match" bar exactly (web/src/lib/components/
+// EnrichPicker.svelte). The two must never drift: a candidate the picker labels "Strong
+// match" is the same one refresh-all would auto-apply.
+const StrongMatchThreshold = 0.85
+
+// SingleStrongMatch reports the sole candidate an auto-apply should apply (ADR-065 D1):
+// exactly one candidate at/above StrongMatchThreshold. Zero, or two-or-more, strong
+// candidates return ok=false — ambiguity always stops at the owner.
+func SingleStrongMatch(cands []Candidate) (Candidate, bool) {
+	var strong Candidate
+	n := 0
+	for _, c := range cands {
+		if c.Confidence >= StrongMatchThreshold {
+			strong = c
+			n++
+		}
+	}
+	if n == 1 {
+		return strong, true
+	}
+	return Candidate{}, false
 }
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and

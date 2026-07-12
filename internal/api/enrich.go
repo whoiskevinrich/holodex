@@ -17,6 +17,17 @@ import (
 // "{imdb-tt1160419}" so it can be forwarded as an external-ID hint to providers.
 var imdbPathRe = regexp.MustCompile(`\{imdb-(tt\d+)\}`)
 
+// videoHint builds a /resolve hint for a video: the given query plus, if the video's
+// path carries an embedded IMDb id, that id as a deterministic external-id hint.
+// Shared by enrichVideoResolve and refresh-all's enrichQueryHint (enrich_review.go).
+func videoHint(v *model.Video, query string) enrich.Hint {
+	hint := enrich.Hint{Query: query}
+	if m := imdbPathRe.FindStringSubmatch(v.FilePath); m != nil {
+		hint.ExternalIDs = []string{"imdb:" + m[1]}
+	}
+	return hint
+}
+
 // mountEnrich registers the owner-gated enrichment endpoints (F22.5/F22.9a). They
 // are mounted inside the requireOwner group set up in Mount.
 func (h *Handlers) mountEnrich(r chi.Router) {
@@ -30,6 +41,23 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 	r.Post("/studios/{id}/enrich/resolve", h.enrichStudioResolve)
 	r.Post("/studios/{id}/enrich", h.enrichStudioApply)
 	r.Delete("/studios/{id}/enrich/{provider}", h.enrichStudioClear)
+
+	// F47 (ADR-065): the review queue, and the dismiss/undismiss/refresh/refresh-all
+	// mutations — entity-generic across all three, mirroring the route shape above.
+	r.Get("/owner/enrich-queue", h.enrichQueue)
+	for _, et := range []struct {
+		path       string
+		entityType string
+	}{
+		{"/people", model.EnrichEntityPerson},
+		{"/studios", model.EnrichEntityStudio},
+		{"/media", model.EnrichEntityVideo},
+	} {
+		r.Post(et.path+"/{id}/enrich/{provider}/dismiss", h.enrichDismiss(et.entityType))
+		r.Delete(et.path+"/{id}/enrich/{provider}/dismiss", h.enrichUndismiss(et.entityType))
+		r.Post(et.path+"/{id}/enrich/{provider}/refresh", h.enrichRefresh(et.entityType))
+		r.Post(et.path+"/{id}/enrich/refresh-all", h.enrichRefreshAll(et.entityType))
+	}
 }
 
 func (h *Handlers) enrichSources(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +91,9 @@ func (h *Handlers) enrichResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.repo.GetPerson(r.Context(), id); err != nil {
 		h.personLookupError(w, err)
+		return
+	}
+	if !h.enrichDismissedCheck(w, r, model.EnrichEntityPerson, id, body.Provider) {
 		return
 	}
 	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityPerson, enrich.Hint{Query: body.Query})
@@ -162,11 +193,10 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
-	hint := enrich.Hint{Query: body.Query}
-	if m := imdbPathRe.FindStringSubmatch(v.FilePath); m != nil {
-		hint.ExternalIDs = []string{"imdb:" + m[1]}
+	if !h.enrichDismissedCheck(w, r, model.EnrichEntityVideo, id, body.Provider) {
+		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, hint)
+	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, body.Query))
 	if err != nil {
 		h.log.Warn("video enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
@@ -251,6 +281,9 @@ func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.repo.GetStudio(r.Context(), id); err != nil {
 		h.studioLookupError(w, err)
+		return
+	}
+	if !h.enrichDismissedCheck(w, r, model.EnrichEntityStudio, id, body.Provider) {
 		return
 	}
 	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
