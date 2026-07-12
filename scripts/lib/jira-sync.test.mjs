@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractKeys, selectTransitionId } from "./jira-sync.mjs";
+import { extractKeys, selectTransitionId, syncKeys } from "./jira-sync.mjs";
 
 test("extractKeys pulls the key from a branch name", () => {
   assert.deepEqual(extractKeys("HOLODEX-132-jira-transitions-rest-api"), ["HOLODEX-132"]);
@@ -42,4 +42,50 @@ test("selectTransitionId returns null when no transition reaches the target", ()
 test("selectTransitionId tolerates missing/empty input", () => {
   assert.equal(selectTransitionId(undefined, "Done"), null);
   assert.equal(selectTransitionId([], "Done"), null);
+});
+
+// HOLODEX-185: an Epic must never be auto-transitioned (e.g. Done -> Released
+// on a tagged release) — its status is a manual/reviewed step, since CI has no
+// way to confirm all child issues/gates are actually satisfied.
+test("syncKeys skips an Epic without transitioning it", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async (key) => ({ status: "Done", issueType: "Epic" }),
+    findTransitionId: async () => {
+      calls.push("findTransitionId");
+      return "2";
+    },
+    transition: async () => calls.push("transition"),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-182"],
+    targetStatus: "Released",
+    client,
+    log,
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, []);
+});
+
+test("syncKeys still transitions a non-Epic issue", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async () => ({ status: "Done", issueType: "Story" }),
+    findTransitionId: async () => "2",
+    transition: async (key, id) => calls.push([key, id]),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-183"],
+    targetStatus: "Released",
+    client,
+    log,
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, [["HOLODEX-183", "2"]]);
 });
