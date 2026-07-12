@@ -131,6 +131,10 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
+- **Internal agent-tooling work (e.g. `flightplan/`, `.claude/`) uses `chore(flightplan): ...`,
+  not `feat`/`fix`.** Both `cliff.toml` and `release-please-config.json` already hide `chore`
+  commits, so this keeps agent-tooling changes out of user-facing CHANGELOG/Release notes
+  without any config change — neither tool supports filtering by scope, only by type.
 - Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
   meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
   **In Review** (PR open), **Done** (merge), and **Released** (`ghcr` deploy) are fired by CI
