@@ -24,26 +24,53 @@ type PromotionRow struct {
 // materializes it into the []mapping.Field before ResolveFields runs — no per-field
 // query, resolution stays pure (ADR-062). A missing key means the field is not promoted
 // (it stays F39 auto-registered).
+//
+// Served from the atomic-pointer cache (HOLODEX-172, mirrors enrich.Service.FieldHints):
+// lazily loaded on first call and invalidated by SetPromotion/ClearPromotion, the only
+// writers, so the visitor detail-page read path never queries field_promotions.
 func (r *Repo) PromotionsForEntityType(ctx context.Context, entityType string) ([]PromotionRow, error) {
+	all, err := r.promotionsCache(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return all[entityType], nil
+}
+
+// promotionsCache returns the cached entity-type → promotions map, loading it on first
+// use.
+func (r *Repo) promotionsCache(ctx context.Context) (map[string][]PromotionRow, error) {
+	if p := r.promotions.Load(); p != nil {
+		return *p, nil
+	}
+	return r.reloadPromotions(ctx)
+}
+
+// reloadPromotions reads every field_promotions row and swaps the grouped map into the
+// cache atomically.
+func (r *Repo) reloadPromotions(ctx context.Context) (map[string][]PromotionRow, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT field_key, label, render, hint_group, ord
+		SELECT entity_type, field_key, label, render, hint_group, ord
 		FROM field_promotions
-		WHERE entity_type = ?
-		ORDER BY field_key`, entityType)
+		ORDER BY entity_type, field_key`)
 	if err != nil {
 		return nil, fmt.Errorf("promotions for entity type: %w", err)
 	}
 	defer rows.Close()
 
-	var out []PromotionRow
+	out := map[string][]PromotionRow{}
 	for rows.Next() {
+		var entityType string
 		var pr PromotionRow
-		if err := rows.Scan(&pr.FieldKey, &pr.Label, &pr.Render, &pr.Group, &pr.Order); err != nil {
+		if err := rows.Scan(&entityType, &pr.FieldKey, &pr.Label, &pr.Render, &pr.Group, &pr.Order); err != nil {
 			return nil, err
 		}
-		out = append(out, pr)
+		out[entityType] = append(out[entityType], pr)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	r.promotions.Store(&out)
+	return out, nil
 }
 
 // SetPromotion records one promotion (upsert by the entity_type+field_key primary key).
@@ -69,6 +96,7 @@ func (r *Repo) SetPromotion(ctx context.Context, entityType, fieldKey, label, re
 	if err != nil {
 		return fmt.Errorf("set promotion: %w", err)
 	}
+	r.promotions.Store(nil) // invalidate: next read reloads from the table
 	return nil
 }
 
@@ -87,5 +115,6 @@ func (r *Repo) ClearPromotion(ctx context.Context, entityType, fieldKey string) 
 	if err != nil {
 		return 0, fmt.Errorf("clear promotion: %w", err)
 	}
+	r.promotions.Store(nil) // invalidate: next read reloads from the table
 	return res.RowsAffected()
 }
