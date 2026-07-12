@@ -11,7 +11,7 @@ import type { CoreRole } from './types';
 // assertion in CropEditor flags drift between this map and the live frame.
 export const CORE_ROLE_ASPECT: Record<CoreRole, readonly [number, number]> = {
 	headshot: [1, 1],
-	banner: [5, 2],
+	banner: [8, 3],
 	poster: [2, 3]
 };
 
@@ -21,7 +21,7 @@ const CROP_SHORT_EDGE = 600;
 
 // cropTargetSize returns the output canvas [width, height] for a role, derived from its
 // aspect ratio with the shorter edge fixed at CROP_SHORT_EDGE (headshot 600×600,
-// banner 1500×600, poster 600×900).
+// banner 1600×600, poster 600×900).
 export function cropTargetSize(role: CoreRole): [number, number] {
 	const [aw, ah] = CORE_ROLE_ASPECT[role];
 	return aw >= ah

@@ -83,9 +83,16 @@
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Banner renders only when a real one is set — for everyone, including the owner
-	// (F25.30). Not every person has a banner-sized image; an empty 5:2 placeholder band
+	// (F25.30). Not every person has a banner-sized image; an empty 8:3 placeholder band
 	// would dominate the page with generic art. Mirrors the poster rule (F25.27).
 	const hasBanner = $derived(images.roles.banner?.present ?? false);
+	// F25.31: when a poster exists it leads the hero (see the hero snippet below) — hoisted
+	// so the margin class and the branch pick share one source of truth instead of two
+	// textually-identical `images.roles.poster?.present` reads that could drift.
+	const posterLed = $derived(images.roles.poster?.present ?? false);
+	const heroMarginClass = $derived(
+		!hasBanner ? (isOwner ? 'mt-3' : '') : posterLed ? '-mt-12 sm:-mt-14' : '-mt-10 sm:-mt-12'
+	);
 	// HOLODEX-119: every person-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider). Was collapsed to the first.
 	const personProviders = $derived(
@@ -337,12 +344,18 @@
 		empty="No videos for this person."
 	>
 		{#snippet hero()}
-			<!-- F25 hero: a 5:2 parallax banner with the 1:1 headshot overlapping its lower-left,
-			     beside the optional 2:3 poster and the name — so the name reads as one unit with
-			     the face (not stranded above the banner). Headshot + poster share a height (sized
-			     by height; width follows the aspect). The poster shows only when a real one exists:
-			     an empty poster slot would just duplicate the headshot's placeholder. Owners set a
-			     missing poster from the gallery below (promote-with-crop). -->
+			<!-- F25 hero, ratio + hierarchy corrected by the 2026-07-12 design-critique pass: an
+			     8:3 (1600×600) parallax banner with the overlap row pulled up into its lower-left
+			     so the name reads as one unit with the face (not stranded above the banner). When a
+			     poster exists it leads as the primary avatar (poster art fits this app's
+			     film-archive framing better than a same-height headshot sliver), with the 1:1
+			     headshot as a small identity badge on the poster's lower-left corner; with no
+			     poster, the headshot alone is the primary avatar as before. The poster shows only
+			     when a real one exists: an empty poster slot would just duplicate the headshot's
+			     placeholder. Owners set a missing poster from the gallery below (promote-with-crop).
+			     F25.30's decision to show no banner placeholder (owner-only "Add banner" affordance,
+			     nothing for visitors) was reviewed and kept — its reasoning (an empty band would
+			     dominate the page with generic art) applies just as much at 8:3 as it did at 5:2. -->
 			<div class="relative">
 				{#if hasBanner}
 					<PersonBanner personId={id} name={person?.name ?? ''} version={roleVersion('banner')} eager />
@@ -362,35 +375,52 @@
 				{/if}
 				<!-- The headshot+name row overhangs the banner only when there is one; with no band it
 				     sits flush (a small gap below the owner's add-banner control). (F25.30) -->
-				<div class="flex items-end gap-3 pl-3 {hasBanner ? '-mt-10 sm:-mt-12' : isOwner ? 'mt-3' : ''}">
-					<div class="relative shrink-0">
-						<PersonImageFrame
-							personId={id}
-							role="headshot"
-							name={person?.name ?? ''}
-							version={roleVersion('headshot')}
-							frameClass="portrait-frame--1x1 h-28 w-auto sm:h-36"
-							eager
-						/>
-						{@render editBtn('headshot', 'bottom-1 right-1')}
-					</div>
-					{#if images.roles.poster?.present}
+				<div class="flex items-end gap-4 pl-3 {heroMarginClass}">
+					{#if posterLed}
+						<!-- Poster-led: the poster is the primary avatar; the headshot rides as a small
+						     identity badge on its lower-left corner (the bg-bg padding stands in for a
+						     separating ring so the badge reads as its own layer over the poster art). -->
 						<div class="relative shrink-0">
 							<PersonImageFrame
 								personId={id}
 								role="poster"
 								name={person?.name ?? ''}
-								alt=""
+								alt={`${person?.name ?? ''}'s poster`}
 								version={roleVersion('poster')}
-								frameClass="portrait-frame--2x3 h-28 w-auto sm:h-36"
+								frameClass="portrait-frame--2x3 h-36 w-auto sm:h-44"
 								eager
 							/>
-							{@render editBtn('poster', 'bottom-1 right-1')}
+							{@render editBtn('poster', 'right-1 top-1')}
+							<div class="absolute -bottom-2 -left-2 rounded-theme bg-bg p-0.5">
+								<div class="relative">
+									<PersonImageFrame
+										personId={id}
+										role="headshot"
+										name={person?.name ?? ''}
+										version={roleVersion('headshot')}
+										frameClass="portrait-frame--1x1 h-16 w-16 sm:h-20 sm:w-20"
+										eager
+									/>
+									{@render editBtn('headshot', '-bottom-1 -right-1')}
+								</div>
+							</div>
+						</div>
+					{:else}
+						<div class="relative shrink-0">
+							<PersonImageFrame
+								personId={id}
+								role="headshot"
+								name={person?.name ?? ''}
+								version={roleVersion('headshot')}
+								frameClass="portrait-frame--1x1 h-28 w-auto sm:h-36"
+								eager
+							/>
+							{@render editBtn('headshot', 'bottom-1 right-1')}
 						</div>
 					{/if}
 					<div class="min-w-0 flex-1 pb-1">
 						<div class="flex items-center gap-2">
-							<h1 class="skin-title min-w-0 truncate text-2xl font-semibold text-ink">
+							<h1 class="skin-title min-w-0 truncate text-3xl font-semibold text-ink sm:text-4xl">
 								{person?.name ?? ''}
 							</h1>
 							<NationalityFlags values={nationalityValues} />
