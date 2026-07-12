@@ -108,6 +108,14 @@ Design notes:
   transition by destination status **name**, and on any failure (missing key/secret, Jira
   outage, unreachable transition) logs a GitHub `::warning::` and **exits 0**. A Jira hiccup
   never red-builds a deploy or blocks a merge.
+- **Epics are never auto-transitioned** (HOLODEX-185) — `syncOne` in
+  `scripts/lib/jira-sync.mjs` skips any key whose `issuetype` is `Epic`, for **every** caller
+  (`In Review`/`Done` from branch sync, `Released` from release sync). An Epic's key can end
+  up in a PR branch name or in the batch `status = Done` JQL set the same as any child issue,
+  but CI has no way to confirm the epic's own gates or all its children are actually done —
+  only a real rollup check could, and none exists — so epic status stays a manual/reviewed
+  step. Symptom if this regresses: an epic jumps straight to `Released` on the next tagged
+  release while its children are still `In Progress`.
 - **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
   so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a
   privileged context; the key is matched by an anchored `\bHOLODEX-\d+\b` regex; the token is

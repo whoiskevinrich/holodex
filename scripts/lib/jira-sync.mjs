@@ -49,11 +49,16 @@ export function makeJiraClient({ baseUrl, email, token }) {
   };
   return {
     async currentStatus(key) {
-      const res = await fetch(`${base}/rest/api/3/issue/${key}?fields=status`, { headers });
+      const res = await fetch(`${base}/rest/api/3/issue/${key}?fields=status,issuetype`, {
+        headers,
+      });
       if (res.status === 404) return { missing: true };
       if (!res.ok) throw new Error(`GET issue ${key} failed: ${res.status} ${res.statusText}`);
       const json = await res.json();
-      return { status: json.fields?.status?.name ?? null };
+      return {
+        status: json.fields?.status?.name ?? null,
+        issueType: json.fields?.issuetype?.name ?? null,
+      };
     },
     async findTransitionId(key, targetStatus) {
       const res = await fetch(`${base}/rest/api/3/issue/${key}/transitions`, { headers });
@@ -97,6 +102,12 @@ export function makeJiraClient({ baseUrl, email, token }) {
 async function syncOne({ key, targetStatus, client, dryRun, log, context }) {
   const cur = await client.currentStatus(key);
   if (cur.missing) return log.warn(`${key}: not found in Jira — skipping`);
+  // Epics roll up child work and their own gates (see docs/specs); CI has no
+  // reliable signal that either is actually satisfied, so epic status stays a
+  // manual/reviewed step — never auto-transitioned (HOLODEX-185).
+  if (cur.issueType === "Epic") {
+    return log.info(`${key}: is an Epic — status is reviewed manually, skipping`);
+  }
   if (cur.status?.toLowerCase() === targetStatus.toLowerCase()) {
     return log.info(`${key}: already "${targetStatus}" — no-op`);
   }
