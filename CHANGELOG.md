@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1](https://github.com/whoiskevinrich/holodex/compare/v1.9.0...v1.9.1) (2026-07-12)
+
+
+### 🐛 Bug Fixes
+
+* **jira-sync:** never auto-transition Epic issues ([#128](https://github.com/whoiskevinrich/holodex/issues/128)) ([474bbd7](https://github.com/whoiskevinrich/holodex/commit/474bbd74424beabfd9ad5a6099db6ceaddc8c9a5))
+* **metadata-mappings:** fully wire tmdb example config across video/person/studio ([#127](https://github.com/whoiskevinrich/holodex/issues/127)) ([f15f548](https://github.com/whoiskevinrich/holodex/commit/f15f548889f57ff2cb8a1e2d7719fbc9d2e64b63))
+
 ## [1.8.0](https://github.com/whoiskevinrich/holodex/compare/v1.7.0...v1.8.0) (2026-07-12)
 
 
