@@ -88,6 +88,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [WebP provider images (F42)](../specs/gallery-webp.md) — accept provider WebP through the existing person-image re-encode gauntlet (no ADR; no contract change)
 - [Entity name-identity (F43)](../specs/entity-identity.md) — unified normalized `nameKey` + alias/merge across Person/Studio/Tag; case-collision fix + near-miss review queue (ADR-061)
 - [In-app field promotion (F44)](../specs/promote-override-fields.md) — owner-gated in-app promote/override of an F39 auto-registered field into a first-class curatable field; DB `field_promotions` tier-0 over operator YAML (ADR-062)
+- [Queryable fields substrate — Phase 1 (F46 Phase 1)](../specs/queryable-fields-substrate.md) — typed field registry (text/categorical/numeric/date) + equals/contains/range operator model, piloted via Age in Media (person × video, first relationship-scoped computed field, extends F45/ADR-063); compute-on-read, no persisted index (HOLODEX-176; ADR TBD)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing
