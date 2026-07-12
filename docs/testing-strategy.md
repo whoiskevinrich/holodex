@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-065)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -144,9 +144,14 @@ assert.JSONEq(t, string(want), string(got))
 | **Provider registry / config** (ADR-033, F22.2) | Unit | Load `metadata-sources.yaml` (missing file → empty, no error); enable/disable; **atomic reload** (mirrors mapping store); disabled/unreachable provider skipped not fatal | ~90% |
 | **Unified field resolution** (ADR-033, F22.3) | Unit | `sources` list **interleaving `file:` keys and providers** resolves first-present-wins; provider never overwrites a file-extracted first-class field unless ordered ahead of `file:`; pure re-interpretation (precedence change needs no re-fetch) | ~95% |
 | **Shadow enrichment store** (ADR-033, F22.4) | Integration | `entity_enrichment` upsert keyed by (entity_type,entity_id,provider,field_key); confirmed `external_id` persists → re-enrich skips identity; **re-scan does not touch shadow rows**; clearing a provider removes only its rows | ~90% |
-| **Matching paths** (ADR-033, F22.5b) | Unit + Integration | Embedded-ID present → deterministic auto-resolve; absent → name-search candidates returned for manual confirm; ambiguous/no-result handled; confidence surfaced advisory (never auto-applied in v1) | ~90% |
+| **Matching paths** (ADR-033, F22.5b) | Unit + Integration | Embedded-ID present → deterministic auto-resolve; absent → name-search candidates returned for manual confirm; ambiguous/no-result handled; confidence surfaced advisory (never auto-applied in v1 — **superseded by F47/ADR-065's threshold-gated auto-apply, see below**) | ~90% |
 | **Enrichment security** (ADR-033, F22.9) | Unit + Integration | Enrich endpoints behind `requireOwner` (401 without token); **SSRF allowlist** — core calls only configured `base_url`s, ignores provider-supplied redirect hosts; **untrusted response** values length-capped/sanitized, asset downloads size+content-type limited; **no upstream API key** in config/logs/read-model | ~95% |
 | **MCP enriched fields** (ADR-033, F22.5f) | Integration | `get_person`/`list_people` return enriched fields **with provenance**; parity with REST | ~85% |
+| **Enrichment dismissals** (ADR-065, F47 S1/P0-4) | Integration | `enrichment_dismissals` upsert keyed `(entity_type, entity_id, provider)`; dismiss is idempotent (re-dismiss = no-op, not a duplicate row); undismiss ("Try again") deletes the row and nothing else; a dismissed pair **blocks** `/resolve` from being called again for it until cleared; **`ON DELETE CASCADE`** removes dismissals with the entity, mirroring `entity_enrichment`/`entity_aliases` cleanup | ~90% |
+| **Auto-apply routing** (ADR-065 D1, F47 P0-2/P0-3) | Unit + Integration | A `/resolve` returning **exactly one** `confidence >= 0.85` candidate routes straight to `apply()` (no picker, same code path as a manual pick); **two-or-more** strong, or only possible/weak candidates, never auto-applies; an auto-applied field is **indistinguishable** from a manual one in `field_source_decisions` (same `provider:<name>` provenance) — Keep/Revert (F36) works unmodified, no new undo table | ~95% |
+| **Refresh / Refresh-all** (ADR-065, F47 P0-5/P1-2) | Unit + Integration | `refresh` calls `apply()` directly with the **stored** `external_id` — **zero** `/resolve` calls; **400** if the provider isn't linked; `refresh-all` fans out over only that entity's configured providers (small fixed N, not the catalog), each independently refreshed/auto-applied/surfaced-for-review per D1's routing — an ambiguous provider is **never silently dropped** from the response; one provider's failure/unreachable state doesn't abort the others' results | ~90% |
+| **Enrich-queue listing** (ADR-065, F47 P0-1/P0-6) | Integration | `GET /owner/enrich-queue` membership = missing an `entity_enrichment` row for ≥1 provider whose `entity_types` includes the entity's type, **excluding** dismissed `(entity, provider)` pairs; **zero provider calls** on load (assert fake provider call-count stays 0); rows carry **one state per provider** (`unreviewed`/`auto_applied`/`needs_review`/`not_matched`), never a single collapsed flag; `requireOwner`-gated (401 without token) | ~90% |
+| **`profile_url` scheme validation** (ADR-065, F47 P1-1) | Unit | A candidate's `profile_url` is served only when `http`/`https`; a hostile scheme (`javascript:`, `data:`) is **dropped server-side** before the response reaches the client — never forwarded as-is; absent/malformed URL → field omitted, not an error | ~95% |
 | **Person aliases — store** (ADR-036, F23.1–F23.3) | Integration | `person_aliases` CRUD: add (trim, non-empty, ≤200 chars); **per-person case-insensitive uniqueness** (`COLLATE NOCASE`, idempotent add — no dup, no error); same alias allowed on two people; delete by id scoped to person (404 on unknown/foreign id); **`ON DELETE CASCADE`** removes aliases with the person | ~90% |
 | **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped | ~90% |
 | **Person aliases — scan-time resolution** (ADR-036, F23.8) | Integration | the scanner write path resolves an extracted name **name → alias → create**: a file tagged with an alias links to the **canonical** person (no duplicate created) and a **re-scan keeps it merged** (cardinal merge invariant); name-hit fast path unchanged | ~90% |
@@ -194,6 +199,9 @@ assert.JSONEq(t, string(want), string(got))
 - **Age and age-at-death are mutually exclusive** (F45/ADR-063 D4): the two formulas are one function branching on `deathdate` — a living person shows exactly `age`, a deceased person exactly `age_at_death`, **never both**. A change to either formula must preserve the "exactly one row" property.
 - **Missing/unparseable input → no row, for everyone** (F45/spec D3): when a required input (`birthdate`, or `deathdate` for age-at-death) is absent or non-ISO, `computable=false` yields **no row** — no placeholder, no "—", no nudge — and owner and visitor payloads are **identical** (there is no owner-only branch on a computed row).
 - **Compute-on-read, never stored** (F45/ADR-063): derived values touch **no** migration, column, or shadow row; Age is time-varying and must be recomputed live (a stored value would be stale the instant after it is written). Asserted by AC-2 — advancing the injected `now` increments Age with zero DB writes.
+- **A dismissal is as durable as an acceptance** (F47/ADR-065 D2): once the owner records "None of these match" for `(entity, provider)`, that pair is excluded from queue/needs-review state and blocks `/resolve` from firing again until an explicit "Try again" clears it — no TTL, no background re-check, no code path silently re-prompts the same rejected candidates.
+- **Auto-apply never invents a new confidence model** (F47/ADR-065 D1): the auto-apply trigger is the *existing* `>=0.85` "Strong match" cutoff (`EnrichPicker.matchLabel`, unchanged) applied only when **exactly one** candidate clears it — any ambiguity (2+ strong, or only possible/weak) still stops at the owner. `confidence` stays provider-native and non-normalized; no per-field weighting is introduced.
+- **Refresh never re-searches** (F47/ADR-065 RD7/RD8): once a provider is linked (a stored `external_id` exists), Refresh/Refresh-all call `apply()` directly — asserted by a fake provider's `/resolve` call-count staying zero across a refresh of an already-linked entity.
 
 ---
 
@@ -222,6 +230,9 @@ assert.JSONEq(t, string(want), string(got))
 | **Owner hub + nav split** (F35) | Component/Interaction + visual | Vitest + Playwright | Content nav = **Media/People/Tags only** (Keys/Status/Trash links gone); **owner gear** absent from DOM for non-owner / Preview-OFF; gear active on `/owner` via `text-accent` + `aria-current` (never `bg-accent`); `/owner` shell renders `skin-title` "Owner" + tab row; **active tab `bg-surface-2 text-ink` + `aria-current`** (skin-picker idiom, NOT accent — that stays the single primary action); tab switch is in-group nav (no full reload); F29 toggle **relabeled "Owner view"** — no "Admin" string in `+layout.svelte`; gear label hides `<sm` (icon kept, `aria-label`); focus order `Activity → Owner-view → gear → skins`; **all 3 skins** (tokens-only, `rg` guard empty) |
 | **Nationality flag** (HOLODEX-139) | Unit + Component + visual | Vitest + Playwright | `nationality.ts` value→country: **last comma segment** is the country (`"…, United Kingdom"` → gb), single-token **country name or demonym** (`"British"` → gb), synonym/diacritic folding (`USA`→us, `Türkiye`→tr), **dedupe by code**, empty/unknown → **null**; `NationalityFlags.svelte` renders primary flag + muted **`+N`** (aria-hidden; `alt`/`title` list all), **nothing when none resolve** (no flag, no gap); flag chrome is tokens-only (`rounded-theme`/`border-rule`); flags **self-hosted** (flag-icons, offline, not inlined into the page chunk); **all 3 skins** (square Broadcast/Brutalist, hairline reads on surface); **not owner-gated** (visitors see it) |
 | **Computed field row + provenance** (F45, ADR-063) | Unit + Component + visual | Vitest + Playwright | `providerFromWinningSource("computed:age") === ""` (the handoff §3 gotcha — **no phantom "C" provider bubble**); `calculatedFrom(["Born"]) === "calculated from Born"` (serial-comma join); the person page compact loop renders a computed row **read-only** with the "calculated from Born" phrase as the value's `title` + `aria-label` and **no** icon/badge — **no** `SourceSelect`, **no** promote pill, **no** Custom entry — **identically for owner and visitor**; bare-integer value under **Born** in the primary `<dl>` (not the Additional-details block); tab **skips** the row (nothing focusable) while a screen reader reads the "calculated from Born" note; tokens-only (`rg` guard empty) — no skin-dependent styling (plain `text-ink` value) |
+| **Enrichment queue tab** (F47, ADR-065) | Component/Interaction + visual | Vitest + Playwright | `owner/enrichment/+page.svelte` grouped People → Studios → Media, actionable rows (`needs_review`/`unreviewed`) sort above `auto_applied`/`not_matched`; `EnrichQueueRow` mirrors `DuplicatePairRow`'s rhythm; `ProviderStatusChip` is a non-interactive, labelled status (state readable as text, never color-only); **zero** `/resolve` network calls on tab load; owner-only (absent from DOM for non-owner); **all 3 skins** (token-guard clean) |
+| **`EnrichPicker` — dismissal + view-source** (F47, ADR-065) | Component/Interaction + a11y | Vitest + Playwright | "None of these match" fires `dismiss`, closes the picker, emits `ondismissed` (caller flips to `not_matched` without a refetch); hidden once `candidates.length === 0`; a candidate's `profile_url` (scheme-valid) renders "view source ↗" with `stopPropagation` (opens new tab, **never** triggers apply/closes the picker); an accessible name beyond the "↗" glyph |
+| **`EnrichProviderChips` — Refresh/Re-match/Clear** (F47, ADR-065) | Component/Interaction + visual | Vitest + Playwright | Unlinked provider: primary stays "Enrich" (opens picker), no overflow menu; linked provider: primary flips to **"Refresh"** (direct `apply()`, no `/resolve` network call, no picker), ⋯ overflow gains "Re-match…" (opens picker) + existing "Clear"; "Refresh all" fans out per configured provider, shows busy label while in flight, and an ambiguous partial result surfaces inline on that provider's own chip — **never** silently dropped; **needs-review/not-matched states read `text-ink`/`text-muted`, never `text-warn`** (only an actual request failure does) — re-verified on **Brutalist** per the F43 regression risk |
 
 ---
 
@@ -804,6 +815,43 @@ items; the tests land with the implementation.
   line under Born, the value hover-tooltip, and the tab-skip / screen-reader behavior — remains the manual gate
   (tokens-only; the `rg 'zinc-|sky-|…'` guard stays empty; the row adds no skin-dependent styling). *(QA 2.11, §3–§4)*
 
+**Enrichment review workflow (F47, ADR-065, HOLODEX-186)** — a review queue + confidence-routed
+auto-apply + durable "not matched" verdict + refresh bypass over the **already-shipped** F22/F36/F37/F38
+enrichment machinery. **This PR (spec + ADR-065 + design handoff) is docs-only — S1–S4 are unbuilt**, so
+the rows above (§4 backend, §5 frontend) and the invariants above are the *target*, not yet exercised.
+Fully CI-testable, no network (fake provider, per the F22 precedent). Cardinal invariants: **a dismissal
+is as durable as an acceptance**, **auto-apply never invents a new confidence model**, **Refresh never
+re-searches** (all three above, §"Critical invariants"). Maps to the [design handoff's QA
+checklist](design/enrichment-review-workflow-handoff.md#qa-checklist-3-skin) §2 smoke items; the F43
+Duplicates-tab suite (`internal/api/duplicates_test.go`, `owner/duplicates/+page.svelte` tests) is the
+direct structural precedent for both the queue endpoint and the tab's Vitest/Playwright coverage.
+- **S1 — data model + endpoints** (`enrichment_dismissals` migration, dismiss/undismiss/refresh/
+  refresh-all routes per entity type): migration up/down round-trip + cascade-on-entity-delete; the four
+  new mutations mirror the existing `enrich/resolve`·`enrich`·`enrich/{provider}` route shape
+  (`/people|studios|media/{id}/enrich/{provider}/dismiss` etc., `internal/api/enrich.go`'s `mountEnrich`
+  pattern) and are `requireOwner`-gated identically (401 without token) — parameterized across all three
+  entity types off one shared table, the same pattern F43's endpoints used for person/studio/tag.
+- **S2 — `GET /owner/enrich-queue` + Enrichment tab**: the zero-cost membership query (excludes dismissed
+  pairs, no `/resolve` calls); grouping/ordering per the design handoff's resolved Q3 (People → Studios →
+  Media, actionable-first within a group); resolve-in-place on row click (no full refetch), matching
+  `owner/duplicates/+page.svelte`'s `$state`/`$derived`/`$effect` shape.
+- **S3 — `EnrichPicker` additions**: auto-apply threshold boundary (exactly one `>=0.85` vs. two-or-more —
+  table-driven, pin the `0/1/2` candidate-count cases); dismissal write-then-close-then-`ondismissed`;
+  `profile_url` scheme validation (server-side allowlist of `http`/`https`, adversarial `javascript:`/
+  `data:`/malformed inputs — same posture as the rest of the provider contract, ADR-033 §6).
+- **S4 — `EnrichProviderChips`**: linked-vs-unlinked primary-action branch (needs the `external_id` on
+  hand — via whichever prop shape the implementer picks, per the handoff's open question 1); Refresh-all's
+  partial-failure fan-out (one provider erroring/ambiguous must not abort or hide the others' results).
+- **Security** (`/security-review`, spec Timeline step 4): the new dismiss/undismiss/refresh/refresh-all
+  endpoints get the same `requireOwner` check as every existing enrich mutation — no new ungated surface;
+  `profile_url` is the one new externally-influenced input (provider-supplied), covered by the
+  scheme-validation test above — it is a plain link, never fetched server-side, so it is not a new
+  asset-download/SSRF surface.
+- **Known test-scope gap (spec Open Question Q1)**: Person's `external_id` isn't yet load-bearing for
+  identity (ADR-055 gap, HOLODEX-125) — Refresh/Refresh-all tests for **Person** should either be scoped
+  out until HOLODEX-125 lands, or explicitly assert the graceful-failure path if shipped ahead of it.
+  Confirm scope before writing the S4 Person test cases (mirrors the design handoff's own open question 3).
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -1182,4 +1230,5 @@ Then Carol is KEPT (authored-identity guard); a plain orphan past 30 days is del
 - **Visual regression baseline churn**: decide tolerance/diff threshold to avoid flaky screenshot tests.
 - **mkvpropedit/mkv tag XML** authoring in fixtures needs mkvtoolnix in the CI image (in addition to ffmpeg/exiftool) — add to the test image.
 - **`ORDER BY RANDOM()` non-determinism** (ADR-031): related-media tests must assert set membership / exclusion / count, never a fixed order or a seeded sequence — over-specifying order would make them flaky. If a future change needs reproducible draws, that's a seed decision to revisit in ADR-031, not a test workaround.
+- **F47 enrichment review workflow (ADR-065, HOLODEX-186)**: spec + ADR + design handoff landed 2026-07-12; the test plan above (§4/§5/Phase 3/Critical invariants) is written ahead of S1–S4 implementation — none of it is automated yet. Not a silent gap: tracked against the spec's Timeline step 3.
 - **Scroll-restoration E2E reliability** (ADR-032): the QW4 Back-restoration assertion depends on layout settling before the scroll check; allow a small Y tolerance and wait for the cached grid to paint, or it will flake. First scroll-restoration test in the suite — treat as the reference pattern.

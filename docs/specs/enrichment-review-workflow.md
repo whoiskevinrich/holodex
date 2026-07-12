@@ -316,10 +316,11 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    match" + view-source link additions, the flipped-primary-action chip states (RD7), Refresh-all's
    inline partial-result UI (P1-2). Q3 resolved (grouped People → Studios → Media, actionable rows
    first). Tokens only; QA Cinémathèque / Broadcast / Brutalist.
-3. ⬜ **`/testing-strategy`** — queue population/lazy-resolve correctness (P0-1 never triggers a
-   provider call), auto-apply threshold + revert (P0-2/P0-3), dismissal persistence + non-renag
-   (P0-4), `profile_url` scheme validation (P1-1), Refresh/Refresh-all idempotency and
-   partial-failure handling (P0-5/P1-2).
+3. ✅ **`/testing-strategy`** — [docs/testing-strategy.md](../testing-strategy.md) (§4/§5, "Critical
+   invariants", Phase 3 F47 subsection): queue population/lazy-resolve correctness (P0-1 never
+   triggers a provider call), auto-apply threshold + revert (P0-2/P0-3), dismissal persistence +
+   non-renag (P0-4), `profile_url` scheme validation (P1-1), Refresh/Refresh-all idempotency and
+   partial-failure handling (P0-5/P1-2). Written ahead of S1–S4; nothing automated yet.
 4. ⬜ **`/security-review`** — `profile_url` is the one new externally-influenced surface
    (untrusted provider input rendered as a link — scheme validation is the mitigation, P1-1); new
    mutations (dismiss/undismiss/refresh/refresh-all) are `requireOwner` like all existing
