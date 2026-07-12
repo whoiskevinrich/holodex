@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.8.0](https://github.com/whoiskevinrich/holodex/compare/v1.7.0...v1.8.0) (2026-07-12)
+
+
+### 🚀 Features
+
+* **fields:** derived person Age / Age-at-death computed-field engine (F45) ([#115](https://github.com/whoiskevinrich/holodex/issues/115)) ([cf8a42c](https://github.com/whoiskevinrich/holodex/commit/cf8a42ce7ef7b797e46d9ecb8d13c401aa3db04d))
+* **flightplan:** ADR-064 + worklog schema + batch-1 hooks (SessionStart, PostToolUse, Stop) ([#119](https://github.com/whoiskevinrich/holodex/issues/119)) ([6947856](https://github.com/whoiskevinrich/holodex/commit/694785649287412327f7babce104fd49ca140d92))
+
+
+### 🐛 Bug Fixes
+
+* **auth:** restore the way back into owner login ([#118](https://github.com/whoiskevinrich/holodex/issues/118)) ([34728c2](https://github.com/whoiskevinrich/holodex/commit/34728c283da8c5a1e49ad8f6253bad987401bc78))
+
+
+### ⚡ Performance
+
+* **promotions:** cache field_promotions read path like FieldHints ([#122](https://github.com/whoiskevinrich/holodex/issues/122)) ([dd7c1be](https://github.com/whoiskevinrich/holodex/commit/dd7c1be0e138f9f1f08373065ce0f3baecadcbaf))
+
+
+### 📚 Documentation
+
+* **conventions:** hide flightplan/agent-tooling commits from changelog via chore type ([#123](https://github.com/whoiskevinrich/holodex/issues/123)) ([efe17d7](https://github.com/whoiskevinrich/holodex/commit/efe17d7c8dde9a1a619ca501566698f455520a61))
+
 ## [1.7.0](https://github.com/whoiskevinrich/holodex/compare/v1.6.1...v1.7.0) (2026-07-08)
 
 
