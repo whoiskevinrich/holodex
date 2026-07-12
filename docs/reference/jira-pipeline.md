@@ -52,10 +52,12 @@ To Do → In Progress → In Review → Done → Released
 | **In Progress** | Branch created, work underway | **agent/session** (MCP `transitionJiraIssue` at branch-rename) |
 | **In Review** | PR open | **CI** — `jira-sync.yml` on `pull_request: opened` |
 | **Done** | Merged to `main` (code complete) | **CI** — `jira-sync.yml` on `pull_request` merged |
-| **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `ghcr` deploy (batch) |
+| **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `prod` deploy (batch) |
 
 `Done ≠ Released`: a merge to `main` is code-complete, but the artifact ships only when
-`release.yml` builds the `v*` image and records the **`ghcr` GitHub Deployment** (ADR-034).
+`release.yml` builds the `v*` image and records the **`prod` GitHub Deployment** (ADR-034,
+named `prod` rather than `ghcr` so GitHub-for-Jira's environment-type inference maps it to
+Production — HOLODEX-184).
 Because releases are batched behind a Release-Please PR (ADR-044), a real *"merged but not
 yet shipped"* window exists — that's exactly what the `Done`→`Released` split captures.
 
@@ -90,7 +92,7 @@ scripts in [`scripts/`](../../scripts).
 | → **In Progress** | start-of-work (branch rename to key) | agent/session (MCP `transitionJiraIssue`) | current branch |
 | → **In Review** | `pull_request: opened` | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
 | → **Done** | `pull_request` merged | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
-| → **Released** | `ghcr` deploy (Release-Please tag) | `release.yml` → `scripts/jira-release-sync.mjs` | JQL `status = Done` (batch) |
+| → **Released** | `prod` deploy (Release-Please tag) | `release.yml` → `scripts/jira-release-sync.mjs` | JQL `status = Done` (batch) |
 
 Design notes:
 

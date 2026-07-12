@@ -42,11 +42,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write          # create the GitHub Release
-    # Records a GitHub Deployment to the `ghcr` environment on this tagged run,
+    # Records a GitHub Deployment to the `prod` environment on this tagged run,
     # linking Release ↔ Deployments ↔ Environments; the URL is the package page
     # (ADR-034). The runner records it natively — no deployments:write needed.
+    # Named `prod` (not `ghcr`) so GitHub-for-Jira's keyword-based environment-type
+    # inference maps it to Production instead of leaving it Unmapped (HOLODEX-184).
     environment:
-      name: ghcr
+      name: prod
       url: ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
     steps:
       - name: Checkout
@@ -76,7 +78,7 @@ jobs:
             📦 **Holodex:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex
             📦 **TMDB provider:** ${{ github.server_url }}/${{ github.repository }}/pkgs/container/holodex-provider-tmdb
 
-      # This job IS the `ghcr` deployment (see environment above), so it's the point
+      # This job IS the `prod` deployment (see environment above), so it's the point
       # at which the tag has shipped. Move every code-complete HOLODEX issue
       # (status = Done) to Released (ADR-058, replaces the old Automation rule 5).
       # Soft-fails: a Jira hiccup logs a warning and never red-builds a shipped release.
