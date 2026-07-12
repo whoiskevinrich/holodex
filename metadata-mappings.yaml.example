@@ -29,8 +29,15 @@
 #               source instead of the raw filename
 #   filterable  when true, becomes a browse facet + a ?<canonical>= query param
 #   multi       when true, splits/aggregates multi-valued tags (e.g. genres)
+#
+# This example is a fully-wired reference for the tmdb provider: every field its
+# /enrich response can produce — across all three entity types it supports (video,
+# person, studio) — is mapped below. Comment out or delete anything you don't want
+# to adopt; each entry is independent.
 
 fields:
+  # ============================ Video / film fields ============================
+
   # --- Title (file baseline; adopt a provider per-item via the source control) ---
   # Uncomment when a tmdb provider is configured in metadata-sources.yaml. Under the
   # default (default_source: file) the filename-derived title shows until you adopt
@@ -41,17 +48,54 @@ fields:
   #     - file:title        # baseline: the filename-derived title
   #     - tmdb:title        # candidate: adopt per-item, or wins under default_source: mapping
 
-  # --- Plot overview from enrichment ---
-  # - canonical: overview
-  #   sources:
-  #     - tmdb:overview
+  - canonical: original_title
+    sources:
+      - tmdb:original_title
 
-  # --- Genres (multi-valued from enrichment or file tag) ---
-  # - canonical: genres
-  #   multi: true
-  #   filterable: true
-  #   sources:
-  #     - tmdb:genres
+  - canonical: overview
+    sources:
+      - tmdb:overview
+
+  - canonical: tagline
+    sources:
+      - tmdb:tagline
+
+  - canonical: release_date
+    sources:
+      - tmdb:release_date
+
+  - canonical: runtime
+    sources:
+      - tmdb:runtime
+
+  - canonical: genres
+    multi: true
+    filterable: true
+    sources:
+      - tmdb:genres
+
+  - canonical: status
+    sources:
+      - tmdb:status
+
+  - canonical: original_language
+    sources:
+      - tmdb:original_language
+
+  - canonical: homepage
+    sources:
+      - tmdb:homepage
+
+  - canonical: imdb_id
+    sources:
+      - tmdb:imdb_id
+
+  # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
+  # When written back, Holodex downloads the URL and embeds the image as cover art.
+  - canonical: poster_url
+    label: Poster
+    sources:
+      - tmdb:poster_url
 
   # --- Cast & crew (MERGE fields: union of file tags + enrichment, order-agnostic) ---
   - canonical: actors
@@ -97,9 +141,49 @@ fields:
   #   label: Episode
   #   sources: [EpisodeSort, PartNumber, EpisodeNumber]
 
-  # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
-  # When written back, Holodex downloads the URL and embeds the image as cover art.
-  # - canonical: poster_url
-  #   label: Poster
-  #   sources:
-  #     - tmdb:poster_url
+  # ============================ Person entity fields ============================
+
+  - canonical: bio
+    sources:
+      - tmdb:bio
+
+  - canonical: birthdate
+    sources:
+      - tmdb:birthdate
+
+  - canonical: deathdate
+    sources:
+      - tmdb:deathdate
+
+  - canonical: nationality
+    sources:
+      - tmdb:nationality
+
+  - canonical: aliases
+    multi: true
+    sources:
+      - tmdb:aliases
+
+  # website is shared by the person and studio entities — tmdb emits it on both
+  # enrich responses under the same canonical key (a person's TMDB page, or a
+  # studio's official/TMDB page). One mapping entry covers both.
+  - canonical: website
+    sources:
+      - tmdb:website
+
+  # Note: a person's photo is delivered as an asset (headshot/gallery/banner), not
+  # a field value — there is no tmdb:photo source to map here.
+
+  # ============================ Studio entity fields (F38) ============================
+
+  - canonical: description
+    sources:
+      - tmdb:description
+
+  - canonical: country
+    sources:
+      - tmdb:country
+
+  - canonical: logo
+    sources:
+      - tmdb:logo
