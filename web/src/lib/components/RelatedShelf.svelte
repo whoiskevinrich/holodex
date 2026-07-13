@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Video } from '$lib/types';
 	import VideoCard from './VideoCard.svelte';
+	import { activity } from '$lib/activity.svelte';
 
 	// One "More with <name>" shelf (QW3). Rendered only when it has items — the parent
 	// passes an empty array for an entity with no siblings, and we self-omit so there's
@@ -14,10 +15,16 @@
 			More with <a {href} class="text-ink hover:text-accent">{title}</a>
 		</h2>
 		<!-- .video-grid resets the Brutalist `reel` counter (app.css) so the catalog
-		     numbering restarts at 01 per shelf instead of continuing from the page. -->
-		<div class="video-grid flex gap-4 overflow-x-auto pb-2">
+		     numbering restarts at 01 per shelf instead of continuing from the page.
+		     data-layout mirrors VideoGrid.svelte so poster/wide card sizing (app.css
+		     .video-grid[data-layout=...]) applies here too. -->
+		<div class="video-grid flex gap-4 overflow-x-auto pb-2" data-layout={activity.cardLayout}>
 			{#each items as video (video.id)}
-				<div class="w-52 shrink-0 sm:w-56">
+				<div
+					class={activity.cardLayout === 'poster'
+						? 'w-32 shrink-0 sm:w-36'
+						: 'w-52 shrink-0 sm:w-56'}
+				>
 					<VideoCard {video} />
 				</div>
 			{/each}
