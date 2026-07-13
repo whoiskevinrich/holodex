@@ -87,6 +87,10 @@ type candidate struct {
 	Label          string  `json:"label"`
 	Confidence     float64 `json:"confidence"`
 	Disambiguation string  `json:"disambiguation,omitempty"`
+	// ProfileURL is TMDB's own page for this match (F47, RD6/P1-1) — Holodex
+	// scheme-validates it server-side before ever rendering it as a link, so this
+	// sidecar just emits the real themoviedb.org URL.
+	ProfileURL string `json:"profile_url,omitempty"`
 }
 
 type assetEntry struct {
@@ -307,6 +311,7 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 				Label:          det.Title,
 				Confidence:     1.0,
 				Disambiguation: movieDisambiguate(det),
+				ProfileURL:     tmdbMovieURL(det.ID, det.Title),
 			}}, nil
 		case "imdb":
 			cands, err := c.findMovieByIMDB(ctx, val)
@@ -347,6 +352,7 @@ func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidat
 			Label:          p.Name,
 			Confidence:     rankConfidence(i, p.Popularity),
 			Disambiguation: disambiguate(p),
+			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
 		})
 	}
 	return out, nil
@@ -369,6 +375,7 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 			Label:          p.Name,
 			Confidence:     0.95,
 			Disambiguation: disambiguate(p),
+			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
 		})
 	}
 	return out, nil
@@ -398,6 +405,7 @@ func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]can
 			Label:          m.Title,
 			Confidence:     rankConfidence(i, m.Popularity),
 			Disambiguation: movieYear(m.ReleaseDate),
+			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
 		})
 	}
 	return out, nil
@@ -423,6 +431,7 @@ func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]cand
 			Label:          m.Title,
 			Confidence:     0.95,
 			Disambiguation: dis,
+			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
 		})
 	}
 	return out, nil
@@ -864,6 +873,7 @@ func (c *tmdbClient) resolveStudio(ctx context.Context, h hintBody) ([]candidate
 			Label:          det.Name,
 			Confidence:     1.0,
 			Disambiguation: det.OriginCountry,
+			ProfileURL:     tmdbEntityURL("company", det.ID, det.Name),
 		}}, nil
 	}
 	if h.Query == "" {
@@ -895,6 +905,7 @@ func (c *tmdbClient) searchCompany(ctx context.Context, query string) ([]candida
 			Label:          co.Name,
 			Confidence:     rankConfidence(i, 0),
 			Disambiguation: co.OriginCountry,
+			ProfileURL:     tmdbEntityURL("company", co.ID, co.Name),
 		})
 	}
 	return out, nil

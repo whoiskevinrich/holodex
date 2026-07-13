@@ -188,6 +188,33 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 	}
 }
 
+// A candidate's profile_url is scheme-validated server-side before it can ever
+// reach an API response and become a picker `href` (F47, RD6/P1-1): a hostile
+// scheme is dropped silently (the candidate itself stays usable), a normal
+// http(s) URL round-trips unchanged.
+func TestServiceResolveSanitizesProfileURL(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:1"] = FakePerson{Label: "Hostile Match", ProfileURL: "javascript:alert(1)"}
+	fake.People["tmdb:2"] = FakePerson{Label: "Clean Match", ProfileURL: "https://www.themoviedb.org/person/2"}
+	svc, _ := newSvc(t, fake)
+	ctx := context.Background()
+
+	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityPerson, Hint{Query: "match"})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	got := map[string]string{}
+	for _, c := range cands {
+		got[c.ExternalID] = c.ProfileURL
+	}
+	if got["tmdb:1"] != "" {
+		t.Errorf("hostile-scheme profile_url survived sanitization: %q", got["tmdb:1"])
+	}
+	if got["tmdb:2"] != "https://www.themoviedb.org/person/2" {
+		t.Errorf("clean profile_url = %q, want round-tripped unchanged", got["tmdb:2"])
+	}
+}
+
 // Studio entity end-to-end (F38 S3): resolve → enrich → provenance → clear against
 // the in-process fake studio. Proves the entity-generic Enrich service works for a
 // third entity type with no core diffs, and that the logo arrives as a plain field.
@@ -743,6 +770,30 @@ func TestSanitizeValue(t *testing.T) {
 	long := strings.Repeat("x", maxFieldLen+10)
 	if got := SanitizeValue(long); len(got) != maxFieldLen {
 		t.Errorf("length cap = %d, want %d", len(got), maxFieldLen)
+	}
+}
+
+// A candidate's profile_url becomes a picker `href` client-side (F47, RD6/P1-1),
+// so only http(s) survives — everything else, including no-scheme/relative values,
+// is dropped rather than erroring.
+func TestSanitizeProfileURL(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"https://www.themoviedb.org/person/608", "https://www.themoviedb.org/person/608"},
+		{"http://example.com/p", "http://example.com/p"},
+		{"javascript:alert(1)", ""},
+		{"data:text/html,<script>alert(1)</script>", ""},
+		{"//evil.example.com", ""},
+		{"/relative/path", ""},
+		{"", ""},
+		{"   ", ""},
+	}
+	for _, c := range cases {
+		if got := sanitizeProfileURL(c.in); got != c.want {
+			t.Errorf("sanitizeProfileURL(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
 

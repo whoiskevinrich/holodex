@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/url"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -557,8 +558,25 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].Disambiguation = SanitizeValue(in[i].Disambiguation)
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
+		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
 	}
 	return in
+}
+
+// sanitizeProfileURL bounds a candidate's provider-supplied profile_url (F47,
+// RD6/P1-1): only an http(s) URL survives. It becomes a picker `href` client-side,
+// so a hostile scheme (javascript:, data:, …) is dropped rather than erroring —
+// the candidate itself is still usable, just without the "view source" link.
+func sanitizeProfileURL(raw string) string {
+	raw = SanitizeValue(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return raw
 }
 
 // SanitizeValue removes control characters (keeping normal whitespace), collapses
