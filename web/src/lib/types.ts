@@ -454,6 +454,32 @@ export interface EnrichedField {
 	fetched_at?: string;
 }
 
+// Enrichment review queue (F47 S2, ADR-065). EnrichEntityKind is the enrichment
+// entity spine — person | studio | video — distinct from EntityKind (F43's
+// alias/merge/rename spine), which has no `video`.
+export type EnrichEntityKind = 'person' | 'studio' | 'video';
+
+// EnrichQueueProviderState is one row's per-provider status (RD9 — never a single
+// collapsed flag). 'unreviewed' | 'not_matched' come from the server (GET
+// /owner/enrich-queue); 'auto_applied' only ever exists client-side, set once a
+// /resolve+/enrich round-trip actually applies a candidate. Whether the owner has
+// merely *opened* an unreviewed provider's picker this session is ephemeral UI
+// state, not domain state — it stays local to EnrichQueueRow, not here.
+export interface EnrichQueueProviderState {
+	provider: string;
+	state: 'unreviewed' | 'not_matched' | 'auto_applied';
+}
+
+// EnrichQueueRow is one review-queue entity: still missing at least one supporting
+// provider's data. `providers` lists only outstanding providers — a linked one is
+// simply absent (mirrors internal/repo/enrich_queue.go's EnrichQueueRow).
+export interface EnrichQueueRow {
+	entity_type: EnrichEntityKind;
+	entity_id: number;
+	name: string;
+	providers: EnrichQueueProviderState[];
+}
+
 // Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted
 // source (file first, then each linked provider). sources_disagree is reserved
 // (populated by the future batch op, F31.11); single-item it is false.

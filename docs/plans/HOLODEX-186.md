@@ -21,20 +21,53 @@ security clean.
 - [x] spec `write-spec` → [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md)
 - [x] architecture `architecture` → [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
-- [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); build (S2–S4) not started
+- [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) shipped, S3–S4 (`EnrichPicker`/`EnrichProviderChips`) not started
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
 - [ ] security `security-review` — `profile_url` scheme validation is the one new externally-influenced surface
 
 ## Up next — ordered (position = priority)
 
 1. [x] [backend] S1 data model + endpoints — `enrichment_dismissals` migration, `dismiss`/`undismiss`/`refresh`/`refresh-all` routes, `GET /owner/enrich-queue` — `internal/api`, `internal/db/migrations`
-2. [ ] [frontend] S2 Enrichment tab — `owner/enrichment/+page.svelte`, `EnrichQueueRow.svelte`, `ProviderStatusChip.svelte` — `web/src/routes/owner`
+2. [x] [frontend] S2 Enrichment tab — `owner/enrichment/+page.svelte`, `EnrichQueueRow.svelte`, `ProviderStatusChip.svelte` — `web/src/routes/owner`
 3. [ ] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
 4. [ ] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
 5. [ ] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
 6. [ ] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-12 · S2 frontend — Enrichment tab
+- skills: simplify
+- frontend: `web/src/routes/owner/enrichment/+page.svelte` (new) — the entity-generic sibling of
+  `owner/duplicates/+page.svelte`: `$state` rows loaded once from `GET /owner/enrich-queue`
+  (zero-cost, no provider calls per RD2/RD3), grouped People → Studios → Media (spec Q3),
+  actionable-first sort within a group (an `unreviewed` provider sorts above an all-`not_matched`
+  row, even though the latter still shows "Try again"). Rows update chips in place on resolve
+  instead of dropping out (handoff's Animation/Motion table) via an `onchange` callback the row
+  bubbles up. `web/src/lib/components/EnrichQueueRow.svelte` (new) — dense row mirroring
+  `DuplicatePairRow`'s rhythm; "Review" opens the *existing, unmodified* `EnrichPicker` for the
+  row's next outstanding provider (auto-apply-on-single-strong-match is S3's job, inside
+  `EnrichPicker` itself, so this row inherits it for free once S3 lands); "Try again" clears a
+  durable `not_matched` dismissal (new `enrichUndismiss` API method) and reopens the picker.
+  `web/src/lib/components/ProviderStatusChip.svelte` (new) — read-only sibling of
+  `EnrichProviderChips`' chip shell, no button/menu since the row action drives resolution.
+  `owner/+layout.svelte` — added the tab entry. `types.ts`/`api.ts` — `EnrichEntityKind`
+  (person|studio|video, distinct from F43's `EntityKind` which has no video),
+  `EnrichQueueRow`/`EnrichQueueProviderState`, `api.enrichQueue()`/`api.enrichUndismiss()`.
+- note: kept "has the owner opened this provider's picker" as local-only UI state
+  (`EnrichQueueRow`'s `reviewed` set, mirroring `DuplicatePairRow`'s local `choosing`) rather than
+  a fourth `EnrichQueueProviderState.state` value — a `/simplify` altitude finding caught an
+  earlier draft smuggling ephemeral "opened but not yet resolved" state into the synced domain
+  enum; ADR-065's real states stay `unreviewed | not_matched | auto_applied`.
+- verified: `npm run check` (0 errors), `npm run test` (103 passed), token guard
+  (`rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)'`) empty. Live 3-skin browser QA not run
+  this session — the pinned :5173/:7800 dev-server ports were held by another session's worktree;
+  full QA is S6's job per the plan anyway.
+- deferred: flagged (not fixed, out of this slice's diff scope) — `owner/duplicates/+page.svelte`
+  and this page's `groups` derivation duplicate the same group-by-kind shape; a shared helper is
+  worth extracting later (spawned as a background task, not blocking S2).
+- next: S3 `EnrichPicker` — auto-apply on single strong match, "None of these match" (new
+  `ondismissed` event + `POST .../dismiss`), view-source link.
 
 ### 2026-07-12 · S1 backend — data model + endpoints
 - skills: simplify
