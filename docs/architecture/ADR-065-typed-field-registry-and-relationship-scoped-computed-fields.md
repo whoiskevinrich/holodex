@@ -1,10 +1,12 @@
 # ADR-065: Typed field registry + relationship-scoped computed fields (queryable-fields substrate, Phase 1)
 
-**Status:** Proposed
+**Status:** Superseded
 **Date:** 2026-07-12
 **Deciders:** Project owner
 
 **Extends:** [ADR-063](ADR-063-derived-computed-fields.md) (the compute-on-read, non-adoptable derived-field genre — this ADR is its relationship-scoped twin) · [ADR-052](ADR-052-baseline-source-contract.md) (entity-agnostic `ResolveFields` core; `registry.FieldDef` the canonical vocabulary both draw from) · [ADR-013](ADR-013-metadata-field-mapping.md) (`FieldDef`/`mapping.Field` registry this adds a type dimension to). **Realizes the deferred item in:** [ADR-062](ADR-062-in-app-field-promotion.md) §D-filterable ("promote to facet… needs the browse-facet value-validation review") — this ADR builds the *type/operator taxonomy* that item was blocked on, without itself wiring a facet (see Non-Goals). **Spec:** [Queryable fields substrate — Phase 1](../specs/queryable-fields-substrate.md) (F46 Phase 1). **Issue:** [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) (epic [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178)). **Security:** `/security-review` not expected — read-only computed values, no new auth/access/infra surface (confirm at implementation time, per spec).
+
+**Superseded (2026-07-12):** [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) was closed Won't Do the same day this ADR was written — the generic typed-field-registry substrate proposed here had zero shipped consumers left to justify it (per the ticket's closing comment: building it now would be speculative infrastructure against this repo's simplicity-first working agreement). Its pilot case, Age in Media, shipped instead as a narrow, bespoke API-layer join with no registry involvement — [HOLODEX-173](https://whoiskevinrich.atlassian.net/browse/HOLODEX-173), spec [`age-in-media.md`](../specs/age-in-media.md). The design recorded below is not wrong, just unbuilt — epic [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) stays open, and this ADR should be revisited (confirmed, revised, or replaced) if a future phase — most likely [HOLODEX-180](https://whoiskevinrich.atlassian.net/browse/HOLODEX-180) — actually needs the generic substrate.
 
 ---
 

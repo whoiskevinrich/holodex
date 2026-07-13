@@ -1,6 +1,6 @@
 # Spec: Queryable fields substrate — Phase 1 (typed registry + Age in Media) (F46 Phase 1)
 
-**Status**: Draft
+**Status**: Superseded
 **Phase**: F46 Phase 1 of 3 (epic HOLODEX-178)
 **Owner**: Project owner
 **Date**: 2026-07-12
@@ -8,6 +8,17 @@
 **operator model** (equals, contains, range), piloted end-to-end by **Age in Media**: a new
 **relationship-scoped** computed field (person × video) extending the F45 computed-field engine beyond
 single-entity scope.
+
+**Superseded (2026-07-12)**: [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) was
+closed Won't Do the same day this spec was written — no shipped consumer was left to justify building the
+generic substrate now (its own pilot, Age in Media, shipped instead as a narrow bespoke API-layer join with
+no registry involvement — [HOLODEX-173](https://whoiskevinrich.atlassian.net/browse/HOLODEX-173), spec
+[`age-in-media.md`](age-in-media.md)). This design is not wrong, just unbuilt: epic
+[HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) stays open, and this spec should be
+re-validated (confirmed, revised, or replaced) if a future phase — most likely
+[HOLODEX-180](https://whoiskevinrich.atlassian.net/browse/HOLODEX-180) — actually needs the generic
+substrate. See also [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md#superseded-2026-07-12),
+superseded in lockstep.
 
 **Issue**: [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) *(parent epic
 [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) — F46 Queryable person/video
