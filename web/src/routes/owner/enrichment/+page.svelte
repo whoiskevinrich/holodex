@@ -101,6 +101,7 @@
 						href={ENRICH_OPS[row.entity_type].href(row.entity_id)}
 						resolve={(p, q) => ENRICH_OPS[row.entity_type].resolve(row.entity_id, p, q)}
 						apply={(p, id) => ENRICH_OPS[row.entity_type].apply(row.entity_id, p, id)}
+						dismiss={(p) => api.enrichDismiss(row.entity_type, row.entity_id, p)}
 						undismiss={(p) => api.enrichUndismiss(row.entity_type, row.entity_id, p)}
 						onchange={(providers) => updateRow(row, providers)}
 					/>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	// One dense entity row in the Enrichment review queue (F47 S2, ADR-065). Mirrors
+	// One dense entity row in the Enrichment review queue (F47 S2/S3, ADR-065). Mirrors
 	// DuplicatePairRow's rhythm: a status chip per outstanding provider, plus one
 	// right-aligned row action derived from the chips' states (RD9) — "Review" opens
 	// EnrichPicker for the row's next outstanding provider (auto-apply-on-single-
-	// strong-match lands in S3, inside EnrichPicker itself, so both this row and the
+	// strong-match lives inside EnrichPicker itself, so both this row and the
 	// detail-page "Enrich" button get it for free); "Try again" clears a durable "not
 	// matched" dismissal and reopens the picker for it. Enrichment rows never
 	// disappear on resolve — they update chips in place and re-sort (handoff's
@@ -18,6 +18,7 @@
 		href,
 		resolve,
 		apply,
+		dismiss,
 		undismiss,
 		onchange
 	}: {
@@ -25,6 +26,7 @@
 		href: string;
 		resolve: (provider: string, query: string) => Promise<{ candidates: EnrichCandidate[] }>;
 		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
+		dismiss: (provider: string) => Promise<unknown>;
 		undismiss: (provider: string) => Promise<unknown>;
 		/** Bubbles the row's updated provider states up so the queue can re-sort/re-group. */
 		onchange: (providers: EnrichQueueProviderState[]) => void;
@@ -119,7 +121,9 @@
 		provider={pickerProvider}
 		{resolve}
 		{apply}
+		{dismiss}
 		onclose={() => (pickerProvider = '')}
 		onapplied={() => setState(pickerProvider, 'auto_applied')}
+		ondismissed={() => setState(pickerProvider, 'not_matched')}
 	/>
 {/if}

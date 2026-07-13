@@ -4,7 +4,7 @@
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage } from '$lib/format';
+	import { toMessage, isHttpUrl } from '$lib/format';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
 
 	let {
@@ -12,15 +12,23 @@
 		provider,
 		resolve,
 		apply,
+		dismiss,
 		onclose,
-		onapplied
+		onapplied,
+		ondismissed
 	}: {
 		entityName: string;
 		provider: string;
 		resolve: (provider: string, query: string) => Promise<{ candidates: EnrichCandidate[] }>;
 		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
+		dismiss: (provider: string) => Promise<unknown>;
 		onclose: () => void;
 		onapplied: (fields: EnrichedField[]) => void;
+		/** "None of these match" (RD4) — records a durable dismissal; caller flips its
+		 *  own state to `not_matched` without a refetch, mirroring `onapplied`. Optional:
+		 *  callers with no per-provider dismissal UI of their own (the detail pages) can
+		 *  omit it — closing the picker is already handled by `onclose`. */
+		ondismissed?: () => void;
 	} = $props();
 
 	// Seed the search box with the entity's name; we want the initial value only
@@ -31,12 +39,16 @@
 	let active = $state(0);
 	let loading = $state(false);
 	let applying = $state(false);
+	let dismissing = $state(false);
 	let error = $state('');
 	let input = $state<HTMLInputElement | null>(null);
 	let dialogEl = $state<HTMLElement | null>(null);
 	let trigger: HTMLElement | null = null;
 
 	const listId = 'enrich-candidates';
+	// Auto-apply cutoff (ADR-065 D1) — must match internal/enrich.StrongMatchThreshold
+	// exactly; also drives matchLabel's "Strong match" chip below.
+	const STRONG_MATCH = 0.85;
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null; // the Enrich button
@@ -44,7 +56,10 @@
 		input?.select();
 		// Auto-search the pre-filled name on open so a confident match shows
 		// immediately — the owner shouldn't have to retype the entity's own name.
-		if (query.trim().length >= 2) void search(query.trim());
+		// `auto` lets search() auto-apply a lone strong match without ever showing
+		// the list (RD1); only this initial, entity-seeded search qualifies — a
+		// search the owner typed themselves always waits for a manual pick.
+		if (query.trim().length >= 2) void search(query.trim(), true);
 		// Focus-return: send focus back to the Enrich button when the picker closes.
 		return () => trigger?.focus?.();
 	});
@@ -80,18 +95,32 @@
 		timer = setTimeout(() => void search(q), 300);
 	}
 
-	async function search(q: string) {
+	// Guards against the unstaggered initial auto-search racing a user-typed one: if
+	// the owner edits the seeded name before the auto-search's resolve() returns, its
+	// (now-stale) response must neither clobber the newer candidate list nor auto-apply
+	// a match for an abandoned query.
+	let searchId = 0;
+	async function search(q: string, auto = false) {
+		const id = ++searchId;
 		loading = true;
 		error = '';
 		try {
 			const res = await resolve(provider, q);
+			if (id !== searchId) return;
 			candidates = res.candidates ?? [];
 			active = 0;
+			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
+			// strong match instead of making the owner confirm it — anything else (zero,
+			// multiple, or weaker candidates) falls through to the normal picker list.
+			if (auto && candidates.length === 1 && candidates[0].confidence >= STRONG_MATCH) {
+				await confirm(candidates[0]);
+			}
 		} catch (e) {
+			if (id !== searchId) return;
 			error = toMessage(e);
 			candidates = [];
 		} finally {
-			loading = false;
+			if (id === searchId) loading = false;
 		}
 	}
 
@@ -107,6 +136,23 @@
 			error = toMessage(e);
 		} finally {
 			applying = false;
+		}
+	}
+
+	// "None of these match" (RD4) — records a durable dismissal and closes; the caller
+	// flips its own state to `not_matched`, same shape as confirm()'s onapplied+onclose.
+	async function noMatch() {
+		if (dismissing || applying) return;
+		dismissing = true;
+		error = '';
+		try {
+			await dismiss(provider);
+			ondismissed?.();
+			onclose();
+		} catch (e) {
+			error = toMessage(e);
+		} finally {
+			dismissing = false;
 		}
 	}
 
@@ -145,7 +191,7 @@
 	}
 
 	function matchLabel(c: number): { text: string; accent: boolean } {
-		if (c >= 0.85) return { text: 'Strong match', accent: true };
+		if (c >= STRONG_MATCH) return { text: 'Strong match', accent: true };
 		if (c >= 0.5) return { text: 'Possible match', accent: false };
 		return { text: 'Weak match', accent: false };
 	}
@@ -233,11 +279,38 @@
 					{#if c.disambiguation}
 						<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
 					{/if}
+					{#if c.profile_url && isHttpUrl(c.profile_url)}
+						<a
+							href={c.profile_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							onclick={(e) => e.stopPropagation()}
+							aria-label={`View ${c.label} on ${provider}'s site (opens in a new tab)`}
+							class="text-xs text-accent hover:underline"
+						>
+							view source ↗
+						</a>
+					{/if}
 				</li>
 			{/each}
 		</ul>
 
-		{#if applying}
+		{#if candidates.length > 0}
+			<!-- Same row as the "Enriching…" status line so the dismiss action never
+			     competes visually with a candidate's own confirm click. -->
+			<div class="mt-2 flex items-center justify-between gap-2">
+				<button
+					onclick={noMatch}
+					disabled={dismissing || applying}
+					class="rounded-theme px-2 py-1 text-xs text-muted hover:text-ink disabled:opacity-60"
+				>
+					{dismissing ? 'Dismissing…' : 'None of these match'}
+				</button>
+				{#if applying}
+					<p class="text-xs text-muted">Enriching…</p>
+				{/if}
+			</div>
+		{:else if applying}
 			<p class="mt-2 text-xs text-muted">Enriching…</p>
 		{/if}
 	</div>

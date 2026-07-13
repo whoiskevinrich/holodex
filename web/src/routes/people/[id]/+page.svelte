@@ -620,6 +620,7 @@
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
+		dismiss={(prov) => api.enrichDismiss('person', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>

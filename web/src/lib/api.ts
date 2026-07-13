@@ -513,6 +513,14 @@ export const api = {
 	// outstanding (not-yet-linked) providers.
 	enrichQueue: () => getAuthed<{ rows: EnrichQueueRow[] }>(`/owner/enrich-queue`),
 
+	// Records a durable "not matched" verdict for one (entity, provider) — EnrichPicker's
+	// "None of these match" (RD4). Blocks a future /resolve for the pair until undismissed.
+	enrichDismiss: (kind: EnrichEntityKind, id: number, provider: string) =>
+		sendAuthed<Record<string, never>>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/dismiss`
+		),
+
 	// Clears a "not matched" dismissal for one (entity, provider) — the queue row's
 	// "Try again" action (RD4). A future /resolve for the pair is unblocked.
 	enrichUndismiss: (kind: EnrichEntityKind, id: number, provider: string) =>

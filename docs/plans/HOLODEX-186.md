@@ -21,20 +21,58 @@ security clean.
 - [x] spec `write-spec` → [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md)
 - [x] architecture `architecture` → [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
-- [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) shipped, S3–S4 (`EnrichPicker`/`EnrichProviderChips`) not started
+- [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) shipped, S4 (`EnrichProviderChips`) not started
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
-- [ ] security `security-review` — `profile_url` scheme validation is the one new externally-influenced surface
+- [ ] security `security-review` — `profile_url` scheme validation is the one new externally-influenced surface (backend not yet emitting the field — see S3 note; nothing to review server-side until it lands)
 
 ## Up next — ordered (position = priority)
 
 1. [x] [backend] S1 data model + endpoints — `enrichment_dismissals` migration, `dismiss`/`undismiss`/`refresh`/`refresh-all` routes, `GET /owner/enrich-queue` — `internal/api`, `internal/db/migrations`
 2. [x] [frontend] S2 Enrichment tab — `owner/enrichment/+page.svelte`, `EnrichQueueRow.svelte`, `ProviderStatusChip.svelte` — `web/src/routes/owner`
-3. [ ] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
+3. [x] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
 4. [ ] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
 5. [ ] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
 6. [ ] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-12 · S3 frontend — EnrichPicker additions
+- skills: simplify
+- frontend: `web/src/lib/components/EnrichPicker.svelte` — three additions per the handoff §2.
+  **Auto-apply (RD1):** the picker's pre-existing initial auto-search (seeded with the entity's
+  own name) now, on a lone `>=0.85` candidate, calls `confirm()` itself instead of rendering the
+  list — a request-generation counter (`searchId`) guards against a slow auto-search's response
+  clobbering a newer, user-typed search or auto-applying a stale match; a manually typed search
+  never auto-applies. **"None of these match" (RD4):** a new `dismiss`/`ondismissed` prop pair
+  (mirrors `apply`/`onapplied`); `noMatch()` calls `POST .../enrich/{provider}/dismiss`, closes,
+  and reports up so the caller can flip to `not_matched` without a refetch — visible once
+  candidates exist, alongside the "Enriching…" status line. **View-source link (RD6/P1-1):** an
+  optional `EnrichCandidate.profile_url` (new in `types.ts`) renders as "view source ↗", gated
+  through `isHttpUrl()` (`format.ts`'s standing guard for any provider-supplied `href`, matching
+  `UrlValueList`'s convention) even though the field is also scheme-validated server-side —
+  belt-and-suspenders, not redundant. `web/src/lib/api.ts` gained `enrichDismiss` (mirrors the
+  S2 `enrichUndismiss` shape). Wired `dismiss` through `EnrichQueueRow.svelte` (→ `not_matched`
+  on dismiss, alongside S2's existing `undismiss`/"Try again") and all three detail pages
+  (`people`/`studios`/`media` `[id]/+page.svelte`) so "None of these match" works everywhere the
+  picker opens, not just the queue — `ondismissed` is optional (the detail pages have no
+  per-provider dismissal UI of their own, so they omit it; only `EnrichQueueRow` supplies one).
+- note: `profile_url` is frontend-only for now — `internal/enrich.Candidate` has no backend field
+  yet, so the link never renders against real data until that lands (spawned as a background
+  task, `task_886c73ca`, not blocking S3: the type/render code is inert-safe in the meantime,
+  matching the handoff's own "absent → nothing rendered" degrade path). Also spawned
+  `task_6d29b71d` — the `0.85` strong-match threshold is now declared independently in
+  `internal/enrich.StrongMatchThreshold` (Go) and `EnrichPicker`'s `STRONG_MATCH` (TS), each with
+  a "must never drift" comment; a server-computed `auto_apply` verdict on `/resolve` would
+  collapse this to one source of truth — not fixed here since it's a `/resolve` response-shape
+  change spanning 3 backend routes, out of this diff's scope.
+- verified: `npm run check` (0 errors), `npm run test` (103 passed), token guard empty. Live QA
+  against `backend-amv` + `provider-tmdb` (real TMDB API): confirmed all three behaviors
+  end-to-end — "Alyssa Milano" resolved to one strong match and auto-applied with no picker
+  shown; "Alan Smithee" (a pseudonym, correctly ambiguous — 10 candidates) opened the picker,
+  "None of these match" flipped the chip to "Not matched" (row action → "Try again"), and
+  "Try again" re-resolved fresh. 3-skin QA not run this session (S6's job per the plan).
+- next: S4 `EnrichProviderChips` — Refresh primary action once linked, Re-match/Clear into the
+  ⋯ overflow, Refresh-all.
 
 ### 2026-07-12 · S2 frontend — Enrichment tab
 - skills: simplify

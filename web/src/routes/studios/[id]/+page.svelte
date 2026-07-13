@@ -355,6 +355,7 @@
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichStudioResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichStudioApply(id, prov, extId)}
+		dismiss={(prov) => api.enrichDismiss('studio', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>

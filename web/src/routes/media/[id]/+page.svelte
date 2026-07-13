@@ -677,6 +677,7 @@
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
+			dismiss={(prov) => api.enrichDismiss('video', id, prov)}
 			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>

@@ -438,6 +438,12 @@ export interface EnrichCandidate {
 	label: string;
 	confidence: number;
 	disambiguation?: string;
+	// profile_url is an optional, provider-supplied link to its own page for this
+	// candidate (F47 P1-1/RD6). Scheme-validated server-side, but the client still
+	// gates it through isHttpUrl() before rendering as a link (format.ts's standing
+	// convention for any provider-supplied URL — belt and suspenders). Absent when
+	// the provider doesn't offer one.
+	profile_url?: string;
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
