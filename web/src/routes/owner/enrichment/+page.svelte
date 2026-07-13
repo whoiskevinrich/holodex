@@ -8,6 +8,7 @@
 	// only; QA 3 skins.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
+	import { groupByKind } from '$lib/entityGroups';
 	import type {
 		EnrichCandidate,
 		EnrichedField,
@@ -47,16 +48,9 @@
 	}
 
 	const groups = $derived(
-		groupOrder
-			.map((et) => ({
-				type: et,
-				items: rows
-					.filter((r) => r.entity_type === et)
-					.map((row) => ({ row, key: sortKey(row) }))
-					.sort((a, b) => a.key - b.key || a.row.name.localeCompare(b.row.name))
-					.map((x) => x.row)
-			}))
-			.filter((g) => g.items.length > 0)
+		groupByKind(rows, groupOrder, (r) => r.entity_type, (items) =>
+			[...items].sort((a, b) => sortKey(a) - sortKey(b) || a.name.localeCompare(b.name))
+		)
 	);
 
 	async function load() {
