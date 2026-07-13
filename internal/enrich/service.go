@@ -569,6 +569,7 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].Disambiguation = SanitizeValue(in[i].Disambiguation)
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
+		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
 	}
 	return in
 }

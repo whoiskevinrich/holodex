@@ -46,9 +46,6 @@
 	let trigger: HTMLElement | null = null;
 
 	const listId = 'enrich-candidates';
-	// Auto-apply cutoff (ADR-065 D1) — must match internal/enrich.StrongMatchThreshold
-	// exactly; also drives matchLabel's "Strong match" chip below.
-	const STRONG_MATCH = 0.85;
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null; // the Enrich button
@@ -112,8 +109,11 @@
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
 			// multiple, or weaker candidates) falls through to the normal picker list.
-			if (auto && candidates.length === 1 && candidates[0].confidence >= STRONG_MATCH) {
-				await confirm(candidates[0]);
+			// Same exactly-one-auto_apply rule as the backend's SingleStrongMatch; other,
+			// weaker candidates in the list don't block it.
+			const strong = candidates.filter((c) => c.auto_apply);
+			if (auto && strong.length === 1) {
+				await confirm(strong[0]);
 			}
 		} catch (e) {
 			if (id !== searchId) return;
@@ -190,9 +190,9 @@
 		dialogEl?.querySelector<HTMLElement>(`#enrich-opt-${i}`)?.focus();
 	}
 
-	function matchLabel(c: number): { text: string; accent: boolean } {
-		if (c >= STRONG_MATCH) return { text: 'Strong match', accent: true };
-		if (c >= 0.5) return { text: 'Possible match', accent: false };
+	function matchLabel(c: EnrichCandidate): { text: string; accent: boolean } {
+		if (c.auto_apply) return { text: 'Strong match', accent: true };
+		if (c.confidence >= 0.5) return { text: 'Possible match', accent: false };
 		return { text: 'Weak match', accent: false };
 	}
 </script>
@@ -256,7 +256,7 @@
 
 		<ul id={listId} role="listbox" aria-label="Candidates" class="mt-2 flex-1 overflow-y-auto">
 			{#each candidates as c, i (c.external_id)}
-				{@const m = matchLabel(c.confidence)}
+				{@const m = matchLabel(c)}
 				<!-- Roving tabindex: the active row is the lone tab stop; Tab/↑/↓ reach it,
 				     Enter/Space/click apply. -->
 				<li

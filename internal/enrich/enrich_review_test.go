@@ -2,9 +2,11 @@ package enrich
 
 import "testing"
 
-// SingleStrongMatch is the auto-apply threshold check (ADR-065 D1) — exactly one
-// candidate at/above StrongMatchThreshold routes to apply(); any other outcome
-// (0, or 2+) leaves the ambiguity for the owner. Table-driven over the 0/1/2 boundary.
+// SingleStrongMatch is the auto-apply cardinality check (ADR-065 D1) — exactly one
+// AutoApply=true candidate routes to apply(); any other outcome (0, or 2+) leaves the
+// ambiguity for the owner. AutoApply itself (the threshold computation) is
+// sanitizeCandidates' job, covered by TestSanitizeCandidatesAutoApply — these cases
+// set it directly to test SingleStrongMatch's cardinality logic in isolation.
 func TestSingleStrongMatch(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -13,20 +15,20 @@ func TestSingleStrongMatch(t *testing.T) {
 		id    string
 	}{
 		{"no candidates", nil, false, ""},
-		{"one weak", []Candidate{{ExternalID: "a", Confidence: 0.5}}, false, ""},
-		{"one exactly at threshold", []Candidate{{ExternalID: "a", Confidence: StrongMatchThreshold}}, true, "a"},
+		{"one weak", []Candidate{{ExternalID: "a", AutoApply: false}}, false, ""},
+		{"one strong", []Candidate{{ExternalID: "a", AutoApply: true}}, true, "a"},
 		{"one strong among weak", []Candidate{
-			{ExternalID: "weak", Confidence: 0.4},
-			{ExternalID: "strong", Confidence: 0.95},
+			{ExternalID: "weak", AutoApply: false},
+			{ExternalID: "strong", AutoApply: true},
 		}, true, "strong"},
 		{"two strong", []Candidate{
-			{ExternalID: "a", Confidence: 0.9},
-			{ExternalID: "b", Confidence: 0.86},
+			{ExternalID: "a", AutoApply: true},
+			{ExternalID: "b", AutoApply: true},
 		}, false, ""},
 		{"two strong one weak", []Candidate{
-			{ExternalID: "a", Confidence: 0.9},
-			{ExternalID: "b", Confidence: 0.86},
-			{ExternalID: "c", Confidence: 0.1},
+			{ExternalID: "a", AutoApply: true},
+			{ExternalID: "b", AutoApply: true},
+			{ExternalID: "c", AutoApply: false},
 		}, false, ""},
 	}
 	for _, tt := range tests {

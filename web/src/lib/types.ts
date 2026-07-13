@@ -430,14 +430,17 @@ export interface EnrichSource {
 	icon_url?: string;
 }
 
-// EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence
-// is advisory — the owner always confirms (no silent auto-apply).
+// EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence stays
+// provider-native/advisory; auto_apply is the server-computed verdict derived from it
+// (ADR-065 D1, internal/enrich.StrongMatchThreshold) — the client renders auto_apply
+// but never re-derives it from a confidence cutoff of its own.
 export interface EnrichCandidate {
 	external_id: string;
 	namespace: string;
 	label: string;
 	confidence: number;
 	disambiguation?: string;
+	auto_apply: boolean;
 	// profile_url is an optional, provider-supplied link to its own page for this
 	// candidate (F47 P1-1/RD6). Scheme-validated server-side, but the client still
 	// gates it through isHttpUrl() before rendering as a link (format.ts's standing
