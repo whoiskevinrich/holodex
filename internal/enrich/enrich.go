@@ -272,6 +272,11 @@ type Candidate struct {
 	Label          string  `json:"label"`
 	Confidence     float64 `json:"confidence"`
 	Disambiguation string  `json:"disambiguation,omitempty"`
+	// ProfileURL is an optional provider-supplied link to its own page for this
+	// candidate (e.g. a TMDB person/company page), rendered as "view source ↗" in
+	// the picker (F47, RD6/P1-1). sanitizeCandidates drops anything that isn't
+	// http(s) before this ever reaches an API response — it becomes an `href`.
+	ProfileURL string `json:"profile_url,omitempty"`
 }
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and

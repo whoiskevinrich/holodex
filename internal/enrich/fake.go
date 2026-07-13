@@ -26,6 +26,7 @@ type Fake struct {
 type FakePerson struct {
 	Label          string
 	Disambiguation string // the picker hint (entity-appropriate: known-for, origin country, …)
+	ProfileURL     string // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
 	Fields         map[string][]string
 	Assets         []Asset // optional image assets (F25) the enrich response carries
 }
@@ -93,7 +94,10 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) ([]Candi
 	// Embedded-id path: echo back any provided id as a strong match.
 	for _, id := range hint.ExternalIDs {
 		if p, ok := records[id]; ok {
-			return []Candidate{{ExternalID: id, Namespace: idNamespace(id), Label: p.Label, Confidence: 1}}, nil
+			return []Candidate{{
+				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
+				Confidence: 1, ProfileURL: p.ProfileURL,
+			}}, nil
 		}
 	}
 	// Name-search fallback: substring match on the canned labels.
@@ -103,7 +107,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) ([]Candi
 		if q != "" && strings.Contains(strings.ToLower(p.Label), q) {
 			out = append(out, Candidate{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 0.9, Disambiguation: p.Disambiguation,
+				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL,
 			})
 		}
 	}
