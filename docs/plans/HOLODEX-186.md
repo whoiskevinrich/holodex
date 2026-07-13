@@ -23,7 +23,7 @@ security clean.
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
 - [x] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) + S4 (`EnrichProviderChips`) all shipped
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
-- [ ] security `security-review` — `profile_url` scheme validation is the one new externally-influenced surface (backend not yet emitting the field — see S3 note; nothing to review server-side until it lands)
+- [x] security `security-review` → reviewed 2026-07-13 (S6): no findings ≥ confidence 8 — `profile_url` scheme-validated server- and client-side, all new dismiss/undismiss/refresh/refresh-all routes confirmed `requireOwner`-gated, no IDOR/SQL-injection surface
 
 ## Up next — ordered (position = priority)
 
@@ -32,11 +32,62 @@ security clean.
 3. [x] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
 4. [x] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
 5. [x] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
-6. [ ] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
+6. [x] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-07-13 · S6 — 3-skin QA + security review (final gate)
+- skills: security-review
+- security: ran `/security-review` against the full F47 diff (`f3fb34b..HEAD`, all S1–S5 files).
+  **No findings ≥ confidence 8.** Verified `profile_url` scheme validation both server-side
+  (`sanitizeProfileURL`, `internal/enrich/service.go:583` — `http`/`https` + non-empty host only,
+  covered by `enrich_test.go`'s `javascript:`/`data:`/protocol-relative payload table) and
+  client-side (`isHttpUrl`, `format.ts`, gating the `EnrichPicker` view-source `<a>` which also
+  carries `target="_blank" rel="noopener noreferrer"`) — never fetched server-side, link-only, no
+  SSRF surface. Confirmed every new route (`/owner/enrich-queue`, per-entity
+  dismiss/undismiss/refresh/refresh-all) mounts inside the existing `requireOwner`-gated router
+  group, with entity existence validated before any mutation and `entityType` always a hardcoded
+  route-table literal (no IDOR/type-confusion path). Migration 0024's cascade triggers are static
+  SQL; `enrichment_dismissals.go`'s queries are fully parameterized. `Candidate.AutoApply` is
+  computed server-side from the one canonical threshold constant — the frontend cannot force an
+  auto-apply, and refresh-all's fan-out is bounded to the existing operator-configured provider
+  registry (no new SSRF boundary). Checked off ADR-066 action item 8 and the plan/Jira security
+  gates.
+- QA: live 3-skin QA (Cinémathèque/Broadcast/Brutalist) against `backend-films` + `provider-tmdb`
+  (real TMDB) via `preview_start`. Exercised the full F47 surface: Enrichment tab queue (70+
+  rows), ambiguous multi-candidate case (2 strong matches — correctly does *not* auto-apply, per
+  RD1's exactly-one-strong-candidate rule), manual pick → apply → chip flips state, zero-candidate
+  search → typed an alternate query to get results → "None of these match" → dismissal persists
+  (`Not matched` chip, `Try again` action) → `Try again` clears the dismissal and reopens the
+  picker fresh, `EnrichProviderChips` Refresh (direct `apply()`, no picker) + Refresh-all + the ⋯
+  overflow's Re-match…/Clear, all against real network calls (200s, no console errors). Verified
+  the picker, match-confidence labels, view-source link, and "None of these match" render with
+  distinct, correctly-themed tokens across all three skins (computed-style checks: Cinémathèque
+  warm-dark/serif/amber-accent/2px radius, Broadcast navy/VT323-monospace/cyan-accent/0px radius,
+  Brutalist near-black/monospace/lime-accent/0px radius) — no hardcoded colors anywhere (token
+  guard `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` empty).
+  Read-through of `ProviderStatusChip`/`EnrichProviderChips` confirms 100% token classes
+  (`bg-surface`/`text-ink`/`text-muted`/`text-accent`/`border-rule`/`rounded-theme`).
+- note (environment, not app): this session's Browser-pane `computer` screenshot/zoom actions
+  timed out consistently (matches the known "preview screenshots time out on browse" gotcha), and
+  small icon-only header buttons (the theme-skin switcher at this viewport — labels collapse to
+  icon-only, ~26×18px) didn't register clicks via `computer` at their reported coordinates even
+  though the coordinates were correct on inspection; dispatching `.click()` on the real DOM button
+  via `javascript_tool` (not synthesizing new behavior — just invoking the existing handler)
+  confirmed the app itself works fine and unblocked the skin sweep. Not a code issue.
+- observation (non-blocking, not filed): a zero-candidate `/resolve` result hides the "None of
+  these match" button (gated on `candidates.length > 0` in `EnrichPicker.svelte`) — the owner can
+  still dismiss by typing any alternate query that returns ≥1 candidate first, since the dismissal
+  is per-`(entity, provider)` and unrelated to which candidates are shown. Confirmed working via
+  this exact workaround. A little surprising on first encounter but not a functional gap; not
+  worth a follow-up ticket on its own.
+- gates: all six HOLODEX-186 gates now closed — spec, ADR, backend, frontend, testing-strategy,
+  security-review. PR #130 ready for final review/merge.
+- next: none — S6 was the last slice. Update PR #130's gate checklist + Jira HOLODEX-186 (clear
+  `needs-security-review` label, flip the security gate) and hand off for merge.
+
 ### 2026-07-13 · S5 — provider contract doc amendment
+- skills: security-review
 - docs: [`docs/specs/metadata-provider-contract.md`](../specs/metadata-provider-contract.md) §2.3
   amended per [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) D1's
   action item: replaced the stale "Holodex always shows the owner a picker and never

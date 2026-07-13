@@ -281,7 +281,9 @@ smaller than the blast radius of D2-B.
 7. [x] `/testing-strategy` (spec-tracked): auto-apply threshold boundary (exactly one strong vs.
    two-or-more), revert-after-auto-apply parity with manual apply, dismissal persistence + the
    "does not re-trigger `/resolve`" invariant, dismissal cleanup on entity delete.
-8. [ ] `/security-review` before merge: confirm the new dismiss/undismiss endpoints are
+8. [x] `/security-review` before merge: confirm the new dismiss/undismiss endpoints are
    `requireOwner`-gated like every existing enrich mutation; no new externally-influenced input
    here (`profile_url` scheme validation, the spec's one new untrusted-input surface, is P1-1 and
-   orthogonal to this ADR's two decisions).
+   orthogonal to this ADR's two decisions). Reviewed 2026-07-13 (F47 S6) — clean, no findings
+   ≥ confidence 8: all new routes confirmed inside the existing `requireOwner` group, `profile_url`
+   scheme-validated both server- and client-side, no IDOR/SQL-injection surface introduced.
