@@ -44,10 +44,12 @@
 	// Enrichment controls (owner-only, F38 S3). sources loads once the client is
 	// confirmed owner; the picker drives a provider resolve→apply. pickerProvider holds
 	// the provider whose EnrichPicker is open ('' = closed); busy holds the provider
-	// currently being cleared. Action errors render inline, never via the page `error`.
+	// currently being cleared or refreshed (F47 RD7). Action errors render inline, never
+	// via the page `error`. refreshingAll is Refresh-all's own busy flag (F47 RD8).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
 	let busy = $state('');
+	let refreshingAll = $state(false);
 	let actionError = $state('');
 
 	const id = $derived(Number($page.params.id));
@@ -158,6 +160,39 @@
 		}
 	}
 
+	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
+	// no /resolve, no picker.
+	async function refreshProvider(p: string) {
+		busy = p;
+		actionError = '';
+		try {
+			await api.enrichRefresh('studio', id, p);
+			await reloadDetail();
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			busy = '';
+		}
+	}
+
+	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
+	// provider. A provider that resolved ambiguously must not be silently dropped — open
+	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
+	async function refreshAll() {
+		refreshingAll = true;
+		actionError = '';
+		try {
+			const { results } = await api.enrichRefreshAll('studio', id);
+			await reloadDetail();
+			const needsReview = results.find((r) => r.status === 'needs_review');
+			if (needsReview) pickerProvider = needsReview.provider;
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			refreshingAll = false;
+		}
+	}
+
 	// Persist a studio field decision then refetch. DB-only — a studio has no file, so
 	// selecting the record chip is a standing blank-pin (RD5), so every chip maps to PUT.
 	async function decideField(canonical: string, source: DecisionSource, manualValue?: string) {
@@ -205,8 +240,11 @@
 								providers={studioProviders}
 								linked={providerLinked}
 								{busy}
+								{refreshingAll}
 								onenrich={(p) => (pickerProvider = p)}
+								onrefresh={refreshProvider}
 								onclear={clearProvider}
+								onrefreshall={refreshAll}
 							/>
 						{:else if !isOwner && soleProvider}
 							<!-- Visitor: one section-level provenance note when every field shares a

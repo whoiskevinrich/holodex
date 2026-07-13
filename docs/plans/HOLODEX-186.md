@@ -21,7 +21,7 @@ security clean.
 - [x] spec `write-spec` → [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md)
 - [x] architecture `architecture` → [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
-- [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) shipped, S4 (`EnrichProviderChips`) not started
+- [x] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) + S4 (`EnrichProviderChips`) all shipped
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
 - [ ] security `security-review` — `profile_url` scheme validation is the one new externally-influenced surface (backend not yet emitting the field — see S3 note; nothing to review server-side until it lands)
 
@@ -30,11 +30,64 @@ security clean.
 1. [x] [backend] S1 data model + endpoints — `enrichment_dismissals` migration, `dismiss`/`undismiss`/`refresh`/`refresh-all` routes, `GET /owner/enrich-queue` — `internal/api`, `internal/db/migrations`
 2. [x] [frontend] S2 Enrichment tab — `owner/enrichment/+page.svelte`, `EnrichQueueRow.svelte`, `ProviderStatusChip.svelte` — `web/src/routes/owner`
 3. [x] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
-4. [ ] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
+4. [x] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
 5. [ ] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
 6. [ ] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-13 · PR #130 merge-conflict resolution + S4 frontend — EnrichProviderChips
+
+- **Merge-conflict resolution (PR #130 vs. main):** an automated CI event flagged merge
+  conflicts against `main`. Two things collided: (1) `internal/enrich.Candidate` and
+  `sanitizeCandidates` — this branch's `AutoApply` (a separately spawned background task,
+  `task_6d29b71d`) and main's `ProfileURL` (`task_886c73ca`, merged as PR #140) both landed on
+  the same struct/function independently; kept both fields, they're unrelated. (2) an **ADR
+  numbering collision** — this branch's "Enrichment auto-apply-with-revert" ADR and an
+  already-merged, now-Superseded main ADR ("Typed field registry…") both claimed **ADR-065**.
+  Renumbered this branch's to **ADR-066** (main's was established first) across 23 files
+  (`git mv` the ADR file, bulk `ADR-065`→`ADR-066` rename in Go/TS comments, the migration
+  comment, specs, this plan, PR title/body) — careful to exclude the *other*, unrelated
+  ADR-065 (queryable-fields-substrate) and its spec, which stay ADR-065. Verified clean:
+  `go build ./...`, full `go test ./...`, `npm run check` (0 errors), `npm run test` (103
+  passed), token guard empty. Committed (`bbbd586`), pushed; PR #130's CI (`analyze
+  go/js-ts`, `backend`, `frontend`, `theming`, CodeQL) all passed on the re-run.
+- **S4 frontend:** `EnrichProviderChips.svelte` — the flipped primary action once linked
+  (RD7/P0-5) and Refresh-all (RD8/P1-2) per the [handoff](../design/enrichment-review-workflow-handoff.md)
+  §3. Discovered mid-implementation that the design doc's proposed richer `status(p)` prop
+  (to carry a stored `external_id` for a direct client-side `apply()`) is unnecessary — S1's
+  backend already shipped `POST .../enrich/{provider}/refresh` (`enrichRefresh`,
+  `internal/api/enrich_review.go`) which re-derives the external_id **server-side** via
+  `enrich.ExistingMatch`, and `POST .../enrich/refresh-all` (`enrichRefreshAll`) which fans
+  out entirely server-side (linked → refresh directly, unlinked → resolve-and-route,
+  auto-apply a single strong match or `needs_review`). So the chip component stays exactly as
+  simple as before: `linked(p)` still gates "Refresh" vs. "Enrich", but the click just calls a
+  new `onrefresh`/`onrefreshall` prop with no id plumbing. Kept `onenrich` as the single
+  picker-opening callback for both the unlinked primary click *and* the new "Re-match…" ⋯ menu
+  item (RD7: re-match is explicitly "today's Enrich behavior, relabeled" — no separate prop
+  needed). "Refresh all" renders as a trailing sibling inside the *same* `flex flex-wrap` chip
+  row (not a new container), per the handoff's placement note. On a `needs_review` result from
+  refresh-all, the caller opens `EnrichPicker` for the first such provider (never silently
+  dropped, RD8) — reusing the existing single `pickerProvider` state already on all three
+  detail pages. `web/src/lib/api.ts` gained `enrichRefresh`/`enrichRefreshAll`; `types.ts`
+  gained `RefreshAllResult`. Wired into all three call sites (`people`/`studios`/`media`
+  `[id]/+page.svelte`), each adding a `refreshProvider`/`refreshAll` pair mirroring the
+  existing `clearProvider` busy/error convention (media page uses `enrichRefreshingAll` to
+  avoid colliding with its unrelated F31 file-refresh `refreshing` state).
+- verified: `npm run check` (0 errors), `npm run test` (103 passed), token guard empty. Live
+  QA against `provider-tmdb` + `backend-films` (real TMDB API): enriched Dune (2021, id 209)
+  with tmdb, confirmed the chip flips to "tmdb / Refresh / ⋯", the ⋯ menu shows "Re-match…" +
+  "Clear tmdb data", clicking "Refresh" fires `POST .../enrich/tmdb/refresh` (200, page
+  reloads cleanly, no console errors), and "Refresh all" fires `POST
+  .../enrich/refresh-all` (200). 3-skin visual QA not completed this session — the preview
+  pane's screenshot capture timed out repeatedly (environment issue, not code); markup/wiring
+  verified via the accessibility tree and network requests instead. Full 3-skin screenshot QA
+  is S6's job per the plan regardless.
+- note: Jira `In Progress` still not fired for HOLODEX-186 (no local `JIRA_*` creds this
+  session; the Atlassian MCP connector needs authorization — flagged to the user, not
+  actionable from here).
+- next: S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) —
+  `docs/specs/metadata-provider-contract.md` — then S6 (3-skin QA + `/security-review`).
 
 ### 2026-07-12 · S3 frontend — EnrichPicker additions
 - skills: simplify

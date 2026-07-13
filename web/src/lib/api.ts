@@ -25,6 +25,7 @@ import type {
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	RefreshAllResult,
 	RefreshReport,
 	RelatedResponse,
 	SearchResponse,
@@ -527,6 +528,23 @@ export const api = {
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/dismiss`
+		),
+
+	// Re-fetches a linked provider's data using its stored external_id — no /resolve,
+	// no picker (RD7/P0-5, EnrichProviderChips' "Refresh" primary action).
+	enrichRefresh: (kind: EnrichEntityKind, id: number, provider: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/refresh`
+		),
+
+	// Fans out over every configured provider for the entity (RD8/P1-2): linked
+	// providers refresh directly, unlinked ones resolve-and-route (auto-apply a single
+	// strong match, else needs_review) — entirely server-side, one round trip.
+	enrichRefreshAll: (kind: EnrichEntityKind, id: number) =>
+		sendAuthed<{ results: RefreshAllResult[] }>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/refresh-all`
 		),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.

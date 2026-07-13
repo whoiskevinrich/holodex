@@ -489,6 +489,15 @@ export interface EnrichQueueRow {
 	providers: EnrichQueueProviderState[];
 }
 
+// RefreshAllResult is one provider's outcome from POST .../enrich/refresh-all (RD8/P1-2):
+// a linked provider refreshes directly; an unlinked one resolves and either auto-applies a
+// single strong match or comes back needs_review — never silently dropped.
+export interface RefreshAllResult {
+	provider: string;
+	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates';
+	enriched?: EnrichedField[];
+}
+
 // Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted
 // source (file first, then each linked provider). sources_disagree is reserved
 // (populated by the future batch op, F31.11); single-item it is false.
