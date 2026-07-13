@@ -299,10 +299,10 @@ Existing `enrich/resolve`, `enrich` (apply), and `enrich/{provider}` (DELETE, cl
   type dominates the enrichment backlog the way tags dominate near-miss duplicates); within a
   group, rows with an actionable provider (`needs_review`/`unreviewed`) sort above fully
   `auto_applied`/`not_matched` rows. See the [design handoff](../design/enrichment-review-workflow-handoff.md#1-ownerenrichment--the-review-queue-tab).
-- **Q4 (engineering, non-blocking):** the provider contract's current §2.3 text ("Holodex always
-  shows the owner a picker and never auto-applies a candidate in v1") needs an explicit amendment
-  once P0-2 ships. Confirm this is documentation-only (no wire-format change — `confidence`'s
-  shape is unchanged, only how Holodex's *client* uses it) rather than a `protocol_version` bump.
+- **Q4 (engineering, resolved):** the provider contract's §2.3 amendment shipped in S5 —
+  [metadata-provider-contract.md](metadata-provider-contract.md)#23-post-resolve--identity-match-disambiguation
+  now documents the threshold-gated auto-apply behavior and the `profile_url` candidate field.
+  Confirmed documentation-only: `confidence`'s wire shape is unchanged, no `protocol_version` bump.
 
 ## Timeline / routing
 

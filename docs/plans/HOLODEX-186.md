@@ -31,10 +31,39 @@ security clean.
 2. [x] [frontend] S2 Enrichment tab — `owner/enrichment/+page.svelte`, `EnrichQueueRow.svelte`, `ProviderStatusChip.svelte` — `web/src/routes/owner`
 3. [x] [frontend] S3 `EnrichPicker`: auto-apply on single strong match, "None of these match", view-source link — `web/src/lib/components/EnrichPicker.svelte`
 4. [x] [frontend] S4 `EnrichProviderChips`: Refresh primary action + Refresh-all — `web/src/lib/components/EnrichProviderChips.svelte`
-5. [ ] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
+5. [x] [—] S5 provider contract doc amendment (`profile_url`, auto-apply posture, Q4) — `docs/specs/metadata-provider-contract.md`
 6. [ ] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-13 · S5 — provider contract doc amendment
+- docs: [`docs/specs/metadata-provider-contract.md`](../specs/metadata-provider-contract.md) §2.3
+  amended per [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) D1's
+  action item: replaced the stale "Holodex always shows the owner a picker and never
+  auto-applies... `confidence` is advisory" posture with a callout documenting the
+  threshold-gated auto-apply behavior (a lone `>=0.85` candidate applies with no picker; any
+  other outcome still stops at the owner) and stating explicitly that this is
+  **documentation-only** — `candidates[].confidence`'s wire shape/range/semantics are unchanged,
+  no `protocol_version` bump (closes Q4). Added the `candidates[].profile_url` field (RD6/P1-1)
+  to the `/resolve` response table and both worked examples (§2.3 and §8) — optional, `http`/
+  `https` only, silently dropped server-side otherwise, matching the backend's existing
+  `sanitizeProfileURL` (already shipped in S1/S3, `internal/enrich/service.go`). Resolved the
+  "Open items" `confidence` semantics note (it previously said Holodex never thresholds on it —
+  now documents that it does, and what a provider whose scores run high near 0.85 should expect).
+  Checked off ADR-066's action items 1–7 (all had already landed in S1–S4/design-handoff/testing-
+  strategy but the ADR's own checklist was never updated to reflect it) — left item 8
+  (`/security-review`) unchecked, that's S6. Also flipped spec Q4 to resolved with a pointer to
+  the shipped section.
+- verified: doc-only change, no code touched — read-through against the actual shipped
+  `internal/enrich.Candidate`/`StrongMatchThreshold`/`sanitizeProfileURL` (`internal/enrich/
+  enrich.go`, `service.go`) to confirm every claim in the amendment matches real behavior,
+  including the `auto_apply` field server-computed in `sanitizeCandidates` (b05b4e9) — confirmed
+  that field is Holodex's own owner-facing API response shape, not part of what a provider's
+  `/resolve` endpoint must return, so it correctly stays out of this provider-facing contract.
+- next: S6 — 3-skin QA (Cinémathèque/Broadcast/Brutalist) of the full F47 surface (queue tab,
+  auto-apply, dismiss/try-again, refresh/refresh-all) + `/security-review` focused on
+  `profile_url` scheme validation and the new dismiss/undismiss/refresh/refresh-all mutations'
+  `requireOwner` gating — the last gate before HOLODEX-186 is Done.
 
 ### 2026-07-13 · PR #130 merge-conflict resolution + S4 frontend — EnrichProviderChips
 

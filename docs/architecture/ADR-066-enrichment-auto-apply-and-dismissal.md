@@ -262,23 +262,23 @@ smaller than the blast radius of D2-B.
 
 ## Action Items
 
-1. [ ] Add this ADR to `docs/architecture/README.md`.
-2. [ ] `docs/specs/metadata-provider-contract.md` §2.3: replace the "never auto-applies... in v1"
+1. [x] Add this ADR to `docs/architecture/README.md`.
+2. [x] `docs/specs/metadata-provider-contract.md` §2.3: replace the "never auto-applies... in v1"
    language with the threshold-gated auto-apply behavior (D1); note explicitly that
    `candidates[].confidence`'s wire shape is unchanged (closes spec Open Question Q4) — F47 slice
    S5.
-3. [ ] Migration `NNNN_enrichment_dismissals.up.sql` (+ matching `.down.sql`): the table in D2,
+3. [x] Migration `NNNN_enrichment_dismissals.up.sql` (+ matching `.down.sql`): the table in D2,
    entity-delete cleanup wired the same way `entity_enrichment`/`entity_aliases` are today — F47
    slice S1.
-4. [ ] `internal/enrich` (or `internal/api`): the auto-apply routing check (single strong
+4. [x] `internal/enrich` (or `internal/api`): the auto-apply routing check (single strong
    candidate → `apply()` directly) sits at the same call site `/resolve` responses are already
    inspected, ahead of returning candidates to the client — F47 slice S3.
-5. [ ] Owner-gated (`requireOwner`, [ADR-030](ADR-030-access-control-gating-seam.md)) dismiss/undismiss
+5. [x] Owner-gated (`requireOwner`, [ADR-030](ADR-030-access-control-gating-seam.md)) dismiss/undismiss
    endpoints per entity type, mirroring the existing per-entity-type enrich route shape
    (`/people|studios|media/{id}/enrich/{provider}/dismiss`) — F47 slice S1.
-6. [ ] `/design-handoff` (spec-tracked, not this ADR): the queue's "not matched"/"Try again"
+6. [x] `/design-handoff` (spec-tracked, not this ADR): the queue's "not matched"/"Try again"
    affordance and the auto-applied row state.
-7. [ ] `/testing-strategy` (spec-tracked): auto-apply threshold boundary (exactly one strong vs.
+7. [x] `/testing-strategy` (spec-tracked): auto-apply threshold boundary (exactly one strong vs.
    two-or-more), revert-after-auto-apply parity with manual apply, dismissal persistence + the
    "does not re-trigger `/resolve`" invariant, dismissal cleanup on entity delete.
 8. [ ] `/security-review` before merge: confirm the new dismiss/undismiss endpoints are
