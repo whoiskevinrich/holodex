@@ -65,7 +65,10 @@ async function main() {
     token: JIRA_API_TOKEN,
   });
 
-  const jql = `project = "${JIRA_PROJECT}" AND status = "${JIRA_SOURCE_STATUS}"`;
+  // issuetype != Epic: epics are never auto-transitioned (HOLODEX-185, enforced
+  // again in syncOne as the source of truth) — excluded here too so a parked
+  // Done epic doesn't cost a wasted per-key GET on every release.
+  const jql = `project = "${JIRA_PROJECT}" AND status = "${JIRA_SOURCE_STATUS}" AND issuetype != Epic`;
   let keys;
   try {
     keys = await client.searchIssueKeys(jql);

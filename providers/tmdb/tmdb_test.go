@@ -164,6 +164,39 @@ func TestTMDBResolveByIMDBID(t *testing.T) {
 	}
 }
 
+// profile_url (F47, RD6/P1-1) is the real themoviedb.org page for a match — Holodex
+// scheme-validates it server-side, so this sidecar just needs to emit the real URL
+// for each entity kind it resolves.
+func TestTMDBResolveProfileURL(t *testing.T) {
+	srv := fakeTMDB(t)
+	c := clientWith(srv)
+	ctx := context.Background()
+
+	person, err := c.resolve(ctx, hintBody{Query: "Hayao Miyazaki"}, "person")
+	if err != nil || len(person) == 0 {
+		t.Fatalf("resolve person: cands=%v err=%v", person, err)
+	}
+	if want := "https://www.themoviedb.org/person/608-hayao-miyazaki"; person[0].ProfileURL != want {
+		t.Errorf("person profile_url = %q, want %q", person[0].ProfileURL, want)
+	}
+
+	movie, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "video")
+	if err != nil || len(movie) == 0 {
+		t.Fatalf("resolve movie: cands=%v err=%v", movie, err)
+	}
+	if want := "https://www.themoviedb.org/movie/550-fight-club"; movie[0].ProfileURL != want {
+		t.Errorf("movie profile_url = %q, want %q", movie[0].ProfileURL, want)
+	}
+
+	studio, err := c.resolve(ctx, hintBody{Query: "Studio Ghibli"}, "studio")
+	if err != nil || len(studio) == 0 {
+		t.Fatalf("resolve studio: cands=%v err=%v", studio, err)
+	}
+	if want := "https://www.themoviedb.org/company/10342-studio-ghibli"; studio[0].ProfileURL != want {
+		t.Errorf("studio profile_url = %q, want %q", studio[0].ProfileURL, want)
+	}
+}
+
 func TestTMDBEnrich(t *testing.T) {
 	srv := fakeTMDB(t)
 	c := clientWith(srv)

@@ -252,16 +252,17 @@
 	.portrait-frame--1x1 > img {
 		object-position: center 28%;
 	}
-	/* ---- Person hero banner (F25.26) ----
-	   A doubled-height (5:2) hero band with a subtle scroll parallax. The aspect ratio
-	   matches .crop-frame--banner so the crop preview reflects what the hero shows; the
-	   max height keeps it a backdrop, not a wall, on tall viewports. The image overhangs
-	   its frame (height > 100%) and drifts vertically as the band passes through the
-	   viewport via a CSS scroll-driven animation — no JS, GPU-composited. Gated on
-	   reduced-motion AND scroll-timeline support; otherwise it's a static 5:2 cover crop.
-	   Placed after `.portrait-frame > img` so the height override wins on source order. */
+	/* ---- Person hero banner (F25.26, ratio corrected to 1600×600 by the 2026-07-12
+	   design-critique pass) ----
+	   An 8:3 (1600×600) hero band with a subtle scroll parallax. The aspect ratio matches
+	   .crop-frame--banner so the crop preview reflects what the hero shows; the max height
+	   keeps it a backdrop, not a wall, on tall viewports. The image overhangs its frame
+	   (height > 100%) and drifts vertically as the band passes through the viewport via a
+	   CSS scroll-driven animation — no JS, GPU-composited. Gated on reduced-motion AND
+	   scroll-timeline support; otherwise it's a static 8:3 cover crop. Placed after
+	   `.portrait-frame > img` so the height override wins on source order. */
 	.portrait-frame--banner {
-		aspect-ratio: 5 / 2;
+		aspect-ratio: 8 / 3;
 		max-height: 540px;
 	}
 	/* Cross-fade the real image in once it decodes (placeholder shows first). */
@@ -283,7 +284,7 @@
 	   handler updates as the hero passes the viewport — giving the band depth while
 	   always covering the frame. The default keeps it centred (fully covered) before the
 	   handler runs or if JS is unavailable; under reduced-motion the whole thing collapses
-	   to a static 5:2 cover crop. (A pure-CSS `view()` timeline can't drive this: the
+	   to a static 8:3 cover crop. (A pure-CSS `view()` timeline can't drive this: the
 	   image's nearest scroll container is its own overflow:hidden frame, so the timeline
 	   is inert.) */
 	@media (prefers-reduced-motion: no-preference) {
@@ -327,10 +328,10 @@
 	.crop-frame--2x3 {
 		aspect-ratio: 2 / 3;
 	}
-	/* Banner crop frame: matches the rendered hero band's 5:2 ratio (.portrait-frame--banner)
+	/* Banner crop frame: matches the rendered hero band's 8:3 ratio (.portrait-frame--banner)
 	   so the crop preview reflects what the hero will actually show. */
 	.crop-frame--banner {
-		aspect-ratio: 5 / 2;
+		aspect-ratio: 8 / 3;
 	}
 	.crop-frame > img {
 		display: block;

@@ -11,7 +11,8 @@
 **0.2** [smoke] Ensure tests pass: `go test ./...`  
 **0.3** [smoke] Build the provider binary: `go build -o /tmp/holodex-provider-tmdb ./providers/tmdb`  
 **0.4** [smoke] `Dockerfile.provider-tmdb` builds without error: `docker build -f Dockerfile.provider-tmdb -t holodex-provider-tmdb:qa .`  
-**0.5** [human] Copy `.env.example` → `.env` in the worktree; confirm `TMDB_API_TOKEN` is set (obtain from TMDB dashboard → Settings → API → Read Access Token)
+**0.5** [human] Copy `.env.example` → `.env` in the worktree; confirm `TMDB_API_TOKEN` is set (obtain from TMDB dashboard → Settings → API → Read Access Token)  
+**0.6** [human] Copy `metadata-mappings.yaml.example` → `metadata-mappings.yaml` (next to `holodex.yaml`) and reload config. This is what wires tmdb's raw enrichment fields (`release_date`, `bio`, `birthdate`, studio `description`/`country`/`logo`, …) into the resolved API — §3, §7b, and §8 below all assume it's in place. Without it, enrichment can succeed yet none of those fields render.
 
 ---
 
@@ -147,4 +148,31 @@ Set up local Holodex pointing at the provider sidecar:
 **7b.5** [human] Click "Clear tmdb data" → all Film Details fields removed; the "Enrich from tmdb" button is the only control remaining; page no longer shows enrichment rows  
 **7b.6** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): Film Details section and poster `<img>` render correctly in all three; no hardcoded colors  
 **7b.7** [human] Navigate to System Activity → the video enrich run appears in job history with `status: ok` and a detail line referencing the provider and video id  
-**7b.8** [human] On a Media page with no video-capable provider configured (provider `entity_types` contains only `person`): Film Details section does **not** appear  
+**7b.8** [human] On a Media page with no video-capable provider configured (provider `entity_types` contains only `person`): Film Details section does **not** appear
+
+---
+
+## 8. Studio enrichment (F38 S3)
+
+### 8a. Provider contract — studio entity type
+
+**8a.1** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"studio","hint":{"query":"Pixar"}}` → `200`, at least one candidate with `external_id` prefixed `tmdb:`, `namespace:"tmdb"`  
+**8a.2** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"studio","hint":{"query":"xyzzy_no_match_999"}}` → `200`, `{"candidates":[]}`  
+**8a.3** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"studio","external_id":"tmdb:3"}` (Pixar) → `200`, fields include `description`, `country`, `website`, `logo` starting with `"https://image.tmdb.org/t/p/original/"`; **no** `assets[]` in the response  
+**8a.4** [smoke] A studio with no `homepage` upstream still returns a non-empty `website` (falls back to the studio's TMDB page — see `tmdbEntityURL` in `providers/tmdb/tmdb.go`)
+
+### 8b. End-to-end via Holodex UI
+
+**8b.1** [human] Navigate to a Studio page (`/studios/{id}`) while logged in as owner with the TMDB provider configured for `entity_types` including `studio` → the "Details" section header shows an Enrich chip for `tmdb`  
+**8b.2** [human] Click the tmdb Enrich chip → the resolver picker opens pre-filled with the studio's name; type a studio name → candidates appear  
+**8b.3** [human] Select a candidate → enrichment applies → the Details section shows:
+  - `Description` (long-text) with "from tmdb" provenance
+  - `Country` with "from tmdb" provenance
+  - `Website` with "from tmdb" provenance, rendered as a link
+  - `Logo` rendered as an `<img>` from the self-hosted, normalized copy (`studio.logo_url`), not the raw TMDB URL
+
+**8b.4** [human] Reload the page → Details persist (enrichment is stored, not session-state)  
+**8b.5** [human] Clear the tmdb chip (overflow menu) → studio `description`/`country`/`website`/`logo` fields removed; the Enrich chip is available again  
+**8b.6** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): the Details section, logo `<img>`, and provenance badges render correctly in all three; no hardcoded colors  
+**8b.7** [human] Navigate to System Activity → the studio enrich run appears in job history with `status: ok` and a detail line referencing the provider and studio id  
+**8b.8** [human] On a Studio page with no studio-capable provider configured (provider `entity_types` omits `studio`): no Enrich chip appears, and the Details section is hidden unless there's something else to curate  

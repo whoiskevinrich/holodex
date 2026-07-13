@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/url"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -148,7 +149,7 @@ type SourceInfo struct {
 }
 
 // Supports reports whether this provider advertises an entity type (case-insensitive),
-// mirroring Source.Supports — used by refresh-all (ADR-065 RD8) to fan out over only
+// mirroring Source.Supports — used by refresh-all (ADR-066 RD8) to fan out over only
 // the providers that actually apply to the entity being refreshed.
 func (si SourceInfo) Supports(entityType string) bool {
 	for _, t := range si.EntityTypes {
@@ -570,8 +571,25 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
 		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
+		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
 	}
 	return in
+}
+
+// sanitizeProfileURL bounds a candidate's provider-supplied profile_url (F47,
+// RD6/P1-1): only an http(s) URL survives. It becomes a picker `href` client-side,
+// so a hostile scheme (javascript:, data:, …) is dropped rather than erroring —
+// the candidate itself is still usable, just without the "view source" link.
+func sanitizeProfileURL(raw string) string {
+	raw = SanitizeValue(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return raw
 }
 
 // SanitizeValue removes control characters (keeping normal whitespace), collapses

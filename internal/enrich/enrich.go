@@ -275,13 +275,18 @@ type Candidate struct {
 	Confidence     float64 `json:"confidence"`
 	Disambiguation string  `json:"disambiguation,omitempty"`
 	AutoApply      bool    `json:"auto_apply"`
+	// ProfileURL is an optional provider-supplied link to its own page for this
+	// candidate (e.g. a TMDB person/company page), rendered as "view source ↗" in
+	// the picker (F47, RD6/P1-1). sanitizeCandidates drops anything that isn't
+	// http(s) before this ever reaches an API response — it becomes an `href`.
+	ProfileURL string `json:"profile_url,omitempty"`
 }
 
-// StrongMatchThreshold is the auto-apply confidence cutoff (ADR-065 D1) — the sole
+// StrongMatchThreshold is the auto-apply confidence cutoff (ADR-066 D1) — the sole
 // source of truth for Candidate.AutoApply, computed once in sanitizeCandidates.
 const StrongMatchThreshold = 0.85
 
-// SingleStrongMatch reports the sole candidate an auto-apply should apply (ADR-065 D1):
+// SingleStrongMatch reports the sole candidate an auto-apply should apply (ADR-066 D1):
 // exactly one candidate with AutoApply=true. Zero, or two-or-more, strong candidates
 // return ok=false — ambiguity always stops at the owner. Callers must pass candidates
 // that already went through sanitizeCandidates (every h.enrich.Resolve result does).

@@ -1,7 +1,10 @@
 # Flightplan — a portable session-state plugin
 
-**Status:** proposal / tracking one-pager (not yet built). **Scope:** a Claude Code plugin, proven
-in Holodex, then extracted for any Jira-tracked repo.
+**Status:** in progress — POC sequencing items 1–3 (worklog template, `SessionStart` hook,
+`PostToolUse(Skill)` hook) plus the `Stop` nag half of item 4 are shipped and merged (PR #119);
+`/handoff` (rest of item 4) and item 5 (`INBOX.md`/`/triage`) remain. Live tracking:
+[HOLODEX-182](HOLODEX-182.md). **Scope:** a Claude Code plugin, proven in Holodex, then extracted
+for any Jira-tracked repo.
 
 > **Prior art in this repo:** [`field-source-of-truth-rollout.md`](field-source-of-truth-rollout.md)
 > and [`studio-entity-implementation.md`](studio-entity-implementation.md) are hand-rolled flight

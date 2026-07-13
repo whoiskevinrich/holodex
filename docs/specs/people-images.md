@@ -570,3 +570,26 @@ QA: [`person-page-polish-handoff.md`](../design/person-page-polish-handoff.md) �
     — the same path the old "Edit" overlay invoked. Once a banner exists it shows normally with the
     `Replace` overlay as before; owners can still clear it via the gallery/delete path (F25.11), which
     returns the page to the no-banner state.
+
+- **F25.31 — Banner ratio corrected to 1600×600 (8:3), poster-led hero hierarchy (2026-07-12
+  design-critique pass).** Supersedes the ratio (not the placeholder policy) set by F25.26.
+  - **Ratio.** `CORE_ROLE_ASPECT.banner` moves from `[5, 2]` to `[8, 3]` in `cropGeometry.ts`, matched in
+    lockstep by `.portrait-frame--banner` and `.crop-frame--banner` in `app.css` (still capped at 540px
+    tall). With `CROP_SHORT_EDGE = 600` this yields the target 1600×600 crop output directly — no other
+    math changed. Existing owner-cropped banners were composed for 5:2; the new 8:3 frame cover-crops them
+    slightly tighter top/bottom than the owner chose. No backfill migration — owners re-crop via the
+    existing promote-with-crop flow if the tighter crop looks wrong.
+  - **Poster-led hierarchy.** When a poster is present, it now renders as the primary hero avatar
+    (`h-36 sm:h-44`, up from the old shared `h-28 sm:h-36`) with the headshot as a small identity badge
+    (`h-16 w-16 sm:h-20 sm:w-20`) on its lower-left corner, instead of headshot and poster sharing one
+    height as two similarly-sized slivers. Rationale: a 2:3 poster cover-cropped to headshot height read as
+    an illegible ~75–96px sliver, and poster art fits this app's film-archive framing better than a
+    same-height headshot anyway. The poster's alt text changed from `""` (decorative) to `"{name}'s
+    poster"` — it's the primary image now, not a decorative accessory to the headshot. With no poster, the
+    headshot alone remains the primary avatar, unchanged from F25.26/27.
+  - **Name typography.** The `h1` moves from `text-2xl` to `text-3xl sm:text-4xl` so identity text carries
+    visual weight proportional to the larger banner/poster hero.
+  - **F25.30 kept, not reversed.** The critique that prompted this pass considered adding an ambient
+    placeholder banner for the no-banner state (currently owner-only). On review, F25.30's stated reasoning
+    — an empty band would dominate the page with generic art — held up unchanged at the new ratio, so the
+    no-placeholder behavior stays as-is; this entry only touches ratio and image hierarchy.

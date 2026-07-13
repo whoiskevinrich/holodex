@@ -1,10 +1,10 @@
 <script lang="ts">
 	// Banner hero (F25, ADR-038) — a thin wrapper over PersonImageFrame fixing the banner
-	// role to a wide 5:2 band capped at 540px tall (cover-cropped), so the hero reads as a
-	// proper backdrop without running off the page on wide viewports. The aspect ratio,
-	// max height, and the image overhang live on `.portrait-frame--banner` in app.css; the
-	// 5:2 ratio is shared with the crop editor's banner frame (.crop-frame--banner) so what
-	// you crop matches what's shown.
+	// role to a wide 8:3 (1600×600) band capped at 540px tall (cover-cropped), so the hero
+	// reads as a proper backdrop without running off the page on wide viewports. The aspect
+	// ratio, max height, and the image overhang live on `.portrait-frame--banner` in
+	// app.css; the 8:3 ratio is shared with the crop editor's banner frame
+	// (.crop-frame--banner) so what you crop matches what's shown.
 	import PersonImageFrame from './PersonImageFrame.svelte';
 
 	let {
