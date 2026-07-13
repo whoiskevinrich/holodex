@@ -320,17 +320,32 @@
 </script>
 
 <!-- Uniform owner "Edit" overlay for a core image slot (banner/headshot/poster) — one
-     shape, one label, one scrim across all three, positioned per call site. -->
-{#snippet editBtn(role: PersonImageRole, position: string)}
+     shape, one label, one scrim across all three, positioned per call site. `compact`
+     swaps the text pill for an icon-only square — the headshot identity badge (64-80px)
+     is too small for the full "Edit" pill without the button covering a big chunk of the
+     image itself. -->
+{#snippet editBtn(role: PersonImageRole, position: string, compact = false)}
 	{#if isOwner}
 		<button
 			onclick={() => pickCore(role)}
 			disabled={uploadBusy === role}
 			aria-label={`Replace ${role}`}
 			title={`Replace ${role}`}
-			class="absolute z-10 {position} rounded-theme bg-bg/80 px-2.5 py-1.5 text-xs font-semibold text-ink shadow-sm backdrop-blur-sm hover:text-accent disabled:opacity-60"
+			class="absolute z-10 {position} flex items-center justify-center rounded-theme bg-bg/80 text-ink shadow-sm backdrop-blur-sm hover:text-accent disabled:opacity-60 {compact
+				? 'h-6 w-6'
+				: 'px-2.5 py-1.5 text-xs font-semibold'}"
 		>
-			{uploadBusy === role ? '…' : 'Edit'}
+			{#if compact}
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+					/>
+				</svg>
+			{:else}
+				{uploadBusy === role ? '…' : 'Edit'}
+			{/if}
 		</button>
 	{/if}
 {/snippet}
@@ -401,7 +416,7 @@
 										frameClass="portrait-frame--1x1 h-16 w-16 sm:h-20 sm:w-20"
 										eager
 									/>
-									{@render editBtn('headshot', '-bottom-1 -right-1')}
+									{@render editBtn('headshot', '-bottom-1 -right-1', true)}
 								</div>
 							</div>
 						</div>
