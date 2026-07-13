@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	// Read-only queue-row sibling of EnrichProviderChips (F47 S2, ADR-065). Same chip
+	// Read-only queue-row sibling of EnrichProviderChips (F47 S2, ADR-066). Same chip
 	// shell (icon + name), but the *row's* action drives resolution, not the chip
 	// itself — so this carries no button/menu, just a state label. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';

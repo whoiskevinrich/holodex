@@ -35,7 +35,7 @@ picker entirely.
   type conforming to id-based identity. **Studio and Video already conform; Person does not yet**
   (HOLODEX-125 tracks the fix). See Open Questions Q1.
 
-**ADR**: [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md) (Proposed) —
+**ADR**: [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) (Proposed) —
 records the threshold-gated auto-apply routing change (amending the metadata provider contract's
 stated v1 posture, "Holodex always shows the owner a picker and never auto-applies a candidate in
 v1") and the new per-`(entity, provider)` `enrichment_dismissals` store, mirroring how ADR-061
@@ -308,7 +308,7 @@ Existing `enrich/resolve`, `enrich` (apply), and `enrich/{provider}` (DELETE, cl
 
 No hard deadline. Per the change-routing rules, before/with implementation:
 
-1. ✅ **`/architecture`** — [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md)
+1. ✅ **`/architecture`** — [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
    records the auto-apply-with-revert model (the provider-contract posture change, Q4) and the
    `enrichment_dismissals` store, mirroring how ADR-061 preceded F43.
 2. ✅ **`/design-handoff`** — [enrichment-review-workflow-handoff.md](../design/enrichment-review-workflow-handoff.md):

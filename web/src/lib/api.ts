@@ -52,7 +52,7 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 	tag: 'tags'
 };
 
-// The REST base segment for each enrichment entity (F47, ADR-065) — 'video' rides
+// The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
 // /media, so this can't reuse ENTITY_BASE (F43's alias/merge/rename spine has no video).
 const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
 	person: 'people',
@@ -508,7 +508,7 @@ export const api = {
 			id_b: idB
 		}),
 
-	// Enrichment review queue (F47 S2, ADR-065). Owner-gated; a pure DB read — opening
+	// Enrichment review queue (F47 S2, ADR-066). Owner-gated; a pure DB read — opening
 	// the tab makes zero provider calls (RD2/RD3). A row's `providers` lists only
 	// outstanding (not-yet-linked) providers.
 	enrichQueue: () => getAuthed<{ rows: EnrichQueueRow[] }>(`/owner/enrich-queue`),

@@ -1,4 +1,4 @@
-# ADR-065: Enrichment auto-apply-with-revert — provider-contract posture change + durable `enrichment_dismissals` store
+# ADR-066: Enrichment auto-apply-with-revert — provider-contract posture change + durable `enrichment_dismissals` store
 
 **Status:** Proposed
 **Date:** 2026-07-12

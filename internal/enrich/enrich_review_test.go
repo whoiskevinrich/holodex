@@ -2,7 +2,7 @@ package enrich
 
 import "testing"
 
-// SingleStrongMatch is the auto-apply cardinality check (ADR-065 D1) — exactly one
+// SingleStrongMatch is the auto-apply cardinality check (ADR-066 D1) — exactly one
 // AutoApply=true candidate routes to apply(); any other outcome (0, or 2+) leaves the
 // ambiguity for the owner. AutoApply itself (the threshold computation) is
 // sanitizeCandidates' job, covered by TestSanitizeCandidatesAutoApply — these cases

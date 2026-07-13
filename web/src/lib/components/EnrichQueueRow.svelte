@@ -1,5 +1,5 @@
 <script lang="ts">
-	// One dense entity row in the Enrichment review queue (F47 S2/S3, ADR-065). Mirrors
+	// One dense entity row in the Enrichment review queue (F47 S2/S3, ADR-066). Mirrors
 	// DuplicatePairRow's rhythm: a status chip per outstanding provider, plus one
 	// right-aligned row action derived from the chips' states (RD9) — "Review" opens
 	// EnrichPicker for the row's next outstanding provider (auto-apply-on-single-
@@ -38,7 +38,7 @@
 	let error = $state('');
 	// Providers the owner has opened this session — purely presentational (flips a
 	// chip's "not yet reviewed" to "Needs review"); never sent to the parent, since
-	// it isn't domain state (unlike `not_matched`/`auto_applied`, ADR-065's real
+	// it isn't domain state (unlike `not_matched`/`auto_applied`, ADR-066's real
 	// server-confirmed outcomes).
 	let reviewed = $state(new Set<string>());
 

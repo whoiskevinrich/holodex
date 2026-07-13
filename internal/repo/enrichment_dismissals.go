@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// enrichment_dismissals (F47, ADR-065 D2): the durable "not matched" verdict store —
+// enrichment_dismissals (F47, ADR-066 D2): the durable "not matched" verdict store —
 // the direct structural sibling of entity_keep_separate (review_queue.go), scoped to
 // (entity_type, entity_id, provider) rather than a pair of entities.
 

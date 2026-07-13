@@ -1,6 +1,6 @@
 # Design Handoff: Enrichment review workflow — queue, auto-apply, unmatched, refresh (F47)
 
-**Spec**: [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md) · **ADR**: [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md)
+**Spec**: [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md) · **ADR**: [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 

@@ -42,7 +42,7 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 	r.Post("/studios/{id}/enrich", h.enrichStudioApply)
 	r.Delete("/studios/{id}/enrich/{provider}", h.enrichStudioClear)
 
-	// F47 (ADR-065): the review queue, and the dismiss/undismiss/refresh/refresh-all
+	// F47 (ADR-066): the review queue, and the dismiss/undismiss/refresh/refresh-all
 	// mutations — entity-generic across all three, mirroring the route shape above.
 	r.Get("/owner/enrich-queue", h.enrichQueue)
 	for _, et := range []struct {

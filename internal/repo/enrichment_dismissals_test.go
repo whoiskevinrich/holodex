@@ -7,7 +7,7 @@ import (
 	"holodex/internal/model"
 )
 
-// --- enrichment_dismissals store (F47, ADR-065 D2) -----------------------------------
+// --- enrichment_dismissals store (F47, ADR-066 D2) -----------------------------------
 
 func TestEnrichmentDismissals_RoundTrip(t *testing.T) {
 	r := newRepo(t)

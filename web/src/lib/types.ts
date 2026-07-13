@@ -432,7 +432,7 @@ export interface EnrichSource {
 
 // EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence stays
 // provider-native/advisory; auto_apply is the server-computed verdict derived from it
-// (ADR-065 D1, internal/enrich.StrongMatchThreshold) — the client renders auto_apply
+// (ADR-066 D1, internal/enrich.StrongMatchThreshold) — the client renders auto_apply
 // but never re-derives it from a confidence cutoff of its own.
 export interface EnrichCandidate {
 	external_id: string;
@@ -463,7 +463,7 @@ export interface EnrichedField {
 	fetched_at?: string;
 }
 
-// Enrichment review queue (F47 S2, ADR-065). EnrichEntityKind is the enrichment
+// Enrichment review queue (F47 S2, ADR-066). EnrichEntityKind is the enrichment
 // entity spine — person | studio | video — distinct from EntityKind (F43's
 // alias/merge/rename spine), which has no `video`.
 export type EnrichEntityKind = 'person' | 'studio' | 'video';

@@ -7,7 +7,7 @@ import (
 	"holodex/internal/model"
 )
 
-// --- GET /owner/enrich-queue backing query (F47, ADR-065 RD2/RD9/P0-1) ---------------
+// --- GET /owner/enrich-queue backing query (F47, ADR-066 RD2/RD9/P0-1) ---------------
 
 func TestEnrichQueue_MembershipAndStates(t *testing.T) {
 	r := newRepo(t)

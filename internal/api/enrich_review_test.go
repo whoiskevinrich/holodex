@@ -19,7 +19,7 @@ import (
 )
 
 // resolveCounter wraps the fake provider to count /resolve calls specifically — the
-// "Refresh never re-searches" invariant (ADR-065 RD7/RD8) needs a call-count assertion
+// "Refresh never re-searches" invariant (ADR-066 RD7/RD8) needs a call-count assertion
 // finer than Fake's single combined Calls counter.
 type resolveCounter struct {
 	*enrich.Fake

@@ -7,7 +7,7 @@ import (
 	"holodex/internal/model"
 )
 
-// Owner review-queue listing (F47, ADR-065 RD2/RD9/P0-1): every Person/Studio/Media
+// Owner review-queue listing (F47, ADR-066 RD2/RD9/P0-1): every Person/Studio/Media
 // entity missing at least one supporting provider's data. The direct structural
 // precedent is review_queue.go's Duplicates listing — grouped-by-type, one query per
 // group, no N+1. Unlike Duplicates, membership here is a pure "is a row present in

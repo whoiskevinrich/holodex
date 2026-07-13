@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Enrichment review queue (F47 S2, ADR-065). The entity-generic sibling of the
+	// Enrichment review queue (F47 S2, ADR-066). The entity-generic sibling of the
 	// Duplicates tab: rows grouped People → Studios → Media (nav order, spec Q3),
 	// actionable rows (an outstanding unreviewed provider) sorting first within a
 	// group. Structurally identical to owner/duplicates/+page.svelte — $state rows,

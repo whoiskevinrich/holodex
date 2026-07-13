@@ -14,12 +14,12 @@ bypass (single-provider and all-providers). **Done** = P0–P1 slices (S1–S6) 
 the Owner hub, `EnrichPicker`/`EnrichProviderChips` extended, provider contract amended, QA +
 security clean.
 
-**Design package:** [spec](../specs/enrichment-review-workflow.md) · [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md) · [handoff](../design/enrichment-review-workflow-handoff.md) · [testing-strategy](../testing-strategy.md)
+**Design package:** [spec](../specs/enrichment-review-workflow.md) · [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) · [handoff](../design/enrichment-review-workflow-handoff.md) · [testing-strategy](../testing-strategy.md)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md)
-- [x] architecture `architecture` → [ADR-065](../architecture/ADR-065-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
+- [x] architecture `architecture` → [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
 - [ ] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) shipped, S4 (`EnrichProviderChips`) not started
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
@@ -96,7 +96,7 @@ security clean.
   (`EnrichQueueRow`'s `reviewed` set, mirroring `DuplicatePairRow`'s local `choosing`) rather than
   a fourth `EnrichQueueProviderState.state` value — a `/simplify` altitude finding caught an
   earlier draft smuggling ephemeral "opened but not yet resolved" state into the synced domain
-  enum; ADR-065's real states stay `unreviewed | not_matched | auto_applied`.
+  enum; ADR-066's real states stay `unreviewed | not_matched | auto_applied`.
 - verified: `npm run check` (0 errors), `npm run test` (103 passed), token guard
   (`rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)'`) empty. Live 3-skin browser QA not run
   this session — the pinned :5173/:7800 dev-server ports were held by another session's worktree;

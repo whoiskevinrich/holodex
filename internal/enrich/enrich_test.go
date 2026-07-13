@@ -815,7 +815,7 @@ func TestSanitizeFieldsCaps(t *testing.T) {
 }
 
 // TestSanitizeCandidatesAutoApply asserts sanitizeCandidates sets AutoApply from
-// Confidence >= StrongMatchThreshold (ADR-065 D1) — the single server-side
+// Confidence >= StrongMatchThreshold (ADR-066 D1) — the single server-side
 // computation every /resolve caller and the frontend's "Strong match" chip now rely
 // on instead of a duplicated confidence literal. Table-driven over the boundary,
 // mirroring TestSingleStrongMatch's 0/1/2 cases.

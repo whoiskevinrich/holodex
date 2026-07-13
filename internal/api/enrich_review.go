@@ -10,7 +10,7 @@ import (
 	"holodex/internal/repo"
 )
 
-// F47 (ADR-065): the enrichment review workflow's backend surface — a generalized
+// F47 (ADR-066): the enrichment review workflow's backend surface — a generalized
 // review queue, a durable "not matched" verdict, and a refresh bypass that skips the
 // picker for an already-linked provider. Entity-generic across person/studio/video,
 // mirroring enrich.go's resolve/apply/clear route shape. Mounted inside mountEnrich,
@@ -130,7 +130,7 @@ type refreshAllResult struct {
 
 // enrichRefreshAll fans out over an entity's configured providers (RD8): a linked
 // provider refreshes directly; an unlinked provider resolves and auto-applies a single
-// strong match (ADR-065 D1) or surfaces inline for review — never silently dropped. A
+// strong match (ADR-066 D1) or surfaces inline for review — never silently dropped. A
 // dismissed, not-yet-linked provider is left out of the response entirely (RD4's block
 // on re-resolving it stands even inside a bulk fan-out).
 func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {

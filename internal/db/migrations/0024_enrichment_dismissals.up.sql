@@ -1,4 +1,4 @@
--- F47 (ADR-065 D2): a durable, owner-set "not matched" verdict for one (entity,
+-- F47 (ADR-066 D2): a durable, owner-set "not matched" verdict for one (entity,
 -- provider) pair — the direct structural sibling of entity_keep_separate (ADR-061): a
 -- persisted negative assertion that stops a review workflow from re-nagging. Scoped to
 -- (entity_type, entity_id, provider) rather than a relationship between two entities,
