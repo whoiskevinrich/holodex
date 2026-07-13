@@ -5,7 +5,7 @@ import { CORE_ROLES } from './types';
 describe('cropTargetSize', () => {
 	it('derives output dimensions from each role aspect (short edge fixed)', () => {
 		expect(cropTargetSize('headshot')).toEqual([600, 600]);
-		expect(cropTargetSize('banner')).toEqual([1500, 600]);
+		expect(cropTargetSize('banner')).toEqual([1600, 600]);
 		expect(cropTargetSize('poster')).toEqual([600, 900]);
 	});
 
