@@ -1,8 +1,8 @@
 # Spec: On-demand metadata extraction from filenames & tags (F48)
 
-**Status**: Draft — pending `/architecture` (new ADR needed: auto-apply confidence gating +
-writeback backup/rollback, which amends [ADR-041](../architecture/ADR-041-metadata-writeback.md)'s
-deferred "prior-value capture" non-goal) and `/security-review` before merge
+**Status**: Draft — architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md))
+and design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-handoff.md)) landed;
+pending `/testing-strategy` and `/security-review` before merge
 **Feature block**: F48
 **Phase**: 3 (Enrichment)
 **Date**: 2026-07-14
