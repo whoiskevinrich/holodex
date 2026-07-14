@@ -6,6 +6,8 @@ import type {
 	Capabilities,
 	EnrichCandidate,
 	EnrichedField,
+	EnrichEntityKind,
+	EnrichQueueRow,
 	EnrichSource,
 	DuplicatePair,
 	EntityKind,
@@ -23,6 +25,7 @@ import type {
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	RefreshAllResult,
 	RefreshReport,
 	RelatedResponse,
 	SearchResponse,
@@ -48,6 +51,14 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
 	tag: 'tags'
+};
+
+// The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
+// /media, so this can't reuse ENTITY_BASE (F43's alias/merge/rename spine has no video).
+const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
+	person: 'people',
+	studio: 'studios',
+	video: 'media'
 };
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. a 401 owner
@@ -497,6 +508,44 @@ export const api = {
 			id_a: idA,
 			id_b: idB
 		}),
+
+	// Enrichment review queue (F47 S2, ADR-066). Owner-gated; a pure DB read — opening
+	// the tab makes zero provider calls (RD2/RD3). A row's `providers` lists only
+	// outstanding (not-yet-linked) providers.
+	enrichQueue: () => getAuthed<{ rows: EnrichQueueRow[] }>(`/owner/enrich-queue`),
+
+	// Records a durable "not matched" verdict for one (entity, provider) — EnrichPicker's
+	// "None of these match" (RD4). Blocks a future /resolve for the pair until undismissed.
+	enrichDismiss: (kind: EnrichEntityKind, id: number, provider: string) =>
+		sendAuthed<Record<string, never>>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/dismiss`
+		),
+
+	// Clears a "not matched" dismissal for one (entity, provider) — the queue row's
+	// "Try again" action (RD4). A future /resolve for the pair is unblocked.
+	enrichUndismiss: (kind: EnrichEntityKind, id: number, provider: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/dismiss`
+		),
+
+	// Re-fetches a linked provider's data using its stored external_id — no /resolve,
+	// no picker (RD7/P0-5, EnrichProviderChips' "Refresh" primary action).
+	enrichRefresh: (kind: EnrichEntityKind, id: number, provider: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/refresh`
+		),
+
+	// Fans out over every configured provider for the entity (RD8/P1-2): linked
+	// providers refresh directly, unlinked ones resolve-and-route (auto-apply a single
+	// strong match, else needs_review) — entirely server-side, one round trip.
+	enrichRefreshAll: (kind: EnrichEntityKind, id: number) =>
+		sendAuthed<{ results: RefreshAllResult[] }>(
+			'POST',
+			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/refresh-all`
+		),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace

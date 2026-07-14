@@ -430,14 +430,23 @@ export interface EnrichSource {
 	icon_url?: string;
 }
 
-// EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence
-// is advisory — the owner always confirms (no silent auto-apply).
+// EnrichCandidate is one provider match the owner confirms (F22.5b). Confidence stays
+// provider-native/advisory; auto_apply is the server-computed verdict derived from it
+// (ADR-066 D1, internal/enrich.StrongMatchThreshold) — the client renders auto_apply
+// but never re-derives it from a confidence cutoff of its own.
 export interface EnrichCandidate {
 	external_id: string;
 	namespace: string;
 	label: string;
 	confidence: number;
 	disambiguation?: string;
+	auto_apply: boolean;
+	// profile_url is an optional, provider-supplied link to its own page for this
+	// candidate (F47 P1-1/RD6). Scheme-validated server-side, but the client still
+	// gates it through isHttpUrl() before rendering as a link (format.ts's standing
+	// convention for any provider-supplied URL — belt and suspenders). Absent when
+	// the provider doesn't offer one.
+	profile_url?: string;
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
@@ -452,6 +461,41 @@ export interface EnrichedField {
 	provider: string;
 	external_id?: string;
 	fetched_at?: string;
+}
+
+// Enrichment review queue (F47 S2, ADR-066). EnrichEntityKind is the enrichment
+// entity spine — person | studio | video — distinct from EntityKind (F43's
+// alias/merge/rename spine), which has no `video`.
+export type EnrichEntityKind = 'person' | 'studio' | 'video';
+
+// EnrichQueueProviderState is one row's per-provider status (RD9 — never a single
+// collapsed flag). 'unreviewed' | 'not_matched' come from the server (GET
+// /owner/enrich-queue); 'auto_applied' only ever exists client-side, set once a
+// /resolve+/enrich round-trip actually applies a candidate. Whether the owner has
+// merely *opened* an unreviewed provider's picker this session is ephemeral UI
+// state, not domain state — it stays local to EnrichQueueRow, not here.
+export interface EnrichQueueProviderState {
+	provider: string;
+	state: 'unreviewed' | 'not_matched' | 'auto_applied';
+}
+
+// EnrichQueueRow is one review-queue entity: still missing at least one supporting
+// provider's data. `providers` lists only outstanding providers — a linked one is
+// simply absent (mirrors internal/repo/enrich_queue.go's EnrichQueueRow).
+export interface EnrichQueueRow {
+	entity_type: EnrichEntityKind;
+	entity_id: number;
+	name: string;
+	providers: EnrichQueueProviderState[];
+}
+
+// RefreshAllResult is one provider's outcome from POST .../enrich/refresh-all (RD8/P1-2):
+// a linked provider refreshes directly; an unlinked one resolves and either auto-applies a
+// single strong match or comes back needs_review — never silently dropped.
+export interface RefreshAllResult {
+	provider: string;
+	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates';
+	enriched?: EnrichedField[];
 }
 
 // Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted

@@ -62,10 +62,12 @@
 	// Enrichment controls (owner-only, F22). sources is loaded once when the client
 	// is confirmed owner; the picker drives a provider resolve→apply. pickerProvider
 	// holds the provider whose EnrichPicker is open ('' = closed); busy holds the
-	// provider name currently being cleared (HOLODEX-119).
+	// provider name currently being cleared or refreshed (HOLODEX-119, F47 RD7);
+	// refreshingAll is Refresh-all's own busy flag (F47 RD8 — it isn't one provider).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
 	let busy = $state('');
+	let refreshingAll = $state(false);
 	// Action errors render inline in the panel — never via the page-level `error`,
 	// which AsyncState uses to replace the whole page.
 	let actionError = $state('');
@@ -199,6 +201,39 @@
 			actionError = toMessage(e);
 		} finally {
 			busy = '';
+		}
+	}
+
+	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
+	// no /resolve, no picker.
+	async function refreshProvider(p: string) {
+		busy = p;
+		actionError = '';
+		try {
+			await api.enrichRefresh('person', id, p);
+			await reloadDetail();
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			busy = '';
+		}
+	}
+
+	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
+	// provider. A provider that resolved ambiguously must not be silently dropped — open
+	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
+	async function refreshAll() {
+		refreshingAll = true;
+		actionError = '';
+		try {
+			const { results } = await api.enrichRefreshAll('person', id);
+			await reloadDetail();
+			const needsReview = results.find((r) => r.status === 'needs_review');
+			if (needsReview) pickerProvider = needsReview.provider;
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			refreshingAll = false;
 		}
 	}
 
@@ -477,8 +512,11 @@
 								providers={personProviders}
 								linked={providerLinked}
 								{busy}
+								{refreshingAll}
 								onenrich={(p) => (pickerProvider = p)}
+								onrefresh={refreshProvider}
 								onclear={clearProvider}
+								onrefreshall={refreshAll}
 							/>
 						{/if}
 					</div>
@@ -665,6 +703,7 @@
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
+		dismiss={(prov) => api.enrichDismiss('person', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>

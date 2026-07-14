@@ -157,6 +157,9 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 	if len(cands) != 1 || cands[0].ExternalID != "tmdb:608" {
 		t.Fatalf("candidates = %+v", cands)
 	}
+	if !cands[0].AutoApply {
+		t.Errorf("AutoApply = false for confidence %v, want true (>= StrongMatchThreshold)", cands[0].Confidence)
+	}
 
 	fields, err := svc.Enrich(ctx, model.EnrichEntityPerson, 1, "fake", "tmdb:608", false)
 	if err != nil {
@@ -808,6 +811,31 @@ func TestSanitizeFieldsCaps(t *testing.T) {
 	}
 	if _, ok := out[""]; ok {
 		t.Error("blank field key should be dropped")
+	}
+}
+
+// TestSanitizeCandidatesAutoApply asserts sanitizeCandidates sets AutoApply from
+// Confidence >= StrongMatchThreshold (ADR-066 D1) — the single server-side
+// computation every /resolve caller and the frontend's "Strong match" chip now rely
+// on instead of a duplicated confidence literal. Table-driven over the boundary,
+// mirroring TestSingleStrongMatch's 0/1/2 cases.
+func TestSanitizeCandidatesAutoApply(t *testing.T) {
+	tests := []struct {
+		name       string
+		confidence float64
+		want       bool
+	}{
+		{"below threshold", 0.84, false},
+		{"exactly at threshold", StrongMatchThreshold, true},
+		{"above threshold", 0.95, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := sanitizeCandidates([]Candidate{{ExternalID: "a", Confidence: tt.confidence}})
+			if got := out[0].AutoApply; got != tt.want {
+				t.Errorf("AutoApply = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

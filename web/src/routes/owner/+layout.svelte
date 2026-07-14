@@ -14,6 +14,7 @@
 		{ href: '/owner/status', label: 'Status' },
 		{ href: '/owner/keys', label: 'Metadata keys' },
 		{ href: '/owner/duplicates', label: 'Duplicates' },
+		{ href: '/owner/enrichment', label: 'Enrichment' },
 		{ href: '/owner/trash', label: 'Trash' }
 	];
 

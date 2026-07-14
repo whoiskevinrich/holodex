@@ -145,8 +145,22 @@ provider loudly.
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
 Given a name query and/or embedded external IDs, return **ranked candidate matches** for the
-owner to confirm. Holodex always shows the owner a picker and never auto-applies a candidate
-in v1, so `confidence` is advisory.
+owner to confirm.
+
+> **Auto-apply (F47 / [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+> D1) — amends the earlier v1 posture.** This section previously stated "Holodex always shows the
+> owner a picker and never auto-applies a candidate in v1, so `confidence` is advisory." That is no
+> longer true: when a `/resolve` call returns **exactly one** candidate at or above Holodex's
+> internal strong-match threshold (**`0.85`**), the Holodex client applies it immediately with no
+> picker shown. Any other outcome — zero candidates, two-or-more at/above the threshold, or only
+> lower-confidence ones — still stops at the owner's picker exactly as before, so ambiguity is
+> never resolved automatically. Practical consequence for you: `confidence` is no longer purely
+> advisory display — a well-calibrated score now determines whether a match applies with one click
+> or waits for owner review, so favor a conservative score when a match is genuinely uncertain. The
+> threshold itself is **not** part of the wire contract: it is not sent to or read from providers,
+> not versioned, and this amendment is **documentation-only** — `candidates[].confidence`'s field
+> shape, 0–1 range, and provider-native/non-normalized semantics are unchanged, so this does not
+> bump `protocol_version`. An already-conformant provider needs no code change.
 
 **Request body** (exact shape Holodex sends):
 
@@ -171,7 +185,8 @@ in v1, so `confidence` is advisory.
       "namespace": "<name>",
       "label": "Ada Lovelace",
       "confidence": 0.97,
-      "disambiguation": "Mathematician · 1815–1852"
+      "disambiguation": "Mathematician · 1815–1852",
+      "profile_url": "https://acme.example/people/998211-ada-lovelace"
     }
   ]
 }
@@ -183,8 +198,9 @@ in v1, so `confidence` is advisory.
 | `candidates[].external_id` | string | yes | Provider-stable, **namespace-qualified** id (e.g. `"<name>:1234"`). This is the exact value Holodex echoes back to `/enrich` |
 | `candidates[].namespace` | string | yes | The id namespace (the prefix before the first `:`) |
 | `candidates[].label` | string | yes | Human-readable name shown in the picker. Holodex sanitizes (strips control chars, caps 4096 chars) |
-| `candidates[].confidence` | number | optional | 0–1 advisory score for ranking. Holodex does not threshold on it in v1 (it always asks the owner to confirm) |
+| `candidates[].confidence` | number | optional | 0–1 score, provider-native and non-normalized — see the auto-apply note above: a lone candidate at/above `0.85` applies without owner confirmation, so a well-calibrated score now has a real behavioral effect, not just display |
 | `candidates[].disambiguation` | string | optional | Short distinguishing line to separate same-named entities. Sanitized/capped by Holodex |
+| `candidates[].profile_url` | string | optional | Absolute link to your own page for this candidate (e.g. a person/company profile page), so the owner can verify a match against your richer page instead of the picker's three-field summary (F47/RD6). Rendered as a "view source ↗" link, opened in a new tab, when present. **Must be `http`/`https`** — Holodex scheme-validates server-side and silently drops any other scheme or a malformed URL before it reaches the client (no error, the candidate itself is still usable). Omit if you have none — don't send an empty string |
 
 ### 2.4 `POST /enrich` — fetch fields
 
@@ -742,7 +758,8 @@ Content-Type: application/json
       "namespace": "acme",
       "label": "Ada Lovelace",
       "confidence": 0.97,
-      "disambiguation": "Mathematician · 1815–1852"
+      "disambiguation": "Mathematician · 1815–1852",
+      "profile_url": "https://acme.example/people/998211-ada-lovelace"
     }
   ]
 }
@@ -916,8 +933,13 @@ truth if a clarification is needed:
 
 ### Open items flagged for Holodex maintainers
 
-- **`confidence` semantics** for `/resolve` — Holodex does not threshold on it in v1, so any
-  monotonic 0–1 value is acceptable; confirm if a specific scheme is ever required.
+- **`confidence` semantics** for `/resolve` — **resolved (F47 / [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+  D1).** Holodex now thresholds on it client-side: a lone candidate at/above `0.85` auto-applies
+  with no picker ([§2.3](#23-post-resolve--identity-match-disambiguation)). Any monotonic 0–1 value
+  is still acceptable — there is no required calibration scheme, and the wire shape is unchanged —
+  but a provider whose scores cluster near or above `0.85` for genuinely ambiguous matches will now
+  cause incorrect auto-applies rather than just a mislabeled badge, so favor conservative scores
+  when uncertain.
 - **New canonical field keys** ([§4.2](#42-canonical-fields)) — a key outside the recommended set that
   should become part of the shared **canonical** vocabulary (registered label + render, cross-provider
   ordering) still needs a maintainer to add a registry entry; propose it. For a **provider-specific** extra

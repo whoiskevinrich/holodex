@@ -148,6 +148,18 @@ type SourceInfo struct {
 	EntityTypes []string `json:"entity_types"`
 }
 
+// Supports reports whether this provider advertises an entity type (case-insensitive),
+// mirroring Source.Supports — used by refresh-all (ADR-066 RD8) to fan out over only
+// the providers that actually apply to the entity being refreshed.
+func (si SourceInfo) Supports(entityType string) bool {
+	for _, t := range si.EntityTypes {
+		if strings.EqualFold(strings.TrimSpace(t), entityType) {
+			return true
+		}
+	}
+	return false
+}
+
 // Sources lists the enabled providers (names + entity types only).
 func (s *Service) Sources() []SourceInfo {
 	srcs := s.store.Current().Enabled()
@@ -558,6 +570,7 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].Disambiguation = SanitizeValue(in[i].Disambiguation)
 		in[i].ExternalID = strings.TrimSpace(in[i].ExternalID)
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
+		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
 		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
 	}
 	return in

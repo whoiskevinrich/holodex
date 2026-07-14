@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
+	import { groupByKind } from '$lib/entityGroups';
 	import type { DuplicatePair, EntityKind } from '$lib/types';
 	import DuplicatePairRow from '$lib/components/DuplicatePairRow.svelte';
 
@@ -25,11 +26,7 @@
 	const groupOrder: EntityKind[] = ['tag', 'studio', 'person'];
 
 	const shown = $derived(typeFilter ? pairs.filter((p) => p.entity_type === typeFilter) : pairs);
-	const groups = $derived(
-		groupOrder
-			.map((et) => ({ type: et, items: shown.filter((p) => p.entity_type === et) }))
-			.filter((g) => g.items.length > 0)
-	);
+	const groups = $derived(groupByKind(shown, groupOrder, (p) => p.entity_type));
 
 	async function load() {
 		loading = true;

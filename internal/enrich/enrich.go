@@ -264,19 +264,45 @@ type Hint struct {
 	ExternalIDs []string `json:"external_ids,omitempty"`
 }
 
-// Candidate is one ranked match from `POST /resolve`. Confidence is advisory —
-// v1 always has the owner confirm (no silent auto-apply).
+// Candidate is one ranked match from `POST /resolve`. Confidence stays
+// provider-native and non-normalized (ADR-033 §2.3). AutoApply is set once in
+// sanitizeCandidates (see StrongMatchThreshold) — every other consumer, in this
+// package and the frontend, reads AutoApply rather than re-deriving it.
 type Candidate struct {
 	ExternalID     string  `json:"external_id"`
 	Namespace      string  `json:"namespace"`
 	Label          string  `json:"label"`
 	Confidence     float64 `json:"confidence"`
 	Disambiguation string  `json:"disambiguation,omitempty"`
+	AutoApply      bool    `json:"auto_apply"`
 	// ProfileURL is an optional provider-supplied link to its own page for this
 	// candidate (e.g. a TMDB person/company page), rendered as "view source ↗" in
 	// the picker (F47, RD6/P1-1). sanitizeCandidates drops anything that isn't
 	// http(s) before this ever reaches an API response — it becomes an `href`.
 	ProfileURL string `json:"profile_url,omitempty"`
+}
+
+// StrongMatchThreshold is the auto-apply confidence cutoff (ADR-066 D1) — the sole
+// source of truth for Candidate.AutoApply, computed once in sanitizeCandidates.
+const StrongMatchThreshold = 0.85
+
+// SingleStrongMatch reports the sole candidate an auto-apply should apply (ADR-066 D1):
+// exactly one candidate with AutoApply=true. Zero, or two-or-more, strong candidates
+// return ok=false — ambiguity always stops at the owner. Callers must pass candidates
+// that already went through sanitizeCandidates (every h.enrich.Resolve result does).
+func SingleStrongMatch(cands []Candidate) (Candidate, bool) {
+	var strong Candidate
+	n := 0
+	for _, c := range cands {
+		if c.AutoApply {
+			strong = c
+			n++
+		}
+	}
+	if n == 1 {
+		return strong, true
+	}
+	return Candidate{}, false
 }
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and

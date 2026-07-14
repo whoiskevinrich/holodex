@@ -45,10 +45,13 @@
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
 	// pickerProvider holds the provider whose EnrichPicker is open ('' = closed);
-	// enrichBusy holds the provider name currently being cleared (HOLODEX-119).
+	// enrichBusy holds the provider name currently being cleared or refreshed
+	// (HOLODEX-119, F47 RD7). enrichRefreshingAll is Refresh-all's own busy flag (F47
+	// RD8, distinct from the unrelated file-refresh `refreshing` below).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
 	let enrichBusy = $state('');
+	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
 
 	// Metadata writeback (F28, ADR-041). writebackOpen drives the batch form dialog.
@@ -273,6 +276,39 @@
 		}
 	}
 
+	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
+	// no /resolve, no picker.
+	async function refreshProvider(p: string) {
+		enrichBusy = p;
+		enrichError = '';
+		try {
+			await api.enrichRefresh('video', id, p);
+			await reloadDetail();
+		} catch (e) {
+			enrichError = toMessage(e);
+		} finally {
+			enrichBusy = '';
+		}
+	}
+
+	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
+	// provider. A provider that resolved ambiguously must not be silently dropped — open
+	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
+	async function refreshAllProviders() {
+		enrichRefreshingAll = true;
+		enrichError = '';
+		try {
+			const { results } = await api.enrichRefreshAll('video', id);
+			await reloadDetail();
+			const needsReview = results.find((r) => r.status === 'needs_review');
+			if (needsReview) pickerProvider = needsReview.provider;
+		} catch (e) {
+			enrichError = toMessage(e);
+		} finally {
+			enrichRefreshingAll = false;
+		}
+	}
+
 	// Related "More with …" shelves (QW2/QW3). Non-blocking and tracks ONLY `id`, so it
 	// fetches once per page view and the shelves don't reshuffle on incidental re-renders
 	// (skin switch, thumbnail regenerate) — "stable per page view" (ADR-031). A fresh
@@ -435,9 +471,12 @@
 								providers={videoProviders}
 								linked={(p) => enrichedByProvider.has(p)}
 								busy={enrichBusy}
+								refreshingAll={enrichRefreshingAll}
 								size="xs"
 								onenrich={(p) => (pickerProvider = p)}
+								onrefresh={refreshProvider}
 								onclear={clearProvider}
+								onrefreshall={refreshAllProviders}
 							/>
 						{/if}
 						{#if canWriteback}
@@ -677,6 +716,7 @@
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
+			dismiss={(prov) => api.enrichDismiss('video', id, prov)}
 			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>
