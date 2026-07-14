@@ -45,7 +45,13 @@ type Source struct {
 
 // Supports reports whether the source advertises an entity type (case-insensitive).
 func (s Source) Supports(entityType string) bool {
-	for _, t := range s.EntityTypes {
+	return entityTypesSupport(s.EntityTypes, entityType)
+}
+
+// entityTypesSupport reports whether entityType (case-insensitive) is among types —
+// the shared check behind both Source.Supports and SourceInfo.Supports.
+func entityTypesSupport(types []string, entityType string) bool {
+	for _, t := range types {
 		if strings.EqualFold(strings.TrimSpace(t), entityType) {
 			return true
 		}

@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 
@@ -46,27 +48,20 @@ func (h *Handlers) enrichQueue(w http.ResponseWriter, r *http.Request) {
 // enrichDismiss records a durable "not matched" verdict for (entity, provider) — the
 // owner's "None of these match" action (RD4). Idempotent.
 func (h *Handlers) enrichDismiss(entityType string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := pathID(w, r)
-		if !ok {
-			return
-		}
-		if !h.enrichEntityLookup(w, r, entityType, id) {
-			return
-		}
-		provider := chi.URLParam(r, "provider")
-		if err := h.repo.DismissEnrichment(r.Context(), entityType, id, provider); err != nil {
-			h.fail(w, "dismiss enrichment", err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
+	return h.enrichDismissalAction(entityType, "dismiss", h.repo.DismissEnrichment)
 }
 
 // enrichUndismiss clears a dismissal — "Try again" (RD4) — so a future /resolve for
 // the pair is no longer blocked. Idempotent; clearing a non-existent dismissal is a
 // no-op success.
 func (h *Handlers) enrichUndismiss(entityType string) http.HandlerFunc {
+	return h.enrichDismissalAction(entityType, "undismiss", h.repo.UndismissEnrichment)
+}
+
+// enrichDismissalAction is the shared dismiss/undismiss handler shape (RD4): resolve
+// the entity, then run action (DismissEnrichment or UndismissEnrichment) against the
+// path's provider. verb only labels the error context on failure.
+func (h *Handlers) enrichDismissalAction(entityType, verb string, action func(ctx context.Context, entityType string, id int64, provider string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := pathID(w, r)
 		if !ok {
@@ -76,8 +71,8 @@ func (h *Handlers) enrichUndismiss(entityType string) http.HandlerFunc {
 			return
 		}
 		provider := chi.URLParam(r, "provider")
-		if err := h.repo.UndismissEnrichment(r.Context(), entityType, id, provider); err != nil {
-			h.fail(w, "undismiss enrichment", err)
+		if err := action(r.Context(), entityType, id, provider); err != nil {
+			h.fail(w, verb+" enrichment", err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -159,15 +154,48 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			linked[m.Provider] = m.ExternalID
 		}
 
-		results := make([]refreshAllResult, 0, 4)
+		var supported []enrich.SourceInfo
 		for _, src := range h.enrich.Sources() {
-			if !src.Supports(entityType) {
+			if src.Supports(entityType) {
+				supported = append(supported, src)
+			}
+		}
+		// Each provider is an independent HTTP round-trip to its own sidecar, so the
+		// fan-out runs concurrently rather than paying N sequential round-trips
+		// (writes still serialize under repo.writeMu, which is cheap next to the I/O).
+		type outcome struct {
+			res     refreshAllResult
+			skip    bool
+			changed bool
+		}
+		outcomes := make([]outcome, len(supported))
+		var wg sync.WaitGroup
+		for i, src := range supported {
+			wg.Add(1)
+			go func(i int, name string) {
+				defer wg.Done()
+				externalID, isLinked := linked[name]
+				res, skip := h.refreshOneProvider(r, entityType, id, name, hint, externalID, isLinked)
+				changed := !skip && (res.Status == "refreshed" || res.Status == "auto_applied")
+				outcomes[i] = outcome{res: res, skip: skip, changed: changed}
+			}(i, src.Name)
+		}
+		wg.Wait()
+
+		results := make([]refreshAllResult, 0, len(supported))
+		changed := false
+		for _, o := range outcomes {
+			if o.skip {
 				continue
 			}
-			externalID, isLinked := linked[src.Name]
-			if res, skip := h.refreshOneProvider(r, entityType, id, src.Name, hint, externalID, isLinked); !skip {
-				results = append(results, res)
-			}
+			results = append(results, o.res)
+			changed = changed || o.changed
+		}
+		// Run the shared post-apply side effects (studio relink / logo relink) once for
+		// the whole fan-out rather than once per provider that changed something — the
+		// relink only cares about the entity's final resolved state.
+		if changed {
+			h.afterEnrichApply(r, entityType, id)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"results": results})
 	}
@@ -178,6 +206,8 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 // directly; an unlinked one resolves and auto-applies a single strong match or leaves
 // itself for the owner. skip=true means the provider is left out of the response
 // entirely (only for a dismissed, unlinked provider — RD4's block on re-resolving it).
+// Runs concurrently with its sibling providers (see enrichRefreshAll); it does not call
+// afterEnrichApply itself — the caller runs that once, after the whole fan-out settles.
 func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int64, provider string, hint enrich.Hint, externalID string, isLinked bool) (result refreshAllResult, skip bool) {
 	ctx := r.Context()
 	// noCandidates logs and reports the shared "this provider produced nothing usable"
@@ -192,7 +222,6 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 		if err != nil {
 			return noCandidates("refresh-all refresh failed", err)
 		}
-		h.afterEnrichApply(r, entityType, id)
 		return refreshAllResult{Provider: provider, Status: "refreshed", Enriched: fields}, false
 	}
 
@@ -214,7 +243,6 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 		if err != nil {
 			return noCandidates("refresh-all auto-apply failed", err)
 		}
-		h.afterEnrichApply(r, entityType, id)
 		return refreshAllResult{Provider: provider, Status: "auto_applied", Enriched: fields}, false
 	}
 	if len(cands) == 0 {

@@ -148,16 +148,11 @@ type SourceInfo struct {
 	EntityTypes []string `json:"entity_types"`
 }
 
-// Supports reports whether this provider advertises an entity type (case-insensitive),
-// mirroring Source.Supports — used by refresh-all (ADR-066 RD8) to fan out over only
-// the providers that actually apply to the entity being refreshed.
+// Supports reports whether this provider advertises an entity type (case-insensitive)
+// — used by refresh-all (ADR-066 RD8) to fan out over only the providers that
+// actually apply to the entity being refreshed.
 func (si SourceInfo) Supports(entityType string) bool {
-	for _, t := range si.EntityTypes {
-		if strings.EqualFold(strings.TrimSpace(t), entityType) {
-			return true
-		}
-	}
-	return false
+	return entityTypesSupport(si.EntityTypes, entityType)
 }
 
 // Sources lists the enabled providers (names + entity types only).

@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
 	import type {
@@ -160,37 +161,28 @@
 		}
 	}
 
-	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
-	// no /resolve, no picker.
+	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the video/person
+	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
-		busy = p;
-		actionError = '';
-		try {
-			await api.enrichRefresh('studio', id, p);
-			await reloadDetail();
-		} catch (e) {
-			actionError = toMessage(e);
-		} finally {
-			busy = '';
-		}
+		await runEnrichRefresh(
+			'studio',
+			id,
+			p,
+			(v) => (busy = v),
+			(v) => (actionError = v),
+			reloadDetail
+		);
 	}
 
-	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
-	// provider. A provider that resolved ambiguously must not be silently dropped — open
-	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
 	async function refreshAll() {
-		refreshingAll = true;
-		actionError = '';
-		try {
-			const { results } = await api.enrichRefreshAll('studio', id);
-			await reloadDetail();
-			const needsReview = results.find((r) => r.status === 'needs_review');
-			if (needsReview) pickerProvider = needsReview.provider;
-		} catch (e) {
-			actionError = toMessage(e);
-		} finally {
-			refreshingAll = false;
-		}
+		await runEnrichRefreshAll(
+			'studio',
+			id,
+			(v) => (refreshingAll = v),
+			(v) => (actionError = v),
+			reloadDetail,
+			(p) => (pickerProvider = p)
+		);
 	}
 
 	// Persist a studio field decision then refetch. DB-only — a studio has no file, so
