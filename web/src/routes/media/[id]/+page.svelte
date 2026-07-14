@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
@@ -43,6 +43,12 @@
 	let confirmMode = $state<'soft' | 'purge' | null>(null);
 	let deleteBusy = $state(false);
 	let deleteError = $state('');
+	// Whether this page was reached via in-app navigation vs. a fresh/direct load — decides
+	// whether Delete can pop browser history back to the referring list (HOLODEX-41).
+	let cameFromInApp = $state(false);
+	afterNavigate(({ type }) => {
+		cameFromInApp = type !== 'enter';
+	});
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
 	// pickerProvider holds the provider whose EnrichPicker is open ('' = closed);
@@ -115,9 +121,15 @@
 		deleteError = '';
 		try {
 			await api.deleteMedia(video.id, { purge: confirmMode === 'purge' });
-			// The item is gone from the library — returning to the grid (where it no
-			// longer appears) is the feedback (no toast system yet, per the handoff).
-			goto('/');
+			// The item is gone — return to wherever it was opened from (a filtered list, a
+			// person's filmography, a studio page) rather than always resetting to the
+			// unfiltered browse root (HOLODEX-41). Falls back to '/' when there's no in-app
+			// history to pop (direct link / new tab).
+			if (cameFromInApp) {
+				history.back();
+			} else {
+				goto('/');
+			}
 		} catch (e) {
 			deleteError = toMessage(e);
 			deleteBusy = false; // keep the dialog open so the message is visible
