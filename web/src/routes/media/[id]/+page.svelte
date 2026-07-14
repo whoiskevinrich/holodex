@@ -5,6 +5,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
 	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/UrlValueList.svelte';
@@ -276,37 +277,28 @@
 		}
 	}
 
-	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
-	// no /resolve, no picker.
+	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the person/studio
+	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
-		enrichBusy = p;
-		enrichError = '';
-		try {
-			await api.enrichRefresh('video', id, p);
-			await reloadDetail();
-		} catch (e) {
-			enrichError = toMessage(e);
-		} finally {
-			enrichBusy = '';
-		}
+		await runEnrichRefresh(
+			'video',
+			id,
+			p,
+			(v) => (enrichBusy = v),
+			(v) => (enrichError = v),
+			reloadDetail
+		);
 	}
 
-	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
-	// provider. A provider that resolved ambiguously must not be silently dropped — open
-	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
 	async function refreshAllProviders() {
-		enrichRefreshingAll = true;
-		enrichError = '';
-		try {
-			const { results } = await api.enrichRefreshAll('video', id);
-			await reloadDetail();
-			const needsReview = results.find((r) => r.status === 'needs_review');
-			if (needsReview) pickerProvider = needsReview.provider;
-		} catch (e) {
-			enrichError = toMessage(e);
-		} finally {
-			enrichRefreshingAll = false;
-		}
+		await runEnrichRefreshAll(
+			'video',
+			id,
+			(v) => (enrichRefreshingAll = v),
+			(v) => (enrichError = v),
+			reloadDetail,
+			(p) => (pickerProvider = p)
+		);
 	}
 
 	// Related "More with …" shelves (QW2/QW3). Non-blocking and tracks ONLY `id`, so it

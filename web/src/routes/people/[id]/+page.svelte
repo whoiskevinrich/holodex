@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import type {
 		DecisionSource,
@@ -204,37 +205,28 @@
 		}
 	}
 
-	// "Refresh" (RD7/P0-5): re-fetches a linked provider using its stored external_id —
-	// no /resolve, no picker.
+	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the video/studio
+	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
-		busy = p;
-		actionError = '';
-		try {
-			await api.enrichRefresh('person', id, p);
-			await reloadDetail();
-		} catch (e) {
-			actionError = toMessage(e);
-		} finally {
-			busy = '';
-		}
+		await runEnrichRefresh(
+			'person',
+			id,
+			p,
+			(v) => (busy = v),
+			(v) => (actionError = v),
+			reloadDetail
+		);
 	}
 
-	// "Refresh all" (RD8/P1-2): one call fans out server-side over every configured
-	// provider. A provider that resolved ambiguously must not be silently dropped — open
-	// EnrichPicker for the first `needs_review` result so the owner sees it immediately.
 	async function refreshAll() {
-		refreshingAll = true;
-		actionError = '';
-		try {
-			const { results } = await api.enrichRefreshAll('person', id);
-			await reloadDetail();
-			const needsReview = results.find((r) => r.status === 'needs_review');
-			if (needsReview) pickerProvider = needsReview.provider;
-		} catch (e) {
-			actionError = toMessage(e);
-		} finally {
-			refreshingAll = false;
-		}
+		await runEnrichRefreshAll(
+			'person',
+			id,
+			(v) => (refreshingAll = v),
+			(v) => (actionError = v),
+			reloadDetail,
+			(p) => (pickerProvider = p)
+		);
 	}
 
 	// F37: persist a per-field source decision then refetch so resolved[] reflects it.
