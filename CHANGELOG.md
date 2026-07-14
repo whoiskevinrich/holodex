@@ -1,11 +1,15 @@
 # Changelog
 
-## [1.10.1](https://github.com/whoiskevinrich/holodex/compare/v1.10.0...v1.10.1) (2026-07-14)
+## [1.11.0](https://github.com/whoiskevinrich/holodex/compare/v1.10.0...v1.11.0) (2026-07-14)
+
+
+### 🚀 Features
+
+* **enrichment:** review workflow — auto-apply, dismissals, provider refresh (ADR-066) ([#130](https://github.com/whoiskevinrich/holodex/issues/130)) ([f022df1](https://github.com/whoiskevinrich/holodex/commit/f022df1a18936369c306255dcbdb0f51b3f07ca6))
 
 
 ### 📚 Documentation
 
-* **architecture:** ADR-066 — enrichment auto-apply + dismissals ([#130](https://github.com/whoiskevinrich/holodex/issues/130)) ([f022df1](https://github.com/whoiskevinrich/holodex/commit/f022df1a18936369c306255dcbdb0f51b3f07ca6))
 * **specs:** add age-in-media spec (HOLODEX-173) ([#131](https://github.com/whoiskevinrich/holodex/issues/131)) ([c7d3a81](https://github.com/whoiskevinrich/holodex/commit/c7d3a8154516df259b0b252a1282f4712816c10b))
 
 ## [1.10.0](https://github.com/whoiskevinrich/holodex/compare/v1.9.1...v1.10.0) (2026-07-13)
