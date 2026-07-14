@@ -93,8 +93,9 @@ were resolved with the project owner on 2026-07-08:
 ## Non-Goals
 
 - **Age-in-media** (a person's age at the time of a specific video) — *(Why: cross-entity (person × video),
-  needs the video's date as a second input; split to its own linked story. The derive engine here owns only
-  **person-intrinsic** computations.)*
+  needs the video's date as a second input; split to its own linked story
+  ([HOLODEX-173](https://whoiskevinrich.atlassian.net/browse/HOLODEX-173),
+  [spec](age-in-media.md)). The derive engine here owns only **person-intrinsic** computations.)*
 - **Provider "computed" fields** (zodiac sign, proprietary scores, etc.) — *(Why: these are **already just
   enrichment** — a provider maps a value to a canonical key and it flows through resolve today. They do not
   touch this engine, which owns only what a stateless snapshot **can't** produce.)*
