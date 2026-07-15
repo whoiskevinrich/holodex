@@ -1,8 +1,9 @@
 # Spec: On-demand metadata extraction from filenames & tags (F48)
 
-**Status**: Draft — architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md))
-and design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-handoff.md)) landed;
-pending `/testing-strategy` and `/security-review` before merge
+**Status**: Draft — architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)),
+design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-handoff.md)), and
+`/testing-strategy` ([docs/testing-strategy.md](../testing-strategy.md), §4/§5/Phase 3/Critical
+invariants) landed; pending `/security-review` before merge
 **Feature block**: F48
 **Phase**: 3 (Enrichment)
 **Date**: 2026-07-14
