@@ -129,6 +129,16 @@ type Config struct {
 	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
 	// filesystem; raise only on fast storage. Clamped to ≥1.
 	WritebackConcurrency int `yaml:"writeback_concurrency"`
+
+	// ExtractionAutoApplyEnabled gates whether a filename-extraction candidate
+	// that clears F48.3/F48.4's confidence-and-exact-match gate actually
+	// enqueues a write, or only logs what it would have done (F48, ADR-067
+	// Action Item 2: "implement F48.3-F48.4 behind a feature flag; disable
+	// auto-apply (log-only) until this ADR lands"). ADR-067 is Proposed, not
+	// Accepted, as of Phase 2 — default false. ADR-060's generic runtime-settings
+	// mechanism doesn't exist yet, so this is a plain boot-time env flag like
+	// every other Config field, not a DB-backed owner setting.
+	ExtractionAutoApplyEnabled bool `yaml:"extraction_auto_apply_enabled"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -322,6 +332,7 @@ func applyEnv(c *Config) {
 	if c.WritebackConcurrency < 1 {
 		c.WritebackConcurrency = 1 // a non-positive worker count would stall the queue
 	}
+	c.ExtractionAutoApplyEnabled = envBool("EXTRACTION_AUTO_APPLY_ENABLED", c.ExtractionAutoApplyEnabled)
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"

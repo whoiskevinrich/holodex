@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -98,6 +100,24 @@ func (r *Repo) SetDecision(ctx context.Context, entityType string, entityID int6
 		return fmt.Errorf("set decision: %w", err)
 	}
 	return nil
+}
+
+// HasManualSource reports whether entityID's fieldKey currently carries a
+// manual: decision (F36) — F48.3e's one-time-import rule: extraction never
+// auto-applies over an owner's manual override, regardless of score.
+func (r *Repo) HasManualSource(ctx context.Context, entityType string, entityID int64, fieldKey string) (bool, error) {
+	var exists int
+	switch err := r.db.QueryRowContext(ctx, `
+		SELECT 1 FROM field_source_decisions
+		WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND source = ?
+		LIMIT 1`, entityType, entityID, fieldKey, fieldsource.Manual).Scan(&exists); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, sql.ErrNoRows):
+		return false, nil
+	default:
+		return false, fmt.Errorf("has manual source: %w", err)
+	}
 }
 
 // ClearDecision removes the standing decision for a field, reverting it to the

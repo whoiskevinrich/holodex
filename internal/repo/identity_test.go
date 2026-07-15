@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -91,4 +92,72 @@ func TestAliasRoutesOnScan(t *testing.T) {
 	if people[0].VideoCount != 2 {
 		t.Fatalf("canonical person video count = %d, want 2", people[0].VideoCount)
 	}
+}
+
+// TestExactEntityMatch proves F48.3c's reuse contract: ExactEntityMatch finds
+// an entity via canonical name OR alias (both routes resolveOrCreateByName
+// itself uses), and reports ok=false for a name that would create a new
+// entity.
+func TestExactEntityMatch(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith"}, nil), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	id, ok, err := r.ExactEntityMatch(ctx, model.EnrichEntityPerson, "alice smith")
+	if err != nil || !ok {
+		t.Fatalf("expected a case-folded exact match, got ok=%v err=%v", ok, err)
+	}
+	if id == 0 {
+		t.Fatal("expected a non-zero entity id")
+	}
+
+	if _, err := r.AddPersonAlias(ctx, id, "Al Smith"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	aliasID, ok, err := r.ExactEntityMatch(ctx, model.EnrichEntityPerson, "Al Smith")
+	if err != nil || !ok || aliasID != id {
+		t.Fatalf("expected alias match to the same canonical id, got id=%d ok=%v err=%v", aliasID, ok, err)
+	}
+
+	if _, ok, err := r.ExactEntityMatch(ctx, model.EnrichEntityPerson, "Nobody Here"); err != nil || ok {
+		t.Fatalf("expected no match for an unknown name, got ok=%v err=%v", ok, err)
+	}
+}
+
+// TestEntityNames proves the fuzzy-ranking candidate pool (F48.3d) returns
+// every known Person/Studio, keyed by id.
+func TestEntityNames(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith", "Bob Jones"}, nil), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	names, err := r.EntityNames(ctx, model.EnrichEntityPerson)
+	if err != nil {
+		t.Fatalf("entity names: %v", err)
+	}
+	if len(names) != 2 {
+		t.Fatalf("want 2 people, got %d (%v)", len(names), names)
+	}
+	var got []string
+	for _, n := range names {
+		got = append(got, n)
+	}
+	if !contains(got, "Alice Smith") || !contains(got, "Bob Jones") {
+		t.Fatalf("expected both names present, got %v", got)
+	}
+}
+
+func contains(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

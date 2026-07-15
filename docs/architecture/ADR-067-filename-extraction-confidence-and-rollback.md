@@ -181,7 +181,7 @@ A "Revert" action on a batch (observable in activity history) creates a new writ
 ## Action Items
 
 1. [ ] Create the two new migrations (0025: `metadata_extraction_review`, 0026: `file_writeback_snapshots`).
-2. [ ] Implement F48.3–F48.4 (confidence scoring + routing) behind a feature flag; disable auto-apply (log-only) until this ADR lands.
+2. [x] Implement F48.3–F48.4 (confidence scoring + routing) behind a feature flag; disable auto-apply (log-only) until this ADR lands. (`internal/extract`, `config.ExtractionAutoApplyEnabled`, default false — Phase 2, 2026-07-15.)
 3. [ ] Implement F48.9 (rollback foundation) before enabling extraction auto-apply.
 4. [ ] Post-merge: collect empirical data on extraction misclassification (log threshold violations); propose threshold tuning if needed via a follow-up ADR or ADR-060 update.
 5. [ ] Document the filename namespace in `docs/reference/canonical-fields.md`.

@@ -89,3 +89,34 @@ func TestDecisions_ForVideosBatch(t *testing.T) {
 	}
 }
 
+
+// TestHasManualSource proves F48.3e's precedence check: a manual: decision on
+// a field is detectable independent of DecisionsForEntity's full row list.
+func TestHasManualSource(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/e.mkv", "Film", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	if has, err := r.HasManualSource(ctx, model.EnrichEntityVideo, id, "title"); err != nil || has {
+		t.Fatalf("expected no manual source yet, got has=%v err=%v", has, err)
+	}
+
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "title", "manual", "Curated Title"); err != nil {
+		t.Fatalf("set manual decision: %v", err)
+	}
+	if has, err := r.HasManualSource(ctx, model.EnrichEntityVideo, id, "title"); err != nil || !has {
+		t.Fatalf("expected manual source, got has=%v err=%v", has, err)
+	}
+
+	// A provider/file decision on a different field is not a manual source.
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "studio", "provider:tmdb", ""); err != nil {
+		t.Fatalf("set provider decision: %v", err)
+	}
+	if has, err := r.HasManualSource(ctx, model.EnrichEntityVideo, id, "studio"); err != nil || has {
+		t.Fatalf("expected provider decision to not count as manual, got has=%v err=%v", has, err)
+	}
+}

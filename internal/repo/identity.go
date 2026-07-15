@@ -93,21 +93,11 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		}
 	}
 
-	// 2. Canonical nameKey (case/whitespace-folded) — backed by ux_<table>_namekey.
-	var id int64
-	switch err := tx.QueryRowContext(ctx, q.canonicalSelect, name).Scan(&id); {
-	case err == nil:
+	// 2-3. Canonical nameKey, then alias key → canonical entity (survives merges).
+	if id, ok, err := lookupByNameKey(ctx, tx, q, entityType, name); err != nil {
+		return 0, err
+	} else if ok {
 		return id, attachExternalID(ctx, tx, entityType, id, externalID)
-	case !errors.Is(err, sql.ErrNoRows):
-		return 0, fmt.Errorf("resolve %s name: %w", entityType, err)
-	}
-
-	// 3. Alias key → canonical entity (survives merges).
-	switch err := tx.QueryRowContext(ctx, q.aliasSelect, entityType, name).Scan(&id); {
-	case err == nil:
-		return id, attachExternalID(ctx, tx, entityType, id, externalID)
-	case !errors.Is(err, sql.ErrNoRows):
-		return 0, fmt.Errorf("resolve %s alias: %w", entityType, err)
 	}
 
 	// 4. Create, then flag any loose-key near-miss for the review queue (F43 S5,
@@ -116,7 +106,7 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if err != nil {
 		return 0, fmt.Errorf("insert %s: %w", entityType, err)
 	}
-	id, err = res.LastInsertId()
+	id, err := res.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
@@ -124,6 +114,35 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		return 0, err
 	}
 	return id, attachExternalID(ctx, tx, entityType, id, externalID)
+}
+
+// queryRower is the read slice both *sql.Tx (inside resolveOrCreateByName's
+// transaction) and *sql.DB (ExactEntityMatch's standalone read) satisfy.
+type queryRower interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// lookupByNameKey resolves name to an existing entity via canonical nameKey
+// then alias key (ADR-061) — the two-step lookup shared by
+// resolveOrCreateByName (which falls through to create-on-miss) and
+// ExactEntityMatch (read-only, F48.3c: "same nameKey function, imported not
+// reimplemented"). ok is false when neither matches.
+func lookupByNameKey(ctx context.Context, qr queryRower, q identityQueries, entityType, name string) (int64, bool, error) {
+	var id int64
+	switch err := qr.QueryRowContext(ctx, q.canonicalSelect, name).Scan(&id); {
+	case err == nil:
+		return id, true, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return 0, false, fmt.Errorf("lookup %s name: %w", entityType, err)
+	}
+
+	switch err := qr.QueryRowContext(ctx, q.aliasSelect, entityType, name).Scan(&id); {
+	case err == nil:
+		return id, true, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return 0, false, fmt.Errorf("lookup %s alias: %w", entityType, err)
+	}
+	return 0, false, nil
 }
 
 // attachExternalID records external_id → entity idempotently; a no-op unless the
@@ -134,4 +153,37 @@ func attachExternalID(ctx context.Context, tx *sql.Tx, entityType string, id int
 		return nil
 	}
 	return attachStudioExternalID(ctx, tx, id, externalID)
+}
+
+// ExactEntityMatch reports whether name resolves to an existing Person/Studio
+// via F43's canonical nameKey or alias-key match (ADR-061) — the same
+// normalization resolveOrCreateByName uses (F48.3c: "same nameKey function,
+// imported not reimplemented"), reused read-only with no create-on-miss
+// fallback. ok is false when no entity exists yet for name.
+func (r *Repo) ExactEntityMatch(ctx context.Context, entityType, name string) (id int64, ok bool, err error) {
+	q, known := identityQueryByType[entityType]
+	if !known {
+		return 0, false, fmt.Errorf("exact entity match: unknown entity type %q", entityType)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return 0, false, nil
+	}
+	return lookupByNameKey(ctx, r.db, q, entityType, name)
+}
+
+// EntityNames returns every Person/Studio id -> name pair for entityType — the
+// candidate pool F48.3d's Jaro-Winkler ranking searches when no exact match
+// exists. Built on enrichQueueEntities (enrich_queue.go), the same
+// "list every name of this entity type" read F47's queue already uses.
+func (r *Repo) EntityNames(ctx context.Context, entityType string) (map[int64]string, error) {
+	refs, err := r.enrichQueueEntities(ctx, entityType)
+	if err != nil {
+		return nil, fmt.Errorf("entity names: %w", err)
+	}
+	out := make(map[int64]string, len(refs))
+	for _, ref := range refs {
+		out[ref.ID] = ref.Name
+	}
+	return out, nil
 }
