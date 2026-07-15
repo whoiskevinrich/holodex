@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -172,7 +173,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	if len(mapped) == 0 {
 		// Nothing writable for this container — a success no-op, recorded so the
 		// operator sees why (e.g. .avi with no tag mapping).
-		finish(true, "", 0, detailLine(v.FilePath, 0, unmapped))
+		finish(true, "", 0, detailLine(v.FilePath, 0, unmapped, ""))
 		return
 	}
 
@@ -180,9 +181,16 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	for i, m := range mapped {
 		batch[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage}
 	}
+
+	// F48.9a (ADR-067): snapshot each field's current on-disk value before it
+	// is overwritten, so a bad batch can be reverted. batchID is "" when
+	// nothing was recorded — logged, not fatal (a snapshot hiccup must not
+	// block a working write).
+	batchID := q.snapshotBeforeWrite(ctx, job, v.FilePath, mapped)
+
 	if err := q.write(ctx, v.FilePath, batch); err != nil {
 		q.log.Warn("writeback batch failed", "id", job.ID, "video", job.VideoID, "err", err)
-		finish(false, err.Error(), 0, detailLine(v.FilePath, 0, unmapped))
+		finish(false, err.Error(), 0, detailLine(v.FilePath, 0, unmapped, ""))
 		return
 	}
 
@@ -195,7 +203,82 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	if q.postWrite != nil {
 		q.postWrite(ctx, job.VideoID, v.FilePath)
 	}
-	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped))
+	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped, batchID))
+}
+
+// snapshotBeforeWrite records each mapped field's current on-disk value under
+// a batch id derived from the job's own id (F48.9a, ADR-067) — not a fresh
+// random id per attempt. That matters for crash recovery: RecoverRunningWritebacks
+// resets a crash-interrupted 'running' job back to 'pending' and reprocesses it
+// from scratch, and by then the file may already carry the first attempt's
+// write (a crash between a successful WriteBatch and FinishWriteback). A fresh
+// id per attempt would re-read that already-written value as "prior",
+// corrupting the snapshot. Keying on job.ID instead makes this idempotent: a
+// retry finds its own earlier snapshot and reuses it rather than re-deriving a
+// wrong one. Returns "" when nothing was recorded — the read or insert failed,
+// logged and treated as non-fatal so a snapshot problem never blocks an
+// otherwise-working write.
+func (q *Queue) snapshotBeforeWrite(ctx context.Context, job *repo.WritebackJob, path string, mapped []writeback.Mapped) string {
+	batchID := strconv.FormatInt(job.ID, 10)
+	if existing, err := q.repo.SnapshotsForBatch(ctx, batchID); err != nil {
+		q.log.Warn("writeback snapshot lookup failed", "id", job.ID, "video", job.VideoID, "err", err)
+	} else if len(existing) > 0 {
+		return batchID // already captured on an earlier attempt for this job
+	}
+
+	prior, err := writeback.ReadCurrentValues(ctx, path, mapped)
+	if err != nil {
+		q.log.Warn("writeback snapshot read failed", "id", job.ID, "video", job.VideoID, "err", err)
+		return ""
+	}
+	if err := q.repo.InsertWritebackSnapshots(ctx, job.VideoID, batchID, prior); err != nil {
+		q.log.Warn("writeback snapshot insert failed", "id", job.ID, "video", job.VideoID, "err", err)
+		return ""
+	}
+	return batchID
+}
+
+// Revert restores every field in a completed write batch to its pre-write
+// value, one inverse writeback job per affected video (F48.9b). The revert
+// enqueues through the same path as any other write, so it is itself
+// snapshotted and can be re-reverted (undo-of-undo, F48.9c).
+//
+// A field whose prior_value is "" (absent before the original write) is
+// skipped: the write path has no "clear this tag" primitive today — a
+// job's values are sanitized and empty values dropped (enrich.SanitizeValues)
+// — so there is nothing to revert-write for that field. This only affects a
+// field the original write *added* where none existed before; the common
+// "wrong value overwrote an existing one" case reverts fully.
+func (q *Queue) Revert(ctx context.Context, batchID string) ([]int64, error) {
+	snaps, err := q.repo.SnapshotsForBatch(ctx, batchID)
+	if err != nil {
+		return nil, err
+	}
+	if len(snaps) == 0 {
+		return nil, fmt.Errorf("revert batch %q: %w", batchID, repo.ErrNotFound)
+	}
+
+	byVideo := make(map[int64][]JobField)
+	for _, s := range snaps {
+		if s.PriorValue == "" {
+			continue
+		}
+		byVideo[s.VideoID] = append(byVideo[s.VideoID], JobField{
+			Field:  s.FieldKey,
+			Values: strings.Split(s.PriorValue, "\n"),
+			Source: "revert",
+		})
+	}
+
+	jobIDs := make([]int64, 0, len(byVideo))
+	for videoID, fields := range byVideo {
+		id, err := q.Enqueue(ctx, videoID, fields)
+		if err != nil {
+			return jobIDs, fmt.Errorf("revert enqueue video %d: %w", videoID, err)
+		}
+		jobIDs = append(jobIDs, id)
+	}
+	return jobIDs, nil
 }
 
 // buildBatch sanitizes values defensively and re-resolves canonical→tag for the
@@ -216,11 +299,17 @@ func buildBatch(fields []JobField, container string) (mapped []writeback.Mapped,
 	return writeback.ResolveForContainer(container, specs)
 }
 
-func detailLine(path string, n int, unmapped []string) string {
+// detailLine renders the job_runs.detail summary. batchID (F48.9d), when
+// non-empty, is appended so the batch id needed for Revert is visible in
+// activity history without a schema change to job_runs.
+func detailLine(path string, n int, unmapped []string, batchID string) string {
 	base := filepath.Base(path)
 	d := fmt.Sprintf("%s — %d field(s) written", base, n)
 	if len(unmapped) > 0 {
 		d += " · skipped (no mapping): " + strings.Join(unmapped, ", ")
+	}
+	if batchID != "" {
+		d += " · batch " + batchID
 	}
 	return d
 }

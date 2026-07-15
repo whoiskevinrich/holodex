@@ -60,7 +60,7 @@ Items closed.
      `- skills:` line mechanically; /handoff writes the `- handoff:` sentence the next SessionStart
      banner echoes. Shape:
 ### 2026-07-15 · session
-- skills: simplify
+- skills: simplify, security-review
 
 ### 2026-07-14 · session
 - skills: simplify, security-review
