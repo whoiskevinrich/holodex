@@ -46,7 +46,10 @@ fields:
 | `file:title` | `videos.title` column (scanner's primary title) |
 | `file:<Key>` | `extra_metadata` raw file tag (case-insensitive) |
 | `<provider>:<field>` | `entity_enrichment` shadow store (e.g. `tmdb:overview`) |
+| `filename:<field>` | `entity_enrichment` shadow store, `filename` namespace — parsed from a configured filename pattern (F48, [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)); same shape as any other provider, no schema change |
 | `<Key>` (no colon) | Legacy bare key — treated as `file:<Key>` |
+
+`filename:` currently produces four field keys: `title`, `people`, `studio`, `release_date` (year granularity) — see the [F48 spec](../specs/metadata-extraction.md#concepts--model) for the token grammar and confidence model.
 
 Sources are walked left-to-right; the first non-empty value wins (`WinningSource` in the API response records which one).
 

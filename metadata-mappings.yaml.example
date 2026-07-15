@@ -13,7 +13,9 @@
 #   sources     ordered source list. Namespace syntax (F27):
 #                 file:title           videos.title column (scanner's primary title)
 #                 file:<Key>           raw file tag from extra_metadata (case-insensitive)
-#                 <provider>:<field>   enrichment shadow field, e.g. tmdb:title
+#                 <provider>:<field>   enrichment shadow field, e.g. tmdb:title, or
+#                                      filename:title (F48, parsed via a configured
+#                                      filename_patterns rule)
 #                 <Key>                legacy bare key treated as file:<Key>
 #               How `sources` order is read depends on `default_source` (F36, ADR-051):
 #                 default_source: file (DEFAULT) — the FILE/baseline value wins any
@@ -39,13 +41,15 @@ fields:
   # ============================ Video / film fields ============================
 
   # --- Title (file baseline; adopt a provider per-item via the source control) ---
-  # Uncomment when a tmdb provider is configured in metadata-sources.yaml. Under the
-  # default (default_source: file) the filename-derived title shows until you adopt
-  # TMDB for an item; set default_source: mapping for provider-first display instead.
+  # Uncomment when a tmdb provider is configured in metadata-sources.yaml, and/or a
+  # filename_patterns rule is configured (F48). Under the default (default_source:
+  # file) the raw filename-stem fallback (file:title) shows until you adopt a
+  # candidate for an item; set default_source: mapping for provider-first display.
   # - canonical: title
   #   browse: true
   #   sources:
-  #     - file:title        # baseline: the filename-derived title
+  #     - file:title        # baseline: the scanner's raw filename-stem fallback
+  #     - filename:title    # candidate: parsed via a configured filename pattern (F48)
   #     - tmdb:title        # candidate: adopt per-item, or wins under default_source: mapping
 
   - canonical: original_title
@@ -62,6 +66,7 @@ fields:
 
   - canonical: release_date
     sources:
+      - filename:release_date   # candidate: parsed year from a filename pattern (F48)
       - tmdb:release_date
 
   - canonical: runtime
@@ -103,6 +108,7 @@ fields:
     sources:
       - Artist          # file tag
       - tmdb:actors     # top-10 billed cast from TMDB credits (joins the union)
+      - filename:people # parsed {people} token from a filename pattern (F48; joins the union)
     multi: true
 
   - canonical: director
@@ -121,6 +127,7 @@ fields:
       - Label
       - Studio
       - ProductionCompany
+      - filename:studio # candidate: parsed from a filename pattern (F48)
       - tmdb:studio     # candidate: production companies from TMDB
     filterable: true
 
