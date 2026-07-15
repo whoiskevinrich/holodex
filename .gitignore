@@ -31,10 +31,12 @@
 /holodex.yaml
 /metadata-mappings.yaml
 /metadata-sources.yaml
+/metadata-patterns.yaml
 # Local per-profile config variants (live in the main worktree; each worktree's
 # .claude/launch.json references them by absolute METADATA_*_PATH).
 /metadata-mappings.local.*
 /metadata-sources.local.*
+/metadata-patterns.local.*
 /docker-compose.override.yml
 
 # Secrets / personal — never commit

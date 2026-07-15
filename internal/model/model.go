@@ -215,6 +215,7 @@ const (
 	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
 	JobKindStudioLogo       = "studio-logo"       // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
 	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
+	JobKindExtraction       = "extraction"        // library-wide filename extraction pass (F48.5b, ADR-067)
 	JobStatusOK             = "success"
 	JobStatusErr            = "error"
 )

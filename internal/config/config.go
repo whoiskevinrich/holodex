@@ -139,6 +139,14 @@ type Config struct {
 	// mechanism doesn't exist yet, so this is a plain boot-time env flag like
 	// every other Config field, not a DB-backed owner setting.
 	ExtractionAutoApplyEnabled bool `yaml:"extraction_auto_apply_enabled"`
+
+	// FilenamePatternsPath is the owner-configurable, ordered filename
+	// token-grammar pattern list (F48.1a, ADR-067). A missing file means no
+	// patterns are configured — every file falls through to tag-only
+	// resolution unchanged (F48.1b). Reloadable at runtime via the existing
+	// POST /admin/reload-config (F48.1a's "editable at runtime" requirement),
+	// mirroring MetadataMappingsPath.
+	FilenamePatternsPath string `yaml:"filename_patterns_path"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -178,6 +186,7 @@ func Defaults() Config {
 		MCPPort:              7801,
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
+		FilenamePatternsPath: "./metadata-patterns.yaml",
 		CardLayout:           "wide",
 		DefaultSource:        "file", // F36/RD4: file beats providers when undecided
 		WritebackConcurrency: 1,
@@ -333,6 +342,7 @@ func applyEnv(c *Config) {
 		c.WritebackConcurrency = 1 // a non-positive worker count would stall the queue
 	}
 	c.ExtractionAutoApplyEnabled = envBool("EXTRACTION_AUTO_APPLY_ENABLED", c.ExtractionAutoApplyEnabled)
+	c.FilenamePatternsPath = envStr("FILENAME_PATTERNS_PATH", c.FilenamePatternsPath)
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"
