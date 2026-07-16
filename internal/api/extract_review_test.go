@@ -10,9 +10,11 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"holodex/internal/api"
 	"holodex/internal/db"
+	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
@@ -248,6 +250,75 @@ func TestResolveExtractionReview_StaleRowIsNoop(t *testing.T) {
 	}
 	if depth, err := q.Depth(ctx); err != nil || depth != 1 {
 		t.Fatalf("queue depth = %d err=%v, want 1 (the stale resolve must not enqueue a second write)", depth, err)
+	}
+}
+
+// TestResolveExtractionReview_PeopleFieldWritesToActorsTag is the writeback
+// regression for the extract-package/writeback-layer field-key mismatch:
+// "people" (the extract package's canonical field, from the {people}
+// filename token) has no entry in internal/writeback's formatMap — only
+// "actors" does (metadata-mappings.yaml.example: filename:people is a
+// *source* of the actors field, not a canonical field of its own). Without
+// translating row.FieldKey through extract.WritebackField before building
+// the JobField, this resolves through the real writequeue.buildBatch /
+// writeback.ResolveForContainer path as unmapped and silently drops the
+// write — recorded as a successful no-op, never reaching the file's Artist
+// tag. This test wires a real queue with a capturing WriteFunc (not the
+// other tests' no-op) so it proves the field actually got mapped and
+// written, not merely enqueued.
+func TestResolveExtractionReview_PeopleFieldWritesToActorsTag(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	id, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: filepath.Join(dir, "v.mp4"), FileSize: 1, Title: "t",
+		Container: "MP4", FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	var gotFields []writeback.FieldWrite
+	write := func(_ context.Context, _ string, fields []writeback.FieldWrite) error {
+		gotFields = fields
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := writequeue.New(r, write, log, 1, "")
+	q.Start(ctx)
+
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	if err := r.UpsertExtractionReview(ctx, id, "people", "Alice Smith", "", 0.7, 0); err != nil {
+		t.Fatalf("upsert review: %v", err)
+	}
+	pending, _ := r.ListExtractionReviews(ctx, repo.ExtractionReviewPending)
+	if len(pending) != 1 {
+		t.Fatalf("want 1 pending, got %d", len(pending))
+	}
+
+	url := srv.URL + "/api/v1/owner/extraction-review/" + itoa(pending[0].ID) + "/resolve"
+	if code, body := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusNoContent {
+		t.Fatalf("want 204, got %d: %v", code, body)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && gotFields == nil {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(gotFields) != 1 || gotFields[0].TagName != "QuickTime:Artist" {
+		t.Fatalf("want the people field mapped and written to the QuickTime:Artist tag, got %+v", gotFields)
 	}
 }
 

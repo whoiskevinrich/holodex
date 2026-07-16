@@ -60,6 +60,31 @@ type FieldExtraction struct {
 	TagValues      []string
 }
 
+// writebackFieldAliases translates an extract-package field key to the
+// writeback layer's canonical field name, where the two vocabularies
+// diverge. "people" is the pattern-token/entity_enrichment key (pattern.go,
+// model.EntityTypeForField); the writeback layer's cast field is "actors"
+// (metadata-mappings.yaml.example: filename:people is one of "actors"'s
+// *sources*, not a canonical field of its own). Passing "people" straight
+// through as a writequeue.JobField.Field silently no-ops — internal/writeback's
+// formatMap has no "people" entry, so ResolveForContainer drops it into
+// "unmapped" and the write is recorded as a successful no-op.
+var writebackFieldAliases = map[string]string{
+	"people": "actors",
+}
+
+// WritebackField maps an extract-package canonical field key to the field
+// name the writeback layer (internal/writeback's formatMap) understands.
+// Every caller that builds a writequeue.JobField from an extract field key
+// must route it through this first. Fields with no alias pass through
+// unchanged.
+func WritebackField(field string) string {
+	if alias, ok := writebackFieldAliases[field]; ok {
+		return alias
+	}
+	return field
+}
+
 // Deps bundles Process's collaborators. AutoApplyEnabled gates whether an
 // AutoApply-routed candidate actually enqueues a write or only logs what it
 // would have done (ADR-067 Action Item 2). Log may be nil (no logging).
@@ -130,7 +155,7 @@ func Process(ctx context.Context, d Deps, fe FieldExtraction) (Outcome, error) {
 			return "", fmt.Errorf("extract: auto-apply enabled but no write queue configured")
 		}
 		if _, err := d.Queue.Enqueue(ctx, fe.VideoID, []writequeue.JobField{{
-			Field:  fe.Field,
+			Field:  WritebackField(fe.Field),
 			Values: fe.FilenameValues,
 			Source: Provider,
 		}}); err != nil {

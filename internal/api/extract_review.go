@@ -87,7 +87,7 @@ func (h *Handlers) resolveExtractionReview(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if _, err := h.writeQueue.Enqueue(r.Context(), row.VideoID, []writequeue.JobField{
-			{Field: row.FieldKey, Values: write.Values, Source: write.Source},
+			{Field: extract.WritebackField(row.FieldKey), Values: write.Values, Source: write.Source},
 		}); err != nil {
 			h.fail(w, "enqueue extraction resolve write", err)
 			return

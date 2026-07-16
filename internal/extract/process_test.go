@@ -157,6 +157,25 @@ func TestProcess_EntityField_ExactMatchAutoApplies(t *testing.T) {
 	if len(enq.calls) != 1 {
 		t.Fatalf("expected one enqueue call, got %+v", enq.calls)
 	}
+	// The extract package's "people" field key must be translated to the
+	// writeback layer's "actors" before it reaches the JobField — the
+	// writeback formatMap has no "people" entry (see WritebackField).
+	if got := enq.calls[0].Fields[0].Field; got != "actors" {
+		t.Fatalf("JobField.Field = %q, want %q (writeback vocabulary)", got, "actors")
+	}
+}
+
+func TestWritebackField(t *testing.T) {
+	cases := map[string]string{
+		"people": "actors",
+		"title":  "title",
+		"studio": "studio",
+	}
+	for field, want := range cases {
+		if got := WritebackField(field); got != want {
+			t.Errorf("WritebackField(%q) = %q, want %q", field, got, want)
+		}
+	}
 }
 
 // TestProcess_EntityField_FuzzyMatchQueuesWithSuggestion is F48.3d end to
