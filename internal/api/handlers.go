@@ -16,6 +16,7 @@ import (
 
 	"holodex/internal/cache"
 	"holodex/internal/enrich"
+	"holodex/internal/extract"
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -68,6 +69,14 @@ type Handlers struct {
 	writeback  WriteBatchFunc    // file tag write (F28, ADR-041); nil disables the endpoint
 	writeQueue *writequeue.Queue // durable batch-write queue (F30, ADR-048); nil → synchronous write
 	refresh    *refresh.Service  // per-item forced re-extract + re-enrich (F31, ADR-047); nil disables it
+
+	// Filename extraction triggers (F48.5, ADR-067). extract/extractBatch nil
+	// disable the on-demand/batch extraction endpoints (503). patterns is a
+	// direct peer of mappings/enrich (both reloaded alongside it below) rather
+	// than reached through extract.Orchestrator's composition.
+	extract      *extract.Orchestrator
+	extractBatch *extract.BatchRunner
+	patterns     *extract.PatternStore
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -169,6 +178,19 @@ func (h *Handlers) SetEnrichment(svc *enrich.Service) { h.enrich = svc }
 // SetRefresh wires the per-item refresh service (F31, ADR-047). A nil service
 // disables POST /media/{id}/refresh (503). Called once at startup before serving.
 func (h *Handlers) SetRefresh(svc *refresh.Service) { h.refresh = svc }
+
+// SetExtraction wires the filename-extraction triggers (F48.5, ADR-067): the
+// per-video orchestrator (on-demand, F48.5a), the library-wide batch runner
+// (F48.5b), and the pattern-list config store (F48.1a) as a direct field
+// alongside mappings/enrich. orch/batch nil-safe — either left nil disables
+// its endpoint (503). Called once at startup before serving.
+func (h *Handlers) SetExtraction(orch *extract.Orchestrator, batch *extract.BatchRunner) {
+	h.extract = orch
+	h.extractBatch = batch
+	if orch != nil {
+		h.patterns = orch.Patterns
+	}
+}
 
 // SetPersonImages wires per-person image storage (F25, ADR-038): the on-disk root,
 // the upload bounds, and the default skin used when a placeholder is served without
@@ -313,6 +335,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Get("/admin/activity/history", h.adminActivityHistory)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
+		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
+		r.Post("/admin/extract-all", h.adminExtractAll)
 		// Metadata source plugins — People enrichment (F22, ADR-033).
 		h.mountEnrich(r)
 		// Person aliases — owner-curated alternate names (F23, ADR-036).
@@ -339,6 +363,10 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDuplicates(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
+		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).
+		r.Post("/media/{id}/extract", h.extractMedia)
+		// Filename extraction review queue — list/resolve/dismiss (F48.6, ADR-067).
+		h.mountExtractionReview(r)
 	})
 }
 
@@ -670,6 +698,14 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.mappings.Reload(); err != nil {
 		h.fail(w, "reload config", err)
 		return
+	}
+	// Reload the filename-pattern list alongside the mappings (F48.1a, ADR-067)
+	// so an edited metadata-patterns.yaml takes effect without a restart.
+	if h.patterns != nil {
+		if err := h.patterns.Reload(); err != nil {
+			h.fail(w, "reload config", err)
+			return
+		}
 	}
 	// Reload the provider registry alongside the mappings (F22.2d) so both config
 	// files take effect without a restart.

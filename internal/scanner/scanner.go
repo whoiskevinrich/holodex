@@ -80,6 +80,7 @@ type Scanner struct {
 	metrics  Metrics
 	recorder JobRecorder
 	relink   func(context.Context, int64) error // F38: re-derive studio links post-upsert
+	extract  func(context.Context, int64) error // F48.5c: filename extraction post-upsert
 	scanMu   sync.Mutex                         // ensures only one reconciliation pass runs at a time
 	baseCtx  context.Context                    // server-lifetime ctx for manual rescans (F13.3)
 
@@ -119,6 +120,15 @@ func (s *Scanner) SetMetrics(m Metrics) { s.metrics = m }
 // backfill + owner actions). Best-effort — a relink error is logged, never failing
 // the scan.
 func (s *Scanner) SetRelinker(fn func(context.Context, int64) error) { s.relink = fn }
+
+// SetExtractionRunner wires the filename-extraction pipeline (F48.5c,
+// ADR-067): after each video upsert the scanner runs F48.1-F48.4 for that
+// video, so a freshly scanned file with a matching filename pattern gets its
+// high-confidence fields populated automatically. Called once at startup
+// before Run; nil disables it (extraction then only runs via the on-demand
+// or batch triggers). Best-effort — an extraction error is logged, never
+// failing the scan, mirroring SetRelinker.
+func (s *Scanner) SetExtractionRunner(fn func(context.Context, int64) error) { s.extract = fn }
 
 // SetJobRecorder wires durable job-history recording (F21.3). Called once at
 // startup before Run; nil disables recording.
@@ -414,6 +424,13 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	if s.relink != nil {
 		if err := s.relink(ctx, id); err != nil {
 			s.log.Warn("studio relink failed", "id", id, "err", err)
+		}
+	}
+	// Import-time filename extraction (F48.5c, ADR-067). Best-effort: a failure
+	// here never affects indexing, mirroring the relink hook above.
+	if s.extract != nil {
+		if err := s.extract(ctx, id); err != nil {
+			s.log.Warn("filename extraction failed", "id", id, "err", err)
 		}
 	}
 	s.handleThumbnail(ctx, id, path, ex.HasCoverArt)

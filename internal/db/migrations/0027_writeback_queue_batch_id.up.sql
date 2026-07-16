@@ -1,0 +1,11 @@
+-- F48.8 (ADR-067): an optional, caller-supplied batch id lets several
+-- writeback_queue jobs (one per affected video) share one snapshot batch —
+-- merge propagation is the first caller: a Person/Studio merge enqueues one
+-- job per affected video, and giving them all the same batch_id lets a
+-- single POST /writeback/batches/{batchID}/revert (already video-agnostic,
+-- see writeback.go mountWriteback) restore every one of them. This is the
+-- "future multi-video operation" 0026's file_writeback_snapshots comment
+-- anticipated. Empty (the default, and every pre-F48.8 caller) preserves
+-- today's behavior: snapshotBeforeWrite derives the batch id from the job's
+-- own id when none was supplied.
+ALTER TABLE writeback_queue ADD COLUMN batch_id TEXT NOT NULL DEFAULT '';

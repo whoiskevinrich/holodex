@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -103,7 +104,9 @@ func (h *Handlers) deleteAlias(w http.ResponseWriter, r *http.Request) {
 // mergePerson folds another person into this one (F23, ADR-036). The path person is
 // the canonical (surviving) record; body.from_id is absorbed: its videos move here,
 // its name becomes an alias here, and it is deleted. Owner-gated; an explicit,
-// owner-confirmed action. Returns the updated canonical person.
+// owner-confirmed action. Returns the updated canonical person. Also propagates the
+// merge to every affected video's embedded People tag (F48.8a, ADR-067) — the merge's
+// own confirm is the authorization, no second prompt.
 func (h *Handlers) mergePerson(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -123,7 +126,13 @@ func (h *Handlers) mergePerson(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "cannot merge a person into itself")
 		return
 	}
-	switch err := h.repo.MergePersons(r.Context(), id, body.FromID); {
+
+	// videoIDs is the loser's affected-video list, captured atomically inside
+	// MergePersonsWithAffectedVideos' own transaction (F48.8a) — not a
+	// separate pre-read that could race a concurrent write to the loser's
+	// associations between the read and the merge.
+	videoIDs, err := h.repo.MergePersonsWithAffectedVideos(r.Context(), id, body.FromID)
+	switch {
 	case errors.Is(err, repo.ErrNotFound):
 		writeError(w, http.StatusNotFound, "person not found")
 		return
@@ -136,5 +145,15 @@ func (h *Handlers) mergePerson(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get merged person", err)
 		return
 	}
+
+	if len(videoIDs) > 0 {
+		if names, err := h.repo.PeopleForVideos(r.Context(), videoIDs); err != nil {
+			h.log.Warn("merge writeback: load people for videos", "err", err)
+		} else {
+			batchID := mergeBatchID(model.EnrichEntityPerson, id, body.FromID)
+			h.propagateMerge(r.Context(), "actors", batchID, videoIDs, namesByVideo(names, func(p model.Person) string { return p.Name }))
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"person": p})
 }

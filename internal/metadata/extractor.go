@@ -249,7 +249,7 @@ func canonicalKey(key string) string {
 func mapExiftool(m map[string]any) Extracted {
 	var ex Extracted
 	for key, raw := range m {
-		val := toString(raw)
+		val := ToString(raw)
 		// Canonicalize the key (strip any MKV language suffix) so MKV SimpleTags like
 		// "Title-und"/"Artist-und" classify — and are captured into Extra — the same
 		// as bare MP4 atoms (issue #63). Unmapped tags (PartNumber, SeasonNumber,
@@ -308,7 +308,10 @@ func (s keySet) has(key string) bool {
 	return ok
 }
 
-func toString(v any) string {
+// ToString converts one exiftool JSON scalar value to its string form (shared
+// with internal/writeback's pre-write snapshot reader, F48.9 ADR-067, which
+// wraps this for its own multi-value-array case).
+func ToString(v any) string {
 	switch t := v.(type) {
 	case string:
 		return t

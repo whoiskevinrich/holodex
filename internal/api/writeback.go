@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
+	"holodex/internal/repo"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
 )
@@ -30,6 +32,12 @@ func (h *Handlers) SetWriteQueue(q *writequeue.Queue) { h.writeQueue = q }
 // the requireOwner group set up in Mount.
 func (h *Handlers) mountWriteback(r chi.Router) {
 	r.Post("/media/{id}/writeback", h.writebackMedia)
+	// Rollback (F48.9, ADR-067): revert every field in a completed write batch
+	// to its pre-write value. batchID comes from the writeback job's activity
+	// history detail line (detailLine, F48.9d) — not scoped under /media/{id}
+	// since a future multi-video batch (merge propagation, F48.8) can span
+	// more than one video.
+	r.Post("/writeback/batches/{batchID}/revert", h.writebackRevert)
 }
 
 // writebackMedia writes a batch of enriched field values into the media file's
@@ -159,4 +167,31 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// writebackRevert restores every field snapshotted under batchID to its
+// pre-write value (F48.9b) — one inverse writeback job per affected video,
+// enqueued through the durable queue so the revert is itself snapshotted
+// (F48.9c). Requires the queue; unavailable (503) in legacy synchronous mode,
+// matching ADR-067's "revert is a new writeback job; it queues normally."
+func (h *Handlers) writebackRevert(w http.ResponseWriter, r *http.Request) {
+	if h.writeQueue == nil {
+		writeError(w, http.StatusServiceUnavailable, "revert unavailable")
+		return
+	}
+	batchID := chi.URLParam(r, "batchID")
+	if batchID == "" {
+		writeError(w, http.StatusBadRequest, "batch id required")
+		return
+	}
+	jobIDs, err := h.writeQueue.Revert(r.Context(), batchID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "batch not found")
+			return
+		}
+		h.fail(w, "revert writeback batch", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"job_ids": jobIDs})
 }

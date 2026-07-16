@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"holodex/internal/db"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // aliasServer wires the person-alias surface with an optional owner token. A
@@ -183,6 +186,100 @@ func TestMergeEndpoint(t *testing.T) {
 	// Bob is gone.
 	if code, _ := getJSON(t, srv.URL+"/api/v1/people/"+itoa(bob)); code != http.StatusNotFound {
 		t.Errorf("merged person GET = %d, want 404", code)
+	}
+}
+
+// TestMergeEndpoint_PropagatesWritebackToAffectedVideos is F48.8a end to end
+// through the HTTP handler: merging Bob into Jenny enqueues one writeback job
+// per video Bob was linked to, and a video where Bob co-starred with someone
+// else gets that other person's name preserved alongside Jenny's — not
+// overwritten with just the merge survivor's name.
+func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+
+	var mu sync.Mutex
+	written := map[string][]string{} // file path -> Artist tag values written
+	q := writequeue.New(r, func(_ context.Context, path string, fields []writeback.FieldWrite) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, f := range fields {
+			if f.TagName == "Artist" {
+				written[path] = f.Values
+			}
+		}
+		return nil
+	}, log, 1, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q.Start(ctx)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	seed := func(path, title string, people ...string) {
+		v := &model.Video{
+			FilePath: path, Title: title, Duration: 60, Width: 1920, Height: 1080,
+			Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+		}
+		for _, p := range people {
+			v.People = append(v.People, model.Person{Name: p})
+		}
+		if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+	}
+	seed("/m/solo.mkv", "Solo", "Bob")
+	seed("/m/together.mkv", "Together", "Bob", "Carol")
+	seed("/m/jenny.mkv", "Jenny", "Jenny")
+
+	bob, _, _ := r.PersonIDByName(ctx, "Bob")
+	jenny, _, _ := r.PersonIDByName(ctx, "Jenny")
+
+	code, _ := postTok(t, srv.URL+"/api/v1/people/"+itoa(jenny)+"/merge", "", map[string]int64{"from_id": bob})
+	if code != http.StatusOK {
+		t.Fatalf("merge = %d, want 200", code)
+	}
+
+	// Two videos were linked to Bob (solo.mkv, together.mkv); jenny.mkv never was.
+	// Note: don't assert q.Depth() here — the worker starts draining as soon as
+	// EnqueueMany's kick fires, concurrently with this goroutine, so a depth
+	// snapshot taken right after the HTTP response races the drain and is
+	// flaky under load. The post-drain checks below (exactly 2 files written,
+	// with the right content, jenny.mkv untouched) fully cover "one writeback
+	// job per affected video, no more, no less" without racing.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("writeback queue did not drain")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(written) != 2 {
+		t.Errorf("files written = %v, want exactly 2 (one writeback job per affected video)", written)
+	}
+	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Jenny" {
+		t.Errorf("solo.mkv written = %v, want [Jenny]", got)
+	}
+	if got := written["/m/together.mkv"]; len(got) != 2 || got[0] != "Carol" || got[1] != "Jenny" {
+		t.Errorf("together.mkv written = %v, want [Carol Jenny] (Carol preserved, Bob → Jenny)", got)
+	}
+	if _, wrote := written["/m/jenny.mkv"]; wrote {
+		t.Error("jenny.mkv was never linked to Bob, should not have been written")
 	}
 }
 

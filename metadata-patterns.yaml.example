@@ -1,0 +1,25 @@
+# metadata-patterns.yaml — owner-configurable filename token-grammar patterns
+# (F48.1, ADR-067). Copy this file to metadata-patterns.yaml (gitignored) and
+# edit it to match your library's naming convention. A missing file simply
+# means no patterns are configured: every file falls through to tag-only
+# resolution unchanged (F48.1b).
+#
+# Patterns are tried in order; the first full match wins (F48.1b). Recognized
+# tokens — {studio} {title} {people} {year} — each produce a canonical field
+# value (year maps to release_date, at year granularity). Any other {token}
+# (e.g. {resolution}) is still matched, so it anchors the surrounding literal
+# text, but produces no output value (F48.1c).
+#
+# {people} is the only multi-value token: its captured text splits on
+# `delimiter` below (default ", ") into several values (F48.1d), e.g.
+# "(Alice, Bob)" extracts two people, not one string.
+#
+# Changing this file takes effect at the next boot, or immediately via
+# POST /admin/reload-config (F48.1a).
+
+delimiter: ", "
+
+patterns:
+  - "[{studio}] {title} ({people}, {year}) {resolution}"
+  - "{title} ({year}) [{studio}]"
+  - "{title} ({year})"

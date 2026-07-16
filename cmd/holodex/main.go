@@ -25,6 +25,7 @@ import (
 	"holodex/internal/config"
 	"holodex/internal/db"
 	"holodex/internal/enrich"
+	"holodex/internal/extract"
 	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
@@ -298,6 +299,41 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		}
 	})
 	handlers.SetWriteQueue(writeQ)
+
+	// Filename extraction (F48, ADR-067): the orchestrator ties pattern
+	// matching (F48.1), the filename shadow-store write (F48.2), and
+	// scoring+routing (F48.3/F48.4) into the one pipeline every trigger
+	// shares (F48.5d). AutoApplyEnabled stays off by default (ADR-067 Action
+	// Item 2) until the ADR is Accepted.
+	patterns, err := extract.NewPatternStore(cfg.FilenamePatternsPath)
+	if err != nil {
+		return fmt.Errorf("load filename patterns: %w", err)
+	}
+	log.Info("filename extraction patterns loaded", "path", cfg.FilenamePatternsPath, "auto_apply", cfg.ExtractionAutoApplyEnabled)
+	extraction := &extract.Orchestrator{
+		Videos:   repository,
+		Mappings: mappings,
+		Patterns: patterns,
+		Store:    repository,
+		Deps: extract.Deps{
+			Resolver:         repository,
+			ManualSource:     repository,
+			Reviews:          repository,
+			Queue:            writeQ,
+			AutoApplyEnabled: cfg.ExtractionAutoApplyEnabled,
+			Log:              log,
+		},
+	}
+	extractBatch := &extract.BatchRunner{Orchestrator: extraction, Videos: repository, Recorder: repository, Log: log}
+	extractBatch.SetBaseContext(ctx)
+	handlers.SetExtraction(extraction, extractBatch)
+	// Import-time trigger (F48.5c): run extraction right after every scan
+	// upsert, mirroring SetRelinker's best-effort post-upsert hook shape.
+	sc.SetExtractionRunner(func(ctx context.Context, id int64) error {
+		_, err := extraction.ExtractVideo(ctx, id)
+		return err
+	})
+
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
 	handlers.SetStudioImages(cfg.StudioLogoPath, cfg.StudioLogoMaxDimension)
 	// One-time studio-logo cache backfill (ADR-057): download+normalize the logo for

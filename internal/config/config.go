@@ -129,6 +129,24 @@ type Config struct {
 	// (F30, ADR-048). Default 1 fully serializes file writes to protect the
 	// filesystem; raise only on fast storage. Clamped to ≥1.
 	WritebackConcurrency int `yaml:"writeback_concurrency"`
+
+	// ExtractionAutoApplyEnabled gates whether a filename-extraction candidate
+	// that clears F48.3/F48.4's confidence-and-exact-match gate actually
+	// enqueues a write, or only logs what it would have done (F48, ADR-067
+	// Action Item 2: "implement F48.3-F48.4 behind a feature flag; disable
+	// auto-apply (log-only) until this ADR lands"). ADR-067 is Proposed, not
+	// Accepted, as of Phase 2 — default false. ADR-060's generic runtime-settings
+	// mechanism doesn't exist yet, so this is a plain boot-time env flag like
+	// every other Config field, not a DB-backed owner setting.
+	ExtractionAutoApplyEnabled bool `yaml:"extraction_auto_apply_enabled"`
+
+	// FilenamePatternsPath is the owner-configurable, ordered filename
+	// token-grammar pattern list (F48.1a, ADR-067). A missing file means no
+	// patterns are configured — every file falls through to tag-only
+	// resolution unchanged (F48.1b). Reloadable at runtime via the existing
+	// POST /admin/reload-config (F48.1a's "editable at runtime" requirement),
+	// mirroring MetadataMappingsPath.
+	FilenamePatternsPath string `yaml:"filename_patterns_path"`
 }
 
 // Defaults returns the built-in configuration (the lowest-precedence layer).
@@ -168,6 +186,7 @@ func Defaults() Config {
 		MCPPort:              7801,
 		MetadataMappingsPath: "./metadata-mappings.yaml",
 		MetadataSourcesPath:  "./metadata-sources.yaml",
+		FilenamePatternsPath: "./metadata-patterns.yaml",
 		CardLayout:           "wide",
 		DefaultSource:        "file", // F36/RD4: file beats providers when undecided
 		WritebackConcurrency: 1,
@@ -322,6 +341,8 @@ func applyEnv(c *Config) {
 	if c.WritebackConcurrency < 1 {
 		c.WritebackConcurrency = 1 // a non-positive worker count would stall the queue
 	}
+	c.ExtractionAutoApplyEnabled = envBool("EXTRACTION_AUTO_APPLY_ENABLED", c.ExtractionAutoApplyEnabled)
+	c.FilenamePatternsPath = envStr("FILENAME_PATTERNS_PATH", c.FilenamePatternsPath)
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"

@@ -89,6 +89,48 @@ func TestUpsertIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestPeopleForVideos mirrors StudiosForVideos (studios_test.go): a bulk,
+// video-id-keyed people lookup used by merge-writeback propagation (F48.8) so
+// it doesn't need one GetVideo call per affected video.
+func TestPeopleForVideos(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	a, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Bob", "Alice"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video a: %v", err)
+	}
+	b, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Carol"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video b: %v", err)
+	}
+	c, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video c (no people): %v", err)
+	}
+
+	byVideo, err := r.PeopleForVideos(ctx, []int64{a, b, c})
+	if err != nil {
+		t.Fatalf("people for videos: %v", err)
+	}
+	if names := namesOf(byVideo[a]); len(names) != 2 || names[0] != "Alice" || names[1] != "Bob" {
+		t.Errorf("video a people = %v, want [Alice Bob] (name order)", names)
+	}
+	if names := namesOf(byVideo[b]); len(names) != 1 || names[0] != "Carol" {
+		t.Errorf("video b people = %v, want [Carol]", names)
+	}
+	if _, ok := byVideo[c]; ok {
+		t.Errorf("video c has no people, want absent from the map, got %+v", byVideo[c])
+	}
+}
+
+func namesOf(people []model.Person) []string {
+	names := make([]string, len(people))
+	for i, p := range people {
+		names[i] = p.Name
+	}
+	return names
+}
+
 func TestListFilterByPersonAndSearch(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

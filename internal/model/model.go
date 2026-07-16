@@ -215,6 +215,7 @@ const (
 	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
 	JobKindStudioLogo       = "studio-logo"       // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
 	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
+	JobKindExtraction       = "extraction"        // library-wide filename extraction pass (F48.5b, ADR-067)
 	JobStatusOK             = "success"
 	JobStatusErr            = "error"
 )
@@ -228,6 +229,17 @@ const (
 	EnrichEntityStudio = "studio"
 	EntityTag          = "tag"
 )
+
+// EntityTypeForField maps an entity-field's canonical field key to the
+// entity_type F43's identity spine uses (people values are Person entities;
+// studio values are Studio entities) — shared by internal/extract (F48.3d's
+// entity resolution) and internal/repo (F48.6's suggested-entity-name
+// lookup) so both packages read the same mapping without an import cycle
+// (extract already depends on writequeue, which depends on repo).
+var EntityTypeForField = map[string]string{
+	"people": EnrichEntityPerson,
+	"studio": EnrichEntityStudio,
+}
 
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
 // persisted in entity_enrichment like any other field but is never displayed

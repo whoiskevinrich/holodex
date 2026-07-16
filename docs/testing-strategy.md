@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -152,6 +152,15 @@ assert.JSONEq(t, string(want), string(got))
 | **Refresh / Refresh-all** (ADR-066, F47 P0-5/P1-2) | Unit + Integration | `refresh` calls `apply()` directly with the **stored** `external_id` — **zero** `/resolve` calls; **400** if the provider isn't linked; `refresh-all` fans out over only that entity's configured providers (small fixed N, not the catalog), each independently refreshed/auto-applied/surfaced-for-review per D1's routing — an ambiguous provider is **never silently dropped** from the response; one provider's failure/unreachable state doesn't abort the others' results | ~90% |
 | **Enrich-queue listing** (ADR-066, F47 P0-1/P0-6) | Integration | `GET /owner/enrich-queue` membership = missing an `entity_enrichment` row for ≥1 provider whose `entity_types` includes the entity's type, **excluding** dismissed `(entity, provider)` pairs; **zero provider calls** on load (assert fake provider call-count stays 0); rows carry **one state per provider** (`unreviewed`/`auto_applied`/`needs_review`/`not_matched`), never a single collapsed flag; `requireOwner`-gated (401 without token) | ~90% |
 | **`profile_url` scheme validation** (ADR-066, F47 P1-1) | Unit | A candidate's `profile_url` is served only when `http`/`https`; a hostile scheme (`javascript:`, `data:`) is **dropped server-side** before the response reaches the client — never forwarded as-is; absent/malformed URL → field omitted, not an error | ~95% |
+| **Filename pattern parsing** (ADR-067, F48.1) | Unit | Table-driven parse over a fixture filenames × patterns matrix, no I/O; first-full-match-wins ordering, no match falls through to tag-only resolution unchanged; unmapped bracketed tokens (`{resolution}`) consumed for matching but produce no field value; multi-value `{people}` splits on the configurable delimiter; owner-edited pattern list validated on save (rejects unparseable token grammar), takes effect without redeploy (F41/ADR-060) | ~95% |
+| **`filename:` shadow-store integration** (ADR-067, F48.2) | Unit + Integration | Parsed values write into the existing `entity_enrichment` under a new `filename` namespace, identical shape to `file:`/`tmdb:`, no migration needed; `filename:<field>` slotted into a field's `sources` list is picked up by the **unchanged** F27 `orderedSources` iteration (regression guard: no resolver code touched) | ~90% |
+| **Extraction confidence scoring** (ADR-067, F48.3) | Unit | Entity-field 3-component rubric (source agreement/value specificity/entity resolution) and non-entity 2-component rubric each reproduce every named scenario (exact+entity-exists, exact+no-entity, fuzzy, garbled, conflict) at their specified score; entity resolution reuses F43's `nameKey` loose-key detector (imported, not reimplemented); a field carrying an existing `manual:` source always routes to review on re-extraction, regardless of score | ~95% |
+| **Exact-match auto-apply gate** (ADR-067 D1, F48.3d/F48.4a) | Unit | A candidate scoring at/above its tier's `AutoApplyThreshold` **and** passing the exact-loose-key-match gate on the entity-resolution component enqueues a write via the existing F30 `WriteBatch`; a fuzzy-only entity match scoring above threshold still routes to review (routing asserted, not just the score) — mirrors F43/ADR-061's "near-miss never auto-merges" invariant for a second candidate source | ~95% |
+| **Auto-apply / review-queue routing** (F48.4) | Integration | `metadata_extraction_review` carries one row per `(video_id, field_key)` (`UNIQUE … WHERE status='pending'`); re-running extraction on an already-pending field updates it in place, never duplicates; resolving a row (accept filename/accept tag/pick suggested entity/edit manually/dismiss) enqueues the write the same way F48.4a does and marks the row resolved without a refetch; dismissal is durable (F48.4d, mirrors F47 RD4) — it doesn't resurface until extraction is re-triggered for that file | ~90% |
+| **Extraction triggers — one code path** (F48.5) | Integration | On-demand (single video), batch ("Extract all", `kind=extraction` observable via System Activity/ADR-028), and scan-time (import) triggers all call the same extraction function; the fixture-corpus regression guard asserts identical input produces an identical routing outcome via all three entry points; the scan-time trigger stays bounded by the existing `WRITEBACK_CONCURRENCY` queue limit — no new concurrency knob (F48.10d) | ~90% |
+| **Rollback — snapshot + revert** (ADR-067 §2, F48.9) | Integration | Every write through the F30 queue snapshots the field's prior on-disk value into `file_writeback_snapshots` (grouped by `batch_id`) **before** the write lands; a "Revert" restores every snapshotted field to its prior value byte-for-byte via a normal writeback job — the revert is itself snapshotted, so it can be re-reverted with no special-cased write path; snapshot + job record share the write's transaction (crash-safety, composes with F30's copy→write→rename) | ~95% |
+| **Merge → writeback propagation** (F48.8) | Integration | Completing a Person (or Studio) merge enqueues exactly one writeback job per affected video, rewriting the loser's name to the canonical name in the tag; **N** affected videos → **N** writeback jobs; no second confirm beyond the merge's own informed-confirm (F43 RD8); merge-triggered writes are snapshotted the same as any other write (revertible via F48.9); the filename itself is **not** rewritten by a merge (Non-Goals boundary) | ~90% |
+| **Extraction security** (F48.10) | Unit + Integration | Extraction/review/revert endpoints `requireOwner`-gated (401 without token, controls absent from the SPA DOM); filename-derived values are length-capped/sanitized before storage/write, same posture as F30.6b's manual-value handling; **no new outbound network surface** — extraction is local parsing only (asserted by a zero-HTTP-calls check over the extraction path); the scan-time auto-trigger is bounded by the existing queue concurrency limit, no unbounded write pressure | ~95% |
 | **Person aliases — store** (ADR-036, F23.1–F23.3) | Integration | `person_aliases` CRUD: add (trim, non-empty, ≤200 chars); **per-person case-insensitive uniqueness** (`COLLATE NOCASE`, idempotent add — no dup, no error); same alias allowed on two people; delete by id scoped to person (404 on unknown/foreign id); **`ON DELETE CASCADE`** removes aliases with the person | ~90% |
 | **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped | ~90% |
 | **Person aliases — scan-time resolution** (ADR-036, F23.8) | Integration | the scanner write path resolves an extracted name **name → alias → create**: a file tagged with an alias links to the **canonical** person (no duplicate created) and a **re-scan keeps it merged** (cardinal merge invariant); name-hit fast path unchanged | ~90% |
@@ -202,6 +211,10 @@ assert.JSONEq(t, string(want), string(got))
 - **A dismissal is as durable as an acceptance** (F47/ADR-066 D2): once the owner records "None of these match" for `(entity, provider)`, that pair is excluded from queue/needs-review state and blocks `/resolve` from firing again until an explicit "Try again" clears it — no TTL, no background re-check, no code path silently re-prompts the same rejected candidates.
 - **Auto-apply never invents a new confidence model** (F47/ADR-066 D1): the auto-apply trigger is the *existing* `>=0.85` "Strong match" cutoff (`EnrichPicker.matchLabel`, unchanged) applied only when **exactly one** candidate clears it — any ambiguity (2+ strong, or only possible/weak) still stops at the owner. `confidence` stays provider-native and non-normalized; no per-field weighting is introduced.
 - **Refresh never re-searches** (F47/ADR-066 RD7/RD8): once a provider is linked (a stored `external_id` exists), Refresh/Refresh-all call `apply()` directly — asserted by a fake provider's `/resolve` call-count staying zero across a refresh of an already-linked entity.
+- **Extraction auto-apply never bypasses the exact-match gate** (F48/ADR-067 D1): for People/Studio/Movie, a candidate's aggregate score crossing its tier's threshold is necessary but not sufficient — the entity-resolution component must have come from an exact loose-key match (F43), never the Jaro-Winkler advisory tier. A fuzzy match that would otherwise clear the aggregate threshold still routes to review; the suggested candidate it produces is display-only until the owner clicks. Break this and a filename typo ("Al Smith") can silently merge onto an unrelated existing person ("Alice Smith").
+- **A manual edit is a one-time-import boundary for extraction** (F48/ADR-067, spec "Manual-edit precedence"): once a field carries a `manual:` source (F30), a later extraction that disagrees always queues for review, never auto-applies over it — extraction treats a prior manual edit as the owner having already made the call, the same precedence F36's decision short-circuit already gives a `manual` decision elsewhere.
+- **A revert is byte-for-byte, and revertible itself** (F48.9/ADR-067 §2): reverting a completed batch restores every snapshotted field to its exact pre-write value (asserted against `file_writeback_snapshots.prior_value`, not a re-derived guess) — and the revert is itself a normal, re-snapshotted writeback job, so a bad revert can be undone the same way a bad extraction batch can.
+- **Merge propagation never touches the filename** (F48.8e, spec Non-Goals): a Person/Studio merge rewrites only the embedded tag on affected files; the on-disk filename is untouched until the separate, not-yet-built rename-schema feature ([HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192)) ships — a merge test asserting a changed *path* would be testing the wrong feature.
 
 ---
 
@@ -233,6 +246,9 @@ assert.JSONEq(t, string(want), string(got))
 | **Enrichment queue tab** (F47, ADR-066) | Component/Interaction + visual | Vitest + Playwright | `owner/enrichment/+page.svelte` grouped People → Studios → Media, actionable rows (`needs_review`/`unreviewed`) sort above `auto_applied`/`not_matched`; `EnrichQueueRow` mirrors `DuplicatePairRow`'s rhythm; `ProviderStatusChip` is a non-interactive, labelled status (state readable as text, never color-only); **zero** `/resolve` network calls on tab load; owner-only (absent from DOM for non-owner); **all 3 skins** (token-guard clean) |
 | **`EnrichPicker` — dismissal + view-source** (F47, ADR-066) | Component/Interaction + a11y | Vitest + Playwright | "None of these match" fires `dismiss`, closes the picker, emits `ondismissed` (caller flips to `not_matched` without a refetch); hidden once `candidates.length === 0`; a candidate's `profile_url` (scheme-valid) renders "view source ↗" with `stopPropagation` (opens new tab, **never** triggers apply/closes the picker); an accessible name beyond the "↗" glyph |
 | **`EnrichProviderChips` — Refresh/Re-match/Clear** (F47, ADR-066) | Component/Interaction + visual | Vitest + Playwright | Unlinked provider: primary stays "Enrich" (opens picker), no overflow menu; linked provider: primary flips to **"Refresh"** (direct `apply()`, no `/resolve` network call, no picker), ⋯ overflow gains "Re-match…" (opens picker) + existing "Clear"; "Refresh all" fans out per configured provider, shows busy label while in flight, and an ambiguous partial result surfaces inline on that provider's own chip — **never** silently dropped; **needs-review/not-matched states read `text-ink`/`text-muted`, never `text-warn`** (only an actual request failure does) — re-verified on **Brutalist** per the F43 regression risk |
+| **Extraction tab + `ExtractionQueueRow`** (F48.6, ADR-067) | Component/Interaction + visual | Vitest + Playwright | `owner/extraction/+page.svelte` groups pending rows **by video** (not by entity type, a deliberate divergence from Enrichment), sorted most-fields-pending-first (ties by filename); within a group, fields render People→Studio→Title→Release Date→other; **zero** network calls beyond the list fetch on load (mirrors Duplicates/Enrichment's zero-cost pattern); row actions (Accept filename/Accept tag/Pick suggested/Edit…/Dismiss) render only when their underlying data exists; an empty-side value renders `— (empty)` in `text-muted italic`, never blank space; the **suggested-entity match renders on its own advisory line** ("suggested match — not applied"), never as an inline chip that could read as already-applied; confidence shown as a tier label (Strong/Weak/Conflict), never a raw percentage; owner-only (absent from DOM for non-owner); roving-tabindex keyboard nav (`EnrichPicker` precedent); **all 3 skins** (`rg` token guard clean) |
+| **Preview-before-write dialog** (F48.7, `WritebackFormDialog` diff mode) | Component/Interaction + visual | Vitest + Playwright | Row body renders the old value struck through (`decoration-warn` on the strike, **not** `text-warn` on the text itself) → arrow → new value `text-accent font-medium`; the existing per-row checkbox is retained, an unchecked row is skipped at write time and the submit button stays disabled at `checkedCount===0` (existing `WritebackFormDialog` guard, unchanged); a contextual "skip preview next time" checkbox surfaces only for auto-applied batches (F48.7b), unchecked by default, and never appears for a manually-resolved batch (F48.7a) since the owner explicitly asked to review those |
+| **Revert control (System Activity)** (F48.9d) | Component/Interaction + visual | Vitest + Playwright | Button renders only on an activity row carrying a `batch_id`; click → busy "Reverting…" (`aria-live="polite"`) → success shows an inline "Reverted" status line under the original entry (not a new row) → failure surfaces `text-warn` inline, same convention as every other activity-row failure state; a reverted batch's own Revert control disappears, but the new revert job's own activity row gets its own Revert button (F48.9c — no special-cased UI, it's just another `batch_id`-bearing row) |
 
 ---
 
@@ -852,6 +868,56 @@ direct structural precedent for both the queue endpoint and the tab's Vitest/Pla
   out until HOLODEX-125 lands, or explicitly assert the graceful-failure path if shipped ahead of it.
   Confirm scope before writing the S4 Person test cases (mirrors the design handoff's own open question 3).
 
+**On-demand metadata extraction (F48, ADR-067, HOLODEX-191/192)** — filename parsing as a new
+resolver source, extraction confidence-gated auto-apply/review-queue routing, merge→writeback
+propagation, and snapshot-based rollback — generalizing F47/ADR-066's auto-apply pattern to a
+**second, local-only** candidate source with a different (weighted, multi-component) scoring model
+and a hard exact-match gate provider matching never needed. **This PR (spec + ADR-067 + design
+handoff + this testing-strategy update) is docs-only — F48.1–F48.11 are unbuilt**, so the rows
+above (§4/§5) and the Critical invariants above are the *target*, not yet exercised. Fully
+CI-testable, no network — extraction is pure local parsing, and the F30 write queue / F43 loose-key
+detector are already-shipped dependencies this spec reuses rather than reimplements. Cardinal
+invariants: **the exact-match gate is never bypassed**, **a manual edit is a one-time-import
+boundary**, **a revert is byte-for-byte and revertible itself**, **merge propagation never touches
+the filename** (all four above, §"Critical invariants"). Maps to the [design handoff's QA
+checklist](design/metadata-extraction-qa-checklist.md) §2 smoke items; F47's enrich-queue endpoint
++ `owner/enrichment/+page.svelte` suite is the direct structural precedent for both the queue
+endpoint and this tab's Vitest/Playwright coverage.
+- **Phase 1 — filename parsing + `filename:` shadow source** (F48.1/F48.2): pure token-grammar
+  compilation and matching, no I/O, no auto-apply yet — table-driven over the fixture filenames ×
+  patterns matrix in the spec's [Concepts & Model](specs/metadata-extraction.md#concepts--model).
+- **Phase 2 — confidence scoring + routing** (F48.3/F48.4): the architectural risk lives here per
+  the spec's own phasing note — ships behind a flag with auto-apply disabled (log-only) until
+  ADR-067 lands (Action Item 2); tests should cover both the flag-off (log-only, zero writes) and
+  flag-on paths, not just the scoring math in isolation.
+- **Phase 3 — rollback foundation** (F48.9): snapshot-on-write lands *before* auto-apply is
+  enabled (ADR-067 Action Item 3) — migrations 0025 (`metadata_extraction_review`)/0026
+  (`file_writeback_snapshots`) up/down round-trip, `batch_id` grouping, and the byte-for-byte
+  revert invariant above.
+- **Phase 4 — triggers** (F48.5): on-demand first, then batch, then import-time, in the spec's own
+  increasing-blast-radius order. The one-code-path regression guard (F48.5d) is the highest-value
+  test in this phase — assert the shared extraction function's behavior once, then assert each of
+  the three entry points calls it, rather than triplicating the routing assertions per trigger.
+- **Phase 5 — Extraction review queue UI + preview** (F48.6/F48.7): the `ExtractionQueueRow` +
+  preview-dialog rows in §5 above. Grouping **by video** rather than by entity type (a deliberate
+  divergence from Enrichment — see the design handoff's "Resolved: grouping" section) is the one
+  layout choice worth a dedicated component test: assert group membership/ordering (most-fields-
+  pending-first), not just per-row rendering.
+- **Phase 6 — merge → writeback propagation** (F48.8): depends on Phase 3 (snapshotting) being
+  live, per the spec's own dependency note. **N** affected videos → **N** writeback jobs is the
+  core assertion — extend the existing F23.9 person-merge test suite (and the future studio-merge
+  one) rather than introduce a parallel merge test path.
+- **Security** (`/security-review`, spec Routing): `requireOwner` gating on every new endpoint
+  (extraction trigger/resolve/dismiss/revert — merge-triggered writeback is internal-only, so it
+  adds no new endpoint), untrusted filename-token sanitization (F48.10b, same posture as F30.6b's
+  manual-value handling), and the "no new outbound network surface" invariant (F48.10c) — extraction
+  is local parsing, so a provider-SSRF-style test doesn't apply here, but a **zero-HTTP-calls**
+  assertion over the extraction path takes its place.
+- **Known test-scope gap (spec Non-Goals)**: filename *rewriting* (the deferred rename-schema
+  follow-up, [HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192)) is explicitly
+  out of scope for this spec — no revert or merge test should assert a changed on-disk *filename*;
+  flag it in review if a future PR conflates the two features.
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -1231,4 +1297,5 @@ Then Carol is KEPT (authored-identity guard); a plain orphan past 30 days is del
 - **mkvpropedit/mkv tag XML** authoring in fixtures needs mkvtoolnix in the CI image (in addition to ffmpeg/exiftool) — add to the test image.
 - **`ORDER BY RANDOM()` non-determinism** (ADR-031): related-media tests must assert set membership / exclusion / count, never a fixed order or a seeded sequence — over-specifying order would make them flaky. If a future change needs reproducible draws, that's a seed decision to revisit in ADR-031, not a test workaround.
 - **F47 enrichment review workflow (ADR-066, HOLODEX-186)**: spec + ADR + design handoff landed 2026-07-12; the test plan above (§4/§5/Phase 3/Critical invariants) is written ahead of S1–S4 implementation — none of it is automated yet. Not a silent gap: tracked against the spec's Timeline step 3.
+- **F48 on-demand metadata extraction (ADR-067, HOLODEX-191/192)**: spec + ADR-067 + design handoff + QA checklist landed 2026-07-14; the test plan above (§4/§5/Phase 3/Critical invariants) is written ahead of F48.1–F48.11 implementation — none of it is automated yet. Not a silent gap: tracked against the spec's own Phasing (§Phasing) and ADR-067's Action Items 2–3 (auto-apply stays flagged log-only, and rollback must land, before any write goes live).
 - **Scroll-restoration E2E reliability** (ADR-032): the QW4 Back-restoration assertion depends on layout settling before the scroll check; allow a small Y tolerance and wait for the cached grid to paint, or it will flake. First scroll-restoration test in the suite — treat as the reference pattern.

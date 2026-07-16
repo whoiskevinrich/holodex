@@ -12,6 +12,9 @@ import type {
 	DuplicatePair,
 	EntityKind,
 	EntityRef,
+	ExtractionQueueRow,
+	ExtractionResolveAction,
+	ExtractionResult,
 	Facet,
 	JobRun,
 	MediaDetailResponse,
@@ -508,6 +511,41 @@ export const api = {
 			id_a: idA,
 			id_b: idB
 		}),
+
+	// Filename metadata extraction (F48, ADR-067). All owner-gated.
+
+	// Extraction review queue (F48.6). Zero-cost load, same contract as
+	// enrichQueue: opening the tab performs no writes.
+	extractionQueue: () => getAuthed<{ rows: ExtractionQueueRow[] }>(`/owner/extraction-queue`),
+
+	// Resolve one pending field (F48.6c): action='filename'|'tag' keeps that side's
+	// existing value; action='manual' writes the given value (freeform edit, or an
+	// entity name picked from search). Enqueues a write except for 'tag' (the file
+	// already holds that value).
+	resolveExtractionReview: (id: number, action: ExtractionResolveAction, value?: string) =>
+		sendAuthed<Record<string, never>>('POST', `/owner/extraction-review/${id}/resolve`, {
+			action,
+			value
+		}),
+
+	// Durable "not this field" verdict (F48.6d) — the row disappears until the owner
+	// re-triggers extraction for the video.
+	dismissExtractionReview: (id: number) =>
+		sendAuthed<Record<string, never>>('POST', `/owner/extraction-review/${id}/dismiss`),
+
+	// On-demand single-video extraction (F48.5a) — synchronous, reflects the match/
+	// route result immediately (no queue, no preview).
+	extractVideo: (id: number) => sendAuthed<ExtractionResult>('POST', `/media/${id}/extract`),
+
+	// Library-wide batch extraction (F48.5b) — 202 immediately; progress is tracked
+	// via System Activity (kind=extraction). started:false means a pass was already
+	// running, which already satisfies the request.
+	extractAll: () => sendAuthed<{ status: string; started: boolean }>('POST', `/admin/extract-all`),
+
+	// Rollback (F48.9d) — restores every field snapshotted under batchID to its
+	// pre-write value; itself a normal (re-snapshotted) writeback job per video.
+	revertWritebackBatch: (batchId: string) =>
+		sendAuthed<{ job_ids: number[] }>('POST', `/writeback/batches/${batchId}/revert`),
 
 	// Enrichment review queue (F47 S2, ADR-066). Owner-gated; a pure DB read — opening
 	// the tab makes zero provider calls (RD2/RD3). A row's `providers` lists only
