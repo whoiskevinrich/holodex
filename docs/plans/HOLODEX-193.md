@@ -20,7 +20,8 @@ Items closed.
 **Design package:** [spec](../specs/metadata-extraction.md) ·
 [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md) ·
 [design handoff](../design/metadata-extraction-handoff.md) ·
-[testing-strategy](../testing-strategy.md) (§4/§5/Phase 3)
+[testing-strategy](../testing-strategy.md) (§4/§5/Phase 3) ·
+[release runbook](https://whoiskevinrich.atlassian.net/browse/HOLODEX-195) (HOLODEX-195)
 
 ## Gates — definition of done
 
