@@ -250,10 +250,12 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 	}
 
 	// Two videos were linked to Bob (solo.mkv, together.mkv); jenny.mkv never was.
-	if depth, err := q.Depth(ctx); err != nil || depth != 2 {
-		t.Fatalf("queue depth = %d err=%v, want 2 (one writeback job per affected video)", depth, err)
-	}
-
+	// Note: don't assert q.Depth() here — the worker starts draining as soon as
+	// EnqueueMany's kick fires, concurrently with this goroutine, so a depth
+	// snapshot taken right after the HTTP response races the drain and is
+	// flaky under load. The post-drain checks below (exactly 2 files written,
+	// with the right content, jenny.mkv untouched) fully cover "one writeback
+	// job per affected video, no more, no less" without racing.
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
@@ -267,6 +269,9 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
+	if len(written) != 2 {
+		t.Errorf("files written = %v, want exactly 2 (one writeback job per affected video)", written)
+	}
 	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Jenny" {
 		t.Errorf("solo.mkv written = %v, want [Jenny]", got)
 	}
