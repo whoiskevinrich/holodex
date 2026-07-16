@@ -23,8 +23,20 @@
 	// labels every other field surface in the app uses) — falls back to a
 	// titleized key for anything not present as a facet.
 	let labelByField = $state<Record<string, string>>({});
+
+	// The extraction package's field key ("people", from the {people} filename
+	// token — internal/extract/pattern.go) differs from the app's canonical field
+	// key for the same data ("actors": metadata-mappings.yaml.example declares
+	// filename:people as one of "actors"'s *sources*, not a canonical field of its
+	// own — see media/[id]/+page.svelte's `f.canonical === 'actors'`). Mirrors
+	// internal/extract.WritebackField on the backend: without this alias, the
+	// facet-registry lookup below misses and falls back to a titleized "People"
+	// instead of the app's actual configured label ("Actors"), showing a
+	// different name for the same field than every other surface in the app.
+	const FIELD_LABEL_ALIASES: Record<string, string> = { people: 'actors' };
 	function fieldLabel(key: string): string {
-		return labelByField[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+		const canonical = FIELD_LABEL_ALIASES[key] ?? key;
+		return labelByField[canonical] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 	}
 
 	const FIELD_ORDER: Record<string, number> = { people: 0, studio: 1, title: 2, release_date: 3 };
