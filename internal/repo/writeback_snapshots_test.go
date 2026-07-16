@@ -73,6 +73,47 @@ func TestWritebackSnapshots_EmptyMapIsNoop(t *testing.T) {
 	}
 }
 
+// TestSnapshotExistsForVideo_ScopedPerVideo is the F48.8 shared-batch-id
+// correctness guard: a batch spanning several videos (merge propagation) must
+// let snapshotBeforeWrite's own-job idempotency check see only the video it's
+// currently processing, not any sibling video's already-taken snapshot in the
+// same batch — otherwise the second/third video's job would wrongly believe
+// it already snapshotted and skip taking its own.
+func TestSnapshotExistsForVideo_ScopedPerVideo(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	a, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "a.mp4"), "A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video a: %v", err)
+	}
+	b, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "b.mp4"), "B", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video b: %v", err)
+	}
+	if err := r.InsertWritebackSnapshots(ctx, a, "merge-batch", map[string]string{"actors": "Old Name"}); err != nil {
+		t.Fatalf("insert snapshot for a: %v", err)
+	}
+
+	// Video A already has a snapshot under the shared batch; video B does not yet.
+	aExists, err := r.SnapshotExistsForVideo(ctx, "merge-batch", a)
+	if err != nil || !aExists {
+		t.Fatalf("video a exists = %v, err=%v, want true", aExists, err)
+	}
+	bExists, err := r.SnapshotExistsForVideo(ctx, "merge-batch", b)
+	if err != nil || bExists {
+		t.Fatalf("video b exists = %v, err=%v, want false (must not see video a's)", bExists, err)
+	}
+
+	// Whereas the batch-wide read (Revert's input) sees both once B is added.
+	if err := r.InsertWritebackSnapshots(ctx, b, "merge-batch", map[string]string{"actors": "Other Name"}); err != nil {
+		t.Fatalf("insert snapshot for b: %v", err)
+	}
+	all, err := r.SnapshotsForBatch(ctx, "merge-batch")
+	if err != nil || len(all) != 2 {
+		t.Fatalf("batch-wide snapshots = %+v, err=%v, want 2 (both videos)", all, err)
+	}
+}
+
 // TestWritebackSnapshots_VideoDeleteCascades confirms the AFTER DELETE trigger
 // (migration 0026) prunes a deleted video's snapshots, mirroring
 // metadata_extraction_review's cascade (0025).

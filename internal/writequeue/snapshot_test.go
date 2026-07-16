@@ -159,7 +159,7 @@ func TestQueue_SnapshotSurvivesCrashRetry(t *testing.T) {
 		t.Fatalf("seed video: %v", err)
 	}
 
-	if _, err := r.EnqueueWriteback(ctx, id, `[{"field":"title","values":["New Title"],"source":"manual:title"}]`); err != nil {
+	if _, err := r.EnqueueWriteback(ctx, id, `[{"field":"title","values":["New Title"],"source":"manual:title"}]`, ""); err != nil {
 		t.Fatalf("enqueue: %v", err)
 	}
 	job, err := r.ClaimNextWriteback(ctx)
@@ -196,6 +196,97 @@ func TestQueue_SnapshotSurvivesCrashRetry(t *testing.T) {
 	got, err := writeback.ReadCurrentValues(ctx, path, []writeback.Mapped{{Field: "title", TagName: "Title"}})
 	if err != nil || got["title"] != "New Title" {
 		t.Fatalf("want file title %q after retry, got %q (err=%v)", "New Title", got["title"], err)
+	}
+}
+
+// TestQueue_EnqueueBatch_SharedBatchIDGroupsMultipleVideos is F48.8's write
+// path end to end: several jobs enqueued with the same caller-supplied batch
+// id (as merge propagation does — one job per affected video) each take
+// their own snapshot under that shared batch despite sharing it, and a
+// single Revert restores every one of them.
+func TestQueue_EnqueueBatch_SharedBatchIDGroupsMultipleVideos(t *testing.T) {
+	requireFFmpeg(t)
+	requireExiftool(t)
+
+	r := newRepo(t)
+	dir := t.TempDir()
+	pathA := filepath.Join(dir, "a.mkv")
+	pathB := filepath.Join(dir, "b.mkv")
+	newMinimalMKV(t, pathA)
+	newMinimalMKV(t, pathB)
+	if err := writeback.Write(context.Background(), pathA, "Artist", []string{"Old Name"}); err != nil {
+		t.Skipf("fixture not writable: %v", err)
+	}
+	if err := writeback.Write(context.Background(), pathB, "Artist", []string{"Other Name"}); err != nil {
+		t.Skipf("fixture not writable: %v", err)
+	}
+
+	a, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: pathA, FileSize: 1, Title: "A",
+		Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video a: %v", err)
+	}
+	b, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: pathB, FileSize: 1, Title: "B",
+		Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video b: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := writequeue.New(r, writeback.WriteBatch, testLogger(), 1, "")
+	q.Start(ctx)
+
+	const batchID = "merge-person-1-2"
+	if _, err := q.EnqueueBatch(ctx, a, []writequeue.JobField{
+		{Field: "actors", Values: []string{"New Name"}, Source: "merge"},
+	}, batchID); err != nil {
+		t.Fatalf("enqueue batch (a): %v", err)
+	}
+	if _, err := q.EnqueueBatch(ctx, b, []writequeue.JobField{
+		{Field: "actors", Values: []string{"New Name"}, Source: "merge"},
+	}, batchID); err != nil {
+		t.Fatalf("enqueue batch (b): %v", err)
+	}
+	waitFor(t, func() bool { n, _ := r.PendingWritebackCount(ctx); return n == 0 })
+
+	// Both videos' snapshots landed under the one shared batch id — proof
+	// that a shared batch id doesn't let video A's already-taken snapshot
+	// make video B's job skip taking its own (SnapshotsForBatchVideo's
+	// per-video scoping, unit-tested directly in writeback_snapshots_test.go).
+	snaps, err := r.SnapshotsForBatch(ctx, batchID)
+	if err != nil {
+		t.Fatalf("snapshots for batch: %v", err)
+	}
+	byVideo := map[int64]string{}
+	for _, s := range snaps {
+		byVideo[s.VideoID] = s.PriorValue
+	}
+	if len(snaps) != 2 || byVideo[a] != "Old Name" || byVideo[b] != "Other Name" {
+		t.Fatalf("want one snapshot per video under the shared batch, got %+v", snaps)
+	}
+
+	// A single Revert restores both videos in one call.
+	jobIDs, err := q.Revert(ctx, batchID)
+	if err != nil {
+		t.Fatalf("revert: %v", err)
+	}
+	if len(jobIDs) != 2 {
+		t.Fatalf("revert job ids = %v, want 2 (one per video)", jobIDs)
+	}
+	waitFor(t, func() bool { n, _ := r.PendingWritebackCount(ctx); return n == 0 })
+
+	gotA, err := writeback.ReadCurrentValues(ctx, pathA, []writeback.Mapped{{Field: "actors", TagName: "Artist"}})
+	if err != nil || gotA["actors"] != "Old Name" {
+		t.Fatalf("video a after revert = %q (err=%v), want %q", gotA["actors"], err, "Old Name")
+	}
+	gotB, err := writeback.ReadCurrentValues(ctx, pathB, []writeback.Mapped{{Field: "actors", TagName: "Artist"}})
+	if err != nil || gotB["actors"] != "Other Name" {
+		t.Fatalf("video b after revert = %q (err=%v), want %q", gotB["actors"], err, "Other Name")
 	}
 }
 

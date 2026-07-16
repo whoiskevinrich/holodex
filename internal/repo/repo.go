@@ -453,6 +453,36 @@ func (f VideoFilter) build() (string, []any) {
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
+// PeopleForVideos returns the people linked to each of the given videos, keyed by
+// video id (mirrors StudiosForVideos) — used by merge-writeback propagation (F48.8)
+// to look up each affected video's full, post-merge People tag value in one query
+// rather than one GetVideo call per video. Videos with no person link are absent
+// from the map.
+func (r *Repo) PeopleForVideos(ctx context.Context, ids []int64) (map[int64][]model.Person, error) {
+	if len(ids) == 0 {
+		return map[int64][]model.Person{}, nil
+	}
+	q := `SELECT vp.video_id, p.id, p.name
+	      FROM video_people vp JOIN people p ON p.id = vp.person_id
+	      WHERE vp.video_id IN (` + placeholders(len(ids)) + `)
+	      ORDER BY p.name COLLATE NOCASE`
+	rows, err := r.db.QueryContext(ctx, q, toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("people for videos: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int64][]model.Person, len(ids))
+	for rows.Next() {
+		var vid int64
+		var p model.Person
+		if err := rows.Scan(&vid, &p.ID, &p.Name); err != nil {
+			return nil, err
+		}
+		out[vid] = append(out[vid], p)
+	}
+	return out, rows.Err()
+}
+
 // GetVideo returns a single (active-or-inactive) non-soft-deleted video with its
 // people, tags, and raw metadata, or ErrNotFound. A soft-deleted row 404s here
 // just as it is absent from every list surface (F24.2/ADR-037 §4).

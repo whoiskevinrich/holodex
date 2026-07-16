@@ -59,6 +59,13 @@ func (r *Repo) MergePersons(ctx context.Context, canonicalID, mergedID int64) er
 	return r.MergeEntities(ctx, model.EnrichEntityPerson, canonicalID, mergedID)
 }
 
+// MergePersonsWithAffectedVideos is MergePersons plus the atomically-captured
+// list of videos the merged-away person was linked to (F48.8). See
+// MergeEntitiesWithAffectedVideos.
+func (r *Repo) MergePersonsWithAffectedVideos(ctx context.Context, canonicalID, mergedID int64) ([]int64, error) {
+	return r.MergeEntitiesWithAffectedVideos(ctx, model.EnrichEntityPerson, canonicalID, mergedID)
+}
+
 // ErrNameTaken is returned by RenameEntity (and RenamePerson) when the new name already
 // belongs to another entity of the same type; the caller surfaces that entity for the
 // explicit merge flow (a rename never silently collides or auto-merges).

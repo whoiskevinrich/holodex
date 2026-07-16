@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"holodex/internal/db"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // identityServer wires the full API with an optional owner token, for the studio/tag
@@ -169,6 +172,108 @@ func TestStudioMergeAndRenameEndpoints(t *testing.T) {
 	if _, ok := body["conflict"]; !ok {
 		t.Errorf("409 body missing conflict: %v", body)
 	}
+}
+
+// TestStudioMergeEndpoint_PropagatesWritebackToAffectedVideos is F48.8b end
+// to end: merging "WB" into "Warner Bros." enqueues one writeback job per
+// video WB was linked to, and a video co-tagged with another studio keeps
+// that studio's name alongside the survivor's.
+func TestStudioMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+
+	var mu sync.Mutex
+	written := map[string][]string{} // file path -> Publisher tag values written
+	q := writequeue.New(r, func(_ context.Context, path string, fields []writeback.FieldWrite) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, f := range fields {
+			if f.TagName == "Publisher" {
+				written[path] = f.Values
+			}
+		}
+		return nil
+	}, log, 1, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q.Start(ctx)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	seed := func(path, title string, studios ...string) {
+		vid, err := r.UpsertVideo(ctx, &model.Video{
+			FilePath: path, Title: title, Duration: 60, Width: 1920, Height: 1080,
+			Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+		}, nil)
+		if err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+		if err := r.ReconcileVideoStudios(ctx, vid, studios, nil); err != nil {
+			t.Fatalf("reconcile studios for %s: %v", path, err)
+		}
+	}
+	seed("/m/solo.mkv", "Solo", "WB")
+	seed("/m/together.mkv", "Together", "WB", "A24")
+	seed("/m/warner.mkv", "Warner", "Warner Bros.")
+
+	warner := studioIDFromList(t, r, "Warner Bros.")
+	wb := studioIDFromList(t, r, "WB")
+
+	code, _ := postTok(t, srv.URL+"/api/v1/studios/"+itoa(warner)+"/merge", "", map[string]int64{"from_id": wb})
+	if code != http.StatusOK {
+		t.Fatalf("merge = %d, want 200", code)
+	}
+
+	if depth, err := q.Depth(ctx); err != nil || depth != 2 {
+		t.Fatalf("queue depth = %d err=%v, want 2 (one writeback job per affected video)", depth, err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("writeback queue did not drain")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Warner Bros." {
+		t.Errorf("solo.mkv written = %v, want [Warner Bros.]", got)
+	}
+	if got := written["/m/together.mkv"]; len(got) != 2 || got[0] != "A24" || got[1] != "Warner Bros." {
+		t.Errorf("together.mkv written = %v, want [A24 Warner Bros.] (A24 preserved, WB → Warner Bros.)", got)
+	}
+	if _, wrote := written["/m/warner.mkv"]; wrote {
+		t.Error("warner.mkv was never linked to WB, should not have been written")
+	}
+}
+
+func studioIDFromList(t *testing.T, r *repo.Repo, name string) int64 {
+	t.Helper()
+	studios, err := r.ListStudios(context.Background(), false)
+	if err != nil {
+		t.Fatalf("list studios: %v", err)
+	}
+	for _, s := range studios {
+		if s.Name == name {
+			return s.ID
+		}
+	}
+	t.Fatalf("studio %q not found", name)
+	return 0
 }
 
 func TestTagIdentityEndpoints(t *testing.T) {

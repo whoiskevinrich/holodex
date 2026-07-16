@@ -212,19 +212,36 @@ func (r *Repo) EntityConflict(ctx context.Context, entityType string, selfID int
 // survive a re-scan (both route the old name through the alias table). One transaction
 // under the write lock. ErrNotFound if either id is missing; an error on a self-merge.
 func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64) error {
+	_, err := r.mergeEntities(ctx, entityType, canonicalID, mergedID)
+	return err
+}
+
+// MergeEntitiesWithAffectedVideos merges exactly as MergeEntities does, and
+// additionally returns every video that was linked to the merged-away entity
+// — captured inside the same transaction, before the merge repoints those
+// links onto the survivor. Merge-writeback propagation (F48.8, ADR-067) needs
+// that affected-video list to be atomic with the merge it describes: a
+// separate pre-read outside this transaction would race a concurrent write
+// (e.g. a scan) that changes the loser's associations between the read and
+// the merge.
+func (r *Repo) MergeEntitiesWithAffectedVideos(ctx context.Context, entityType string, canonicalID, mergedID int64) ([]int64, error) {
+	return r.mergeEntities(ctx, entityType, canonicalID, mergedID)
+}
+
+func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64) ([]int64, error) {
 	if canonicalID == mergedID {
-		return errors.New("cannot merge an entity into itself")
+		return nil, errors.New("cannot merge an entity into itself")
 	}
 	cfg, ok := entityIdentityByType[entityType]
 	if !ok {
-		return fmt.Errorf("merge: unknown entity type %q", entityType)
+		return nil, fmt.Errorf("merge: unknown entity type %q", entityType)
 	}
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
@@ -232,11 +249,34 @@ func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID
 	// canonical name (to tidy a degenerate self-alias at the end).
 	var canonicalName, mergedName string
 	if err := tx.QueryRowContext(ctx, `SELECT name FROM `+cfg.table+` WHERE id = ?`, canonicalID).Scan(&canonicalName); err != nil {
-		return mergeEntityLookupErr(entityType, err)
+		return nil, mergeEntityLookupErr(entityType, err)
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT name FROM `+cfg.table+` WHERE id = ?`, mergedID).Scan(&mergedName); err != nil {
-		return mergeEntityLookupErr(entityType, err)
+		return nil, mergeEntityLookupErr(entityType, err)
 	}
+
+	// The videos currently linked to the loser — read before step 1 below
+	// repoints them onto the survivor, so this is the merge's own ground
+	// truth for "what changed" (F48.8), not a value reconstructed outside
+	// the transaction that computes it.
+	affectedRows, err := tx.QueryContext(ctx, `SELECT video_id FROM `+cfg.assoc+` WHERE `+cfg.assocFK+` = ?`, mergedID)
+	if err != nil {
+		return nil, fmt.Errorf("merge: affected videos: %w", err)
+	}
+	var affected []int64
+	for affectedRows.Next() {
+		var videoID int64
+		if err := affectedRows.Scan(&videoID); err != nil {
+			affectedRows.Close()
+			return nil, fmt.Errorf("merge: affected videos: %w", err)
+		}
+		affected = append(affected, videoID)
+	}
+	if err := affectedRows.Err(); err != nil {
+		affectedRows.Close()
+		return nil, fmt.Errorf("merge: affected videos: %w", err)
+	}
+	affectedRows.Close()
 
 	steps := []identityStep{
 		// 1. Move associations as a de-duped union (composite PK + OR IGNORE).
@@ -272,19 +312,19 @@ func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID
 
 	for _, step := range steps {
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
-			return fmt.Errorf("merge (%s): %w", step.desc, err)
+			return nil, fmt.Errorf("merge (%s): %w", step.desc, err)
 		}
 	}
 	// The merge resolves any review-queue pair touching the loser (F43 S5) — drop it so
 	// a merged-away duplicate leaves no stale row (covers person/studio/tag).
 	if err := dropReviewPairsFor(ctx, tx, entityType, mergedID); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit merge: %w", err)
+		return nil, fmt.Errorf("commit merge: %w", err)
 	}
-	return nil
+	return affected, nil
 }
 
 // RenameEntity sets an entity's name and keeps the previous name as an alias in one

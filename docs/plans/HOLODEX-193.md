@@ -48,11 +48,10 @@ Items closed.
 2. [x] [backend] Phase 2 — confidence scoring (F48.3) + auto-apply/review routing (F48.4), behind a
    flag with auto-apply log-only until ADR-067 is Accepted — new `metadata_extraction_review` table
    (migration 0025)
-3. [ ] [backend] Phase 3 — rollback foundation (F48.9), `file_writeback_snapshots` (migration 0026) —
-   must land before Phase 4 enables auto-apply
-4. [ ] [backend] Phase 4 — extraction triggers (F48.5): on-demand → batch → import-time, in that order
-5. [ ] [frontend] Phase 5 — Extraction tab UI + preview (F48.6/F48.7)  ⛔ blocked on #2–#4
-6. [ ] [backend] Phase 6 — merge → writeback propagation (F48.8)  ⛔ blocked on #3
+3. [x] [backend] Phase 3 — rollback foundation (F48.9), `file_writeback_snapshots` (migration 0026)
+4. [x] [backend] Phase 4 — extraction triggers (F48.5): on-demand → batch → import-time, in that order
+5. [x] [frontend] Phase 5 — Extraction tab UI + preview (F48.6/F48.7)
+6. [x] [backend] Phase 6 — merge → writeback propagation (F48.8)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -69,6 +68,64 @@ Items closed.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-07-16 · Phase 6 — merge → writeback propagation
+- `internal/api/merge_writeback.go` (new): `propagateMerge` writes every affected
+  video's full, current (post-merge) People/Studio name list to the embedded tag via
+  the existing F30 write queue, sourced from the DB (`PeopleForVideos`/`StudiosForVideos`)
+  rather than a partial string-patch of the on-disk value — correct even when a merged
+  person/studio co-starred with someone else on a video (that name is preserved, not
+  clobbered).
+- `internal/repo/identity_ops.go`: `MergeEntities` split into a public wrapper plus a
+  private `mergeEntities` core; a new `MergeEntitiesWithAffectedVideos` (and
+  `MergePersonsWithAffectedVideos` in `aliases.go`) returns the affected-video list
+  captured *inside* the merge's own transaction, before the move-associations step
+  repoints them — atomic with the merge, not a separate racy pre-read. Every existing
+  caller of `MergeEntities`/`MergePersons` (12+ call sites across 6 test files) is
+  untouched; only the two merge HTTP handlers call the new variant.
+- `internal/api/entity_identity.go`: `identityRoutes` gained `writebackField` (set to
+  `"studio"` at the studio mount, empty for tag) so `mergeEntity`'s propagation decision
+  is config-driven like every other per-entity specific, not a hardcoded
+  `entityType == EnrichEntityStudio` check.
+- F48.9d's migration-0026 comment and the revert route's own doc comment both explicitly
+  anticipated this: multiple videos' writeback jobs sharing one `batch_id` so a single
+  Revert restores all of them. Implemented it — migration 0027 adds `batch_id` to
+  `writeback_queue`; `Queue.EnqueueBatch`/`EnqueueMany` (new) accept a caller-supplied
+  batch id; `snapshotBeforeWrite`'s own-job idempotency check moved from
+  `SnapshotsForBatch` (whole batch) to a new `SnapshotExistsForVideo` (scoped to
+  batch+video) so one video's already-taken snapshot can't make a sibling video's job in
+  the same shared batch skip taking its own — verified by a real-file (ffmpeg/exiftool)
+  end-to-end test asserting both videos' snapshots land and one Revert restores both.
+- Efficiency: `propagateMerge` enqueues all of a merge's affected-video jobs in one
+  transaction (`EnqueueWritebackBatch`/`EnqueueMany`) rather than one `writeMu`
+  acquisition + commit per video — matters at the spec's stated scale ("thousands of
+  files"); mirrors `InsertWritebackSnapshots`'s existing single-prepared-statement
+  pattern.
+- Confirmed the writeback tag-mapping table (`internal/writeback/tags.go`) key for the
+  People field is `"actors"`, not `"people"` — `internal/extract`'s own field vocabulary
+  uses `"people"` throughout (matching the `{people}` filename token), so Phase 6 uses
+  `"actors"` explicitly rather than copying that literal. Flagged as a likely-latent bug
+  in the already-shipped Phase 2/4 extraction auto-apply path for `people` (not touched
+  this session — out of scope for F48.8, but worth a follow-up: HOLODEX-193 comment or a
+  new issue before `EXTRACTION_AUTO_APPLY_ENABLED` ever flips on for real).
+- `/simplify` (4-agent review): fixed a real efficiency issue (the sequential-enqueue
+  loop above), a duplicated `SnapshotsForBatchVideo`/`SnapshotsForBatch` scan loop
+  (collapsed to an existence-only query), two near-identical name-flatten helpers
+  (collapsed to one generic `namesByVideo[T]`), and the studio-specific hardcoded type
+  check in the generic `mergeEntity` handler (`identityRoutes.writebackField`). The
+  altitude review's most substantive finding — the affected-video pre-read racing the
+  merge transaction — is the `MergeEntitiesWithAffectedVideos` split above.
+- `/security-review`: no vulnerabilities found. Owner-gating unchanged (new code adds no
+  routes, rides the existing `requireOwner`-gated merge endpoints); all new queries
+  parameterized; tag content written comes from DB columns (`Person.Name`/`Studio.Name`),
+  never from the merge request body (which only supplies numeric ids).
+- skills: simplify, security-review
+- handoff: F48.1–F48.9 (Phases 1–6) all shipped; only remaining spec-level TODOs are the
+  cross-reference doc updates ("Cross-references to update on landing" in
+  `docs/specs/metadata-extraction.md`: `canonical-fields.md`, `docs/architecture/README.md`
+  ADR index entry — check both are current — and `qa-metadata-extraction.md`, which does
+  not appear to exist yet) and the flagged `"people"`/`"actors"` field-key mismatch in
+  Phase 2/4's extraction write path.
 
 ### 2026-07-15 · Phase 2 — confidence scoring + auto-apply/review routing
 - Migration 0025 (`metadata_extraction_review`, partial unique index on

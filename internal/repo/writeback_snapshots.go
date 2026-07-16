@@ -85,3 +85,21 @@ func (r *Repo) SnapshotsForBatch(ctx context.Context, batchID string) ([]Writeba
 	}
 	return out, rows.Err()
 }
+
+// SnapshotExistsForVideo reports whether one video already has a snapshot
+// within one batch — snapshotBeforeWrite's own-job idempotency check
+// (F48.9a), scoped narrower than SnapshotsForBatch. A batch id can now span
+// several videos' jobs (merge propagation, F48.8, migration 0027): checking
+// existence by batch id alone would make video B's job see video A's
+// already-taken snapshot and wrongly skip taking its own, so the check must
+// be scoped to (batch_id, video_id) instead.
+func (r *Repo) SnapshotExistsForVideo(ctx context.Context, batchID string, videoID int64) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM file_writeback_snapshots WHERE batch_id = ? AND video_id = ?)`,
+		batchID, videoID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("snapshot exists for video: %w", err)
+	}
+	return exists, nil
+}

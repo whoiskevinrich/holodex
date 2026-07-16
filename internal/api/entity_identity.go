@@ -32,6 +32,13 @@ type identityRoutes struct {
 	respKey    string // JSON key for the merged entity ("studio" | "tag")
 	base       string // route base ("studios" | "tags")
 	get        func(ctx context.Context, id int64) (any, error)
+	// writebackField is the canonical embedded-tag field a completed merge of
+	// this entity type propagates to (F48.8, ADR-067) — "" means a merge of
+	// this type never propagates (tags have no file field; F48.8's scope is
+	// Person/Studio only). Routes mergeEntity's propagation decision through
+	// this config, the same way every other per-entity specific is routed,
+	// rather than a hardcoded entity-type check in the generic handler.
+	writebackField string
 }
 
 // mountStudioTagIdentity registers the studio and tag alias/merge/rename routes. Person
@@ -40,7 +47,8 @@ type identityRoutes struct {
 func (h *Handlers) mountStudioTagIdentity(r chi.Router) {
 	h.mountEntityIdentity(r, identityRoutes{
 		entityType: model.EnrichEntityStudio, noun: "studio", respKey: "studio", base: "studios",
-		get: func(ctx context.Context, id int64) (any, error) { return h.repo.GetStudio(ctx, id) },
+		get:            func(ctx context.Context, id int64) (any, error) { return h.repo.GetStudio(ctx, id) },
+		writebackField: "studio",
 	})
 	h.mountEntityIdentity(r, identityRoutes{
 		entityType: model.EntityTag, noun: "tag", respKey: "tag", base: "tags",
@@ -129,7 +137,9 @@ func (h *Handlers) deleteEntityAlias(w http.ResponseWriter, r *http.Request, cfg
 // mergeEntity folds body.from_id into the path entity (mirrors mergePerson): its
 // associations move here, its name becomes an alias here, and it is deleted. Returns the
 // updated survivor. For studios the registered alias makes the merge survive
-// RelinkVideoStudios re-derivation (RD6).
+// RelinkVideoStudios re-derivation (RD6). A studio merge also propagates to every
+// affected video's embedded Studio tag (F48.8b, ADR-067), mirroring mergePerson; tag
+// merges have no file field to propagate to (F48.8 scope is Person/Studio only).
 func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg identityRoutes) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -149,7 +159,15 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 		writeError(w, http.StatusBadRequest, "cannot merge a "+cfg.noun+" into itself")
 		return
 	}
-	switch err := h.repo.MergeEntities(r.Context(), cfg.entityType, id, body.FromID); {
+
+	// videoIDs is the loser's affected-video list, captured atomically inside
+	// MergeEntitiesWithAffectedVideos' own transaction (F48.8b) — not a
+	// separate pre-read that could race a concurrent write to the loser's
+	// associations between the read and the merge. Tag merges compute this
+	// too (cfg.writebackField == "" for tags) but simply never use it below —
+	// one shared merge call for every entity type this handler serves.
+	videoIDs, err := h.repo.MergeEntitiesWithAffectedVideos(r.Context(), cfg.entityType, id, body.FromID)
+	switch {
 	case errors.Is(err, repo.ErrNotFound):
 		writeError(w, http.StatusNotFound, cfg.noun+" not found")
 		return
@@ -162,6 +180,16 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 		h.fail(w, "get merged "+cfg.noun, err)
 		return
 	}
+
+	if cfg.writebackField != "" && len(videoIDs) > 0 {
+		if names, err := h.repo.StudiosForVideos(r.Context(), videoIDs); err != nil {
+			h.log.Warn("merge writeback: load studios for videos", "err", err)
+		} else {
+			batchID := mergeBatchID(cfg.entityType, id, body.FromID)
+			h.propagateMerge(r.Context(), cfg.writebackField, batchID, videoIDs, namesByVideo(names, func(s model.Studio) string { return s.Name }))
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{cfg.respKey: entity})
 }
 

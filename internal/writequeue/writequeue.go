@@ -75,18 +75,66 @@ func New(r *repo.Repo, write WriteFunc, log *slog.Logger, concurrency int, media
 func (q *Queue) SetPostWrite(fn PostWriteFunc) { q.postWrite = fn }
 
 // Enqueue persists a batch-write job for one video and wakes a worker. fields are
-// the curated, write-enabled canonical fields (sanitized by the caller).
+// the curated, write-enabled canonical fields (sanitized by the caller). Equivalent
+// to EnqueueBatch with no shared batch id.
 func (q *Queue) Enqueue(ctx context.Context, videoID int64, fields []JobField) (int64, error) {
+	return q.EnqueueBatch(ctx, videoID, fields, "")
+}
+
+// EnqueueBatch is Enqueue with a caller-supplied batch id: jobs that share a
+// batchID also share one snapshot batch, so a single Revert restores every
+// one of them (F48.8, ADR-067, migration 0027). batchID == "" behaves
+// exactly like Enqueue (the job's own id becomes its snapshot batch at write
+// time). For enqueuing several videos' jobs under one shared batch at once,
+// see EnqueueMany — it does the same thing in a single transaction instead
+// of one call per video.
+func (q *Queue) EnqueueBatch(ctx context.Context, videoID int64, fields []JobField, batchID string) (int64, error) {
 	payload, err := json.Marshal(fields)
 	if err != nil {
 		return 0, fmt.Errorf("marshal writeback payload: %w", err)
 	}
-	id, err := q.repo.EnqueueWriteback(ctx, videoID, string(payload))
+	id, err := q.repo.EnqueueWriteback(ctx, videoID, string(payload), batchID)
 	if err != nil {
 		return 0, err
 	}
 	q.kick()
 	return id, nil
+}
+
+// BatchJob is one video's fields for EnqueueMany.
+type BatchJob struct {
+	VideoID int64
+	Fields  []JobField
+}
+
+// EnqueueMany persists several videos' jobs under one shared batchID in a
+// single transaction and wakes a worker once (F48.8): the multi-video
+// counterpart to EnqueueBatch, for a caller — merge propagation — that
+// already has the full list in hand and would otherwise pay one writeMu
+// acquisition and one commit per video on the owner-facing request path.
+// Jobs with no fields are skipped; a nil/empty result (no jobs to enqueue)
+// is a no-op success. Returns the new jobs' ids.
+func (q *Queue) EnqueueMany(ctx context.Context, jobs []BatchJob, batchID string) ([]int64, error) {
+	inserts := make([]repo.WritebackJobInsert, 0, len(jobs))
+	for _, j := range jobs {
+		if len(j.Fields) == 0 {
+			continue
+		}
+		payload, err := json.Marshal(j.Fields)
+		if err != nil {
+			return nil, fmt.Errorf("marshal writeback payload: %w", err)
+		}
+		inserts = append(inserts, repo.WritebackJobInsert{VideoID: j.VideoID, Payload: string(payload), BatchID: batchID})
+	}
+	if len(inserts) == 0 {
+		return nil, nil
+	}
+	ids, err := q.repo.EnqueueWritebackBatch(ctx, inserts)
+	if err != nil {
+		return nil, err
+	}
+	q.kick()
+	return ids, nil
 }
 
 // Depth returns the number of queued + in-flight jobs (for the SPA's position hint).
@@ -207,22 +255,31 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 }
 
 // snapshotBeforeWrite records each mapped field's current on-disk value under
-// a batch id derived from the job's own id (F48.9a, ADR-067) — not a fresh
-// random id per attempt. That matters for crash recovery: RecoverRunningWritebacks
-// resets a crash-interrupted 'running' job back to 'pending' and reprocesses it
-// from scratch, and by then the file may already carry the first attempt's
-// write (a crash between a successful WriteBatch and FinishWriteback). A fresh
-// id per attempt would re-read that already-written value as "prior",
-// corrupting the snapshot. Keying on job.ID instead makes this idempotent: a
-// retry finds its own earlier snapshot and reuses it rather than re-deriving a
-// wrong one. Returns "" when nothing was recorded — the read or insert failed,
-// logged and treated as non-fatal so a snapshot problem never blocks an
-// otherwise-working write.
+// a batch id — job.BatchID when the caller supplied one (F48.8, ADR-067,
+// migration 0027: several jobs, one per video, sharing a batch so a single
+// Revert restores all of them), otherwise one derived from the job's own id
+// (F48.9a) — not a fresh random id per attempt. That matters for crash
+// recovery: RecoverRunningWritebacks resets a crash-interrupted 'running' job
+// back to 'pending' and reprocesses it from scratch, and by then the file may
+// already carry the first attempt's write (a crash between a successful
+// WriteBatch and FinishWriteback). A fresh id per attempt would re-read that
+// already-written value as "prior", corrupting the snapshot. Reusing a stable
+// batch id instead makes this idempotent: a retry finds its own earlier
+// snapshot and reuses it rather than re-deriving a wrong one — the existence
+// check is scoped to (batch id, this job's video) via SnapshotExistsForVideo
+// rather than the whole batch, so a shared batch id doesn't let one video's
+// already-taken snapshot make a sibling video's job skip taking its own.
+// Returns "" when nothing was recorded — the read or insert failed, logged
+// and treated as non-fatal so a snapshot problem never blocks an otherwise-
+// working write.
 func (q *Queue) snapshotBeforeWrite(ctx context.Context, job *repo.WritebackJob, path string, mapped []writeback.Mapped) string {
-	batchID := strconv.FormatInt(job.ID, 10)
-	if existing, err := q.repo.SnapshotsForBatch(ctx, batchID); err != nil {
+	batchID := job.BatchID
+	if batchID == "" {
+		batchID = strconv.FormatInt(job.ID, 10)
+	}
+	if exists, err := q.repo.SnapshotExistsForVideo(ctx, batchID, job.VideoID); err != nil {
 		q.log.Warn("writeback snapshot lookup failed", "id", job.ID, "video", job.VideoID, "err", err)
-	} else if len(existing) > 0 {
+	} else if exists {
 		return batchID // already captured on an earlier attempt for this job
 	}
 
