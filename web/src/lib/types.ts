@@ -515,6 +515,51 @@ export interface RefreshReport {
 	sources_disagree: boolean;
 }
 
+// Filename metadata extraction (F48, ADR-067).
+
+// Result of the on-demand/batch extraction triggers (F48.5a/b) — mirrors
+// internal/extract.Result. matched=false means no configured pattern matched
+// the filename; fields is then empty.
+export interface ExtractionResult {
+	matched: boolean;
+	fields: Array<{ field: string; outcome: 'noop' | 'auto_applied' | 'logged_only' | 'queued' }>;
+}
+
+// ExtractionQueueRow is one pending metadata_extraction_review row,
+// video-joined — served by GET /owner/extraction-queue (F48.6). Mirrors
+// internal/repo/extraction_review.go's ExtractionQueueRow. suggested_entity_*
+// is present only for People/Studio fields carrying a Jaro-Winkler advisory
+// match (F48.3d) — never a value the owner has already accepted.
+export interface ExtractionQueueRow {
+	id: number;
+	video_id: number;
+	video_title: string;
+	file_path: string;
+	field_key: string;
+	filename_value: string;
+	tag_value: string;
+	confidence: number;
+	suggested_entity_id?: number;
+	suggested_entity_name?: string;
+}
+
+// The owner's choice when resolving one ExtractionQueueRow field (F48.6c):
+// keep the filename-derived value, keep the file's existing tag value, or
+// supply one manually (freeform edit, or an entity picked from a search).
+export type ExtractionResolveAction = 'filename' | 'tag' | 'manual';
+
+// One staged-and-not-yet-written change shown in ExtractionPreviewDialog
+// (F48.7a) — a queue row's "Accept filename"/"Pick suggested"/"Edit…" action
+// stages one of these; "Accept tag"/"Dismiss" never do (they touch no file).
+export interface ExtractionPreviewItem {
+	reviewId: number;
+	videoTitle: string;
+	fieldLabel: string;
+	oldValue: string;
+	newValue: string;
+	action: ExtractionResolveAction;
+}
+
 export interface PersonDetailResponse {
 	person: Person;
 	items: Video[];

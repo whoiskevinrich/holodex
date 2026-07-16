@@ -2,8 +2,12 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	"holodex/internal/model"
 )
 
 // Extraction review queue (F48.4, ADR-067): one pending row per (video,
@@ -125,4 +129,102 @@ func (r *Repo) setExtractionReviewStatus(ctx context.Context, id int64, status s
 		return fmt.Errorf("set extraction review status: %w", err)
 	}
 	return nil
+}
+
+// GetExtractionReview returns one review row by id, or ErrNotFound — the
+// resolve/dismiss API handlers (F48.6c/d) need the row's field_key and
+// values before they can act on it.
+func (r *Repo) GetExtractionReview(ctx context.Context, id int64) (ExtractionReviewRow, error) {
+	var row ExtractionReviewRow
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, video_id, field_key, filename_value, tag_value, confidence,
+		       COALESCE(suggested_entity_id, 0), status, created_at, COALESCE(resolved_at, '')
+		FROM metadata_extraction_review
+		WHERE id = ?`, id).Scan(&row.ID, &row.VideoID, &row.FieldKey, &row.FilenameValue, &row.TagValue,
+		&row.Confidence, &row.SuggestedEntityID, &row.Status, &row.CreatedAt, &row.ResolvedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ExtractionReviewRow{}, ErrNotFound
+	}
+	if err != nil {
+		return ExtractionReviewRow{}, fmt.Errorf("get extraction review: %w", err)
+	}
+	return row, nil
+}
+
+// ExtractionQueueRow is one pending review row, video-joined for the owner's
+// grouped-by-video queue (F48.6) — the extraction-review analogue of
+// enrich_queue.go's EnrichQueueRow. Serialized directly by the API handler,
+// so every field carries the JSON tag the frontend expects.
+type ExtractionQueueRow struct {
+	ID                  int64   `json:"id"`
+	VideoID             int64   `json:"video_id"`
+	VideoTitle          string  `json:"video_title"`
+	FilePath            string  `json:"file_path"`
+	FieldKey            string  `json:"field_key"`
+	FilenameValue       string  `json:"filename_value"`
+	TagValue            string  `json:"tag_value"`
+	Confidence          float64 `json:"confidence"`
+	SuggestedEntityID   int64   `json:"suggested_entity_id,omitempty"`
+	SuggestedEntityName string  `json:"suggested_entity_name,omitempty"`
+}
+
+// ExtractionQueue lists every pending review row, joined with its video's
+// title/path, ordered per-video so the frontend's grouping stays stable
+// across reloads. Video-level ordering (most-pending-fields-first, per the
+// design handoff) is a client-side derivation over this flat list, same as
+// enrichment's client-side kind grouping.
+func (r *Repo) ExtractionQueue(ctx context.Context) ([]ExtractionQueueRow, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT er.id, er.video_id, v.title, v.file_path, er.field_key,
+		       er.filename_value, er.tag_value, er.confidence,
+		       COALESCE(er.suggested_entity_id, 0)
+		FROM metadata_extraction_review er
+		JOIN videos v ON v.id = er.video_id
+		WHERE er.status = 'pending'
+		ORDER BY er.video_id, er.created_at`)
+	if err != nil {
+		return nil, fmt.Errorf("extraction queue: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ExtractionQueueRow
+	for rows.Next() {
+		var row ExtractionQueueRow
+		if err := rows.Scan(&row.ID, &row.VideoID, &row.VideoTitle, &row.FilePath, &row.FieldKey,
+			&row.FilenameValue, &row.TagValue, &row.Confidence, &row.SuggestedEntityID); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Resolve suggested-entity names: one EntityNames call per entity type
+	// actually present (at most two — person, studio), not one lookup per
+	// row or per distinct id. A stale suggestion (the entity was merged/
+	// deleted since extraction last ran) simply has no entry in the map and
+	// is left with an empty SuggestedEntityName.
+	names := make(map[string]map[int64]string, 2)
+	for i := range out {
+		row := &out[i]
+		if row.SuggestedEntityID == 0 {
+			continue
+		}
+		entityType, ok := model.EntityTypeForField[row.FieldKey]
+		if !ok {
+			continue
+		}
+		byID, loaded := names[entityType]
+		if !loaded {
+			var err error
+			byID, err = r.EntityNames(ctx, entityType)
+			if err != nil {
+				return nil, err
+			}
+			names[entityType] = byID
+		}
+		row.SuggestedEntityName = byID[row.SuggestedEntityID]
+	}
+	return out, nil
 }

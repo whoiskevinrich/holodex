@@ -230,6 +230,17 @@ const (
 	EntityTag          = "tag"
 )
 
+// EntityTypeForField maps an entity-field's canonical field key to the
+// entity_type F43's identity spine uses (people values are Person entities;
+// studio values are Studio entities) — shared by internal/extract (F48.3d's
+// entity resolution) and internal/repo (F48.6's suggested-entity-name
+// lookup) so both packages read the same mapping without an import cycle
+// (extract already depends on writequeue, which depends on repo).
+var EntityTypeForField = map[string]string{
+	"people": EnrichEntityPerson,
+	"studio": EnrichEntityStudio,
+}
+
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
 // persisted in entity_enrichment like any other field but is never displayed
 // (FieldsFromRows skips it) and never resolved (it is not a mapped canonical field).

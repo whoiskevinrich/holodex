@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"holodex/internal/repo"
@@ -122,5 +123,91 @@ func TestExtractionReview_SuggestedEntityID(t *testing.T) {
 	}
 	if rows[0].SuggestedEntityID != suggestedID {
 		t.Fatalf("SuggestedEntityID = %d, want %d", rows[0].SuggestedEntityID, suggestedID)
+	}
+}
+
+func TestExtractionReview_Get(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	videoID, err := r.UpsertVideo(ctx, sampleVideo("/m/get.mkv", "Film", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, videoID, "title", "A", "B", 0.5, 0); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	pending, err := r.ListExtractionReviews(ctx, repo.ExtractionReviewPending)
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("want 1 pending, got %d err=%v", len(pending), err)
+	}
+
+	got, err := r.GetExtractionReview(ctx, pending[0].ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.VideoID != videoID || got.FieldKey != "title" || got.FilenameValue != "A" || got.TagValue != "B" {
+		t.Fatalf("got = %+v, want video/field/values matching the seeded row", got)
+	}
+
+	if _, err := r.GetExtractionReview(ctx, 999999); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("unknown id: err = %v, want ErrNotFound", err)
+	}
+}
+
+// TestExtractionQueue_JoinsVideoAndSuggestedEntityName proves the video-join
+// (video_title/file_path land on every row) and the suggested-entity-name
+// resolution (an entity-field row's fuzzy suggestion carries a human-readable
+// name, not just an id) that the Extraction tab (F48.6) needs and the flat
+// ListExtractionReviews read doesn't provide.
+func TestExtractionQueue_JoinsVideoAndSuggestedEntityName(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	videoID, err := r.UpsertVideo(ctx, sampleVideo("/m/queue.mkv", "Queued Film", []string{"Alice Smith"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	people, err := r.ListPeople(ctx, false)
+	if err != nil || len(people) != 1 {
+		t.Fatalf("seed person: %v %v", people, err)
+	}
+	suggestedID := people[0].ID
+
+	if err := r.UpsertExtractionReview(ctx, videoID, "people", "Alise Smith", "", 0.55, suggestedID); err != nil {
+		t.Fatalf("upsert people: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, videoID, "title", "New Title", "Old Title", 0.4, 0); err != nil {
+		t.Fatalf("upsert title: %v", err)
+	}
+
+	rows, err := r.ExtractionQueue(ctx)
+	if err != nil {
+		t.Fatalf("extraction queue: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d: %+v", len(rows), rows)
+	}
+	byField := map[string]repo.ExtractionQueueRow{}
+	for _, row := range rows {
+		if row.VideoID != videoID || row.VideoTitle != "Queued Film" || row.FilePath != "/m/queue.mkv" {
+			t.Fatalf("row missing video join: %+v", row)
+		}
+		byField[row.FieldKey] = row
+	}
+	if byField["people"].SuggestedEntityName != "Alice Smith" {
+		t.Fatalf("SuggestedEntityName = %q, want %q", byField["people"].SuggestedEntityName, "Alice Smith")
+	}
+	if byField["title"].SuggestedEntityID != 0 || byField["title"].SuggestedEntityName != "" {
+		t.Fatalf("title row should carry no suggestion, got %+v", byField["title"])
+	}
+
+	// Resolving the people row drops it from the pending queue.
+	if err := r.ResolveExtractionReview(ctx, byField["people"].ID); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	rows, err = r.ExtractionQueue(ctx)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("want 1 row after resolve, got %d err=%v", len(rows), err)
 	}
 }

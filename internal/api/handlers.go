@@ -365,6 +365,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).
 		r.Post("/media/{id}/extract", h.extractMedia)
+		// Filename extraction review queue — list/resolve/dismiss (F48.6, ADR-067).
+		h.mountExtractionReview(r)
 	})
 }
 

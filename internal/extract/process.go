@@ -40,14 +40,6 @@ type Enqueuer interface {
 	Enqueue(ctx context.Context, videoID int64, fields []writequeue.JobField) (int64, error)
 }
 
-// entityTypeForField maps an entity-field's canonical field key to the
-// entity_type F43's identity spine uses (people values are Person entities;
-// studio values are Studio entities).
-var entityTypeForField = map[string]string{
-	"people": model.EnrichEntityPerson,
-	"studio": model.EnrichEntityStudio,
-}
-
 // Outcome is what Process actually did with one field's extraction candidate.
 type Outcome string
 
@@ -101,7 +93,7 @@ func Process(ctx context.Context, d Deps, fe FieldExtraction) (Outcome, error) {
 		suggestedEntityID int64
 	)
 	if isEntity {
-		entityType, known := entityTypeForField[fe.Field]
+		entityType, known := model.EntityTypeForField[fe.Field]
 		if !known {
 			return "", fmt.Errorf("extract: entity field %q has no entity type mapping", fe.Field)
 		}
