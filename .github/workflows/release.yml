@@ -83,7 +83,7 @@ jobs:
       # (status = Done) to Released (ADR-058, replaces the old Automation rule 5).
       # Soft-fails: a Jira hiccup logs a warning and never red-builds a shipped release.
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
