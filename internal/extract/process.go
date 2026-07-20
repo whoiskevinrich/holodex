@@ -260,5 +260,5 @@ func joinSorted(values []string) string {
 	}
 	sorted := append([]string(nil), values...)
 	sort.Strings(sorted)
-	return strings.Join(sorted, ", ")
+	return strings.Join(sorted, model.MultiValueDelimiter)
 }

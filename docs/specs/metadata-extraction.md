@@ -264,6 +264,7 @@ treated as the owner having already made the call.
 | F48.1c | Unmapped bracketed tokens (e.g. `{resolution}`) are consumed for matching but produce no field value | Pattern `[{studio}] {title} ({people}, {year}) {resolution}` against a real filename extracts exactly 4 fields, not 5 |
 | F48.1d | Multi-value tokens (`{people}`) split on a configurable delimiter (default `, `) | `(Alice, Bob)` extracts two people, not one string |
 | F48.1e | Pattern compilation and matching are pure, no I/O | Table-driven unit tests over a fixture set of filenames × patterns, no network/DB |
+| F48.1f | A bare 4-digit year matched into the `{people}` position is dropped, not surfaced as a person (HOLODEX-196 #3) | `[Studio] Title (2011) (1080p)` (year in the leading parenthetical under `({people}) ({resolution})`) yields no person — a real name containing digits is kept |
 
 ### F48.2 — `filename:` shadow-store integration
 
@@ -309,6 +310,9 @@ treated as the owner having already made the call.
 | F48.6c | Row actions: accept filename value / accept tag value / pick suggested entity / edit manually / dismiss | Matches F48.4c's resolution paths |
 | F48.6d | All controls use semantic tokens; QA'd in Cinémathèque, Broadcast, Brutalist | No hardcoded colors/hex in the new components |
 | F48.6e | Keyboard-accessible row navigation | Roving-tabindex, consistent with existing pickers (`EnrichPicker`) |
+| F48.6f | An entity field renders one **chip per parsed name** (a multi-person cast = N chips; a studio = 1), each marked *exists* or *new* against the identity spine; clicking a chip opens the picker to swap it to an existing entity or a corrected new name, and × removes it, without disturbing the other names (HOLODEX-196 #1/#5, ADR-068 D2) | Editing or swapping one person in a 3-person cast writes the full edited cast, never collapses it to one; a mistyped studio is fixed in one click |
+| F48.6g | Resolving a row that introduces a not-yet-existing Person/Studio actually creates and links that entity (HOLODEX-196 #4, ADR-068 D1) | After resolve, the new entity appears in the DB / People/Studio list (via the post-write re-extract), not only on a later scan |
+| F48.6h | "Extract all" gives visible progress feedback and the queue can be refreshed in place (HOLODEX-196 #2) | After clicking, a running notice shows and rows appear as files are processed (bounded auto-refresh + a manual Refresh); the tab stays usable |
 
 ### F48.7 — Preview before sync
 

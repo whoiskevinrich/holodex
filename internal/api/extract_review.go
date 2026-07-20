@@ -75,7 +75,7 @@ func (h *Handlers) resolveExtractionReview(w http.ResponseWriter, r *http.Reques
 	// — lives in internal/extract alongside Process's automatic routing
 	// (F48.3/F48.4), so both the automatic and owner-resolved paths share one
 	// place that knows how a field's values+source are decided.
-	write, err := extract.ResolveReviewAction(extract.ReviewAction(body.Action), row.FilenameValue, row.TagValue, body.Value)
+	write, err := extract.ResolveReviewAction(extract.ReviewAction(body.Action), row.FieldKey, row.FilenameValue, row.TagValue, body.Value)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

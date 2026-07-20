@@ -311,3 +311,46 @@ func TestRefreshNoMatchesIsFileOnly(t *testing.T) {
 		t.Fatalf("expected only the file source: %+v", rep.Sources)
 	}
 }
+
+// ReExtract is the file-only half of a refresh used by the post-writeback hook
+// (HOLODEX-196 #4): it re-reads the file into the file layer and relinks
+// studios so a just-written People/Studio entity is created, WITHOUT re-pulling
+// providers or recording an activity row.
+func TestReExtract_FileOnlyAndRelinks(t *testing.T) {
+	newV := &model.Video{FilePath: "/m/clip.mp4", Title: "New Title"}
+	ext := &fakeExt{v: newV}
+	store := &fakeStore{path: "/m/clip.mp4", old: &model.Video{FilePath: "/m/clip.mp4", Title: "Old Title"}}
+	enr := &fakeEnricher{matches: []enrich.Match{{Provider: "tmdb"}}}
+
+	svc := refresh.NewService(ext, store, enr, nil)
+	var relinked int64
+	svc.SetRelinker(func(_ context.Context, id int64) error { relinked = id; return nil })
+
+	if err := svc.ReExtract(context.Background(), 42); err != nil {
+		t.Fatalf("ReExtract: %v", err)
+	}
+	if ext.calls != 1 || store.upserts != 1 || store.gotVideo != newV {
+		t.Fatalf("did not re-extract+persist: calls=%d upserts=%d", ext.calls, store.upserts)
+	}
+	if relinked != 42 {
+		t.Fatalf("relinker not called with the id: got %d", relinked)
+	}
+	if len(enr.reCalls) != 0 {
+		t.Fatalf("ReExtract must not re-enrich, got provider calls %v", enr.reCalls)
+	}
+	if len(store.recorded) != 0 {
+		t.Fatalf("ReExtract must not record an activity row, got %+v", store.recorded)
+	}
+}
+
+// A missing/soft-deleted target propagates unwrapped, before any write.
+func TestReExtract_TargetErrorPropagates(t *testing.T) {
+	store := &fakeStore{targetErr: repo.ErrNotFound}
+	err := refresh.NewService(&fakeExt{}, store, nil, nil).ReExtract(context.Background(), 9)
+	if !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+	if store.upserts != 0 {
+		t.Fatalf("must not write on a rejected target: upserts=%d", store.upserts)
+	}
+}

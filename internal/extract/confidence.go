@@ -96,6 +96,19 @@ var entityFields = map[string]bool{
 // rubric (true) or the 2-component non-entity rubric (false).
 func IsEntityField(field string) bool { return entityFields[field] }
 
+// multiValueFields are the fields (and, since token names match field keys,
+// the pattern tokens) holding several values rather than a scalar — People is
+// the only one today (the {people} filename token, F48.1d). Single home for the
+// fact, read by both IsMultiValueField and pattern.go's Match split.
+var multiValueFields = map[string]bool{
+	"people": true,
+}
+
+// IsMultiValueField reports whether field holds several values (a cast). Its
+// review value is joined and split back on resolve, so an owner edit of one
+// name can't collapse the whole field to a single value (HOLODEX-196 #1).
+func IsMultiValueField(field string) bool { return multiValueFields[field] }
+
 // AutoApplyThreshold returns field's tier threshold and whether field is
 // known at all (F48's tier table is the exhaustive allowlist for auto-apply
 // eligibility — see Route in routing.go).

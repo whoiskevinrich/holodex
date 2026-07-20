@@ -123,6 +123,37 @@ func (s *Service) Refresh(ctx context.Context, id int64) (Report, error) {
 	return report, runErr
 }
 
+// ReExtract re-reads one media file's embedded metadata into the file layer
+// (forced) and re-derives its studio links — the file half of run, without the
+// provider re-enrich or the activity-history row. It exists for the
+// post-writeback hook (HOLODEX-196 #4): after an extraction resolve writes a
+// People/Studio value to a file's tag, the corresponding entity is created and
+// linked only when the file is read back through UpsertVideo →
+// resolveOrCreatePerson. Reusing this canonical read path keeps the file the
+// single source of truth (ADR-033/051/052) rather than inserting entities
+// inline at resolve time. A missing/soft-deleted id or unreadable file returns
+// an error before any write; the studio relink is best-effort (logged, never
+// fatal — the people links already landed via UpsertVideo).
+func (s *Service) ReExtract(ctx context.Context, id int64) error {
+	path, err := s.store.RefreshTarget(ctx, id)
+	if err != nil {
+		return err
+	}
+	newV, newExtra, err := s.ext.BuildVideoFromFile(ctx, path)
+	if err != nil {
+		return fmt.Errorf("re-extract %d: %w", id, err)
+	}
+	if _, err := s.store.UpsertVideo(ctx, newV, newExtra); err != nil {
+		return fmt.Errorf("re-extract upsert %d: %w", id, err)
+	}
+	if s.relink != nil {
+		if err := s.relink(ctx, id); err != nil {
+			s.warn("studio relink after re-extract failed", "id", id, "err", err)
+		}
+	}
+	return nil
+}
+
 // run does the refresh work and returns the report; Refresh wraps it with
 // activity recording. The file commit precedes every provider call, so a provider
 // failure is isolated and never undoes the file sync; a file-read failure aborts

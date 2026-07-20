@@ -21,7 +21,9 @@
 		kind: Extract<EntityKind, 'person' | 'studio'>;
 		seedQuery: string;
 		onclose: () => void;
-		onselect: (name: string) => void;
+		/** existing = the name was chosen from a search result (an existing
+		 *  entity), false = a freeform new name the owner typed. */
+		onselect: (name: string, existing: boolean) => void;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -93,10 +95,10 @@
 		}
 	}
 
-	function confirm(name: string) {
+	function confirm(name: string, existing: boolean) {
 		const trimmed = name.trim();
 		if (!trimmed) return;
-		onselect(trimmed);
+		onselect(trimmed, existing);
 		onclose();
 	}
 
@@ -106,15 +108,15 @@
 			focusOption(0);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			if (candidates[active]) confirm(candidates[active].name);
-			else confirm(query);
+			if (candidates[active]) confirm(candidates[active].name, true);
+			else confirm(query, false);
 		}
 	}
 
 	function onOptionKey(e: KeyboardEvent, i: number) {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			confirm(candidates[i].name);
+			confirm(candidates[i].name, true);
 		} else if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			focusOption((i + 1) % candidates.length);
@@ -193,7 +195,7 @@
 					role="option"
 					tabindex={i === active ? 0 : -1}
 					aria-selected={i === active}
-					onclick={() => confirm(c.name)}
+					onclick={() => confirm(c.name, true)}
 					onkeydown={(e) => onOptionKey(e, i)}
 					onfocus={() => (active = i)}
 					onmouseenter={() => (active = i)}
@@ -214,7 +216,7 @@
 		{#if query.trim().length >= 2 && !candidates.some((c) => c.name.toLowerCase() === query.trim().toLowerCase())}
 			<div class="mt-2 border-t border-rule pt-2">
 				<button
-					onclick={() => confirm(query)}
+					onclick={() => confirm(query, false)}
 					class="rounded-theme px-2 py-1 text-xs text-accent hover:underline"
 				>
 					Use "{query.trim()}" as a new {kindLabel}

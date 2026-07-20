@@ -1,11 +1,19 @@
 <script lang="ts">
 	// One dense field row in the Extraction review queue (F48.6, ADR-067), grouped
 	// under its video by the parent page. Mirrors EnrichQueueRow/DuplicatePairRow's
-	// rhythm. Two action classes: "Accept tag" and "Dismiss" never touch the file, so
-	// they fire immediately (resolve-on-click, row drops out in place); "Accept
-	// filename"/"Pick suggested"/"Edit…" stage a pending write instead of writing
-	// right away — the owner reviews and commits staged picks together via the
-	// preview-before-write dialog (F48.7) the parent page owns. Tokens only; QA 3 skins.
+	// rhythm. Two field shapes:
+	//
+	// • Entity fields (People/Studio) render one chip per parsed name (HOLODEX-196
+	//   #1), each marked "exists" or "new". Click a chip to swap it to an existing
+	//   entity or a corrected new name (fixes a typo, disambiguates two same-named
+	//   people, corrects a studio) without disturbing the others; × removes one.
+	//   "Accept cast" stages the whole edited list — editing one name can no longer
+	//   collapse the field to a single value.
+	// • Non-entity fields (Title, Release date) keep the scalar filename/tag/Edit UI.
+	//
+	// "Accept tag" and "Dismiss" never touch the file, so they resolve on click (the
+	// row drops out); the accept actions stage a pending write the owner commits
+	// together via the preview-before-write dialog (F48.7). Tokens only; QA 3 skins.
 	import { toMessage } from '$lib/format';
 	import EntityPickerDialog from './EntityPickerDialog.svelte';
 	import type { ExtractionQueueRow, ExtractionResolveAction } from '$lib/types';
@@ -25,7 +33,7 @@
 		fieldLabel: string;
 		isEntityField: boolean;
 		staged: { action: ExtractionResolveAction; value: string } | undefined;
-		/** Stage a pending write (not yet sent) — the row shows "picked", the parent
+		/** Stage a pending write (not yet sent) — the row shows "selected", the parent
 		 *  page's "Review N changes" button appears. */
 		onstage: (action: ExtractionResolveAction, value: string) => void;
 		onunstage: () => void;
@@ -46,6 +54,25 @@
 	const entityKind = $derived(row.field_key === 'people' ? 'person' : 'studio');
 	const entityLabel = $derived(entityKind === 'person' ? 'Person' : 'Studio');
 
+	// One editable chip per parsed name. `value` is what will be written
+	// (an existing entity's canonical name, or the parsed/typed new name);
+	// `existing` drives the exists/new badge.
+	interface Chip {
+		value: string;
+		existing: boolean;
+	}
+	// The backend always builds `candidates` for entity fields (splitting the
+	// filename value), so there's no non-empty-filename case the map misses.
+	function initChips(): Chip[] {
+		return (row.candidates ?? []).map((c) => ({ value: c.entity_name ?? c.name, existing: !!c.entity_id }));
+	}
+	// svelte-ignore state_referenced_locally — seeded once; the row is keyed by id.
+	let chips = $state<Chip[]>(isEntityField ? initChips() : []);
+	let editingChip = $state<number | null>(null);
+
+	const castValue = $derived(chips.map((c) => c.value).join(', '));
+	const newCount = $derived(chips.filter((c) => !c.existing).length);
+
 	// Same tier-label idiom as EnrichPicker.matchLabel() — informational only, never
 	// gates which actions render. Both sides present and differing is a real
 	// disagreement (Conflict); otherwise the raw score decides Strong vs. Weak.
@@ -59,6 +86,19 @@
 		}
 		return row.confidence >= 0.7 ? 'Strong' : 'Weak';
 	});
+
+	function updateChip(i: number, name: string, existing: boolean) {
+		chips[i] = { value: name, existing }; // $state array: index assignment is reactive
+		onunstage(); // any staged accept is now stale
+	}
+	function removeChip(i: number) {
+		chips = chips.filter((_, j) => j !== i);
+		onunstage();
+	}
+	function acceptCast() {
+		if (chips.length === 0) return;
+		onstage('manual', castValue);
+	}
 
 	async function acceptTag() {
 		if (busy) return;
@@ -95,17 +135,56 @@
 </script>
 
 <div
-	class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-rule px-3 py-2.5 text-sm"
+	class="flex flex-wrap items-start gap-x-3 gap-y-2 border-t border-rule px-3 py-2.5 text-sm"
 	role="group"
 	aria-label={`${row.video_title}: ${fieldLabel}`}
 >
-	<div class="flex min-w-0 flex-1 flex-col gap-1">
+	<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 			<span class="w-28 shrink-0 text-xs uppercase tracking-wide text-muted">{fieldLabel}</span>
 			<span class="shrink-0 text-xs text-muted">{tier}</span>
 		</div>
 
-		{#if editing && !isEntityField}
+		{#if isEntityField}
+			<!-- Chip list: one per parsed name, click to edit, × to remove. -->
+			{#if chips.length}
+				<div class="flex flex-wrap items-center gap-1.5">
+					{#each chips as chip, i (i)}
+						<span
+							class="inline-flex items-center gap-1 rounded-full border py-0.5 pl-2 pr-1 text-sm {chip.existing
+								? 'border-rule bg-surface-2 text-ink'
+								: 'border-accent bg-accent/10 text-accent'}"
+						>
+							<button
+								type="button"
+								onclick={() => (editingChip = i)}
+								disabled={busy}
+								class="inline-flex items-center gap-1.5 hover:underline disabled:opacity-60"
+								title="Edit this {entityLabel.toLowerCase()}"
+							>
+								{chip.value}
+								<span class="text-xs {chip.existing ? 'text-muted' : 'text-accent'}"
+									>{chip.existing ? 'exists' : 'new'}</span
+								>
+							</button>
+							<button
+								type="button"
+								onclick={() => removeChip(i)}
+								disabled={busy}
+								aria-label={`Remove ${chip.value}`}
+								class="rounded-full px-1 text-muted hover:text-ink disabled:opacity-60">✕</button
+							>
+						</span>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-xs italic text-muted">No {entityLabel.toLowerCase()} parsed from the filename.</p>
+			{/if}
+
+			{#if row.tag_value}
+				<p class="text-xs text-muted">file tag currently: {row.tag_value}</p>
+			{/if}
+		{:else if editing}
 			<div class="flex flex-wrap items-center gap-2">
 				<input
 					type="text"
@@ -132,19 +211,9 @@
 			</div>
 		{/if}
 
-		{#if isEntityField}
-			<p class="text-xs text-muted">
-				{#if row.suggested_entity_name}
-					suggested match — not applied: {row.suggested_entity_name}
-				{:else}
-					no match — will create new {entityLabel}
-				{/if}
-			</p>
-		{/if}
-
 		{#if staged}
 			<p class="text-xs text-accent">
-				Picked: <span class="font-medium">{staged.value}</span> — pending write
+				Selected: <span class="font-medium">{staged.value}</span> — pending write
 				<button onclick={onunstage} class="ml-1 text-muted underline hover:text-ink">Undo</button>
 			</p>
 		{/if}
@@ -155,37 +224,40 @@
 	</div>
 
 	<div class="flex shrink-0 flex-wrap items-center gap-2">
-		{#if row.filename_value}
-			<button
-				onclick={() => onstage('filename', row.filename_value)}
-				disabled={busy}
-				class="text-accent hover:underline disabled:opacity-60"
-			>
-				Accept filename
-			</button>
+		{#if isEntityField}
+			{#if chips.length}
+				<button
+					onclick={acceptCast}
+					disabled={busy}
+					class="text-accent hover:underline disabled:opacity-60"
+					title={newCount ? `Writes ${chips.length}, creates ${newCount}` : `Writes ${chips.length}`}
+				>
+					Accept cast{newCount ? ` (${newCount} new)` : ''}
+				</button>
+			{/if}
+		{:else}
+			{#if row.filename_value}
+				<button
+					onclick={() => onstage('filename', row.filename_value)}
+					disabled={busy}
+					class="text-accent hover:underline disabled:opacity-60"
+				>
+					Accept filename
+				</button>
+			{/if}
+			{#if !editing}
+				<button
+					onclick={() => (editing = true)}
+					disabled={busy}
+					class="text-accent hover:underline disabled:opacity-60"
+				>
+					Edit…
+				</button>
+			{/if}
 		{/if}
 		{#if row.tag_value}
 			<button onclick={acceptTag} disabled={busy} class="text-accent hover:underline disabled:opacity-60">
 				Accept tag
-			</button>
-		{/if}
-		{#if isEntityField && row.suggested_entity_name}
-			{@const suggested = row.suggested_entity_name}
-			<button
-				onclick={() => onstage('manual', suggested)}
-				disabled={busy}
-				class="text-accent hover:underline disabled:opacity-60"
-			>
-				Pick suggested: {suggested}
-			</button>
-		{/if}
-		{#if !editing}
-			<button
-				onclick={() => (editing = true)}
-				disabled={busy}
-				class="text-accent hover:underline disabled:opacity-60"
-			>
-				Edit…
 			</button>
 		{/if}
 		<button onclick={doDismiss} disabled={busy} class="text-muted hover:text-ink disabled:opacity-60">
@@ -194,11 +266,13 @@
 	</div>
 </div>
 
-{#if editing && isEntityField}
+{#if editingChip !== null}
 	<EntityPickerDialog
 		kind={entityKind}
-		seedQuery={row.suggested_entity_name || row.filename_value}
-		onclose={() => (editing = false)}
-		onselect={(name) => onstage('manual', name)}
+		seedQuery={chips[editingChip]?.value ?? ''}
+		onclose={() => (editingChip = null)}
+		onselect={(name, existing) => {
+			if (editingChip !== null) updateChip(editingChip, name, existing);
+		}}
 	/>
 {/if}

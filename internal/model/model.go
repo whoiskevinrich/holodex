@@ -1,7 +1,10 @@
 // Package model holds the core domain types shared across layers.
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Thumbnail pipeline states stored in Video.ThumbnailState (ADR-009). The empty
 // string is the zero value, meaning "never attempted". Centralized here so the
@@ -239,6 +242,27 @@ const (
 var EntityTypeForField = map[string]string{
 	"people": EnrichEntityPerson,
 	"studio": EnrichEntityStudio,
+}
+
+// MultiValueDelimiter joins/splits a multi-value field's values in the
+// extraction review row (e.g. a `{people}` cast rendered as one comparable
+// string). Centralized here — like EntityTypeForField, without an import cycle
+// — so the write side (internal/extract's join on resolve) and the read side
+// (internal/repo's per-value candidate split for the queue) can never drift.
+const MultiValueDelimiter = ", "
+
+// SplitJoined reverses a MultiValueDelimiter join back into individual values,
+// dropping empties. The shared inverse of the review row's join, used by both
+// internal/extract's resolve path and internal/repo's queue read.
+func SplitJoined(joined string) []string {
+	parts := strings.Split(joined, MultiValueDelimiter)
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
