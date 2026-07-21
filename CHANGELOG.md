@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.12.0](https://github.com/whoiskevinrich/holodex/compare/v1.11.0...v1.12.0) (2026-07-21)
+
+
+### 🚀 Features
+
+* **extract:** F48 on-demand metadata extraction — docs + all 6 phases ([#148](https://github.com/whoiskevinrich/holodex/issues/148)) ([078626a](https://github.com/whoiskevinrich/holodex/commit/078626a211784f7d8a9409982651d3be9a243d17))
+
+
+### 🐛 Bug Fixes
+
+* **extract:** multi-person review chips, entity creation on resolve, year misparse ([#152](https://github.com/whoiskevinrich/holodex/issues/152)) ([3cd9345](https://github.com/whoiskevinrich/holodex/commit/3cd93451b7d076c9e5608c30840e18b2642b5115))
+* **web:** return to referring page on delete instead of browse root ([#145](https://github.com/whoiskevinrich/holodex/issues/145)) ([fdaebca](https://github.com/whoiskevinrich/holodex/commit/fdaebcaadfc7c9e00e82318d3553263e97045afb))
+* **web:** return to referring page on delete instead of browse root ([#146](https://github.com/whoiskevinrich/holodex/issues/146)) ([9149de9](https://github.com/whoiskevinrich/holodex/commit/9149de9ee64abefc666565792b3971966a22c3a4))
+
+
+### 🚜 Refactor
+
+* **enrichment:** simplify F47 review-workflow follow-up cleanups ([#143](https://github.com/whoiskevinrich/holodex/issues/143)) ([1d35c3b](https://github.com/whoiskevinrich/holodex/commit/1d35c3b15d597664929a370b2a6bc861b8f1d67d))
+
 ## [1.11.0](https://github.com/whoiskevinrich/holodex/compare/v1.10.0...v1.11.0) (2026-07-14)
 
 
