@@ -65,6 +65,19 @@ Your library is mounted **read-only**; the index, thumbnails, and config live in
 volume. Pin a release with `HOLODEX_TAG=1.2.0` instead of `latest`. See
 [ADR-023](docs/architecture/ADR-023-image-distribution.md) for the distribution model.
 
+### Image tags
+
+| Tag | What it is |
+|---|---|
+| `latest` | The most recent tagged **release** (e.g. `1.12.0`) — stable, recommended for self-hosting. |
+| `1.2.0`, `1.2`, `1` | A pinned release version. |
+| `edge` | Rebuilt on every merge to `main` — newest code, unreleased, no stability guarantee. |
+
+> The GitHub Packages page shows a **"Latest"** badge on whichever version was published most
+> recently — since `edge` rebuilds on every merge, that badge usually points at `edge`, not at
+> the `latest` tag. The `:latest` Docker tag itself is unaffected and still resolves to the
+> newest stable release.
+
 ## Roadmap
 
 **Shipped** — Phase 1 (MVP: automatic indexing, FTS search, faceted browse, in-browser
