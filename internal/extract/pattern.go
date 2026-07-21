@@ -29,12 +29,36 @@ var tokenFields = map[string]string{
 
 var tokenRe = regexp.MustCompile(`\{(\w+)\}`)
 
-// bareYearRe matches a value that is nothing but a 4-digit year. Such a value
-// in the {people} position is a misparse, not a name — e.g. the leading
-// parenthetical of "[Studio] Title (2011) (1080p)" matches {people} under the
-// "({people}) ({resolution})" pattern. A real person is never named "2011", so
-// these are dropped from the people split (a year belongs to {year}).
-var bareYearRe = regexp.MustCompile(`^\d{4}$`)
+// nonPersonShapeRes are value shapes that are never a person name — a
+// misparse of some other field (year, date, resolution, a bare index/take
+// number) into the {people} position, not a name. bareYearRe (HOLODEX-196 #3)
+// only caught an exact 4-digit year; HOLODEX-197 broadened it after QA found
+// other numeric/date shapes still surfacing as suggested people, e.g. the
+// leading parenthetical of "[Studio] Title (2) (1080p)" or
+// "[Studio] Title (2024-02-13) (1080p)" matching {people} under a
+// "({people}) ({resolution})"-shaped pattern with no actual cast segment.
+// Downstream confidence scoring (confidence.go, process.go) already *boosts*
+// a candidate that matches a known person/alias — it never hard-rejects a bad
+// shape, so this is the one place that stops these before they're ever
+// offered as a review-queue suggestion.
+var nonPersonShapeRes = []*regexp.Regexp{
+	regexp.MustCompile(`^\d+$`),                             // pure digits: "2", "2011"
+	regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`),               // ISO date: "2024-02-13"
+	regexp.MustCompile(`^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$`), // other common date shapes: "2/13/2024", "02.13.24"
+	regexp.MustCompile(`(?i)^\d{3,4}[pi]$`),                 // resolution: "720p", "1080p", "480i"
+}
+
+// isNonPersonValue reports whether value matches a known non-person shape
+// (see nonPersonShapeRes) and should be dropped from a {people} split rather
+// than surfaced as a person candidate.
+func isNonPersonValue(value string) bool {
+	for _, re := range nonPersonShapeRes {
+		if re.MatchString(value) {
+			return true
+		}
+	}
+	return false
+}
 
 // Pattern is a compiled filename token pattern (F48.1), ready to match against a
 // filename stem (the base name with its extension removed).
@@ -139,9 +163,9 @@ func (p *Pattern) Match(filenameStem, delimiter string) (fields map[string][]str
 		if multiValueFields[name] {
 			// A multi-value token (F48.1d — {people}): split its captured text
 			// into several values on the configured delimiter, dropping any
-			// bare 4-digit year misparsed into the people position.
+			// value that matches a known non-person shape (HOLODEX-197).
 			for _, p := range splitValues(val, delimiter) {
-				if !bareYearRe.MatchString(p) {
+				if !isNonPersonValue(p) {
 					out[field] = append(out[field], p)
 				}
 			}

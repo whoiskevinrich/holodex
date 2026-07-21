@@ -116,14 +116,64 @@ func TestPattern_Match(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			// Only a bare 4-digit year is dropped — a real multi-word name that
-			// merely contains digits survives.
+			// Only a value that is entirely digits/date/resolution-shaped is
+			// dropped — a real multi-word name that merely contains digits
+			// survives.
 			name:     "name containing digits is kept",
 			pattern:  "{title} ({people})",
 			filename: "Doc (Studio 54).mkv",
 			want: map[string][]string{
 				"title":  {"Doc"},
 				"people": {"Studio 54"},
+			},
+			wantOK: true,
+		},
+		{
+			// A short numeric value (e.g. a sequel/take number) in the
+			// {people} position is dropped, not a person (HOLODEX-197).
+			name:     "bare short number in people position is dropped, not a person",
+			pattern:  "[{studio}] {title} ({people}) ({resolution})",
+			filename: "[MyStudio] MyTitle (2) (1080p).mkv",
+			want: map[string][]string{
+				"studio": {"MyStudio"},
+				"title":  {"MyTitle"},
+			},
+			wantOK: true,
+		},
+		{
+			// An ISO date filling the {people} slot is dropped, not a
+			// person (HOLODEX-197).
+			name:     "ISO date in people position is dropped, not a person",
+			pattern:  "[{studio}] {title} ({people}) ({resolution})",
+			filename: "[MyStudio] MyTitle (2024-02-13) (720p).mkv",
+			want: map[string][]string{
+				"studio": {"MyStudio"},
+				"title":  {"MyTitle"},
+			},
+			wantOK: true,
+		},
+		{
+			// A resolution-shaped value landing in the {people} slot is
+			// dropped, not a person (HOLODEX-197).
+			name:     "resolution string in people position is dropped, not a person",
+			pattern:  "{title} ({people})",
+			filename: "MyTitle (1080p).mkv",
+			want: map[string][]string{
+				"title": {"MyTitle"},
+			},
+			wantOK: true,
+		},
+		{
+			// A real person name survives alongside a dropped numeric value in
+			// the same multi-value split (HOLODEX-197).
+			name:      "person name survives alongside dropped numeric value",
+			pattern:   "[{studio}] {title} ({people}) ({resolution})",
+			delimiter: ", ",
+			filename:  "[MyStudio] MyTitle (2, PersonName) (720p).mkv",
+			want: map[string][]string{
+				"studio": {"MyStudio"},
+				"title":  {"MyTitle"},
+				"people": {"PersonName"},
 			},
 			wantOK: true,
 		},
