@@ -156,16 +156,28 @@ func (r *Repo) GetExtractionReview(ctx context.Context, id int64) (ExtractionRev
 // enrich_queue.go's EnrichQueueRow. Serialized directly by the API handler,
 // so every field carries the JSON tag the frontend expects.
 type ExtractionQueueRow struct {
-	ID                  int64   `json:"id"`
-	VideoID             int64   `json:"video_id"`
-	VideoTitle          string  `json:"video_title"`
-	FilePath            string  `json:"file_path"`
-	FieldKey            string  `json:"field_key"`
-	FilenameValue       string  `json:"filename_value"`
-	TagValue            string  `json:"tag_value"`
-	Confidence          float64 `json:"confidence"`
-	SuggestedEntityID   int64   `json:"suggested_entity_id,omitempty"`
-	SuggestedEntityName string  `json:"suggested_entity_name,omitempty"`
+	ID                  int64                 `json:"id"`
+	VideoID             int64                 `json:"video_id"`
+	VideoTitle          string                `json:"video_title"`
+	FilePath            string                `json:"file_path"`
+	FieldKey            string                `json:"field_key"`
+	FilenameValue       string                `json:"filename_value"`
+	TagValue            string                `json:"tag_value"`
+	Confidence          float64               `json:"confidence"`
+	SuggestedEntityID   int64                 `json:"suggested_entity_id,omitempty"`
+	SuggestedEntityName string                `json:"suggested_entity_name,omitempty"`
+	Candidates          []ExtractionCandidate `json:"candidates,omitempty"`
+}
+
+// ExtractionCandidate is one parsed name from an entity field's filename value,
+// resolved against the identity spine so the owner's review UI can render it as
+// a chip and show whether it already exists (HOLODEX-196 #1). A multi-value
+// People field yields one candidate per person; single-value Studio yields one.
+// Non-entity fields (title, release_date) carry no candidates.
+type ExtractionCandidate struct {
+	Name       string `json:"name"`                  // the parsed name, as written in the filename
+	EntityID   int64  `json:"entity_id,omitempty"`   // matched existing entity, 0 = will be created
+	EntityName string `json:"entity_name,omitempty"` // the matched entity's canonical name (may differ in case)
 }
 
 // ExtractionQueue lists every pending review row, joined with its video's
@@ -200,31 +212,60 @@ func (r *Repo) ExtractionQueue(ctx context.Context) ([]ExtractionQueueRow, error
 		return nil, err
 	}
 
-	// Resolve suggested-entity names: one EntityNames call per entity type
-	// actually present (at most two — person, studio), not one lookup per
-	// row or per distinct id. A stale suggestion (the entity was merged/
-	// deleted since extraction last ran) simply has no entry in the map and
-	// is left with an empty SuggestedEntityName.
+	// EntityNames is fetched at most once per entity type actually present (at
+	// most two — person, studio), shared by both the per-value candidate
+	// resolution and the suggested-name fill below, rather than one lookup per
+	// row or per distinct id.
 	names := make(map[string]map[int64]string, 2)
+	entityNames := func(entityType string) (map[int64]string, error) {
+		if byID, ok := names[entityType]; ok {
+			return byID, nil
+		}
+		byID, err := r.EntityNames(ctx, entityType)
+		if err != nil {
+			return nil, err
+		}
+		names[entityType] = byID
+		return byID, nil
+	}
+
 	for i := range out {
 		row := &out[i]
-		if row.SuggestedEntityID == 0 {
-			continue
+		entityType, isEntity := model.EntityTypeForField[row.FieldKey]
+		if !isEntity {
+			continue // title/release_date: scalar, no entity candidates
 		}
-		entityType, ok := model.EntityTypeForField[row.FieldKey]
-		if !ok {
-			continue
+		byID, err := entityNames(entityType)
+		if err != nil {
+			return nil, err
 		}
-		byID, loaded := names[entityType]
-		if !loaded {
-			var err error
-			byID, err = r.EntityNames(ctx, entityType)
+
+		// Per-value candidates: split the joined filename value (the same join
+		// Process/joinSorted wrote and ResolveReviewAction reverses, via the
+		// shared model.SplitJoined) and resolve each name against the identity
+		// spine — existing entity (with its canonical name) or a new one to
+		// create. ExactEntityMatch is a unique-index point lookup per name; the
+		// review queue is a bounded, human-triaged list, so per-name lookups are
+		// fine here (a stale suggestion just has no map entry).
+		for _, name := range model.SplitJoined(row.FilenameValue) {
+			cand := ExtractionCandidate{Name: name}
+			id, matched, err := r.ExactEntityMatch(ctx, entityType, name)
 			if err != nil {
 				return nil, err
 			}
-			names[entityType] = byID
+			if matched {
+				cand.EntityID = id
+				cand.EntityName = byID[id]
+			}
+			row.Candidates = append(row.Candidates, cand)
 		}
-		row.SuggestedEntityName = byID[row.SuggestedEntityID]
+
+		// Advisory Jaro-Winkler suggestion (unchanged): a stale suggestion (the
+		// entity was merged/deleted since extraction ran) has no map entry and
+		// is left with an empty SuggestedEntityName.
+		if row.SuggestedEntityID != 0 {
+			row.SuggestedEntityName = byID[row.SuggestedEntityID]
+		}
 	}
 	return out, nil
 }

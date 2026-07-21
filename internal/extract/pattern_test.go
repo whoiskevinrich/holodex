@@ -101,6 +101,32 @@ func TestPattern_Match(t *testing.T) {
 			want:     map[string][]string{"title": {"Just A Title"}},
 			wantOK:   true,
 		},
+		{
+			// A year in the leading parenthetical matches {people} under this
+			// two-parenthetical pattern; it must be dropped, not surfaced as a
+			// person (HOLODEX-196 #3). The pattern still matches (ok=true) and
+			// consumes the file — it just yields no people.
+			name:     "bare year in people position is dropped, not a person",
+			pattern:  "[{studio}] {title} ({people}) ({resolution})",
+			filename: "[MyStudio] Some Title (2011) (1080p).mkv",
+			want: map[string][]string{
+				"studio": {"MyStudio"},
+				"title":  {"Some Title"},
+			},
+			wantOK: true,
+		},
+		{
+			// Only a bare 4-digit year is dropped — a real multi-word name that
+			// merely contains digits survives.
+			name:     "name containing digits is kept",
+			pattern:  "{title} ({people})",
+			filename: "Doc (Studio 54).mkv",
+			want: map[string][]string{
+				"title":  {"Doc"},
+				"people": {"Studio 54"},
+			},
+			wantOK: true,
+		},
 	}
 
 	for _, tc := range tests {

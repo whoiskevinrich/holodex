@@ -211,3 +211,57 @@ func TestExtractionQueue_JoinsVideoAndSuggestedEntityName(t *testing.T) {
 		t.Fatalf("want 1 row after resolve, got %d err=%v", len(rows), err)
 	}
 }
+
+// TestExtractionQueue_PerPersonCandidates proves the per-value entity
+// candidates the Extraction tab's chip UI needs (HOLODEX-196 #1): a multi-value
+// People field splits into one candidate per person, each marked as an existing
+// entity (with its canonical name) or a new one; a non-entity field carries no
+// candidates.
+func TestExtractionQueue_PerPersonCandidates(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	videoID, err := r.UpsertVideo(ctx, sampleVideo("/m/cast.mkv", "Cast Film", []string{"Alice Smith"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	people, err := r.ListPeople(ctx, false)
+	if err != nil || len(people) != 1 {
+		t.Fatalf("seed person: %v %v", people, err)
+	}
+	aliceID := people[0].ID
+
+	// Alice exists (lower-cased in the filename to prove case-insensitive spine
+	// matching); Bob does not.
+	if err := r.UpsertExtractionReview(ctx, videoID, "people", "alice smith, Bob Jones", "", 0.6, 0); err != nil {
+		t.Fatalf("upsert people: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, videoID, "title", "A, B", "", 0.4, 0); err != nil {
+		t.Fatalf("upsert title: %v", err)
+	}
+
+	rows, err := r.ExtractionQueue(ctx)
+	if err != nil {
+		t.Fatalf("extraction queue: %v", err)
+	}
+	byField := map[string]repo.ExtractionQueueRow{}
+	for _, row := range rows {
+		byField[row.FieldKey] = row
+	}
+
+	cands := byField["people"].Candidates
+	if len(cands) != 2 {
+		t.Fatalf("people candidates = %+v, want 2", cands)
+	}
+	if cands[0].Name != "alice smith" || cands[0].EntityID != aliceID || cands[0].EntityName != "Alice Smith" {
+		t.Fatalf("candidate[0] = %+v, want existing Alice Smith (id %d, canonical name)", cands[0], aliceID)
+	}
+	if cands[1].Name != "Bob Jones" || cands[1].EntityID != 0 {
+		t.Fatalf("candidate[1] = %+v, want new (no entity id)", cands[1])
+	}
+
+	// A non-entity field is not split into candidates even though it contains ", ".
+	if byField["title"].Candidates != nil {
+		t.Fatalf("title candidates = %+v, want none (scalar field)", byField["title"].Candidates)
+	}
+}

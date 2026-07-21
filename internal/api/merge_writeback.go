@@ -8,8 +8,10 @@ import (
 )
 
 // mergeWriteSource marks a writeback job as merge-triggered (F48.8) in the
-// per-field audit trail, alongside "manual"/"filename"/"revert".
-const mergeWriteSource = "merge"
+// per-field audit trail, alongside "manual"/"filename"/"revert". Defined in
+// writequeue (the post-write hook keys off it to skip the entity re-extract for
+// merge writes, HOLODEX-196 #4) so the string has one home.
+const mergeWriteSource = writequeue.SourceMerge
 
 // mergeBatchID names the shared snapshot batch for one merge's writeback jobs
 // (F48.8d, migration 0027) so a single Revert restores every affected video.

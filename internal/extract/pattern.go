@@ -29,6 +29,13 @@ var tokenFields = map[string]string{
 
 var tokenRe = regexp.MustCompile(`\{(\w+)\}`)
 
+// bareYearRe matches a value that is nothing but a 4-digit year. Such a value
+// in the {people} position is a misparse, not a name — e.g. the leading
+// parenthetical of "[Studio] Title (2011) (1080p)" matches {people} under the
+// "({people}) ({resolution})" pattern. A real person is never named "2011", so
+// these are dropped from the people split (a year belongs to {year}).
+var bareYearRe = regexp.MustCompile(`^\d{4}$`)
+
 // Pattern is a compiled filename token pattern (F48.1), ready to match against a
 // filename stem (the base name with its extension removed).
 type Pattern struct {
@@ -129,10 +136,15 @@ func (p *Pattern) Match(filenameStem, delimiter string) (fields map[string][]str
 		if !mapped {
 			continue // consumed but ignored (F48.1c), e.g. {resolution}
 		}
-		if name == "people" {
-			// The only multi-value token (F48.1d): split its captured text
-			// into several values on the configured delimiter.
-			out[field] = append(out[field], splitValues(val, delimiter)...)
+		if multiValueFields[name] {
+			// A multi-value token (F48.1d — {people}): split its captured text
+			// into several values on the configured delimiter, dropping any
+			// bare 4-digit year misparsed into the people position.
+			for _, p := range splitValues(val, delimiter) {
+				if !bareYearRe.MatchString(p) {
+					out[field] = append(out[field], p)
+				}
+			}
 		} else {
 			out[field] = append(out[field], val)
 		}

@@ -3,6 +3,8 @@ package extract
 import (
 	"fmt"
 	"strings"
+
+	"holodex/internal/model"
 )
 
 // ReviewAction is the owner's choice when resolving one pending
@@ -31,13 +33,19 @@ type ResolvedWrite struct {
 // values+source, just from a different trigger (an explicit owner choice
 // instead of a confidence score). Pure — the caller enqueues the write and
 // marks the row resolved.
-func ResolveReviewAction(action ReviewAction, filenameValue, tagValue, manualValue string) (ResolvedWrite, error) {
+//
+// field is the review row's field key; for a multi-value field (People) the
+// manual value is the owner's edited cast, ", "-joined the same way the
+// filename value is, so it is split into several values rather than written as
+// one string — editing one person in the queue's chip list can't collapse the
+// whole cast to a single name (HOLODEX-196 #1).
+func ResolveReviewAction(action ReviewAction, field, filenameValue, tagValue, manualValue string) (ResolvedWrite, error) {
 	switch action {
 	case ReviewActionFilename:
 		if filenameValue == "" {
 			return ResolvedWrite{}, fmt.Errorf("row has no filename value")
 		}
-		return ResolvedWrite{Values: splitJoined(filenameValue), Source: Provider}, nil
+		return ResolvedWrite{Values: model.SplitJoined(filenameValue), Source: Provider}, nil
 	case ReviewActionTag:
 		if tagValue == "" {
 			return ResolvedWrite{}, fmt.Errorf("row has no tag value")
@@ -48,24 +56,14 @@ func ResolveReviewAction(action ReviewAction, filenameValue, tagValue, manualVal
 		if v == "" {
 			return ResolvedWrite{}, fmt.Errorf("value required")
 		}
-		return ResolvedWrite{Values: []string{v}, Source: "manual"}, nil
+		values := []string{v}
+		if IsMultiValueField(field) {
+			if values = model.SplitJoined(v); len(values) == 0 {
+				return ResolvedWrite{}, fmt.Errorf("value required")
+			}
+		}
+		return ResolvedWrite{Values: values, Source: "manual"}, nil
 	default:
 		return ResolvedWrite{}, fmt.Errorf("action must be filename, tag, or manual")
 	}
-}
-
-// splitJoined reverses joinSorted's ", " formatting for a multi-value
-// field's review row — the review table stores only the already-joined
-// display string (see store.go/process.go), not the original slice. A value
-// containing a literal ", " round-trips as two values; this mirrors the
-// tradeoff the review row's own storage already made for display purposes.
-func splitJoined(s string) []string {
-	parts := strings.Split(s, ", ")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }

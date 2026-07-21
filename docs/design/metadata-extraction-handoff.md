@@ -86,8 +86,21 @@ actionable-first sort principle.
 ### Row anatomy (`ExtractionQueueRow.svelte`, one row per pending field)
 
 ```
-[field label]  filename: <value>   tag: <value>   [suggested: Name]      Accept filename · Accept tag · Edit… · Dismiss
+non-entity: [field label]  filename: <value>   tag: <value>      Accept filename · Edit… · Accept tag · Dismiss
+entity:     [field label]  [Alice · exists] [Bob · new] [Carol · new]     Accept cast (2 new) · Accept tag · Dismiss
 ```
+
+> **HOLODEX-196 refinement (ADR-068 D2).** The anatomy below describes the original
+> single-suggestion row; it still holds for **non-entity** fields (Title, Release date). **Entity**
+> fields (People/Studio) now render one **chip per parsed name** instead — each chip shows the name
+> and an *exists* (`bg-surface-2`/`text-ink`) or *new* (`border-accent`/`bg-accent/10`/`text-accent`)
+> badge; clicking a chip opens the entity picker (`EntityPickerDialog`) seeded on that name to swap
+> it to an existing entity or a corrected new name, and a small `×` removes it — none of which
+> disturbs the other chips. A single **"Accept cast"** action stages the whole (possibly edited)
+> list as one `manual` write (`Accept cast (N new)` when any chip is new); the per-suggestion "Pick
+> suggested" and single-value "Edit…" actions are dropped for entity fields (the chips subsume
+> them). Studio is the one-chip case, which doubles as a one-click fix for a mistyped studio.
+> Editing a chip clears any staged accept so a stale value can't be committed.
 
 - Video group header (once per group): `[ti-video] filename.mkv` — `text-ink font-medium`,
   truncates with full path in `title`, matches `EnrichQueueRow`'s leading-icon idiom.
@@ -150,6 +163,12 @@ field would."
   hover:bg-surface-2` (same shell as Enrichment's "Refresh all"). Kicks off a batch job tracked via
   System Activity (`kind=extraction`); the tab doesn't block on it — the owner can navigate away
   and the queue simply grows as results land, same as any other background job on this app.
+  **HOLODEX-196 #2:** since the 202 returns immediately with no completion signal, the button then
+  reads "Extracting…" and a `text-muted` `role="status"` notice appears ("Extraction is running in
+  the background — new rows appear below as files are processed…"); the queue **auto-refreshes** a
+  bounded number of times, and a sibling **"Refresh"** button (`text-ink`, same shell) lets the
+  owner reload in place at any time — the refresh reloads rows without the full-screen "Loading…"
+  state so the list doesn't blank.
 - **"Extract from filename"** (F48.5a, single-video) — lives on the video detail page, not this
   tab, alongside the existing writeback/refresh actions — out of scope for this handoff's tab
   spec, noted here only so the two entry points aren't confused. Same resolve pipeline, same

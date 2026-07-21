@@ -541,6 +541,21 @@ export interface ExtractionQueueRow {
 	confidence: number;
 	suggested_entity_id?: number;
 	suggested_entity_name?: string;
+	// Per-value entity candidates for People/Studio fields (HOLODEX-196 #1):
+	// the filename value split into individual names, each resolved against the
+	// identity spine. People yields one per person; Studio yields one. Absent
+	// for non-entity fields (title, release_date), which stay scalar.
+	candidates?: ExtractionCandidate[];
+}
+
+// One parsed name from an entity field's filename value, resolved against the
+// identity spine — mirrors internal/repo.ExtractionCandidate. entity_id is
+// present when the name already exists (entity_name is then its canonical
+// spelling, which may differ in case); absent means the name will be created.
+export interface ExtractionCandidate {
+	name: string;
+	entity_id?: number;
+	entity_name?: string;
 }
 
 // The owner's choice when resolving one ExtractionQueueRow field (F48.6c):

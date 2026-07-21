@@ -16,8 +16,17 @@
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);
 	let error = $state('');
-	let extracting = $state(false);
+	let extracting = $state(false); // the /admin/extract-all POST is in flight
+	let extractRunning = $state(false); // the background batch is (probably) still producing rows
+	let refreshing = $state(false);
 	let extractError = $state('');
+
+	// The component may unmount mid-poll (owner navigates away); stop touching
+	// state once it does.
+	let alive = true;
+	$effect(() => () => {
+		alive = false;
+	});
 
 	// canonical field key -> label, from the shared facet registry (the same
 	// labels every other field surface in the app uses) — falls back to a
@@ -128,17 +137,46 @@
 		load();
 	});
 
+	// Reload the queue without the full-screen "Loading…" state, so an
+	// auto/manual refresh updates rows in place instead of blanking the list.
+	async function refresh() {
+		refreshing = true;
+		try {
+			const queue = await api.extractionQueue();
+			if (alive) rows = queue.rows ?? [];
+		} catch (e) {
+			if (alive) error = toMessage(e);
+		} finally {
+			if (alive) refreshing = false;
+		}
+	}
+
+	// /admin/extract-all returns 202 immediately and processes in the
+	// background (progress lands in System Activity). There's no completion
+	// signal here, so give the owner visible feedback — a running notice plus a
+	// bounded auto-refresh — and a manual Refresh for anything still in flight.
 	async function extractAll() {
-		if (extracting) return;
+		if (extracting || extractRunning) return;
 		extracting = true;
 		extractError = '';
 		try {
 			await api.extractAll();
+			extractRunning = true;
+			void pollQueue();
 		} catch (e) {
 			extractError = toMessage(e);
 		} finally {
 			extracting = false;
 		}
+	}
+
+	async function pollQueue() {
+		for (let i = 0; i < 8 && alive; i++) {
+			await new Promise((r) => setTimeout(r, 2500));
+			if (!alive) return;
+			await refresh();
+		}
+		if (alive) extractRunning = false;
 	}
 </script>
 
@@ -148,14 +186,29 @@
 			Fields the filename and tags disagree on, or that scored below the auto-apply threshold.
 			Resolving a row writes it the same way an auto-applied field would.
 		</p>
-		<button
-			onclick={extractAll}
-			disabled={extracting}
-			class="shrink-0 rounded-theme border border-rule px-2.5 py-1.5 text-sm text-accent hover:bg-surface-2 disabled:opacity-60"
-		>
-			{extracting ? 'Starting…' : 'Extract all'}
-		</button>
+		<div class="flex shrink-0 items-center gap-2">
+			<button
+				onclick={refresh}
+				disabled={refreshing || loading}
+				class="rounded-theme border border-rule px-2.5 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+			>
+				{refreshing ? 'Refreshing…' : 'Refresh'}
+			</button>
+			<button
+				onclick={extractAll}
+				disabled={extracting || extractRunning}
+				class="rounded-theme border border-rule px-2.5 py-1.5 text-sm text-accent hover:bg-surface-2 disabled:opacity-60"
+			>
+				{extracting ? 'Starting…' : extractRunning ? 'Extracting…' : 'Extract all'}
+			</button>
+		</div>
 	</div>
+	{#if extractRunning}
+		<p class="text-sm text-muted" role="status" aria-live="polite">
+			Extraction is running in the background — new rows appear below as files are processed. For a
+			large library this can take a while; use Refresh to check for more.
+		</p>
+	{/if}
 	{#if extractError}
 		<p class="text-sm text-warn" role="alert">{extractError}</p>
 	{/if}
