@@ -254,7 +254,7 @@
 						disabled={full || uploading}
 						aria-label="Add images"
 						title="Add images"
-						class="flex h-40 w-40 items-center justify-center rounded-theme border border-rule bg-surface-2 text-3xl text-muted hover:text-accent disabled:opacity-50"
+						class="flex h-40 w-40 items-center justify-center rounded-theme border border-rule bg-surface-2 text-3xl text-muted hover:text-accent disabled:border-transparent"
 					>
 						{uploading ? '…' : '+'}
 					</button>

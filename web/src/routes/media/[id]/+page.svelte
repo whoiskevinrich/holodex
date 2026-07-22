@@ -374,7 +374,7 @@
 					disabled={regenerating}
 					title="Regenerate thumbnail"
 					aria-label="Regenerate thumbnail"
-					class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+					class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
 				>
 					<svg
 						class="h-4 w-4 {regenerating ? 'animate-spin' : ''}"
@@ -453,7 +453,7 @@
 								disabled={refreshing}
 								title="Refresh metadata from the file and providers"
 								aria-label="Refresh metadata from the file and providers"
-								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent disabled:opacity-60"
+								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
 							>
 								<svg
 									class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"

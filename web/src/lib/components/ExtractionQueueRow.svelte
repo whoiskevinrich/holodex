@@ -114,21 +114,17 @@
 		isEntityField ? `Stage ${chips.length}${newCount ? ` (${newCount} new)` : ''}` : 'Stage filename'
 	);
 
-	// Pill shapes, sized to sit among the rounded-full chips. Unstaged is outlined so
-	// the solid accent stays reserved for a page's one primary action (the commit
-	// bar) — filling in *is* the staged state, so the two never read alike.
-	const PILL = 'inline-flex min-h-6 items-center rounded-full px-2.5 text-xs font-medium';
-	const PILL_STAGED = `${PILL} bg-accent text-accent-ink`;
-	const PILL_STAGE = `${PILL} border border-accent text-accent hover:bg-accent/10 disabled:border-rule disabled:text-muted`;
+	// `.btn-row`/`.btn-pill` (app.css) carry the shape and size shared with the
+	// other owner queue rows (EnrichQueueRow, DuplicatePairRow); these constants
+	// only pick the role.
+	// Unstaged is outlined so the solid accent stays reserved for a page's one
+	// primary action (the commit bar) — filling in *is* the staged state, so the
+	// two never read alike.
+	const PILL_STAGED = 'btn-row btn-pill bg-accent text-accent-ink';
+	const PILL_STAGE = 'btn-row btn-pill btn-accent';
 
-	// Immediate, row-clearing resolves — bordered so they never read as staging.
-	// Disabled drops the border rather than dimming the text: a blanket
-	// `opacity-60` on `text-muted` falls to ~2.9:1 in the Broadcast skin.
-	const GHOST =
-		'inline-flex min-h-6 items-center rounded-theme border border-rule px-2 text-xs text-muted hover:bg-surface-2 hover:text-ink disabled:border-transparent';
-	// Neutral UI toggles (no side effect at all) — borderless, so GHOST keeps meaning
-	// exactly one thing: this resolves the row right now.
-	const TOGGLE = 'inline-flex min-h-6 items-center text-xs text-muted hover:text-ink hover:underline';
+	const GHOST = 'btn-row btn-ghost px-2';
+	const TOGGLE = 'btn-row btn-quiet';
 
 	async function acceptTag() {
 		if (busy) return;

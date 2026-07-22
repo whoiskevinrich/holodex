@@ -167,7 +167,7 @@
 			onclick={() => !busy && onclose()}
 			disabled={busy}
 			aria-label="Close"
-			class="rounded-theme p-1 text-muted hover:text-ink disabled:opacity-40"
+			class="rounded-theme p-1 text-muted hover:text-ink"
 		>
 			<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -271,7 +271,7 @@
 			<button
 				onclick={() => onclose()}
 				disabled={busy}
-				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-bg disabled:opacity-40"
+				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-bg disabled:opacity-60"
 			>Cancel</button>
 			<button
 				onclick={submit}

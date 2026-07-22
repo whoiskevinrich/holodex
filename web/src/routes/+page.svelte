@@ -384,7 +384,7 @@
 				<button
 					onclick={loadMore}
 					disabled={loadingMore}
-					class="rounded-theme border border-rule px-4 py-2 text-sm text-muted hover:text-ink disabled:opacity-50"
+					class="btn-ghost px-4 py-2 text-sm"
 				>
 					{loadingMore ? 'Loading…' : `Load more (${total - videos.length} left)`}
 				</button>

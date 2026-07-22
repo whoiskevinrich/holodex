@@ -267,7 +267,7 @@
 							onclick={() => removeAlias(a)}
 							disabled={aliasBusy}
 							aria-label={`Remove alias ${a.alias}`}
-							class="leading-none text-muted hover:text-accent focus:text-accent disabled:opacity-60"
+							class="leading-none text-muted hover:text-accent focus:text-accent"
 						>
 							×
 						</button>

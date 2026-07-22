@@ -84,6 +84,10 @@
 			busy = false;
 		}
 	}
+
+	// `.btn-row`/`.btn-pill` (app.css) carry the shape and size shared with the
+	// other owner queue rows (ExtractionQueueRow, DuplicatePairRow).
+	const PILL_ACTION = 'btn-row btn-pill btn-accent';
 </script>
 
 <div
@@ -104,11 +108,9 @@
 
 	<div class="flex shrink-0 items-center gap-2">
 		{#if outstanding.length > 0}
-			<button onclick={review} disabled={busy} class="text-accent hover:underline disabled:opacity-60">
-				Review
-			</button>
+			<button onclick={review} disabled={busy} class={PILL_ACTION}> Review </button>
 		{:else if allNotMatched}
-			<button onclick={tryAgain} disabled={busy} class="text-accent hover:underline disabled:opacity-60">
+			<button onclick={tryAgain} disabled={busy} class={PILL_ACTION}>
 				{busy ? 'Trying again…' : 'Try again'}
 			</button>
 		{/if}
