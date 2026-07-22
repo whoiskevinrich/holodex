@@ -1,6 +1,6 @@
 # Spec: Video Credits — cast/crew People with headshots (F32, "Populate")
 
-> **Rebased onto F40 / [ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md) (2026-07-04).**
+> **Rebased onto F40 / [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) (2026-07-04).**
 > F40 now owns the `video_people` **data model** this spec used to propose: the `role` column
 > (derived from the source field, PK `(video_id, person_id, role)`, unset-capable) and the migration
 > of `video_people` to **resolved-value derivation** (`RelinkVideoPeople`, sole writer). F32 no longer
@@ -10,7 +10,7 @@
 > `RelinkVideoPeople` from the resolved `actors`/`director` fields the enrich already populates. See
 > the superseding notes inline (§2, §3, Open Q2).
 
-**Status**: Draft — implementation handoff (not yet built). Decisions locked; **rebased onto F40/ADR-059** — build F40 first (or together). Needs `/security-review` before/at implementation (the ADR is ADR-059 + F32's own external-id/asset notes).
+**Status**: Draft — implementation handoff (not yet built). Decisions locked; **rebased onto F40/ADR-072** — build F40 first (or together). Needs `/security-review` before/at implementation (the ADR is ADR-072 + F32's own external-id/asset notes).
 **Feature block**: F32
 **Phase**: 3 (Enrichment) — follow-on to F22/F26/F27/F30
 **Decision**: **Choice A** (provider-side) — locked with the owner 2026-06-28.
@@ -47,12 +47,12 @@ The provider returns structured per-person credits with a stable `external_id` a
 - Extend the enrich response type with `People []ProviderPerson` (name, role, external_id, order, headshot asset).
 - In the **video** enrich path (where today only fields/assets are stored): for each `people[]` entry,
   - **resolve-or-create the Person** — by `external_id` when present (deterministic de-dup), else by normalized `name`;
-  - ~~**link to the video with its role**~~ — **superseded by ADR-059:** the video↔person link (and its role) is **not** written here. Enrich populates the resolved `actors`/`director` fields (it already emits `tmdb:actors`/`tmdb:director`), and `RelinkVideoPeople` derives `video_people` (with role) from those fields on enrich completion. F32's job is to make sure the **Person entity exists with its external_id and headshot** *before* the reconcile runs, so the derived link resolves to the enriched person (via `resolveOrCreatePerson`, external-id-first per ADR-055/HOLODEX-125). The `people[]` `role`/`order` inform the field values, not a direct `video_people` write.
+  - ~~**link to the video with its role**~~ — **superseded by ADR-072:** the video↔person link (and its role) is **not** written here. Enrich populates the resolved `actors`/`director` fields (it already emits `tmdb:actors`/`tmdb:director`), and `RelinkVideoPeople` derives `video_people` (with role) from those fields on enrich completion. F32's job is to make sure the **Person entity exists with its external_id and headshot** *before* the reconcile runs, so the derived link resolves to the enriched person (via `resolveOrCreatePerson`, external-id-first per ADR-055/HOLODEX-125). The `people[]` `role`/`order` inform the field values, not a direct `video_people` write.
   - **download the headshot** through the existing SSRF-guarded `AssetClient` + `ImageSink.StoreAssetIfAbsent` (reuse `downloadAssets`, generalized to accept a personID per asset — currently it's keyed to the single enriched entity). Respect `asset_hosts`, the 16 MiB/4096px caps, and the suppress-on-delete set.
 - Treat all provider person data as **untrusted**: sanitize `name`/`role` (reuse `enrich.SanitizeValue`), clamp the list, validate `role` against the enum (unknown → generic).
 
 ### 3. Data model (migration)
-- **`video_people.role` + resolved-derivation — now owned by [ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md) (F40), not F32.** The `role` column
+- **`video_people.role` + resolved-derivation — now owned by [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) (F40), not F32.** The `role` column
   (derived from the source field, PK `(video_id, person_id, role)`, unset-capable) and the migration of
   `video_people` to `RelinkVideoPeople` land in F40. F32 **depends on** that model and adds nothing to it.
   *(The "a person can be both actor+director" case F32 flagged is resolved there: two rows, distinct by role.)*
@@ -73,7 +73,7 @@ The provider returns structured per-person credits with a stable `external_id` a
 
 ## Routing / artifacts required at implementation
 - **ADR** — the data-model decisions F32 once needed its own ADR for are now **covered elsewhere**:
-  `video_people.role` + resolved-derivation → **ADR-059** (F40); person external-id de-dup → **ADR-055**
+  `video_people.role` + resolved-derivation → **ADR-072** (F40); person external-id de-dup → **ADR-055**
   ([HOLODEX-125](https://whoiskevinrich.atlassian.net/browse/HOLODEX-125)). F32's residual
   ADR-worthy bit is only the **"core downloads per-cast assets during video enrich"** generalization of
   `downloadAssets` (extends ADR-033/038/039; relates ADR-048) — small enough to fold into the F32 PR
@@ -90,6 +90,6 @@ The provider returns structured per-person credits with a stable `external_id` a
 
 ## Open questions
 1. **Name-only fallback** (no `external_id`): match to an existing Person by normalized name, or always create? Risk of merging two real people who share a name (homonyms) — reuse the F23 "never auto-merge same-name" caution. Lean: external_id is the only auto-merge key; name-only always resolve-or-create by exact name (existing behavior).
-2. ~~**Role cardinality**~~ — **decided by ADR-059**: PK `(video_id, person_id, role)` allows multiple roles per (video, person); role is unset-capable. No longer open.
+2. ~~**Role cardinality**~~ — **decided by ADR-072**: PK `(video_id, person_id, role)` allows multiple roles per (video, person); role is unset-capable. No longer open.
 3. **Headshot refresh**: re-enrich re-downloads? Reuse the F25 suppress-on-delete + StoreAssetIfAbsent semantics (don't clobber an owner-curated headshot).
 4. **De-dup migration of existing name-created People**: backfill external_ids on first enrich; no bulk migration needed.

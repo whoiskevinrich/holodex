@@ -1,6 +1,6 @@
 # Design handoff: person & studio link picker + role badge (F40)
 
-**Spec:** [person-media-linking.md](../specs/person-media-linking.md) · **ADR:** [ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md) · **Jira:** [HOLODEX-114](https://whoiskevinrich.atlassian.net/browse/HOLODEX-114)
+**Spec:** [person-media-linking.md](../specs/person-media-linking.md) · **ADR:** [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) · **Jira:** [HOLODEX-114](https://whoiskevinrich.atlassian.net/browse/HOLODEX-114)
 **Date:** 2026-07-04 · **Status:** Draft handoff
 
 Two surfaces: **(1) the link picker** — an owner-only entity-search combobox that replaces the bare

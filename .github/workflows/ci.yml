@@ -100,3 +100,25 @@ jobs:
             exit 1
           fi
           echo "No hardcoded styling found."
+
+  adr-numbers:
+    # ADR numbers are a manual sequence with no allocation lock, so parallel branches
+    # can pick the same next number and both merge before either sees the other. This
+    # won't stop that race, but it turns a silent duplicate into a fast, loud CI failure.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: No duplicate ADR numbers
+        run: |
+          dupes=$(ls docs/architecture | grep -E '^ADR-[0-9]+-' | sed -E 's/^ADR-([0-9]+)-.*/\1/' | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "::error::Duplicate ADR number(s) found: $dupes — renumber one of the colliding files and its README.md entry/cross-references."
+            ls docs/architecture | grep -E '^ADR-[0-9]+-' | while read -r f; do
+              num=$(echo "$f" | sed -E 's/^ADR-([0-9]+)-.*/\1/')
+              echo "$dupes" | grep -qx "$num" && echo "  $f"
+            done
+            exit 1
+          fi
+          echo "No duplicate ADR numbers."

@@ -189,7 +189,7 @@ assert.JSONEq(t, string(want), string(got))
 - **A merge survives re-scan**: the scanner *reads* `person_aliases` to route an extracted name to its canonical person but never *writes* the table; a full re-scan (rebuilding `people`/`video_people`) leaves aliases intact and re-links alias-named files to the canonical person — it must never re-create a merged-away duplicate. (Ties to migration safety; the scanner-writes-nothing half mirrors the enrichment shadow layer.)
 - **Never auto-merge same-named people**: adding an alias that already names a *different* person returns a 409 for owner confirmation; no code path silently collapses two distinct person rows or silently routes a homonym's files.
 - **Case/whitespace never forks identity** (F43/ADR-061): a per-entity `nameKey` is unique across canonical names **∪** aliases; `"fox"`/`"Fox"`, an edge-whitespace variant, and (tags only) an internal-whitespace variant all resolve to the **one** entity — a second can never be created at scan or in the editor. Per-entity scope is load-bearing: `"sci fi"`≡`"scifi"` for a **tag**, but `"Mary Jane"`≢`"MaryJane"` for a **person**.
-- **A merge survives re-derivation** (F43/ADR-061 RD6 — the derived-link analogue of "merge survives re-scan"): merging B→A registers B's name as an alias, so the derivation reconcile re-routes B's resolved name to A on the next pass; a rescan / re-enrich / decision change **never resurrects** the merged-away entity. **Studio** proves it via `RelinkVideoStudios`; **person** joins it under ADR-059 (F40), which makes `video_people` derived via the generic `RelinkVideoEntity` and routes person names through the alias table at derivation time — so a person merge without the registered alias is undone exactly as a studio one would be. Break this and the derivation silently undoes every merge on a derived-link entity.
+- **A merge survives re-derivation** (F43/ADR-061 RD6 — the derived-link analogue of "merge survives re-scan"): merging B→A registers B's name as an alias, so the derivation reconcile re-routes B's resolved name to A on the next pass; a rescan / re-enrich / decision change **never resurrects** the merged-away entity. **Studio** proves it via `RelinkVideoStudios`; **person** joins it under ADR-072 (F40), which makes `video_people` derived via the generic `RelinkVideoEntity` and routes person names through the alias table at derivation time — so a person merge without the registered alias is undone exactly as a studio one would be. Break this and the derivation silently undoes every merge on a derived-link entity.
 - **The identity backfill auto-folds only the provably-safe** (F43/RD10): the one-time pass merges the **pure-case hard pairs** (survivor = lower `id`, decisions/curation/enrichment **moved not dropped** where non-conflicting) and **never** auto-merges a fuzzy near-miss — near-misses only ever seed the review queue. Idempotent (second run = no-op); the unique-index build cannot fail on residual dupes because the fold precedes it.
 - **A kept-separate pair never nags** (F43/RD5): once the owner dismisses a near-miss (or picks "keep separate"/"create anyway"), no scan-time flagging or detector pass re-proposes that pair — the negative decision is as durable as an alias.
 - **Name-identity and provider-identity never cross** (F43/ADR-061 D5 × ADR-055): resolve is **id → name → create** — a provider-supplied record keys by `<namespace>:<id>` (name display-only), a file/owner-authored record keys by `nameKey`; neither path silently adopts the other's key.
@@ -538,7 +538,7 @@ land with the implementation issues and are enumerated there:
 - Note the studio "**name fallback when the id is absent**" (above) is the **owner-decided/custom** studio
   value path (human intent), not a provider-supplied identity — the invariant leaves it intact.
 
-**Owner person & studio media linking + writeback (F40 / HOLODEX-114, ADR-059)** — the fourth entity slice:
+**Owner person & studio media linking + writeback (F40 / HOLODEX-114, ADR-072)** — the fourth entity slice:
 the owner *authors* a person/studio link and *persists it to the file*, and `video_people` migrates from
 scan-time raw-extraction to **resolved-value derivation** (the studio pattern, generalized). Fully
 CI-testable, no network (provider half against the in-process fake). Cardinal invariants: **one writer of
@@ -670,10 +670,10 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   (the homonym rule). Parameterized across person/studio/tag off a shared table.
 - **Merge (per entity, shared helper)**: de-duped association union; decisions/curation/enrichment **moved not
   dropped** where non-conflicting (survivor's win on conflict); loser's name → alias; loser deleted;
-  self-merge/unknown-id → 400/404. **Derived-link entities (studio, and person under ADR-059)**: after the
+  self-merge/unknown-id → 400/404. **Derived-link entities (studio, and person under ADR-072)**: after the
   merge, a derivation pass (`RelinkVideoStudios`, or the generic `RelinkVideoEntity` for person — scan/enrich/
   decision) does **not** recreate the loser — the registered alias re-routes it (the cardinal re-derivation
-  invariant). When F43 and ADR-059/F40 both land, the person case runs against `RelinkVideoEntity`; until then it
+  invariant). When F43 and ADR-072/F40 both land, the person case runs against `RelinkVideoEntity`; until then it
   is the re-scan case (F23 raw-extraction).
 - **One-time backfill (`internal/repo` + a `cmd/holodex` job, ADR-028)**: over the current library it auto-folds
   the pure-case hard pairs (survivor = lower id, move-not-drop) and inserts `identity_review_queue` rows for the
