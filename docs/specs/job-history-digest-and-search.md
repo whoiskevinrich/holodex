@@ -102,8 +102,8 @@ Digest is the default view; Log is one click away and preserves the full chronol
 
 - [ ] Digest renders per-kind rows and a failures callout
 - [ ] Log renders a paginated table with kind and status filters and a "load more" control
-- [ ] The history section no longer waits on `/admin/activity` before painting ([`+page.svelte:154`](../../web/src/routes/owner/status/+page.svelte))
-- [ ] A history fetch failure renders a visible error state rather than the "No jobs recorded yet" empty state (current behavior swallows it at [`+page.svelte:38`](../../web/src/routes/owner/status/+page.svelte))
+- [x] The history section no longer waits on `/admin/activity` before painting — it is a sibling of that gate, hidden only on `needToken` (the same condition the endpoint itself enforces)
+- [x] A history fetch failure renders a visible error state rather than the "No jobs recorded yet" empty state (previously swallowed); `ReauthError` is excluded so a pending re-auth doesn't flash an error
 - [ ] Empty, loading, error, digest, and log states are QA'd in Cinémathèque, Broadcast, and Brutalist
 
 **P0-6 — Adjacency rollup in the log**

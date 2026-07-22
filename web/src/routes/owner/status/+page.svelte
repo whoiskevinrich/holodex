@@ -11,6 +11,8 @@
 	import JobHistory from '$lib/components/JobHistory.svelte';
 
 	let runs = $state<JobRun[]>([]);
+	let historyLoading = $state(true);
+	let historyError = $state('');
 	let tokenInput = $state('');
 	let rememberDevice = $state(false);
 	let tokenError = $state('');
@@ -32,11 +34,21 @@
 	const isOwner = $derived(activity.effectiveOwner);
 	const needToken = $derived(activity.needToken);
 
+	// History fetches independently of the activity read-model — both live in the same
+	// requireOwner group, so neither needs the other's result, and making the section
+	// wait on /admin/activity only delayed its first paint (HOLODEX-203 P0-5).
 	async function loadHistory() {
+		historyLoading = true;
 		try {
 			runs = (await api.activityHistory()).runs ?? [];
-		} catch {
-			// History is best-effort on this page; the cards already show liveness.
+			historyError = '';
+		} catch (e) {
+			// A ReauthError means a top-level re-auth is already underway (api.ts) —
+			// don't flash an error before the document reloads. Anything else is a real
+			// failure the owner needs to see rather than read as "no jobs yet".
+			if (!(e instanceof ReauthError)) historyError = toMessage(e);
+		} finally {
+			historyLoading = false;
 		}
 	}
 
@@ -235,10 +247,25 @@
 				</div>
 			</div>
 		{/if}
+	{/if}
 
+	<!--
+		Outside the activity gate above: the history is its own fetch and paints as soon
+		as it lands. Hidden only when the server wants a token (the form above is the
+		whole story then) — the same gate the history endpoint itself enforces.
+	-->
+	{#if !needToken}
 		<section class="space-y-3">
 			<h2 class="skin-title text-lg font-semibold text-ink">Recent jobs</h2>
-			<JobHistory {runs} />
+			{#if historyLoading && runs.length === 0}
+				<p class="py-16 text-center text-sm text-muted">Loading jobs…</p>
+			{:else if historyError}
+				<p class="rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink" role="alert">
+					Couldn't load job history — {historyError}
+				</p>
+			{:else}
+				<JobHistory {runs} />
+			{/if}
 		</section>
 	{/if}
 </section>
