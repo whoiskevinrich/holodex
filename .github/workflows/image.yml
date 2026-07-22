@@ -9,9 +9,10 @@ on:
   push:
     branches: [main]
     # Only rebuild when something that lands in the image changes. Docs/site/spec-only
-    # merges skip the (~5 min multi-arch) build. A skipped build leaves `edge` behind
-    # main — the release-candidate comment reports that (ADR-070); use workflow_dispatch
-    # to force a rebuild.
+    # merges skip the (~5 min multi-arch) build, which leaves `edge` behind main while
+    # still being correct — this list is exactly what the release-candidate freshness
+    # check measures against (ADR-070), so adding a path here also widens that check.
+    # Use workflow_dispatch to force a rebuild.
     paths:
       - 'cmd/**'
       - 'internal/**'

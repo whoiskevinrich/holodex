@@ -7,27 +7,47 @@ const MAIN = "9beaed3aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const OLD = "ca6185baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const D1 = "sha256:1111";
 const D2 = "sha256:2222";
+const PATHS = ["providers/tmdb", "go.mod"];
 
 const fresh = { name: "holodex", ref: "ghcr.io/o/holodex", digest: D1, revision: MAIN, behind: 0 };
 const stale = { name: "holodex-provider-tmdb", ref: "ghcr.io/o/holodex-provider-tmdb", digest: D2, revision: OLD, behind: 2 };
 
-const render = (over = {}) => renderComment({ images: [fresh], commits: [], mainSha: MAIN, ...over });
+const render = (over = {}) => renderComment({ images: [fresh], commits: [], ...over });
 
-test("freshness: matching revision is ok", () => {
-  assert.deepEqual(freshness({ revision: MAIN, mainSha: MAIN, behind: 0 }), { ok: true, text: "matches main" });
+test("freshness: nothing behind is current", () => {
+  assert.deepEqual(freshness({ revision: MAIN, behind: 0 }), { ok: true, text: "current" });
 });
 
-test("freshness: behind main reports the distance and pluralises", () => {
-  assert.equal(freshness({ revision: OLD, mainSha: MAIN, behind: 2 }).text, "2 commits behind main");
-  assert.equal(freshness({ revision: OLD, mainSha: MAIN, behind: 1 }).text, "1 commit behind main");
+// The bug this check exists for (HOLODEX-208): each image only rebuilds when its own
+// `paths:` match, so an image whose source is untouched is current however far its
+// revision trails main HEAD. Measuring against main reported it stale every release.
+test("freshness: an image whose source is untouched is current, however old its revision", () => {
+  assert.deepEqual(freshness({ revision: OLD, behind: 0 }), { ok: true, text: "current" });
 });
 
-test("freshness: unknown distance still reads as not ok", () => {
-  assert.deepEqual(freshness({ revision: OLD, mainSha: MAIN, behind: null }), { ok: false, text: "does not match main" });
+// An image can be NEWER than required — a workflow_dispatch rebuild is exactly what a
+// warning tells you to do. Comparing against an expected commit called that stale and
+// rendered the self-contradicting "0 source commits behind".
+test("freshness: an image newer than its latest source is current, not a warning", () => {
+  const v = freshness({ revision: "dispatch-build-at-main", behind: 0 });
+  assert.deepEqual(v, { ok: true, text: "current" });
+});
+
+test("freshness: behind its own source reports the distance and pluralises", () => {
+  assert.equal(freshness({ revision: OLD, behind: 2 }).text, "2 source commits behind");
+  assert.equal(freshness({ revision: OLD, behind: 1 }).text, "1 source commit behind");
 });
 
 test("freshness: a missing image is not ok", () => {
-  assert.deepEqual(freshness({ revision: null, mainSha: MAIN }), { ok: false, text: "no image published" });
+  assert.deepEqual(freshness({ revision: null, behind: 0 }), { ok: false, text: "no image published" });
+});
+
+// Never silently pass: unknown means unknown, not fine.
+test("freshness: an unknown distance is not ok", () => {
+  assert.deepEqual(freshness({ revision: MAIN, behind: null }), {
+    ok: false,
+    text: "freshness could not be determined",
+  });
 });
 
 test("renderComment emits the standing boilerplate", () => {
@@ -46,12 +66,16 @@ test("renderComment pins the pull command by digest, never by :edge", () => {
 
 test("renderComment warns loudly when an image is not current", () => {
   const body = render({ images: [fresh, stale] });
-  assert.match(body, /⚠️ \*\*1 image is not current/);
-  assert.match(body, /2 commits behind main/);
+  assert.match(body, /⚠️ \*\*1 image is not built from the latest source/);
+  assert.match(body, /2 source commits behind/);
 });
 
-test("renderComment confirms when every image is current", () => {
-  assert.match(render(), /✅ All images were built from current/);
+// A rarely-touched sidecar is the common case, and warning on it every release is what
+// would train the reader to stop reading the comment.
+test("renderComment confirms, and shows no warning, when every image is current", () => {
+  const body = render({ images: [fresh, { ...stale, behind: 0 }] });
+  assert.match(body, /✅ Every image is built from its latest source/);
+  assert.doesNotMatch(body, /⚠️/);
 });
 
 test("renderComment lists the covered commits and counts them", () => {
@@ -107,11 +131,23 @@ test("inspectEdge reads the revision when the config is readable", async () => {
 
 test("commitsBehind short-circuits without shelling out when the revision is current", async () => {
   const exec = async () => assert.fail("should not shell out");
-  assert.equal(await commitsBehind(MAIN, MAIN, exec), 0);
-  assert.equal(await commitsBehind(null, MAIN, exec), 0);
+  assert.equal(await commitsBehind(MAIN, MAIN, PATHS, exec), 0);
+  assert.equal(await commitsBehind(null, MAIN, PATHS, exec), 0);
 });
 
 test("commitsBehind counts, and reports unknown as null", async () => {
-  assert.equal(await commitsBehind(OLD, MAIN, async () => "2"), 2);
-  assert.equal(await commitsBehind(OLD, MAIN, async () => null), null);
+  assert.equal(await commitsBehind(OLD, MAIN, PATHS, async () => "2"), 2);
+  assert.equal(await commitsBehind(OLD, MAIN, PATHS, async () => null), null);
+});
+
+// An unscoped count measures against all of main — the original bug. Without paths the
+// only safe answer is "unknown"; counting anyway would resurrect the false staleness.
+test("commitsBehind reports unknown rather than counting unscoped", async () => {
+  assert.equal(await commitsBehind(OLD, MAIN, null, async () => assert.fail("should not shell out")), null);
+});
+
+test("commitsBehind scopes the count to the image's own paths", async () => {
+  let args;
+  await commitsBehind(OLD, MAIN, PATHS, async (_cmd, a) => ((args = a), "1"));
+  assert.deepEqual(args.slice(args.indexOf("--")), ["--", ...PATHS]);
 });

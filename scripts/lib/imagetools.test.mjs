@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { REVISION_LABEL, inspectDigest, isAbsent, parseRevision, releaseImages } from "./imagetools.mjs";
+import { REVISION_LABEL, inspectDigest, isAbsent, parseRevision, parseTriggerPaths, readTriggerPaths, releaseImages } from "./imagetools.mjs";
 
 const REV = "b".repeat(40);
 
@@ -37,8 +37,13 @@ test("parseRevision lower-cases so label casing can't fake a mismatch", () => {
 
 test("releaseImages names every image this repo publishes", () => {
   assert.deepEqual(releaseImages("whoiskevinrich/holodex"), [
-    { id: "core", name: "holodex", ref: "ghcr.io/whoiskevinrich/holodex" },
-    { id: "provider_tmdb", name: "holodex-provider-tmdb", ref: "ghcr.io/whoiskevinrich/holodex-provider-tmdb" },
+    { id: "core", name: "holodex", ref: "ghcr.io/whoiskevinrich/holodex", workflow: ".github/workflows/image.yml" },
+    {
+      id: "provider_tmdb",
+      name: "holodex-provider-tmdb",
+      ref: "ghcr.io/whoiskevinrich/holodex-provider-tmdb",
+      workflow: ".github/workflows/provider-tmdb.yml",
+    },
   ]);
 });
 
@@ -48,6 +53,63 @@ test("releaseImages honours a custom registry", () => {
 
 test("releaseImages requires a repo", () => {
   assert.throws(() => releaseImages(""), /repo is required/);
+});
+
+const WORKFLOW = `on:
+  push:
+    branches: [main]
+    # A comment inside the block
+    paths:
+      - 'cmd/**'
+      - "internal/**"
+      - go.mod
+      - '.github/workflows/image.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: image
+`;
+
+test("parseTriggerPaths reads the list and strips quotes", () => {
+  assert.deepEqual(parseTriggerPaths(WORKFLOW), ["cmd", "internal", "go.mod", ".github/workflows/image.yml"]);
+});
+
+// An empty pathspec means "every commit" to git, which would invert the freshness check
+// into always-stale. Failing loudly is the only safe response.
+test("parseTriggerPaths throws rather than returning an empty pathspec", () => {
+  assert.throws(() => parseTriggerPaths("on:\n  push:\n    branches: [main]\n"), /no `paths:` block/);
+  assert.throws(() => parseTriggerPaths("on:\n  push:\n    paths:\n  workflow_dispatch:\n"), /empty/);
+});
+
+// The one fail-OPEN direction: another trigger's narrower `paths:` would be read as the
+// build filter, so a genuinely stale image would render ✅. Anchor to `push:` or refuse.
+test("parseTriggerPaths ignores a paths: block belonging to another trigger", () => {
+  const decoy = `on:
+  pull_request:
+    paths:
+      - 'docs/**'
+  push:
+    paths:
+      - 'cmd/**'
+`;
+  assert.deepEqual(parseTriggerPaths(decoy), ["cmd"]);
+  assert.throws(() => parseTriggerPaths("on:\n  pull_request:\n    paths:\n      - 'docs/**'\n"), /no `push:` trigger/);
+});
+
+// readFileSync already names a missing file; the wrapper earns its keep by naming the
+// file on a PARSE failure, which otherwise reports only "no `paths:` block found".
+test("readTriggerPaths names the file when the parse fails", () => {
+  assert.throws(() => readTriggerPaths("go.mod"), /cannot read trigger paths from go\.mod.*no `push:` trigger/s);
+});
+
+// The whole point is that these track the real workflows; a restated copy would drift.
+test("readTriggerPaths reads the real build workflows", () => {
+  for (const img of releaseImages("o/r")) {
+    const paths = readTriggerPaths(img.workflow);
+    assert.ok(paths.includes("go.mod"), `${img.workflow} should watch go.mod`);
+    assert.ok(paths.includes(img.workflow), `${img.workflow} should watch itself`);
+    assert.ok(!paths.some((p) => p.endsWith("/**")), "globs should be normalised for git");
+  }
 });
 
 test("isAbsent recognises a genuinely missing tag", () => {
