@@ -183,6 +183,41 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 	return nil
 }
 
+// ffmpegImgEntry is a downloaded image field ready to attach via ffmpeg.
+type ffmpegImgEntry struct{ tagName, localPath string }
+
+// buildFFmpegArgs builds the ffmpeg argument list for a writeback remux. Pure
+// (no I/O) so the stream-preservation and metadata-merge behavior can be unit
+// tested without shelling out to ffmpeg.
+//
+// -map 0 is unconditional: it carries forward every existing stream (video,
+// audio, subtitles, and attachments such as an embedded cover art image).
+// Without it, ffmpeg's automatic stream selection drops attachment streams
+// entirely — a writeback that only touched text fields would silently erase
+// any existing embedded poster.
+func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntries []ffmpegImgEntry) []string {
+	// -y: overwrite output; -map 0: keep every stream; -map_metadata 0: carry
+	// existing container tags forward (unlisted -metadata keys are untouched).
+	args := []string{"-y", "-i", path, "-map", "0", "-c", "copy", "-map_metadata", "0", "-f", format}
+
+	for _, f := range fields {
+		if f.IsImage {
+			continue
+		}
+		key := ffmpegMetadataKey(f.TagName)
+		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
+	}
+	for i, ie := range imgEntries {
+		args = append(args,
+			"-attach", ie.localPath,
+			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
+			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
+		)
+	}
+	args = append(args, newPath)
+	return args
+}
+
 // writeMKVWithFFmpeg remuxes the file with updated tags using ffmpeg (-c copy
 // keeps all streams byte-for-byte; only the container header is rebuilt).
 // ffmpeg is already required by the project (thumbnail pipeline), so this
@@ -202,8 +237,7 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 	}
 
 	// Separate image fields from text fields and download images upfront.
-	type imgEntry struct{ tagName, localPath string }
-	var imgEntries []imgEntry
+	var imgEntries []ffmpegImgEntry
 	for _, f := range fields {
 		if !f.IsImage {
 			continue
@@ -213,32 +247,10 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 			return fmt.Errorf("writeback: %w", err)
 		}
 		defer cleanup()
-		imgEntries = append(imgEntries, imgEntry{f.TagName, imgPath})
+		imgEntries = append(imgEntries, ffmpegImgEntry{f.TagName, imgPath})
 	}
 
-	// -y: overwrite output; -map_metadata 0: carry existing tags forward.
-	// When attaching images, -map 0 ensures all original streams are preserved.
-	args := []string{"-y", "-i", path}
-	if len(imgEntries) > 0 {
-		args = append(args, "-map", "0")
-	}
-	args = append(args, "-c", "copy", "-map_metadata", "0", "-f", format)
-
-	for _, f := range fields {
-		if f.IsImage {
-			continue
-		}
-		key := ffmpegMetadataKey(f.TagName)
-		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
-	}
-	for i, ie := range imgEntries {
-		args = append(args,
-			"-attach", ie.localPath,
-			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
-			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
-		)
-	}
-	args = append(args, newPath)
+	args := buildFFmpegArgs(path, newPath, format, fields, imgEntries)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {

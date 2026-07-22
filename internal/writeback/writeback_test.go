@@ -156,6 +156,41 @@ func TestWrite_EmptyValues(t *testing.T) {
 	}
 }
 
+// TestBuildFFmpegArgs_AlwaysMapsAllStreams verifies -map 0 is present
+// regardless of whether the batch includes an image field. Without it,
+// ffmpeg's automatic stream selection drops attachment streams (embedded
+// cover art) on any text-only writeback — this was the bug where existing
+// posters were silently erased.
+func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
+	textOnly := []FieldWrite{{TagName: "Title", Values: []string{"New Title"}}}
+	withImage := []FieldWrite{
+		{TagName: "Title", Values: []string{"New Title"}},
+		{TagName: "Poster", Values: []string{"https://example.com/poster.jpg"}, IsImage: true},
+	}
+
+	for name, tc := range map[string]struct {
+		fields     []FieldWrite
+		imgEntries []ffmpegImgEntry
+		wantAttach bool
+	}{
+		"text-only batch":       {textOnly, nil, false},
+		"batch including image": {withImage, []ffmpegImgEntry{{"Poster", "/tmp/poster.jpg"}}, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", tc.fields, tc.imgEntries)
+			joined := strings.Join(args, " ")
+			for _, want := range []string{"-map 0", "-map_metadata 0"} {
+				if !strings.Contains(joined, want) {
+					t.Errorf("%s: expected %q in args, got %q", name, want, joined)
+				}
+			}
+			if got := strings.Contains(joined, "-attach"); got != tc.wantAttach {
+				t.Errorf("%s: -attach present = %v, want %v (args: %q)", name, got, tc.wantAttach, joined)
+			}
+		})
+	}
+}
+
 func mustReadDir(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
