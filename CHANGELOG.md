@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.12.1](https://github.com/whoiskevinrich/holodex/compare/v1.12.0...v1.12.1) (2026-07-22)
+
+
+### 🐛 Bug Fixes
+
+* **extract:** drop numeric/date/resolution values from people extraction ([#153](https://github.com/whoiskevinrich/holodex/issues/153)) ([40cf762](https://github.com/whoiskevinrich/holodex/commit/40cf762fcd0c7361c24c2fc60bedc059566e3afc))
+* **extraction:** co-locate row staging control and pin the commit bar ([#156](https://github.com/whoiskevinrich/holodex/issues/156)) ([5770363](https://github.com/whoiskevinrich/holodex/commit/5770363f014ffd6d5fb8520348557d50c26987eb))
+* **web:** shared button treatments and text-muted disabled contrast ([#158](https://github.com/whoiskevinrich/holodex/issues/158)) ([ca6185b](https://github.com/whoiskevinrich/holodex/commit/ca6185bd5c0523b3e209f8f505f0769fa0c230c6))
+* **writeback:** stop erasing metadata the batch didn't touch (MKV cover art + tags) ([#157](https://github.com/whoiskevinrich/holodex/issues/157)) ([0db2a18](https://github.com/whoiskevinrich/holodex/commit/0db2a18681edf72c200525e2a193c1ef0ccf3134))
+
+
+### 📚 Documentation
+
+* **readme:** clarify latest vs edge image tags ([#155](https://github.com/whoiskevinrich/holodex/issues/155)) ([b43b8d9](https://github.com/whoiskevinrich/holodex/commit/b43b8d99c1832208a4a783ba5ce5d8827aa6f4e0))
+
 ## [1.12.0](https://github.com/whoiskevinrich/holodex/compare/v1.11.0...v1.12.0) (2026-07-21)
 
 
