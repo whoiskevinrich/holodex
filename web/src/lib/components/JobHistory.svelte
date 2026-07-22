@@ -3,6 +3,7 @@
 	import type { JobRun } from '$lib/types';
 	import { formatAgo, formatDurMs, toMessage } from '$lib/format';
 	import { api } from '$lib/api';
+	import JobStatusBadge from '$lib/components/JobStatusBadge.svelte';
 
 	let { runs }: { runs: JobRun[] } = $props();
 
@@ -75,16 +76,7 @@
 								: 'text-muted'}"
 							>{count(r, r.errors)}</td
 						>
-						<td class="py-2">
-							{#if r.status === 'error'}
-								<span
-									class="rounded-theme border border-warn px-1.5 py-0.5 text-[10px] font-semibold text-warn"
-									>error</span
-								>
-							{:else}
-								<span class="text-muted">ok</span>
-							{/if}
-						</td>
+						<td class="py-2"><JobStatusBadge status={r.status} /></td>
 					</tr>
 					{#if r.detail || r.error_message}
 						{@const batch = batchId(r)}

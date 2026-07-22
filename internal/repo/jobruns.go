@@ -128,6 +128,95 @@ func jobRunCutoff() string {
 	return time.Now().UTC().AddDate(0, 0, -jobRunRetentionDays).Format(timeLayout)
 }
 
+// JobKindDigest is one row of the per-kind activity digest (ADR-071 D3): a kind's
+// run and error counts within the window plus its most recent run. LastStatus is
+// the status of that most recent run, so the UI can flag a kind whose latest pass
+// failed even when older passes in the window succeeded.
+type JobKindDigest struct {
+	Kind       string    `json:"kind"`
+	Runs       int       `json:"runs"`
+	Errors     int       `json:"errors"`
+	LastRun    time.Time `json:"last_run"`
+	LastStatus string    `json:"last_status"`
+}
+
+// JobRunDigest is the whole digest read (ADR-071 D3): one aggregate row per kind
+// seen in the window (most-recently-active first), plus the window's failed runs
+// so a silent failure surfaces without paging the log. Its size is a function of
+// the number of job *kinds* and the (capped) failure count — never the number of
+// runs in the window, which is the whole point.
+type JobRunDigest struct {
+	Kinds    []JobKindDigest `json:"kinds"`
+	Failures []model.JobRun  `json:"failures"`
+}
+
+// digestFailureCap bounds the failed runs carried inline by the digest. Each
+// kind's aggregate already reports its true error count, so the UI can render
+// "N failures" from that sum; this cap only limits how many *full rows* ride in
+// one response, keeping the digest bounded even after a bad batch produces
+// thousands of failures (spec Q4 — full window, but not an unbounded payload).
+const digestFailureCap = 50
+
+// JobRunDigest aggregates the last `days` (clamped to the retention window) into
+// a fixed-shape summary. The per-kind roll-up is a single GROUP BY over
+// idx_job_runs_started_at; the failure list is a second bounded read of the same
+// window. days <= 0 defaults to the full window.
+func (r *Repo) JobRunDigest(ctx context.Context, days int) (JobRunDigest, error) {
+	if days <= 0 || days > jobRunRetentionDays {
+		days = jobRunRetentionDays
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(timeLayout)
+	d := JobRunDigest{Kinds: []JobKindDigest{}, Failures: []model.JobRun{}}
+
+	// last_status is a bare column paired with MAX(started_at): SQLite takes each
+	// bare column's value from the same row that produced the max, so it is the
+	// status of the most recent run per kind — not an arbitrary one (asserted in
+	// TestJobRunDigest).
+	kindRows, err := r.db.QueryContext(ctx, `
+		SELECT kind, COUNT(*) AS runs,
+		       SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS errors,
+		       MAX(started_at) AS last_run, status AS last_status
+		FROM job_runs WHERE started_at >= ?
+		GROUP BY kind
+		ORDER BY last_run DESC`, model.JobStatusErr, cutoff)
+	if err != nil {
+		return JobRunDigest{}, fmt.Errorf("job digest kinds: %w", err)
+	}
+	defer kindRows.Close()
+	for kindRows.Next() {
+		var (
+			k          JobKindDigest
+			lastRunStr string
+		)
+		if err := kindRows.Scan(&k.Kind, &k.Runs, &k.Errors, &lastRunStr, &k.LastStatus); err != nil {
+			return JobRunDigest{}, err
+		}
+		k.LastRun, _ = time.Parse(timeLayout, lastRunStr)
+		d.Kinds = append(d.Kinds, k)
+	}
+	if err := kindRows.Err(); err != nil {
+		return JobRunDigest{}, err
+	}
+
+	failRows, err := r.db.QueryContext(ctx, `
+		SELECT `+jobRunColumns+`
+		FROM job_runs WHERE started_at >= ? AND status = ?
+		ORDER BY started_at DESC, id DESC
+		LIMIT ?`, cutoff, model.JobStatusErr, digestFailureCap)
+	if err != nil {
+		return JobRunDigest{}, fmt.Errorf("job digest failures: %w", err)
+	}
+	defer failRows.Close()
+	failures, err := scanJobRuns(failRows)
+	if err != nil {
+		return JobRunDigest{}, err
+	}
+	if failures != nil {
+		d.Failures = failures
+	}
+	return d, nil
+}
+
 // LibraryCounts is the catalog-size snapshot for the activity surface (F21.1).
 // People/Tags count only entities still linked to an active video, matching what
 // the /people and /tags pages show (orphan rows linger after re-index).

@@ -17,6 +17,7 @@ import type {
 	ExtractionResult,
 	Facet,
 	JobRun,
+	JobDigest,
 	MediaDetailResponse,
 	MediaFilters,
 	MediaListResponse,
@@ -345,6 +346,11 @@ export const api = {
 
 	activityHistory: (days = 30) =>
 		getAuthed<{ runs: JobRun[] }>(`/admin/activity/history?days=${days}`),
+
+	// Per-kind digest of the same window (ADR-071): a fixed-size summary that
+	// answers "did anything fail" without loading every run.
+	activityDigest: (days = 30) =>
+		getAuthed<JobDigest>(`/admin/activity/digest?days=${days}`),
 
 	// Trigger a full re-index (F13.3). 202 + {started:false} means a scan was
 	// already running — not an error.

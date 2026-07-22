@@ -169,6 +169,95 @@ func TestJobRunsAttributionRoundTrip(t *testing.T) {
 	}
 }
 
+// The digest (ADR-071 D3) rolls the window up per kind + lists failures, and its
+// shape must not grow with the number of runs — that is the whole reason it
+// exists. It also has to report each kind's *most recent* status, not an
+// arbitrary one, and omit failures entirely when the window is clean.
+func TestJobRunDigest(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	base := time.Now().UTC().Truncate(time.Second)
+
+	rec := func(kind, status string, ago time.Duration) {
+		t.Helper()
+		at := base.Add(-ago)
+		if err := r.RecordJobRun(ctx, model.JobRun{
+			Kind: kind, Trigger: model.TriggerManual, Status: status,
+			StartedAt: at, FinishedAt: at,
+		}); err != nil {
+			t.Fatalf("record: %v", err)
+		}
+	}
+
+	// scan: many successes, and its *newest* run succeeded.
+	for i := 0; i < 20; i++ {
+		rec(model.JobKindScan, model.JobStatusOK, time.Duration(i+2)*time.Minute)
+	}
+	// enrich: an older success, then a more recent failure — so last_status must
+	// read "error" even though a success also exists in the window.
+	rec(model.JobKindEnrich, model.JobStatusOK, 5*time.Minute)
+	rec(model.JobKindEnrich, model.JobStatusErr, 1*time.Minute)
+
+	d, err := r.JobRunDigest(ctx, 30)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+
+	byKind := map[string]repo.JobKindDigest{}
+	for _, k := range d.Kinds {
+		byKind[k.Kind] = k
+	}
+	if got := byKind[model.JobKindScan]; got.Runs != 20 || got.Errors != 0 || got.LastStatus != model.JobStatusOK {
+		t.Errorf("scan digest = %+v, want 20 runs / 0 errors / last success", got)
+	}
+	if got := byKind[model.JobKindEnrich]; got.Runs != 2 || got.Errors != 1 || got.LastStatus != model.JobStatusErr {
+		t.Errorf("enrich digest = %+v, want 2 runs / 1 error / last error (the newest run failed)", got)
+	}
+	// enrich is the most-recently-active kind, so it sorts first.
+	if len(d.Kinds) == 0 || d.Kinds[0].Kind != model.JobKindEnrich {
+		t.Errorf("kinds[0] = %v, want enrich (most recent last_run)", d.Kinds)
+	}
+	if len(d.Failures) != 1 || d.Failures[0].Kind != model.JobKindEnrich {
+		t.Errorf("failures = %+v, want the one enrich failure", d.Failures)
+	}
+
+	// The shape must be identical after piling on far more runs — the invariant
+	// the whole digest exists for. Add 500 more clean scans; kinds stay 2 and
+	// failures stay 1.
+	for i := 0; i < 500; i++ {
+		rec(model.JobKindScan, model.JobStatusOK, time.Duration(i+30)*time.Second)
+	}
+	d2, err := r.JobRunDigest(ctx, 30)
+	if err != nil {
+		t.Fatalf("digest 2: %v", err)
+	}
+	if len(d2.Kinds) != len(d.Kinds) || len(d2.Failures) != len(d.Failures) {
+		t.Fatalf("digest grew with run count: kinds %d→%d, failures %d→%d (must be flat)",
+			len(d.Kinds), len(d2.Kinds), len(d.Failures), len(d2.Failures))
+	}
+}
+
+// A window with no failures carries an empty (non-nil) failures list, so the UI
+// reads "clean" as clean rather than as a missing field.
+func TestJobRunDigestCleanWindow(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindScan, Trigger: model.TriggerInitial, Status: model.JobStatusOK,
+		StartedAt: now, FinishedAt: now,
+	}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	d, err := r.JobRunDigest(ctx, 30)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if d.Failures == nil || len(d.Failures) != 0 {
+		t.Errorf("clean window failures = %v, want an empty non-nil slice", d.Failures)
+	}
+}
+
 func TestLibraryCounts(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

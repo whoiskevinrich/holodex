@@ -135,6 +135,37 @@ func TestAdminActivityHistory(t *testing.T) {
 	}
 }
 
+// The digest endpoint (ADR-071 D3) rolls up per kind and lists the window's
+// failures; a clean window has an empty failures list and no error counted.
+func TestAdminActivityDigest(t *testing.T) {
+	srv, r, _ := newServer(t)
+	now := time.Now().UTC()
+	rec := func(kind, status string, ago time.Duration) {
+		at := now.Add(-ago)
+		if err := r.RecordJobRun(context.Background(), model.JobRun{
+			Kind: kind, Trigger: model.TriggerManual, Status: status,
+			StartedAt: at, FinishedAt: at,
+		}); err != nil {
+			t.Fatalf("record: %v", err)
+		}
+	}
+	rec(model.JobKindScan, model.JobStatusOK, 2*time.Minute)
+	rec(model.JobKindEnrich, model.JobStatusErr, time.Minute)
+
+	code, body := getJSON(t, srv.URL+"/api/v1/admin/activity/digest")
+	if code != 200 {
+		t.Fatalf("digest code = %d", code)
+	}
+	kinds, _ := body["kinds"].([]any)
+	if len(kinds) != 2 {
+		t.Fatalf("digest kinds = %d, want 2", len(kinds))
+	}
+	failures, _ := body["failures"].([]any)
+	if len(failures) != 1 {
+		t.Fatalf("digest failures = %d, want 1 (the enrich error)", len(failures))
+	}
+}
+
 func TestListAndGetMedia(t *testing.T) {
 	srv, r, _ := newServer(t)
 	id := seedVideo(t, r, "/m/sun.mkv", "Sunrise")
