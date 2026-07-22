@@ -191,6 +191,62 @@ func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
 	}
 }
 
+// TestMergeTagsXML verifies that fields are folded into the file's existing
+// tags rather than replacing them. mkvpropedit's --tags global: swaps out the
+// whole TAGS element, so a batch that only wrote GENRE used to erase every tag
+// an earlier batch had written.
+func TestMergeTagsXML(t *testing.T) {
+	const existing = `<?xml version="1.0"?>
+<!DOCTYPE Tags SYSTEM "matroskatags.dtd">
+<Tags>
+<Tag>
+<Targets />
+<Simple><Name>ARTIST</Name><String>Prior Artist</String></Simple>
+<Simple><Name>GENRE</Name><String>Old Genre</String></Simple>
+</Tag>
+<Tag>
+<Targets><TargetTypeValue>30</TargetTypeValue></Targets>
+<Simple><Name>PART_NUMBER</Name><String>3</String></Simple>
+</Tag>
+</Tags>`
+
+	got, err := mergeTagsXML(existing, []FieldWrite{
+		{TagName: "Genre", Values: []string{"Drama", "Thriller"}},
+	})
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+
+	for _, want := range []string{
+		"<Name>ARTIST</Name><String>Prior Artist</String>", // untouched tag survives
+		"<Name>PART_NUMBER</Name><String>3</String>",       // targeted Tag survives
+		"<TargetTypeValue>30</TargetTypeValue>",            // its Targets survive
+		"<Name>GENRE</Name><String>Drama</String>",         // new values written
+		"<Name>GENRE</Name><String>Thriller</String>",      // multi-value
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("merged document missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Old Genre") {
+		t.Errorf("stale value for a replaced tag survived:\n%s", got)
+	}
+}
+
+// TestMergeTagsXML_NoExisting covers a file with no tags at all — the merge
+// should produce a plain single-Tag document.
+func TestMergeTagsXML_NoExisting(t *testing.T) {
+	got, err := mergeTagsXML("", []FieldWrite{{TagName: "Genre", Values: []string{"Drama"}}})
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+	for _, want := range []string{"<Tags>", "<Targets />", "<Name>GENRE</Name><String>Drama</String>", "</Tags>"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %q", want, got)
+		}
+	}
+}
+
 func mustReadDir(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
