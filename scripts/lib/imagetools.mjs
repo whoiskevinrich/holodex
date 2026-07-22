@@ -5,9 +5,11 @@
 // The set of published images lives here rather than being re-listed per call site —
 // release.yml, the candidate comment, and the release body all need the same answer.
 // The image *build* workflows stay hand-written per image: their `paths:` filters can't
-// be templated in GitHub Actions, so there is no version of this that owns them too.
+// be templated in GitHub Actions, so this file names each image's workflow and reads
+// those filters back out rather than restating them (see readTriggerPaths).
 
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -15,19 +17,72 @@ const execFileAsync = promisify(execFile);
 export const REVISION_LABEL = "org.opencontainers.image.revision";
 
 /** The images published from this repo. `id` is used to key workflow outputs. */
-export const IMAGE_SUFFIXES = [
-  { id: "core", suffix: "" },
-  { id: "provider_tmdb", suffix: "-provider-tmdb" },
+export const IMAGES = [
+  { id: "core", suffix: "", workflow: ".github/workflows/image.yml" },
+  { id: "provider_tmdb", suffix: "-provider-tmdb", workflow: ".github/workflows/provider-tmdb.yml" },
 ];
 
-/** @returns {{id: string, name: string, ref: string}[]} */
+/** @returns {{id: string, name: string, ref: string, workflow: string}[]} */
 export function releaseImages(repo, registry = "ghcr.io") {
   if (!repo) throw new Error("repo is required");
-  return IMAGE_SUFFIXES.map(({ id, suffix }) => ({
+  return IMAGES.map(({ id, suffix, workflow }) => ({
     id,
     name: `${repo.split("/")[1]}${suffix}`,
     ref: `${registry}/${repo}${suffix}`,
+    workflow,
   }));
+}
+
+/**
+ * Read a build workflow's `push.paths:` filter as git pathspecs — the only correct answer
+ * to "which commits could have changed this image" (ADR-070). Read rather than restated so
+ * a path added to a workflow can't silently go unwatched.
+ *
+ * Deliberately a narrow reader, not a YAML parser: the block is a flat list of scalars and
+ * these scripts are dependency-free. Throws rather than returning [], because an empty
+ * pathspec means "every commit" to git and would invert the check into always-stale.
+ */
+export function parseTriggerPaths(yaml) {
+  const lines = yaml.split(/\r?\n/);
+
+  // Anchor to `push:`. Taking the first `paths:` anywhere would silently measure against
+  // another trigger's filter if one were ever added above it — the single fail-*open*
+  // direction in an otherwise fail-closed reader, since a narrower filter reads ✅ while
+  // the image is genuinely stale.
+  const push = lines.findIndex((l) => /^\s*push:\s*$/.test(l));
+  if (push === -1) throw new Error("no `push:` trigger found");
+  const pushIndent = lines[push].search(/\S/);
+
+  let start = -1;
+  for (let i = push + 1; i < lines.length; i++) {
+    if (!lines[i].trim() || /^\s*#/.test(lines[i])) continue;
+    if (lines[i].search(/\S/) <= pushIndent) break; // left the push: block
+    if (/^\s*paths:\s*$/.test(lines[i])) { start = i; break; }
+  }
+  if (start === -1) throw new Error("no `paths:` block found under `push:`");
+
+  const indent = lines[start].search(/\S/);
+  const paths = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const item = line.match(/^(\s*)-\s*(.+?)\s*$/);
+    if (!item || item[1].length <= indent) break;
+    paths.push(item[2].replace(/^['"]|['"]$/g, ""));
+  }
+  if (paths.length === 0) throw new Error("`paths:` block is empty");
+
+  // `foo/**` -> `foo`: git already treats a directory pathspec as everything beneath it,
+  // and the bare form avoids depending on how git expands `**` outside :(glob) magic.
+  return paths.map((p) => p.replace(/\/\*\*$/, ""));
+}
+
+/** @see parseTriggerPaths — same contract, reading the workflow from disk. */
+export function readTriggerPaths(workflowPath) {
+  try {
+    return parseTriggerPaths(readFileSync(workflowPath, "utf8"));
+  } catch (err) {
+    throw new Error(`cannot read trigger paths from ${workflowPath}: ${err.message}`);
+  }
 }
 
 /**

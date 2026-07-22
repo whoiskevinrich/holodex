@@ -2,8 +2,9 @@
 #
 # `:edge` already IS that PR's content — release-please stacks the version bump and
 # CHANGELOG, not the code — so nothing is built here. This resolves the digests that were
-# already published, reports whether they're current with main, and hands over a pinned
-# pull command for the canary instance.
+# already published, reports whether each is current with its OWN sources (not with main —
+# each image rebuilds only on its own `paths:`), and hands over a pinned pull command for
+# the canary instance.
 #
 # Advisory by design: no status check, no merge gate. A stale image shows up in the comment.
 name: Release candidate

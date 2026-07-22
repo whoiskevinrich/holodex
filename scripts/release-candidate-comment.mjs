@@ -10,25 +10,33 @@
 // reading — keep it short, and keep the freshness verdict at the top.
 
 import { pathToFileURL } from "node:url";
-import { execDetailed, inspectDigest, inspectImageConfig, parseRevision, releaseImages, run, runStrict } from "./lib/imagetools.mjs";
+import { execDetailed, inspectDigest, inspectImageConfig, parseRevision, readTriggerPaths, releaseImages, run, runStrict } from "./lib/imagetools.mjs";
 
 export const COMMENT_MARKER = "<!-- holodex-release-candidate -->";
 const RELEASE_PR_LABEL = "autorelease: pending";
 
-/** Freshness verdict for one image against main HEAD. `behind` is null when unknown. */
-export function freshness({ revision, mainSha, behind }) {
+/**
+ * Freshness verdict for one image, from the count of commits touching *its own* build
+ * paths since it was built (ADR-070). `behind` is null when that count is unknown.
+ *
+ * The count is the whole signal on purpose. Comparing the revision to some expected
+ * commit says "not built from exactly that commit", which is not the question and is
+ * false whenever an image is *newer* than required — e.g. a workflow_dispatch rebuild,
+ * the very remedy a ⚠️ tells you to run.
+ */
+export function freshness({ revision, behind }) {
   if (!revision) return { ok: false, text: "no image published" };
-  if (revision === mainSha) return { ok: true, text: "matches main" };
-  if (behind == null) return { ok: false, text: "does not match main" };
-  return { ok: false, text: `${behind} commit${behind === 1 ? "" : "s"} behind main` };
+  if (behind == null) return { ok: false, text: "freshness could not be determined" };
+  if (behind === 0) return { ok: true, text: "current" };
+  return { ok: false, text: `${behind} source commit${behind === 1 ? "" : "s"} behind` };
 }
 
 /**
  * Pure renderer — the whole comment body from already-gathered facts.
  * @param {{name: string, ref: string, digest: string|null, revision: string|null, behind: number|null}[]} images
  */
-export function renderComment({ images, commits, mainSha, version }) {
-  const verdicts = images.map((img) => ({ img, f: freshness({ ...img, mainSha }) }));
+export function renderComment({ images, commits, version }) {
+  const verdicts = images.map((img) => ({ img, f: freshness(img) }));
   const stale = verdicts.filter(({ f }) => !f.ok);
 
   const rows = verdicts.map(({ img, f }) => {
@@ -50,10 +58,10 @@ export function renderComment({ images, commits, mainSha, version }) {
     ...rows,
     "",
     stale.length
-      ? `> ⚠️ **${stale.length} image${stale.length === 1 ? " is" : "s are"} not current with \`main\`.** ` +
+      ? `> ⚠️ **${stale.length} image${stale.length === 1 ? " is" : "s are"} not built from the latest source.** ` +
         "Canarying this digest validates something other than what this PR will release. " +
         "Re-run the image workflow before relying on it."
-      : "> ✅ All images were built from current `main`.",
+      : "> ✅ Every image is built from its latest source change.",
     "",
     "### Pull onto the canary",
     "",
@@ -94,9 +102,18 @@ export async function inspectEdge(ref, exec = execDetailed) {
   }
 }
 
-export async function commitsBehind(revision, mainSha, exec = run) {
+/**
+ * How many commits touching `paths` land between the built revision and `mainSha` — i.e.
+ * how much of this image's own source it is missing. Null when git can't answer.
+ *
+ * `paths` is null when the image's trigger paths couldn't be read; that has to read as
+ * "unknown" rather than an unscoped count, which would measure against all of `main` and
+ * reintroduce the false staleness this scoping exists to remove.
+ */
+export async function commitsBehind(revision, mainSha, paths, exec = run) {
+  if (!paths) return null;
   if (!revision || revision === mainSha) return 0;
-  const out = await exec("git", ["rev-list", "--count", `${revision}..${mainSha}`]);
+  const out = await exec("git", ["rev-list", "--count", `${revision}..${mainSha}`, "--", ...paths]);
   return out === null ? null : Number(out);
 }
 
@@ -116,8 +133,16 @@ async function main() {
   // Both images concurrently: each is two registry round-trips, and they share nothing.
   const images = await Promise.all(
     releaseImages(repo, process.env.REGISTRY).map(async (img) => {
+      // Degrade to an "unknown" verdict rather than killing the run: this workflow is
+      // advisory, and no comment at all is worse than one that says it couldn't tell.
+      let paths = null;
+      try {
+        paths = readTriggerPaths(img.workflow);
+      } catch (err) {
+        process.stderr.write(`${err.message}\n`);
+      }
       const { digest, revision } = await inspectEdge(img.ref);
-      return { ...img, digest, revision, behind: await commitsBehind(revision, mainSha) };
+      return { ...img, digest, revision, behind: await commitsBehind(revision, mainSha, paths) };
     }),
   );
 
@@ -125,7 +150,7 @@ async function main() {
   const log = await run("git", ["log", "--no-merges", "--format=%s", lastTag ? `${lastTag}..${mainSha}` : mainSha]);
   const commits = log ? log.split("\n").filter(Boolean) : [];
 
-  const body = renderComment({ images, commits, mainSha, version: pr.title?.match(/\d+\.\d+\.\d+/)?.[0] });
+  const body = renderComment({ images, commits, version: pr.title?.match(/\d+\.\d+\.\d+/)?.[0] });
 
   // Upsert on our marker rather than accumulating a comment per image build.
   const existing = await run("gh", ["api", `repos/${repo}/issues/${pr.number}/comments`, "--jq", `.[] | select(.body | contains("${COMMENT_MARKER}")) | .id`]);

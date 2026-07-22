@@ -25,11 +25,12 @@ library (~3.5k files), and wants to validate that content before merging the rel
 Three gaps stop `:edge` from serving as that canary artifact:
 
 1. **No handle on the release PR.** Nothing connects the release PR to a pullable digest,
-   and nothing asserts `edge` was built from current `main`. A build that failed, or that
-   was skipped by the ADR-035 `paths:` filters, leaves `edge` silently stale — the canary
-   then validates the previous state while appearing to validate the new one. The core and
-   sidecar images also advance independently, so "pull both `:edge`" is not a
-   guaranteed-coherent pair.
+   and nothing asserts `edge` was built from the sources it claims to carry. A build that
+   failed, or that never ran, leaves `edge` silently stale — the canary then validates the
+   previous state while appearing to validate the new one. The core and sidecar images
+   advance independently (each has its own ADR-035 `paths:` filter), so "pull both `:edge`"
+   is not a guaranteed-coherent pair, and a skipped build is not by itself a problem: an
+   image whose own sources didn't change is still correct.
 
 2. **Promotion rebuilds.** Merging the release PR creates the version-bump commit; the
    `v*` tag fires `release.yml`, which calls `image.yml` again and **builds from scratch**.
@@ -49,7 +50,7 @@ and `provider-tmdb` images:
 - the current `:edge` digest,
 - the commit it was built from (the `org.opencontainers.image.revision` OCI label written
   by `docker/metadata-action`),
-- whether that commit matches `main` HEAD.
+- how many commits touching **that image's own** `paths:` filter have landed since.
 
 It posts — and thereafter updates in place — a single comment carrying both digests, the
 freshness assertion per image, the commit range the release covers, and a copy-paste pull
@@ -136,11 +137,21 @@ either side of the bump. If a version string is ever baked into the build, retag
 would publish an image whose embedded version disagrees with its tag. That failure would be
 silent. Any change that introduces build-time version injection must revisit this ADR.
 
-**The freshness check is reported, not enforced.** A `provider-tmdb:edge` that is two
-commits behind shows up in the comment as a warning; nothing stops the release. That is
-consistent with the advisory posture, and it is a real gap the owner accepts in exchange
+**The freshness check is reported, not enforced.** A `provider-tmdb:edge` that is missing
+a real sidecar change shows up in the comment as a warning; nothing stops the release. That
+is consistent with the advisory posture, and it is a real gap the owner accepts in exchange
 for no gate mechanism. The comment must therefore be legible enough to actually read —
 a noisy comment that gets scrolled past is the failure mode to design against.
+
+**Freshness is per image, and that is load-bearing rather than a detail.** Each image only
+rebuilds when its own `paths:` match, so measuring against `main` HEAD reports a
+byte-correct image as stale whenever the *other* component changed. The first
+implementation did exactly that and warned on a correct sidecar 12 commits back
+(HOLODEX-208) — realising this section's own failure mode on day one. The check therefore
+counts only commits touching that image's paths, read out of the build workflow itself so
+the two cannot drift. For the same reason it measures *distance*, not equality with an
+expected commit: an image can legitimately be **newer** than required (a `workflow_dispatch`
+rebuild — the very remedy a warning prescribes), and equality would flag that as stale.
 
 **Retagging weakens provenance in one narrow way**: the published `1.13.0` image's
 `revision` label points at the pre-bump commit, not the tagged commit. That is accurate —
@@ -179,7 +190,7 @@ wrong fix; the right one is to decouple scanning from building, so this ADR adds
 ## Action Items
 
 - [x] Add the release-candidate comment workflow (core + sidecar digest, revision label,
-      freshness vs `main` HEAD, commit coverage, pinned pull command) —
+      per-image freshness, commit coverage, pinned pull command) —
       `.github/workflows/release-candidate.yml` + `scripts/release-candidate-comment.mjs`.
 - [x] Replace the `image`/`provider-tmdb` jobs in `release.yml` with resolve →
       assert-ancestry → retag (`promote` job, both images resolved before either is
