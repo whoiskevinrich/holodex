@@ -99,6 +99,63 @@ func TestQueue_WritesAndAudits(t *testing.T) {
 	if wb == nil || wb.Status != model.JobStatusOK || wb.Updated != 2 {
 		t.Fatalf("want a successful writeback job_run with 2 fields, got %+v", wb)
 	}
+	// Attribution (ADR-071): the run names the video it wrote.
+	if wb.EntityType != model.EnrichEntityVideo || wb.EntityID != id {
+		t.Errorf("attribution = %q/#%d, want video/#%d", wb.EntityType, wb.EntityID, id)
+	}
+}
+
+// A merge propagates under a shared, non-numeric batch id (api.mergeBatchID:
+// "merge-person-N-M"). The run must carry it verbatim in batch_id, because that
+// is what the Revert control now reads. Previously the id was only recoverable
+// from the free-text detail line via `/· batch (\d+)/`, which requires digits —
+// so Revert never appeared for a merge batch, the exact multi-video case the
+// shared batch id (migration 0027) exists for.
+func TestQueue_RecordsSharedMergeBatchID(t *testing.T) {
+	r := newRepo(t)
+	id := seedVideo(t, r, "MP4")
+	const mergeBatch = "merge-person-7-9"
+
+	write := func(context.Context, string, []writeback.FieldWrite) error { return nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := writequeue.New(r, write, testLogger(), 1, "")
+	q.Start(ctx)
+
+	// Pre-seed the snapshot for (batch, video) so snapshotBeforeWrite takes its
+	// already-captured early return — the crash-retry path — instead of reading
+	// the real container. Keeps this a unit test with no ffmpeg/exiftool
+	// dependency; the full I/O path is covered in snapshot_test.go.
+	if err := r.InsertWritebackSnapshots(ctx, id, mergeBatch, map[string]string{"title": "Original"}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	if _, err := q.EnqueueMany(ctx, []writequeue.BatchJob{{
+		VideoID: id,
+		Fields:  []writequeue.JobField{{Field: "title", Values: []string{"X"}, Source: "merge:title"}},
+	}}, mergeBatch); err != nil {
+		t.Fatalf("enqueue many: %v", err)
+	}
+	waitFor(t, func() bool {
+		n, _ := r.PendingWritebackCount(ctx)
+		return n == 0
+	})
+
+	runs, err := r.ListJobRuns(ctx, 30)
+	if err != nil {
+		t.Fatalf("list job runs: %v", err)
+	}
+	var wb *model.JobRun
+	for i := range runs {
+		if runs[i].Kind == model.JobKindWriteback {
+			wb = &runs[i]
+		}
+	}
+	if wb == nil {
+		t.Fatalf("no writeback job_run recorded, got %+v", runs)
+	}
+	if wb.BatchID != mergeBatch {
+		t.Errorf("batch id = %q, want %q — Revert reads this field", wb.BatchID, mergeBatch)
+	}
 }
 
 // TestQueue_EnqueueMany_OneCallEnqueuesEveryJob is F48.8's bulk enqueue path:

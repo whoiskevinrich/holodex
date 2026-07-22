@@ -26,12 +26,14 @@ func (r *Repo) RecordJobRun(ctx context.Context, run model.JobRun) error {
 	if _, err := r.db.ExecContext(ctx, `
 		INSERT INTO job_runs (kind, trigger, status, started_at, finished_at,
 		                      duration_ms, seen, added, updated, removed, skipped,
-		                      errors, error_message, detail)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                      errors, error_message, detail,
+		                      entity_type, entity_id, batch_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		run.Kind, run.Trigger, run.Status,
 		run.StartedAt.UTC().Format(timeLayout), run.FinishedAt.UTC().Format(timeLayout),
 		run.DurationMs, run.Seen, run.Added, run.Updated, run.Removed, run.Skipped,
 		run.Errors, run.ErrorMessage, run.Detail,
+		run.EntityType, run.EntityID, run.BatchID,
 	); err != nil {
 		return fmt.Errorf("record job run: %w", err)
 	}
@@ -84,15 +86,24 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 	}
 	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(timeLayout)
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, kind, trigger, status, started_at, finished_at, duration_ms,
-		       seen, added, updated, removed, skipped, errors, error_message, detail
+		SELECT `+jobRunColumns+`
 		FROM job_runs WHERE started_at >= ?
 		ORDER BY started_at DESC, id DESC`, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("list job runs: %w", err)
 	}
 	defer rows.Close()
+	return scanJobRuns(rows)
+}
 
+// jobRunColumns is the one select list every job-run read shares, so a new
+// column can't be added to the scan order in one query and forgotten in another.
+const jobRunColumns = `id, kind, trigger, status, started_at, finished_at, duration_ms,
+	       seen, added, updated, removed, skipped, errors, error_message, detail,
+	       entity_type, entity_id, batch_id`
+
+// scanJobRuns drains rows selected with jobRunColumns.
+func scanJobRuns(rows *sql.Rows) ([]model.JobRun, error) {
 	var out []model.JobRun
 	for rows.Next() {
 		var (
@@ -102,7 +113,8 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 		)
 		if err := rows.Scan(&j.ID, &j.Kind, &j.Trigger, &j.Status, &startedStr, &finStr,
 			&j.DurationMs, &j.Seen, &j.Added, &j.Updated, &j.Removed, &j.Skipped,
-			&j.Errors, &j.ErrorMessage, &j.Detail); err != nil {
+			&j.Errors, &j.ErrorMessage, &j.Detail,
+			&j.EntityType, &j.EntityID, &j.BatchID); err != nil {
 			return nil, err
 		}
 		j.StartedAt, _ = time.Parse(timeLayout, startedStr)

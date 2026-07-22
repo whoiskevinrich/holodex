@@ -9,7 +9,7 @@
 **Depends on**: F21 System Activity ([spec](system-activity.md), [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md)) — this spec changes the read path and schema that ADR-028 established.
 
 **New ADRs required**:
-- **ADR-069 (reserved, P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it.
+- **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
 
 ---
 
@@ -68,18 +68,19 @@ The underlying query is healthy: one indexed table, no joins, no N+1, no blob co
 **P0-1 — Entity attribution columns**
 Add `entity_type TEXT NOT NULL DEFAULT ''` and `entity_id INTEGER NOT NULL DEFAULT 0` to `job_runs`, indexed as a pair. Populate from identifiers already in local scope at record time: `job.VideoID` for writeback, `report.VideoID` for refresh, `entityType`/`entityID` for enrich. The remaining six kinds leave them empty.
 
-- [ ] Migration `NNNN_job_runs_entity_attribution.{up,down}.sql` follows [`.claude/rules/migrations.md`](../../.claude/rules/migrations.md)
-- [ ] No foreign-key constraint is added; `job_runs` remains free of cascade semantics
-- [ ] A job run whose referenced entity is later deleted still returns from the API, with the entity label rendered as `#<id> (deleted)`
-- [ ] Rows written before the migration have empty attribution and are excluded from entity-filtered results without error
+- [x] Migration [`0028_job_runs_attribution.{up,down}.sql`](../../internal/db/migrations/0028_job_runs_attribution.up.sql) follows [`.claude/rules/migrations.md`](../../.claude/rules/migrations.md); up **and** down verified against a table that already holds rows
+- [x] No foreign-key constraint is added; `job_runs` remains free of cascade semantics
+- [ ] A job run whose referenced entity is later deleted still returns from the API, with the entity label rendered as `#<id> (deleted)` — *read-side rendering; lands with P0-4/P1-3, not with the columns*
+- [x] Rows written before the migration have empty attribution and are excluded from entity-filtered results without error
 
 **P0-2 — `batch_id` column**
 Add `batch_id TEXT NOT NULL DEFAULT ''`, populated from the value `snapshotBeforeWrite` already computes. The Revert control reads this column.
 
-- [ ] The `/· batch (\d+)/` regex in [`JobHistory.svelte:17`](../../web/src/lib/components/JobHistory.svelte) is deleted
-- [ ] Revert continues to work for writeback runs recorded after the migration
-- [ ] Changing `writequeue.detailLine`'s format does not affect whether Revert is offered
-- [ ] Writeback runs recorded *before* the migration have an empty `batch_id` and offer no Revert control (accepted regression, bounded by the 30-day window)
+- [x] The `/· batch (\d+)/` regex in [`JobHistory.svelte`](../../web/src/lib/components/JobHistory.svelte) is deleted
+- [x] Revert continues to work for writeback runs recorded after the migration
+- [x] Changing `writequeue.detailLine`'s format does not affect whether Revert is offered — nothing parses `detail` any more
+- [x] Writeback runs recorded *before* the migration have an empty `batch_id` and offer no Revert control (accepted regression, bounded by the 30-day window)
+- [x] **Fixes a live defect:** Revert was never offered for a merge-propagation batch, whose id is `merge-person-N-M` — `(\d+)` could not match it, so the one multi-video case shared batches exist for was the one case the UI could not revert
 
 **P0-3 — Digest read**
 A per-kind aggregate: last `started_at`, run count, and error count, plus the individual failed runs in the window.
@@ -206,7 +207,7 @@ Step 2 is the only irreversible one, and it is worth doing on the forensics and 
 ## Gates
 
 - [ ] **Spec** — this document
-- [ ] **ADR-069** — entity attribution + paginated read contract
+- [x] **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract
 - [ ] **Design handoff** — two-mode UI, rollup affordance, three-skin states
 - [ ] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated; keyset-cursor and rollup-boundary cases covered
 - [x] **Security review** — not required; endpoints stay within the existing `requireOwner` group and no auth surface changes

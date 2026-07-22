@@ -350,5 +350,17 @@ type JobRun struct {
 	ErrorMessage string    `json:"error_message,omitempty"`
 	// Detail is a short human description for non-scan jobs (F22.6b) — e.g.
 	// "tmdb → person #18 (5 fields)". Empty for scans (their counts say it all).
+	// It is free text for the operator: nothing parses it (ADR-071).
 	Detail string `json:"detail,omitempty"`
+	// EntityType/EntityID name the single entity this run acted on (ADR-071),
+	// using the EnrichEntity* vocabulary. Zero-valued for library-wide kinds
+	// (scan, the backfills), which read as "not attributed". Intentionally not a
+	// foreign key — job_runs is an audit table, so a run outlives the entity it
+	// describes and EntityID may dangle.
+	EntityType string `json:"entity_type,omitempty"`
+	EntityID   int64  `json:"entity_id,omitempty"`
+	// BatchID is the writeback snapshot batch (migration 0027) this run belongs
+	// to, carried as a field so Revert reads it structurally instead of parsing
+	// it back out of Detail (ADR-071).
+	BatchID string `json:"batch_id,omitempty"`
 }

@@ -16,7 +16,7 @@ release_note:                # the ONE user-facing sentence; authored once by /h
 audit trail" without loading 30 days of rows. Done when the digest is the default view, the log
 reads through a keyset cursor, and job runs attribute to the entity they touched.
 
-**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · ADR-069 (reserved, not written) · handoff pending · testing-strategy pending
+**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) · handoff pending · testing-strategy pending
 
 ## Gates — definition of done
 
@@ -24,9 +24,9 @@ reads through a keyset cursor, and job runs attribute to the entity they touched
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [/] spec `write-spec` → `docs/specs/job-history-digest-and-search.md`
-- [ ] architecture `architecture` → ADR-069 entity attribution + paginated read contract
-- [ ] backend
-- [/] frontend — phase 1 (ungate + error state) landed; digest/log views outstanding
+- [/] architecture `architecture` → [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (drafted, Proposed)
+- [/] backend — phase 2 (migration 0028, attribution, `batch_id`) done; digest + keyset endpoints outstanding
+- [/] frontend — phase 1 (ungate + error state) and the Revert-on-column switch landed; digest/log views outstanding
 - [ ] testing `testing-strategy`
 - [x] security `security-review` — not required: endpoints stay inside the existing `requireOwner` group, no auth surface change
 
@@ -37,10 +37,9 @@ reads through a keyset cursor, and job runs attribute to the entity they touched
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [—] Owner answers Q1: does phase 1 alone fix the load time? Phases 3–5 are re-justified or dropped on the answer — `docs/specs/job-history-digest-and-search.md`
-2. [ ] [architecture] ADR-069 — entity attribution columns + keyset read contract — `docs/architecture/`
-3. [ ] [backend] Migration: `entity_type`/`entity_id`/`batch_id` on `job_runs`; populate from writeback/refresh/enrich; kill the Revert regex — `internal/db/migrations/`, `internal/writequeue/`, `internal/enrich/`  ⛔ blocked on #2
-4. [ ] [backend] Digest + keyset-paginated history endpoints — `internal/api/`, `internal/repo/jobruns.go`  ⛔ blocked on #1
-5. [ ] [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" has no regression guard — `web/src/lib/*.test.ts`
+2. [ ] [backend] Digest + keyset-paginated history endpoints — `internal/api/`, `internal/repo/jobruns.go`  ⛔ blocked on #1
+3. [ ] [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" has no regression guard — `web/src/lib/*.test.ts`
+4. [ ] [frontend] Entity label resolution — render `#<id> (deleted)` when attribution no longer resolves (P0-1's remaining criterion; lands with the log view)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
