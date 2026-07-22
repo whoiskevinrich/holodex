@@ -49,10 +49,18 @@ To Do → In Progress → In Review → Done → Released
 | Status | Meaning | Set by |
 |---|---|---|
 | **To Do** | Backlog / triaged | manual |
-| **In Progress** | Branch created, work underway | **agent/session** (MCP `transitionJiraIssue` at branch-rename) |
-| **In Review** | PR open | **CI** — `jira-sync.yml` on `pull_request: opened` |
+| **In Progress** | Branch created, work underway (**including while a Draft PR is open**) | **agent/session** (MCP `transitionJiraIssue` at branch-rename) |
+| **In Review** | PR marked **ready for review** | **CI** — `jira-sync.yml` on a non-draft `opened` or on `ready_for_review` |
 | **Done** | Merged to `main` (code complete) | **CI** — `jira-sync.yml` on `pull_request` merged |
 | **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `prod` deploy (batch) |
+
+**A Draft PR is not "In Review"** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)).
+Holodex opens the PR early — as soon as the first **pre-implementation gate artifact** (an
+ADR, a spec, a design handoff) lands — so the artifact gets a reviewable diff, CI, and a
+dev-panel link. That PR stays **Draft** while the remaining gates are worked, and the
+ticket correctly stays `In Progress` the whole time. Marking it ready for review is what
+fires `In Review`. One PR matures: **Draft → ready → merge**; since a Draft PR can't be
+merged, `Done` can never fire early and no label or trailer is needed to protect it.
 
 `Done ≠ Released`: a merge to `main` is code-complete, but the artifact ships only when
 `release.yml` builds the `v*` image and records the **`prod` GitHub Deployment** (ADR-034,
@@ -90,13 +98,18 @@ scripts in [`scripts/`](../../scripts).
 | Transition | Trigger | Fired by | Key source |
 |---|---|---|---|
 | → **In Progress** | start-of-work (branch rename to key) | agent/session (MCP `transitionJiraIssue`) | current branch |
-| → **In Review** | `pull_request: opened` | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
+| → **In Review** | `pull_request: opened` **when not draft**, or `ready_for_review` | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
 | → **Done** | `pull_request` merged | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
 | → **Released** | `prod` deploy (Release-Please tag) | `release.yml` → `scripts/jira-release-sync.mjs` | JQL `status = Done` (batch) |
 
 Design notes:
 
 - **`In Review` / `Done` are single-issue** — one key parsed from the PR branch.
+- **Draft-ness gates the event, not the script** (ADR-069) — the `draft == false` /
+  `ready_for_review` test lives in the workflow's `if:`, so `jira-branch-sync.mjs` stays a
+  pure "transition this branch's keys to this status" and knows nothing about PR state.
+  Note the direction of `JIRA_TARGET_STATUS`: it selects `Done` on `closed` and `In Review`
+  otherwise, so the two `In Review` events share one branch.
 - **`Released` is a batch** — Holodex commit subjects are keyless, so the shipping set is
   read from **Jira state**, not the diff: every merged PR was already moved to `Done` by
   the branch sync, so a release cut from `main` ships exactly the current
@@ -222,6 +235,11 @@ is unlimited on this public repo — so the CI transitions cost nothing against 
   refs that name the key, so it stays blank until some branch/commit/PR mentions that issue.
 - **A commitless branch may not surface** in the dev panel. Push at least one commit on the
   branch, then hard-refresh the issue.
+- **A Draft PR left in Draft strands the ticket at `In Progress`.** That's the intended
+  reading — unfinished work isn't in review — but it means "mark ready for review" is now a
+  deliberate step you own. Converting a ready PR *back* to draft is deliberately **not**
+  wired to reverse the transition (ADR-069), so a re-drafted PR leaves its ticket in
+  `In Review`.
 - **`Released` moves the whole `Done` set.** If you deliberately parked an issue in `Done`
   that you *don't* want released, move it elsewhere before cutting the release — the batch
   sync treats every `Done` issue as shipping.
