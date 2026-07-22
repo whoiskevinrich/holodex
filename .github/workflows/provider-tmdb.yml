@@ -1,5 +1,6 @@
 # Build, push, and scan the TMDB provider sidecar image (ADR-040).
-# Mirrors image.yml: edge + sha-* on main push; semver + latest on v* tag via workflow_call.
+# Mirrors image.yml: edge + sha-* on main push, no release path — a v* release retags the
+# already-built sha-<short> digest from release.yml's promote job (ADR-070).
 name: Build provider-tmdb image
 
 on:
@@ -12,7 +13,6 @@ on:
       - 'go.sum'
       - '.github/workflows/provider-tmdb.yml'
   workflow_dispatch:
-  workflow_call:
 
 concurrency:
   group: provider-tmdb-${{ github.ref }}
@@ -56,13 +56,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `sha-<short>` is the handle release.yml resolves and retags (ADR-070).
           tags: |
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,prefix=sha-,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          flavor: latest=auto
+          flavor: latest=false
 
       - name: Build and push
         id: build

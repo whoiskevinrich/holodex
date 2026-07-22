@@ -97,7 +97,8 @@ Needs `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` in the environment (same vars as the 
 from <https://id.atlassian.com/manage-profile/security/api-tokens>). It is **read-only** — it never
 transitions anything. For an epic it prints gates, ordered Up next, blockers, and children not yet Done;
 for a Task/Story it prints the remaining hops and points you at the parent epic's worklog. Parser logic
-is covered by `scripts/whats-left.test.mjs` (`node --test scripts/whats-left.test.mjs`).
+is covered by `scripts/whats-left.test.mjs`; run every script suite with `make test-scripts`
+(also folded into `make test`, and run in CI by the `scripts` job).
 
 ---
 
