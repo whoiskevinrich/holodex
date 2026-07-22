@@ -304,6 +304,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 |-------|------|------|
 | **lint** | `golangci-lint`, `svelte-check`, `eslint`, `prettier` | every push |
 | **unit** | `go test -short ./...`, `vitest run` (no binaries/docker) | every push, < 60s |
+| **scripts** | `make test-scripts` (`node --test "scripts/**/*.test.mjs"`, zero deps) | every push, < 5s |
 | **integration** | `go test ./...` in the Debian image (exiftool+ffprobe+sqlite present); generates fixtures first | every PR |
 | **e2e** | `docker compose up` + Playwright | every PR |
 | **a11y + visual** | Playwright + axe + screenshot diff | every PR |
@@ -313,6 +314,11 @@ Conventions:
 - Go: standard `testing`, table-driven, `testify/require` for assertions, golden files with `-update`.
 - Integration tests gated by build tag `//go:build integration` (or `-short` skip) so the inner loop stays binary-free.
 - Frontend: Vitest (jsdom) for unit/component; Playwright for browser.
+- **Automation scripts** (`scripts/**`): `node:test` + `node:assert/strict`, no dependencies. I/O is
+  injected (`exec`) so the logic is testable without a registry or a Jira. `scripts/resolve-release-digest.mjs`
+  decides which image digest gets published as a release (ADR-070), so its **negative** cases are the
+  point — a mismatched revision label, a non-ancestor commit, and a registry error that must abort rather
+  than be mistaken for "no image here" each have a test. Treat that file as critical-invariant.
 - Fixtures generated deterministically in CI; goldens committed.
 - Coverage reported per-package; PRs surface deltas (informational, not a hard gate except on the critical-invariant packages).
 

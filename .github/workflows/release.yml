@@ -1,6 +1,12 @@
-# Release on a v* tag: publish the image (semver + latest) and cut a GitHub Release
-# with a Conventional-Commits changelog (git-cliff), a GHCR Deployment link, and a
+# Release on a v* tag: promote the already-built image (semver + latest) and cut a GitHub
+# Release with a Conventional-Commits changelog (git-cliff), a GHCR Deployment link, and a
 # package link (ADR-034). Tag a release with:  git tag v0.1.0 && git push origin v0.1.0
+#
+# ADR-070 changed how the image is produced: this no longer rebuilds at the tag, it retags
+# the digest that was published from main and canaried before the release PR was merged.
+# That means the released bits are exactly the validated bits — and that the ancestry
+# checks in scripts/resolve-release-digest.mjs are what keep an unrelated image from being
+# published under a release version.
 name: Release
 
 on:
@@ -10,35 +16,96 @@ on:
 permissions: {}
 
 jobs:
-  # Gate the release on the same checks that gate a PR merge — a tag can point at any
-  # commit, so re-run CI here rather than trust that the tagged commit passed on main.
+  # Runs as a signal, not as the artifact gate. Since ADR-070 the released image is a
+  # digest already built from main (where branch protection required this same CI), and
+  # the "does this digest belong to this tag" question is answered by the ancestry checks
+  # in the promote job — not by rebuilding here.
   ci:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
 
-  # Reuse the image pipeline; the tag ref makes metadata-action emit semver + latest.
-  image:
+  # Promote the already-built, already-canaried digest instead of rebuilding (ADR-070).
+  # The bits published as 1.2.3/latest are byte-identical to the ones the canary ran.
+  # scripts/resolve-release-digest.mjs is what makes that safe: it only ever considers
+  # ancestors of the tagged commit, cross-checks the image's revision label, and asserts
+  # ancestry explicitly. If it can't tie a digest to this tag, the release fails.
+  promote:
     needs: ci
-    uses: ./.github/workflows/image.yml
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      security-events: write
-    secrets: inherit
+      packages: write        # retag within this repository's own package namespace
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0     # rev-list walks back from the tagged commit
 
-  # Build the TMDB provider sidecar image alongside the main image on every release.
-  provider-tmdb:
-    needs: ci
-    uses: ./.github/workflows/provider-tmdb.yml
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
-    secrets: inherit
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Resolves EVERY published image (scripts/lib/imagetools.mjs owns that list) before
+      # anything is retagged — a sidecar that can't be resolved must not leave a
+      # half-published release with only the core image promoted.
+      - name: Resolve digests
+        id: resolve
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/resolve-release-digest.mjs "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Retag as the release
+        env:
+          IMAGES: ${{ steps.resolve.outputs.images }}
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+
+          # Mirror metadata-action's `latest=auto` + semver patterns: a prerelease gets
+          # only its exact version, never the moving major/minor/latest tags.
+          tags=("$ver")
+          if [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tags+=("${ver%.*}" "${ver%%.*}" "latest")
+          fi
+
+          # Materialise the list first: a process substitution that fails would feed the
+          # loop nothing and exit 0, silently promoting no images at all.
+          pairs="$(jq -er '.[] | "\(.ref) \(.digest)"' <<< "$IMAGES")"
+          [[ -n "$pairs" ]] || { echo "resolve produced no images" >&2; exit 1; }
+
+          while read -r ref digest; do
+            args=()
+            for t in "${tags[@]}"; do args+=(-t "${ref}:${t}"); done
+            echo "Promoting ${ref}@${digest} -> ${tags[*]}"
+            docker buildx imagetools create "${args[@]}" "${ref}@${digest}"
+          done <<< "$pairs"
+
+      - name: Summary
+        env:
+          IMAGES: ${{ steps.resolve.outputs.images }}
+        run: |
+          {
+            echo "### Promoted by retag (ADR-070)"
+            echo ""
+            echo "| Image | Source commit | Digest |"
+            echo "|---|---|---|"
+            jq -r '.[] | "| `\(.name)` | `\(.commit)` | `\(.digest)` |"' <<< "$IMAGES"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   github-release:
-    needs: [image, provider-tmdb]
+    needs: [promote]
     runs-on: ubuntu-latest
     permissions:
       contents: write          # create the GitHub Release

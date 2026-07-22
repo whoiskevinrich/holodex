@@ -148,10 +148,13 @@ it is where the bits came from — but it means the release tag and the image la
 one commit. Preferred over the alternative, where the label is accurate and the *bits* are
 unvalidated.
 
-**Trivy scanning is not re-run on promotion.** The digest was scanned when it was built as
-`edge`. Retagging publishes an already-scanned artifact; a CVE disclosed between the edge
-build and the release tag is not caught. The scheduled scan path is the mitigation, not a
-tag-time re-scan of identical bits.
+**Trivy scanning is not re-run on promotion**, and that removed the last recurring re-scan
+of the release image. The digest was scanned when it was built as `edge`; retagging
+publishes an already-scanned artifact, so a CVE disclosed after that build was never caught
+by anything — the `paths:` filters (ADR-035) mean a quiet week produced no build and
+therefore no scan even before this change. Re-scanning identical bits at tag time is the
+wrong fix; the right one is to decouple scanning from building, so this ADR adds a weekly
+`scan.yml` that Trivies `:latest` and `:edge` for both images against a fresh CVE database.
 
 ## Consequences
 
@@ -175,15 +178,37 @@ tag-time re-scan of identical bits.
 
 ## Action Items
 
-- [ ] Add the release-candidate comment workflow (core + sidecar digest, revision label,
-      freshness vs `main` HEAD, commit coverage, pinned pull command).
-- [ ] Replace the `image` job in `release.yml` with resolve → assert-ancestry → retag; same
-      for `provider-tmdb`.
-- [ ] Test the ancestry assertion, including the negative case (a digest whose revision is
-      not an ancestor must fail the release).
-- [ ] Repin the canary compose to digests and document the roll-forward/rollback steps in
-      `docs/reference/`.
-- [ ] `/security-review` before merge — CI/release infrastructure and GHCR publish scope.
+- [x] Add the release-candidate comment workflow (core + sidecar digest, revision label,
+      freshness vs `main` HEAD, commit coverage, pinned pull command) —
+      `.github/workflows/release-candidate.yml` + `scripts/release-candidate-comment.mjs`.
+- [x] Replace the `image`/`provider-tmdb` jobs in `release.yml` with resolve →
+      assert-ancestry → retag (`promote` job, both images resolved before either is
+      published).
+- [x] Test the ancestry assertion, including the negative cases — a digest whose revision
+      names a different commit, and one that is not an ancestor, must both fail the
+      release (`scripts/resolve-release-digest.test.mjs`). `scripts/**` had no CI runner
+      before this; a `scripts` job in `ci.yml` now runs them.
+- [x] Document the digest-pinned canary and its roll-forward/rollback steps —
+      [`docs/reference/canary-releases.md`](../reference/canary-releases.md).
+- [x] Add the weekly `scan.yml` and drop the now-dead `workflow_call:` triggers and semver
+      tag patterns from `image.yml`/`provider-tmdb.yml` — with promotion no longer calling
+      them, those declarations were unreachable while still reading as the authoritative
+      release-tag policy.
+- [x] `/security-review` — clean. Confirmed the `packages: write` retag is structurally
+      confined to this repo's namespace (refs derive from `GITHUB_REPOSITORY`), that no
+      `${{ }}` expression reaches a `run:` block, that `GITHUB_OUTPUT` injection is
+      impossible (`JSON.stringify` can't emit a newline), and that `release-candidate.yml`
+      is not a pwn-request (it checks out `main`, never a PR head, and no upstream workflow
+      has a `pull_request` trigger). It did surface a non-security integrity bug, now
+      fixed: swallowing every non-zero exit made a registry error indistinguishable from
+      "no image for this commit", so a blip during a release would have let the resolver
+      walk past the right digest and promote an older one. `inspectDigest` now fails closed
+      on anything that isn't a genuine "manifest unknown".
+- [x] Update `docs/testing-strategy.md` — new `scripts` CI stage; `resolve-release-digest.mjs`
+      flagged critical-invariant.
+- [ ] Validate on a real `v*` tag: the first release after this merges should show the
+      `promote` job resolving one commit back from the tag, and the published digest should
+      equal the one named in that release PR's candidate comment.
 - [ ] Follow-up (not this ADR): generate the per-release manual-QA checklist into the same
       comment from the release's Conventional Commits.
 
@@ -194,4 +219,5 @@ tag-time re-scan of identical bits.
 - ADR-034 — release notes + `prod` deployment linkage
 - ADR-035 — image path-scoping + release test-gate (amended here)
 - ADR-044 — Release Please release-PR in front of `release.yml` (promotion step amended here)
+- [`docs/reference/canary-releases.md`](../reference/canary-releases.md) — the operator-facing loop
 - HOLODEX-206 — implementation issue
