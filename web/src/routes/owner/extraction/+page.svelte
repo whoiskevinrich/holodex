@@ -3,10 +3,10 @@
 	// (fixed-key grouping via groupByKind), rows group by video id — an open, dynamic
 	// key set — so grouping/sorting is derived locally: video groups with the most
 	// pending fields sort first (clears the most backlog per click), fields within a
-	// group render People → Studio → Title → Release date → other. "Accept
+	// group render People → Studio → Title → Release date → other. "Keep
 	// tag"/"Dismiss" never touch the file and resolve immediately in place; the other
-	// actions stage a pending write the owner commits via the preview dialog (F48.7a).
-	// Tokens only; QA 3 skins.
+	// actions stage a pending write the owner commits via the sticky commit bar's
+	// preview dialog (F48.7a). Tokens only; QA 3 skins.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import ExtractionQueueRow from '$lib/components/ExtractionQueueRow.svelte';
@@ -213,17 +213,6 @@
 		<p class="text-sm text-warn" role="alert">{extractError}</p>
 	{/if}
 
-	{#if stagedCount > 0}
-		<div class="flex justify-end">
-			<button
-				onclick={() => (showPreview = true)}
-				class="rounded-theme bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90"
-			>
-				Review {stagedCount} change{stagedCount === 1 ? '' : 's'}
-			</button>
-		</div>
-	{/if}
-
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if error}
@@ -251,6 +240,33 @@
 				{/each}
 			</section>
 		{/each}
+
+		<!-- Commit bar. Sticky and unconditionally mounted whenever there are rows, so
+		     staging the first pick doesn't shift the queue and the write control stays
+		     reachable from row 400 as easily as from row 1 (HOLODEX-199). -->
+		<div
+			class="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-surface px-3 py-2.5"
+		>
+			<p class="text-sm text-muted" aria-live="polite">
+				{stagedCount} staged · {rows.length} row{rows.length === 1 ? '' : 's'} left
+			</p>
+			<div class="flex items-center gap-2">
+				<button
+					onclick={() => (staged = {})}
+					disabled={stagedCount === 0}
+					class="rounded-theme border border-rule px-2.5 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:border-transparent disabled:text-muted"
+				>
+					Clear
+				</button>
+				<button
+					onclick={() => (showPreview = true)}
+					disabled={stagedCount === 0}
+					class="rounded-theme bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-muted"
+				>
+					Review &amp; write {stagedCount}
+				</button>
+			</div>
+		</div>
 	{/if}
 </div>
 
