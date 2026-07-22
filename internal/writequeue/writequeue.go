@@ -222,7 +222,7 @@ func (q *Queue) worker(ctx context.Context) {
 func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	started := time.Now()
 	// batchID is captured by snapshotBeforeWrite below and read back here, so the
-	// run records the snapshot batch it belongs to as a column (ADR-070) rather
+	// run records the snapshot batch it belongs to as a column (ADR-071) rather
 	// than only inside detail's "batch <id>" suffix. Empty until the snapshot is
 	// taken — the early-return paths (corrupt payload, missing video) legitimately
 	// have no batch.

@@ -1,6 +1,7 @@
-# Build, push, and scan the Holodex runtime image (ADR-023).
-# - on push to main / manual dispatch: continuous build, tagged edge + sha-<short>.
-# - via workflow_call (from release.yml on a v* tag): tagged with semver + latest.
+# Build, push, and scan the Holodex runtime image (ADR-023). Tags every build `edge` and
+# `sha-<short>`; it does NOT produce release tags. Since ADR-070 a v* release retags the
+# `sha-<short>` digest that was already built here and canaried, so semver/`latest` are
+# applied by release.yml's promote job and this workflow has no release path.
 # Multi-arch (amd64 + arm64); Trivy scans the pushed image into the Security tab.
 name: Build image
 
@@ -8,8 +9,9 @@ on:
   push:
     branches: [main]
     # Only rebuild when something that lands in the image changes. Docs/site/spec-only
-    # merges skip the (~5 min multi-arch) build. workflow_dispatch and workflow_call
-    # (release.yml on a v* tag) ignore paths, so tagged releases always build.
+    # merges skip the (~5 min multi-arch) build. A skipped build leaves `edge` behind
+    # main — the release-candidate comment reports that (ADR-070); use workflow_dispatch
+    # to force a rebuild.
     paths:
       - 'cmd/**'
       - 'internal/**'
@@ -20,7 +22,6 @@ on:
       - '.dockerignore'
       - '.github/workflows/image.yml'
   workflow_dispatch:
-  workflow_call:
 
 concurrency:
   group: image-${{ github.ref }}
@@ -64,14 +65,12 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `sha-<short>` is not just provenance — it is the handle release.yml resolves
+          # and retags at release time (ADR-070). Don't drop it.
           tags: |
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,prefix=sha-,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          # latest=auto → `latest` is added on semver tag events only, never on a main push.
-          flavor: latest=auto
+          flavor: latest=false
 
       - name: Build and push
         id: build

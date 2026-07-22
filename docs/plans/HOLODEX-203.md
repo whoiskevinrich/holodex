@@ -16,7 +16,7 @@ release_note:                # the ONE user-facing sentence; authored once by /h
 audit trail" without loading 30 days of rows. Done when the digest is the default view, the log
 reads through a keyset cursor, and job runs attribute to the entity they touched.
 
-**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · [ADR-070](../architecture/ADR-070-job-run-attribution-and-paginated-history.md) · handoff pending · testing-strategy pending
+**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) · handoff pending · testing-strategy pending
 
 ## Gates — definition of done
 
@@ -24,7 +24,7 @@ reads through a keyset cursor, and job runs attribute to the entity they touched
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [/] spec `write-spec` → `docs/specs/job-history-digest-and-search.md`
-- [/] architecture `architecture` → [ADR-070](../architecture/ADR-070-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (drafted, Proposed)
+- [/] architecture `architecture` → [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (drafted, Proposed)
 - [/] backend — phase 2 (migration 0028, attribution, `batch_id`) done; digest + keyset endpoints outstanding
 - [/] frontend — phase 1 (ungate + error state) and the Revert-on-column switch landed; digest/log views outstanding
 - [ ] testing `testing-strategy`

@@ -1,4 +1,4 @@
--- HOLODEX-207 (ADR-070, extends ADR-028): job_runs learns *what* a run touched.
+-- HOLODEX-207 (ADR-071, extends ADR-028): job_runs learns *what* a run touched.
 --
 -- Two of the nine kinds record one run per item (writeback: one per video;
 -- enrich: one per provider x entity), but the row never said which entity, so

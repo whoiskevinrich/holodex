@@ -99,7 +99,7 @@ func TestQueue_WritesAndAudits(t *testing.T) {
 	if wb == nil || wb.Status != model.JobStatusOK || wb.Updated != 2 {
 		t.Fatalf("want a successful writeback job_run with 2 fields, got %+v", wb)
 	}
-	// Attribution (ADR-070): the run names the video it wrote.
+	// Attribution (ADR-071): the run names the video it wrote.
 	if wb.EntityType != model.EnrichEntityVideo || wb.EntityID != id {
 		t.Errorf("attribution = %q/#%d, want video/#%d", wb.EntityType, wb.EntityID, id)
 	}

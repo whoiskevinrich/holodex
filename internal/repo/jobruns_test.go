@@ -119,7 +119,7 @@ func TestJobRunsRetention(t *testing.T) {
 	}
 }
 
-// Attribution columns (ADR-070, migration 0028) round-trip, and a library-wide
+// Attribution columns (ADR-071, migration 0028) round-trip, and a library-wide
 // kind that names no entity stays zero-valued rather than needing a sentinel.
 func TestJobRunsAttributionRoundTrip(t *testing.T) {
 	r := newRepo(t)

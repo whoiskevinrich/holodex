@@ -401,7 +401,7 @@ export interface JobRun {
 	errors: number;
 	error_message?: string;
 	detail?: string; // short description for non-scan jobs, e.g. enrich (F22.6b)
-	// What this run acted on (ADR-070). Absent for library-wide kinds (scan, the
+	// What this run acted on (ADR-071). Absent for library-wide kinds (scan, the
 	// backfills). Not a foreign key — job_runs outlives what it describes, so the
 	// id may no longer resolve to a live entity.
 	entity_type?: 'video' | 'person' | 'studio';

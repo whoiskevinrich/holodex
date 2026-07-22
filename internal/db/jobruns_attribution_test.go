@@ -2,7 +2,7 @@ package db_test
 
 import "testing"
 
-// Migration 0028 (ADR-070) is append-only with a manual down, so both directions
+// Migration 0028 (ADR-071) is append-only with a manual down, so both directions
 // have to hold: the up must add attribution to a job_runs table that already has
 // rows, and the down must leave the table usable rather than half-dropped.
 func TestMigration0028JobRunAttributionUpAndDown(t *testing.T) {

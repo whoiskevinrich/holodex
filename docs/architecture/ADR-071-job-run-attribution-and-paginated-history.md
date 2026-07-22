@@ -1,4 +1,4 @@
-# ADR-070: Job runs attribute to an entity; history reads through a keyset cursor
+# ADR-071: Job runs attribute to an entity; history reads through a keyset cursor
 
 **Status:** Proposed
 **Date:** 2026-07-22
@@ -216,5 +216,5 @@ page — they are user input, not a contract violation.
       `merge-person-*` batch (the regression this ADR names); cursor paging across a tie group of
       rows sharing one `started_at`.
 - [ ] Update [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md)
-      and the parent worklog: this is **ADR-070**, not the ADR-069 the spec reserved — 069 was taken
+      and the parent worklog: this is **ADR-071**, not the ADR-069 the spec reserved — 069 was taken
       by [draft PRs for pre-implementation gates](ADR-069-draft-prs-for-pre-implementation-gates.md).

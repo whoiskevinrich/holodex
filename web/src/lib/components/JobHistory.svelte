@@ -10,7 +10,7 @@
 	// describe themselves in the detail row instead.
 	const count = (r: JobRun, n: number): number | string => (r.kind === 'scan' ? n : '—');
 
-	// Revert (F48.9d, ADR-067). The batch id is a column on the run (ADR-070); it
+	// Revert (F48.9d, ADR-067). The batch id is a column on the run (ADR-071); it
 	// used to be recovered by regexing the "· batch <id>" suffix out of the
 	// free-text detail line, which never matched a merge-propagation batch —
 	// those are named "merge-person-N-M" and the pattern required digits — so

@@ -9,7 +9,7 @@
 **Depends on**: F21 System Activity ([spec](system-activity.md), [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md)) — this spec changes the read path and schema that ADR-028 established.
 
 **New ADRs required**:
-- **[ADR-070](../architecture/ADR-070-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
+- **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
 
 ---
 
@@ -207,7 +207,7 @@ Step 2 is the only irreversible one, and it is worth doing on the forensics and 
 ## Gates
 
 - [ ] **Spec** — this document
-- [x] **[ADR-070](../architecture/ADR-070-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract
+- [x] **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract
 - [ ] **Design handoff** — two-mode UI, rollup affordance, three-skin states
 - [ ] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated; keyset-cursor and rollup-boundary cases covered
 - [x] **Security review** — not required; endpoints stay within the existing `requireOwner` group and no auth surface changes

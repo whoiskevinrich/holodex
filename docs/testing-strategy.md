@@ -137,7 +137,7 @@ assert.JSONEq(t, string(want), string(got))
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
-| **Job-run attribution** (ADR-070, HOLODEX-207) | Unit + Integration | Migration 0028 **up and down** against a table that already holds rows (pre-migration rows default to unattributed; down drops the index and all three columns but **no data**); `entity_type`/`entity_id` recorded at each attributing path (writeback → its video, refresh → `report.VideoID`, enrich → its entity pair); library-wide kinds stay **zero-valued**, not sentinel; `batch_id` round-trips a **non-numeric** `merge-person-N-M` id — the shape the retired `/· batch (\d+)/` regex could not match, which left Revert unavailable for merge propagation; **no foreign key** (a run outlives the entity it names, so `entity_id` may dangle) | ~90% |
+| **Job-run attribution** (ADR-071, HOLODEX-207) | Unit + Integration | Migration 0028 **up and down** against a table that already holds rows (pre-migration rows default to unattributed; down drops the index and all three columns but **no data**); `entity_type`/`entity_id` recorded at each attributing path (writeback → its video, refresh → `report.VideoID`, enrich → its entity pair); library-wide kinds stay **zero-valued**, not sentinel; `batch_id` round-trips a **non-numeric** `merge-person-N-M` id — the shape the retired `/· batch (\d+)/` regex could not match, which left Revert unavailable for merge propagation; **no foreign key** (a run outlives the entity it names, so `entity_id` may dangle) | ~90% |
 | **Owner gating seam** (ADR-030, F21.7) | Unit + Integration | Open (no token) vs gated (token set) on every owner route; **constant-time** token compare; **fail-loud** on non-loopback bind + no token; **CSRF** rejection of cross-site admin POST; frontend capability-flag toggle hides controls | ~95% |
 | **Owner session cookie** (ADR-046) | Unit + Integration | `POST /session` exchange sets cookie on valid token / **401 + no cookie** on wrong; cookie value is **signed, not the raw token**; cookie carries `HttpOnly` + `SameSite=Strict`; gated route + `/capabilities owner` authorized **by cookie** *and* (no regression) **by header**; **tampered/expired cookie → 401 + expiring `Set-Cookie`**; `DELETE /session` sign-out (idempotent); **"trust this device" longer `Max-Age`** (server-set, not client-forgeable); sliding renewal same-class never resurrecting expired; gate-open exchange is a no-op (no cookie); `Secure` set except plain-HTTP loopback | ~90% |
 | **Related-media endpoint** (ADR-031, QW2/QW3) | Unit + Integration | Person key = highest **global** video count (tie-break lowest id); tag key = **most distinctive** by `c·(1−c/N)` (a **near-universal tag is demoted** below a mid-frequency one; tie-break higher `c`, then lowest id); items **exclude current item**, **active-only**, **≤5**; `items:[]` valid when no siblings; `person`/`tag` null when the item has none; **404** unknown/inactive id; attached people/tags present (**no N+1**). Selection is **deterministic** (pin the chosen key); only the item *draw* is `RANDOM()` — assert **set membership / exclusion / count**, never order. **Stability** (client fetch-once-per-view) is a page-level test (§5), not the endpoint's | ~90% |
@@ -305,6 +305,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 |-------|------|------|
 | **lint** | `golangci-lint`, `svelte-check`, `eslint`, `prettier` | every push |
 | **unit** | `go test -short ./...`, `vitest run` (no binaries/docker) | every push, < 60s |
+| **scripts** | `make test-scripts` (`node --test "scripts/**/*.test.mjs"`, zero deps) | every push, < 5s |
 | **integration** | `go test ./...` in the Debian image (exiftool+ffprobe+sqlite present); generates fixtures first | every PR |
 | **e2e** | `docker compose up` + Playwright | every PR |
 | **a11y + visual** | Playwright + axe + screenshot diff | every PR |
@@ -314,6 +315,11 @@ Conventions:
 - Go: standard `testing`, table-driven, `testify/require` for assertions, golden files with `-update`.
 - Integration tests gated by build tag `//go:build integration` (or `-short` skip) so the inner loop stays binary-free.
 - Frontend: Vitest (jsdom) for unit/component; Playwright for browser.
+- **Automation scripts** (`scripts/**`): `node:test` + `node:assert/strict`, no dependencies. I/O is
+  injected (`exec`) so the logic is testable without a registry or a Jira. `scripts/resolve-release-digest.mjs`
+  decides which image digest gets published as a release (ADR-070), so its **negative** cases are the
+  point — a mismatched revision label, a non-ancestor commit, and a registry error that must abort rather
+  than be mistaken for "no image here" each have a test. Treat that file as critical-invariant.
 - Fixtures generated deterministically in CI; goldens committed.
 - Coverage reported per-package; PRs surface deltas (informational, not a hard gate except on the critical-invariant packages).
 

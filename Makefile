@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration tidy fixtures web-dev web-build docker
+.PHONY: run build test test-go test-scripts test-integration tidy fixtures web-dev web-build docker
 
 run:
 	go run ./cmd/holodex
@@ -6,8 +6,16 @@ run:
 build:
 	CGO_ENABLED=0 go build -tags production -o holodex ./cmd/holodex
 
-test:
+test: test-go test-scripts
+
+test-go:
 	go test ./...
+
+# Dependency-free node scripts (Jira sync, release-digest resolution). Folded into `test`
+# because scripts/resolve-release-digest.mjs decides what gets published as a release
+# (ADR-070) — a green `make test` shouldn't be able to hide a break there.
+test-scripts:
+	node --test "scripts/**/*.test.mjs"
 
 test-integration:
 	go test -tags integration ./...
