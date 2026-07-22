@@ -98,7 +98,7 @@ a direct query of the films testbed DB rather than assumption:
 - **`recorded_at` as an Age-in-Media input, at all** — *(Why: D1 — proven actively wrong for library content,
   not merely sparse; `release_date` is the sole input.)*
 - **Role-filtered Age in Media** ("lead actor's age") — *(Why: `video_people` has no `role` column yet —
-  ADR-059 is `Proposed`, not implemented. Every linked cast member gets an age, unfiltered by role, in this
+  ADR-072 is `Proposed`, not implemented. Every linked cast member gets an age, unfiltered by role, in this
   phase.)*
 - **Editing / curating a computed relationship value** — *(Why: same non-adoptable convention as F45 Age — no
   `Decision`, no writeback, no promote pill, ever.)*
@@ -193,7 +193,7 @@ equivalent) so MCP and other API consumers get it without a dedicated endpoint, 
 
 - Persisted, queryable value index (Phase 2 trigger, sized to Nationality's facet-query need).
 - Categorical/text operator wired to a real UI control (Nationality, Phase 2).
-- Role-scoped join filtering ("lead actor's age") — blocked on the `video_people` `role` column (ADR-059) and
+- Role-scoped join filtering ("lead actor's age") — blocked on the `video_people` `role` column (ADR-072) and
   TMDB billing-order persistence (HOLODEX-180).
 - Search-bar / facet surface for Age in Media itself.
 

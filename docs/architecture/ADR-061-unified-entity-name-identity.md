@@ -4,7 +4,7 @@
 **Date:** 2026-07-05
 **Deciders:** Project owner
 
-**Realizes / picks up:** [ADR-053](ADR-053-studio-entity-and-resolved-link-derivation.md) (studio entity — **realizes its deferred RD4 identity ops**: rename/aliases/merge, which ADR-053 explicitly parked as "a P2 worth building the first time two real spellings both carry libraries." The probe below is that moment) · [ADR-036](ADR-036-person-alias-search-indexing.md) / F23 (person aliases — **generalizes** its name-routing + FTS-mirror pattern from person-only to all three entities). **Complements (does not conflict):** [ADR-055](ADR-055-enrichment-unique-key-invariant.md) — ADR-055 governs **provider-supplied** identity (namespaced `external_id`, no name fallback) and repeatedly carves out owner-curated **name** identity as "a separate system, untouched." **This ADR is that separate system.** The two compose into one resolve order (§D5). **Extends:** [ADR-054](ADR-054-studio-external-id-dedup.md) (external-id-first resolve — this ADR defines the *next* step after an id miss) · [ADR-052](ADR-052-baseline-source-contract.md)/[ADR-051](ADR-051-per-field-source-of-truth-decisions.md) (entity-generic seams — name-identity becomes the next entity-generic mechanism, the way resolution did) · [ADR-017](ADR-017-search-architecture.md) (mixed-entity FTS — alias search mirror) · [ADR-028](ADR-028-activity-surface-and-job-history.md) (one-time backfill as an observable job) · [ADR-030](ADR-030-access-control-gating-seam.md) (merge/alias mutations are owner-gated) · [ADR-018](ADR-018-scanner-change-detection.md) (scan-time resolve) · [ADR-059](ADR-059-person-link-resolved-derivation.md) (person link resolved-derivation — makes `video_people` **derived** via a generic `RelinkVideoEntity` and routes person names through the alias table at derivation time, so **person** merge now survives re-derivation like studio; convergence in D6). **Supersedes (narrowly):** ADR-053's "exact-name, no case-folding beyond binary collation" studio identity and its RD4 deferral; the tag "bare string" identity (repo.go `getOrCreateByName`). **Spec:** [entity-identity (F43)](../specs/entity-identity.md). **Issue:** HOLODEX-TBD (epic) + per-entity conformance sub-tasks.
+**Realizes / picks up:** [ADR-053](ADR-053-studio-entity-and-resolved-link-derivation.md) (studio entity — **realizes its deferred RD4 identity ops**: rename/aliases/merge, which ADR-053 explicitly parked as "a P2 worth building the first time two real spellings both carry libraries." The probe below is that moment) · [ADR-036](ADR-036-person-alias-search-indexing.md) / F23 (person aliases — **generalizes** its name-routing + FTS-mirror pattern from person-only to all three entities). **Complements (does not conflict):** [ADR-055](ADR-055-enrichment-unique-key-invariant.md) — ADR-055 governs **provider-supplied** identity (namespaced `external_id`, no name fallback) and repeatedly carves out owner-curated **name** identity as "a separate system, untouched." **This ADR is that separate system.** The two compose into one resolve order (§D5). **Extends:** [ADR-054](ADR-054-studio-external-id-dedup.md) (external-id-first resolve — this ADR defines the *next* step after an id miss) · [ADR-052](ADR-052-baseline-source-contract.md)/[ADR-051](ADR-051-per-field-source-of-truth-decisions.md) (entity-generic seams — name-identity becomes the next entity-generic mechanism, the way resolution did) · [ADR-017](ADR-017-search-architecture.md) (mixed-entity FTS — alias search mirror) · [ADR-028](ADR-028-activity-surface-and-job-history.md) (one-time backfill as an observable job) · [ADR-030](ADR-030-access-control-gating-seam.md) (merge/alias mutations are owner-gated) · [ADR-018](ADR-018-scanner-change-detection.md) (scan-time resolve) · [ADR-072](ADR-072-person-link-resolved-derivation.md) (person link resolved-derivation — makes `video_people` **derived** via a generic `RelinkVideoEntity` and routes person names through the alias table at derivation time, so **person** merge now survives re-derivation like studio; convergence in D6). **Supersedes (narrowly):** ADR-053's "exact-name, no case-folding beyond binary collation" studio identity and its RD4 deferral; the tag "bare string" identity (repo.go `getOrCreateByName`). **Spec:** [entity-identity (F43)](../specs/entity-identity.md). **Issue:** HOLODEX-TBD (epic) + per-entity conformance sub-tasks.
 
 ---
 
@@ -144,14 +144,14 @@ prune-on-empty. (This is the precise reason ADR-053 could *defer* merge — it h
 this ADR must *add* one.) Person merge already does this (`MergePersons` registers the merged name as an
 alias); studio and tag inherit the pattern.
 
-**Convergence with ADR-059 (person links become derived too).** ADR-059 (F40) migrates `video_people` from
+**Convergence with ADR-072 (person links become derived too).** ADR-072 (F40) migrates `video_people` from
 raw scan-time extraction to **resolved-value derivation** via a generic `RelinkVideoEntity` (folding
 `RelinkVideoStudios` in), and routes person names through `resolveOrCreatePerson`'s alias table **at
 derivation time**. So the alias-survives-re-derivation property this decision establishes for studio becomes
 the property person **also depends on** — a person merge without the registered alias would be undone by
 `RelinkVideoEntity` exactly as a studio merge would. This is a convergence, not a conflict: `RelinkVideoEntity`
 must resolve person names through **this ADR's `resolveOrCreateByName`** (the id→name→create order, D5), and
-ADR-059's authored-identity prune guard is satisfied by the registered alias (an alias *is* authored identity).
+ADR-072's authored-identity prune guard is satisfied by the registered alias (an alias *is* authored identity).
 The two ADRs are complementary; whichever lands second wires its derivation reconcile to call the shared
 resolver rather than a second name-routing path.
 
@@ -301,7 +301,7 @@ keeps a future contributor from "fixing" one by breaking the other.
   verify search parity before dropping the old table.
 - **Studio derived-name interaction** — confirm merge-alias + prune-on-empty + keep-separate compose cleanly
   across a re-enrich/decision-change (the ADR-053 derivation matrix gains identity rows).
-- **ADR-059 resolver convergence** — whichever of F43 (this) / F40 (ADR-059) lands second must wire
+- **ADR-072 resolver convergence** — whichever of F43 (this) / F40 (ADR-072) lands second must wire
   `RelinkVideoEntity`'s person name-routing to this ADR's `resolveOrCreateByName` (one resolver, not two), and
   confirm the authored-identity prune guard treats a merge-registered alias as authored identity (it does — an
   alias blocks the orphan prune). The "person merge survives re-derivation" case joins the testing matrix.

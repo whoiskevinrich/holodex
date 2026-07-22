@@ -13,7 +13,7 @@ capitalization, and gives Studios and Tags the merge/alias capability People alr
 - F23 person aliases + merge ([person-aliases.md](person-aliases.md), [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)) — the pattern this generalizes; `person_aliases` migrates onto the shared spine.
 - The studio entity ([studio-entity.md](studio-entity.md), [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)) — studio links **derive** from the resolved field, so studio merge must register an alias (RD6).
 - Studio external-id de-dup ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)) / the enrichment unique-key invariant ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — provider identity; this spec is the **name** side that ADR-055 explicitly leaves separate (RD3).
-- Person link resolved-derivation ([ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md), spec F40) — makes `video_people` **derived** via a generic `RelinkVideoEntity` that routes names through the alias table at derivation time; F43 is the alias/merge spine that derivation routes through, and person merge now survives re-derivation like studio (RD6). The two converge on one `resolveOrCreateByName`; whichever lands second wires to it.
+- Person link resolved-derivation ([ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md), spec F40) — makes `video_people` **derived** via a generic `RelinkVideoEntity` that routes names through the alias table at derivation time; F43 is the alias/merge spine that derivation routes through, and person merge now survives re-derivation like studio (RD6). The two converge on one `resolveOrCreateByName`; whichever lands second wires to it.
 - The owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`); System Activity job history ([F21](system-activity.md)/[ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md)) for the backfill; the Owner hub ([F35](owner-tooling-hub.md), `/owner`) for the review queue.
 
 **ADR**: [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) (Proposed) — the shared spine,
@@ -103,7 +103,7 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 - **RD6 — Studio & Tag get full alias + merge + rename; studio merge registers an alias** (ADR-061 D6).
   Merging B→A repoints associations, moves decisions/curation/enrichment, **registers B's name as an alias of
   A**, deletes B. For studios the alias is load-bearing: without it, ADR-053's `RelinkVideoStudios` would
-  re-create B from the resolved field on the next reconcile. **Person too, under ADR-059**: once `video_people`
+  re-create B from the resolved field on the next reconcile. **Person too, under ADR-072**: once `video_people`
   is derived via `RelinkVideoEntity`, a person merge without the registered alias is undone the same way — so
   the alias is load-bearing for all three, not a studio-only quirk. (`MergePersons` already registers the alias.)
 - **RD7 — Tags: identity-only, light list actions** (ADR-061 D7 + card). Tags gain `nameKey` + aliases +

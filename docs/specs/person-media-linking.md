@@ -30,7 +30,7 @@ now closing F37's explicit **no-writeback** gap for people *and* amending F38's 
 - the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
 - the `EnrichPicker` roving-tabindex control (reused for the person link picker)
 
-**ADR**: [ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md) (Proposed) records the two decisions that rise to ADR level:
+**ADR**: [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) (Proposed) records the two decisions that rise to ADR level:
 (1) **`video_people` migrates to resolved-value derivation** (replacing scan-time raw-extraction,
 mirroring ADR-053) with a **`role` column derived from the source person-typed field**, and
 (2) the **`entity: person` field marker** that makes derivation + writeback + the link picker
@@ -166,7 +166,7 @@ flagged people as still exposed to.
   (already in the writeback map; canonical name). Studio↔video derivation already exists
   (`RelinkVideoStudios`, folded into `RelinkVideoEntity` by RD6), so this slice is picker + surfaced
   writeback, not new derivation. This **amends [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)'s
-  explicit "no studio writeback / no write button" non-goal** — recorded in ADR-059. Studios keep
+  explicit "no studio writeback / no write button" non-goal** — recorded in ADR-072. Studios keep
   **immediate** prune (RD8's grace is person-only: studio identity is derived, nothing authored to
   lose). The `entity:` marker generalizes to `entity: studio` for picker/writeback targeting.
 - **RD10 — Inline bare-create in the picker.** Typing a name that matches no person creates a
@@ -375,7 +375,7 @@ the owner 2026-07-04 → RD8, RD6, RD9, RD10.)*
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ✅ **`/architecture`** — [ADR-059](../architecture/ADR-059-person-link-resolved-derivation.md):
+1. ✅ **`/architecture`** — [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md):
    `video_people` resolved-derivation + `role` column (unset-capable) + `entity:` marker + orphan grace
    + the `RelinkVideoEntity` generalization + the **studio-writeback amendment to ADR-053** (RD11).
    Extends ADR-053; relates ADR-036/041/013/030/052/055. **Update F32's spec** to rebase onto it (pending).

@@ -178,7 +178,7 @@ The frontend (`web/src/routes/media/[id]/+page.svelte`, `PersonPoster.svelte`) r
 - **Any operator wired to a UI or a query path** — spec D2/Non-Goal; `OperatorsByType` is data only.
 - **A generic N-entity relationship engine** — every relationship-scoped field in epic HOLODEX-178 (Age in Media, Phase 3's role-scoped joins) is person×video. Building a type-parametrized "any two entities" engine now would be speculative; `DeriveRelationship`'s two named parameters (`person`, `video`) are deliberately concrete, not generic.
 - **A batched, single-query birthdate fetch for cast lists** — considered (Options B) and deferred; today's per-person reuse is correct and proportionate at this project's scale.
-- **Role-filtering** ("lead actor's age") — blocked on `video_people.role` (ADR-059, Proposed) and TMDB billing-order persistence (HOLODEX-180); out of scope per spec.
+- **Role-filtering** ("lead actor's age") — blocked on `video_people.role` (ADR-072, Proposed) and TMDB billing-order persistence (HOLODEX-180); out of scope per spec.
 
 ---
 

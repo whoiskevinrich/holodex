@@ -1,4 +1,4 @@
-# ADR-059: Person link resolved-derivation — role, orphan grace, and a generic `entity: person` reconcile
+# ADR-072: Person link resolved-derivation — role, orphan grace, and a generic `entity: person` reconcile
 
 **Status:** Proposed
 **Date:** 2026-07-04
@@ -368,5 +368,5 @@ server.
 12. [ ] **Studio parity (P0, ships with people, §6):** studio link picker (curate `studio`; reuse the
     person picker) + surface `studio → Publisher` writeback; note the ADR-053 non-goal reversal;
     studios stay on immediate prune. Covered by `/security-review` (studio counterpart of the person write).
-13. [ ] Add ADR-059 to `docs/architecture/README.md`; cross-reference from F40 spec; **update the F32
+13. [ ] Add ADR-072 to `docs/architecture/README.md`; cross-reference from F40 spec; **update the F32
     spec** to rebase onto this data model.
