@@ -119,6 +119,56 @@ func TestJobRunsRetention(t *testing.T) {
 	}
 }
 
+// Attribution columns (ADR-070, migration 0028) round-trip, and a library-wide
+// kind that names no entity stays zero-valued rather than needing a sentinel.
+func TestJobRunsAttributionRoundTrip(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// A writeback run naming its video and its snapshot batch. The batch id is
+	// deliberately non-numeric: a merge propagates under "merge-person-N-M"
+	// (api.mergeBatchID), which is exactly what the retired detail-line regex
+	// `/· batch (\d+)/` could not match, leaving Revert unavailable for the one
+	// case shared batches exist for.
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindWriteback, Trigger: model.TriggerManual, Status: model.JobStatusOK,
+		StartedAt: now, FinishedAt: now,
+		EntityType: model.EnrichEntityVideo, EntityID: 412, BatchID: "merge-person-7-9",
+	}); err != nil {
+		t.Fatalf("record writeback: %v", err)
+	}
+	// A scan is library-wide — nothing to attribute.
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindScan, Trigger: model.TriggerInitial, Status: model.JobStatusOK,
+		StartedAt: now.Add(-time.Minute), FinishedAt: now.Add(-time.Minute),
+	}); err != nil {
+		t.Fatalf("record scan: %v", err)
+	}
+
+	runs, err := r.ListJobRuns(ctx, 30)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("runs = %d, want 2", len(runs))
+	}
+	wb, scan := runs[0], runs[1]
+	if wb.Kind != model.JobKindWriteback {
+		t.Fatalf("newest run = %q, want writeback", wb.Kind)
+	}
+	if wb.EntityType != model.EnrichEntityVideo || wb.EntityID != 412 {
+		t.Errorf("attribution = %q/#%d, want video/#412", wb.EntityType, wb.EntityID)
+	}
+	if wb.BatchID != "merge-person-7-9" {
+		t.Errorf("batch id = %q, want the non-numeric merge batch preserved verbatim", wb.BatchID)
+	}
+	if scan.EntityType != "" || scan.EntityID != 0 || scan.BatchID != "" {
+		t.Errorf("a library-wide run must stay unattributed, got %q/#%d/%q",
+			scan.EntityType, scan.EntityID, scan.BatchID)
+	}
+}
+
 func TestLibraryCounts(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

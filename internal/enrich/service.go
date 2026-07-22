@@ -448,6 +448,11 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 		StartedAt:  started,
 		FinishedAt: now,
 		DurationMs: now.Sub(started).Milliseconds(),
+		// Attribution (ADR-070): the same entity the detail line names, as
+		// columns, so "what touched person #18?" is a query rather than a
+		// substring search. Ids only — no new information leaves the process.
+		EntityType: entityType,
+		EntityID:   entityID,
 	}
 	if enrichErr != nil {
 		run.Status = model.JobStatusErr

@@ -25,8 +25,8 @@ reads through a keyset cursor, and job runs attribute to the entity they touched
 
 - [/] spec `write-spec` → `docs/specs/job-history-digest-and-search.md`
 - [/] architecture `architecture` → [ADR-070](../architecture/ADR-070-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (drafted, Proposed)
-- [ ] backend
-- [/] frontend — phase 1 (ungate + error state) landed; digest/log views outstanding
+- [/] backend — phase 2 (migration 0028, attribution, `batch_id`) done; digest + keyset endpoints outstanding
+- [/] frontend — phase 1 (ungate + error state) and the Revert-on-column switch landed; digest/log views outstanding
 - [ ] testing `testing-strategy`
 - [x] security `security-review` — not required: endpoints stay inside the existing `requireOwner` group, no auth surface change
 
@@ -36,10 +36,10 @@ reads through a keyset cursor, and job runs attribute to the entity they touched
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [backend] Migration 0028 + populate `entity_type`/`entity_id`/`batch_id` from writeback/refresh/enrich; delete the Revert regex — `internal/db/migrations/`, `internal/writequeue/`, `internal/enrich/`, `web/src/lib/components/JobHistory.svelte` → HOLODEX-207
-2. [ ] [—] Owner answers Q1: does phase 1 alone fix the load time? Phases 3–5 are re-justified or dropped on the answer — `docs/specs/job-history-digest-and-search.md`
-3. [ ] [backend] Digest + keyset-paginated history endpoints — `internal/api/`, `internal/repo/jobruns.go`  ⛔ blocked on #2
-4. [ ] [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" has no regression guard — `web/src/lib/*.test.ts`
+1. [ ] [—] Owner answers Q1: does phase 1 alone fix the load time? Phases 3–5 are re-justified or dropped on the answer — `docs/specs/job-history-digest-and-search.md`
+2. [ ] [backend] Digest + keyset-paginated history endpoints — `internal/api/`, `internal/repo/jobruns.go`  ⛔ blocked on #1
+3. [ ] [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" has no regression guard — `web/src/lib/*.test.ts`
+4. [ ] [frontend] Entity label resolution — render `#<id> (deleted)` when attribution no longer resolves (P0-1's remaining criterion; lands with the log view)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

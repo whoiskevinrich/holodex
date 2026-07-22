@@ -192,6 +192,11 @@ func TestRefreshRecordsOneCombinedJobRun(t *testing.T) {
 	if !strings.Contains(run.Detail, "#42") || strings.Contains(run.Detail, "/m/") {
 		t.Fatalf("detail must reference #id and carry no path: %q", run.Detail)
 	}
+	// Attribution (ADR-070) — the same video the detail names, as columns, so a
+	// failed refresh is findable by entity and not only by reading the text.
+	if run.EntityType != model.EnrichEntityVideo || run.EntityID != 42 {
+		t.Errorf("attribution = %q/#%d, want video/#42", run.EntityType, run.EntityID)
+	}
 }
 
 // A file that can't be read fails the refresh before persistence — the row is

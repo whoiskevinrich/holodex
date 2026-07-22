@@ -211,6 +211,10 @@ func (s *Service) record(started time.Time, report Report, runErr error) {
 		StartedAt:  started,
 		FinishedAt: now,
 		DurationMs: now.Sub(started).Milliseconds(),
+		// Attribution (ADR-070) — refresh is always per-video, so the run can
+		// name the video it re-extracted instead of only mentioning it in detail.
+		EntityType: model.EnrichEntityVideo,
+		EntityID:   report.VideoID,
 	}
 	switch {
 	case runErr != nil:

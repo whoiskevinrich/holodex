@@ -10,14 +10,13 @@
 	// describe themselves in the detail row instead.
 	const count = (r: JobRun, n: number): number | string => (r.kind === 'scan' ? n : '—');
 
-	// Revert (F48.9d, ADR-067). A writeback job's batch id has no dedicated JSON
-	// field — it rides the free-text detail line's "· batch <id>" suffix
-	// (writequeue.detailLine) — so a writeback run only offers Revert when that
-	// suffix parses.
+	// Revert (F48.9d, ADR-067). The batch id is a column on the run (ADR-070); it
+	// used to be recovered by regexing the "· batch <id>" suffix out of the
+	// free-text detail line, which never matched a merge-propagation batch —
+	// those are named "merge-person-N-M" and the pattern required digits — so
+	// Revert was silently missing for the one case shared batches exist for.
 	function batchId(r: JobRun): string | null {
-		if (r.kind !== 'writeback' || !r.detail) return null;
-		const m = /· batch (\d+)/.exec(r.detail);
-		return m ? m[1] : null;
+		return r.kind === 'writeback' && r.batch_id ? r.batch_id : null;
 	}
 
 	interface RevertStatus {

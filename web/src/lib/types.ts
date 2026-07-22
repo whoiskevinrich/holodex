@@ -401,6 +401,13 @@ export interface JobRun {
 	errors: number;
 	error_message?: string;
 	detail?: string; // short description for non-scan jobs, e.g. enrich (F22.6b)
+	// What this run acted on (ADR-070). Absent for library-wide kinds (scan, the
+	// backfills). Not a foreign key — job_runs outlives what it describes, so the
+	// id may no longer resolve to a live entity.
+	entity_type?: 'video' | 'person' | 'studio';
+	entity_id?: number;
+	// Writeback snapshot batch (ADR-067) this run belongs to; drives Revert.
+	batch_id?: string;
 }
 
 // Capabilities tells the SPA whether it may act as owner (F21.7).

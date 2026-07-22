@@ -221,11 +221,18 @@ func (q *Queue) worker(ctx context.Context) {
 // otherwise). The original file is never left half-written (ADR-041).
 func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	started := time.Now()
+	// batchID is captured by snapshotBeforeWrite below and read back here, so the
+	// run records the snapshot batch it belongs to as a column (ADR-070) rather
+	// than only inside detail's "batch <id>" suffix. Empty until the snapshot is
+	// taken — the early-return paths (corrupt payload, missing video) legitimately
+	// have no batch.
+	var batchID string
 	finish := func(ok bool, errMsg string, written int, detail string) {
 		run := model.JobRun{
 			Kind: model.JobKindWriteback, Trigger: model.TriggerManual,
 			Status: model.JobStatusOK, StartedAt: started, FinishedAt: time.Now(),
 			DurationMs: time.Since(started).Milliseconds(), Updated: written, Detail: detail,
+			EntityType: model.EnrichEntityVideo, EntityID: job.VideoID, BatchID: batchID,
 		}
 		if !ok {
 			run.Status = model.JobStatusErr
@@ -269,7 +276,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	// is overwritten, so a bad batch can be reverted. batchID is "" when
 	// nothing was recorded — logged, not fatal (a snapshot hiccup must not
 	// block a working write).
-	batchID := q.snapshotBeforeWrite(ctx, job, v.FilePath, mapped)
+	batchID = q.snapshotBeforeWrite(ctx, job, v.FilePath, mapped)
 
 	if err := q.write(ctx, v.FilePath, batch); err != nil {
 		q.log.Warn("writeback batch failed", "id", job.ID, "video", job.VideoID, "err", err)

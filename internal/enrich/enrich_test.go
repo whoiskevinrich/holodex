@@ -311,6 +311,11 @@ func TestServiceEnrichRecordsJobRun(t *testing.T) {
 	if !strings.Contains(job.Detail, "fake") || !strings.Contains(job.Detail, "#7") {
 		t.Errorf("detail = %q, want provider + entity ref", job.Detail)
 	}
+	// Attribution (ADR-070) — the entity the detail names, as columns, so
+	// "what touched person #7?" is an indexed query rather than a text search.
+	if job.EntityType != model.EnrichEntityPerson || job.EntityID != 7 {
+		t.Errorf("attribution = %q/#%d, want person/#7", job.EntityType, job.EntityID)
+	}
 }
 
 // --- F25 asset download ---
