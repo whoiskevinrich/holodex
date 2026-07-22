@@ -78,13 +78,28 @@ test("parseTriggerPaths reads the list and strips quotes", () => {
 // into always-stale. Failing loudly is the only safe response.
 test("parseTriggerPaths throws rather than returning an empty pathspec", () => {
   assert.throws(() => parseTriggerPaths("on:\n  push:\n    branches: [main]\n"), /no `paths:` block/);
-  assert.throws(() => parseTriggerPaths("    paths:\n  workflow_dispatch:\n"), /empty/);
+  assert.throws(() => parseTriggerPaths("on:\n  push:\n    paths:\n  workflow_dispatch:\n"), /empty/);
+});
+
+// The one fail-OPEN direction: another trigger's narrower `paths:` would be read as the
+// build filter, so a genuinely stale image would render ✅. Anchor to `push:` or refuse.
+test("parseTriggerPaths ignores a paths: block belonging to another trigger", () => {
+  const decoy = `on:
+  pull_request:
+    paths:
+      - 'docs/**'
+  push:
+    paths:
+      - 'cmd/**'
+`;
+  assert.deepEqual(parseTriggerPaths(decoy), ["cmd"]);
+  assert.throws(() => parseTriggerPaths("on:\n  pull_request:\n    paths:\n      - 'docs/**'\n"), /no `push:` trigger/);
 });
 
 // readFileSync already names a missing file; the wrapper earns its keep by naming the
 // file on a PARSE failure, which otherwise reports only "no `paths:` block found".
 test("readTriggerPaths names the file when the parse fails", () => {
-  assert.throws(() => readTriggerPaths("go.mod"), /cannot read trigger paths from go\.mod.*no `paths:` block/s);
+  assert.throws(() => readTriggerPaths("go.mod"), /cannot read trigger paths from go\.mod.*no `push:` trigger/s);
 });
 
 // The whole point is that these track the real workflows; a restated copy would drift.

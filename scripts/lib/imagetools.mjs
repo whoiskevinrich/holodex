@@ -44,8 +44,22 @@ export function releaseImages(repo, registry = "ghcr.io") {
  */
 export function parseTriggerPaths(yaml) {
   const lines = yaml.split(/\r?\n/);
-  const start = lines.findIndex((l) => /^\s*paths:\s*$/.test(l));
-  if (start === -1) throw new Error("no `paths:` block found");
+
+  // Anchor to `push:`. Taking the first `paths:` anywhere would silently measure against
+  // another trigger's filter if one were ever added above it — the single fail-*open*
+  // direction in an otherwise fail-closed reader, since a narrower filter reads ✅ while
+  // the image is genuinely stale.
+  const push = lines.findIndex((l) => /^\s*push:\s*$/.test(l));
+  if (push === -1) throw new Error("no `push:` trigger found");
+  const pushIndent = lines[push].search(/\S/);
+
+  let start = -1;
+  for (let i = push + 1; i < lines.length; i++) {
+    if (!lines[i].trim() || /^\s*#/.test(lines[i])) continue;
+    if (lines[i].search(/\S/) <= pushIndent) break; // left the push: block
+    if (/^\s*paths:\s*$/.test(lines[i])) { start = i; break; }
+  }
+  if (start === -1) throw new Error("no `paths:` block found under `push:`");
 
   const indent = lines[start].search(/\S/);
   const paths = [];
