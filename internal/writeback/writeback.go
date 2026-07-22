@@ -2,12 +2,15 @@ package writeback
 
 import (
 	"context"
+	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -24,6 +27,15 @@ type FieldWrite struct {
 //
 //   - .mkv / .mka / .mks / .webm → mkvpropedit if available, else ffmpeg
 //   - everything else             → exiftool
+//
+// Every backend merges: a tag named in fields is replaced with the incoming
+// values, and every other tag, attachment, and stream on the file is preserved.
+// How that is achieved differs per tool — exiftool by construction (-TAG=VALUE
+// touches only named tags), ffmpeg via -map 0 -map_metadata 0, mkvpropedit by
+// reading the existing tags back and splicing them (mergeTagsXML) because
+// --tags global: replaces the whole element. A new or edited backend must
+// uphold this contract; both tools that default to wholesale replacement have
+// silently destroyed metadata here before.
 //
 // On any failure the original is untouched; temp files are cleaned up.
 // All FieldWrite entries must have a non-empty TagName and at least one value.
@@ -56,8 +68,15 @@ func Write(ctx context.Context, path, tagName string, values []string) error {
 
 // writeMKVBatch dispatches to mkvpropedit (fast, in-place) when available,
 // falling back to ffmpeg remux (already a required project dependency).
+//
+// The mkvpropedit path needs mkvextract too: mkvpropedit replaces the whole
+// global TAGS element rather than merging into it, so the existing tags have to
+// be read back and folded in. Without mkvextract we cannot do that merge, and
+// ffmpeg (which carries tags forward via -map_metadata 0) is the safe choice.
 func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error {
-	if _, err := exec.LookPath("mkvpropedit"); err == nil {
+	_, propErr := exec.LookPath("mkvpropedit")
+	_, extrErr := exec.LookPath("mkvextract")
+	if propErr == nil && extrErr == nil {
 		return writeMKVWithMkvpropedit(ctx, path, fields)
 	}
 	return writeMKVWithFFmpeg(ctx, path, fields)
@@ -111,12 +130,6 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 // Image fields are attached as cover art via separate mkvpropedit invocations.
 // Uses the same copy→write→rename safety model as the exiftool path.
 func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWrite) error {
-	tmp := path + ".holodex-tmp"
-	if err := copyFile(path, tmp); err != nil {
-		return fmt.Errorf("writeback copy: %w", err)
-	}
-
-	xmlPath := tmp + ".tags.xml"
 	var args []string
 	var xmlTags []FieldWrite
 	var imgFields []FieldWrite
@@ -131,9 +144,30 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		}
 	}
 
+	// --tags global: replaces the entire TAGS element, so read what the file
+	// already carries and merge our fields into it. Both steps only touch the
+	// original, so they run before the copy — a failure here then costs one cheap
+	// subprocess rather than a discarded full-file copy.
+	var mergedTags string
+	if len(xmlTags) > 0 {
+		existing, err := existingTagsXML(ctx, path)
+		if err != nil {
+			return fmt.Errorf("writeback: %w", err)
+		}
+		if mergedTags, err = mergeTagsXML(existing, xmlTags); err != nil {
+			return fmt.Errorf("writeback: %w", err)
+		}
+	}
+
+	tmp := path + ".holodex-tmp"
+	if err := copyFile(path, tmp); err != nil {
+		return fmt.Errorf("writeback copy: %w", err)
+	}
+
+	xmlPath := tmp + ".tags.xml"
 	if len(xmlTags) > 0 || len(args) > 0 {
 		if len(xmlTags) > 0 {
-			if err := os.WriteFile(xmlPath, []byte(buildTagsXML(xmlTags)), 0o600); err != nil {
+			if err := os.WriteFile(xmlPath, []byte(mergedTags), 0o600); err != nil {
 				_ = os.Remove(tmp)
 				return fmt.Errorf("writeback: write tags XML: %w", err)
 			}
@@ -183,6 +217,41 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 	return nil
 }
 
+// ffmpegImgEntry is a downloaded image field ready to attach via ffmpeg.
+type ffmpegImgEntry struct{ tagName, localPath string }
+
+// buildFFmpegArgs builds the ffmpeg argument list for a writeback remux. Pure
+// (no I/O) so the stream-preservation and metadata-merge behavior can be unit
+// tested without shelling out to ffmpeg.
+//
+// -map 0 is unconditional: it carries forward every existing stream (video,
+// audio, subtitles, and attachments such as an embedded cover art image).
+// Without it, ffmpeg's automatic stream selection drops attachment streams
+// entirely — a writeback that only touched text fields would silently erase
+// any existing embedded poster.
+func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntries []ffmpegImgEntry) []string {
+	// -y: overwrite output; -map 0: keep every stream; -map_metadata 0: carry
+	// existing container tags forward (unlisted -metadata keys are untouched).
+	args := []string{"-y", "-i", path, "-map", "0", "-c", "copy", "-map_metadata", "0", "-f", format}
+
+	for _, f := range fields {
+		if f.IsImage {
+			continue
+		}
+		key := ffmpegMetadataKey(f.TagName)
+		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
+	}
+	for i, ie := range imgEntries {
+		args = append(args,
+			"-attach", ie.localPath,
+			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
+			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
+		)
+	}
+	args = append(args, newPath)
+	return args
+}
+
 // writeMKVWithFFmpeg remuxes the file with updated tags using ffmpeg (-c copy
 // keeps all streams byte-for-byte; only the container header is rebuilt).
 // ffmpeg is already required by the project (thumbnail pipeline), so this
@@ -202,8 +271,7 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 	}
 
 	// Separate image fields from text fields and download images upfront.
-	type imgEntry struct{ tagName, localPath string }
-	var imgEntries []imgEntry
+	var imgEntries []ffmpegImgEntry
 	for _, f := range fields {
 		if !f.IsImage {
 			continue
@@ -213,32 +281,10 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 			return fmt.Errorf("writeback: %w", err)
 		}
 		defer cleanup()
-		imgEntries = append(imgEntries, imgEntry{f.TagName, imgPath})
+		imgEntries = append(imgEntries, ffmpegImgEntry{f.TagName, imgPath})
 	}
 
-	// -y: overwrite output; -map_metadata 0: carry existing tags forward.
-	// When attaching images, -map 0 ensures all original streams are preserved.
-	args := []string{"-y", "-i", path}
-	if len(imgEntries) > 0 {
-		args = append(args, "-map", "0")
-	}
-	args = append(args, "-c", "copy", "-map_metadata", "0", "-f", format)
-
-	for _, f := range fields {
-		if f.IsImage {
-			continue
-		}
-		key := ffmpegMetadataKey(f.TagName)
-		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
-	}
-	for i, ie := range imgEntries {
-		args = append(args,
-			"-attach", ie.localPath,
-			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
-			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
-		)
-	}
-	args = append(args, newPath)
+	args := buildFFmpegArgs(path, newPath, format, fields, imgEntries)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -270,14 +316,115 @@ func ffmpegMetadataKey(tagName string) string {
 	return tagName
 }
 
-// buildTagsXML renders a minimal Matroska Tags XML document for mkvpropedit.
-// Multi-value fields (genres) produce one <Simple> element per value.
-// Tag names are uppercased per Matroska convention.
-func buildTagsXML(fields []FieldWrite) string {
+// mkvTagsDoc mirrors the Matroska tags XML that mkvextract emits and
+// mkvpropedit consumes. Each <Simple> keeps its raw inner XML so elements we do
+// not model (TagLanguage, Binary, nested Simple) survive the round trip.
+type mkvTagsDoc struct {
+	XMLName xml.Name `xml:"Tags"`
+	Tags    []mkvTag `xml:"Tag"`
+}
+
+type mkvTag struct {
+	Targets mkvRawEl    `xml:"Targets"`
+	Simples []mkvSimple `xml:"Simple"`
+}
+
+type mkvRawEl struct {
+	Inner string `xml:",innerxml"`
+}
+
+type mkvSimple struct {
+	Name  string `xml:"Name"`
+	Inner string `xml:",innerxml"`
+}
+
+// existingTagsXML returns the file's current Matroska tags document, or "" when
+// it carries none.
+func existingTagsXML(ctx context.Context, path string) (string, error) {
+	out, err := exec.CommandContext(ctx, "mkvextract", path, "tags").Output()
+	if err != nil {
+		// mkvextract exits 1 for warnings (a file with no tags at all can land
+		// here) but 2+ for real errors. Only a real error is fatal — treating one
+		// as "no tags" would write a document that erases what we failed to read.
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.ExitCode() >= 2 {
+			return "", fmt.Errorf("read existing tags: %w", err)
+		}
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// mergeTagsXML folds fields into an existing Matroska tags document, rendering
+// the result for mkvpropedit's --tags global:. That option REPLACES the whole
+// TAGS element rather than merging into it, so passing only the current batch
+// would erase every tag an earlier batch had written. Simple elements whose
+// Name matches an incoming field are dropped in favour of the new values;
+// everything else is carried through verbatim. Multi-value fields (genres)
+// produce one <Simple> per value, and names are uppercased per Matroska
+// convention. An empty existing document yields a fresh single-Tag document.
+func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
+	var doc mkvTagsDoc
+	if existing != "" {
+		if err := xml.Unmarshal([]byte(existing), &doc); err != nil {
+			return "", fmt.Errorf("parse existing tags: %w", err)
+		}
+	}
+
+	replaced := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		replaced[strings.ToUpper(strings.TrimSpace(f.TagName))] = true
+	}
+
+	// The incoming fields belong on an untargeted (whole-file) Tag; make sure the
+	// document has one for them to land on, so the render loop below is the only
+	// thing that emits a Tag.
+	untargeted := func(t mkvTag) bool { return strings.TrimSpace(t.Targets.Inner) == "" }
+	if !slices.ContainsFunc(doc.Tags, untargeted) {
+		doc.Tags = append(doc.Tags, mkvTag{})
+	}
+
 	var sb strings.Builder
 	sb.WriteString("<?xml version=\"1.0\"?>\n")
 	sb.WriteString("<!DOCTYPE Tags SYSTEM \"matroskatags.dtd\">\n")
-	sb.WriteString("<Tags>\n<Tag>\n<Targets />\n")
+	sb.WriteString("<Tags>\n")
+
+	added := false
+	for _, tag := range doc.Tags {
+		kept := make([]mkvSimple, 0, len(tag.Simples))
+		for _, s := range tag.Simples {
+			if !replaced[strings.ToUpper(strings.TrimSpace(s.Name))] {
+				kept = append(kept, s)
+			}
+		}
+		// The first untargeted Tag takes our fields.
+		addHere := !added && untargeted(tag)
+		if len(kept) == 0 && !addHere {
+			// Matroska requires every Tag to carry at least one Simple.
+			continue
+		}
+
+		sb.WriteString("<Tag>\n")
+		if untargeted(tag) {
+			sb.WriteString("<Targets />\n")
+		} else {
+			sb.WriteString("<Targets>" + tag.Targets.Inner + "</Targets>\n")
+		}
+		for _, s := range kept {
+			sb.WriteString("<Simple>" + s.Inner + "</Simple>\n")
+		}
+		if addHere {
+			writeSimples(&sb, fields)
+			added = true
+		}
+		sb.WriteString("</Tag>\n")
+	}
+
+	sb.WriteString("</Tags>\n")
+	return sb.String(), nil
+}
+
+// writeSimples renders one <Simple> element per value.
+func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 	for _, f := range fields {
 		name := strings.ToUpper(f.TagName)
 		for _, v := range f.Values {
@@ -288,8 +435,6 @@ func buildTagsXML(fields []FieldWrite) string {
 			sb.WriteString("</String></Simple>\n")
 		}
 	}
-	sb.WriteString("</Tag>\n</Tags>\n")
-	return sb.String()
 }
 
 func xmlEscape(s string) string {
