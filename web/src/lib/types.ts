@@ -564,8 +564,8 @@ export interface ExtractionCandidate {
 export type ExtractionResolveAction = 'filename' | 'tag' | 'manual';
 
 // One staged-and-not-yet-written change shown in ExtractionPreviewDialog
-// (F48.7a) — a queue row's "Accept filename"/"Pick suggested"/"Edit…" action
-// stages one of these; "Accept tag"/"Dismiss" never do (they touch no file).
+// (F48.7a) — a queue row's Stage / "Stage edit" action stages one of these;
+// "Keep tag"/"Dismiss" never do (they touch no file).
 export interface ExtractionPreviewItem {
 	reviewId: number;
 	videoTitle: string;
