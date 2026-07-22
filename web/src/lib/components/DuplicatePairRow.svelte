@@ -50,6 +50,12 @@
 			busy = false;
 		}
 	}
+
+	// `.btn-row`/`.btn-pill` (app.css) carry the shape and size shared with the
+	// other owner queue rows (ExtractionQueueRow, EnrichQueueRow).
+	const PILL_ACTION = 'btn-row btn-pill btn-accent';
+	const GHOST = 'btn-row btn-ghost px-2';
+	const TOGGLE = 'btn-row btn-quiet';
 </script>
 
 <div
@@ -73,42 +79,16 @@
 	<div class="flex shrink-0 flex-wrap items-center gap-2">
 		{#if choosing}
 			<span class="text-xs text-muted">Keep:</span>
-			<button
-				onclick={() => doMerge(pair.a.id, pair.b.id)}
-				disabled={busy}
-				class="rounded-theme border border-accent px-2 py-0.5 text-accent hover:bg-surface-2 disabled:opacity-60"
-			>
+			<button onclick={() => doMerge(pair.a.id, pair.b.id)} disabled={busy} class={PILL_ACTION}>
 				{pair.a.name}
 			</button>
-			<button
-				onclick={() => doMerge(pair.b.id, pair.a.id)}
-				disabled={busy}
-				class="rounded-theme border border-accent px-2 py-0.5 text-accent hover:bg-surface-2 disabled:opacity-60"
-			>
+			<button onclick={() => doMerge(pair.b.id, pair.a.id)} disabled={busy} class={PILL_ACTION}>
 				{pair.b.name}
 			</button>
-			<button
-				onclick={() => (choosing = false)}
-				disabled={busy}
-				class="text-muted hover:text-ink disabled:opacity-60"
-			>
-				Cancel
-			</button>
+			<button onclick={() => (choosing = false)} disabled={busy} class={TOGGLE}> Cancel </button>
 		{:else}
-			<button
-				onclick={() => (choosing = true)}
-				disabled={busy}
-				class="text-accent hover:underline disabled:opacity-60"
-			>
-				Merge
-			</button>
-			<button
-				onclick={doDismiss}
-				disabled={busy}
-				class="text-muted hover:text-ink disabled:opacity-60"
-			>
-				Keep separate
-			</button>
+			<button onclick={() => (choosing = true)} disabled={busy} class={PILL_ACTION}> Merge </button>
+			<button onclick={doDismiss} disabled={busy} class={GHOST}> Keep separate </button>
 		{/if}
 	</div>
 </div>

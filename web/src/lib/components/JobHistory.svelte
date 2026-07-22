@@ -105,7 +105,7 @@
 												onclick={() => revert(r)}
 												disabled={reverts[r.id]?.state === 'reverting'}
 												aria-busy={reverts[r.id]?.state === 'reverting'}
-												class="shrink-0 rounded-theme border border-rule px-2.5 py-1.5 text-xs text-muted hover:text-ink disabled:opacity-60"
+												class="btn-ghost shrink-0 px-2.5 py-1.5 text-xs"
 											>
 												{reverts[r.id]?.state === 'reverting' ? 'Reverting…' : 'Revert'}
 											</button>

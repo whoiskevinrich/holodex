@@ -410,7 +410,7 @@
 						onclick={() => pickCore('banner')}
 						disabled={uploadBusy === 'banner'}
 						title="Add banner"
-						class="flex w-full items-center justify-center gap-2 rounded-theme border border-dashed border-rule bg-surface px-3 py-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-60"
+						class="flex w-full items-center justify-center gap-2 rounded-theme border border-dashed border-rule bg-surface px-3 py-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent"
 					>
 						{uploadBusy === 'banner' ? 'Adding…' : '+ Add banner'}
 					</button>

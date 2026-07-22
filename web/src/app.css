@@ -112,6 +112,10 @@
 	[role='button']:not(:disabled) {
 		cursor: pointer;
 	}
+	button:disabled,
+	[role='button']:disabled {
+		cursor: not-allowed;
+	}
 }
 
 @layer components {
@@ -151,6 +155,85 @@
 		.curation-actions {
 			opacity: 1;
 		}
+	}
+
+	/* ---- Shared button treatments ---- Three roles for non-primary actions
+	   (rationale, contrast figures, and the no-`transition` gotcha are canonical
+	   in docs/design/theming.md — keep numbers there, not duplicated here).
+	   Promoted out of ExtractionQueueRow, which grew them locally first.
+
+	   Solid `bg-accent` is deliberately NOT one of these: it stays reserved for a
+	   page's one primary action (see routes/owner/+layout.svelte).
+
+	   Each class owns colour, border, radius and disabled semantics only —
+	   sizing/layout is a separate concern (`.btn-row`/`.btn-pill` below, or a call
+	   site's own utilities). Utilities still win over these rules because
+	   Tailwind orders the utilities layer after components. */
+
+	/* Bordered neutral — an immediate, row-clearing resolve (Dismiss, Revert, Keep
+	   separate). Disabled drops the border rather than the label. */
+	.btn-ghost {
+		border: 1px solid var(--rule);
+		border-radius: var(--radius);
+		color: var(--muted);
+	}
+	.btn-ghost:hover:not(:disabled) {
+		background: var(--surface-2);
+		color: var(--ink);
+	}
+	.btn-ghost:disabled {
+		border-color: transparent;
+	}
+
+	/* Borderless neutral — a UI-only toggle with no side effect (Cancel, Undo), so
+	   `.btn-ghost` keeps meaning exactly one thing: this resolves the row now. All
+	   current call sites disable only for the duration of an in-flight request, so
+	   losing the hover underline is the only disabled signal needed; give this a
+	   resting-state signal too (a border to drop, a color to demote) if a
+	   persistently-disabled quiet toggle shows up. */
+	.btn-quiet {
+		color: var(--muted);
+	}
+	.btn-quiet:hover:not(:disabled) {
+		color: var(--ink);
+		text-decoration: underline;
+	}
+
+	/* Outlined accent — the affirmative action in a row (Stage, Review, Merge).
+	   Disabled demotes to the neutral border + muted label. `in oklab` matches how
+	   Tailwind v4 itself mixes `bg-accent/10` (used on the same accent token
+	   elsewhere, e.g. ExtractionQueueRow's staged chips) — `in srgb` would compute
+	   a visibly different hover tint from the same nominal 10%. */
+	.btn-accent {
+		border: 1px solid var(--accent);
+		border-radius: var(--radius);
+		color: var(--accent);
+	}
+	.btn-accent:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--accent) 10%, transparent);
+	}
+	.btn-accent:disabled {
+		border-color: var(--rule);
+		color: var(--muted);
+	}
+
+	/* ---- Row-action sizing ---- Composes with the three roles above so a compact
+	   action row (the owner queue rows: ExtractionQueueRow, EnrichQueueRow,
+	   DuplicatePairRow) doesn't re-type the same shape per file.
+	   `.btn-pill` comes after the roles above so its radius wins on `.btn-accent
+	   .btn-pill` — a rounded-full pill without an !important fight. */
+	.btn-row {
+		display: inline-flex;
+		min-height: 1.5rem;
+		align-items: center;
+		font-size: 0.75rem;
+		line-height: 1rem;
+	}
+	.btn-pill {
+		border-radius: 9999px;
+		padding-left: 0.625rem;
+		padding-right: 0.625rem;
+		font-weight: 500;
 	}
 
 	/* Cinémathèque: film grain + vignette. */

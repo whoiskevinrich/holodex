@@ -46,6 +46,28 @@ mapped Tailwind utilities, never a literal palette.
   animation (disabled under `prefers-reduced-motion`).
 - `.skin-title` — display-face headings; applies per-skin casing and the Broadcast caret.
 
+## Shared button treatments
+
+Three roles for **non-primary** actions, so a row of controls reads as a hierarchy rather
+than a wall of identical links. Solid `bg-accent` is deliberately not among them — it stays
+reserved for a page's one primary action.
+
+- `.btn-accent` — outlined accent; the affirmative action in a row (Stage, Review, Merge).
+- `.btn-ghost` — bordered neutral; an immediate, row-clearing resolve (Dismiss, Revert).
+- `.btn-quiet` — borderless neutral; a UI-only toggle with no side effect (Cancel, Undo).
+
+Each owns colour, border, radius and disabled semantics only; call sites keep their own
+sizing utilities, which still win (Tailwind orders `utilities` after `components`).
+
+**Disabled never dims the label with `opacity`.** On `text-muted` a blanket `opacity-60`
+falls to 2.4:1 (Broadcast) / 2.7:1 (Brutalist) / 2.9:1 (Cinémathèque) against `--surface`.
+Instead the *affordance* is withdrawn — the border drops, or the accent demotes to neutral —
+so the label stays at full token contrast (4.7:1 or better in every skin).
+
+Do not add a `transition` on `color`/`border-color` to these: the skin picker swaps the
+underlying tokens at runtime, which makes the swap animate and can leave the control stuck
+on the previous skin's colour.
+
 ## Adding a skin
 
 1. Add one `[data-theme="newskin"]` block in `web/src/app.css` setting every token.

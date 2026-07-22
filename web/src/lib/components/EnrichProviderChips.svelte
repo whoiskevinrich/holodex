@@ -109,7 +109,7 @@
 					aria-haspopup="menu"
 					aria-expanded={openMenu === p}
 					aria-label={`More actions for ${p}`}
-					class="inline-flex items-center border-l border-rule px-1.5 text-muted hover:text-ink disabled:opacity-60"
+					class="inline-flex items-center border-l border-rule px-1.5 text-muted hover:text-ink"
 				>
 					{busy === p ? '…' : '⋯'}
 				</button>
@@ -155,7 +155,7 @@
 			type="button"
 			onclick={onrefreshall}
 			disabled={refreshingAll}
-			class="rounded-theme border border-rule {pad} {txt} text-accent hover:bg-surface-2 disabled:opacity-60"
+			class="btn-accent {pad} {txt}"
 		>
 			{refreshingAll ? 'Refreshing…' : 'Refresh all'}
 		</button>

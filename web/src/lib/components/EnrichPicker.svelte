@@ -302,7 +302,7 @@
 				<button
 					onclick={noMatch}
 					disabled={dismissing || applying}
-					class="rounded-theme px-2 py-1 text-xs text-muted hover:text-ink disabled:opacity-60"
+					class="btn-quiet px-2 py-1 text-xs"
 				>
 					{dismissing ? 'Dismissing…' : 'None of these match'}
 				</button>

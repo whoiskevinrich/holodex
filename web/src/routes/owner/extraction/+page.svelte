@@ -197,7 +197,7 @@
 			<button
 				onclick={extractAll}
 				disabled={extracting || extractRunning}
-				class="rounded-theme border border-rule px-2.5 py-1.5 text-sm text-accent hover:bg-surface-2 disabled:opacity-60"
+				class="btn-accent px-2.5 py-1.5 text-sm"
 			>
 				{extracting ? 'Starting…' : extractRunning ? 'Extracting…' : 'Extract all'}
 			</button>
