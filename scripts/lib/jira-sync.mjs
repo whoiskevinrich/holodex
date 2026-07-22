@@ -1,7 +1,7 @@
 // Shared, dependency-free helpers for CI-side Jira status sync (ADR-058).
 //
 // Two entry points build on this:
-//   - jira-branch-sync.mjs  → In Review (PR opened) / Done (PR merged), keyed off
+//   - jira-branch-sync.mjs  → In Review (PR ready for review) / Done (PR merged), keyed off
 //                             the PR *branch name* (Holodex carries the key there,
 //                             never in the commit subject — see docs/reference/jira-pipeline.md)
 //   - jira-release-sync.mjs → Released, on the `prod` deploy: every HOLODEX issue

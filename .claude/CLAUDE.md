@@ -70,6 +70,14 @@ On the Jira side, the same gates surface as the `needs-spec` / `needs-adr` / `ne
 `needs-security-review` labels (see "Task tracking") — apply one when the change enters the
 matching row, clear it when the artifact lands.
 
+**Pre-implementation gates ship as a Draft PR.** The spec / ADR / design rows above produce
+artifacts that want review *before* the code exists. As soon as the first of them lands, push
+and open a **Draft** PR (`gh pr create --draft`) — the epic's one PR, which then accumulates the
+remaining gates. A Draft PR fires **no** Jira transition, so the ticket correctly stays
+`In Progress`; **`In Review` fires when you mark it ready for review**, which you do only once
+the gates are green. Don't split a gate artifact into its own PR merged ahead of the
+implementation. See [ADR-069](../docs/architecture/ADR-069-draft-prs-for-pre-implementation-gates.md).
+
 ## Pre-commit checklist (every commit)
 
 1. Run **`/simplify`** on the changed code (reuse, simplification, efficiency) — always, before committing.
@@ -91,6 +99,10 @@ file (also ADR-021 and `docs/design/theming.md`).
 1. Sync task tracking in **Jira (project `HOLODEX`)** — triage/refresh the affected issues (status, links) — before every `git push` and `gh pr create`.
 2. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 3. Scan the working tree for secrets / PII (see "Secrets & publishing").
+4. **Draft unless the gates are green.** Open with `gh pr create --draft` whenever work
+   remains (see "Pre-implementation gates ship as a Draft PR" above); drop `--draft` — or mark
+   an existing Draft ready — only when every gate in the routing table is satisfied. Marking
+   ready is the act that moves the ticket to `In Review`.
 
 ## Task tracking (Jira)
 
@@ -103,8 +115,10 @@ file is archived (frozen, read-only) — **do not read or write it**; use Jira.
   child to its parent via the **`parent`** field (there is no "Epic Link").
 - **Priority / labels:** map `[P·effort]` → Priority (P1→High, P2→Medium, P3→Low) plus area
   labels.
-- **Statuses:** To Do → In Progress → In Review → Done → Released. *Done* = merged to main;
-  *Released* = shipped in a tagged GHCR image (set by the `ghcr` deployment, see below).
+- **Statuses:** To Do → In Progress → In Review → Done → Released. *In Progress* covers the
+  whole build **including while a Draft PR is open**; *In Review* = the PR was marked ready for
+  review; *Done* = merged to main; *Released* = shipped in a tagged GHCR image (set by the
+  `ghcr` deployment, see below).
 - **Artifact labels** mirror the change-routing table: tag an issue `needs-spec`,
   `needs-adr`, `needs-design`, or `needs-security-review` so the lockstep gate is visible on
   the board; clear the label when the artifact lands.
@@ -137,7 +151,8 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   without any config change — neither tool supports filtering by scope, only by type.
 - Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
   meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
-  **In Review** (PR open), **Done** (merge), and **Released** (`ghcr` deploy) are fired by CI
+  **In Review** (PR marked *ready for review* — a Draft PR fires nothing, ADR-069), **Done**
+  (merge), and **Released** (`ghcr` deploy) are fired by CI
   (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
   Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
 

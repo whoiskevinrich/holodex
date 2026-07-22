@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Jira branch sync (ADR-058) — transition the single issue named by a PR's branch:
-//   - PR opened  → In Review
-//   - PR merged  → Done
+//   - PR ready for review → In Review
+//   - PR merged           → Done
+//
+// This script is deliberately unaware of PR state: whether an event deserves a transition
+// (a Draft PR gets none — ADR-069) is decided by the workflow's `if:`, which already has
+// the event shape in scope. Here we only ever "transition this branch's keys to this status".
 //
 // Holodex carries the issue key in the BRANCH NAME (never the commit subject, which
 // stays a clean Conventional Commit for release-please/git-cliff — see

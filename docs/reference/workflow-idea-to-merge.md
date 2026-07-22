@@ -36,9 +36,10 @@ flowchart TB
   ISSUE --> EPIC["Shape the epic<br/>1 epic = 1 worklog = 1 DoD"]
   EPIC --> SESSION["Start a work session<br/>branch carries HOLODEX-key → In Progress"]
   SESSION --> GATES["Work the gates<br/>spec · arch · backend · frontend · test · security"]
-  GATES --> HANDOFF["End session: update worklog<br/>(gates, Up next, handoff note)"]
+  GATES --> DRAFT["First gate artifact lands<br/>→ open a <b>Draft</b> PR (no transition)"]
+  DRAFT --> HANDOFF["End session: update worklog<br/>(gates, Up next, handoff note)"]
   HANDOFF -->|more gates left| SESSION
-  HANDOFF -->|all gates green| PR["Open PR<br/>+ Release-Note: trailer"]
+  HANDOFF -->|all gates green| PR["Mark ready for review<br/>+ Release-Note: trailer"]
   PR --> CI["CI fires In Review → Done on merge"]
   CI --> REL["git-cliff → release note<br/>status → Released"]
 
@@ -47,7 +48,7 @@ flowchart TB
   classDef gate fill:#faeeda,stroke:#ba7517,color:#412402;
   class INBOX,HANDOFF,UPNEXT file;
   class ISSUE,EPIC,CI,REL jira;
-  class SESSION,GATES,PR gate;
+  class SESSION,GATES,DRAFT,PR gate;
 ```
 
 ---
@@ -74,7 +75,7 @@ next hop.* Read it off by what you're holding:
 | **Idea** | `INBOX.md`, or the issue it became | Still in `INBOX.md`? Triage it first (Stage 1) — it has no status yet. Once it's an issue/epic, read that row below. |
 | **Task / Story** | the issue's status + its **parent epic's worklog** | remaining ladder hops + anything it's blocked on (worklog `depends-on` or a `⟂ blocked on #n` in Up next). A lone task rides the ladder; it inherits its epic's gates rather than carrying its own. |
 | **Epic** | its worklog `docs/plans/HOLODEX-<key>.md` | unchecked gates (`[ ]` / `[/]` / `[~]`) + the ordered **Up next** queue + any child issues not yet `Done`. This is the richest answer — the worklog exists for exactly this question. |
-| **PR** | PR checks + the **pre-commit checklist** (Stage 4) + Jira | review approval → CI green → merge (fires `Done`) → release (fires `Released`). If the PR closes an epic, also its remaining gates and a `release_note` set. |
+| **PR** | PR checks + the **pre-commit checklist** (Stage 4) + Jira | still Draft? → the remaining gates (it's tracking work, not review). Then: mark ready (fires `In Review`) → review approval → CI green → merge (fires `Done`) → release (fires `Released`). If the PR closes an epic, also a `release_note` set. |
 
 Two things to internalize:
 - **Merged ≠ in prod.** Finishing a PR gets you to `Done`; a release tag is what moves it to `Released`.
@@ -176,6 +177,23 @@ required artifact and the skill that produces it:
 | testing | `/testing-strategy` | updated `docs/testing-strategy.md` + tests |
 | security | `/security-review` | sign-off (required for auth/access/infra) |
 
+### Open the Draft PR as soon as the first gate artifact lands
+
+The first gates are **pre-implementation** — an ADR or a spec wants review *before* the code
+exists, while changing the design is still cheap. So the moment the first gate artifact lands
+on the branch, push it and open a **Draft PR** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)):
+
+- **Draft is the normal state of in-flight work.** It's the epic's one PR, and it accumulates
+  the remaining gates over the following sessions. Don't open a separate "ADR PR" to merge
+  ahead of the implementation.
+- **A Draft PR fires no Jira transition** — the ticket stays `In Progress`, which is the truth.
+  The design is in review; the *work* isn't. `In Review` fires when you **mark it ready for
+  review** (Stage 6), so that column stays a real queue instead of a bucket.
+- **You still get everything a PR is for**: a reviewable diff and comment thread on the ADR,
+  CI on every push, and the branch/commits/PR wired into the Jira dev panel.
+- **`Done` can't fire early**, because GitHub won't merge a Draft. That's why this needs no
+  label, trailer, or convention to police — the state does the enforcing.
+
 The **worklog** tracks your position through them. Its anatomy:
 
 ```markdown
@@ -244,13 +262,15 @@ Token habits that compound (take these from the context-limits research, made no
 
 ## Stage 6 — Merge
 
-- Open the PR. Keep the **subject a clean Conventional Commit** (release-please and git-cliff parse it) —
-  the issue key stays in the *branch name*, never the subject.
+- **Mark the Draft PR ready for review** once the worklog's gates are green. This — not opening
+  the PR — is what fires `In Review`. Keep the **subject a clean Conventional Commit**
+  (release-please and git-cliff parse it) — the issue key stays in the *branch name*, never the
+  subject.
 - Put the user-facing sentence in a **`Release-Note:` git trailer** on the squash-merge commit (promoted
   from the worklog's `release_note:`). The trailer keeps the subject clean while git-cliff still picks up
   the note. An epic shouldn't close with all gates green but no `release_note` set.
-- On PR-open and merge, **CI fires `In Review` then `Done`** (ADR-058). You don't touch status here — it
-  derives from the git events.
+- On ready-for-review and merge, **CI fires `In Review` then `Done`** (ADR-058/069). You don't touch
+  status here — it derives from the git events.
 
 ## Stage 7 — Release
 
@@ -265,8 +285,9 @@ Token habits that compound (take these from the context-limits research, made no
 
 **The five-minute version:** capture ideas to `INBOX.md` → triage in bulk into Jira or an epic's Up
 next → make each epic `1 epic = 1 worklog = 1 DoD` → branch names carry the key → work the gates,
-keeping the worklog's gates + ordered Up next honest → end sessions at gate boundaries with a handoff
-note → clean Conventional-Commit PR with a `Release-Note:` trailer → CI and git-cliff do the rest.
+keeping the worklog's gates + ordered Up next honest → **Draft PR as soon as the first gate artifact
+lands** → end sessions at gate boundaries with a handoff note → mark ready for review when the gates
+are green, clean Conventional-Commit subject with a `Release-Note:` trailer → CI and git-cliff do the rest.
 
 **Today vs. when the flightplan plugin ships** (design: [`../plans/flightplan-plugin.md`](../plans/flightplan-plugin.md)):
 

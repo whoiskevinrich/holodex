@@ -1,6 +1,12 @@
-# Jira sync (ADR-058) — transition the issue named by a PR's branch as the PR moves:
-#   opened → In Review, merged → Done. Replaces the old Jira Automation rules 2 & 3
-# (which metered the shared 100-run/month Free quota); the REST API is uncounted.
+# Jira sync (ADR-058, amended by ADR-069) — transition the issue named by a PR's branch
+# as the PR moves: ready for review → In Review, merged → Done. Replaces the old Jira
+# Automation rules 2 & 3 (which metered the shared 100-run/month Free quota); the REST
+# API is uncounted.
+#
+# A **Draft** PR fires nothing. Draft is Holodex's state for in-flight work — a PR opened
+# early so a pre-implementation gate artifact (ADR, spec, design handoff) is reviewable
+# and linked in the Jira dev panel. The ticket stays In Progress until the PR is marked
+# ready for review, which is what `In Review` actually means (ADR-069).
 #
 # Plain `pull_request` (never `pull_request_target`): secrets are withheld from fork
 # PRs, so a fork simply no-ops instead of leaking the token. The issue key comes from
@@ -10,7 +16,7 @@ name: Jira sync
 
 on:
   pull_request:
-    types: [opened, closed]
+    types: [opened, ready_for_review, closed]
 
 permissions:
   contents: read
@@ -21,8 +27,12 @@ concurrency:
 
 jobs:
   transition:
-    # opened → In Review; a merged PR → Done. A PR closed without merging is ignored.
-    if: ${{ github.event.action == 'opened' || github.event.pull_request.merged == true }}
+    # Opened ready, or a Draft marked ready → In Review; a merged PR → Done. A Draft PR
+    # and a PR closed without merging are both ignored.
+    if: >-
+      ${{ (github.event.action == 'opened' && github.event.pull_request.draft == false)
+      || github.event.action == 'ready_for_review'
+      || github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,7 +46,7 @@ jobs:
       - name: Transition Jira issue
         env:
           BRANCH_REF: ${{ github.head_ref }}
-          JIRA_TARGET_STATUS: ${{ github.event.action == 'opened' && 'In Review' || 'Done' }}
+          JIRA_TARGET_STATUS: ${{ github.event.action == 'closed' && 'Done' || 'In Review' }}
           JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
