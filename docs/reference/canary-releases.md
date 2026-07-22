@@ -15,8 +15,8 @@ promote*.
 
 1. PRs merge to `main`. `image.yml` publishes `:edge` and `:sha-<short>`.
 2. The **Release candidate** workflow refreshes a comment on the open release PR with both
-   images' digests, whether each was built from current `main`, the commits covered, and a
-   pinned pull command.
+   images' digests, whether each is current with its own sources, the commits covered, and
+   a pinned pull command.
 3. You pull those digests onto the canary and exercise them.
 4. You merge the release PR. The `v*` tag fires `release.yml`, which **retags the digest
    you canaried** as `1.2.3` / `1.2` / `1` / `latest` — no rebuild.
@@ -43,14 +43,26 @@ The freshness column is the part to actually read:
 
 | Verdict | Meaning |
 |---|---|
-| ✅ matches main | The image was built from `main` HEAD. Canarying it validates what this PR will release. |
-| ⚠️ N commits behind main | An image build was skipped or failed. **Canarying this validates something other than what will ship.** |
+| ✅ current | No commit touching this image's own sources has landed since it was built. Canarying it validates what this PR will release. |
+| ⚠️ N source commits behind | A build failed, never ran, or is still running. **Canarying this validates something other than what will ship.** |
 | ⚠️ no image published | Nothing to canary for that image. |
+| ⚠️ freshness could not be determined | The check couldn't read the image's trigger paths or count commits — treat as unknown, not as fine. |
 
-A skip is plausible rather than theoretical: `image.yml` and `provider-tmdb.yml` both carry
-`paths:` filters (ADR-035), and the two images advance independently — a core-only merge
-leaves the sidecar at an older commit. Re-run the relevant workflow (`workflow_dispatch`)
-before relying on a stale digest.
+**Freshness is measured per image, not against `main` HEAD.** `image.yml` and
+`provider-tmdb.yml` each carry their own `paths:` filter (ADR-035), so the two images
+advance independently and a core-only merge leaves the sidecar's revision far behind
+`main` — while its image is still perfectly correct. The check therefore counts only
+commits matching *that image's* filter, read out of its workflow file. A rarely touched
+sidecar reads ✅ current, and only a genuinely missed build reads ⚠️.
+
+Measuring against `main` HEAD instead is what made the first version warn on nearly every
+release (HOLODEX-208); a warning that is usually wrong is worse than none, because it
+teaches you to scroll past the one that matters.
+
+A ⚠️ immediately after a merge is usually just the build still running — the comment
+updates itself in place when the image workflow finishes. If it persists, re-run the
+relevant workflow (`workflow_dispatch`) before relying on the digest; an image rebuilt
+that way is *newer* than required and still reads ✅ current.
 
 The comment is **advisory**. It sets no status check and blocks no merge — see
 [ADR-070](../architecture/ADR-070-canary-release-candidate-and-promote-by-retag.md) for why

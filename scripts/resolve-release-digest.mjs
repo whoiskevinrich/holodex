@@ -16,9 +16,14 @@
 import { pathToFileURL } from "node:url";
 import { execDetailed, inspectDigest, inspectImageConfig, parseRevision, releaseImages } from "./lib/imagetools.mjs";
 
-// How far back to look for a built image. One is the expected answer (the version-bump
-// commit); more than a handful means the image workflow has been failing for a while.
-const MAX_DEPTH = 20;
+// How far back to look for a built image. One hop is the expected answer for the core
+// image (the version-bump commit builds nothing), but a rarely-touched image legitimately
+// sits much further back: it only rebuilds when its own `paths:` match, so the sidecar was
+// observed 12 commits behind with nothing wrong (HOLODEX-208). This budget is generous
+// because exhausting it fails the release *after* the tag is cut. A tighter fix is to walk
+// only commits matching that image's paths — deliberately not done here, since it changes
+// the promote path rather than the freshness check.
+const MAX_DEPTH = 200;
 
 /** Short form used by docker/metadata-action's `type=sha,prefix=sha-`. */
 export function shortSha(sha) {
