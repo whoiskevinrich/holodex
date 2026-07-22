@@ -153,26 +153,27 @@ Index: `(entity_type, entity_id)`. No foreign key — `job_runs` is an audit tab
 
 ## Success Metrics
 
-Personal single-user server — adoption metrics don't apply. These are verifiable acceptance targets, measured on a testbed loaded with a representative post-`extract-all` history.
+Personal single-user server — adoption metrics don't apply. Timing the real library is out of scope (production instance, not reproducible here), so the leading criteria are stated as **invariants provable by test** rather than measurements. An invariant asserted against seeded data is a stronger guarantee than a stopwatch reading on one machine anyway: it holds for every library size, not the one that happened to be measured.
 
-**Leading (verify at merge)**
-- Time-to-first-paint of the history section is **flat across history size** — measured at ~100 and ~12,000 rows, within noise of each other.
-- History section paints without waiting on `/admin/activity`, verified by network waterfall.
-- Digest response payload is **< 10 KB** regardless of row count.
-- Log page DOM node count is bounded by page size, not window size.
+**Leading (asserted by test at merge)**
+- The digest query returns a **fixed number of rows** regardless of window size — repo test seeding 100 and 100,000 runs returns identically-shaped results.
+- The log endpoint returns **at most `limit` rows** for any window size, and issues a bounded number of queries per request.
+- The history section renders **without awaiting** `/admin/activity` — component test asserts the section is reachable when the activity fetch is pending.
+- Log-view DOM node count is bounded by page size, not window size.
 
-**Lagging (verify in use)**
+**Lagging (owner judgment, verified in use)**
 - "Did anything fail in the last 30 days?" is answerable **without scrolling or paginating**.
 - "What touched video #412?" is answerable in **one filtered request**, returning runs from all attributing kinds — not just writeback.
-
-**Baseline to capture before implementing**: current wall-clock split (time to history response / payload size / time from response to paint) at real library scale, so the flatness claim has a before-number.
+- The page feels responsive on the real library after a bulk writeback — the original complaint, confirmed by the owner rather than by a number.
 
 ---
 
 ## Open Questions
 
-**Q1 — What is the current wall-clock split? [engineering, non-blocking but do first]**
-The design assumes row volume dominates, but the render gate at [`+page.svelte:154`](../../web/src/routes/owner/status/+page.svelte) is free to remove and may account for a meaningful share. Measure before implementing so the targets above have a baseline — and so we know whether P0-5's ungating alone would have sufficed.
+**Q1 — Does ungating alone resolve the complaint? [owner, answered by shipping phase 1]**
+The design assumes row volume dominates, but the render gate at [`+page.svelte:154`](../../web/src/routes/owner/status/+page.svelte) also delays first paint and is free to remove. Timing the real library to separate the two is out of scope, so phase 1 ships the ungating on its own and the owner judges whether the page still feels slow.
+
+**This is a real decision point, not a formality.** If ungating alone fixes it, phases 2–5 — including the migration — are optional polish rather than a fix, and should be re-justified on the forensics and triage goals alone rather than on load time. Accepted risk of proceeding without the split: we may build the digest and pagination for a problem the gate was causing.
 
 **Q2 — What time gap ends an adjacency rollup? [engineering + design, blocking P0-6]**
 Too tight and a bulk writeback fragments into many entries; too loose and unrelated runs merge. Needs a value chosen against real burst timings, not guessed. Consider gap-based (e.g. no more than N seconds between consecutive runs) rather than fixed-bucket, which would split a burst that straddles a boundary.
@@ -192,13 +193,13 @@ Failures across a full 30 days may be too noisy after a bad batch, or exactly ri
 
 No external deadline. Suggested phasing — each is independently shippable and independently useful:
 
-1. **Ungate + measure** (P0-5's gating fix, Q1). Cheapest possible change; establishes the baseline.
+1. **Ungate** (P0-5's gating fix + error state). Cheapest possible change, independently correct, and the answer to Q1 — ship it and see whether the page still feels slow before committing to the rest.
 2. **Migration + attribution + `batch_id`** (P0-1, P0-2). Schema first so the recording paths start populating; the Revert regex dies here.
 3. **Digest + paginated log** (P0-3, P0-4, P0-5). The API and UI work.
 4. **Adjacency rollup** (P0-6, gated on Q2).
 5. **Entry points** (P1, gated on Q3).
 
-Step 2 is the only irreversible one. Steps 1 and 3 can ship without it if the measurement in Q1 shows the render gate dominates.
+Step 2 is the only irreversible one, and it is worth doing on the forensics and Revert-correctness goals even if step 1 turns out to have resolved the load time. Steps 3–5 should be re-justified against Q1's answer before starting.
 
 ---
 
