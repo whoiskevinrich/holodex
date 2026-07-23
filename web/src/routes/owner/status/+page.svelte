@@ -5,13 +5,25 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { api, startSession, ReauthError } from '$lib/api';
-	import type { JobRun } from '$lib/types';
+	import type { JobRun, JobDigest } from '$lib/types';
 	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
 	import StatusCard from '$lib/components/StatusCard.svelte';
 	import JobHistory from '$lib/components/JobHistory.svelte';
+	import JobDigestView from '$lib/components/JobDigest.svelte';
+
+	// Two-mode job view (HOLODEX-210, ADR-071 P0-5): the digest is the default —
+	// a fixed-size per-kind summary that answers "did anything fail" without
+	// loading every run. The full chronological log stays one click away and is
+	// fetched only when the owner opens it.
+	let jobMode = $state<'summary' | 'log'>('summary');
+
+	let digest = $state<JobDigest | null>(null);
+	let digestLoading = $state(true);
+	let digestError = $state('');
 
 	let runs = $state<JobRun[]>([]);
-	let historyLoading = $state(true);
+	let historyLoaded = $state(false);
+	let historyLoading = $state(false);
 	let historyError = $state('');
 	let tokenInput = $state('');
 	let rememberDevice = $state(false);
@@ -34,38 +46,61 @@
 	const isOwner = $derived(activity.effectiveOwner);
 	const needToken = $derived(activity.needToken);
 
-	// History fetches independently of the activity read-model — both live in the same
-	// requireOwner group, so neither needs the other's result, and making the section
-	// wait on /admin/activity only delayed its first paint (HOLODEX-203 P0-5).
+	// Both reads fetch independently of the activity read-model — all three live in
+	// the same requireOwner group, so none needs another's result, and making a job
+	// view wait on /admin/activity only delayed its first paint (HOLODEX-203 P0-5).
+	// A ReauthError means a top-level re-auth is already underway (api.ts) — don't
+	// flash an error before the document reloads.
+	async function loadDigest() {
+		digestLoading = true;
+		try {
+			digest = await api.activityDigest();
+			digestError = '';
+		} catch (e) {
+			if (!(e instanceof ReauthError)) digestError = toMessage(e);
+		} finally {
+			digestLoading = false;
+		}
+	}
+
 	async function loadHistory() {
 		historyLoading = true;
 		try {
 			runs = (await api.activityHistory()).runs ?? [];
+			historyLoaded = true;
 			historyError = '';
 		} catch (e) {
-			// A ReauthError means a top-level re-auth is already underway (api.ts) —
-			// don't flash an error before the document reloads. Anything else is a real
-			// failure the owner needs to see rather than read as "no jobs yet".
+			// A real failure the owner needs to see, rather than read as "no jobs yet".
 			if (!(e instanceof ReauthError)) historyError = toMessage(e);
 		} finally {
 			historyLoading = false;
 		}
 	}
 
+	// Opening the log fetches it once; the digest is already the default view.
+	function showLog() {
+		jobMode = 'log';
+		if (!historyLoaded && !historyLoading) loadHistory();
+	}
+
 	onMount(() => {
 		activity.start();
-		loadHistory();
+		loadDigest();
 	});
 	onDestroy(() => {
 		activity.stop();
 		clearTimeout(toastTimer);
 	});
 
-	// Refresh history whenever a scan finishes (running -> idle).
+	// Refresh whenever a scan finishes (running -> idle): the digest always (it's
+	// the default view), and the log only if it's been opened.
 	let prevState: string | undefined;
 	$effect(() => {
 		const s = a?.scan.state;
-		if (prevState === 'running' && s === 'idle') loadHistory();
+		if (prevState === 'running' && s === 'idle') {
+			loadDigest();
+			if (historyLoaded) loadHistory();
+		}
 		prevState = s;
 	});
 
@@ -93,14 +128,21 @@
 			return;
 		}
 		tokenError = '';
-		await loadHistory();
+		// Independent reads — the digest (default view) and, if the log is open, the
+		// history, run concurrently rather than one after the other.
+		await Promise.all([loadDigest(), jobMode === 'log' ? loadHistory() : Promise.resolve()]);
 	}
 
 	async function signOut() {
 		busy = true;
 		try {
 			await activity.signOut();
-			if (!activity.isOwner) runs = []; // clear page-local history too
+			if (!activity.isOwner) {
+				// Clear page-local job data too, so it doesn't linger in the read-only view.
+				runs = [];
+				historyLoaded = false;
+				digest = null;
+			}
 		} finally {
 			busy = false;
 		}
@@ -250,21 +292,51 @@
 	{/if}
 
 	<!--
-		Outside the activity gate above: the history is its own fetch and paints as soon
-		as it lands. Hidden only when the server wants a token (the form above is the
-		whole story then) — the same gate the history endpoint itself enforces.
+		Outside the activity gate above: the job views are their own fetches and paint
+		as soon as they land. Hidden only when the server wants a token (the form above
+		is the whole story then) — the same gate the endpoints themselves enforce.
 	-->
 	{#if !needToken}
 		<section class="space-y-3">
-			<h2 class="skin-title text-lg font-semibold text-ink">Recent jobs</h2>
-			{#if historyLoading && runs.length === 0}
-				<p class="py-16 text-center text-sm text-muted">Loading jobs…</p>
-			{:else if historyError}
-				<p class="rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink" role="alert">
-					Couldn't load job history — {historyError}
-				</p>
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<h2 class="skin-title text-lg font-semibold text-ink">Recent jobs</h2>
+				<div class="flex items-center gap-1" role="tablist" aria-label="Job view">
+					<button
+						role="tab"
+						aria-selected={jobMode === 'summary'}
+						onclick={() => (jobMode = 'summary')}
+						class="{jobMode === 'summary' ? 'btn-accent' : 'btn-quiet'} px-2.5 py-1 text-xs"
+						>Summary</button
+					>
+					<button
+						role="tab"
+						aria-selected={jobMode === 'log'}
+						onclick={showLog}
+						class="{jobMode === 'log' ? 'btn-accent' : 'btn-quiet'} px-2.5 py-1 text-xs">Log</button
+					>
+				</div>
+			</div>
+
+			{#if jobMode === 'summary'}
+				{#if digestLoading && !digest}
+					<p class="py-16 text-center text-sm text-muted">Loading summary…</p>
+				{:else if digestError}
+					<p class="rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink" role="alert">
+						Couldn't load job summary — {digestError}
+					</p>
+				{:else if digest}
+					<JobDigestView {digest} />
+				{/if}
 			{:else}
-				<JobHistory {runs} />
+				{#if historyLoading && !historyLoaded}
+					<p class="py-16 text-center text-sm text-muted">Loading jobs…</p>
+				{:else if historyError}
+					<p class="rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink" role="alert">
+						Couldn't load job history — {historyError}
+					</p>
+				{:else}
+					<JobHistory {runs} />
+				{/if}
 			{/if}
 		</section>
 	{/if}

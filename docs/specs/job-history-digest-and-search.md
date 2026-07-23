@@ -85,11 +85,11 @@ Add `batch_id TEXT NOT NULL DEFAULT ''`, populated from the value `snapshotBefor
 **P0-3 — Digest read**
 A per-kind aggregate: last `started_at`, run count, and error count, plus the individual failed runs in the window.
 
-- [ ] Served by a `GROUP BY kind` query over the existing `idx_job_runs_started_at` index
-- [ ] Response size is independent of the number of runs in the window
-- [ ] Given a window containing only successful runs, the failures section is absent from the response
+- [x] Served by a `GROUP BY kind` query over the existing `idx_job_runs_started_at` index — `repo.JobRunDigest`; `last_status` is the newest run's status via SQLite's bare-column-with-MAX
+- [x] Response size is independent of the number of runs in the window — asserted by `TestJobRunDigest` (500 extra runs leave `kinds`/`failures` lengths unchanged); the inline failure list is capped at `digestFailureCap`
+- [x] Given a window containing only successful runs, the failures section is absent from the response — `TestJobRunDigestCleanWindow` returns an empty (non-nil) `failures`, and the UI hides the callout
 
-**P0-4 — Keyset-paginated log read**
+**P0-4 — Keyset-paginated log read** *(deferred — re-justified against Q1 before building; see Timeline)*
 `GET /api/v1/admin/activity/history` accepts a cursor over `(started_at, id)` plus `kind`, `status`, `entity_type`, and `entity_id` filters, and returns a bounded page with a next-cursor.
 
 - [ ] Ordering remains `started_at DESC, id DESC`, matching the existing index
@@ -101,11 +101,11 @@ A per-kind aggregate: last `started_at`, run count, and error count, plus the in
 **P0-5 — Two-mode UI**
 Digest is the default view; Log is one click away and preserves the full chronological stream.
 
-- [ ] Digest renders per-kind rows and a failures callout
-- [ ] Log renders a paginated table with kind and status filters and a "load more" control
+- [x] Digest renders per-kind rows and a failures callout — `JobDigest.svelte`, the default view; the callout is a `border-warn` box and a kind whose *latest* run failed shows an `error` status badge even when older passes succeeded
+- [ ] Log renders a paginated table with kind and status filters and a "load more" control — *the pagination/filter half waits on P0-4 (Q1); the Log tab currently reuses the existing full-window history table, fetched lazily only when opened*
 - [x] The history section no longer waits on `/admin/activity` before painting — it is a sibling of that gate, hidden only on `needToken` (the same condition the endpoint itself enforces)
 - [x] A history fetch failure renders a visible error state rather than the "No jobs recorded yet" empty state (previously swallowed); `ReauthError` is excluded so a pending re-auth doesn't flash an error
-- [ ] Empty, loading, error, digest, and log states are QA'd in Cinémathèque, Broadcast, and Brutalist
+- [x] Digest, its failures callout, loading, and error states are QA'd in Cinémathèque, Broadcast, and Brutalist (warn elements 5.3–7.3:1, radius tracks each skin's token); the log-view states carried over from phase 1
 
 **P0-6 — Adjacency rollup in the log**
 Consecutive runs sharing `(kind, status, and — for enrich — provider)` within a time window collapse into one expandable entry showing the count and span.

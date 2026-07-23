@@ -410,6 +410,25 @@ export interface JobRun {
 	batch_id?: string;
 }
 
+// One kind's roll-up in the activity digest (ADR-071). last_status is the status
+// of the most recent run, so a kind whose latest pass failed reads as failing
+// even if older passes in the window succeeded.
+export interface JobKindDigest {
+	kind: string;
+	runs: number;
+	errors: number;
+	last_run: string;
+	last_status: string;
+}
+
+// The activity digest (ADR-071): a per-kind summary plus the window's failed
+// runs. Fixed-size — its length tracks the number of job kinds and the (capped)
+// failure count, never the number of runs in the window.
+export interface JobDigest {
+	kinds: JobKindDigest[];
+	failures: JobRun[];
+}
+
 // Capabilities tells the SPA whether it may act as owner (F21.7).
 export interface Capabilities {
 	owner: boolean;

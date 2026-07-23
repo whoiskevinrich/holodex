@@ -77,3 +77,17 @@ func (h *Handlers) adminActivityHistory(w http.ResponseWriter, r *http.Request) 
 		Runs []model.JobRun `json:"runs"`
 	}{Runs: runs})
 }
+
+// adminActivityDigest serves the per-kind activity digest (ADR-071 D3): a bounded
+// summary answering "is each job still running, and did anything fail in the
+// window" whose response size is the number of job kinds plus the capped failure
+// list — independent of how many runs the window holds. ?days= is clamped to the
+// retention window by the repo.
+func (h *Handlers) adminActivityDigest(w http.ResponseWriter, r *http.Request) {
+	digest, err := h.repo.JobRunDigest(r.Context(), atoiDefault(r.URL.Query().Get("days"), 30))
+	if err != nil {
+		h.fail(w, "job digest", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, digest)
+}

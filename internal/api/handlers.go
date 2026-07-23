@@ -332,6 +332,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Get("/metadata-keys", h.metadataKeys)
 		r.Get("/admin/status", h.adminStatus)
 		r.Get("/admin/activity", h.adminActivity)
+		r.Get("/admin/activity/digest", h.adminActivityDigest)
 		r.Get("/admin/activity/history", h.adminActivityHistory)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
