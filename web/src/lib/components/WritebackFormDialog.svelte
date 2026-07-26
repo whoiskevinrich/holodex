@@ -5,7 +5,8 @@
 	// Writes are sequential (one exiftool pass per field) with per-row progress.
 	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage } from '$lib/format';
+	import { toMessage, providerFromWinningSource, valueMatchesFile } from '$lib/format';
+	import { fileCandidateValue } from '$lib/f36';
 	import type { ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
@@ -40,10 +41,14 @@
 	const rows = $state<Row[]>(
 		fields.map((f) => {
 			const providerWon = !!f.winning_source && !f.winning_source.startsWith('file:');
+			const value = f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', ');
+			// A field whose resolved value already matches the file's current tag has
+			// nothing to write — start it unchecked regardless of which source won.
+			const alreadyMatches = valueMatchesFile(f, value);
 			return {
 				field: f,
-				value: f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', '),
-				checked: providerWon,
+				value,
+				checked: providerWon && !alreadyMatches,
 				status: 'idle' as RowStatus,
 				error: ''
 			};
@@ -52,6 +57,14 @@
 
 	const checkedCount = $derived(rows.filter((r) => r.checked).length);
 	const hasErrors = $derived(rows.some((r) => r.status === 'error'));
+
+	// Provenance tag for a row's label: the namespace before the ':' in winning_source
+	// (e.g. "tmdb:title" -> "tmdb"). isProvider reuses providerFromWinningSource's baseline
+	// exclusions (file/record/manual/computed) so a computed field never reads as a provider.
+	function sourceTag(winningSource?: string): { name: string; isProvider: boolean } | null {
+		const name = (winningSource ?? '').split(':')[0];
+		return name ? { name, isProvider: !!providerFromWinningSource(winningSource) } : null;
+	}
 
 	let busy = $state(false);
 	let dialogEl = $state<HTMLElement | null>(null);
@@ -143,6 +156,12 @@
 	}
 </script>
 
+{#snippet checkIcon(cls: string)}
+	<svg class={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+		<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+	</svg>
+{/snippet}
+
 <!-- Backdrop + centering wrapper. aria-hidden must NOT be here — the dialog
      inside is focusable. aria-modal="true" on the dialog signals to screen
      readers that content outside it is inert. -->
@@ -185,13 +204,22 @@
 				{@const isDone = row.status === 'done'}
 				{@const isWriting = row.status === 'writing'}
 				{@const isError = row.status === 'error'}
-				<div class="flex items-start gap-3" class:opacity-50={!row.checked && !isDone && !isError}>
+				{@const tag = sourceTag(row.field.winning_source)}
+				{@const hasFileValue = row.field.candidates !== undefined}
+				{@const fileVal = fileCandidateValue(row.field)}
+				<!-- matchesFile re-derives from fileVal (already fetched for the "was:" line)
+				     rather than calling valueMatchesFile() again, so each row does one
+				     candidates lookup, not two; valueMatchesFile is still the single source
+				     of truth used above to seed the row's initial checked state. -->
+				{@const matchesFile = hasFileValue && row.value.trim() === fileVal.trim()}
+				<div
+					class="flex items-start gap-3"
+					class:opacity-50={!row.checked && !isDone && !isError && !matchesFile}
+				>
 					<!-- Checkbox / status icon -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 						{#if isDone}
-							<svg class="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-							</svg>
+							{@render checkIcon('h-4 w-4 text-accent')}
 						{:else if isWriting}
 							<svg class="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -214,10 +242,16 @@
 
 					<!-- Label + input -->
 					<div class="min-w-0 flex-1">
-						<label
-							for="wb-{row.field.canonical}"
-							class="mb-1 block text-xs font-medium text-muted"
-						>{row.field.label}</label>
+						<div class="mb-1 flex items-center gap-1.5">
+							<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
+								>{row.field.label}</label
+							>
+							{#if tag}
+								<span class="text-[0.65rem] {tag.isProvider ? 'text-accent' : 'text-muted'}"
+									>·{tag.name}</span
+								>
+							{/if}
+						</div>
 
 						{#if row.field.display === 'image_url'}
 							<div class="flex items-start gap-2">
@@ -225,27 +259,38 @@
 									<img
 										src={row.value}
 										alt="cover"
-										class="h-14 w-10 shrink-0 rounded-theme border border-rule object-cover"
+										class="max-h-14 w-auto max-w-[8rem] shrink-0 rounded-theme border border-rule object-contain"
 									/>
 								{/if}
 								<p class="break-all text-xs text-muted">{row.value || '—'}</p>
 							</div>
-						{:else if row.field.display === 'long_text'}
-							<textarea
-								bind:value={row.value}
-								disabled={busy || isDone || isWriting}
-								rows="1"
-								use:autoResize
-								class="block w-full resize-none overflow-hidden rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-								style="max-height: 10rem"
-							></textarea>
+						{:else if matchesFile}
+							<p class="flex items-center gap-1.5 text-xs text-muted">
+								{@render checkIcon('h-3.5 w-3.5 shrink-0')}
+								<span class="text-ink">{row.value || '—'}</span>
+								<span>— already in file, nothing to write</span>
+							</p>
 						{:else}
-							<input
-								type="text"
-								bind:value={row.value}
-								disabled={busy || isDone || isWriting}
-								class="block w-full rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-							/>
+							{#if hasFileValue}
+								<p class="mb-1 text-xs text-muted">was: {fileVal || '—'}</p>
+							{/if}
+							{#if row.field.display === 'long_text'}
+								<textarea
+									bind:value={row.value}
+									disabled={busy || isDone || isWriting}
+									rows="1"
+									use:autoResize
+									class="block w-full resize-none overflow-hidden rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+									style="max-height: 10rem"
+								></textarea>
+							{:else}
+								<input
+									type="text"
+									bind:value={row.value}
+									disabled={busy || isDone || isWriting}
+									class="block w-full rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+								/>
+							{/if}
 						{/if}
 
 						{#if isError}
