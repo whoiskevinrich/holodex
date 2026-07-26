@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.13.0](https://github.com/whoiskevinrich/holodex/compare/v1.12.1...v1.13.0) (2026-07-26)
+
+
+### 🚀 Features
+
+* **activity:** attribute job runs to their entity and revert by batch column ([97ee991](https://github.com/whoiskevinrich/holodex/commit/97ee9917fb1e1bab393712759e49940d36be9319))
+* **activity:** per-kind job-history digest as the default status view ([#166](https://github.com/whoiskevinrich/holodex/issues/166)) ([57daadc](https://github.com/whoiskevinrich/holodex/commit/57daadc6b1e419019877c189b01512d674f09b73))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** measure release-candidate freshness per image, not against main ([#164](https://github.com/whoiskevinrich/holodex/issues/164)) ([f7fe7ac](https://github.com/whoiskevinrich/holodex/commit/f7fe7ac7dd333b15021f29dffb7270bd41dd9c91))
+* **enrich:** render raw-enrichment poster images and log dropped non-person assets ([#169](https://github.com/whoiskevinrich/holodex/issues/169)) ([9dfcfe3](https://github.com/whoiskevinrich/holodex/commit/9dfcfe3a80b3a4fd046076e2b0be27ee4615b311))
+* **web:** paint job history without waiting on the activity read-model ([d6a0c28](https://github.com/whoiskevinrich/holodex/commit/d6a0c2845c9fad820174488a91496509299886df))
+
+
+### ⚙️ CI / Build
+
+* guard against duplicate ADR numbers ([#165](https://github.com/whoiskevinrich/holodex/issues/165)) ([9ccbdc2](https://github.com/whoiskevinrich/holodex/commit/9ccbdc2f0fbdaf975949330bcf0ab6c941cca3c5))
+* **release:** canary the release candidate, promote by retagging the same digest ([e8120b9](https://github.com/whoiskevinrich/holodex/commit/e8120b9d1bdb87a3041ec7acef4b4ebf528c6be2))
+
 ## [1.12.1](https://github.com/whoiskevinrich/holodex/compare/v1.12.0...v1.12.1) (2026-07-22)
 
 
