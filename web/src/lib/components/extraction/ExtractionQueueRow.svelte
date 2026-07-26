@@ -20,7 +20,7 @@
 	// they are muted ghost buttons at the row's right edge. Staged picks are written
 	// together via the preview-before-write dialog (F48.7). Tokens only; QA 3 skins.
 	import { toMessage } from '$lib/format';
-	import EntityPickerDialog from './EntityPickerDialog.svelte';
+	import EntityPickerDialog from '../entity/EntityPickerDialog.svelte';
 	import type { ExtractionQueueRow, ExtractionResolveAction } from '$lib/types';
 
 	let {

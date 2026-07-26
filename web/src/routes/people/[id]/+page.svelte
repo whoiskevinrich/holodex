@@ -19,22 +19,22 @@
 		Video
 	} from '$lib/types';
 	import { providerOf } from '$lib/f36';
-	import AsyncState from '$lib/components/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import CurationFieldRow from '$lib/components/CurationFieldRow.svelte';
-	import EntityVideos from '$lib/components/EntityVideos.svelte';
-	import ProvenanceBadge from '$lib/components/ProvenanceBadge.svelte';
-	import EnrichPicker from '$lib/components/EnrichPicker.svelte';
-	import EnrichProviderChips from '$lib/components/EnrichProviderChips.svelte';
-	import AliasPanel from '$lib/components/AliasPanel.svelte';
-	import PersonBanner from '$lib/components/PersonBanner.svelte';
-	import PersonImageFrame from '$lib/components/PersonImageFrame.svelte';
-	import NationalityFlags from '$lib/components/NationalityFlags.svelte';
-	import PersonGallery from '$lib/components/PersonGallery.svelte';
-	import SourceSelect from '$lib/components/SourceSelect.svelte';
-	import UrlValueList from '$lib/components/UrlValueList.svelte';
-	import AutoFieldRows from '$lib/components/AutoFieldRows.svelte';
-	import PromotedFieldEdit from '$lib/components/PromotedFieldEdit.svelte';
+	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
+	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
+	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
+	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
+	import PersonBanner from '$lib/components/person/PersonBanner.svelte';
+	import PersonImageFrame from '$lib/components/person/PersonImageFrame.svelte';
+	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
+	import PersonGallery from '$lib/components/person/PersonGallery.svelte';
+	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
+	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
+	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
 	import { videoCount, providerFromWinningSource, calculatedFrom } from '$lib/format';
 
 	let person = $state<Person | null>(null);

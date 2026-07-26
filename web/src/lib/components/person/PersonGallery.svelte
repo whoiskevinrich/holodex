@@ -11,7 +11,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
 	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
-	import CropEditor from './CropEditor.svelte';
+	import CropEditor from '../writeback/CropEditor.svelte';
 	import PersonGalleryModal from './PersonGalleryModal.svelte';
 	import PersonImageViewer from './PersonImageViewer.svelte';
 

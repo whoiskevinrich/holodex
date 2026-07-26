@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { Video } from '$lib/types';
-	import VideoGrid from './VideoGrid.svelte';
+	import VideoGrid from '../video/VideoGrid.svelte';
 	import { videoCount } from '$lib/format';
 
 	// Shared body for the person/[id] and tag/[id] detail pages: back-link, title,

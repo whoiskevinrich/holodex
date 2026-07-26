@@ -7,12 +7,12 @@
 	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { MediaFilters, Person, Resolution, SortOrder, Studio, Tag, Video } from '$lib/types';
-	import VideoGrid from '$lib/components/VideoGrid.svelte';
-	import FacetFilter from '$lib/components/FacetFilter.svelte';
-	import SortDropdown from '$lib/components/SortDropdown.svelte';
-	import SortReroll from '$lib/components/SortReroll.svelte';
-	import RecentlyAddedShelf from '$lib/components/RecentlyAddedShelf.svelte';
-	import MappedFacets from '$lib/components/MappedFacets.svelte';
+	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
+	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
+	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
+	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
+	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];

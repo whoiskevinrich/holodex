@@ -8,7 +8,7 @@
 	import { api } from '$lib/api';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { EntityKind, EntityRef, PersonAlias } from '$lib/types';
-	import EntityPicker from '$lib/components/EntityPicker.svelte';
+	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
 
 	let {
 		entityType,

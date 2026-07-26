@@ -8,7 +8,7 @@
 	import { api } from '$lib/api';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { EntityKind, EntityRef } from '$lib/types';
-	import ConfirmDialog from './ConfirmDialog.svelte';
+	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
 
 	let {
 		kind,

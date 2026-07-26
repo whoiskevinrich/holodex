@@ -14,7 +14,7 @@
 	// link (the caller then drops the separate ProvenanceBadge). A provider implies the
 	// hostname text. Falls back to the raw value if it doesn't parse.
 	import { isHttpUrl } from '$lib/format';
-	import ProviderIcon from './ProviderIcon.svelte';
+	import ProviderIcon from '../enrichment/ProviderIcon.svelte';
 	import { providers as providerDir } from '$lib/providers.svelte';
 
 	let {

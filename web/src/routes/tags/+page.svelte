@@ -3,11 +3,11 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type EntityRef, type PeopleTagSort, type Tag } from '$lib/types';
-	import SortToggle from '$lib/components/SortToggle.svelte';
-	import SortReroll from '$lib/components/SortReroll.svelte';
-	import EntityPicker from '$lib/components/EntityPicker.svelte';
-	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
-	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
+	import SortToggle from '$lib/components/sort/SortToggle.svelte';
+	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
+	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
+	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';

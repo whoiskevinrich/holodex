@@ -9,8 +9,8 @@
 	// preview dialog (F48.7a). Tokens only; QA 3 skins.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
-	import ExtractionQueueRow from '$lib/components/ExtractionQueueRow.svelte';
-	import ExtractionPreviewDialog from '$lib/components/ExtractionPreviewDialog.svelte';
+	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
+	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
 	import type { ExtractionPreviewItem, ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
 
 	let rows = $state<QueueRow[]>([]);
