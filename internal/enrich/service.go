@@ -331,6 +331,18 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// the field enrichment that already succeeded.
 	if s.images != nil && entityType == model.EnrichEntityPerson && len(res.Assets) > 0 {
 		s.downloadAssets(ctx, entityID, provider, externalID, res.Assets, bypassGalleryCap)
+	} else if entityType != model.EnrichEntityPerson && len(res.Assets) > 0 {
+		// v1 has no image sink for non-person entities — a video's poster/a studio's
+		// logo must come back as a `fields["poster_url"]`/`fields["logo"]` value, not
+		// an Assets[] entry. Log loudly rather than silently discard, since a provider
+		// author mirroring the person-asset pattern would otherwise see no error and
+		// no image, with no signal as to why (docs/specs/metadata-provider-contract.md).
+		kinds := make([]string, len(res.Assets))
+		for i, a := range res.Assets {
+			kinds[i] = a.Kind
+		}
+		s.log.Warn("discarding assets for non-person entity: no image sink in v1, use a fields entry instead",
+			"provider", provider, "entity_type", entityType, "entity_id", entityID, "asset_kinds", kinds)
 	}
 	return s.Fields(ctx, entityType, entityID)
 }

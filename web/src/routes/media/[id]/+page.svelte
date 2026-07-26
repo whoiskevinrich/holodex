@@ -686,8 +686,14 @@
 							{#each fields as f (f.canonical + f.provider)}
 								{#if f.display === 'image_url'}
 									<div class="sm:col-span-2">
-										<dt class="inline text-muted">{f.label}:</dt>
-										<dd class="inline text-ink">{f.values[0]}</dd>
+										<dt class="mb-1 text-muted">{f.label}:</dt>
+										<dd>
+											<img
+												src={f.values[0]}
+												alt={f.label}
+												class="max-h-64 rounded-theme border border-rule object-contain"
+											/>
+										</dd>
 									</div>
 								{:else}
 									<div>
