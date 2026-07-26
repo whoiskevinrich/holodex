@@ -17,7 +17,9 @@ for the full design and rationale; this README is the operator's-eye view.
 | `flightplan.example.yaml` | The portability seam — each repo copies to `.claude/flightplan.yaml` | ✅ this batch |
 | `hooks/session-start.mjs` | `SessionStart` — branch-key → `In Progress` + scaffold + orientation banner | ✅ this batch |
 | `hooks/post-tool-use.mjs` | `PostToolUse(Skill)` — log the skill run + flip its gate `[ ] → [/]` | ✅ this batch |
-| `hooks/worklog.mjs` | Pure worklog read (parsers) + write (`logSkillRun`/`flipGate`) helpers | ✅ this batch |
+| `lib/worklog.mjs` | **The canonical worklog parser** — read + write (`logSkillRun`/`flipGate`) helpers, pure and fs-free. Shared with `scripts/whats-left.mjs`, the repo's other consumer of the schema | ✅ this batch |
+| `lib/worklog.test.mjs` | Unit tests for the above; run by `make test-scripts` | ✅ this batch |
+| `hooks/worklog.mjs` | Thin fs adapter over `lib/worklog.mjs` (reads the file, re-exports the parser) | ✅ this batch |
 | `hooks/config.mjs`, `hooks/stdin.mjs`, `hooks/hookout.mjs` | Shared config + key resolution + hook stdin/stdout helpers | ✅ this batch |
 | `hooks/stop.mjs` | `Stop` — nag when the worklog falls behind the code (mechanical only) | ✅ this batch |
 | `skills/handoff`, `skills/triage` | Judgment surfaces (`[x]`-done, `release_note`, inbox drain) | ⏳ batch 2 |

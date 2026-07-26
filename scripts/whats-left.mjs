@@ -29,6 +29,11 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { frontmatter, parseGates, parseUpNext, section } from "../flightplan/lib/worklog.mjs";
+
+// The worklog schema parser is Flightplan's (ADR-064) — this script is one of its two consumers, not
+// a second implementation. Re-exported so scripts/whats-left.test.mjs keeps covering them from here.
+export { frontmatter, parseGates, parseUpNext, section };
 
 export const LADDER = ["To Do", "In Progress", "In Review", "Done", "Released"];
 const PLANS_DIR = fileURLToPath(new URL("../docs/plans", import.meta.url));
@@ -50,58 +55,6 @@ export function remainingHops(status) {
 export function ladderLine(status) {
   const cur = (status ?? "").toLowerCase();
   return LADDER.map((s) => (s.toLowerCase() === cur ? `[${s}]` : s)).join(" -> ");
-}
-
-// Lines under a `## Heading`, up to the next `## `.
-export function section(text, heading) {
-  // Blank HTML-comment spans first: the scaffolded worklog's commented-out examples (a deferred gate
-  // row, a session-log entry) are textually indistinguishable from real rows and were counted as
-  // such — a fresh scaffold reported one more gate than it has. Replacing each non-newline character
-  // with a space preserves line count and column positions. This module is read-only, so masking here
-  // is safe; the hook's write helpers mask a separate view and mutate the original.
-  const lines = text.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " ")).split(/\r?\n/);
-  const start = lines.findIndex((l) =>
-    l.trim().toLowerCase().startsWith(`## ${heading.toLowerCase()}`),
-  );
-  if (start < 0) return [];
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((l) => l.startsWith("## "));
-  return (end < 0 ? rest : rest.slice(0, end)).map((l) => l.trimEnd());
-}
-
-export function frontmatter(text, field) {
-  const m = text.match(new RegExp(`^${field}:\\s*(.+)$`, "im"));
-  return m ? stripComment(m[1]) : null;
-}
-
-// The scaffolded worklog documents every frontmatter field with a trailing YAML comment
-// (`status: in-progress    # todo | in-progress | …`), so a bare `(.+)$` capture reads the comment as
-// part of the value. That made `depends-on: []  # …` look like a real dependency and — worse — an
-// unset `release_note:` report as *set*, defeating the guard that an epic can't close without one.
-// A quoted scalar is taken whole, since a `#` inside quotes is literal; otherwise whitespace-then-`#`
-// (or a `#` in the value's first column, i.e. a field with only a comment) opens the comment. Quotes
-// are left on for the caller to strip, as before.
-function stripComment(raw) {
-  const s = raw.trim();
-  const quoted = s.match(/^(['"]).*?\1/);
-  if (quoted) return quoted[0];
-  if (s.startsWith("#")) return null;
-  return s.split(/\s+#/)[0].trimEnd() || null;
-}
-
-// Parse the `## Gates` checklist into { state, label } rows. state ∈ { ' ', '/', '~', 'x' }.
-export function parseGates(text) {
-  return section(text, "Gates")
-    .map((l) => l.match(/^-\s*\[([ x/~])\]\s*(.+)$/i))
-    .filter(Boolean)
-    .map((m) => ({ state: m[1].toLowerCase(), label: m[2].trim() }));
-}
-
-// Numbered items under `## Up next`.
-export function parseUpNext(text) {
-  return section(text, "Up next")
-    .map((l) => l.trim())
-    .filter((l) => /^\d+\.\s/.test(l));
 }
 
 // Find the worklog for KEY: filename prefix first, else any plan file whose
