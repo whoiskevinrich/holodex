@@ -2,16 +2,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { flipGate, logSkillRun, maskComments, parseWorklogText } from "./worklog.mjs";
+import { flipGate, logSkillRun, maskComments, parseGates, parseWorklogText } from "./worklog.mjs";
 
 // The scaffold is the highest-risk input: it is what every new epic starts from, and its
 // commented-out examples are what the section scanners used to mistake for real content.
 const SCAFFOLD = readFileSync(fileURLToPath(new URL("../templates/worklog.md", import.meta.url)), "utf8");
 
-// True when `marker` lands inside an unclosed HTML comment.
+// True when `marker` lands inside an unclosed HTML comment. `--!>` closes a comment just as `-->`
+// does, so both end forms are counted (matching only `-->` is CodeQL's js/bad-tag-filter).
 function insideComment(text, marker) {
   const before = text.slice(0, text.indexOf(marker));
-  return (before.match(/<!--/g) ?? []).length > (before.match(/-->/g) ?? []).length;
+  return (before.match(/<!--/g) ?? []).length > (before.match(/--!?>/g) ?? []).length;
 }
 
 test("maskComments preserves line count and column positions", () => {
@@ -21,6 +22,19 @@ test("maskComments preserves line count and column positions", () => {
   assert.equal(out.length, src.length);
   assert.equal(out, `a\n${" ".repeat(8)}\n${" ".repeat(7)}\nb`); // "<!-- one" / "two -->"
   assert.equal(out.replace(/ /g, ""), "a\n\n\nb"); // nothing but whitespace survives the comment
+});
+
+// HTML accepts `--!>` as a comment end. Matching only `-->` left such a comment open, so the mask
+// ran past it and blanked real content — a gate row after it would vanish from the count.
+test("maskComments honours the --!> comment end", () => {
+  assert.equal(maskComments("a<!-- x --!>b"), `a${" ".repeat(11)}b`);
+  // Multi-line is where it bites: with the end tag unrecognised the comment never closes, so the
+  // example row inside it survives the mask and gets counted as a real gate.
+  const t = "## Gates\n<!-- note\n- [ ] commented example\n--!>\n- [ ] frontend\n";
+  assert.deepEqual(
+    parseGates(t).map((g) => g.label),
+    ["frontend"],
+  );
 });
 
 test("parseWorklogText counts only real gates in the scaffold", () => {

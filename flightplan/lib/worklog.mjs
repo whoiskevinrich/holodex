@@ -16,8 +16,12 @@
 // positions are preserved and any index computed against the masked copy stays valid against the
 // original. That property is what lets the write helpers match on a masked view and mutate the real
 // lines, leaving the emitted file byte-identical apart from the intended edit.
+//
+// The end tag is `--!?>`, not just `-->`: HTML treats `--!>` as a comment end too. Matching only
+// `-->` would leave such a comment "open", so the mask would run past it and blank real content
+// until the next `-->` (or to EOF). CodeQL flags the `-->`-only form as js/bad-tag-filter.
 export function maskComments(text) {
-  return text.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
+  return text.replace(/<!--[\s\S]*?--!?>/g, (m) => m.replace(/[^\n]/g, " "));
 }
 
 // Drop a trailing YAML comment from a frontmatter scalar. The scaffold documents every field inline
