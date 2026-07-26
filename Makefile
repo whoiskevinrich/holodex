@@ -11,11 +11,12 @@ test: test-go test-scripts
 test-go:
 	go test ./...
 
-# Dependency-free node scripts (Jira sync, release-digest resolution). Folded into `test`
-# because scripts/resolve-release-digest.mjs decides what gets published as a release
-# (ADR-070) — a green `make test` shouldn't be able to hide a break there.
+# Dependency-free node scripts (Jira sync, release-digest resolution) plus the Flightplan
+# library. Folded into `test` because scripts/resolve-release-digest.mjs decides what gets
+# published as a release (ADR-070) — a green `make test` shouldn't be able to hide a break
+# there — and because flightplan/lib/worklog.mjs *writes* to worklogs from a hook.
 test-scripts:
-	node --test "scripts/**/*.test.mjs"
+	node --test "scripts/**/*.test.mjs" "flightplan/**/*.test.mjs"
 
 test-integration:
 	go test -tags integration ./...

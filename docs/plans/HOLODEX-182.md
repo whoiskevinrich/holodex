@@ -29,9 +29,11 @@ tracks HOLODEX epics with no reliance on agent memory.
 2. [x] [backend] PostToolUse(Skill) hook — append skill runs to the session log; flip the gate to `[/]` — `flightplan/hooks/post-tool-use.mjs`
 3. [x] [backend] Extract shared `config.mjs` (config + key + gates) & `stdin.mjs`; both hooks reuse them — `flightplan/hooks/`
 4. [x] [backend] `Stop` hook — staleness nag (worklog behind code) + SessionStart "left no handoff" surface — `flightplan/hooks/stop.mjs`
-5. [ ] [testing] Hook unit tests — `parseWorklog`/`section`/`logSkillRun`/`flipGate` + config gates parse (batch 2)
+5. [/] [testing] Hook unit tests — `parseWorklog`/`section`/`logSkillRun`/`flipGate` **done** in
+   `flightplan/lib/worklog.test.mjs` (wired into `make test-scripts`); **config gates parse still open**
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
-7. [ ] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) — follow-up
+7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
+   done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
 8. [ ] [backend] `/handoff` skill → batch 2 (own slice)
 9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on the batch-1 retro checkpoint below
 
