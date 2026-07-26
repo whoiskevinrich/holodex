@@ -134,7 +134,7 @@ provider loudly.
 | `provider` | string | yes | Provider id, lowercase |
 | `version` | string | yes | Container version (display) |
 | `protocol_version` | integer | yes | **MUST be `1`.** Holodex refuses any other major version |
-| `entity_types` | string[] | yes | The entity types you support. v1: `["person"]` (see [§3](#3-entity-types-and-matching)) |
+| `entity_types` | string[] | yes | The entity types you support: any of `"person"`, `"video"`, `"studio"` (see [§3](#3-entity-types-and-matching)). A minimal provider may advertise `["person"]` only |
 | `id_namespaces` | string[] | yes | The external-ID namespaces you understand (see [§4.1](#41-external-ids-and-namespaces)). Usually `["<name>"]`; include more if you can resolve foreign IDs (e.g. an `imdb` id) |
 | `fields` | string[] | yes | The canonical **text** field keys you can supply (see [§4.2](#42-canonical-fields)). **Do not list `photo` here** — a portrait is an *asset*, not a field; advertise it in `asset_kinds` |
 | `asset_kinds` | string[] | optional | The binary asset kinds you can supply (see [§4.3](#43-assets)). v1 person kinds: `"photo"`, `"banner"`, `"poster"`. Omit if you supply no assets. **Backward compat:** a provider may instead still list `photo` in `fields` during the deprecation window — Holodex treats that as `asset_kinds: ["photo"]` — but new providers SHOULD use `asset_kinds` |
@@ -170,7 +170,7 @@ owner to confirm.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `entity_type` | string | yes | `"person"` in v1 |
+| `entity_type` | string | yes | `"person"`, `"video"`, or `"studio"` — whichever you advertised in `entity_types` (see [§3](#3-entity-types-and-matching)) |
 | `hint` | object | yes | The identity input |
 | `hint.query` | string | optional | Free-text name to search (the dominant path for People). Omitted/empty when only IDs are given |
 | `hint.external_ids` | string[] | optional | Namespace-qualified IDs (e.g. `"wikidata:Q7259"`) for a deterministic path. **Note:** Holodex's v1 People flow sends only `query` (from the owner's search box). Implement the `external_ids` path for forward compatibility, but `query` is what v1 exercises |
@@ -214,7 +214,7 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `entity_type` | string | yes | `"person"` in v1 |
+| `entity_type` | string | yes | `"person"`, `"video"`, or `"studio"` — whichever you advertised in `entity_types` (see [§3](#3-entity-types-and-matching)) |
 | `external_id` | string | yes | A namespace-qualified id previously returned by `/resolve`. **Note:** the request carries `external_id` but **not** a separate `namespace` — parse the namespace off the prefix (everything before the first `:`). A bare/unknown id should yield a non-2xx |
 
 **Response `200`:**
@@ -268,14 +268,22 @@ beyond "2xx vs not" are for the provider's own clarity/observability.
 
 ## 3. Entity types and matching
 
-v1 supports **one** `entity_type`: the literal string **`"person"`**. Holodex sends this
-verbatim in `/resolve` and `/enrich`. A provider should accept `"person"` and MAY return an
-error for unknown entity types (Holodex will not send others in v1).
+This spec's v1 text originally specified a single `entity_type`, `"person"`. **That has since
+been extended additively** (no protocol-version bump — see §4.5/§4.6): Holodex today also
+sends `entity_type: "video"` (a file/media entity) and `entity_type: "studio"` for providers
+that advertise them. All three are live, exercised entity types — not just designed-in future
+ones. Advertise whichever you support in `/describe.entity_types` (e.g.
+`["person", "video", "studio"]`); Holodex sends only the `entity_type` strings you advertised.
+`"series"`/`"media"` beyond the file-per-video model remain designed-in but unexercised.
 
-The contract is **designed to extend** to more entity types (e.g. `series`, `media`) without
-a protocol change: advertise them in `entity_types`, and Holodex sends the matching
-`entity_type` string. Do not hardcode assumptions that there is only ever one entity type if
-you intend to grow — but you are free to support `person` only.
+**Video and studio each have their own canonical field vocabulary** — see [§4.2a](#42a-canonical-fields--videomedia)
+(video) and [§4.2b](#42b-canonical-fields--studio) (studio). Critically, **a video's poster and
+a studio's logo are `fields` entries (`poster_url`/`logo`), never `assets[]` entries** — v1 has
+**no non-person image sink**. See the entity-type-scoping callout in [§4.3](#43-assets).
+
+A provider MAY choose to support `person` only, `video` only, any combination, or all three. Do
+not hardcode assumptions that there is only ever one entity type if you intend to support more
+than one.
 
 Matching is **embedded-ID-first, name-search fallback**:
 
@@ -349,10 +357,63 @@ Rules:
   and a provider that omits them stays fully conformant. v1 defines one: **`_studio_external_ids`**
   for studio de-dup — see [§4.6](#46-studio-external-ids-_studio_external_ids).
 
+### 4.2a Canonical fields — video/media
+
+> **Status: additive extension**, exercised today (not merely designed-in — see [§3](#3-entity-types-and-matching)).
+
+`fields` for a `video`/`media` `entity_type` follows the same shape as [§4.2](#42-canonical-fields)
+(canonical key → array of string values) but with its own vocabulary:
+
+| Canonical key | Meaning | Cardinality | Format guidance |
+|---|---|---|---|
+| `title` | Primary title | single | Plain text |
+| `original_title` | Title in original language | single | Plain text |
+| `overview` | Synopsis | single | Plain text, `render: long_text` |
+| `tagline` | Marketing tagline | single | Plain text |
+| `release_date` | Release date | single | `YYYY-MM-DD` preferred |
+| `runtime` | Runtime in minutes | single | Integer as string |
+| `genres` | Genre list | multi | One genre per array element |
+| `status` | Release status | single | Plain text (e.g. `"Released"`) |
+| `original_language` | Original language | single | ISO 639-1 code preferred (e.g. `"en"`) |
+| `homepage` | Official/home page | single | Absolute URL, `render: url` |
+| `imdb_id` | IMDb identifier | single | e.g. `"tt1160419"` |
+| `poster_url` | Poster / cover art | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry.** Holodex downloads it on writeback and embeds it as the file's cover art (see [§4.3](#43-assets) for why `assets[]` doesn't apply here) |
+| `actors` | Cast (flat text) | multi | One name per element, billing order first. Prefer the structured [`people[]`](#45-video-credits--per-person-castcrew-with-headshots) shape instead if you want headshots/Person linking |
+| `director` | Director(s) (flat text) | multi | One name per element |
+| `studio` | Production compan(ies) | multi | One name per element. Pair with [`_studio_external_ids`](#46-studio-external-ids-_studio_external_ids) if you have stable studio ids |
+
+Rules mirror [§4.2](#42-canonical-fields): always arrays, omit rather than send empty, no
+embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must not invent.
+
+### 4.2b Canonical fields — studio
+
+> **Status: additive extension** ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)), exercised today.
+
+| Canonical key | Meaning | Cardinality | Format guidance |
+|---|---|---|---|
+| `description` | Studio description | single | Plain text |
+| `country` | Country of origin | single | Plain text or ISO country code |
+| `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning, different entity) |
+| `logo` | Studio logo | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry** (see [§4.3](#43-assets)) |
+
 ### 4.3 Assets
 
+> **`assets[]` is consumed only for `entity_type: "person"` in v1.** There is **no** non-person
+> image sink: a `video`/`media` entity's own poster/cover art and a `studio` entity's logo are
+> **`fields` entries**, not assets — `fields["poster_url"]` (video, `render: image_url`) and
+> `fields["logo"]` (studio, `render: image_url`) respectively, exactly like `bio`/`website`/any
+> other canonical text field, just holding an image URL as the value. See
+> [§4.2a](#42a-canonical-fields--videomedia)/[§4.2b](#42b-canonical-fields--studio). **If your
+> `/enrich` response for a `video` or `studio` entity includes a non-empty `assets[]`, Holodex
+> silently drops it** (logged as a server-side warning the provider never sees) — the response
+> still returns `200` and your other fields still land, but the image itself never reaches
+> Holodex. This is a common mistake for a provider that mirrors the working person-photo
+> pattern for a video's poster; don't — use a `fields["poster_url"]` value instead. (Per-cast/
+> crew headshots on a video's `people[]` entries are the one exception, and are **not** affected
+> by this — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots).)
+
 An asset is a binary image Holodex downloads, normalizes, and stores against the entity.
-Emit one `assets[]` entry per image:
+Emit one `assets[]` entry per image, **for a `person` entity only**:
 
 ```json
 { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/<path>.jpg" }
@@ -949,6 +1010,7 @@ truth if a clarification is needed:
   should reflect upstream reachability or stay a pure container-liveness check.
 - **Bind-address env var name** ([§7](#7-configuration)) — pick a convention (`HOST` vs
   `BIND_ADDR`).
-- **Additional entity types** ([§3](#3-entity-types-and-matching)) — `series`/`media` are
-  designed-in but not yet exercised; coordinate the canonical field vocabulary before
-  shipping a non-person provider.
+- **Additional entity types** ([§3](#3-entity-types-and-matching)) — `person`, `video`, and
+  `studio` are all live and exercised today (this section previously said only `person` was
+  supported; that was stale). A `series` entity type beyond the file-per-video model remains
+  designed-in but unexercised; coordinate its canonical field vocabulary before shipping one.

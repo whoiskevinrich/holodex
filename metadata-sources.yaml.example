@@ -17,7 +17,7 @@
 #   base_url      where core reaches the sidecar (compose service name on the
 #                 internal network, or host:port). THIS is the SSRF allowlist —
 #                 core never follows a provider response to any other host.
-#   entity_types  what the provider can enrich; supports [person] and/or [video]
+#   entity_types  what the provider can enrich; supports [person], [video], and/or [studio]
 #   asset_hosts   extra CDN hostnames whose asset URLs core is allowed to fetch
 #                 (ADR-039). The sidecar's own base_url host is always implicitly
 #                 allowed. Any listed host requires https. Example: TMDB serves
