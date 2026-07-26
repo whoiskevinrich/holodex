@@ -23,6 +23,7 @@ worklog:
 gates:
   - { id: spec,         skill: write-spec,        artifact: 'docs/specs/**' }
   - { id: architecture, skill: architecture,      artifact: 'docs/architecture/ADR-*' }
+  - { id: design,       skill: design-handoff,    artifact: 'docs/design/**' }
   - { id: backend }
   - { id: frontend }
   - { id: testing,      skill: testing-strategy }

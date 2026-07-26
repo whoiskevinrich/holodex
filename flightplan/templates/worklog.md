@@ -24,6 +24,7 @@ this is the human framing.>
 
 - [ ] spec `write-spec` → `docs/specs/**`
 - [ ] architecture `architecture` → `docs/architecture/ADR-*`
+- [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
