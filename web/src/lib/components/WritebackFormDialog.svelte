@@ -5,8 +5,8 @@
 	// Writes are sequential (one exiftool pass per field) with per-row progress.
 	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage, providerFromWinningSource } from '$lib/format';
-	import { fileCandidateValue, valueMatchesFile } from '$lib/f36';
+	import { toMessage, providerFromWinningSource, valueMatchesFile } from '$lib/format';
+	import { fileCandidateValue } from '$lib/f36';
 	import type { ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
@@ -156,6 +156,12 @@
 	}
 </script>
 
+{#snippet checkIcon(cls: string)}
+	<svg class={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+		<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+	</svg>
+{/snippet}
+
 <!-- Backdrop + centering wrapper. aria-hidden must NOT be here — the dialog
      inside is focusable. aria-modal="true" on the dialog signals to screen
      readers that content outside it is inert. -->
@@ -201,7 +207,11 @@
 				{@const tag = sourceTag(row.field.winning_source)}
 				{@const hasFileValue = row.field.candidates !== undefined}
 				{@const fileVal = fileCandidateValue(row.field)}
-				{@const matchesFile = valueMatchesFile(row.field, row.value)}
+				<!-- matchesFile re-derives from fileVal (already fetched for the "was:" line)
+				     rather than calling valueMatchesFile() again, so each row does one
+				     candidates lookup, not two; valueMatchesFile is still the single source
+				     of truth used above to seed the row's initial checked state. -->
+				{@const matchesFile = hasFileValue && row.value.trim() === fileVal.trim()}
 				<div
 					class="flex items-start gap-3"
 					class:opacity-50={!row.checked && !isDone && !isError && !matchesFile}
@@ -209,9 +219,7 @@
 					<!-- Checkbox / status icon -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 						{#if isDone}
-							<svg class="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-							</svg>
+							{@render checkIcon('h-4 w-4 text-accent')}
 						{:else if isWriting}
 							<svg class="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -258,9 +266,7 @@
 							</div>
 						{:else if matchesFile}
 							<p class="flex items-center gap-1.5 text-xs text-muted">
-								<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-								</svg>
+								{@render checkIcon('h-3.5 w-3.5 shrink-0')}
 								<span class="text-ink">{row.value || '—'}</span>
 								<span>— already in file, nothing to write</span>
 							</p>

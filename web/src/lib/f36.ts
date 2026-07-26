@@ -46,15 +46,6 @@ export function fileCandidateValue(field: ResolvedField): string {
 	return baselineCandidateValue(field, 'file');
 }
 
-// valueMatchesFile is true when an arbitrary candidate value (e.g. a form's live draft) is
-// textually identical to the field's file baseline. The live counterpart to outOfSync(): that
-// reads a frozen resolver snapshot (field.in_sync) and only applies once a decision exists,
-// while this takes the value to compare as a parameter so a caller can re-check it against
-// edits made after the page loaded (F28 writeback form — HOLODEX design critique).
-export function valueMatchesFile(field: ResolvedField, value: string): boolean {
-	return field.candidates !== undefined && value.trim() === fileCandidateValue(field).trim();
-}
-
 // providerCandidates are the matched providers that actually supply a value — an empty provider
 // value yields no `Adopt` segment (handoff edge case), so it is filtered out here.
 export function providerCandidates(field: ResolvedField): FieldCandidate[] {

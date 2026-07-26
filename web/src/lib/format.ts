@@ -1,4 +1,5 @@
-import type { Resolution } from './types';
+import { fileCandidateValue } from './f36';
+import type { ResolvedField, Resolution } from './types';
 
 // formatDuration renders seconds as H:MM:SS (or M:SS under an hour) — F2.4.
 export function formatDuration(totalSec: number): string {
@@ -78,6 +79,15 @@ export function providerFromWinningSource(winningSource?: string): string {
 	// guard it here too so a "computed:age" winner can never resolve to a phantom "computed"
 	// provider bubble anywhere it slips past the caller's own f.computed branch.
 	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns;
+}
+
+// valueMatchesFile is true when an arbitrary candidate value (e.g. a form's live draft) is
+// textually identical to the field's file baseline. The live counterpart to f36.ts's
+// outOfSync(): that reads a frozen resolver snapshot (field.in_sync) and only applies once a
+// decision exists, while this takes the value to compare as a parameter so a caller (the F28
+// writeback form) can re-check it against edits made after the page loaded.
+export function valueMatchesFile(field: ResolvedField, value: string): boolean {
+	return field.candidates !== undefined && value.trim() === fileCandidateValue(field).trim();
 }
 
 // calculatedFrom builds the transitive provenance phrase for a computed field (F45,
