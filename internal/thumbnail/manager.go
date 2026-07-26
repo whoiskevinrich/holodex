@@ -4,9 +4,7 @@
 //
 //   - Tier 1 (embedded art): the scanner calls ExtractEmbedded at index time for
 //     files whose container carries cover art — a near-free `exiftool -b` byte
-//     read, rescaled to Width via the same ffmpeg pass Tier 2 uses so a
-//     provider poster embedded at its original (often portrait, full)
-//     resolution by a metadata writeback still conforms to THUMBNAIL_WIDTH.
+//     read (see extractCoverArt for the oversized-image exception).
 //   - Tier 2 (generated frames): files without embedded art are enqueued for
 //     background ffmpeg frame extraction, drained by a bounded, low-priority
 //     worker pool so generation never overloads a modest host.
