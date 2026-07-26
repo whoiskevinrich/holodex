@@ -3,6 +3,7 @@ package thumbnail
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,15 +15,33 @@ import (
 )
 
 // generateFrame extracts a single frame at SeekPercent of the video's duration,
-// scaled to Width, as a JPEG. It writes to a temp file and renames into place so
-// the serving handler never sees a partial image.
+// scaled to Width, as a JPEG (Tier 2, ADR-009). Input-seeking (-ss before -i)
+// is fast; each element is its own argv entry (no shell), so the source path
+// can never be mis-parsed as a flag.
 func (m *Manager) generateFrame(ctx context.Context, c repo.ThumbnailCandidate, outPath string) error {
 	src := absPath(c.FilePath)
+	seek := seekSeconds(c.DurationSec, m.cfg.SeekPercent)
+	inputArgs := []string{"-ss", strconv.Itoa(seek), "-i", src, "-frames:v", "1"}
+	return m.scaleToWidth(ctx, inputArgs, nil, outPath)
+}
+
+// scaleToWidth runs ffmpeg with inputArgs (everything that precedes the scale
+// filter — a seek+source file for Tier 2's frame extraction, or a bare stdin
+// pipe for Tier 1's already-extracted embedded art) plus the shared
+// scale/quality/muxer tail, writes to a temp file, and renames into place so
+// the serving handler never sees a partial image. Shared by generateFrame and
+// extractCoverArt so both tiers honor Width (THUMBNAIL_WIDTH) and Nice
+// (ADR-009) identically instead of each hand-rolling the ffmpeg invocation.
+// The muxer is set explicitly (-f image2) because the destination is a temp
+// file whose ".tmp" extension ffmpeg cannot map to an output format on its own.
+func (m *Manager) scaleToWidth(ctx context.Context, inputArgs []string, stdin io.Reader, outPath string) error {
 	tmp := outPath + ".tmp"
-	args := frameArgs(src, tmp, seekSeconds(c.DurationSec, m.cfg.SeekPercent), m.cfg.Width)
+	args := scaleArgs(inputArgs, m.cfg.Width, tmp)
 	bin, full := wrapNice(m.cfg.Nice, m.cfg.FfmpegPath, args)
 
-	out, err := exec.CommandContext(ctx, bin, full...).CombinedOutput()
+	cmd := exec.CommandContext(ctx, bin, full...)
+	cmd.Stdin = stdin
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("ffmpeg: %w: %s", err, lastLine(out))
@@ -37,6 +56,19 @@ func (m *Manager) generateFrame(ctx context.Context, c repo.ThumbnailCandidate, 
 		return fmt.Errorf("rename thumbnail: %w", err)
 	}
 	return nil
+}
+
+// scaleArgs builds the ffmpeg argv: inputArgs (source-specific — a seek+file or
+// a stdin pipe) followed by the shared scale/quality/muxer tail. A pure
+// function so the argv shape is unit-testable without shelling out.
+func scaleArgs(inputArgs []string, width int, tmp string) []string {
+	args := append([]string{"-nostdin", "-loglevel", "error"}, inputArgs...)
+	return append(args,
+		"-vf", fmt.Sprintf("scale=%d:-1", width),
+		"-q:v", "3",
+		"-f", "image2",
+		"-y", tmp,
+	)
 }
 
 // absPath returns the absolute form of p, falling back to p on error. An
@@ -63,24 +95,6 @@ func seekSeconds(durationSec, pct int) int {
 		s = 0
 	}
 	return s
-}
-
-// frameArgs builds the ffmpeg argv. Input-seeking (-ss before -i) is fast; each
-// element is a separate arg (no shell), so paths can never be mis-parsed. The
-// muxer is set explicitly (-f image2) because the destination is a temp file
-// whose ".tmp" extension ffmpeg cannot map to an output format on its own.
-func frameArgs(src, dst string, seekSec, width int) []string {
-	return []string{
-		"-nostdin",
-		"-loglevel", "error",
-		"-ss", strconv.Itoa(seekSec),
-		"-i", src,
-		"-frames:v", "1",
-		"-vf", fmt.Sprintf("scale=%d:-1", width),
-		"-q:v", "3",
-		"-f", "image2",
-		"-y", dst,
-	}
 }
 
 // wrapNice prepends nice (and ionice, when present) so ffmpeg yields CPU and I/O
