@@ -23,17 +23,23 @@ func TestSeekSeconds(t *testing.T) {
 	}
 }
 
-func TestFrameArgs(t *testing.T) {
-	args := frameArgs("/m/clip.mkv", "/d/1.jpg.tmp", 6, 400)
-	joined := strings.Join(args, " ")
+func TestScaleArgs(t *testing.T) {
+	// Tier 2: seek + source file ahead of the shared scale/quality/muxer tail.
+	frame := scaleArgs([]string{"-ss", "6", "-i", "/m/clip.mkv", "-frames:v", "1"}, 400, "/d/1.jpg.tmp")
+	joined := strings.Join(frame, " ")
 	for _, want := range []string{"-ss 6", "-i /m/clip.mkv", "-frames:v 1", "scale=400:-1", "-f image2", "-y /d/1.jpg.tmp"} {
 		if !strings.Contains(joined, want) {
-			t.Errorf("frameArgs missing %q in %q", want, joined)
+			t.Errorf("scaleArgs (frame) missing %q in %q", want, joined)
 		}
 	}
-	// Input path is its own argv element (no shell), so it can't be mis-parsed.
-	if indexOf(args, "/m/clip.mkv") < 0 {
-		t.Errorf("source path not a discrete arg: %v", args)
+
+	// Tier 1: a bare stdin pipe ahead of the same tail — embedded cover art.
+	art := scaleArgs([]string{"-i", "pipe:0"}, 400, "/d/2.jpg.tmp")
+	joined = strings.Join(art, " ")
+	for _, want := range []string{"-i pipe:0", "scale=400:-1", "-f image2", "-y /d/2.jpg.tmp"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("scaleArgs (cover art) missing %q in %q", want, joined)
+		}
 	}
 }
 
@@ -42,13 +48,4 @@ func TestWrapNiceDisabled(t *testing.T) {
 	if bin != "ffmpeg" || len(args) != 2 {
 		t.Errorf("disabled wrapNice altered command: bin=%s args=%v", bin, args)
 	}
-}
-
-func indexOf(s []string, v string) int {
-	for i, x := range s {
-		if x == v {
-			return i
-		}
-	}
-	return -1
 }

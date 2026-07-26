@@ -1,6 +1,7 @@
 package enrich
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -767,6 +768,54 @@ func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
 	}
 	if len(fields) == 0 {
 		t.Error("fields empty despite successful field enrichment")
+	}
+}
+
+// A non-person Assets[] (e.g. a studio's logo mistakenly sent as an asset instead
+// of a fields["logo"] value — there is no non-person image sink in v1) is still
+// discarded, but the drop is now logged loudly instead of silently, so a provider
+// author who mirrors the person-asset pattern gets a diagnosable signal instead of
+// an inert no-op (docs/specs/metadata-provider-contract.md).
+func TestEnrichWarnsOnDiscardedNonPersonAssets(t *testing.T) {
+	fake := NewFake("fake")
+	rec := fake.Studios["tmdb:10342"]
+	rec.Assets = []Asset{{Kind: "poster", URL: "http://example.invalid/logo.png"}}
+	fake.Studios["tmdb:10342"] = rec
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio]
+    enabled: true
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&buf, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityStudio, 7, "fake", "tmdb:10342", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 0 {
+		t.Errorf("stored %d assets for a studio, want 0 (no non-person image sink in v1)", len(sink.stored))
+	}
+	logged := buf.String()
+	if !strings.Contains(logged, "discarding assets for non-person entity") {
+		t.Errorf("log = %q, want a warning about discarded non-person assets", logged)
+	}
+	if !strings.Contains(logged, "studio") || !strings.Contains(logged, "poster") {
+		t.Errorf("log = %q, want entity_type=studio and asset_kinds containing poster", logged)
 	}
 }
 
