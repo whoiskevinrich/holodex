@@ -105,6 +105,54 @@ func TestQueue_WritesAndAudits(t *testing.T) {
 	}
 }
 
+// The post-write hook runs for every successful write, whatever was written
+// (ADR-073). It used to be gated to actors/studio writes from non-merge/revert
+// sources (ADR-068 D1), so a plain `title` write never re-read the file —
+// leaving the DB's copy of its tags, the baseline `in_sync` is computed against,
+// describing the pre-write file until an unrelated rescan. Merge-sourced writes
+// were excluded too, which is the same bug across every video in a merge.
+func TestQueue_PostWriteHookRunsForEveryWrite(t *testing.T) {
+	cases := []struct {
+		name  string
+		field writequeue.JobField
+	}{
+		{"plain replace field", writequeue.JobField{Field: "title", Values: []string{"My Film"}, Source: "tmdb:title"}},
+		{"entity field", writequeue.JobField{Field: "actors", Values: []string{"A Person"}, Source: "manual:actors"}},
+		{"merge propagation", writequeue.JobField{Field: "actors", Values: []string{"Canonical"}, Source: writequeue.SourceMerge}},
+		{"revert", writequeue.JobField{Field: "title", Values: []string{"Prior"}, Source: writequeue.SourceRevert}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRepo(t)
+			id := seedVideo(t, r, "MP4")
+
+			var hookCalls atomic.Int32
+			var hookVideo atomic.Int64
+			write := func(context.Context, string, []writeback.FieldWrite) error { return nil }
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			q := writequeue.New(r, write, testLogger(), 1, "")
+			q.SetPostWrite(func(_ context.Context, videoID int64, _ string) {
+				hookVideo.Store(videoID)
+				hookCalls.Add(1)
+			})
+			q.Start(ctx)
+
+			if _, err := q.Enqueue(ctx, id, []writequeue.JobField{tc.field}); err != nil {
+				t.Fatalf("enqueue: %v", err)
+			}
+			waitFor(t, func() bool {
+				n, _ := r.PendingWritebackCount(ctx)
+				return n == 0 && hookCalls.Load() == 1
+			})
+			if got := hookVideo.Load(); got != id {
+				t.Errorf("post-write hook got video %d, want %d", got, id)
+			}
+		})
+	}
+}
+
 // A merge propagates under a shared, non-numeric batch id (api.mergeBatchID:
 // "merge-person-N-M"). The run must carry it verbatim in batch_id, because that
 // is what the Revert control now reads. Previously the id was only recoverable

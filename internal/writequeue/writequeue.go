@@ -30,12 +30,13 @@ import (
 type WriteFunc func(ctx context.Context, path string, fields []writeback.FieldWrite) error
 
 // PostWriteFunc is an optional best-effort hook run after a successful write —
-// used to re-extract embedded cover art (a poster just written) and, for
-// entity-field writes, to re-read the file so a newly-written Person/Studio is
-// created and linked (HOLODEX-196 #4). fields are the job's just-written fields,
-// so the hook can key off the field/source (e.g. skip the re-extract for
-// merge-propagation writes, whose DB entities are already current). Nil disables it.
-type PostWriteFunc func(ctx context.Context, videoID int64, path string, fields []JobField)
+// used to re-extract embedded cover art (a poster just written) and to re-read
+// the file so the DB's copy of its tags matches what was written: that copy is
+// the baseline `in_sync` is computed against (HOLODEX-214), and reading it back
+// is also what materializes a newly-written Person/Studio (HOLODEX-196 #4).
+// Nil disables it. Deliberately not passed the job's fields — the hook runs for
+// every write, and reintroducing a per-field gate is what ADR-073 undid.
+type PostWriteFunc func(ctx context.Context, videoID int64, path string)
 
 // JobField is one curated, write-enabled canonical field in a queued job's payload.
 // Tag names are intentionally NOT stored — they are re-resolved from the file's
@@ -46,36 +47,15 @@ type JobField struct {
 	Source string   `json:"source"`
 }
 
-// Write-job sources whose values are already reconciled in the DB, so a
-// post-write hook must NOT re-extract to create entities from them: SourceMerge
-// (the merge already repointed associations) and SourceRevert (restoring a
-// prior on-disk value). SourceMerge is also referenced by internal/api's merge
-// propagation so the string has one definition.
+// Write-job sources whose values are already reconciled in the DB before the
+// file is touched: SourceMerge (the merge already repointed associations) and
+// SourceRevert (restoring a prior on-disk value). SourceMerge is also
+// referenced by internal/api's merge propagation so the string has one
+// definition.
 const (
 	SourceMerge  = "merge"
 	SourceRevert = "revert"
 )
-
-// MayIntroduceEntity reports whether any of a job's fields could add a
-// Person/Studio not yet in the DB, so the post-write hook should re-extract the
-// file to materialize it (HOLODEX-196 #4, ADR-068 D1). True for an entity field
-// written from a source that derives values outside the DB (filename extraction
-// or a manual owner edit); false for merge/revert, whose values are already
-// current DB entities — skipping those keeps a large merge from paying a
-// per-video re-extract. "actors"/"studio" are the writeback-layer entity field
-// names (internal/extract.WritebackField maps people→actors); no shared
-// predicate keys on that post-alias vocabulary, so they are matched here.
-func MayIntroduceEntity(fields []JobField) bool {
-	for _, f := range fields {
-		if f.Field != "actors" && f.Field != "studio" {
-			continue
-		}
-		if f.Source != SourceMerge && f.Source != SourceRevert {
-			return true
-		}
-	}
-	return false
-}
 
 // Queue is the durable writeback worker.
 type Queue struct {
@@ -291,7 +271,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 		}
 	}
 	if q.postWrite != nil {
-		q.postWrite(ctx, job.VideoID, v.FilePath, fields)
+		q.postWrite(ctx, job.VideoID, v.FilePath)
 	}
 	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped, batchID))
 }

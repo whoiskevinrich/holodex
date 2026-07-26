@@ -715,8 +715,17 @@
 			videoId={id}
 			filePath={video.file_path}
 			writeback={api.writebackMedia}
+			jobStatus={api.writebackJobStatus}
 			onclose={() => (writebackOpen = false)}
-			onapplied={() => (thumbVersion += 1)}
+			onapplied={async () => {
+				// The dialog reports applied only once the queued write has landed and the
+				// server has re-read the file, so resolved[] now recomputes in_sync against
+				// the post-write baseline — the header count and the per-field warn pills
+				// clear here rather than persisting until a rescan (ADR-073). Same reason
+				// decideField/clearProvider/onApplied reload.
+				thumbVersion += 1;
+				await reloadDetail();
+			}}
 		/>
 	{/if}
 

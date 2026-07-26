@@ -13,6 +13,9 @@ const (
 	WritebackPending = "pending"
 	WritebackRunning = "running"
 	WritebackFailed  = "failed"
+	// WritebackDone is not a stored value — FinishWriteback deletes the row on
+	// success. GetWritebackJobStatus synthesizes it for an absent row.
+	WritebackDone = "done"
 )
 
 // WritebackJob is one durable enqueued batch-write (F30, ADR-048).
@@ -145,6 +148,27 @@ func (r *Repo) FinishWriteback(ctx context.Context, id int64, ok bool, errMsg st
 		return fmt.Errorf("fail writeback: %w", err)
 	}
 	return nil
+}
+
+// GetWritebackJobStatus reports one job's terminal-or-not state, so a caller can
+// poll an enqueued write to completion (ADR-073).
+//
+// Because FinishWriteback deletes the row on success, an absent row reads as
+// WritebackDone. That conflates "succeeded" with "never existed" / "already
+// swept", which holds only for the intended caller: a poll started from the job
+// id the enqueue just handed back. A failed job keeps its row, so a real failure
+// is never mistaken for success.
+func (r *Repo) GetWritebackJobStatus(ctx context.Context, id int64) (status, errMsg string, err error) {
+	var msg sql.NullString
+	err = r.db.QueryRowContext(ctx, `
+		SELECT status, error FROM writeback_queue WHERE id = ?`, id).Scan(&status, &msg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return WritebackDone, "", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("get writeback job %d: %w", id, err)
+	}
+	return status, msg.String, nil
 }
 
 // RecoverRunningWritebacks resets any 'running' rows back to 'pending' on boot —

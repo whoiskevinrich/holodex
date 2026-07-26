@@ -612,6 +612,12 @@ export const api = {
 	writebackMedia: (id: number, req: WritebackRequest) =>
 		sendAuthed<{ job_id?: number; queued?: number }>('POST', `/media/${id}/writeback`, req),
 
+	// One queued write's state, for polling it to completion (ADR-073): "pending" /
+	// "running" while in flight, "done" once the queue row is gone (it deletes on
+	// success), "failed" + `error` when it gave up. See $lib/writebackJob.
+	writebackJobStatus: (jobId: number) =>
+		getAuthed<{ status: string; error?: string }>(`/writeback/jobs/${jobId}`),
+
 	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
 	// suppress / nowrite decision; clearMediaCuration removes one (restoring the
 	// underlying source value). Owner-gated; 204 on success.
