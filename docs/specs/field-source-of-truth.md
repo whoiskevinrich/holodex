@@ -177,6 +177,7 @@ Merge fields are unchanged: F30 union + per-value curation; decisions do not app
 ### Writeback
 - **Decisions are DB-only; the file is touched only by the explicit write action (RD5).** Toggling a source, typing a custom value, clearing a decision → no file I/O.
 - The write action collects **all** of the item's decided + out-of-sync fields and issues **one** durable job → **one atomic `WriteBatch` per file** (copy→write→rename; all tags in a single tool invocation). Never per-field. This rides the existing `internal/writeback.WriteBatch` + the F30 queue unchanged — F36 adds *which values* to write, not a new write mechanism.
+- **The dialog's default selection is exactly that set** (HOLODEX-213). Both the header's out-of-sync count and the dialog's initial `checked` derive from one exported predicate, `needsWriteback()` in `f36.ts`, so they cannot disagree. An **undecided** provider value — one winning by mapping precedence, `poster_url` included — stays listed and writable but is not pre-selected; those rows sit behind a labelled disclosure group. See the [selection handoff](../design/writeback-selection-handoff.md) + [QA checklist](../design/writeback-selection-qa-checklist.md).
 - The write payload per replace field = the decided value (P0-4). Merge fields = the curated write-enabled set (F30).
 - After write, recompute per-field sync (decided value vs. the tag now in the file). The decision is **not** mutated (aligned with ADR-051 §5).
 
