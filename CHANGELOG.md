@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.2](https://github.com/whoiskevinrich/holodex/compare/v1.13.1...v1.13.2) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **writeback:** clarify current vs incoming values in the writeback modal ([#172](https://github.com/whoiskevinrich/holodex/issues/172)) ([02cffc5](https://github.com/whoiskevinrich/holodex/commit/02cffc5fa49d6d497b505ff0b5f5ccc2e4f759a4))
+
 ## [1.13.1](https://github.com/whoiskevinrich/holodex/compare/v1.13.0...v1.13.1) (2026-07-26)
 
 
