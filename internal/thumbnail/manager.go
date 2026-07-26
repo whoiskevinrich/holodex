@@ -4,7 +4,9 @@
 //
 //   - Tier 1 (embedded art): the scanner calls ExtractEmbedded at index time for
 //     files whose container carries cover art — a near-free `exiftool -b` byte
-//     copy. The bytes are written straight to disk.
+//     read, rescaled to Width via the same ffmpeg pass Tier 2 uses so a
+//     provider poster embedded at its original (often portrait, full)
+//     resolution by a metadata writeback still conforms to THUMBNAIL_WIDTH.
 //   - Tier 2 (generated frames): files without embedded art are enqueued for
 //     background ffmpeg frame extraction, drained by a bounded, low-priority
 //     worker pool so generation never overloads a modest host.
@@ -86,9 +88,7 @@ func New(cfg Config, log *slog.Logger, r Repository) *Manager {
 	}
 	m := &Manager{cfg: cfg, log: log, repo: r, queue: newQueue()}
 	m.gen = m.generateFrame
-	m.art = func(ctx context.Context, path, dst string) (bool, error) {
-		return extractCoverArt(ctx, cfg.ExiftoolPath, path, dst)
-	}
+	m.art = m.extractCoverArt
 	// Create the thumbnail dir once, up front (New runs before the scanner and
 	// worker goroutines start), so neither ExtractEmbedded nor a worker has to.
 	if cfg.Enabled && cfg.Dir != "" {
