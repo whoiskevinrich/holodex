@@ -152,9 +152,20 @@ export function outOfSync(field: ResolvedField): boolean {
 	return field.in_sync === false;
 }
 
+// needsWriteback is the single predicate behind BOTH writeback surfaces: the header's "{n} out
+// of sync" count and the batch dialog's initial checked state (HOLODEX-213). Deriving them from
+// one function is what makes them unable to disagree — a dialog opened on N reported out-of-sync
+// fields pre-checks exactly those N. Replace-only by contract (RD1) — merge fields never carry a
+// decision, so the filter makes that explicit rather than relying on the backend never setting
+// `in_sync` on them. A provider value that merely wins by mapping precedence is UNDECIDED and so
+// in sync by construction (see outOfSync): it stays listed and checkable in the dialog, just not
+// pre-checked, because the button writes *decisions*.
+export function needsWriteback(field: ResolvedField): boolean {
+	return isReplaceField(field) && outOfSync(field);
+}
+
 // outOfSyncCount is the aggregate the header surfaces as "Write decisions to file · {n} out of
-// sync" (RD2). Replace-only by contract (RD1) — merge fields never carry a decision, so the
-// filter makes that explicit rather than relying on the backend never setting `in_sync` on them.
+// sync" (RD2).
 export function outOfSyncCount(fields: ResolvedField[]): number {
-	return fields.filter((f) => isReplaceField(f) && outOfSync(f)).length;
+	return fields.filter(needsWriteback).length;
 }

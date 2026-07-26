@@ -5,8 +5,8 @@
 	// Writes are sequential (one exiftool pass per field) with per-row progress.
 	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage, providerFromWinningSource, valueMatchesFile } from '$lib/format';
-	import { fileCandidateValue } from '$lib/f36';
+	import { toMessage, providerFromWinningSource } from '$lib/format';
+	import { fileCandidateValue, needsWriteback } from '$lib/f36';
 	import type { ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
@@ -35,24 +35,21 @@
 		error: string;
 	}
 
-	// Provider-won fields start checked; file-only fields start unchecked so the
-	// operator opts in explicitly. image_url fields show as thumbnail + URL (read-only).
+	// Only out-of-sync fields start checked, via the same needsWriteback() the header counts
+	// with — so "· {n} out of sync" and the initial selection cannot disagree (HOLODEX-213).
+	// Everything else (a provider value winning by mapping precedence, a file-won field, a
+	// merge field) is listed unchecked for explicit opt-in, so submitting never writes a value
+	// the owner never decided on — notably poster_url, whose write triggers a server-side
+	// download + cover-art embed. image_url fields show as thumbnail + URL (read-only).
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(
-		fields.map((f) => {
-			const providerWon = !!f.winning_source && !f.winning_source.startsWith('file:');
-			const value = f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', ');
-			// A field whose resolved value already matches the file's current tag has
-			// nothing to write — start it unchecked regardless of which source won.
-			const alreadyMatches = valueMatchesFile(f, value);
-			return {
-				field: f,
-				value,
-				checked: providerWon && !alreadyMatches,
-				status: 'idle' as RowStatus,
-				error: ''
-			};
-		})
+		fields.map((f) => ({
+			field: f,
+			value: f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', '),
+			checked: needsWriteback(f),
+			status: 'idle' as RowStatus,
+			error: ''
+		}))
 	);
 
 	const checkedCount = $derived(rows.filter((r) => r.checked).length);
@@ -207,10 +204,10 @@
 				{@const tag = sourceTag(row.field.winning_source)}
 				{@const hasFileValue = row.field.candidates !== undefined}
 				{@const fileVal = fileCandidateValue(row.field)}
-				<!-- matchesFile re-derives from fileVal (already fetched for the "was:" line)
-				     rather than calling valueMatchesFile() again, so each row does one
-				     candidates lookup, not two; valueMatchesFile is still the single source
-				     of truth used above to seed the row's initial checked state. -->
+				<!-- matchesFile drives the "already in file, nothing to write" line. It compares
+				     the row's LIVE (editable) value against the file baseline, so it re-derives
+				     from fileVal — already fetched for the "was:" line — rather than reading the
+				     frozen in_sync snapshot that needsWriteback() seeds `checked` from. -->
 				{@const matchesFile = hasFileValue && row.value.trim() === fileVal.trim()}
 				<div
 					class="flex items-start gap-3"

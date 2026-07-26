@@ -4,6 +4,7 @@ import {
 	decidedSource,
 	fileCandidateValue,
 	isReplaceField,
+	needsWriteback,
 	outOfSync,
 	outOfSyncCount,
 	providerCandidates,
@@ -316,6 +317,49 @@ describe('outOfSync / outOfSyncCount', () => {
 			field({ canonical: 'year' }), // undecided ⇒ undefined ⇒ not counted
 			field({ canonical: 'genres', multi: true, in_sync: false }) // merge ⇒ not counted
 		];
+		expect(outOfSyncCount(fields)).toBe(2);
+	});
+});
+
+// HOLODEX-213: the header count and the writeback dialog's initial checked state must be the
+// same predicate, so the dialog can never open pre-checking more than the header reported.
+describe('needsWriteback', () => {
+	it('is true for an out-of-sync replace field (an explicit decision the file lags)', () => {
+		expect(needsWriteback(field({ decision: { source: 'provider:tmdb', standing: true }, in_sync: false }))).toBe(true);
+	});
+
+	it('is false for a provider value winning by mapping precedence (undecided ⇒ in sync)', () => {
+		// The regression: winning_source is a provider, but nothing was decided — the old
+		// dialog seeded `checked` from winning_source alone and pre-checked this row.
+		expect(needsWriteback(field({ winning_source: 'tmdb:title' }))).toBe(false);
+	});
+
+	it('is false for a provider-won field with no file candidate at all (poster_url)', () => {
+		// poster_url has no file value to compare against, so the old `!alreadyMatches` guard
+		// never fired and it arrived checked — arming a download + cover-art embed on submit.
+		const poster = field({
+			canonical: 'poster_url',
+			display: 'image_url',
+			values: ['https://example.test/p.jpg'],
+			winning_source: 'tmdb:poster_url',
+			candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://example.test/p.jpg' }]
+		});
+		expect(needsWriteback(poster)).toBe(false);
+	});
+
+	it('is false for a merge field even when the backend marks it out of sync (RD1)', () => {
+		expect(needsWriteback(field({ multi: true, in_sync: false }))).toBe(false);
+	});
+
+	it('agrees with outOfSyncCount field-for-field (the two surfaces cannot disagree)', () => {
+		const fields = [
+			field({ canonical: 'title', in_sync: false }),
+			field({ canonical: 'overview', winning_source: 'tmdb:overview' }),
+			field({ canonical: 'poster_url', winning_source: 'tmdb:poster_url' }),
+			field({ canonical: 'director', in_sync: false }),
+			field({ canonical: 'genres', multi: true, in_sync: false })
+		];
+		expect(fields.filter(needsWriteback).length).toBe(outOfSyncCount(fields));
 		expect(outOfSyncCount(fields)).toBe(2);
 	});
 });
