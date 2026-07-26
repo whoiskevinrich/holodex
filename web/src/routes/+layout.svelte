@@ -6,7 +6,7 @@
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
-	import ActivityIndicator from '$lib/components/ActivityIndicator.svelte';
+	import ActivityIndicator from '$lib/components/activity/ActivityIndicator.svelte';
 
 	let { children } = $props();
 

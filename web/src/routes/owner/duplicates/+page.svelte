@@ -9,7 +9,7 @@
 	import { toMessage } from '$lib/format';
 	import { groupByKind } from '$lib/entityGroups';
 	import type { DuplicatePair, EntityKind } from '$lib/types';
-	import DuplicatePairRow from '$lib/components/DuplicatePairRow.svelte';
+	import DuplicatePairRow from '$lib/components/duplicates/DuplicatePairRow.svelte';
 
 	let pairs = $state<DuplicatePair[]>([]);
 	let loading = $state(true);

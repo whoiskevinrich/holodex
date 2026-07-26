@@ -5,11 +5,11 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Person } from '$lib/types';
-	import SortToggle from '$lib/components/SortToggle.svelte';
-	import SortReroll from '$lib/components/SortReroll.svelte';
-	import PersonAvatar from '$lib/components/PersonAvatar.svelte';
-	import MergeCanonicalDialog from '$lib/components/MergeCanonicalDialog.svelte';
-	import DuplicatesBanner from '$lib/components/DuplicatesBanner.svelte';
+	import SortToggle from '$lib/components/sort/SortToggle.svelte';
+	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
+	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
+	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { peopleScroll } from '$lib/peopleScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';

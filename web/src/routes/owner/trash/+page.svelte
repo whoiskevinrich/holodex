@@ -7,8 +7,8 @@
 	import { activity } from '$lib/activity.svelte';
 	import { formatAgo, formatUntil, toMessage } from '$lib/format';
 	import type { TrashEntry } from '$lib/types';
-	import AsyncState from '$lib/components/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 
 	let items = $state<TrashEntry[]>([]);
 	let loading = $state(true);

@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import type { Person, Studio, Tag, Video } from '$lib/types';
-	import VideoGrid from '$lib/components/VideoGrid.svelte';
+	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 
 	let videos = $state<Video[]>([]);
 	let people = $state<Person[]>([]);

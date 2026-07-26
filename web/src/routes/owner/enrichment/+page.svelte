@@ -16,7 +16,7 @@
 		EnrichQueueProviderState,
 		EnrichQueueRow as QueueRow
 	} from '$lib/types';
-	import EnrichQueueRow from '$lib/components/EnrichQueueRow.svelte';
+	import EnrichQueueRow from '$lib/components/enrichment/EnrichQueueRow.svelte';
 
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);

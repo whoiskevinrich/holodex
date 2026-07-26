@@ -3,8 +3,8 @@
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import type { Tag, Video } from '$lib/types';
-	import AsyncState from '$lib/components/AsyncState.svelte';
-	import EntityVideos from '$lib/components/EntityVideos.svelte';
+	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 
 	let tag = $state<Tag | null>(null);
 	let videos = $state<Video[]>([]);

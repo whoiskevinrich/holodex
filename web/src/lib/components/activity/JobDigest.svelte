@@ -5,7 +5,7 @@
 	// kinds, not the run count.
 	import type { JobDigest } from '$lib/types';
 	import { formatAgo } from '$lib/format';
-	import JobStatusBadge from '$lib/components/JobStatusBadge.svelte';
+	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
 
 	let { digest }: { digest: JobDigest } = $props();
 

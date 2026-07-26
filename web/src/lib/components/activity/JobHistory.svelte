@@ -3,7 +3,7 @@
 	import type { JobRun } from '$lib/types';
 	import { formatAgo, formatDurMs, toMessage } from '$lib/format';
 	import { api } from '$lib/api';
-	import JobStatusBadge from '$lib/components/JobStatusBadge.svelte';
+	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
 
 	let { runs }: { runs: JobRun[] } = $props();
 

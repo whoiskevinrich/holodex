@@ -16,7 +16,7 @@
 	// no editor, no shape change.
 	import type { PromotionEntityType, ResolvedField } from '$lib/types';
 	import { providerFromWinningSource } from '$lib/format';
-	import ProvenanceBadge from './ProvenanceBadge.svelte';
+	import ProvenanceBadge from '../enrichment/ProvenanceBadge.svelte';
 	import UrlValueList from './UrlValueList.svelte';
 	import ChipValueList from './ChipValueList.svelte';
 	import PromoteFieldEditor from './PromoteFieldEditor.svelte';
