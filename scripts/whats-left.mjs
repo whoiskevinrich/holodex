@@ -66,7 +66,22 @@ export function section(text, heading) {
 
 export function frontmatter(text, field) {
   const m = text.match(new RegExp(`^${field}:\\s*(.+)$`, "im"));
-  return m ? m[1].trim() : null;
+  return m ? stripComment(m[1]) : null;
+}
+
+// The scaffolded worklog documents every frontmatter field with a trailing YAML comment
+// (`status: in-progress    # todo | in-progress | …`), so a bare `(.+)$` capture reads the comment as
+// part of the value. That made `depends-on: []  # …` look like a real dependency and — worse — an
+// unset `release_note:` report as *set*, defeating the guard that an epic can't close without one.
+// A quoted scalar is taken whole, since a `#` inside quotes is literal; otherwise whitespace-then-`#`
+// (or a `#` in the value's first column, i.e. a field with only a comment) opens the comment. Quotes
+// are left on for the caller to strip, as before.
+function stripComment(raw) {
+  const s = raw.trim();
+  const quoted = s.match(/^(['"]).*?\1/);
+  if (quoted) return quoted[0];
+  if (s.startsWith("#")) return null;
+  return s.split(/\s+#/)[0].trimEnd() || null;
 }
 
 // Parse the `## Gates` checklist into { state, label } rows. state ∈ { ' ', '/', '~', 'x' }.

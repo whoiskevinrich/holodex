@@ -78,6 +78,34 @@ test("frontmatter pulls declared fields", () => {
   assert.equal(frontmatter(WORKLOG, "nope"), null);
 });
 
+// The scaffolded template documents every field with a trailing comment; before this was handled,
+// `depends-on: []  # …` read as a real dependency and an unset `release_note:` reported as set.
+test("frontmatter drops the scaffolded inline comments", () => {
+  const scaffold = `---
+key: HOLODEX-123                 # the tracker key; must match the branch key regex
+status: in-progress                 # todo | in-progress | in-review | done | released
+depends-on: []               # [KEY-…] cross-epic deps that must land first
+release_note:                # the ONE user-facing sentence; authored once by /handoff
+---
+`;
+  assert.equal(frontmatter(scaffold, "key"), "HOLODEX-123");
+  assert.equal(frontmatter(scaffold, "status"), "in-progress");
+  assert.equal(frontmatter(scaffold, "depends-on"), "[]"); // → not blocked
+  assert.equal(frontmatter(scaffold, "release_note"), null); // → UNSET, as it should be
+});
+
+test("frontmatter keeps a `#` that is part of the value", () => {
+  const fm = `---
+release_note: "Fixes #123 and #124."
+status: in-progress#not-a-comment
+---
+`;
+  // A quoted scalar is taken whole — `#` inside quotes is literal, not a comment.
+  assert.equal(frontmatter(fm, "release_note"), '"Fixes #123 and #124."');
+  // YAML only opens a comment after whitespace, so a bare `#` mid-token stays in the value.
+  assert.equal(frontmatter(fm, "status"), "in-progress#not-a-comment");
+});
+
 test("findWorklog matches by filename prefix", () => {
   const fs = {
     readdirSync: () => ["HOLODEX-123.md", "other-plan.md"],

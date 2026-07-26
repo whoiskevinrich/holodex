@@ -33,7 +33,7 @@ export function parseWorklog(worklogPath) {
   const fmText = fm ? fm[1] : "";
   const lines = (fm ? text.slice(fm[0].length) : text).split("\n");
 
-  out.status = (fmText.match(/^status:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
+  out.status = stripComment((fmText.match(/^status:\s*(.+)$/m) ?? [])[1]);
 
   for (const l of lines) {
     const h1 = l.match(/^#\s+(.+)$/); // first body H1 wins
@@ -86,6 +86,20 @@ export function parseWorklog(worklogPath) {
 export function section(lines, name) {
   const b = sectionBounds(lines, name);
   return b ? lines.slice(b.start, b.end) : [];
+}
+
+// Drop a trailing YAML comment from a frontmatter scalar. The scaffolded worklog documents every
+// field inline (`status: in-progress    # todo | in-progress | …`), so a bare `(.+)$` capture would
+// spill the whole comment into the orientation banner. A quoted scalar is taken whole (a `#` inside
+// quotes is literal); otherwise whitespace-then-`#`, or a `#` in the value's first column (a field
+// left unset under its comment), opens the comment. Mirrors `frontmatter()` in scripts/whats-left.mjs
+// — see the NOTE at the top of this file about collapsing the two parsers.
+export function stripComment(raw) {
+  const s = (raw ?? "").trim();
+  const quoted = s.match(/^(['"]).*?\1/);
+  if (quoted) return quoted[0];
+  if (s.startsWith("#")) return null;
+  return s.split(/\s+#/)[0].trimEnd() || null;
 }
 
 // Flatten inline markdown (code, links, emphasis) to plain text for the one-line banner.
