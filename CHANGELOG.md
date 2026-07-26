@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/whoiskevinrich/holodex/compare/v1.13.0...v1.13.1) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **thumbnail:** scale embedded cover art to THUMBNAIL_WIDTH ([#170](https://github.com/whoiskevinrich/holodex/issues/170)) ([ee1f331](https://github.com/whoiskevinrich/holodex/commit/ee1f33179c9bf1225753ed275de52783dfdc903b))
+
 ## [1.13.0](https://github.com/whoiskevinrich/holodex/compare/v1.12.1...v1.13.0) (2026-07-26)
 
 
