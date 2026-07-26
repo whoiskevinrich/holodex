@@ -38,6 +38,31 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 	// since a future multi-video batch (merge propagation, F48.8) can span
 	// more than one video.
 	r.Post("/writeback/batches/{batchID}/revert", h.writebackRevert)
+	// Job status (HOLODEX-214): the POST below returns 202 the moment the job is
+	// enqueued, so the SPA needs a completion signal before it can refetch.
+	// Flat like the revert route rather than under /media/{id}: the id alone
+	// identifies the job.
+	r.Get("/writeback/jobs/{id}", h.writebackJobStatus)
+}
+
+// writebackJobStatus reports one queued write's state: "pending" / "running"
+// while in flight, "failed" (with the error) when it gave up, "done" once the
+// row is gone. Owner-gated with the rest of the writeback surface.
+func (h *Handlers) writebackJobStatus(w http.ResponseWriter, r *http.Request) {
+	jobID, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	status, errMsg, err := h.repo.GetWritebackJobStatus(r.Context(), jobID)
+	if err != nil {
+		h.fail(w, "get writeback job", err)
+		return
+	}
+	out := map[string]any{"status": status}
+	if errMsg != "" {
+		out["error"] = errMsg
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // writebackMedia writes a batch of enriched field values into the media file's
@@ -163,6 +188,15 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	if h.thumbs != nil && h.thumbs.Enabled() {
 		if _, err := h.thumbs.ExtractEmbedded(r.Context(), id, v.FilePath); err != nil {
 			h.log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
+		}
+	}
+
+	// Same post-write read-back the queued path does (ADR-073): without it this
+	// branch writes the file and leaves the stored tags — the baseline `in_sync`
+	// compares against — describing the pre-write file (HOLODEX-214).
+	if h.refresh != nil {
+		if err := h.refresh.ReExtract(r.Context(), id); err != nil {
+			h.log.Warn("post-writeback re-extract", "id", id, "err", err)
 		}
 	}
 

@@ -291,25 +291,18 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// so bulk curation can't thrash the filesystem. Survives restart; on boot it
 	// recovers crash-interrupted jobs and sweeps orphan temp files.
 	writeQ := writequeue.New(repository, writeback.WriteBatch, log, cfg.WritebackConcurrency, cfg.MediaPath)
-	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string, fields []writequeue.JobField) {
+	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
 		if thumbs != nil && thumbs.Enabled() {
 			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
 				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
 			}
 		}
-		// HOLODEX-196 #4: an extraction resolve (or auto-apply) writes a
-		// People/Studio name to the file's tag, but that entity is created and
-		// linked only when the file is read back through the scan path
-		// (UpsertVideo → resolveOrCreatePerson). Re-extract here so a resolved
-		// "create new" actually materializes, keeping the file the single source
-		// of truth. Gated to entity-field writes whose source can introduce a
-		// not-yet-in-DB value; a merge-propagation or revert write already has
-		// current DB entities, so skipping those avoids a redundant per-video
-		// re-extract across a large merge.
-		if writequeue.MayIntroduceEntity(fields) {
-			if err := refreshSvc.ReExtract(ctx, id); err != nil {
-				log.Warn("post-writeback entity re-extract", "id", id, "err", err)
-			}
+		// Read the file back, unconditionally: it materializes a newly-written
+		// Person/Studio (HOLODEX-196 #4) and refreshes the stored file tags that
+		// `in_sync` is compared against (HOLODEX-214). See ADR-073, which
+		// supersedes ADR-068 D1's entity-only gate.
+		if err := refreshSvc.ReExtract(ctx, id); err != nil {
+			log.Warn("post-writeback re-extract", "id", id, "err", err)
 		}
 	})
 	handlers.SetWriteQueue(writeQ)

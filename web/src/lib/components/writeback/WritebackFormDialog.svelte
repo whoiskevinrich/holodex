@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import { fileCandidateValue, needsWriteback } from '$lib/f36';
+	import { waitForWritebackJob, type WritebackJobState } from '$lib/writebackJob';
 	import type { ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
@@ -15,7 +16,8 @@
 		filePath,
 		onclose,
 		onapplied,
-		writeback
+		writeback,
+		jobStatus
 	}: {
 		fields: ResolvedField[];
 		videoId: number;
@@ -23,6 +25,8 @@
 		onclose: () => void;
 		onapplied: (written: string[]) => void;
 		writeback: (id: number, req: WritebackRequest) => Promise<unknown>;
+		// Reads one queued job's state, for polling it to completion.
+		jobStatus: (jobId: number) => Promise<WritebackJobState>;
 	} = $props();
 
 	type RowStatus = 'idle' | 'writing' | 'done' | 'error';
@@ -80,6 +84,7 @@
 	let busy = $state(false);
 	let dialogEl = $state<HTMLElement | null>(null);
 	let trigger: HTMLElement | null = null;
+	let unmounted = false; // stops an in-flight job poll if the dialog goes away
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
@@ -94,7 +99,10 @@
 				) ?? [])
 			].find((el) => el.offsetParent !== null) ?? dialogEl;
 		first?.focus();
-		return () => trigger?.focus?.();
+		return () => {
+			unmounted = true;
+			trigger?.focus?.();
+		};
 	});
 
 	function trapTab(e: KeyboardEvent) {
@@ -157,7 +165,12 @@
 		}));
 
 		try {
-			await writeback(videoId, { fields });
+			const res = await writeback(videoId, { fields });
+			// The durable queue (F30, ADR-048) answers 202 + job_id the moment the job
+			// is enqueued — nothing has been written yet, so wait for it to land before
+			// reporting applied (ADR-073).
+			const jobId = (res as { job_id?: number } | null)?.job_id;
+			if (jobId) await waitForWritebackJob(jobId, jobStatus, { cancelled: () => unmounted });
 			for (const row of checkedRows) row.status = 'done';
 			onapplied(fields.map((f) => f.field));
 			onclose();
