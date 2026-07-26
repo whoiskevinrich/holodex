@@ -106,6 +106,22 @@ status: in-progress#not-a-comment
   assert.equal(frontmatter(fm, "status"), "in-progress#not-a-comment");
 });
 
+// The scaffold ships commented-out examples inside the Gates and Session log sections; counting them
+// as real rows made a fresh worklog report one more gate than it has.
+test("section ignores content inside HTML comments", () => {
+  const scaffold = `## Gates
+- [ ] spec
+- [ ] security
+<!-- Deferred gate example — carry the un-defer trigger so it isn't lost:
+- [~] security \`security-review\` — until: a mutation endpoint exists -->
+
+## Up next
+1. [ ] [backend] real item
+`;
+  assert.deepEqual(parseGates(scaffold).map((g) => g.label), ["spec", "security"]);
+  assert.equal(parseUpNext(scaffold).length, 1);
+});
+
 test("findWorklog matches by filename prefix", () => {
   const fs = {
     readdirSync: () => ["HOLODEX-123.md", "other-plan.md"],

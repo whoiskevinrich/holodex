@@ -31,7 +31,7 @@ export function parseWorklog(worklogPath) {
   // Split frontmatter from body once, and the body into lines once — both are scanned repeatedly.
   const fm = text.match(/^---\n([\s\S]*?)\n---\n?/);
   const fmText = fm ? fm[1] : "";
-  const lines = (fm ? text.slice(fm[0].length) : text).split("\n");
+  const lines = maskComments(fm ? text.slice(fm[0].length) : text).split("\n");
 
   out.status = stripComment((fmText.match(/^status:\s*(.+)$/m) ?? [])[1]);
 
@@ -88,6 +88,16 @@ export function section(lines, name) {
   return b ? lines.slice(b.start, b.end) : [];
 }
 
+// Blank out HTML-comment spans. The scaffolded worklog carries commented-out *examples* — a deferred
+// gate row, a session-log entry — that are textually indistinguishable from real content, so they were
+// counted as gates and, worse, `logSkillRun` treated the example `###` line as the newest entry and
+// inserted today's entry above it, i.e. inside the still-open comment, where it renders as nothing.
+// Every non-newline character inside `<!-- … -->` becomes a space, so line count and column positions
+// are preserved and any index computed against the masked copy stays valid against the original.
+export function maskComments(text) {
+  return text.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
+}
+
 // Drop a trailing YAML comment from a frontmatter scalar. The scaffolded worklog documents every
 // field inline (`status: in-progress    # todo | in-progress | …`), so a bare `(.+)$` capture would
 // spill the whole comment into the orientation banner. A quoted scalar is taken whole (a `#` inside
@@ -119,16 +129,17 @@ export function stripMd(s) {
 export function logSkillRun(text, skill, date) {
   const nl = /\r\n/.test(text) ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
-  const b = sectionBounds(lines, "Session log");
+  const view = maskComments(text).split(/\r?\n/); // match against this, mutate `lines`
+  const b = sectionBounds(view, "Session log");
   if (!b) return text;
 
-  const firstEntry = lines.slice(b.start, b.end).findIndex((l) => /^###\s/.test(l));
+  const firstEntry = view.slice(b.start, b.end).findIndex((l) => /^###\s/.test(l));
   const entryIdx = firstEntry < 0 ? -1 : b.start + firstEntry;
 
-  if (entryIdx >= 0 && lines[entryIdx].includes(date)) {
+  if (entryIdx >= 0 && view[entryIdx].includes(date)) {
     // Newest entry is today's — merge the skill into its `- skills:` line (or add that line).
-    for (let i = entryIdx + 1; i < b.end && !/^#{2,3}\s/.test(lines[i]); i++) {
-      const m = lines[i].match(/^-\s*skills:\s*(.*)$/i);
+    for (let i = entryIdx + 1; i < b.end && !/^#{2,3}\s/.test(view[i]); i++) {
+      const m = view[i].match(/^-\s*skills:\s*(.*)$/i);
       if (!m) continue;
       const skills = m[1].split(",").map((s) => s.trim()).filter(Boolean);
       if (skills.includes(skill)) return text; // already logged today → no-op
@@ -152,10 +163,11 @@ export function logSkillRun(text, skill, date) {
 export function flipGate(text, gateId) {
   const nl = /\r\n/.test(text) ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
-  const b = sectionBounds(lines, "Gates");
+  const view = maskComments(text).split(/\r?\n/); // match against this, mutate `lines`
+  const b = sectionBounds(view, "Gates");
   if (!b) return text;
   for (let i = b.start; i < b.end; i++) {
-    const m = lines[i].match(/^-\s*\[ \]\s+(\S+)/); // only an untouched `[ ]` gate
+    const m = view[i].match(/^-\s*\[ \]\s+(\S+)/); // only an untouched `[ ]` gate
     if (m && m[1] === gateId) {
       lines[i] = lines[i].replace(/^(-\s*\[) (\])/, "$1/$2");
       return lines.join(nl);

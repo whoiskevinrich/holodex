@@ -54,7 +54,12 @@ export function ladderLine(status) {
 
 // Lines under a `## Heading`, up to the next `## `.
 export function section(text, heading) {
-  const lines = text.split(/\r?\n/);
+  // Blank HTML-comment spans first: the scaffolded worklog's commented-out examples (a deferred gate
+  // row, a session-log entry) are textually indistinguishable from real rows and were counted as
+  // such — a fresh scaffold reported one more gate than it has. Replacing each non-newline character
+  // with a space preserves line count and column positions. This module is read-only, so masking here
+  // is safe; the hook's write helpers mask a separate view and mutate the original.
+  const lines = text.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " ")).split(/\r?\n/);
   const start = lines.findIndex((l) =>
     l.trim().toLowerCase().startsWith(`## ${heading.toLowerCase()}`),
   );
