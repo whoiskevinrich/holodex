@@ -99,6 +99,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [Queryable fields substrate — Phase 1 (F46 Phase 1)](../specs/queryable-fields-substrate.md) — typed field registry (text/categorical/numeric/date) + equals/contains/range operator model, piloted via Age in Media (person × video, first relationship-scoped computed field, extends F45/ADR-063); compute-on-read, no persisted index (HOLODEX-176; ADR TBD)
 - [Enrichment review workflow (F47)](../specs/enrichment-review-workflow.md) — entity-generic review queue, confidence-gated auto-apply, durable "not matched" dismissal, refresh bypass (ADR-066)
 - [Metadata extraction from filenames (F48)](../specs/metadata-extraction.md) — on-demand/batch/import-time extraction with confidence-gated auto-apply + owner review queue; merge → writeback propagation; rollback backup/revert (ADR-067)
+- [Claimed provider keys (F49)](../specs/claimed-provider-keys.md) — a canonical field claims a differently-named provider key so it contributes as a candidate instead of auto-registering as a duplicate row; YAML `sources:` + in-app claims for the entity types with no YAML (HOLODEX-218 / GH #178; ADR-074 TBD)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing
