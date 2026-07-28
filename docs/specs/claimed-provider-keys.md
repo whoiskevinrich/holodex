@@ -9,8 +9,8 @@ value as a candidate of that field and stops rendering as a separate display-onl
 
 **Issue**: [HOLODEX-218](https://whoiskevinrich.atlassian.net/browse/HOLODEX-218) ·
 tracks [GH #178](https://github.com/whoiskevinrich/holodex/issues/178)
-**ADR**: required — the DB claims store and its merge-order relationship to F44 promotions extend
-ADR-056/ADR-062. Reserve **ADR-074**. *(not yet written — `needs-adr`)*
+**ADR**: [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — the `field_claims` store, the
+derivation seam, and the merge-order relationship to F44 promotions. Settles Q1/Q2 below.
 **Design**: required — the claim action on an auto-registered row is user-facing. *(not yet written —
 `needs-design`)*
 **Testing**: `docs/testing-strategy.md` needs an F49 block. *(not yet written)*
@@ -445,13 +445,17 @@ If the ADR introduces anything beyond a keyed lookup table, revisit this.
 
 ## 10. Open Questions
 
-Blocking (ADR-074 owns these):
+Blocking — **both settled by [ADR-074](../architecture/ADR-074-claimed-provider-keys.md)**:
 
-- **Q1 (architecture)** — does the claims table carry only `(entity_type, provider, field_key) →
-  canonical`, or does it also carry the precedence position, allowing an in-app claim to outrank a YAML
-  source? §6.2 assumes append-only/lowest; making that configurable is an ADR call.
-- **Q2 (architecture)** — a claim whose target canonical later disappears (mapping edited, promotion
-  cleared) becomes dangling. Prune on read, prune on config reload, or surface in owner tooling as broken?
+- ~~**Q1 (architecture)** — does the claims table carry only `(entity_type, provider, field_key) →
+  canonical`, or does it also carry the precedence position?~~ **Canonical only** (ADR-074 D3). Claims
+  append last, ordered `(provider, field_key)`. Identity is not precedence: a claim must never move the
+  winner, and per-entity precedence is already F36's job.
+- ~~**Q2 (architecture)** — a claim whose target canonical later disappears becomes dangling. Prune on
+  read, prune on config reload, or surface in owner tooling?~~ **None of the three** (ADR-074 D4). The row
+  survives, inert. Because suppression derives from the *merged field set* rather than the claims table
+  (D2), a claim that fails to materialize suppresses nothing — the key auto-registers again, exactly as
+  before F49. The black hole is structurally impossible rather than policed.
 
 Non-blocking:
 
@@ -480,7 +484,7 @@ Non-blocking:
 | Slice | Contents | Gate |
 |---|---|---|
 | **A — mechanism** | FR1, FR2, FR6, FR7 (derivation + suppression + operator docs). Fixes GH #178 for YAML users. | spec ✓, testing |
-| **B — in-app claims** | FR3, FR4, FR5. Unblocks person/studio. | ADR-074, design handoff |
+| **B — in-app claims** | FR3, FR4, FR5. Unblocks person/studio. | ADR-074 ✓, design handoff |
 | **C — detection** | P1.3, own issue | own design handoff |
 
 Slice A is independently shippable and closes the reported bug. B is what makes the feature complete for
