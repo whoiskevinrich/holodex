@@ -162,6 +162,9 @@ UI names what it will remove before it does. One key, one home.
    authoritative and self-documenting, so a mapping file can ship its claims with it.
 6. As the **owner**, I want a claimed value to remain reachable through the source chip even when another
    provider wins the field, so claiming never silently loses data.
+7. As the **owner**, I want clear instructions on how to map keys across the scenarios I actually hit,
+   complete with worked examples, so I can tell which mechanism a given duplicate needs and copy a
+   working config instead of inferring one from field reference tables.
 
 ## 6. Mechanism
 
@@ -219,6 +222,128 @@ and that rule is still correct for claims — you cannot claim `bio`, it is alre
 missing is a **target canonical** parameter, which the promote endpoint has no place for. Claims need
 their own endpoint rather than an extension of the promote one.
 
+### 6.5 Scenario cookbook
+
+The normative content behind US7 / FR7. Every example is a complete, copyable config. Providers are
+named `provA` / `provB` generically; substitute the real names from `metadata-sources.yaml`.
+
+**First, the choice that decides everything else:**
+
+| The key is… | Use | Result |
+|---|---|---|
+| the same thing as a field you already have | **claim** (F49) | one row; the key becomes a candidate of that field |
+| its own thing, deserving a row and curation | **promote** (F44) | a new first-class field |
+| its own thing, fine as read-only | do nothing | it auto-registers display-only (F39) |
+| noise you never want to see | *not covered* — no suppress-without-a-home exists (§4) | — |
+
+They are mutually exclusive per key (RD3).
+
+---
+
+**S1 — One value, several provider names** *(the GH #178 case)*
+
+Three providers describe the plot; each names it differently. Result: three identical rows.
+
+```yaml
+fields:
+  - canonical: overview
+    sources:
+      - tmdb:overview          # winner — first non-empty wins
+      - provA:synopsis         # claimed → no longer its own row
+      - provB:comments         # claimed → no longer its own row
+      - Comment                # bare = file tag (file:Comment); claims nothing
+```
+
+One **Overview** row. `provA` and `provB` become candidates behind the source chip, so their text is
+still reachable — it just stops being three paragraphs of the same thing.
+
+Order is precedence: sources are walked left-to-right, first non-empty wins. Moving `provA:synopsis`
+to the top makes it the winner without changing what is claimed.
+
+---
+
+**S2 — Two providers, same key name, different meanings**
+
+`provA:rating` is an age certificate; `provB:rating` is a 1–10 score. Claiming is provider-scoped, so
+naming one leaves the other alone:
+
+```yaml
+fields:
+  - canonical: content_rating
+    sources:
+      - provA:rating           # claimed
+                               # provB:rating is untouched → still auto-registers as its own row
+```
+
+This is why a bare `rating` may never claim: it would swallow both.
+
+---
+
+**S3 — The key is on a person or a studio**
+
+`metadata-mappings.yaml` governs **video only**. There is no person or studio YAML, so config cannot
+express this at all — use the in-app claim on the row itself (FR5):
+
+> Person → the auto-registered **Biography Text** row → *attach to an existing field* → pick **Bio**.
+
+Type-global: it applies to every person, not just the one on screen.
+
+---
+
+**S4 — Claim onto a merge field**
+
+A merge field (`multi: true`) unions its sources rather than picking a winner, so a claimed key there
+**contributes values** instead of sitting behind the chip as a runner-up:
+
+```yaml
+fields:
+  - canonical: genres
+    multi: true
+    sources:
+      - tmdb:genres
+      - provA:categories       # claimed → its values join the set
+```
+
+Worth knowing before claiming: on a **replace** field the claimed source is usually invisible until you
+pick it; on a **merge** field its values appear immediately.
+
+---
+
+**S5 — The key deserves its own field**
+
+`provA:filming_locations` is real information no canonical field covers. Claiming it onto something
+would bury it. Promote instead (F44) — or, for video, add a mapping:
+
+```yaml
+fields:
+  - canonical: filming_locations
+    label: Filming Locations
+    multi: true
+    sources:
+      - provA:filming_locations
+```
+
+A canonical entry and a claim are the same YAML gesture; the difference is whether the `canonical:` is
+an existing field (claim) or a new one (promote).
+
+---
+
+**S6 — Undoing a claim**
+
+- **YAML** — remove the source line and `reload-config`. The key auto-registers again on the next render.
+- **In-app** — `DELETE /admin/field-claims/{entity_type}/{provider}/{field_key}`, or the unclaim
+  affordance (P1.2) once it exists.
+
+Nothing in the shadow store is rewritten either way, so an unclaim is always a clean reversal (§4).
+
+---
+
+**Two things that will not work, and why**
+
+- **A bare key never claims.** `sources: [Comment]` means `file:Comment` — a file tag. It has no effect
+  on any provider's `comment` key.
+- **Claiming a canonical name is rejected** (422). `bio` is already a field; there is nothing to attach.
+
 ## 7. Requirements
 
 ### Must-have (P0)
@@ -263,6 +388,17 @@ an existing field*, with a picker over that entity type's canonical fields.
 
 **FR6 — Coverage.** Unit tests on FR1 (including the bare-file-tag and same-key-different-provider cases),
 FR2 suppression, and the FR4 validation matrix.
+
+**FR7 — Operator documentation.** §6.5's cookbook lands in the operator-facing docs, not only in this
+spec. The behaviour change in §8 means an operator's existing mental model is now wrong, so this ships
+**with slice A**, not after it.
+- [ ] [`docs/reference/canonical-fields.md`](../reference/canonical-fields.md) gains a *Claiming a
+      provider key* section under "How to reference fields", covering S1–S6 with the copyable YAML
+- [ ] Its F39 auto-registration note is amended — a key listed in `sources:` no longer auto-registers
+- [ ] The bare-key row in the source-namespace table states that a bare key claims nothing
+- [ ] `metadata-mappings.yaml.example` carries a commented multi-provider `overview` example (S1)
+- [ ] The claim/promote/do-nothing decision table is stated once and linked from both directions
+- [ ] Slice B adds the in-app path (S3) and the unclaim path (S6) to the same section
 
 ### Should-have (P1)
 
@@ -336,12 +472,14 @@ Non-blocking:
 - [ ] Claiming a promoted key clears the promotion, after saying so
 - [ ] A claimed value stays reachable via the F36 source chip
 - [ ] No auto-folding on value equality anywhere in v1
+- [ ] An operator can find, in the reference docs, a worked example for each scenario in §6.5 and tell
+      from it whether their case wants a claim, a promotion, or nothing
 
 ## 12. Phasing
 
 | Slice | Contents | Gate |
 |---|---|---|
-| **A — mechanism** | FR1, FR2, FR6 (derivation + suppression). Fixes GH #178 for YAML users. | spec ✓, testing |
+| **A — mechanism** | FR1, FR2, FR6, FR7 (derivation + suppression + operator docs). Fixes GH #178 for YAML users. | spec ✓, testing |
 | **B — in-app claims** | FR3, FR4, FR5. Unblocks person/studio. | ADR-074, design handoff |
 | **C — detection** | P1.3, own issue | own design handoff |
 
