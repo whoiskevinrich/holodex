@@ -18,21 +18,25 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 - [x] spec `write-spec` → [claimed-provider-keys.md](../specs/claimed-provider-keys.md) — RD1 both YAML + in-app · RD2 mechanism now, detection deferred · RD3 promote/claim mutually exclusive
 - [x] architecture `architecture` → [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — `field_claims` (migration 0029, PK carries `provider`) · D2 suppression derives from the **merged field set**, not the claims table · D3 no precedence column, append last · D4 dangling claims inert, never pruned · D5 promotion clear at write time. Amends ADR-056 §D4
 - [ ] design `design-handoff` → `docs/design/**` — the claim action on an auto-registered row (slice B)
-- [ ] backend
-- [ ] frontend
-- [ ] testing `testing-strategy`
+- [~] backend — **slice A done** (`ClaimedKeys` + second suppression input + operator docs; GH #178 closed for YAML users); slice B (migration 0029, claims API) pending the design gate
+- [ ] frontend — slice B only; slice A ships no UI change (no three-skin QA needed)
+- [x] testing `testing-strategy` → §9 F49 block + `internal/resolver/auto_register_test.go` — five cardinal invariants: provider-scoped, unconditional, no black hole, rendered/claimed both retained, golden no-op
 - [~] security `security-review` — until: the ADR introduces anything beyond a keyed lookup table. Spec §9 records why not: no new egress/fs/credential surface, image perimeter untouched, same owner gate and validation shape as F44
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Slice A — `resolver.ClaimedKeys(effective []mapping.Field)` + second suppression input to `AutoRegisterFields`; `appendAutoRegistered` takes the effective fields (all three callers already hold them) — `internal/resolver/auto_register.go`, `internal/api/auto_register.go`
-2. [ ] [testing] Slice A unit coverage — bare-file-tag + `file:` namespace claim nothing, same-key-different-provider isolation, unconditional suppression (winning *and* losing), partially-claimed key still auto-registers with the remaining provider only — `internal/resolver/auto_register_test.go`
-3. [ ] [design] Claim action on an auto-registered row + canonical picker (spec Q3) → gates slice B frontend
-4. [ ] [backend] Slice B — migration 0029 `field_claims` (PK `(entity_type, provider, field_key)`), repo CRUD mirroring `promotions.go`, `mergeClaims` after `mergePromotions` at all three call sites, owner-gated `/admin/field-claims/...` incl. the RD3 promotion clear in one transaction
-5. [ ] [frontend] Slice B — claim affordance beside the F44 promote affordance; three-skin QA
-7. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+1. [ ] [design] Claim action on an auto-registered row + canonical picker (spec Q3) → gates slice B frontend
+2. [ ] [backend] Slice B — migration 0029 `field_claims` (PK `(entity_type, provider, field_key)`), repo CRUD mirroring `promotions.go`, `mergeClaims` after `mergePromotions` at all three call sites, owner-gated `/admin/field-claims/...` incl. the RD3 promotion clear in one transaction. The claim must **append** a `mapping.Source` on the target field, not merely suppress — `ClaimedKeys` then sees it with no special case
+3. [ ] [frontend] Slice B — claim affordance beside the F44 promote affordance; three-skin QA
+4. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+
+**Done:** slice A — `ClaimedKeys` + suppression + unit coverage + FR7 operator docs.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-28 · slice A built — GH #178 closed for YAML users
+- skills: testing-strategy
+- handoff: Slice A shipped: `resolver.ClaimedKeys(effective []mapping.Field)` derives `"provider:key"` from the merged field set, `AutoRegisterFields` gained `claimed` as a second suppression input beside `rendered`, and `appendAutoRegistered` gained the effective `[]mapping.Field` (all three callers already held it — `mfields` in `handlers.go`, `fields` in `person_fields.go`/`studios.go`). Ten lines of behaviour, and the doc comment now carries the reason `rendered` and `claimed` both have to stay: `rendered` catches `tmdb:overview` when `overview` renders from the `file:` baseline alone with no provider source at all, `claimed` catches `provA:synopsis` feeding `overview`. Neither subsumes the other and a test fails if either is deleted. The provider-scoped case fell out of the existing per-`(provider, key)` accumulator with no special case, exactly as ADR-074 predicted — `provA:rating` claimed with `provB:rating` not leaves a `rating` row carrying provB's value, provenance and `WinningSource` only. Unconditional suppression is structural, not a rule: `AutoRegisterFields` is handed no resolution outcome, so it cannot depend on one; the test pins the observable half by asserting identical suppression with the claimed source listed first (wins) and last (loses). FR7 shipped **with** slice A rather than after it, because the behaviour change makes an operator's existing mental model wrong: `canonical-fields.md` gained a *Claiming a provider key* section (S1–S6 + the claim/promote/do-nothing table), the F39 blockquote and the bare-key table row are amended, `configuration.md`'s promotion section links the table from the other direction, and `metadata-mappings.yaml.example` carries the commented S1 example. Full Go suite + `go vet` green. Note: `gofmt -l` flags ~10 files repo-wide including ones untouched here — pre-existing comment-alignment drift, not line endings (`.gitattributes` eol=lf is active), and CI gates on `go vet` only, so it was left alone. Next: the **design gate** is now the only thing standing between here and slice B.
 
 ### 2026-07-28 · ADR-074 written; both blocking questions settled
 - skills: architecture

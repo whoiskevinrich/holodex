@@ -176,6 +176,13 @@ the underlying shadow value and any per-entity decisions/curation are untouched.
 and studio** — person and studio have no `metadata-mappings.yaml` surface at all, so promotion is their only
 in-app remap path.
 
+**Promote or claim?** Promote a key when it is *its own thing* deserving a row and curation. When it is
+instead the *same thing* as a field you already have — a second provider's name for your overview — **claim**
+it onto that field so it stops rendering twice (F49,
+[ADR-074](../architecture/ADR-074-claimed-provider-keys.md)). The two are mutually exclusive per key; the full
+decision table and worked examples live in
+[canonical-fields.md § Claiming a provider key](canonical-fields.md#claiming-a-provider-key).
+
 ---
 
 ## Metadata source plugins

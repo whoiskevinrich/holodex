@@ -350,17 +350,17 @@ Nothing in the shadow store is rewritten either way, so an unclaim is always a c
 
 **FR1 — Claimed-key derivation.** A pure helper derives `map["provider:key"]bool` from an effective
 `[]mapping.Field`.
-- [ ] Given a field with `sources: [tmdb:overview, provA:synopsis]`, both `tmdb:overview` and
+- [x] Given a field with `sources: [tmdb:overview, provA:synopsis]`, both `tmdb:overview` and
       `provA:synopsis` are claimed
-- [ ] Given a bare source `Comment`, nothing is claimed
-- [ ] Given a `file:Title` source, nothing is claimed
-- [ ] Keys and providers are compared lowercased and trimmed
-- [ ] `provA:synopsis` being claimed leaves `provB:synopsis` unclaimed
+- [x] Given a bare source `Comment`, nothing is claimed
+- [x] Given a `file:Title` source, nothing is claimed
+- [x] Keys and providers are compared lowercased and trimmed
+- [x] `provA:synopsis` being claimed leaves `provB:synopsis` unclaimed
 
 **FR2 — Suppression.** `AutoRegisterFields` takes the claimed set as a second suppression input and
 skips a field whose `provider:key` is claimed.
-- [ ] The existing `rendered` canonical check is retained unchanged (Non-goals)
-- [ ] Suppression does not depend on whether the claimed source won resolution for that entity
+- [x] The existing `rendered` canonical check is retained unchanged (Non-goals)
+- [x] Suppression does not depend on whether the claimed source won resolution for that entity
 
 **FR3 — DB claims store.** Migration `0029_field_claims` (`.up.sql` + hand-written `.down.sql`) plus repo
 CRUD, keyed by `(entity_type, provider, field_key)` with the target canonical as payload.
@@ -392,12 +392,12 @@ FR2 suppression, and the FR4 validation matrix.
 **FR7 — Operator documentation.** §6.5's cookbook lands in the operator-facing docs, not only in this
 spec. The behaviour change in §8 means an operator's existing mental model is now wrong, so this ships
 **with slice A**, not after it.
-- [ ] [`docs/reference/canonical-fields.md`](../reference/canonical-fields.md) gains a *Claiming a
+- [x] [`docs/reference/canonical-fields.md`](../reference/canonical-fields.md) gains a *Claiming a
       provider key* section under "How to reference fields", covering S1–S6 with the copyable YAML
-- [ ] Its F39 auto-registration note is amended — a key listed in `sources:` no longer auto-registers
-- [ ] The bare-key row in the source-namespace table states that a bare key claims nothing
-- [ ] `metadata-mappings.yaml.example` carries a commented multi-provider `overview` example (S1)
-- [ ] The claim/promote/do-nothing decision table is stated once and linked from both directions
+- [x] Its F39 auto-registration note is amended — a key listed in `sources:` no longer auto-registers
+- [x] The bare-key row in the source-namespace table states that a bare key claims nothing
+- [x] `metadata-mappings.yaml.example` carries a commented multi-provider `overview` example (S1)
+- [x] The claim/promote/do-nothing decision table is stated once and linked from both directions
 - [ ] Slice B adds the in-app path (S3) and the unclaim path (S6) to the same section
 
 ### Should-have (P1)
@@ -483,7 +483,7 @@ Non-blocking:
 
 | Slice | Contents | Gate |
 |---|---|---|
-| **A — mechanism** | FR1, FR2, FR6, FR7 (derivation + suppression + operator docs). Fixes GH #178 for YAML users. | spec ✓, testing |
+| **A — mechanism** ✅ | FR1, FR2, FR6, FR7 (derivation + suppression + operator docs). Fixes GH #178 for YAML users. | spec ✓, testing ✓ |
 | **B — in-app claims** | FR3, FR4, FR5. Unblocks person/studio. | ADR-074 ✓, design handoff |
 | **C — detection** | P1.3, own issue | own design handoff |
 

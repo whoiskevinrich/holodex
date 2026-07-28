@@ -124,7 +124,7 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 	fields, promoted := h.mergePromotions(ctx, model.EnrichEntityStudio, fields, rows)
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 	h.markPromoted(resolved, promoted)
-	return h.appendAutoRegistered(ctx, rows, recordizeResolved(resolved))
+	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved))
 }
 
 // listStudios handles GET /studios (F38): name-sorted (or count-sorted) studios with

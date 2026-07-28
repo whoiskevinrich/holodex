@@ -506,7 +506,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			mfields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityVideo, m.Fields(), enrichRows)
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, h.resolveOptions(dec))
 			h.markPromoted(resolved, promoted)
-			resolved = h.appendAutoRegistered(r.Context(), enrichRows, resolved)
+			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}

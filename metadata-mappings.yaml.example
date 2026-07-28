@@ -56,9 +56,19 @@ fields:
     sources:
       - tmdb:original_title
 
+  # Listing a provider's key here also CLAIMS it (F49, ADR-074): the key becomes a
+  # candidate of this field and stops auto-registering as its own display-only row.
+  # That is how you collapse several providers' names for one thing into one row —
+  # uncomment the extra sources below if your providers spell "overview" differently.
+  # Claiming is provider-scoped (provA:synopsis does not touch provB:synopsis), and a
+  # bare key is a file tag, so it claims nothing. See docs/reference/canonical-fields.md
+  # ("Claiming a provider key") for the claim / promote / do-nothing decision table.
   - canonical: overview
     sources:
       - tmdb:overview
+    # - provA:synopsis    # claimed → folds into Overview instead of its own row
+    # - provB:comments    # claimed → same
+    # - Comment           # bare = file tag (file:Comment); claims nothing
 
   - canonical: tagline
     sources:

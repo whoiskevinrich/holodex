@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -928,6 +928,57 @@ endpoint and this tab's Vitest/Playwright coverage.
   follow-up, [HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192)) is explicitly
   out of scope for this spec — no revert or merge test should assert a changed on-disk *filename*;
   flag it in review if a future PR conflates the two features.
+
+**Claimed provider keys (F49, ADR-074, HOLODEX-218)** — a canonical field may **claim** a
+differently-named provider key, so the key contributes its value as a candidate of that field and stops
+auto-registering as a separate display-only row (the GH #178 fix: one paragraph rendering as *Overview*,
+*Synopsis* **and** *Comments*). The root cause is a namespace mismatch — `appendAutoRegistered` built its
+suppression set from **canonical names** while `AutoRegisterFields` tested it against the **raw provider
+key**, so a key was suppressed only on spelling coincidence. Pure resolver change plus (slice B) a
+`field_claims` store; **no network**, fully CI-testable. The cardinal invariants are **claims are
+provider-scoped**, **suppression is unconditional**, **a claim can never suppress into a black hole**, and
+**zero-impact when unused**.
+
+- **Derivation (`resolver.ClaimedKeys`, pure)**: over the **effective** `[]mapping.Field` (post-
+  `mergePromotions`), not the claims store — ADR-074 §D2. `sources: [tmdb:overview, provA:synopsis]` claims
+  both; a **bare** source (`Comment`) and the **`file:`** namespace claim **nothing** (else one mapping's
+  `Comment` would swallow every provider's `comment` key); an empty key claims nothing; providers and keys
+  compare lowercased + trimmed, because synthesized person/studio fields and F44 promotions are built in
+  code and never pass through the YAML parser.
+- **Suppression (`AutoRegisterFields`, cardinal)**: a field whose `provider:key` is claimed does not
+  auto-register. The pre-existing `rendered` canonical check is **retained** — the two catch different
+  cases (`rendered` catches `tmdb:overview` when `overview` renders from the `file:` baseline alone with no
+  provider source at all; `claimed` catches `provA:synopsis` feeding `overview`). A test must fail if
+  either check is deleted.
+- **Provider-scoped (cardinal)**: with `provA:rating` claimed and `provB:rating` not, the `rating` row
+  **still auto-registers**, carrying provB's value, provB's provenance, and `WinningSource == provB:rating`
+  only. Falls out of the existing per-`(provider, key)` accumulator with no special case — pin it so a
+  future refactor to per-key suppression is caught.
+- **Unconditional (cardinal)**: suppression does not depend on whether the claimed source **won** resolution
+  for the entity being viewed — a claim states identity, not a per-entity outcome. Structurally guaranteed
+  (`AutoRegisterFields` receives no resolution outcome); the observable half is pinned by asserting identical
+  suppression with the claimed source listed **first** (wins) and **last** (loses) in the claiming field.
+- **No black hole (cardinal, slice B)**: a claim whose target canonical is absent from the effective field
+  set is **inert** — it neither suppresses nor appends, and the key auto-registers again exactly as pre-F49
+  (ADR-074 §D4). This is a property of §D2, not a guard: suppression reads the *materialized* field set, so
+  a claim that fails to materialize has nothing to suppress from. Assert the dangling case end-to-end
+  rather than asserting a log line.
+- **Store + API (slice B)**: migration `0029_field_claims` up/down applies cleanly and **preserves claims**
+  across the round-trip; the PK is `(entity_type, provider, field_key)` — **wider than `field_promotions`
+  on purpose**, so `provA:synopsis` claimed while `provB:synopsis` is not is representable. `PUT`/`DELETE`/
+  `GET /admin/field-claims/{entity_type}[/{provider}/{field_key}]` owner-gated (**401** unauth before the
+  handler), `DELETE` **idempotent**, unknown `entity_type` → 400, reserved (`_`) or canonical `field_key`
+  → 422, target canonical not a field of that entity type → 422. A claim materializes as an **appended**
+  `mapping.Source` (lowest precedence — adding a claim must never move the current winner) and merges
+  **after** promotions. `PUT` on a promoted key clears the promotion **in the same transaction** (RD3).
+- **Backward-compat golden (cardinal)**: with no claims and no provider source listed in any mapping,
+  resolved output is **byte-identical** to pre-F49, on all three entities. Note this is *not* the same as
+  "purely additive" — see below.
+- **Known behaviour change (spec §8)**: a key an operator **already** lists under `sources:` stops
+  auto-registering the day slice A ships. It was rendering twice, so a duplicate goes away rather than data
+   — but a *losing* claimed source moves from the page to one click behind the F36 source chip. A test
+  asserting the old doubled rendering is asserting the bug; update it rather than preserving it. Release
+  note required.
 
 ---
 
