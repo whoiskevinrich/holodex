@@ -384,13 +384,15 @@ CRUD, keyed by `(entity_type, provider, field_key)` with the target canonical as
 
 **FR5 — In-app claim action.** An owner-only affordance on an auto-registered row: *attach this field to
 an existing field*, with a picker over that entity type's canonical fields.
-- [ ] Reachable from the row itself, alongside the existing F44 promote affordance
-- [ ] Claiming a promoted key names the promotion it will remove, before the claim is applied
-- [ ] The row disappears on reload and its value appears under the target field's source chip
-- [ ] On `long_text` / `chips` rows the owner controls move to their own trailing line
+- [x] Reachable from the row itself, alongside the existing F44 promote affordance
+- [x] Claiming a promoted key names the promotion it will remove, before the claim is applied
+- [x] The row disappears on reload and its value appears under the target field's source chip
+- [x] On `long_text` / `chips` rows the owner controls move to their own trailing line
       ([handoff DD7](../design/claimed-provider-keys-handoff.md)) — this **amends F44's shipped layout**, so
       the promote pill is re-QA'd there too
-- [ ] Three-skin QA (`.claude/rules/frontend-theming.md`)
+- [~] Three-skin QA (`.claude/rules/frontend-theming.md`) — checklist written
+      ([claimed-provider-keys-qa-checklist.md](../design/claimed-provider-keys-qa-checklist.md)); §2/§3 run,
+      §4's human-eye items pending
 
 **FR6 — Coverage.** Unit tests on FR1 (including the bare-file-tag and same-key-different-provider cases),
 FR2 suppression, and the FR4 validation matrix.
@@ -404,20 +406,20 @@ spec. The behaviour change in §8 means an operator's existing mental model is n
 - [x] The bare-key row in the source-namespace table states that a bare key claims nothing
 - [x] `metadata-mappings.yaml.example` carries a commented multi-provider `overview` example (S1)
 - [x] The claim/promote/do-nothing decision table is stated once and linked from both directions
-- [ ] Slice B adds the in-app path (S3) and the unclaim path (S6) to the same section
+- [x] Slice B adds the in-app path (S3) and the unclaim path (S6) to the same section
 
 **FR8 — Attached-keys list in owner tooling.** *(Was P1.1; promoted to P0 on 2026-07-28 — see
 [handoff DD8](../design/claimed-provider-keys-handoff.md).)* A claim is **invisible by construction**: it
 succeeds by removing the row that was its only evidence. Without a list, a type-global config edit ships with
 no durable way to see or reverse it, and the acceptance bullet *"and undo it"* is only true for the seconds
 after the gesture.
-- [ ] A seventh owner-hub tab at `/owner/fields`, labelled **Attached keys** (never "claims" — handoff DD1)
-- [ ] Lists every DB claim across all three entity types, grouped by type, sorted `(provider, field_key)`
-- [ ] Each row shows `provider:field_key → target label` and a one-click **Remove**
-- [ ] A claim whose target canonical is absent from the effective field set is marked **Inactive** — this is
+- [x] A seventh owner-hub tab at `/owner/fields`, labelled **Attached keys** (never "claims" — handoff DD1)
+- [x] Lists every DB claim across all three entity types, grouped by type, sorted `(provider, field_key)`
+- [x] Each row shows `provider:field_key → target label` and a one-click **Remove**
+- [x] A claim whose target canonical is absent from the effective field set is marked **Inactive** — this is
       the only surface where a dangling claim (RD-adjacent: ADR-074 §D4 keeps it, inert) is visible at all
-- [ ] Remove does **not** restore a promotion that claiming cleared (§RD3), and the copy does not imply it does
-- [ ] Three-skin QA
+- [x] Remove does **not** restore a promotion that claiming cleared (§RD3), and the copy does not imply it does
+- [~] Three-skin QA — see FR5
 
 ### Should-have (P1)
 

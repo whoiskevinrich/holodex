@@ -13,6 +13,7 @@
 	const tabs = [
 		{ href: '/owner/status', label: 'Status' },
 		{ href: '/owner/keys', label: 'Metadata keys' },
+		{ href: '/owner/fields', label: 'Attached keys' },
 		{ href: '/owner/duplicates', label: 'Duplicates' },
 		{ href: '/owner/enrichment', label: 'Enrichment' },
 		{ href: '/owner/extraction', label: 'Extraction' },

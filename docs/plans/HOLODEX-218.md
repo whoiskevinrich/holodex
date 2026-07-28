@@ -19,21 +19,41 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 - [x] architecture `architecture` → [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — `field_claims` (migration 0029, PK carries `provider`) · D2 suppression derives from the **merged field set**, not the claims table · D3 no precedence column, append last · D4 dangling claims inert, never pruned · D5 promotion clear at write time. Amends ADR-056 §D4
 - [x] design `design-handoff` → [claimed-provider-keys-handoff.md](../design/claimed-provider-keys-handoff.md) — DD1 verb is "Attach to…" (never "merge") · **DD2 settles Q3**: picker lists the whole entity-type field set, needs `GET /admin/field-targets/{entity_type}` · DD3 provider checklist when a row carries 2+ providers · DD4 outcome preview (replace vs merge) · DD5 in-place confirmation + session Undo · DD6 RD3 warning in `--warn` · **DD7 accepted** — controls on their own line for `long_text`/`chips`, amending F44's shipped layout · **DD8 accepted** — P1.1 claims list promoted to P0 as spec FR8, specified as handoff §3 (`/owner/fields`, "Attached keys") · DD9 dangling claims render **Inactive** there (the only surface they have)
 - [x] backend — **slice A** (`ClaimedKeys` + second suppression input + operator docs; GH #178 closed for YAML users) **and slice B** (migration 0029 `field_claims`, `repo/claims.go`, `mergeClaims` at all three call sites, owner-gated `/admin/field-claims/...` + `/admin/field-targets/{entity_type}`)
-- [ ] frontend — slice B only; slice A ships no UI change (no three-skin QA needed)
+- [~] frontend — slice B built: Attach pill + `ClaimFieldEditor.svelte` + DD5 strip + DD7 layout amendment + FR8 `/owner/fields`. QA checklist written ([claimed-provider-keys-qa-checklist.md](../design/claimed-provider-keys-qa-checklist.md)); §2/§3 run green across all three skins by contrast/geometry sweep, §4's human-eye items pending. Slice A ships no UI change
 - [x] testing `testing-strategy` → §9 F49 block + `internal/resolver/auto_register_test.go` — five cardinal invariants: provider-scoped, unconditional, no black hole, rendered/claimed both retained, golden no-op
 - [~] security `security-review` — until: the ADR introduces anything beyond a keyed lookup table. Spec §9 records why not: no new egress/fs/credential surface, image perimeter untouched, same owner gate and validation shape as F44
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Slice B — Attach pill + `ClaimFieldEditor.svelte` beside the F44 promote affordance; **DD7** moves both pills + `ProvenanceBadge` to a trailing right-aligned line on `long_text`/`chips` rows (re-QA the shipped promote pill there); three-skin QA
-2. [ ] [frontend] Slice B / FR8 — `/owner/fields` "Attached keys" list + hub tab (handoff §3): grouped by entity type, `provider:key → target`, one-click Remove, **DD9** Inactive marker for dangling claims (client-side cross-check against the DD2 endpoint — no extra backend)
-3. [ ] [docs] FR7's last box — add the in-app path (S3) and the unclaim path (S6) to `canonical-fields.md` once the affordance exists to describe
-4. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+1. [ ] [qa] §4 of the QA checklist — the human-eye items, in all three skins. The DD7 trailing line is the one that matters: it moved a **shipped** F44 control, so the promote pill needs eyes on it too
+2. [ ] [—] Mark the PR ready for review once §4 is signed off — that transition is what fires `In Review` (ADR-069)
+3. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
 
 **Done:** slice A — `ClaimedKeys` + suppression + unit coverage + FR7 operator docs. Slice B backend —
 migration 0029, `repo/claims.go`, `mergeClaims`, the claims API + `GET /admin/field-targets/{entity_type}`.
+Slice B frontend — Attach pill + `ClaimFieldEditor.svelte`, DD5 confirmation strip with Undo, DD7 layout
+amendment, FR8 `/owner/fields` "Attached keys" list + hub tab, FR7's last docs box.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-28 · slice B frontend — the Attach gesture, the strip, the Attached keys list
+- skills: —
+- handoff: F49's UI is built and F49 is now feature-complete. `AutoFieldRows` gained the peer **Attach to…**
+  pill, `ClaimFieldEditor.svelte` is the editor behind it, and `/owner/fields` is the FR8 list. Three things
+  worth carrying. **(1) Two bugs the live QA caught that no type-check would.** The DD5 strip's Undo silently
+  did nothing after the first click, because `update()` replaces the strip object and the handler's captured
+  reference was no longer the one in the array — everything is matched by `id` now. And the DD3 checklist's
+  value caption widened the whole Details column and scrolled the page sideways: `<fieldset>` carries a UA
+  `min-inline-size: min-content`, so `min-w-0` on both the fieldset and the editor root is load-bearing, not
+  tidying. **(2) The QA fixture is part of the feature.** A one-provider row can't exercise the checklist or
+  the partial-attach outcome, so the checklist's §1 specifies a two-provider row with a `long_text` hint; I
+  seeded it directly into `entity_enrichment` + `provider_field_hints` and tore it down after. **(3) DD6 is
+  nearly unreachable and I kept it anyway** — a promoted key normally renders as its own first-class field,
+  not an auto-registered row, so the "attaching removes that promotion" warning rarely fires. The server
+  clears the promotion either way, so showing it is the honest call; §5.2 of the checklist records why, so
+  nobody deletes it as dead UI without knowing. Agent QA (contrast + geometry) is green in all three skins;
+  §4's human items are what's left. Also noted, **not** caused by this change: the active owner-hub tab
+  renders the same background in every skin.
 
 ### 2026-07-28 · slice B backend built — the claim store, the merge, the API
 - skills: —

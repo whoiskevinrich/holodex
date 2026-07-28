@@ -979,6 +979,12 @@ provider-scoped**, **suppression is unconditional**, **a claim can never suppres
   next resolve; Remove does **not** resurrect a promotion that claiming cleared. Partial load failure fails the
   page rather than rendering a list that silently omits an entity type. YAML `sources:` claims are **not**
   listed — assert that too, so the omission stays deliberate rather than becoming a bug report.
+- **Frontend surfaces (slice B)**: no automated coverage — the Attach affordance, the DD5 confirmation strip
+  and the FR8 list are verified live against the checklist,
+  [claimed-provider-keys-qa-checklist.md](design/claimed-provider-keys-qa-checklist.md). Two items there earn
+  their place: the fixture needs a **two-provider** auto-registered row (the DD3 checklist and the
+  partial-attach outcome are both unreachable with one provider), and DD7 moved a **shipped** F44 control, so
+  the promote pill is re-verified on `long_text` rows rather than only the new Attach pill.
 - **Backward-compat golden (cardinal)**: with no claims and no provider source listed in any mapping,
   resolved output is **byte-identical** to pre-F49, on all three entities. Note this is *not* the same as
   "purely additive" — see below.

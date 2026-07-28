@@ -118,7 +118,17 @@ This is why a bare `rating` may never claim — it would swallow both.
 ### S3 — The key is on a person or a studio
 
 `metadata-mappings.yaml` governs **video only**. There is no person or studio YAML, so config cannot express
-this — use the in-app claim on the row itself. *(Slice B; not yet shipped.)*
+this — use the in-app gesture on the row itself.
+
+On any video, person or studio page, an auto-registered row carries an **Attach to…** control for the owner.
+It asks which existing field the key belongs to, and — when the row carries more than one provider — which of
+those providers you mean, since `provA:rating` and `provB:rating` can be entirely different things. It then
+tells you what will happen before you commit: on a merge field the values join immediately, on a replace field
+the key becomes a candidate you pick from the field's source chip.
+
+The gesture is **global for the entity type**, exactly like a YAML `sources:` entry — it is config, not a
+per-person edit. It also works the other way: a key that already holds an in-app *promotion* cannot also be
+attached, so attaching removes the promotion (you are told first).
 
 ### S4 — Claiming onto a merge field
 
@@ -158,6 +168,16 @@ existing field (claim) or a new one (promote).
 
 Remove the source line and reload config. The key auto-registers again on the next render. Nothing in the
 shadow store is rewritten, so an unclaim is always a clean reversal.
+
+For an in-app attachment there are two ways back. Straight after the gesture, the confirmation strip standing
+where the row was carries an **Undo**. Later, **Owner → Attached keys** lists every key you have attached,
+grouped by entity type, each with a one-click **Remove**; the row returns on the next load of an affected page.
+That list is also where an attachment whose target field no longer exists shows up, marked **Inactive** — it
+suppresses nothing, so the key is already auto-registering again, but the attachment is kept in case the field
+comes back.
+
+Two things Remove does not do: it does not restore an in-app promotion that attaching cleared (that clear is a
+real delete), and it never touches YAML — a `sources:` claim is your own file, edited there.
 
 ### Two things that will not work, and why
 

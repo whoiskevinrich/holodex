@@ -363,7 +363,9 @@ Three-skin QA is required (Cinémathèque, Broadcast, Brutalist) per
 items numbered `section.item`, tagged `[smoke]` / `[agent]` / `[human]`, sections grouped by tag, `[human]`
 steps written so a stranger can run them; see
 [promote-override-fields-qa-checklist.md](promote-override-fields-qa-checklist.md) as the nearest precedent.
-Write it alongside the implementation, not here. The `[human]` items that need eyes:
+Written alongside the implementation as
+[claimed-provider-keys-qa-checklist.md](claimed-provider-keys-qa-checklist.md). The `[human]` items that need
+eyes:
 
 - The DD7 trailing control line — the two pills plus the provider badge, right-aligned under a paragraph, in
   each skin. **Includes re-verifying F44's promote pill**, whose placement this changes on a shipped surface.
