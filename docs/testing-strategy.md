@@ -971,6 +971,14 @@ provider-scoped**, **suppression is unconditional**, **a claim can never suppres
   → 422, target canonical not a field of that entity type → 422. A claim materializes as an **appended**
   `mapping.Source` (lowest precedence — adding a claim must never move the current winner) and merges
   **after** promotions. `PUT` on a promoted key clears the promotion **in the same transaction** (RD3).
+- **Attached keys list (slice B, FR8)**: the owner-hub list is the only durable surface a claim has, so test it
+  as data-integrity, not decoration. It renders every DB claim across all three entity types (a claim missing
+  from the list is a claim the owner cannot remove); a **dangling** claim — target absent from
+  `GET /admin/field-targets/{entity_type}` — renders as **Inactive** rather than being hidden or pruned
+  (ADR-074 §D4, handoff DD9); Remove issues the idempotent `DELETE` and the key auto-registers again on the
+  next resolve; Remove does **not** resurrect a promotion that claiming cleared. Partial load failure fails the
+  page rather than rendering a list that silently omits an entity type. YAML `sources:` claims are **not**
+  listed — assert that too, so the omission stays deliberate rather than becoming a bug report.
 - **Backward-compat golden (cardinal)**: with no claims and no provider source listed in any mapping,
   resolved output is **byte-identical** to pre-F49, on all three entities. Note this is *not* the same as
   "purely additive" — see below.

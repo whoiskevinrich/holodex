@@ -384,6 +384,9 @@ an existing field*, with a picker over that entity type's canonical fields.
 - [ ] Reachable from the row itself, alongside the existing F44 promote affordance
 - [ ] Claiming a promoted key names the promotion it will remove, before the claim is applied
 - [ ] The row disappears on reload and its value appears under the target field's source chip
+- [ ] On `long_text` / `chips` rows the owner controls move to their own trailing line
+      ([handoff DD7](../design/claimed-provider-keys-handoff.md)) — this **amends F44's shipped layout**, so
+      the promote pill is re-QA'd there too
 - [ ] Three-skin QA (`.claude/rules/frontend-theming.md`)
 
 **FR6 — Coverage.** Unit tests on FR1 (including the bare-file-tag and same-key-different-provider cases),
@@ -400,9 +403,23 @@ spec. The behaviour change in §8 means an operator's existing mental model is n
 - [x] The claim/promote/do-nothing decision table is stated once and linked from both directions
 - [ ] Slice B adds the in-app path (S3) and the unclaim path (S6) to the same section
 
+**FR8 — Attached-keys list in owner tooling.** *(Was P1.1; promoted to P0 on 2026-07-28 — see
+[handoff DD8](../design/claimed-provider-keys-handoff.md).)* A claim is **invisible by construction**: it
+succeeds by removing the row that was its only evidence. Without a list, a type-global config edit ships with
+no durable way to see or reverse it, and the acceptance bullet *"and undo it"* is only true for the seconds
+after the gesture.
+- [ ] A seventh owner-hub tab at `/owner/fields`, labelled **Attached keys** (never "claims" — handoff DD1)
+- [ ] Lists every DB claim across all three entity types, grouped by type, sorted `(provider, field_key)`
+- [ ] Each row shows `provider:field_key → target label` and a one-click **Remove**
+- [ ] A claim whose target canonical is absent from the effective field set is marked **Inactive** — this is
+      the only surface where a dangling claim (RD-adjacent: ADR-074 §D4 keeps it, inert) is visible at all
+- [ ] Remove does **not** restore a promotion that claiming cleared (§RD3), and the copy does not imply it does
+- [ ] Three-skin QA
+
 ### Should-have (P1)
 
-- **P1.1** Claims listed in owner tooling, so the owner can see and undo every claim in one place.
+- ~~**P1.1** Claims listed in owner tooling, so the owner can see and undo every claim in one place.~~
+  **Promoted to P0 as FR8** (2026-07-28). Numbering below is unchanged so existing references still resolve.
 - **P1.2** An "unclaim" path from the target field's source chip (the inverse gesture, where the value now lives).
 - **P1.3** Proactive duplicate detection + prompt — the deferred half of RD2, with library-wide counts.
 
@@ -476,7 +493,8 @@ Non-blocking:
 - [ ] Claiming is provider-scoped — provider B's identically-named key is unaffected
 - [ ] Bare file-tag sources claim nothing
 - [ ] The reported case collapses to one Overview row with combined provenance
-- [ ] The owner can claim a key in-app on all three entity types, and undo it
+- [ ] The owner can claim a key in-app on all three entity types, and undo it — immediately from the row
+      (handoff DD5) **and later** from the Attached keys list (FR8)
 - [ ] Claiming a promoted key clears the promotion, after saying so
 - [ ] A claimed value stays reachable via the F36 source chip
 - [ ] No auto-folding on value equality anywhere in v1
@@ -488,7 +506,7 @@ Non-blocking:
 | Slice | Contents | Gate |
 |---|---|---|
 | **A — mechanism** ✅ | FR1, FR2, FR6, FR7 (derivation + suppression + operator docs). Fixes GH #178 for YAML users. | spec ✓, testing ✓ |
-| **B — in-app claims** | FR3, FR4, FR5. Unblocks person/studio. | ADR-074 ✓, design handoff |
+| **B — in-app claims** | FR3, FR4, FR5, **FR8**. Unblocks person/studio. Adds `GET /admin/field-targets/{entity_type}` (handoff DD2) and the Attached keys list. | ADR-074 ✓, design handoff ✓ |
 | **C — detection** | P1.3, own issue | own design handoff |
 
 Slice A is independently shippable and closes the reported bug. B is what makes the feature complete for
