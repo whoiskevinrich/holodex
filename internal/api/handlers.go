@@ -354,6 +354,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDecisions(r)
 		// In-app field promotion — promote an auto-registered field to curatable (F44, ADR-062).
 		h.mountFieldPromotions(r)
+		h.mountFieldClaims(r)
 		// People on the unified model — person decisions/curation + rename (F37).
 		h.mountPersonDecisions(r)
 		// Studio on the unified model — studio decisions/curation (F38, ADR-053).
@@ -504,6 +505,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				dec = decisionsFromRows(decRows)
 			}
 			mfields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityVideo, m.Fields(), enrichRows)
+			mfields = h.mergeClaims(r.Context(), model.EnrichEntityVideo, mfields)
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, h.resolveOptions(dec))
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)

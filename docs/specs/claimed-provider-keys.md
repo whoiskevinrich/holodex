@@ -364,20 +364,23 @@ skips a field whose `provider:key` is claimed.
 
 **FR3 — DB claims store.** Migration `0029_field_claims` (`.up.sql` + hand-written `.down.sql`) plus repo
 CRUD, keyed by `(entity_type, provider, field_key)` with the target canonical as payload.
-- [ ] `entity_type` is one of `video`, `person`, `studio` (reuses `parseEntityType`)
-- [ ] A claim merges as an appended candidate source on the target field (§6.2)
-- [ ] Claim merge runs after promotion merge
-- [ ] A claim whose target canonical is absent from the effective field set is ignored at resolve time
+- [x] `entity_type` is one of `video`, `person`, `studio` (reuses `parseEntityType`)
+- [x] A claim merges as an appended candidate source on the target field (§6.2)
+- [x] Claim merge runs after promotion merge
+- [x] A claim whose target canonical is absent from the effective field set is ignored at resolve time
       and logged — it must never suppress into a black hole
 
 **FR4 — Owner-gated claim API**, mounted inside `requireOwner`, type-global path (not
 `/{entity}/{id}/...`) for the same reason F44 chose `/admin/field-promotions`.
-- [ ] `GET /admin/field-claims/{entity_type}` lists claims
-- [ ] `PUT /admin/field-claims/{entity_type}/{provider}/{field_key}` with `{"canonical": "..."}` upserts
-- [ ] `DELETE /admin/field-claims/{entity_type}/{provider}/{field_key}` is idempotent (204 on missing)
-- [ ] 400 on unknown `entity_type`; 422 on a reserved (`_`-prefixed) or canonical `field_key`
-- [ ] 422 when the target canonical is not a field of that entity type
-- [ ] PUT on a key that currently holds an F44 promotion clears the promotion in the same transaction (RD3)
+- [x] `GET /admin/field-claims/{entity_type}` lists claims
+- [x] `PUT /admin/field-claims/{entity_type}/{provider}/{field_key}` with `{"canonical": "..."}` upserts
+- [x] `DELETE /admin/field-claims/{entity_type}/{provider}/{field_key}` is idempotent (204 on missing)
+- [x] 400 on unknown `entity_type`; 422 on a reserved (`_`-prefixed) or canonical `field_key`
+- [x] 422 when the target canonical is not a field of that entity type
+- [x] PUT on a key that currently holds an F44 promotion clears the promotion in the same transaction (RD3)
+- [x] `GET /admin/field-targets/{entity_type}` serves the picker's target list (handoff DD2): the
+      **effective** post-promotion field set with a `merge` flag, which the page cannot derive from
+      `resolved[]` because empty undecided fields never render
 
 **FR5 — In-app claim action.** An owner-only affordance on an auto-registered row: *attach this field to
 an existing field*, with a picker over that entity type's canonical fields.

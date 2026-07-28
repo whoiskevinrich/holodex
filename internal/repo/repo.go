@@ -36,6 +36,11 @@ type Repo struct {
 	// invalidated on SetPromotion/ClearPromotion, so the per-detail-resolve visitor
 	// read path never queries the table.
 	promotions atomic.Pointer[map[string][]PromotionRow]
+	// claims caches field_claims rows keyed by entity type behind the same atomic
+	// pointer idiom as promotions (F49, ADR-074) — lazily loaded and invalidated on
+	// SetClaim/ClearClaim, so the per-detail-resolve visitor read path never queries
+	// the table.
+	claims atomic.Pointer[map[string][]ClaimRow]
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }

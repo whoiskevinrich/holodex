@@ -18,21 +18,42 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 - [x] spec `write-spec` → [claimed-provider-keys.md](../specs/claimed-provider-keys.md) — RD1 both YAML + in-app · RD2 mechanism now, detection deferred · RD3 promote/claim mutually exclusive
 - [x] architecture `architecture` → [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — `field_claims` (migration 0029, PK carries `provider`) · D2 suppression derives from the **merged field set**, not the claims table · D3 no precedence column, append last · D4 dangling claims inert, never pruned · D5 promotion clear at write time. Amends ADR-056 §D4
 - [x] design `design-handoff` → [claimed-provider-keys-handoff.md](../design/claimed-provider-keys-handoff.md) — DD1 verb is "Attach to…" (never "merge") · **DD2 settles Q3**: picker lists the whole entity-type field set, needs `GET /admin/field-targets/{entity_type}` · DD3 provider checklist when a row carries 2+ providers · DD4 outcome preview (replace vs merge) · DD5 in-place confirmation + session Undo · DD6 RD3 warning in `--warn` · **DD7 accepted** — controls on their own line for `long_text`/`chips`, amending F44's shipped layout · **DD8 accepted** — P1.1 claims list promoted to P0 as spec FR8, specified as handoff §3 (`/owner/fields`, "Attached keys") · DD9 dangling claims render **Inactive** there (the only surface they have)
-- [~] backend — **slice A done** (`ClaimedKeys` + second suppression input + operator docs; GH #178 closed for YAML users); slice B (migration 0029, claims API) pending the design gate
+- [x] backend — **slice A** (`ClaimedKeys` + second suppression input + operator docs; GH #178 closed for YAML users) **and slice B** (migration 0029 `field_claims`, `repo/claims.go`, `mergeClaims` at all three call sites, owner-gated `/admin/field-claims/...` + `/admin/field-targets/{entity_type}`)
 - [ ] frontend — slice B only; slice A ships no UI change (no three-skin QA needed)
 - [x] testing `testing-strategy` → §9 F49 block + `internal/resolver/auto_register_test.go` — five cardinal invariants: provider-scoped, unconditional, no black hole, rendered/claimed both retained, golden no-op
 - [~] security `security-review` — until: the ADR introduces anything beyond a keyed lookup table. Spec §9 records why not: no new egress/fs/credential surface, image perimeter untouched, same owner gate and validation shape as F44
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Slice B — `GET /admin/field-targets/{entity_type}` (handoff DD2, effective set + `merge` flag), migration 0029 `field_claims` (PK `(entity_type, provider, field_key)`), repo CRUD mirroring `promotions.go`, `mergeClaims` after `mergePromotions` at all three call sites, owner-gated `/admin/field-claims/...` incl. the RD3 promotion clear in one transaction. The claim must **append** a `mapping.Source` on the target field, not merely suppress — `ClaimedKeys` then sees it with no special case
-2. [ ] [frontend] Slice B — Attach pill + `ClaimFieldEditor.svelte` beside the F44 promote affordance; **DD7** moves both pills + `ProvenanceBadge` to a trailing right-aligned line on `long_text`/`chips` rows (re-QA the shipped promote pill there); three-skin QA
-3. [ ] [frontend] Slice B / FR8 — `/owner/fields` "Attached keys" list + hub tab (handoff §3): grouped by entity type, `provider:key → target`, one-click Remove, **DD9** Inactive marker for dangling claims (client-side cross-check against the DD2 endpoint — no extra backend)
+1. [ ] [frontend] Slice B — Attach pill + `ClaimFieldEditor.svelte` beside the F44 promote affordance; **DD7** moves both pills + `ProvenanceBadge` to a trailing right-aligned line on `long_text`/`chips` rows (re-QA the shipped promote pill there); three-skin QA
+2. [ ] [frontend] Slice B / FR8 — `/owner/fields` "Attached keys" list + hub tab (handoff §3): grouped by entity type, `provider:key → target`, one-click Remove, **DD9** Inactive marker for dangling claims (client-side cross-check against the DD2 endpoint — no extra backend)
+3. [ ] [docs] FR7's last box — add the in-app path (S3) and the unclaim path (S6) to `canonical-fields.md` once the affordance exists to describe
 4. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
 
-**Done:** slice A — `ClaimedKeys` + suppression + unit coverage + FR7 operator docs.
+**Done:** slice A — `ClaimedKeys` + suppression + unit coverage + FR7 operator docs. Slice B backend —
+migration 0029, `repo/claims.go`, `mergeClaims`, the claims API + `GET /admin/field-targets/{entity_type}`.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-28 · slice B backend built — the claim store, the merge, the API
+- skills: —
+- handoff: Slice B's backend is in: migration `0029_field_claims`, `internal/repo/claims.go`,
+  `mergeClaims` at all three call sites, and the owner-gated `/admin/field-claims/...` trio plus
+  `GET /admin/field-targets/{entity_type}`. Three things worth carrying forward. **(1) `SetClaim` is a
+  real transaction, not two writes** — the RD3 promotion clear runs inside it, because a claim landing
+  beside a surviving promotion of the same key would render that key twice, which is the exact bug F49
+  exists to fix. **(2) `mergeClaims` clones before appending.** Base fields are shared across requests
+  (the parsed mappings store, the synthesized person/studio sets), so `append` on `ParsedSources` would
+  write into a backing array another request is reading — `slices.Clone` per touched field. It also skips
+  a source the field already lists, so an operator whose YAML already says `provA:synopsis` doesn't get a
+  duplicated candidate when the owner claims the same key in-app. **(3) The test that changed my mind
+  about the docs:** D3's lexicographic append order is observable — claiming `tmdb:biography` *first* and
+  `provb:life_story` second resolves to **provb**, because claims sort by `(provider, field_key)`, not by
+  insertion. That's the "reproducible from table contents, not edit history" property, and it's now pinned
+  rather than implied. `entityTypeFields` serves both the DD2 picker endpoint and FR4's
+  target-must-be-declared 422 from one derivation, which is what keeps the ADR-074 security deferral
+  honest — a claim can only add a candidate to a surface the entity type already declares. Full Go suite
+  green. Next: the two frontend items; nothing else blocks them.
 
 ### 2026-07-28 · both open design questions answered yes; scope folded in
 - skills: design-handoff

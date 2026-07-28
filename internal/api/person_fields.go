@@ -127,6 +127,7 @@ func (h *Handlers) personResolved(r *http.Request, id int64, p *model.Person) []
 	}
 	fields := personFields(h.personProviders(rows))
 	fields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityPerson, fields, rows)
+	fields = h.mergeClaims(r.Context(), model.EnrichEntityPerson, fields)
 	resolved := resolver.ResolveFields(resolver.NewPersonBaseline(p), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 	h.markPromoted(resolved, promoted)
 	resolved = h.appendAutoRegistered(r.Context(), rows, fields, personizeResolved(resolved))
