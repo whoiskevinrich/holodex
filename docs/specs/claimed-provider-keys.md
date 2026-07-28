@@ -459,9 +459,13 @@ Blocking — **both settled by [ADR-074](../architecture/ADR-074-claimed-provide
 
 Non-blocking:
 
-- **Q3 (design)** — does the claim picker list every canonical for that entity type, or only fields that
-  currently render for the entity being viewed? Listing everything is more honest about the type-global
-  scope; listing the visible ones is shorter.
+- ~~**Q3 (design)** — does the claim picker list every canonical for that entity type, or only fields that
+  currently render for the entity being viewed?~~ **Every canonical for the entity type**
+  ([handoff DD2](../design/claimed-provider-keys-handoff.md#dd2--the-picker-lists-every-canonical-field-for-the-entity-type-not-the-ones-currently-on-screen)).
+  Not a cosmetic choice: undecided **empty** fields are dropped from `resolved[]` (`resolver.go:286`), so a
+  screen-derived picker omits exactly the targets the owner needs — a person's empty `bio` is missing precisely
+  when the provider's own biography key is the only one on the page. Requires a small owner-gated
+  `GET /admin/field-targets/{entity_type}` returning the **effective** (post-promotion) set with a `merge` flag.
 - **Q4 (product)** — should a claimed key remain visible to MCP consumers under its original key? Nothing
   in the MCP surface reads auto-registered rows today, so this only matters if that changes.
 
