@@ -25,9 +25,13 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [qa] §4 of the QA checklist — the human-eye items, in all three skins. The DD7 trailing line is the one that matters: it moved a **shipped** F44 control, so the promote pill needs eyes on it too
-2. [ ] [—] Mark the PR ready for review once §4 is signed off — that transition is what fires `In Review` (ADR-069)
-3. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+1. [ ] [qa] §4 of the QA checklist — the human-eye items, in all three skins, **now running against a PR already in review**. The DD7 trailing line is the one that matters: it moved a **shipped** F44 control, so the promote pill needs eyes on it too
+2. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+
+**PR #182 marked ready for review on 2026-07-28** (fires `In Review`, ADR-069) — ahead of §4 rather than
+after it, at Kevin's call. Its title was corrected from `docs(specs):` to `feat(fields):` at the same time:
+this repo squash-merges, so the PR title is what release-please and git-cliff read, and the docs-first
+subject it was opened with would have filed a feature under docs.
 
 **Done:** slice A — `ClaimedKeys` + suppression + unit coverage + FR7 operator docs. Slice B backend —
 migration 0029, `repo/claims.go`, `mergeClaims`, the claims API + `GET /admin/field-targets/{entity_type}`.
