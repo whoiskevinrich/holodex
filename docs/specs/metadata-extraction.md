@@ -1,9 +1,11 @@
 # Spec: On-demand metadata extraction from filenames & tags (F48)
 
-**Status**: Draft — architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)),
+**Status**: ✅ Shipped — all F48.1–F48.11 requirements implemented and released (Jira HOLODEX-193:
+Released, 2026-07-20). Architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)),
 design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-handoff.md)), and
 `/testing-strategy` ([docs/testing-strategy.md](../testing-strategy.md), §4/§5/Phase 3/Critical
-invariants) landed; pending `/security-review` before merge
+invariants) all landed; F48.10 security requirements (owner-gated endpoints, sanitized filename
+input, no new egress, bounded write concurrency) shipped with the code
 **Feature block**: F48
 **Phase**: 3 (Enrichment)
 **Date**: 2026-07-14

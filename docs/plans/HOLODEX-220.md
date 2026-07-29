@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-220                 # the tracker key; must match the branch key regex
-status: in-review
+status: in-progress
 depends-on: [HOLODEX-114]    # [KEY-…] cross-epic deps that must land first
 release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
@@ -48,6 +48,13 @@ and no data-model change. Both halves are subtractive.
 4. [ ] [testing] Three-skin QA + the contrast pairs marked "still to measure" in the handoff
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-29 · status reconciled against Jira — In Progress
+- handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
+  Jira shows **In Progress** as of 2026-07-28 — the design PR merged and the branch is back in
+  implementation, consistent with the gates below (frontend/testing still open). Corrected to
+  match. HOLODEX-114 (the Part-B blocker) is **In Review** in Jira, not yet merged — item 3 stays
+  blocked until it lands.
 
 ### 2026-07-26 · design critique → handoff → review
 - skills: design-critique, design-handoff

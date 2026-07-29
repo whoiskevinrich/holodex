@@ -1,8 +1,8 @@
 ---
 key: HOLODEX-186
-status: in-progress
+status: released
 depends-on: []
-release_note: Enrichment now queues every un-enriched person, studio, and media entry in one place, applies obvious matches automatically, remembers a rejected candidate so it never re-prompts, and lets you refresh an already-linked source with one click.
+release_note: Metadata auto-applies when there's only one clear match, and the system remembers when you skip something.
 ---
 
 # HOLODEX-186 · F47 — Enrichment review workflow (queue, confidence routing, unmatched flag, refresh)
@@ -35,6 +35,9 @@ security clean.
 6. [x] [testing] S6 QA (3-skin) + `/security-review` (`profile_url` scheme validation)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-29 · PR #130 merged → released
+- handoff: PR #130 (F47 all slices S1–S6) merged to main. All six gates remain [x]. Release note updated.
 
 ### 2026-07-13 · S6 — 3-skin QA + security review (final gate)
 - skills: security-review

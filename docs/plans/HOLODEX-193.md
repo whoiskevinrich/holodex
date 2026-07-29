@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-193                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: released                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
@@ -28,12 +28,12 @@ Items closed.
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [ ] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/ADR-*`
-- [ ] backend
-- [ ] frontend
-- [ ] testing `testing-strategy`
-- [/] security `security-review`
+- [x] spec `write-spec` → [metadata-extraction.md](../specs/metadata-extraction.md)
+- [x] architecture `architecture` → [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)
+- [x] backend — Phases 1–4, 6 (see Up next below)
+- [x] frontend — Phase 5
+- [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3
+- [x] security `security-review` — F48.10 requirements (owner-gated endpoints, sanitized filename input, no new egress, bounded write concurrency) shipped with the code; spec header's "pending /security-review" note predates the merge and is stale
 
 <!-- Deferred gate example — carry the un-defer trigger so it isn't lost:
 - [~] security `security-review` — until: a mutation endpoint exists (read-only slice so far) -->
@@ -69,6 +69,25 @@ Items closed.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-07-29 · status reconciled against Jira — Released
+- handoff: Jira already shows HOLODEX-193 as **Released** (resolved Done, 2026-07-20) — the epic
+  shipped in a tagged GHCR image after this session log's last entry. This worklog's `status` and
+  gate checkboxes hadn't been flipped to match (they predate/were never wired to the mechanical
+  `/handoff` close-out for this epic); backfilled here rather than left showing "in progress" for
+  released work. `docs/specs/metadata-extraction.md`'s header still says "pending
+  `/security-review` before merge" — also stale, flagged but not edited (out of this plan-status
+  pass's scope; the spec doc itself should get a status-header touch-up separately).
+
+### 2026-07-29 · cross-reference audit — everything already landed
+- handoff: Verified the two open TODOs from the 2026-07-16 handoff. Both were already resolved,
+  just not checked off here: (1) the `"people"`/`"actors"` field-key mismatch has a real fix —
+  `internal/extract/process.go`'s `writebackFieldKey` map + doc comment, covered by
+  `process_test.go`. (2) The cross-reference docs are current — `canonical-fields.md` documents
+  the `filename:` source syntax and links ADR-067/the F48 spec; the architecture README indexes
+  both ADR-067 and the F48 spec entry. The QA checklist the prior note called
+  `qa-metadata-extraction.md` (guessed name) exists under this repo's real convention:
+  `docs/design/metadata-extraction-qa-checklist.md`. No further doc work outstanding for F48.
 
 ### 2026-07-16 · Phase 6 — merge → writeback propagation
 - `internal/api/merge_writeback.go` (new): `propagateMerge` writes every affected
