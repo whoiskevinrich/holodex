@@ -12,6 +12,16 @@
 # PRs, so a fork simply no-ops instead of leaking the token. The issue key comes from
 # the branch name (Holodex convention) and is matched by an anchored regex in the
 # script. Soft-fail: a Jira hiccup logs a warning and never fails the PR.
+#
+# Guardrail (HOLODEX-173/220 incident, 2026-07-28): the intended shape is one Draft PR
+# per epic that accumulates every gate artifact and only merges once implementation is
+# done — Done can then never fire early (see the module doc above). That convention
+# isn't code-enforced, though, and got broken: standalone gate-artifact PRs (spec/ADR/
+# design-handoff/worklog, e.g. #131/#137/#139/#181) were opened non-draft and each
+# independently fired Done on merge, which then cascaded to Released on the next
+# deploy. A merged PR that touched nothing outside docs/** can't be the PR that
+# finishes an epic's implementation, so the "Check changed paths" step below detects
+# that case and the script skips the Done transition for it (scripts/lib/jira-sync.mjs).
 name: Jira sync
 
 on:
@@ -20,6 +30,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: jira-sync-${{ github.event.pull_request.number }}
@@ -43,6 +54,23 @@ jobs:
         with:
           node-version: 22
 
+      # Only meaningful on the Done path (a merge) — an In Review PR hasn't finished
+      # anything yet, so there's nothing to guard there. `docs_only=true` means every
+      # changed file is under docs/**, i.e. this merge cannot be the PR that completes
+      # an epic's implementation.
+      - name: Check changed paths
+        id: changed-paths
+        if: github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate -q '.[].filename')
+          if [ -n "$files" ] && ! echo "$files" | grep -qv '^docs/'; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Transition Jira issue
         env:
           BRANCH_REF: ${{ github.head_ref }}
@@ -50,4 +78,5 @@ jobs:
           JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_DOCS_ONLY: ${{ steps.changed-paths.outputs.docs_only }}
         run: node scripts/jira-branch-sync.mjs

@@ -129,6 +129,18 @@ Design notes:
   only a real rollup check could, and none exists — so epic status stays a manual/reviewed
   step. Symptom if this regresses: an epic jumps straight to `Released` on the next tagged
   release while its children are still `In Progress`.
+- **A docs-only merge never fires Done** (HOLODEX-173/220, 2026-07-28) — `jira-sync.yml`'s
+  "Check changed paths" step sets `docs_only=true` when a merged PR touched nothing outside
+  `docs/**`, and `syncOne` skips the Done transition for it. This guards a convention break
+  that already happened twice: the intended shape is one Draft PR per epic that accumulates
+  every gate artifact and only merges once implementation is done (see *Draft PR* above,
+  ADR-069) — but a standalone gate-artifact PR (spec/ADR/design-handoff/worklog) opened
+  **non-draft** merges independently and fires Done on its own, with no implementation behind
+  it. That Done then rides the batch sync straight to Released on the next deploy. The
+  guardrail only covers the *Done* half; it does not stop a non-draft gate-artifact PR from
+  firing an early `In Review` — the process fix (keep gate artifacts inside the epic's one
+  Draft PR) is still what actually prevents this. Symptom if this regresses: an issue is
+  `Released` in Jira with only a spec/design/worklog PR merged and no feature code.
 - **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
   so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a
   privileged context; the key is matched by an anchored `\bHOLODEX-\d+\b` regex; the token is

@@ -26,6 +26,9 @@
 //   JIRA_API_TOKEN     required — scoped Atlassian API token
 //   JIRA_KEY_PREFIX    optional — issue-key project prefix (default "HOLODEX")
 //   DRY_RUN            optional — "true" to validate + log without POSTing
+//   PR_DOCS_ONLY       optional — "true" if the merged PR touched only docs/**; guards
+//                       against a standalone gate-artifact PR firing a premature Done
+//                       (see the "Check changed paths" step in jira-sync.yml)
 
 import { makeLog, extractKeys, makeJiraClient, syncKeys } from "./lib/jira-sync.mjs";
 
@@ -40,6 +43,7 @@ const {
   JIRA_API_TOKEN,
   JIRA_KEY_PREFIX = "HOLODEX",
   DRY_RUN,
+  PR_DOCS_ONLY,
 } = process.env;
 
 const dryRun = DRY_RUN === "true";
@@ -76,7 +80,14 @@ async function main() {
     email: JIRA_USER_EMAIL,
     token: JIRA_API_TOKEN,
   });
-  await syncKeys({ keys, targetStatus: JIRA_TARGET_STATUS, client, dryRun, log });
+  await syncKeys({
+    keys,
+    targetStatus: JIRA_TARGET_STATUS,
+    client,
+    dryRun,
+    log,
+    docsOnly: PR_DOCS_ONLY === "true",
+  });
   info("Jira sync complete");
 }
 

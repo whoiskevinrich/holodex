@@ -89,3 +89,72 @@ test("syncKeys still transitions a non-Epic issue", async () => {
   assert.equal(failures, 0);
   assert.deepEqual(calls, [["HOLODEX-183", "2"]]);
 });
+
+// HOLODEX-173/220: a standalone gate-artifact PR (spec/ADR/design-handoff/worklog)
+// merging non-draft fired a premature Done, which then cascaded to Released on the
+// next deploy. docsOnly=true guards Done specifically for a PR that touched only docs/**.
+test("syncKeys skips Done for a docs-only PR", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async () => ({ status: "In Progress", issueType: "Story" }),
+    findTransitionId: async () => {
+      calls.push("findTransitionId");
+      return "41";
+    },
+    transition: async () => calls.push("transition"),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-173"],
+    targetStatus: "Done",
+    client,
+    log,
+    docsOnly: true,
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, []);
+});
+
+test("syncKeys does not guard In Review for a docs-only PR", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async () => ({ status: "In Progress", issueType: "Story" }),
+    findTransitionId: async () => "31",
+    transition: async (key, id) => calls.push([key, id]),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-173"],
+    targetStatus: "In Review",
+    client,
+    log,
+    docsOnly: true,
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, [["HOLODEX-173", "31"]]);
+});
+
+test("syncKeys still transitions to Done when docsOnly is false", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async () => ({ status: "In Review", issueType: "Story" }),
+    findTransitionId: async () => "41",
+    transition: async (key, id) => calls.push([key, id]),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-186"],
+    targetStatus: "Done",
+    client,
+    log,
+    docsOnly: false,
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, [["HOLODEX-186", "41"]]);
+});
