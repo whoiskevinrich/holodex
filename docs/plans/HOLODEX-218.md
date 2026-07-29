@@ -26,7 +26,10 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 ## Up next — ordered (position = priority)
 
 1. [ ] [qa] §4 of the QA checklist — the human-eye items, in all three skins, **now running against a PR already in review**. The DD7 trailing line is the one that matters: it moved a **shipped** F44 control, so the promote pill needs eyes on it too
-2. [ ] [—] Proactive duplicate detection with library-wide counts → own issue (spec P1.3)
+2. [x] [—] Proactive duplicate detection with library-wide counts → filed as **HOLODEX-222** (slice C, spec
+   P1.3), carrying RD2's two constraints in the description so they can't be lost: counts stay library-wide
+   (a claim is global, so a per-entity sample is the wrong evidence for it) and value equality only ever
+   prompts, never auto-folds
 
 **PR #182 marked ready for review on 2026-07-28** (fires `In Review`, ADR-069) — ahead of §4 rather than
 after it, at Kevin's call. Its title was corrected from `docs(specs):` to `feat(fields):` at the same time:
@@ -39,6 +42,22 @@ Slice B frontend — Attach pill + `ClaimFieldEditor.svelte`, DD5 confirmation s
 amendment, FR8 `/owner/fields` "Attached keys" list + hub tab, FR7's last docs box.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-28 · gate bookkeeping resynced; slice C filed
+- skills: —
+- handoff: Two pieces of drift closed, both found by asking what was actually left rather than by
+  reading the checkboxes. **HOLODEX-218's Jira description was stale in a way that read backwards**: it
+  still called the design handoff "the only outstanding gate" (it landed days ago) and marked three-skin
+  QA `[x]` on the grounds that slice A ships no UI — true when written, but slice B does ship UI, so the
+  one genuinely open gate was showing as green. Rewritten: handoff `[x]`, three-skin QA `[~]` and named
+  explicitly as **the** open gate with 4.1 and 4.7 called out, both slice-B acceptance boxes checked
+  (§3.3/§3.6 ran green live; the promotion clear is pinned at both the repo and API layer, including that
+  un-claiming does not resurrect it), and a Slice B section plus the code-review outcome added. **Slice C
+  had never been filed** — RD2 deferred it "to its own issue" and no such issue existed, so it was one
+  session away from being lost to a spec footnote; now **HOLODEX-222** under the Enrichment fields epic,
+  carrying RD2's constraints and the four open questions the spec will have to answer. PR #182's gate
+  block got the same treatment (slice C row now links the issue; a `/code-review` line records the three
+  bugs and the single-provider-fixture lesson). §4 remains the only thing between this and merge.
 
 ### 2026-07-28 · code review of the branch — three frontend bugs, all fixed
 - skills: code-review
