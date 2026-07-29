@@ -1,6 +1,6 @@
 # Spec: Job History — Digest, Pagination, and Entity Search (F21.3b)
 
-**Status**: Draft
+**Status**: Shipped — reduced scope. P0-1–P0-3 and the digest half of P0-5 shipped ([HOLODEX-205](https://whoiskevinrich.atlassian.net/browse/HOLODEX-205)/[207](https://whoiskevinrich.atlassian.net/browse/HOLODEX-207)/[210](https://whoiskevinrich.atlassian.net/browse/HOLODEX-210), PRs #160/#163/#166). P0-4 and P0-6 dropped 2026-07-29 (Q1 answered "fixed" — see Open Questions). P1 entry points not started, non-blocking.
 **Phase**: Post–Phase 3 (extends F21 System Activity)
 **Owner**: Project owner
 **Date**: 2026-07-22
@@ -70,7 +70,7 @@ Add `entity_type TEXT NOT NULL DEFAULT ''` and `entity_id INTEGER NOT NULL DEFAU
 
 - [x] Migration [`0028_job_runs_attribution.{up,down}.sql`](../../internal/db/migrations/0028_job_runs_attribution.up.sql) follows [`.claude/rules/migrations.md`](../../.claude/rules/migrations.md); up **and** down verified against a table that already holds rows
 - [x] No foreign-key constraint is added; `job_runs` remains free of cascade semantics
-- [ ] A job run whose referenced entity is later deleted still returns from the API, with the entity label rendered as `#<id> (deleted)` — *read-side rendering; lands with P0-4/P1-3, not with the columns*
+- [ ] A job run whose referenced entity is later deleted still returns from the API, with the entity label rendered as `#<id> (deleted)` — *read-side rendering; would land with P1-3 if that nice-to-have is ever picked up, not with the columns*
 - [x] Rows written before the migration have empty attribution and are excluded from entity-filtered results without error
 
 **P0-2 — `batch_id` column**
@@ -89,31 +89,31 @@ A per-kind aggregate: last `started_at`, run count, and error count, plus the in
 - [x] Response size is independent of the number of runs in the window — asserted by `TestJobRunDigest` (500 extra runs leave `kinds`/`failures` lengths unchanged); the inline failure list is capped at `digestFailureCap`
 - [x] Given a window containing only successful runs, the failures section is absent from the response — `TestJobRunDigestCleanWindow` returns an empty (non-nil) `failures`, and the UI hides the callout
 
-**P0-4 — Keyset-paginated log read** *(deferred — re-justified against Q1 before building; see Timeline)*
+**P0-4 — Keyset-paginated log read** *(DROPPED 2026-07-29 — Q1 answered "ungating alone fixed it"; see Timeline)*
 `GET /api/v1/admin/activity/history` accepts a cursor over `(started_at, id)` plus `kind`, `status`, `entity_type`, and `entity_id` filters, and returns a bounded page with a next-cursor.
 
-- [ ] Ordering remains `started_at DESC, id DESC`, matching the existing index
-- [ ] Given a cursor, the first row of page N+1 immediately follows the last row of page N with no duplicates or gaps, including when rows share a `started_at`
-- [ ] An absent or malformed cursor returns the first page rather than an error
-- [ ] Unknown `kind` or `status` values return an empty page, not a 500
-- [ ] The endpoint stays inside the existing `requireOwner` group
+- [ ] ~~Ordering remains `started_at DESC, id DESC`, matching the existing index~~
+- [ ] ~~Given a cursor, the first row of page N+1 immediately follows the last row of page N with no duplicates or gaps, including when rows share a `started_at`~~
+- [ ] ~~An absent or malformed cursor returns the first page rather than an error~~
+- [ ] ~~Unknown `kind` or `status` values return an empty page, not a 500~~
+- [ ] ~~The endpoint stays inside the existing `requireOwner` group~~
 
 **P0-5 — Two-mode UI**
 Digest is the default view; Log is one click away and preserves the full chronological stream.
 
 - [x] Digest renders per-kind rows and a failures callout — `JobDigest.svelte`, the default view; the callout is a `border-warn` box and a kind whose *latest* run failed shows an `error` status badge even when older passes succeeded
-- [ ] Log renders a paginated table with kind and status filters and a "load more" control — *the pagination/filter half waits on P0-4 (Q1); the Log tab currently reuses the existing full-window history table, fetched lazily only when opened*
+- [x] ~~Log renders a paginated table with kind and status filters and a "load more" control~~ — *dropped with P0-4 (Q1 answered "fixed"); Log tab stays as the existing full-window history table, fetched lazily only when opened*
 - [x] The history section no longer waits on `/admin/activity` before painting — it is a sibling of that gate, hidden only on `needToken` (the same condition the endpoint itself enforces)
 - [x] A history fetch failure renders a visible error state rather than the "No jobs recorded yet" empty state (previously swallowed); `ReauthError` is excluded so a pending re-auth doesn't flash an error
 - [x] Digest, its failures callout, loading, and error states are QA'd in Cinémathèque, Broadcast, and Brutalist (warn elements 5.3–7.3:1, radius tracks each skin's token); the log-view states carried over from phase 1
 
-**P0-6 — Adjacency rollup in the log**
+**P0-6 — Adjacency rollup in the log** *(DROPPED 2026-07-29 — depended on P0-4; Q1 answered "fixed", see Timeline)*
 Consecutive runs sharing `(kind, status, and — for enrich — provider)` within a time window collapse into one expandable entry showing the count and span.
 
-- [ ] A 2,847-row writeback burst renders as one collapsed entry
-- [ ] Concurrent `enrichRefreshAll` providers ([`enrich_review.go:173`](../../internal/api/enrich_review.go)) roll up per provider, not into one interleaved blob
-- [ ] Expanding an entry reveals its member runs without an additional fetch beyond the current page
-- [ ] A failed run is never absorbed into a successful rollup
+- [ ] ~~A 2,847-row writeback burst renders as one collapsed entry~~
+- [ ] ~~Concurrent `enrichRefreshAll` providers ([`enrich_review.go:173`](../../internal/api/enrich_review.go)) roll up per provider, not into one interleaved blob~~
+- [ ] ~~Expanding an entry reveals its member runs without an additional fetch beyond the current page~~
+- [ ] ~~A failed run is never absorbed into a successful rollup~~
 
 ### Nice-to-Have (P1)
 
@@ -171,10 +171,10 @@ Personal single-user server — adoption metrics don't apply. Timing the real li
 
 ## Open Questions
 
-**Q1 — Does ungating alone resolve the complaint? [owner, answered by shipping phase 1]**
-The design assumes row volume dominates, but the render gate at [`+page.svelte:154`](../../web/src/routes/owner/status/+page.svelte) also delays first paint and is free to remove. Timing the real library to separate the two is out of scope, so phase 1 ships the ungating on its own and the owner judges whether the page still feels slow.
+**Q1 — Does ungating alone resolve the complaint? [owner, answered by shipping phase 1] — ANSWERED 2026-07-29: yes**
+The design assumed row volume dominates, but the render gate at [`+page.svelte:154`](../../web/src/routes/owner/status/+page.svelte) also delayed first paint and was free to remove. Phase 1 (PR #160) shipped 2026-07-22; after a week of real use the owner confirmed the digest view is fast and the Log tab is opened rarely.
 
-**This is a real decision point, not a formality.** If ungating alone fixes it, phases 2–5 — including the migration — are optional polish rather than a fix, and should be re-justified on the forensics and triage goals alone rather than on load time. Accepted risk of proceeding without the split: we may build the digest and pagination for a problem the gate was causing.
+**Resolution:** ungating alone fixed the complaint. P0-4 (keyset-paginated log read) and P0-6 (adjacency rollup) are **dropped** — they would be polish for a problem the render gate was causing, not the row-volume problem they were designed against. P0-1–P0-3 and the digest half of P0-5 were already justified independently (forensics/Revert-correctness and the triage goal) and stay. See Requirements above and Timeline below for the resulting scope.
 
 **Q2 — What time gap ends an adjacency rollup? [engineering + design, blocking P0-6]**
 Too tight and a bulk writeback fragments into many entries; too loose and unrelated runs merge. Needs a value chosen against real burst timings, not guessed. Consider gap-based (e.g. no more than N seconds between consecutive runs) rather than fixed-bucket, which would split a burst that straddles a boundary.
@@ -192,23 +192,23 @@ Failures across a full 30 days may be too noisy after a bad batch, or exactly ri
 
 ## Timeline Considerations
 
-No external deadline. Suggested phasing — each is independently shippable and independently useful:
+No external deadline. Actual phasing, as shipped:
 
-1. **Ungate** (P0-5's gating fix + error state). Cheapest possible change, independently correct, and the answer to Q1 — ship it and see whether the page still feels slow before committing to the rest.
-2. **Migration + attribution + `batch_id`** (P0-1, P0-2). Schema first so the recording paths start populating; the Revert regex dies here.
-3. **Digest + paginated log** (P0-3, P0-4, P0-5). The API and UI work.
-4. **Adjacency rollup** (P0-6, gated on Q2).
-5. **Entry points** (P1, gated on Q3).
+1. **Ungate** (P0-5's gating fix + error state) — [HOLODEX-205](https://whoiskevinrich.atlassian.net/browse/HOLODEX-205), PR #160, merged 2026-07-22. The answer to Q1.
+2. **Migration + attribution + `batch_id`** (P0-1, P0-2) — [HOLODEX-207](https://whoiskevinrich.atlassian.net/browse/HOLODEX-207), PR #163, merged 2026-07-22. Done independently of Q1, on the forensics and Revert-correctness goals.
+3. **Digest** (P0-3, digest half of P0-5) — [HOLODEX-210](https://whoiskevinrich.atlassian.net/browse/HOLODEX-210), PR #166, merged 2026-07-23. Done independently of Q1, on the triage goal.
+4. **Paginated log + adjacency rollup** (P0-4, P0-6) — **dropped 2026-07-29.** Q1 answered "ungating alone fixed it" after a week of real use (digest fast, Log tab rarely opened), so these would be polish for a problem the render gate was causing, not the row-volume problem they were designed against.
+5. **Entry points** (P1, gated on Q3) — not started; optional, non-blocking.
 
-Step 2 is the only irreversible one, and it is worth doing on the forensics and Revert-correctness goals even if step 1 turns out to have resolved the load time. Steps 3–5 should be re-justified against Q1's answer before starting.
+Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps 4 stopped exactly where the spec said it should if Q1 came back "fixed."
 
 ---
 
 ## Gates
 
-- [ ] **Spec** — this document
-- [x] **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract
-- [ ] **Design handoff** — two-mode UI, rollup affordance, three-skin states
-- [ ] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated; keyset-cursor and rollup-boundary cases covered
+- [x] **Spec** — this document (reduced scope, 2026-07-29)
+- [x] **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract (paginated-read half now describes dropped scope; attribution half shipped)
+- [x] **Design handoff** — not required for what shipped; digest reused existing card/table/badge treatments (per HOLODEX-210); two-mode/rollup handoff moot, P0-4/P0-6 dropped
+- [/] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated for attribution + digest; keyset-cursor and rollup-boundary cases no longer needed (scope dropped); the frontend component-test harness gap (HOLODEX-203 up-next item 4) is unrelated pre-existing debt, still open
 - [x] **Security review** — not required; endpoints stay within the existing `requireOwner` group and no auth surface changes
-- [ ] **Three-skin QA** — Cinémathèque, Broadcast, Brutalist
+- [x] **Three-skin QA** — Cinémathèque, Broadcast, Brutalist (digest + error states, per HOLODEX-205/210)

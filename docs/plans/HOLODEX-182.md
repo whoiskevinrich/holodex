@@ -34,10 +34,10 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [ ] [backend] `/handoff` skill → batch 2 (own slice)
-9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice)  ⛔ blocked on the batch-1 retro checkpoint below
+8. [ ] [backend] `/handoff` skill → batch 2 (own slice) — **do this one first**, see retro verdict below
+9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice) — unblocked, retro completed 2026-07-29
 
-## Batch-1 retro checkpoint (unblocks item 9)
+## Batch-1 retro checkpoint (unblocks item 9) — ✅ completed 2026-07-29
 
 "Living with batch 1" was an open-ended vibe with no exit signal. Replacing it with a mechanical
 trigger + a fixed set of questions, so nobody has to remember to check in:
@@ -55,6 +55,47 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-29 · Batch-1 retro — completed, answered from evidence + Kevin
+- handoff: Trigger fired on the hard-stop date alone (2026-07-25, four days past); answered the
+  four questions from real evidence in this repo's other worklogs and git history rather than
+  vibes, plus one direct answer from Kevin. **Verdict: batch 1 works when it runs, but the retro
+  surfaced a real gap that item 8 (`/handoff`) exists to close — do it before item 9.**
+  - **SessionStart — In Progress fire + banner:** *Mixed.* At least one documented miss —
+    [HOLODEX-186](HOLODEX-186.md)'s 2026-07-13 log: "Jira `In Progress` still not fired... no
+    local `JIRA_*` creds this session" — a real reliability gap, though the hook's own
+    soft-fail-offline design degrades safely rather than corrupting state. **Banner: Kevin
+    confirms it's useful** — read and oriented from, not skipped. Keep as-is.
+  - **Stop nag — catch, false-fire, or miss?** No logged false-fires or missed code-vs-worklog
+    staleness. But the nag's scope is narrower than "worklog is stale" — it only compares a
+    changed file's mtime against the worklog's, which structurally **cannot** catch worklog-vs-
+    **Jira** drift (the epic's real status diverging from what the worklog frontmatter/gates
+    say). That exact drift is what today's session existed to fix, across four separate plan
+    files ([HOLODEX-193](HOLODEX-193.md), [HOLODEX-220](HOLODEX-220.md),
+    [field-source-of-truth-rollout.md](field-source-of-truth-rollout.md),
+    [studio-entity-implementation.md](studio-entity-implementation.md)) — none of it was code-
+    freshness staleness, so the Stop hook had no way to see it. Not a bug; a scope gap worth
+    naming.
+  - **PostToolUse gate-flips — track reality or drift?** Drifted, and the mechanism explains why:
+    a skill run flips a gate to `[/]`, but only `/handoff` sets `[x]` — and `/handoff` doesn't
+    exist yet (item 8). HOLODEX-193's six gates sat at `[ ]`/`[/]` despite the epic being fully
+    shipped and **Released** in Jira, because nobody had a tool to close them out. Separately,
+    real worklog-parser bugs landed and got fixed post-batch-1 (`e04837e` — `--!>` HTML-comment
+    masking, `5b78543` — commented-out examples, `1e210b4` — trailing YAML comments; `08d57a5`/
+    `4b63d6e` — a missing `design` gate added to the routing table), so early gate-flips could
+    have been misread before those fixes landed. Current parser is fixed; historical drift isn't
+    retroactively correctable, just noted.
+  - **Workarounds — manual steps a hook should've done?** Yes, concretely: this entire session.
+    A human had to manually diff four plan files' `status:` fields against live Jira and
+    hand-correct them, because nothing periodically reconciles worklog state against tracker
+    ground truth — that's exactly the `/handoff` gap above, at epic-closure scale rather than
+    real-time. Also HOLODEX-186's "flagged to the user, not actionable from here" note is itself
+    a manual workaround substituting for automated recovery.
+  - **Decision:** item 9 (`INBOX.md`/`/triage`) proceeds as originally scoped — the retro found
+    no reason to change its shape, it addresses a different problem (idea capture) than what
+    drifted. But **item 8 (`/handoff`) is more urgent than its queue position suggested** — it's
+    the direct fix for the gate-closure and status-drift gap this retro surfaced, not just
+    "batch 2, whenever." Build it first.
 
 ### 2026-07-11 · /security-review clean → merge #119
 - skills: security-review

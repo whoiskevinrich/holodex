@@ -1,8 +1,8 @@
 ---
 key: HOLODEX-218
-status: in-progress
+status: released
 depends-on: []
-release_note: A canonical field can now claim a provider's differently-named key, so one value stops rendering as several duplicate rows.
+release_note: Stop seeing the same information duplicated across multiple rows.
 ---
 
 # HOLODEX-218 · Claimed provider keys (F49)
@@ -43,6 +43,9 @@ Slice B frontend — Attach pill + `ClaimFieldEditor.svelte`, DD5 confirmation s
 amendment, FR8 `/owner/fields` "Attached keys" list + hub tab, FR7's last docs box.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-29 · PR #182 merged → released
+- handoff: PR #182 (F49 slices A+B complete) merged to main. All eight gates remain [x] (security [~] deferred as acceptable). Release note updated.
 
 ### 2026-07-28 · §4 passed — every gate green
 - skills: —

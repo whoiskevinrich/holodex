@@ -1,6 +1,12 @@
 # Studio entity (F38) — implementation design
 
-**Status**: Design — implementation guide
+**Status**: ✅ Released — implemented per this design (Jira HOLODEX-11: Released, 2026-07-29 audit).
+PR [#75](https://github.com/whoiskevinrich/holodex/pull/75) shipped the S1 backend/S2 frontend
+core; [#76](https://github.com/whoiskevinrich/holodex/pull/76) (external-id de-dup, ADR-054),
+[#79](https://github.com/whoiskevinrich/holodex/pull/79) (per-provider enrich UI),
+[#81](https://github.com/whoiskevinrich/holodex/pull/81) (`?studio_id` facet filter),
+[#82](https://github.com/whoiskevinrich/holodex/pull/82) (TMDB studio enrichment, S3),
+[#83](https://github.com/whoiskevinrich/holodex/pull/83)/[#91](https://github.com/whoiskevinrich/holodex/pull/91) (studio logo, S4/QA) followed. Kept as the as-built reference; the plan below reflects the design that shipped, not a pending guide.
 **Spec**: [studio-entity.md](../specs/studio-entity.md) (F38, HOLODEX-11) · **ADR**: [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)
 **Date**: 2026-07-02
 
