@@ -19,13 +19,14 @@ case renders one Overview, and the owner can claim a key in-app on video, person
 - [x] architecture `architecture` → [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — `field_claims` (migration 0029, PK carries `provider`) · D2 suppression derives from the **merged field set**, not the claims table · D3 no precedence column, append last · D4 dangling claims inert, never pruned · D5 promotion clear at write time. Amends ADR-056 §D4
 - [x] design `design-handoff` → [claimed-provider-keys-handoff.md](../design/claimed-provider-keys-handoff.md) — DD1 verb is "Attach to…" (never "merge") · **DD2 settles Q3**: picker lists the whole entity-type field set, needs `GET /admin/field-targets/{entity_type}` · DD3 provider checklist when a row carries 2+ providers · DD4 outcome preview (replace vs merge) · DD5 in-place confirmation + session Undo · DD6 RD3 warning in `--warn` · **DD7 accepted** — controls on their own line for `long_text`/`chips`, amending F44's shipped layout · **DD8 accepted** — P1.1 claims list promoted to P0 as spec FR8, specified as handoff §3 (`/owner/fields`, "Attached keys") · DD9 dangling claims render **Inactive** there (the only surface they have)
 - [x] backend — **slice A** (`ClaimedKeys` + second suppression input + operator docs; GH #178 closed for YAML users) **and slice B** (migration 0029 `field_claims`, `repo/claims.go`, `mergeClaims` at all three call sites, owner-gated `/admin/field-claims/...` + `/admin/field-targets/{entity_type}`)
-- [~] frontend — slice B built: Attach pill + `ClaimFieldEditor.svelte` + DD5 strip + DD7 layout amendment + FR8 `/owner/fields`. QA checklist written ([claimed-provider-keys-qa-checklist.md](../design/claimed-provider-keys-qa-checklist.md)); §2/§3 run green across all three skins by contrast/geometry sweep, §4's human-eye items pending. Slice A ships no UI change
+- [x] frontend — slice B built: Attach pill + `ClaimFieldEditor.svelte` + DD5 strip + DD7 layout amendment + FR8 `/owner/fields`. QA checklist ([claimed-provider-keys-qa-checklist.md](../design/claimed-provider-keys-qa-checklist.md)) **green end to end**: §2/§3 by contrast/geometry sweep, §4's seven human-eye items passed by Kevin on 2026-07-28 in all three skins — including 4.1, the DD7 trailing line that moved a shipped F44 control. Slice A ships no UI change
 - [x] testing `testing-strategy` → §9 F49 block + `internal/resolver/auto_register_test.go` — five cardinal invariants: provider-scoped, unconditional, no black hole, rendered/claimed both retained, golden no-op
 - [~] security `security-review` — until: the ADR introduces anything beyond a keyed lookup table. Spec §9 records why not: no new egress/fs/credential surface, image perimeter untouched, same owner gate and validation shape as F44
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [qa] §4 of the QA checklist — the human-eye items, in all three skins, **now running against a PR already in review**. The DD7 trailing line is the one that matters: it moved a **shipped** F44 control, so the promote pill needs eyes on it too
+1. [x] [qa] §4 of the QA checklist — **passed 2026-07-28**, all seven items in all three skins, DD7's moved
+   promote pill included. Every gate on this epic is now green; the PR is merge-ready
 2. [x] [—] Proactive duplicate detection with library-wide counts → filed as **HOLODEX-222** (slice C, spec
    P1.3), carrying RD2's two constraints in the description so they can't be lost: counts stay library-wide
    (a claim is global, so a per-entity sample is the wrong evidence for it) and value equality only ever
@@ -42,6 +43,17 @@ Slice B frontend — Attach pill + `ClaimFieldEditor.svelte`, DD5 confirmation s
 amendment, FR8 `/owner/fields` "Attached keys" list + hub tab, FR7's last docs box.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-28 · §4 passed — every gate green
+- skills: —
+- handoff: Kevin ran §4's seven human-eye items in all three skins and passed them, 4.1 included — the DD7
+  trailing control line, the one item carrying real risk because it moved a **shipped** F44 control rather
+  than only placing a new one. That closes the last gate on F49: spec, ADR-074, handoff, backend, frontend,
+  testing and three-skin QA are all green, security review stays deferred against the test ADR-074 records
+  and slice B never widened a vocabulary to free text. PR #182 is merge-ready with all 8 checks green.
+  Worth keeping from this epic: the human gate was the *only* one that couldn't be faked by measurement.
+  The contrast and geometry sweep passed §4's measurable half while the actual question — do the two rows
+  read as different from each other — stayed unanswerable without eyes.
 
 ### 2026-07-28 · gate bookkeeping resynced; slice C filed
 - skills: —
