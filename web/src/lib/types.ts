@@ -250,6 +250,28 @@ export interface FieldPromotionView {
 	order?: number;
 }
 
+// FieldClaim is one stored claim as returned by GET /admin/field-claims/{entity_type}
+// (F49, ADR-074): the provider key `provider:field_key` is a candidate source of
+// `canonical` rather than a display-only row of its own. Keyed per (provider, key) — one
+// provider's spelling can be claimed while another provider's identical key is not.
+export interface FieldClaim {
+	provider: string;
+	field_key: string;
+	canonical: string;
+}
+
+// FieldTarget is one field a claim may target, from GET /admin/field-targets/{entity_type}.
+// The entity type's EFFECTIVE (post-promotion) field set — the SPA cannot derive it from
+// the page, because undecided empty fields never render and are exactly the ones an owner
+// needs to attach to. `merge` decides the editor's outcome sentence: a merge field folds
+// the attached values in immediately, a replace field keeps its winner and takes the new
+// value as a lowest-precedence candidate.
+export interface FieldTarget {
+	canonical: string;
+	label: string;
+	merge: boolean;
+}
+
 // CurationAction is a value-level owner decision (F30, ADR-048).
 export type CurationAction = 'add' | 'suppress' | 'nowrite';
 

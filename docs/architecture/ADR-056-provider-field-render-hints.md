@@ -136,6 +136,14 @@ tiny. Cost: one migration (`provider_field_hints`).
 
 ### D4 — Presence-driven, display-only auto-registration; all three entities
 
+> **Amended by [ADR-074](ADR-074-claimed-provider-keys.md) (F49):** the predicate's "not already produced by a
+> mapping/synthesized field" clause below is compared by **canonical name**, so it suppresses a provider key
+> only when the key happens to be spelled like the canonical it feeds — `provA:synopsis → overview` renders
+> twice ([GH #178](https://github.com/whoiskevinrich/holodex/issues/178)). ADR-074 adds a **second suppression
+> input** derived from the merged field set: a `provider:key` that is a **source of** any rendered field does
+> not auto-register, whether or not it wins resolution for the entity being viewed. The name check below is
+> retained unchanged — the two catch different cases.
+
 - **Trigger = presence.** A non-canonical field is auto-registered (rendered) **only when the entity actually
   has a stored value** for it in the shadow store. No empty/placeholder rows; a field appears the moment an
   enrich populates it. (Chosen over advertised-driven, which would render empty rows for advertised-but-absent

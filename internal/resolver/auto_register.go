@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/registry"
 )
@@ -41,6 +42,33 @@ type autoAcc struct {
 	srcs     map[string][]string
 }
 
+// ClaimedKeys derives the set of provider keys claimed by some canonical field
+// (F49, ADR-074 §D2) from the **effective** field set handed to ResolveFields —
+// the merged result of the YAML mappings, the synthesized person/studio fields,
+// and the F44 promotions. Deriving from the materialized fields rather than from
+// the claims store is what makes one code path serve every source of claims, and
+// what makes a claim that fails to materialize suppress nothing.
+//
+// Keys are "<provider>:<key>", lowercased and trimmed.
+//
+// Only namespaced **provider** sources claim. A bare source ("Comment") and the
+// "file" namespace are file tags, not provider keys — if they claimed, one
+// mapping's Comment source would swallow every provider's comment key.
+func ClaimedKeys(effective []mapping.Field) map[string]bool {
+	claimed := map[string]bool{}
+	for _, f := range effective {
+		for _, s := range f.ParsedSources {
+			ns := strings.ToLower(strings.TrimSpace(s.Namespace))
+			key := strings.ToLower(strings.TrimSpace(s.Key))
+			if ns == "" || ns == "file" || key == "" {
+				continue // file tag, not a provider key
+			}
+			claimed[ns+":"+key] = true
+		}
+	}
+	return claimed
+}
+
 // AutoRegisterFields builds the display-only resolved rows for an entity's stored
 // non-canonical shadow fields (F39, ADR-056). It is entity-agnostic — video, person,
 // and studio all feed their shadow fields through it after the canonical resolve —
@@ -49,14 +77,28 @@ type autoAcc struct {
 //   - fields: the entity's stored provider fields (provider + key + values).
 //   - rendered: canonical keys already produced by the canonical resolve, which are
 //     skipped here so a mapped/synthesized field is never double-rendered.
+//   - claimed: "<provider>:<key>" set from ClaimedKeys — keys that already feed a
+//     canonical field as a candidate source (F49, ADR-074 §D2).
 //   - hintFor: returns the provider hint for a (provider, key), ok=false when none —
 //     the tier-3 lookup; absence falls through to the title-case floor (tier 4).
 //
 // A key is included iff it has a non-empty value, is not reserved (`_`-prefix), is
-// non-canonical, and is not already rendered. Values for the same key from multiple
-// providers merge (dedup union, combined provenance). The result is sorted after the
-// canonical fields by (group rank, order, key) and every field carries
-// AutoRegistered=true with no decision/curation state.
+// non-canonical, is not already rendered, and is not claimed. Values for the same key
+// from multiple providers merge (dedup union, combined provenance). The result is
+// sorted after the canonical fields by (group rank, order, key) and every field
+// carries AutoRegistered=true with no decision/curation state.
+//
+// rendered and claimed look redundant and are not (ADR-074 §D2): rendered asks "is
+// this key the *name of* a field we already showed?" — catching tmdb:overview when
+// overview renders from the file baseline alone, with no provider source at all —
+// while claimed asks "is this key already *feeding* a field we already showed?".
+// Neither subsumes the other; deleting either reopens GH #178 or its mirror image.
+//
+// Claim suppression is per (provider, key), so a key claimed for one provider and not
+// another still auto-registers carrying the unclaimed provider's values only. It is
+// also unconditional: a claimed key is suppressed whether or not its provider won
+// resolution for this entity, because a claim states identity, not a per-entity
+// outcome.
 //
 // Render modes are emitted as hinted; the image_url asset-host allowlist gate
 // (ADR-039/056) is applied by the caller, next to the allowlist, so this pass stays
@@ -64,6 +106,7 @@ type autoAcc struct {
 func AutoRegisterFields(
 	fields []AutoField,
 	rendered map[string]bool,
+	claimed map[string]bool,
 	hintFor func(provider, key string) (AutoHint, bool),
 ) []ResolvedField {
 	byKey := map[string]*autoAcc{}
@@ -73,6 +116,9 @@ func AutoRegisterFields(
 		key := strings.ToLower(strings.TrimSpace(f.Key))
 		if key == "" || strings.HasPrefix(key, model.InternalFieldPrefix) || registry.IsKnown(key) || rendered[key] {
 			continue // reserved sidecar, canonical, or already rendered
+		}
+		if claimed[strings.ToLower(strings.TrimSpace(f.Provider))+":"+key] {
+			continue // already a candidate source of a canonical field (F49)
 		}
 		vals := trimNonEmpty(f.Values)
 		if len(vals) == 0 {

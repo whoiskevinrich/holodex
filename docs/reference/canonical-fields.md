@@ -16,6 +16,11 @@ accurate labels and correct render behaviour.
 > title-case fallback** — so a provider hint applies only to keys this registry does not define, and an
 > operator mapping (or a canonical entry here) always wins. Auto-registered fields carry no source-decision or
 > curation controls; an operator promotes one to a first-class curatable field by adding a mapping entry.
+>
+> **A key listed in a field's `sources:` no longer auto-registers** (F49,
+> [ADR-074](../architecture/ADR-074-claimed-provider-keys.md)). It is already a candidate of that field, so
+> rendering it again as its own display-only row was a duplicate — see
+> [Claiming a provider key](#claiming-a-provider-key) below.
 
 ## How to reference fields in `metadata-mappings.yaml`
 
@@ -47,11 +52,138 @@ fields:
 | `file:<Key>` | `extra_metadata` raw file tag (case-insensitive) |
 | `<provider>:<field>` | `entity_enrichment` shadow store (e.g. `tmdb:overview`) |
 | `filename:<field>` | `entity_enrichment` shadow store, `filename` namespace — parsed from a configured filename pattern (F48, [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)); same shape as any other provider, no schema change |
-| `<Key>` (no colon) | Legacy bare key — treated as `file:<Key>` |
+| `<Key>` (no colon) | Legacy bare key — treated as `file:<Key>`. Being a file tag, it **claims nothing**: `Comment` has no effect on any provider's `comment` key |
 
 `filename:` currently produces four field keys: `title`, `people`, `studio`, `release_date` (year granularity) — see the [F48 spec](../specs/metadata-extraction.md#concepts--model) for the token grammar and confidence model.
 
 Sources are walked left-to-right; the first non-empty value wins (`WinningSource` in the API response records which one).
+
+## Claiming a provider key
+
+*(F49, [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) · [spec](../specs/claimed-provider-keys.md))*
+
+Providers rarely agree on names. Three of them can describe the same plot as `overview`, `synopsis` and
+`comments`, and each unrecognized key auto-registers its own row (F39) — so one paragraph renders three times.
+
+Listing a key in a canonical field's `sources:` **claims** it: the key contributes its value as a candidate
+of that field and stops auto-registering separately. Claiming is not a new gesture — it is what `sources:`
+has always meant. What changed in F49 is that the auto-registration pass now honours it.
+
+**First, the choice that decides everything else:**
+
+| The key is… | Do this | Result |
+|---|---|---|
+| the same thing as a field you already have | **claim** it — add it to that field's `sources:` | one row; the key becomes a candidate of that field |
+| its own thing, deserving a row and curation | **promote** it — give it a `canonical:` entry of its own | a new first-class, curatable field |
+| its own thing, fine as read-only | nothing | it auto-registers display-only (F39) |
+| noise you never want to see | *not supported* — there is no suppress-without-a-home | — |
+
+A key may be claimed **or** promoted, never both.
+
+### S1 — One value, several provider names
+
+The common case. Add each provider's spelling to the field that already means it:
+
+```yaml
+fields:
+  - canonical: overview
+    sources:
+      - tmdb:overview          # winner — first non-empty wins
+      - provA:synopsis         # claimed → no longer its own row
+      - provB:comments         # claimed → no longer its own row
+      - Comment                # bare = file tag (file:Comment); claims nothing
+```
+
+One **Overview** row. `provA` and `provB` become candidates behind the source chip, so their text is still
+reachable — it just stops being three paragraphs of the same thing.
+
+Order is precedence. Moving `provA:synopsis` to the top makes it the winner without changing what is claimed:
+claiming a key says *this is that field*, not *this should now win*.
+
+### S2 — Two providers, same key name, different meanings
+
+`provA:rating` is an age certificate; `provB:rating` is a 1–10 score. Claiming is **provider-scoped**, so
+naming one leaves the other alone:
+
+```yaml
+fields:
+  - canonical: content_rating
+    sources:
+      - provA:rating           # claimed
+                               # provB:rating untouched → still its own row
+```
+
+This is why a bare `rating` may never claim — it would swallow both.
+
+### S3 — The key is on a person or a studio
+
+`metadata-mappings.yaml` governs **video only**. There is no person or studio YAML, so config cannot express
+this — use the in-app gesture on the row itself.
+
+On any video, person or studio page, an auto-registered row carries an **Attach to…** control for the owner.
+It asks which existing field the key belongs to, and — when the row carries more than one provider — which of
+those providers you mean, since `provA:rating` and `provB:rating` can be entirely different things. It then
+tells you what will happen before you commit: on a merge field the values join immediately, on a replace field
+the key becomes a candidate you pick from the field's source chip.
+
+The gesture is **global for the entity type**, exactly like a YAML `sources:` entry — it is config, not a
+per-person edit. It also works the other way: a key that already holds an in-app *promotion* cannot also be
+attached, so attaching removes the promotion (you are told first).
+
+### S4 — Claiming onto a merge field
+
+A merge field (`multi: true`) unions its sources rather than picking a winner, so a claimed key there
+**contributes values** instead of waiting behind the chip as a runner-up:
+
+```yaml
+fields:
+  - canonical: genres
+    multi: true
+    sources:
+      - tmdb:genres
+      - provA:categories       # claimed → its values join the set
+```
+
+Worth knowing before you claim: on a **replace** field the claimed source is usually invisible until you pick
+it; on a **merge** field its values appear immediately.
+
+### S5 — The key deserves its own field
+
+`provA:filming_locations` is real information no canonical field covers. Claiming it onto something would bury
+it — give it a `canonical:` entry instead:
+
+```yaml
+fields:
+  - canonical: filming_locations
+    label: Filming Locations
+    multi: true
+    sources:
+      - provA:filming_locations
+```
+
+A claim and a promotion are the same YAML gesture. The difference is whether the `canonical:` names an
+existing field (claim) or a new one (promote).
+
+### S6 — Undoing a claim
+
+Remove the source line and reload config. The key auto-registers again on the next render. Nothing in the
+shadow store is rewritten, so an unclaim is always a clean reversal.
+
+For an in-app attachment there are two ways back. Straight after the gesture, the confirmation strip standing
+where the row was carries an **Undo**. Later, **Owner → Attached keys** lists every key you have attached,
+grouped by entity type, each with a one-click **Remove**; the row returns on the next load of an affected page.
+That list is also where an attachment whose target field no longer exists shows up, marked **Inactive** — it
+suppresses nothing, so the key is already auto-registering again, but the attachment is kept in case the field
+comes back.
+
+Two things Remove does not do: it does not restore an in-app promotion that attaching cleared (that clear is a
+real delete), and it never touches YAML — a `sources:` claim is your own file, edited there.
+
+### Two things that will not work, and why
+
+- **A bare key never claims.** `sources: [Comment]` means `file:Comment` — a file tag. It has no effect on any
+  provider's `comment` key.
+- **You cannot claim a canonical name.** `bio` is already a field; there is nothing to attach it to.
 
 ---
 

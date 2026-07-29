@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"holodex/internal/mapping"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 )
@@ -11,9 +12,14 @@ import (
 // appendAutoRegistered appends the display-only, presence-driven auto-registered
 // non-canonical fields (F39, ADR-056) after an entity's canonically-resolved fields.
 // It is the shared glue for video/person/studio: rows are the entity's shadow-store
-// rows, resolved the canonical resolve result. Label/render/order come from the
-// cached provider hints (tier 3) with the title-case floor (tier 4).
-func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.EnrichmentRow, resolved []resolver.ResolvedField) []resolver.ResolvedField {
+// rows, effective the merged field set that produced resolved (post-mergePromotions),
+// and resolved the canonical resolve result. Label/render/order come from the cached
+// provider hints (tier 3) with the title-case floor (tier 4).
+//
+// effective is what supplies the F49 claimed set (ADR-074 §D2) — a key already listed
+// as a candidate source of a canonical field does not also auto-register as its own
+// row, which is the GH #178 fix.
+func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.EnrichmentRow, effective []mapping.Field, resolved []resolver.ResolvedField) []resolver.ResolvedField {
 	if len(rows) == 0 {
 		return resolved
 	}
@@ -22,6 +28,7 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 	for _, f := range resolved {
 		rendered[strings.ToLower(strings.TrimSpace(f.Canonical))] = true
 	}
+	claimed := resolver.ClaimedKeys(effective)
 
 	fields := make([]resolver.AutoField, 0, len(rows))
 	for _, row := range rows {
@@ -39,7 +46,7 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 		return resolver.AutoHint{}, false
 	}
 
-	auto := resolver.AutoRegisterFields(fields, rendered, hintFor)
+	auto := resolver.AutoRegisterFields(fields, rendered, claimed, hintFor)
 	if len(auto) == 0 {
 		return resolved
 	}

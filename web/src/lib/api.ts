@@ -41,8 +41,10 @@ import type {
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
+	FieldClaim,
 	FieldPromotionRequest,
 	FieldPromotionView,
+	FieldTarget,
 	PromotionEntityType
 } from './types';
 
@@ -704,6 +706,34 @@ export const api = {
 		),
 	listFieldPromotions: (entityType: PromotionEntityType) =>
 		getAuthed<FieldPromotionView[]>(`/admin/field-promotions/${entityType}`),
+
+	// In-app field claims (F49, ADR-074). Also owner-gated and GLOBAL per (entity_type,
+	// provider, field_key): attaching a provider key to a canonical field makes it a
+	// candidate source of that field everywhere, and stops it auto-registering as its own
+	// display-only row (the GH #178 duplicate-paragraph fix). `claimField` upserts;
+	// `unclaimField` returns the key to auto-registration. `listFieldTargets` is the
+	// picker's option list — the entity type's effective field set, which the page cannot
+	// derive because empty undecided fields never render.
+	claimField: (
+		entityType: PromotionEntityType,
+		provider: string,
+		fieldKey: string,
+		canonical: string
+	) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/admin/field-claims/${entityType}/${encodeURIComponent(provider)}/${encodeURIComponent(fieldKey)}`,
+			{ canonical }
+		),
+	unclaimField: (entityType: PromotionEntityType, provider: string, fieldKey: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/admin/field-claims/${entityType}/${encodeURIComponent(provider)}/${encodeURIComponent(fieldKey)}`
+		),
+	listFieldClaims: (entityType: PromotionEntityType) =>
+		getAuthed<FieldClaim[]>(`/admin/field-claims/${entityType}`),
+	listFieldTargets: (entityType: PromotionEntityType) =>
+		getAuthed<FieldTarget[]>(`/admin/field-targets/${entityType}`),
 
 	// Rename a person, keeping the old name as an F23 alias (one transaction — search
 	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name

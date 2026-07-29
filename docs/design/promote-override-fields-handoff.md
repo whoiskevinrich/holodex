@@ -180,6 +180,12 @@ pattern, not a browser `confirm()`.)
 
 ## 5. States
 
+> **Amended by F49 (2026-07-28).** On rows that span both columns (`long_text`, `chips`), the **Promote** pill
+> and `ProvenanceBadge` no longer sit inline after the value — they move to a right-aligned line **under** it,
+> so a second pill does not land at the end of a paragraph, far from the label it acts on. Inline rows are
+> unchanged. See [claimed-provider-keys-handoff.md](claimed-provider-keys-handoff.md) DD7; the §6 breakpoint
+> table below reads "inline on the value/label line", which now holds only for the inline branch.
+
 | State | Render |
 |---|---|
 | Visitor, any field | **No F44 controls.** Auto rows and promoted rows both render read-only (promoted = curated label/mode/order + resolved value). Byte-identical in shape to F39 + F36 today. |
