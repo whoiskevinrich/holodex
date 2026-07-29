@@ -3,11 +3,13 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-203                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-progress          # code already merged/released (PRs #160/#163/#166); stays in-progress
+                             # here only because this doc-only reconciliation PR hasn't merged and
+                             # Jira's own In Progress hasn't been transitioned
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
-                             # Release-Note: git trailer → release notes. An epic can't close with all
-                             # gates [x] but this empty.
+# the ONE user-facing sentence; authored once by /handoff, flows to the Release-Note: git trailer
+# → release notes. An epic can't close with all gates [x] but this empty.
+release_note: The job status page now leads with a fast summary of what happened, instead of a slow list of every single run.
 ---
 
 # HOLODEX-203 · Job history digest, pagination, and entity search
@@ -28,7 +30,7 @@ ungating the render gate alone fixed the load-time complaint that motivated them
 - [x] architecture `architecture` → [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (attribution half shipped; paginated-read half now describes dropped scope)
 - [x] backend — phase 2 (attribution, #163) + digest endpoint (#166) shipped; keyset log endpoint (P0-4) **dropped** — Q1 answered "ungating alone fixed it" (2026-07-29)
 - [x] frontend — phase 1 (ungate, #160), Revert-on-column, and digest UI landed; keyset log pagination + rollup (P0-6) **dropped** with P0-4
-- [/] testing `testing-strategy` — attribution + digest rows landed; keyset-cursor + rollup cases no longer needed (scope dropped); frontend component-test harness gap (item 4 below) still open
+- [x] testing `testing-strategy` — attribution + digest rows landed; keyset-cursor + rollup cases no longer needed (scope dropped); frontend component-test harness gap promoted to [HOLODEX-223](https://whoiskevinrich.atlassian.net/browse/HOLODEX-223) (tech debt, not blocking this epic)
 - [x] security `security-review` — not required: endpoints stay inside the existing `requireOwner` group, no auth surface change
 
 ## Up next — ordered (position = priority)
@@ -40,7 +42,7 @@ ungating the render gate alone fixed the load-time complaint that motivated them
 1. [x] [—] Owner answers Q1: does phase 1 (ungate) alone fix the load time? **Answered 2026-07-29: yes** — digest is fast, Log tab rarely opened. Keyset log pagination (P0-4) + rollup (P0-6) dropped as polish for a problem that no longer exists — `docs/specs/job-history-digest-and-search.md`
 2. ~~[backend] Keyset-paginated history endpoint over `(started_at, id)` + kind/status/entity filters~~ — **dropped 2026-07-29**, see #1
 3. ~~[frontend] Log view consumes the keyset endpoint (filters + load-more) + entity-label `#<id> (deleted)` resolution~~ — **dropped 2026-07-29**, see #1
-4. [ ] [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" / "digest is default" has no regression guard — `web/src/lib/*.test.ts`
+4. → [HOLODEX-223](https://whoiskevinrich.atlassian.net/browse/HOLODEX-223) [testing] No frontend component-test harness exists (suite is pure-logic only), so "history paints while activity is pending" / "digest is default" has no regression guard — promoted to its own tech-debt ticket under the System Activity epic (HOLODEX-166) rather than blocking HOLODEX-203's close-out — `web/src/lib/*.test.ts`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -51,6 +53,18 @@ ungating the render gate alone fixed the load-time complaint that motivated them
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-07-29 · testing gate closed — component-test harness promoted to HOLODEX-223
+- handoff: The remaining open gate (frontend component-test harness) was a real gap per this
+  project's "capture deferred work as a HOLODEX issue" rule — it was sitting only in this
+  worklog's up-next queue, not tracked in Jira. Created
+  [HOLODEX-223](https://whoiskevinrich.atlassian.net/browse/HOLODEX-223) (Task, parented under
+  the System Activity epic HOLODEX-166, `relates to` HOLODEX-203) and linked item 4 to it. All
+  six gates now `[x]`; filled in `release_note` per the worklog's own consistency rule (all
+  gates green requires one). Left `status: in-progress` and did not transition Jira — the code
+  shipped independently (PRs #160/#163/#166, already Released) but this doc-only reconciliation
+  PR (#184) hasn't merged and Jira's own In Progress hasn't been moved; that's a judgment call
+  for the owner, not mine to make unprompted.
 
 ### 2026-07-29 · Q1 answered — keyset log + rollup dropped
 - handoff: Asked the owner directly: does `/owner/status` still feel slow now that PR #160's
