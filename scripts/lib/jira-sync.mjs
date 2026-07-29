@@ -99,7 +99,7 @@ export function makeJiraClient({ baseUrl, email, token }) {
   };
 }
 
-async function syncOne({ key, targetStatus, client, dryRun, log, context }) {
+async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly }) {
   const cur = await client.currentStatus(key);
   if (cur.missing) return log.warn(`${key}: not found in Jira — skipping`);
   // Epics roll up child work and their own gates (see docs/specs); CI has no
@@ -107,6 +107,18 @@ async function syncOne({ key, targetStatus, client, dryRun, log, context }) {
   // manual/reviewed step — never auto-transitioned (HOLODEX-185).
   if (cur.issueType === "Epic") {
     return log.info(`${key}: is an Epic — status is reviewed manually, skipping`);
+  }
+  // A merged PR that touched only docs/** can't be the PR that finishes an epic's
+  // implementation — it's a standalone gate artifact (spec/ADR/design-handoff/worklog)
+  // that should have stayed inside the epic's one Draft PR (ADR-069). Firing Done here
+  // is exactly the HOLODEX-173/220 incident: a premature Done that then cascades to
+  // Released on the next deploy via jira-release-sync.mjs. Scoped to Done only — an
+  // early In Review doesn't cascade, so it isn't worth blocking.
+  if (docsOnly && targetStatus.toLowerCase() === "done") {
+    return log.warn(
+      `${key}: merged PR only touched docs/** — skipping Done (looks like a standalone ` +
+        `gate-artifact PR, not the epic's implementation; see docs/reference/jira-pipeline.md)`,
+    );
   }
   if (cur.status?.toLowerCase() === targetStatus.toLowerCase()) {
     return log.info(`${key}: already "${targetStatus}" — no-op`);
@@ -128,11 +140,11 @@ async function syncOne({ key, targetStatus, client, dryRun, log, context }) {
 
 // Transition every key toward targetStatus. Per-key try/catch — never throws;
 // returns the failure count so the caller can log a summary.
-export async function syncKeys({ keys, targetStatus, client, dryRun, log, context }) {
+export async function syncKeys({ keys, targetStatus, client, dryRun, log, context, docsOnly }) {
   let failures = 0;
   for (const key of keys) {
     try {
-      await syncOne({ key, targetStatus, client, dryRun, log, context });
+      await syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly });
     } catch (err) {
       failures++;
       log.warn(`${key}: ${err.message}`);
