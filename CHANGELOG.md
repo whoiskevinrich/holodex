@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.14.0](https://github.com/whoiskevinrich/holodex/compare/v1.13.2...v1.14.0) (2026-07-29)
+
+
+### 🚀 Features
+
+* **fields:** let a canonical field claim a provider's differently-named key ([#182](https://github.com/whoiskevinrich/holodex/issues/182)) ([4086013](https://github.com/whoiskevinrich/holodex/commit/4086013a7e955d80d589d0c780254ebbb0d4e59e))
+
+
+### 🐛 Bug Fixes
+
+* **web:** pre-check only out-of-sync fields in the writeback dialog ([#176](https://github.com/whoiskevinrich/holodex/issues/176)) ([1bcf99c](https://github.com/whoiskevinrich/holodex/commit/1bcf99ca2bcee8a6a847c5589e55729a601d305e))
+* **writeback:** refresh the file baseline after a write ([#177](https://github.com/whoiskevinrich/holodex/issues/177)) ([339559c](https://github.com/whoiskevinrich/holodex/commit/339559c7b514218dad4eb2509c29fc129c703d19))
+
+
+### 🚜 Refactor
+
+* **web:** group components into feature subfolders ([#174](https://github.com/whoiskevinrich/holodex/issues/174)) ([dbbbd52](https://github.com/whoiskevinrich/holodex/commit/dbbbd52e614848ab4b41925dc8f8049594d36f6d))
+
+
+### 📚 Documentation
+
+* **design:** handoff for the media page sync-verb and render-once restructure ([#181](https://github.com/whoiskevinrich/holodex/issues/181)) ([2f2a01f](https://github.com/whoiskevinrich/holodex/commit/2f2a01f82460cd10eda8a5eac39ce5ec76846dd5))
+
 ## [1.13.2](https://github.com/whoiskevinrich/holodex/compare/v1.13.1...v1.13.2) (2026-07-26)
 
 
