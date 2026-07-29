@@ -40,6 +40,29 @@ amendment, FR8 `/owner/fields` "Attached keys" list + hub tab, FR7's last docs b
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-07-28 · code review of the branch — three frontend bugs, all fixed
+- skills: code-review
+- handoff: A `/code-review high --fix` pass over the branch diff found three real frontend bugs, all in
+  slice B, all now fixed and each proven live by reverting the fix and re-measuring. **(1) The Attach
+  editor lost focus entirely on single-provider rows.** The focus `$effect` fires before the target list
+  loads, so it called `focus()` on a still-`disabled` `<select>` — a no-op. With no DD3 checklist to focus
+  instead, and the pill removed from the DOM in the same update, `activeElement` fell to `<body>`; measured
+  `{disabled:true, opts:0, active:"BODY"}` at tick 0 and still `"BODY"` after settling, with **Escape not
+  closing the editor** because the handler sits on the editor div. The effect now reads `targets.length` so
+  it re-runs when the options land, latched by a `focused` flag so it can't steal focus back. This is the
+  single-provider case — the *common* one — which is exactly what the two-provider QA fixture doesn't cover;
+  worth remembering when writing the next fixture. **(2) `/owner/fields` left a phantom row on concurrent
+  Remove.** `remove()` spliced by object identity, but each successful removal rebuilds every group object,
+  so a second removal already in flight matched nothing: server reported 1 claim left while the UI listed 2.
+  Matched by `rowKey` now — the same stale-reference class the DD5 strip already fixed by `id`, which is a
+  sign the pattern wants to be the default here, not the exception. **(3) DD9 could mark a live claim
+  Inactive.** `targetOf()` compared canonicals with `===`, but the API lower-cases a claim's canonical on
+  write while a target's comes verbatim from the mapping (`mapping.go` only trims; `ByCanonical` is
+  case-insensitive for exactly that reason) — a video YAML declaring `canonical: Overview` would render a
+  working attachment as "target field no longer exists". Now compared case-insensitively, matching the
+  server's `EqualFold`. Not reachable on person/studio (synthesized canonicals are all lower-case, verified
+  live), so only an operator's video YAML triggers it. §4's human-eye pass is still the one open gate.
+
 ### 2026-07-28 · slice B frontend — the Attach gesture, the strip, the Attached keys list
 - skills: —
 - handoff: F49's UI is built and F49 is now feature-complete. `AutoFieldRows` gained the peer **Attach to…**

@@ -58,8 +58,13 @@
 	});
 
 	// The target's label, or null when the target no longer exists — DD9's inert claim.
+	// Matched case-insensitively, the way the server matches it: a claim's canonical is
+	// lower-cased on write, while a target's comes verbatim from the mapping, which only
+	// trims (mapping.go) and is compared with EqualFold everywhere it is used. A YAML
+	// field declared `canonical: Overview` would otherwise mark a live attachment Inactive.
 	function targetOf(type: PromotionEntityType, canonical: string): FieldTarget | null {
-		return (targets[type] ?? []).find((t) => t.canonical === canonical) ?? null;
+		const want = canonical.toLowerCase();
+		return (targets[type] ?? []).find((t) => t.canonical.toLowerCase() === want) ?? null;
 	}
 
 	async function remove(group: Group, claim: FieldClaim) {
@@ -69,8 +74,15 @@
 		removeError = '';
 		try {
 			await api.unclaimField(group.type, claim.provider, claim.field_key);
+			// Matched by key, never by reference: a removal that resolved while this one was
+			// in flight has already replaced every group object, so the ones this call closed
+			// over are no longer the ones in the array.
 			groups = groups
-				.map((g) => (g === group ? { ...g, claims: g.claims.filter((c) => c !== claim) } : g))
+				.map((g) =>
+					g.type === group.type
+						? { ...g, claims: g.claims.filter((c) => rowKey(g.type, c) !== key) }
+						: g
+				)
 				.filter((g) => g.claims.length > 0);
 		} catch (e) {
 			removeError = toMessage(e);

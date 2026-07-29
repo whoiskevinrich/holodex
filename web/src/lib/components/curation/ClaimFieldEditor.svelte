@@ -60,11 +60,23 @@
 	let error = $state('');
 
 	let formEl = $state<HTMLElement | null>(null);
+	let focused = false;
 	$effect(() => {
 		// Opening moves focus to the first control — the checklist if present, else the
 		// target select (the design's focus contract). Queried rather than bound so the
 		// two branches don't fight over one ref.
-		formEl?.querySelector<HTMLElement>('input[type="checkbox"], select')?.focus();
+		//
+		// targets.length is read deliberately, before the guard, so this re-runs when the
+		// options land: on the first pass the select is still `disabled` (no options yet)
+		// and a disabled control cannot take focus, so a single-provider row — the common
+		// one, with no checklist to focus instead — would drop focus to <body>, taking the
+		// Escape handler on this element with it. Latched so the retry can't steal focus
+		// back from an owner who has already tabbed on.
+		void targets.length;
+		if (focused) return;
+		const el = formEl?.querySelector<HTMLElement>('input[type="checkbox"], select');
+		el?.focus();
+		focused = !!el && document.activeElement === el;
 	});
 
 	// The picker's options, and — DD6 — whether this key currently holds an F44 promotion
