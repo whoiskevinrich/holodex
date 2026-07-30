@@ -56,11 +56,12 @@ func (h *Handlers) denyTag(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "term is too long")
 		return
 	}
-	if err := h.repo.DenyTag(r.Context(), term); err != nil {
+	existingTag, err := h.repo.DenyTag(r.Context(), term)
+	if err != nil {
 		h.fail(w, "deny tag", err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]any{"existing_tag": existingTag})
 }
 
 // removeDeniedTag removes a term from the deny-list. 404 when the term isn't

@@ -175,6 +175,11 @@ type Tag struct {
 	// ParentTagID is the broader tag this tag sits under, or nil at the root
 	// (F50, ADR-075 D1) — a strict one-parent tree, no DAG.
 	ParentTagID *int64 `json:"parent_tag_id,omitempty"`
+	// Ancestors is this tag's ancestor chain, root-first (F50, ADR-075 D1
+	// P1-3) — the tag-detail breadcrumb. Populated only on the tag-detail
+	// read (GetTag); omitted on the /tags list, which has no per-row use
+	// for it.
+	Ancestors []string `json:"ancestors,omitempty"`
 	// Source is this tag's provenance on the one video it was read alongside —
 	// "file" / "manual" / "provider:<name>" (F50, ADR-075 D3). Populated only on
 	// Video.Tags (attachAssociations); empty on the /tags list and tag-detail reads,

@@ -180,6 +180,45 @@ func TestMergeReparentsChildren_SurvivorWasChildOfLoser(t *testing.T) {
 	assertTagParent(t, ctx, r, ids["GermanShepherd"], "GermanShepherd", ids["Dog"])
 }
 
+// TestAncestorNamesForTag covers P1-3's breadcrumb query: root-first order
+// for a deep tag, an empty (non-nil) slice for a root tag, and that an
+// unrelated subtree (Vehicle) doesn't leak in.
+func TestAncestorNamesForTag(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	got, err := r.AncestorNamesForTag(ctx, ids["GermanShepherd"])
+	if err != nil {
+		t.Fatalf("ancestor names: %v", err)
+	}
+	want := []string{"Animal", "Mammal", "Dog"}
+	if len(got) != len(want) {
+		t.Fatalf("ancestor names = %v, want %v", got, want)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("ancestor names[%d] = %q, want %q (order matters: root-first)", i, got[i], w)
+		}
+	}
+
+	root, err := r.AncestorNamesForTag(ctx, ids["Animal"])
+	if err != nil {
+		t.Fatalf("ancestor names (root): %v", err)
+	}
+	if len(root) != 0 {
+		t.Errorf("root tag ancestor names = %v, want empty", root)
+	}
+
+	unrelated, err := r.AncestorNamesForTag(ctx, ids["Vehicle"])
+	if err != nil {
+		t.Fatalf("ancestor names (unrelated root): %v", err)
+	}
+	if len(unrelated) != 0 {
+		t.Errorf("Vehicle ancestor names = %v, want empty", unrelated)
+	}
+}
+
 func TestSetTagParent_NotFound(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

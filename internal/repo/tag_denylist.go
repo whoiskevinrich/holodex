@@ -80,17 +80,30 @@ func (r *Repo) ListDeniedTags(ctx context.Context) ([]DeniedTag, error) {
 
 // DenyTag adds term to the global tag deny-list. Idempotent: re-denying an
 // already-denied term (case/whitespace variants included) is a no-op.
-func (r *Repo) DenyTag(ctx context.Context, term string) error {
+// existingTag reports whether term (folded the same way) already names a live
+// tag — denying is forward-only (it does not retroactively remove that tag),
+// so the owner's /owner/tags UI surfaces this inline instead of re-fetching
+// and scanning the full tag list itself for the same answer.
+func (r *Repo) DenyTag(ctx context.Context, term string) (existingTag bool, err error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	_, err := r.db.ExecContext(ctx,
+	if _, err := r.db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO denied_tags (term_key, term, created_at) VALUES (`+nameKeyExpr(model.EntityTag, "?")+`, ?, ?)`,
-		term, term, time.Now().UTC().Format(timeLayout))
-	if err != nil {
-		return fmt.Errorf("deny tag: %w", err)
+		term, term, time.Now().UTC().Format(timeLayout)); err != nil {
+		return false, fmt.Errorf("deny tag: %w", err)
 	}
-	return nil
+	var x int
+	switch err := r.db.QueryRowContext(ctx,
+		`SELECT 1 FROM tags WHERE `+nameKeyExpr(model.EntityTag, "name")+` = `+nameKeyExpr(model.EntityTag, "?"),
+		term).Scan(&x); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, sql.ErrNoRows):
+		return false, nil
+	default:
+		return false, fmt.Errorf("deny tag: check existing: %w", err)
+	}
 }
 
 // RemoveDeniedTag removes term from the deny-list, matched by the same fold

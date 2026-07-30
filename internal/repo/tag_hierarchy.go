@@ -66,6 +66,41 @@ const videoTagAncestorsQuery = `
 	)
 	SELECT DISTINCT t.name FROM tags t JOIN tag_ancestors a ON t.id = a.id`
 
+// tagAncestorsQuery walks UP parent_tag_id from a single tag id (excluding
+// itself) to the root, tracking depth so the final SELECT can order root-first
+// — the breadcrumb order (P1-3, ADR-075 D1) — rather than leaf-first, which is
+// the order the recursion itself discovers rows in.
+const tagAncestorsQuery = `
+	WITH RECURSIVE tag_ancestors(id, depth) AS (
+		SELECT parent_tag_id, 1 FROM tags WHERE id = ?
+		UNION ALL
+		SELECT t.parent_tag_id, a.depth + 1
+		FROM tags t JOIN tag_ancestors a ON t.id = a.id
+		WHERE t.parent_tag_id IS NOT NULL
+	)
+	SELECT t.name FROM tag_ancestors a JOIN tags t ON t.id = a.id
+	ORDER BY a.depth DESC`
+
+// AncestorNamesForTag returns id's ancestor chain, root-first (e.g. "Animal",
+// "Mammal", "Dog" for a tag "GermanShepherd") — the tag-detail breadcrumb
+// (P1-3). A root tag (no parent) returns an empty, non-nil slice.
+func (r *Repo) AncestorNamesForTag(ctx context.Context, id int64) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, tagAncestorsQuery, id)
+	if err != nil {
+		return nil, fmt.Errorf("ancestor names for tag: %w", err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}
+
 // TagNamesForVideo returns videoID's attached tags' names, ancestor-expanded
 // (F50 P0-10) — the tag-side input to genre writeback's value union
 // (genreWritebackValues, internal/api).

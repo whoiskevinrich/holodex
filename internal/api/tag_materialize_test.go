@@ -125,7 +125,7 @@ func TestMaterializeVideoTags(t *testing.T) {
 	}
 
 	// Deny-list: a denied genre value is silently skipped, not surfaced as an error.
-	if err := r.DenyTag(ctx, "Horror"); err != nil {
+	if _, err := r.DenyTag(ctx, "Horror"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{

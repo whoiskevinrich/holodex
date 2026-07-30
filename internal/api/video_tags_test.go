@@ -37,8 +37,8 @@ func TestVideoTagEndpoints(t *testing.T) {
 	}
 
 	// Deny-list 422.
-	if code, _ := postTok(t, srv.URL+"/api/v1/owner/tags/denylist", "s3cret", map[string]any{"term": "Gnome"}); code != http.StatusNoContent {
-		t.Fatalf("deny gnome = %d, want 204", code)
+	if code, _ := postTok(t, srv.URL+"/api/v1/owner/tags/denylist", "s3cret", map[string]any{"term": "Gnome"}); code != http.StatusOK {
+		t.Fatalf("deny gnome = %d, want 200", code)
 	}
 	if code, _ := postTok(t, base, "s3cret", map[string]any{"name": "Gnome"}); code != http.StatusUnprocessableEntity {
 		t.Errorf("attach denied term = %d, want 422", code)

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { toMessage, videoCount } from '$lib/format';
 	import type { Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
@@ -35,5 +35,15 @@
 		name={tag?.name ?? ''}
 		{videos}
 		empty="No videos for this tag."
-	/>
+	>
+		{#snippet hero()}
+			<!-- Ancestor breadcrumb (F50 S8, ADR-075 D1 P1-3) — scoped to this page only
+			     (skipped on media-page chips and /tags pills, per the design handoff). -->
+			{#if tag?.ancestors?.length}
+				<p class="text-sm text-muted">{tag.ancestors.join(' › ')} ›</p>
+			{/if}
+			<h1 class="skin-title text-2xl font-semibold text-ink">{tag?.name ?? ''}</h1>
+			<p class="text-sm text-muted">{videoCount(videos.length)}</p>
+		{/snippet}
+	</EntityVideos>
 </AsyncState>

@@ -996,6 +996,9 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	if t.Aliases, err = r.AliasesForEntity(ctx, model.EntityTag, id); err != nil {
 		return nil, err
 	}
+	if t.Ancestors, err = r.AncestorNamesForTag(ctx, id); err != nil {
+		return nil, err
+	}
 	return &t, nil
 }
 

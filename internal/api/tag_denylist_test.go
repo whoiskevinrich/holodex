@@ -24,9 +24,14 @@ func TestTagDenylistEndpoints(t *testing.T) {
 		t.Errorf("empty term = %d, want 400", code)
 	}
 
-	// Add, then list reflects it.
-	if code, _ := postTok(t, list, "s3cret", map[string]any{"term": "gnome"}); code != http.StatusNoContent {
-		t.Fatalf("deny = %d, want 204", code)
+	// Add, then list reflects it. The response reports whether the term also
+	// names a live tag (F50 S8) — none seeded here, so false.
+	code, denyBody := postTok(t, list, "s3cret", map[string]any{"term": "gnome"})
+	if code != http.StatusOK {
+		t.Fatalf("deny = %d, want 200", code)
+	}
+	if existing, _ := denyBody["existing_tag"].(bool); existing {
+		t.Errorf("deny existing_tag = %v, want false (no live tag named gnome)", existing)
 	}
 	code, body := getJSONTok(t, list, "s3cret")
 	if code != http.StatusOK {

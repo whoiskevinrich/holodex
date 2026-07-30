@@ -17,11 +17,11 @@ func TestTagDenylistCRUD(t *testing.T) {
 		t.Fatalf("initial list = %v, %v, want empty", terms, err)
 	}
 
-	if err := r.DenyTag(ctx, "Gnome"); err != nil {
-		t.Fatalf("deny: %v", err)
+	if existing, err := r.DenyTag(ctx, "Gnome"); err != nil || existing {
+		t.Fatalf("deny: existing=%v, err=%v, want false, nil", existing, err)
 	}
 	// Re-denying a case/whitespace variant is a no-op, not a duplicate row.
-	if err := r.DenyTag(ctx, " gnome "); err != nil {
+	if _, err := r.DenyTag(ctx, " gnome "); err != nil {
 		t.Fatalf("re-deny: %v", err)
 	}
 
@@ -44,6 +44,40 @@ func TestTagDenylistCRUD(t *testing.T) {
 	}
 }
 
+// TestDenyTag_ExistingTagFlag covers DenyTag's existingTag return (F50 S8):
+// denying a term with no live tag of that name reports false; denying a term
+// that already names a live tag reports true (the forward-only caveat the
+// owner's /owner/tags UI surfaces), without retroactively touching that tag.
+func TestDenyTag_ExistingTagFlag(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if existing, err := r.DenyTag(ctx, "brand-new-term"); err != nil || existing {
+		t.Errorf("deny with no live tag: existing=%v, err=%v, want false, nil", existing, err)
+	}
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/existing_tag.mkv", "T", nil, []string{"documentary"}), nil); err != nil {
+		t.Fatalf("seed live tag: %v", err)
+	}
+	if existing, err := r.DenyTag(ctx, "Documentary"); err != nil || !existing {
+		t.Errorf("deny matching a live tag (case-fold): existing=%v, err=%v, want true, nil", existing, err)
+	}
+	// Forward-only: the live tag itself is untouched by denying its name.
+	tags, err := r.ListTags(ctx, false)
+	if err != nil {
+		t.Fatalf("list tags: %v", err)
+	}
+	found := false
+	for _, tg := range tags {
+		if tg.Name == "documentary" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("live tag was removed by denying its name: %+v", tags)
+	}
+}
+
 // TestIsTagDenied covers the read-only, non-tx check genre writeback (F50 S6,
 // ADR-075 RD9) uses to filter the raw resolved genres union: same fold as the
 // tx-scoped isTagDenied resolveOrCreateByName gates new tags with (case-fold
@@ -52,7 +86,7 @@ func TestIsTagDenied(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if err := r.DenyTag(ctx, "TV Movie"); err != nil {
+	if _, err := r.DenyTag(ctx, "TV Movie"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 	if denied, err := r.IsTagDenied(ctx, "tv movie"); err != nil || !denied {
@@ -73,7 +107,7 @@ func TestDeniedTagBlocksScanSilently(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if err := r.DenyTag(ctx, "gnome"); err != nil {
+	if _, err := r.DenyTag(ctx, "gnome"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 

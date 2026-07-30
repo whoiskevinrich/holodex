@@ -108,7 +108,7 @@ func TestGenreWritebackValues(t *testing.T) {
 
 	// "TV Movie" is denied and present in the raw resolved genres union, but
 	// never attached as a Tag — must not appear in the writeback values.
-	if err := r.DenyTag(ctx, "TV Movie"); err != nil {
+	if _, err := r.DenyTag(ctx, "TV Movie"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{

@@ -51,7 +51,7 @@ func TestAttachTagToVideo(t *testing.T) {
 	}
 
 	// Deny-list: attaching a denied term is refused, not silently created.
-	if err := r.DenyTag(ctx, "Gnome"); err != nil {
+	if _, err := r.DenyTag(ctx, "Gnome"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 	if _, err := r.AttachTagToVideo(ctx, vid, "Gnome"); !errors.Is(err, repo.ErrTagDenied) {
@@ -190,7 +190,7 @@ func TestAttachMaterializedTags(t *testing.T) {
 	// Deny-list: unlike AttachTagToVideo, a denied term is silently skipped, not
 	// surfaced as an error -- enrichment is unattended, so there is no owner to show
 	// a rejection to (ADR-075 D2).
-	if err := r.DenyTag(ctx, "Gnome"); err != nil {
+	if _, err := r.DenyTag(ctx, "Gnome"); err != nil {
 		t.Fatalf("deny: %v", err)
 	}
 	if err := r.AttachMaterializedTags(ctx, vid, []repo.MaterializedTag{{Name: "Gnome", Source: "provider:tmdb"}}); err != nil {
