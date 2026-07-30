@@ -1,0 +1,15 @@
+-- HOLODEX-225 (ADR-075 D3): video_tags gains a provenance column.
+--
+-- replaceAssociations() previously did an unconditional DELETE+reinsert of every
+-- video_tags row on each rescan, correct only because tags had exactly one source
+-- (the file). The moment a tag can be manually attached or enrichment-materialized
+-- (F50), that full-replace would silently destroy those rows on the next scan with
+-- no signal anything was lost. source reuses the existing fieldsource grammar
+-- ('file'/'manual'/'provider:<name>') for vocabulary only -- video_tags is outside
+-- the F36 per-field decision model (tags are identity-only, F43 RD7), so this
+-- column is deliberately not validated against fieldsource.Valid()/ForNamespace().
+--
+-- Every row that exists before this migration was created only by the scanner, so
+-- the DEFAULT retroactively backfills every row correctly with no data migration
+-- step needed.
+ALTER TABLE video_tags ADD COLUMN source TEXT NOT NULL DEFAULT 'file';

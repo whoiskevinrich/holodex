@@ -89,6 +89,69 @@ func TestUpsertIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestUpsertPreservesNonFileTags is the highest-priority regression test in
+// ADR-075 D3 (HOLODEX-225): a rescan must only ever replace source='file'
+// video_tags rows. Before this fix, replaceAssociations() unconditionally
+// deleted and rebuilt every video_tags row on each scan, which would have
+// silently destroyed a manually-attached or enrichment-materialized tag on the
+// very next rescan. No attach/materialization endpoint exists yet (S4/S5), so
+// this seeds those rows directly, mirroring what those future callers will do.
+func TestUpsertPreservesNonFileTags(t *testing.T) {
+	r, database := newRepoDB(t)
+	ctx := context.Background()
+
+	v := sampleVideo("/m/a.mkv", "Title", nil, []string{"documentary"})
+	id, err := r.UpsertVideo(ctx, v, nil)
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	if _, err := database.ExecContext(ctx,
+		`INSERT INTO tags (name) VALUES ('curated'), ('genre-x')`); err != nil {
+		t.Fatalf("seed tags: %v", err)
+	}
+	var manualID, providerID int64
+	if err := database.QueryRowContext(ctx, `SELECT id FROM tags WHERE name = 'curated'`).Scan(&manualID); err != nil {
+		t.Fatalf("lookup manual tag: %v", err)
+	}
+	if err := database.QueryRowContext(ctx, `SELECT id FROM tags WHERE name = 'genre-x'`).Scan(&providerID); err != nil {
+		t.Fatalf("lookup provider tag: %v", err)
+	}
+	if _, err := database.ExecContext(ctx,
+		`INSERT INTO video_tags (video_id, tag_id, source) VALUES (?, ?, 'manual'), (?, ?, 'provider:tmdb')`,
+		id, manualID, id, providerID); err != nil {
+		t.Fatalf("seed video_tags: %v", err)
+	}
+
+	// Re-extract with a changed file-embedded tag -- only the file-derived
+	// association may be replaced; the manual and provider rows must survive.
+	v.Tags = []model.Tag{{Name: "short film"}}
+	if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+		t.Fatalf("re-upsert: %v", err)
+	}
+
+	got, _, err := r.GetVideo(ctx, id)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	names := make(map[string]bool, len(got.Tags))
+	for _, tg := range got.Tags {
+		names[tg.Name] = true
+	}
+	if !names["curated"] || !names["genre-x"] {
+		t.Errorf("non-file tags lost across rescan: %+v", got.Tags)
+	}
+	if names["documentary"] {
+		t.Errorf("stale file-derived tag survived rescan: %+v", got.Tags)
+	}
+	if !names["short film"] {
+		t.Errorf("new file-derived tag missing: %+v", got.Tags)
+	}
+	if len(got.Tags) != 3 {
+		t.Errorf("want exactly 3 tags (1 file + 1 manual + 1 provider), got %d: %+v", len(got.Tags), got.Tags)
+	}
+}
+
 // TestPeopleForVideos mirrors StudiosForVideos (studios_test.go): a bulk,
 // video-id-keyed people lookup used by merge-writeback propagation (F48.8) so
 // it doesn't need one GetVideo call per affected video.

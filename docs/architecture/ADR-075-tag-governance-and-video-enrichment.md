@@ -343,9 +343,12 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    migration or three, engineering's call; `.down.sql` for each.
 2. [ ] `resolveOrCreateByName`: deny-list pre-check gated on `entityType == model.EntityTag`, returns
    `ErrTagDenied`; each of the three callers (scanner, manual attach, materialization) handles it per D2.
-3. [ ] `replaceAssociations`: scope the delete to `source = 'file'`; add the regression test asserting a
+3. [x] `replaceAssociations`: scope the delete to `source = 'file'`; add the regression test asserting a
    `manual`/`provider:*` row survives a rescan (D3 — this is the P0 fix, should land and be tested
-   independently of D1/D2/D4).
+   independently of D1/D2/D4). **Done 2026-07-30 (HOLODEX-225)**: migration 0030 adds `video_tags.source`
+   (`fieldsource.File`/`Manual`/`provider:<name>`, default `'file'`); `replaceAssociations` scopes both the
+   delete and the file-tag insert to it; `TestUpsertPreservesNonFileTags` (internal/repo/repo_test.go) and
+   `TestMigration0030VideoTagsSourceUpAndDown` (internal/db/) cover the regression.
 4. [ ] `POST /tags/{id}/parent`: cycle-guard via ancestor walk before commit (D1).
 5. [ ] Tag-merge endpoint: add the `parent_tag_id` reparenting `UPDATE` to the existing merge transaction (D1).
 6. [ ] `afterEnrichApply`: add the `model.EnrichEntityVideo` materialization call; confirm and cite the exact

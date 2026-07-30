@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 )
 
@@ -175,9 +176,16 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 // replaceAssociations clears and re-links people, tags, and raw metadata for a
 // video so re-extraction is idempotent.
 func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people []model.Person, tags []model.Tag, extra []model.ExtraMetadata) error {
+	// Scoped to source=fieldsource.File (ADR-075 D3): a manually-attached or
+	// enrichment-materialized tag must survive every future rescan, since the
+	// file on disk has no way to re-supply it if this delete ever widened back
+	// to unconditional.
+	tagDelete := fmt.Sprintf(`DELETE FROM video_tags WHERE video_id = ? AND source = '%s'`, fieldsource.File)
+	tagInsert := fmt.Sprintf(`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, '%s')`, fieldsource.File)
+
 	for _, stmt := range []string{
 		`DELETE FROM video_people   WHERE video_id = ?`,
-		`DELETE FROM video_tags     WHERE video_id = ?`,
+		tagDelete,
 		`DELETE FROM video_metadata WHERE video_id = ?`,
 	} {
 		if _, err := tx.ExecContext(ctx, stmt, videoID); err != nil {
@@ -203,8 +211,7 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO video_tags (video_id, tag_id) VALUES (?, ?)`, videoID, tid); err != nil {
+		if _, err := tx.ExecContext(ctx, tagInsert, videoID, tid); err != nil {
 			return fmt.Errorf("link tag: %w", err)
 		}
 	}
