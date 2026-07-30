@@ -366,7 +366,17 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    any candidate found in the tag's own subtree (`isTagDescendant`, a `WITH RECURSIVE` walk down
    `parent_tag_id`) with `ErrTagCycle`; the owner-gated handler (`internal/api/tag_hierarchy.go`) maps
    that to `400 {cycle:true}`.
-5. [ ] Tag-merge endpoint: add the `parent_tag_id` reparenting `UPDATE` to the existing merge transaction (D1).
+5. [x] Tag-merge endpoint: add the `parent_tag_id` reparenting `UPDATE` to the existing merge transaction (D1).
+   **Done 2026-07-30 (S7, HOLODEX-231)**: `internal/repo/identity_ops.go`'s existing `idMoves` mechanism
+   (already generic across person/studio/tag merge, e.g. `studio_external_ids`) gained one entry for tags —
+   `{"tags", "parent_tag_id", true}` — reusing the same "extra id references repointed onto the survivor"
+   step the merge transaction already ran, rather than adding tag-specific logic. `excludeSelf: true` guards
+   the one edge case a generic repoint can't handle blind: when the merge *survivor* was itself a child of
+   the *loser*, an unguarded `UPDATE ... SET parent_tag_id = <survivor> WHERE parent_tag_id = <loser>` would
+   set the survivor's own `parent_tag_id` to itself; excluded, that stale reference instead falls to
+   migration 0032's `ON DELETE SET NULL` when the loser's row is deleted, promoting the survivor to root.
+   `TestMergeReparentsChildren` and `TestMergeReparentsChildren_SurvivorWasChildOfLoser`
+   (`internal/repo/tag_hierarchy_test.go`) cover both the ordinary case and that edge case.
 6. [x] `afterEnrichApply`: add the `model.EnrichEntityVideo` materialization call; confirm and cite the exact
    existing video-resolved-fields call site it reads `genres` from (D4). **Done 2026-07-30 (S5,
    HOLODEX-229)**: `internal/api/tag_materialize.go`'s `MaterializeVideoTags` reads the video's RESOLVED
