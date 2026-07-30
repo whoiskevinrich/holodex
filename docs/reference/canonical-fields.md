@@ -197,7 +197,7 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 | `tagline` | Tagline | text | Short marketing tagline. |
 | `release_date` | Released | text | Release date in `YYYY-MM-DD` format. |
 | `runtime` | Runtime (min) | text | Runtime in minutes (integer string). |
-| `genres` | Genres | text | Genre list. Use `multi: true` to split/deduplicate. |
+| `genres` | Genres | text | Genre list. Use `multi: true` to split/deduplicate. Resolved values also auto-materialize into real Tags — see [below](#genre-tag-materialization--governance-f50-adr-075). |
 | `status` | Status | text | Release status (e.g. `Released`, `Post Production`). |
 | `original_language` | Language | text | ISO 639-1 language code. |
 | `homepage` | Website | text | Official website URL. Rendered as plain text (not a link). |
@@ -217,6 +217,36 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 | `website` | Website | text | Personal or professional website URL. |
 | `aliases` | Aliases | text | Alternate names. Use `multi: true`. |
 | `photo` | Photo | image_url (`<img>`) | Portrait image. Delivered as an asset by providers that support it. |
+
+---
+
+## Genre tag materialization & governance (F50, [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md))
+
+`genres` does double duty beyond display text. Whenever a video is (re-)enriched, its **resolved** `genres`
+value — the merge-type union across every source listed in its `sources` — automatically materializes into
+real `Tag` rows on that video (`provider:<name>` provenance), the same identity spine `/tags` and the media
+page use for manually-applied tags. This needs **no extra configuration**: any provider you wire into
+`genres`, including a second provider added to its `sources` list, feeds the tag system for free the next
+time a video is enriched.
+
+Three governance controls apply globally to every tag, regardless of origin (file scan, manual tagging, or
+this materialization):
+
+- **Deny-list** (`/owner/tags`, the "Deny-list" tab) — an owner-maintained list of terms that can never
+  become a tag. A denied genre value is silently skipped during materialization — it never reaches
+  `video_tags` — and is filtered out of genre *writeback* too (below), so a blocked term is a structural
+  guarantee end-to-end, not a display-only filter.
+- **Hierarchy** (`/tags`' parent-setter row action) — a tag may have one parent. Filtering or searching by a
+  tag transitively includes every descendant, so a broad genre like "Animal" also catches videos tagged only
+  "Dog" or "German Shepherd" underneath it.
+- **Genre writeback** — the writeback modal's `genres` field is sourced from the union of the video's
+  attached tags (ancestor-expanded to canonical names) and the raw resolved `genres` union (deny-list
+  filtered), not the raw union alone. Curating a video's tags — adding, removing, merging, denying — changes
+  what a subsequent writeback writes to the file's `Genre` tag.
+
+None of this introduces a new `metadata-mappings.yaml` key or `holodex.yaml`/env setting — it rides the
+existing `genres` canonical field unchanged. See [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md)
+and the [F50 spec](../specs/tag-governance-and-video-enrichment.md) for the full mechanism.
 
 ---
 
