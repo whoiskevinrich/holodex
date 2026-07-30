@@ -50,6 +50,42 @@ func isTagDescendant(ctx context.Context, db *sql.DB, rootID, candidateID int64)
 	}
 }
 
+// videoTagAncestorsQuery expands a video's attached tags to include every
+// ancestor (walking UP parent_tag_id from each attached tag to the root) — the
+// upward counterpart to tagSubtreeQuery's downward descendant expansion, used
+// by genre writeback (F50 P0-10, ADR-075 RD9): a video tagged "German Shepherd"
+// (child of "Dog", child of "Animal") writes back all three names, not just
+// the leaf.
+const videoTagAncestorsQuery = `
+	WITH RECURSIVE tag_ancestors(id) AS (
+		SELECT tag_id FROM video_tags WHERE video_id = ?
+		UNION
+		SELECT t.parent_tag_id FROM tags t
+		JOIN tag_ancestors a ON t.id = a.id
+		WHERE t.parent_tag_id IS NOT NULL
+	)
+	SELECT DISTINCT t.name FROM tags t JOIN tag_ancestors a ON t.id = a.id`
+
+// TagNamesForVideo returns videoID's attached tags' names, ancestor-expanded
+// (F50 P0-10) — the tag-side input to genre writeback's value union
+// (genreWritebackValues, internal/api).
+func (r *Repo) TagNamesForVideo(ctx context.Context, videoID int64) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, videoTagAncestorsQuery, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("tag names for video: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}
+
 // SetTagParent sets id's parent to parentID (nil clears it to root), rejecting
 // a cycle with ErrTagCycle: parentID equal to id, or parentID already a
 // descendant of id (the tag being reparented would become its own ancestor).

@@ -81,6 +81,49 @@ func TestSetTagParent_CycleGuard(t *testing.T) {
 	}
 }
 
+// TestTagNamesForVideo covers P0-10's tag-side input (F50 S6, ADR-075 RD9):
+// a video tagged only with the deepest leaf of a hierarchy expands to every
+// ancestor's name too, and a video with no tags at all is an empty, not nil-panic, result.
+func TestTagNamesForVideo(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	seedTagTree(t, r)
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/ancestor_expand.mkv", "V", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if _, err := r.AttachTagToVideo(ctx, vid, "GermanShepherd"); err != nil {
+		t.Fatalf("attach leaf tag: %v", err)
+	}
+
+	names, err := r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names for video: %v", err)
+	}
+	got := make(map[string]bool, len(names))
+	for _, n := range names {
+		got[n] = true
+	}
+	want := []string{"Animal", "Mammal", "Dog", "GermanShepherd"}
+	for _, w := range want {
+		if !got[w] {
+			t.Errorf("ancestor-expanded names = %v, missing %q", names, w)
+		}
+	}
+	if len(names) != len(want) {
+		t.Errorf("ancestor-expanded names = %v, want exactly %v", names, want)
+	}
+
+	empty, err := r.UpsertVideo(ctx, sampleVideo("/m/no_tags.mkv", "V2", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed untagged video: %v", err)
+	}
+	if names, err := r.TagNamesForVideo(ctx, empty); err != nil || len(names) != 0 {
+		t.Errorf("untagged video names = %v, %v, want empty", names, err)
+	}
+}
+
 func TestSetTagParent_NotFound(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

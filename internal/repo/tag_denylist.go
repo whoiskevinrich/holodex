@@ -32,10 +32,13 @@ var isTagDeniedQuery = `SELECT 1 FROM denied_tags WHERE term_key = ` + nameKeyEx
 
 // isTagDenied reports whether name's fold matches an existing denied_tags row,
 // using the identical nameKeyExpr fold tags themselves resolve by -- so
-// "GNOME" matches a denial of "gnome" but "Garden Gnome" does not.
-func isTagDenied(ctx context.Context, tx *sql.Tx, name string) (bool, error) {
+// "GNOME" matches a denial of "gnome" but "Garden Gnome" does not. qr is
+// queryRower (identity.go) so the same check runs inside
+// resolveOrCreateByName's transaction (*sql.Tx) and, via the exported
+// IsTagDenied below, standalone (*sql.Db) for genre writeback.
+func isTagDenied(ctx context.Context, qr queryRower, name string) (bool, error) {
 	var x int
-	err := tx.QueryRowContext(ctx, isTagDeniedQuery, name).Scan(&x)
+	err := qr.QueryRowContext(ctx, isTagDeniedQuery, name).Scan(&x)
 	switch {
 	case err == nil:
 		return true, nil
@@ -44,6 +47,14 @@ func isTagDenied(ctx context.Context, tx *sql.Tx, name string) (bool, error) {
 	default:
 		return false, fmt.Errorf("check tag deny-list: %w", err)
 	}
+}
+
+// IsTagDenied reports whether name matches an existing deny-list entry —
+// exported for genre writeback (F50 P0-10, ADR-075 RD9), which must filter
+// the raw resolved `genres` union through the deny-list the same way
+// resolveOrCreateByName gates new tags, but outside any write transaction.
+func (r *Repo) IsTagDenied(ctx context.Context, name string) (bool, error) {
+	return isTagDenied(ctx, r.db, name)
 }
 
 // ListDeniedTags returns every denied term, newest first (the owner's

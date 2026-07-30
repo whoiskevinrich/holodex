@@ -22,7 +22,7 @@ against the final implementation diff.
 - [x] spec `write-spec` → `docs/specs/tag-governance-and-video-enrichment.md`
 - [x] architecture `architecture` → ADR-075
 - [x] design `design-handoff` → design handoff + QA checklist
-- [/] backend — S1/S2/S3/S4/S5 landed (provenance fix, deny-list, hierarchy, video↔tag attach/detach, enrichment materialization); S6/S7 remain
+- [/] backend — S1/S2/S3/S4/S5/S6 landed (provenance fix, deny-list, hierarchy, video↔tag attach/detach, enrichment materialization, genre writeback wiring); S7 remains
 - [/] frontend — media-page tag chips (S4) landed; deny-list tab + hierarchy pill-menu action (S8) not started
 - [/] testing `testing-strategy` → §9 F50 block written; per-slice tests land alongside each slice
 - [/] security `security-review` — design-level review complete (ADR-075 item 10); must re-run against the
@@ -35,12 +35,54 @@ against the final implementation diff.
 3. [x] [backend] S3 — hierarchy: `parent_tag_id` + cycle guard + descendant-inclusive filter/search (P0-4/5/6) — migration 0032, `internal/repo/tag_hierarchy.go`, `internal/api/tag_hierarchy.go`
 4. [x] [backend] S4 — video↔tag attach/detach endpoints + media-page UI (P0-7/8) — `internal/repo/video_tags.go`, `internal/api/video_tags.go`, `web/src/routes/media/[id]/+page.svelte`
 5. [x] [backend] S5 — enrichment materialization (P0-9) — `internal/api/tag_materialize.go`, `internal/api/enrich_review.go` `afterEnrichApply`, `internal/repo/video_tags.go` `AttachMaterializedTags`
-6. [ ] [backend] S6 — genre writeback wiring (P0-10) — `internal/writeback`
+6. [x] [backend] S6 — genre writeback wiring (P0-10) — `internal/api/genre_writeback.go`, `internal/repo/tag_hierarchy.go` `TagNamesForVideo`, `internal/repo/tag_denylist.go` `IsTagDenied`, `internal/api/writeback.go`
 7. [ ] [backend] S7 — merge reparenting (P0-11) — `internal/repo/identity_ops.go`
 8. [ ] [frontend] S8 — P1 UI: deny-list tab, hierarchy pill-menu row action — `web/src/routes/owner/tags`, `web/src/routes/tags/+page.svelte`
 9. [ ] [—] S9 — QA + `/security-review` final pass before merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-30 · S6 — genre writeback wiring
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: `internal/api/genre_writeback.go`'s `GenreWritebackValues` (P0-10) computes RD9's value union for
+  a "genres" writeback: the video's attached tags, ancestor-expanded via the new
+  `internal/repo/tag_hierarchy.go`'s `TagNamesForVideo` (a `video_tags`-rooted `WITH RECURSIVE` walk UP
+  `parent_tag_id` — the upward mirror of `tagSubtreeQuery`'s existing downward descendant expansion), unioned
+  with the raw resolved `genres` field, with the raw side filtered through the new exported
+  `repo.IsTagDenied` (a non-tx sibling of the tx-scoped `isTagDenied` `resolveOrCreateByName` already uses)
+  before deduping case-insensitively. `internal/api/writeback.go`'s `writebackMedia` overrides any
+  client-submitted `"genres"` field's values with this computed union before either the queued or
+  synchronous write path consumes `body.Fields` — a deliberate choice, not a shortcut: the spec's own
+  framing ("when genre writeback is triggered, the file's Genre tag receives …") describes a deterministic
+  function of DB state, and the design handoff's "no layout change" for the writeback modal confirms the
+  client was never meant to hand-edit this field's values. `TagForField`/`ResolveForContainer` untouched, per
+  RD9. **Factored `resolvedField` out of `MaterializeVideoTags`** (S5) into a shared helper both it and
+  `GenreWritebackValues` now call — a third call site for the identical
+  GetVideo+Enrichment/Curation/DecisionsForEntity+`resolver.Resolve`-one-field sequence made the earlier S5
+  /simplify verdict (leave the duplication with `RelinkVideoStudios` alone, since its fallback semantics
+  genuinely differ) no longer the right call for *this* pair — `MaterializeVideoTags` and
+  `GenreWritebackValues` share the exact same no-op-on-missing-mapping/video shape, so unifying them was a
+  real simplification, not a forced one. `/simplify` (4 parallel agents) found and fixed: the dedup key in
+  `GenreWritebackValues` used bare `strings.ToLower` instead of this codebase's established trim+lower
+  convention (`resolver.normKey`/`repo.curationNorm`) — fixed as a local `genreDedupKey` helper (package
+  `api` can't import either unexported symbol); `isTagDenied`/`IsTagDenied` duplicated the same query/switch
+  under two names — collapsed onto `identity.go`'s existing `queryRower` interface (already satisfied by
+  both `*sql.Tx` and `*sql.DB`) so both the tx-scoped and exported callers share one function body; the
+  `writebackMedia` "genres" override loop didn't `break` after the first match, so a (currently impossible,
+  but unguarded) duplicate `"genres"` request entry would recompute the union redundantly — added the
+  `break`. **Declined, with reasoning**: efficiency flagged `IsTagDenied` called once per resolved genre
+  value (N+1) — batching would require either reimplementing `nameKeyExpr`'s fold in Go (identity.go's own
+  comment warns this drifts on non-ASCII names — the exact bug class ADR-061 exists to prevent) or a
+  correlated batch query to map returned folded `term_key`s back to original names, neither simple; given
+  this only runs on an explicit, owner-triggered writeback for a handful of genre values, not a hot path,
+  the complexity/risk isn't worth it. Altitude proposed generalizing `writebackMedia`'s field-name check
+  into a "server-computed fields" registry for future fields like this one — declined as speculative:
+  `genres` is RD9's only server-computed field today, and a registry for a single entry is the abstraction
+  Simplicity First rules out; revisit if/when a second such field is spec'd. Altitude also flagged that the
+  override runs before the "field + values required" validation, forcing clients to submit a placeholder
+  `values` for `genres` — checked against the actual code: the override doesn't gate on non-empty input, so
+  an empty/omitted `values` for `genres` already works today; no change needed. Full `go build`/`vet`/`test
+  ./...` green after fixes. ADR-075 action item 8 marked done. Next: S7 (merge reparenting).
 
 ### 2026-07-30 · S5 — enrichment tag materialization
 - skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify

@@ -44,6 +44,25 @@ func TestTagDenylistCRUD(t *testing.T) {
 	}
 }
 
+// TestIsTagDenied covers the read-only, non-tx check genre writeback (F50 S6,
+// ADR-075 RD9) uses to filter the raw resolved genres union: same fold as the
+// tx-scoped isTagDenied resolveOrCreateByName gates new tags with (case-fold
+// match, not substring), just callable outside a write transaction.
+func TestIsTagDenied(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if err := r.DenyTag(ctx, "TV Movie"); err != nil {
+		t.Fatalf("deny: %v", err)
+	}
+	if denied, err := r.IsTagDenied(ctx, "tv movie"); err != nil || !denied {
+		t.Errorf("case-fold match = %v, %v, want true", denied, err)
+	}
+	if denied, err := r.IsTagDenied(ctx, "Movie"); err != nil || denied {
+		t.Errorf("substring non-match = %v, %v, want false", denied, err)
+	}
+}
+
 // TestDeniedTagBlocksScanSilently proves the single-choke-point enforcement
 // (ADR-075 D2): a denied term is skipped, not errored, when the scanner
 // (replaceAssociations, via UpsertVideo) encounters it, and it never becomes a

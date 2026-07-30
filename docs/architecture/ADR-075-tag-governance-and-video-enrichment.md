@@ -390,9 +390,21 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    now matches `tag_id IN (<tagSubtreeQuery>)` instead of `tag_id = ?` — the same recursive CTE the
    cycle-guard uses, so "descendant" means one thing everywhere. Global search (`Repo.Search`) has no
    tag-id filtering to expand (FTS-only); no change needed there.
-8. [ ] Genre writeback assembly: union tags (ancestor-expanded) with the deny-list-filtered raw `genres`
+8. [x] Genre writeback assembly: union tags (ancestor-expanded) with the deny-list-filtered raw `genres`
    union, per the spec's RD9/P0-10 (this ADR does not change `internal/writeback/tags.go`'s mapping, only
-   confirms nothing here needs to).
+   confirms nothing here needs to). **Done 2026-07-30 (S6, HOLODEX-230)**: `internal/api/genre_writeback.go`'s
+   `GenreWritebackValues` unions `internal/repo/tag_hierarchy.go`'s new `TagNamesForVideo` (a `video_tags`-rooted
+   `WITH RECURSIVE` walk UP `parent_tag_id` — the upward counterpart to `tagSubtreeQuery`'s existing downward
+   descendant expansion) with the raw resolved `genres` field (the same `resolvedField` helper
+   `MaterializeVideoTags`, S5, now shares — factored out of it in this slice once a third call site made the
+   duplication concrete), filtering the raw side through the new exported `Repo.IsTagDenied` (a non-tx sibling
+   of the tx-scoped `isTagDenied` `resolveOrCreateByName` already uses) before deduping case-insensitively.
+   `internal/api/writeback.go`'s `writebackMedia` overrides any client-submitted `"genres"` field's values with
+   this computed union before either the queued or synchronous write path consumes it — the spec's own framing
+   ("when genre writeback is triggered, the file's Genre tag receives …") describes a deterministic function of
+   DB state, not an editable client value, so the override — not a client-editable pre-fill — is the correct
+   depth here (confirmed against the actual submit path: `WritebackFormDialog.svelte` never gains a "genres"-specific
+   affordance, matching the spec's "no layout change"). `TagForField`/`ResolveForContainer` untouched, per RD9.
 9. [ ] `/testing-strategy`: D3's rescan-preserves-non-file-tags test is the highest-priority case in this ADR;
    also cover deny-list enforcement at all three call sites, cycle rejection, merge reparenting, and
    materialization idempotency (spec Success Metrics already names these).

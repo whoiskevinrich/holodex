@@ -36,46 +36,60 @@ func (h *Handlers) materializeTags(ctx context.Context, videoID int64) {
 // error. Exported (like RelinkVideoStudios) so tests can drive it directly without a
 // live provider.
 func (h *Handlers) MaterializeVideoTags(ctx context.Context, videoID int64) error {
-	if h.mappings == nil {
-		return nil
+	rf, ok, err := h.resolvedField(ctx, videoID, "genres")
+	if err != nil || !ok {
+		return err
 	}
-	genresField, ok := h.mappings.Current().ByCanonical("genres")
+	tags := make([]repo.MaterializedTag, 0, len(rf.Items))
+	for _, item := range rf.Items {
+		tags = append(tags, repo.MaterializedTag{
+			Name:   item.Value,
+			Source: fieldsource.ForNamespace(item.Sources[0]),
+		})
+	}
+	return h.repo.AttachMaterializedTags(ctx, videoID, tags)
+}
+
+// resolvedField reads videoID's single resolved canonical field — the shared
+// GetVideo + EnrichmentForEntity/CurationForEntity/DecisionsForEntity +
+// resolver.Resolve sequence behind both MaterializeVideoTags (S5, above) and
+// genreWritebackValues (S6, genre_writeback.go). ok is false with a nil error
+// for every no-op condition both callers share alike: no metadata mappings
+// configured, canonical unmapped, or a missing/soft-deleted video.
+func (h *Handlers) resolvedField(ctx context.Context, videoID int64, canonical string) (resolver.ResolvedField, bool, error) {
+	var zero resolver.ResolvedField
+	if h.mappings == nil {
+		return zero, false, nil
+	}
+	field, ok := h.mappings.Current().ByCanonical(canonical)
 	if !ok {
-		return nil
+		return zero, false, nil
 	}
 	v, extra, err := h.repo.GetVideo(ctx, videoID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return nil
+			return zero, false, nil
 		}
-		return err
+		return zero, false, err
 	}
 	enrRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
 	if err != nil {
-		return err
+		return zero, false, err
 	}
 	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, videoID)
 	if err != nil {
-		return err
+		return zero, false, err
 	}
 	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
 	if err != nil {
-		return err
+		return zero, false, err
 	}
 	resolved := resolver.Resolve(v, extra, enrichmentFromRows(enrRows), curationFromRows(curRows),
-		[]mapping.Field{genresField}, h.resolveOptions(decisionsFromRows(decRows)))
-
-	var tags []repo.MaterializedTag
+		[]mapping.Field{field}, h.resolveOptions(decisionsFromRows(decRows)))
 	for _, rf := range resolved {
-		if !strings.EqualFold(rf.Canonical, "genres") {
-			continue
-		}
-		for _, item := range rf.Items {
-			tags = append(tags, repo.MaterializedTag{
-				Name:   item.Value,
-				Source: fieldsource.ForNamespace(item.Sources[0]),
-			})
+		if strings.EqualFold(rf.Canonical, canonical) {
+			return rf, true, nil
 		}
 	}
-	return h.repo.AttachMaterializedTags(ctx, videoID, tags)
+	return zero, false, nil
 }

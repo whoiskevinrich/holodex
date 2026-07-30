@@ -104,6 +104,26 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// P0-10 (F50, ADR-075 RD9): a "genres" field write is sourced from the union of
+	// the video's attached tags (ancestor-expanded) and the deny-list-filtered raw
+	// resolved genres value, not whatever the client submitted for this field — so
+	// the file's Genre tag deterministically reflects current DB state. Runs before
+	// both paths below so neither can bypass it. There is only ever one meaningful
+	// "genres" entry, so stop at the first match rather than recomputing per
+	// duplicate if a client ever submits more than one.
+	for i, f := range body.Fields {
+		if f.Field != "genres" {
+			continue
+		}
+		values, gerr := h.GenreWritebackValues(r.Context(), id)
+		if gerr != nil {
+			h.fail(w, "compute genre writeback values", gerr)
+			return
+		}
+		body.Fields[i].Values = values
+		break
+	}
+
 	// Queued path (F30, ADR-048): when the durable queue is wired, sanitize and
 	// enqueue one batch job (202). Tag-name resolution + the actual write happen in
 	// the worker so the request returns immediately and writes are throttled.
