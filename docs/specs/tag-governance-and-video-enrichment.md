@@ -359,9 +359,10 @@ No hard deadline. Per this project's change-routing rules, before/with implement
 2. ✅ **`/design-handoff`** — media-page tag chip add/remove, deny-list management surface, `/tags` parent-setter
    action, 3-skin QA. See
    [tag-governance-and-video-enrichment-handoff.md](../design/tag-governance-and-video-enrichment-handoff.md).
-3. ⬜ **`/testing-strategy`** — rescan-preserves-non-file-tags (P0-1) is the single highest-value test in this
+3. ✅ **`/testing-strategy`** — rescan-preserves-non-file-tags (P0-1) is the single highest-value test in this
    spec; deny-list enforced on all three paths; cycle rejection; descendant-inclusive filter/search parity;
-   materialization idempotency; merge reparenting. **Not started.**
+   materialization idempotency; merge reparenting. See
+   [testing-strategy.md](../testing-strategy.md#9-phasing--what-lands-when) (F50 block).
 4. ⬜ **`/security-review`** — new mutations (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are
    all `requireOwner`; no new externally-influenced input beyond what F43/F47 already validate (tag names go
    through the same sanitize perimeter). Expect a clean design-level sign-off given the shape matches F43/F47
