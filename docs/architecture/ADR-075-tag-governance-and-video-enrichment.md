@@ -340,9 +340,18 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
 ## Action Items
 
 1. [ ] Migration: `tags.parent_tag_id` (D1) + `denied_tags` table (D2) + `video_tags.source` (D3) — one
-   migration or three, engineering's call; `.down.sql` for each.
-2. [ ] `resolveOrCreateByName`: deny-list pre-check gated on `entityType == model.EntityTag`, returns
+   migration or three, engineering's call; `.down.sql` for each. **Partially done**: migrations 0030 (D3,
+   HOLODEX-225) and 0031 (D2, HOLODEX-226) landed as separate migrations per story; D1's `parent_tag_id`
+   remains (S3, HOLODEX-227).
+2. [x] `resolveOrCreateByName`: deny-list pre-check gated on `entityType == model.EntityTag`, returns
    `ErrTagDenied`; each of the three callers (scanner, manual attach, materialization) handles it per D2.
+   **Done 2026-07-30 (HOLODEX-226)**: migration 0031 adds `denied_tags(term_key, term, created_at)`; the
+   pre-check runs as step 0 in `resolveOrCreateByName`, before the external-id/nameKey/create order, so a
+   denied term is refused even for a tag row that already existed before denial. The scanner
+   (`replaceAssociations`) skips a denied tag silently via `errors.Is(err, repo.ErrTagDenied)`. Owner-gated
+   management endpoints (`GET`/`POST`/`DELETE /owner/tags/denylist`) landed alongside. The other two callers
+   (manual attach, materialization) don't exist yet — S4/HOLODEX-228 and S5/HOLODEX-229 — but will route
+   through this same choke point by construction once they do.
 3. [x] `replaceAssociations`: scope the delete to `source = 'file'`; add the regression test asserting a
    `manual`/`provider:*` row survives a rescan (D3 — this is the P0 fix, should land and be tested
    independently of D1/D2/D4). **Done 2026-07-30 (HOLODEX-225)**: migration 0030 adds `video_tags.source`

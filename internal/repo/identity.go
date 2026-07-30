@@ -81,6 +81,18 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	name = strings.TrimSpace(name)
 	externalID = strings.TrimSpace(externalID)
 
+	// 0. Deny-list (tags only, ADR-075 D2): checked before the resolve order
+	// below, so a denied term is refused even if a tags row for it already
+	// exists from before it was denied -- denial blocks future association,
+	// not just row creation.
+	if entityType == model.EntityTag {
+		if denied, err := isTagDenied(ctx, tx, name); err != nil {
+			return 0, err
+		} else if denied {
+			return 0, ErrTagDenied
+		}
+	}
+
 	// 1. External-id first (studios, ADR-054/055): a company id owns exactly one entity.
 	if externalID != "" && entityType == model.EnrichEntityStudio {
 		var id int64

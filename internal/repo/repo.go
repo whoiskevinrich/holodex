@@ -207,7 +207,13 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 	for _, t := range tags {
+		// A denied term is skipped silently (ADR-075 D2): the scanner has no
+		// owner present to surface a rejection to, unlike the manual-attach
+		// endpoint (422).
 		tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, t.Name, "")
+		if errors.Is(err, ErrTagDenied) {
+			continue
+		}
 		if err != nil {
 			return err
 		}
