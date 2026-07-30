@@ -32,7 +32,7 @@ Use **all three tools** in a layered extraction pipeline per file:
 - **Encoder variance**: Hardware encoders (e.g. Sony cameras, capture cards) and software encoders (Handbrake, mkvmerge) write tags to different locations within the same format. exiftool's tag database covers thousands of these variants; ffprobe's `format_tags` coverage is shallower.
 - **ffprobe for streams**: exiftool does not reliably expose per-stream codec details (video codec, audio codec, bitrate). ffprobe's `-show_streams` output is the authoritative source for technical metadata.
 - **ffmpeg already required**: ffmpeg (which bundles ffprobe) is in the Docker image for Phase 2 thumbnail generation. Adding exiftool is the only incremental cost.
-- **Writeback consideration (Phase 3)**: exiftool supports writing tags back to MP4 files. For MKV writeback, `mkvpropedit` (part of mkvtoolnix) is more reliable. This ADR scopes Phase 1–2; Phase 3 writeback tooling will be addressed in ADR-008.
+- **Writeback consideration (Phase 3)**: exiftool supports writing tags back to MP4 files. For MKV writeback, `mkvpropedit` (part of mkvtoolnix) is more reliable. This ADR scopes Phase 1–2; Phase 3 writeback tooling will be addressed in ADR-041.
 
 ## Extraction Pipeline (per file)
 
