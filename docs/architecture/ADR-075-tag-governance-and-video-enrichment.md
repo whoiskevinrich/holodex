@@ -349,9 +349,12 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    pre-check runs as step 0 in `resolveOrCreateByName`, before the external-id/nameKey/create order, so a
    denied term is refused even for a tag row that already existed before denial. The scanner
    (`replaceAssociations`) skips a denied tag silently via `errors.Is(err, repo.ErrTagDenied)`. Owner-gated
-   management endpoints (`GET`/`POST`/`DELETE /owner/tags/denylist`) landed alongside. The other two callers
-   (manual attach, materialization) don't exist yet — S4/HOLODEX-228 and S5/HOLODEX-229 — but will route
-   through this same choke point by construction once they do.
+   management endpoints (`GET`/`POST`/`DELETE /owner/tags/denylist`) landed alongside. **Done 2026-07-30
+   (S4, HOLODEX-228)**: the second caller, manual attach, now exists (`internal/repo/video_tags.go`'s
+   `AttachTagToVideo`) and routes through the same `resolveOrCreateByName` pre-check, surfacing
+   `ErrTagDenied` as `422` at `POST /media/{id}/tags` (`internal/api/video_tags.go`) instead of the
+   scanner's silent skip — per D2's stated per-caller translation. The third caller, materialization,
+   remains pending (S5/HOLODEX-229).
 3. [x] `replaceAssociations`: scope the delete to `source = 'file'`; add the regression test asserting a
    `manual`/`provider:*` row survives a rescan (D3 — this is the P0 fix, should land and be tested
    independently of D1/D2/D4). **Done 2026-07-30 (HOLODEX-225)**: migration 0030 adds `video_tags.source`
@@ -383,7 +386,7 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
     complete 2026-07-30** — all four claims verified against current code (owner-gating, single-choke-point
     deny-list, `writeMu` race safety, materialization/writeback separation); see item 11 for the one gap
     found. Re-run against the implementation diff before merge per standing policy.
-11. [ ] **Sanitization gap found in review**: `resolveOrCreateByName` itself enforces no length cap — only
+11. [x] **Sanitization gap found in review**: `resolveOrCreateByName` itself enforces no length cap — only
     the existing rename/alias HTTP handlers do (200 runes, `internal/api/aliases.go:17`). The two new
     tag-creation paths (manual attach, materialization) don't route through those handlers, so an unbounded
     name could reach the `-TAG=VALUE` exiftool writeback argument and the UI chip row uncapped. Not
@@ -391,4 +394,9 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
     slice, not a shell string), but close it before implementation: apply the same 200-rune cap at the two
     new call sites, or — more consistent with this ADR's own "single choke point" reasoning for the
     deny-list — move the cap into `resolveOrCreateByName` so all three tag-creation paths (scanner
-    included) inherit it for free.
+    included) inherit it for free. **Done 2026-07-30 (S4, HOLODEX-228)**: took the single-choke-point
+    option — `model.MaxNameLen` (200, the same constant `internal/api/aliases.go`'s `maxAliasLen` now
+    derives from, so the two layers can't drift) is checked in `resolveOrCreateByName` before the deny-list
+    lookup, returning `ErrTagNameTooLong`; manual attach maps it to `400`, the scanner skips it silently
+    alongside `ErrTagDenied`. Materialization (S5) inherits the cap for free once it lands, same as the
+    deny-list.

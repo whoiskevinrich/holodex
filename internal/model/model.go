@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+// MaxNameLen bounds a stored entity name/alias/tag (F23.1, generalized by ADR-075
+// item 11) — generous for any real name while keeping the row and the FTS term
+// sane. One constant shared by every layer that validates a name (the rename/alias
+// HTTP handlers, resolveOrCreateByName's tag-creation choke point) so the cap can't
+// drift between them.
+const MaxNameLen = 200
+
 // Thumbnail pipeline states stored in Video.ThumbnailState (ADR-009). The empty
 // string is the zero value, meaning "never attempted". Centralized here so the
 // repo (SQL), the thumbnail pipeline, and the API agree on one vocabulary.
@@ -168,6 +175,11 @@ type Tag struct {
 	// ParentTagID is the broader tag this tag sits under, or nil at the root
 	// (F50, ADR-075 D1) — a strict one-parent tree, no DAG.
 	ParentTagID *int64 `json:"parent_tag_id,omitempty"`
+	// Source is this tag's provenance on the one video it was read alongside —
+	// "file" / "manual" / "provider:<name>" (F50, ADR-075 D3). Populated only on
+	// Video.Tags (attachAssociations); empty on the /tags list and tag-detail reads,
+	// which have no single video context for a per-link column to describe.
+	Source string `json:"source,omitempty"`
 }
 
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its

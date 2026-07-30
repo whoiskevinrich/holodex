@@ -19,6 +19,10 @@ import (
 // predicate use one byte-identical key (SQLite lower()/trim() is ASCII-only; matching
 // it in Go would drift on non-ASCII names).
 
+// ErrTagNameTooLong is returned by resolveOrCreateByName when a tag name (entityType
+// == model.EntityTag) exceeds maxNameLen runes.
+var ErrTagNameTooLong = errors.New("tag: name is too long")
+
 // canonicalTable maps a name-identity entity type to its canonical table. entityType
 // is a trusted internal literal (never user input), so composing it into SQL is safe.
 func canonicalTable(entityType string) string {
@@ -81,7 +85,16 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	name = strings.TrimSpace(name)
 	externalID = strings.TrimSpace(externalID)
 
-	// 0. Deny-list (tags only, ADR-075 D2): checked before the resolve order
+	// 0a. Length cap (tags only, ADR-075 item 11): the rename/alias HTTP handlers
+	// already cap at model.MaxNameLen runes, but manual attach and materialization
+	// call straight in here, bypassing them -- moved into the one choke point every
+	// tag-creation path (scanner included) shares, per this ADR's own
+	// single-choke-point reasoning for the deny-list below.
+	if entityType == model.EntityTag && len([]rune(name)) > model.MaxNameLen {
+		return 0, ErrTagNameTooLong
+	}
+
+	// 0b. Deny-list (tags only, ADR-075 D2): checked before the resolve order
 	// below, so a denied term is refused even if a tags row for it already
 	// exists from before it was denied -- denial blocks future association,
 	// not just row creation.

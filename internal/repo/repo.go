@@ -207,11 +207,11 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 	for _, t := range tags {
-		// A denied term is skipped silently (ADR-075 D2): the scanner has no
-		// owner present to surface a rejection to, unlike the manual-attach
-		// endpoint (422).
+		// A denied or oversized term is skipped silently (ADR-075 D2/item 11): the
+		// scanner has no owner present to surface a rejection to, unlike the
+		// manual-attach endpoint (422/400).
 		tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, t.Name, "")
-		if errors.Is(err, ErrTagDenied) {
+		if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) {
 			continue
 		}
 		if err != nil {
@@ -659,7 +659,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	}
 
 	trows, err := r.db.QueryContext(ctx,
-		`SELECT vt.video_id, t.id, t.name FROM tags t
+		`SELECT vt.video_id, t.id, t.name, vt.source FROM tags t
 		 JOIN video_tags vt ON vt.tag_id = t.id
 		 WHERE vt.video_id IN `+in+` ORDER BY vt.video_id, t.name COLLATE NOCASE`, args...)
 	if err != nil {
@@ -669,7 +669,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	for trows.Next() {
 		var vid int64
 		var t model.Tag
-		if err := trows.Scan(&vid, &t.ID, &t.Name); err != nil {
+		if err := trows.Scan(&vid, &t.ID, &t.Name, &t.Source); err != nil {
 			return err
 		}
 		videos[idx[vid]].Tags = append(videos[idx[vid]].Tags, t)

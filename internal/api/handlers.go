@@ -367,6 +367,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountTagDenylist(r)
 		// Tag hierarchy — the owner's /tags pill-menu "set parent" action (F50, ADR-075 D1).
 		h.mountTagHierarchy(r)
+		// Video↔tag attach/detach — the owner's media-page add/remove tag chips (F50, ADR-075 P0-7).
+		h.mountVideoTags(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).

@@ -83,6 +83,9 @@ export interface Tag {
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
 	// /tags list and the tag-detail read; omitted (undefined) elsewhere.
 	aliases?: PersonAlias[];
+	// Per-video provenance — "file" | "manual" | "provider:<name>" (F50, ADR-075 D3).
+	// Present only on Video.tags; absent elsewhere (no single video context for it).
+	source?: string;
 }
 
 // Studio is a first-class entity (F38, ADR-053). Same read shape as Tag; its name is
