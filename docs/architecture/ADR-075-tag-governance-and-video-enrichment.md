@@ -415,15 +415,33 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    DB state, not an editable client value, so the override — not a client-editable pre-fill — is the correct
    depth here (confirmed against the actual submit path: `WritebackFormDialog.svelte` never gains a "genres"-specific
    affordance, matching the spec's "no layout change"). `TagForField`/`ResolveForContainer` untouched, per RD9.
-9. [ ] `/testing-strategy`: D3's rescan-preserves-non-file-tags test is the highest-priority case in this ADR;
+9. [x] `/testing-strategy`: D3's rescan-preserves-non-file-tags test is the highest-priority case in this ADR;
    also cover deny-list enforcement at all three call sites, cycle rejection, merge reparenting, and
-   materialization idempotency (spec Success Metrics already names these).
+   materialization idempotency (spec Success Metrics already names these). **Done 2026-07-30 (S9,
+   HOLODEX-233)**: every row named in the testing-strategy F50 block has a corresponding test and the full
+   suite is green — `go build ./... && go vet ./... && go test ./... -count=1` (all packages `ok`) and
+   `cd web && npm run check && npm run test` (459 files/0 errors, 115 frontend tests passing). No gaps found
+   between the testing-strategy doc and the implemented test files.
 10. [x] `/security-review` before merge: confirm the three new mutation endpoints
     (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are `requireOwner`-gated; confirm no new
     externally-influenced input beyond what F43 already validates for tag names. **Design-level review
     complete 2026-07-30** — all four claims verified against current code (owner-gating, single-choke-point
     deny-list, `writeMu` race safety, materialization/writeback separation); see item 11 for the one gap
-    found. Re-run against the implementation diff before merge per standing policy.
+    found. Re-run against the implementation diff before merge per standing policy. **Re-run against the
+    full implementation diff complete 2026-07-30 (S9, HOLODEX-233)**: independent multi-agent review of
+    every new/changed file (routes, repo SQL, migrations, frontend) — confirmed all three new mutation
+    routes remain inside the shared `requireOwner` group (`internal/api/handlers.go`), every new SQL query
+    (including the two `WITH RECURSIVE` CTEs) is parameterized with no request-derived string concatenation,
+    `model.MaxNameLen` closes item 11's gap at the single `resolveOrCreateByName` choke point as planned, the
+    genre-writeback override discards rather than trusts client-submitted `"genres"` values, and no `{@html}`
+    or unsafe DOM sink was introduced in the four modified `.svelte` files. Three candidate items were raised
+    and independently verified as false positives (confidence 1/10 each): retroactive deny-list coverage on
+    already-attached tags (explicitly forward-only by design, documented in `internal/repo/tag_denylist.go`
+    and this ADR's item 8), CSRF on the new endpoints (reuses the pre-existing `requireOwner` +
+    `SameSite=Strict` session-cookie pattern shared by every other owner mutation, not new surface), and
+    provider-sourced tag names from materialization reaching an injection sink (routes through the same
+    parameterized/argv-exec/auto-escaped paths as owner-typed names). No high- or medium-confidence findings.
+    Clears the epic's `needs-security-review` label.
 11. [x] **Sanitization gap found in review**: `resolveOrCreateByName` itself enforces no length cap — only
     the existing rename/alias HTTP handlers do (200 runes, `internal/api/aliases.go:17`). The two new
     tag-creation paths (manual attach, materialization) don't route through those handlers, so an unbounded
