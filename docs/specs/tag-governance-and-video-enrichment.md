@@ -20,8 +20,10 @@ column + application-layer cycle guard, the `denied_tags` table shape and its si
 `resolveOrCreateByName`, the `video_tags` provenance fix to `replaceAssociations` (the correctness-critical
 piece), and the materialization pass's placement in the existing `afterEnrichApply` dispatcher.
 
-**Design handoff**: **Pending.** Media-page tag chips (add/remove), any deny-list management surface, and
-hierarchy curation UI are user-facing and need `/design-handoff` before implementation.
+**Design handoff**: [tag-governance-and-video-enrichment-handoff.md](../design/tag-governance-and-video-enrichment-handoff.md)
+— media-page tag chips (P0-8), deny-list placement (P1-1, resolves Q2 below: new `/owner/tags` tab), and
+hierarchy curation UI (P1-2/P1-3) are all specified. Companion QA checklist:
+[tag-governance-and-video-enrichment-qa-checklist.md](../design/tag-governance-and-video-enrichment-qa-checklist.md).
 
 ---
 
@@ -220,8 +222,9 @@ This must be fixed as part of this spec (P0-1), not discovered after ship.
 
 ### Should-have (P1)
 
-- **P1-1 — Deny-list management UI.** A simple list surface (likely under `/owner`, alongside the F43
-  Duplicates tab) to add/remove denied terms — `/design-handoff` decides exact placement.
+- **P1-1 — Deny-list management UI.** A new `/owner/tags` ("Deny-list") tab — a dedicated tab, not folded
+  into Duplicates: deny-list is exclusion, Duplicates is identity-merge, different owner intent (resolved in
+  `/design-handoff`).
 - **P1-2 — Hierarchy curation UI on `/tags`.** Set/clear a tag's parent from the tags list (F43 already gave
   tags "light list actions, no detail page" — this is one more row action, not a new page, consistent with
   F43 RD7).
@@ -315,8 +318,8 @@ Existing endpoints, behavior extended (no new routes):
   and an add-tag input (autocomplete against existing tags, same collision/near-miss soft-warning F43 already
   gives `/tags`). Denied-term submission shows an inline rejection, not a silent no-op.
 - **`/tags`**: gains a parent-setter row action (P1-2) alongside F43's existing rename/alias/merge actions.
-- **`/owner`**: a deny-list panel (P1-1), placement TBD in `/design-handoff` — plausibly a tab alongside the
-  existing Duplicates tab (F43) given both are tag-hygiene tools.
+- **`/owner`**: a new **Deny-list** tab (P1-1), added to the existing tab row (`owner/+layout.svelte`) next
+  to Duplicates.
 - **Writeback modal**: `genres` appears as one more checkable field, no layout change.
 - Tokens only; QA all three skins (Cinémathèque / Broadcast / Brutalist) per this project's standing rule.
 
@@ -338,8 +341,8 @@ Single-owner correctness + hygiene feature — same posture as F43:
 - **Q1 (engineering, non-blocking):** exact whitespace-fold for `denied_tags.term_key` — reuse tag `nameKey`'s
   fold (all whitespace collapsed) verbatim, or a separate normalize function? Recommend reusing tag `nameKey`
   so a denied term and its "same tag" variants are denied together without a second fold to keep in sync.
-- **Q2 (design, non-blocking):** deny-list panel placement (`/owner` new tab vs. folded into the existing
-  Duplicates tab vs. a `/tags` page affordance) — decided in `/design-handoff`.
+- ~~**Q2 (design):** deny-list panel placement.~~ **Resolved in `/design-handoff`:** a new `/owner/tags`
+  ("Deny-list") tab.
 - **Q3 (engineering, non-blocking):** should `denied_tags` cascade-delete if a `tags` row with that exact
   name is later legitimately created after being un-denied? (It shouldn't need to — denying doesn't create a
   `tags` row, so there's nothing to cascade — but worth a test asserting un-deny → create works cleanly.)
@@ -353,8 +356,9 @@ No hard deadline. Per this project's change-routing rules, before/with implement
    the deny-list table shape (why it's not `entity_keep_separate`- or `enrichment_dismissals`-shaped), the
    `video_tags` provenance column + `replaceAssociations` behavior change (flagged as the ADR's highest-risk
    decision), and the materialization pass's placement in the existing `afterEnrichApply` dispatcher.
-2. ⬜ **`/design-handoff`** — media-page tag chip add/remove, deny-list management surface, `/tags` parent-setter
-   action, 3-skin QA. **Not started.**
+2. ✅ **`/design-handoff`** — media-page tag chip add/remove, deny-list management surface, `/tags` parent-setter
+   action, 3-skin QA. See
+   [tag-governance-and-video-enrichment-handoff.md](../design/tag-governance-and-video-enrichment-handoff.md).
 3. ⬜ **`/testing-strategy`** — rescan-preserves-non-file-tags (P0-1) is the single highest-value test in this
    spec; deny-list enforced on all three paths; cycle rejection; descendant-inclusive filter/search parity;
    materialization idempotency; merge reparenting. **Not started.**
