@@ -101,6 +101,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [Enrichment review workflow (F47)](../specs/enrichment-review-workflow.md) — entity-generic review queue, confidence-gated auto-apply, durable "not matched" dismissal, refresh bypass (ADR-066)
 - [Metadata extraction from filenames (F48)](../specs/metadata-extraction.md) — on-demand/batch/import-time extraction with confidence-gated auto-apply + owner review queue; merge → writeback propagation; rollback backup/revert (ADR-067)
 - [Claimed provider keys (F49)](../specs/claimed-provider-keys.md) — a canonical field claims a differently-named provider key so it contributes as a candidate instead of auto-registering as a duplicate row; YAML `sources:` + in-app claims for the entity types with no YAML (HOLODEX-218 / GH #178; ADR-074)
+- [Installable PWA + instance branding (F51)](../specs/pwa-support.md) — web manifest + iOS meta tags for home-screen/desktop install (no offline caching, no push); operator-configurable app icon/favicon via `holodex.yaml`, reusing ADR-059's own-origin-serving pattern without its DB table (no ADR)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing
