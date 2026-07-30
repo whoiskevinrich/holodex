@@ -203,6 +203,11 @@ type Curation map[string]FieldCuration
 // mapping.Dedupe so behavior matches the file-only path.
 func normKey(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// NormKey exports normKey's fold rule for other packages that need the identical
+// dedup key without duplicating it (e.g. genre writeback's tag/raw-genres union,
+// internal/api/genre_writeback.go) — the one place this convention is computed.
+func NormKey(s string) string { return normKey(s) }
+
 // BaselineSource supplies an entity's baseline ("intrinsic") field values — the
 // layer that is the default source of truth before enrichment and curation are
 // layered on. For a video the baseline is the file layer: the file-tag columns

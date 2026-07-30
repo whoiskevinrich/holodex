@@ -257,8 +257,10 @@ func (h *Handlers) enrichVideoClear(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "clear video enrichment", err)
 		return
 	}
-	// Clearing a provider can change the resolved studio value → relink (F38).
-	h.relinkStudios(r.Context(), id)
+	// Clearing a provider can change the resolved studio/genres value just as much
+	// as applying one — same shared dispatcher enrichVideoApply/Refresh use, so a
+	// clear doesn't skip studio relink (F38) or tag materialization (F50 P0-9).
+	h.afterEnrichApply(r, model.EnrichEntityVideo, id)
 	w.WriteHeader(http.StatusNoContent)
 }
 

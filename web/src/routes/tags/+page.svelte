@@ -437,18 +437,14 @@
 											{/each}
 										</datalist>
 										<div class="flex flex-wrap gap-2">
-											<button
-												type="submit"
-												disabled={actionBusy}
-												class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-											>
+											<button type="submit" disabled={actionBusy} class="btn-accent px-3 py-1.5 text-sm">
 												Set parent
 											</button>
 											<button
 												type="button"
 												onclick={() => closeMenu()}
 												disabled={actionBusy}
-												class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+												class="btn-ghost px-3 py-1.5 text-sm"
 											>
 												Cancel
 											</button>

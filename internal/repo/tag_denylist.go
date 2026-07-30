@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"holodex/internal/model"
@@ -55,6 +56,42 @@ func isTagDenied(ctx context.Context, qr queryRower, name string) (bool, error) 
 // resolveOrCreateByName gates new tags, but outside any write transaction.
 func (r *Repo) IsTagDenied(ctx context.Context, name string) (bool, error) {
 	return isTagDenied(ctx, r.db, name)
+}
+
+// DeniedTagSet reports which of names match an existing deny-list entry, in one
+// batched query rather than one round trip per value (F50, ADR-075 RD9) — the
+// multi-value counterpart to IsTagDenied, for genre writeback's raw-genres union
+// check. Keyed by the exact strings passed in names (not the folded key), so a
+// caller can look values up as-is; a name with no match is simply absent.
+func (r *Repo) DeniedTagSet(ctx context.Context, names []string) (map[string]bool, error) {
+	out := make(map[string]bool, len(names))
+	if len(names) == 0 {
+		return out, nil
+	}
+	// SQLite's VALUES clause can't rename its columns via an AS alias list
+	// (unlike Postgres/MySQL) -- name each row explicitly with SELECT ... AS name
+	// instead, so the outer query can refer to v.name.
+	selects := make([]string, len(names))
+	args := make([]any, len(names))
+	for i, n := range names {
+		selects[i] = "SELECT ? AS name"
+		args[i] = n
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT v.name FROM (`+strings.Join(selects, " UNION ALL ")+`) AS v
+		JOIN denied_tags d ON d.term_key = `+nameKeyExpr(model.EntityTag, "v.name"), args...)
+	if err != nil {
+		return nil, fmt.Errorf("denied tag set: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out[name] = true
+	}
+	return out, rows.Err()
 }
 
 // ListDeniedTags returns every denied term, newest first (the owner's

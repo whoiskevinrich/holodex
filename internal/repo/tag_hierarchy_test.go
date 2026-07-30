@@ -180,6 +180,40 @@ func TestMergeReparentsChildren_SurvivorWasChildOfLoser(t *testing.T) {
 	assertTagParent(t, ctx, r, ids["GermanShepherd"], "GermanShepherd", ids["Dog"])
 }
 
+// TestMergeReparentsChildren_DeepDescendantSurvivor covers the cycle bug found
+// alongside P0-11: merging a tag into a non-direct descendant of itself must
+// not create a cycle in parent_tag_id. Mammal (loser) merges into
+// GermanShepherd, a survivor two levels down (Mammal > Dog > GermanShepherd).
+// A naive repoint of Mammal's direct children would set Dog's parent to
+// GermanShepherd while GermanShepherd's own parent stays Dog — a live cycle.
+// The fix excludes GermanShepherd's whole ancestor chain (Dog, Mammal, Animal)
+// from the repoint, so Dog instead falls to the merged row's
+// ON DELETE SET NULL and is promoted to root, matching the one-hop case's
+// existing precedent.
+func TestMergeReparentsChildren_DeepDescendantSurvivor(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if err := r.MergeEntities(ctx, model.EntityTag, ids["GermanShepherd"], ids["Mammal"]); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	// Dog (Mammal's only direct child, and on GermanShepherd's ancestor path)
+	// is promoted to root rather than repointed onto GermanShepherd.
+	assertTagParent(t, ctx, r, ids["Dog"], "Dog", 0)
+	// GermanShepherd's own parent (Dog) is untouched.
+	assertTagParent(t, ctx, r, ids["GermanShepherd"], "GermanShepherd", ids["Dog"])
+
+	// No cycle: the ancestor walk must terminate with a bounded chain, not hang.
+	got, err := r.AncestorNamesForTag(ctx, ids["GermanShepherd"])
+	if err != nil {
+		t.Fatalf("ancestor names: %v", err)
+	}
+	if len(got) != 1 || got[0] != "Dog" {
+		t.Errorf("GermanShepherd ancestors = %v, want [Dog]", got)
+	}
+}
+
 // TestAncestorNamesForTag covers P1-3's breadcrumb query: root-first order
 // for a deep tag, an empty (non-nil) slice for a root tag, and that an
 // unrelated subtree (Vehicle) doesn't leak in.

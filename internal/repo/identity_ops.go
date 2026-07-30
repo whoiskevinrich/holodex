@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 )
 
@@ -288,23 +289,50 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	}
 	affectedRows.Close()
 
+	// 1. Move associations as a de-duped union (composite PK + OR IGNORE). Tags
+	//    carry a provenance column (video_tags.source, F50 ADR-075 D3) the other
+	//    two association tables don't have: copy it across instead of letting a
+	//    newly-created link fall back to the column's 'file' default, and only
+	//    ever upgrade a survivor's existing link away from 'file' (never
+	//    downgrade a more durable source already there).
+	moveAssocSQL := `INSERT OR IGNORE INTO ` + cfg.assoc + ` (video_id, ` + cfg.assocFK + `)
+		SELECT video_id, ? FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`
+	if entityType == model.EntityTag {
+		moveAssocSQL = `INSERT INTO video_tags (video_id, tag_id, source)
+			SELECT video_id, ?, source FROM video_tags WHERE tag_id = ?
+			ON CONFLICT (video_id, tag_id) DO UPDATE SET source = excluded.source
+			WHERE video_tags.source = '` + fieldsource.File + `'`
+	}
 	steps := []identityStep{
-		// 1. Move associations as a de-duped union (composite PK + OR IGNORE).
-		{"move associations", `INSERT OR IGNORE INTO ` + cfg.assoc + ` (video_id, ` + cfg.assocFK + `)
-			SELECT video_id, ? FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`, []any{canonicalID, mergedID}},
+		{"move associations", moveAssocSQL, []any{canonicalID, mergedID}},
 		{"clear merged associations", `DELETE FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`, []any{mergedID}},
 	}
 	// 1b. Repoint any extra id references (studio external ids) onto the survivor so
 	//     provider identity keeps resolving there; OR IGNORE drops a duplicate the
 	//     survivor already owns (the FK-cascade delete below then clears the loser's).
 	for _, mv := range cfg.idMoves {
-		sql := `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`
+		stmt := `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`
 		args := []any{canonicalID, mergedID}
 		if mv.excludeSelf {
-			sql += ` AND id != ?`
-			args = append(args, canonicalID)
+			excludeIDs := []int64{canonicalID}
+			if mv.table == cfg.table {
+				// Self-referential FK (tags.parent_tag_id): excluding only canonicalID
+				// itself guards a survivor that's a *direct* child of the loser, but not
+				// a deeper descendant — repointing a node on the survivor's own ancestor
+				// path would create a cycle (F50 P0-11 follow-up). Exclude the survivor's
+				// whole ancestor chain; at most one of those ids is ever a direct child
+				// of the loser, so this is a strict superset of the excludeSelf-only
+				// exclusion and a no-op when the survivor isn't the loser's descendant.
+				ancestorIDs, err := selfRefAncestorIDs(ctx, tx, mv.table, mv.fk, canonicalID)
+				if err != nil {
+					return nil, err
+				}
+				excludeIDs = append(excludeIDs, ancestorIDs...)
+			}
+			stmt += ` AND id NOT IN (` + placeholders(len(excludeIDs)) + `)`
+			args = append(args, toAnySlice(excludeIDs)...)
 		}
-		steps = append(steps, identityStep{"move " + mv.table, sql, args})
+		steps = append(steps, identityStep{"move " + mv.table, stmt, args})
 	}
 	steps = append(steps, []identityStep{
 		// 2. Preserve a prior merge chain: re-point merged's aliases, drop collisions.
@@ -414,6 +442,35 @@ func mergeEntityLookupErr(entityType string, err error) error {
 		return ErrNotFound
 	}
 	return fmt.Errorf("merge: load %s: %w", entityType, err)
+}
+
+// selfRefAncestorIDs walks up a self-referential FK (table.fk -> table.id) from id,
+// returning every ancestor id (excluding id itself). table and fk are trusted
+// internal literals (an idMove entry), never user input. Used by mergeEntities
+// (F50 P0-11) to find which of a merged-away entity's direct children lies on the
+// survivor's own ancestor path, so repointing it wouldn't create a cycle.
+func selfRefAncestorIDs(ctx context.Context, tx *sql.Tx, table, fk string, id int64) ([]int64, error) {
+	rows, err := tx.QueryContext(ctx, `
+		WITH RECURSIVE ancestors(id) AS (
+			SELECT `+fk+` FROM `+table+` WHERE id = ?
+			UNION ALL
+			SELECT t.`+fk+` FROM `+table+` t JOIN ancestors a ON t.id = a.id
+			WHERE t.`+fk+` IS NOT NULL
+		)
+		SELECT id FROM ancestors WHERE id IS NOT NULL`, id)
+	if err != nil {
+		return nil, fmt.Errorf("self-ref ancestor ids: %w", err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var aid int64
+		if err := rows.Scan(&aid); err != nil {
+			return nil, err
+		}
+		out = append(out, aid)
+	}
+	return out, rows.Err()
 }
 
 // AddKeepSeparate records that two entities of one type are deliberately distinct

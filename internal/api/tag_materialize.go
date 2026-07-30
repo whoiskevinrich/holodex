@@ -57,6 +57,20 @@ func (h *Handlers) MaterializeVideoTags(ctx context.Context, videoID int64) erro
 // for every no-op condition both callers share alike: no metadata mappings
 // configured, canonical unmapped, or a missing/soft-deleted video.
 func (h *Handlers) resolvedField(ctx context.Context, videoID int64, canonical string) (resolver.ResolvedField, bool, error) {
+	v, extra, err := h.repo.GetVideo(ctx, videoID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return resolver.ResolvedField{}, false, nil
+		}
+		return resolver.ResolvedField{}, false, err
+	}
+	return h.resolvedFieldForVideo(ctx, v, extra, canonical)
+}
+
+// resolvedFieldForVideo is resolvedField's video-already-loaded half, split out so
+// a caller that already fetched the video for its own purposes (writebackMedia)
+// doesn't pay for a second GetVideo just to resolve one field.
+func (h *Handlers) resolvedFieldForVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata, canonical string) (resolver.ResolvedField, bool, error) {
 	var zero resolver.ResolvedField
 	if h.mappings == nil {
 		return zero, false, nil
@@ -65,22 +79,15 @@ func (h *Handlers) resolvedField(ctx context.Context, videoID int64, canonical s
 	if !ok {
 		return zero, false, nil
 	}
-	v, extra, err := h.repo.GetVideo(ctx, videoID)
-	if err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			return zero, false, nil
-		}
-		return zero, false, err
-	}
-	enrRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
+	enrRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, v.ID)
 	if err != nil {
 		return zero, false, err
 	}
-	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, videoID)
+	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, v.ID)
 	if err != nil {
 		return zero, false, err
 	}
-	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
+	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, v.ID)
 	if err != nil {
 		return zero, false, err
 	}

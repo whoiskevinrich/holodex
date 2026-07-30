@@ -28,9 +28,16 @@ func attachTagTx(ctx context.Context, tx *sql.Tx, videoID int64, name, source st
 	if err != nil {
 		return 0, err
 	}
+	// ON CONFLICT upgrades an existing link's source away from 'file' (so a
+	// scanner-discovered tag that's later manually attached or materialized
+	// survives future rescans, ADR-075 D3) but never downgrades one that's
+	// already durable -- re-running materialization must not clobber a manual
+	// attach, and vice versa.
 	if _, err := tx.ExecContext(ctx,
-		`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, ?)`,
-		videoID, tid, source); err != nil {
+		`INSERT INTO video_tags (video_id, tag_id, source) VALUES (?, ?, ?)
+		 ON CONFLICT (video_id, tag_id) DO UPDATE SET source = excluded.source
+		 WHERE video_tags.source = ?`,
+		videoID, tid, source, fieldsource.File); err != nil {
 		return 0, fmt.Errorf("attach tag: %w", err)
 	}
 	return tid, nil

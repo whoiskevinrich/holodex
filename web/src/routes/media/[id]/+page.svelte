@@ -349,15 +349,17 @@
 
 	// "Use existing": swap this video's just-added tag for the near-miss it looks
 	// like — attach-by-name resolves the near-miss's exact name to its existing id
-	// (no new row), then detach the tag the add just created/resolved. The two
-	// writes touch different tag_id rows, so they run concurrently rather than
-	// as two serial round trips.
+	// (no new row), then detach the tag the add just created/resolved. Sequenced,
+	// not concurrent: if the add fails, the just-added tag is left alone (no
+	// data loss); only once the add has actually succeeded does the swap remove
+	// it, so a failure here leaves both tags attached instead of neither.
 	async function useTagNearMiss() {
 		if (!tagNearMiss || !tagJustAdded) return;
 		const nearMissName = tagNearMiss.name;
 		const justAddedId = tagJustAdded.id;
 		await runTagAction(async () => {
-			await Promise.all([api.addVideoTag(id, nearMissName), api.removeVideoTag(id, justAddedId)]);
+			await api.addVideoTag(id, nearMissName);
+			await api.removeVideoTag(id, justAddedId);
 			await reloadDetail();
 			closeTagAdd();
 		});
@@ -528,6 +530,9 @@
 										onclick={() => removeTag(t.id)}
 										disabled={tagBusy}
 										aria-label={`Remove tag ${t.name}`}
+										title={t.source === 'file'
+											? 'Removing a file-sourced tag may reappear on the next rescan'
+											: undefined}
 										class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
 									>
 										×

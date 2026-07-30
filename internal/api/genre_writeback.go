@@ -2,7 +2,11 @@ package api
 
 import (
 	"context"
-	"strings"
+	"errors"
+
+	"holodex/internal/model"
+	"holodex/internal/repo"
+	"holodex/internal/resolver"
 )
 
 // GenreWritebackValues computes P0-10 (F50, ADR-075 RD9)'s value list for a
@@ -18,36 +22,55 @@ import (
 // how they're written. Exported (like MaterializeVideoTags) so tests can
 // drive it directly without a live provider.
 func (h *Handlers) GenreWritebackValues(ctx context.Context, videoID int64) ([]string, error) {
-	tagNames, err := h.repo.TagNamesForVideo(ctx, videoID)
+	v, extra, err := h.repo.GetVideo(ctx, videoID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return h.genreWritebackValuesForVideo(ctx, v, extra)
+}
+
+// genreWritebackValuesForVideo is GenreWritebackValues' video-already-loaded
+// half, split out so writebackMedia (which has already fetched the video for
+// the write itself) doesn't pay for a second GetVideo just to compute the
+// genres override.
+func (h *Handlers) genreWritebackValuesForVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) ([]string, error) {
+	tagNames, err := h.repo.TagNamesForVideo(ctx, v.ID)
 	if err != nil {
 		return nil, err
 	}
 	seen := make(map[string]bool, len(tagNames))
 	out := make([]string, 0, len(tagNames))
 	for _, name := range tagNames {
-		k := genreDedupKey(name)
+		k := resolver.NormKey(name)
 		if !seen[k] {
 			seen[k] = true
 			out = append(out, name)
 		}
 	}
 
-	rf, ok, err := h.resolvedField(ctx, videoID, "genres")
+	rf, ok, err := h.resolvedFieldForVideo(ctx, v, extra, "genres")
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
 		return out, nil
 	}
+	values := make([]string, len(rf.Items))
+	for i, item := range rf.Items {
+		values[i] = item.Value
+	}
+	denied, err := h.repo.DeniedTagSet(ctx, values)
+	if err != nil {
+		return nil, err
+	}
 	for _, item := range rf.Items {
-		denied, err := h.repo.IsTagDenied(ctx, item.Value)
-		if err != nil {
-			return nil, err
-		}
-		if denied {
+		if denied[item.Value] {
 			continue
 		}
-		k := genreDedupKey(item.Value)
+		k := resolver.NormKey(item.Value)
 		if !seen[k] {
 			seen[k] = true
 			out = append(out, item.Value)
@@ -55,9 +78,3 @@ func (h *Handlers) GenreWritebackValues(ctx context.Context, videoID int64) ([]s
 	}
 	return out, nil
 }
-
-// genreDedupKey is the case/whitespace-insensitive dedup key for the tag ∪
-// raw-genres union above — trim + lower, matching resolver.normKey and
-// repo.curationNorm's identical convention (this package can't import either
-// unexported symbol, so it mirrors the same two operations).
-func genreDedupKey(s string) string { return strings.ToLower(strings.TrimSpace(s)) }

@@ -70,6 +70,72 @@ func TestAttachTagToVideo(t *testing.T) {
 	}
 }
 
+// TestAttachTagToVideo_UpgradesFileSource covers the provenance-upgrade fix
+// (F50, ADR-075 D3): a scanner-discovered tag (source='file') that's later
+// manually attached must have its existing row's source upgraded, not stay
+// 'file' -- otherwise the next rescan's source='file'-scoped delete could
+// still drop it even though the owner explicitly attached it. A more durable
+// source, once set, is never downgraded back to 'file' by a later
+// materialization pass re-linking the same tag.
+func TestAttachTagToVideo_UpgradesFileSource(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	v := sampleVideo("/m/a.mkv", "T", nil, []string{"Comedy"})
+	vid, err := r.UpsertVideo(ctx, v, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	got, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].Source != "file" {
+		t.Fatalf("video.Tags = %+v, want one file-sourced tag", got.Tags)
+	}
+	tagID := got.Tags[0].ID
+
+	// Manually attaching the same (already-linked) name upgrades its source.
+	if _, err := r.AttachTagToVideo(ctx, vid, "Comedy"); err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+	got, _, err = r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video after attach: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].Source != "manual" {
+		t.Fatalf("video.Tags after manual attach = %+v, want source=manual", got.Tags)
+	}
+
+	// A rescan that no longer embeds the tag must not delete it now that it's
+	// manual -- the whole point of the upgrade.
+	v.Tags = nil
+	if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+		t.Fatalf("rescan without embedded tag: %v", err)
+	}
+	got, _, err = r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video after rescan: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].ID != tagID {
+		t.Errorf("video.Tags after rescan = %+v, want the manual tag to survive", got.Tags)
+	}
+
+	// A materialization pass must not downgrade the now-manual source.
+	if err := r.AttachMaterializedTags(ctx, vid, []repo.MaterializedTag{
+		{Name: "Comedy", Source: "provider:tmdb"},
+	}); err != nil {
+		t.Fatalf("attach materialized: %v", err)
+	}
+	got, _, err = r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video after materialize: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].Source != "manual" {
+		t.Errorf("video.Tags after materialize = %+v, want source still manual (not downgraded)", got.Tags)
+	}
+}
+
 // TestDetachTagFromVideo covers P0-7's DELETE side: removes the link, and reports
 // ErrNotFound (not a silent no-op) when the tag isn't currently attached.
 func TestDetachTagFromVideo(t *testing.T) {
