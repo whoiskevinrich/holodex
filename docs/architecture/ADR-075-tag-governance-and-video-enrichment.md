@@ -339,10 +339,10 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
 
 ## Action Items
 
-1. [ ] Migration: `tags.parent_tag_id` (D1) + `denied_tags` table (D2) + `video_tags.source` (D3) — one
-   migration or three, engineering's call; `.down.sql` for each. **Partially done**: migrations 0030 (D3,
-   HOLODEX-225) and 0031 (D2, HOLODEX-226) landed as separate migrations per story; D1's `parent_tag_id`
-   remains (S3, HOLODEX-227).
+1. [x] Migration: `tags.parent_tag_id` (D1) + `denied_tags` table (D2) + `video_tags.source` (D3) — one
+   migration or three, engineering's call; `.down.sql` for each. Landed as three separate migrations per
+   story: 0030 (D3, HOLODEX-225), 0031 (D2, HOLODEX-226). **Done 2026-07-30 (S3, HOLODEX-227)**: migration
+   0032 adds `tags.parent_tag_id` (nullable self-reference) + `idx_tags_parent`.
 2. [x] `resolveOrCreateByName`: deny-list pre-check gated on `entityType == model.EntityTag`, returns
    `ErrTagDenied`; each of the three callers (scanner, manual attach, materialization) handles it per D2.
    **Done 2026-07-30 (HOLODEX-226)**: migration 0031 adds `denied_tags(term_key, term, created_at)`; the
@@ -358,11 +358,19 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    (`fieldsource.File`/`Manual`/`provider:<name>`, default `'file'`); `replaceAssociations` scopes both the
    delete and the file-tag insert to it; `TestUpsertPreservesNonFileTags` (internal/repo/repo_test.go) and
    `TestMigration0030VideoTagsSourceUpAndDown` (internal/db/) cover the regression.
-4. [ ] `POST /tags/{id}/parent`: cycle-guard via ancestor walk before commit (D1).
+4. [x] `POST /tags/{id}/parent`: cycle-guard via ancestor walk before commit (D1). **Done 2026-07-30
+   (S3, HOLODEX-227)**: `internal/repo/tag_hierarchy.go`'s `SetTagParent` rejects `parent_id == id` and
+   any candidate found in the tag's own subtree (`isTagDescendant`, a `WITH RECURSIVE` walk down
+   `parent_tag_id`) with `ErrTagCycle`; the owner-gated handler (`internal/api/tag_hierarchy.go`) maps
+   that to `400 {cycle:true}`.
 5. [ ] Tag-merge endpoint: add the `parent_tag_id` reparenting `UPDATE` to the existing merge transaction (D1).
 6. [ ] `afterEnrichApply`: add the `model.EnrichEntityVideo` materialization call; confirm and cite the exact
    existing video-resolved-fields call site it reads `genres` from (D4).
-7. [ ] Recursive descendant-expansion query wired into tag-based browse filter and global search (D1).
+7. [x] Recursive descendant-expansion query wired into tag-based browse filter and global search (D1).
+   **Done 2026-07-30 (S3, HOLODEX-227)**: `VideoFilter.build()`'s per-`TagIDs` clause (`internal/repo/repo.go`)
+   now matches `tag_id IN (<tagSubtreeQuery>)` instead of `tag_id = ?` — the same recursive CTE the
+   cycle-guard uses, so "descendant" means one thing everywhere. Global search (`Repo.Search`) has no
+   tag-id filtering to expand (FTS-only); no change needed there.
 8. [ ] Genre writeback assembly: union tags (ancestor-expanded) with the deny-list-filtered raw `genres`
    union, per the spec's RD9/P0-10 (this ADR does not change `internal/writeback/tags.go`'s mapping, only
    confirms nothing here needs to).

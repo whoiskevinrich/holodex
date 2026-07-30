@@ -365,6 +365,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDuplicates(r)
 		// Tag deny-list — the owner's Deny-list tab (F50, ADR-075 D2).
 		h.mountTagDenylist(r)
+		// Tag hierarchy — the owner's /tags pill-menu "set parent" action (F50, ADR-075 D1).
+		h.mountTagHierarchy(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).

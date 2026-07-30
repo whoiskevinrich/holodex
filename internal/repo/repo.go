@@ -415,7 +415,10 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, toAnySlice(f.PersonIDsAny)...)
 	}
 	for _, tid := range f.TagIDs {
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id = ?)")
+		// Descendant-inclusive (F50, ADR-075 D1/P0-6): a video tagged only with a
+		// descendant of tid still matches — tagSubtreeQuery expands tid to itself
+		// plus its full subtree at query time.
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN ("+tagSubtreeQuery+"))")
 		args = append(args, tid)
 	}
 	for _, sid := range f.StudioIDs {
@@ -899,10 +902,44 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 	if err != nil {
 		return nil, err
 	}
+	// parent_tag_id isn't part of namedCountQuery (shared with ListStudios, which
+	// has no such column) -- attach it in its own batch, same pattern as aliases.
+	parents, err := r.tagParents(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		out[i].Aliases = byTag[out[i].ID]
+		out[i].ParentTagID = parents[out[i].ID]
 	}
 	return out, nil
+}
+
+// tagParents returns each id's parent_tag_id, keyed by id — absent from the
+// map when the tag is a root (nil parent).
+func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, error) {
+	out := make(map[int64]*int64, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, parent_tag_id FROM tags WHERE id IN (`+placeholders(len(ids))+`)`,
+		toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("tag parents: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var parentID sql.NullInt64
+		if err := rows.Scan(&id, &parentID); err != nil {
+			return nil, err
+		}
+		if parentID.Valid {
+			out[id] = &parentID.Int64
+		}
+	}
+	return out, rows.Err()
 }
 
 // GetPerson returns a person by id with video count, or ErrNotFound.
@@ -941,16 +978,20 @@ func (r *Repo) PersonExists(ctx context.Context, id int64) error {
 // GetTag returns a tag by id with video count, or ErrNotFound.
 func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	var t model.Tag
+	var parentID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT t.id, t.name,
+		SELECT t.id, t.name, t.parent_tag_id,
 		       (SELECT COUNT(*) FROM video_tags vt JOIN videos v ON v.id = vt.video_id
 		        WHERE vt.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL)
-		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &t.VideoCount)
+		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if parentID.Valid {
+		t.ParentTagID = &parentID.Int64
 	}
 	if t.Aliases, err = r.AliasesForEntity(ctx, model.EntityTag, id); err != nil {
 		return nil, err

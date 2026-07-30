@@ -165,6 +165,9 @@ type Tag struct {
 	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
 	// Populated on the tags-list read (tags have no detail page, RD7); omitted elsewhere.
 	Aliases []EntityAlias `json:"aliases,omitempty"`
+	// ParentTagID is the broader tag this tag sits under, or nil at the root
+	// (F50, ADR-075 D1) — a strict one-parent tree, no DAG.
+	ParentTagID *int64 `json:"parent_tag_id,omitempty"`
 }
 
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its
