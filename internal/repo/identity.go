@@ -19,6 +19,10 @@ import (
 // predicate use one byte-identical key (SQLite lower()/trim() is ASCII-only; matching
 // it in Go would drift on non-ASCII names).
 
+// ErrTagNameTooLong is returned by resolveOrCreateByName when a tag name (entityType
+// == model.EntityTag) exceeds maxNameLen runes.
+var ErrTagNameTooLong = errors.New("tag: name is too long")
+
 // canonicalTable maps a name-identity entity type to its canonical table. entityType
 // is a trusted internal literal (never user input), so composing it into SQL is safe.
 func canonicalTable(entityType string) string {
@@ -81,6 +85,18 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	name = strings.TrimSpace(name)
 	externalID = strings.TrimSpace(externalID)
 
+	// 0. Deny-list (tags only, ADR-075 D2): checked before the resolve order
+	// below, so a denied term is refused even if a tags row for it already
+	// exists from before it was denied -- denial blocks future association,
+	// not just row creation.
+	if entityType == model.EntityTag {
+		if denied, err := isTagDenied(ctx, tx, name); err != nil {
+			return 0, err
+		} else if denied {
+			return 0, ErrTagDenied
+		}
+	}
+
 	// 1. External-id first (studios, ADR-054/055): a company id owns exactly one entity.
 	if externalID != "" && entityType == model.EnrichEntityStudio {
 		var id int64
@@ -94,10 +110,23 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	}
 
 	// 2-3. Canonical nameKey, then alias key → canonical entity (survives merges).
+	// Runs before the length cap below so a tags row that predates the cap (the
+	// scanner had none before ADR-075 item 11) still resolves instead of becoming
+	// permanently unreachable.
 	if id, ok, err := lookupByNameKey(ctx, tx, q, entityType, name); err != nil {
 		return 0, err
 	} else if ok {
 		return id, attachExternalID(ctx, tx, entityType, id, externalID)
+	}
+
+	// 3b. Length cap (tags only, ADR-075 item 11): the rename/alias HTTP handlers
+	// already cap at model.MaxNameLen runes, but manual attach and materialization
+	// call straight in here, bypassing them -- moved into the one choke point every
+	// tag-creation path (scanner included) shares, per this ADR's own
+	// single-choke-point reasoning for the deny-list above. Only gates *creating* a
+	// new row (it runs after the lookup above), not resolving an existing one.
+	if entityType == model.EntityTag && len([]rune(name)) > model.MaxNameLen {
+		return 0, ErrTagNameTooLong
 	}
 
 	// 4. Create, then flag any loose-key near-miss for the review queue (F43 S5,

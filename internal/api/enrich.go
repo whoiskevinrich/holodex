@@ -236,8 +236,9 @@ func (h *Handlers) enrichVideoApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "enrichment failed")
 		return
 	}
-	// A new/changed studio candidate can move the resolved studio value → relink (F38).
-	h.relinkStudios(r.Context(), id)
+	// Shared post-apply side effects (F38 studio relink, F50 P0-9 tag materialization)
+	// — the same dispatcher Refresh/Refresh-all use, so manual apply doesn't skip them.
+	h.afterEnrichApply(r, model.EnrichEntityVideo, id)
 	writeJSON(w, http.StatusOK, map[string]any{"enriched": fields})
 }
 
@@ -256,8 +257,10 @@ func (h *Handlers) enrichVideoClear(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "clear video enrichment", err)
 		return
 	}
-	// Clearing a provider can change the resolved studio value → relink (F38).
-	h.relinkStudios(r.Context(), id)
+	// Clearing a provider can change the resolved studio/genres value just as much
+	// as applying one — same shared dispatcher enrichVideoApply/Refresh use, so a
+	// clear doesn't skip studio relink (F38) or tag materialization (F50 P0-9).
+	h.afterEnrichApply(r, model.EnrichEntityVideo, id)
 	w.WriteHeader(http.StatusNoContent)
 }
 

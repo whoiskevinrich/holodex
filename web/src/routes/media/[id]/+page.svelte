@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { afterNavigate, goto } from '$app/navigation';
-	import { api } from '$lib/api';
+	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
-	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage } from '$lib/format';
+	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
+	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage, videoCount } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
@@ -68,6 +69,18 @@
 	// refreshStatus is the inline aria-live outcome line (no toast system).
 	let refreshing = $state(false);
 	let refreshStatus = $state<{ tone: 'muted' | 'warn'; text: string } | null>(null);
+
+	// Video↔tag attach/detach (F50, ADR-075 P0-8) — the owner-only add/remove chips.
+	// tagAddOpen reveals the add-tag input (a UI-only toggle, not a mutation).
+	// tagJustAdded remembers the tag the last successful add resolved to, so "Use
+	// existing" (below) knows which link to drop when swapping onto the near-miss.
+	let tagAddOpen = $state(false);
+	let tagAddValue = $state('');
+	let tagInput = $state<HTMLInputElement | null>(null);
+	let tagBusy = $state(false);
+	let tagError = $state('');
+	let tagNearMiss = $state<EntityRef | null>(null);
+	let tagJustAdded = $state<EntityRef | null>(null);
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -269,6 +282,96 @@
 		}
 	}
 
+	// Video↔tag attach/detach (F50, ADR-075 P0-8/P0-7).
+
+	function resetTagForm() {
+		tagAddValue = '';
+		tagError = '';
+		tagNearMiss = null;
+		tagJustAdded = null;
+	}
+
+	async function openTagAdd() {
+		resetTagForm();
+		tagAddOpen = true;
+		await tick();
+		tagInput?.focus();
+	}
+
+	function closeTagAdd() {
+		resetTagForm();
+		tagAddOpen = false;
+	}
+
+	// Shared busy/error/finally scaffolding for the three tag mutations below.
+	// formatError lets a caller (submitTagAdd) turn a specific status into its own
+	// copy; everything else falls back to the page's usual toMessage(err).
+	async function runTagAction(fn: () => Promise<void>, formatError?: (err: unknown) => string) {
+		if (tagBusy) return;
+		tagBusy = true;
+		tagError = '';
+		try {
+			await fn();
+		} catch (err) {
+			tagError = formatError ? formatError(err) : toMessage(err);
+		} finally {
+			tagBusy = false;
+		}
+	}
+
+	function submitTagAdd(e: SubmitEvent) {
+		e.preventDefault();
+		const name = tagAddValue.trim();
+		if (!name) return;
+		runTagAction(
+			async () => {
+				const { tag } = await api.addVideoTag(id, name);
+				tagJustAdded = { id: tag.id, name: tag.name };
+				// Fire-and-forget: the detail refetch and the near-miss check are
+				// independent, so don't serialize them (mirrors /tags' reload()-then-
+				// nearMiss() concurrency).
+				void reloadDetail();
+				// Non-blocking near-miss (mirrors /tags' actionNearMiss, F43 P1-5): advisory,
+				// shown after the attach already succeeded.
+				const nm = await api.nearMiss('tag', tag.id, name).then((r) => r.near_miss);
+				if (nm) {
+					tagNearMiss = nm;
+				} else {
+					closeTagAdd();
+				}
+			},
+			(err) =>
+				err instanceof ApiError && err.status === 422
+					? `'${name}' is on the deny-list.`
+					: toMessage(err)
+		);
+	}
+
+	// "Use existing": swap this video's just-added tag for the near-miss it looks
+	// like — attach-by-name resolves the near-miss's exact name to its existing id
+	// (no new row), then detach the tag the add just created/resolved. Sequenced,
+	// not concurrent: if the add fails, the just-added tag is left alone (no
+	// data loss); only once the add has actually succeeded does the swap remove
+	// it, so a failure here leaves both tags attached instead of neither.
+	async function useTagNearMiss() {
+		if (!tagNearMiss || !tagJustAdded) return;
+		const nearMissName = tagNearMiss.name;
+		const justAddedId = tagJustAdded.id;
+		await runTagAction(async () => {
+			await api.addVideoTag(id, nearMissName);
+			await api.removeVideoTag(id, justAddedId);
+			await reloadDetail();
+			closeTagAdd();
+		});
+	}
+
+	function removeTag(tagId: number) {
+		runTagAction(async () => {
+			await api.removeVideoTag(id, tagId);
+			await reloadDetail();
+		});
+	}
+
 	async function onApplied(f: EnrichedField[]) {
 		enriched = f;
 		await reloadDetail();
@@ -403,16 +506,93 @@
 			</div>
 		</header>
 
-		{#if video.tags?.length}
+		{#if isOwner || video.tags?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
-				<div class="flex flex-wrap gap-2">
-					{#each video.tags as t (t.id)}
-						<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
-							{t.name}
-						</a>
+				<div class="flex flex-wrap items-center gap-2">
+					{#each video.tags ?? [] as t (t.id)}
+						{#if isOwner}
+							<!-- Editable chip (P0-8): reuses CurationChip's pill + hover-reveal
+							     remove + ·provenance suffix idiom (curation-chip/curation-actions
+							     from app.css), adapted for a Tag rather than a ResolvedValue. -->
+							<span
+								class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
+							>
+								<a href={`/tags/${t.id}`} class="hover:text-accent focus-visible:text-accent">{t.name}</a>
+								{#if t.source && t.source !== 'manual'}
+									<span class="{t.source.startsWith('provider:') ? 'text-accent' : 'text-muted'} text-[0.65rem]">
+										·{t.source.startsWith('provider:') ? t.source.slice('provider:'.length) : t.source}
+									</span>
+								{/if}
+								<span class="curation-actions ml-0.5 inline-flex items-center">
+									<button
+										type="button"
+										onclick={() => removeTag(t.id)}
+										disabled={tagBusy}
+										aria-label={`Remove tag ${t.name}`}
+										title={t.source === 'file'
+											? 'Removing a file-sourced tag may reappear on the next rescan'
+											: undefined}
+										class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
+									>
+										×
+									</button>
+								</span>
+							</span>
+						{:else}
+							<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
+								{t.name}
+							</a>
+						{/if}
 					{/each}
+
+					{#if isOwner}
+						{#if tagAddOpen}
+							<form onsubmit={submitTagAdd} class="inline-flex items-center gap-2">
+								<input
+									bind:this={tagInput}
+									bind:value={tagAddValue}
+									type="text"
+									placeholder="Add a tag"
+									aria-label="Add a tag"
+									class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+								/>
+								<button type="submit" disabled={tagBusy} class="btn-accent px-3 py-1.5 text-sm">Add</button>
+								<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-quiet px-3 py-1.5 text-sm">
+									Cancel
+								</button>
+							</form>
+						{:else}
+							<button type="button" onclick={openTagAdd} class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button>
+						{/if}
+					{/if}
 				</div>
+
+				{#if tagNearMiss}
+					<!-- Non-blocking near-miss nudge (F43 P1-5, verbatim copy from /tags'
+					     actionNearMiss card) — the attach already succeeded; this only offers
+					     to consolidate onto the look-alike instead. -->
+					<div class="flex flex-wrap items-center gap-2 rounded-theme border border-rule bg-surface-2 px-3 py-2">
+						<p class="text-sm text-ink">
+							Looks a lot like <span class="font-semibold">{tagNearMiss.name}</span>
+							({videoCount(tagNearMiss.video_count ?? 0)}) — use that instead?
+						</p>
+						<button
+							type="button"
+							onclick={useTagNearMiss}
+							disabled={tagBusy}
+							class="btn-accent px-3 py-1.5 text-sm"
+						>
+							Use existing
+						</button>
+						<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
+							Add as new anyway
+						</button>
+					</div>
+				{/if}
+				{#if tagError}
+					<p class="text-sm text-warn">{tagError}</p>
+				{/if}
 			</section>
 		{/if}
 

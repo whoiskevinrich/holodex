@@ -83,6 +83,23 @@ export interface Tag {
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
 	// /tags list and the tag-detail read; omitted (undefined) elsewhere.
 	aliases?: PersonAlias[];
+	// Per-video provenance — "file" | "manual" | "provider:<name>" (F50, ADR-075 D3).
+	// Present only on Video.tags; absent elsewhere (no single video context for it).
+	source?: string;
+	// The broader tag this tag sits under, or absent at the root (F50, ADR-075 D1).
+	// Present on both the /tags list and the tag-detail read.
+	parent_tag_id?: number;
+	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
+	// Present only on the tag-detail read (getTag); absent on the /tags list.
+	ancestors?: string[];
+}
+
+// DeniedTag is one globally blocked term (F50, ADR-075 D2) — exact-match,
+// case-insensitive, unconditioned on any entity or provider. Served by the
+// owner's /owner/tags "Deny-list" tab.
+export interface DeniedTag {
+	term: string;
+	created_at: string;
 }
 
 // Studio is a first-class entity (F38, ADR-053). Same read shape as Tag; its name is

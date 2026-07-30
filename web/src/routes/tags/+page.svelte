@@ -33,7 +33,7 @@
 	// Per-pill ⋯ menu: one open at a time. The popover swaps between the action list and an
 	// inline rename/alias editor; "Merge into…" opens the shared EntityPicker instead.
 	let openMenu = $state<number | null>(null);
-	let menuAction = $state<'menu' | 'rename' | 'alias'>('menu');
+	let menuAction = $state<'menu' | 'rename' | 'alias' | 'parent'>('menu');
 	let actionValue = $state('');
 	let actionBusy = $state(false);
 	let actionError = $state('');
@@ -119,7 +119,7 @@
 		else openMenuFor(id);
 	}
 
-	async function startAction(kind: 'rename' | 'alias', tag: Tag) {
+	async function startAction(kind: 'rename' | 'alias' | 'parent', tag: Tag) {
 		menuAction = kind;
 		actionValue = kind === 'rename' ? tag.name : '';
 		actionError = '';
@@ -204,6 +204,42 @@
 		} finally {
 			actionBusy = false;
 		}
+	}
+
+	// ── Hierarchy: set/clear parent (F50 S8, ADR-075 D1 P1-2) ────────────────────────
+	// Typeahead resolves against the already-loaded `tags` list (no new search
+	// endpoint, per the design handoff) — an exact case-insensitive name match,
+	// excluding the tag itself.
+	async function applyParent(tag: Tag, parentId: number | null) {
+		if (actionBusy) return;
+		actionBusy = true;
+		actionError = '';
+		try {
+			const res = await api.setTagParent(tag.id, parentId);
+			if (res.cycle) {
+				// Straight passthrough of the ADR-075 D1 server-side cycle guard.
+				actionError = `Can't set ${tag.name} as its own ancestor.`;
+				return;
+			}
+			closeMenu();
+			reload();
+		} catch (err) {
+			actionError = toMessage(err);
+		} finally {
+			actionBusy = false;
+		}
+	}
+
+	function submitParent(e: SubmitEvent, tag: Tag) {
+		e.preventDefault();
+		const name = actionValue.trim();
+		if (!name || actionBusy) return;
+		const match = tags.find((x) => x.id !== tag.id && x.name.toLowerCase() === name.toLowerCase());
+		if (!match) {
+			actionError = `No tag named "${name}".`;
+			return;
+		}
+		applyParent(tag, match.id);
 	}
 
 </script>
@@ -321,6 +357,14 @@
 									<button
 										role="menuitem"
 										type="button"
+										onclick={() => startAction('parent', t)}
+										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+									>
+										{t.parent_tag_id ? 'Change parent…' : 'Set parent…'}
+									</button>
+									<button
+										role="menuitem"
+										type="button"
 										onclick={() => {
 											mergeInto = t;
 											openMenu = null;
@@ -360,6 +404,55 @@
 											<p class="text-sm text-warn">{actionError}</p>
 										{/if}
 									</div>
+								{:else if menuAction === 'parent'}
+									<!-- Hierarchy: set/clear parent (P1-2). Typeahead is a <datalist> over the
+									     already-loaded tag list -- no new search endpoint. -->
+									<form onsubmit={(e) => submitParent(e, t)} class="space-y-2 p-1">
+										{#if t.parent_tag_id}
+											{@const parentName = tags.find((x) => x.id === t.parent_tag_id)?.name}
+											<p class="text-sm text-ink">
+												Parent: {parentName ?? '—'}
+												<button
+													type="button"
+													onclick={() => applyParent(t, null)}
+													disabled={actionBusy}
+													class="btn-quiet ml-1"
+												>
+													Clear
+												</button>
+											</p>
+										{/if}
+										<input
+											bind:this={actionInput}
+											bind:value={actionValue}
+											type="text"
+											list={`parent-options-${t.id}`}
+											placeholder="New parent tag"
+											aria-label={`Set parent for ${t.name}`}
+											class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+										/>
+										<datalist id={`parent-options-${t.id}`}>
+											{#each tags.filter((x) => x.id !== t.id) as opt (opt.id)}
+												<option value={opt.name}></option>
+											{/each}
+										</datalist>
+										<div class="flex flex-wrap gap-2">
+											<button type="submit" disabled={actionBusy} class="btn-accent px-3 py-1.5 text-sm">
+												Set parent
+											</button>
+											<button
+												type="button"
+												onclick={() => closeMenu()}
+												disabled={actionBusy}
+												class="btn-ghost px-3 py-1.5 text-sm"
+											>
+												Cancel
+											</button>
+										</div>
+										{#if actionError}
+											<p class="text-sm text-warn">{actionError}</p>
+										{/if}
+									</form>
 								{:else}
 									<!-- Inline rename/alias editor. A collision offers a merge instead of a
 									     silent fold (never auto-merge homonyms). -->

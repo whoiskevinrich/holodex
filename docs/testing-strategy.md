@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -180,6 +180,12 @@ assert.JSONEq(t, string(want), string(got))
 | **Derived-field engine — formulas + `Derive`** (ADR-063, F45) | Unit | `deriveAge`/`deriveAgeAtDeath` present/absent/**unparseable** input, deathdate-branch (⇒ no running age), `floor`, **leap-day boundary** (2000-02-29 crosses once); `Derive(resolved, now)` **purity** (fixed `now` → deterministic, no I/O), stamping (`Computed`, `computed:` source, **nil** Decision), **mutual exclusion** (exactly one of age/age-at-death), ordering (row adjacent to `birthdate`); **grep guard**: no `time.Now` in `internal/resolver/` (AC-8) | 100% (formulas) |
 | **Computed provenance token + guard** (ADR-063, F45, §D3) | Unit + Integration | `fieldsource.ForComputed`/`IsComputed`; `computed` **excluded from `Valid()`/`ForNamespace()`** (`Valid("computed:age")==false`); decision endpoint **rejects 400** a `Computed` canonical / any `computed:` source, writes nothing to `field_source_decisions` | ~95% |
 | **Derived person fields — API** (ADR-063, F45, FR5/FR7) | Integration | `personResolved` (with a fixed `Handlers.now`) emits derived rows in `resolved[]` for a birthdate-bearing person, **omits** otherwise; **owner == visitor** payload (D3); row carries `computed:true`, `winning_source:"computed:age"`, `derived_from:["Birthdate"]`, **no** decision/candidates/in_sync; **time-varying** — advancing `now` increments Age with **no DB write**; golden no-op when no birthdate | ~90% |
+| **Tag provenance + rescan-safe sync** (ADR-075 D3, F50 P0-1) | Integration | `video_tags` gains `source TEXT NOT NULL DEFAULT 'file'`; `replaceAssociations()` narrows from unconditional `DELETE ... WHERE video_id=?` to `DELETE ... WHERE video_id=? AND source='file'`, reinserting only the file-derived set (`INSERT OR IGNORE`, so a file tag colliding with an existing manual/provider row on the same `tag_id` is a no-op, not an error); the single highest-value test in this spec: seed a video with one `file`, one `manual`, one `provider:tmdb` tag, rescan, assert only the `file` row was touched and the other two are byte-identical rows (same `created_at`) | ~95% |
+| **Tag deny-list enforcement** (ADR-075 D2, F50 P0-2/P0-3) | Integration | `denied_tags(term_key PK, term, created_at)`; the guard sits *inside* `resolveOrCreateByName` gated on `entityType==tag`, so it's enforced identically at all three callers — table-driven over scanner (`replaceAssociations`, denied term **skipped silently**, scan continues), manual attach endpoint (`ErrTagDenied` → **422**), and the materialization pass (skipped silently, no partial failure of the enrich-apply). Exact-string case-insensitive **not substring**: denying `gnome` must not block `garden gnome` or `Gnomes`; denying `Gnome` must still catch `GNOME`/`gnome ` (nameKey fold) | ~95% |
+| **Tag hierarchy** (ADR-075 D1, F50 P0-4/P0-5) | Unit + Integration | Cycle guard walks the proposed parent's full ancestor chain before commit and rejects if the tag being reparented appears in it (table-driven: direct parent-of-self, grandparent-of-self, and a same-tree sibling that is *not* an ancestor must succeed); `WITH RECURSIVE` descendant expansion for tag-filtered browse/search returns a tag **and every descendant**, computed fresh per query (no denormalized cache to go stale); merge-driven reparenting — merging a tag with children reparents the children onto the survivor **in the same transaction** as the existing alias-registration + `video_tags` move, asserted atomically (a failed merge leaves children on the original parent, never orphaned) | ~90% |
+| **Enrichment tag materialization** (ADR-075 D4, F50 P0-6) | Integration | Resolved `genres` values materialize into real `tags` rows via `resolveOrCreateByName(tag, name, source='provider:<name>')`, `INSERT OR IGNORE` into `video_tags`; **idempotent** — re-enriching the same video N times leaves exactly the same `video_tags` rows (no duplicate inserts, no duplicate alias chains); **alias-canonicalizing** — a provider value that is an existing alias (e.g. `"azure"`) attaches under its canonical name (`"blue"`), asserted by inspecting the inserted row's `tag_id`, never a second `azure` tag; a denied term in the resolved `genres` set is skipped the same as any other deny-list path (not a special case) | ~90% |
+| **Tag attach/detach endpoints** (F50 P0-7/P0-8) | Integration | New `POST/DELETE /api/v1/videos/{id}/tags`, `requireOwner`-gated (**401** unauth); attach routes through `resolveOrCreateByName(source='manual')` — same near-miss/collision surface `/tags`' own rename/alias flow already exercises, so this reuses that test fixture rather than duplicating it; detach removes only the one `(video_id, tag_id)` row (a tag shared by other videos is untouched); denied-term attach returns **422** with the term named, not a generic error | ~90% |
+| **Genre writeback — ancestor chain + dual-filter** (F50 P0-9/P0-10) | Integration | Writeback assembles the full ancestor chain per tag (`"Animal; Dog; German Shepherd"`, ADR-041's existing `genres`→`Genre` container mapping unchanged — this only changes what feeds the field); the **union of curated tags and raw TMDB genres** is deny-list-filtered on **both** sides before assembly — the regression case is a denied term present only in the raw TMDB `genres` value (never materialized as a `tags` row) reaching the file if only the curated side were filtered; table-driven over "denied in curated only", "denied in TMDB-raw only", "denied in both" | ~90% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -220,6 +226,11 @@ assert.JSONEq(t, string(want), string(got))
 - **A manual edit is a one-time-import boundary for extraction** (F48/ADR-067, spec "Manual-edit precedence"): once a field carries a `manual:` source (F30), a later extraction that disagrees always queues for review, never auto-applies over it — extraction treats a prior manual edit as the owner having already made the call, the same precedence F36's decision short-circuit already gives a `manual` decision elsewhere.
 - **A revert is byte-for-byte, and revertible itself** (F48.9/ADR-067 §2): reverting a completed batch restores every snapshotted field to its exact pre-write value (asserted against `file_writeback_snapshots.prior_value`, not a re-derived guess) — and the revert is itself a normal, re-snapshotted writeback job, so a bad revert can be undone the same way a bad extraction batch can.
 - **Merge propagation never touches the filename** (F48.8e, spec Non-Goals): a Person/Studio merge rewrites only the embedded tag on affected files; the on-disk filename is untouched until the separate, not-yet-built rename-schema feature ([HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192)) ships — a merge test asserting a changed *path* would be testing the wrong feature.
+- **Rescan never destroys a non-file tag association** (F50/ADR-075 D3): `replaceAssociations()` deletes and reinserts only `video_tags` rows with `source='file'` — a manually-added or provider-materialized tag survives any number of rescans untouched. This is the one bug this whole spec exists to fix; a test asserting the old unconditional-delete behavior is asserting the bug.
+- **The tag deny-list is exact-string, case-insensitive, never substring, and unbypassable** (F50/ADR-075 D2): the guard lives inside `resolveOrCreateByName` itself, not at each caller — so no future call site can create a denied tag by forgetting to check. `"Gnome"` blocks `"gnome"`/`"GNOME "` (nameKey fold) but never `"Garden Gnome"`.
+- **A hierarchy edit can never create a cycle** (F50/ADR-075 D1): the reparent guard walks the *full* ancestor chain of the proposed parent before committing — a tag can never become its own ancestor, directly or transitively, and the rejection names the offending tag rather than failing silently.
+- **Tag materialization is idempotent and alias-canonicalizing** (F50/ADR-075 D4): re-enriching a video any number of times produces the same `video_tags` rows as enriching it once, and a materialized alias term always attaches and writes back under its *canonical* name — an aliased provider value (`"azure"`) must never appear as a second, spelling-variant tag (`"azure"` alongside `"blue"`).
+- **Genre writeback's TMDB-raw union side is deny-list-filtered too** (F50 RD9 follow-up): a denied term reaching the file via the *raw* TMDB `genres` union — never materialized as a `tags` row, so invisible to a curated-tags-only filter — is the specific gap the owner caught during spec review; both sides of the union pass through the same deny-list check before assembly.
 
 ---
 
@@ -254,6 +265,9 @@ assert.JSONEq(t, string(want), string(got))
 | **Extraction tab + `ExtractionQueueRow`** (F48.6, ADR-067) | Component/Interaction + visual | Vitest + Playwright | `owner/extraction/+page.svelte` groups pending rows **by video** (not by entity type, a deliberate divergence from Enrichment), sorted most-fields-pending-first (ties by filename); within a group, fields render People→Studio→Title→Release Date→other; **zero** network calls beyond the list fetch on load (mirrors Duplicates/Enrichment's zero-cost pattern); non-entity row actions (Accept filename/Edit…/Accept tag/Dismiss) render only when their underlying data exists; an empty-side value renders `— (empty)` in `text-muted italic`, never blank space; **entity fields render one chip per parsed name** (HOLODEX-196 #1/#5, ADR-068 D2) marked *exists*/*new* — clicking a chip opens `EntityPickerDialog` seeded on that name and swaps it (existing or new) without disturbing the others, `×` removes one, and **"Accept cast"** stages the whole edited list (verified: editing one of three chips still writes all three; a single studio chip is the mistyped-studio fix); **"Extract all"** shows a running notice + bounded auto-refresh and a manual **Refresh** reloads in place without the full-screen loading state (HOLODEX-196 #2); confidence shown as a tier label (Strong/Weak/Conflict), never a raw percentage; owner-only (absent from DOM for non-owner); **all 3 skins** (`rg` token guard clean, chip *exists*/*new* colors resolve in Cinémathèque/Broadcast/Brutalist) |
 | **Preview-before-write dialog** (F48.7, `WritebackFormDialog` diff mode) | Component/Interaction + visual | Vitest + Playwright | Row body renders the old value struck through (`decoration-warn` on the strike, **not** `text-warn` on the text itself) → arrow → new value `text-accent font-medium`; the existing per-row checkbox is retained, an unchecked row is skipped at write time and the submit button stays disabled at `checkedCount===0` (existing `WritebackFormDialog` guard, unchanged); a contextual "skip preview next time" checkbox surfaces only for auto-applied batches (F48.7b), unchecked by default, and never appears for a manually-resolved batch (F48.7a) since the owner explicitly asked to review those |
 | **Revert control (System Activity)** (F48.9d) | Component/Interaction + visual | Vitest + Playwright | Button renders only on an activity row carrying a `batch_id`; click → busy "Reverting…" (`aria-live="polite"`) → success shows an inline "Reverted" status line under the original entry (not a new row) → failure surfaces `text-warn` inline, same convention as every other activity-row failure state; a reverted batch's own Revert control disappears, but the new revert job's own activity row gets its own Revert button (F48.9c — no special-cased UI, it's just another `batch_id`-bearing row) |
+| **Media-page tag chips** (F50 P0-8, [design handoff](design/tag-governance-and-video-enrichment-handoff.md) §1) | Component/Interaction + visual | Vitest + Playwright | Owner-only remove `×` revealed via the existing `.curation-actions` hover/focus-within class (absent from DOM entirely for a visitor — same chips as today); `·provenance` suffix renders for `file`/`provider:<name>` sources and is **suppressed** for `manual`; add-input reuses `/tags`' own inline-editor classes; a denied-term submission shows an inline `text-warn` rejection (not a silent no-op); a near-miss submission renders the **same** near-miss card `/tags` already has (component reuse, not a second implementation) |
+| **Deny-list tab** (F50 P1-1, handoff §2) | Component/Interaction + visual | Vitest + Playwright | New `/owner/tags` ("Deny-list") tab appears in the Owner tab row only for an owner; add/remove rows round-trip against the list; empty-state copy matches `/tags`'/Duplicates' existing empty-state pattern; a non-owner hitting the route directly redirects home (same gate every other `/owner/*` page has) |
+| **Hierarchy pill-menu action** (F50 P1-2/P1-3, handoff §3) | Component/Interaction + visual | Vitest + Playwright | `/tags`' existing pill ⋯ menu gains **Set parent…** (relabels to **Change parent…** + shows **Parent: {name}** + **Clear** once one is set); a cycle-rejecting server response surfaces through the menu's existing `actionError` slot (no new error UI); `/tags/{id}`'s optional ancestor breadcrumb (via `EntityVideos`' `hero` snippet) renders only when ancestors exist, absent for a root tag |
 
 ---
 
@@ -994,6 +1008,57 @@ provider-scoped**, **suppression is unconditional**, **a claim can never suppres
   asserting the old doubled rendering is asserting the bug; update it rather than preserving it. Release
   note required.
 
+**Tag governance & video enrichment (F50, ADR-075, HOLODEX-224)** — extends F43's tag identity spine
+with a global deny-list, a strict one-parent hierarchy, automatic materialization of video-enrichment
+`genres` into real Tag rows, owner-editable tag chips on the media page, and full-ancestor-chain genre
+writeback. Also fixes a latent correctness gap found while spec'ing this feature: `video_tags` carries no
+provenance today, so `replaceAssociations()`'s unconditional delete-and-reinsert on every rescan would
+silently wipe any manually-added or enrichment-derived tag the moment either of those write paths
+existed. **This PR (spec + ADR-075 + design handoff + this testing-strategy update) is docs-only — none
+of S1–S9 is built yet**, so the §4/§5 rows and Critical invariants above are the *target*. Fully
+CI-testable, no new network surface — deny-list/hierarchy/materialization are pure DB + resolver-layer
+changes reusing F43's already-shipped `resolveOrCreateByName`/`entity_aliases`/near-miss machinery rather
+than reimplementing it. Cardinal invariants: **rescan never destroys a non-file tag association**, **the
+deny-list is unbypassable because it lives inside the resolver, not at each caller**, **a hierarchy edit
+can never create a cycle**, **materialization is idempotent and alias-canonicalizing** (all four above,
+§"Critical invariants"). Maps to the [design handoff's QA
+checklist](design/tag-governance-and-video-enrichment-qa-checklist.md); `/tags`' existing pill ⋯ menu
+(rename/alias/merge) and its near-miss card are the direct structural precedent for both the hierarchy
+menu action and the media-page add-tag flow's collision handling.
+- **S1 — `video_tags` provenance + `replaceAssociations` fix** (P0-1, ADR-075 D3): ships first,
+  independently of any new feature — it is a latent bug fix, not new surface area. The single
+  highest-value test in this spec (§4 row above); every later slice's tests depend on this one being
+  correct, since S4/S5 are the write paths whose data S1 stops the scanner from silently destroying.
+- **S2 — deny-list** (P0-2/P0-3, ADR-075 D2): table-driven across all three enforcement call sites
+  (scanner/manual-attach/materialization) sharing one assertion helper, since they route through the same
+  `resolveOrCreateByName` guard — a passing S2 suite that only exercises one call site would miss a
+  regression at the other two.
+- **S3 — hierarchy** (P0-4/P0-5, ADR-075 D1): cycle-guard boundary cases (self, direct parent, deep
+  ancestor, unrelated sibling) plus the recursive descendant-expansion query, which is the one piece of
+  this slice with no F43 precedent to reuse — write it as its own fixture (a 4-level tag tree) rather than
+  bolting it onto an existing one.
+- **S4 — video tag attach/detach + media-page UI** (P0-7/P0-8, handoff §1): backend endpoint tests plus
+  the Vitest/Playwright rows in §5 above; the near-miss/collision-handling assertions can be lifted nearly
+  verbatim from `/tags`' existing `actionNearMiss` test fixture rather than re-authored.
+- **S5 — enrichment materialization** (P0-6, ADR-075 D4): idempotency (re-enrich N times, assert row
+  count) and alias-canonicalization are the two assertions that matter; the deny-list-skip case is a
+  regression guard proving S5 didn't grow a fourth, un-tested enforcement path outside S2's table.
+- **S6 — genre writeback** (P0-9/P0-10): ancestor-chain flattening plus the dual-filter regression case
+  (§4 row above) — write the "denied only in TMDB-raw" case explicitly, since it's the exact gap the owner
+  caught during spec review and the easiest one for an implementer to reintroduce.
+- **S7 — merge reparenting** (P1, ADR-075 D1 merge extension): extends F43/ADR-061's existing person/
+  studio/tag merge test suite with the children-reparent-onto-survivor assertion, rather than a parallel
+  merge test path — mirrors how F48.8 (merge→writeback) extended F23.9's person-merge suite instead of
+  duplicating it.
+- **S8 — P1 management UI** (deny-list tab, hierarchy pill-menu action, handoff §2-3): the §5 rows above;
+  cross-reference rather than duplicate the [QA
+  checklist](design/tag-governance-and-video-enrichment-qa-checklist.md)'s manual/agent layer — that
+  checklist owns 3-skin visual verification, this suite owns interaction/state-transition correctness.
+- **Security** (`/security-review`, spec Timeline step 4): the new mutations (`videos/{id}/tags`,
+  `tags/{id}/parent`, `owner/tags/denylist`) are all `requireOwner`-gated — no new ungated surface; no new
+  externally-influenced input beyond what F43 already validates (tag names go through the same sanitize
+  perimeter materialization and manual-attach both already share).
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -1375,3 +1440,4 @@ Then Carol is KEPT (authored-identity guard); a plain orphan past 30 days is del
 - **F47 enrichment review workflow (ADR-066, HOLODEX-186)**: spec + ADR + design handoff landed 2026-07-12; the test plan above (§4/§5/Phase 3/Critical invariants) is written ahead of S1–S4 implementation — none of it is automated yet. Not a silent gap: tracked against the spec's Timeline step 3.
 - **F48 on-demand metadata extraction (ADR-067, HOLODEX-191/192)**: spec + ADR-067 + design handoff + QA checklist landed 2026-07-14; the test plan above (§4/§5/Phase 3/Critical invariants) is written ahead of F48.1–F48.11 implementation — none of it is automated yet. Not a silent gap: tracked against the spec's own Phasing (§Phasing) and ADR-067's Action Items 2–3 (auto-apply stays flagged log-only, and rollback must land, before any write goes live).
 - **Scroll-restoration E2E reliability** (ADR-032): the QW4 Back-restoration assertion depends on layout settling before the scroll check; allow a small Y tolerance and wait for the cached grid to paint, or it will flake. First scroll-restoration test in the suite — treat as the reference pattern.
+- **F50 tag governance & video enrichment (ADR-075, HOLODEX-224)**: spec + ADR-075 + design handoff + QA checklist landed 2026-07-29; the test plan above (§4/§5/§9/Critical invariants) is written ahead of S1–S9 implementation — none of it is automated yet. Not a silent gap: tracked against the epic's own gate checklist and the spec's suggested slice order (S1 first, as the standalone correctness fix).

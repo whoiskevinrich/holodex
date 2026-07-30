@@ -181,6 +181,58 @@ func TestTagMergeSurvivesRescan(t *testing.T) {
 	}
 }
 
+// TestTagMergePreservesProvenance covers the source-carrying fix for merge's
+// move-associations step: when a merge creates a *new* video_tags link on the
+// survivor (the video wasn't already attached there), that link must carry
+// the loser's source, not silently fall back to the column's 'file' default
+// -- otherwise the next rescan's source='file'-scoped delete could drop a
+// link the owner explicitly attached.
+func TestTagMergePreservesProvenance(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if _, err := r.AttachTagToVideo(ctx, vid, "SciFi"); err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+	// The survivor tag exists via an unrelated video, so vid isn't already
+	// linked to it when the merge runs -- the merge must create that link.
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, []string{"Sci-Fi"}), nil); err != nil {
+		t.Fatalf("seed survivor tag video: %v", err)
+	}
+
+	loserID := tagIDByName(t, r, "SciFi")
+	survivorID := tagIDByName(t, r, "Sci-Fi")
+
+	if err := r.MergeEntities(ctx, model.EntityTag, survivorID, loserID); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+
+	got, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].ID != survivorID || got.Tags[0].Source != "manual" {
+		t.Fatalf("video.Tags after merge = %+v, want survivor tag with source=manual", got.Tags)
+	}
+
+	// A rescan of vid (no embedded tags) must not delete the merged-in manual
+	// link, since it carried source='manual', not 'file'.
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil); err != nil {
+		t.Fatalf("rescan: %v", err)
+	}
+	got, _, err = r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video after rescan: %v", err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].ID != survivorID {
+		t.Errorf("video.Tags after rescan = %+v, want the merged manual tag to survive", got.Tags)
+	}
+}
+
 func TestRenameStudioKeepsOldNameAsAlias(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

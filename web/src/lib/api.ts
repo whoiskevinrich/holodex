@@ -10,6 +10,7 @@ import type {
 	EnrichQueueRow,
 	EnrichSource,
 	DuplicatePair,
+	DeniedTag,
 	EntityKind,
 	EntityRef,
 	ExtractionQueueRow,
@@ -321,6 +322,35 @@ export const api = {
 	getTag: (id: number, fetchFn?: typeof fetch) =>
 		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
 
+	// Tag hierarchy (F50, ADR-075 D1) — the /tags pill-menu "Set parent…"/"Clear
+	// parent" action. parentId: null clears to root. A 400 with {cycle: true}
+	// means the proposed parent is the tag itself or one of its own descendants
+	// — surfaced as `cycle` (not thrown) so the caller can show the ADR-075
+	// D1 cycle message inline, mirroring addEntityAlias/renameEntity's own
+	// conflict-as-return-value shape rather than exception-based branching.
+	// The caller always reloads the tag list on success, so the mutated tag
+	// itself isn't parsed out of the response body.
+	setTagParent: async (id: number, parentId: number | null): Promise<{ cycle?: boolean }> => {
+		const path = `/tags/${id}/parent`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'POST',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ parent_id: parentId })
+		});
+		checkRedirect(res);
+		const body = (await res.json().catch(() => ({}))) as { cycle?: boolean };
+		if (res.status === 400) {
+			if (body.cycle) return { cycle: true };
+			throw new ApiError(res.status, path);
+		}
+		if (!res.ok) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	},
+
 	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
 	// random; random shuffled client-side). Detail carries resolved[] in the record
 	// vocabulary (no in_sync) plus the studio's videos.
@@ -428,6 +458,16 @@ export const api = {
 	refreshMedia: (videoId: number) =>
 		sendAuthed<RefreshReport>('POST', `/media/${videoId}/refresh`),
 
+	// Video↔tag attach/detach (F50, ADR-075 P0-7) — the media-page add/remove chips.
+	// addVideoTag resolves-or-creates by name (source='manual'); a 422 means the term
+	// is on the deny-list, a 400 means it's over the length cap — the caller reads
+	// `err.status` off the thrown ApiError to tell those apart (no structured body).
+	addVideoTag: (videoId: number, name: string) =>
+		sendAuthed<{ tag: Tag }>('POST', `/media/${videoId}/tags`, { name }),
+
+	removeVideoTag: (videoId: number, tagId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/tags/${tagId}`),
+
 	// Shared entity name-identity mutations (F43, ADR-061) — one owner-gated client trio
 	// over the per-entity routes (people | studios | tags), mirroring the F23 person shape.
 	// Person uses these too, so the AliasPanel/EntityPicker are entity-uniform; the person
@@ -519,6 +559,24 @@ export const api = {
 			id_a: idA,
 			id_b: idB
 		}),
+
+	// Tag deny-list (F50, ADR-075 D2) — the owner's /owner/tags "Deny-list" tab.
+	// A denied term is blocked from becoming a tag from any origin (scanner,
+	// manual attach, materialization). Denying is idempotent; removing an
+	// unknown term 404s. `existing_tag` reports whether the term already names
+	// a live tag (server-computed, so the UI doesn't re-fetch and scan the full
+	// tag list itself for the same answer) — denying is forward-only, so the
+	// caller surfaces this as a caveat, not a removal.
+	deniedTags: () => getAuthed<{ terms: DeniedTag[] }>(`/owner/tags/denylist`),
+
+	denyTag: (term: string) =>
+		sendAuthed<{ existing_tag?: boolean }>('POST', `/owner/tags/denylist`, { term }),
+
+	removeDeniedTag: (term: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/owner/tags/denylist?term=${encodeURIComponent(term)}`
+		),
 
 	// Filename metadata extraction (F48, ADR-067). All owner-gated.
 

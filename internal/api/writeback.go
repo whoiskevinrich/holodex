@@ -98,10 +98,40 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, _, err := h.repo.GetVideo(r.Context(), id)
+	v, extra, err := h.repo.GetVideo(r.Context(), id)
 	if err != nil {
 		h.videoLookupError(w, err)
 		return
+	}
+
+	// P0-10 (F50, ADR-075 RD9): a "genres" field write is sourced from the union of
+	// the video's attached tags (ancestor-expanded) and the deny-list-filtered raw
+	// resolved genres value, not whatever the client submitted for this field — so
+	// the file's Genre tag deterministically reflects current DB state. Runs before
+	// both paths below so neither can bypass it. There is only ever one meaningful
+	// "genres" entry, so stop at the first match rather than recomputing per
+	// duplicate if a client ever submits more than one. Uses the video already
+	// loaded above rather than GenreWritebackValues' own re-fetch.
+	for i, f := range body.Fields {
+		if f.Field != "genres" {
+			continue
+		}
+		values, gerr := h.genreWritebackValuesForVideo(r.Context(), v, extra)
+		if gerr != nil {
+			h.fail(w, "compute genre writeback values", gerr)
+			return
+		}
+		if len(values) == 0 {
+			// No attached tags and no resolved genre value: nothing to write for
+			// this field. Drop the entry outright rather than leaving it with an
+			// empty Values — the "each field entry requires field and values"
+			// guards below would otherwise reject the whole batch over a
+			// legitimately-empty genres union, not just skip that one field.
+			body.Fields = append(body.Fields[:i], body.Fields[i+1:]...)
+		} else {
+			body.Fields[i].Values = values
+		}
+		break
 	}
 
 	// Queued path (F30, ADR-048): when the durable queue is wired, sanitize and

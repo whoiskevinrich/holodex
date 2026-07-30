@@ -15,6 +15,7 @@
 		{ href: '/owner/keys', label: 'Metadata keys' },
 		{ href: '/owner/fields', label: 'Attached keys' },
 		{ href: '/owner/duplicates', label: 'Duplicates' },
+		{ href: '/owner/tags', label: 'Deny-list' },
 		{ href: '/owner/enrichment', label: 'Enrichment' },
 		{ href: '/owner/extraction', label: 'Extraction' },
 		{ href: '/owner/trash', label: 'Trash' }

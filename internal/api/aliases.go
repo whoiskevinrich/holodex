@@ -13,8 +13,9 @@ import (
 )
 
 // maxAliasLen bounds a stored alias (F23.1) — generous for any real name while
-// keeping the row and the FTS term sane.
-const maxAliasLen = 200
+// keeping the row and the FTS term sane. Derives from model.MaxNameLen (ADR-075
+// item 11) so this and resolveOrCreateByName's tag-length guard share one constant.
+const maxAliasLen = model.MaxNameLen
 
 // mountAliases registers the owner-gated person-alias mutations (F23, ADR-036).
 // Mounted inside the requireOwner group in Mount; the alias list itself is served

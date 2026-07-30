@@ -1,0 +1,154 @@
+---
+# Flightplan worklog — one epic, one worklog, one definition of done.
+# Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
+# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+key: HOLODEX-224                 # the tracker key; must match the branch key regex
+status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+depends-on: []               # [KEY-…] cross-epic deps that must land first
+release_note: A denied term can never become a tag, tags form a searchable broader/narrower hierarchy, and video enrichment automatically fills in real, mergeable genre tags.
+---
+
+# HOLODEX-224 · F50 Tag governance & video enrichment
+
+Extends F43's tag identity spine with a global deny-list, a strict one-parent hierarchy, automatic
+tag-materialization from video enrichment (TMDB `genres`), manual add/remove tag chips on the media page,
+and genre writeback. Done means all nine suggested slices (S1–S9) land, tested, and pass `/security-review`
+against the final implementation diff.
+
+**Design package:** [spec](../specs/tag-governance-and-video-enrichment.md) · [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) · [handoff](../design/tag-governance-and-video-enrichment-handoff.md) + [QA checklist](../design/tag-governance-and-video-enrichment-qa-checklist.md) · [testing-strategy §9](../../docs/testing-strategy.md) (F50 block)
+
+## Gates — definition of done
+
+- [x] spec `write-spec` → `docs/specs/tag-governance-and-video-enrichment.md`
+- [x] architecture `architecture` → ADR-075
+- [x] design `design-handoff` → design handoff + QA checklist
+- [/] backend — S1/S2/S3/S4/S5/S6 landed (provenance fix, deny-list, hierarchy, video↔tag attach/detach, enrichment materialization, genre writeback wiring); S7 remains
+- [/] frontend — media-page tag chips (S4) landed; deny-list tab + hierarchy pill-menu action (S8) not started
+- [/] testing `testing-strategy` → §9 F50 block written; per-slice tests land alongside each slice
+- [/] security `security-review` — design-level review complete (ADR-075 item 10); must re-run against the
+      final implementation diff before merge (standing policy)
+
+## Up next — ordered (position = priority)
+
+1. [x] [backend] S1 — `video_tags` provenance + `replaceAssociations` fix (P0-1, ADR-075 D3) — migration 0030
+2. [x] [backend] S2 — deny-list table + `resolveOrCreateByName` enforcement + management endpoints (P0-2/3) — migration 0031, `internal/api/tag_denylist.go`
+3. [x] [backend] S3 — hierarchy: `parent_tag_id` + cycle guard + descendant-inclusive filter/search (P0-4/5/6) — migration 0032, `internal/repo/tag_hierarchy.go`, `internal/api/tag_hierarchy.go`
+4. [x] [backend] S4 — video↔tag attach/detach endpoints + media-page UI (P0-7/8) — `internal/repo/video_tags.go`, `internal/api/video_tags.go`, `web/src/routes/media/[id]/+page.svelte`
+5. [x] [backend] S5 — enrichment materialization (P0-9) — `internal/api/tag_materialize.go`, `internal/api/enrich_review.go` `afterEnrichApply`, `internal/repo/video_tags.go` `AttachMaterializedTags`
+6. [x] [backend] S6 — genre writeback wiring (P0-10) — `internal/api/genre_writeback.go`, `internal/repo/tag_hierarchy.go` `TagNamesForVideo`, `internal/repo/tag_denylist.go` `IsTagDenied`, `internal/api/writeback.go`
+7. [ ] [backend] S7 — merge reparenting (P0-11) — `internal/repo/identity_ops.go`
+8. [ ] [frontend] S8 — P1 UI: deny-list tab, hierarchy pill-menu row action — `web/src/routes/owner/tags`, `web/src/routes/tags/+page.svelte`
+9. [ ] [—] S9 — QA + `/security-review` final pass before merge
+
+## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-30 · S6 — genre writeback wiring
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: `internal/api/genre_writeback.go`'s `GenreWritebackValues` (P0-10) computes RD9's value union for
+  a "genres" writeback: the video's attached tags, ancestor-expanded via the new
+  `internal/repo/tag_hierarchy.go`'s `TagNamesForVideo` (a `video_tags`-rooted `WITH RECURSIVE` walk UP
+  `parent_tag_id` — the upward mirror of `tagSubtreeQuery`'s existing downward descendant expansion), unioned
+  with the raw resolved `genres` field, with the raw side filtered through the new exported
+  `repo.IsTagDenied` (a non-tx sibling of the tx-scoped `isTagDenied` `resolveOrCreateByName` already uses)
+  before deduping case-insensitively. `internal/api/writeback.go`'s `writebackMedia` overrides any
+  client-submitted `"genres"` field's values with this computed union before either the queued or
+  synchronous write path consumes `body.Fields` — a deliberate choice, not a shortcut: the spec's own
+  framing ("when genre writeback is triggered, the file's Genre tag receives …") describes a deterministic
+  function of DB state, and the design handoff's "no layout change" for the writeback modal confirms the
+  client was never meant to hand-edit this field's values. `TagForField`/`ResolveForContainer` untouched, per
+  RD9. **Factored `resolvedField` out of `MaterializeVideoTags`** (S5) into a shared helper both it and
+  `GenreWritebackValues` now call — a third call site for the identical
+  GetVideo+Enrichment/Curation/DecisionsForEntity+`resolver.Resolve`-one-field sequence made the earlier S5
+  /simplify verdict (leave the duplication with `RelinkVideoStudios` alone, since its fallback semantics
+  genuinely differ) no longer the right call for *this* pair — `MaterializeVideoTags` and
+  `GenreWritebackValues` share the exact same no-op-on-missing-mapping/video shape, so unifying them was a
+  real simplification, not a forced one. `/simplify` (4 parallel agents) found and fixed: the dedup key in
+  `GenreWritebackValues` used bare `strings.ToLower` instead of this codebase's established trim+lower
+  convention (`resolver.normKey`/`repo.curationNorm`) — fixed as a local `genreDedupKey` helper (package
+  `api` can't import either unexported symbol); `isTagDenied`/`IsTagDenied` duplicated the same query/switch
+  under two names — collapsed onto `identity.go`'s existing `queryRower` interface (already satisfied by
+  both `*sql.Tx` and `*sql.DB`) so both the tx-scoped and exported callers share one function body; the
+  `writebackMedia` "genres" override loop didn't `break` after the first match, so a (currently impossible,
+  but unguarded) duplicate `"genres"` request entry would recompute the union redundantly — added the
+  `break`. **Declined, with reasoning**: efficiency flagged `IsTagDenied` called once per resolved genre
+  value (N+1) — batching would require either reimplementing `nameKeyExpr`'s fold in Go (identity.go's own
+  comment warns this drifts on non-ASCII names — the exact bug class ADR-061 exists to prevent) or a
+  correlated batch query to map returned folded `term_key`s back to original names, neither simple; given
+  this only runs on an explicit, owner-triggered writeback for a handful of genre values, not a hot path,
+  the complexity/risk isn't worth it. Altitude proposed generalizing `writebackMedia`'s field-name check
+  into a "server-computed fields" registry for future fields like this one — declined as speculative:
+  `genres` is RD9's only server-computed field today, and a registry for a single entry is the abstraction
+  Simplicity First rules out; revisit if/when a second such field is spec'd. Altitude also flagged that the
+  override runs before the "field + values required" validation, forcing clients to submit a placeholder
+  `values` for `genres` — checked against the actual code: the override doesn't gate on non-empty input, so
+  an empty/omitted `values` for `genres` already works today; no change needed. Full `go build`/`vet`/`test
+  ./...` green after fixes. ADR-075 action item 8 marked done. Next: S7 (merge reparenting).
+
+### 2026-07-30 · S5 — enrichment tag materialization
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: `internal/api/tag_materialize.go`'s `MaterializeVideoTags` (P0-9) reads a video's RESOLVED
+  `genres` field — the merge across every enrichment source (mirroring how `RelinkVideoStudios`,
+  `internal/api/studios.go`, already reads a resolved field for a video-enrich side effect), not the raw
+  per-provider payload the just-applied `enrich()` call returned, per ADR-075 D4's own reasoning that a
+  second provider might already be contributing to `genres`. Each resolved value's provenance is
+  `fieldsource.ForNamespace(item.Sources[0])` ("provider:tmdb", or "manual" for an owner-curated genres
+  addition), attached in one batch via the new `internal/repo/video_tags.go`'s `AttachMaterializedTags`
+  (one transaction for the whole resolved set, sharing a `resolveOrCreateByName`-based `attachTagTx`
+  helper with S4's `AttachTagToVideo`), silently skipping `ErrTagDenied`/`ErrTagNameTooLong` per value
+  (enrichment is unattended — no owner to show a rejection to, ADR-075 D2). **Found and fixed a gap in
+  ADR-075's own D4 claim**: the ADR asserted `afterEnrichApply` was "already called from manual apply,
+  Refresh, and Refresh-all" but `enrichVideoApply` (`internal/api/enrich.go`) actually bypassed it with its
+  own direct `relinkStudios` call — fixed by routing `enrichVideoApply` through `afterEnrichApply` too, so
+  materialization (and the pre-existing studio relink) now genuinely covers all three trigger paths.
+  `/simplify` found and fixed: a dead/misleading `fieldsource.Manual` fallback branch in
+  `MaterializeVideoTags` for an empty `item.Sources` that the resolver never actually produces (removed,
+  replaced with a comment noting why). `/simplify`'s reuse pass also flagged that `MaterializeVideoTags`'s
+  read-then-resolve boilerplate (GetVideo + 3 enrichment/curation/decision reads + `resolver.Resolve`)
+  duplicates `RelinkVideoStudios`'s — judged out of scope to unify: the two functions' fallback behavior on
+  a missing video/mapping genuinely differs (`RelinkVideoStudios` reconciles studio links to empty in two
+  of three fallback branches; tag materialization has no analogous "reconcile away" semantics), and
+  `RelinkVideoStudios` itself sits outside this diff — forcing a shared helper to reproduce three subtly
+  different early-return behaviors was judged a net complexity increase, not a simplification, so the
+  duplication stands. Full `go test ./...` green. ADR-075 action item 6 marked done. Next: S6 (genre
+  writeback wiring, now unblocked).
+
+### 2026-07-30 · S4 — video↔tag attach/detach
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: `internal/repo/video_tags.go`'s `AttachTagToVideo`/`DetachTagFromVideo` (P0-7) resolve/link
+  through the same `resolveOrCreateByName` choke point as the scanner, source `manual`, so a manual tag
+  survives every rescan (D3) and a denied/oversized term is refused (`422`/`400` via
+  `internal/api/video_tags.go`'s owner-gated `POST`/`DELETE /media/{id}/tags[/{tag_id}]` — named after this
+  codebase's established `/media/{id}` video-resource noun, not the spec's literal `/videos/{id}/tags`
+  shorthand). Closed ADR-075 item 11 (the length-cap gap) at the choke point itself
+  (`model.MaxNameLen`, shared with `internal/api/aliases.go`'s existing cap) rather than per-caller, so
+  materialization (S5) inherits it for free. Media-page tag chips (P0-8,
+  `web/src/routes/media/[id]/+page.svelte`) gain owner-only add/remove: editable pill + hover-reveal
+  remove + `·source` suffix (suppressed for `manual`), an add-tag input with the `/tags` page's own
+  near-miss nudge reused verbatim ("Use existing" swaps onto the look-alike via attach-then-detach,
+  "Add as new anyway" keeps it), inline deny-list rejection. `/simplify` found and fixed: `tick()` over a
+  raw `Promise.resolve()`, a shared reset/busy-action wrapper replacing three duplicated try/finally
+  blocks, `Promise.all` for the near-miss swap's two independent writes, fire-and-forget refetch racing
+  the near-miss check, reused `VideoVisible` instead of a fifth ad hoc existence query, and a lighter
+  post-attach read instead of `GetTag`'s extra video-count/alias joins. Verified live in the browser
+  (attach, deny-list 422, near-miss nudge + swap, remove) across all three skins — tokens-only, no
+  hardcoded classes. Full `go test ./...` + `npm run check`/`test` green. Next: S5 (enrichment
+  materialization).
+
+### 2026-07-30 · S3 — hierarchy
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: migration 0032 (`tags.parent_tag_id` + `idx_tags_parent`) lands the strict one-parent tree.
+  `internal/repo/tag_hierarchy.go`'s `SetTagParent`/`isTagDescendant` and `VideoFilter.build()`'s now
+  descendant-inclusive `TagIDs` clause share one recursive-CTE subtree query (`tagSubtreeQuery`), so
+  "descendant" means the same thing in both places. Owner-gated `POST /tags/{id}/parent` returns
+  `400 {cycle:true}` on a cycle, `404` on an unknown tag/parent. A 4-level tag-tree fixture
+  (`internal/repo/tag_hierarchy_test.go`) covers the four cycle-guard boundary cases the testing strategy
+  calls out (self, direct-child-as-parent, deep-descendant-as-parent, unrelated sibling) plus
+  descendant-inclusive filter parity; migration round-trip and API gating/validation covered too. Full
+  `go test ./...` green. ADR-075 action items 1/4/7 marked done. Next: S4 (video↔tag attach/detach +
+  media-page UI).
+
+### 2026-07-30 · session
+- skills: security-review, simplify
+
+### 2026-07-29 · session
+- skills: testing-strategy

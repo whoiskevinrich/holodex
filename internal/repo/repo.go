@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 )
 
@@ -175,9 +176,16 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 // replaceAssociations clears and re-links people, tags, and raw metadata for a
 // video so re-extraction is idempotent.
 func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people []model.Person, tags []model.Tag, extra []model.ExtraMetadata) error {
+	// Scoped to source=fieldsource.File (ADR-075 D3): a manually-attached or
+	// enrichment-materialized tag must survive every future rescan, since the
+	// file on disk has no way to re-supply it if this delete ever widened back
+	// to unconditional.
+	tagDelete := fmt.Sprintf(`DELETE FROM video_tags WHERE video_id = ? AND source = '%s'`, fieldsource.File)
+	tagInsert := fmt.Sprintf(`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, '%s')`, fieldsource.File)
+
 	for _, stmt := range []string{
 		`DELETE FROM video_people   WHERE video_id = ?`,
-		`DELETE FROM video_tags     WHERE video_id = ?`,
+		tagDelete,
 		`DELETE FROM video_metadata WHERE video_id = ?`,
 	} {
 		if _, err := tx.ExecContext(ctx, stmt, videoID); err != nil {
@@ -199,12 +207,17 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 	for _, t := range tags {
+		// A denied or oversized term is skipped silently (ADR-075 D2/item 11): the
+		// scanner has no owner present to surface a rejection to, unlike the
+		// manual-attach endpoint (422/400).
 		tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, t.Name, "")
+		if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) {
+			continue
+		}
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO video_tags (video_id, tag_id) VALUES (?, ?)`, videoID, tid); err != nil {
+		if _, err := tx.ExecContext(ctx, tagInsert, videoID, tid); err != nil {
 			return fmt.Errorf("link tag: %w", err)
 		}
 	}
@@ -402,7 +415,10 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, toAnySlice(f.PersonIDsAny)...)
 	}
 	for _, tid := range f.TagIDs {
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id = ?)")
+		// Descendant-inclusive (F50, ADR-075 D1/P0-6): a video tagged only with a
+		// descendant of tid still matches — tagSubtreeQuery expands tid to itself
+		// plus its full subtree at query time.
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN ("+tagSubtreeQuery+"))")
 		args = append(args, tid)
 	}
 	for _, sid := range f.StudioIDs {
@@ -643,7 +659,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	}
 
 	trows, err := r.db.QueryContext(ctx,
-		`SELECT vt.video_id, t.id, t.name FROM tags t
+		`SELECT vt.video_id, t.id, t.name, vt.source FROM tags t
 		 JOIN video_tags vt ON vt.tag_id = t.id
 		 WHERE vt.video_id IN `+in+` ORDER BY vt.video_id, t.name COLLATE NOCASE`, args...)
 	if err != nil {
@@ -653,7 +669,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	for trows.Next() {
 		var vid int64
 		var t model.Tag
-		if err := trows.Scan(&vid, &t.ID, &t.Name); err != nil {
+		if err := trows.Scan(&vid, &t.ID, &t.Name, &t.Source); err != nil {
 			return err
 		}
 		videos[idx[vid]].Tags = append(videos[idx[vid]].Tags, t)
@@ -886,10 +902,44 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 	if err != nil {
 		return nil, err
 	}
+	// parent_tag_id isn't part of namedCountQuery (shared with ListStudios, which
+	// has no such column) -- attach it in its own batch, same pattern as aliases.
+	parents, err := r.tagParents(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		out[i].Aliases = byTag[out[i].ID]
+		out[i].ParentTagID = parents[out[i].ID]
 	}
 	return out, nil
+}
+
+// tagParents returns each id's parent_tag_id, keyed by id — absent from the
+// map when the tag is a root (nil parent).
+func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, error) {
+	out := make(map[int64]*int64, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, parent_tag_id FROM tags WHERE id IN (`+placeholders(len(ids))+`)`,
+		toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("tag parents: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var parentID sql.NullInt64
+		if err := rows.Scan(&id, &parentID); err != nil {
+			return nil, err
+		}
+		if parentID.Valid {
+			out[id] = &parentID.Int64
+		}
+	}
+	return out, rows.Err()
 }
 
 // GetPerson returns a person by id with video count, or ErrNotFound.
@@ -928,18 +978,25 @@ func (r *Repo) PersonExists(ctx context.Context, id int64) error {
 // GetTag returns a tag by id with video count, or ErrNotFound.
 func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	var t model.Tag
+	var parentID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT t.id, t.name,
+		SELECT t.id, t.name, t.parent_tag_id,
 		       (SELECT COUNT(*) FROM video_tags vt JOIN videos v ON v.id = vt.video_id
 		        WHERE vt.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL)
-		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &t.VideoCount)
+		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	if parentID.Valid {
+		t.ParentTagID = &parentID.Int64
+	}
 	if t.Aliases, err = r.AliasesForEntity(ctx, model.EntityTag, id); err != nil {
+		return nil, err
+	}
+	if t.Ancestors, err = r.AncestorNamesForTag(ctx, id); err != nil {
 		return nil, err
 	}
 	return &t, nil

@@ -260,6 +260,7 @@ func (h *Handlers) afterEnrichApply(r *http.Request, entityType string, id int64
 	switch entityType {
 	case model.EnrichEntityVideo:
 		h.relinkStudios(r.Context(), id)
+		h.materializeTags(r.Context(), id) // F50 P0-9, ADR-075 D4
 	case model.EnrichEntityStudio:
 		h.relinkStudioLogo(r.Context(), id)
 	}
