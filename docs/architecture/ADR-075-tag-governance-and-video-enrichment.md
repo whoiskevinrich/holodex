@@ -367,8 +367,24 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
    `parent_tag_id`) with `ErrTagCycle`; the owner-gated handler (`internal/api/tag_hierarchy.go`) maps
    that to `400 {cycle:true}`.
 5. [ ] Tag-merge endpoint: add the `parent_tag_id` reparenting `UPDATE` to the existing merge transaction (D1).
-6. [ ] `afterEnrichApply`: add the `model.EnrichEntityVideo` materialization call; confirm and cite the exact
-   existing video-resolved-fields call site it reads `genres` from (D4).
+6. [x] `afterEnrichApply`: add the `model.EnrichEntityVideo` materialization call; confirm and cite the exact
+   existing video-resolved-fields call site it reads `genres` from (D4). **Done 2026-07-30 (S5,
+   HOLODEX-229)**: `internal/api/tag_materialize.go`'s `MaterializeVideoTags` reads the video's RESOLVED
+   `genres` field via the same `GetVideo` + `EnrichmentForEntity`/`CurationForEntity`/`DecisionsForEntity`
+   + `resolver.Resolve` call sequence `RelinkVideoStudios` (`internal/api/studios.go`) already established
+   for this exact "read one resolved field for a video-enrich side effect" shape — not the raw per-provider
+   payload the just-applied `enrich()` call returned, per D4's own reasoning that a second provider might
+   already be contributing to `genres`. Each resolved value's provenance is
+   `fieldsource.ForNamespace(item.Sources[0])` (`"provider:tmdb"`, or `"manual"` for an owner-curated
+   addition), attached via the new batched `internal/repo/video_tags.go`'s `AttachMaterializedTags` (one
+   transaction for the whole resolved set, sharing a `resolveOrCreateByName`-based `attachTagTx` helper
+   with S4's `AttachTagToVideo`), silently skipping `ErrTagDenied`/`ErrTagNameTooLong` per value (D2: no
+   owner to show a rejection to — enrichment is unattended). **Found and fixed a gap in this ADR's own D4
+   claim**: `afterEnrichApply` was documented as "already called from manual apply, Refresh, and
+   Refresh-all" but `enrichVideoApply` (`internal/api/enrich.go`, the manual-apply handler) actually had
+   its own direct `relinkStudios` call and never invoked `afterEnrichApply` at all — fixed by routing
+   `enrichVideoApply` through `afterEnrichApply` too, so all three trigger paths now actually share one
+   dispatcher, making D4's original claim true rather than aspirational.
 7. [x] Recursive descendant-expansion query wired into tag-based browse filter and global search (D1).
    **Done 2026-07-30 (S3, HOLODEX-227)**: `VideoFilter.build()`'s per-`TagIDs` clause (`internal/repo/repo.go`)
    now matches `tag_id IN (<tagSubtreeQuery>)` instead of `tag_id = ?` — the same recursive CTE the

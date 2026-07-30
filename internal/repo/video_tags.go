@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"holodex/internal/fieldsource"
@@ -14,6 +16,25 @@ import (
 // any existing tag/alias exactly as a scanned one would. Rows land with
 // source='manual' (fieldsource.Manual), which replaceAssociations' rescan-scoped
 // delete (ADR-075 D3) never touches — a manual tag survives every future rescan.
+
+// attachTagTx resolves-or-creates name and links it to videoID with the given
+// provenance, inside an already-open tx. The shared step behind AttachTagToVideo
+// (owner manual attach, one name at a time) and AttachMaterializedTags (F50 P0-9
+// enrichment materialization, a whole resolved-field batch at once) — the two
+// callers differ only in how a denied/oversized name is handled (surfaced vs.
+// silently skipped) and whether a video-existence check runs first.
+func attachTagTx(ctx context.Context, tx *sql.Tx, videoID int64, name, source string) (int64, error) {
+	tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, name, "")
+	if err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, ?)`,
+		videoID, tid, source); err != nil {
+		return 0, fmt.Errorf("attach tag: %w", err)
+	}
+	return tid, nil
+}
 
 // AttachTagToVideo resolves-or-creates a tag by name and links it to videoID with
 // source='manual'. Idempotent: re-attaching an already-linked tag is a no-op.
@@ -40,14 +61,9 @@ func (r *Repo) AttachTagToVideo(ctx context.Context, videoID int64, name string)
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
-	tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, name, "")
+	tid, err := attachTagTx(ctx, tx, videoID, name, fieldsource.Manual)
 	if err != nil {
 		return nil, err
-	}
-	if _, err := tx.ExecContext(ctx,
-		`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, ?)`,
-		videoID, tid, fieldsource.Manual); err != nil {
-		return nil, fmt.Errorf("attach tag: %w", err)
 	}
 	// A plain name-only read, not the heavier GetTag (which also joins a video-count
 	// aggregate and fetches aliases the response never uses).
@@ -59,6 +75,46 @@ func (r *Repo) AttachTagToVideo(ctx context.Context, videoID int64, name string)
 		return nil, err
 	}
 	return &model.Tag{ID: tid, Name: tagName}, nil
+}
+
+// MaterializedTag is one enrichment-resolved value to attach as a tag, with the
+// provenance to record on its video_tags row (F50 P0-9, ADR-075 D4).
+type MaterializedTag struct {
+	Name   string
+	Source string
+}
+
+// AttachMaterializedTags attaches every value in tags to videoID in a single
+// transaction (F50 P0-9, ADR-075 D4) — the enrichment-materialization counterpart to
+// AttachTagToVideo, called once per enrich-apply with the video's whole resolved
+// `genres` set rather than once per value. A denied or oversized name is silently
+// skipped, not surfaced: enrichment is unattended, so there is no owner to show a
+// 422/400 to (ADR-075 D2), matching replaceAssociations' precedent for the scanner.
+// INSERT OR IGNORE makes re-running against an already-materialized video a no-op
+// (idempotent). No video-existence check: the caller (MaterializeVideoTags) already
+// resolved the video's fields, which only succeeds for a video that exists.
+func (r *Repo) AttachMaterializedTags(ctx context.Context, videoID int64, tags []MaterializedTag) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	for _, t := range tags {
+		if _, err := attachTagTx(ctx, tx, videoID, t.Name, t.Source); err != nil {
+			if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) {
+				continue
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // DetachTagFromVideo removes tagID's link to videoID. ErrNotFound if the tag isn't

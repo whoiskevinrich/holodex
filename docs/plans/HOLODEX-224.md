@@ -22,7 +22,7 @@ against the final implementation diff.
 - [x] spec `write-spec` → `docs/specs/tag-governance-and-video-enrichment.md`
 - [x] architecture `architecture` → ADR-075
 - [x] design `design-handoff` → design handoff + QA checklist
-- [/] backend — S1/S2/S3/S4 landed (provenance fix, deny-list, hierarchy, video↔tag attach/detach); S5–S7 remain
+- [/] backend — S1/S2/S3/S4/S5 landed (provenance fix, deny-list, hierarchy, video↔tag attach/detach, enrichment materialization); S6/S7 remain
 - [/] frontend — media-page tag chips (S4) landed; deny-list tab + hierarchy pill-menu action (S8) not started
 - [/] testing `testing-strategy` → §9 F50 block written; per-slice tests land alongside each slice
 - [/] security `security-review` — design-level review complete (ADR-075 item 10); must re-run against the
@@ -34,13 +34,41 @@ against the final implementation diff.
 2. [x] [backend] S2 — deny-list table + `resolveOrCreateByName` enforcement + management endpoints (P0-2/3) — migration 0031, `internal/api/tag_denylist.go`
 3. [x] [backend] S3 — hierarchy: `parent_tag_id` + cycle guard + descendant-inclusive filter/search (P0-4/5/6) — migration 0032, `internal/repo/tag_hierarchy.go`, `internal/api/tag_hierarchy.go`
 4. [x] [backend] S4 — video↔tag attach/detach endpoints + media-page UI (P0-7/8) — `internal/repo/video_tags.go`, `internal/api/video_tags.go`, `web/src/routes/media/[id]/+page.svelte`
-5. [ ] [backend] S5 — enrichment materialization (P0-9) — `internal/api/enrich_review.go` `afterEnrichApply`
+5. [x] [backend] S5 — enrichment materialization (P0-9) — `internal/api/tag_materialize.go`, `internal/api/enrich_review.go` `afterEnrichApply`, `internal/repo/video_tags.go` `AttachMaterializedTags`
 6. [ ] [backend] S6 — genre writeback wiring (P0-10) — `internal/writeback`
 7. [ ] [backend] S7 — merge reparenting (P0-11) — `internal/repo/identity_ops.go`
 8. [ ] [frontend] S8 — P1 UI: deny-list tab, hierarchy pill-menu row action — `web/src/routes/owner/tags`, `web/src/routes/tags/+page.svelte`
 9. [ ] [—] S9 — QA + `/security-review` final pass before merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-07-30 · S5 — enrichment tag materialization
+- skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
+- handoff: `internal/api/tag_materialize.go`'s `MaterializeVideoTags` (P0-9) reads a video's RESOLVED
+  `genres` field — the merge across every enrichment source (mirroring how `RelinkVideoStudios`,
+  `internal/api/studios.go`, already reads a resolved field for a video-enrich side effect), not the raw
+  per-provider payload the just-applied `enrich()` call returned, per ADR-075 D4's own reasoning that a
+  second provider might already be contributing to `genres`. Each resolved value's provenance is
+  `fieldsource.ForNamespace(item.Sources[0])` ("provider:tmdb", or "manual" for an owner-curated genres
+  addition), attached in one batch via the new `internal/repo/video_tags.go`'s `AttachMaterializedTags`
+  (one transaction for the whole resolved set, sharing a `resolveOrCreateByName`-based `attachTagTx`
+  helper with S4's `AttachTagToVideo`), silently skipping `ErrTagDenied`/`ErrTagNameTooLong` per value
+  (enrichment is unattended — no owner to show a rejection to, ADR-075 D2). **Found and fixed a gap in
+  ADR-075's own D4 claim**: the ADR asserted `afterEnrichApply` was "already called from manual apply,
+  Refresh, and Refresh-all" but `enrichVideoApply` (`internal/api/enrich.go`) actually bypassed it with its
+  own direct `relinkStudios` call — fixed by routing `enrichVideoApply` through `afterEnrichApply` too, so
+  materialization (and the pre-existing studio relink) now genuinely covers all three trigger paths.
+  `/simplify` found and fixed: a dead/misleading `fieldsource.Manual` fallback branch in
+  `MaterializeVideoTags` for an empty `item.Sources` that the resolver never actually produces (removed,
+  replaced with a comment noting why). `/simplify`'s reuse pass also flagged that `MaterializeVideoTags`'s
+  read-then-resolve boilerplate (GetVideo + 3 enrichment/curation/decision reads + `resolver.Resolve`)
+  duplicates `RelinkVideoStudios`'s — judged out of scope to unify: the two functions' fallback behavior on
+  a missing video/mapping genuinely differs (`RelinkVideoStudios` reconciles studio links to empty in two
+  of three fallback branches; tag materialization has no analogous "reconcile away" semantics), and
+  `RelinkVideoStudios` itself sits outside this diff — forcing a shared helper to reproduce three subtly
+  different early-return behaviors was judged a net complexity increase, not a simplification, so the
+  duplication stands. Full `go test ./...` green. ADR-075 action item 6 marked done. Next: S6 (genre
+  writeback wiring, now unblocked).
 
 ### 2026-07-30 · S4 — video↔tag attach/detach
 - skills: (implementation only, against the already-landed spec/ADR/handoff/testing-strategy), simplify
