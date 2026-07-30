@@ -13,6 +13,9 @@
 *.db-wal
 *.db-shm
 
+# graphify knowledge-graph output (generated; rebuild with /graphify)
+/graphify-out/
+
 # Frontend
 /web/node_modules/
 /web/dist/
@@ -47,6 +50,9 @@
 # Local dev-server config (machine-specific media paths; may hold provider tokens).
 # Glob covers backups/variants (e.g. launch.json.bak) so a stray copy is never staged.
 .claude/launch.json*
+
+# Backup left by `graphify claude install` before it edits settings.json.
+.claude/settings.json.graphify-bak
 
 # Personal productivity workspace — not committed.
 # (Project governance lives in .claude/CLAUDE.md; personal memory lives in ~/.claude.)
