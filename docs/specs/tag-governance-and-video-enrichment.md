@@ -363,10 +363,12 @@ No hard deadline. Per this project's change-routing rules, before/with implement
    spec; deny-list enforced on all three paths; cycle rejection; descendant-inclusive filter/search parity;
    materialization idempotency; merge reparenting. See
    [testing-strategy.md](../testing-strategy.md#9-phasing--what-lands-when) (F50 block).
-4. ⬜ **`/security-review`** — new mutations (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are
+4. ✅ **`/security-review`** — new mutations (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are
    all `requireOwner`; no new externally-influenced input beyond what F43/F47 already validate (tag names go
-   through the same sanitize perimeter). Expect a clean design-level sign-off given the shape matches F43/F47
-   precedent, but re-run on the implementation diff per standing policy. **Not started.**
+   through the same sanitize perimeter). **Design-level sign-off complete 2026-07-30** (see
+   [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) Action Items 10-11) — clean,
+   with one gap found and tracked (no length cap on the two new tag-creation paths, closeable at
+   implementation). Re-run on the implementation diff per standing policy.
 
 **Suggested slices:** **S1** — `video_tags` provenance + `replaceAssociations` fix (P0-1, the correctness
 gap; should land first and independently since it's a latent bug fix, not a new feature) → **S2** — deny-list

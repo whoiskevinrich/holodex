@@ -357,6 +357,18 @@ specifically to prevent the failure mode a new, separate hook would reintroduce.
 9. [ ] `/testing-strategy`: D3's rescan-preserves-non-file-tags test is the highest-priority case in this ADR;
    also cover deny-list enforcement at all three call sites, cycle rejection, merge reparenting, and
    materialization idempotency (spec Success Metrics already names these).
-10. [ ] `/security-review` before merge: confirm the three new mutation endpoints
+10. [x] `/security-review` before merge: confirm the three new mutation endpoints
     (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are `requireOwner`-gated; confirm no new
-    externally-influenced input beyond what F43 already validates for tag names.
+    externally-influenced input beyond what F43 already validates for tag names. **Design-level review
+    complete 2026-07-30** — all four claims verified against current code (owner-gating, single-choke-point
+    deny-list, `writeMu` race safety, materialization/writeback separation); see item 11 for the one gap
+    found. Re-run against the implementation diff before merge per standing policy.
+11. [ ] **Sanitization gap found in review**: `resolveOrCreateByName` itself enforces no length cap — only
+    the existing rename/alias HTTP handlers do (200 runes, `internal/api/aliases.go:17`). The two new
+    tag-creation paths (manual attach, materialization) don't route through those handlers, so an unbounded
+    name could reach the `-TAG=VALUE` exiftool writeback argument and the UI chip row uncapped. Not
+    independently exploitable today (Svelte auto-escapes rendering; exiftool receives args as an argv
+    slice, not a shell string), but close it before implementation: apply the same 200-rune cap at the two
+    new call sites, or — more consistent with this ADR's own "single choke point" reasoning for the
+    deny-list — move the cap into `resolveOrCreateByName` so all three tag-creation paths (scanner
+    included) inherit it for free.
