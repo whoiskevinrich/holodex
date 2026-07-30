@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -122,6 +123,61 @@ func TestTagNamesForVideo(t *testing.T) {
 	if names, err := r.TagNamesForVideo(ctx, empty); err != nil || len(names) != 0 {
 		t.Errorf("untagged video names = %v, %v, want empty", names, err)
 	}
+}
+
+// assertTagParent fetches tagID and checks its ParentTagID equals want (0
+// meaning root/nil), naming the tag as label in any failure.
+func assertTagParent(t *testing.T, ctx context.Context, r *repo.Repo, tagID int64, label string, want int64) {
+	t.Helper()
+	tag, err := r.GetTag(ctx, tagID)
+	if err != nil {
+		t.Fatalf("get %s: %v", label, err)
+	}
+	switch {
+	case want == 0:
+		if tag.ParentTagID != nil {
+			t.Errorf("%s.ParentTagID = %v, want nil (root)", label, tag.ParentTagID)
+		}
+	case tag.ParentTagID == nil || *tag.ParentTagID != want:
+		t.Errorf("%s.ParentTagID = %v, want %d", label, tag.ParentTagID, want)
+	}
+}
+
+// TestMergeReparentsChildren covers P0-11 (ADR-075 D1 RD-M, the spec's own
+// example): merging away a tag with children repoints those children onto the
+// survivor in the same transaction, rather than orphaning the subtree to root.
+func TestMergeReparentsChildren(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	// Mammal is a child of Animal and parent of Dog; Vehicle is an unrelated
+	// root. Merging Mammal into Vehicle must repoint Dog onto Vehicle.
+	if err := r.MergeEntities(ctx, model.EntityTag, ids["Vehicle"], ids["Mammal"]); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	assertTagParent(t, ctx, r, ids["Dog"], "Dog", ids["Vehicle"])
+	// GermanShepherd's own parent (Dog) was untouched by the merge.
+	assertTagParent(t, ctx, r, ids["GermanShepherd"], "GermanShepherd", ids["Dog"])
+}
+
+// TestMergeReparentsChildren_SurvivorWasChildOfLoser covers the edge case
+// where the merge survivor was itself a child of the tag being merged away
+// (Dog's parent is Mammal; Mammal merges into Dog). The reparent step must
+// exclude the survivor's own row — otherwise it would set Dog.ParentTagID to
+// Dog. Left alone, Dog's stale reference to the now-deleted Mammal row falls
+// to the migration-0032 FK's ON DELETE SET NULL, promoting Dog to root.
+func TestMergeReparentsChildren_SurvivorWasChildOfLoser(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if err := r.MergeEntities(ctx, model.EntityTag, ids["Dog"], ids["Mammal"]); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	assertTagParent(t, ctx, r, ids["Dog"], "Dog", 0)
+	// GermanShepherd (child of Dog, unrelated to the merge) is untouched.
+	assertTagParent(t, ctx, r, ids["GermanShepherd"], "GermanShepherd", ids["Dog"])
 }
 
 func TestSetTagParent_NotFound(t *testing.T) {

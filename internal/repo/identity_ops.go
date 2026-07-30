@@ -32,8 +32,16 @@ type entityIdentity struct {
 
 // idMove names a table + column whose reference to the merged entity is repointed
 // onto the survivor (studio_external_ids, so a merged studio's provider identity
-// keeps resolving to the survivor — matching the migration-0022 fold).
-type idMove struct{ table, fk string }
+// keeps resolving to the survivor — matching the migration-0022 fold). excludeSelf
+// skips the row whose id equals the survivor itself — needed for a self-referential
+// FK (tags.parent_tag_id, F50 P0-11): otherwise a survivor that was itself a child
+// of the loser would have its own parent_tag_id set to canonicalID = canonicalID.
+// Left excluded, that stale reference falls to the column's own ON DELETE SET NULL
+// when the loser's row is deleted below, promoting the survivor to root instead.
+type idMove struct {
+	table, fk   string
+	excludeSelf bool
+}
 
 // identityStep is one ordered, described SQL statement in a merge/rename transaction
 // (the desc names the step in any wrapped error).
@@ -45,8 +53,8 @@ type identityStep struct {
 
 var entityIdentityByType = map[string]entityIdentity{
 	model.EnrichEntityPerson: {"people", "video_people", "person_id", nil},
-	model.EnrichEntityStudio: {"studios", "video_studios", "studio_id", []idMove{{"studio_external_ids", "studio_id"}}},
-	model.EntityTag:          {"tags", "video_tags", "tag_id", nil},
+	model.EnrichEntityStudio: {"studios", "video_studios", "studio_id", []idMove{{"studio_external_ids", "studio_id", false}}},
+	model.EntityTag:          {"tags", "video_tags", "tag_id", []idMove{{"tags", "parent_tag_id", true}}},
 }
 
 // entityAliasKeyByType holds, per entity type, the SQL predicate matching an alias by
@@ -207,10 +215,12 @@ func (r *Repo) EntityConflict(ctx context.Context, entityType string, selfID int
 // merged entity's aliases, registers the merged entity's name as an alias of the
 // survivor, drops the merged entity's shadow enrichment/decisions/curation (the
 // survivor keeps its own — matching MergePersons and the migration-0022 fold), and
-// deletes it. Registering the loser's name as an alias is load-bearing: for studios it
-// makes the merge survive RelinkVideoStudios re-derivation; for people/tags it makes it
-// survive a re-scan (both route the old name through the alias table). One transaction
-// under the write lock. ErrNotFound if either id is missing; an error on a self-merge.
+// deletes it. For tags, it also repoints the merged tag's children onto the survivor
+// (F50 P0-11, ADR-075 D1 RD-M) so a merge doesn't orphan a subtree. Registering the
+// loser's name as an alias is load-bearing: for studios it makes the merge survive
+// RelinkVideoStudios re-derivation; for people/tags it makes it survive a re-scan
+// (both route the old name through the alias table). One transaction under the write
+// lock. ErrNotFound if either id is missing; an error on a self-merge.
 func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64) error {
 	_, err := r.mergeEntities(ctx, entityType, canonicalID, mergedID)
 	return err
@@ -288,7 +298,13 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	//     provider identity keeps resolving there; OR IGNORE drops a duplicate the
 	//     survivor already owns (the FK-cascade delete below then clears the loser's).
 	for _, mv := range cfg.idMoves {
-		steps = append(steps, identityStep{"move " + mv.table, `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`, []any{canonicalID, mergedID}})
+		sql := `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`
+		args := []any{canonicalID, mergedID}
+		if mv.excludeSelf {
+			sql += ` AND id != ?`
+			args = append(args, canonicalID)
+		}
+		steps = append(steps, identityStep{"move " + mv.table, sql, args})
 	}
 	steps = append(steps, []identityStep{
 		// 2. Preserve a prior merge chain: re-point merged's aliases, drop collisions.
