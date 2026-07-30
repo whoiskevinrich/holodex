@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.1](https://github.com/whoiskevinrich/holodex/compare/v1.14.0...v1.14.1) (2026-07-30)
+
+
+### 📚 Documentation
+
+* **architecture:** fix stale ADR-008 cross-reference in ADR-004 ([#185](https://github.com/whoiskevinrich/holodex/issues/185)) ([f7bd61b](https://github.com/whoiskevinrich/holodex/commit/f7bd61b93a14343473e36c39fd2fce179d9b3096))
+* **tags:** F50 spec + ADR-075 — tag governance and video enrichment ([#187](https://github.com/whoiskevinrich/holodex/issues/187)) ([f4ec870](https://github.com/whoiskevinrich/holodex/commit/f4ec870eaa7189d61dde08cda6c033b07c716707))
+
 ## [1.14.0](https://github.com/whoiskevinrich/holodex/compare/v1.13.2...v1.14.0) (2026-07-29)
 
 
