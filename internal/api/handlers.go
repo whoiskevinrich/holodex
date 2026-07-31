@@ -367,6 +367,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountTagDenylist(r)
 		// Tag hierarchy — the owner's /tags pill-menu "set parent" action (F50, ADR-075 D1).
 		h.mountTagHierarchy(r)
+		// Tag writeback exclusion — per-tag Genre writeback flag + manual sync (HOLODEX-239, ADR-077).
+		h.mountTagWritebackSync(r)
 		// Video↔tag attach/detach — the owner's media-page add/remove tag chips (F50, ADR-075 P0-7).
 		h.mountVideoTags(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).

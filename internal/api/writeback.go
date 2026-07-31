@@ -43,6 +43,29 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 	// Flat like the revert route rather than under /media/{id}: the id alone
 	// identifies the job.
 	r.Get("/writeback/jobs/{id}", h.writebackJobStatus)
+	// Batch status (HOLODEX-239, ADR-077 D3): aggregate progress across every
+	// job sharing a batchID, so an N-video tag-sync's dialog polls one
+	// endpoint instead of fanning out to N individual job-status calls.
+	r.Get("/writeback/batches/{batchID}/status", h.writebackBatchStatus)
+}
+
+// writebackBatchStatus reports aggregate counts (pending/running/done/failed)
+// across every job enqueued under batchID (ADR-077 D3) — the progress signal
+// the tag-scoped manual-sync dialog polls.
+func (h *Handlers) writebackBatchStatus(w http.ResponseWriter, r *http.Request) {
+	batchID := chi.URLParam(r, "batchID")
+	if batchID == "" {
+		writeError(w, http.StatusBadRequest, "batch id required")
+		return
+	}
+	pending, running, done, failed, err := h.repo.GetWritebackBatchStatus(r.Context(), batchID)
+	if err != nil {
+		h.fail(w, "get writeback batch status", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"pending": pending, "running": running, "done": done, "failed": failed,
+	})
 }
 
 // writebackJobStatus reports one queued write's state: "pending" / "running"

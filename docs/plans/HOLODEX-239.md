@@ -26,3 +26,6 @@ release_note: "Tags can now be excluded from file writeback while staying search
 ## Session log   (append-only)
 S1 · /product-brainstorming /write-spec — spec drafted, epic filed, Draft PR opened
 S2 · /architecture — ADR-077 drafted (writeback_enabled flag filtered flat into TagNamesForVideo; manual sync recomputes GenreWritebackValues per video via a propagateMerge-style shared-batchID EnqueueMany; new batch-status endpoint aggregating writeback_queue/job_runs by batch_id); ADR index + spec cross-reference updated
+
+### 2026-07-31 · session
+- skills: simplify

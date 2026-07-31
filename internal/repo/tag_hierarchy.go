@@ -56,6 +56,15 @@ func isTagDescendant(ctx context.Context, db *sql.DB, rootID, candidateID int64)
 // by genre writeback (F50 P0-10, ADR-075 RD9): a video tagged "German Shepherd"
 // (child of "Dog", child of "Animal") writes back all three names, not just
 // the leaf.
+//
+// The recursive walk itself climbs through every tag regardless of its own
+// writeback_enabled flag (HOLODEX-239, ADR-077 D1) — a disabled tag still
+// contributes its ancestors to the expansion. Only the final projection's
+// WHERE drops a disabled tag's own name from the result: exclusion is a
+// property of each name in the output, not of the path that reached it, so
+// disabling "Dog" removes "Dog" but not "Animal" (a further ancestor) or
+// "German Shepherd" (a descendant, reached independently as its own
+// directly-attached row with its own flag).
 const videoTagAncestorsQuery = `
 	WITH RECURSIVE tag_ancestors(id) AS (
 		SELECT tag_id FROM video_tags WHERE video_id = ?
@@ -64,7 +73,8 @@ const videoTagAncestorsQuery = `
 		JOIN tag_ancestors a ON t.id = a.id
 		WHERE t.parent_tag_id IS NOT NULL
 	)
-	SELECT DISTINCT t.name FROM tags t JOIN tag_ancestors a ON t.id = a.id`
+	SELECT DISTINCT t.name FROM tags t JOIN tag_ancestors a ON t.id = a.id
+	WHERE t.writeback_enabled = 1`
 
 // tagAncestorsQuery walks UP parent_tag_id from a single tag id (excluding
 // itself) to the root, tracking depth so the final SELECT can order root-first
@@ -152,4 +162,80 @@ func (r *Repo) SetTagParent(ctx context.Context, id int64, parentID *int64) (*mo
 		return nil, fmt.Errorf("set tag parent: %w", err)
 	}
 	return r.GetTag(ctx, id)
+}
+
+// SetTagWritebackEnabled sets one tag's Genre-writeback participation flag
+// (HOLODEX-239, ADR-077 D1/D2). Never enqueues a write itself — the spec's
+// P0 requirement that changing the flag alone never triggers a file write.
+// Returns the updated tag, or ErrNotFound.
+func (r *Repo) SetTagWritebackEnabled(ctx context.Context, id int64, enabled bool) (*model.Tag, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if err := r.EntityExists(ctx, model.EntityTag, id); err != nil {
+		return nil, err
+	}
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE tags SET writeback_enabled = ? WHERE id = ?`, enabled, id); err != nil {
+		return nil, fmt.Errorf("set tag writeback enabled: %w", err)
+	}
+	return r.GetTag(ctx, id)
+}
+
+// SetTagsWritebackEnabled bulk-sets the writeback flag for every tag in ids
+// to enabled, ignoring each tag's individual prior state on the way in
+// (spec P0: "applies... regardless of individual prior state"). Never
+// enqueues a write. A nil/empty ids is a no-op success.
+func (r *Repo) SetTagsWritebackEnabled(ctx context.Context, ids []int64, enabled bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	args := make([]any, 0, len(ids)+1)
+	args = append(args, enabled)
+	args = append(args, toAnySlice(ids)...)
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE tags SET writeback_enabled = ? WHERE id IN (`+placeholders(len(ids))+`)`, args...); err != nil {
+		return fmt.Errorf("set tags writeback enabled: %w", err)
+	}
+	return nil
+}
+
+// videoIDsForTagsQuery selects the distinct, active/non-deleted video ids
+// currently carrying any tag id in the placeholder set — the union of
+// videos across one or more tags (HOLODEX-239, ADR-077 D2), mirroring
+// namedCountQuery's own active/non-deleted join predicate (repo.go).
+func videoIDsForTagsQuery(n int) string {
+	return `SELECT DISTINCT vt.video_id FROM video_tags vt
+		JOIN videos v ON v.id = vt.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		WHERE vt.tag_id IN (` + placeholders(n) + `)`
+}
+
+// VideoIDsForTag returns the active/non-deleted video ids currently carrying
+// tag id — the manual sync trigger's single-tag scope (ADR-077 D2).
+func (r *Repo) VideoIDsForTag(ctx context.Context, id int64) ([]int64, error) {
+	return r.VideoIDsForTags(ctx, []int64{id})
+}
+
+// VideoIDsForTags returns the deduplicated union of active/non-deleted video
+// ids across every tag in ids — the bulk manual sync trigger's scope
+// (ADR-077 D2), so a video attached to two selected tags is returned once.
+func (r *Repo) VideoIDsForTags(ctx context.Context, ids []int64) ([]int64, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, videoIDsForTagsQuery(len(ids)), toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("video ids for tags: %w", err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var videoID int64
+		if err := rows.Scan(&videoID); err != nil {
+			return nil, err
+		}
+		out = append(out, videoID)
+	}
+	return out, rows.Err()
 }

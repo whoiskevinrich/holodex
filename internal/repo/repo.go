@@ -980,10 +980,10 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	var t model.Tag
 	var parentID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT t.id, t.name, t.parent_tag_id,
+		SELECT t.id, t.name, t.parent_tag_id, t.writeback_enabled,
 		       (SELECT COUNT(*) FROM video_tags vt JOIN videos v ON v.id = vt.video_id
 		        WHERE vt.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL)
-		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.VideoCount)
+		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.WritebackEnabled, &t.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
