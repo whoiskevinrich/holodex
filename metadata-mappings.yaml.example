@@ -83,6 +83,11 @@ fields:
     sources:
       - tmdb:runtime
 
+  # Resolved genres also auto-materialize into real Tag rows the moment a video is
+  # enriched (deny-list filtered, hierarchy-aware, feeds genre writeback) — see
+  # "Genre tag materialization & governance" in docs/reference/canonical-fields.md.
+  # No extra config needed: any provider you add to sources below feeds the Tag
+  # system for free.
   - canonical: genres
     multi: true
     filterable: true

@@ -183,6 +183,15 @@ it onto that field so it stops rendering twice (F49,
 decision table and worked examples live in
 [canonical-fields.md § Claiming a provider key](canonical-fields.md#claiming-a-provider-key).
 
+### Genre → Tag materialization, deny-list & hierarchy (F50, ADR-075)
+
+The `genres` canonical field does double duty: resolved values also auto-materialize into real `Tag` rows the
+moment a video is enriched, feed genre writeback, and are subject to two owner-managed governance
+controls — a global deny-list (`/owner/tags`) and a tag hierarchy (`/tags`' parent-setter). None of this is a
+`holodex.yaml` or env-var setting — it's config-free, driven entirely by the `genres` mapping you already
+maintain in `metadata-mappings.yaml`. Full mechanism in
+[canonical-fields.md § Genre tag materialization & governance](canonical-fields.md#genre-tag-materialization--governance-f50-adr-075).
+
 ---
 
 ## Metadata source plugins
