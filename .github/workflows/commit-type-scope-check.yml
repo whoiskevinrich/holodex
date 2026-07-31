@@ -1,0 +1,50 @@
+# Advisory commit-type/diff-scope check (ADR-076) — flags a PR titled `docs(...)`/
+# `chore(...)` whose diff looks like real implementation, not docs/tooling.
+#
+# This repo squash-merges, so the PR TITLE is what actually lands as the merge commit
+# message and what release-please/git-cliff parse for the CHANGELOG — not any individual
+# commit on the branch. `docs`/`chore` are deliberately hidden from that CHANGELOG (see
+# CLAUDE.md), which is exactly what let PR #187 ship the full F50 implementation
+# unflagged under a `docs(tags): ...` title.
+#
+# Separate from jira-sync.yml on purpose: different trigger shape (this needs to
+# re-evaluate on every content change — title edits and new commits both — not just on
+# state transitions), and no shared concern (this needs no Jira credentials).
+#
+# ADVISORY ONLY: always exits 0. Posts/updates a sticky PR comment; never a failing or
+# blocking status check. Plain `pull_request` (never `pull_request_target`) — secrets are
+# withheld from fork PRs, so a fork simply can't post the comment (soft-fails silently,
+# same posture as jira-sync.yml).
+name: Commit type scope check
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: commit-type-scope-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check commit type against diff scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/commit-type-scope-check.mjs
