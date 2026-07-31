@@ -14,10 +14,13 @@
 - the "don't write" chip interaction language (`web/src/lib/components/curation/CurationChip.svelte`)
 - the background-activity indicator convention (`.activity-dot`, `web/src/app.css`, F21.5)
 
-**New ADR required**: Likely — a small one covering the new per-tag flag's place in genre
-resolution and the manual-trigger batch-write seam (parallels ADR-041's scope). Touches file
-I/O via the write queue → a `/security-review` sign-off is recommended before merge, consistent
-with how other writeback-adjacent changes have been handled (e.g. ADR-047).
+**New ADR**: [ADR-077](../architecture/ADR-077-tag-writeback-exclusion.md) — covers the flag's
+enforcement point (`TagNamesForVideo`'s final projection, flat per-name rather than
+hierarchy-inherited), why the manual sync trigger must recompute `GenreWritebackValues` per video
+rather than reuse `propagateMerge`'s precomputed-name-list pattern, and a new
+`GET /writeback/batches/{batchID}/status` for N-video batch progress. Touches file I/O via the
+write queue → a `/security-review` sign-off is required before merge, consistent with how other
+writeback-adjacent changes have been handled (e.g. ADR-047).
 
 ---
 
