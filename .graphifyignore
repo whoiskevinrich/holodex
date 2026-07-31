@@ -1,0 +1,49 @@
+# .graphifyignore — merged on top of .gitignore; these patterns are evaluated
+# last and win on conflict (including `!` negations). See:
+# https://github.com/Graphify-Labs/graphify#ignoring-files
+
+# --- Defensive duplicates of .gitignore ---
+# graphify reads .gitignore automatically, so these are redundant in the normal
+# case. They matter only when `graphify extract --no-gitignore` is used (that
+# flag disables .gitignore but still honors this file) — kept so a --no-gitignore
+# run doesn't accidentally index build output, deps, or secrets.
+/web/node_modules/
+/web/dist/
+/web/.svelte-kit/
+/testdata/demo/node_modules/
+/testdata/demo/library/
+/testdata/demo/.posters/
+/testdata/mp4/
+/testdata/mkv/
+/data/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+/graphify-out/
+
+# --- Tracked in git, but pure noise for a knowledge graph ---
+# Auto-generated, no narrative/structural content worth a node; large and
+# high-churn, so indexing them just adds re-extraction cost on every change.
+go.sum
+web/package-lock.json
+testdata/demo/package-lock.json
+CHANGELOG.md
+release-please-config.json
+.release-please-manifest.json
+
+# --- Generic build/tooling noise ---
+# Not currently produced in this repo, but cheap insurance against future churn.
+*.min.js
+*.min.css
+*.map
+*.log
+*.lock
+coverage/
+pnpm-lock.yaml
+yarn.lock
+
+# --- Code review and analysis artifacts ---
+.code-review-graph/
