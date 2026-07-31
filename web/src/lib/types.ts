@@ -92,6 +92,12 @@ export interface Tag {
 	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
 	// Present only on the tag-detail read (getTag); absent on the /tags list.
 	ancestors?: string[];
+	// Whether this tag's name contributes to a video's Genre writeback value
+	// (HOLODEX-239, ADR-077 D1) — defaults true. Reliable only from the
+	// tag-detail read (getTag); the /tags list's ListTags query doesn't select
+	// this column, so it comes back false there regardless of actual state —
+	// don't read it off list-page Tag objects (see HOLODEX-239 worklog).
+	writeback_enabled?: boolean;
 }
 
 // DeniedTag is one globally blocked term (F50, ADR-075 D2) — exact-match,

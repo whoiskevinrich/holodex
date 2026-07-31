@@ -8,6 +8,7 @@
 	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
+	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
@@ -29,6 +30,34 @@
 	let choosing = $state(false); // the "Keep which name?" dialog is open
 	let selectHint = $state('');
 	const selectedTags = $derived(tags.filter((t) => selectedIds.includes(t.id)));
+
+	// Bulk writeback actions (HOLODEX-239, ADR-077 D2): on/off stay two separate
+	// buttons since a selection can span tags already in different states (spec
+	// P0), and both post immediately like the single-tag toggle — no enqueue.
+	let bulkBusy = $state(false);
+	let bulkError = $state('');
+	let bulkSyncOpen = $state(false);
+	const bulkScopeLabel = $derived(
+		selectedTags.length > 4
+			? `${selectedTags.length} tags`
+			: selectedTags.map((t) => t.name).join(', ')
+	);
+
+	async function bulkSetWriteback(enabled: boolean) {
+		if (bulkBusy || selectedIds.length === 0) return;
+		bulkBusy = true;
+		bulkError = '';
+		try {
+			// No reload(): the pill list never renders writeback_enabled (it isn't
+			// even populated by the /tags list read, HOLODEX-239), so a full tag
+			// refetch here buys nothing visible.
+			await api.setTagsWriteback(selectedIds, enabled);
+		} catch (e) {
+			bulkError = toMessage(e);
+		} finally {
+			bulkBusy = false;
+		}
+	}
 
 	// Per-pill ⋯ menu: one open at a time. The popover swaps between the action list and an
 	// inline rename/alias editor; "Merge into…" opens the shared EntityPicker instead.
@@ -285,6 +314,34 @@
 			</button>
 			{#if selectHint}
 				<span class="text-sm text-warn" role="status">{selectHint}</span>
+			{/if}
+			{#if selectedIds.length >= 2}
+				<!-- Writeback bulk actions (HOLODEX-239): on/off always both visible —
+				     never a single combined toggle, since the selection can be mixed-state. -->
+				<button
+					onclick={() => bulkSetWriteback(false)}
+					disabled={bulkBusy}
+					class="btn-ghost px-3 py-1 text-sm"
+				>
+					Turn off writeback
+				</button>
+				<button
+					onclick={() => bulkSetWriteback(true)}
+					disabled={bulkBusy}
+					class="btn-ghost px-3 py-1 text-sm"
+				>
+					Turn on writeback
+				</button>
+				<button
+					onclick={() => (bulkSyncOpen = true)}
+					disabled={bulkBusy}
+					class="btn-accent px-3 py-1 text-sm"
+				>
+					Sync writeback now
+				</button>
+				{#if bulkError}
+					<span class="text-sm text-warn" role="status">{bulkError}</span>
+				{/if}
 			{/if}
 		</div>
 	{/if}
@@ -554,5 +611,20 @@
 			mergeInto = null;
 			reload();
 		}}
+	/>
+{/if}
+
+<!-- Bulk "Sync writeback now for selected" (HOLODEX-239): videoCountHint is null — a
+     selected tag's video_count would overcount a video shared by two selected tags
+     (VideoIDsForTags dedupes), so the confirm step names the tags instead of a
+     possibly-wrong number. -->
+{#if bulkSyncOpen}
+	<WritebackBatchDialog
+		scopeLabel={bulkScopeLabel}
+		videoCountHint={null}
+		trigger={() => api.syncTagsWriteback(selectedIds)}
+		batchStatus={api.writebackBatchStatus}
+		onclose={() => (bulkSyncOpen = false)}
+		onapplied={() => {}}
 	/>
 {/if}
