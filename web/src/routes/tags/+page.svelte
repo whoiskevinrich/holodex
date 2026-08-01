@@ -11,6 +11,7 @@
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
+	import { PopoverMenu } from '$lib/actions/popoverMenu.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
@@ -46,30 +47,29 @@
 
 	// Per-pill ⋯ menu: one open at a time. The popover swaps between the action list and an
 	// inline rename/alias editor; "Merge into…" opens the shared EntityPicker instead.
-	let openMenu = $state<number | null>(null);
-	let menuAction = $state<'menu' | 'rename' | 'alias' | 'parent'>('menu');
-	let actionValue = $state('');
-	let actionBusy = $state(false);
-	let actionError = $state('');
+	// actionConflict/actionNearMiss are extras layered on top of the shared open/close +
+	// value/busy/error plumbing (PopoverMenu) — reset alongside it via onOpen/onClose.
 	let actionConflict = $state<EntityRef | null>(null);
 	// Non-blocking near-miss (P1-5): a fuzzy look-alike surfaced after a successful
 	// add/rename — advisory; "Keep both" records keep-separate so it won't nag again.
 	let actionNearMiss = $state<EntityRef | null>(null);
-	let menuTriggers = $state<Record<number, HTMLButtonElement | null>>({});
+	const resetTagMenuExtras = () => {
+		actionConflict = null;
+		actionNearMiss = null;
+	};
+	const tagMenu = new PopoverMenu<'menu' | 'rename' | 'alias' | 'parent'>({
+		onOpen: resetTagMenuExtras,
+		onClose: resetTagMenuExtras
+	});
 	let firstItem = $state<HTMLButtonElement | null>(null);
 	let actionInput = $state<HTMLInputElement | null>(null);
 	let mergeInto = $state<Tag | null>(null);
 
 	// Category pill's own reduced ⋯ menu (Rename/Delete only, HOLODEX-240 §2) — kept
-	// entirely separate from the tag pill menu state above: tag ids and category ids
-	// are different id spaces, so sharing `openMenu` would risk one pill's menu
+	// entirely separate from the tag pill menu above: tag ids and category ids are
+	// different id spaces, so sharing one PopoverMenu would risk one pill's menu
 	// opening for the other's id.
-	let openCatMenu = $state<number | null>(null);
-	let catMenuAction = $state<'menu' | 'rename'>('menu');
-	let catActionValue = $state('');
-	let catActionBusy = $state(false);
-	let catActionError = $state('');
-	let catMenuTriggers = $state<Record<number, HTMLButtonElement | null>>({});
+	const catMenu = new PopoverMenu<'menu' | 'rename'>();
 	let catActionInput = $state<HTMLInputElement | null>(null);
 	let catDeleting = $state<Category | null>(null); // drives the delete ConfirmDialog
 	let catDeleteBusy = $state(false);
@@ -132,7 +132,7 @@
 		selectedIds = [];
 		choosing = false;
 		selectHint = '';
-		closeMenu(false);
+		tagMenu.close(false);
 	}
 
 	function toggleSelect(id: number) {
@@ -153,35 +153,10 @@
 	}
 
 	// ── Per-pill ⋯ menu ────────────────────────────────────────────────────────────────
-	async function openMenuFor(id: number) {
-		openMenu = id;
-		menuAction = 'menu';
-		actionValue = '';
-		actionError = '';
-		actionConflict = null;
-		actionNearMiss = null;
-		await Promise.resolve();
-		firstItem?.focus();
-	}
-
-	function closeMenu(returnFocus = true) {
-		const id = openMenu;
-		openMenu = null;
-		menuAction = 'menu';
-		actionConflict = null;
-		actionNearMiss = null;
-		if (returnFocus && id != null) menuTriggers[id]?.focus();
-	}
-
-	function toggleMenu(id: number) {
-		if (openMenu === id) closeMenu();
-		else openMenuFor(id);
-	}
-
 	async function startAction(kind: 'rename' | 'alias' | 'parent', tag: Tag) {
-		menuAction = kind;
-		actionValue = kind === 'rename' ? tag.name : '';
-		actionError = '';
+		tagMenu.action = kind;
+		tagMenu.value = kind === 'rename' ? tag.name : '';
+		tagMenu.error = '';
 		actionConflict = null;
 		actionNearMiss = null;
 		await Promise.resolve();
@@ -189,15 +164,11 @@
 		if (kind === 'rename') actionInput?.select();
 	}
 
-	async function submitAction(e: SubmitEvent, tagId: number) {
+	function submitAction(e: SubmitEvent, tagId: number) {
 		e.preventDefault();
-		const value = actionValue.trim();
-		if (!value || actionBusy) return;
-		actionBusy = true;
-		actionError = '';
-		try {
+		tagMenu.submit(async (value) => {
 			const res =
-				menuAction === 'rename'
+				tagMenu.action === 'rename'
 					? await api.renameEntity('tag', tagId, value)
 					: await api.addEntityAlias('tag', tagId, value);
 			if (res.conflict) {
@@ -211,143 +182,93 @@
 			// else close.
 			const nm = await api.nearMiss('tag', tagId, value).then((r) => r.near_miss);
 			if (nm) actionNearMiss = nm;
-			else closeMenu();
-		} catch (err) {
-			actionError = toMessage(err);
-		} finally {
-			actionBusy = false;
-		}
+			else tagMenu.close();
+		});
 	}
 
-	async function mergeConflict(tagId: number) {
-		if (!actionConflict || actionBusy) return;
-		actionBusy = true;
-		actionError = '';
-		try {
-			await api.mergeEntities('tag', tagId, actionConflict.id);
-			closeMenu();
+	function mergeConflict(tagId: number) {
+		if (!actionConflict) return;
+		const targetId = actionConflict.id;
+		tagMenu.run(async () => {
+			await api.mergeEntities('tag', tagId, targetId);
+			tagMenu.close();
 			reload();
-		} catch (err) {
-			actionError = toMessage(err);
-		} finally {
-			actionBusy = false;
-		}
+		});
 	}
 
 	// Near-miss hint actions (P1-5): fold the look-alike into the edited tag, or keep both
 	// (records keep-separate so the hint never returns for this pair).
-	async function mergeNearMiss(tagId: number) {
-		if (!actionNearMiss || actionBusy) return;
-		actionBusy = true;
-		actionError = '';
-		try {
-			await api.mergeEntities('tag', tagId, actionNearMiss.id);
-			closeMenu();
+	function mergeNearMiss(tagId: number) {
+		if (!actionNearMiss) return;
+		const targetId = actionNearMiss.id;
+		tagMenu.run(async () => {
+			await api.mergeEntities('tag', tagId, targetId);
+			tagMenu.close();
 			reload();
-		} catch (err) {
-			actionError = toMessage(err);
-		} finally {
-			actionBusy = false;
-		}
+		});
 	}
 
-	async function keepBoth(tagId: number) {
-		if (!actionNearMiss || actionBusy) return;
-		actionBusy = true;
-		actionError = '';
-		try {
-			await api.dismissDuplicate('tag', tagId, actionNearMiss.id);
-			closeMenu();
-		} catch (err) {
-			actionError = toMessage(err);
-		} finally {
-			actionBusy = false;
-		}
+	function keepBoth(tagId: number) {
+		if (!actionNearMiss) return;
+		const targetId = actionNearMiss.id;
+		tagMenu.run(async () => {
+			await api.dismissDuplicate('tag', tagId, targetId);
+			tagMenu.close();
+		});
 	}
 
 	// ── Hierarchy: set/clear parent (F50 S8, ADR-075 D1 P1-2) ────────────────────────
 	// Typeahead resolves against the already-loaded `tags` list (no new search
 	// endpoint, per the design handoff) — an exact case-insensitive name match,
 	// excluding the tag itself.
-	async function applyParent(tag: Tag, parentId: number | null) {
-		if (actionBusy) return;
-		actionBusy = true;
-		actionError = '';
-		try {
+	function applyParent(tag: Tag, parentId: number | null) {
+		tagMenu.run(async () => {
 			const res = await api.setTagParent(tag.id, parentId);
 			if (res.cycle) {
 				// Straight passthrough of the ADR-075 D1 server-side cycle guard.
-				actionError = `Can't set ${tag.name} as its own ancestor.`;
+				tagMenu.error = `Can't set ${tag.name} as its own ancestor.`;
 				return;
 			}
-			closeMenu();
+			tagMenu.close();
 			reload();
-		} catch (err) {
-			actionError = toMessage(err);
-		} finally {
-			actionBusy = false;
-		}
+		});
 	}
 
 	function submitParent(e: SubmitEvent, tag: Tag) {
 		e.preventDefault();
-		const name = actionValue.trim();
-		if (!name || actionBusy) return;
+		const name = tagMenu.value.trim();
+		if (!name || tagMenu.busy) return;
 		const match = tags.find((x) => x.id !== tag.id && x.name.toLowerCase() === name.toLowerCase());
 		if (!match) {
-			actionError = `No tag named "${name}".`;
+			tagMenu.error = `No tag named "${name}".`;
 			return;
 		}
 		applyParent(tag, match.id);
 	}
 
 	// ── Category pill's own ⋯ menu: Rename / Delete only (HOLODEX-240 §2) ────────────
-	async function openCatMenuFor(id: number) {
-		openCatMenu = id;
-		catMenuAction = 'menu';
-		catActionValue = '';
-		catActionError = '';
-	}
-
-	function closeCatMenu(returnFocus = true) {
-		const id = openCatMenu;
-		openCatMenu = null;
-		catMenuAction = 'menu';
-		if (returnFocus && id != null) catMenuTriggers[id]?.focus();
-	}
-
-	function toggleCatMenu(id: number) {
-		if (openCatMenu === id) closeCatMenu();
-		else openCatMenuFor(id);
-	}
-
 	async function startCatRename(c: Category) {
-		catMenuAction = 'rename';
-		catActionValue = c.name;
-		catActionError = '';
+		catMenu.action = 'rename';
+		catMenu.value = c.name;
+		catMenu.error = '';
 		await Promise.resolve();
 		catActionInput?.focus();
 		catActionInput?.select();
 	}
 
-	async function submitCatRename(e: SubmitEvent, c: Category) {
+	function submitCatRename(e: SubmitEvent, c: Category) {
 		e.preventDefault();
-		const name = catActionValue.trim();
-		if (!name || catActionBusy) return;
-		catActionBusy = true;
-		catActionError = '';
-		try {
-			await api.renameCategory(c.id, name);
-			closeCatMenu();
-			reloadCategories();
-		} catch (err) {
-			catActionError =
+		catMenu.submit(
+			async (name) => {
+				await api.renameCategory(c.id, name);
+				catMenu.close();
+				reloadCategories();
+			},
+			(err, name) =>
 				err instanceof ApiError && err.status === 409
 					? `“${name}” already names a tag or another category.`
-					: toMessage(err);
-		} finally {
-			catActionBusy = false;
-		}
+					: toMessage(err)
+		);
 	}
 
 	async function confirmDeleteCategory() {
@@ -506,8 +427,8 @@
 	{:else}
 		<div
 			class="flex flex-wrap gap-2"
-			use:dismissable={{ enabled: openMenu !== null, inside: '[data-tag-pill]', onclose: closeMenu }}
-			use:dismissable={{ enabled: openCatMenu !== null, inside: '[data-cat-pill]', onclose: closeCatMenu }}
+			use:dismissable={{ enabled: tagMenu.openId !== null, inside: '[data-tag-pill]', onclose: tagMenu.close }}
+			use:dismissable={{ enabled: catMenu.openId !== null, inside: '[data-cat-pill]', onclose: catMenu.close }}
 		>
 			{#each visibleTags as t (t.id)}
 				{#if manage}
@@ -532,22 +453,22 @@
 						<!-- ⋯ opens the per-pill identity menu. -->
 						<button
 							type="button"
-							bind:this={menuTriggers[t.id]}
-							onclick={() => toggleMenu(t.id)}
+							bind:this={tagMenu.triggers[t.id]}
+							onclick={() => tagMenu.toggle(t.id, () => firstItem?.focus())}
 							aria-haspopup="menu"
-							aria-expanded={openMenu === t.id}
+							aria-expanded={tagMenu.isOpen(t.id)}
 							aria-label={`Tag actions: ${t.name}`}
 							class="inline-flex items-center rounded-r-full border-l border-rule px-2 text-muted hover:text-accent"
 						>
 							⋯
 						</button>
 
-						{#if openMenu === t.id}
+						{#if tagMenu.isOpen(t.id)}
 							<div
 								role="menu"
 								class="absolute right-0 top-full z-10 mt-1 min-w-[13rem] rounded-theme border border-rule bg-surface-2 p-1 shadow-sm"
 							>
-								{#if menuAction === 'menu'}
+								{#if tagMenu.action === 'menu'}
 									<button
 										bind:this={firstItem}
 										role="menuitem"
@@ -578,7 +499,7 @@
 										type="button"
 										onclick={() => {
 											mergeInto = t;
-											openMenu = null;
+											tagMenu.close(false);
 										}}
 										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
 									>
@@ -589,7 +510,7 @@
 										type="button"
 										onclick={() => {
 											openAddToCategory([t.id]);
-											openMenu = null;
+											tagMenu.close(false);
 										}}
 										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
 									>
@@ -608,7 +529,7 @@
 											<button
 												type="button"
 												onclick={() => mergeNearMiss(t.id)}
-												disabled={actionBusy}
+												disabled={tagMenu.busy}
 												class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
 											>
 												Merge them in
@@ -616,17 +537,17 @@
 											<button
 												type="button"
 												onclick={() => keepBoth(t.id)}
-												disabled={actionBusy}
+												disabled={tagMenu.busy}
 												class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
 											>
 												Keep both
 											</button>
 										</div>
-										{#if actionError}
-											<p class="text-sm text-warn">{actionError}</p>
+										{#if tagMenu.error}
+											<p class="text-sm text-warn">{tagMenu.error}</p>
 										{/if}
 									</div>
-								{:else if menuAction === 'parent'}
+								{:else if tagMenu.action === 'parent'}
 									<!-- Hierarchy: set/clear parent (P1-2). Typeahead is a <datalist> over the
 									     already-loaded tag list -- no new search endpoint. -->
 									<form onsubmit={(e) => submitParent(e, t)} class="space-y-2 p-1">
@@ -637,7 +558,7 @@
 												<button
 													type="button"
 													onclick={() => applyParent(t, null)}
-													disabled={actionBusy}
+													disabled={tagMenu.busy}
 													class="btn-quiet ml-1"
 												>
 													Clear
@@ -646,7 +567,7 @@
 										{/if}
 										<input
 											bind:this={actionInput}
-											bind:value={actionValue}
+											bind:value={tagMenu.value}
 											type="text"
 											list={`parent-options-${t.id}`}
 											placeholder="New parent tag"
@@ -659,20 +580,20 @@
 											{/each}
 										</datalist>
 										<div class="flex flex-wrap gap-2">
-											<button type="submit" disabled={actionBusy} class="btn-accent px-3 py-1.5 text-sm">
+											<button type="submit" disabled={tagMenu.busy} class="btn-accent px-3 py-1.5 text-sm">
 												Set parent
 											</button>
 											<button
 												type="button"
-												onclick={() => closeMenu()}
-												disabled={actionBusy}
+												onclick={() => tagMenu.close()}
+												disabled={tagMenu.busy}
 												class="btn-ghost px-3 py-1.5 text-sm"
 											>
 												Cancel
 											</button>
 										</div>
-										{#if actionError}
-											<p class="text-sm text-warn">{actionError}</p>
+										{#if tagMenu.error}
+											<p class="text-sm text-warn">{tagMenu.error}</p>
 										{/if}
 									</form>
 								{:else}
@@ -681,10 +602,10 @@
 									<form onsubmit={(e) => submitAction(e, t.id)} class="space-y-2 p-1">
 										<input
 											bind:this={actionInput}
-											bind:value={actionValue}
+											bind:value={tagMenu.value}
 											type="text"
-											placeholder={menuAction === 'rename' ? 'New name' : 'Add an alias'}
-											aria-label={menuAction === 'rename' ? `Rename ${t.name}` : `Add an alias for ${t.name}`}
+											placeholder={tagMenu.action === 'rename' ? 'New name' : 'Add an alias'}
+											aria-label={tagMenu.action === 'rename' ? `Rename ${t.name}` : `Add an alias for ${t.name}`}
 											class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
 										/>
 										{#if actionConflict}
@@ -697,15 +618,15 @@
 												<button
 													type="button"
 													onclick={() => mergeConflict(t.id)}
-													disabled={actionBusy}
+													disabled={tagMenu.busy}
 													class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
 												>
 													Yes, merge them in
 												</button>
 												<button
 													type="button"
-													onclick={() => closeMenu()}
-													disabled={actionBusy}
+													onclick={() => tagMenu.close()}
+													disabled={tagMenu.busy}
 													class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
 												>
 													No, keep separate
@@ -715,23 +636,23 @@
 											<div class="flex flex-wrap gap-2">
 												<button
 													type="submit"
-													disabled={actionBusy}
+													disabled={tagMenu.busy}
 													class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
 												>
-													{menuAction === 'rename' ? 'Rename' : 'Add'}
+													{tagMenu.action === 'rename' ? 'Rename' : 'Add'}
 												</button>
 												<button
 													type="button"
-													onclick={() => closeMenu()}
-													disabled={actionBusy}
+													onclick={() => tagMenu.close()}
+													disabled={tagMenu.busy}
 													class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
 												>
 													Cancel
 												</button>
 											</div>
 										{/if}
-										{#if actionError}
-											<p class="text-sm text-warn">{actionError}</p>
+										{#if tagMenu.error}
+											<p class="text-sm text-warn">{tagMenu.error}</p>
 										{/if}
 									</form>
 								{/if}
@@ -763,22 +684,22 @@
 						</a>
 						<button
 							type="button"
-							bind:this={catMenuTriggers[c.id]}
-							onclick={() => toggleCatMenu(c.id)}
+							bind:this={catMenu.triggers[c.id]}
+							onclick={() => catMenu.toggle(c.id)}
 							aria-haspopup="menu"
-							aria-expanded={openCatMenu === c.id}
+							aria-expanded={catMenu.isOpen(c.id)}
 							aria-label={`Category actions: ${c.name}`}
 							class="inline-flex items-center rounded-r-full border-l border-rule px-2 text-muted hover:text-accent"
 						>
 							⋯
 						</button>
 
-						{#if openCatMenu === c.id}
+						{#if catMenu.isOpen(c.id)}
 							<div
 								role="menu"
 								class="absolute right-0 top-full z-10 mt-1 min-w-[11rem] rounded-theme border border-rule bg-surface-2 p-1 shadow-sm"
 							>
-								{#if catMenuAction === 'menu'}
+								{#if catMenu.action === 'menu'}
 									<button
 										role="menuitem"
 										type="button"
@@ -793,7 +714,7 @@
 										onclick={() => {
 											catDeleting = c;
 											catDeleteError = '';
-											openCatMenu = null;
+											catMenu.close(false);
 										}}
 										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
 									>
@@ -803,7 +724,7 @@
 									<form onsubmit={(e) => submitCatRename(e, c)} class="space-y-2 p-1">
 										<input
 											bind:this={catActionInput}
-											bind:value={catActionValue}
+											bind:value={catMenu.value}
 											type="text"
 											placeholder="New name"
 											aria-label={`Rename ${c.name}`}
@@ -812,22 +733,22 @@
 										<div class="flex flex-wrap gap-2">
 											<button
 												type="submit"
-												disabled={catActionBusy}
+												disabled={catMenu.busy}
 												class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
 											>
 												Rename
 											</button>
 											<button
 												type="button"
-												onclick={() => closeCatMenu()}
-												disabled={catActionBusy}
+												onclick={() => catMenu.close()}
+												disabled={catMenu.busy}
 												class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
 											>
 												Cancel
 											</button>
 										</div>
-										{#if catActionError}
-											<p class="text-sm text-warn">{catActionError}</p>
+										{#if catMenu.error}
+											<p class="text-sm text-warn">{catMenu.error}</p>
 										{/if}
 									</form>
 								{/if}
