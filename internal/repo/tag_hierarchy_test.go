@@ -269,6 +269,35 @@ func TestSetTagsWritebackEnabled(t *testing.T) {
 	}
 }
 
+// TestListTagsWritebackEnabled guards against ListTags' batch-attach query
+// (separate from GetTag's) silently dropping the column — namedCountQuery is
+// shared with ListStudios and has no writeback_enabled select, so this has to
+// come from its own attach step, same as parent_tag_id.
+func TestListTagsWritebackEnabled(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false); err != nil {
+		t.Fatalf("disable Dog: %v", err)
+	}
+
+	tags, err := r.ListTags(ctx, false)
+	if err != nil {
+		t.Fatalf("list tags: %v", err)
+	}
+	byID := make(map[int64]bool, len(tags))
+	for _, tag := range tags {
+		byID[tag.ID] = tag.WritebackEnabled
+	}
+	if byID[ids["Dog"]] {
+		t.Errorf("Dog.WritebackEnabled = true from ListTags, want false")
+	}
+	if !byID[ids["Animal"]] {
+		t.Errorf("Animal.WritebackEnabled = false from ListTags, want true (default, untouched)")
+	}
+}
+
 // TestVideoIDsForTags covers D2's bulk sync scope: the deduplicated union of
 // active/non-deleted video ids across every listed tag, so a video attached
 // to two selected tags is returned once, not twice.
