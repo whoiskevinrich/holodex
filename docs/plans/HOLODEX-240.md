@@ -8,32 +8,26 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 ## Gates — definition of done
 - [x] spec          docs/specs/tag-categories.md · S1
 - [x] architecture  docs/architecture/ADR-077-tag-categories-entity.md · S3
-- [ ] backend       not started
+- [x] backend       migration 0033 + internal/repo/categories.go + internal/api/categories.go · S4
 - [ ] frontend      not started
 - [~] testing       deferred until: backend/frontend implemented
 - [~] security      deferred until: architecture + backend implemented
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. Migration `0033_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey`,
-   `category_tags` junction, the four cross-table collision triggers (tag↔category, insert+rename) — see
-   ADR-077 D1-D3  [backend]
-2. `internal/repo/categories.go`: `CreateCategory`/`RenameCategory`/`DeleteCategory`, each with an
-   app-layer pre-flight collision check for a friendly `409` ahead of the trigger backstop (ADR-077 D3);
-   `resolveOrCreateByName`'s tag path gains the symmetric pre-flight check against `categories`  [backend]
-3. Category CRUD endpoints (create/rename/delete, cascade-unassign on delete is free via `ON DELETE
-   CASCADE` — ADR-077 D2)  [backend]
-4. `/tags` name-search endpoint/param (prerequisite — doesn't exist today) + All/Tags/Categories filter  [backend, frontend]
-5. `/categories/{id}` page: member-tag chips, add/remove, no video grid — extract shared `TagChipList`
+1. `/tags` name-search endpoint/param (prerequisite — doesn't exist today) + All/Tags/Categories filter —
+   confirm at frontend build time whether the picker actually needs a server search or the design's
+   client-side-filter-over-the-unpaged-list approach covers it  [backend, frontend]
+2. `/categories/{id}` page: member-tag chips, add/remove, no video grid — extract shared `TagChipList`
    from the media page's Tags section while building this (see handoff)  [frontend]
-6. New `entity/CategoryPicker.svelte` (sibling of `EntityPicker`, not an extension) driving bulk
+3. New `entity/CategoryPicker.svelte` (sibling of `EntityPicker`, not an extension) driving bulk
    "Add to category…" / "Remove from category…" on `/tags` Manage mode + the pill ⋯ menu's
-   single-tag "Add to category…" item  [frontend]
-7. Browse-page "Categories" facet: `VideoFilter.CategoryIDs` expands to member tag IDs via
-   `category_tags`, feeding the existing `TagIDs` `EXISTS(...)` clause shape — no new query primitive
-   (ADR-077 D2/Consequences)  [backend, frontend]
-8. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
+   single-tag "Add to category…" item — backed by `POST/DELETE /categories/{id}/tags` (`{tag_ids:[...]}`,
+   already implemented)  [frontend]
+4. Browse-page "Categories" facet UI: `FacetFilter` fed by `GET /categories`, `?category_id=` wired into
+   the videos-query call (backend half — `VideoFilter.CategoryIDs` — already implemented)  [frontend]
+5. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
    and cascade-delete cases  [testing]
-9. Security review  [security]
+6. Security review  [security]
 
 ## Session log   (append-only)
 S1 · /product-brainstorming /write-spec — spec drafted, epic filed (blocked-by HOLODEX-239), Draft PR opened
@@ -61,3 +55,24 @@ codebase's existing posture for same-table `nameKey` uniqueness (real unique ind
 two-table case SQLite can express (unlike ADR-075 D1's cycle guard, which genuinely couldn't be). Browse
 facet expansion reuses `VideoFilter.build()`'s existing `TagIDs` clause shape with no new primitive. No
 code yet — backend gate is next.
+S4 · backend implementation — migration `0033_categories.{up,down}.sql` (categories +
+ux_categories_namekey, category_tags junction, the four cross-table collision triggers);
+`internal/repo/categories.go` (CreateCategory/RenameCategory/DeleteCategory/ListCategories/
+GetCategory/TagsForCategory/AssignTagsToCategory/UnassignTagsFromCategory, each collision-checked
+pre-flight per ADR-077 D3 via a shared `nameCollidesInTable` helper); `resolveOrCreateByName`'s tag
+path gains the symmetric pre-flight check, with the new `ErrTagNameCollidesWithCategory` folded into
+the scanner's and materialization's existing silent-skip lists alongside `ErrTagDenied`/
+`ErrTagNameTooLong`; `internal/api/categories.go` (owner-gated CRUD + bulk assign/unassign at
+`POST/DELETE /categories/{id}/tags`, public list/detail reads); `VideoFilter.CategoryIDs` browse
+facet (repo.go, ADR-077 D2's exact `EXISTS(...)` clause shape, wired to `?category_id=`). Ran
+`/simplify` before committing: unified the two near-duplicate collision-check helpers into one
+table-parameterized function, replaced the assign/unassign per-tag-id loops with single batched
+SQL statements (and had them return the updated category directly, cutting the handler's redundant
+re-fetch), and folded the create/rename validation + error-mapping duplication in the API layer into
+shared helpers. Full Go test suite green, including new repo + API coverage for CRUD, both
+collision directions, cascade-delete, and the facet query. Deferred item 4 (`/tags` name-search)
+since the design's client-side-filter approach may already cover it — revisit at frontend build
+time. Backend gate closed; frontend is next.
+
+### 2026-07-31 · session
+- skills: simplify

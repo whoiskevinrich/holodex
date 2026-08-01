@@ -46,9 +46,10 @@ func attachTagTx(ctx context.Context, tx *sql.Tx, videoID int64, name, source st
 // AttachTagToVideo resolves-or-creates a tag by name and links it to videoID with
 // source='manual'. Idempotent: re-attaching an already-linked tag is a no-op.
 // Returns the resolved tag. ErrNotFound if videoID doesn't exist (or is
-// soft-deleted); ErrTagDenied / ErrTagNameTooLong propagate from
-// resolveOrCreateByName so the caller can translate them to the owner-facing 422/400
-// the manual-attach path gets (unlike the scanner's silent skip).
+// soft-deleted); ErrTagDenied / ErrTagNameTooLong / ErrTagNameCollidesWithCategory
+// propagate from resolveOrCreateByName so the caller can translate them to the
+// owner-facing 422/400/409 the manual-attach path gets (unlike the scanner's
+// silent skip).
 func (r *Repo) AttachTagToVideo(ctx context.Context, videoID int64, name string) (*model.Tag, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
@@ -94,9 +95,10 @@ type MaterializedTag struct {
 // AttachMaterializedTags attaches every value in tags to videoID in a single
 // transaction (F50 P0-9, ADR-075 D4) — the enrichment-materialization counterpart to
 // AttachTagToVideo, called once per enrich-apply with the video's whole resolved
-// `genres` set rather than once per value. A denied or oversized name is silently
-// skipped, not surfaced: enrichment is unattended, so there is no owner to show a
-// 422/400 to (ADR-075 D2), matching replaceAssociations' precedent for the scanner.
+// `genres` set rather than once per value. A denied, oversized, or category-colliding
+// name is silently skipped, not surfaced: enrichment is unattended, so there is no
+// owner to show a 422/400/409 to (ADR-075 D2; ADR-077 D3), matching
+// replaceAssociations' precedent for the scanner.
 // INSERT OR IGNORE makes re-running against an already-materialized video a no-op
 // (idempotent). No video-existence check: the caller (MaterializeVideoTags) already
 // resolved the video's fields, which only succeeds for a video that exists.
@@ -115,7 +117,7 @@ func (r *Repo) AttachMaterializedTags(ctx context.Context, videoID int64, tags [
 
 	for _, t := range tags {
 		if _, err := attachTagTx(ctx, tx, videoID, t.Name, t.Source); err != nil {
-			if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) {
+			if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) || errors.Is(err, ErrTagNameCollidesWithCategory) {
 				continue
 			}
 			return err

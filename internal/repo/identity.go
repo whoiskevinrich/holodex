@@ -129,6 +129,18 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		return 0, ErrTagNameTooLong
 	}
 
+	// 3c. Cross-table collision with categories (tags only, ADR-077 D3): the
+	// symmetric pre-flight check to CreateCategory/RenameCategory's tag-side
+	// check, at the one choke point every tag-creation path shares -- the DB
+	// triggers from migration 0033 are the correctness backstop either way.
+	if entityType == model.EntityTag {
+		if collides, err := nameCollidesInTable(ctx, tx, "categories", name, 0); err != nil {
+			return 0, err
+		} else if collides {
+			return 0, ErrTagNameCollidesWithCategory
+		}
+	}
+
 	// 4. Create, then flag any loose-key near-miss for the review queue (F43 S5,
 	//    scan-time flagging — never merges) and attach the id (studios).
 	res, err := tx.ExecContext(ctx, q.insert, name)

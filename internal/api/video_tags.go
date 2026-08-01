@@ -23,8 +23,9 @@ func (h *Handlers) mountVideoTags(r chi.Router) {
 }
 
 // attachVideoTag resolves-or-creates a tag by name and links it to the video,
-// source='manual'. 422 on a denied term, 400 on an oversized name (both from the
-// shared resolveOrCreateByName choke point), 404 if the video doesn't exist.
+// source='manual'. 422 on a denied term, 400 on an oversized name, 409 on a
+// name that collides with an existing category (ADR-077 D3) -- all three from
+// the shared resolveOrCreateByName choke point -- 404 if the video doesn't exist.
 func (h *Handlers) attachVideoTag(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -51,6 +52,9 @@ func (h *Handlers) attachVideoTag(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, repo.ErrTagNameTooLong):
 		writeError(w, http.StatusBadRequest, "name is too long")
+		return
+	case errors.Is(err, repo.ErrTagNameCollidesWithCategory):
+		writeError(w, http.StatusConflict, "that name already belongs to a category")
 		return
 	case err != nil:
 		h.fail(w, "attach video tag", err)
