@@ -51,6 +51,20 @@ export function videoCount(n: number): string {
 	return `${n} video${n === 1 ? '' : 's'}`;
 }
 
+// tagCount renders the pluralized "N tag(s)" label — the category pill/detail
+// page's member-tag count badge (HOLODEX-240), parallel to videoCount above.
+export function tagCount(n: number): string {
+	return `${n} tag${n === 1 ? '' : 's'}`;
+}
+
+// filterByName narrows items to those whose name contains query, case-insensitive
+// (personal-library scale, client-side filter over an already-loaded unpaged
+// list — the shape EntityPicker/CategoryPicker/tags' unified search all share).
+export function filterByName<T extends { name: string }>(items: T[], query: string): T[] {
+	const q = query.trim().toLowerCase();
+	return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+}
+
 // monogram is the fallback glyph for an entity with no logo/icon: the real first
 // glyph of the name (upper-cased), not an A–Z jump bucket — so "24 Frames" shows "2"
 // and "東宝" shows "東". Shared by the studios list well and the provider brand icon

@@ -285,22 +285,22 @@ needing to reason about a type that behaves differently from the other three.
 
 ## Action Items
 
-1. [ ] Migration `0033_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
+1. [x] Migration `0033_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
    `category_tags` junction (D2), the four collision triggers (D3) — engineering's call whether this is one
    migration or split further; `.down.sql` drops triggers before tables (SQLite trigger-then-table drop order).
-2. [ ] `internal/repo/categories.go`: `CreateCategory`, `RenameCategory`, `DeleteCategory` — each performs the
+2. [x] `internal/repo/categories.go`: `CreateCategory`, `RenameCategory`, `DeleteCategory` — each performs the
    app-layer pre-flight collision check against the other table before its own trigger-backed insert/update
    (D3), returning a typed error the API layer maps to `409` with the spec's required copy.
-3. [ ] `resolveOrCreateByName`'s tag-creation path (`internal/repo/identity.go`) gains the same pre-flight
+3. [x] `resolveOrCreateByName`'s tag-creation path (`internal/repo/identity.go`) gains the same pre-flight
    check against `categories` before insert — the tag side of D3's symmetry; every existing tag-creation
    caller (scanner, manual attach, materialization) inherits it for free via the single choke point, matching
    this codebase's established "one choke point, not N call sites" preference (cf. ADR-075 D2).
-4. [ ] Category CRUD endpoints (`POST/PATCH/DELETE /owner/categories`), owner-gated, per the spec's P0
+4. [x] Category CRUD endpoints (`POST/PATCH/DELETE /owner/categories`), owner-gated, per the spec's P0
    checklist.
-5. [ ] `category_tags` assign/unassign endpoints backing the bulk "Add to category…"/"Remove from category…"
+5. [x] `category_tags` assign/unassign endpoints backing the bulk "Add to category…"/"Remove from category…"
    actions and the `/categories/{id}` member-tag chips (spec P0), both simple junction inserts/deletes — no
    new query shape beyond D2.
-6. [ ] `VideoFilter` gains a `CategoryIDs` field; `VideoFilter.build()` adds one `EXISTS (...)` clause per
+6. [x] `VideoFilter` gains a `CategoryIDs` field; `VideoFilter.build()` adds one `EXISTS (...)` clause per
    selected category id following the exact shape described in D2/Consequences, ANDed with existing clauses
    the same way `TagIDs`/`StudioIDs` already are.
 7. [ ] `/testing-strategy`: cover the cross-table collision at all four trigger paths (tag-blocks-category,

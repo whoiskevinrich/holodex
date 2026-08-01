@@ -9,25 +9,20 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 - [x] spec          docs/specs/tag-categories.md · S1
 - [x] architecture  docs/architecture/ADR-077-tag-categories-entity.md · S3
 - [x] backend       migration 0033 + internal/repo/categories.go + internal/api/categories.go · S4
-- [ ] frontend      not started
-- [~] testing       deferred until: backend/frontend implemented
-- [~] security      deferred until: architecture + backend implemented
+- [x] frontend      tags/+page.svelte unified filter + category pills, entity/CategoryPicker.svelte,
+                    categories/[id]/+page.svelte, browse Categories facet · S5
+- [ ] testing       not started — regenerate testing-strategy for the new endpoints/flows
+- [ ] security      not started
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. `/tags` name-search endpoint/param (prerequisite — doesn't exist today) + All/Tags/Categories filter —
-   confirm at frontend build time whether the picker actually needs a server search or the design's
-   client-side-filter-over-the-unpaged-list approach covers it  [backend, frontend]
-2. `/categories/{id}` page: member-tag chips, add/remove, no video grid — extract shared `TagChipList`
-   from the media page's Tags section while building this (see handoff)  [frontend]
-3. New `entity/CategoryPicker.svelte` (sibling of `EntityPicker`, not an extension) driving bulk
-   "Add to category…" / "Remove from category…" on `/tags` Manage mode + the pill ⋯ menu's
-   single-tag "Add to category…" item — backed by `POST/DELETE /categories/{id}/tags` (`{tag_ids:[...]}`,
-   already implemented)  [frontend]
-4. Browse-page "Categories" facet UI: `FacetFilter` fed by `GET /categories`, `?category_id=` wired into
-   the videos-query call (backend half — `VideoFilter.CategoryIDs` — already implemented)  [frontend]
-5. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
-   and cascade-delete cases  [testing]
-6. Security review  [security]
+1. Live 3-skin browser QA of the S5 frontend surfaces (blocked this session — sandboxed dev-server
+   restart was denied by the auto-mode classifier after a stale local `data/holodex.db` needed
+   clearing; automated coverage — Go + vitest + svelte-check — is green, but nobody has eyeballed
+   Cinémathèque/Broadcast/Brutalist yet)  [frontend, qa]
+2. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
+   and cascade-delete cases, plus the new `POST /tags` resolve-or-create-tag endpoint  [testing]
+3. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
+   category mutation surface  [security]
 
 ## Session log   (append-only)
 S1 · /product-brainstorming /write-spec — spec drafted, epic filed (blocked-by HOLODEX-239), Draft PR opened
@@ -73,6 +68,55 @@ shared helpers. Full Go test suite green, including new repo + API coverage for 
 collision directions, cascade-delete, and the facet query. Deferred item 4 (`/tags` name-search)
 since the design's client-side-filter approach may already cover it — revisit at frontend build
 time. Backend gate closed; frontend is next.
+
+S5 · frontend implementation — resolved the deferred item 1 (`/tags` name-search) in favor of the
+design's client-side-filter-over-the-unpaged-list approach, confirming no new search endpoint was
+needed. `tags/+page.svelte` gained the All/Tags/Categories segmented control (reusing `SortToggle`'s
+shell), the search input, category pills (plain + Manage-mode variants, the latter non-selectable
+with a reduced Rename/Delete ⋯ menu backed by `ConfirmDialog`), a new "Add to category…" item on the
+tag pill's own ⋯ menu, and the Manage-bar bulk "Add to category…"/"Remove from category…" actions.
+New `entity/CategoryPicker.svelte` (sibling of `EntityPicker`, per the handoff's resolved decision) —
+single-step search-or-create (`mode="add"`) / search-only (`mode="remove"`), no informed confirm.
+New `routes/categories/[id]/+page.svelte` — sparse detail page, member-tag chips mirroring the media
+page's Tags section (bespoke copy this session, not extracted into a shared `TagChipList`, per the
+handoff's own "not a blocking requirement" flag — still open, see Up next). Browse page
+(`routes/+page.svelte`) gained a fourth `FacetFilter` for Categories.
+
+Two small, reasoned backend additions beyond what S4 shipped, both needed to satisfy the design
+contract discovered while building the frontend: (1) `ListCategories` now also returns `tag_count`
+and `tag_ids` per category (the pill's count badge and the "Remove from category…" picker's
+client-side membership filter — no new search endpoint, personal-library scale); (2) a new
+`ResolveOrCreateTag`/`POST /tags` (owner-gated, no video attach) backs the `/categories/{id}`
+"+ Add tag" control, which needs to create brand-new tags without a video — reuses the existing
+`resolveOrCreateByName` choke point `AttachTagToVideo` already routes through.
+
+Ran `/simplify` (4 parallel review agents — reuse/simplification/efficiency/altitude) before
+committing. Applied: `ListCategories` now derives `TagCount` as `len(TagIDs)` instead of a separate
+COUNT/JOIN query; a shared `filterByName()` helper (`lib/format.ts`) replaced 3 copies of the same
+name-substring filter; `/categories/{id}`'s rename/add-tag/remove-tag mutations now use the
+already-returned `Category` instead of discarding it and re-fetching; `useTagNearMiss`'s two
+independent writes now run via `Promise.all` (a reload still follows, since either individual
+response could race the other's write); the category pill's tag-glyph SVG (duplicated twice in
+`tags/+page.svelte`) is now one `{#snippet categoryIcon()}`; a straight-vs-curly-quote drift in the
+rename-collision error copy was unified. Deferred (spawned as follow-up task suggestions rather than
+risking untested changes to already-shipped code): extracting a shared `PickerShell` out of
+`EntityPicker`/`CategoryPicker`'s 100%-duplicated modal/listbox/focus-trap code; unifying the tag-pill
+and category-pill popover-menu open/close/toggle mechanism in `tags/+page.svelte`; sharing the
+tx/error-translation boilerplate between `attachVideoTag` and the new `createOrResolveTag`. Also
+skipped patching the `categories` array in place after a rename/delete/assign (vs. the current
+`reloadCategories()` full refetch) — a real but low-value efficiency win against real sort-order/
+correctness risk to verify without live QA this session.
+
+Go test suite green throughout (`internal/repo`, `internal/api`) — S5's backend additions
+(`tag_count`/`tag_ids` on `ListCategories`, `ResolveOrCreateTag`/`POST /tags`) have no dedicated new
+test cases yet; the existing `categories_test.go` coverage didn't regress, but explicit assertions
+for the new fields/endpoint are testing-gate work, not squeezed in ad hoc here. `npm run check` (0
+errors) and `npm run test` (115/115) green throughout.
+
+**Live 3-skin browser QA not completed this session** — the sandboxed dev-server restart (needed
+after clearing a stale local `data/holodex.db` with a pre-migration-0033 schema) was denied by the
+environment's auto-mode classifier. Automated coverage stands in for it, but nobody has eyeballed
+the new surfaces in Cinémathèque/Broadcast/Brutalist yet — top of Up next.
 
 ### 2026-07-31 · session
 - skills: simplify

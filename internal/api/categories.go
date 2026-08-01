@@ -32,6 +32,11 @@ func (h *Handlers) mountCategoryMutations(r chi.Router) {
 	r.Delete("/categories/{id}", h.deleteCategory)
 	r.Post("/categories/{id}/tags", h.assignCategoryTags)
 	r.Delete("/categories/{id}/tags", h.unassignCategoryTags)
+	// Standalone resolve-or-create-tag (no video attach) -- the first step of
+	// the /categories/{id} "+ Add tag" control; the caller assigns the
+	// returned id via POST /categories/{id}/tags above. Filed here (not
+	// video_tags.go) since categories is its only caller today.
+	r.Post("/tags", h.createOrResolveTag)
 }
 
 func (h *Handlers) listCategories(w http.ResponseWriter, r *http.Request) {
@@ -189,4 +194,30 @@ func (h *Handlers) assignCategoryTags(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) unassignCategoryTags(w http.ResponseWriter, r *http.Request) {
 	h.categoryTagsMutation(w, r, "unassign category tags", h.repo.UnassignTagsFromCategory)
+}
+
+// createOrResolveTag resolves-or-creates a tag by name with no video attach
+// (HOLODEX-240) -- mirrors attachVideoTag's error handling minus the video
+// link concern (422 denied, 400 too long, 409 collides with a category).
+func (h *Handlers) createOrResolveTag(w http.ResponseWriter, r *http.Request) {
+	name, ok := parseCategoryName(w, r)
+	if !ok {
+		return
+	}
+	tag, err := h.repo.ResolveOrCreateTag(r.Context(), name)
+	switch {
+	case errors.Is(err, repo.ErrTagDenied):
+		writeError(w, http.StatusUnprocessableEntity, "term is on the deny-list")
+		return
+	case errors.Is(err, repo.ErrTagNameTooLong):
+		writeError(w, http.StatusBadRequest, "name is too long")
+		return
+	case errors.Is(err, repo.ErrTagNameCollidesWithCategory):
+		writeError(w, http.StatusConflict, "that name already belongs to a category")
+		return
+	case err != nil:
+		h.fail(w, "create tag", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tag": tag})
 }

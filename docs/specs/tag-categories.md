@@ -84,17 +84,17 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
 - New many-to-many `tag_categories` junction table.
 - Name collision check spans both tags and categories (confirmed) — a category can't share a
   name with an existing tag, or vice versa.
-- [ ] Owner can create, rename, and delete a category.
-- [ ] A tag can be linked to zero, one, or many categories.
-- [ ] Creating a category or tag with a name that collides (case-insensitive fold, matching the
+- [x] Owner can create, rename, and delete a category.
+- [x] A tag can be linked to zero, one, or many categories.
+- [x] Creating a category or tag with a name that collides (case-insensitive fold, matching the
       existing tag-identity fold) with the other type is rejected with a clear error.
 
 **Cascade delete**
 - Deleting a category unassigns it from every tag (removes the junction rows) and deletes the
   category — no dependent-tag block.
-- [ ] Deleting a category with N assigned tags succeeds in one action; those tags are unaffected
+- [x] Deleting a category with N assigned tags succeeds in one action; those tags are unaffected
       other than losing the category link.
-- [ ] The delete has a confirm step naming the affected tag count, consistent with the app's
+- [x] The delete has a confirm step naming the affected tag count, consistent with the app's
       existing destructive-action confirms (e.g. media Move-to-Trash).
 
 **`/tags` list — unified type filter**
@@ -105,9 +105,9 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
   below.
 - Category pills are visually distinct from tag pills even in the unified "All" view: an
   accent-colored tag-glyph icon plus an accent border (confirmed direction).
-- [ ] The filter narrows the grid to tags only, categories only, or both.
-- [ ] The search input narrows the grid by name (both types) as the owner types.
-- [ ] A category pill is visually distinguishable from a tag pill without relying on the filter
+- [x] The filter narrows the grid to tags only, categories only, or both.
+- [x] The search input narrows the grid by name (both types) as the owner types.
+- [x] A category pill is visually distinguishable from a tag pill without relying on the filter
       state alone.
 
 **`/categories/{id}` detail page**
@@ -115,9 +115,9 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
   grid (confirmed non-goal).
 - Shows member tags as chips (linking to each tag's own `/tags/{id}`), with add/remove — reusing
   the exact add/remove-chip interaction already shipped on the media page's Tags section.
-- [ ] Owner can add a tag to the category by name (with the same near-miss handling the media
+- [x] Owner can add a tag to the category by name (with the same near-miss handling the media
       page's tag-add already has) and remove one via its chip.
-- [ ] Non-owners see the member-tag list read-only, no add/remove controls.
+- [x] Non-owners see the member-tag list read-only, no add/remove controls.
 
 **Bulk category assignment from `/tags`**
 - Reuses the existing multi-select "Manage" mode's *interaction shape* (select pills → an action
@@ -128,11 +128,11 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
   it first.
 - Depends on the search input above to be usable at any real scale — narrow by name, then
   multi-select, then assign.
-- [ ] Selecting 2+ tags in Manage mode surfaces an "Add to category…" action.
-- [ ] The category picker supports searching existing categories or creating a new one inline.
-- [ ] Confirming assigns every selected tag to the chosen category (additive — doesn't disturb
+- [x] Selecting 2+ tags in Manage mode surfaces an "Add to category…" action.
+- [x] The category picker supports searching existing categories or creating a new one inline.
+- [x] Confirming assigns every selected tag to the chosen category (additive — doesn't disturb
       any category a tag is already in).
-- [ ] A symmetric "Remove from category…" bulk action is available the same way.
+- [x] A symmetric "Remove from category…" bulk action is available the same way.
 
 **Browse-page category facet**
 - New "Categories" facet on the main library page, parallel to the existing `FacetFilter
@@ -140,8 +140,8 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
 - Selecting a category server-side expands it to its member tag IDs and ORs them into the same
   filter the Tags facet already drives — no new filtering primitive, just a category → tag-ID
   expansion feeding the existing mechanism.
-- [ ] Selecting a category in the facet returns every video tagged with any of its member tags.
-- [ ] Combining a Categories facet selection with other existing facets (Tags, etc.) behaves the
+- [x] Selecting a category in the facet returns every video tagged with any of its member tags.
+- [x] Combining a Categories facet selection with other existing facets (Tags, etc.) behaves the
       same way combining two Tags selections already does.
 
 ### P1 — Nice-to-Have

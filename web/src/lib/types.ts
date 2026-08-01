@@ -94,6 +94,22 @@ export interface Tag {
 	ancestors?: string[];
 }
 
+// Category groups tags for browsing without merging or altering them
+// (HOLODEX-240, ADR-077) — hand-curated, no provenance/alias/merge. TagCount
+// is present on both the /categories list (the pill's count badge) and the
+// detail read; Tags (the member list) only on the detail read.
+export interface Category {
+	id: number;
+	name: string;
+	tag_count: number;
+	// Member tag ids — present on the /categories list only (drives the "Remove
+	// from category…" picker's client-side filter to categories that actually
+	// contain one of the selected tags); absent on the detail read, which has
+	// `tags` (full objects) instead.
+	tag_ids?: number[];
+	tags?: Tag[];
+}
+
 // DeniedTag is one globally blocked term (F50, ADR-075 D2) — exact-match,
 // case-insensitive, unconditioned on any entity or provider. Served by the
 // owner's /owner/tags "Deny-list" tab.
@@ -698,6 +714,10 @@ export interface MediaFilters {
 	// derived video_studios link. Distinct from the legacy mapped `studio` string filter
 	// (still under `mapped`, kept for REST/MCP back-compat but no longer surfaced in the UI).
 	studio_id?: number[];
+	// Category filter (HOLODEX-240, ADR-077): repeatable ?category_id, expanded
+	// server-side to the category's member tag ids and ORed into the same TagIDs
+	// matching the existing `tag` filter uses (no new client-side expansion).
+	category?: number[];
 	duration_min?: number; // minutes
 	duration_max?: number; // minutes
 	resolution?: Resolution;

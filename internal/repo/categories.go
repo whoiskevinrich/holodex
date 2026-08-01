@@ -143,24 +143,60 @@ func (r *Repo) DeleteCategory(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ListCategories returns every category, name-ordered. No member-tag data
-// (no per-row use for it on the list surface, spec Non-Goals) -- always a
-// non-nil slice so the JSON serializes as [] not null.
+// ListCategories returns every category, name-ordered, with its member-tag
+// count (the /tags pill's count badge) and member tag ids (the "Remove from
+// category…" picker's client-side filter, HOLODEX-240) but no per-row tag
+// objects (no per-row use for those on the list surface, spec Non-Goals).
+// Always a non-nil slice so the JSON serializes as [] not null.
 func (r *Repo) ListCategories(ctx context.Context) ([]model.Category, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM categories ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, fmt.Errorf("list categories: %w", err)
 	}
-	defer rows.Close()
 	out := []model.Category{}
 	for rows.Next() {
 		var c model.Category
 		if err := rows.Scan(&c.ID, &c.Name); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		out = append(out, c)
 	}
-	return out, rows.Err()
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Member tag ids, in one pass over category_tags -- TagCount is len(TagIDs),
+	// derived below rather than a separate COUNT/JOIN query above (personal-
+	// library scale, so this one extra full pass is cheap either way).
+	byID := make(map[int64]*model.Category, len(out))
+	for i := range out {
+		byID[out[i].ID] = &out[i]
+	}
+	memberRows, err := r.db.QueryContext(ctx, `SELECT category_id, tag_id FROM category_tags`)
+	if err != nil {
+		return nil, fmt.Errorf("list categories: member tags: %w", err)
+	}
+	defer memberRows.Close()
+	for memberRows.Next() {
+		var catID, tagID int64
+		if err := memberRows.Scan(&catID, &tagID); err != nil {
+			return nil, err
+		}
+		if c, ok := byID[catID]; ok {
+			c.TagIDs = append(c.TagIDs, tagID)
+		}
+	}
+	if err := memberRows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].TagCount = len(out[i].TagIDs)
+	}
+	return out, nil
 }
 
 // GetCategory returns a category by id with its member tags, or ErrNotFound.
@@ -177,7 +213,39 @@ func (r *Repo) GetCategory(ctx context.Context, id int64) (*model.Category, erro
 		return nil, err
 	}
 	c.Tags = tags
+	c.TagCount = len(tags)
 	return &c, nil
+}
+
+// ResolveOrCreateTag resolves-or-creates a tag by name with no video attach
+// (HOLODEX-240) -- the first step of the /categories/{id} "+ Add tag"
+// control (AssignTagsToCategory does the second, linking the resolved id).
+// Shares resolveOrCreateByName, the same choke point AttachTagToVideo and the
+// scanner already route through, so a name that matches an existing tag/alias
+// resolves to it instead of duplicating, and the deny-list/length-cap/
+// category-collision checks (ADR-077 D3) all apply here too.
+func (r *Repo) ResolveOrCreateTag(ctx context.Context, name string) (*model.Tag, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, name, "")
+	if err != nil {
+		return nil, err
+	}
+	var tagName string
+	if err := tx.QueryRowContext(ctx, `SELECT name FROM tags WHERE id = ?`, tid).Scan(&tagName); err != nil {
+		return nil, fmt.Errorf("resolve or create tag: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &model.Tag{ID: tid, Name: tagName}, nil
 }
 
 // TagsForCategory returns a category's member tags, name-ordered.
