@@ -208,9 +208,10 @@ func TestResolveOrCreateTagEndpoint(t *testing.T) {
 	tagID1 := int64(tag["id"].(float64))
 
 	// No video attach: the tag exists (GET /tags/{id}, a direct-by-id read)
-	// but ListTags' inner join with video_tags means GET /tags (the plain
-	// list) excludes a zero-video tag entirely -- real, observed behavior,
-	// not asserted away here.
+	// and GET /tags (the plain list) now includes a zero-video tag too
+	// (HOLODEX-243: ListTags left-joins video_tags instead of inner-joining),
+	// so a bare tag created via the /tags "+ New" affordance shows up
+	// immediately rather than being invisible until some video is tagged.
 	code, detail := getJSONTok(t, tagsURL+"/"+itoa(tagID1), "")
 	if code != http.StatusOK {
 		t.Fatalf("get created tag = %d, want 200", code)
@@ -222,8 +223,12 @@ func TestResolveOrCreateTagEndpoint(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("list tags = %d", code)
 	}
-	if items, _ := listBody["items"].([]any); len(items) != 0 {
-		t.Errorf("list tags with only a zero-video tag = %v, want empty (inner-join excludes it)", items)
+	items, _ := listBody["items"].([]any)
+	if len(items) != 1 {
+		t.Errorf("list tags with only a zero-video tag = %v, want one item", items)
+	} else if first, _ := items[0].(map[string]any); first["name"] != "documentary" || first["video_count"] != nil {
+		// video_count is omitempty on the JSON model, so a zero count is absent, not 0.
+		t.Errorf("list tags item = %v, want name=documentary with no video_count", first)
 	}
 
 	// Idempotent: resolving the same (case/whitespace-variant) name again

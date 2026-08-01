@@ -316,16 +316,13 @@ func TestResolveOrCreateTag(t *testing.T) {
 	if tag.Name != "documentary" {
 		t.Errorf("tag.Name = %q, want documentary", tag.Name)
 	}
-	// ListTags (and therefore GET /tags, the /tags page, and the merge
-	// picker) inner-joins video_tags -- a zero-video tag is invisible there
-	// until some video is tagged with it. That's real, observed behavior
-	// (not a bug in this test): the tag still exists -- TagIDByName resolves
-	// it, and it's reachable via the category's own member-tag chip list
-	// (TagsForCategory has no such join) -- but it's a UX edge case worth a
-	// product decision, flagged in the testing-strategy write-up rather than
-	// silently masked here.
-	if tags, err := r.ListTags(ctx, false); err != nil || len(tags) != 0 {
-		t.Errorf("ListTags with only a zero-video tag = %+v, %v, want empty (inner-join excludes it)", tags, err)
+	// ListTags now left-joins video_tags (HOLODEX-243: namedCountQuery switched
+	// from an inner join) so a zero-video tag appears immediately with
+	// VideoCount=0, instead of being invisible until some video is tagged with
+	// it -- this is the resolution of the UX edge case a previous version of
+	// this test flagged rather than fixed.
+	if tags, err := r.ListTags(ctx, false); err != nil || len(tags) != 1 || tags[0].VideoCount != 0 {
+		t.Errorf("ListTags with only a zero-video tag = %+v, %v, want one tag with VideoCount=0", tags, err)
 	}
 	if id, ok, err := r.TagIDByName(ctx, "Documentary"); err != nil || !ok || id != tag.ID {
 		t.Fatalf("TagIDByName after resolve-or-create = %d, %v, %v, want ok with id %d", id, ok, err, tag.ID)
