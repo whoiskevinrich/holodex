@@ -13,11 +13,10 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
                     categories/[id]/+page.svelte, browse Categories facet · S5
 - [x] testing       docs/testing-strategy.md regenerated (§4/§5/§6/§9/§11 + Critical invariants) · S7;
                     closed both flagged S5 backend test gaps with new repo+API coverage
-- [ ] security      not started
+- [x] security      `/security-review` · S8 — clean, no findings ≥0.7 confidence
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
-   category mutation surface  [security]
+1. Mark PR #194 ready for review (drop Draft per ADR-069 — all six gates are now green)
 2. Product decision on the `ResolveOrCreateTag` zero-video-tag visibility gap found in S7 (a
    brand-new tag added via `/categories/{id}`'s "+ Add tag" is invisible on `/tags`/search/the merge
    picker until a video is tagged with it, since `ListTags` inner-joins `video_tags`) — not a
@@ -171,5 +170,17 @@ to-trigger-on-close was **already broken** before this epic touched those files 
 `<body>` instead, byte-identical behavior before/after the extraction — so it's a real a11y bug, but
 not one this epic's frontend work introduced.
 
+S8 · /security-review — focused review of the new owner-gated `POST /tags` resolve-or-create endpoint
+and the category CRUD/assign-unassign mutation surface (`internal/api/categories.go`,
+`internal/repo/categories.go`, `internal/repo/identity.go`, migration `0034_categories.up.sql`), plus
+the new frontend surfaces for `@html`/XSS sinks. Checked: SQL injection (all new queries parameterized;
+the one string-built table name in `nameCollidesInTable` is fed only hardcoded literals at all 5 call
+sites, never request data), route gating (`mountCategoryMutations` — CRUD, assign/unassign, and the new
+`POST /tags` — all sit inside the existing `requireOwner` router group; no new endpoint escapes it),
+IDOR (category/tag IDs are existence-checked pre-mutation; single-owner model has no cross-tenant
+boundary to violate; cascade-delete only touches `category_tags` join rows, never member `tags`), and
+XSS (zero `@html` usage across `CategoryPicker`/`EntityPicker`/`PickerShell`/`/categories/[id]`/
+`/tags`). Clean — no findings ≥0.7 confidence. Security gate closed; all six gates now green.
+
 ### 2026-07-31 · session
-- skills: simplify, testing-strategy
+- skills: simplify, testing-strategy, security-review
