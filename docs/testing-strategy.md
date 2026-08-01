@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -186,6 +186,8 @@ assert.JSONEq(t, string(want), string(got))
 | **Enrichment tag materialization** (ADR-075 D4, F50 P0-6) | Integration | Resolved `genres` values materialize into real `tags` rows via `resolveOrCreateByName(tag, name, source='provider:<name>')`, `INSERT OR IGNORE` into `video_tags`; **idempotent** — re-enriching the same video N times leaves exactly the same `video_tags` rows (no duplicate inserts, no duplicate alias chains); **alias-canonicalizing** — a provider value that is an existing alias (e.g. `"azure"`) attaches under its canonical name (`"blue"`), asserted by inspecting the inserted row's `tag_id`, never a second `azure` tag; a denied term in the resolved `genres` set is skipped the same as any other deny-list path (not a special case) | ~90% |
 | **Tag attach/detach endpoints** (F50 P0-7/P0-8) | Integration | New `POST/DELETE /api/v1/videos/{id}/tags`, `requireOwner`-gated (**401** unauth); attach routes through `resolveOrCreateByName(source='manual')` — same near-miss/collision surface `/tags`' own rename/alias flow already exercises, so this reuses that test fixture rather than duplicating it; detach removes only the one `(video_id, tag_id)` row (a tag shared by other videos is untouched); denied-term attach returns **422** with the term named, not a generic error | ~90% |
 | **Genre writeback — ancestor chain + dual-filter** (F50 P0-9/P0-10) | Integration | Writeback assembles the full ancestor chain per tag (`"Animal; Dog; German Shepherd"`, ADR-041's existing `genres`→`Genre` container mapping unchanged — this only changes what feeds the field); the **union of curated tags and raw TMDB genres** is deny-list-filtered on **both** sides before assembly — the regression case is a denied term present only in the raw TMDB `genres` value (never materialized as a `tags` row) reaching the file if only the curated side were filtered; table-driven over "denied in curated only", "denied in TMDB-raw only", "denied in both" | ~90% |
+| **Tag writeback exclusion — flat filter** (ADR-077 D1, migration 0033) | Integration | `TagNamesForVideo`'s final projection gains `WHERE t.writeback_enabled = 1`, the recursive ancestor walk itself untouched — `TestTagNamesForVideo_WritebackFlagFlat` seeds a 4-level chain (`Animal > Mammal > Dog > GermanShepherd`), disables the mid-chain "Dog", and asserts Dog alone drops while **both** further ancestors (`Animal`/`Mammal`) and the descendant leaf (`GermanShepherd`) survive — re-enabling restores all 4; `ListTags`/`GetTag` continue to return the disabled tag (it stays searchable, only Genre writeback is affected) | ~95% |
+| **Tag writeback exclusion — manual sync + batch status** (ADR-077 D2/D3, HOLODEX-239) | Integration | `TestSyncTagWriteback_RecomputesFullUnion`: a sync enqueues the video's **current full** `genres` writeback value (every still-enabled tag on the video), not just the synced tag in isolation; `TestSyncTagWritebackBulk_DedupsSharedVideo`: a video carrying two selected tags is enqueued **once** via `VideoIDsForTags`' deduplicated union, not twice; `TestSetTagWriteback`/`TestSetTagsWritebackBulk_AppliesRegardlessOfPriorState`: the flag-flip endpoints (`PATCH /tags/{id}/writeback`, bulk) never enqueue (proved via a nil write queue that would panic on any accidental `Enqueue` call), only the sync endpoints do; `TestWritebackBatchStatusEndpoint`: `GET /writeback/batches/{batchID}/status` aggregates `writequeue`/`job_runs` rows sharing a `batch_id` into `pending`/`running`/`done`/`failed` counts end to end over HTTP, including the pending→done transition and an **unknown batch id returning 200 with zero counts** (not 404, since a batch is a derived aggregate, not a stored entity); all four endpoints are `requireOwner`-gated (401 without token) | ~95% |
 
 ### Critical invariants (adversarial tests — break these and the app lies)
 - **Precedence**: a track-level (30) `TITLE="Commentary"` must NEVER become the video title.
@@ -231,6 +233,8 @@ assert.JSONEq(t, string(want), string(got))
 - **A hierarchy edit can never create a cycle** (F50/ADR-075 D1): the reparent guard walks the *full* ancestor chain of the proposed parent before committing — a tag can never become its own ancestor, directly or transitively, and the rejection names the offending tag rather than failing silently.
 - **Tag materialization is idempotent and alias-canonicalizing** (F50/ADR-075 D4): re-enriching a video any number of times produces the same `video_tags` rows as enriching it once, and a materialized alias term always attaches and writes back under its *canonical* name — an aliased provider value (`"azure"`) must never appear as a second, spelling-variant tag (`"azure"` alongside `"blue"`).
 - **Genre writeback's TMDB-raw union side is deny-list-filtered too** (F50 RD9 follow-up): a denied term reaching the file via the *raw* TMDB `genres` union — never materialized as a `tags` row, so invisible to a curated-tags-only filter — is the specific gap the owner caught during spec review; both sides of the union pass through the same deny-list check before assembly.
+- **Writeback exclusion never affects search or browse** (ADR-077 D1): `writeback_enabled=false` is a single flat `WHERE` clause scoped to `TagNamesForVideo`'s Genre-field projection — the tag itself, its `video_tags` rows, and every list/detail/search/facet read are completely unaffected; a disabled tag is indistinguishable from an enabled one anywhere except the written file's Genre field. A test asserting a disabled tag disappears from `/tags`, search, or a video's tag chips is testing the wrong feature.
+- **A sync is a full recompute, never an append** (ADR-077 D2): `syncTagWriteback` recomputes each affected video's **entire** current `genres` writeback value from its live, currently-enabled tag set — it is not "add this one tag's name to whatever the file already has." A tag disabled *after* a file was last written and then synced must see its name **removed** from the file, not merely fail to have it re-added.
 
 ---
 
@@ -268,6 +272,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Media-page tag chips** (F50 P0-8, [design handoff](design/tag-governance-and-video-enrichment-handoff.md) §1) | Component/Interaction + visual | Vitest + Playwright | Owner-only remove `×` revealed via the existing `.curation-actions` hover/focus-within class (absent from DOM entirely for a visitor — same chips as today); `·provenance` suffix renders for `file`/`provider:<name>` sources and is **suppressed** for `manual`; add-input reuses `/tags`' own inline-editor classes; a denied-term submission shows an inline `text-warn` rejection (not a silent no-op); a near-miss submission renders the **same** near-miss card `/tags` already has (component reuse, not a second implementation) |
 | **Deny-list tab** (F50 P1-1, handoff §2) | Component/Interaction + visual | Vitest + Playwright | New `/owner/tags` ("Deny-list") tab appears in the Owner tab row only for an owner; add/remove rows round-trip against the list; empty-state copy matches `/tags`'/Duplicates' existing empty-state pattern; a non-owner hitting the route directly redirects home (same gate every other `/owner/*` page has) |
 | **Hierarchy pill-menu action** (F50 P1-2/P1-3, handoff §3) | Component/Interaction + visual | Vitest + Playwright | `/tags`' existing pill ⋯ menu gains **Set parent…** (relabels to **Change parent…** + shows **Parent: {name}** + **Clear** once one is set); a cycle-rejecting server response surfaces through the menu's existing `actionError` slot (no new error UI); `/tags/{id}`'s optional ancestor breadcrumb (via `EntityVideos`' `hero` snippet) renders only when ancestors exist, absent for a root tag |
+| **Writeback exclusion — Details card + bulk bar** (ADR-077, [handoff](design/tag-writeback-exclusion-handoff.md)) | Unit (shipped) + Component/Interaction + visual (target) | Vitest + Playwright | `writebackJob.ts`'s shared `pollUntilSettled` loop and `waitForWritebackBatch` are unit-tested today (`writebackJob.test.ts`, 6 cases: settles, resolves without throwing on `failed>0`, survives a transient fetch failure, rethrows a real `ApiError` status, gives up to last-known counts on timeout, stops on cancellation) — this is real, already-green automated coverage, not a target row. The component layer (`tags/{id}` Details card toggle + sync trigger, `/tags` Manage-mode bulk bar's 3 actions, `WritebackBatchDialog`'s phase transitions) has **no** Vitest/Playwright coverage yet, consistent with §0's standing frontend-automation gap — verified instead via [`tag-writeback-exclusion-qa-checklist.md`](design/tag-writeback-exclusion-qa-checklist.md) and a live end-to-end pass against `backend-amv` (toggle, single-tag sync incl. zero-value skip, bulk toggle on mixed prior state, bulk sync incl. zero-enqueued), all 3 skins |
 
 ---
 
@@ -294,6 +299,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 18. **(F35 — owner hub + nav split)** As owner with **Owner view on**: the top nav shows only **Media · People · Tags**; click the **Owner** gear (near the skin picker) → land on `/owner` with tabs **Status · Metadata keys · Trash** → switch tabs (content swaps with **no** full-app reload / no jump to top). Paste the old `/status`, `/keys`, `/trash` URLs → each **redirects** to its `/owner/*` tab. Toggle **Owner view off** → the gear **disappears** and the bar is the clean visitor surface (no Keys/Status link leak); with it off, paste `/owner/trash` → it **auto-reveals** owner view and renders the page fully (announces "Owner view on."). A **token-less** client sees no gear and any `/owner*` URL redirects home with no owner data. Run the gear, tabs, and active-tab read in **all three skins**.
 19. **(F44 — promote / override)** With the fake/TMDB provider wired and `ADMIN_TOKEN` set, enrich a person so a non-canonical field (e.g. `measurements`) shows under **Additional details**. As owner: the row shows a **Promote** pill → open the inline editor → set a label + `render:text` + group + order → Save → the field **leaves** Additional details and appears above as a curatable **`SourceSelect`** row (baseline `·record` chip + `provider` chip), rendered **once** (no doubled row). Pin a source, then open **Edit** (same editor, pre-filled) → **Remove promotion** → the field returns to a display-only auto row; **re-promote** → the prior source pin re-applies. Promote a `chips` field → it becomes a **`CurationFieldRow`** merge row (per-value ✕ / ＋ Add) instead. Confirm the label change shows on **another** person with the same key while a value suppressed on the first does **not**. A **token-less** client sees **no** Promote/Edit controls — just the curated label/value. Repeat the promote/edit/de-promote round-trip on `/studios/{id}` and `/media/{id}`. Run the affordance, the inline editor, and the post-promotion curatable row in **all three skins**.
 20. **(F45 — derived person fields)** On the `backend-films` testbed (enriched people carry a clean ISO `birthdate`): open a **living** enriched person → an **Age** line shows a bare integer directly under **Born**, with **no** icon/badge; hovering the number shows the tooltip **"calculated from Born"** — and **no** source-select / promote / Custom controls even as owner (identical to the visitor view). Open a **deceased** person (birth + death date) → an **Age at death** line with a number and **no** running Age line. Open a person with **no birthdate** → **no** Age line at all (no dash, no gap), as owner **and** visitor. Inspect the person detail response → the computed row carries `computed:true`, `winning_source:"computed:age"`, `derived_from:["Born"]`, and no `decision`/`candidates`/`in_sync`; a decision `POST` naming `age`/`computed:age` returns **400**. The row has no skin-dependent styling (plain `text-ink` value), so the three-skin check is trivial.
+21. **(ADR-077 — tag writeback exclusion)** As owner, on a tag's page with already-written files: toggle **File writeback** off (button flips, no confirm, no network beyond the `PATCH`) → click **Sync writeback now** → the batch dialog progresses confirm → progress → done, and the file's Genre field no longer contains that tag's name while the tag itself still shows on the video in Holodex. Toggle it back on and sync again → the name reappears in Genre. On `/tags` in Manage mode, select 2+ tags spanning mixed writeback states → **Turn off writeback for selected** flips all of them (no confirm) → **Sync writeback now for selected** opens the same batch dialog scoped to the deduplicated video union across the selection, and a video carrying two of the selected tags is written exactly once. A token-less client sees none of these controls.
 
 ---
 
@@ -1059,6 +1065,43 @@ menu action and the media-page add-tag flow's collision handling.
   externally-influenced input beyond what F43 already validates (tag names go through the same sanitize
   perimeter materialization and manual-attach both already share).
 
+**Tag writeback exclusion (ADR-077, HOLODEX-239)** — lets an owner exclude a tag's name from a video
+file's Genre writeback while it stays fully searchable/browsable in Holodex, plus a manual sync to push
+the current decision out to already-written files. Unlike the F50 entry above, **this feature is already
+fully built and tested** (backend: commit `cb88390`; `ListTags` writeback_enabled gap fix: commit
+`3465782`; frontend: commit `ef435fd`) — this pass documents/cross-references the coverage that shipped
+alongside the code rather than writing new tests ahead of implementation. §4/§9 rows above and the E2E
+flow in §6 describe real, currently-passing suites.
+- **D1 — flat filter** (migration 0033, `TagNamesForVideo`): `TestTagNamesForVideo_WritebackFlagFlat`
+  (`internal/repo/tag_hierarchy_test.go`) is the ADR's own action-item-7 scenario verbatim — a disabled
+  mid-chain tag drops only itself from the Genre-bound name set, never a further ancestor or a descendant
+  reached through it.
+- **D2 — manual sync** (`VideoIDsForTag(s)`, `syncTagWriteback`): `TestSyncTagWriteback_RecomputesFullUnion`
+  and `TestSyncTagWritebackBulk_DedupsSharedVideo` (`internal/api/tag_writeback_sync_test.go`) cover the
+  per-video full-union recompute and the bulk video-dedup; `TestSetTagWriteback` /
+  `TestSetTagsWritebackBulk_AppliesRegardlessOfPriorState` prove the flag-flip endpoints never enqueue
+  (nil write-queue would panic on any accidental `Enqueue`), keeping "toggle" and "sync" as two genuinely
+  independent actions per the spec.
+- **D3 — batch status** (`GetWritebackBatchStatus`): `TestWritebackBatchStatusEndpoint`
+  (`internal/api/tag_writeback_sync_test.go`) plus `internal/repo/writequeue_test.go`'s aggregation test
+  cover the `pending`/`running`/`done`/`failed` rollup end to end, including the unknown-batch-id →
+  200-zero-counts case (a batch is a derived aggregate over `writequeue`/`job_runs`, not a stored row, so
+  "not found" isn't a meaningful response here).
+- **`ListTags` regression** (commit `3465782`, found during S4 frontend work): `Repo.ListTags` didn't
+  select `writeback_enabled` (it isn't part of `namedCountQuery`, shared with `ListStudios`), so the Go
+  zero-value serialized `false` on every `/tags` list row regardless of true state. Fixed with the same
+  batch-attach pattern `tagParents` already uses; `TestListTagsWritebackEnabled` guards the regression by
+  asserting the list and detail reads agree on a disabled tag's flag.
+- **Frontend** (S4, commit `ef435fd`): `writebackJob.test.ts`'s `waitForWritebackBatch` suite (6 cases) is
+  real automated coverage of the shared polling logic; the component layer (Details card,
+  `WritebackBatchDialog`, bulk bar) is manual-QA-verified only (§5 row above), matching the standing §0
+  gap rather than a feature-specific shortfall.
+- **Security** (`/security-review`, pending): the write-back path reuses the existing `writequeue`/
+  `writeback` file-I/O machinery (F30/ADR-048) unchanged in shape — the new surface is 4 owner-gated
+  mutation endpoints plus one owner-gated read (`GET /writeback/batches/{batchID}/status`); review still
+  needs to confirm the batch-status read leaks nothing across batches (a guessed/enumerated `batchID`
+  should reveal only aggregate counts, never per-video paths or filenames) before this gate closes.
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -1425,6 +1468,30 @@ When the owner clears that curation and Carol has no other links
 Then Carol is stamped orphaned_at (NOT deleted); a re-add before the sweep clears the stamp
 When the 30-day sweep runs and Carol has a curated headshot
 Then Carol is KEPT (authored-identity guard); a plain orphan past 30 days is deleted
+```
+
+**Tag writeback exclusion — flat filter + recompute + aggregation (ADR-077) — adversarial**
+```
+Given tag tree Animal > Mammal > Dog > GermanShepherd, video V tagged only GermanShepherd
+When Dog's writeback_enabled is set to false
+Then TagNamesForVideo(V) == [Animal, Mammal, GermanShepherd]  (Dog excluded; neither further
+     ancestor nor the descendant leaf is suppressed)
+ And V still shows the "Dog" tag/chip and V is still findable by searching/filtering on "Dog"
+     (writeback_enabled only ever affects the Genre field, nothing else)
+
+Given video V's file was last written with Genre="Animal; Mammal; Dog; GermanShepherd"
+When Dog's writeback_enabled is set to false and the owner clicks "Sync writeback now" on Dog
+Then the enqueued write's target Genre value is "Animal; Mammal; GermanShepherd" — the CURRENT
+     full union of V's still-enabled tags, not the old value with "Dog" merely omitted from an append
+
+Given tags Comedy and Action, video "Shared" carrying both, videos "ComedyOnly"/"ActionOnly" each
+      carrying one
+When the owner bulk-syncs {Comedy, Action}
+Then exactly 3 jobs are enqueued sharing one batch_id (Shared counted once, not twice)
+ And GET /writeback/batches/{batchID}/status initially reports pending=3
+When all 3 jobs settle (2 done, 1 failed)
+Then the status reports pending=0 running=0 done=2 failed=1
+ And GET .../status for a batch_id that was never issued returns 200 {0,0,0,0}, not 404
 ```
 
 ---

@@ -319,9 +319,14 @@ ADR's contribution is one query joining them by an id both already carry, not ne
    alongside the existing per-job and revert routes (D3).
 6. [ ] `tags/{id}` Details card + `/tags` bulk-action bar wiring (spec P0 frontend requirements) — out of this
    ADR's scope; covered by `/design-handoff` per the epic's gate table.
-7. [ ] `/testing-strategy`: cover D1's flat-filter behavior (a disabled ancestor does not suppress a
+7. [x] `/testing-strategy`: cover D1's flat-filter behavior (a disabled ancestor does not suppress a
    still-enabled descendant/further-ancestor), D2's per-video recompute (a sync reflects the *current* full
    `genres` union, not just the synced tag), D2's bulk video-dedup (a video attached to two selected tags is
-   enqueued once), and D3's status aggregation across `pending`/`running`/`done`/`failed`.
+   enqueued once), and D3's status aggregation across `pending`/`running`/`done`/`failed`. All four were
+   already covered by `internal/repo/tag_hierarchy_test.go`'s `TestTagNamesForVideo_WritebackFlagFlat` (D1)
+   and `internal/api/tag_writeback_sync_test.go`'s `TestSyncTagWriteback_RecomputesFullUnion`,
+   `TestSyncTagWritebackBulk_DedupsSharedVideo`, and `TestWritebackBatchStatusEndpoint` (D2/D3), shipped
+   alongside the S3 backend commit — this pass cross-references that existing green coverage into
+   `docs/testing-strategy.md` §4/§9 rather than adding net-new tests.
 8. [ ] `/security-review` before merge (file I/O via the write queue, four new owner-gated mutation endpoints)
    — per the spec's own note and this epic's `needs-security-review` gate.
