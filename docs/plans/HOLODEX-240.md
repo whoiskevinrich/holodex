@@ -11,39 +11,21 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 - [x] backend       migration 0034 + internal/repo/categories.go + internal/api/categories.go · S4
 - [x] frontend      tags/+page.svelte unified filter + category pills, entity/CategoryPicker.svelte,
                     categories/[id]/+page.svelte, browse Categories facet · S5
-- [ ] testing       not started — regenerate testing-strategy for the new endpoints/flows
+- [x] testing       docs/testing-strategy.md regenerated (§4/§5/§6/§9/§11 + Critical invariants) · S7;
+                    closed both flagged S5 backend test gaps with new repo+API coverage
 - [ ] security      not started
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. Regenerate testing-strategy for the new endpoints/flows, including ADR-078's cross-table collision
-   and cascade-delete cases, plus the new `POST /tags` resolve-or-create-tag endpoint  [testing]
-2. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
+1. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
    category mutation surface  [security]
-
-## Session log   (append-only)
-S6 · live 3-skin browser QA — dev-server restart succeeded this time (`backend-amv` + `web` via
-`preview_start`); ran the full S5 surface by hand through the accessibility tree + computed-style
-checks (screenshots still time out in this environment): created a category via the inline
-"+ Create" row in `CategoryPicker` (add mode), confirmed the pill's `tag_count` badge and reduced
-Rename/Delete ⋯ menu in Manage mode; on `/categories/{id}` exercised rename, `+ Add tag` (both a
-brand-new name and a case-variant that correctly resolved to the existing lowercase tag via the
-identity fold rather than creating a duplicate — the case-fold path, not the near-miss path, which
-only fires on a *different* look-alike name), and tag removal; ran the Manage-bar bulk "Add to
-category…"/"Remove from category…" flow on two tags at once, confirming "Remove from category…"
-correctly pre-filters to only the categories that intersect every selected tag's membership; and
-confirmed the browse page's new Categories `FacetFilter` round-trips `?category_id=` and filters the
-video grid correctly. Spot-checked computed styles (background/border/text color, SVG `currentColor`
-resolution) across Cinémathèque/Broadcast/Brutalist for the category pill, the `CategoryPicker`
-dialog, and the detail page's chip/button — accent hex changed per-skin as expected in all three,
-confirming no hardcoded colors. Zero console errors, zero failed network requests, across the whole
-pass. QA gate closed — no defects found.
-
-Noted in passing (not acted on): both spawned follow-up sessions from S5 (`PickerShell` extraction,
-tag-resolve/popover-menu dedup) had already landed on this branch by the time QA ran (`64ca46d`,
-`596455c`, `ef5333d`) — the picker/menu surfaces QA'd above are the post-refactor versions, and
-everything held up. One of those sessions still had uncommitted new test coverage in
-`internal/api/categories_test.go` / `internal/repo/categories_test.go` in the working tree at QA
-time; left untouched (not this session's work to commit).
+2. Product decision on the `ResolveOrCreateTag` zero-video-tag visibility gap found in S7 (a
+   brand-new tag added via `/categories/{id}`'s "+ Add tag" is invisible on `/tags`/search/the merge
+   picker until a video is tagged with it, since `ListTags` inner-joins `video_tags`) — not a
+   data-integrity bug, but a real UX surprise worth a call before it's forgotten  [product]
+3. Fix the pre-existing `EntityPicker`/`CategoryPicker` focus-restore-to-trigger gap found in S7
+   while confirming the `PickerShell` extraction preserved behavior (Escape/close lands focus on
+   `<body>`, not the trigger button) — confirmed pre-existing on the pre-extraction code too, not a
+   regression, but a real minor a11y bug  [frontend, a11y]
 
 ## Session log   (append-only)
 S1 · /product-brainstorming /write-spec — spec drafted, epic filed (blocked-by HOLODEX-239), Draft PR opened
@@ -139,5 +121,55 @@ after clearing a stale local `data/holodex.db` with a pre-migration-0034 schema)
 environment's auto-mode classifier. Automated coverage stands in for it, but nobody has eyeballed
 the new surfaces in Cinémathèque/Broadcast/Brutalist yet — top of Up next.
 
+S6 · live 3-skin browser QA — dev-server restart succeeded this time (`backend-amv` + `web` via
+`preview_start`); ran the full S5 surface by hand through the accessibility tree + computed-style
+checks (screenshots still time out in this environment): created a category via the inline
+"+ Create" row in `CategoryPicker` (add mode), confirmed the pill's `tag_count` badge and reduced
+Rename/Delete ⋯ menu in Manage mode; on `/categories/{id}` exercised rename, `+ Add tag` (both a
+brand-new name and a case-variant that correctly resolved to the existing lowercase tag via the
+identity fold rather than creating a duplicate — the case-fold path, not the near-miss path, which
+only fires on a *different* look-alike name), and tag removal; ran the Manage-bar bulk "Add to
+category…"/"Remove from category…" flow on two tags at once, confirming "Remove from category…"
+correctly pre-filters to only the categories that intersect every selected tag's membership; and
+confirmed the browse page's new Categories `FacetFilter` round-trips `?category_id=` and filters the
+video grid correctly. Spot-checked computed styles (background/border/text color, SVG `currentColor`
+resolution) across Cinémathèque/Broadcast/Brutalist for the category pill, the `CategoryPicker`
+dialog, and the detail page's chip/button — accent hex changed per-skin as expected in all three,
+confirming no hardcoded colors. Zero console errors, zero failed network requests, across the whole
+pass. QA gate closed — no defects found.
+
+Noted in passing (not acted on): both spawned follow-up sessions from S5 (`PickerShell` extraction,
+tag-resolve/popover-menu dedup) had already landed on this branch by the time QA ran (`64ca46d`,
+`596455c`, `ef5333d`) — the picker/menu surfaces QA'd above are the post-refactor versions, and
+everything held up. One of those sessions still had uncommitted new test coverage in
+`internal/api/categories_test.go` / `internal/repo/categories_test.go` in the working tree at QA
+time; left untouched (not this session's work to commit).
+
+S7 · /testing-strategy — regenerated docs/testing-strategy.md: new §4 backend rows (entity + cross-
+table collision, junction/cascade/facet, `ResolveOrCreateTag`), new §5 frontend rows (`PickerShell`,
+`EntityPicker`/`CategoryPicker` post-extraction, the four newer S5 surfaces), two new Critical-
+invariants bullets (cross-table collision enforced at both app + DB-trigger layers, cascade-delete
+leaves member tags intact), a new §6 E2E flow, a §9 phasing block documenting this epic's actual
+build order (unlike F50's docs-first entries, S1–S5 here were already shipped before this update),
+and two new §11 Known Gaps entries for the findings below. Closed the two S5 backend test gaps
+`docs/plans/HOLODEX-240.md` itself flagged as outstanding: `ListCategories`' `tag_count`/`tag_ids`
+fields (new `TestListCategoriesTagFields` + a list-endpoint assertion folded into
+`TestCategoryEndpoints`) and `ResolveOrCreateTag`/`POST /tags` (new `TestResolveOrCreateTag` +
+`TestResolveOrCreateTagEndpoint`, mirroring `TestAttachTagToVideo`'s deny-list/length-cap coverage
+minus the video-link concern). Full Go suite green throughout, including through a large concurrent
+ADR-077→078 / migration 0033→0034 renumbering another session ran mid-turn on this same branch —
+verified `go build ./...` + the category test suite both stayed green against the renumbered tree
+before finishing this pass.
+
+Two real findings surfaced while writing these tests, not silently fixed (out of scope for a
+testing-strategy pass, both now tracked in Up next): (1) a tag created via `ResolveOrCreateTag` with
+no video attach is invisible to `ListTags`/`GET /tags` — and therefore `/tags`, the merge picker, and
+search — because that query inner-joins `video_tags`; it still exists (`TagIDByName` resolves it,
+`GET /tags/{id}` 200s) and shows in its category's own member-tag chips. (2) confirmed, by diffing
+against the pre-`PickerShell`-extraction code, that `EntityPicker`/`CategoryPicker`'s focus-restore-
+to-trigger-on-close was **already broken** before this epic touched those files — focus lands on
+`<body>` instead, byte-identical behavior before/after the extraction — so it's a real a11y bug, but
+not one this epic's frontend work introduced.
+
 ### 2026-07-31 · session
-- skills: simplify
+- skills: simplify, testing-strategy
