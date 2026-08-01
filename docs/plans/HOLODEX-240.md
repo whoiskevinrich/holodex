@@ -8,7 +8,7 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 ## Gates — definition of done
 - [x] spec          docs/specs/tag-categories.md · S1
 - [x] architecture  docs/architecture/ADR-078-tag-categories-entity.md · S3
-- [x] backend       migration 0034 + internal/repo/categories.go + internal/api/categories.go · S4
+- [x] backend       migration 0035 + internal/repo/categories.go + internal/api/categories.go · S4
 - [x] frontend      tags/+page.svelte unified filter + category pills, entity/CategoryPicker.svelte,
                     categories/[id]/+page.svelte, browse Categories facet · S5
 - [x] testing       docs/testing-strategy.md regenerated (§4/§5/§6/§9/§11 + Critical invariants) · S7;
@@ -52,7 +52,8 @@ codebase's existing posture for same-table `nameKey` uniqueness (real unique ind
 two-table case SQLite can express (unlike ADR-075 D1's cycle guard, which genuinely couldn't be). Browse
 facet expansion reuses `VideoFilter.build()`'s existing `TagIDs` clause shape with no new primitive. No
 code yet — backend gate is next.
-S4 · backend implementation — migration `0034_categories.{up,down}.sql` (categories +
+S4 · backend implementation — migration `0034_categories.{up,down}.sql` (renumbered to `0035` in S9;
+categories +
 ux_categories_namekey, category_tags junction, the four cross-table collision triggers);
 `internal/repo/categories.go` (CreateCategory/RenameCategory/DeleteCategory/ListCategories/
 GetCategory/TagsForCategory/AssignTagsToCategory/UnassignTagsFromCategory, each collision-checked
@@ -172,7 +173,8 @@ not one this epic's frontend work introduced.
 
 S8 · /security-review — focused review of the new owner-gated `POST /tags` resolve-or-create endpoint
 and the category CRUD/assign-unassign mutation surface (`internal/api/categories.go`,
-`internal/repo/categories.go`, `internal/repo/identity.go`, migration `0034_categories.up.sql`), plus
+`internal/repo/categories.go`, `internal/repo/identity.go`, migration `0034_categories.up.sql` at the
+time — renumbered to `0035` in S9), plus
 the new frontend surfaces for `@html`/XSS sinks. Checked: SQL injection (all new queries parameterized;
 the one string-built table name in `nameCollidesInTable` is fed only hardcoded literals at all 5 call
 sites, never request data), route gating (`mountCategoryMutations` — CRUD, assign/unassign, and the new

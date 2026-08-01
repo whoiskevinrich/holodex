@@ -285,7 +285,7 @@ needing to reason about a type that behaves differently from the other three.
 
 ## Action Items
 
-1. [x] Migration `0034_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
+1. [x] Migration `0035_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
    `category_tags` junction (D2), the four collision triggers (D3) — engineering's call whether this is one
    migration or split further; `.down.sql` drops triggers before tables (SQLite trigger-then-table drop order).
 2. [x] `internal/repo/categories.go`: `CreateCategory`, `RenameCategory`, `DeleteCategory` — each performs the

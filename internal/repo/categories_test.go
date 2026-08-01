@@ -99,10 +99,10 @@ func TestCategoryCrossTableCollision(t *testing.T) {
 	for _, tg := range got.Tags {
 		names[tg.Name] = true
 	}
-	if names["Holiday"] {
+	if names["holiday"] {
 		t.Errorf("category-colliding tag was created via scanner: %+v", got.Tags)
 	}
-	if !names["Winter"] {
+	if !names["winter"] {
 		t.Errorf("sibling non-colliding tag missing: %+v", got.Tags)
 	}
 }
@@ -142,7 +142,7 @@ func TestCategoryTagAssignment(t *testing.T) {
 		t.Fatalf("no such tag %q", name)
 		return 0
 	}
-	beach, mountain, forest := tagID("Beach"), tagID("Mountain"), tagID("Forest")
+	beach, mountain, forest := tagID("beach"), tagID("mountain"), tagID("forest")
 
 	cat, err := r.CreateCategory(ctx, "Nature")
 	if err != nil {
@@ -253,9 +253,9 @@ func TestListCategoriesTagFields(t *testing.T) {
 	var beach, mountain int64
 	for _, tg := range video.Tags {
 		switch tg.Name {
-		case "Beach":
+		case "beach":
 			beach = tg.ID
-		case "Mountain":
+		case "mountain":
 			mountain = tg.ID
 		}
 	}
@@ -313,8 +313,8 @@ func TestResolveOrCreateTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if tag.Name != "Documentary" {
-		t.Errorf("tag.Name = %q, want Documentary", tag.Name)
+	if tag.Name != "documentary" {
+		t.Errorf("tag.Name = %q, want documentary", tag.Name)
 	}
 	// ListTags (and therefore GET /tags, the /tags page, and the merge
 	// picker) inner-joins video_tags -- a zero-video tag is invisible there

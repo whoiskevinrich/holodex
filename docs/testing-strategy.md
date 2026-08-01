@@ -1132,7 +1132,7 @@ previously-undiscovered edge case — a zero-video tag created via `POST /tags` 
 `EntityPicker`/`CategoryPicker` dialog shell, found while manually QA'ing this session's `PickerShell`
 extraction (§5 row, §11).
 - **S1–S3 — spec/ADR/backend-adjacent decisions**: no test surface of their own; validated via S4's tests.
-- **S4 — backend** (`internal/repo/categories.go`, `internal/api/categories.go`, migration `0034`): CRUD +
+- **S4 — backend** (`internal/repo/categories.go`, `internal/api/categories.go`, migration `0035`): CRUD +
   cross-table collision + cascade-delete + facet query, all covered at S4-build-time (§4 rows above);
   `resolveOrCreateByName`'s tag path gaining the symmetric category-collision pre-flight check is covered
   via `TestCategoryCrossTableCollision`'s `AttachTagToVideo` case, including the scanner's silent-skip path.

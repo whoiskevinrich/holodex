@@ -16,7 +16,7 @@ import (
 // one way (an owner's explicit action), never through the scanner, so it has
 // none of the scanner-driven-duplicate problem the spine amortizes for
 // person/studio/tag. The cross-table name collision with tags (D3) is
-// pre-checked here for a friendly 409 -- migration 0034's paired DB triggers
+// pre-checked here for a friendly 409 -- migration 0035's paired DB triggers
 // are the actual correctness backstop, catching any insert/update path that
 // bypasses this check.
 

@@ -202,7 +202,7 @@ func TestResolveOrCreateTagEndpoint(t *testing.T) {
 		t.Fatalf("create = %d, want 200", code)
 	}
 	tag, _ := body["tag"].(map[string]any)
-	if tag["name"] != "Documentary" {
+	if tag["name"] != "documentary" {
 		t.Errorf("created tag = %v", tag)
 	}
 	tagID1 := int64(tag["id"].(float64))
@@ -215,7 +215,7 @@ func TestResolveOrCreateTagEndpoint(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("get created tag = %d, want 200", code)
 	}
-	if got, _ := detail["tag"].(map[string]any); got["name"] != "Documentary" {
+	if got, _ := detail["tag"].(map[string]any); got["name"] != "documentary" {
 		t.Errorf("created tag detail = %v", got)
 	}
 	code, listBody := getJSONTok(t, tagsURL, "")
