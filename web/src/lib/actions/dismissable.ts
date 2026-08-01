@@ -41,11 +41,15 @@ export const dismissable: Action<HTMLElement, DismissableOptions> = (_node, opti
 
 	function activate() {
 		window.addEventListener('keydown', onKey, true);
-		window.addEventListener('click', onClick);
+		// Capture phase: must run before the clicked element's own handler, which may
+		// synchronously swap the DOM (e.g. a menu item swapping the popover to a form) and
+		// detach the click target. A bubble-phase listener would then see a disconnected
+		// target, fail the `closest(inside)` check, and wrongly dismiss as "outside".
+		window.addEventListener('click', onClick, true);
 	}
 	function deactivate() {
 		window.removeEventListener('keydown', onKey, true);
-		window.removeEventListener('click', onClick);
+		window.removeEventListener('click', onClick, true);
 	}
 
 	if (opts.enabled) activate();

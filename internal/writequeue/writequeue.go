@@ -201,12 +201,14 @@ func (q *Queue) worker(ctx context.Context) {
 // otherwise). The original file is never left half-written (ADR-041).
 func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	started := time.Now()
-	// batchID is captured by snapshotBeforeWrite below and read back here, so the
-	// run records the snapshot batch it belongs to as a column (ADR-071) rather
-	// than only inside detail's "batch <id>" suffix. Empty until the snapshot is
-	// taken — the early-return paths (corrupt payload, missing video) legitimately
-	// have no batch.
-	var batchID string
+	// batchID starts as the job's own caller-supplied batch id (e.g. a tag-sync
+	// trigger's batch, HOLODEX-239/ADR-077 D3) so every job_runs row this job
+	// produces -- including an early-return no-op/failure that never reaches a
+	// snapshot -- is attributable to its batch (ADR-071); GetWritebackBatchStatus
+	// aggregates job_runs by this column. snapshotBeforeWrite below still
+	// reassigns it once a write is actually attempted, to the same value (or an
+	// id-derived fallback when job.BatchID is "").
+	batchID := job.BatchID
 	finish := func(ok bool, errMsg string, written int, detail string) {
 		run := model.JobRun{
 			Kind: model.JobKindWriteback, Trigger: model.TriggerManual,

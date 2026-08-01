@@ -92,6 +92,11 @@ export interface Tag {
 	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
 	// Present only on the tag-detail read (getTag); absent on the /tags list.
 	ancestors?: string[];
+	// Whether this tag's name contributes to a video's Genre writeback value
+	// (HOLODEX-239, ADR-077 D1) — defaults true. Present and accurate on both
+	// the /tags list (ListTags batch-attaches it, same as parent_tag_id) and
+	// the tag-detail read.
+	writeback_enabled?: boolean;
 }
 
 // Category groups tags for browsing without merging or altering them

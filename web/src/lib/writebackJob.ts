@@ -34,41 +34,83 @@ export interface WaitOptions {
 	cancelled?: () => boolean;
 }
 
+// Shared backoff-polling loop behind waitForWritebackJob and waitForWritebackBatch
+// (HOLODEX-239) — both wait on a server-side status by re-fetching with growing
+// delay until `isSettled` says so, or until cancelled/timed out. A failed *fetch*
+// never counts as settled (it stays out of `last` entirely) so a transient error
+// can't be mistaken for a status the poller never actually saw — the caller is
+// unaffected by our inability to read it, so we keep polling until the cap. An
+// answer that carries an HTTP status is a real server refusal (e.g. an owner
+// session that expired mid-poll) and rethrows immediately instead of waiting out
+// the cap; duck-typed to keep this module free of an $lib/api import — a
+// ReauthError has no status and is swallowed on purpose, since it already kicked
+// off a top-level reload.
+async function pollUntilSettled<T>(
+	fetchStatus: () => Promise<T>,
+	isSettled: (state: T) => boolean,
+	opts: WaitOptions
+): Promise<T | null> {
+	const deadline = Date.now() + (opts.timeoutMs ?? JOB_POLL_TIMEOUT_MS);
+	const cancelled = opts.cancelled ?? (() => false);
+	let delay = opts.startMs ?? POLL_START_MS;
+	let last: T | null = null;
+
+	while (Date.now() < deadline) {
+		if (cancelled()) return last;
+		try {
+			const state = await fetchStatus();
+			last = state;
+			if (isSettled(state)) return state;
+		} catch (e) {
+			if (e !== null && typeof e === 'object' && 'status' in e) throw e;
+		}
+		await new Promise((resolve) => setTimeout(resolve, delay));
+		delay = Math.min(delay * POLL_GROWTH, POLL_MAX_MS);
+	}
+	return last;
+}
+
 // Resolves once the job leaves pending/running, or once we stop waiting. Throws
-// on 'failed' so the caller can surface the queue's own error. A failed status
-// *fetch* is not fatal: the job is unaffected by our inability to read it, so we
-// keep polling until the cap rather than reporting a write that may well have
-// succeeded as an error.
+// on 'failed' so the caller can surface the queue's own error.
 export async function waitForWritebackJob(
 	jobId: number,
 	jobStatus: (jobId: number) => Promise<WritebackJobState>,
 	opts: WaitOptions = {}
 ): Promise<void> {
-	const deadline = Date.now() + (opts.timeoutMs ?? JOB_POLL_TIMEOUT_MS);
-	const cancelled = opts.cancelled ?? (() => false);
-	let delay = opts.startMs ?? POLL_START_MS;
+	const state = await pollUntilSettled(
+		() => jobStatus(jobId),
+		(s) => s.status !== 'pending' && s.status !== 'running',
+		opts
+	);
+	if (state?.status === 'failed') throw new Error(state.error || 'write failed');
+}
 
-	while (Date.now() < deadline) {
-		if (cancelled()) return;
-		let state: WritebackJobState | null = null;
-		try {
-			state = await jobStatus(jobId);
-		} catch (e) {
-			// A transport failure says nothing about the job, so keep polling. But an
-			// answer from the server is a real refusal — an ApiError carries the HTTP
-			// status, so an owner session that expired mid-write surfaces immediately
-			// instead of waiting out the cap. Duck-typed to keep this module free of
-			// an $lib/api import. A ReauthError has no status and is swallowed on
-			// purpose: it has already kicked off a top-level reload.
-			if (e !== null && typeof e === 'object' && 'status' in e) throw e;
-		}
-		if (state) {
-			if (state.status === 'failed') throw new Error(state.error || 'write failed');
-			// Anything that isn't still queued is success — including the 'done'
-			// the server synthesizes for a row it deleted on completion.
-			if (state.status !== 'pending' && state.status !== 'running') return;
-		}
-		await new Promise((resolve) => setTimeout(resolve, delay));
-		delay = Math.min(delay * POLL_GROWTH, POLL_MAX_MS);
-	}
+// BatchStatus is GET /writeback/batches/{batchID}/status's shape (HOLODEX-239,
+// ADR-077 D3) — aggregate counts across every job sharing a batchID.
+export interface BatchStatus {
+	pending: number;
+	running: number;
+	done: number;
+	failed: number;
+}
+
+// Waits on a batch the same way waitForWritebackJob waits on a single job, but
+// differs where a batch must: it resolves with the final counts (the caller
+// needs the summary to render) and never throws on failed > 0 — a batch's
+// enqueue failures are logged and non-fatal (spec P0), so "done" is
+// pending+running reaching zero, not the absence of any failure. On timeout, or
+// if cancelled before any successful fetch, it resolves with the last-known
+// counts (or all-zero) rather than hanging or throwing — a 50+-video batch can
+// legitimately outrun the poll cap.
+export async function waitForWritebackBatch(
+	batchId: string,
+	batchStatus: (batchId: string) => Promise<BatchStatus>,
+	opts: WaitOptions = {}
+): Promise<BatchStatus> {
+	const state = await pollUntilSettled(
+		() => batchStatus(batchId),
+		(s) => s.pending === 0 && s.running === 0,
+		opts
+	);
+	return state ?? { pending: 0, running: 0, done: 0, failed: 0 };
 }
