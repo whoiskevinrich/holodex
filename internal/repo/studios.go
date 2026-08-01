@@ -138,7 +138,7 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 // studios never appear (prune-on-empty removes them; the INNER JOIN also excludes a
 // studio whose only videos are soft-deleted).
 func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studio, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("studios", "video_studios", "studio_id", sortByCount))
+	rows, err := r.db.QueryContext(ctx, namedCountQuery("studios", "video_studios", "studio_id", sortByCount, false))
 	if err != nil {
 		return nil, fmt.Errorf("list studios: %w", err)
 	}

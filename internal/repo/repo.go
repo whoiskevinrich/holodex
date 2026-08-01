@@ -833,19 +833,28 @@ func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool,
 	return id, true, nil
 }
 
-// namedRow is the shared shape of a people/tags row joined to its video count.
-func namedCountQuery(table, junction, fk string, sortByCount bool) string {
+// namedCountQuery returns every row of table with its active-video count.
+// Shared by ListTags and ListStudios. includeZero left-joins instead of
+// inner-joins so a row with no junction-table match still appears with
+// cnt=0 — set only by ListTags (HOLODEX-243: a tag can now be created bare
+// via "+ New" on /tags, no video attach); ListStudios keeps the inner-join
+// default, since studios have no such empty-creation path.
+func namedCountQuery(table, junction, fk string, sortByCount, includeZero bool) string {
 	order := "e.name COLLATE NOCASE ASC"
 	if sortByCount {
 		order = "cnt DESC, e.name COLLATE NOCASE ASC"
 	}
+	joinKind := "JOIN"
+	if includeZero {
+		joinKind = "LEFT JOIN"
+	}
 	return fmt.Sprintf(`
-		SELECT e.id, e.name, COUNT(j.video_id) AS cnt
+		SELECT e.id, e.name, COUNT(v.id) AS cnt
 		FROM %s e
-		JOIN %s j     ON j.%s = e.id
-		JOIN videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		%s %s j     ON j.%s = e.id
+		%s videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
 		GROUP BY e.id, e.name
-		ORDER BY %s`, table, junction, fk, order)
+		ORDER BY %s`, table, joinKind, junction, fk, joinKind, order)
 }
 
 // ListPeople returns every person with at least one active video, with counts and the
@@ -889,7 +898,7 @@ func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person
 
 // ListTags mirrors ListPeople for tags.
 func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("tags", "video_tags", "tag_id", sortByCount))
+	rows, err := r.db.QueryContext(ctx, namedCountQuery("tags", "video_tags", "tag_id", sortByCount, true))
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
 	}

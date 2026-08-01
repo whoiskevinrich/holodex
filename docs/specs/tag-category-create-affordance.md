@@ -146,3 +146,15 @@ Single-owner, self-hosted app — the practical bar:
 
 No hard deadline. Depends only on the already-merged Tag Categories epic (HOLODEX-240); no other
 in-flight work blocks this.
+
+## Implementation note (2026-08-01)
+
+The "Any backend change" Non-Goal above turned out to be wrong in one narrow respect, discovered
+during implementation rather than design: `ListTags` (`internal/repo/repo.go`, shared with
+`ListStudios` via `namedCountQuery`) inner-joined `video_tags`, so a tag created bare via `POST
+/tags` — zero videos, by construction — never appeared in `GET /tags`, silently violating P0 goal
+#1 ("appears in the grid immediately"). Fixed with a scoped change: `namedCountQuery` gained an
+`includeZero` parameter (left join instead of inner join); `ListTags` passes `true`, `ListStudios`
+keeps `false` (studios have no empty-creation path, so its existing behavior is untouched). Covered
+by `TestResolveOrCreateTag` (repo) and `TestResolveOrCreateTagEndpoint` (api), both updated from
+asserting the old exclusion to asserting the new inclusion. See `docs/testing-strategy.md` §4/§9.

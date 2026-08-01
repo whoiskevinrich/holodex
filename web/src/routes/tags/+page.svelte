@@ -110,6 +110,20 @@
 	let catPicker = $state<{ mode: 'add' | 'remove'; tagIds: number[]; categories: Category[] } | null>(null);
 	let catPickerHint = $state(''); // "select two or more" / "none belong to a category" hints
 
+	// ── Standing "+ New" create pill (HOLODEX-243) ───────────────────────────────────
+	// A singleton control, not PopoverMenu (that class models "one-of-many open, keyed
+	// by an id"; this pill has no id to key on).
+	let createOpen = $state(false);
+	let createType = $state<'tag' | 'category'>('tag');
+	let createValue = $state('');
+	let createBusy = $state(false);
+	let createError = $state('');
+	let createInput = $state<HTMLInputElement | null>(null);
+	let createTrigger = $state<HTMLButtonElement | null>(null);
+	// Tag-only: reuses the shared nearMissCard snippet (below), wired to the *new*
+	// tag's id rather than an edited existing one.
+	let createResult = $state<{ tagId: number; nearMiss: EntityRef } | null>(null);
+
 	// Persist the chosen sort per page (SP1).
 	$effect(() => {
 		writeSort('tags', sort);
@@ -293,12 +307,13 @@
 				catMenu.close();
 				reloadCategories();
 			},
-			(err, name) =>
-				err instanceof ApiError && err.status === 409
-					? `“${name}” already names a tag or another category.`
-					: toMessage(err)
+			(err, name) => (err instanceof ApiError && err.status === 409 ? categoryCollisionMessage(name) : toMessage(err))
 		);
 	}
+
+	// Shared with submitCreate's category branch below — both hard-409 on an exact
+	// collision (HOLODEX-240 §2 / ADR-078 D3), no near-miss step for categories.
+	const categoryCollisionMessage = (name: string) => `“${name}” already names a tag or another category.`;
 
 	async function confirmDeleteCategory() {
 		if (!catDeleting || catDeleteBusy) return;
@@ -355,6 +370,90 @@
 		selectedIds = [];
 	}
 
+	// ── Standing "+ New" create pill (HOLODEX-243) ───────────────────────────────────
+	async function openCreate() {
+		createOpen = true;
+		createType = 'tag';
+		createValue = '';
+		createError = '';
+		createResult = null;
+		await Promise.resolve();
+		createInput?.focus();
+	}
+
+	// The popover only renders while createOpen, so nothing reads the other create*
+	// fields once closed — openCreate() resets them unconditionally on the next open.
+	function closeCreate() {
+		createOpen = false;
+		createBusy = false;
+		createTrigger?.focus();
+	}
+
+	// Busy/error-guarded async action, mirroring PopoverMenu.run (the create pill is a
+	// singleton control, not keyed by an id, so it doesn't share tagMenu's instance).
+	async function guardCreate(action: () => Promise<void>, mapError?: (err: unknown) => string) {
+		if (createBusy) return;
+		createBusy = true;
+		createError = '';
+		try {
+			await action();
+		} catch (err) {
+			createError = mapError ? mapError(err) : toMessage(err);
+		} finally {
+			createBusy = false;
+		}
+	}
+
+	// Submit branches by type — the two backend calls have genuinely different
+	// collision semantics (design handoff §3): tag creation resolves-or-creates
+	// silently (no collision, followed by a non-blocking near-miss check); category
+	// creation hard-409s on an exact collision (no near-miss, error-only).
+	function submitCreate(e: SubmitEvent) {
+		e.preventDefault();
+		const name = createValue.trim();
+		if (!name) return;
+		guardCreate(
+			async () => {
+				if (createType === 'tag') {
+					const { tag } = await api.resolveOrCreateTag(name);
+					reload();
+					const nm = await api.nearMiss('tag', tag.id, name).then((r) => r.near_miss);
+					if (nm) createResult = { tagId: tag.id, nearMiss: nm };
+					else closeCreate();
+				} else {
+					await api.createCategory(name);
+					reloadCategories();
+					closeCreate();
+				}
+			},
+			(err) =>
+				createType === 'category' && err instanceof ApiError && err.status === 409
+					? categoryCollisionMessage(name)
+					: toMessage(err)
+		);
+	}
+
+	// Near-miss hint actions (mirrors mergeNearMiss/keepBoth above, pointed at the
+	// just-created tag instead of an edited existing one).
+	function mergeCreateNearMiss() {
+		if (!createResult) return;
+		const { tagId, nearMiss } = createResult;
+		guardCreate(async () => {
+			await api.mergeEntities('tag', tagId, nearMiss.id);
+			closeCreate();
+			reload();
+		});
+	}
+
+	function keepCreateBoth() {
+		if (!createResult) return;
+		const { tagId, nearMiss } = createResult;
+		guardCreate(async () => {
+			await api.dismissDuplicate('tag', tagId, nearMiss.id);
+			closeCreate();
+		});
+	}
+
 </script>
 
 <section class="space-y-4">
@@ -364,6 +463,47 @@
 			<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
 			<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
 		</svg>
+	{/snippet}
+
+	<!-- Non-blocking near-miss (P1-5): an edit/create already saved; this is an advisory
+	     nudge. "Keep both" records keep-separate so it won't nag again. Shared by the
+	     per-pill ⋯ menu and the standing create pill (HOLODEX-243) — same copy, same
+	     actions, wired to whichever tag id is relevant. -->
+	{#snippet nearMissCard(
+		target: EntityRef,
+		busy: boolean,
+		error: string,
+		onMerge: () => void,
+		onKeepBoth: () => void
+	)}
+		<div class="space-y-2 p-1">
+			<p class="text-sm text-ink">
+				Saved. Looks a lot like
+				<span class="font-semibold">{target.name}</span>
+				({videoCount(target.video_count ?? 0)}) — merge them?
+			</p>
+			<div class="flex flex-wrap gap-2">
+				<button
+					type="button"
+					onclick={onMerge}
+					disabled={busy}
+					class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+				>
+					Merge them in
+				</button>
+				<button
+					type="button"
+					onclick={onKeepBoth}
+					disabled={busy}
+					class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+				>
+					Keep both
+				</button>
+			</div>
+			{#if error}
+				<p class="text-sm text-warn">{error}</p>
+			{/if}
+		</div>
 	{/snippet}
 
 	<div class="flex flex-wrap items-center justify-between gap-2">
@@ -477,16 +617,82 @@
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
-	{:else if visibleTags.length === 0 && visibleCategories.length === 0}
-		{#if !query.trim()}
-			<p class="py-16 text-center text-sm text-muted">{emptyMessage}</p>
-		{/if}
 	{:else}
 		<div
 			class="flex flex-wrap gap-2"
 			use:dismissable={{ enabled: tagMenu.openId !== null, inside: '[data-tag-pill]', onclose: tagMenu.close }}
 			use:dismissable={{ enabled: catMenu.openId !== null, inside: '[data-cat-pill]', onclose: catMenu.close }}
+			use:dismissable={{ enabled: createOpen, inside: '[data-create-pill]', onclose: closeCreate }}
 		>
+			{#if isOwner}
+				<!-- Standing create pill (HOLODEX-243) — always first, regardless of
+				     typeFilter/search/manage, so it never disappears exactly when it's
+				     needed most (a fresh empty grid). -->
+				<div data-create-pill class="relative inline-flex">
+					<button
+						type="button"
+						bind:this={createTrigger}
+						onclick={openCreate}
+						aria-expanded={createOpen}
+						class="rounded-full border border-dashed border-rule px-3 py-1.5 text-sm text-muted hover:border-accent hover:text-accent"
+					>
+						+ New
+					</button>
+					{#if createOpen}
+						<div
+							class="absolute left-0 top-full z-10 mt-1 w-72 rounded-theme border border-rule bg-surface-2 p-2 shadow-sm"
+							aria-label="Create a tag or category"
+						>
+							{#if createResult}
+								{@render nearMissCard(createResult.nearMiss, createBusy, createError, mergeCreateNearMiss, keepCreateBoth)}
+							{:else}
+								<div class="mb-2 flex overflow-hidden rounded-theme border border-rule text-sm">
+									<button type="button" onclick={() => (createType = 'tag')} class={typeCls(createType === 'tag')}>
+										Tag
+									</button>
+									<button
+										type="button"
+										onclick={() => (createType = 'category')}
+										class={typeCls(createType === 'category')}
+									>
+										Category
+									</button>
+								</div>
+								<form onsubmit={submitCreate} class="space-y-2">
+									<input
+										bind:this={createInput}
+										bind:value={createValue}
+										type="text"
+										placeholder={createType === 'tag' ? 'Tag name' : 'Category name'}
+										aria-label={createType === 'tag' ? 'New tag name' : 'New category name'}
+										class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+									/>
+									<div class="flex flex-wrap gap-2">
+										<button
+											type="submit"
+											disabled={createBusy}
+											class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+										>
+											Create
+										</button>
+										<button
+											type="button"
+											onclick={closeCreate}
+											disabled={createBusy}
+											class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+										>
+											Cancel
+										</button>
+									</div>
+									{#if createError}
+										<p class="text-sm text-warn">{createError}</p>
+									{/if}
+								</form>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
 			{#each visibleTags as t (t.id)}
 				{#if manage}
 					{@const selected = selectedIds.includes(t.id)}
@@ -574,36 +780,7 @@
 										Add to category…
 									</button>
 								{:else if actionNearMiss}
-									<!-- Non-blocking near-miss (P1-5): the edit already saved; this is an
-									     advisory nudge. "Keep both" records keep-separate so it won't nag again. -->
-									<div class="space-y-2 p-1">
-										<p class="text-sm text-ink">
-											Saved. Looks a lot like
-											<span class="font-semibold">{actionNearMiss.name}</span>
-											({videoCount(actionNearMiss.video_count ?? 0)}) — merge them?
-										</p>
-										<div class="flex flex-wrap gap-2">
-											<button
-												type="button"
-												onclick={() => mergeNearMiss(t.id)}
-												disabled={tagMenu.busy}
-												class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-											>
-												Merge them in
-											</button>
-											<button
-												type="button"
-												onclick={() => keepBoth(t.id)}
-												disabled={tagMenu.busy}
-												class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
-											>
-												Keep both
-											</button>
-										</div>
-										{#if tagMenu.error}
-											<p class="text-sm text-warn">{tagMenu.error}</p>
-										{/if}
-									</div>
+									{@render nearMissCard(actionNearMiss, tagMenu.busy, tagMenu.error, () => mergeNearMiss(t.id), () => keepBoth(t.id))}
 								{:else if tagMenu.action === 'parent'}
 									<!-- Hierarchy: set/clear parent (P1-2). Typeahead is a <datalist> over the
 									     already-loaded tag list -- no new search endpoint. -->
@@ -823,6 +1000,11 @@
 				{/if}
 			{/each}
 		</div>
+		{#if visibleTags.length === 0 && visibleCategories.length === 0 && !query.trim()}
+			<p class="py-2 text-sm text-muted">
+				{isOwner ? 'Nothing here yet — create your first one above.' : emptyMessage}
+			</p>
+		{/if}
 	{/if}
 </section>
 
