@@ -3,6 +3,7 @@ package repo_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"holodex/internal/repo"
@@ -33,6 +34,8 @@ func personID(t *testing.T, r *repo.Repo, name string) int64 {
 	return 0
 }
 
+// tagID looks up a fixture tag by name, case-insensitively — tag names are
+// lower-cased in storage, but fixtures here use mixed-case labels for readability.
 func tagID(t *testing.T, r *repo.Repo, name string) int64 {
 	t.Helper()
 	tags, err := r.ListTags(context.Background(), false)
@@ -40,7 +43,7 @@ func tagID(t *testing.T, r *repo.Repo, name string) int64 {
 		t.Fatalf("list tags: %v", err)
 	}
 	for _, tg := range tags {
-		if tg.Name == name {
+		if strings.EqualFold(tg.Name, name) {
 			return tg.ID
 		}
 	}

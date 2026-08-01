@@ -1,0 +1,3 @@
+-- Down for 0034. Lowercasing tag names is lossy -- original casing is not preserved
+-- anywhere -- so this cannot be reversed (golang-migrate has no auto-rollback; matches
+-- the repo's precedent for lossy backfills, see 0022 down). No-op.

@@ -26,8 +26,8 @@ func TestAttachTagToVideo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("attach: %v", err)
 	}
-	if tag.Name != "Documentary" {
-		t.Errorf("tag.Name = %q, want Documentary", tag.Name)
+	if tag.Name != "documentary" {
+		t.Errorf("tag.Name = %q, want documentary (tag names are lower-cased)", tag.Name)
 	}
 	v, _, err := r.GetVideo(ctx, vid)
 	if err != nil {
@@ -238,19 +238,19 @@ func TestAttachMaterializedTags(t *testing.T) {
 		t.Fatalf("get video after aliased attach: %v", err)
 	}
 	if len(v.Tags) != 3 {
-		t.Fatalf("video.Tags after aliased attach = %+v, want 3 (Action, Comedy, Blue)", v.Tags)
+		t.Fatalf("video.Tags after aliased attach = %+v, want 3 (action, comedy, blue)", v.Tags)
 	}
 	var gotBlue bool
 	for _, tg := range v.Tags {
 		if tg.Name == "azure" {
-			t.Errorf("video gained a literal 'azure' tag, want it canonicalized to 'Blue': %+v", v.Tags)
+			t.Errorf("video gained a literal 'azure' tag, want it canonicalized to 'blue': %+v", v.Tags)
 		}
-		if tg.Name == "Blue" {
+		if tg.Name == "blue" {
 			gotBlue = true
 		}
 	}
 	if !gotBlue {
-		t.Errorf("video.Tags = %+v, want to include canonical 'Blue'", v.Tags)
+		t.Errorf("video.Tags = %+v, want to include canonical 'blue'", v.Tags)
 	}
 
 	// Deny-list: unlike AttachTagToVideo, a denied term is silently skipped, not
