@@ -205,18 +205,7 @@ func (h *Handlers) createOrResolveTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tag, err := h.repo.ResolveOrCreateTag(r.Context(), name)
-	switch {
-	case errors.Is(err, repo.ErrTagDenied):
-		writeError(w, http.StatusUnprocessableEntity, "term is on the deny-list")
-		return
-	case errors.Is(err, repo.ErrTagNameTooLong):
-		writeError(w, http.StatusBadRequest, "name is too long")
-		return
-	case errors.Is(err, repo.ErrTagNameCollidesWithCategory):
-		writeError(w, http.StatusConflict, "that name already belongs to a category")
-		return
-	case err != nil:
-		h.fail(w, "create tag", err)
+	if h.writeTagResolveError(w, "create tag", err) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tag": tag})

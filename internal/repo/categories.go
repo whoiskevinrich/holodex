@@ -234,13 +234,9 @@ func (r *Repo) ResolveOrCreateTag(ctx context.Context, name string) (*model.Tag,
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
-	tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, name, "")
+	tid, tagName, err := resolveOrCreateTagName(ctx, tx, name)
 	if err != nil {
 		return nil, err
-	}
-	var tagName string
-	if err := tx.QueryRowContext(ctx, `SELECT name FROM tags WHERE id = ?`, tid).Scan(&tagName); err != nil {
-		return nil, fmt.Errorf("resolve or create tag: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
