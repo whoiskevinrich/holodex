@@ -4,6 +4,7 @@ import { filtersToParams } from './filters';
 import type {
 	Activity,
 	Capabilities,
+	Category,
 	EnrichCandidate,
 	EnrichedField,
 	EnrichEntityKind,
@@ -350,6 +351,35 @@ export const api = {
 		}
 		return {};
 	},
+
+	// Tag Categories (HOLODEX-240, ADR-078) — hand-curated grouping, no alias/merge
+	// spine, so this is its own small trio rather than riding ENTITY_BASE. Reads
+	// are public; mutations owner-gated. A 409 from create/rename means the name
+	// collides with a tag or another category — the caller reads `err.status` off
+	// the thrown ApiError (same convention as addVideoTag/attachVideoTag's 422/400).
+	listCategories: (fetchFn?: typeof fetch) => get<{ items: Category[] }>(`/categories`, fetchFn),
+
+	getCategory: (id: number, fetchFn?: typeof fetch) =>
+		get<{ category: Category }>(`/categories/${id}`, fetchFn),
+
+	createCategory: (name: string) => sendAuthed<{ category: Category }>('POST', `/categories`, { name }),
+
+	renameCategory: (id: number, name: string) =>
+		sendAuthed<{ category: Category }>('POST', `/categories/${id}/rename`, { name }),
+
+	deleteCategory: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/categories/${id}`),
+
+	assignCategoryTags: (id: number, tagIds: number[]) =>
+		sendAuthed<{ category: Category }>('POST', `/categories/${id}/tags`, { tag_ids: tagIds }),
+
+	unassignCategoryTags: (id: number, tagIds: number[]) =>
+		sendAuthed<{ category: Category }>('DELETE', `/categories/${id}/tags`, { tag_ids: tagIds }),
+
+	// Resolve-or-create a tag by name with no video attach (HOLODEX-240) — the
+	// /categories/{id} "+ Add tag" control's first step; the caller then assigns
+	// the returned id via assignCategoryTags. Same 422/400/409 status contract as
+	// addVideoTag (deny-list / too long / collides with a category).
+	resolveOrCreateTag: (name: string) => sendAuthed<{ tag: Tag }>('POST', `/tags`, { name }),
 
 	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
 	// random; random shuffled client-side). Detail carries resolved[] in the record

@@ -193,6 +193,30 @@ type Tag struct {
 	WritebackEnabled bool `json:"writeback_enabled"`
 }
 
+// Category groups tags for browsing without merging or altering them
+// (HOLODEX-240, ADR-078) -- deliberately reduced compared to Tag/Person/Studio:
+// no provenance, no alias/merge machinery, create/rename/delete only (D1). No
+// video count (categories don't attach to videos directly, only tags do --
+// spec Non-Goals). Tags holds the category's member tags, populated only on
+// the category-detail read (GetCategory); omitted on the /categories list,
+// which has no per-row use for it.
+type Category struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// TagCount is the member-tag count, populated on both the /categories list
+	// (the pill's count badge) and the detail read (len(Tags), for free). Not
+	// omitempty -- an empty category legitimately reports 0, not an absent field.
+	TagCount int `json:"tag_count"`
+	// TagIDs is the member tag id set, populated only on the /categories list
+	// (HOLODEX-240) -- lets the "Remove from category…" picker filter to
+	// categories that actually contain one of the selected tags, entirely
+	// client-side against this already-loaded, unpaged list (no per-click
+	// round trip). Omitted on the detail read, which has Tags (full objects)
+	// instead.
+	TagIDs []int64 `json:"tag_ids,omitempty"`
+	Tags   []Tag   `json:"tags,omitempty"`
+}
+
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its
 // name is a derived identity — video_studios links follow the resolved `studio`
 // field, not raw file extraction. F43 (ADR-061) adds owner alias/merge/rename over

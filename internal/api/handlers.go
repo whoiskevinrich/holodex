@@ -311,6 +311,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
+	// Tag Categories (HOLODEX-240, ADR-078) — public reads; mutations gated below.
+	h.mountCategories(r)
 	r.Get("/search", h.search)
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
@@ -371,6 +373,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountTagWritebackSync(r)
 		// Video↔tag attach/detach — the owner's media-page add/remove tag chips (F50, ADR-075 P0-7).
 		h.mountVideoTags(r)
+		// Tag Categories — CRUD + member-tag assign/unassign (HOLODEX-240, ADR-078).
+		h.mountCategoryMutations(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).
@@ -394,6 +398,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		PersonIDs:      parseIDs(q["person"]),
 		TagIDs:         parseIDs(q["tag"]),
 		StudioIDs:      parseIDs(q["studio_id"]),
+		CategoryIDs:    parseIDs(q["category_id"]),
 		DurationMinSec: atoiDefault(q.Get("duration_min"), 0) * 60,
 		DurationMaxSec: atoiDefault(q.Get("duration_max"), 0) * 60,
 		YearMin:        atoiDefault(q.Get("year_min"), 0),
