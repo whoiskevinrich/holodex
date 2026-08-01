@@ -129,10 +129,10 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		return 0, ErrTagNameTooLong
 	}
 
-	// 3c. Cross-table collision with categories (tags only, ADR-077 D3): the
+	// 3c. Cross-table collision with categories (tags only, ADR-078 D3): the
 	// symmetric pre-flight check to CreateCategory/RenameCategory's tag-side
 	// check, at the one choke point every tag-creation path shares -- the DB
-	// triggers from migration 0033 are the correctness backstop either way.
+	// triggers from migration 0034 are the correctness backstop either way.
 	if entityType == model.EntityTag {
 		if collides, err := nameCollidesInTable(ctx, tx, "categories", name, 0); err != nil {
 			return 0, err

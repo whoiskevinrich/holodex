@@ -7,15 +7,15 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 
 ## Gates — definition of done
 - [x] spec          docs/specs/tag-categories.md · S1
-- [x] architecture  docs/architecture/ADR-077-tag-categories-entity.md · S3
-- [x] backend       migration 0033 + internal/repo/categories.go + internal/api/categories.go · S4
+- [x] architecture  docs/architecture/ADR-078-tag-categories-entity.md · S3
+- [x] backend       migration 0034 + internal/repo/categories.go + internal/api/categories.go · S4
 - [x] frontend      tags/+page.svelte unified filter + category pills, entity/CategoryPicker.svelte,
                     categories/[id]/+page.svelte, browse Categories facet · S5
 - [ ] testing       not started — regenerate testing-strategy for the new endpoints/flows
 - [ ] security      not started
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
+1. Regenerate testing-strategy for the new endpoints/flows, including ADR-078's cross-table collision
    and cascade-delete cases, plus the new `POST /tags` resolve-or-create-tag endpoint  [testing]
 2. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
    category mutation surface  [security]
@@ -61,7 +61,7 @@ close the single-tag "Add to category…" gap via a new pill ⋯-menu item rathe
 Manage-bar threshold; ship `CategoryPicker` as a new sibling rather than extending `EntityPicker`;
 category delete lives only in `/tags`'s ⋯ menu, not duplicated on the detail page. No code yet —
 frontend gate stays open pending the ADR + backend.
-S3 · /architecture — docs/architecture/ADR-077-tag-categories-entity.md. `categories`/`category_tags`
+S3 · /architecture — docs/architecture/ADR-078-tag-categories-entity.md. `categories`/`category_tags`
 mirror `tags`' pre-identity shape and `video_tags` respectively (no provenance, `ON DELETE CASCADE` both
 sides — cascade-delete is free). Category deliberately kept outside `resolveOrCreateByName`'s identity
 spine (D1/D4) — it never hits the scanner-duplicate problem that spine solves for. The one genuinely new
@@ -71,16 +71,16 @@ codebase's existing posture for same-table `nameKey` uniqueness (real unique ind
 two-table case SQLite can express (unlike ADR-075 D1's cycle guard, which genuinely couldn't be). Browse
 facet expansion reuses `VideoFilter.build()`'s existing `TagIDs` clause shape with no new primitive. No
 code yet — backend gate is next.
-S4 · backend implementation — migration `0033_categories.{up,down}.sql` (categories +
+S4 · backend implementation — migration `0034_categories.{up,down}.sql` (categories +
 ux_categories_namekey, category_tags junction, the four cross-table collision triggers);
 `internal/repo/categories.go` (CreateCategory/RenameCategory/DeleteCategory/ListCategories/
 GetCategory/TagsForCategory/AssignTagsToCategory/UnassignTagsFromCategory, each collision-checked
-pre-flight per ADR-077 D3 via a shared `nameCollidesInTable` helper); `resolveOrCreateByName`'s tag
+pre-flight per ADR-078 D3 via a shared `nameCollidesInTable` helper); `resolveOrCreateByName`'s tag
 path gains the symmetric pre-flight check, with the new `ErrTagNameCollidesWithCategory` folded into
 the scanner's and materialization's existing silent-skip lists alongside `ErrTagDenied`/
 `ErrTagNameTooLong`; `internal/api/categories.go` (owner-gated CRUD + bulk assign/unassign at
 `POST/DELETE /categories/{id}/tags`, public list/detail reads); `VideoFilter.CategoryIDs` browse
-facet (repo.go, ADR-077 D2's exact `EXISTS(...)` clause shape, wired to `?category_id=`). Ran
+facet (repo.go, ADR-078 D2's exact `EXISTS(...)` clause shape, wired to `?category_id=`). Ran
 `/simplify` before committing: unified the two near-duplicate collision-check helpers into one
 table-parameterized function, replaced the assign/unassign per-tag-id loops with single batched
 SQL statements (and had them return the updated category directly, cutting the handler's redundant
@@ -135,7 +135,7 @@ for the new fields/endpoint are testing-gate work, not squeezed in ad hoc here. 
 errors) and `npm run test` (115/115) green throughout.
 
 **Live 3-skin browser QA not completed this session** — the sandboxed dev-server restart (needed
-after clearing a stale local `data/holodex.db` with a pre-migration-0033 schema) was denied by the
+after clearing a stale local `data/holodex.db` with a pre-migration-0034 schema) was denied by the
 environment's auto-mode classifier. Automated coverage stands in for it, but nobody has eyeballed
 the new surfaces in Cinémathèque/Broadcast/Brutalist yet — top of Up next.
 

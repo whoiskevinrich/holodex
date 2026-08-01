@@ -95,7 +95,7 @@ export interface Tag {
 }
 
 // Category groups tags for browsing without merging or altering them
-// (HOLODEX-240, ADR-077) — hand-curated, no provenance/alias/merge. TagCount
+// (HOLODEX-240, ADR-078) — hand-curated, no provenance/alias/merge. TagCount
 // is present on both the /categories list (the pill's count badge) and the
 // detail read; Tags (the member list) only on the detail read.
 export interface Category {
@@ -714,7 +714,7 @@ export interface MediaFilters {
 	// derived video_studios link. Distinct from the legacy mapped `studio` string filter
 	// (still under `mapped`, kept for REST/MCP back-compat but no longer surfaced in the UI).
 	studio_id?: number[];
-	// Category filter (HOLODEX-240, ADR-077): repeatable ?category_id, expanded
+	// Category filter (HOLODEX-240, ADR-078): repeatable ?category_id, expanded
 	// server-side to the category's member tag ids and ORed into the same TagIDs
 	// matching the existing `tag` filter uses (no new client-side expansion).
 	category?: number[];

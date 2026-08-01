@@ -24,7 +24,7 @@ func (h *Handlers) mountVideoTags(r chi.Router) {
 
 // writeTagResolveError translates resolveOrCreateByName's tag-facing error set --
 // denied (422), oversized (400), a name that collides with an existing category
-// (409, ADR-077 D3), or a generic failure -- into a response, shared by
+// (409, ADR-078 D3), or a generic failure -- into a response, shared by
 // attachVideoTag and categories.go's createOrResolveTag (which differ only in
 // what happens with the resolved tag afterward: link to a video vs. return bare).
 // Reports whether it wrote a response.
@@ -46,7 +46,7 @@ func (h *Handlers) writeTagResolveError(w http.ResponseWriter, op string, err er
 
 // attachVideoTag resolves-or-creates a tag by name and links it to the video,
 // source='manual'. 422 on a denied term, 400 on an oversized name, 409 on a
-// name that collides with an existing category (ADR-077 D3) -- all three from
+// name that collides with an existing category (ADR-078 D3) -- all three from
 // the shared resolveOrCreateByName choke point -- 404 if the video doesn't exist.
 func (h *Handlers) attachVideoTag(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)

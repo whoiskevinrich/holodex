@@ -10,28 +10,28 @@ import (
 	"holodex/internal/model"
 )
 
-// Tag Categories (HOLODEX-240, ADR-077): a deliberately reduced entity --
+// Tag Categories (HOLODEX-240, ADR-078): a deliberately reduced entity --
 // create, rename, delete only, no provenance/alias/merge. Kept outside
 // resolveOrCreateByName's identity spine (D1/D4): Category is created exactly
 // one way (an owner's explicit action), never through the scanner, so it has
 // none of the scanner-driven-duplicate problem the spine amortizes for
 // person/studio/tag. The cross-table name collision with tags (D3) is
-// pre-checked here for a friendly 409 -- migration 0033's paired DB triggers
+// pre-checked here for a friendly 409 -- migration 0034's paired DB triggers
 // are the actual correctness backstop, catching any insert/update path that
 // bypasses this check.
 
 // ErrCategoryNameCollidesWithTag is returned by CreateCategory/RenameCategory
-// when name already names a tag (ADR-077 D3's app-layer pre-flight check).
+// when name already names a tag (ADR-078 D3's app-layer pre-flight check).
 var ErrCategoryNameCollidesWithTag = errors.New("category: name collides with an existing tag")
 
 // ErrTagNameCollidesWithCategory is returned by resolveOrCreateByName's tag
 // path when name already names a category -- the symmetric pre-flight check
-// (ADR-077 D3) on the tag side of the collision.
+// (ADR-078 D3) on the tag side of the collision.
 var ErrTagNameCollidesWithCategory = errors.New("tag: name collides with an existing category")
 
 // nameCollidesInTable reports whether name already names a row in table,
 // folded the same way tags fold their own uniqueness (nameKeyExpr's tag
-// variant) -- required so the cross-table comparison is meaningful (ADR-077
+// variant) -- required so the cross-table comparison is meaningful (ADR-078
 // Forces). excludeID excludes that id (a rename's self-match); 0 excludes
 // nothing (create), since real ids start at 1. table is a trusted internal
 // literal ("tags" | "categories"), never user input.
@@ -123,7 +123,7 @@ func (r *Repo) RenameCategory(ctx context.Context, id int64, newName string) (*m
 }
 
 // DeleteCategory deletes a category. Every category_tags row referencing it
-// is dropped by ON DELETE CASCADE (ADR-077 D2) -- no dependent-tag block, the
+// is dropped by ON DELETE CASCADE (ADR-078 D2) -- no dependent-tag block, the
 // member tags themselves are unaffected. ErrNotFound if id doesn't exist.
 func (r *Repo) DeleteCategory(ctx context.Context, id int64) error {
 	r.writeMu.Lock()
@@ -223,7 +223,7 @@ func (r *Repo) GetCategory(ctx context.Context, id int64) (*model.Category, erro
 // Shares resolveOrCreateByName, the same choke point AttachTagToVideo and the
 // scanner already route through, so a name that matches an existing tag/alias
 // resolves to it instead of duplicating, and the deny-list/length-cap/
-// category-collision checks (ADR-077 D3) all apply here too.
+// category-collision checks (ADR-078 D3) all apply here too.
 func (r *Repo) ResolveOrCreateTag(ctx context.Context, name string) (*model.Tag, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()

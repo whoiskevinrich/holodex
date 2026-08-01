@@ -188,7 +188,7 @@ type Tag struct {
 }
 
 // Category groups tags for browsing without merging or altering them
-// (HOLODEX-240, ADR-077) -- deliberately reduced compared to Tag/Person/Studio:
+// (HOLODEX-240, ADR-078) -- deliberately reduced compared to Tag/Person/Studio:
 // no provenance, no alias/merge machinery, create/rename/delete only (D1). No
 // video count (categories don't attach to videos directly, only tags do --
 // spec Non-Goals). Tags holds the category's member tags, populated only on

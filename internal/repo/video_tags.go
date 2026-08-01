@@ -109,7 +109,7 @@ type MaterializedTag struct {
 // AttachTagToVideo, called once per enrich-apply with the video's whole resolved
 // `genres` set rather than once per value. A denied, oversized, or category-colliding
 // name is silently skipped, not surfaced: enrichment is unattended, so there is no
-// owner to show a 422/400/409 to (ADR-075 D2; ADR-077 D3), matching
+// owner to show a 422/400/409 to (ADR-075 D2; ADR-078 D3), matching
 // replaceAssociations' precedent for the scanner.
 // INSERT OR IGNORE makes re-running against an already-materialized video a no-op
 // (idempotent). No video-existence check: the caller (MaterializeVideoTags) already

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Category assign/remove picker (HOLODEX-240, ADR-077 §4): a new sibling of
+	// Category assign/remove picker (HOLODEX-240, ADR-078 §4): a new sibling of
 	// EntityPicker, not a fork of it — assign/remove are single-step and
 	// reversible (unlike merge's two-step, irreversible fold-and-delete), so
 	// there's no informed-confirm step here. Dialog chrome (backdrop/focus-trap/

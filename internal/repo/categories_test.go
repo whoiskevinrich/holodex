@@ -3,13 +3,14 @@ package repo_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"holodex/internal/repo"
 )
 
 // TestCategoryCRUD covers create/list/get/rename/delete and the same-table
-// duplicate-name conflict (ErrNameTaken, ADR-077 D1).
+// duplicate-name conflict (ErrNameTaken, ADR-078 D1).
 func TestCategoryCRUD(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
@@ -56,7 +57,7 @@ func TestCategoryCRUD(t *testing.T) {
 	}
 }
 
-// TestCategoryCrossTableCollision covers ADR-077 D3 in both directions: a
+// TestCategoryCrossTableCollision covers ADR-078 D3 in both directions: a
 // category can't take an existing tag's name, and a tag can't take an
 // existing category's name — using the tag-style fold ("Sci Fi" == "SciFi")
 // on both sides.
@@ -84,7 +85,7 @@ func TestCategoryCrossTableCollision(t *testing.T) {
 	}
 
 	// The scanner path (UpsertVideo -> replaceAssociations) skips a
-	// category-colliding tag silently (ADR-077 D3, mirroring ADR-075 D2's
+	// category-colliding tag silently (ADR-078 D3, mirroring ADR-075 D2's
 	// deny-list precedent) rather than failing the whole upsert.
 	id, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", nil, []string{"Holiday", "Winter"}), nil)
 	if err != nil {
@@ -118,7 +119,7 @@ func mustVideoID(t *testing.T, r *repo.Repo, ctx context.Context) int64 {
 }
 
 // TestCategoryTagAssignment covers assign/unassign (idempotent, bulk,
-// transactional) and delete's cascade to category_tags (ADR-077 D2): deleting
+// transactional) and delete's cascade to category_tags (ADR-078 D2): deleting
 // a category unassigns it from every tag without deleting the tags.
 func TestCategoryTagAssignment(t *testing.T) {
 	r := newRepo(t)
@@ -180,7 +181,7 @@ func TestCategoryTagAssignment(t *testing.T) {
 }
 
 // TestCategoryVideoFilterFacet covers the browse-page category facet
-// (ADR-077 D2/Consequences): selecting a category matches every video tagged
+// (ADR-078 D2/Consequences): selecting a category matches every video tagged
 // with any of its member tags, with no new filtering primitive.
 func TestCategoryVideoFilterFacet(t *testing.T) {
 	r := newRepo(t)
@@ -230,5 +231,135 @@ func TestCategoryVideoFilterFacet(t *testing.T) {
 	}
 	if !got[beachVideo] || !got[mountainVideo] {
 		t.Errorf("category facet results = %+v, want beach+mountain videos", items)
+	}
+}
+
+// TestListCategoriesTagFields covers the S5 addition to ListCategories: the
+// TagCount/TagIDs fields the /tags pill's count badge and the "Remove from
+// category…" picker's client-side membership filter both read (HOLODEX-240) —
+// derived from a single pass over category_tags, not a per-category query.
+func TestListCategoriesTagFields(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", nil, []string{"Beach", "Mountain"}), nil)
+	if err != nil {
+		t.Fatalf("seed tags: %v", err)
+	}
+	video, _, err := r.GetVideo(ctx, id)
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	var beach, mountain int64
+	for _, tg := range video.Tags {
+		switch tg.Name {
+		case "Beach":
+			beach = tg.ID
+		case "Mountain":
+			mountain = tg.ID
+		}
+	}
+
+	populated, err := r.CreateCategory(ctx, "Nature")
+	if err != nil {
+		t.Fatalf("create populated category: %v", err)
+	}
+	if _, err := r.AssignTagsToCategory(ctx, populated.ID, []int64{beach, mountain}); err != nil {
+		t.Fatalf("assign: %v", err)
+	}
+	empty, err := r.CreateCategory(ctx, "Empty")
+	if err != nil {
+		t.Fatalf("create empty category: %v", err)
+	}
+
+	list, err := r.ListCategories(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	find := func(id int64) (tagCount int, tagIDs []int64, ok bool) {
+		for _, c := range list {
+			if c.ID == id {
+				return c.TagCount, c.TagIDs, true
+			}
+		}
+		return 0, nil, false
+	}
+
+	tc, ids, ok := find(populated.ID)
+	if !ok || tc != 2 || len(ids) != 2 {
+		t.Fatalf("populated category = TagCount:%d TagIDs:%v ok:%v, want TagCount=2, 2 TagIDs", tc, ids, ok)
+	}
+	got := map[int64]bool{ids[0]: true, ids[1]: true}
+	if !got[beach] || !got[mountain] {
+		t.Errorf("populated category TagIDs = %v, want {%d,%d}", ids, beach, mountain)
+	}
+
+	tc, ids, ok = find(empty.ID)
+	if !ok || tc != 0 || len(ids) != 0 {
+		t.Errorf("empty category = TagCount:%d TagIDs:%v ok:%v, want TagCount=0, no TagIDs", tc, ids, ok)
+	}
+}
+
+// TestResolveOrCreateTag covers the S5 addition backing /categories/{id}'s
+// "+ Add tag" control (HOLODEX-240): resolve-or-create with no video attach,
+// sharing resolveOrCreateByName's deny-list/length-cap/category-collision
+// checks (ADR-078 D3) with every other tag-creation path (mirrors
+// TestAttachTagToVideo in video_tags_test.go, minus the video-link concern).
+func TestResolveOrCreateTag(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	tag, err := r.ResolveOrCreateTag(ctx, "Documentary")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if tag.Name != "Documentary" {
+		t.Errorf("tag.Name = %q, want Documentary", tag.Name)
+	}
+	// ListTags (and therefore GET /tags, the /tags page, and the merge
+	// picker) inner-joins video_tags -- a zero-video tag is invisible there
+	// until some video is tagged with it. That's real, observed behavior
+	// (not a bug in this test): the tag still exists -- TagIDByName resolves
+	// it, and it's reachable via the category's own member-tag chip list
+	// (TagsForCategory has no such join) -- but it's a UX edge case worth a
+	// product decision, flagged in the testing-strategy write-up rather than
+	// silently masked here.
+	if tags, err := r.ListTags(ctx, false); err != nil || len(tags) != 0 {
+		t.Errorf("ListTags with only a zero-video tag = %+v, %v, want empty (inner-join excludes it)", tags, err)
+	}
+	if id, ok, err := r.TagIDByName(ctx, "Documentary"); err != nil || !ok || id != tag.ID {
+		t.Fatalf("TagIDByName after resolve-or-create = %d, %v, %v, want ok with id %d", id, ok, err, tag.ID)
+	}
+
+	// Idempotent: resolving the same (case/whitespace-variant) name returns
+	// the same tag, not a duplicate.
+	again, err := r.ResolveOrCreateTag(ctx, "  documentary ")
+	if err != nil {
+		t.Fatalf("re-resolve: %v", err)
+	}
+	if again.ID != tag.ID {
+		t.Errorf("re-resolve id = %d, want %d (same tag)", again.ID, tag.ID)
+	}
+
+	// Deny-list: refused, not silently created.
+	if _, err := r.DenyTag(ctx, "Gnome"); err != nil {
+		t.Fatalf("deny: %v", err)
+	}
+	if _, err := r.ResolveOrCreateTag(ctx, "Gnome"); !errors.Is(err, repo.ErrTagDenied) {
+		t.Errorf("resolve denied term = %v, want ErrTagDenied", err)
+	}
+
+	// Length cap (ADR-078 item 8 — category names inherit the same cap the
+	// tag-creation choke point already enforces).
+	if _, err := r.ResolveOrCreateTag(ctx, strings.Repeat("a", 201)); !errors.Is(err, repo.ErrTagNameTooLong) {
+		t.Errorf("resolve over-long name = %v, want ErrTagNameTooLong", err)
+	}
+
+	// Cross-table collision (ADR-078 D3): a name already claimed by a category.
+	if _, err := r.CreateCategory(ctx, "Holiday"); err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	if _, err := r.ResolveOrCreateTag(ctx, "Holiday"); !errors.Is(err, repo.ErrTagNameCollidesWithCategory) {
+		t.Errorf("resolve category-colliding name = %v, want ErrTagNameCollidesWithCategory", err)
 	}
 }

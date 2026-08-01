@@ -208,7 +208,7 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 	}
 	for _, t := range tags {
 		// A denied, oversized, or category-colliding term is skipped silently
-		// (ADR-075 D2/item 11; ADR-077 D3): the scanner has no owner present to
+		// (ADR-075 D2/item 11; ADR-078 D3): the scanner has no owner present to
 		// surface a rejection to, unlike the manual-attach endpoint (422/400/409).
 		tid, err := resolveOrCreateByName(ctx, tx, model.EntityTag, t.Name, "")
 		if errors.Is(err, ErrTagDenied) || errors.Is(err, ErrTagNameTooLong) || errors.Is(err, ErrTagNameCollidesWithCategory) {
@@ -288,7 +288,7 @@ type VideoFilter struct {
 	StudioIDs []int64
 	// CategoryIDs matches videos tagged with ANY member tag of ALL of these
 	// categories (AND across categories, OR within one category's member
-	// tags) — the browse-page "Categories" facet (HOLODEX-240, ADR-077 D2).
+	// tags) — the browse-page "Categories" facet (HOLODEX-240, ADR-078 D2).
 	// Expands to member tag ids at query time via category_tags; no new
 	// filtering primitive beyond the TagIDs EXISTS(...) clause shape below.
 	CategoryIDs []int64
@@ -432,7 +432,7 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, sid)
 	}
 	for _, cid := range f.CategoryIDs {
-		// Category → member-tag-id expansion (ADR-077 D2/Consequences): the same
+		// Category → member-tag-id expansion (ADR-078 D2/Consequences): the same
 		// EXISTS(...) clause shape as TagIDs above, with the tag-id set sourced from
 		// category_tags instead of the recursive subtree query (categories are flat).
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN (SELECT tag_id FROM category_tags WHERE category_id = ?))")

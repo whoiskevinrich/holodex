@@ -352,7 +352,7 @@ export const api = {
 		return {};
 	},
 
-	// Tag Categories (HOLODEX-240, ADR-077) — hand-curated grouping, no alias/merge
+	// Tag Categories (HOLODEX-240, ADR-078) — hand-curated grouping, no alias/merge
 	// spine, so this is its own small trio rather than riding ENTITY_BASE. Reads
 	// are public; mutations owner-gated. A 409 from create/rename means the name
 	// collides with a tag or another category — the caller reads `err.status` off

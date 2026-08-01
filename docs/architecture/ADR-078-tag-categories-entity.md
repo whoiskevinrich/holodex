@@ -1,4 +1,4 @@
-# ADR-077: Tag Categories — a deliberately reduced entity, its junction shape, and cross-table name collision
+# ADR-078: Tag Categories — a deliberately reduced entity, its junction shape, and cross-table name collision
 
 **Status:** Proposed
 **Date:** 2026-07-31
@@ -285,7 +285,7 @@ needing to reason about a type that behaves differently from the other three.
 
 ## Action Items
 
-1. [x] Migration `0033_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
+1. [x] Migration `0034_categories.{up,down}.sql`: `categories` table + `ux_categories_namekey` (D1),
    `category_tags` junction (D2), the four collision triggers (D3) — engineering's call whether this is one
    migration or split further; `.down.sql` drops triggers before tables (SQLite trigger-then-table drop order).
 2. [x] `internal/repo/categories.go`: `CreateCategory`, `RenameCategory`, `DeleteCategory` — each performs the

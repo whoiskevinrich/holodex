@@ -1,4 +1,4 @@
--- HOLODEX-240 (ADR-077): Tag Categories -- a deliberately reduced entity.
+-- HOLODEX-240 (ADR-078): Tag Categories -- a deliberately reduced entity.
 --
 -- categories mirrors tags' pre-identity shape (no provenance/alias/hierarchy);
 -- category_tags mirrors video_tags exactly (D2). Category is NOT part of the

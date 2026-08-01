@@ -2,8 +2,10 @@ package api_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"holodex/internal/api"
@@ -32,7 +34,7 @@ func reqTokBody(t *testing.T, method, url, token string, body any) (int, map[str
 }
 
 // TestCategoryEndpoints covers the owner-gated category CRUD API (HOLODEX-240,
-// ADR-077): gating, validation, cross-table collision (both directions, D3),
+// ADR-078): gating, validation, cross-table collision (both directions, D3),
 // same-table collision, rename, and delete's cascade (D2) — plus the public
 // list/detail reads.
 func TestCategoryEndpoints(t *testing.T) {
@@ -53,7 +55,7 @@ func TestCategoryEndpoints(t *testing.T) {
 		t.Errorf("empty name = %d, want 400", code)
 	}
 
-	// Cross-table collision (ADR-077 D3): a category can't take an existing
+	// Cross-table collision (ADR-078 D3): a category can't take an existing
 	// tag's name (fold-equivalent, "SciFi" == "Sci Fi").
 	if code, body := postTok(t, categoriesURL, "s3cret", map[string]any{"name": "SciFi"}); code != http.StatusConflict {
 		t.Errorf("category colliding with tag = %d %v, want 409", code, body)
@@ -127,6 +129,32 @@ func TestCategoryEndpoints(t *testing.T) {
 	if tags, _ := cat["tags"].([]any); len(tags) != 1 {
 		t.Fatalf("category after assign = %v, want 1 member tag", cat["tags"])
 	}
+
+	// The list endpoint's tag_count/tag_ids fields (S5 addition, HOLODEX-240) —
+	// the /tags pill's count badge and the "Remove from category…" picker's
+	// client-side membership filter both read these off GET /categories
+	// directly, not the per-category detail read.
+	code, listBody := getJSONTok(t, categoriesURL, "")
+	if code != http.StatusOK {
+		t.Fatalf("list = %d, want 200", code)
+	}
+	items, _ := listBody["items"].([]any)
+	var listed map[string]any
+	for _, it := range items {
+		if m, _ := it.(map[string]any); int64(m["id"].(float64)) == catID {
+			listed = m
+		}
+	}
+	if listed == nil {
+		t.Fatalf("list missing category %d: %v", catID, items)
+	}
+	if tc, _ := listed["tag_count"].(float64); tc != 1 {
+		t.Errorf("list tag_count = %v, want 1", listed["tag_count"])
+	}
+	if ids, _ := listed["tag_ids"].([]any); len(ids) != 1 || int64(ids[0].(float64)) != scifi {
+		t.Errorf("list tag_ids = %v, want [%d]", listed["tag_ids"], scifi)
+	}
+
 	// Idempotent re-assign.
 	if code, _ := postTok(t, tagsURL, "s3cret", map[string]any{"tag_ids": []int64{scifi}}); code != http.StatusOK {
 		t.Errorf("re-assign = %d, want 200", code)
@@ -152,5 +180,81 @@ func TestCategoryEndpoints(t *testing.T) {
 	}
 	if code, body := getJSONTok(t, srv.URL+"/api/v1/tags/"+itoa(scifi), ""); code != http.StatusOK {
 		t.Errorf("tag survives category delete = %d %v, want 200", code, body)
+	}
+}
+
+// TestResolveOrCreateTagEndpoint covers POST /tags (HOLODEX-240, ADR-078):
+// owner-gating, success with no video attach, idempotent resolve, and the
+// three error mappings resolveOrCreateByName's tag-creation choke point
+// shares with attachVideoTag (422 denied, 400 too long, 409 category
+// collision) — createOrResolveTag routes through writeTagResolveError, the
+// same translator attachVideoTag uses.
+func TestResolveOrCreateTagEndpoint(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	tagsURL := srv.URL + "/api/v1/tags"
+
+	if code, _ := postTok(t, tagsURL, "", map[string]any{"name": "Documentary"}); code != http.StatusUnauthorized {
+		t.Errorf("no-token create = %d, want 401", code)
+	}
+
+	code, body := postTok(t, tagsURL, "s3cret", map[string]any{"name": "Documentary"})
+	if code != http.StatusOK {
+		t.Fatalf("create = %d, want 200", code)
+	}
+	tag, _ := body["tag"].(map[string]any)
+	if tag["name"] != "Documentary" {
+		t.Errorf("created tag = %v", tag)
+	}
+	tagID1 := int64(tag["id"].(float64))
+
+	// No video attach: the tag exists (GET /tags/{id}, a direct-by-id read)
+	// but ListTags' inner join with video_tags means GET /tags (the plain
+	// list) excludes a zero-video tag entirely -- real, observed behavior,
+	// not asserted away here.
+	code, detail := getJSONTok(t, tagsURL+"/"+itoa(tagID1), "")
+	if code != http.StatusOK {
+		t.Fatalf("get created tag = %d, want 200", code)
+	}
+	if got, _ := detail["tag"].(map[string]any); got["name"] != "Documentary" {
+		t.Errorf("created tag detail = %v", got)
+	}
+	code, listBody := getJSONTok(t, tagsURL, "")
+	if code != http.StatusOK {
+		t.Fatalf("list tags = %d", code)
+	}
+	if items, _ := listBody["items"].([]any); len(items) != 0 {
+		t.Errorf("list tags with only a zero-video tag = %v, want empty (inner-join excludes it)", items)
+	}
+
+	// Idempotent: resolving the same (case/whitespace-variant) name again
+	// returns the same tag, not a duplicate.
+	code, body = postTok(t, tagsURL, "s3cret", map[string]any{"name": "  documentary "})
+	if code != http.StatusOK {
+		t.Fatalf("re-resolve = %d, want 200", code)
+	}
+	tag, _ = body["tag"].(map[string]any)
+	if int64(tag["id"].(float64)) != tagID1 {
+		t.Errorf("re-resolve id = %v, want %d (same tag)", tag["id"], tagID1)
+	}
+
+	// Too long.
+	if code, _ := postTok(t, tagsURL, "s3cret", map[string]any{"name": strings.Repeat("a", 201)}); code != http.StatusBadRequest {
+		t.Errorf("over-long name = %d, want 400", code)
+	}
+
+	// Denied.
+	if _, err := r.DenyTag(context.Background(), "Gnome"); err != nil {
+		t.Fatalf("deny: %v", err)
+	}
+	if code, _ := postTok(t, tagsURL, "s3cret", map[string]any{"name": "Gnome"}); code != http.StatusUnprocessableEntity {
+		t.Errorf("denied term = %d, want 422", code)
+	}
+
+	// Category collision (ADR-078 D3).
+	if code, _ := postTok(t, srv.URL+"/api/v1/categories", "s3cret", map[string]any{"name": "Holiday"}); code != http.StatusOK {
+		t.Fatalf("seed category")
+	}
+	if code, _ := postTok(t, tagsURL, "s3cret", map[string]any{"name": "Holiday"}); code != http.StatusConflict {
+		t.Errorf("category-colliding name = %d, want 409", code)
 	}
 }

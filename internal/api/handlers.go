@@ -311,7 +311,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
-	// Tag Categories (HOLODEX-240, ADR-077) — public reads; mutations gated below.
+	// Tag Categories (HOLODEX-240, ADR-078) — public reads; mutations gated below.
 	h.mountCategories(r)
 	r.Get("/search", h.search)
 	r.Get("/facets", h.facets)
@@ -371,7 +371,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountTagHierarchy(r)
 		// Video↔tag attach/detach — the owner's media-page add/remove tag chips (F50, ADR-075 P0-7).
 		h.mountVideoTags(r)
-		// Tag Categories — CRUD + member-tag assign/unassign (HOLODEX-240, ADR-077).
+		// Tag Categories — CRUD + member-tag assign/unassign (HOLODEX-240, ADR-078).
 		h.mountCategoryMutations(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)

@@ -12,9 +12,9 @@ import (
 	"holodex/internal/repo"
 )
 
-// Tag Categories API (HOLODEX-240, ADR-077): owner-gated CRUD + member-tag
+// Tag Categories API (HOLODEX-240, ADR-078): owner-gated CRUD + member-tag
 // assign/unassign; public list/detail reads, mirroring tags/studios. Category
-// never joins the entity-name-identity spine (ADR-077 D1/D4), so its
+// never joins the entity-name-identity spine (ADR-078 D1/D4), so its
 // mutations route through dedicated repo functions, not the generic
 // alias/merge/rename handlers in entity_identity.go.
 
@@ -88,7 +88,7 @@ func parseCategoryName(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 // writeCategoryMutationError translates CreateCategory/RenameCategory's error
-// set — not found, a collision with a tag or another category (ADR-077 D3),
+// set — not found, a collision with a tag or another category (ADR-078 D3),
 // or a generic failure — into a response, and reports whether it wrote one.
 func (h *Handlers) writeCategoryMutationError(w http.ResponseWriter, op string, err error) bool {
 	switch {
@@ -107,7 +107,7 @@ func (h *Handlers) writeCategoryMutationError(w http.ResponseWriter, op string, 
 }
 
 // createCategory creates a category. 409 when name collides (tag-style fold)
-// with an existing tag or another category (ADR-077 D3).
+// with an existing tag or another category (ADR-078 D3).
 func (h *Handlers) createCategory(w http.ResponseWriter, r *http.Request) {
 	name, ok := parseCategoryName(w, r)
 	if !ok {
@@ -138,7 +138,7 @@ func (h *Handlers) renameCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteCategory deletes a category. Cascade-unassigns every member tag via
-// ON DELETE CASCADE (ADR-077 D2) — no dependent-tag block.
+// ON DELETE CASCADE (ADR-078 D2) — no dependent-tag block.
 func (h *Handlers) deleteCategory(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
