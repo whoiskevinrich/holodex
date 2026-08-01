@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"holodex/internal/model"
 )
 
 // Writeback queue statuses (F30, ADR-048).
@@ -169,6 +171,50 @@ func (r *Repo) GetWritebackJobStatus(ctx context.Context, id int64) (status, err
 		return "", "", fmt.Errorf("get writeback job %d: %w", id, err)
 	}
 	return status, msg.String, nil
+}
+
+// statusCounts runs a "SELECT status, COUNT(*) ... GROUP BY status"-shaped
+// query and returns each status's count keyed by the status string —
+// shared by GetWritebackBatchStatus's two identically-shaped tallies (one
+// over writeback_queue, one over job_runs).
+func statusCounts(ctx context.Context, db *sql.DB, query string, args ...any) (map[string]int, error) {
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var n int
+		if err := rows.Scan(&status, &n); err != nil {
+			return nil, err
+		}
+		out[status] = n
+	}
+	return out, rows.Err()
+}
+
+// GetWritebackBatchStatus aggregates a shared batchID's progress across every
+// job that was enqueued under it (HOLODEX-239, ADR-077 D3): pending/running
+// come from writeback_queue's still-live rows, done/failed from job_runs
+// (kind=writeback) — a row's absence from writeback_queue combined with a
+// job_runs hit is GetWritebackJobStatus's own "row is gone = done" rule,
+// applied across every job sharing the batch instead of one job id. Lets a
+// tag-scoped sync's dialog poll one endpoint instead of fanning out to N.
+func (r *Repo) GetWritebackBatchStatus(ctx context.Context, batchID string) (pending, running, done, failed int, err error) {
+	queue, err := statusCounts(ctx, r.db,
+		`SELECT status, COUNT(*) FROM writeback_queue WHERE batch_id = ? GROUP BY status`, batchID)
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("get writeback batch status (queue): %w", err)
+	}
+	runs, err := statusCounts(ctx, r.db,
+		`SELECT status, COUNT(*) FROM job_runs WHERE kind = ? AND batch_id = ? GROUP BY status`,
+		model.JobKindWriteback, batchID)
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("get writeback batch status (job_runs): %w", err)
+	}
+	return queue[WritebackPending], queue[WritebackRunning], runs[model.JobStatusOK], runs[model.JobStatusErr], nil
 }
 
 // RecoverRunningWritebacks resets any 'running' rows back to 'pending' on boot —

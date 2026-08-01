@@ -908,9 +908,16 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 	if err != nil {
 		return nil, err
 	}
+	// writeback_enabled isn't part of namedCountQuery either (HOLODEX-239,
+	// ADR-077) -- same batch-attach pattern as parent_tag_id above.
+	writebackEnabled, err := r.tagWritebackEnabled(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		out[i].Aliases = byTag[out[i].ID]
 		out[i].ParentTagID = parents[out[i].ID]
+		out[i].WritebackEnabled = writebackEnabled[out[i].ID]
 	}
 	return out, nil
 }
@@ -938,6 +945,31 @@ func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, e
 		if parentID.Valid {
 			out[id] = &parentID.Int64
 		}
+	}
+	return out, rows.Err()
+}
+
+// tagWritebackEnabled returns each id's writeback_enabled flag, keyed by id
+// (HOLODEX-239, ADR-077).
+func (r *Repo) tagWritebackEnabled(ctx context.Context, ids []int64) (map[int64]bool, error) {
+	out := make(map[int64]bool, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, writeback_enabled FROM tags WHERE id IN (`+placeholders(len(ids))+`)`,
+		toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("tag writeback enabled: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var enabled bool
+		if err := rows.Scan(&id, &enabled); err != nil {
+			return nil, err
+		}
+		out[id] = enabled
 	}
 	return out, rows.Err()
 }
@@ -980,10 +1012,10 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	var t model.Tag
 	var parentID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT t.id, t.name, t.parent_tag_id,
+		SELECT t.id, t.name, t.parent_tag_id, t.writeback_enabled,
 		       (SELECT COUNT(*) FROM video_tags vt JOIN videos v ON v.id = vt.video_id
 		        WHERE vt.tag_id = t.id AND v.active = 1 AND v.deleted_at IS NULL)
-		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.VideoCount)
+		FROM tags t WHERE t.id = ?`, id).Scan(&t.ID, &t.Name, &parentID, &t.WritebackEnabled, &t.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

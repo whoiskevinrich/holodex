@@ -125,6 +125,319 @@ func TestTagNamesForVideo(t *testing.T) {
 	}
 }
 
+// TestTagNamesForVideo_WritebackFlagFlat covers D1's flat per-name filter
+// (HOLODEX-239, ADR-077): disabling a tag's writeback flag drops only its own
+// name from TagNamesForVideo's output — the ancestor walk still climbs
+// through it (a further ancestor beyond the disabled tag still appears) and a
+// descendant, attached independently with its own flag, is unaffected.
+func TestTagNamesForVideo_WritebackFlagFlat(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r) // Animal > Mammal > Dog > GermanShepherd
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/flag_flat.mkv", "V", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if _, err := r.AttachTagToVideo(ctx, vid, "GermanShepherd"); err != nil {
+		t.Fatalf("attach leaf tag: %v", err)
+	}
+
+	// Sanity: flag on (the default) behaves identically to current behavior.
+	names, err := r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names (flag on): %v", err)
+	}
+	if len(names) != 4 {
+		t.Fatalf("tag names (flag on) = %v, want all 4 ancestors", names)
+	}
+
+	// Disable "Dog" (a mid-chain ancestor). Its own name must disappear, but
+	// "Animal"/"Mammal" (further ancestors, reached by climbing through Dog)
+	// and "GermanShepherd" (a descendant, its own directly-attached row) must
+	// both still appear.
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false); err != nil {
+		t.Fatalf("disable Dog writeback: %v", err)
+	}
+	names, err = r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names (Dog disabled): %v", err)
+	}
+	got := make(map[string]bool, len(names))
+	for _, n := range names {
+		got[n] = true
+	}
+	if got["Dog"] {
+		t.Errorf("tag names = %v, Dog must be excluded once disabled", names)
+	}
+	for _, want := range []string{"Animal", "Mammal", "GermanShepherd"} {
+		if !got[want] {
+			t.Errorf("tag names = %v, missing %q (must survive a disabled ancestor elsewhere in the chain)", names, want)
+		}
+	}
+	if len(names) != 3 {
+		t.Errorf("tag names = %v, want exactly 3 (Dog excluded, nothing else)", names)
+	}
+
+	// Re-enabling restores identical-to-default behavior.
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], true); err != nil {
+		t.Fatalf("re-enable Dog writeback: %v", err)
+	}
+	names, err = r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names (Dog re-enabled): %v", err)
+	}
+	if len(names) != 4 {
+		t.Errorf("tag names (re-enabled) = %v, want all 4 ancestors again", names)
+	}
+}
+
+// TestTagNamesForVideo_WritebackFlagFlat_DirectAndAncestorOverlap covers the
+// case a code-review pass flagged as untested: a tag reachable BOTH as a
+// video's own directly-attached tag AND as an ancestor of a different
+// directly-attached tag on the same video. The ancestor CTE (videoTagAncestorsQuery)
+// is a UNION-deduplicated set filtered once per unique id, so this should
+// collapse to one row and obey its own flag regardless of which path found
+// it — this only proves that in practice.
+func TestTagNamesForVideo_WritebackFlagFlat_DirectAndAncestorOverlap(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r) // Animal > Mammal > Dog > GermanShepherd
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/flag_flat_overlap.mkv", "V", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	// Dog is attached directly AND is an ancestor of the separately-attached
+	// GermanShepherd.
+	if _, err := r.AttachTagToVideo(ctx, vid, "Dog"); err != nil {
+		t.Fatalf("attach Dog: %v", err)
+	}
+	if _, err := r.AttachTagToVideo(ctx, vid, "GermanShepherd"); err != nil {
+		t.Fatalf("attach GermanShepherd: %v", err)
+	}
+
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false); err != nil {
+		t.Fatalf("disable Dog writeback: %v", err)
+	}
+	names, err := r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names: %v", err)
+	}
+	got := make(map[string]int, len(names))
+	for _, n := range names {
+		got[n]++
+	}
+	if got["Dog"] != 0 {
+		t.Errorf("tag names = %v, Dog must be excluded once disabled (reached via both a direct attach and an ancestor walk)", names)
+	}
+	for _, want := range []string{"Animal", "Mammal", "GermanShepherd"} {
+		if got[want] != 1 {
+			t.Errorf("tag names = %v, want %q exactly once, got %d", names, want, got[want])
+		}
+	}
+	if len(names) != 3 {
+		t.Errorf("tag names = %v, want exactly 3 (no duplicate row for the doubly-reached Dog)", names)
+	}
+}
+
+// TestSetTagWritebackEnabled covers the single-tag flag flip: it never
+// enqueues anything itself (there is no writeQueue wired into this repo-only
+// test at all, so any enqueue attempt would panic/nil-deref), only updates
+// the stored value and returns the updated tag; an unknown id is ErrNotFound.
+func TestSetTagWritebackEnabled(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	tag, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false)
+	if err != nil {
+		t.Fatalf("disable: %v", err)
+	}
+	if tag.WritebackEnabled {
+		t.Errorf("tag.WritebackEnabled = true after disabling, want false")
+	}
+	got, err := r.GetTag(ctx, ids["Dog"])
+	if err != nil {
+		t.Fatalf("get tag: %v", err)
+	}
+	if got.WritebackEnabled {
+		t.Errorf("GetTag.WritebackEnabled = true after disabling, want false")
+	}
+
+	if _, err := r.SetTagWritebackEnabled(ctx, 99999, false); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("unknown tag = %v, want ErrNotFound", err)
+	}
+}
+
+// TestSetTagsWritebackEnabled covers the bulk flag flip: it applies to every
+// listed tag regardless of each one's individual prior state.
+func TestSetTagsWritebackEnabled(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	// Dog starts enabled (default); Mammal starts disabled — a mixed
+	// selection, so the bulk action must not just toggle each one.
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Mammal"], false); err != nil {
+		t.Fatalf("seed disabled Mammal: %v", err)
+	}
+
+	if err := r.SetTagsWritebackEnabled(ctx, []int64{ids["Dog"], ids["Mammal"]}, false); err != nil {
+		t.Fatalf("bulk disable: %v", err)
+	}
+	for _, name := range []string{"Dog", "Mammal"} {
+		tag, err := r.GetTag(ctx, ids[name])
+		if err != nil {
+			t.Fatalf("get %s: %v", name, err)
+		}
+		if tag.WritebackEnabled {
+			t.Errorf("%s.WritebackEnabled = true after bulk disable, want false", name)
+		}
+	}
+	// Untouched sibling keeps the default.
+	animal, err := r.GetTag(ctx, ids["Animal"])
+	if err != nil {
+		t.Fatalf("get Animal: %v", err)
+	}
+	if !animal.WritebackEnabled {
+		t.Errorf("Animal.WritebackEnabled = false, want true (untouched by the bulk call)")
+	}
+
+	if err := r.SetTagsWritebackEnabled(ctx, []int64{ids["Dog"], ids["Mammal"]}, true); err != nil {
+		t.Fatalf("bulk re-enable: %v", err)
+	}
+	for _, name := range []string{"Dog", "Mammal"} {
+		tag, err := r.GetTag(ctx, ids[name])
+		if err != nil {
+			t.Fatalf("get %s: %v", name, err)
+		}
+		if !tag.WritebackEnabled {
+			t.Errorf("%s.WritebackEnabled = false after bulk re-enable, want true", name)
+		}
+	}
+
+	// A bad id in the set must 404 the whole call, not silently update the
+	// good ids while ignoring the bad one (a code-review fix: the IN (...)
+	// UPDATE alone can't tell "some ids didn't match" from "nothing to do").
+	// Dog is currently true (re-enabled above); flip toward false so a leaked
+	// side effect from the rejected call would actually show up.
+	if err := r.SetTagsWritebackEnabled(ctx, []int64{ids["Dog"], 99999}, false); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("bulk with unknown id = %v, want ErrNotFound", err)
+	}
+	if tag, err := r.GetTag(ctx, ids["Dog"]); err != nil || !tag.WritebackEnabled {
+		t.Errorf("Dog.WritebackEnabled = %v, %v, want unchanged (true) after a rejected bulk call", tag, err)
+	}
+}
+
+// TestTagsExist covers the bulk existence check backing SetTagsWritebackEnabled
+// and the bulk sync trigger's 404 (a code-review fix: bulk endpoints
+// previously accepted a stale/bad tag id silently).
+func TestTagsExist(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], ids["Mammal"]}); err != nil {
+		t.Errorf("all-valid ids = %v, want nil", err)
+	}
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], 99999}); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("one bad id = %v, want ErrNotFound", err)
+	}
+	// A duplicated valid id must not be mistaken for a bad one (COUNT(*) over
+	// IN (...) doesn't grow with repeated values the way len(ids) does).
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], ids["Dog"]}); err != nil {
+		t.Errorf("duplicated valid id = %v, want nil", err)
+	}
+	if err := r.TagsExist(ctx, nil); err != nil {
+		t.Errorf("nil ids = %v, want nil (no-op)", err)
+	}
+}
+
+// TestListTagsWritebackEnabled guards against ListTags' batch-attach query
+// (separate from GetTag's) silently dropping the column — namedCountQuery is
+// shared with ListStudios and has no writeback_enabled select, so this has to
+// come from its own attach step, same as parent_tag_id.
+func TestListTagsWritebackEnabled(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false); err != nil {
+		t.Fatalf("disable Dog: %v", err)
+	}
+
+	tags, err := r.ListTags(ctx, false)
+	if err != nil {
+		t.Fatalf("list tags: %v", err)
+	}
+	byID := make(map[int64]bool, len(tags))
+	for _, tag := range tags {
+		byID[tag.ID] = tag.WritebackEnabled
+	}
+	if byID[ids["Dog"]] {
+		t.Errorf("Dog.WritebackEnabled = true from ListTags, want false")
+	}
+	if !byID[ids["Animal"]] {
+		t.Errorf("Animal.WritebackEnabled = false from ListTags, want true (default, untouched)")
+	}
+}
+
+// TestVideoIDsForTags covers D2's bulk sync scope: the deduplicated union of
+// active/non-deleted video ids across every listed tag, so a video attached
+// to two selected tags is returned once, not twice.
+func TestVideoIDsForTags(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	// "shared" carries both Comedy and Action; the other two videos carry one
+	// tag each.
+	shared, err := r.UpsertVideo(ctx, sampleVideo("/m/shared.mkv", "Shared", nil, []string{"Comedy", "Action"}), nil)
+	if err != nil {
+		t.Fatalf("seed shared: %v", err)
+	}
+	comedyOnly, err := r.UpsertVideo(ctx, sampleVideo("/m/comedy.mkv", "Comedy Only", nil, []string{"Comedy"}), nil)
+	if err != nil {
+		t.Fatalf("seed comedy-only: %v", err)
+	}
+	actionOnly, err := r.UpsertVideo(ctx, sampleVideo("/m/action.mkv", "Action Only", nil, []string{"Action"}), nil)
+	if err != nil {
+		t.Fatalf("seed action-only: %v", err)
+	}
+	comedyID := tagIDByName(t, r, "Comedy")
+	actionID := tagIDByName(t, r, "Action")
+
+	single, err := r.VideoIDsForTag(ctx, comedyID)
+	if err != nil {
+		t.Fatalf("video ids for Comedy: %v", err)
+	}
+	if got := toSet(single); len(got) != 2 || !got[shared] || !got[comedyOnly] {
+		t.Errorf("VideoIDsForTag(Comedy) = %v, want {shared, comedyOnly}", single)
+	}
+
+	union, err := r.VideoIDsForTags(ctx, []int64{comedyID, actionID})
+	if err != nil {
+		t.Fatalf("video ids for Comedy+Action: %v", err)
+	}
+	got := toSet(union)
+	if len(got) != 3 || !got[shared] || !got[comedyOnly] || !got[actionOnly] {
+		t.Errorf("VideoIDsForTags(Comedy,Action) = %v, want {shared, comedyOnly, actionOnly} deduplicated", union)
+	}
+
+	empty, err := r.VideoIDsForTags(ctx, nil)
+	if err != nil || len(empty) != 0 {
+		t.Errorf("VideoIDsForTags(nil) = %v, %v, want empty no-op", empty, err)
+	}
+}
+
+func toSet(ids []int64) map[int64]bool {
+	out := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out
+}
+
 // assertTagParent fetches tagID and checks its ParentTagID equals want (0
 // meaning root/nil), naming the tag as label in any failure.
 func assertTagParent(t *testing.T, ctx context.Context, r *repo.Repo, tagID int64, label string, want int64) {

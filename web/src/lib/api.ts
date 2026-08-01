@@ -175,7 +175,7 @@ const getAuthed = <T>(path: string): Promise<T> => get<T>(path, fetch, { credent
 
 // sendAuthed issues a write (POST/PUT/DELETE) on the owner surface carrying the
 // session cookie and an optional JSON body, returning the decoded response (or {}).
-async function sendAuthed<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
+async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, {
 		method,
 		credentials: CREDS,
@@ -677,6 +677,31 @@ export const api = {
 	// success), "failed" + `error` when it gave up. See $lib/writebackJob.
 	writebackJobStatus: (jobId: number) =>
 		getAuthed<{ status: string; error?: string }>(`/writeback/jobs/${jobId}`),
+
+	// Aggregate progress across every job sharing a batchID (HOLODEX-239, ADR-077
+	// D3) — the tag-scoped manual-sync dialog polls this instead of fanning out to
+	// one /writeback/jobs/{id} call per video. See $lib/writebackJob.
+	writebackBatchStatus: (batchId: string) =>
+		getAuthed<{ pending: number; running: number; done: number; failed: number }>(
+			`/writeback/batches/${batchId}/status`
+		),
+
+	// Tag writeback exclusion (HOLODEX-239, ADR-077 D1/D2). Toggling the flag alone
+	// never enqueues a write; the sync endpoints batch-enqueue via the durable
+	// queue and return 202 the moment the batch is enqueued (nothing written yet).
+	setTagWriteback: (id: number, enabled: boolean) =>
+		sendAuthed<{ tag: Tag }>('PATCH', `/tags/${id}/writeback`, { enabled }),
+
+	syncTagWriteback: (id: number) =>
+		sendAuthed<{ batch_id: string; enqueued: number }>('POST', `/tags/${id}/writeback/sync`),
+
+	setTagsWriteback: (tagIds: number[], enabled: boolean) =>
+		sendAuthed<Record<string, never>>('PATCH', `/tags/writeback`, { tag_ids: tagIds, enabled }),
+
+	syncTagsWriteback: (tagIds: number[]) =>
+		sendAuthed<{ batch_id: string; enqueued: number }>('POST', `/tags/writeback/sync`, {
+			tag_ids: tagIds
+		}),
 
 	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
 	// suppress / nowrite decision; clearMediaCuration removes one (restoring the

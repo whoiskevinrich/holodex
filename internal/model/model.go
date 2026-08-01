@@ -185,6 +185,12 @@ type Tag struct {
 	// Video.Tags (attachAssociations); empty on the /tags list and tag-detail reads,
 	// which have no single video context for a per-link column to describe.
 	Source string `json:"source,omitempty"`
+	// WritebackEnabled is whether this tag's name contributes to a video's
+	// Genre writeback value (HOLODEX-239, ADR-077 D1) — defaults true, so an
+	// existing tag behaves identically until an owner explicitly excludes it.
+	// Affects only that one output, never creation/search/attachment.
+	// Populated on the tag-detail read (GetTag).
+	WritebackEnabled bool `json:"writeback_enabled"`
 }
 
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its

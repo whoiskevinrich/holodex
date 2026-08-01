@@ -4,7 +4,9 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -70,4 +72,81 @@ func TestGetWritebackJobStatus(t *testing.T) {
 	if err != nil || status != repo.WritebackDone {
 		t.Errorf("unknown id = %q/%v, want %q with no error", status, err, repo.WritebackDone)
 	}
+}
+
+// TestGetWritebackBatchStatus covers D3's aggregation across a shared
+// batchID (HOLODEX-239, ADR-077): pending/running come from still-live
+// writeback_queue rows, done/failed from job_runs — driven directly through
+// the queue's own repo primitives (claim/finish/record) rather than a live
+// worker, so the counts at each step are deterministic.
+func TestGetWritebackBatchStatus(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	videoID, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	const batchID = "tag-writeback-sync-test"
+	jobs := []repo.WritebackJobInsert{
+		{VideoID: videoID, Payload: `[{"field":"genres","values":["A"]}]`, BatchID: batchID},
+		{VideoID: videoID, Payload: `[{"field":"genres","values":["B"]}]`, BatchID: batchID},
+		{VideoID: videoID, Payload: `[{"field":"genres","values":["C"]}]`, BatchID: batchID},
+	}
+	if _, err := r.EnqueueWritebackBatch(ctx, jobs); err != nil {
+		t.Fatalf("enqueue batch: %v", err)
+	}
+
+	assertStatus := func(label string, wantPending, wantRunning, wantDone, wantFailed int) {
+		t.Helper()
+		pending, running, done, failed, err := r.GetWritebackBatchStatus(ctx, batchID)
+		if err != nil {
+			t.Fatalf("%s: get batch status: %v", label, err)
+		}
+		if pending != wantPending || running != wantRunning || done != wantDone || failed != wantFailed {
+			t.Errorf("%s: (pending,running,done,failed) = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
+				label, pending, running, done, failed, wantPending, wantRunning, wantDone, wantFailed)
+		}
+	}
+	assertStatus("all pending", 3, 0, 0, 0)
+
+	// Claim one — moves it from pending to running.
+	job1, err := r.ClaimNextWriteback(ctx)
+	if err != nil || job1 == nil {
+		t.Fatalf("claim 1: job=%v err=%v", job1, err)
+	}
+	assertStatus("one running", 2, 1, 0, 0)
+
+	// Finish it successfully — FinishWriteback deletes the row; job_runs
+	// records the outcome, exactly as writequeue.Queue.process does.
+	if err := r.FinishWriteback(ctx, job1.ID, true, ""); err != nil {
+		t.Fatalf("finish 1: %v", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindWriteback, Trigger: model.TriggerManual, Status: model.JobStatusOK,
+		StartedAt: time.Now(), FinishedAt: time.Now(), EntityType: model.EnrichEntityVideo,
+		EntityID: videoID, BatchID: batchID,
+	}); err != nil {
+		t.Fatalf("record job run 1: %v", err)
+	}
+	assertStatus("one done", 2, 0, 1, 0)
+
+	// Claim and fail the second — the queue row is marked 'failed' (not
+	// deleted), but the batch-status aggregation must count it via job_runs,
+	// not as a still-live running/pending row.
+	job2, err := r.ClaimNextWriteback(ctx)
+	if err != nil || job2 == nil {
+		t.Fatalf("claim 2: job=%v err=%v", job2, err)
+	}
+	if err := r.FinishWriteback(ctx, job2.ID, false, "exiftool exploded"); err != nil {
+		t.Fatalf("finish 2 (fail): %v", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind: model.JobKindWriteback, Trigger: model.TriggerManual, Status: model.JobStatusErr,
+		StartedAt: time.Now(), FinishedAt: time.Now(), EntityType: model.EnrichEntityVideo,
+		EntityID: videoID, BatchID: batchID, Errors: 1, ErrorMessage: "exiftool exploded",
+	}); err != nil {
+		t.Fatalf("record job run 2: %v", err)
+	}
+	assertStatus("one done, one failed, one still pending", 1, 0, 1, 1)
 }

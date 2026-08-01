@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { waitForWritebackJob } from './writebackJob';
+import { waitForWritebackJob, waitForWritebackBatch } from './writebackJob';
 
 // Tiny timings keep these on real timers without slowing the suite.
 const fast = { startMs: 1, timeoutMs: 500 };
@@ -72,5 +72,78 @@ describe('waitForWritebackJob', () => {
 
 		await waitForWritebackJob(1, jobStatus, { ...fast, cancelled: () => cancelled });
 		expect(jobStatus).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('waitForWritebackBatch', () => {
+	it('polls until pending+running reach zero, then resolves with the final counts', async () => {
+		const answers = [
+			{ pending: 3, running: 1, done: 0, failed: 0 },
+			{ pending: 0, running: 2, done: 2, failed: 0 },
+			{ pending: 0, running: 0, done: 4, failed: 0 }
+		];
+		const batchStatus = vi.fn(async () => answers.shift()!);
+
+		const result = await waitForWritebackBatch('b1', batchStatus, fast);
+
+		expect(batchStatus).toHaveBeenCalledTimes(3);
+		expect(result).toEqual({ pending: 0, running: 0, done: 4, failed: 0 });
+	});
+
+	it('resolves (does not throw) once failed > 0 but the batch is otherwise settled', async () => {
+		// Spec P0: enqueue failures are logged and non-fatal — the caller reads
+		// `failed` off the resolved result, this never rejects for it.
+		const batchStatus = vi.fn(async () => ({ pending: 0, running: 0, done: 3, failed: 2 }));
+
+		await expect(waitForWritebackBatch('b1', batchStatus, fast)).resolves.toEqual({
+			pending: 0,
+			running: 0,
+			done: 3,
+			failed: 2
+		});
+	});
+
+	it('keeps polling through a failed status fetch', async () => {
+		let calls = 0;
+		const batchStatus = vi.fn(async () => {
+			calls++;
+			if (calls < 3) throw new Error('network');
+			return { pending: 0, running: 0, done: 1, failed: 0 };
+		});
+
+		await expect(waitForWritebackBatch('b1', batchStatus, fast)).resolves.toEqual({
+			pending: 0,
+			running: 0,
+			done: 1,
+			failed: 0
+		});
+		expect(calls).toBe(3);
+	});
+
+	it('surfaces a refusal that carries an HTTP status', async () => {
+		const batchStatus = vi.fn(async () => {
+			throw Object.assign(new Error('API failed: 401'), { status: 401 });
+		});
+		await expect(waitForWritebackBatch('b1', batchStatus, fast)).rejects.toThrow('401');
+		expect(batchStatus).toHaveBeenCalledTimes(1);
+	});
+
+	it('gives up at the timeout and resolves with the last-known counts', async () => {
+		const batchStatus = vi.fn(async () => ({ pending: 1, running: 0, done: 9, failed: 0 }));
+		await expect(
+			waitForWritebackBatch('b1', batchStatus, { startMs: 1, timeoutMs: 25 })
+		).resolves.toEqual({ pending: 1, running: 0, done: 9, failed: 0 });
+		expect(batchStatus).toHaveBeenCalled();
+	});
+
+	it('stops polling once cancelled', async () => {
+		let cancelled = false;
+		const batchStatus = vi.fn(async () => {
+			cancelled = true;
+			return { pending: 1, running: 0, done: 0, failed: 0 };
+		});
+
+		await waitForWritebackBatch('b1', batchStatus, { ...fast, cancelled: () => cancelled });
+		expect(batchStatus).toHaveBeenCalledTimes(1);
 	});
 });

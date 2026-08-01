@@ -7,3 +7,4 @@ Committing resolved values back to source: metadata file tags (F28) and person i
 |---|---|
 | `CropEditor.svelte` | Promote-with-crop editor: previews a gallery image inside the target core-role aspect frame with zoom/drag, then renders a WYSIWYG canvas crop as the uploaded image. |
 | `WritebackFormDialog.svelte` | Batch writeback modal: all writable resolved fields pre-filled, editable, and toggleable; writes sequentially with per-row progress. |
+| `WritebackBatchDialog.svelte` | N-video writeback progress dialog (HOLODEX-239): confirm → aggregate pending/running/done/failed progress bar → completion, for a tag-scoped manual sync batch (single or bulk). Sibling of `WritebackFormDialog`, not a mode of it — no per-video field list, only aggregate counts. |
