@@ -181,6 +181,32 @@ func (r *Repo) SetTagWritebackEnabled(ctx context.Context, id int64, enabled boo
 	return r.GetTag(ctx, id)
 }
 
+// TagsExist reports ErrNotFound if any id in ids doesn't name a tag — the
+// bulk counterpart to EntityExists, so SetTagsWritebackEnabled and the bulk
+// sync trigger 404 a bad/stale id the same way their single-tag siblings do,
+// instead of an IN (...) query silently matching fewer rows than requested.
+// A nil/empty ids is a no-op success.
+func (r *Repo) TagsExist(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	unique := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		unique[id] = struct{}{}
+	}
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM tags WHERE id IN (`+placeholders(len(ids))+`)`,
+		toAnySlice(ids)...).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("tags exist: %w", err)
+	}
+	if count != len(unique) {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SetTagsWritebackEnabled bulk-sets the writeback flag for every tag in ids
 // to enabled, ignoring each tag's individual prior state on the way in
 // (spec P0: "applies... regardless of individual prior state"). Never
@@ -191,6 +217,9 @@ func (r *Repo) SetTagsWritebackEnabled(ctx context.Context, ids []int64, enabled
 	}
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
+	if err := r.TagsExist(ctx, ids); err != nil {
+		return err
+	}
 	args := make([]any, 0, len(ids)+1)
 	args = append(args, enabled)
 	args = append(args, toAnySlice(ids)...)

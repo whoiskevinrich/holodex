@@ -69,6 +69,10 @@ func (h *Handlers) setTagsWriteback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.repo.SetTagsWritebackEnabled(r.Context(), body.TagIDs, body.Enabled); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "tag not found")
+			return
+		}
 		h.fail(w, "set tags writeback", err)
 		return
 	}
@@ -120,6 +124,14 @@ func (h *Handlers) syncTagWritebackBulk(w http.ResponseWriter, r *http.Request) 
 	}
 	if h.writeQueue == nil {
 		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
+		return
+	}
+	if err := h.repo.TagsExist(r.Context(), body.TagIDs); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "tag not found")
+			return
+		}
+		h.fail(w, "check tags exist", err)
 		return
 	}
 	videoIDs, err := h.repo.VideoIDsForTags(r.Context(), body.TagIDs)

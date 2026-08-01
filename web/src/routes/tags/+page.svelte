@@ -48,9 +48,9 @@
 		bulkBusy = true;
 		bulkError = '';
 		try {
-			// No reload(): the pill list never renders writeback_enabled (it isn't
-			// even populated by the /tags list read, HOLODEX-239), so a full tag
-			// refetch here buys nothing visible.
+			// No reload(): the /tags list read does populate writeback_enabled, but
+			// the pill list has nowhere to render it, so a full tag refetch here
+			// would buy nothing visible.
 			await api.setTagsWriteback(selectedIds, enabled);
 		} catch (e) {
 			bulkError = toMessage(e);
@@ -625,6 +625,5 @@
 		trigger={() => api.syncTagsWriteback(selectedIds)}
 		batchStatus={api.writebackBatchStatus}
 		onclose={() => (bulkSyncOpen = false)}
-		onapplied={() => {}}
 	/>
 {/if}

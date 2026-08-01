@@ -192,6 +192,55 @@ func TestTagNamesForVideo_WritebackFlagFlat(t *testing.T) {
 	}
 }
 
+// TestTagNamesForVideo_WritebackFlagFlat_DirectAndAncestorOverlap covers the
+// case a code-review pass flagged as untested: a tag reachable BOTH as a
+// video's own directly-attached tag AND as an ancestor of a different
+// directly-attached tag on the same video. The ancestor CTE (videoTagAncestorsQuery)
+// is a UNION-deduplicated set filtered once per unique id, so this should
+// collapse to one row and obey its own flag regardless of which path found
+// it — this only proves that in practice.
+func TestTagNamesForVideo_WritebackFlagFlat_DirectAndAncestorOverlap(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r) // Animal > Mammal > Dog > GermanShepherd
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/flag_flat_overlap.mkv", "V", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	// Dog is attached directly AND is an ancestor of the separately-attached
+	// GermanShepherd.
+	if _, err := r.AttachTagToVideo(ctx, vid, "Dog"); err != nil {
+		t.Fatalf("attach Dog: %v", err)
+	}
+	if _, err := r.AttachTagToVideo(ctx, vid, "GermanShepherd"); err != nil {
+		t.Fatalf("attach GermanShepherd: %v", err)
+	}
+
+	if _, err := r.SetTagWritebackEnabled(ctx, ids["Dog"], false); err != nil {
+		t.Fatalf("disable Dog writeback: %v", err)
+	}
+	names, err := r.TagNamesForVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("tag names: %v", err)
+	}
+	got := make(map[string]int, len(names))
+	for _, n := range names {
+		got[n]++
+	}
+	if got["Dog"] != 0 {
+		t.Errorf("tag names = %v, Dog must be excluded once disabled (reached via both a direct attach and an ancestor walk)", names)
+	}
+	for _, want := range []string{"Animal", "Mammal", "GermanShepherd"} {
+		if got[want] != 1 {
+			t.Errorf("tag names = %v, want %q exactly once, got %d", names, want, got[want])
+		}
+	}
+	if len(names) != 3 {
+		t.Errorf("tag names = %v, want exactly 3 (no duplicate row for the doubly-reached Dog)", names)
+	}
+}
+
 // TestSetTagWritebackEnabled covers the single-tag flag flip: it never
 // enqueues anything itself (there is no writeQueue wired into this repo-only
 // test at all, so any enqueue attempt would panic/nil-deref), only updates
@@ -266,6 +315,42 @@ func TestSetTagsWritebackEnabled(t *testing.T) {
 		if !tag.WritebackEnabled {
 			t.Errorf("%s.WritebackEnabled = false after bulk re-enable, want true", name)
 		}
+	}
+
+	// A bad id in the set must 404 the whole call, not silently update the
+	// good ids while ignoring the bad one (a code-review fix: the IN (...)
+	// UPDATE alone can't tell "some ids didn't match" from "nothing to do").
+	// Dog is currently true (re-enabled above); flip toward false so a leaked
+	// side effect from the rejected call would actually show up.
+	if err := r.SetTagsWritebackEnabled(ctx, []int64{ids["Dog"], 99999}, false); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("bulk with unknown id = %v, want ErrNotFound", err)
+	}
+	if tag, err := r.GetTag(ctx, ids["Dog"]); err != nil || !tag.WritebackEnabled {
+		t.Errorf("Dog.WritebackEnabled = %v, %v, want unchanged (true) after a rejected bulk call", tag, err)
+	}
+}
+
+// TestTagsExist covers the bulk existence check backing SetTagsWritebackEnabled
+// and the bulk sync trigger's 404 (a code-review fix: bulk endpoints
+// previously accepted a stale/bad tag id silently).
+func TestTagsExist(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], ids["Mammal"]}); err != nil {
+		t.Errorf("all-valid ids = %v, want nil", err)
+	}
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], 99999}); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("one bad id = %v, want ErrNotFound", err)
+	}
+	// A duplicated valid id must not be mistaken for a bad one (COUNT(*) over
+	// IN (...) doesn't grow with repeated values the way len(ids) does).
+	if err := r.TagsExist(ctx, []int64{ids["Dog"], ids["Dog"]}); err != nil {
+		t.Errorf("duplicated valid id = %v, want nil", err)
+	}
+	if err := r.TagsExist(ctx, nil); err != nil {
+		t.Errorf("nil ids = %v, want nil (no-op)", err)
 	}
 }
 

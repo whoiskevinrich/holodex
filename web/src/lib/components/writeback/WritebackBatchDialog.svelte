@@ -28,8 +28,10 @@
 		batchStatus: (batchId: string) => Promise<BatchStatus>;
 		onclose: () => void;
 		// Fired once the batch settles (pending+running reach 0) or turns out to have
-		// nothing to enqueue — the caller's cue to refresh anything it shows.
-		onapplied: () => void;
+		// nothing to enqueue — the caller's cue to refresh anything it shows. Optional:
+		// a sync never changes tag.writeback_enabled/video_count, so most callers have
+		// nothing to refresh.
+		onapplied?: () => void;
 	} = $props();
 
 	// 'timeout' is its own phase (not a flag layered on 'progress') so every
@@ -87,7 +89,7 @@
 			enqueued = res.enqueued;
 			if (enqueued === 0) {
 				phase = 'zero';
-				onapplied();
+				onapplied?.();
 				return;
 			}
 			phase = 'progress';
@@ -97,7 +99,7 @@
 			status = final;
 			const settled = final.pending + final.running === 0;
 			phase = !settled ? 'timeout' : final.failed > 0 ? 'partial' : 'done';
-			onapplied();
+			onapplied?.();
 		} catch (e) {
 			errorMsg = toMessage(e);
 			phase = 'error';
@@ -143,7 +145,8 @@
 			{#if phase === 'confirm' || phase === 'starting'}
 				<p class="text-xs text-muted">
 					{#if videoCountHint !== null}
-						This will write to {videoCountHint} file{videoCountHint === 1 ? '' : 's'}.
+						This will write to up to {videoCountHint} file{videoCountHint === 1 ? '' : 's'} —
+						videos this wouldn't change the written value for are skipped.
 					{:else}
 						This will sync every video currently carrying any of these tags.
 					{/if}

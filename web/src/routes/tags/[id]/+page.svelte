@@ -158,6 +158,5 @@
 		trigger={() => api.syncTagWriteback(t.id)}
 		batchStatus={api.writebackBatchStatus}
 		onclose={() => (syncOpen = false)}
-		onapplied={() => {}}
 	/>
 {/if}
