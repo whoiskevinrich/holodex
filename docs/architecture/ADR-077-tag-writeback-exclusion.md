@@ -328,5 +328,9 @@ ADR's contribution is one query joining them by an id both already carry, not ne
    `TestSyncTagWritebackBulk_DedupsSharedVideo`, and `TestWritebackBatchStatusEndpoint` (D2/D3), shipped
    alongside the S3 backend commit — this pass cross-references that existing green coverage into
    `docs/testing-strategy.md` §4/§9 rather than adding net-new tests.
-8. [ ] `/security-review` before merge (file I/O via the write queue, four new owner-gated mutation endpoints)
-   — per the spec's own note and this epic's `needs-security-review` gate.
+8. [x] `/security-review` before merge (file I/O via the write queue, four new owner-gated mutation endpoints)
+   — per the spec's own note and this epic's `needs-security-review` gate. Reviewed authz (all 5 endpoints
+   confirmed mounted behind `requireOwner` in `handlers.go`, not just handler-body checks), SQL injection
+   (all new queries parameterized via the existing `placeholders()`/`toAnySlice()` pattern), batch-ID
+   enumeration (server-generated, owner-gated, single-owner app — no cross-tenant concept), and bulk
+   `tag_ids` scope (non-existent ids simply match zero rows; no write-target injection). No findings.
