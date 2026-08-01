@@ -10,3 +10,4 @@ into another, and the shared video-list body for an entity's detail page.
 | `EntityPickerDialog.svelte` | Local entity-search picker for the Extraction tab's People/Studio field edits — searches the app's own entities (no external round trip); confirming never writes, just hands back a name. |
 | `EntityVideos.svelte` | Shared body for person/[id] and tag/[id] detail pages: back-link, title, video count, and the video grid, with optional `hero`/`detail` snippets. |
 | `MergeCanonicalDialog.svelte` | Step two of a multi-select merge: "keep which name?" — the rest fold into the survivor. Shared by /people and /tags. |
+| `PickerShell.svelte` | Shared dialog chrome for `EntityPicker`/`CategoryPicker`: backdrop, `role="dialog"` wrapper, focus trap, trigger-focus save/restore, Escape-to-close, rise-in animation. Title/body are step-specific, passed as snippets. |
