@@ -15,14 +15,35 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 - [ ] security      not started
 
 ## Up next   (ordered — position is the priority; top line is the next action)
-1. Live 3-skin browser QA of the S5 frontend surfaces (blocked this session — sandboxed dev-server
-   restart was denied by the auto-mode classifier after a stale local `data/holodex.db` needed
-   clearing; automated coverage — Go + vitest + svelte-check — is green, but nobody has eyeballed
-   Cinémathèque/Broadcast/Brutalist yet)  [frontend, qa]
-2. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
+1. Regenerate testing-strategy for the new endpoints/flows, including ADR-077's cross-table collision
    and cascade-delete cases, plus the new `POST /tags` resolve-or-create-tag endpoint  [testing]
-3. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
+2. Security review — new owner-gated `POST /tags` (S5) needs the same scrutiny as the rest of the
    category mutation surface  [security]
+
+## Session log   (append-only)
+S6 · live 3-skin browser QA — dev-server restart succeeded this time (`backend-amv` + `web` via
+`preview_start`); ran the full S5 surface by hand through the accessibility tree + computed-style
+checks (screenshots still time out in this environment): created a category via the inline
+"+ Create" row in `CategoryPicker` (add mode), confirmed the pill's `tag_count` badge and reduced
+Rename/Delete ⋯ menu in Manage mode; on `/categories/{id}` exercised rename, `+ Add tag` (both a
+brand-new name and a case-variant that correctly resolved to the existing lowercase tag via the
+identity fold rather than creating a duplicate — the case-fold path, not the near-miss path, which
+only fires on a *different* look-alike name), and tag removal; ran the Manage-bar bulk "Add to
+category…"/"Remove from category…" flow on two tags at once, confirming "Remove from category…"
+correctly pre-filters to only the categories that intersect every selected tag's membership; and
+confirmed the browse page's new Categories `FacetFilter` round-trips `?category_id=` and filters the
+video grid correctly. Spot-checked computed styles (background/border/text color, SVG `currentColor`
+resolution) across Cinémathèque/Broadcast/Brutalist for the category pill, the `CategoryPicker`
+dialog, and the detail page's chip/button — accent hex changed per-skin as expected in all three,
+confirming no hardcoded colors. Zero console errors, zero failed network requests, across the whole
+pass. QA gate closed — no defects found.
+
+Noted in passing (not acted on): both spawned follow-up sessions from S5 (`PickerShell` extraction,
+tag-resolve/popover-menu dedup) had already landed on this branch by the time QA ran (`64ca46d`,
+`596455c`, `ef5333d`) — the picker/menu surfaces QA'd above are the post-refactor versions, and
+everything held up. One of those sessions still had uncommitted new test coverage in
+`internal/api/categories_test.go` / `internal/repo/categories_test.go` in the working tree at QA
+time; left untouched (not this session's work to commit).
 
 ## Session log   (append-only)
 S1 · /product-brainstorming /write-spec — spec drafted, epic filed (blocked-by HOLODEX-239), Draft PR opened
