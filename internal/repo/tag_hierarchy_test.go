@@ -106,7 +106,7 @@ func TestTagNamesForVideo(t *testing.T) {
 	for _, n := range names {
 		got[n] = true
 	}
-	want := []string{"Animal", "Mammal", "Dog", "GermanShepherd"}
+	want := []string{"animal", "mammal", "dog", "germanshepherd"}
 	for _, w := range want {
 		if !got[w] {
 			t.Errorf("ancestor-expanded names = %v, missing %q", names, w)
@@ -167,10 +167,10 @@ func TestTagNamesForVideo_WritebackFlagFlat(t *testing.T) {
 	for _, n := range names {
 		got[n] = true
 	}
-	if got["Dog"] {
+	if got["dog"] {
 		t.Errorf("tag names = %v, Dog must be excluded once disabled", names)
 	}
-	for _, want := range []string{"Animal", "Mammal", "GermanShepherd"} {
+	for _, want := range []string{"animal", "mammal", "germanshepherd"} {
 		if !got[want] {
 			t.Errorf("tag names = %v, missing %q (must survive a disabled ancestor elsewhere in the chain)", names, want)
 		}
@@ -228,10 +228,10 @@ func TestTagNamesForVideo_WritebackFlagFlat_DirectAndAncestorOverlap(t *testing.
 	for _, n := range names {
 		got[n]++
 	}
-	if got["Dog"] != 0 {
+	if got["dog"] != 0 {
 		t.Errorf("tag names = %v, Dog must be excluded once disabled (reached via both a direct attach and an ancestor walk)", names)
 	}
-	for _, want := range []string{"Animal", "Mammal", "GermanShepherd"} {
+	for _, want := range []string{"animal", "mammal", "germanshepherd"} {
 		if got[want] != 1 {
 			t.Errorf("tag names = %v, want %q exactly once, got %d", names, want, got[want])
 		}
@@ -522,8 +522,8 @@ func TestMergeReparentsChildren_DeepDescendantSurvivor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ancestor names: %v", err)
 	}
-	if len(got) != 1 || got[0] != "Dog" {
-		t.Errorf("GermanShepherd ancestors = %v, want [Dog]", got)
+	if len(got) != 1 || got[0] != "dog" {
+		t.Errorf("GermanShepherd ancestors = %v, want [dog]", got)
 	}
 }
 
@@ -539,7 +539,7 @@ func TestAncestorNamesForTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ancestor names: %v", err)
 	}
-	want := []string{"Animal", "Mammal", "Dog"}
+	want := []string{"animal", "mammal", "dog"}
 	if len(got) != len(want) {
 		t.Fatalf("ancestor names = %v, want %v", got, want)
 	}

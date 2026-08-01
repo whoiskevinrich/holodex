@@ -56,7 +56,7 @@ func TestVideoTagEndpoints(t *testing.T) {
 	}
 	tag, _ := body["tag"].(map[string]any)
 	tagID64, _ := tag["id"].(float64)
-	if tag["name"] != "Action" || tagID64 == 0 {
+	if tag["name"] != "action" || tagID64 == 0 {
 		t.Fatalf("attach body = %v", body)
 	}
 	detachURL := base + "/" + itoa(int64(tagID64))

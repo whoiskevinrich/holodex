@@ -84,6 +84,14 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	}
 	name = strings.TrimSpace(name)
 	externalID = strings.TrimSpace(externalID)
+	// Tag entities are lower-cased at the one choke point every tag-creation path
+	// shares (scanner, manual attach, materialization) -- keeps UX, storage, and
+	// writeback in sync without a case-fold at each call site. Person/studio names
+	// keep their natural casing; only tags fold. curationNorm is the same trim+lower
+	// rule metadata_curation and resolver.NormKey already use (curation.go).
+	if entityType == model.EntityTag {
+		name = curationNorm(name)
+	}
 
 	// 0. Deny-list (tags only, ADR-075 D2): checked before the resolve order
 	// below, so a denied term is refused even if a tags row for it already

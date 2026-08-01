@@ -168,8 +168,8 @@ func TestGenreWritebackValues_NoMappings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("genre writeback values with no mappings: %v", err)
 	}
-	if len(values) != 1 || values[0] != "Action" {
-		t.Errorf("values = %v, want just the attached tag [Action]", values)
+	if len(values) != 1 || values[0] != "action" {
+		t.Errorf("values = %v, want just the attached tag [action]", values)
 	}
 }
 
@@ -214,7 +214,9 @@ func TestGenreWritebackEndpoint(t *testing.T) {
 	if got["Whatever The Client Typed"] {
 		t.Errorf("client-submitted value leaked through unoverridden: %+v", (*written)[0].Values)
 	}
-	if !got["Comedy"] || !got["Action"] {
-		t.Errorf("written genres = %+v, want the computed union (Comedy, Action)", (*written)[0].Values)
+	// "Comedy" is a tag entity, so it's lower-cased in storage/writeback; "Action" is
+	// a raw resolved genre from provider enrichment (not a tag), so its casing is untouched.
+	if !got["comedy"] || !got["Action"] {
+		t.Errorf("written genres = %+v, want the computed union (comedy, Action)", (*written)[0].Values)
 	}
 }

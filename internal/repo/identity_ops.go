@@ -383,6 +383,9 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	if newName == "" {
 		return 0, errors.New("empty name")
 	}
+	if entityType == model.EntityTag {
+		newName = curationNorm(newName)
+	}
 	table := canonicalTable(entityType)
 	if table == "" {
 		return 0, fmt.Errorf("rename: unknown entity type %q", entityType)

@@ -195,8 +195,8 @@ func TestSyncTagWriteback_RecomputesFullUnion(t *testing.T) {
 	for _, v := range got {
 		set[v] = true
 	}
-	if !set["Comedy"] || !set["Adventure"] {
-		t.Errorf("written genres = %v, want the video's full current union [Comedy Adventure], not just the synced tag", got)
+	if !set["comedy"] || !set["adventure"] {
+		t.Errorf("written genres = %v, want the video's full current union [comedy adventure], not just the synced tag", got)
 	}
 	if len(got) != 2 {
 		t.Errorf("written genres = %v, want exactly 2", got)
