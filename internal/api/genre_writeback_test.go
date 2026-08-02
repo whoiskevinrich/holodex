@@ -220,3 +220,90 @@ func TestGenreWritebackEndpoint(t *testing.T) {
 		t.Errorf("written genres = %+v, want the computed union (comedy, Action)", (*written)[0].Values)
 	}
 }
+
+// TestGetMedia_GenresRow covers the getMedia display fix (applyGenreWriteback): the
+// "genres" row in resolved[] must reflect the actual writeback union (attached tags
+// + raw provider genres), not the plain provider/file merge ResolveFields alone
+// produces. Without this, a video tagged only manually (no provider/file genre
+// value) never gets a "genres" row at all — the Writeback dialog has nothing to
+// check — and a video with both never shows a value that reflects the tag.
+func TestGetMedia_GenresRow(t *testing.T) {
+	_, srv, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+
+	fetchGenres := func() ([]string, bool) {
+		resp, err := http.Get(srv.URL + "/api/v1/media/" + itoa(vid))
+		if err != nil {
+			t.Fatalf("GET media: %v", err)
+		}
+		defer resp.Body.Close()
+		var body struct {
+			Resolved []struct {
+				Canonical string   `json:"canonical"`
+				Values    []string `json:"values"`
+			} `json:"resolved"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("decode media: %v", err)
+		}
+		for _, f := range body.Resolved {
+			if strings.EqualFold(f.Canonical, "genres") {
+				return f.Values, true
+			}
+		}
+		return nil, false
+	}
+
+	// No provider genre, no tags yet: no "genres" row at all — nothing to decide.
+	if _, ok := fetchGenres(); ok {
+		t.Fatalf("genres row present before any tag/genre data")
+	}
+
+	// Tag-only video (F50's whole point): a manually-attached tag with zero provider
+	// genre data must still produce a writable "genres" row.
+	if _, err := r.AttachTagToVideo(ctx, vid, "Comedy"); err != nil {
+		t.Fatalf("attach tag: %v", err)
+	}
+	values, ok := fetchGenres()
+	if !ok {
+		t.Fatalf("genres row missing for a tag-only video — the tag can never be written back")
+	}
+	if len(values) != 1 || values[0] != "comedy" {
+		t.Errorf("genres values = %v, want [comedy]", values)
+	}
+
+	// Provider genre value present too: the row must union both, not just the
+	// provider/file merge.
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
+		"genres": {"Action"},
+	}); err != nil {
+		t.Fatalf("seed enrichment: %v", err)
+	}
+	values, ok = fetchGenres()
+	if !ok {
+		t.Fatalf("genres row missing after provider genre seeded")
+	}
+	got := make(map[string]bool, len(values))
+	for _, v := range values {
+		got[v] = true
+	}
+	if !got["comedy"] || !got["Action"] {
+		t.Errorf("genres values = %v, want the union [comedy, Action]", values)
+	}
+
+	// Detaching the tag drops it from the row without needing a re-enrich.
+	tagID, ok, err := r.TagIDByName(ctx, "Comedy")
+	if err != nil || !ok {
+		t.Fatalf("tag id: ok=%v err=%v", ok, err)
+	}
+	if err := r.DetachTagFromVideo(ctx, vid, tagID); err != nil {
+		t.Fatalf("detach tag: %v", err)
+	}
+	values, ok = fetchGenres()
+	if !ok {
+		t.Fatalf("genres row missing after detach (still has provider Action)")
+	}
+	if len(values) != 1 || values[0] != "Action" {
+		t.Errorf("genres values after detach = %v, want [Action] only", values)
+	}
+}
