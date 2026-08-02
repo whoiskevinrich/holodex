@@ -351,23 +351,53 @@
 							{/if}
 						</div>
 
-						{#if row.field.display === 'image_url'}
-							<div class="flex items-start gap-2">
-								{#if row.value}
-									<img
-										src={row.value}
-										alt="cover"
-										class="max-h-14 w-auto max-w-[8rem] shrink-0 rounded-theme border border-rule object-contain"
-									/>
-								{/if}
-								<p class="break-all text-xs text-muted">{row.value || '—'}</p>
-							</div>
-						{:else if matchesFile}
+						{#if matchesFile}
 							<p class="flex items-center gap-1.5 text-xs text-muted">
 								{@render checkIcon('h-3.5 w-3.5 shrink-0')}
 								<span class="text-ink">{row.value || '—'}</span>
 								<span>— already in file, nothing to write</span>
 							</p>
+						{:else if row.field.display === 'image_url'}
+							<!-- Read-only file-vs-enriched comparison (HOLODEX-245): mirrors the "was:"
+							     idiom text fields get below, since an image needs a visual compare rather
+							     than a value string. No selection here — picking a candidate is a
+							     SourceSelect-only decision (RD5), never baked into the writeback action. -->
+							<div class="flex items-start gap-3">
+								<div class="flex flex-col items-start gap-1">
+									<span class="text-[0.65rem] text-muted">File (current)</span>
+									{#if fileVal}
+										<img
+											src={fileVal}
+											alt="{row.field.label} — file"
+											class="h-14 w-14 shrink-0 rounded-theme border border-rule object-cover"
+										/>
+									{:else}
+										<div
+											class="flex h-14 w-14 shrink-0 items-center justify-center rounded-theme border border-rule text-muted"
+										>
+											<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+												<rect x="3" y="3" width="18" height="18" rx="2" />
+												<circle cx="8.5" cy="8.5" r="1.5" />
+												<path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5-9 9" />
+											</svg>
+										</div>
+									{/if}
+								</div>
+								<svg class="mt-6 h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-6-6m6 6l-6 6" />
+								</svg>
+								<div class="flex min-w-0 flex-col items-start gap-1">
+									<span class="text-[0.65rem] text-accent">Enriched (will write)</span>
+									{#if row.value}
+										<img
+											src={row.value}
+											alt="{row.field.label} — enriched{tag ? `, from ${tag.name}` : ''}"
+											class="h-14 w-14 shrink-0 rounded-theme border border-accent object-cover"
+										/>
+									{/if}
+									<p class="max-w-[10rem] break-all text-xs text-muted">{row.value || '—'}</p>
+								</div>
+							</div>
 						{:else}
 							{#if hasFileValue}
 								<p class="mb-1 text-xs text-muted">was: {fileVal || '—'}</p>

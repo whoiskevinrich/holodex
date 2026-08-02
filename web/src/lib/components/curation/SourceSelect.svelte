@@ -23,7 +23,7 @@
 	// committed chip — nothing changes until the page's flow lands and the detail refetches.
 	import { tick } from 'svelte';
 	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
-	import { outOfSync, selectedChipKey, sourceChips, type SourceChip } from '$lib/f36';
+	import { outOfSync, resolveSelection, sourceChips, type SourceChip } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import CurationChip from './CurationChip.svelte';
 
@@ -49,13 +49,20 @@
 	} = $props();
 
 	const chips = $derived(sourceChips(field, baselineKey));
-	// committedKey is the server's stored decision as a chip key (a manual decision maps to the
-	// Custom chip). pendingKey is an optimistic override while a selection settles, so the dot +
-	// aria-checked track the arrow/click immediately (QA 3.14) before the debounced commit + refetch
-	// land. The effect below clears it once the server has caught up.
-	const committedKey = $derived(selectedChipKey(field, chips, baselineKey));
+	// selection resolves the committed key + whether it's an RD6 implicit winner in one walk
+	// (HOLODEX-245) — committedKey is the server's stored decision as a chip key (a manual
+	// decision maps to the Custom chip). pendingKey is an optimistic override while a selection
+	// settles, so the dot + aria-checked track the arrow/click immediately (QA 3.14) before the
+	// debounced commit + refetch land. The effect below clears it once the server has caught up.
+	const selection = $derived(resolveSelection(field, chips, baselineKey));
+	const committedKey = $derived(selection.key);
 	let pendingKey = $state<string | null>(null);
 	const selectedKey = $derived(pendingKey ?? committedKey);
+	// isPending: the selected chip is an RD6 implicit winner (empty baseline, no standing
+	// decision) rather than a real decision — the chip renders distinctly for this. Only
+	// meaningful while no optimistic override is in flight; a mid-selection pendingKey is never
+	// itself the RD6 case (arrowing/clicking always targets a real chip to decide).
+	const isPending = $derived(pendingKey === null && selection.pending);
 
 	// The value item CurationChip's radio mode renders (value + provenance from the chip's sources).
 	function itemFor(chip: SourceChip): ResolvedValue {
@@ -272,7 +279,8 @@
 						key: chip.key,
 						checked: selectedKey === chip.key,
 						tabindex: selectedKey === chip.key ? 0 : -1,
-						onselect: () => activate(chip)
+						onselect: () => activate(chip),
+						pending: isPending
 					}}
 				/>
 			{/if}

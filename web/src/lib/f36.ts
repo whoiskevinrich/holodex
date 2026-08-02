@@ -115,33 +115,65 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 	return chips;
 }
 
-// selectedChipKey maps the field's decided source onto the chip that should read selected. A
-// provider decision resolves to whichever chip carries that provider (standalone or folded into
-// the baseline chip); an unmatched decision falls back to the baseline chip (harmless — the
-// value is gone). Undecided fields default to the baseline chip when the baseline has a value
-// (file-first, RD4) — but with an EMPTY baseline the resolver's winner is a provider value, so
-// the provider chip reads selected (F37 RD6: display identical to the raw enrichment list). An
+// standing is true only for a real, owner-made decision. The backend always sends a populated
+// `decision` object for a replace field (replaceMarkers() never returns a nil marker) — even
+// undecided fields carry one, reporting the resolver's implicit winner with `standing: false`.
+// So `field.decision` truthiness is NOT a real-vs-implicit signal against the live API; only
+// `.standing` is. Tests that omit `decision` entirely to mean "undecided" still read as
+// non-standing here (`undefined?.standing === true` is false), so both representations agree.
+function standing(field: ResolvedField): boolean {
+	return field.decision?.standing === true;
+}
+
+// resolveSelection maps the field's decided source onto the chip that should read selected, and
+// whether that selection is a real decision or the RD6 implicit-winner fallback (HOLODEX-245) —
+// one walk of the branch, shared by selectedChipKey/isPendingSelection/SourceSelect so nothing
+// re-derives when RD6 fires from the outside. A provider decision resolves to whichever chip
+// carries that provider (standalone or folded into the baseline chip); an unmatched decision
+// falls back to the baseline chip (harmless — the value is gone). Undecided fields default to
+// the baseline chip when the baseline has a value (file-first, RD4) — but with an EMPTY baseline
+// the resolver's winner is a provider value, so the provider chip reads selected, `pending: true`
+// (F37 RD6: display identical to the raw enrichment list, marked as not a standing decision). An
 // explicit baseline decision (the blank-pin, RD3) still selects the `—` baseline chip.
-export function selectedChipKey(
+export function resolveSelection(
 	field: ResolvedField,
 	chips: SourceChip[],
 	baselineKey = 'file'
-): string {
+): { key: string; pending: boolean } {
 	const src = decidedSource(field, baselineKey);
-	if (src === 'manual') return 'custom';
+	if (src === 'manual') return { key: 'custom', pending: false };
 	if (src === baselineKey) {
-		if (!field.decision && baselineCandidateValue(field, baselineKey).trim() === '') {
+		// decidedSource only reports baselineKey here when nothing overrode it — either a real
+		// baseline pin (standing) or the resolver's own default when the baseline has a value.
+		// The RD6 case (empty baseline, provider wins) never reaches this branch against the
+		// real API, since decidedSource already returns the provider source directly then — but
+		// test fixtures that omit `decision` to mean "undecided" fall back to baselineKey via
+		// decidedSource's `??`, so this still needs to catch that shape too.
+		if (!standing(field) && baselineCandidateValue(field, baselineKey).trim() === '') {
 			const resolved = (field.values?.[0] ?? '').trim();
 			const winner =
 				chips.find(
 					(c) => !c.manual && c.key !== baselineKey && resolved !== '' && c.value.trim() === resolved
 				) ?? chips.find((c) => !c.manual && c.key !== baselineKey);
-			if (winner) return winner.key;
+			if (winner) return { key: winner.key, pending: true };
 		}
-		return baselineKey;
+		return { key: baselineKey, pending: false };
 	}
 	const name = providerOf(src);
-	return chips.find((c) => c.sources.includes(name))?.key ?? baselineKey;
+	const key = chips.find((c) => c.sources.includes(name))?.key ?? baselineKey;
+	// The resolved key is a non-baseline (provider/folded) chip with no standing decision behind
+	// it — the resolver's own precedence order picked it, most commonly RD6's empty-baseline case.
+	return { key, pending: key !== baselineKey && !standing(field) };
+}
+
+// selectedChipKey / isPendingSelection are the two projections of resolveSelection's result,
+// kept as separate exports for callers that only need one (f36.test.ts pins both independently).
+export function selectedChipKey(field: ResolvedField, chips: SourceChip[], baselineKey = 'file'): string {
+	return resolveSelection(field, chips, baselineKey).key;
+}
+
+export function isPendingSelection(field: ResolvedField, chips: SourceChip[], baselineKey = 'file'): boolean {
+	return resolveSelection(field, chips, baselineKey).pending;
 }
 
 // outOfSync is true when the field's decided value differs from the value embedded in the file

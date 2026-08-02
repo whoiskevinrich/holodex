@@ -78,6 +78,11 @@ need its own `decide()` wiring and product sign-off on blurring RD5, which is ou
 - Each thumbnail gets `alt="{field.label} — file"` / `alt="{field.label} — enriched, from {provider}"` (not the generic `alt="cover"` currently used) so a screen reader announces which is which.
 - No new interactive elements — the row's only control remains the existing checkbox.
 
+**Confirmed in live QA:** Dune (1984) (no embedded cover art) shows the muted placeholder icon in
+the "File (current)" slot and the TMDB poster with `alt="Poster — enriched, from tmdb"` and
+`border-accent` in the "Enriched (will write)" slot — the empty-file-candidate state, the most
+common real-world case for this row.
+
 ---
 
 ## Issue 2 — a field the owner just enriched doesn't pre-check / doesn't land in "decided"
@@ -119,26 +124,55 @@ the owner's chair this reads as "I decided this, why didn't it select" — it's 
 between RD6's display exception and the writeback predicate's stricter, correct-by-design
 definition of "decided," not a broken checkbox.
 
-### Fix options (engineering + product should pick one — none of these is free)
+### Fix options considered
 
 | Option | What | Tradeoff |
 |---|---|---|
-| **1 — Reconcile the display (recommended)** | `SourceSelect` stops rendering the RD6 empty-baseline provider chip as a filled/selected radio dot; give it a distinct "would apply, not yet decided" treatment (e.g. accent outline without the filled dot + `·pending` or similar) | No data-model change, cheapest to ship. But it partially walks back F37 RD6, which was a deliberate call ("display identical to the raw enrichment list") — needs a design nod before touching it, not just an engineering call. |
-| **2 — Make enrichment decide** | `EnrichPicker`'s apply flow calls `decide(providerSource)` for every field it newly wins on an empty baseline, so enriching creates the standing decision the UI already implies | Matches what the owner intuitively expects. But it blurs `SourceSelect.svelte:16`'s RD5 boundary — "changing a source is a DB-only decision... never baked into a writeback action" — enrichment isn't the writeback action, but it would now silently create the same kind of standing decision SourceSelect's explicit click does. Needs product sign-off; also raises a question this doc doesn't answer: does this apply retroactively to already-enriched fields, or only to future `apply()` calls? |
-| **3 — Copy only** | Leave both predicates as-is; add a line to the writeback dialog's undecided-group explaining why an enriched-but-undecided value isn't pre-checked | Cheapest, ships today, fixes nothing structurally — the owner still has to expand + manually check every field they just enriched. |
+| **1 — Reconcile the display (decided)** | `SourceSelect` stops rendering the RD6 empty-baseline provider chip as a filled/selected radio dot; give it a distinct "would apply, not yet decided" treatment | No data-model change. On closer reading of RD6's actual text (`docs/specs/people-source-of-truth.md`), it guarantees "no displayed **value** changes for undecided fields" — it says nothing about the chip's selection-indicator styling, so this doesn't violate it. A short addendum was added to RD6 recording the distinction (HOLODEX-245). |
+| 2 — Make enrichment decide | `EnrichPicker`'s apply flow calls `decide(providerSource)` for every field it newly wins on an empty baseline | Rejected: blurs `SourceSelect.svelte:16`'s RD5 boundary ("changing a source is a DB-only decision... never baked into a writeback action") by making enrichment silently write the same kind of standing decision an explicit `SourceSelect` click does. Also had an open scope question (retroactive vs. forward-only) that would need its own resolution. |
+| 3 — Copy only | Leave both predicates as-is; add explanatory text to the writeback dialog's undecided group | Rejected as the sole fix: ships fast but leaves the two surfaces disagreeing — an explanation of a confusing state isn't the same as fixing it. |
 
-This doc does not pick between 1 and 2 — that's a product call on whether "I ran enrichment"
-should count as a decision. Recommend routing that specific question back through `/architecture`
-or the F36 spec owner before implementation, since either changes a documented RD. Option 3 can
-ship independently and immediately regardless of which (if either) of 1/2 is chosen later.
+### Decided visual spec (Option 1)
 
-### Verification checklist (for whichever option ships)
+The RD6 empty-baseline-provider chip (`SourceSelect.svelte` via `CurationChip`'s `radio` mode)
+gets a **pending** variant, distinct from both the decided-selected and undecided-baseline
+states:
 
-- [ ] A field with a **real** standing decision (via `SourceSelect`, any baseline state) still
-      pre-checks and lands in "decided" — this path was already correct; don't regress it.
-- [ ] A field winning purely by **mapping precedence** with a non-empty file baseline stays
-      undecided, unchecked — HOLODEX-213's original behavior, unaffected by this fix.
-- [ ] The specific empty-baseline-provider-winner case (F37 RD6) is the only one that changes.
-- [ ] All three skins: the new "would apply, not yet decided" treatment (if Option 1) reads at
-      AA contrast — check against the existing contrast table in
-      [writeback-selection-handoff.md](writeback-selection-handoff.md).
+| State | Ring | Dot | Provenance suffix |
+|---|---|---|---|
+| Decided (real `field.decision`) | solid `border-accent` | filled `bg-accent` | `·{provider}` |
+| **Pending (RD6 implicit winner, no decision)** | **dashed `border-accent`** | **hollow, `border-accent` outline only** | **`·{provider}, pending`** |
+| Undecided, baseline wins | solid `border-rule` | hollow, `border-current` outline | `·{provider}` (folded/baseline) |
+
+`resolveSelection()` (`f36.ts:138-167`, the shared core `selectedChipKey`/`isPendingSelection`
+both project from — one walk of the branch, not two independently re-deriving when RD6 fires)
+identifies this case and returns `{ key, pending }` directly. The fix is presentational only, in
+the chip render, keyed off `pending`. No change to `selectedChipKey`'s return value,
+`sourceChips`, `needsWriteback`, or the resolver.
+
+**Implementation note discovered during live QA:** the backend's `replaceMarkers()` never omits
+`decision` — an undecided field still carries one, with `standing: false` reporting the resolver's
+implicit winner. `field.decision` truthiness is therefore never a real-vs-implicit signal against
+the live API (only `.decision.standing` is); a first pass keyed off `!field.decision` compiled and
+passed unit tests (whose fixtures model "undecided" by omitting `decision` entirely) but was a
+no-op against real data, caught only by fetching a real enriched video's `/api/v1/media/{id}`
+payload. `resolveSelection()`'s `standing()` helper (`f36.ts:118-126`) is keyed off `.standing`
+instead, and a regression test using the real payload shape was added to `f36.test.ts`.
+
+### Verification checklist
+
+- [x] A field with a **real** standing decision (via `SourceSelect`, any baseline state) still
+      renders the fully-decided chip and pre-checks in the writeback dialog — this path was
+      already correct; confirmed unregressed (Title, file-first, in live QA).
+- [x] A field winning purely by **mapping precedence** with a non-empty file baseline still
+      renders the plain undecided/baseline-wins chip, unchanged — HOLODEX-213's original
+      behavior, confirmed unaffected (Title's own `·file` chip stayed solid/filled in live QA).
+- [x] The specific empty-baseline-provider-winner case (F37 RD6) is the only one that gets the
+      new pending treatment — confirmed live against a real TMDB-enriched video (Dune 1984):
+      Tagline/Released/Runtime/Status/Language/IMDb/Studio all correctly read dashed + `, pending`;
+      Title (file wins, non-empty baseline) did not.
+- [x] All three skins: the pending ring/dot reads at AA contrast — measured live (WCAG formula):
+      text 15.7–18.1:1, dashed border 8.5–16.4:1 across Cinémathèque/Broadcast/Brutalist, all
+      comfortably above the 4.5:1 / 3:1 floors.
+- [x] `f36.test.ts` covers the implicit-winner branch from the outside, including the real API's
+      `decision: {source, standing:false}` shape (not just the test-fixture "omitted" shape).

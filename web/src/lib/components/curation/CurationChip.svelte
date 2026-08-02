@@ -34,7 +34,9 @@
 		// = pick one; merge = drop any). The parent radiogroup owns roving focus + arrow keys, so
 		// it hands down the key/checked/tabindex and gets an onselect back. Selection reads via the
 		// dot + aria-checked (+ accent border), never colour alone.
-		radio?: { key: string; checked: boolean; tabindex: number; onselect: () => void };
+		// pending (HOLODEX-245): the checked chip is an RD6 implicit winner, not a standing
+		// decision — rendered with a dashed ring + hollow dot instead of the filled decided look.
+		radio?: { key: string; checked: boolean; tabindex: number; onselect: () => void; pending?: boolean };
 		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
 		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
 		// block, so an owner caller must still supply them.
@@ -78,31 +80,34 @@
 </script>
 
 {#if radio}
+	{@const pending = radio.checked && !!radio.pending}
 	<!-- Pick-one source chip (F36 / HOLODEX-112): the same shell as a merge chip, but led by a
 	     ● radio dot and acting as the radiogroup's radio button. No per-chip edit/remove controls —
-	     choosing a source is the only action here. Empty file baseline renders an em-dash. -->
+	     choosing a source is the only action here. Empty file baseline renders an em-dash.
+	     `pending` (HOLODEX-245) marks the RD6 implicit-winner case — dashed ring + hollow dot,
+	     so it reads as "would apply" rather than "you decided this". -->
 	<button
 		type="button"
 		role="radio"
 		data-seg={radio.key}
 		aria-checked={radio.checked}
 		tabindex={radio.tabindex}
-		aria-label={`${item.value || 'no value'}, from ${provenance}`}
+		aria-label={`${item.value || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
 		title={item.value || undefined}
 		onclick={radio.onselect}
 		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
-			? 'border-accent bg-surface-2 text-ink'
+			? `border-accent bg-surface-2 text-ink ${pending ? 'border-dashed' : ''}`
 			: 'border-rule bg-surface-2 text-muted hover:text-ink'}"
 	>
 		<span
 			class="h-2 w-2 shrink-0 rounded-full border {radio.checked
-				? 'border-accent bg-accent'
+				? `border-accent ${pending ? '' : 'bg-accent'}`
 				: 'border-current'}"
 			aria-hidden="true"
 		></span>
 		<span class="max-w-[14rem] truncate {radio.checked ? 'text-ink' : ''}">{item.value || '—'}</span>
 		<span class="{isProvider ? 'text-accent' : 'text-muted'} shrink-0 text-[0.65rem]"
-			>·{provenance}</span
+			>·{provenance}{pending ? ', pending' : ''}</span
 		>
 	</button>
 {:else if editing}

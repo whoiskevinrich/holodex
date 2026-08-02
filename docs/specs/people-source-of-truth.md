@@ -110,7 +110,15 @@ must not foreclose People/Studio") stays unproven until a second entity actually
   and a person's baseline has only `name`. So every enrichment-only field (bio, birthdate, …)
   keeps resolving to the provider value until the owner decides otherwise: **no displayed
   value changes for undecided fields**. This is a design property, not an accident; tests
-  assert it.
+  assert it. The shared `sourceChips`/`selectedChipKey` implementation applies the same
+  empty-baseline-wins rule to any entity (a video's `poster_url` with no embedded cover art
+  hits it too), so `SourceSelect`'s radio chip reads selected for an undecided field whenever
+  the baseline is empty. **Addendum (HOLODEX-245):** that chip now carries a distinct
+  "pending" treatment (dashed ring, hollow dot, `·pending` suffix) instead of the filled
+  decided styling, so an owner can tell an implicit winner from a standing decision at a
+  glance. This changes only the chip's *selection-indicator styling* — the resolved value
+  RD6 guarantees is unchanged; `in_sync`/`needsWriteback` and the writeback dialog's
+  decided/undecided split are also unaffected (HOLODEX-213 stands as-is).
 - **RD7 — Endpoint parity with video.** Person decision/curation endpoints mirror the media
   shapes exactly (paths below), behind the same `requireOwner` gate.
 
