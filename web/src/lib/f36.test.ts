@@ -3,6 +3,7 @@ import {
 	baselineCandidateValue,
 	decidedSource,
 	fileCandidateValue,
+	isPendingSelection,
 	isReplaceField,
 	needsWriteback,
 	outOfSync,
@@ -159,6 +160,73 @@ describe('selectedChipKey', () => {
 	it('selects the Custom chip for a manual decision', () => {
 		const f = field({ decision: { source: 'manual', standing: true, manual_value: 'X' } });
 		expect(selectedChipKey(f, sourceChips(f))).toBe('custom');
+	});
+});
+
+// HOLODEX-245 — the RD6 implicit-winner chip (empty baseline, provider wins by precedence, no
+// standing decision) gets a distinct "pending" treatment in SourceSelect. isPendingSelection is
+// presentational-only: it must never fire when a real decision exists or when the baseline
+// itself has a value, and it must agree with selectedChipKey on which chip is actually selected.
+describe('isPendingSelection', () => {
+	it('is true for an undecided field with an empty file baseline and a provider winner (poster_url)', () => {
+		const poster = field({
+			canonical: 'poster_url',
+			display: 'image_url',
+			values: ['https://example.test/p.jpg'],
+			winning_source: 'tmdb:poster_url',
+			candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://example.test/p.jpg' }]
+		});
+		expect(isPendingSelection(poster, sourceChips(poster))).toBe(true);
+	});
+
+	it('is false when the file baseline has a value (the ordinary undecided case)', () => {
+		const f = field(); // file "Blade Runner" wins by precedence — never pending
+		expect(isPendingSelection(f, sourceChips(f))).toBe(false);
+	});
+
+	it('is false once a standing decision exists, even with an empty baseline', () => {
+		const poster = field({
+			canonical: 'poster_url',
+			candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://example.test/p.jpg' }],
+			decision: { source: 'provider:tmdb', standing: true }
+		});
+		expect(isPendingSelection(poster, sourceChips(poster))).toBe(false);
+	});
+
+	it('is false when the empty baseline has no provider candidate either (nothing to select)', () => {
+		const empty = field({ candidates: [{ source: 'file', value: '' }] });
+		expect(isPendingSelection(empty, sourceChips(empty))).toBe(false);
+	});
+
+	it('is true against the REAL API shape — decision always populated, standing:false for an implicit winner', () => {
+		// Regression guard (HOLODEX-245): the backend's replaceMarkers() never omits `decision` —
+		// an undecided field still reports one, with `standing: false`. A field fixture that
+		// merely omits `decision` (as the other cases in this file do) is a simplification the
+		// real API never produces; this case pins the actual payload shape so `!field.decision`
+		// (which is never true against production data) can't silently regress back in.
+		const poster = field({
+			canonical: 'poster_url',
+			display: 'image_url',
+			values: ['https://example.test/p.jpg'],
+			winning_source: 'tmdb:poster_url',
+			candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://example.test/p.jpg' }],
+			decision: { source: 'provider:tmdb', standing: false }
+		});
+		expect(isPendingSelection(poster, sourceChips(poster))).toBe(true);
+		expect(selectedChipKey(poster, sourceChips(poster))).toBe('provider:tmdb');
+	});
+
+	it('applies to any baselineKey (record, F37) the same way as file', () => {
+		const bio: ResolvedField = {
+			canonical: 'bio',
+			label: 'Bio',
+			values: ['An American actress.'],
+			candidates: [
+				{ source: 'record', value: '' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'An American actress.' }
+			]
+		};
+		expect(isPendingSelection(bio, sourceChips(bio, 'record'), 'record')).toBe(true);
 	});
 });
 
