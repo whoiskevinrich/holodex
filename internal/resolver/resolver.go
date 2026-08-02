@@ -301,17 +301,7 @@ func ResolveFields(
 		for i, it := range items {
 			values[i] = it.Value
 		}
-		def := registry.Lookup(f.Canonical)
-		label := f.Label
-		if label == "" {
-			label = def.Label
-		}
-		// F39: an explicit mapping Display (operator override, or a synthesized
-		// auto-registered field's provider-hinted mode) wins over the registry's.
-		display := def.Display
-		if f.Display != "" {
-			display = f.Display
-		}
+		label, display := LabelAndDisplay(f)
 		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
@@ -329,6 +319,27 @@ func ResolveFields(
 		out = append(out, rf)
 	}
 	return out
+}
+
+// LabelAndDisplay resolves a mapping.Field's display label and mode: an explicit
+// mapping override wins over the registry.Lookup default for each independently (a
+// field can set one without the other). F39: this also covers a synthesized
+// auto-registered field's provider-hinted Display. Exported so a caller that
+// synthesizes a ResolvedField outside ResolveFields (e.g. the API layer's
+// genre-writeback display override, internal/api/genre_writeback.go) derives the
+// same label/display a normal resolve pass would, rather than re-deriving the
+// fallback rule and risking the two diverging.
+func LabelAndDisplay(f mapping.Field) (label, display string) {
+	def := registry.Lookup(f.Canonical)
+	label = f.Label
+	if label == "" {
+		label = def.Label
+	}
+	display = def.Display
+	if f.Display != "" {
+		display = f.Display
+	}
+	return label, display
 }
 
 // optDecision returns the standing decision for a field as a pointer (nil when

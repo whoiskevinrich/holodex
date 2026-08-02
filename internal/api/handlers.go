@@ -522,6 +522,21 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, h.resolveOptions(dec))
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
+			// P0-10 (F50, ADR-075 RD9): show the actual genre-writeback union (tags +
+			// deny-filtered raw genres), not the plain provider/file merge above — see
+			// applyGenreWriteback for why a video tagged only manually otherwise never
+			// gets a "genres" row to write back at all. Reuses the "genres" entry the
+			// resolve pass above already produced (genreWritebackItemsFrom) rather than
+			// re-resolving it from scratch, which would repeat the same enrichment/
+			// curation/decision queries and a second full resolver.Resolve pass.
+			if field, ok := m.ByCanonical("genres"); ok {
+				rawGenres, rawOK := resolvedByCanonical(resolved, "genres")
+				if items, gerr := h.genreWritebackItemsFrom(r.Context(), v.ID, rawGenres, rawOK); gerr != nil {
+					h.log.Warn("genre writeback items for detail", "id", id, "err", gerr)
+				} else {
+					resolved = applyGenreWriteback(resolved, field, items)
+				}
+			}
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
