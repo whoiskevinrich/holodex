@@ -394,26 +394,30 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 | `description` | Studio description | single | Plain text |
 | `country` | Country of origin | single | Plain text or ISO country code |
 | `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning, different entity) |
-| `logo` | Studio logo | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry** (see [§4.3](#43-assets)) |
+
+> **`logo` is not a `fields` key.** As of the F51/ADR-079 image-slot generalization, a studio's
+> logo is an **asset** — emit it as `{ "kind": "logo", "url": "…" }` in `assets[]` (see
+> [§4.3](#43-assets)), exactly like a person's `photo`. A provider still sending
+> `fields["logo"]` has that value silently dropped (Holodex's studio registry no longer has a
+> `logo` field to resolve it into).
 
 ### 4.3 Assets
 
-> **`assets[]` is consumed only for `entity_type: "person"` in v1.** There is **no** non-person
-> image sink: a `video`/`media` entity's own poster/cover art and a `studio` entity's logo are
-> **`fields` entries**, not assets — `fields["poster_url"]` (video, `render: image_url`) and
-> `fields["logo"]` (studio, `render: image_url`) respectively, exactly like `bio`/`website`/any
-> other canonical text field, just holding an image URL as the value. See
-> [§4.2a](#42a-canonical-fields--videomedia)/[§4.2b](#42b-canonical-fields--studio). **If your
-> `/enrich` response for a `video` or `studio` entity includes a non-empty `assets[]`, Holodex
-> silently drops it** (logged as a server-side warning the provider never sees) — the response
-> still returns `200` and your other fields still land, but the image itself never reaches
-> Holodex. This is a common mistake for a provider that mirrors the working person-photo
-> pattern for a video's poster; don't — use a `fields["poster_url"]` value instead. (Per-cast/
-> crew headshots on a video's `people[]` entries are the one exception, and are **not** affected
-> by this — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots).)
+> **`assets[]` is consumed for `entity_type: "person"` and `entity_type: "studio"` (F51,
+> ADR-079).** There is still **no** `video`/`media` image sink: a video's own poster/cover art
+> stays a **`fields` entry** — `fields["poster_url"]` (video, `render: image_url`), exactly like
+> `bio`/`website`/any other canonical text field, just holding an image URL as the value. See
+> [§4.2a](#42a-canonical-fields--videomedia). **If your `/enrich` response for a `video` entity
+> includes a non-empty `assets[]`, Holodex silently drops it** (logged as a server-side warning
+> the provider never sees) — the response still returns `200` and your other fields still land,
+> but the image itself never reaches Holodex. This is a common mistake for a provider that
+> mirrors the working person-photo pattern for a video's poster; don't — use a
+> `fields["poster_url"]` value instead. (Per-cast/crew headshots on a video's `people[]` entries
+> are the one exception, and are **not** affected by this — see
+> [§4.5](#45-video-credits--per-person-castcrew-with-headshots).)
 
 An asset is a binary image Holodex downloads, normalizes, and stores against the entity.
-Emit one `assets[]` entry per image, **for a `person` entity only**:
+Emit one `assets[]` entry per image, for a `person` **or** `studio` entity:
 
 ```json
 { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/<path>.jpg" }
@@ -429,6 +433,8 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 
 #### Asset kinds (v1 enum)
 
+**Person** (`entity_type: "person"`):
+
 | `kind` | Meaning | Target aspect | Notes |
 |---|---|---|---|
 | `photo` | Person portrait / headshot | ~1:1 (square) | The common case. Synonyms `portrait`/`headshot` are also accepted |
@@ -436,9 +442,19 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `poster` | Tall poster | ~2:3 | |
 | `gallery` | Additional photos | any | Multiple assets allowed per enrich — see ordering note below |
 
-Holodex maps each kind to one image **role**; an unknown kind is **dropped** (never stored
-under a guessed role). Holodex does **not** crop to the target aspect (cropping is a separate
-owner action), so supply an image already close to the role's aspect to avoid letterboxing.
+**Studio** (`entity_type: "studio"`, F51/ADR-079):
+
+| `kind` | Meaning | Target aspect | Notes |
+|---|---|---|---|
+| `logo` | Studio logo | any | The studios-list/detail-page image. Omitted/empty `kind` also maps to `logo` |
+| `icon` | Small list icon | ~1:1 | No provider emits this yet — reserved |
+| `poster` | Tall poster | ~2:3 | No provider emits this yet — reserved |
+
+Each entity type has its own kind namespace — a studio's `logo` kind is unrelated to a
+person's `poster` kind, even though the string differs. Holodex maps each kind to one image
+**role**; an unknown kind (for that entity type) is **dropped** (never stored under a guessed
+role). Holodex does **not** crop to the target aspect (cropping is a separate owner action), so
+supply an image already close to the role's aspect to avoid letterboxing.
 
 #### URL rules (what makes a URL fetchable)
 
@@ -480,11 +496,13 @@ serves its own copy. Stay inside these so nothing is rejected or silently altere
 #### Multiple assets, ordering, and emptiness
 
 - You MAY return more than one asset. Order them **most-preferred first** within a `kind`.
-- **Core roles** (`photo`, `banner`, `poster`): Holodex fetches the first asset of each role
-  it can successfully store, then skips the rest of that role. Emit at most one per core kind.
-- **`gallery` role**: Holodex fetches all `gallery` assets in order until an operator-configured
-  cap is reached. You may include multiple `gallery` entries; they are stored as additional
-  photos for the person.
+- **Core roles** (person `photo`/`banner`/`poster`; every studio kind — `logo`/`icon`/`poster` —
+  is core too, F51/ADR-079): Holodex fetches the first asset of each role it can successfully
+  store, then skips the rest of that role. Emit at most one per core kind. A studio has no
+  gallery role.
+- **`gallery` role** (person only): Holodex fetches all `gallery` assets in order until an
+  operator-configured cap is reached. You may include multiple `gallery` entries; they are
+  stored as additional photos for the person.
 - **Omit `assets` entirely when you have none** — never send `[]`.
 - If a response approaches the 1 MiB body cap, **shed `assets` before dropping any `fields`**
   (fields are canonical text; an asset URL is recoverable on a later enrich).

@@ -20,7 +20,7 @@ A value set by a higher-precedence layer always wins. `holodex.yaml` is the stan
 | `data_path` | `DATA_PATH` | `./data` | Read-write data directory: SQLite database, thumbnails, person images, and runtime config. |
 | `database_path` | `DATABASE_PATH` | `${data_path}/holodex.db` | Explicit database path. Defaults to `holodex.db` inside `data_path`. Override only if you need the database on a separate volume. |
 
-`thumbnail_path` and `person_image_path` are derived from `data_path` automatically and cannot be set directly.
+`thumbnail_path`, `person_image_path`, and `studio_image_path` are derived from `data_path` automatically and cannot be set directly.
 
 ---
 
@@ -113,6 +113,17 @@ Portrait photos stored for people in the library. Uploaded manually or downloade
 | `person_image_max_bytes` | `PERSON_IMAGE_MAX_BYTES` | `10485760` (10 MiB) | Maximum allowed request-body size for a person image upload. Larger uploads are rejected with `413`. |
 | `person_image_max_dimension` | `PERSON_IMAGE_MAX_DIMENSION` | `2000` | Maximum stored image dimension (longest side, in pixels). Images exceeding this are downscaled before storage. |
 | `person_gallery_max` | `PERSON_GALLERY_MAX` | `20` | Maximum number of free-form **gallery** (`extra`) images per person. The three core slots (headshot/banner/poster) are separate and never counted against this. A non-positive value falls back to `20`. The owner can deliberately exceed it per-upload via the gallery's "Add anyway" control; enrichment never exceeds it. (F25, ADR-043) |
+
+---
+
+## Studio images
+
+Icon/logo/poster images for studios — sourced from enrichment providers by default, owner-uploadable per role. Each role is single-slot (no gallery). (F51, ADR-079)
+
+| `holodex.yaml` key | Env var | Default | Description |
+|--------------------|---------|---------|-------------|
+| `studio_image_max_bytes` | `STUDIO_IMAGE_MAX_BYTES` | `10485760` (10 MiB) | Maximum allowed request-body size for a studio image upload. Larger uploads are rejected with `413`. |
+| `studio_image_max_dimension` | `STUDIO_IMAGE_MAX_DIMENSION` | `1000` | Maximum stored image dimension (longest side, in pixels). Images exceeding this are downscaled before storage. |
 
 ---
 

@@ -196,12 +196,9 @@ var KnownFields = []FieldDef{
 		Display:     "",
 		Description: "Origin country of the studio (ISO 3166-1 code as provided by the source).",
 	},
-	{
-		Canonical:   "logo",
-		Label:       "Logo",
-		Display:     "image_url",
-		Description: "Studio logo image URL. A plain field value on an operator-allowlisted CDN host (the poster_url pattern) — not a downloaded asset. Rendered as <img>.",
-	},
+	// "logo" was a plain image_url field through F38 (ADR-057); retired in F51
+	// (ADR-079) — the studio logo (plus icon/poster) is now a downloaded asset in
+	// studio_images, delivered like a person photo, not a resolved field value.
 
 	// ---- File-metadata fields (examples; operators add more via metadata-mappings.yaml) ----
 	{

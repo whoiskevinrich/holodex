@@ -43,14 +43,14 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 			"title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
 			"original_language", "original_title", "status", "imdb_id", "poster_url",
 			"actors", "director", "studio",
-			// studio-entity fields (F38 S3). logo is an image_url field (the video
-			// poster_url pattern), not a downloaded asset — the F25 image store is not
-			// generalized to studios here (spec Non-Goal / P2-3). website is shared.
-			"description", "country", "logo",
+			// studio-entity fields (F38 S3). website is shared with person/video. logo
+			// moved to AssetKinds (F51, ADR-079) — it is now a downloaded image asset,
+			// mirroring a person's photo, not a resolved image_url field.
+			"description", "country",
 			// non-canonical person field, rendered first-class via a field hint (F39).
 			"known_for_department",
 		},
-		AssetKinds: []string{"photo"},
+		AssetKinds: []string{"photo", "logo"},
 		// F39 (Holodex contract §4.7): presentation hints for our non-canonical keys,
 		// so they render labeled and ordered with no per-operator config. Canonical
 		// keys are omitted here — Holodex's registry owns those.

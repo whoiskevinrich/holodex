@@ -132,21 +132,35 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 	return data, nil
 }
 
-// assetRoleFor maps a provider asset kind to a person-image core role (F25). photo
-// → headshot is the default; banner/poster map through when a provider supplies
-// them. An unknown kind returns ok=false so the asset is skipped (never stored under
-// a guessed role).
-func assetRoleFor(kind string) (string, bool) {
-	switch kind {
-	case "photo", "portrait", "headshot", "":
-		return model.PersonImageHeadshot, true
-	case "banner", "backdrop":
-		return model.PersonImageBanner, true
-	case "poster":
-		return model.PersonImagePoster, true
-	case "gallery":
-		return model.PersonImageExtra, true
-	default:
-		return "", false
+// assetRoleFor maps a provider asset kind to an image role, entity-generic since F51
+// (ADR-079). For person: photo → headshot is the default; banner/poster map through
+// when a provider supplies them. For studio: "logo" (or the empty kind, the only kind
+// TMDB emits today) maps to the logo role; "icon"/"poster" kinds are reserved for a
+// future provider — the pipeline accepts them with no further schema change once one
+// exists. An unknown kind, or an entity type with no image roles, returns ok=false so
+// the asset is skipped (never stored under a guessed role).
+func assetRoleFor(entityType, kind string) (string, bool) {
+	switch entityType {
+	case model.EnrichEntityPerson:
+		switch kind {
+		case "photo", "portrait", "headshot", "":
+			return model.PersonImageHeadshot, true
+		case "banner", "backdrop":
+			return model.PersonImageBanner, true
+		case "poster":
+			return model.PersonImagePoster, true
+		case "gallery":
+			return model.PersonImageExtra, true
+		}
+	case model.EnrichEntityStudio:
+		switch kind {
+		case "logo", "":
+			return model.StudioImageLogo, true
+		case "icon":
+			return model.StudioImageIcon, true
+		case "poster":
+			return model.StudioImagePoster, true
+		}
 	}
+	return "", false
 }

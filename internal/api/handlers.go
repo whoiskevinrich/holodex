@@ -100,11 +100,13 @@ type Handlers struct {
 	personImageMaxDim   int
 	defaultSkin         string
 
-	// Self-hosted studio logo (HOLODEX-130, ADR-057). studioLogoDir is the on-disk
-	// root; studioLogoMaxDim bounds the downscale. Zero studioLogoDir leaves the logo
-	// serve route returning 404 (the SPA renders the monogram) and disables the cache.
-	studioLogoDir    string
-	studioLogoMaxDim int
+	// Studio images (F51, ADR-079; generalizes HOLODEX-130/ADR-057's single logo cache
+	// to icon/logo/poster). studioImageDir is the on-disk root; the bounds guard
+	// untrusted uploads like personImage's. Zero studioImageDir leaves the image
+	// endpoints returning 404/503 (the SPA renders its own fallback).
+	studioImageDir      string
+	studioImageMaxBytes int64
+	studioImageMaxDim   int
 
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). providerIconDir is the
 	// on-disk root; providerIconMaxDim bounds the downscale. Zero providerIconDir leaves
@@ -203,13 +205,14 @@ func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defau
 	h.defaultSkin = defaultSkin
 }
 
-// SetStudioImages wires the self-hosted studio logo store (HOLODEX-130, ADR-057): the
-// on-disk root and the downscale bound. An empty dir leaves the logo serve route
-// returning 404 (the SPA renders the monogram) and disables the logo cache. Called
-// once at startup.
-func (h *Handlers) SetStudioImages(dir string, maxDim int) {
-	h.studioLogoDir = dir
-	h.studioLogoMaxDim = maxDim
+// SetStudioImages wires studio image storage (F51, ADR-079): the on-disk root, the
+// upload bounds, and the downscale bound — mirrors SetPersonImages. An empty dir
+// leaves the serve routes returning 404 (the SPA renders its own fallback) and
+// uploads failing closed. Called once at startup.
+func (h *Handlers) SetStudioImages(dir string, maxBytes int64, maxDim int) {
+	h.studioImageDir = dir
+	h.studioImageMaxBytes = maxBytes
+	h.studioImageMaxDim = maxDim
 }
 
 // SetProviderIcons wires the self-hosted provider brand-icon store (HOLODEX-134,
@@ -292,9 +295,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
-	// Self-hosted studio logo (HOLODEX-130, ADR-057): the on-disk normalized JPEG, or
-	// 404 (the SPA renders the monogram). Public read, like every other studio read.
-	r.Get("/studios/{id}/logo", h.serveStudioLogo)
+	// Studio images (F51, ADR-079): the on-disk normalized JPEG for a filled role, or
+	// 404 (the SPA renders its own fallback). Public read; mutations are gated below.
+	r.Get("/studios/{id}/images/{role}", h.serveStudioImage)
 	// Provider directory + brand icons (HOLODEX-134, ADR-059) — PUBLIC: provenance
 	// badges render for everyone but can't reach the owner-gated /enrich/sources, so the
 	// visitor path resolves a provider name to its icon here. Exposes only names /
@@ -346,6 +349,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountAliases(r)
 		// Person images — owner-gated upload/delete/promote/reorder (F25, ADR-038).
 		h.mountPersonImages(r)
+		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
+		h.mountStudioImages(r)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).

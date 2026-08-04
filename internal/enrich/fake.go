@@ -56,8 +56,10 @@ func NewFake(name string) *Fake {
 					"description": {"Japanese animation film studio founded in 1985."},
 					"country":     {"JP"},
 					"website":     {"https://www.ghibli.jp"},
-					"logo":        {"https://image.tmdb.org/t/p/original/ghibli.png"},
 				},
+				// logo arrives as an image asset (F51, ADR-079), not a plain field — the
+				// studio-image asset-slot model, mirroring how a person's photo arrives.
+				Assets: []Asset{{Kind: "logo", URL: "https://image.tmdb.org/t/p/original/ghibli.png"}},
 			},
 		},
 	}
@@ -83,8 +85,8 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		ProtocolVersion: p,
 		EntityTypes:     []string{model.EnrichEntityPerson, model.EnrichEntityStudio},
 		IDNamespaces:    []string{"tmdb", "imdb"},
-		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country", "logo"},
-		AssetKinds:      []string{"photo"},
+		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"},
+		AssetKinds:      []string{"photo", "logo"},
 	}, nil
 }
 

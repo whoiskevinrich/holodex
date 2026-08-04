@@ -252,17 +252,15 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 }
 
 // afterEnrichApply runs the same post-apply side effects the existing per-entity apply
-// handlers already run (enrichVideoApply/enrichStudioApply) — a new studio candidate
-// can move a video's resolved studio value (F38 relink), and a provider logo can win a
-// studio's resolved `logo` field (HOLODEX-130). Shared so Refresh/Refresh-all stay in
-// lockstep with a manual apply instead of silently skipping these.
+// handler already runs (enrichVideoApply) — a new studio candidate can move a video's
+// resolved studio value (F38 relink). Shared so Refresh/Refresh-all stay in lockstep
+// with a manual apply instead of silently skipping this. A studio's image assets (F51,
+// ADR-079) need no equivalent post-step here — Enrich's entity-generic downloadAssets
+// already stored them before this runs.
 func (h *Handlers) afterEnrichApply(r *http.Request, entityType string, id int64) {
-	switch entityType {
-	case model.EnrichEntityVideo:
+	if entityType == model.EnrichEntityVideo {
 		h.relinkStudios(r.Context(), id)
 		h.materializeTags(r.Context(), id) // F50 P0-9, ADR-075 D4
-	case model.EnrichEntityStudio:
-		h.relinkStudioLogo(r.Context(), id)
 	}
 }
 

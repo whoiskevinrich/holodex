@@ -248,10 +248,12 @@ func TestServiceStudioEnrich(t *testing.T) {
 	if got["country"].Values[0] != "JP" {
 		t.Errorf("country = %v, want [JP]", got["country"].Values)
 	}
-	// logo is a plain image_url field, rendered directly — never on the person-image
-	// asset-download path (which is gated to person; studios have no image store).
-	if got["logo"].Display != "image_url" {
-		t.Errorf("logo display = %q, want image_url", got["logo"].Display)
+	// logo is NOT among the resolved fields (F51, ADR-079): it arrives as an image
+	// asset and is stored via the image sink (see TestEnrichDownloadsStudioAssets),
+	// not as a plain image_url field value. No sink is wired here, so the asset is
+	// silently ignored — the field-only path this test otherwise exercises.
+	if _, ok := got["logo"]; ok {
+		t.Errorf("logo should not appear among resolved fields: %+v", got["logo"])
 	}
 
 	if err := svc.Clear(ctx, model.EnrichEntityStudio, 7, "fake"); err != nil {
@@ -332,6 +334,7 @@ type recordingSink struct {
 }
 
 type storedAsset struct {
+	entityType string
 	personID   int64
 	role       string
 	provider   string
@@ -341,31 +344,31 @@ type storedAsset struct {
 	overCap    bool
 }
 
-func (s *recordingSink) StoreAsset(_ context.Context, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error {
-	s.stored = append(s.stored, storedAsset{personID, role, provider, externalID, url, len(raw), overCap})
+func (s *recordingSink) StoreAsset(_ context.Context, entityType string, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error {
+	s.stored = append(s.stored, storedAsset{entityType, personID, role, provider, externalID, url, len(raw), overCap})
 	return nil
 }
 
 // StoreAssetIfAbsent records a core-role store only when that (person, role) slot has
 // not already been filled in this run — mirroring the real sink's empty-slot guard.
-func (s *recordingSink) StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error {
+func (s *recordingSink) StoreAssetIfAbsent(ctx context.Context, entityType string, personID int64, role, provider, externalID, url string, raw []byte) error {
 	for _, a := range s.stored {
 		if a.personID == personID && a.role == role {
 			return nil // slot already filled
 		}
 	}
-	return s.StoreAsset(ctx, personID, role, provider, externalID, url, raw, false)
+	return s.StoreAsset(ctx, entityType, personID, role, provider, externalID, url, raw, false)
 }
 
-func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+func (s *recordingSink) SuppressedAssetURLs(_ context.Context, _ string, _ int64) (map[string]struct{}, error) {
 	return s.suppress, nil
 }
 
-func (s *recordingSink) LockedCoreRoles(_ context.Context, _ int64) (map[string]struct{}, error) {
+func (s *recordingSink) LockedCoreRoles(_ context.Context, _ string, _ int64) (map[string]struct{}, error) {
 	return s.locked, nil
 }
 
-func (s *recordingSink) ExistingAssetURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
+func (s *recordingSink) ExistingAssetURLs(_ context.Context, _ string, _ int64) (map[string]struct{}, error) {
 	return s.existing, nil
 }
 
@@ -412,6 +415,48 @@ func TestEnrichDownloadsAssets(t *testing.T) {
 	}
 	if !roles[model.PersonImageHeadshot] || !roles[model.PersonImageBanner] || !roles[model.PersonImagePoster] {
 		t.Errorf("asset roles = %v, want headshot+banner+poster", roles)
+	}
+}
+
+// A studio enrich run with an image asset fetches it and stores it via the sink,
+// under entityType="studio" (F51, ADR-079 — the second real use of downloadAssets).
+// A locked (owner-uploaded) role is skipped entirely, mirroring the person
+// provenance-lock (ADR-049) generalized to a second entity.
+func TestEnrichDownloadsStudioAssets(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.Studios["tmdb:10342"]
+	rec.Assets = []Asset{{Kind: "logo", URL: origin.URL + "/logo.jpg"}}
+	fake.Studios["tmdb:10342"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityStudio, 3, "fake", "tmdb:10342", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 {
+		t.Fatalf("stored %d assets, want 1 (logo; no poster-seed for studios): %+v", len(sink.stored), sink.stored)
+	}
+	a := sink.stored[0]
+	if a.entityType != model.EnrichEntityStudio || a.role != model.StudioImageLogo || a.provider != "fake" || a.externalID != "tmdb:10342" {
+		t.Errorf("stored asset = %+v, want studio/logo/fake/tmdb:10342", a)
+	}
+
+	// A locked (owner-uploaded) logo is never overwritten by enrichment.
+	sink2 := &recordingSink{locked: map[string]struct{}{model.StudioImageLogo: {}}}
+	svc.SetImageSink(sink2)
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityStudio, 3, "fake", "tmdb:10342", false); err != nil {
+		t.Fatalf("enrich (locked): %v", err)
+	}
+	if len(sink2.stored) != 0 {
+		t.Errorf("stored %d assets for a locked logo, want 0", len(sink2.stored))
 	}
 }
 
@@ -771,16 +816,16 @@ func TestEnrichAssetFailureIsNonFatal(t *testing.T) {
 	}
 }
 
-// A non-person Assets[] (e.g. a studio's logo mistakenly sent as an asset instead
-// of a fields["logo"] value — there is no non-person image sink in v1) is still
-// discarded, but the drop is now logged loudly instead of silently, so a provider
-// author who mirrors the person-asset pattern gets a diagnosable signal instead of
-// an inert no-op (docs/specs/metadata-provider-contract.md).
-func TestEnrichWarnsOnDiscardedNonPersonAssets(t *testing.T) {
+// An Assets[] for an entity type with no image sink (F51, ADR-079: only person and
+// studio are image-backed; e.g. video is not) is discarded, but the drop is logged
+// loudly instead of silently, so a provider author who mirrors the person/studio
+// asset pattern gets a diagnosable signal instead of an inert no-op
+// (docs/specs/metadata-provider-contract.md).
+func TestEnrichWarnsOnDiscardedAssetsForUnsupportedEntityType(t *testing.T) {
 	fake := NewFake("fake")
-	rec := fake.Studios["tmdb:10342"]
+	rec := fake.People["tmdb:608"]
 	rec.Assets = []Asset{{Kind: "poster", URL: "http://example.invalid/logo.png"}}
-	fake.Studios["tmdb:10342"] = rec
+	fake.People["tmdb:608"] = rec
 
 	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
 	if err != nil {
@@ -792,7 +837,7 @@ func TestEnrichWarnsOnDiscardedNonPersonAssets(t *testing.T) {
 sources:
   - name: fake
     base_url: http://fake:9100
-    entity_types: [person, studio]
+    entity_types: [person, studio, video]
     enabled: true
 `))
 	if err != nil {
@@ -804,18 +849,20 @@ sources:
 	sink := &recordingSink{}
 	svc.SetImageSink(sink)
 
-	if _, err := svc.Enrich(context.Background(), model.EnrichEntityStudio, 7, "fake", "tmdb:10342", false); err != nil {
+	// Fake.records() falls back to People for any entityType != studio, so "video"
+	// resolves the same fixture under a type the sink doesn't back.
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 7, "fake", "tmdb:608", false); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
 	if len(sink.stored) != 0 {
-		t.Errorf("stored %d assets for a studio, want 0 (no non-person image sink in v1)", len(sink.stored))
+		t.Errorf("stored %d assets for video, want 0 (no image sink for this entity type)", len(sink.stored))
 	}
 	logged := buf.String()
-	if !strings.Contains(logged, "discarding assets for non-person entity") {
-		t.Errorf("log = %q, want a warning about discarded non-person assets", logged)
+	if !strings.Contains(logged, "discarding assets for an entity type with no image sink") {
+		t.Errorf("log = %q, want a warning about discarded assets", logged)
 	}
-	if !strings.Contains(logged, "studio") || !strings.Contains(logged, "poster") {
-		t.Errorf("log = %q, want entity_type=studio and asset_kinds containing poster", logged)
+	if !strings.Contains(logged, "video") || !strings.Contains(logged, "poster") {
+		t.Errorf("log = %q, want entity_type=video and asset_kinds containing poster", logged)
 	}
 }
 
