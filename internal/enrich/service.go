@@ -448,8 +448,11 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 		if entityType == model.EnrichEntityPerson && role == model.PersonImageHeadshot {
 			headshotRaw, headshotURL = raw, a.URL
 		}
-		if entityType == model.EnrichEntityPerson && model.CorePersonImageRole(role) || entityType == model.EnrichEntityStudio {
-			done[role] = true // core slots are single-occupancy; first success wins (every studio role is core)
+		// Every studio role is core; for person, only the three named core roles are.
+		isCoreRole := entityType == model.EnrichEntityStudio ||
+			(entityType == model.EnrichEntityPerson && model.CorePersonImageRole(role))
+		if isCoreRole {
+			done[role] = true // core slots are single-occupancy; first success wins
 		}
 		// person 'extra'/gallery: don't mark done — allow additional items up to the cap
 	}

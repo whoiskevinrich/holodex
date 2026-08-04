@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/imagesink"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
 	"holodex/internal/repo"
@@ -151,22 +152,13 @@ func (h *Handlers) uploadStudioImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unsupported or invalid image")
 		return
 	}
-	existing, existErr := h.repo.GetStudioImage(r.Context(), id, role)
-	imgID, err := h.repo.ReplaceStudioImage(r.Context(), repo.StudioImageInsert{
-		StudioID: id, Role: role, Source: model.StudioImageSourceUpload,
-		Width: iw, Height: ih, ByteSize: len(norm),
-	})
+	// The replace/store/cleanup sequence is shared with the enrichment asset path
+	// (internal/imagesink.ReplaceStudioImageFile) — only Source differs.
+	imgID, err := imagesink.ReplaceStudioImageFile(r.Context(), h.repo, h.studioImageDir,
+		repo.StudioImageInsert{StudioID: id, Role: role, Source: model.StudioImageSourceUpload}, norm, iw, ih)
 	if err != nil {
 		h.fail(w, "replace studio image", err)
 		return
-	}
-	if err := studioimage.Store(h.studioImageDir, id, imgID, norm); err != nil {
-		_ = h.repo.DeleteStudioImage(r.Context(), id, role)
-		h.fail(w, "store studio image", err)
-		return
-	}
-	if existErr == nil && existing.ID != 0 {
-		_ = studioimage.Remove(h.studioImageDir, id, existing.ID) // best-effort
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"id": imgID, "version": imgID})
 }

@@ -31,8 +31,8 @@ type personRepo interface {
 	ExistingPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
 }
 
-// studioRepo is the repo subset the studio side of the sink needs.
-type studioRepo interface {
+// StudioRepo is the repo subset the studio side of the sink needs.
+type StudioRepo interface {
 	ReplaceStudioImage(ctx context.Context, in repo.StudioImageInsert) (int64, error)
 	GetStudioImage(ctx context.Context, studioID int64, role string) (repo.StudioImage, error)
 	DeleteStudioImage(ctx context.Context, studioID int64, role string) error
@@ -46,14 +46,14 @@ type Sink struct {
 	personDir    string
 	personMaxDim int
 
-	studioRepo   studioRepo
+	studioRepo   StudioRepo
 	studioDir    string
 	studioMaxDim int
 }
 
 // New builds the combined sink over both storage engines' on-disk roots and
 // downscale bounds.
-func New(pr personRepo, personDir string, personMaxDim int, sr studioRepo, studioDir string, studioMaxDim int) *Sink {
+func New(pr personRepo, personDir string, personMaxDim int, sr StudioRepo, studioDir string, studioMaxDim int) *Sink {
 	return &Sink{
 		personRepo: pr, personDir: personDir, personMaxDim: personMaxDim,
 		studioRepo: sr, studioDir: studioDir, studioMaxDim: studioMaxDim,
@@ -172,20 +172,34 @@ func (s *Sink) storeStudioAsset(ctx context.Context, studioID int64, role, provi
 	if err != nil {
 		return fmt.Errorf("normalize asset: %w", err)
 	}
-	existing, existErr := s.studioRepo.GetStudioImage(ctx, studioID, role)
-	id, err := s.studioRepo.ReplaceStudioImage(ctx, repo.StudioImageInsert{
+	_, err = ReplaceStudioImageFile(ctx, s.studioRepo, s.studioDir, repo.StudioImageInsert{
 		StudioID: studioID, Role: role, Source: model.StudioImageSourceEnrichment,
-		Provider: provider, ExternalID: externalID, Width: w, Height: h, ByteSize: len(norm),
-	})
+		Provider: provider, ExternalID: externalID,
+	}, norm, w, h)
+	return err
+}
+
+// ReplaceStudioImageFile replaces the studio's row for `in.Role` with already-
+// normalized bytes, writes the file, and removes the superseded file on success — or
+// rolls back the just-inserted row on a store failure. Exported so the owner-upload
+// endpoint (internal/api) shares this exact sequence with the enrichment path above
+// rather than reimplementing it; the two differ only in the Source/Provider/
+// ExternalID already set on `in`, and in how they want to report a normalize failure
+// (400 for an upload vs. a logged enrichment failure) — which is why normalization
+// stays the caller's own first step rather than folding into this function.
+func ReplaceStudioImageFile(ctx context.Context, sr StudioRepo, dir string, in repo.StudioImageInsert, norm []byte, width, height int) (int64, error) {
+	in.Width, in.Height, in.ByteSize = width, height, len(norm)
+	existing, existErr := sr.GetStudioImage(ctx, in.StudioID, in.Role)
+	id, err := sr.ReplaceStudioImage(ctx, in)
 	if err != nil {
-		return fmt.Errorf("insert studio asset row: %w", err)
+		return 0, fmt.Errorf("insert studio image row: %w", err)
 	}
-	if err := studioimage.Store(s.studioDir, studioID, id, norm); err != nil {
-		_ = s.studioRepo.DeleteStudioImage(ctx, studioID, role)
-		return fmt.Errorf("store studio asset: %w", err)
+	if err := studioimage.Store(dir, in.StudioID, id, norm); err != nil {
+		_ = sr.DeleteStudioImage(ctx, in.StudioID, in.Role)
+		return 0, fmt.Errorf("store studio image: %w", err)
 	}
 	if existErr == nil && existing.ID != 0 {
-		_ = studioimage.Remove(s.studioDir, studioID, existing.ID) // best-effort; a left-behind file is harmless
+		_ = studioimage.Remove(dir, in.StudioID, existing.ID) // best-effort; a left-behind file is harmless
 	}
-	return nil
+	return id, nil
 }
