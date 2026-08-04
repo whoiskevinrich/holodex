@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.15.0](https://github.com/whoiskevinrich/holodex/compare/v1.14.1...v1.15.0) (2026-08-04)
+
+
+### 🚀 Features
+
+* **graphify:** commit knowledge-graph output, relabel community 357 ([#201](https://github.com/whoiskevinrich/holodex/issues/201)) ([2c2c77c](https://github.com/whoiskevinrich/holodex/commit/2c2c77c7edfa857ed314395a352f97e36b14507a))
+* **tags:** create affordance for tags and categories ([#197](https://github.com/whoiskevinrich/holodex/issues/197)) ([1306729](https://github.com/whoiskevinrich/holodex/commit/1306729d0801710738ac3410c518ddad78c4a276))
+* **tags:** tag categories ([#194](https://github.com/whoiskevinrich/holodex/issues/194)) ([9e586ab](https://github.com/whoiskevinrich/holodex/commit/9e586abfc5b47cce986e2ec0a5a10ab615f3e59d))
+* **tags:** tag writeback exclusion ([#193](https://github.com/whoiskevinrich/holodex/issues/193)) ([dab6851](https://github.com/whoiskevinrich/holodex/commit/dab6851734cccc89906867d68ed4b8d6f3416e6f))
+* **web:** restore scroll position on entity video lists ([#208](https://github.com/whoiskevinrich/holodex/issues/208)) ([692ff34](https://github.com/whoiskevinrich/holodex/commit/692ff349d24345930b4b8332af5602e9f556822e))
+
+
+### 🐛 Bug Fixes
+
+* **tags:** dismiss listener runs in bubble phase, closing menu items before they act ([#195](https://github.com/whoiskevinrich/holodex/issues/195)) ([63aead1](https://github.com/whoiskevinrich/holodex/commit/63aead16454261e86a2c4c984c1600bb641f31fe))
+* **tags:** lower-case tag entity names in storage and identity resolution ([#196](https://github.com/whoiskevinrich/holodex/issues/196)) ([432cda7](https://github.com/whoiskevinrich/holodex/commit/432cda77fb30f716a380d2271c2ad4003becf129))
+* **tags:** sync genre writeback display with attached tags ([#202](https://github.com/whoiskevinrich/holodex/issues/202)) ([a88f087](https://github.com/whoiskevinrich/holodex/commit/a88f0874b7219c7f17ed819025e3b5d2146fbc1c))
+
+
+### 📚 Documentation
+
+* **tags:** document F50 genre-to-tag materialization for operators ([#189](https://github.com/whoiskevinrich/holodex/issues/189)) ([7f2d598](https://github.com/whoiskevinrich/holodex/commit/7f2d598f27dd9e65c499b2fd434fb6e45e784fef))
+
+
+### ⚙️ CI / Build
+
+* **commit-type:** add advisory check for docs/chore-typed PRs touching non-doc code ([#191](https://github.com/whoiskevinrich/holodex/issues/191)) ([43a4ccd](https://github.com/whoiskevinrich/holodex/commit/43a4ccd5d2e9c1fb410f6768417632116dab2c9e))
+
 ## [1.14.1](https://github.com/whoiskevinrich/holodex/compare/v1.14.0...v1.14.1) (2026-07-30)
 
 
