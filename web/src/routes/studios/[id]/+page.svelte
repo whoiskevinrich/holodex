@@ -16,6 +16,7 @@
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
+	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
@@ -27,11 +28,13 @@
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
 
 	// Studio detail (F38, ADR-053): name header + video grid + a Details section that
-	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5). Unlike the
-	// person page there is no rename, no aliases, no images, no writeback — a studio's
-	// name is derived identity, corrected by editing the studio field on its videos. The
-	// Details section is hidden until enrichment or a decision gives it something beyond
-	// `name` to curate — OR the owner has a studio-capable provider to enrich from (S3).
+	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5), plus an
+	// Images section (F51, ADR-079: icon/logo/poster, owner upload/replace/remove).
+	// Unlike the person page there is still no writeback — a studio's name is derived
+	// identity, corrected by editing the studio field on its videos (rename/aliases
+	// exist since F43). The Details section is hidden until enrichment or a decision
+	// gives it something beyond `name` to curate — OR the owner has a studio-capable
+	// provider to enrich from (S3).
 	let studio = $state<Studio | null>(null);
 	let videos = $state<Video[]>([]);
 	let resolved = $state<ResolvedField[]>([]);
@@ -80,10 +83,7 @@
 					: f.values.some((v) => v.trim() !== ''))
 		)
 	);
-	const imageFields = $derived(replaceFields.filter((f) => f.display === 'image_url'));
-	const compactFields = $derived(
-		replaceFields.filter((f) => f.display !== 'long_text' && f.display !== 'image_url')
-	);
+	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
 	// F44 (ADR-062): a chips-render promotion is a merge field — studio has no native
 	// merge field, but a promotion can introduce one, so it needs its own row.
@@ -221,6 +221,44 @@
 				/>
 			{/if}
 
+			<!-- Images (F51, ADR-079): logo (existing usage) first, then icon (studios
+			     list), then poster (no consumer yet). Always shown — owners can seed an
+			     image even before any enrichment; visitors see filled slots read-only. -->
+			{#if studio}
+				<section class="space-y-2">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+						<StudioImageSlot
+							studioId={id}
+							studioName={studio.name}
+							role="logo"
+							label="Logo"
+							url={studio.logo_url}
+							{isOwner}
+							onchanged={reloadDetail}
+						/>
+						<StudioImageSlot
+							studioId={id}
+							studioName={studio.name}
+							role="icon"
+							label="Icon"
+							url={studio.icon_url}
+							{isOwner}
+							onchanged={reloadDetail}
+						/>
+						<StudioImageSlot
+							studioId={id}
+							studioName={studio.name}
+							role="poster"
+							label="Poster"
+							url={studio.poster_url}
+							{isOwner}
+							onchanged={reloadDetail}
+						/>
+					</div>
+				</section>
+			{/if}
+
 			{#if hasDetails || (isOwner && studioProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
@@ -253,36 +291,6 @@
 
 					{#if hasDetails}
 						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-							{#each imageFields as f (f.canonical)}
-								<div class="sm:col-span-2">
-									<dt class="mb-1 text-muted">{f.label}:</dt>
-									<!-- The logo renders from the self-hosted, normalized copy (studio.logo_url,
-									     served from our own origin — HOLODEX-130/ADR-057), not the hotlinked
-									     provider URL in the resolved field. Present only when the cache is
-									     populated for the resolved logo; the chip below stays authoritative. -->
-									{#if f.canonical === 'logo' && studio?.logo_url}
-										<dd class="mb-1">
-											<img
-												src={studio.logo_url}
-												alt={studio?.name ? `${studio.name} ${f.label.toLowerCase()}` : f.label}
-												class="max-h-32 rounded-theme border border-rule bg-logo-plate object-contain p-2"
-											/>
-										</dd>
-									{/if}
-									{#if isOwner}
-										<dd>
-											<SourceSelect
-												field={f}
-												baselineKey="record"
-												decide={(s, mv) => decideField(f.canonical, s, mv)}
-											/>
-										</dd>
-									{:else if !soleProvider && winnerProvider(f)}
-										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
-									{/if}
-								</div>
-							{/each}
-
 							{#snippet promotedEdit(f: ResolvedField)}
 								<PromotedFieldEdit {isOwner} field={f} entityType="studio" entityNoun="studios" onchanged={reloadDetail} />
 							{/snippet}

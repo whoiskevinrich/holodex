@@ -37,6 +37,7 @@ import type {
 	SearchResponse,
 	Studio,
 	StudioDetailResponse,
+	StudioImageRole,
 	Tag,
 	TrashEntry,
 	Video,
@@ -389,6 +390,21 @@ export const api = {
 
 	getStudio: (id: number, fetchFn?: typeof fetch) =>
 		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
+
+	// Studio images (F51, ADR-079): three owner-editable core roles (icon/logo/
+	// poster), no gallery. Reads are public; a filled role serves the real JPEG, an
+	// empty one 404s (the SPA renders its own fallback — no server-side placeholder,
+	// unlike Person). The served, cache-busted URL is already embedded in the Studio
+	// object (icon_url/logo_url/poster_url) — no client-side URL builder needed, mirrors
+	// how Studio.logo_url worked pre-F51.
+	uploadStudioImage: (id: number, file: File, role: StudioImageRole) => {
+		const form = new FormData();
+		form.append('image', file);
+		return uploadAuthed<{ id: number; version: number }>(`/studios/${id}/images/${role}`, form);
+	},
+
+	deleteStudioImage: (id: number, role: StudioImageRole) =>
+		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
 
 	search: (q: string, fetchFn?: typeof fetch) =>
 		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
