@@ -282,25 +282,28 @@ Single-user personal server, so metrics are qualitative / self-observed:
 
 ## Open Questions
 
-- **OPEN — are detail-page embedded video lists paginated?** *(Tagged: engineering,
-  non-blocking for P0.)* Determines whether NS6 is a cheap client-side filter (unpaged,
-  matching People/Studios) or needs Media-style server-side query support. Resolve with a
-  quick look at `EntityVideos.svelte` / its data-fetching before scoping NS6's effort.
-- **OPEN — exact panel visual spec** (rows per group before "View all", row height,
-  empty-state and no-results copy, precise mobile breakpoint behavior). *(Tagged: design,
-  non-blocking — route through `/design-handoff`.)* This spec defines the interaction
-  model; `/design-handoff` should pin the pixel-level details.
-- **OPEN — should `/search` adopt this spec's grouped/tabbed panel as its page body**
-  (per NS1's "reuse, don't fork" note) **or keep its current layout and only share data
-  fetching?** *(Tagged: design, non-blocking.)* Recommended default is full reuse (avoids
-  two implementations of the same grouped-results pattern), but worth confirming during
-  design-handoff since `/search`'s current layout wasn't audited as part of this spec.
+- **RESOLVED — are detail-page embedded video lists paginated?** No. Confirmed against
+  `EntityVideos.svelte` and its callers (`api.getPerson`/`api.getStudio`): both return the
+  full `videos` array in one unpaged response, same shape as People/Studios/Tags. NS6 is a
+  cheap client-side filter with no backend work — see
+  [nav-search-live-filter-handoff.md Part F](../design/nav-search-live-filter-handoff.md#part-f--resolves-open-question-ns6-detail-page-video-lists),
+  which recommends promoting NS6 from P1 to P0 on that basis.
+- **RESOLVED — exact panel visual spec.** Pinned in
+  [nav-search-live-filter-handoff.md Part B](../design/nav-search-live-filter-handoff.md#part-b--searchresultspanelsvelte-ns1)
+  (3 rows/group before "View all" on the All tab, flat 8-row cap on a single-scope tab,
+  skeleton/empty/error states, mobile fixed-sheet breakpoint at 640px).
+- **RESOLVED — should `/search` adopt this spec's grouped/tabbed panel as its page body?**
+  Yes, full reuse — see
+  [nav-search-live-filter-handoff.md Part E](../design/nav-search-live-filter-handoff.md#part-e--resolves-open-question-search-page-reuse).
+  `SearchResultsPanel.svelte` is shared verbatim between the nav dropdown and the
+  `/search` page body, positioning-only differences.
 
 ## Timeline / Phasing
 
 No hard deadline. Suggested order:
 1. **`/design-handoff`** — pin the panel/tab visual spec and mobile breakpoints (resolves
-   the design-tagged open questions above) before frontend work starts.
+   the design-tagged open questions above) before frontend work starts. **Done** — see
+   [nav-search-live-filter-handoff.md](../design/nav-search-live-filter-handoff.md).
 2. **NS1 + NS5** — build the shared grouped/tabbed panel component and its keyboard/a11y
    behavior first, since NS2/NS3 both depend on it existing.
 3. **NS2 + NS3 + NS4** — wire scope-matched in-place filtering into Media, People,
