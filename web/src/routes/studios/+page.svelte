@@ -8,7 +8,7 @@
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
-	import { peopleScroll } from '$lib/peopleScroll.svelte';
+	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
@@ -51,7 +51,7 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = peopleScroll.take(`studios:${sort}`);
+					const snap = listScroll.take('studios', sort);
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
@@ -63,7 +63,7 @@
 	});
 
 	beforeNavigate(() => {
-		peopleScroll.save({ key: `studios:${sort}`, scrollY: window.scrollY });
+		listScroll.save('studios', { key: sort, scrollY: window.scrollY });
 	});
 </script>
 

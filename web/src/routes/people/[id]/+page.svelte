@@ -384,6 +384,7 @@
 		name={person?.name ?? ''}
 		{videos}
 		empty="No videos for this person."
+		scrollKey={`person:${id}`}
 	>
 		{#snippet hero()}
 			<!-- F25 hero, ratio + hierarchy corrected by the 2026-07-12 design-critique pass: an

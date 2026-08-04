@@ -11,7 +11,7 @@
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
-	import { peopleScroll } from '$lib/peopleScroll.svelte';
+	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
@@ -71,7 +71,7 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = peopleScroll.take(sort);
+					const snap = listScroll.take('people', sort);
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
@@ -83,9 +83,9 @@
 	});
 
 	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
-	// where the list was. Keyed by sort; a sort change invalidates it (peopleScroll.take).
+	// where the list was. Keyed by sort; a sort change invalidates it (listScroll.take).
 	beforeNavigate(() => {
-		peopleScroll.save({ key: sort, scrollY: window.scrollY });
+		listScroll.save('people', { key: sort, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {

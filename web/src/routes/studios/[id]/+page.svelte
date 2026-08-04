@@ -203,6 +203,7 @@
 		name={studio?.name ?? ''}
 		{videos}
 		empty="No videos for this studio."
+		scrollKey={`studio:${id}`}
 	>
 		{#snippet detail()}
 			<!-- Aliases are core identity, so the panel reads above the Details/enrichment
