@@ -59,6 +59,7 @@
 		name={tag?.name ?? ''}
 		{videos}
 		empty="No videos for this tag."
+		scrollKey={`tag:${id}`}
 	>
 		{#snippet hero()}
 			<!-- Ancestor breadcrumb (F50 S8, ADR-075 D1 P1-3) — scoped to this page only

@@ -7,7 +7,15 @@
 // One-shot: `take` clears the snapshot, so each navigate-away must re-save and a snapshot
 // can't be reused across visits. Session-scoped: a full reload starts empty.
 //
-// Used by browse.svelte.ts (full grid snapshot) and peopleScroll.svelte.ts (scroll only).
+// Two shapes ride on the same mechanics:
+//  - createNavSnapshot(): a single slot, for a view with exactly one caller (the browse
+//    grid's browseCache — heavier, carries the whole loaded page set, not just scroll).
+//  - createNavSnapshotRegistry(): many independent slots keyed by list identity, for
+//    lightweight scroll-only snapshots shared across unrelated pages (listScroll,
+//    HOLODEX-248). A single shared slot reused across pages via key-prefixing let one
+//    page's mismatched take() silently clear another page's still-valid snapshot (take()
+//    always clears); the registry keys each page's slot by its own identity so
+//    interleaved navigation across different lists can't cross-wire.
 
 export interface Keyed {
 	/** The filter/sort signature that produced this snapshot; restore only if it matches. */
@@ -29,6 +37,27 @@ export function createNavSnapshot<T extends Keyed>() {
 		},
 		clear() {
 			snap = null;
+		}
+	};
+}
+
+// A registry of independent one-shot slots, addressed by `id` — the list's own identity
+// (e.g. 'people', 'studios', or `person:${personId}`). Each id owns its own slot, so one
+// list saving/taking never disturbs another's, unlike a single createNavSnapshot()
+// instance reused across pages.
+export function createNavSnapshotRegistry<T extends Keyed>() {
+	const slots = new Map<string, T>();
+	return {
+		save(id: string, s: T) {
+			slots.set(id, s);
+		},
+		take(id: string, key: string): T | null {
+			const s = slots.get(id);
+			slots.delete(id);
+			return s && s.key === key ? s : null;
+		},
+		clear(id: string) {
+			slots.delete(id);
 		}
 	};
 }
