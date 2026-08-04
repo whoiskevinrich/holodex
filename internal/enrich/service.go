@@ -65,7 +65,8 @@ type ImageSink interface {
 	StoreAsset(ctx context.Context, entityType string, entityID int64, role, provider, externalID, url string, raw []byte, overCap bool) error
 	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
 	// (no-op otherwise), so a person poster can be seeded from the headshot portrait
-	// without clobbering an existing owner/provider image (F25.29).
+	// without clobbering an existing owner/provider image (F25.29). Person-only — the
+	// adapter errors on any other entity type.
 	StoreAssetIfAbsent(ctx context.Context, entityType string, entityID int64, role, provider, externalID, url string, raw []byte) error
 	// SuppressedAssetURLs returns asset URLs the owner deleted for this entity, so a
 	// re-enrich skips re-adding them (F25, ADR-043). A studio has no gallery/suppression

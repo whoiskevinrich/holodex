@@ -74,39 +74,34 @@ func (s *Sink) StoreAsset(ctx context.Context, entityType string, entityID int64
 }
 
 // StoreAssetIfAbsent stores under a core role only when that slot is currently empty.
+// Person-only (F25.29's headshot-to-poster seed is its sole caller, gated by
+// entityType == EnrichEntityPerson in enrich.Service) — studio has no caller that
+// needs a fill-if-empty write, every studio store already goes through StoreAsset.
 func (s *Sink) StoreAssetIfAbsent(ctx context.Context, entityType string, entityID int64, role, provider, externalID, url string, raw []byte) error {
-	switch entityType {
-	case model.EnrichEntityPerson:
-		switch _, err := s.personRepo.CorePersonImage(ctx, entityID, role); {
-		case err == nil:
-			return nil // slot already filled — leave it
-		case errors.Is(err, repo.ErrNotFound):
-			return s.storePersonAsset(ctx, entityID, role, provider, externalID, url, raw, false)
-		default:
-			return fmt.Errorf("check core slot: %w", err)
-		}
-	case model.EnrichEntityStudio:
-		switch _, err := s.studioRepo.GetStudioImage(ctx, entityID, role); {
-		case err == nil:
-			return nil
-		case errors.Is(err, repo.ErrNotFound):
-			return s.storeStudioAsset(ctx, entityID, role, provider, externalID, raw)
-		default:
-			return fmt.Errorf("check studio image slot: %w", err)
-		}
+	if entityType != model.EnrichEntityPerson {
+		return fmt.Errorf("imagesink: StoreAssetIfAbsent is person-only, got entity type %q", entityType)
+	}
+	switch _, err := s.personRepo.CorePersonImage(ctx, entityID, role); {
+	case err == nil:
+		return nil // slot already filled — leave it
+	case errors.Is(err, repo.ErrNotFound):
+		return s.storePersonAsset(ctx, entityID, role, provider, externalID, url, raw, false)
 	default:
-		return fmt.Errorf("imagesink: unsupported entity type %q", entityType)
+		return fmt.Errorf("check core slot: %w", err)
 	}
 }
 
 // SuppressedAssetURLs returns asset URLs the owner deleted, so enrichment skips
-// re-adding them. A studio has no suppression store — deleting a core slot simply
-// empties it — so it always returns an empty set.
+// re-adding them. Person-only store; every other entity type (studio included) has
+// no suppression store — deleting a core slot simply empties it — so it always
+// returns an empty set.
 func (s *Sink) SuppressedAssetURLs(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error) {
-	if entityType == model.EnrichEntityPerson {
+	switch entityType {
+	case model.EnrichEntityPerson:
 		return s.personRepo.SuppressedPersonImageURLs(ctx, entityID)
+	default:
+		return map[string]struct{}{}, nil
 	}
-	return map[string]struct{}{}, nil
 }
 
 // LockedCoreRoles returns the roles the owner set by hand, which enrichment must
@@ -123,12 +118,15 @@ func (s *Sink) LockedCoreRoles(ctx context.Context, entityType string, entityID 
 }
 
 // ExistingAssetURLs returns asset URLs already stored, for the URL dedup fast-path.
-// Always empty for a studio (no gallery to dedup against).
+// Person-only; every other entity type (studio included) always returns empty — a
+// studio has no gallery to dedup against.
 func (s *Sink) ExistingAssetURLs(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error) {
-	if entityType == model.EnrichEntityPerson {
+	switch entityType {
+	case model.EnrichEntityPerson:
 		return s.personRepo.ExistingPersonImageURLs(ctx, entityID)
+	default:
+		return map[string]struct{}{}, nil
 	}
-	return map[string]struct{}{}, nil
 }
 
 // storePersonAsset is the pre-F51 person store path, unchanged.

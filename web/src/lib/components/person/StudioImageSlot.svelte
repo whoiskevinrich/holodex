@@ -70,9 +70,8 @@
 
 <div class="flex items-center gap-4 rounded-theme border border-rule bg-surface p-3">
 	<span
-		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {url
-			? 'bg-logo-plate'
-			: role === 'poster'
+		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {role ===
+			'poster' && !url
 				? 'border border-dashed border-rule'
 				: 'bg-logo-plate'} {frameClass}"
 	>
@@ -108,7 +107,7 @@
 		{/if}
 		{#if isOwner}
 			<div class="flex items-center gap-2">
-				{#if !(role === 'poster' && !url)}
+				{#if role !== 'poster' || url}
 					<button
 						onclick={openPicker}
 						disabled={uploading}
