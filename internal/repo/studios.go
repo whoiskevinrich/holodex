@@ -154,72 +154,32 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if err := r.attachStudioLogos(ctx, out); err != nil {
+	if err := r.attachStudioImages(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// attachStudioLogos fills LogoVersion on each studio from the studio_logos cache in
-// ONE batch query (HOLODEX-130, ADR-057), leaving the shared namedCountQuery untouched
-// and avoiding an N-way per-studio lookup on the list. The API turns a non-zero
-// LogoVersion into the served LogoURL. There is exactly one logo row per studio
-// (UNIQUE(studio_id)), and the cache tracks the RESOLVED logo — so a blank-pinned logo
-// is absent here and the list matches the detail page (this supersedes the HOLODEX-126
-// raw-vs-resolved caveat, which existed only because the list read the shadow field).
-func (r *Repo) attachStudioLogos(ctx context.Context, studios []model.Studio) error {
-	if len(studios) == 0 {
-		return nil
-	}
-	ids := make([]int64, len(studios))
-	for i, s := range studios {
-		ids[i] = s.ID
-	}
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT studio_id, id FROM studio_logos
-		WHERE studio_id IN (`+placeholders(len(ids))+`)`, toAnySlice(ids)...)
-	if err != nil {
-		return fmt.Errorf("studio logos: %w", err)
-	}
-	defer rows.Close()
-	versions := make(map[int64]int64, len(ids))
-	for rows.Next() {
-		var studioID, logoID int64
-		if err := rows.Scan(&studioID, &logoID); err != nil {
-			return err
-		}
-		versions[studioID] = logoID
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	for i := range studios {
-		studios[i].LogoVersion = versions[studios[i].ID]
-	}
-	return nil
-}
-
-// GetStudio returns a studio by id with active-video count and its cached logo version
-// (0 when none), or ErrNotFound.
+// GetStudio returns a studio by id with active-video count and its image versions
+// (F51, ADR-079), or ErrNotFound.
 func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
-	var (
-		s      model.Studio
-		logoID sql.NullInt64
-	)
+	var s model.Studio
 	err := r.db.QueryRowContext(ctx, `
 		SELECT s.id, s.name,
 		       (SELECT COUNT(*) FROM video_studios vs JOIN videos v ON v.id = vs.video_id
-		        WHERE vs.studio_id = s.id AND v.active = 1 AND v.deleted_at IS NULL),
-		       sl.id
-		FROM studios s LEFT JOIN studio_logos sl ON sl.studio_id = s.id
-		WHERE s.id = ?`, id).Scan(&s.ID, &s.Name, &s.VideoCount, &logoID)
+		        WHERE vs.studio_id = s.id AND v.active = 1 AND v.deleted_at IS NULL)
+		FROM studios s WHERE s.id = ?`, id).Scan(&s.ID, &s.Name, &s.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	s.LogoVersion = logoID.Int64
+	versions, err := r.studioImageVersions(ctx, []int64{id})
+	if err != nil {
+		return nil, err
+	}
+	s.ImageVersions = versions[id]
 	// Owner-curated aliases (F43, ADR-061) for the detail view.
 	if s.Aliases, err = r.AliasesForEntity(ctx, model.EnrichEntityStudio, id); err != nil {
 		return nil, err

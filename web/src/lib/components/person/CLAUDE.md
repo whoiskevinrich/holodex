@@ -14,3 +14,4 @@ gallery/viewer stack. Some pieces are reused verbatim by the studio page (not ta
 | `PersonImageFrame.svelte` | Shared frame backing Avatar/Banner/Poster — builds the skin-aware, cache-busted image URL; server always returns a themed placeholder so there's never a broken-image glyph. |
 | `PersonImageViewer.svelte` | Full-page single-image viewer modal with prev/next, opened from a gallery thumbnail. |
 | `PersonPoster.svelte` | 2:3 poster card for the video-credits surface — thin wrapper over `PersonImageFrame`. |
+| `StudioImageSlot.svelte` | Studio-only (F51, ADR-079): upload/replace/remove control for one of a studio's three core image roles (icon/logo/poster) — no gallery/promote/viewer, unlike Person's image system. Filed here per this folder's "image system" mechanism grouping, not by entity. |

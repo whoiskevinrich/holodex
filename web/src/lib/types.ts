@@ -129,13 +129,20 @@ export interface Studio {
 	id: number;
 	name: string;
 	video_count?: number;
-	// Stored `logo` enrichment value, surfaced in the /studios list well (HOLODEX-126).
-	// The raw provider-stored logo, not the resolved one; the detail page is authoritative.
+	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
+	// page header), poster (no consumer yet). Each is independently owner-editable
+	// (upload/replace/remove) and provider-sourced by default; present only when that
+	// role's slot is filled. Always populated on both list and detail reads.
+	icon_url?: string;
 	logo_url?: string;
+	poster_url?: string;
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
 	// studio-detail read; omitted (undefined) elsewhere.
 	aliases?: PersonAlias[];
 }
+
+// StudioImageRole is the enum of editable studio image slots (F51, ADR-079).
+export type StudioImageRole = "icon" | "logo" | "poster";
 
 export interface ExtraMetadata {
 	source_key: string;

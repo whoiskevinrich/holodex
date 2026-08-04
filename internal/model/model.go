@@ -217,6 +217,33 @@ type Category struct {
 	Tags   []Tag   `json:"tags,omitempty"`
 }
 
+// Studio image roles (F51, ADR-079). All three are "core" single-slot roles — unlike
+// Person (ADR-038) a studio has no gallery/extra role, so every role is single-slot by
+// construction (studio_images' unique index is a plain composite, not partial).
+const (
+	StudioImageIcon   = "icon"   // studios list well
+	StudioImageLogo   = "logo"   // studio detail header (formerly the studio_logos cache)
+	StudioImagePoster = "poster" // reserved for future use; no consumer yet
+)
+
+// Studio image sources (F51, ADR-079): how a stored image arrived, for provenance and the
+// ADR-049-style provenance lock. No "promoted" — there is no gallery to promote from.
+const (
+	StudioImageSourceUpload     = "upload"     // owner-uploaded file
+	StudioImageSourceEnrichment = "enrichment" // fetched from a metadata provider asset
+)
+
+// ValidStudioImageRole reports whether role is one of the three known roles — the enum
+// every request value is validated against (never a filesystem path).
+func ValidStudioImageRole(role string) bool {
+	switch role {
+	case StudioImageIcon, StudioImageLogo, StudioImagePoster:
+		return true
+	default:
+		return false
+	}
+}
+
 // Studio is a first-class production-company/publisher entity (F38, ADR-053). Its
 // name is a derived identity — video_studios links follow the resolved `studio`
 // field, not raw file extraction. F43 (ADR-061) adds owner alias/merge/rename over
@@ -229,16 +256,21 @@ type Studio struct {
 	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
 	// Populated on the studio-detail read; omitted (nil) elsewhere.
 	Aliases []EntityAlias `json:"aliases,omitempty"`
-	// LogoURL is the serving URL of the studio's self-hosted logo (HOLODEX-130,
-	// ADR-057), built by the API layer as /api/v1/studios/{id}/logo?v={LogoVersion}
-	// when a normalized logo is cached — pointing at Holodex's own origin, not the
-	// hotlinked provider CDN. Empty when no logo is cached (the SPA renders the
-	// monogram then). The cache is derived from the RESOLVED `logo` field, so a
-	// blank-pin clears it here and the list matches the detail page.
-	LogoURL string `json:"logo_url,omitempty"`
-	// LogoVersion is the studio_logos row id (the ?v= cache-buster); internal — the
-	// API turns it into LogoURL. Zero when no logo is cached.
-	LogoVersion int64 `json:"-"`
+	// IconURL/LogoURL/PosterURL are serving URLs for the studio's self-hosted image
+	// roles (F51, ADR-079): /api/v1/studios/{id}/images/{role}?v={id} when that role's
+	// slot is filled — pointing at Holodex's own origin, never a hotlinked provider
+	// CDN. Empty when a role has no image (the SPA renders its per-role fallback).
+	// Always populated on both list and detail reads, so a future consumer of
+	// PosterURL needs no backend change. LogoURL replaces the pre-F51
+	// studio_logos-backed field of the same name (ADR-057, superseded).
+	IconURL   string `json:"icon_url,omitempty"`
+	LogoURL   string `json:"logo_url,omitempty"`
+	PosterURL string `json:"poster_url,omitempty"`
+	// ImageVersions holds the studio_images row id per filled role (the ?v= cache
+	// buster) — internal; the API layer turns it into the three URLs above via
+	// setStudioImageURLs. Absent role = no image. Mirrors the old LogoVersion field,
+	// generalized to a map across three roles instead of one int.
+	ImageVersions map[string]int64 `json:"-"`
 }
 
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
@@ -266,7 +298,6 @@ const (
 	JobKindRefresh          = "refresh"           // per-item forced re-extract + re-enrich (F31, ADR-047)
 	JobKindWriteback        = "writeback"         // queued batch metadata write (F30, ADR-048)
 	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
-	JobKindStudioLogo       = "studio-logo"       // one-time studio-logo cache backfill (HOLODEX-130, ADR-057)
 	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
 	JobKindExtraction       = "extraction"        // library-wide filename extraction pass (F48.5b, ADR-067)
 	JobStatusOK             = "success"
@@ -329,11 +360,6 @@ const InternalFieldPrefix = "_"
 // RelinkVideoStudios parses these into a name→external_id side-map. It starts with
 // InternalFieldPrefix so it never displays or resolves.
 const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
-
-// StudioLogoField is the canonical enrichment field-key for a studio's logo image
-// (registry "logo", an image_url field). Named here so the studio-logo relink triggers
-// (ADR-057) reference the field vocabulary rather than a magic string.
-const StudioLogoField = "logo"
 
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the

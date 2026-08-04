@@ -217,10 +217,11 @@ func studioByName(t *testing.T, r *repo.Repo, name string) model.Studio {
 	return model.Studio{}
 }
 
-// TestListStudios_AttachesLogoVersion covers ADR-057 (superseding HOLODEX-126): the
-// list attaches the cached logo row id as LogoVersion (the API turns it into the served
-// URL); a studio with no cached logo carries LogoVersion 0, not another studio's logo.
-func TestListStudios_AttachesLogoVersion(t *testing.T) {
+// TestListStudios_AttachesImageVersions covers F51/ADR-079 (superseding ADR-057's
+// LogoVersion): the list attaches each studio's per-role image row ids via
+// ImageVersions (the API turns them into the served URLs); a studio with no cached
+// image carries an empty/absent entry, never another studio's image.
+func TestListStudios_AttachesImageVersions(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
@@ -234,20 +235,20 @@ func TestListStudios_AttachesLogoVersion(t *testing.T) {
 	}
 
 	acmeID := studioByName(t, r, "Acme").ID
-	logoID, err := r.ReplaceStudioLogo(ctx, repo.StudioLogoInsert{
-		StudioID: acmeID, SourceURL: "https://cdn.example/a.jpg", Provider: "tmdb",
-		Width: 100, Height: 40, ByteSize: 999,
+	logoID, err := r.ReplaceStudioImage(ctx, repo.StudioImageInsert{
+		StudioID: acmeID, Role: model.StudioImageLogo, Source: model.StudioImageSourceEnrichment,
+		Provider: "tmdb", Width: 100, Height: 40, ByteSize: 999,
 	})
 	if err != nil {
 		t.Fatalf("replace logo: %v", err)
 	}
 
-	if got := studioByName(t, r, "Acme").LogoVersion; got != logoID {
-		t.Fatalf("Acme LogoVersion = %d, want %d", got, logoID)
+	if got := studioByName(t, r, "Acme").ImageVersions[model.StudioImageLogo]; got != logoID {
+		t.Fatalf("Acme ImageVersions[logo] = %d, want %d", got, logoID)
 	}
-	// Beta has no cached logo → version 0.
-	if got := studioByName(t, r, "Beta").LogoVersion; got != 0 {
-		t.Fatalf("Beta LogoVersion = %d, want 0", got)
+	// Beta has no cached image → absent from the map (zero value 0).
+	if got := studioByName(t, r, "Beta").ImageVersions[model.StudioImageLogo]; got != 0 {
+		t.Fatalf("Beta ImageVersions[logo] = %d, want 0", got)
 	}
 }
 

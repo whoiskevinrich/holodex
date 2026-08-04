@@ -73,14 +73,15 @@ type Config struct {
 	// exceed it deliberately via an explicit over-cap upload; enrichment never does.
 	PersonGalleryMax int `yaml:"person_gallery_max"`
 
-	// Self-hosted studio logo (HOLODEX-130, ADR-057). One normalized logo per studio
-	// at DataPath/studio-logos/{studioID}/{id}.jpg, derived like PersonImagePath.
-	// StudioLogoMaxDimension bounds the stored (downscaled) longest side.
-	StudioLogoPath         string `yaml:"-"` // derived: DataPath/studio-logos
-	StudioLogoMaxDimension int    `yaml:"studio_logo_max_dimension"`
+	// Studio images (F51, ADR-079; generalizes HOLODEX-130/ADR-057's single logo cache
+	// to icon/logo/poster). Bytes live at DataPath/studio-images/{studioID}/{id}.jpg,
+	// derived like PersonImagePath. The bounds mirror the person ones.
+	StudioImagePath         string `yaml:"-"` // derived: DataPath/studio-images
+	StudioImageMaxBytes     int64  `yaml:"studio_image_max_bytes"`
+	StudioImageMaxDimension int    `yaml:"studio_image_max_dimension"`
 
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). One normalized icon per
-	// provider at DataPath/provider-icons/{id}.jpg, derived like StudioLogoPath.
+	// provider at DataPath/provider-icons/{id}.jpg, derived like StudioImagePath.
 	// ProviderIconMaxDimension bounds the stored (downscaled) longest side — icons are
 	// tiny glyphs, so this is small.
 	ProviderIconPath         string `yaml:"-"` // derived: DataPath/provider-icons
@@ -177,8 +178,9 @@ func Defaults() Config {
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
 
-		StudioLogoMaxDimension:   1000, // logos are small; downscale to ≤1000px longest side (ADR-057)
-		ProviderIconMaxDimension: 256,  // brand icons are tiny glyphs; downscale to ≤256px (ADR-059)
+		StudioImageMaxBytes:      10 << 20, // 10 MiB request-body cap on an upload
+		StudioImageMaxDimension:  1000,     // studio images are small; downscale to ≤1000px longest side
+		ProviderIconMaxDimension: 256,      // brand icons are tiny glyphs; downscale to ≤256px (ADR-059)
 
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
@@ -248,8 +250,8 @@ func (c *Config) derive() {
 	if c.PersonImagePath == "" {
 		c.PersonImagePath = filepath.Join(c.DataPath, "person-images")
 	}
-	if c.StudioLogoPath == "" {
-		c.StudioLogoPath = filepath.Join(c.DataPath, "studio-logos")
+	if c.StudioImagePath == "" {
+		c.StudioImagePath = filepath.Join(c.DataPath, "studio-images")
 	}
 	if c.ProviderIconPath == "" {
 		c.ProviderIconPath = filepath.Join(c.DataPath, "provider-icons")
@@ -284,7 +286,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.DatabasePath = "" // re-derive under the new data dir
 		c.ThumbnailPath = ""
 		c.PersonImagePath = ""
-		c.StudioLogoPath = ""
+		c.StudioImagePath = ""
 		c.ProviderIconPath = ""
 	}
 	if o.LogLevel != "" {
@@ -326,6 +328,8 @@ func applyEnv(c *Config) {
 	if c.PersonGalleryMax < 1 {
 		c.PersonGalleryMax = 20 // a non-positive cap would block all gallery adds; fall back to the default
 	}
+	c.StudioImageMaxBytes = envInt64("STUDIO_IMAGE_MAX_BYTES", c.StudioImageMaxBytes)
+	c.StudioImageMaxDimension = envInt("STUDIO_IMAGE_MAX_DIMENSION", c.StudioImageMaxDimension)
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)

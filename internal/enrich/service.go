@@ -46,34 +46,43 @@ type EnrichRepo interface {
 	ProviderFieldHints(ctx context.Context) (map[string]map[string]repo.ProviderFieldHint, error)
 }
 
-// ImageSink stores a downloaded, normalized provider asset as a person image (F25,
-// ADR-038). It is satisfied by an adapter over personimage + the repo, wired in
-// main; nil disables asset download (the v1-without-images path). Kept an interface
-// so the enrich package needn't import personimage/repo for the image write and so
-// tests can assert what would be stored with no disk.
+// ImageSink stores a downloaded, normalized provider asset as an image for an
+// entity (F25, ADR-038; entity-generic since F51, ADR-079). It is satisfied by an
+// adapter over personimage/studioimage + the repo, wired in main; nil disables asset
+// download (the v1-without-images path). Kept an interface so the enrich package
+// needn't import personimage/studioimage/repo for the image write and so tests can
+// assert what would be stored with no disk. entityType is one of
+// model.EnrichEntityPerson / model.EnrichEntityStudio — the adapter dispatches on it
+// to the right table/disk root; Person's behavior is unchanged by this widening.
 type ImageSink interface {
 	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
-	// given role for a person, recording provenance (provider + externalID) and the
-	// upstream asset URL (for delete-suppression, F25/ADR-043). overCap, set for an
-	// owner/admin enrichment run (HOLODEX-174), lets a gallery 'extra' bypass
-	// repo.GalleryCap the same way an owner's manual "Add anyway" upload does.
-	StoreAsset(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error
+	// given role for an entity, recording provenance (provider + externalID) and the
+	// upstream asset URL (for delete-suppression, F25/ADR-043 — person only; a studio
+	// has no suppression store). overCap, set for an owner/admin enrichment run
+	// (HOLODEX-174), lets a person gallery 'extra' bypass repo.GalleryCap the same way
+	// an owner's manual "Add anyway" upload does; studio roles are all core, so overCap
+	// has no effect there.
+	StoreAsset(ctx context.Context, entityType string, entityID int64, role, provider, externalID, url string, raw []byte, overCap bool) error
 	// StoreAssetIfAbsent stores under a core role only when that slot is currently empty
-	// (no-op otherwise), so a poster can be seeded from the headshot portrait without
-	// clobbering an existing owner/provider image (F25.29).
-	StoreAssetIfAbsent(ctx context.Context, personID int64, role, provider, externalID, url string, raw []byte) error
-	// SuppressedAssetURLs returns asset URLs the owner deleted for this person, so a
-	// re-enrich skips re-adding them (F25, ADR-043).
-	SuppressedAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
-	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted),
-	// which enrichment must never overwrite (F33, ADR-049). An empty or provider-set
-	// slot is absent from the set and stays refreshable.
-	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
-	// ExistingAssetURLs returns asset URLs already stored for this person, so a gallery
+	// (no-op otherwise), so a person poster can be seeded from the headshot portrait
+	// without clobbering an existing owner/provider image (F25.29). Person-only — the
+	// adapter errors on any other entity type.
+	StoreAssetIfAbsent(ctx context.Context, entityType string, entityID int64, role, provider, externalID, url string, raw []byte) error
+	// SuppressedAssetURLs returns asset URLs the owner deleted for this entity, so a
+	// re-enrich skips re-adding them (F25, ADR-043). A studio has no gallery/suppression
+	// store and always returns an empty set — deleting a core slot simply empties it.
+	SuppressedAssetURLs(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error)
+	// LockedCoreRoles returns the core roles the owner set by hand (upload/promoted for
+	// a person; upload for a studio, which has no promote), which enrichment must never
+	// overwrite (F33/ADR-049, generalized to studio by F51/ADR-079). An empty or
+	// provider-set slot is absent from the set and stays refreshable.
+	LockedCoreRoles(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error)
+	// ExistingAssetURLs returns asset URLs already stored for this entity, so a gallery
 	// asset whose URL we already hold is skipped before any download (F34/ADR-050 URL
 	// fast-path). The content-hash check (in StoreAsset) remains the authoritative
-	// guard for the same image under a different URL.
-	ExistingAssetURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
+	// guard for the same image under a different URL. Always empty for a studio (no
+	// gallery to dedup against).
+	ExistingAssetURLs(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error)
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -111,9 +120,10 @@ func NewService(store *Store, r EnrichRepo, log *slog.Logger) *Service {
 	}
 }
 
-// SetImageSink wires person-image asset download (F25, ADR-038). With a sink set, a
-// person enrich run that returns image assets fetches and stores them; without one,
-// assets are ignored (the field-only path). Called once at startup.
+// SetImageSink wires entity image asset download (F25, ADR-038; entity-generic since
+// F51, ADR-079). With a sink set, a person or studio enrich run that returns image
+// assets fetches and stores them; without one, assets are ignored (the field-only
+// path). Called once at startup.
 func (s *Service) SetImageSink(sink ImageSink) { s.images = sink }
 
 // NewServiceWithClient is NewService with an injected client factory — used by
@@ -326,73 +336,85 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
-	// Download any image assets the provider returned (F25, ADR-038). People-only in
-	// v1; best-effort — a failed fetch/normalize is logged and skipped, never failing
-	// the field enrichment that already succeeded.
-	if s.images != nil && entityType == model.EnrichEntityPerson && len(res.Assets) > 0 {
-		s.downloadAssets(ctx, entityID, provider, externalID, res.Assets, bypassGalleryCap)
-	} else if entityType != model.EnrichEntityPerson && len(res.Assets) > 0 {
-		// v1 has no image sink for non-person entities — a video's poster/a studio's
-		// logo must come back as a `fields["poster_url"]`/`fields["logo"]` value, not
-		// an Assets[] entry. Log loudly rather than silently discard, since a provider
-		// author mirroring the person-asset pattern would otherwise see no error and
-		// no image, with no signal as to why (docs/specs/metadata-provider-contract.md).
+	// Download any image assets the provider returned (F25/ADR-038, entity-generic
+	// since F51/ADR-079: person and studio). Best-effort — a failed fetch/normalize is
+	// logged and skipped, never failing the field enrichment that already succeeded.
+	if s.images != nil && imageBackedEntityType(entityType) && len(res.Assets) > 0 {
+		s.downloadAssets(ctx, entityType, entityID, provider, externalID, res.Assets, bypassGalleryCap)
+	} else if !imageBackedEntityType(entityType) && len(res.Assets) > 0 {
+		// No image sink for any other entity type (e.g. video) — its asset-worthy
+		// values must come back as a plain field (`fields["poster_url"]`), not an
+		// Assets[] entry. Log loudly rather than silently discard, since a provider
+		// author mirroring the person/studio asset pattern would otherwise see no error
+		// and no image, with no signal as to why (docs/specs/metadata-provider-contract.md).
 		kinds := make([]string, len(res.Assets))
 		for i, a := range res.Assets {
 			kinds[i] = a.Kind
 		}
-		s.log.Warn("discarding assets for non-person entity: no image sink in v1, use a fields entry instead",
+		s.log.Warn("discarding assets for an entity type with no image sink: use a fields entry instead",
 			"provider", provider, "entity_type", entityType, "entity_id", entityID, "asset_kinds", kinds)
 	}
 	return s.Fields(ctx, entityType, entityID)
 }
 
+// imageBackedEntityType reports whether entityType has an image sink table backing
+// it (F51, ADR-079). Video and any future non-image entity type are not — their
+// asset-worthy values stay plain fields.
+func imageBackedEntityType(entityType string) bool {
+	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio
+}
+
 // downloadAssets fetches provider image assets through the SSRF-guarded asset client
-// and stores them via the image sink (F25, ADR-038/039). Assets are preference-ordered.
-// Core roles (headshot/banner/poster) fill on first success and then skip further
-// entries of the same role (ADR-039 §5). The gallery role (extra) is unbounded on the
-// provider side but capped at repo.GalleryCap by the store; once that cap is hit,
-// remaining gallery assets are skipped — unless bypassGalleryCap is set (owner/admin
-// enrichment run, HOLODEX-174), in which case a cap hit is treated as a per-asset
-// skip rather than a role-wide stop, so later assets still get a shot at the store.
-func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, externalID string, assets []Asset, bypassGalleryCap bool) {
+// and stores them via the image sink (F25/ADR-038/039; entity-generic since
+// F51/ADR-079). Assets are preference-ordered. Core roles fill on first success and
+// then skip further entries of the same role (ADR-039 §5). A person's gallery role
+// (extra) is unbounded on the provider side but capped at repo.GalleryCap by the
+// store; once that cap is hit, remaining gallery assets are skipped — unless
+// bypassGalleryCap is set (owner/admin enrichment run, HOLODEX-174), in which case a
+// cap hit is treated as a per-asset skip rather than a role-wide stop, so later
+// assets still get a shot at the store. A studio has no gallery role, so the cap
+// branch never triggers for it.
+func (s *Service) downloadAssets(ctx context.Context, entityType string, entityID int64, provider, externalID string, assets []Asset, bypassGalleryCap bool) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
 	}
 	// Asset URLs the owner has deleted before — skip them so a re-enrich doesn't
-	// silently re-add an image the owner removed (F25, ADR-043). A lookup failure
-	// fails open (logs, treats nothing as suppressed) rather than blocking enrichment.
-	suppressed, err := s.images.SuppressedAssetURLs(ctx, entityID)
+	// silently re-add an image the owner removed (F25, ADR-043; person only — a
+	// studio's SuppressedAssetURLs always returns empty). A lookup failure fails open
+	// (logs, treats nothing as suppressed) rather than blocking enrichment.
+	suppressed, err := s.images.SuppressedAssetURLs(ctx, entityType, entityID)
 	if err != nil {
-		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		s.log.Warn("suppressed asset urls lookup failed", "provider", provider, "entity_type", entityType, "entity_id", entityID, "err", err)
 		suppressed = nil
 	}
-	// Core roles the owner set by hand (upload/promoted): enrichment never overwrites
-	// them (F33, ADR-049). Like the suppression lookup this fails open — a lookup error
-	// locks nothing rather than blocking enrichment.
-	locked, err := s.images.LockedCoreRoles(ctx, entityID)
+	// Core roles the owner set by hand: enrichment never overwrites them (F33/ADR-049,
+	// generalized to studio by F51/ADR-079). Like the suppression lookup this fails
+	// open — a lookup error locks nothing rather than blocking enrichment.
+	locked, err := s.images.LockedCoreRoles(ctx, entityType, entityID)
 	if err != nil {
-		s.log.Warn("locked core roles lookup failed", "provider", provider, "person", entityID, "err", err)
+		s.log.Warn("locked core roles lookup failed", "provider", provider, "entity_type", entityType, "entity_id", entityID, "err", err)
 		locked = nil
 	}
-	// Asset URLs already stored for this person — skip re-fetching a gallery URL we
+	// Asset URLs already stored for this entity — skip re-fetching a gallery URL we
 	// already hold (F34/ADR-050 URL fast-path), so a re-enrich doesn't re-download and
 	// re-dedup the same image. Fails open like the lookups above. The content-hash
-	// check in the store still catches the same image under a *different* URL.
-	existingURLs, err := s.images.ExistingAssetURLs(ctx, entityID)
+	// check in the store still catches the same image under a *different* URL. Always
+	// empty for a studio (no gallery to dedup against).
+	existingURLs, err := s.images.ExistingAssetURLs(ctx, entityType, entityID)
 	if err != nil {
-		s.log.Warn("existing asset urls lookup failed", "provider", provider, "person", entityID, "err", err)
+		s.log.Warn("existing asset urls lookup failed", "provider", provider, "entity_type", entityType, "entity_id", entityID, "err", err)
 		existingURLs = nil
 	}
 	fetcher := s.newAssetGet(src)
 	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
 	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
-	// it after the loop (F25.29) — provider profiles are 2:3, a natural poster.
+	// it after the loop (F25.29, person only) — provider profiles are 2:3, a natural
+	// poster. Nothing about a studio logo implies a poster, so studio skips this seed.
 	var headshotRaw []byte
 	var headshotURL string
 	for _, a := range assets {
-		role, ok := assetRoleFor(a.Kind)
+		role, ok := assetRoleFor(entityType, a.Kind)
 		if !ok || done[role] {
 			continue
 		}
@@ -416,7 +438,7 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			s.log.Warn("asset fetch refused/failed", "provider", provider, "kind", a.Kind, "err", err)
 			continue
 		}
-		if err := s.images.StoreAsset(ctx, entityID, role, provider, externalID, a.URL, raw, bypassGalleryCap); err != nil {
+		if err := s.images.StoreAsset(ctx, entityType, entityID, role, provider, externalID, a.URL, raw, bypassGalleryCap); err != nil {
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
 			} else {
@@ -424,22 +446,27 @@ func (s *Service) downloadAssets(ctx context.Context, entityID int64, provider, 
 			}
 			continue
 		}
-		if role == model.PersonImageHeadshot {
+		if entityType == model.EnrichEntityPerson && role == model.PersonImageHeadshot {
 			headshotRaw, headshotURL = raw, a.URL
 		}
-		if model.CorePersonImageRole(role) {
+		// Every studio role is core; for person, only the three named core roles are.
+		isCoreRole := entityType == model.EnrichEntityStudio ||
+			(entityType == model.EnrichEntityPerson && model.CorePersonImageRole(role))
+		if isCoreRole {
 			done[role] = true // core slots are single-occupancy; first success wins
 		}
-		// extra/gallery: don't mark done — allow additional items up to the cap
+		// person 'extra'/gallery: don't mark done — allow additional items up to the cap
 	}
 	// Seed a poster from the headshot portrait when this run filled a headshot but no
-	// poster (F25.29) — the same image reused with no extra download, so people read
-	// richly on video-credit surfaces. Only fills an EMPTY slot; never overwrites an
-	// existing owner/provider poster. Like other core roles it refills on re-enrich
-	// (core deletes don't suppress, ADR-043 F25.25). Best-effort.
-	if _, posterLocked := locked[model.PersonImagePoster]; headshotRaw != nil && !done[model.PersonImagePoster] && !posterLocked {
-		if err := s.images.StoreAssetIfAbsent(ctx, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
-			s.log.Warn("poster seed from headshot failed", "provider", provider, "person", entityID, "err", err)
+	// poster (F25.29, person only) — the same image reused with no extra download, so
+	// people read richly on video-credit surfaces. Only fills an EMPTY slot; never
+	// overwrites an existing owner/provider poster. Like other core roles it refills on
+	// re-enrich (core deletes don't suppress, ADR-043 F25.25). Best-effort.
+	if entityType == model.EnrichEntityPerson {
+		if _, posterLocked := locked[model.PersonImagePoster]; headshotRaw != nil && !done[model.PersonImagePoster] && !posterLocked {
+			if err := s.images.StoreAssetIfAbsent(ctx, entityType, entityID, model.PersonImagePoster, provider, externalID, headshotURL, headshotRaw); err != nil {
+				s.log.Warn("poster seed from headshot failed", "provider", provider, "entity_id", entityID, "err", err)
+			}
 		}
 	}
 }

@@ -401,7 +401,7 @@ func TestDescribeAdvertisesStudio(t *testing.T) {
 	if !hasType {
 		t.Errorf("entity_types = %v, want to contain studio", body.EntityTypes)
 	}
-	for _, want := range []string{"description", "country", "logo"} {
+	for _, want := range []string{"description", "country"} {
 		found := false
 		for _, f := range body.Fields {
 			if f == want {
@@ -412,11 +412,20 @@ func TestDescribeAdvertisesStudio(t *testing.T) {
 			t.Errorf("fields missing %q; got %v", want, body.Fields)
 		}
 	}
-	// logo is a plain image_url field (poster_url pattern), NOT an asset kind.
+	// logo is an asset kind (F51, ADR-079), NOT a plain field.
+	for _, f := range body.Fields {
+		if f == "logo" {
+			t.Error("logo must be an asset kind, not a field (F51, ADR-079)")
+		}
+	}
+	hasLogoKind := false
 	for _, k := range body.AssetKinds {
 		if k == "logo" {
-			t.Error("logo must be a field, not an asset kind (spec Non-Goal / P2-3)")
+			hasLogoKind = true
 		}
+	}
+	if !hasLogoKind {
+		t.Errorf("asset_kinds missing \"logo\"; got %v", body.AssetKinds)
 	}
 }
 
@@ -465,12 +474,12 @@ func TestTMDBEnrichStudio(t *testing.T) {
 	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.ghibli.jp" {
 		t.Errorf("website = %v, want [https://www.ghibli.jp]", got)
 	}
-	// logo is a field on image.tmdb.org (poster_url pattern), never an asset.
-	if got := res.Fields["logo"]; len(got) == 0 || !strings.HasPrefix(got[0], "https://image.tmdb.org/") {
-		t.Errorf("logo = %v, want https://image.tmdb.org/...", got)
+	// logo is an image asset on image.tmdb.org (F51, ADR-079), never a field.
+	if _, ok := res.Fields["logo"]; ok {
+		t.Errorf("logo should not be a field: %v", res.Fields["logo"])
 	}
-	if len(res.Assets) != 0 {
-		t.Errorf("studio enrich should have no assets, got %v", res.Assets)
+	if len(res.Assets) != 1 || res.Assets[0].Kind != "logo" || !strings.HasPrefix(res.Assets[0].URL, "https://image.tmdb.org/") {
+		t.Errorf("assets = %+v, want one logo asset on image.tmdb.org", res.Assets)
 	}
 }
 
@@ -566,7 +575,7 @@ func TestBuildEnrichResponseMultiplePhotos(t *testing.T) {
 	tags := taggedImagesResult{
 		Results: []taggedImageEntry{
 			{FilePath: "/portrait_tagged.jpg", AspectRatio: 0.667}, // skipped: portrait
-			{FilePath: "/backdrop.jpg", AspectRatio: 1.778},         // banner
+			{FilePath: "/backdrop.jpg", AspectRatio: 1.778},        // banner
 		},
 	}
 	res := buildEnrichResponse(det, imgs, tags)
@@ -755,8 +764,8 @@ func TestParseReleaseFilename(t *testing.T) {
 		// Plain search queries — must pass through unchanged
 		{"Dune", "Dune", ""},
 		{"Fight Club", "Fight Club", ""},
-		{"Dune 2021", "Dune 2021", ""},   // spaces not dots, < 3 dots
-		{"Dune.2021", "Dune.2021", ""},   // only 1 dot — too few
+		{"Dune 2021", "Dune 2021", ""}, // spaces not dots, < 3 dots
+		{"Dune.2021", "Dune.2021", ""}, // only 1 dot — too few
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {

@@ -119,16 +119,17 @@
 						href={`/studios/${s.id}`}
 						class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
 					>
-						<!-- Leading logo well (HOLODEX-126): a consistent ~40×26 plate keeps rows
-						     aligned whether or not the studio has a logo. Enriched → real logo;
-						     otherwise a monogram (decorative — the name is adjacent). -->
+						<!-- Leading icon well (HOLODEX-126, generalized to the icon role by F51/
+						     ADR-079): a consistent ~40×26 plate keeps rows aligned whether or not
+						     the studio has an icon. Enriched/uploaded → real icon; otherwise a
+						     monogram (decorative — the name is adjacent). -->
 						<span
 							class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
 						>
-							{#if s.logo_url}
+							{#if s.icon_url}
 								<img
-									src={s.logo_url}
-									alt={`${s.name} logo`}
+									src={s.icon_url}
+									alt={`${s.name} icon`}
 									class="h-full w-full object-contain p-0.5"
 								/>
 							{:else}

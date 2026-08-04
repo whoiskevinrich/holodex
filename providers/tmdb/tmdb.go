@@ -934,8 +934,8 @@ func (c *tmdbClient) fetchCompanyDetails(ctx context.Context, id int) (companyDe
 }
 
 // buildCompanyEnrichResponse maps TMDB company details onto Holodex studio fields.
-// The logo is an image_url field (the poster_url pattern) on image.tmdb.org, not a
-// downloaded asset — studios are not on the F25 image-store path (spec Non-Goal).
+// The logo is a downloaded image asset (F51, ADR-079) — mirroring how a person's
+// photo arrives — not a resolved image_url field.
 func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
 	fields := make(map[string][]string)
 	if v := strings.TrimSpace(det.Description); v != "" {
@@ -951,10 +951,14 @@ func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
 	} else {
 		fields["website"] = []string{tmdbEntityURL("company", det.ID, det.Name)}
 	}
+	var assets []assetEntry
 	if det.LogoPath != "" {
-		fields["logo"] = []string{"https://image.tmdb.org/t/p/original" + det.LogoPath}
+		assets = append(assets, assetEntry{
+			Kind: "logo",
+			URL:  "https://image.tmdb.org/t/p/original" + det.LogoPath,
+		})
 	}
-	return enrichResponse{Fields: fields}
+	return enrichResponse{Fields: fields, Assets: assets}
 }
 
 // ---- HTTP transport ----

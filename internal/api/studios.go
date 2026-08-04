@@ -23,9 +23,10 @@ import (
 // documentation order. name is synthesized separately (the only baseline-backed
 // field, read-only — no rename in v1, RD4/RD5). These are the fields the TMDB
 // company enrichment slice (S3) populates; before enrichment they resolve empty and
-// the detail page hides the Details section. logo is an image_url field (the
-// poster_url pattern) rendered as <img>, not an F25 image-store asset (spec Non-Goal).
-var studioScalarFields = []string{"description", "country", "website", "logo"}
+// the detail page hides the Details section. logo is NOT here (F51, ADR-079): it
+// moved off the resolved-field model onto the studio_images asset-slot model,
+// delivered like a person photo rather than a decidable image_url field.
+var studioScalarFields = []string{"description", "country", "website"}
 
 // studioFields synthesizes the []mapping.Field for studio resolution: name (record
 // baseline only — no provider name candidates, studio has no rename) then the scalar
@@ -100,8 +101,7 @@ func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) []
 }
 
 // resolveStudio is the ctx-based core of studioResolved, so it is callable off the
-// request path (RelinkStudioLogo, ADR-057). Degraded reads log and resolve without the
-// failing layer.
+// request path. Degraded reads log and resolve without the failing layer.
 func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) []resolver.ResolvedField {
 	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityStudio, id)
 	if err != nil {
@@ -137,7 +137,7 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range studios {
-		setStudioLogoURL(&studios[i])
+		setStudioImageURLs(&studios[i])
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
 }
@@ -154,7 +154,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.studioLookupError(w, err)
 		return
 	}
-	setStudioLogoURL(s)
+	setStudioImageURLs(s)
 	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{StudioIDs: []int64{id}, Limit: 500})
 	if err != nil {
 		h.fail(w, "studio videos", err)

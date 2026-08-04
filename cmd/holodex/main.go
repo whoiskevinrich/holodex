@@ -26,6 +26,7 @@ import (
 	"holodex/internal/db"
 	"holodex/internal/enrich"
 	"holodex/internal/extract"
+	"holodex/internal/imagesink"
 	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
@@ -228,20 +229,23 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		}
 	}
 
-	// Person images (F25, ADR-038): on-disk store under DATA_PATH/person-images. The
-	// enrichment asset path and the upload handler share one normalize+store sink so a
-	// provider photo gets the same metadata strip as an upload.
+	// Person images (F25, ADR-038): on-disk store under DATA_PATH/person-images.
 	if err := os.MkdirAll(cfg.PersonImagePath, 0o755); err != nil {
 		log.Warn("person image dir create failed", "dir", cfg.PersonImagePath, "err", err)
 	}
-	enrichSvc.SetImageSink(personimage.NewSink(repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension))
-
-	// Self-hosted studio logo (HOLODEX-130, ADR-057): on-disk store under
-	// DATA_PATH/studio-logos. Unlike person images there is no upload/gallery — the
-	// logo is a derived cache of the resolved `logo` field, synced by RelinkStudioLogo.
-	if err := os.MkdirAll(cfg.StudioLogoPath, 0o755); err != nil {
-		log.Warn("studio logo dir create failed", "dir", cfg.StudioLogoPath, "err", err)
+	// Studio images (F51, ADR-079; generalizes HOLODEX-130/ADR-057's single logo cache
+	// to icon/logo/poster): on-disk store under DATA_PATH/studio-images.
+	if err := os.MkdirAll(cfg.StudioImagePath, 0o755); err != nil {
+		log.Warn("studio image dir create failed", "dir", cfg.StudioImagePath, "err", err)
 	}
+	// One entity-generic sink (internal/imagesink) backs both: the enrichment asset
+	// path and the upload handlers share one normalize+store per entity kind, so a
+	// provider photo gets the same metadata strip as an upload, for person and studio
+	// alike (F51, ADR-079 — the second real use of this pipeline).
+	enrichSvc.SetImageSink(imagesink.New(
+		repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension,
+		repository, cfg.StudioImagePath, cfg.StudioImageMaxDimension,
+	))
 
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059): on-disk store under
 	// DATA_PATH/provider-icons. One normalized icon per provider, a cache of the URL the
@@ -342,12 +346,11 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	})
 
 	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
-	handlers.SetStudioImages(cfg.StudioLogoPath, cfg.StudioLogoMaxDimension)
-	// One-time studio-logo cache backfill (ADR-057): download+normalize the logo for
-	// studios already enriched before this feature, so existing libraries self-host
-	// without a re-enrich. Runs after SetStudioImages + SetEnrichment (RelinkStudioLogo
-	// needs both). Gated one-time; best-effort.
-	backfillStudioLogos(ctx, repository, handlers.RelinkStudioLogo, log)
+	// Studio images (F51, ADR-079). No backfill needed here: migration 0036 already
+	// carried forward every pre-existing studio_logos row into studio_images(role=
+	// 'logo') as part of the schema change itself, unlike ADR-057's original derived-
+	// cache backfill (which had to reconstruct state the old table never had).
+	handlers.SetStudioImages(cfg.StudioImagePath, cfg.StudioImageMaxBytes, cfg.StudioImageMaxDimension)
 	handlers.SetProviderIcons(cfg.ProviderIconPath, cfg.ProviderIconMaxDimension)
 	// Provider brand-icon refresh (ADR-059): fetch/normalize each enabled provider's
 	// advertised brand_icon and prune orphans. Off the main path in a bounded goroutine
@@ -518,63 +521,6 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		log.Warn("studio link backfill: record job run failed", "err", err)
 	}
 	log.Info("studio link backfill complete", "videos", len(ids), "errors", errs)
-}
-
-// backfillStudioLogos downloads + self-hosts the logo for every studio already
-// enriched before HOLODEX-130 (ADR-057), so an existing library doesn't have to
-// re-enrich to move off the hotlinked provider CDN. Two gates make it one-time,
-// mirroring backfillStudioLinks: skip once any logo is cached (StudioLogoCount > 0);
-// otherwise skip on a prior successful marker so a library whose studios have no
-// provider logo doesn't re-pass every boot. Best-effort — each relink is best-effort
-// (a failed fetch/normalize is logged and skipped) and the pass is idempotent.
-func backfillStudioLogos(ctx context.Context, r *repo.Repo, relink func(context.Context, int64) error, log *slog.Logger) {
-	n, err := r.StudioLogoCount(ctx)
-	if err != nil {
-		log.Warn("studio logo backfill: count failed", "err", err)
-		return
-	}
-	if n > 0 {
-		return // logos exist — the one-time pass already ran (common case)
-	}
-	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindStudioLogo); err != nil {
-		log.Warn("studio logo backfill: marker check failed; running anyway", "err", err)
-	} else if ran {
-		return
-	}
-	studios, err := r.ListStudios(ctx, false)
-	if err != nil {
-		log.Warn("studio logo backfill: list studios failed", "err", err)
-		return
-	}
-	if len(studios) == 0 {
-		return // nothing to backfill; no marker (a later boot with studios runs)
-	}
-	started := time.Now()
-	var errs int
-	for _, s := range studios {
-		if err := relink(ctx, s.ID); err != nil {
-			errs++
-			log.Warn("studio logo backfill: relink failed", "studio", s.ID, "err", err)
-		}
-	}
-	finished := time.Now()
-	status := model.JobStatusOK
-	if errs > 0 {
-		status = model.JobStatusErr
-	}
-	if err := r.RecordJobRun(ctx, model.JobRun{
-		Kind:       model.JobKindStudioLogo,
-		Trigger:    model.TriggerInitial,
-		Status:     status,
-		StartedAt:  started,
-		FinishedAt: finished,
-		DurationMs: finished.Sub(started).Milliseconds(),
-		Errors:     errs,
-		Detail:     fmt.Sprintf("studio-logo backfill: processed %d studios", len(studios)),
-	}); err != nil {
-		log.Warn("studio logo backfill: record job run failed", "err", err)
-	}
-	log.Info("studio logo backfill complete", "studios", len(studios), "errors", errs)
 }
 
 // seedIdentityReviewQueue runs the one-time near-miss seed of identity_review_queue
