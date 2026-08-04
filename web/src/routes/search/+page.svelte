@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { page } from '$app/stores';
+	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { listScroll } from '$lib/listScroll.svelte';
 	import type { Person, Studio, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 
@@ -11,6 +14,14 @@
 	let loading = $state(true);
 
 	const q = $derived($page.url.searchParams.get('q') ?? '');
+
+	// On the first load only, restore the scroll position stashed when we last left these
+	// results (← Back from a person/studio/tag/video), once the re-fetched results have
+	// painted (HOLODEX-248, ADR-032). Keyed by `q` itself — the only thing that
+	// determines this result set, and (unlike a plain page $state) it survives Back
+	// unchanged since it comes straight from the URL. Later reloads (query edited in
+	// place) stay put.
+	let firstLoad = true;
 
 	$effect(() => {
 		const term = q;
@@ -31,7 +42,20 @@
 				studios = res.studios ?? [];
 				tags = res.tags ?? [];
 			})
-			.finally(() => (loading = false));
+			.finally(() => {
+				loading = false;
+				if (firstLoad) {
+					firstLoad = false;
+					const snap = listScroll.take('search', term);
+					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
+				}
+			});
+	});
+
+	// Stash the scroll offset on the way out (e.g. opening a result) so ← Back restores
+	// where these results were.
+	beforeNavigate(() => {
+		listScroll.save('search', { key: q, scrollY: window.scrollY });
 	});
 
 	const empty = $derived(

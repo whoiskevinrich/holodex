@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
+	import { listScroll } from '$lib/listScroll.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount, tagCount, filterByName } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type Category, type EntityRef, type PeopleTagSort, type Tag } from '$lib/types';
@@ -129,13 +132,34 @@
 		writeSort('tags', sort);
 	});
 
+	// Scroll restoration (HOLODEX-248, ADR-032): keyed on everything that changes which
+	// pills are visible/where — sort, the type filter, and the search query — so a
+	// mismatch on any of them safely skips the restore instead of landing on a
+	// no-longer-matching scroll offset. On the first load only; later reloads (rename,
+	// merge, category edits) stay put.
+	const scrollKey = $derived(`${sort}:${typeFilter}:${query}`);
+	let firstLoad = true;
+
 	function reload() {
 		loading = true;
 		api
 			.listTags(sort)
 			.then((res) => (tags = res.items ?? []))
-			.finally(() => (loading = false));
+			.finally(() => {
+				loading = false;
+				if (firstLoad) {
+					firstLoad = false;
+					const snap = listScroll.take('tags', scrollKey);
+					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
+				}
+			});
 	}
+
+	// Stash the scroll offset on the way out (e.g. opening a tag or category) so ← Back
+	// restores where the list was.
+	beforeNavigate(() => {
+		listScroll.save('tags', { key: scrollKey, scrollY: window.scrollY });
+	});
 
 	function reloadCategories() {
 		api.listCategories().then((res) => (categories = res.items ?? []));
