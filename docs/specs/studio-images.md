@@ -247,16 +247,22 @@ Single-owner curation feature:
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. **`/architecture`** — new ADR (table + entity-generic `ImageSink` + retiring the `logo`
-   field; supersedes ADR-057).
-2. **`/design-handoff`** — studio detail-page image controls, list icon well, empty
-   states, 3-skin QA.
-3. **`/testing-strategy`** — migration data-carry-forward, provenance-lock matrix,
+1. ✅ **`/architecture`** — [ADR-079](../architecture/ADR-079-studio-image-roles.md)
+   (table + entity-generic `ImageSink` + retiring the `logo` field; supersedes ADR-057).
+2. ✅ **`/design-handoff`** — [studio-images-handoff.md](../design/studio-images-handoff.md):
+   studio detail-page image controls, list icon well, empty states, 3-skin QA.
+3. ✅ **`/testing-strategy`** — migration data-carry-forward, provenance-lock matrix,
    entity-generic `downloadAssets` (Person regression + Studio new coverage), endpoint auth,
-   asset-perimeter reuse, serve-route cache headers, 3-skin a11y.
-4. **`/security-review`** — new owner-gated upload endpoints (first studio-side untrusted-
-   bytes ingestion path), path-traversal invariant on the new disk layout, unchanged SSRF
-   perimeter for the provider-asset path.
+   asset-perimeter reuse, serve-route cache headers, 3-skin a11y (`docs/testing-strategy.md`
+   §10).
+4. ✅ **`/security-review`** — **sign-off (2026-08-03): clean.** New owner-gated upload/
+   delete endpoints correctly mounted inside `requireOwner`; the public serve route only
+   ever builds a filesystem path from server-assigned ids (`{role}` is validated against
+   the enum but never touches a path); uploaded bytes pass through the same
+   `personimage.Normalize` untrusted-bytes gate as every other image upload; the TMDB
+   logo-as-asset switch reuses the unchanged SSRF-guarded `AssetClient` (no new host,
+   redirect, or scheme latitude); `internal/repo/studio_images.go` is fully parameterized.
+   No findings.
 
 Slices: **S1** backend (migration 0036, model/registry, entity-generic `ImageSink`, TMDB
 asset switch, API) → **S2** frontend (detail controls, list icon) → **S3** QA + security.
