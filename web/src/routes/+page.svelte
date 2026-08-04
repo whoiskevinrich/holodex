@@ -242,6 +242,10 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
+		// Respect a handler closer to the event target that already claimed this key
+		// (e.g. the nav search panel's own roving-tabindex rows, HOLODEX-249) — this
+		// listener only owns arrow keys when nothing else does.
+		if (e.defaultPrevented) return;
 		const target = e.target as HTMLElement | null;
 		const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT';
 
