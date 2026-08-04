@@ -1561,6 +1561,55 @@ Then the status reports pending=0 running=0 done=2 failed=1
  And GET .../status for a batch_id that was never issued returns 200 {0,0,0,0}, not 404
 ```
 
+**Studio image roles — migration carry-forward, entity-generic assets, provenance lock (F51/ADR-079) — adversarial**
+```
+Given a studio with an existing studio_logos row (provider TMDB, width/height/byte_size set)
+When migration 0036 runs
+Then studio_images has exactly one row for that studio: role='logo', source='enrichment',
+     same provider/width/height/byte_size, and studio_logos no longer exists
+ And any field_source_decisions row for (entity_type='studio', field_key='logo') is gone
+ And GET /api/v1/studios/{id}/images/logo serves the same bytes GET /studios/{id}/logo used to
+     (post-migration file move landed, or the slot re-fetches on next enrich if it didn't)
+
+Given a studio with no prior logo
+When a TMDB enrich apply runs
+Then the company response's logo arrives as an Asset (kind="logo"), not a Fields["logo"] entry
+ And GET /studios/{id}/fields no longer lists "logo" among resolved fields (field retired)
+ And studio_images gains one role='logo' row, source='enrichment'
+
+Given the owner uploads a custom logo for a studio (POST .../images/logo)
+Then studio_images(role='logo') becomes source='upload', and GET .../images/logo serves it
+When the same studio is re-enriched (or a scheduled TMDB apply runs again)
+Then the logo slot is UNCHANGED (LockedCoreRoles reports 'logo' for this studio; downloadAssets
+     skips it before any fetch — no network call, not just a discarded result)
+When the owner then DELETEs .../images/logo
+Then the slot is empty (404 on GET) and the NEXT enrich fills it from the provider again
+
+Given a person enrich run with headshot+banner+poster assets (the existing F25 flow)
+When downloadAssets(ctx, "person", personID, ...) runs after the entityType widening
+Then behavior is byte-for-byte identical to pre-F51: same roles fill, same lock/suppress/dedup/
+     poster-seed-from-headshot semantics — the full existing Person image test suite passes
+     unchanged (the acceptance bar for the ImageSink generalization)
+
+Given a studio enrich run supplies an asset kind "icon" or "poster" (no real provider does yet)
+When downloadAssets(ctx, "studio", studioID, ...) processes it
+Then assetRoleFor("studio", kind) maps it to the correct role and it stores like logo does
+ (SuppressedAssetURLs/ExistingAssetURLs return empty for studio — nothing is ever skipped as
+ already-suppressed/already-held, since studio has no gallery to suppress from or dedup against)
+
+Given an unauthenticated request
+When POST or DELETE .../studios/{id}/images/{role} is attempted
+Then 401/403 (requireOwner), matching every other studio mutation endpoint
+Given role="banner" (not one of icon|logo|poster)
+When POST .../images/banner is attempted
+Then 400, and nothing is written to studio_images or disk
+
+Given an uploaded file that is actually an SVG/polyglot/decompression bomb
+When POST .../images/{role} processes it
+Then personimage.Normalize rejects it (same guard every other image upload passes) and the
+     request fails without writing to disk — no new decode path was introduced by this feature
+```
+
 ---
 
 ## 11. Known Gaps & Open Questions
