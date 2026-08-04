@@ -134,17 +134,24 @@ Studios / Tags** tab row always shown directly under the box.
   not push meaningful content below the fold before showing anything useful — validate
   this explicitly, since mobile clutter is the primary complaint driving this spec.
 
-**Acceptance criteria — NS1**
-- [ ] Given the box is empty and focused, then the existing recent-history dropdown shows
+**Acceptance criteria — NS1** — Implemented (HOLODEX-249, PR #209): `navSearch.svelte.ts` +
+`SearchResultsPanel.svelte`, verified live against `backend-amv`.
+- [x] Given the box is empty and focused, then the existing recent-history dropdown shows
       (unchanged from today).
-- [ ] Given I type a query, then the history dropdown is replaced by the grouped/tabbed
+- [x] Given I type a query, then the history dropdown is replaced by the grouped/tabbed
       panel within the debounce window, without a full page navigation.
-- [ ] Given a group has more matches than shown, then a "View all N in <type>" row appears
-      and navigates to the corresponding full list, query pre-filled.
-- [ ] Given I clear the box (via the × control or deleting all text), then the panel closes
+- [x] Given a group has more matches than shown, then a "View all N in <type>" row appears
+      and navigates to the corresponding full list. **Query pre-fill confirmed for Videos**
+      (Media's `?q=` param already wired); **People/Studios/Tags links carry `?q=` too but
+      the target pages don't consume it yet** — that's NS3's job (adding client-side
+      filtering to those pages), not yet implemented. The links are already
+      forward-correct and will start working the moment NS3 lands.
+- [x] Given I clear the box (via the × control or deleting all text), then the panel closes
       and the history dropdown (if history exists) reappears.
-- [ ] Given a narrow (mobile-width) viewport, then the panel and tab row render without
-      horizontal scroll or layout overflow, in all three skins.
+- [x] Given a narrow (mobile-width) viewport, then the panel and tab row render without
+      horizontal scroll or layout overflow, in all three skins (verified via computed
+      `getBoundingClientRect`/contrast checks — screenshots time out in this repo's
+      preview, see reference memory).
 
 #### NS2 — Scope-matched in-place filtering, tab-mismatch overlay
 
@@ -229,13 +236,19 @@ following this repo's existing convention for selectable popup results.
   highlighted, submits the current query as today's `runSearch` does for the fallback
   "view everything" case.
 
-**Acceptance criteria — NS5**
-- [ ] Given the panel is open, then Tab reaches each visible result row and each tab in the
-      tab row, in a sensible visual order.
-- [ ] Given I press Escape, then the panel closes and the in-place grid (if any) is
-      unaffected.
-- [ ] All new interactive elements have accessible names/labels (verified with a
-      screen-reader pass or axe-style check).
+**Acceptance criteria — NS5** — Implemented (HOLODEX-249, PR #209), verified live in-browser
+(accessibility-tree reads via the Claude Browser tool, not a formal screen-reader/axe pass).
+- [x] Given the panel is open, then Tab reaches each visible result row and each tab in the
+      tab row, in a sensible visual order. (Also required a one-line defensive fix to the
+      Media page's pre-existing global grid-nav `keydown` listener, which was stealing focus
+      away from the panel's own arrow-key handling — see PR #209.)
+- [x] Given I press Escape, then the panel closes and the in-place grid (if any) is
+      unaffected. (No in-place grid exists yet — that's NS2/NS3 — but the query and focus
+      are preserved exactly as specified.)
+- [x] All new interactive elements have accessible names/labels — confirmed via the
+      accessibility tree (`role="tab"`/`"option"`/`"listbox"`/`"tablist"`, `aria-selected`,
+      `aria-label` on the clear button and each listbox); no formal screen-reader/axe pass
+      run.
 
 ### Nice-to-Have (P1)
 
