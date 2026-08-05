@@ -212,7 +212,7 @@ func TestThumbnailConfig(t *testing.T) {
 	}
 	if !cfg.ThumbnailEnabled || cfg.ThumbnailBackfill != "eager" ||
 		cfg.ThumbnailWorkers != 2 || !cfg.ThumbnailNice ||
-		cfg.ThumbnailSeekPercent != 10 || cfg.ThumbnailWidth != 400 {
+		cfg.ThumbnailSeekPercent != 10 || cfg.ThumbnailWidth != 400 || cfg.PosterWidth != 1200 {
 		t.Errorf("unexpected thumbnail defaults: %+v", cfg)
 	}
 
@@ -221,6 +221,7 @@ func TestThumbnailConfig(t *testing.T) {
 	t.Setenv("THUMBNAIL_BACKFILL", "lazy")
 	t.Setenv("THUMBNAIL_WORKERS", "4")
 	t.Setenv("THUMBNAIL_WIDTH", "640")
+	t.Setenv("POSTER_WIDTH", "1600")
 	cfg, err = Load("")
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +229,7 @@ func TestThumbnailConfig(t *testing.T) {
 	if cfg.ThumbnailEnabled {
 		t.Errorf("THUMBNAIL_ENABLED=false not applied")
 	}
-	if cfg.ThumbnailBackfill != "lazy" || cfg.ThumbnailWorkers != 4 || cfg.ThumbnailWidth != 640 {
+	if cfg.ThumbnailBackfill != "lazy" || cfg.ThumbnailWorkers != 4 || cfg.ThumbnailWidth != 640 || cfg.PosterWidth != 1600 {
 		t.Errorf("thumbnail env overrides not applied: %+v", cfg)
 	}
 }

@@ -14,29 +14,37 @@ import (
 	"holodex/internal/repo"
 )
 
-// generateFrame extracts a single frame at SeekPercent of the video's duration,
-// scaled to Width, as a JPEG (Tier 2, ADR-009). Input-seeking (-ss before -i)
-// is fast; each element is its own argv entry (no shell), so the source path
-// can never be mis-parsed as a flag.
-func (m *Manager) generateFrame(ctx context.Context, c repo.ThumbnailCandidate, outPath string) error {
+// generateFrame extracts a single frame at SeekPercent of the video's
+// duration (Tier 2, ADR-009) and derives both output tiers from it. The
+// source video is seeked and decoded exactly ONCE — at PosterWidth, the
+// larger target — and written to posterDst; the thumbnail tier is then
+// produced by a second, cheap ffmpeg pass that reads that already-decoded
+// JPEG back in (no -ss, no source-video input) and scales it down to Width
+// (P0-4, F53/HOLODEX-253). Input-seeking (-ss before -i) is fast; each
+// element is its own argv entry (no shell), so the source path can never be
+// mis-parsed as a flag.
+func (m *Manager) generateFrame(ctx context.Context, c repo.ThumbnailCandidate, thumbDst, posterDst string) error {
 	src := absPath(c.FilePath)
 	seek := seekSeconds(c.DurationSec, m.cfg.SeekPercent)
 	inputArgs := []string{"-ss", strconv.Itoa(seek), "-i", src, "-frames:v", "1"}
-	return m.scaleToWidth(ctx, inputArgs, nil, outPath)
+	if err := m.scaleToWidth(ctx, inputArgs, nil, posterDst, m.cfg.PosterWidth); err != nil {
+		return err
+	}
+	return m.scaleToWidth(ctx, []string{"-i", posterDst}, nil, thumbDst, m.cfg.Width)
 }
 
 // scaleToWidth runs ffmpeg with inputArgs (everything that precedes the scale
-// filter — a seek+source file for Tier 2's frame extraction, or a bare stdin
-// pipe for Tier 1's already-extracted embedded art) plus the shared
+// filter — a seek+source file for Tier 2's frame extraction, a bare stdin pipe
+// for Tier 1's already-extracted embedded art, or a plain file input when
+// rescaling an already-decoded frame/image with no seek) plus the shared
 // scale/quality/muxer tail, writes to a temp file, and renames into place so
-// the serving handler never sees a partial image. Shared by generateFrame and
-// extractCoverArt so both tiers honor Width (THUMBNAIL_WIDTH) and Nice
-// (ADR-009) identically instead of each hand-rolling the ffmpeg invocation.
+// the serving handler never sees a partial image. width lets each call target
+// either THUMBNAIL_WIDTH or POSTER_WIDTH; Nice (ADR-009) applies identically.
 // The muxer is set explicitly (-f image2) because the destination is a temp
 // file whose ".tmp" extension ffmpeg cannot map to an output format on its own.
-func (m *Manager) scaleToWidth(ctx context.Context, inputArgs []string, stdin io.Reader, outPath string) error {
+func (m *Manager) scaleToWidth(ctx context.Context, inputArgs []string, stdin io.Reader, outPath string, width int) error {
 	tmp := outPath + ".tmp"
-	args := scaleArgs(inputArgs, m.cfg.Width, tmp)
+	args := scaleArgs(inputArgs, width, tmp)
 	bin, full := wrapNice(m.cfg.Nice, m.cfg.FfmpegPath, args)
 
 	cmd := exec.CommandContext(ctx, bin, full...)

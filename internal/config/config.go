@@ -60,6 +60,10 @@ type Config struct {
 	ThumbnailSeekPercent int    `yaml:"thumbnail_seek_percent"`
 	ThumbnailWidth       int    `yaml:"thumbnail_width"`
 	ThumbnailPath        string `yaml:"-"` // derived: DataPath/thumbnails
+	// PosterWidth caps the larger detail-page poster tier (F53, HOLODEX-253) —
+	// a sibling derivative of the thumbnail, written alongside it at extraction
+	// time. Default 1200 (3x ThumbnailWidth's 400 default).
+	PosterWidth int `yaml:"poster_width"`
 
 	// Person images (F25, ADR-038). Bytes live at DataPath/person-images/{personID}/
 	// {id}.jpg; the path is derived like ThumbnailPath. The bounds guard untrusted
@@ -173,6 +177,7 @@ func Defaults() Config {
 		ThumbnailNice:        true,
 		ThumbnailSeekPercent: 10,
 		ThumbnailWidth:       400,
+		PosterWidth:          1200,
 
 		PersonImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
@@ -321,6 +326,7 @@ func applyEnv(c *Config) {
 	c.ThumbnailNice = envBool("THUMBNAIL_NICE", c.ThumbnailNice)
 	c.ThumbnailSeekPercent = envInt("THUMBNAIL_SEEK_PERCENT", c.ThumbnailSeekPercent)
 	c.ThumbnailWidth = envInt("THUMBNAIL_WIDTH", c.ThumbnailWidth)
+	c.PosterWidth = envInt("POSTER_WIDTH", c.PosterWidth)
 
 	c.PersonImageMaxBytes = envInt64("PERSON_IMAGE_MAX_BYTES", c.PersonImageMaxBytes)
 	c.PersonImageMaxDimension = envInt("PERSON_IMAGE_MAX_DIMENSION", c.PersonImageMaxDimension)

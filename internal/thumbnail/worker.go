@@ -56,7 +56,7 @@ func (m *Manager) process(ctx context.Context, id int64) {
 	jobCtx, cancel := context.WithTimeout(ctx, jobTimeout)
 	defer cancel()
 
-	if err := m.gen(jobCtx, cand, m.thumbPath(id)); err != nil {
+	if err := m.gen(jobCtx, cand, m.thumbPath(id), m.posterPath(id)); err != nil {
 		if ctx.Err() != nil {
 			return // shutting down; leave state NULL for next run
 		}

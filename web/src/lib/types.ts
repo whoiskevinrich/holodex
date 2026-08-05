@@ -164,6 +164,7 @@ export interface Video {
 	recorded_at?: string | null;
 	indexed_at: string;
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
+	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
 	people?: Person[];
 	tags?: Tag[];

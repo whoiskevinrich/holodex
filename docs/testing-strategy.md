@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation) · 2026-08-05 (F52 owner-mode video editing: commentary field, poster upload, studio placement, file-metadata gating; F40 implementation begins)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation) · 2026-08-05 (F52 owner-mode video editing: commentary field, poster upload, studio placement, file-metadata gating; F40 implementation begins) · 2026-08-05 (F53 two-tier video poster resolution, HOLODEX-253, pre-implementation)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -134,7 +134,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Migrations** (ADR-016) | Integration | Up from empty; up/down round-trip; **data preserved** across a representative migration; abort on failure | behavior |
 | **API handlers** (ADR-006) | Integration | Each endpoint happy+error; 404 unknown id; pagination; OpenAPI contract conformance | ~85% |
 | **Range serving** (ADR-015) | Integration | Full 200; `Range:` → 206 + correct `Content-Range`; open-ended/suffix ranges; bad range → 416; serve-by-ID only (no path input) | ~90% |
-| **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't) | ~90% |
+| **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't); **two-tier poster resolution** (F53, HOLODEX-253, planned): `extractCoverArt`/`generateFrame` each produce `{id}.jpg` (ThumbnailWidth) and `{id}-poster.jpg` (PosterWidth) from a single extraction/seek — Tier 2 must not double-seek; `GET .../poster` falls back to thumbnail-tier bytes when the poster tier doesn't exist yet (lazy-backfill safety net, RD6) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
@@ -288,6 +288,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Category pill — plain + Manage-mode asymmetry** (HOLODEX-240 §2) | Component/Interaction + visual | Vitest + Playwright | Plain pill: accent border + `aria-hidden` tag-glyph icon + `tagCount()` badge (never a video count), visually distinguishable from a tag pill without relying on filter state; **Manage-mode asymmetry is the one place a reader could mistake it for a bug** — a category pill's body still **navigates** to `/categories/{id}` while `manage` is on (unlike a tag pill, which toggles selection), it is **never selectable**, and its ⋯ menu carries only **Rename**/**Delete** (no Merge/alias/parent); Delete opens `ConfirmDialog` naming the affected tag count, consistent with the trash "Delete permanently?" copy shape; **not yet driven-browser QA'd** |
 | **`/categories/{id}` detail page** (HOLODEX-240 §3, new route) | Component/Interaction + visual | Vitest + Playwright | Deliberately sparse — no `EntityVideos`, no ancestor breadcrumb, no video-count hero line (all confirmed non-goals); member-tag chips mirror the media page's Tags-section idiom (owner-only add/remove, same near-miss nudge card); non-owner sees read-only chips, no rename button; rename reuses the tag ⋯-menu's exact inline `<form>`; **not yet driven-browser QA'd**, and the shared `TagChipList` extraction the handoff flagged (§3, "worthwhile... not a blocking requirement") is still open — today it's bespoke copy on both pages |
 | **Browse-page "Categories" facet** (HOLODEX-240 §5) | Interaction | Vitest + Playwright | A fourth `FacetFilter`, zero component changes — `Option.video_count` is optional and already suppressed when falsy, so `categoryOptions` simply omits the field (categories have no aggregate count); selecting a category ORs in its member tag ids server-side, combining with other facets (Tags, Studios) the same way two Tags selections already do; **not yet driven-browser QA'd** |
+| **Detail-page poster binding swap** (F53, HOLODEX-253, planned) | Component/Interaction | Vitest + Playwright | `media/[id]/+page.svelte`'s `<video poster>` binds to `video.poster_url` instead of `video.thumbnail_url` (single-line change, no new component/state); mtime-based `?v=` cache-busting inherited from the existing thumbnail-reload mechanism with no new plumbing; `VideoCard.svelte`'s list binding is asserted unchanged (regression guard for this feature's own Goal #2) |
 | **`/tags` create pill + inline form** (HOLODEX-243, [design handoff](design/tag-category-create-affordance-handoff.md)) | Component/Interaction + visual | Vitest + Playwright | Dashed `+ New` pill renders **first** in the grid, owner-only, survives the type filter and an active search query (it's a control, never a filtered result) and — the regression the handoff calls out by name — stays visible on the **zero-tags-zero-categories empty state**, which requires hoisting it above the existing `{#if loading}…{:else if empty}…{:else}` branch (today's empty branch skips the whole grid `<div>`); expanding renders the Tag/Category toggle (**always resets to Tag**, never sticky) + name input + accent submit + ghost cancel + `text-warn` error slot, reusing the exact rename/alias form shape; submit **branches by type** — tag creation calls `resolveOrCreateTag` (silent resolve-or-create; an exact-name match is a no-op success, not a conflict) then runs the existing post-success near-miss check (`api.nearMiss('tag', …)`, same card as the media page's `+ Add tag` flow), while category creation calls `createCategory` and surfaces `submitCatRename`'s verbatim 409 collision copy with **no** near-miss step; `createBusy` guards a rapid double-submit; cancel collapses to the dashed resting state without a request; **implemented and manually driven-browser QA'd this session** across all 3 skins (dashed-pill contrast, popover positioning, collision error, near-miss "Merge them in"/"Keep both", empty-search survival, owner-gating, Escape-closes-and-restores-focus) — **no automated Vitest/Playwright coverage yet**, tracked in §11 |
 | **Unified nav search — `SearchResultsPanel` + `navSearch.svelte.ts`** (HOLODEX-249, [spec](specs/nav-search-live-filter.md), [handoff](design/nav-search-live-filter-handoff.md)) — **pre-implementation, target coverage** | Unit + Component/Interaction + a11y | Vitest + Playwright | `navSearch.svelte.ts`: NS2's scope-matching function is **pure and table-driven** — every (current-page-scope, selected-tab) pair maps to `in-place` or `overlay` with no DOM, so it gets a plain Vitest table test independent of any component; default-tab-on-load matches the page's declared scope. `SearchResultsPanel.svelte`: debounced query (fake timers, assert exactly one fetch per settled keystroke burst); **3-rows-then-"View all N"** grouping on the All tab vs. the flat 8-row cap on a single-scope tab (handoff Part B); empty-groups omitted, zero-match state, skeleton-then-real-rows with no layout shift; roving-tabindex over result rows mirrors `EnrichPicker.svelte`'s existing pattern (Arrow Up/Down, Enter activates, Escape closes **without** touching `searchTerm` or in-place filter state — NS5's explicit non-goal); tablist uses real `role="tablist"`/`role="tab"`/`aria-selected` (not the header's `role="group"` toggle-button idiom) with its own roving tabindex, Arrow-Left/Right cycling, automatic activation. **Regression guard (NS4)**: the Media (`/`) and Tags (`/tags`) pages each render **exactly one** text-search affordance in the DOM post-change — assert the old inline `#q` / `query` inputs are gone, not just that the nav box still works. **Per-page mechanics (NS3)**: Media's filter stays URL-synced server-side (`filtersToParams`/`paramsToFilters` round-trip unchanged); People/Studios/Tags filter client-side via the shared `filterByName` utility. **Detail-page video lists (NS6, promoted P1→P0 per the handoff) — implemented**: `pageScopeFor` maps `people/[id]`/`studios/[id]`/`tags/[id]` to the Videos scope (table-tested in `navSearch.test.ts`, incl. the negative case — `categories/[id]` has no video list and stays scopeless). The filtering itself lives once in the shared `EntityVideos.svelte` (not copy-pasted into the three `+page.svelte` callers, which keep passing their raw `videos`/`empty` unchanged) — it filters via `filterByTitle` (`format.ts`'s title-keyed twin of `filterByName`, unit-tested in `format.test.ts`) with **zero** network calls beyond the page's original fetch, and swaps the empty state to a query-aware `No videos match "…".` message. Verified live against `backend-amv` (person + tag detail pages, incl. tab-mismatch revert and clear-to-restore); no live studio fixture in that dataset, so the studio page is covered by the same `pageScopeFor` table test plus type-check, not a live click-through. **`/search` page reuse (handoff Part E)**: same `SearchResultsPanel` renders as the page body, unwrapped from `absolute`/`fixed` positioning, no "View all" cap, no dismiss-on-outside-click. **All 3 skins**: group-header `text-muted uppercase` treatment and skeleton bars verified against Broadcast's blue surface and Brutalist's near-black/lime combination; mobile `<640px` fixed full-sheet layout (no horizontal scroll, 5 tabs fit 375px) is the primary regression target per the spec's stated mobile pain point. **Status**: spec + design-handoff done (this row records target coverage before code exists — see §11 if implementation stalls) |
 
@@ -1653,6 +1654,49 @@ Given an uploaded file that is actually an SVG/polyglot/decompression bomb
 When POST .../images/{role} processes it
 Then personimage.Normalize rejects it (same guard every other image upload passes) and the
      request fails without writing to disk — no new decode path was introduced by this feature
+```
+
+**Two-tier video poster resolution — dual-derivative extraction, fallback serving (F53, HOLODEX-253) — adversarial**
+```
+Given a video whose embedded cover art decodes to width w
+When Tier 1 extraction (extractCoverArt) runs
+Then for w <= min(ThumbnailWidth, PosterWidth): {id}.jpg and {id}-poster.jpg are byte-identical
+ And for ThumbnailWidth < w <= PosterWidth: {id}-poster.jpg is the untouched source bytes,
+     {id}.jpg is scaled down to ThumbnailWidth
+ And for w > PosterWidth: both files are independently scaled from the same in-memory buffer
+ And exactly ONE exiftool -b invocation occurs regardless of which band w falls in (no second
+     extraction read to produce the second file)
+
+Given a video with no embedded cover art (Tier 2 / generateFrame path)
+When background frame-grab generation runs
+Then the video is seeked and decoded exactly ONCE (assert via a call-count/spy on the
+     seek/decode seam, not just that both files exist) — {id}-poster.jpg is written from that
+     single captured frame at PosterWidth, and {id}.jpg is derived from the SAME decoded frame
+     at ThumbnailWidth, never a second ffmpeg seek against the source video
+
+Given a video that has never been extracted since this feature shipped (pre-existing library
+     item, RD6 lazy backfill)
+When GET /api/v1/media/{id}/poster is requested
+Then it serves the existing {id}.jpg thumbnail bytes (200, not 404) — Video.PosterURL always
+     resolves to a valid image from the moment this ships, even before that video's next
+     natural extraction trigger fires
+When the video is later re-scanned, re-enriched, has its poster re-uploaded, or the owner
+     clicks Regenerate
+Then {id}-poster.jpg now exists and GET .../poster switches to serving it — no explicit
+     migration or bulk backfill job runs at any point
+
+Given the list view (VideoCard / GET /media list payload)
+When this feature ships
+Then VideoCard.svelte still binds to thumbnail_url unchanged, the list JSON payload gains no
+     new required field per item beyond poster_url appearing (additive, non-breaking), and list
+     page load time/bandwidth is unchanged from pre-F53 (the negative test this feature's Goal
+     #2 depends on)
+
+Given the media/{id} detail page
+When a video's PosterURL points to a poster-tier file wider than its old thumbnail-tier file
+Then the rendered <video poster> element visibly reads as sharp rather than upscaled-blurry —
+     manual QA, not automatable, but the underlying byte-size/dimension difference between
+     .../thumbnail and .../poster for the same id IS automatable and should be asserted
 ```
 
 ---

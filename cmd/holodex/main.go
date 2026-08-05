@@ -162,6 +162,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		Nice:         cfg.ThumbnailNice,
 		SeekPercent:  cfg.ThumbnailSeekPercent,
 		Width:        cfg.ThumbnailWidth,
+		PosterWidth:  cfg.PosterWidth,
 		Dir:          cfg.ThumbnailPath,
 		FfmpegPath:   "ffmpeg",
 		ExiftoolPath: "exiftool",

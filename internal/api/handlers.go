@@ -293,6 +293,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/stream", h.streamMedia)
 	r.Get("/media/{id}/thumbnail", h.serveThumbnail)
 	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
+	// Detail-page poster tier (F53, HOLODEX-253) — public read, mirrors
+	// /thumbnail's posture exactly; falls back to thumbnail bytes (servePoster).
+	r.Get("/media/{id}/poster", h.servePoster)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
 	// Studio images (F51, ADR-079): the on-disk normalized JPEG for a filled role, or
@@ -496,6 +499,7 @@ func setThumbnailURL(v *model.Video) {
 		ver = v.FileMtime.Unix()
 	}
 	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, ver)
+	v.PosterURL = fmt.Sprintf("/api/v1/media/%d/poster?v=%d", v.ID, ver)
 }
 
 // prepareThumbnails sets the serving URL on each video and enqueues never-attempted
@@ -676,29 +680,45 @@ func (h *Handlers) serveThumbnail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Hide a soft-deleted item's cover during the grace window (F24/ADR-037 §4) —
-	// the only way to reach it is a guessed id, but keep the bytes consistent with
-	// the 404 its detail/stream now return. One indexed PK lookup; negligible.
+	h.serveImageFile(w, r, id, "thumbnail", thumbnail.ThumbPath(h.thumbDir, id))
+}
+
+// serveImageFile serves the first candidate path that exists on disk, after
+// confirming the video is visible (not soft-deleted, F24/ADR-037 §4 — the only
+// way to reach a hidden one is a guessed id, but the bytes stay consistent
+// with the 404 its detail/stream now return). Shared by serveThumbnail (one
+// candidate) and servePoster (poster-tier then thumbnail-tier fallback,
+// P0-6/F53/HOLODEX-253) so both id-keyed public static-file reads agree on the
+// visibility check, the no-cache posture, and the not-ready contract the
+// frontend's retry loop relies on — they differ only in which path(s) they
+// try and the label in their error/log messages.
+func (h *Handlers) serveImageFile(w http.ResponseWriter, r *http.Request, id int64, label string, candidates ...string) {
 	if visible, err := h.repo.VideoVisible(r.Context(), id); err != nil {
-		h.fail(w, "thumbnail visibility", err)
+		h.fail(w, label+" visibility", err)
 		return
 	} else if !visible {
-		writeError(w, http.StatusNotFound, "thumbnail not ready")
+		writeError(w, http.StatusNotFound, label+" not ready")
 		return
 	}
-	f, err := os.Open(thumbnail.ThumbPath(h.thumbDir, id))
+	var f *os.File
+	var err error
+	for _, path := range candidates {
+		if f, err = os.Open(path); err == nil {
+			break
+		}
+	}
 	if err != nil {
-		writeError(w, http.StatusNotFound, "thumbnail not ready")
+		writeError(w, http.StatusNotFound, label+" not ready")
 		return
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil || info.IsDir() {
-		writeError(w, http.StatusNotFound, "thumbnail not ready")
+		writeError(w, http.StatusNotFound, label+" not ready")
 		return
 	}
 	// no-cache so the browser always revalidates. http.ServeContent sets Last-Modified
-	// and handles If-Modified-Since, so unchanged thumbnails return 304 (no bytes
+	// and handles If-Modified-Since, so unchanged images return 304 (no bytes
 	// transferred). max-age=86400 would pin a stale frame-grab for a day after a
 	// writeback or regenerate — the grid has no URL version parameter to bust with.
 	w.Header().Set("Cache-Control", "no-cache")

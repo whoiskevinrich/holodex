@@ -59,6 +59,11 @@ type Video struct {
 	ThumbnailState string `json:"-"`
 	// ThumbnailURL is the serving URL, set by the API layer when an image exists.
 	ThumbnailURL string `json:"thumbnail_url,omitempty"`
+	// PosterURL is the larger detail-page poster tier's serving URL (F53,
+	// HOLODEX-253), computed by the API layer alongside ThumbnailURL. It always
+	// resolves to a valid image once ThumbnailURL does — the route falls back to
+	// the thumbnail-tier bytes until a poster-tier derivative has been generated.
+	PosterURL string `json:"poster_url,omitempty"`
 	// PosterUploaded reports whether the current poster is an owner upload (F52) —
 	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
 	PosterUploaded bool `json:"poster_uploaded,omitempty"`
