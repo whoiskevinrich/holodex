@@ -38,13 +38,16 @@ func aliasServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int6
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Alice"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeople(t, r, id, "Alice")
 	pid, _, err := r.PersonIDByName(context.Background(), "Alice")
 	if err != nil {
 		t.Fatalf("person id: %v", err)
@@ -134,13 +137,16 @@ func TestGetPersonIncludesAliases(t *testing.T) {
 func TestAddAliasConflict409(t *testing.T) {
 	srv, r, jen := aliasServer(t, "") // open gate; jen = "Alice" seeded
 	// Seed a second, distinct person whose name we'll try to add as Alice's alias.
-	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/y.mkv", Title: "Y", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Bob"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed second person: %v", err)
 	}
+	linkPeople(t, r, id, "Bob")
 	bob, _, _ := r.PersonIDByName(context.Background(), "Bob")
 
 	code, body := postTok(t, srv.URL+"/api/v1/people/"+itoa(jen)+"/aliases", "", map[string]string{"alias": "Bob"})
@@ -155,13 +161,16 @@ func TestAddAliasConflict409(t *testing.T) {
 
 func TestMergeEndpoint(t *testing.T) {
 	srv, r, jen := aliasServer(t, "s3cret") // jen = "Alice"
-	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/y.mkv", Title: "Y", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Bob"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, id, "Bob")
 	bob, _, _ := r.PersonIDByName(context.Background(), "Bob")
 	mergeURL := srv.URL + "/api/v1/people/" + itoa(jen) + "/merge"
 
@@ -233,8 +242,12 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 		for _, p := range people {
 			v.People = append(v.People, model.Person{Name: p})
 		}
-		if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+		id, err := r.UpsertVideo(ctx, v, nil)
+		if err != nil {
 			t.Fatalf("seed %s: %v", path, err)
+		}
+		if len(people) > 0 {
+			linkPeople(t, r, id, people...)
 		}
 	}
 	seed("/m/solo.mkv", "Solo", "Bob")

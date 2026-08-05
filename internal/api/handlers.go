@@ -351,6 +351,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
 		h.mountStudioImages(r)
+		// Video poster — owner-gated upload/remove, a new tier on the existing
+		// thumbnail pipeline (F52, HOLODEX-252).
+		h.mountVideoPoster(r)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
@@ -439,6 +442,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	if h.mappings != nil {
 		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
 	}
+	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
@@ -449,7 +453,39 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // is rewritten (e.g. a metadata writeback that embeds new cover art), so the grid
 // and detail page fetch a never-before-seen URL instead of a stale browser-cached
 // copy. Paired with the endpoint's no-cache header for revalidation.
+// redactFileMetadataForVisitor blanks the technical file fields (codec, container,
+// bitrate, on-disk path) for a non-owner caller (F52, HOLODEX-249's owner-mode
+// editing bundle): "hide file metadata unless in owner mode" must hold at the API
+// response, not just the SPA render — a visitor reading the JSON directly (or the
+// list/detail response before the SPA gates its own display) must not see it
+// either. video_codec/audio_codec/bitrate_kbps/container all carry `omitempty`, so
+// zeroing them drops the key entirely rather than serializing a misleading zero.
+func redactFileMetadataForVisitor(v *model.Video, isOwner bool) {
+	if isOwner {
+		return
+	}
+	v.VideoCodec = ""
+	v.AudioCodec = ""
+	v.BitrateKbps = 0
+	v.Container = ""
+	v.FilePath = ""
+}
+
+// redactFileMetadataForVisitors applies redactFileMetadataForVisitor to every video
+// in a slice — every handler that serializes a []model.Video (not just
+// listMedia/getMedia) must call this so a non-owner can't reach file metadata
+// through /related, /people/{id}, /tags/{id}, /studios/{id}, or /search instead.
+func redactFileMetadataForVisitors(items []model.Video, isOwner bool) {
+	if isOwner {
+		return
+	}
+	for i := range items {
+		redactFileMetadataForVisitor(&items[i], false)
+	}
+}
+
 func setThumbnailURL(v *model.Video) {
+	v.PosterUploaded = v.ThumbnailState == model.ThumbnailUploaded
 	if !model.HasThumbnailImage(v.ThumbnailState) {
 		return
 	}
@@ -493,6 +529,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setThumbnailURL(v)
+	redactFileMetadataForVisitor(v, h.auth.authorized(r))
 	var fields []mapping.Resolved
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
@@ -586,9 +623,11 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Same cover-art treatment as the grid, per shelf.
+	isOwner := h.auth.authorized(r)
 	for _, shelf := range []*repo.RelatedShelf{related.Person, related.Tag} {
 		if shelf != nil {
 			h.prepareThumbnails(shelf.Items)
+			redactFileMetadataForVisitors(shelf.Items, isOwner)
 		}
 	}
 	writeJSON(w, http.StatusOK, related)
@@ -861,6 +900,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "person videos", err)
 		return
 	}
+	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"person": p, "items": items, "total": total,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
@@ -898,6 +938,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "tag videos", err)
 		return
 	}
+	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{"tag": t, "items": items, "total": total})
 }
 
@@ -911,6 +952,7 @@ func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {
 	if h.metrics != nil {
 		h.metrics.ObserveSearch(time.Since(start))
 	}
+	redactFileMetadataForVisitors(res.Videos, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, res)
 }
 

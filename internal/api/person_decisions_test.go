@@ -31,13 +31,15 @@ func personDecisionServer(t *testing.T, token string) (*httptest.Server, *repo.R
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, &model.Video{
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", FileSize: 1, Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Alice"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeople(t, r, vid, "Alice")
 	pid, _, err := r.PersonIDByName(ctx, "Alice")
 	if err != nil {
 		t.Fatalf("person id: %v", err)
@@ -338,13 +340,15 @@ func TestPersonRename_CollisionAndNoOp(t *testing.T) {
 	base := srv.URL + "/api/v1/people/" + itoa(pid)
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, &model.Video{
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/y.mkv", FileSize: 1, Title: "Y", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Bob"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed second person: %v", err)
 	}
+	linkPeople(t, r, vid, "Bob")
 	bob, _, _ := r.PersonIDByName(ctx, "Bob")
 
 	// Collision: 409 with the existing person (never an auto-merge), no mutation.
@@ -390,13 +394,15 @@ func TestPersonMerge_DropsDecisionsAndCuration(t *testing.T) {
 	srv, r, alice := personDecisionServer(t, "")
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, &model.Video{
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/y.mkv", FileSize: 1, Title: "Y", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Bob"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed second person: %v", err)
 	}
+	linkPeople(t, r, vid, "Bob")
 	bob, _, _ := r.PersonIDByName(ctx, "Bob")
 
 	// Rows on both sides: the canonical (Alice) keeps hers, Bob's are dropped.

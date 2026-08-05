@@ -12,7 +12,8 @@ import (
 func TestEnrichmentDismissals_RoundTrip(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
 	alice := personIDByName(t, r, "Alice")
 
 	if dismissed, err := r.EnrichmentDismissed(ctx, model.EnrichEntityPerson, alice, "tmdb"); err != nil || dismissed {
@@ -51,8 +52,10 @@ func TestEnrichmentDismissals_RoundTrip(t *testing.T) {
 func TestEnrichmentDismissals_CascadeOnPersonMerge(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	linkPeople(t, r, idB, "Bob")
 	alice := personIDByName(t, r, "Alice")
 	bob := personIDByName(t, r, "Bob")
 

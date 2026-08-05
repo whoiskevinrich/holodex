@@ -108,6 +108,7 @@ func TestExtractionReview_SuggestedEntityID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, videoID, "Alice Smith")
 	people, err := r.ListPeople(ctx, false)
 	if err != nil || len(people) != 1 {
 		t.Fatalf("seed person: %v %v", people, err)
@@ -168,6 +169,7 @@ func TestExtractionQueue_JoinsVideoAndSuggestedEntityName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, videoID, "Alice Smith")
 	people, err := r.ListPeople(ctx, false)
 	if err != nil || len(people) != 1 {
 		t.Fatalf("seed person: %v %v", people, err)
@@ -225,6 +227,7 @@ func TestExtractionQueue_PerPersonCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, videoID, "Alice Smith")
 	people, err := r.ListPeople(ctx, false)
 	if err != nil || len(people) != 1 {
 		t.Fatalf("seed person: %v %v", people, err)

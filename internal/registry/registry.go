@@ -39,7 +39,24 @@ type FieldDef struct {
 	// inputs and to name the transitive "calculated from …" provenance. Empty for a
 	// non-computed field.
 	DependsOn []string
+	// EntityKind marks a video field whose resolved value(s) name a linkable entity
+	// (F40, ADR-072): "" (not entity-typed), EntityKindPerson, or EntityKindStudio.
+	// RelinkVideoEntity, the extractor's person-key source list, and the link
+	// picker's target set all read this marker — no field name is hardcoded outside
+	// the registry.
+	EntityKind string
+	// Role is the video_people.role a resolved name from this field links as; only
+	// meaningful when EntityKind == EntityKindPerson. Empty means "no role" (the
+	// unset sentinel stored as '', never SQL NULL) — a person-typed field can be
+	// entity-linkable without every credit having a meaningful role.
+	Role string
 }
+
+// EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
+const (
+	EntityKindPerson = "person"
+	EntityKindStudio = "studio"
+)
 
 // KnownFields is the full canonical field registry. Order is documentation order;
 // lookup is by Canonical key via Lookup().
@@ -68,6 +85,12 @@ var KnownFields = []FieldDef{
 		Label:       "Tagline",
 		Display:     "",
 		Description: "Short marketing tagline.",
+	},
+	{
+		Canonical:   "commentary",
+		Label:       "Commentary",
+		Display:     "long_text",
+		Description: "Owner note or commentary on the video. Manual by default; a provider may optionally supply one -- not every video has commentary, and that is expected.",
 	},
 	{
 		Canonical:   "release_date",
@@ -206,12 +229,15 @@ var KnownFields = []FieldDef{
 		Label:       "Actors",
 		Display:     "",
 		Description: "Cast members. Multi-valued; each value is one performer's name. Written as a comma-delimited Artist tag.",
+		EntityKind:  EntityKindPerson,
+		Role:        "actor",
 	},
 	{
 		Canonical:   "studio",
 		Label:       "Studio",
 		Display:     "",
 		Description: "Production company, publisher, or label. Typically sourced from Publisher/Label/Studio file tags.",
+		EntityKind:  EntityKindStudio,
 	},
 	{
 		Canonical:   "collection",
@@ -224,7 +250,22 @@ var KnownFields = []FieldDef{
 		Label:       "Director",
 		Display:     "",
 		Description: "Director(s). Multi-valued.",
+		EntityKind:  EntityKindPerson,
+		Role:        "director",
 	},
+}
+
+// PersonTypedFields returns the registered fields whose resolved values name a
+// linkable person (F40, ADR-072 P0-5) — the derivation/extractor/link-picker
+// target set, read from the registry instead of hardcoding field names.
+func PersonTypedFields() []FieldDef {
+	var out []FieldDef
+	for _, f := range KnownFields {
+		if f.EntityKind == EntityKindPerson {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // Render modes (the FieldDef.Display vocabulary). "" is inline text; the rest are

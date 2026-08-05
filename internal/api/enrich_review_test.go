@@ -75,6 +75,7 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err != nil {
 		t.Fatalf("seed video: %v", err)
 	}
+	linkPeopleAs(t, r, vid, "director", "Hayao Miyazaki")
 	if err := r.ReconcileVideoStudios(ctx, vid, []string{"Studio Ghibli"}, nil); err != nil {
 		t.Fatalf("seed studio: %v", err)
 	}

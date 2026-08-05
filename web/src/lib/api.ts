@@ -247,6 +247,18 @@ export const api = {
 		return res.status;
 	},
 
+	// Video poster upload (F52, HOLODEX-252). The poster IS the existing thumbnail
+	// (ADR-009) — upload adds a new highest-precedence tier to that same pipeline,
+	// so the caller bumps its existing thumbnail cache-bust counter on success,
+	// exactly like regenerateThumbnail.
+	uploadVideoPoster: (id: number, file: File) => {
+		const form = new FormData();
+		form.append('image', file);
+		return uploadAuthed<Record<string, never>>(`/media/${id}/poster`, form);
+	},
+
+	deleteVideoPoster: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/media/${id}/poster`),
+
 	// Person images (F25, ADR-038). Reads are public; a filled role serves the real
 	// JPEG, an empty one a themed placeholder (the server reads the active skin from
 	// ?skin= and the person's gender). Always pass the active skin; pass version for

@@ -35,13 +35,15 @@ func personDerivedServer(t *testing.T, token string, fields map[string][]string)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, &model.Video{
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", FileSize: 1, Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Maya"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeople(t, r, vid, "Maya")
 	pid, _, err := r.PersonIDByName(ctx, "Maya")
 	if err != nil {
 		t.Fatalf("person id: %v", err)

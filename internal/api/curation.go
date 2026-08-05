@@ -70,8 +70,10 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "set curation", err)
 		return
 	}
-	// Curating the studio field moves its resolved value → re-derive links (F38).
-	h.relinkIfStudio(r.Context(), id, body.Field)
+	// Curating an entity-typed field (studio, actors, director) moves its resolved
+	// value → re-derive links (F38/F40). Also how the owner-view link picker
+	// attaches a person/studio to a video — a link IS a curation add (ADR-072 RD1).
+	h.relinkIfEntity(r.Context(), id, body.Field)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -94,6 +96,6 @@ func (h *Handlers) clearCuration(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "clear curation", err)
 		return
 	}
-	h.relinkIfStudio(r.Context(), id, body.Field)
+	h.relinkIfEntity(r.Context(), id, body.Field)
 	w.WriteHeader(http.StatusNoContent)
 }

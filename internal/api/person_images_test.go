@@ -47,14 +47,17 @@ func personImageServerCfg(t *testing.T, token string, maxBytes int64) (*httptest
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Alice"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
-	pid, _, err := r.PersonIDByName(context.Background(), "Alice")
+	linkPeople(t, r, vid, "Alice")
+	pid, _, err := r.PersonIDByName(ctx, "Alice")
 	if err != nil {
 		t.Fatalf("person id: %v", err)
 	}

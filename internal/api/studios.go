@@ -160,6 +160,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "studio videos", err)
 		return
 	}
+	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"studio": s, "items": items, "total": total,
 		"resolved": h.studioResolved(r, id, s),
@@ -184,14 +185,6 @@ func (h *Handlers) relinkStudios(ctx context.Context, videoID int64) {
 	}
 }
 
-// relinkIfStudio relinks only when the mutated field is `studio` — so the 99% case
-// (a title/actors/… decision or curation) doesn't pay for a resolve (ADR-053 §4.3).
-func (h *Handlers) relinkIfStudio(ctx context.Context, videoID int64, canonical string) {
-	if strings.EqualFold(strings.TrimSpace(canonical), "studio") {
-		h.relinkStudios(ctx, videoID)
-	}
-}
-
 // RelinkVideoStudios re-derives a video's studio links from its RESOLVED `studio`
 // field and reconciles video_studios (ADR-053 RD1). It is the single resolution
 // entry point behind every relink trigger (scan/enrich/decision/curation) — the repo
@@ -199,6 +192,13 @@ func (h *Handlers) relinkIfStudio(ctx context.Context, videoID int64, canonical 
 // `studio` mapping) resolves to no names → all links removed + prune-on-empty. Safe
 // to call redundantly; idempotent.
 func (h *Handlers) RelinkVideoStudios(ctx context.Context, videoID int64) error {
+	return h.relinkVideoStudios(ctx, videoID, nil)
+}
+
+// relinkVideoStudios is RelinkVideoStudios' implementation, taking an optional
+// pre-fetched relinkContext (nil fetches it here) so RelinkVideoEntity can share
+// one fetch across both entity kinds — see loadRelinkContext in person_links.go.
+func (h *Handlers) relinkVideoStudios(ctx context.Context, videoID int64, rc *relinkContext) error {
 	if h.mappings == nil {
 		return nil
 	}
@@ -206,34 +206,25 @@ func (h *Handlers) RelinkVideoStudios(ctx context.Context, videoID int64) error 
 	if !ok {
 		return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
 	}
-	v, extra, err := h.repo.GetVideo(ctx, videoID)
-	if err != nil {
-		if errors.Is(err, repo.ErrNotFound) {
-			return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
+	if rc == nil {
+		var err error
+		rc, err = h.loadRelinkContext(ctx, videoID)
+		if err != nil {
+			return err
 		}
-		return err
 	}
-	enrRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
-	if err != nil {
-		return err
+	if rc == nil {
+		return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
 	}
-	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, videoID)
-	if err != nil {
-		return err
-	}
-	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
-	if err != nil {
-		return err
-	}
-	resolved := resolver.Resolve(v, extra, enrichmentFromRows(enrRows), curationFromRows(curRows),
-		[]mapping.Field{studioField}, h.resolveOptions(decisionsFromRows(decRows)))
+	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
+		[]mapping.Field{studioField}, h.resolveOptions(decisionsFromRows(rc.decRows)))
 	var names []string
 	for _, rf := range resolved {
 		if strings.EqualFold(rf.Canonical, "studio") {
 			names = append(names, rf.Values...)
 		}
 	}
-	return h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(enrRows))
+	return h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(rc.enrRows))
 }
 
 // studioExternalIDsFromRows builds a resolved-name → provider external-id side-map

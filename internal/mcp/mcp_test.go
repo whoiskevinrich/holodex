@@ -44,8 +44,21 @@ func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, ta
 	for _, tg := range tags {
 		v.Tags = append(v.Tags, model.Tag{Name: tg})
 	}
-	if _, err := r.UpsertVideo(context.Background(), v, nil); err != nil {
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, v, nil)
+	if err != nil {
 		t.Fatalf("seed %s: %v", path, err)
+	}
+	// video_people is no longer written by UpsertVideo (F40, ADR-072) — link it via
+	// the resolved-derivation path.
+	if len(people) > 0 {
+		links := make([]repo.PersonRoleName, len(people))
+		for i, p := range people {
+			links[i] = repo.PersonRoleName{Name: p, Role: "actor"}
+		}
+		if err := r.ReconcileVideoPeople(ctx, id, links); err != nil {
+			t.Fatalf("seed %s: link people: %v", path, err)
+		}
 	}
 }
 

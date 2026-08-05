@@ -347,15 +347,21 @@ func TestMergeEntitiesValidation(t *testing.T) {
 func TestMergeEntitiesWithAffectedVideos_CapturesLinksAtomically(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Bob"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Bob"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed video a: %v", err)
 	}
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil); err != nil {
+	linkPeople(t, r, idA, "Bob")
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed video b: %v", err)
 	}
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", []string{"Alice"}, nil), nil); err != nil {
+	linkPeople(t, r, idB, "Bob")
+	idC, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", []string{"Alice"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed video c (unrelated): %v", err)
 	}
+	linkPeople(t, r, idC, "Alice")
 	bob := personIDByName(t, r, "Bob")
 	alice := personIDByName(t, r, "Alice")
 

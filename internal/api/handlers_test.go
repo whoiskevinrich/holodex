@@ -48,7 +48,8 @@ func (f *fakeRescanner) TriggerRescan() bool { f.calls++; return f.started }
 
 func seedVideo(t *testing.T, r *repo.Repo, path, title string) int64 {
 	t.Helper()
-	id, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: path, FileSize: 100, Title: title, Duration: 60,
 		Width: 1920, Height: 1080, FileMtime: time.Now().UTC().Truncate(time.Second),
 		People: []model.Person{{Name: "Alice"}}, Tags: []model.Tag{{Name: "nature"}},
@@ -56,7 +57,27 @@ func seedVideo(t *testing.T, r *repo.Repo, path, title string) int64 {
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, id, "Alice")
 	return id
+}
+
+// linkPeople seeds video_people links via the resolved-derivation path (F40,
+// ADR-072 — UpsertVideo no longer writes video_people directly), each name in the
+// "actor" role. Use linkPeopleAs for a different role (e.g. "director").
+func linkPeople(t *testing.T, r *repo.Repo, videoID int64, names ...string) {
+	t.Helper()
+	linkPeopleAs(t, r, videoID, "actor", names...)
+}
+
+func linkPeopleAs(t *testing.T, r *repo.Repo, videoID int64, role string, names ...string) {
+	t.Helper()
+	links := make([]repo.PersonRoleName, len(names))
+	for i, n := range names {
+		links[i] = repo.PersonRoleName{Name: n, Role: role}
+	}
+	if err := r.ReconcileVideoPeople(context.Background(), videoID, links); err != nil {
+		t.Fatalf("link people: %v", err)
+	}
 }
 
 func getJSON(t *testing.T, url string) (int, map[string]any) {

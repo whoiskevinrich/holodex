@@ -23,12 +23,15 @@ func TestSoftDeleteHidesFromEverySurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, id, "Alice")
 	// A second live item so the people/tags/facet surfaces still have content.
-	if _, err := r.UpsertVideo(ctx,
+	liveID, err := r.UpsertVideo(ctx,
 		sampleVideo("/m/live.mkv", "Surviving", []string{"Alice"}, []string{"documentary"}),
-		[]model.ExtraMetadata{{SourceKey: "Studio", Value: "Acme"}}); err != nil {
+		[]model.ExtraMetadata{{SourceKey: "Studio", Value: "Acme"}})
+	if err != nil {
 		t.Fatalf("upsert live: %v", err)
 	}
+	linkPeople(t, r, liveID, "Alice")
 
 	if err := r.SoftDelete(ctx, id); err != nil {
 		t.Fatalf("soft delete: %v", err)
