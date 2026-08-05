@@ -6,7 +6,7 @@
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
-	import { navSearch } from '$lib/navSearch.svelte';
+	import { navSearch, pageScopeFor } from '$lib/navSearch.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 	import ActivityIndicator from '$lib/components/activity/ActivityIndicator.svelte';
 	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
@@ -23,6 +23,25 @@
 	const hasQuery = $derived(navSearch.query.trim() !== '');
 	const showHistory = $derived(boxOpen && !hasQuery && searchHistory.items.length > 0);
 	const showPanel = $derived(boxOpen && hasQuery);
+
+	// NS2: the current page's own scope (null on pages with no single-entity list,
+	// e.g. /search or a detail page). In-place is active when the box's selected tab
+	// matches it — the page's own grid filters live and the dropdown shows only the
+	// tab row (so the owner can still tap another tab to preview it, per the design
+	// handoff's Part A) instead of the full results body.
+	const pageScope = $derived(pageScopeFor(page.url.pathname));
+	const inPlaceActive = $derived(pageScope !== null && navSearch.activeTab === pageScope);
+
+	$effect(() => {
+		navSearch.setInPlace(inPlaceActive);
+	});
+
+	// Landing on a page with its own scope pre-selects the matching tab (NS2's
+	// "default tab on load"). Pages without a scope leave the tab exactly as the
+	// owner last set it.
+	$effect(() => {
+		if (pageScope) navSearch.activeTab = pageScope;
+	});
 
 	// Apply the saved skin + load search history on mount.
 	$effect(() => {
@@ -89,6 +108,9 @@
 
 	function clearSearch() {
 		navSearch.clear();
+		// NS2: return to the current page's own scope if it has one (so clearing on
+		// e.g. /people doesn't strand the box on a mismatched tab), else 'all'.
+		navSearch.activeTab = pageScope ?? 'all';
 		searchInput?.focus();
 	}
 
@@ -159,6 +181,7 @@
 	>
 		<div class="relative">
 			<input
+				id="global-search-input"
 				bind:this={searchInput}
 				value={navSearch.query}
 				oninput={onSearchInput}
@@ -245,6 +268,7 @@
 				query={navSearch.query}
 				bind:activeTab={navSearch.activeTab}
 				variant="dropdown"
+				showResults={!inPlaceActive}
 				onnavigate={closeBox}
 			/>
 		{/if}

@@ -2,7 +2,8 @@
 	import { tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { toMessage, monogram } from '$lib/format';
+	import { navSearch } from '$lib/navSearch.svelte';
+	import { toMessage, monogram, filterByName } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Studio } from '$lib/types';
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
@@ -24,8 +25,16 @@
 		writeSort('studios', sort);
 	});
 
-	// "Random" shuffles the name-ordered list client-side with the session seed (SP2).
-	const displayed = $derived(sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
+	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
+	// tab matches this page's own scope (Studios) — otherwise it's previewing another
+	// type via the overlay panel and this grid stays unfiltered.
+	const q = $derived(navSearch.inPlace ? navSearch.query : '');
+
+	// "Random" shuffles the name-ordered list client-side with the session seed (SP2) —
+	// a separate $derived from `displayed` so a keystroke's filter pass doesn't also
+	// re-shuffle. NS3: filterByName over the already-fetched list, no new fetch.
+	const sorted = $derived(sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
+	const displayed = $derived(filterByName(sorted, q));
 
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const letterAnchors = $derived(computeLetterAnchors(studios.map((s) => s.name)));
@@ -86,8 +95,10 @@
 		<p class="py-16 text-center text-sm text-warn">Couldn’t load studios: {loadError}</p>
 	{:else if studios.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No studios indexed yet.</p>
+	{:else if displayed.length === 0}
+		<p class="py-16 text-center text-sm text-muted">No studios match “{q.trim()}”.</p>
 	{:else}
-		{#if sort === 'name'}
+		{#if sort === 'name' && !q.trim()}
 			<nav
 				aria-label="Jump to letter"
 				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"
@@ -110,7 +121,7 @@
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 			{#each displayed as s, i (s.id)}
 				<li
-					id={sort === 'name' && letterAnchors[firstLetter(s.name)] === i
+					id={sort === 'name' && !q.trim() && letterAnchors[firstLetter(s.name)] === i
 						? `sl-${firstLetter(s.name)}`
 						: undefined}
 					class="scroll-mt-16"

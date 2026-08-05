@@ -18,6 +18,7 @@
 		query,
 		activeTab = $bindable('all'),
 		variant = 'dropdown',
+		showResults = true,
 		onnavigate
 	}: {
 		results: SearchResponse | null;
@@ -26,6 +27,10 @@
 		query: string;
 		activeTab?: SearchTab;
 		variant?: 'dropdown' | 'page';
+		/** NS2: false while the current page's own grid is filtering in place — the tab
+		 *  row still renders (so the owner can tap another tab to preview it) but the
+		 *  results body is suppressed, since the page grid below is already showing them. */
+		showResults?: boolean;
 		/** Called when a result row or "View all" link is activated — dropdown callers
 		 *  use this to close the panel before the navigation completes. */
 		onnavigate?: () => void;
@@ -184,7 +189,10 @@
 	);
 </script>
 
-<div bind:this={panelRootEl} class="search-panel {variant === 'dropdown' ? 'search-panel-dropdown' : ''}">
+<div
+	bind:this={panelRootEl}
+	class="search-panel {variant === 'dropdown' ? (showResults ? 'search-panel-dropdown' : 'search-panel-tabs') : ''}"
+>
 	<div
 		role="tablist"
 		aria-label="Search scope"
@@ -212,6 +220,7 @@
 		{/each}
 	</div>
 
+	{#if showResults}
 	<div id={`sr-tabpanel-${activeTab}`} role="tabpanel" aria-labelledby={`sr-tab-${activeTab}`}>
 		{#if loading}
 			{#each groups.length ? groups : [{ key: 'skeleton', label: '', rows: [], total: 0, hasMore: false }] as g, gi (gi)}
@@ -280,27 +289,33 @@
 			{/each}
 		{/if}
 	</div>
+	{/if}
 </div>
 
-<p class="sr-only" role="status" aria-live="polite">{announcement}</p>
+{#if showResults}
+	<p class="sr-only" role="status" aria-live="polite">{announcement}</p>
+{/if}
 
 <style>
 	/* ≥640px: absolute dropdown matching the box's width (today's behavior). <640px:
 	   a fixed full-width sheet so the panel never clips or needs horizontal scroll
 	   on a phone viewport (NS1's mobile requirement). Page variant is always static. */
-	.search-panel-dropdown {
+	.search-panel-dropdown,
+	.search-panel-tabs {
 		position: absolute;
 		left: 0;
 		right: 0;
 		top: 100%;
 		z-index: 50;
 		margin-top: 0.25rem;
-		max-height: 70vh;
-		overflow-y: auto;
 		border-radius: var(--radius);
 		border: 1px solid var(--rule);
 		background: var(--surface);
 		box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.2);
+	}
+	.search-panel-dropdown {
+		max-height: 70vh;
+		overflow-y: auto;
 	}
 	@media (max-width: 639px) {
 		.search-panel-dropdown {
@@ -316,4 +331,8 @@
 			border-right: none;
 		}
 	}
+	/* .search-panel-tabs (NS2 in-place mode) deliberately keeps the compact absolute
+	   positioning at every width, never the fixed full-height sheet above — with no
+	   results body to fill it, that sheet would sit as an empty overlay hiding the
+	   very page grid it's supposed to let show through. */
 </style>
