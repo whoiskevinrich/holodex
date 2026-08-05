@@ -270,10 +270,12 @@ No hard deadline. Per the change-routing rules:
 2. **`/design-handoff`** — **not needed.** The only frontend change is which existing URL
    field a single existing `<video poster>` attribute binds to — no new component, layout,
    state, breakpoint, or interaction to hand off.
-3. **`/testing-strategy`** — ☐ not yet run. Needs to cover: Tier 1 two-derivative generation
-   across the three width bands (Behavior detail above), Tier 2's single-seek-two-outputs
-   requirement, the poster-serve-route fallback behavior (P0-6), mtime cache-busting, and the
-   frontend binding swap.
+3. **`/testing-strategy`** — ✅ **done (2026-08-05).** Added to
+   [docs/testing-strategy.md](../testing-strategy.md): extended the existing Thumbnail
+   pipeline row (§4) and added a Frontend row (§5) for the binding swap, plus a full
+   adversarial Given/When/Then block (§10) covering Tier 1's two-derivative generation across
+   the three width bands, Tier 2's single-seek-two-outputs requirement, the poster-route
+   fallback/lazy-backfill behavior (P0-6), and the list-view-unaffected regression guard.
 4. **`/security-review`** — ☐ not yet run. New public, unauthenticated read route
    (`GET /media/{id}/poster`) mirrors the existing `/thumbnail` route's posture exactly (id-
    keyed static file serve, no new mutation, no owner-gating change) — expected low risk,
@@ -281,7 +283,7 @@ No hard deadline. Per the change-routing rules:
 
 ## Gate status
 
-- [ ] `/testing-strategy`
+- [x] `/testing-strategy`
 - [ ] `/security-review`
 
 Slices: **S1** backend (config, `PosterPath`, Tier 1 + Tier 2 dual-output, `PosterURL` field,
