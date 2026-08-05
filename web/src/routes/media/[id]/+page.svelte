@@ -5,7 +5,16 @@
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
-	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage, videoCount } from '$lib/format';
+	import {
+		formatBitrate,
+		formatBytes,
+		formatDuration,
+		formatYear,
+		providerFromWinningSource,
+		resolutionBucket,
+		toMessage,
+		videoCount
+	} from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
@@ -101,9 +110,26 @@
 	const canonicalResolved = $derived(
 		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary')
 	);
+	// Visitor view only: a field whose winner is the file/tag baseline just restates
+	// what's already visible elsewhere on the page (title in the header, genres — a
+	// tag-materialized field, ADR-013 — in the Tags section) — hide it there and keep
+	// the Metadata section for genuine enrichment/manual content. providerFromWinningSource
+	// already excludes file/record/manual/computed; "tag" is the video's own Tag rows,
+	// excluded here rather than there since it still needs a provenance badge elsewhere.
+	// Owner view keeps everything (it's what they curate).
+	const visibleResolved = $derived(
+		isOwner
+			? canonicalResolved
+			: canonicalResolved.filter(
+					(f) => (f.winning_source ?? '').split(':')[0] !== 'tag' && providerFromWinningSource(f.winning_source)
+				)
+	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
 	const commentaryField = $derived(resolved.find((f) => f.canonical === 'commentary'));
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
+	// Gates the whole Metadata section for visitors: nothing to show there once
+	// title/genres-style baseline duplicates are filtered out of visibleResolved.
+	const hasVisibleMetadata = $derived(isOwner || visibleResolved.length > 0 || extraFields.length > 0);
 	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider — entity_enrichment keyed by
 	// provider). Was collapsed to the first capable provider, so a second matched
@@ -587,12 +613,21 @@
 				<div class="flex flex-wrap items-center gap-2 text-sm">
 					{#if isOwner && studioField}
 						<SourceSelect field={studioField} decide={(s, mv) => decideField('studio', s, mv)} />
+						{#each studios as s (s.id)}
+							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
+						{/each}
+					{:else if studios.length}
+						<!-- Visitor view: the resolved studio value always matches its linked
+						     entity (RD1), so show the link alone instead of the text + arrow-link
+						     duplicate (owner view keeps both — the arrow-link there is a shortcut
+						     to the studio page distinct from the editable SourceSelect value). -->
+						{#each studios as s, i (s.id)}
+							{#if i > 0}<span class="text-muted">,</span>{/if}
+							<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
+						{/each}
 					{:else if studioField?.values?.length}
 						<span class="text-ink">{studioField.values[0]}</span>
 					{/if}
-					{#each studios as s (s.id)}
-						<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
-					{/each}
 				</div>
 			{/if}
 			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
@@ -733,7 +768,7 @@
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 		     enrichment controls and writeback inline in the header. Falls back to
 		     file-only fields when no resolver output is present. -->
-		{#if resolved.length || fields.length || isOwner}
+		{#if hasVisibleMetadata}
 			<section class="space-y-1.5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
@@ -797,9 +832,9 @@
 						{refreshStatus.text}
 					</p>
 				{/if}
-				{#if resolved.length}
+				{#if visibleResolved.length || extraFields.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each canonicalResolved as f (f.canonical)}
+					{#each visibleResolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 						{#if f.display === 'image_url'}
 							<div class="sm:col-span-2">
