@@ -259,15 +259,31 @@ following this repo's existing convention for selectable popup results.
       `aria-label` on the clear button and each listbox); no formal screen-reader/axe pass
       run.
 
+#### NS6 — Detail-page embedded video lists (person/studio/tag)
+
+In-place filtering of the video list shown on `people/[id]`, `studios/[id]`, `tags/[id]`
+pages, scoped to Videos like Media. *Promoted from P1 to P0* — resolved via the Open
+Questions/technical-check below: these lists are unpaged (same shape as
+People/Studios/Tags), so this is the same cheap client-side add as NS3, not a new
+server-side query-param treatment. (`categories/[id]` was named in the original P1 bullet
+but has no embedded video list at all — categories don't attach to videos directly, per
+that page's own scope decision — so it has nothing for NS6 to filter and stays out of
+scope here.)
+
+**Acceptance criteria — NS6** — Implemented (HOLODEX-249), verified live against
+`backend-amv`.
+- [x] Given I land on `people/[id]`, `studios/[id]`, or `tags/[id]`, then the "Videos" tab
+      is pre-selected and typing filters that entity's own video list in place, with no
+      network request beyond the page's original fetch (`pageScopeFor` maps each `[id]`
+      route to `videos`; the shared `filterByTitle` utility, `format.ts`'s title-keyed twin
+      of `filterByName`, does the filtering).
+- [x] Given I tap a non-matching tab while on a detail page, then the video list reverts to
+      unfiltered and the overlay panel opens instead — same NS2 behavior as the list pages.
+- [x] Given my query matches nothing, then the grid's empty state reads `No videos match
+      "<query>".` rather than the page's default "no videos at all" copy.
+
 ### Nice-to-Have (P1)
 
-- **NS6 — Detail-page embedded video lists (person/studio/category).** In-place filtering
-  of the video list shown on `people/[id]`, `studios/[id]`, `categories/[id]` pages,
-  scoped to Videos like Media. *(Deferred to P1 pending a quick technical check — see Open
-  Questions — because it's unknown whether these embedded lists are paginated like Media
-  or unpaged like People/Studios/Tags; if unpaged, this is a cheap client-side add and
-  should ship alongside P0; if paginated, it needs the same server-side query-param
-  treatment Media already has.)*
 - **Shared `navSearch.svelte.ts` module** cleanly separating query state, debounce, and
   scope-matching logic from the panel's rendering, so future pages can opt in without
   duplicating NS2's routing logic. *(Recommended even in v1 if it falls out naturally —
@@ -334,6 +350,6 @@ No hard deadline. Suggested order:
    the most infrastructure to hook into). **Done** — landed together (HOLODEX-249).
 4. **`/testing-strategy`** pass covering the tab-mismatch/in-place routing logic (NS2) and
    all three skins/mobile (per this repo's frontend-theming QA rule).
-5. **NS6 (P1)** — once the engineering-tagged open question is resolved, fold in
-   detail-page in-place filtering if it turns out to be cheap; otherwise treat as a
-   fast-follow.
+5. **NS6** — promoted P1→P0 once the engineering-tagged open question resolved it as cheap
+   (unpaged lists, no backend work). **Done** — landed on `people/[id]`, `studios/[id]`,
+   `tags/[id]` (HOLODEX-249).
