@@ -13,6 +13,9 @@ sink its own first search.
 **Issue**: [HOLODEX-254](https://whoiskevinrich.atlassian.net/browse/HOLODEX-254)
 **ADR**: [ADR-080](../architecture/ADR-080-configurable-provider-search-patterns.md) (the
 mechanism — three-tier precedence, token grammar, sanitizer, wire-contract-unchanged posture)
+**Design handoff**: [configurable-provider-search-patterns-handoff.md](../design/configurable-provider-search-patterns-handoff.md)
+(confirms zero `EnrichPicker.svelte` diff; pins the exact seeded-string content per scenario, incl.
+the empty-sanitization fallback; specs the optional P1 transparency caption)
 
 **Depends on** (all shipped):
 - the provider sidecar contract, `GET /describe` / `POST /resolve` ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
@@ -146,7 +149,9 @@ substituted, and (b) the raw-title floor tier (used when no pattern renders at a
 (keeping their contents); strip resolution/quality tokens matching `\b\d{3,4}p\b` and `\b[48]k\b`
 (case-insensitive, word-bounded); collapse repeated whitespace to one space and trim. This tier
 applies **regardless of configuration** — there is no opt-out, since it has no plausible worse case
-than sending the literal cluttered string.
+than sending the literal cluttered string. If stripping leaves nothing (a degenerate title that is
+*only* bracket/resolution noise, e.g. `[720p]`), the sanitizer returns the raw, unsanitized input
+instead of an empty string — the search box must never be seeded blank.
 
 - **Given** a video whose resolved title is `[MyStudio] My Title (Some Actor, Other Actor) 720p`,
   **when** no pattern is configured for the provider (raw-title floor applies), **then** the rendered
@@ -218,6 +223,8 @@ the owner can still freely retype the box; this changes the seeded default only.
    both the floor-tier output and the `{title?}` token's substituted value.
 8. A title containing digits that aren't a resolution token (`Agent 007`, `Suite 1080`) is left
    unchanged by the sanitizer.
+8a. A title that sanitizes to an empty string (e.g. `[720p]` alone) falls back to the raw,
+    unsanitized title — the search box is never seeded blank.
 9. `EnrichPicker.svelte`'s diff for this feature is zero — the component's own file is unchanged;
    only what its `entityName` prop receives changes.
 10. `POST /resolve`'s request body shape is unchanged (`{entity_type, hint: {query, external_ids}}`) —
