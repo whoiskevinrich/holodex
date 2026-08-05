@@ -103,6 +103,12 @@ func (a *Auth) authorized(r *http.Request) bool {
 	return false
 }
 
+// Authorized is the exported form of authorized, for callers outside package api.
+// The MCP server (internal/mcp) applies the same owner gate to redact file-metadata
+// fields (HOLODEX-114 follow-up: MCP's HTTP transport shares the REST API's bind
+// address and has no auth of its own otherwise).
+func (a *Auth) Authorized(r *http.Request) bool { return a.authorized(r) }
+
 // matchesToken reports whether got equals the configured token in constant time.
 // Used by the exchange endpoint (the only place that accepts the raw token to
 // mint a cookie).

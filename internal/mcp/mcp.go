@@ -19,6 +19,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
+	"holodex/internal/api"
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -32,28 +33,62 @@ type Server struct {
 	repo     *repo.Repo
 	log      *slog.Logger
 	mappings *mapping.Store // configurable mapped fields (F20.6); nil disables them
+	auth     *api.Auth      // owner gate for file-metadata redaction (HOLODEX-114 follow-up)
 	mcp      *mcpserver.MCPServer
 }
 
 // New builds the MCP server and registers the four Phase 2 tools. mappings may be
-// nil (no configurable filterable fields on search_videos).
-func New(r *repo.Repo, log *slog.Logger, mappings *mapping.Store) *Server {
-	s := &Server{repo: r, log: log, mappings: mappings}
+// nil (no configurable filterable fields on search_videos). auth is the same owner
+// gate the REST API uses; a nil/empty-token Auth leaves the gate open, matching the
+// zero-config single-user default.
+func New(r *repo.Repo, log *slog.Logger, mappings *mapping.Store, auth *api.Auth) *Server {
+	s := &Server{repo: r, log: log, mappings: mappings, auth: auth}
 	m := mcpserver.NewMCPServer("holodex", serverVersion)
 	s.register(m)
 	s.mcp = m
 	return s
 }
 
+// ownerContextKey carries the caller's owner status (from the REST API's auth gate)
+// through an MCP request's context, so tool handlers can decide whether to redact
+// file metadata (get_video's file_path/codec/bitrate/container).
+type ownerContextKey struct{}
+
+func withOwner(ctx context.Context, owner bool) context.Context {
+	return context.WithValue(ctx, ownerContextKey{}, owner)
+}
+
+func isOwner(ctx context.Context) bool {
+	owner, _ := ctx.Value(ownerContextKey{}).(bool)
+	return owner
+}
+
 // ServeStdio runs the MCP server over stdin/stdout, blocking until stdin closes.
-// This is the `docker exec -i holodex holodex -mcp-transport stdio` entrypoint.
-func (s *Server) ServeStdio() error { return mcpserver.ServeStdio(s.mcp) }
+// This is the `docker exec -i holodex holodex -mcp-transport stdio` entrypoint —
+// reaching it already requires host/container access, so it's treated as owner.
+func (s *Server) ServeStdio() error {
+	return mcpserver.ServeStdio(s.mcp, mcpserver.WithStdioContextFunc(func(ctx context.Context) context.Context {
+		return withOwner(ctx, true)
+	}))
+}
 
 // StartHTTP serves Streamable HTTP at /mcp and the legacy SSE transport at
 // /mcp/sse (+ /mcp/message) on addr, shutting down when ctx is cancelled.
 func (s *Server) StartHTTP(ctx context.Context, addr string) error {
-	streamable := mcpserver.NewStreamableHTTPServer(s.mcp, mcpserver.WithEndpointPath("/mcp"))
-	sse := mcpserver.NewSSEServer(s.mcp, mcpserver.WithStaticBasePath("/mcp"))
+	// Same owner gate as the REST API (X-Admin-Token header or session cookie):
+	// this HTTP transport shares the REST API's bind address (main.go) and, unlike
+	// it, has no auth of its own otherwise.
+	ownerFromRequest := func(c context.Context, r *http.Request) context.Context {
+		return withOwner(c, s.auth.Authorized(r))
+	}
+	streamable := mcpserver.NewStreamableHTTPServer(s.mcp,
+		mcpserver.WithEndpointPath("/mcp"),
+		mcpserver.WithHTTPContextFunc(ownerFromRequest),
+	)
+	sse := mcpserver.NewSSEServer(s.mcp,
+		mcpserver.WithStaticBasePath("/mcp"),
+		mcpserver.WithSSEContextFunc(ownerFromRequest),
+	)
 
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", streamable)
@@ -208,7 +243,11 @@ func (s *Server) getVideo(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if err != nil {
 		return nil, err
 	}
-	return jsonResult(toVideoDetail(v, extra))
+	d := toVideoDetail(v, extra)
+	if !isOwner(ctx) {
+		redactFileMetadataForVisitor(&d)
+	}
+	return jsonResult(d)
 }
 
 func (s *Server) listPeople(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -326,6 +365,18 @@ func toVideoDetail(v *model.Video, extra []model.ExtraMetadata) videoDetail {
 		d.RecordedAt = &rec
 	}
 	return d
+}
+
+// redactFileMetadataForVisitor blanks the technical file fields on a videoDetail
+// for a non-owner MCP caller — mirrors internal/api/handlers.go's
+// redactFileMetadataForVisitor for the REST API (F52, HOLODEX-114): "hide file
+// metadata unless in owner mode" must hold for MCP clients too, not just the SPA.
+func redactFileMetadataForVisitor(d *videoDetail) {
+	d.FilePath = ""
+	d.VideoCodec = ""
+	d.AudioCodec = ""
+	d.BitrateKbps = 0
+	d.Container = ""
 }
 
 // thumbnailURL returns the REST serving path when an image exists, else nil. The

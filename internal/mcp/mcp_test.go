@@ -12,6 +12,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"holodex/internal/api"
 	"holodex/internal/db"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
@@ -27,7 +28,7 @@ func newTestServer(t *testing.T) (*Server, *repo.Repo) {
 	t.Cleanup(func() { database.Close() })
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(r, log, nil), r
+	return New(r, log, nil, api.NewAuth("")), r
 }
 
 func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, tags []string) {
@@ -62,11 +63,15 @@ func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, ta
 	}
 }
 
+// call invokes a tool handler directly (bypassing the HTTP/stdio transports that
+// normally populate the owner context), as an owner — matching the trusted-caller
+// assumption of every existing test. TestGetVideoRedactsForVisitor exercises the
+// non-owner path explicitly.
 func call(t *testing.T, h func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	var req mcp.CallToolRequest
 	req.Params.Arguments = args
-	res, err := h(context.Background(), req)
+	res, err := h(withOwner(context.Background(), true), req)
 	if err != nil {
 		t.Fatalf("handler error: %v", err)
 	}
@@ -152,6 +157,33 @@ func TestGetVideo(t *testing.T) {
 	}
 }
 
+// TestGetVideoRedactsForVisitor confirms get_video blanks file_path/codec/bitrate/
+// container for a non-owner caller (HOLODEX-114 follow-up), mirroring the REST
+// API's redactFileMetadataForVisitor — without an owner context (as an
+// unauthenticated MCP HTTP client would see), while leaving title/people intact.
+func TestGetVideoRedactsForVisitor(t *testing.T) {
+	s, r := newTestServer(t)
+	seed(t, r, "/m/a.mp4", "Clip", 90, 1920, []string{"Alice"}, []string{"demo"})
+
+	var req mcp.CallToolRequest
+	req.Params.Arguments = map[string]any{"id": "1"}
+	res, err := s.getVideo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+
+	var d videoDetail
+	if err := json.Unmarshal([]byte(resultText(t, res)), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.FilePath != "" || d.VideoCodec != "" || d.AudioCodec != "" || d.Container != "" || d.BitrateKbps != 0 {
+		t.Errorf("non-owner detail should have file metadata redacted: %+v", d)
+	}
+	if d.Title != "Clip" || len(d.People) != 1 || d.People[0].Name != "Alice" {
+		t.Errorf("non-owner detail should keep non-file fields: %+v", d)
+	}
+}
+
 func TestSearchMappedFields(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "mcp.db"))
 	if err != nil {
@@ -174,7 +206,7 @@ func TestSearchMappedFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store: %v", err)
 	}
-	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), store)
+	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), store, api.NewAuth(""))
 
 	var resp searchResponse
 	json.Unmarshal([]byte(resultText(t, call(t, s.searchVideos, map[string]any{"fields": map[string]any{"studio": "Acme"}}))), &resp)

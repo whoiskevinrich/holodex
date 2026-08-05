@@ -109,7 +109,8 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 	}
 
 	log.Info("mcp stdio server starting", "database", cfg.DatabasePath)
-	return mcp.New(repo.New(database), log, mappings).ServeStdio()
+	auth := api.NewAuth(cfg.AdminToken)
+	return mcp.New(repo.New(database), log, mappings, auth).ServeStdio()
 }
 
 // version is the build identifier surfaced in the activity read-model (F21.1).
@@ -434,7 +435,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if cfg.MCPEnabled && (cfg.MCPTransport == "http" || cfg.MCPTransport == "both") {
 		mcpAddr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.MCPPort))
 		go func() {
-			if err := mcp.New(repository, log, mappings).StartHTTP(ctx, mcpAddr); err != nil {
+			if err := mcp.New(repository, log, mappings, auth).StartHTTP(ctx, mcpAddr); err != nil {
 				log.Error("mcp http server failed", "err", err)
 			}
 		}()

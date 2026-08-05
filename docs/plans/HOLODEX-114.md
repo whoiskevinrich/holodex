@@ -54,4 +54,4 @@ this is the human framing.>
 -->
 
 ### 2026-08-05 · session
-- skills: security-review
+- skills: security-review, simplify
