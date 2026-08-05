@@ -89,12 +89,5 @@
 		<h3 class="skin-title line-clamp-2 text-sm font-medium text-ink" title={video.title}>
 			{video.title}
 		</h3>
-		{#if video.tags?.length}
-			<div class="flex flex-wrap gap-1">
-				{#each video.tags.slice(0, 3) as tag (tag.id)}
-					<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">{tag.name}</span>
-				{/each}
-			</div>
-		{/if}
 	</div>
 </a>
