@@ -11,7 +11,7 @@
 [ADR-067](ADR-067-filename-extraction-confidence-and-rollback.md) (F48's `{token}` filename-**matching** grammar — a deliberate non-reuse; see D3) ·
 [ADR-060](ADR-060-runtime-owner-settings.md) (the DB-backed owner-settings pattern considered and deferred; see D2).
 **Contract:** [metadata provider contract](../specs/metadata-provider-contract.md) §2.2 (`/describe` manifest — gains one optional key) / §2.3 (`/resolve` hint — unchanged).
-**Spec:** F53 spec pending (`/write-spec`, tracked in the issue below).
+**Spec:** [Configurable provider search patterns (F53)](../specs/configurable-provider-search-patterns.md).
 **Issue:** [HOLODEX-254](https://whoiskevinrich.atlassian.net/browse/HOLODEX-254).
 
 ---
@@ -172,7 +172,7 @@ A **title sanitizer**, applied to that value wherever it is used (the `{title}` 
 ## Action Items
 
 1. [x] ADR-080 recorded; add to `docs/architecture/README.md`.
-2. [ ] `/write-spec` — F53 spec (functional requirements, acceptance criteria for the picker's new default-query behavior).
+2. [x] `/write-spec` — [F53 spec](../specs/configurable-provider-search-patterns.md) (functional requirements, acceptance criteria for the picker's new default-query behavior).
 3. [ ] `/design-handoff` — confirm no `EnrichPicker.svelte` visual change is required beyond the seeded value (per D5); document the before/after query-box behavior for QA.
 4. [ ] `/testing-strategy` — precedence-tier resolution (all 4 D2 tiers + fallthrough on a failed required token), optional-token omission, malformed-pattern fail-soft/skip, the D4 sanitizer (bracket/comma stripping, resolution-token regex word-boundary cases — e.g. a title that legitimately ends in a number+letter must not be mistaken for a resolution tag, whitespace collapse). Note D4 is the one **unconditional** behavior change in this ADR (§ below) — its golden cases should confirm sanitization is a pure improvement, never a worse query than the literal title.
 5. [ ] **Implementation (HOLODEX-254)** — `enrich.Source.SearchPattern` + `fileConfig.DefaultSearchPattern`; `enrich.Manifest.PreferredSearchPattern`; `internal/enrich/query.go` (grammar + `BuildQuery` + `sanitizeTitle`); wire into `videoHint()`; `getMedia` response gains `enrich_queries`; SPA passes it into `EnrichPicker`'s existing `entityName` prop.
