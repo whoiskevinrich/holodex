@@ -4,7 +4,8 @@
 	import type { Video } from '$lib/types';
 	import VideoGrid from '../video/VideoGrid.svelte';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { videoCount } from '$lib/format';
+	import { videoCount, filterByTitle } from '$lib/format';
+	import { navSearch } from '$lib/navSearch.svelte';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
 	// title, video count, and the reused grid. The optional `detail` snippet renders an
@@ -44,9 +45,23 @@
 		detail?: Snippet;
 	} = $props();
 
-	// A single caller per scrollKey (one entity's own video grid, not sorted/filtered), so
-	// there's no second axis to invalidate on — the key just has to satisfy Keyed.
+	// A single caller per scrollKey (one entity's own video grid, no sort control), so
+	// there's no second axis to invalidate on — the key just has to satisfy Keyed. NS6's
+	// in-place filter below doesn't add one either: restoring scroll under a stale filter
+	// is fine since the query itself resets on navigation (navSearch is a page-scoped
+	// singleton, not persisted), so by the time ← Back lands here the grid is unfiltered
+	// again.
 	const SCROLL_INVALIDATION_KEY = 'videos';
+
+	// NS6 (HOLODEX-249): the nav search box drives this entity's own video list in
+	// place once `pageScopeFor` (navSearch.svelte.ts) has scoped the current detail
+	// route to Videos. Lives here rather than in each of the three callers — same
+	// "wiring lives here once" reasoning as the scroll restoration above.
+	const videoQuery = $derived(navSearch.inPlace ? navSearch.query : '');
+	const displayedVideos = $derived(filterByTitle(videos, videoQuery));
+	const emptyMessage = $derived(
+		videoQuery.trim() ? `No videos match “${videoQuery.trim()}”.` : empty
+	);
 
 	tick().then(() => {
 		const snap = listScroll.take(scrollKey, SCROLL_INVALIDATION_KEY);
@@ -69,5 +84,5 @@
 		<p class="text-sm text-muted">{videoCount(videos.length)}</p>
 	{/if}
 	{#if detail}{@render detail()}{/if}
-	<VideoGrid {videos} {empty} />
+	<VideoGrid videos={displayedVideos} empty={emptyMessage} />
 </section>

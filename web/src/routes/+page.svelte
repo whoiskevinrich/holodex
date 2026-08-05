@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
+	import { navSearch } from '$lib/navSearch.svelte';
 	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { Category, MediaFilters, Person, Resolution, SortOrder, Studio, Tag, Video } from '$lib/types';
@@ -22,7 +23,14 @@
 	// (F4.7). SPA-only (ssr=false), so `location` is always available here.
 	const initParams = new URLSearchParams(location.search);
 	const init = paramsToFilters(initParams);
-	let q = $state(init.q ?? '');
+	// Seeds the shared nav box (not local state, NS4 — there's no page-owned text
+	// input anymore) so a "View all N in Videos" deep link (NS1) pre-fills it.
+	if (init.q) navSearch.query = init.q;
+	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
+	// tab matches this page's own scope (+layout.svelte owns that match, keyed off
+	// the URL) — otherwise the box is previewing another type via the overlay panel
+	// and this grid stays unfiltered rather than fighting it.
+	const q = $derived(navSearch.inPlace ? navSearch.query : '');
 	let resolution = $state<Resolution>(init.resolution ?? 'All');
 	let durationMin = $state<number | ''>(init.duration_min ?? '');
 	let durationMax = $state<number | ''>(init.duration_max ?? '');
@@ -221,7 +229,7 @@
 	});
 
 	function clearAll() {
-		q = '';
+		navSearch.query = '';
 		resolution = 'All';
 		durationMin = durationMax = yearMin = yearMax = '';
 		personIDs = [];
@@ -242,12 +250,16 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
+		// Respect a handler closer to the event target that already claimed this key
+		// (e.g. the nav search panel's own roving-tabindex rows, HOLODEX-249) — this
+		// listener only owns arrow keys when nothing else does.
+		if (e.defaultPrevented) return;
 		const target = e.target as HTMLElement | null;
 		const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT';
 
 		if (e.key === '/' && !typing) {
 			e.preventDefault();
-			document.getElementById('q')?.focus();
+			document.getElementById('global-search-input')?.focus();
 			return;
 		}
 		if (e.key === 'Escape') {
@@ -294,16 +306,6 @@
 	{/if}
 
 	<div class="flex flex-wrap items-end gap-3">
-		<div class="min-w-[12rem] flex-1">
-			<label class="mb-1 block text-xs text-muted" for="q">Search title</label>
-			<input
-				id="q"
-				bind:value={q}
-				placeholder="Type to search…"
-				class="w-full rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
-			/>
-		</div>
-
 		<div>
 			<span class="mb-1 block text-xs text-muted">Resolution</span>
 			<div class="flex overflow-hidden rounded-theme border border-rule">

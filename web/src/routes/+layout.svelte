@@ -6,17 +6,42 @@
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
+	import { navSearch, pageScopeFor } from '$lib/navSearch.svelte';
+	import { dismissable } from '$lib/actions/dismissable';
 	import ActivityIndicator from '$lib/components/activity/ActivityIndicator.svelte';
+	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
 
 	let { children } = $props();
 
-	let searchTerm = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
-	let historyOpen = $state(false);
+	let searchFormEl = $state<HTMLFormElement | null>(null);
+	// The box's expanded focus session — history dropdown OR live results panel,
+	// never both. Closed only by Escape or a click outside the box (not blur), so Tab
+	// can reach the tab row and result rows inside the panel (NS5).
+	let boxOpen = $state(false);
 	let activeIdx = $state(-1); // keyboard-highlighted history row, -1 = none
-	// Show the dropdown only on a focused, empty box with history — so it hides the
-	// instant the user types (QW1). Derived once, used by the input + the panel.
-	const showHistory = $derived(historyOpen && !searchTerm.trim() && searchHistory.items.length > 0);
+	const hasQuery = $derived(navSearch.query.trim() !== '');
+	const showHistory = $derived(boxOpen && !hasQuery && searchHistory.items.length > 0);
+	const showPanel = $derived(boxOpen && hasQuery);
+
+	// NS2: the current page's own scope (null on pages with no single-entity list,
+	// e.g. /search or a detail page). In-place is active when the box's selected tab
+	// matches it — the page's own grid filters live and the dropdown shows only the
+	// tab row (so the owner can still tap another tab to preview it, per the design
+	// handoff's Part A) instead of the full results body.
+	const pageScope = $derived(pageScopeFor(page.route.id));
+	const inPlaceActive = $derived(pageScope !== null && navSearch.activeTab === pageScope);
+
+	$effect(() => {
+		navSearch.setInPlace(inPlaceActive);
+	});
+
+	// Landing on a page with its own scope pre-selects the matching tab (NS2's
+	// "default tab on load"). Pages without a scope leave the tab exactly as the
+	// owner last set it.
+	$effect(() => {
+		if (pageScope) navSearch.activeTab = pageScope;
+	});
 
 	// Apply the saved skin + load search history on mount.
 	$effect(() => {
@@ -44,54 +69,95 @@
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
+	function closeBox() {
+		boxOpen = false;
+		activeIdx = -1;
+	}
+
 	// Run a search: record it in history, then navigate. Shared by form submit and
-	// clicking a history row.
+	// clicking a history row. Doesn't clear the box's query (matches today's
+	// behavior — the submitted term stays visible after navigating to /search).
 	function runSearch(term: string) {
 		const q = term.trim();
 		if (!q) return;
 		searchHistory.record(q);
-		historyOpen = false;
-		activeIdx = -1;
+		closeBox();
 		goto(`/search?q=${encodeURIComponent(q)}`);
 	}
 
+	// Enter with nothing else focused submits the typed term natively via the form;
+	// a focused history/panel row handles its own activation instead (NS5).
 	function submitSearch(e: Event) {
 		e.preventDefault();
-		runSearch(searchTerm);
+		runSearch(navSearch.query);
 	}
 
-	// Open the history dropdown when focusing the (empty) box. The markup also gates
-	// on an empty input, so the panel hides the instant the user types (QW1).
-	function openHistory() {
+	function openBox() {
 		activeIdx = -1;
-		historyOpen = true;
+		boxOpen = true;
+	}
+
+	function onSearchInput(e: Event) {
+		navSearch.setQuery((e.currentTarget as HTMLInputElement).value);
+		activeIdx = -1;
+		// Typing always means "show me results" — reopens the box if a prior Escape
+		// left it closed while focus stayed in the input (NS5: Escape doesn't clear
+		// the query, so the very next keystroke should resume live filtering).
+		boxOpen = true;
+	}
+
+	function clearSearch() {
+		navSearch.clear();
+		// NS2: return to the current page's own scope if it has one (so clearing on
+		// e.g. /people doesn't strand the box on a mismatched tab), else 'all'.
+		navSearch.activeTab = pageScope ?? 'all';
+		searchInput?.focus();
 	}
 
 	function pickHistory(q: string) {
-		searchTerm = q;
+		navSearch.setQuery(q);
 		runSearch(q);
 	}
 
-	// Keyboard nav within the history dropdown: ↓/↑ move the highlight, Enter runs the
-	// highlighted query, Esc closes. With nothing highlighted, Enter falls through to
-	// the form's submit (runs the typed term).
-	function onSearchKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			historyOpen = false;
-			activeIdx = -1;
-			return;
+	// ArrowDown from the input moves the roving highlight into the history list
+	// (mirrors the tab row's own ArrowDown-into-first-row behavior below). Enter is
+	// handled explicitly rather than relying on native implicit form submission —
+	// browsers don't reliably treat Enter as a submit trigger once other buttons
+	// share the form (EnrichPicker.svelte's input takes the same explicit approach).
+	function historyRowAt(i: number) {
+		return searchFormEl?.querySelector<HTMLButtonElement>(`[data-history-index="${i}"]`) ?? null;
+	}
+
+	function onInputKeydown(e: KeyboardEvent) {
+		if (showHistory && e.key === 'ArrowDown' && searchHistory.items.length) {
+			e.preventDefault();
+			activeIdx = 0;
+			historyRowAt(0)?.focus();
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			runSearch(navSearch.query);
 		}
+	}
+
+	// Roving tabindex within the history list (NS5) — Tab reaches the highlighted
+	// row; ↓/↑ move it; Enter/click activate via the row's own native button
+	// behavior, matching EnrichPicker.svelte's established pattern.
+	function onHistoryRowKey(e: KeyboardEvent, i: number) {
 		const items = searchHistory.items;
-		if (!historyOpen || searchTerm.trim() || items.length === 0) return;
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
-			activeIdx = (activeIdx + 1) % items.length;
+			const next = Math.min(i + 1, items.length - 1);
+			activeIdx = next;
+			historyRowAt(next)?.focus();
 		} else if (e.key === 'ArrowUp') {
 			e.preventDefault();
-			activeIdx = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
-		} else if (e.key === 'Enter' && activeIdx >= 0) {
-			e.preventDefault();
-			pickHistory(items[activeIdx]);
+			if (i === 0) {
+				activeIdx = -1;
+				searchInput?.focus();
+			} else {
+				activeIdx = i - 1;
+				historyRowAt(i - 1)?.focus();
+			}
 		}
 	}
 </script>
@@ -99,46 +165,79 @@
 <header class="flex items-center justify-between gap-4 border-b border-rule px-6 py-3">
 	<a href="/" class="skin-title text-lg font-semibold tracking-tight text-ink">Holodex</a>
 
-	<form onsubmit={submitSearch} class="relative max-w-md flex-1">
-		<input
-			bind:this={searchInput}
-			bind:value={searchTerm}
-			onfocus={openHistory}
-			onblur={() => (historyOpen = false)}
-			onkeydown={onSearchKeydown}
-			role="combobox"
-			aria-expanded={showHistory}
-			aria-controls="search-history"
-			aria-activedescendant={showHistory && activeIdx >= 0 ? `sh-opt-${activeIdx}` : undefined}
-			placeholder="Search everything…  (Ctrl-K)"
-			class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
-		/>
+	<form
+		bind:this={searchFormEl}
+		data-search-box
+		onsubmit={submitSearch}
+		use:dismissable={{
+			enabled: boxOpen,
+			inside: '[data-search-box]',
+			onclose: (viaEscape) => {
+				closeBox();
+				if (viaEscape) searchInput?.focus();
+			}
+		}}
+		class="relative max-w-md flex-1"
+	>
+		<div class="relative">
+			<input
+				id="global-search-input"
+				bind:this={searchInput}
+				value={navSearch.query}
+				oninput={onSearchInput}
+				onfocus={openBox}
+				onclick={openBox}
+				onkeydown={onInputKeydown}
+				aria-label="Search everything"
+				placeholder="Search everything…  (Ctrl-K)"
+				class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 pr-7 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+			/>
+			{#if hasQuery}
+				<button
+					type="button"
+					onclick={clearSearch}
+					aria-label="Clear search"
+					class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-theme px-1 text-muted hover:text-ink"
+				>
+					×
+				</button>
+			{/if}
+		</div>
 
-		<!-- History dropdown: open only on a focused, EMPTY box, so it hides the instant
-		     the user types (QW1). Row actions use onmousedown so they fire before the
-		     input's blur closes the panel; remove/clear preventDefault to keep focus. -->
+		<!-- History dropdown: shown only on a focused, EMPTY box (QW1) — hides the
+		     instant the user types, when the live results panel takes over below.
+		     Roving tabindex (NS5): the highlighted row is the lone tab stop. -->
 		{#if showHistory}
 			<ul
 				id="search-history"
 				role="listbox"
+				aria-label="Recent searches"
 				class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
 			>
 				{#each searchHistory.items as q, i (q)}
-					<li id={`sh-opt-${i}`} role="option" aria-selected={i === activeIdx}>
+					<li role="presentation">
 						<div
-							class="flex items-center gap-2 px-3 py-1.5 text-sm {i === activeIdx
-								? 'bg-surface-2 text-ink'
-								: 'text-ink hover:bg-surface-2'}"
+							class="flex items-center gap-2 {i === activeIdx ? 'bg-surface-2 text-ink' : 'text-ink hover:bg-surface-2'}"
 						>
-							<button type="button" class="flex-1 truncate text-left" onmousedown={() => pickHistory(q)}>
+							<button
+								data-history-index={i}
+								type="button"
+								role="option"
+								aria-selected={i === activeIdx}
+								tabindex={i === activeIdx ? 0 : -1}
+								onclick={() => pickHistory(q)}
+								onfocus={() => (activeIdx = i)}
+								onmouseenter={() => (activeIdx = i)}
+								onkeydown={(e) => onHistoryRowKey(e, i)}
+								class="flex-1 truncate px-3 py-1.5 text-left text-sm"
+							>
 								{q}
 							</button>
 							<button
 								type="button"
 								aria-label={`Remove "${q}" from history`}
-								class="shrink-0 text-muted hover:text-ink"
-								onmousedown={(e) => {
-									e.preventDefault();
+								class="shrink-0 px-2 text-muted hover:text-ink"
+								onclick={() => {
 									searchHistory.remove(q);
 									activeIdx = -1; // list shifted — drop the (now stale) highlight
 								}}
@@ -152,8 +251,7 @@
 					<button
 						type="button"
 						class="block w-full border-t border-rule px-3 py-1.5 text-left text-xs text-muted hover:text-ink"
-						onmousedown={(e) => {
-							e.preventDefault();
+						onclick={() => {
 							searchHistory.clear();
 							activeIdx = -1;
 						}}
@@ -162,6 +260,17 @@
 					</button>
 				</li>
 			</ul>
+		{:else if showPanel}
+			<SearchResultsPanel
+				results={navSearch.results}
+				loading={navSearch.loading}
+				error={navSearch.error}
+				query={navSearch.query}
+				bind:activeTab={navSearch.activeTab}
+				variant="dropdown"
+				showResults={!inPlaceActive}
+				onnavigate={closeBox}
+			/>
 		{/if}
 	</form>
 

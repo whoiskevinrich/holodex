@@ -4,7 +4,8 @@ import {
 	formatDuration,
 	resolutionBucket,
 	providerFromWinningSource,
-	calculatedFrom
+	calculatedFrom,
+	filterByTitle
 } from './format';
 
 describe('formatYear', () => {
@@ -59,5 +60,25 @@ describe('calculatedFrom', () => {
 		expect(calculatedFrom(['Born', 'Died'])).toBe('calculated from Born and Died');
 		expect(calculatedFrom(['A', 'B', 'C'])).toBe('calculated from A, B, and C');
 		expect(calculatedFrom([])).toBe('');
+	});
+});
+
+describe('filterByTitle', () => {
+	// NS6 (HOLODEX-249): the video-list twin of filterByName, keyed on `title`
+	// instead of `name` — same case-insensitive substring match.
+	const videos = [{ title: 'Jackson Interview 2024' }, { title: "Jack & Jackson: The Reunion" }, { title: 'Unrelated Vlog' }];
+
+	it('matches case-insensitively on a substring of title', () => {
+		expect(filterByTitle(videos, 'jackson')).toEqual([videos[0], videos[1]]);
+		expect(filterByTitle(videos, 'REUNION')).toEqual([videos[1]]);
+	});
+
+	it('returns every item for an empty or whitespace-only query', () => {
+		expect(filterByTitle(videos, '')).toEqual(videos);
+		expect(filterByTitle(videos, '   ')).toEqual(videos);
+	});
+
+	it('returns an empty array when nothing matches', () => {
+		expect(filterByTitle(videos, 'nonexistent')).toEqual([]);
 	});
 });

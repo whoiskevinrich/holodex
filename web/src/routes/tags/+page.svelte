@@ -4,6 +4,7 @@
 	import { api, ApiError } from '$lib/api';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { activity } from '$lib/activity.svelte';
+	import { navSearch } from '$lib/navSearch.svelte';
 	import { toMessage, videoCount, tagCount, filterByName } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type Category, type EntityRef, type PeopleTagSort, type Tag } from '$lib/types';
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
@@ -24,12 +25,15 @@
 	let sort = $state<PeopleTagSort>(readSort('tags', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
 
-	// Unified type filter + search (HOLODEX-240) — both new to this page. Search
-	// filters client-side against the already-loaded, unpaged tag+category lists
-	// (personal-library scale, no dedicated search endpoint — same posture
-	// EntityPicker/FacetFilter already take).
+	// Unified type filter (HOLODEX-240) + search (now driven by the shared nav box,
+	// NS2/NS3/HOLODEX-249) — filters client-side against the already-loaded, unpaged
+	// tag+category lists (personal-library scale, no dedicated search endpoint — same
+	// posture EntityPicker/FacetFilter already take).
 	let typeFilter = $state<'all' | 'tags' | 'categories'>('all');
-	let query = $state('');
+	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
+	// tab matches this page's own scope (Tags) — otherwise it's previewing another
+	// type via the overlay panel.
+	const query = $derived(navSearch.inPlace ? navSearch.query : '');
 	// SortToggle's own cls() helper, duplicated verbatim (it isn't exported) — same
 	// segmented-control shell reused for this second, independent toggle.
 	const typeCls = (active: boolean) =>
@@ -559,24 +563,15 @@
 		</div>
 	</div>
 
-	<div class="flex flex-wrap items-center gap-3">
-		<input
-			type="search"
-			bind:value={query}
-			placeholder="Search tags and categories…"
-			aria-label="Search tags and categories"
-			class="w-full max-w-xs rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
-		/>
-		{#if query.trim()}
-			<p class="text-xs text-muted" aria-live="polite">
-				{#if resultsCount}
-					{resultsCount} result{resultsCount === 1 ? '' : 's'} for “{query.trim()}”
-				{:else}
-					No tags or categories match “{query.trim()}”.
-				{/if}
-			</p>
-		{/if}
-	</div>
+	{#if query.trim()}
+		<p class="text-xs text-muted" aria-live="polite">
+			{#if resultsCount}
+				{resultsCount} result{resultsCount === 1 ? '' : 's'} for “{query.trim()}”
+			{:else}
+				No tags or categories match “{query.trim()}”.
+			{/if}
+		</p>
+	{/if}
 
 	<DuplicatesBanner entityType="tag" />
 

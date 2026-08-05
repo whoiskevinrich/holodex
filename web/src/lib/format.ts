@@ -65,6 +65,14 @@ export function filterByName<T extends { name: string }>(items: T[], query: stri
 	return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
 }
 
+// filterByTitle mirrors filterByName for Video, whose display field is `title`
+// rather than `name` (NS6, HOLODEX-249) — the same client-side pattern applied
+// to person/studio/tag detail pages' embedded, unpaged video lists.
+export function filterByTitle<T extends { title: string }>(items: T[], query: string): T[] {
+	const q = query.trim().toLowerCase();
+	return q ? items.filter((i) => i.title.toLowerCase().includes(q)) : items;
+}
+
 // monogram is the fallback glyph for an entity with no logo/icon: the real first
 // glyph of the name (upper-cased), not an A–Z jump bucket — so "24 Frames" shows "2"
 // and "東宝" shows "東". Shared by the studios list well and the provider brand icon
