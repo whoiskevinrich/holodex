@@ -17,21 +17,31 @@ export const SEARCH_TABS: { key: SearchTab; label: string }[] = [
 
 const DEBOUNCE_MS = 200;
 
-// pageScopeFor maps a route's pathname to the entity type it's the in-place scope
-// for (NS2) — the one list a page shows, and therefore the one tab that drives it
-// in place instead of opening the overlay panel. Only exact top-level list routes
-// declare a scope; a detail page (e.g. `/people/[id]`) intentionally falls through
-// to null (panel-only) until NS6 gives it one.
-export function pageScopeFor(pathname: string): SearchTab | null {
-	switch (pathname) {
+// pageScopeFor maps a route id (SvelteKit's `page.route.id`, e.g. `/people/[id]`
+// — stable across dynamic segments, unlike a raw pathname) to the entity type
+// it's the in-place scope for (NS2) — the one list a page shows, and therefore
+// the one tab that drives it in place instead of opening the overlay panel.
+// person/studio/tag detail pages scope to Videos (NS6, HOLODEX-249): each embeds
+// that entity's own unpaged video list via EntityVideos.svelte. The category
+// detail page (`/categories/[id]`) has no video list to filter (categories don't
+// attach to videos directly) and intentionally has no scope, same as any other
+// route not listed here.
+export function pageScopeFor(routeId: string | null): SearchTab | null {
+	switch (routeId) {
 		case '/':
 			return 'videos';
 		case '/people':
 			return 'people';
+		case '/people/[id]':
+			return 'videos';
 		case '/studios':
 			return 'studios';
+		case '/studios/[id]':
+			return 'videos';
 		case '/tags':
 			return 'tags';
+		case '/tags/[id]':
+			return 'videos';
 		default:
 			return null;
 	}

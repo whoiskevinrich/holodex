@@ -29,7 +29,7 @@
 	// matches it — the page's own grid filters live and the dropdown shows only the
 	// tab row (so the owner can still tap another tab to preview it, per the design
 	// handoff's Part A) instead of the full results body.
-	const pageScope = $derived(pageScopeFor(page.url.pathname));
+	const pageScope = $derived(pageScopeFor(page.route.id));
 	const inPlaceActive = $derived(pageScope !== null && navSearch.activeTab === pageScope);
 
 	$effect(() => {
