@@ -7,7 +7,7 @@
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { Category, MediaFilters, Person, Resolution, SortOrder, Studio, Tag, Video } from '$lib/types';
+	import type { MediaFilters, Resolution, SortOrder, Tag, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
@@ -15,6 +15,7 @@
 	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -63,11 +64,11 @@
 	let loadingMore = $state(false);
 	let error = $state('');
 
-	// Facet options for the people/tag/studio autocomplete (F4.2/F4.3, F38), fetched once.
-	let peopleOptions = $state<Person[]>([]);
+	// Facet options for the tag autocomplete (F4.2), fetched once. People/Studios/Categories
+	// no longer have facet controls on this page — person/studio_id/category still
+	// round-trip through the URL/filters for shareable links and the REST/MCP API
+	// contract, just without an on-page picker.
 	let tagOptions = $state<Tag[]>([]);
-	let studioOptions = $state<Studio[]>([]);
-	let categoryOptions = $state<Category[]>([]);
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the
 	// owner can toggle it off. Per-browser preference; defaults on.
@@ -82,12 +83,7 @@
 	}
 
 	onMount(() => {
-		api.listPeople('count').then((r) => (peopleOptions = r.items ?? [])).catch(() => {});
 		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
-		api.listStudios('count').then((r) => (studioOptions = r.items ?? [])).catch(() => {});
-		// No sort param (categories have no video-derived count of their own) —
-		// always the server's name order, per the /categories list contract.
-		api.listCategories().then((r) => (categoryOptions = r.items ?? [])).catch(() => {});
 	});
 
 	const hasMore = $derived(videos.length < total);
@@ -342,10 +338,32 @@
 			</div>
 		</div>
 
-		<FacetFilter label="People" items={peopleOptions} bind:selected={personIDs} />
 		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
-		<FacetFilter label="Categories" items={categoryOptions} bind:selected={categoryIDs} />
-		<FacetFilter label="Studios" items={studioOptions} bind:selected={studioIDs} />
+
+		<div class="min-w-[160px]">
+			<span class="mb-1 block text-xs text-muted">Density</span>
+			<div class="flex items-center gap-2">
+				<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<rect x="3" y="3" width="7" height="7" rx="1" />
+					<rect x="14" y="3" width="7" height="7" rx="1" />
+					<rect x="3" y="14" width="7" height="7" rx="1" />
+					<rect x="14" y="14" width="7" height="7" rx="1" />
+				</svg>
+				<input
+					type="range"
+					min={DENSITY_MIN}
+					max={DENSITY_MAX}
+					step="1"
+					aria-label="Grid density"
+					value={invertDensity(mediaDensity.value)}
+					oninput={(e) => (mediaDensity.value = invertDensity(Number(e.currentTarget.value)))}
+					class="accent-accent"
+				/>
+				<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<rect x="4" y="4" width="16" height="16" rx="2" />
+				</svg>
+			</div>
+		</div>
 
 		<MappedFacets
 			bind:mapped
