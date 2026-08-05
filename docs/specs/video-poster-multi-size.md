@@ -276,15 +276,15 @@ No hard deadline. Per the change-routing rules:
    adversarial Given/When/Then block (§10) covering Tier 1's two-derivative generation across
    the three width bands, Tier 2's single-seek-two-outputs requirement, the poster-route
    fallback/lazy-backfill behavior (P0-6), and the list-view-unaffected regression guard.
-4. **`/security-review`** — ☐ not yet run. New public, unauthenticated read route
-   (`GET /media/{id}/poster`) mirrors the existing `/thumbnail` route's posture exactly (id-
-   keyed static file serve, no new mutation, no owner-gating change) — expected low risk,
-   run before merge per the checklist.
+4. **`/security-review`** — ✅ **done (2026-08-05).** Clean sign-off, no findings. Confirmed
+   the new public, unauthenticated `GET /media/{id}/poster` route mirrors the existing
+   `/thumbnail` route's posture exactly (id-keyed static file serve via the shared
+   `serveImageFile` helper, no new mutation, no owner-gating change).
 
 ## Gate status
 
 - [x] `/testing-strategy`
-- [ ] `/security-review`
+- [x] `/security-review`
 
 Slices: **S1** backend (config, `PosterPath`, Tier 1 + Tier 2 dual-output, `PosterURL` field,
 serve route + fallback) → **S2** frontend (detail-page binding swap) → **S3** QA + security

@@ -11,7 +11,6 @@ package thumbnail
 
 import (
 	"context"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -19,6 +18,11 @@ import (
 	"holodex/internal/repo"
 )
 
+// TestGenerateFrameRealFfmpeg exercises Tier 2's dual-output requirement
+// (P0-4, F53/HOLODEX-253) against a real ffmpeg binary: the source video is
+// seeked/decoded once (only the poster-tier ffmpeg call carries -ss/the
+// source path; the thumbnail-tier call reads the already-written poster JPEG
+// back in with no seek), yielding two correctly-sized JPEGs.
 func TestGenerateFrameRealFfmpeg(t *testing.T) {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg not on PATH")
@@ -33,14 +37,15 @@ func TestGenerateFrameRealFfmpeg(t *testing.T) {
 		t.Skipf("could not synthesize clip: %v: %s", err, out)
 	}
 
-	m := New(Config{Enabled: true, Width: 200, Nice: false, Dir: dir}, nil, nil)
-	out := filepath.Join(dir, "1.jpg")
+	m := New(Config{Enabled: true, Width: 200, PosterWidth: 300, Nice: false, Dir: dir}, nil, nil)
+	thumbOut := filepath.Join(dir, "1.jpg")
+	posterOut := filepath.Join(dir, "1-poster.jpg")
 	if err := m.generateFrame(context.Background(),
-		repo.ThumbnailCandidate{ID: 1, FilePath: src, DurationSec: 1}, out); err != nil {
+		repo.ThumbnailCandidate{ID: 1, FilePath: src, DurationSec: 1}, thumbOut, posterOut); err != nil {
 		t.Fatalf("generateFrame: %v", err)
 	}
-	fi, err := os.Stat(out)
-	if err != nil || fi.Size() == 0 {
-		t.Fatalf("expected a non-empty jpeg at %s (err=%v)", out, err)
-	}
+	// assertDecodedWidth is defined in coverart_test.go (same package, no
+	// build tag — always compiled in, including under -tags integration).
+	assertDecodedWidth(t, thumbOut, 200)
+	assertDecodedWidth(t, posterOut, 300)
 }

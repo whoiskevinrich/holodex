@@ -62,6 +62,7 @@ thumbnail_workers: 2        # THUMBNAIL_WORKERS
 thumbnail_nice: true        # THUMBNAIL_NICE
 thumbnail_seek_percent: 10  # THUMBNAIL_SEEK_PERCENT
 thumbnail_width: 400        # THUMBNAIL_WIDTH
+poster_width: 1200          # POSTER_WIDTH — larger detail-page poster tier (F53)
 
 # --- Metadata mapping (Phase 2, ADR-013) ---
 # Surface extra container tags under custom labels. The mappings live in a

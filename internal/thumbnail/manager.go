@@ -49,6 +49,7 @@ type Config struct {
 	Nice         bool
 	SeekPercent  int
 	Width        int
+	PosterWidth  int // detail-page poster tier (F53, HOLODEX-253); default 1200
 	Dir          string
 	FfmpegPath   string
 	ExiftoolPath string
@@ -64,9 +65,11 @@ type Manager struct {
 	inFlight atomic.Int64 // jobs currently being generated (F21.1)
 
 	// Binary-invoking seams, overridable in tests so the pipeline can be
-	// exercised without real ffmpeg/exiftool. Defaulted in New.
-	gen func(ctx context.Context, c repo.ThumbnailCandidate, outPath string) error
-	art func(ctx context.Context, path, dst string) (bool, error)
+	// exercised without real ffmpeg/exiftool. Defaulted in New. Both produce the
+	// thumbnail- and poster-tier files in one pass (P0-3/P0-4, F53) — thumbDst
+	// first, posterDst second.
+	gen func(ctx context.Context, c repo.ThumbnailCandidate, thumbDst, posterDst string) error
+	art func(ctx context.Context, path, thumbDst, posterDst string) (bool, error)
 }
 
 // New constructs a Manager. It is always safe to construct even when disabled;
@@ -77,6 +80,9 @@ func New(cfg Config, log *slog.Logger, r Repository) *Manager {
 	}
 	if cfg.Width <= 0 {
 		cfg.Width = 400
+	}
+	if cfg.PosterWidth <= 0 {
+		cfg.PosterWidth = 1200
 	}
 	if cfg.FfmpegPath == "" {
 		cfg.FfmpegPath = "ffmpeg"
@@ -189,7 +195,7 @@ func (m *Manager) ExtractEmbedded(ctx context.Context, id int64, path string) (b
 	if !m.cfg.Enabled {
 		return false, nil
 	}
-	ok, err := m.art(ctx, path, m.thumbPath(id))
+	ok, err := m.art(ctx, path, m.thumbPath(id), m.posterPath(id))
 	if err != nil || !ok {
 		return false, err
 	}
@@ -205,4 +211,12 @@ func ThumbPath(dir string, id int64) string {
 	return filepath.Join(dir, strconv.FormatInt(id, 10)+".jpg")
 }
 
-func (m *Manager) thumbPath(id int64) string { return ThumbPath(m.cfg.Dir, id) }
+// PosterPath is the on-disk location for a video's larger detail-page poster
+// tier (P0-2, F53, HOLODEX-253) — a sibling of ThumbPath in the same directory,
+// exported so the serving handler and the pipeline share one filename scheme.
+func PosterPath(dir string, id int64) string {
+	return filepath.Join(dir, strconv.FormatInt(id, 10)+"-poster.jpg")
+}
+
+func (m *Manager) thumbPath(id int64) string  { return ThumbPath(m.cfg.Dir, id) }
+func (m *Manager) posterPath(id int64) string { return PosterPath(m.cfg.Dir, id) }

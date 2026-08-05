@@ -528,12 +528,13 @@
 				</div>
 			{:else}
 				<!-- svelte-ignore a11y_media_has_caption -->
-				<!-- The generated cover (ADR-009) is the poster, so the player shows the
-				     same frame as the card instead of a black box until play. -->
+				<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
+				     it shows a sharp cover instead of a black box until play — the small
+				     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
 				<video
 					src={api.streamURL(video.id)}
-					poster={video.thumbnail_url
-						? api.thumbnailReload(video.thumbnail_url, thumbVersion)
+					poster={video.poster_url
+						? api.thumbnailReload(video.poster_url, thumbVersion)
 						: undefined}
 					controls
 					preload="metadata"

@@ -83,8 +83,11 @@ func TestProcessGeneratesAndMarks(t *testing.T) {
 	fr := newFakeRepo()
 	fr.add(repo.ThumbnailCandidate{ID: 1, FilePath: "/m/a.mkv", DurationSec: 100})
 	m := testManager(t, fr)
-	m.gen = func(_ context.Context, _ repo.ThumbnailCandidate, out string) error {
-		return os.WriteFile(out, []byte("JPEG"), 0o644)
+	m.gen = func(_ context.Context, _ repo.ThumbnailCandidate, thumb, poster string) error {
+		if err := os.WriteFile(thumb, []byte("JPEG"), 0o644); err != nil {
+			return err
+		}
+		return os.WriteFile(poster, []byte("JPEGPOSTER"), 0o644)
 	}
 
 	m.process(context.Background(), 1)
@@ -95,13 +98,16 @@ func TestProcessGeneratesAndMarks(t *testing.T) {
 	if _, err := os.Stat(m.thumbPath(1)); err != nil {
 		t.Fatalf("thumbnail file missing: %v", err)
 	}
+	if _, err := os.Stat(m.posterPath(1)); err != nil {
+		t.Fatalf("poster file missing: %v", err)
+	}
 }
 
 func TestProcessMarksFailed(t *testing.T) {
 	fr := newFakeRepo()
 	fr.add(repo.ThumbnailCandidate{ID: 2, FilePath: "/m/bad.mkv", DurationSec: 0})
 	m := testManager(t, fr)
-	m.gen = func(_ context.Context, _ repo.ThumbnailCandidate, _ string) error {
+	m.gen = func(_ context.Context, _ repo.ThumbnailCandidate, _, _ string) error {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -120,9 +126,12 @@ func TestRunDrainsBackfill(t *testing.T) {
 	m := New(Config{Enabled: true, Workers: 3, Width: 400, Backfill: "eager", Dir: t.TempDir()},
 		slog.New(slog.NewTextHandler(io.Discard, nil)), fr)
 	var generated sync.Map
-	m.gen = func(_ context.Context, c repo.ThumbnailCandidate, out string) error {
+	m.gen = func(_ context.Context, c repo.ThumbnailCandidate, thumb, poster string) error {
 		generated.Store(c.ID, true)
-		return os.WriteFile(out, []byte("JPEG"), 0o644)
+		if err := os.WriteFile(thumb, []byte("JPEG"), 0o644); err != nil {
+			return err
+		}
+		return os.WriteFile(poster, []byte("JPEGPOSTER"), 0o644)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -151,8 +160,11 @@ func TestExtractEmbedded(t *testing.T) {
 	fr := newFakeRepo()
 	fr.add(repo.ThumbnailCandidate{ID: 9, FilePath: "/m/art.mkv"})
 	m := testManager(t, fr)
-	m.art = func(_ context.Context, _, dst string) (bool, error) {
-		return true, os.WriteFile(dst, []byte("COVER"), 0o644)
+	m.art = func(_ context.Context, _, thumbDst, posterDst string) (bool, error) {
+		if err := os.WriteFile(thumbDst, []byte("COVER"), 0o644); err != nil {
+			return false, err
+		}
+		return true, os.WriteFile(posterDst, []byte("COVERPOSTER"), 0o644)
 	}
 
 	ok, err := m.ExtractEmbedded(context.Background(), 9, "/m/art.mkv")
@@ -164,6 +176,9 @@ func TestExtractEmbedded(t *testing.T) {
 	}
 	if !strings.HasSuffix(m.thumbPath(9), "9.jpg") {
 		t.Fatalf("unexpected thumb path %q", m.thumbPath(9))
+	}
+	if !strings.HasSuffix(m.posterPath(9), "9-poster.jpg") {
+		t.Fatalf("unexpected poster path %q", m.posterPath(9))
 	}
 }
 
