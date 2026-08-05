@@ -262,14 +262,16 @@ func TestLibraryCounts(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	_, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice", "Bob"}, []string{"x"}), nil)
+	a, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice", "Bob"}, []string{"x"}), nil)
 	if err != nil {
 		t.Fatalf("upsert a: %v", err)
 	}
+	linkPeople(t, r, a, "Alice", "Bob")
 	b, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Alice"}, []string{"y"}), nil)
 	if err != nil {
 		t.Fatalf("upsert b: %v", err)
 	}
+	linkPeople(t, r, b, "Alice")
 	// Deactivate a (keep only b), so it counts as inactive and its Bob/x drop out.
 	if _, err := r.DeactivateExcept(ctx, []int64{b}); err != nil {
 		t.Fatalf("deactivate: %v", err)

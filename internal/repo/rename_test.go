@@ -14,7 +14,8 @@ import (
 func TestRenamePerson(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
 	alice := personIDByName(t, r, "Alice")
 
 	if cid, err := r.RenamePerson(ctx, alice, "Alicia"); err != nil || cid != 0 {
@@ -36,9 +37,11 @@ func TestRenamePerson(t *testing.T) {
 		t.Error("old name must stay search-matchable after rename")
 	}
 	// A new file crediting the old name links to the renamed person (F23 routing).
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Alice"}, nil), nil); err != nil {
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Alice"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert old-name file: %v", err)
 	}
+	linkPeople(t, r, idB, "Alice")
 	if people, _ := r.ListPeople(ctx, false); len(people) != 1 {
 		t.Errorf("old-name scan must route to the renamed person: %+v", people)
 	}
@@ -47,8 +50,10 @@ func TestRenamePerson(t *testing.T) {
 func TestRenamePerson_ConflictLeavesEverythingUntouched(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	linkPeople(t, r, idB, "Bob")
 	alice := personIDByName(t, r, "Alice")
 	bob := personIDByName(t, r, "Bob")
 
@@ -65,7 +70,8 @@ func TestRenamePerson_ConflictLeavesEverythingUntouched(t *testing.T) {
 func TestRenamePerson_NoOpAndNotFound(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
 	alice := personIDByName(t, r, "Alice")
 
 	if cid, err := r.RenamePerson(ctx, alice, "Alice"); err != nil || cid != 0 {
@@ -83,7 +89,8 @@ func TestRenamePerson_NoOpAndNotFound(t *testing.T) {
 func TestRenamePerson_ToOwnAliasTidiesSelfAlias(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
 	alice := personIDByName(t, r, "Alice")
 	if _, err := r.AddPersonAlias(ctx, alice, "Ally"); err != nil {
 		t.Fatalf("add alias: %v", err)
@@ -109,8 +116,10 @@ func TestRenamePerson_ToOwnAliasTidiesSelfAlias(t *testing.T) {
 func TestMergePersons_DropsDecisionsAndCuration(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	linkPeople(t, r, idB, "Bob")
 	alice := personIDByName(t, r, "Alice")
 	bob := personIDByName(t, r, "Bob")
 

@@ -13,8 +13,12 @@ import (
 func seedPerson(t *testing.T, r *repo.Repo, name string) int64 {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/"+name+".mkv", "T", []string{name}, nil), nil); err != nil {
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/"+name+".mkv", "T", []string{name}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, id, []repo.PersonRoleName{{Name: name, Role: "actor"}}); err != nil {
+		t.Fatalf("seed person: reconcile: %v", err)
 	}
 	return personIDByName(t, r, name)
 }

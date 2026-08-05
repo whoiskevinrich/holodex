@@ -12,8 +12,10 @@ import (
 func TestEnrichQueue_MembershipAndStates(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Bob"}, nil), nil)
+	linkPeople(t, r, idB, "Bob")
 	alice := personIDByName(t, r, "Alice")
 	bob := personIDByName(t, r, "Bob")
 
@@ -101,6 +103,7 @@ func TestEnrichQueue_EntityTypeOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed video: %v", err)
 	}
+	linkPeople(t, r, vid, "Alice")
 	if err := r.ReconcileVideoStudios(ctx, vid, []string{"Acme Studio"}, nil); err != nil {
 		t.Fatalf("seed studio: %v", err)
 	}

@@ -74,6 +74,15 @@ fields:
     sources:
       - tmdb:tagline
 
+  # --- Commentary (F52): owner-only manual note by default (no sources needed) ---
+  # A field with no `sources:` is decision-only: it never auto-resolves, but the
+  # owner's manual value (set via the detail-page control) still works, and it
+  # simply stays absent for a video with no commentary set. Uncomment a provider
+  # source below only if one of your providers ever exposes something like this.
+  - canonical: commentary
+    # sources:
+    #   - someprovider:commentary
+
   - canonical: release_date
     sources:
       - filename:release_date   # candidate: parsed year from a filename pattern (F48)
@@ -118,10 +127,20 @@ fields:
       - tmdb:poster_url
 
   # --- Cast & crew (MERGE fields: union of file tags + enrichment, order-agnostic) ---
+  # Lists every file tag the scanner's peopleKeys classifies as a person (F40, ADR-072
+  # RD9/P0-5) so the owner-authored/resolved-field derivation of video_people never
+  # drops a link raw extraction used to catch. Producer is deliberately NOT listed
+  # here (it stays unclaimed in peopleKeys, ADR-072 Consequences) — it's excluded
+  # from derivation until it gets its own role, rather than silently mislabeled actor.
   - canonical: actors
     label: Actors
     sources:
       - Artist          # file tag
+      - AlbumArtist      # file tag (music-video-style container tagging)
+      - Cast             # file tag
+      - Actor            # file tag
+      - Actors           # file tag
+      - Performer        # file tag
       - tmdb:actors     # top-10 billed cast from TMDB credits (joins the union)
       - filename:people # parsed {people} token from a filename pattern (F48; joins the union)
     multi: true

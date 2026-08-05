@@ -164,6 +164,7 @@ export interface Video {
 	recorded_at?: string | null;
 	indexed_at: string;
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
+	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
 	people?: Person[];
 	tags?: Tag[];
 }
@@ -228,6 +229,10 @@ export interface ResolvedField {
 	decision?: FieldDecision;
 	in_sync?: boolean;
 	candidates?: FieldCandidate[];
+	// F40 (ADR-072) — marks a field whose resolved value(s) name a linkable entity;
+	// mirrors registry.FieldDef.EntityKind. CurationFieldRow's "+ Add" opens the
+	// entity-search LinkPicker instead of a bare text input when this is set.
+	entity_kind?: 'person' | 'studio' | '';
 }
 
 // F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field

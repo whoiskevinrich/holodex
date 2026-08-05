@@ -50,13 +50,16 @@ func enrichServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int
 	t.Cleanup(srv.Close)
 
 	// Seed a person matching the fake's canned record.
-	if _, err := r.UpsertVideo(context.Background(), &model.Video{
+	ctx := context.Background()
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Hayao Miyazaki"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeopleAs(t, r, vid, "director", "Hayao Miyazaki")
 	pid, _, err := r.PersonIDByName(context.Background(), "Hayao Miyazaki")
 	if err != nil {
 		t.Fatalf("person id: %v", err)

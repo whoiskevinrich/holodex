@@ -42,9 +42,11 @@ func personIDByName(t *testing.T, r *repo.Repo, name string) int64 {
 func TestPersonAliasesCRUD(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Robert Smith"}, nil), nil); err != nil {
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Robert Smith"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, id, "Robert Smith")
 	pid := personIDByName(t, r, "Robert Smith")
 
 	if _, err := r.AddPersonAlias(ctx, pid, "Rob"); err != nil {
@@ -73,9 +75,11 @@ func TestPersonAliasesCRUD(t *testing.T) {
 	// on a different person is no longer silently allowed — it collides, and
 	// PersonConflict surfaces the current owner so the handler can 409 (merge or keep
 	// separate) instead of forking identity.
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"Bobby"}, nil), nil); err != nil {
+	id2, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"Bobby"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
+	linkPeople(t, r, id2, "Bobby")
 	pid2 := personIDByName(t, r, "Bobby")
 	conflict, err := r.PersonConflict(ctx, pid2, "Rob")
 	if err != nil {
@@ -94,12 +98,16 @@ func TestPersonAliasesCRUD(t *testing.T) {
 func TestPersonAliasesDeleteScopeAndCascade(t *testing.T) {
 	r, database := newRepoDB(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"Bob"}, nil), nil); err != nil {
+	linkPeople(t, r, idA, "Alice")
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"Bob"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
+	linkPeople(t, r, idB, "Bob")
 	alice := personIDByName(t, r, "Alice")
 	bob := personIDByName(t, r, "Bob")
 
@@ -142,9 +150,11 @@ func TestPersonAliasesDeleteScopeAndCascade(t *testing.T) {
 func TestSearchMatchesAlias(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Life on Mars", []string{"David Bowie"}, nil), nil); err != nil {
+	idBowie, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Life on Mars", []string{"David Bowie"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, idBowie, "David Bowie")
 	bowie := personIDByName(t, r, "David Bowie")
 	if _, err := r.AddPersonAlias(ctx, bowie, "Ziggy"); err != nil {
 		t.Fatalf("add Ziggy: %v", err)
@@ -172,9 +182,11 @@ func TestSearchMatchesAlias(t *testing.T) {
 	}
 
 	// Diacritic folding on aliases.
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "Halo", []string{"Singer"}, nil), nil); err != nil {
+	idSinger, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "Halo", []string{"Singer"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
+	linkPeople(t, r, idSinger, "Singer")
 	singer := personIDByName(t, r, "Singer")
 	if _, err := r.AddPersonAlias(ctx, singer, "Beyoncé"); err != nil {
 		t.Fatalf("add accented alias: %v", err)
@@ -192,18 +204,22 @@ func TestAliasesSurviveRescan(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 	v := sampleVideo("/m/a.mkv", "T", []string{"Alice"}, nil)
-	if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
+	id, err := r.UpsertVideo(ctx, v, nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, id, "Alice")
 	alice := personIDByName(t, r, "Alice")
 	if _, err := r.AddPersonAlias(ctx, alice, "Ziggy"); err != nil {
 		t.Fatalf("add: %v", err)
 	}
 
-	// A re-scan re-upserts the video (rebuilding video_people via getOrCreateByName).
+	// A re-scan re-upserts the video and RelinkVideoPeople re-derives video_people
+	// via resolveOrCreatePerson (alias-routed, same choke point as getOrCreateByName).
 	if _, err := r.UpsertVideo(ctx, v, nil); err != nil {
 		t.Fatalf("re-upsert: %v", err)
 	}
+	linkPeople(t, r, id, "Alice")
 
 	if got, _ := r.AliasesForPerson(ctx, alice); len(got) != 1 || got[0].Alias != "Ziggy" {
 		t.Errorf("alias did not survive re-scan: %+v", got)
@@ -220,9 +236,11 @@ func TestAliasesSurviveRescan(t *testing.T) {
 func TestScanResolvesAliasToCanonical(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Jennifer Lawrence"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Jennifer Lawrence"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, idA, "Jennifer Lawrence")
 	jen := personIDByName(t, r, "Jennifer Lawrence")
 	if _, err := r.AddPersonAlias(ctx, jen, "J Law"); err != nil {
 		t.Fatalf("add alias: %v", err)
@@ -230,9 +248,11 @@ func TestScanResolvesAliasToCanonical(t *testing.T) {
 
 	// A NEW file tagged with the alias must link to the canonical person, not create
 	// a "J Law" person.
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil); err != nil {
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert alias-tagged: %v", err)
 	}
+	linkPeople(t, r, idB, "J Law")
 	people, _ := r.ListPeople(ctx, false)
 	if len(people) != 1 {
 		t.Fatalf("expected 1 person (alias routed), got %d: %+v", len(people), people)
@@ -246,6 +266,7 @@ func TestScanResolvesAliasToCanonical(t *testing.T) {
 	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil); err != nil {
 		t.Fatalf("re-scan: %v", err)
 	}
+	linkPeople(t, r, idB, "J Law")
 	if people, _ := r.ListPeople(ctx, false); len(people) != 1 {
 		t.Errorf("re-scan re-split the person: %+v", people)
 	}
@@ -254,16 +275,26 @@ func TestScanResolvesAliasToCanonical(t *testing.T) {
 func TestMergePersons(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Jennifer Lawrence"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Jennifer Lawrence"}, nil), nil)
+	linkPeople(t, r, idA, "Jennifer Lawrence")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil)
+	linkPeople(t, r, idB, "J Law")
 	// A film credited under both spellings — the union must de-dupe to one.
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", []string{"Jennifer Lawrence", "J Law"}, nil), nil)
+	idC, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", []string{"Jennifer Lawrence", "J Law"}, nil), nil)
+	linkPeople(t, r, idC, "Jennifer Lawrence", "J Law")
 	jen := personIDByName(t, r, "Jennifer Lawrence")
 	jlaw := personIDByName(t, r, "J Law")
 
 	if err := r.MergePersons(ctx, jen, jlaw); err != nil {
 		t.Fatalf("merge: %v", err)
 	}
+	// In production, a post-merge relink pass (RelinkVideoPeople) re-derives
+	// every affected video's person links from its resolved fields — both
+	// "J Law" and "Jennifer Lawrence" now resolve (alias-routed) to the same
+	// survivor, so B and C's re-derived link sets collapse to one row apiece.
+	// Simulate that pass here, same as the re-scan derivation below.
+	linkPeople(t, r, idB, "J Law")
+	linkPeople(t, r, idC, "Jennifer Lawrence", "J Law")
 
 	// The duplicate is gone.
 	if _, err := r.GetPerson(ctx, jlaw); err != repo.ErrNotFound {
@@ -288,15 +319,42 @@ func TestMergePersons(t *testing.T) {
 	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"J Law"}, nil), nil); err != nil {
 		t.Fatalf("re-scan: %v", err)
 	}
+	linkPeople(t, r, idB, "J Law")
 	if people, _ := r.ListPeople(ctx, false); len(people) != 1 {
 		t.Errorf("re-scan re-split merged person: %+v", people)
+	}
+}
+
+// The merge's own association move must dedupe on video_people's full
+// (video_id, person_id, role) key (F40, ADR-072) — not just the post-merge relink
+// pass a real scan/curation change would trigger afterward. Without carrying the
+// loser's role across, the loser's 'actor' link would land as a second row with
+// role='' instead of colliding with the survivor's own 'actor' link on the same video.
+func TestMergePersons_DedupesSameRoleLinkAtMergeTime(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	id, _ := r.UpsertVideo(ctx, sampleVideo("/m/dup.mkv", "Dup", nil, nil), nil)
+	linkPeople(t, r, id, "Jennifer Lawrence", "J Law")
+	jen := personIDByName(t, r, "Jennifer Lawrence")
+	jlaw := personIDByName(t, r, "J Law")
+
+	if err := r.MergePersons(ctx, jen, jlaw); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	p, err := r.GetPerson(ctx, jen)
+	if err != nil {
+		t.Fatalf("get canonical: %v", err)
+	}
+	if p.VideoCount != 1 {
+		t.Errorf("canonical video count = %d, want 1 (merge must dedupe same-role link on its own)", p.VideoCount)
 	}
 }
 
 func TestMergePersonsValidation(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Alice"}, nil), nil)
+	linkPeople(t, r, idA, "Alice")
 	alice := personIDByName(t, r, "Alice")
 	if err := r.MergePersons(ctx, alice, alice); err == nil {
 		t.Error("merge into self should error")
@@ -309,8 +367,10 @@ func TestMergePersonsValidation(t *testing.T) {
 func TestPersonConflict(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Chris Evans"}, nil), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Some DJ"}, nil), nil)
+	idA, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Chris Evans"}, nil), nil)
+	linkPeople(t, r, idA, "Chris Evans")
+	idB, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Some DJ"}, nil), nil)
+	linkPeople(t, r, idB, "Some DJ")
 	chris := personIDByName(t, r, "Chris Evans")
 	dj := personIDByName(t, r, "Some DJ")
 
@@ -337,9 +397,11 @@ func TestSearchReturnsPersonMedia(t *testing.T) {
 	ctx := context.Background()
 	// The video TITLE deliberately shares no terms with the person/alias, so a hit
 	// can only come from person association (the merge promise), not title FTS.
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Untitled Clip", []string{"Zeta Person"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Untitled Clip", []string{"Zeta Person"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, idA, "Zeta Person")
 	zeta := personIDByName(t, r, "Zeta Person")
 
 	res, err := r.Search(ctx, "zeta", 10)

@@ -14,9 +14,11 @@ func TestEnrichmentShadowStore(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Hayao Miyazaki"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Hayao Miyazaki"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeople(t, r, idA, "Hayao Miyazaki")
 	pid, ok, err := r.PersonIDByName(ctx, "Hayao Miyazaki")
 	if err != nil || !ok {
 		t.Fatalf("person id: ok=%v err=%v", ok, err)

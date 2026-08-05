@@ -32,13 +32,15 @@ func promotionServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, &model.Video{
+	vid, err := r.UpsertVideo(ctx, &model.Video{
 		FilePath: "/m/x.mkv", FileSize: 1, Title: "Clip", Duration: 60, Width: 1920, Height: 1080,
 		FileMtime: time.Now().UTC().Truncate(time.Second),
 		People:    []model.Person{{Name: "Alice"}},
-	}, nil); err != nil {
+	}, nil)
+	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
+	linkPeople(t, r, vid, "Alice")
 	pid, _, err := r.PersonIDByName(ctx, "Alice")
 	if err != nil {
 		t.Fatalf("person id: %v", err)

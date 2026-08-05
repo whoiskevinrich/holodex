@@ -33,6 +33,7 @@ import (
 	"holodex/internal/metrics"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
+	"holodex/internal/personorphan"
 	"holodex/internal/purge"
 	"holodex/internal/refresh"
 	"holodex/internal/repo"
@@ -108,7 +109,8 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 	}
 
 	log.Info("mcp stdio server starting", "database", cfg.DatabasePath)
-	return mcp.New(repo.New(database), log, mappings).ServeStdio()
+	auth := api.NewAuth(cfg.AdminToken)
+	return mcp.New(repo.New(database), log, mappings, auth).ServeStdio()
 }
 
 // version is the build identifier surfaced in the activity read-model (F21.1).
@@ -280,15 +282,20 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	refreshSvc := refresh.NewService(sc, repository, enrichSvc, log)
 	handlers.SetRefresh(refreshSvc)
 
-	// Studio entity link derivation (F38, ADR-053): video_studios follows the resolved
-	// `studio` field. RelinkVideoStudios is the single resolution entry point; wire it
-	// into every path that changes a video's resolved studio value. The enrich /
-	// decision / curation triggers live in the handlers themselves.
-	sc.SetRelinker(handlers.RelinkVideoStudios)
-	refreshSvc.SetRelinker(handlers.RelinkVideoStudios)
-	// One-time backfill so promotion doesn't require a manual rescan (ADR-053 §5).
-	// Gated on an empty video_studios so it is genuinely one-time; idempotent.
+	// Entity link derivation (F38 studio + F40 person, ADR-053/ADR-072):
+	// video_studios/video_people follow their resolved fields. RelinkVideoEntity is
+	// the single resolution entry point (studio + person together); wire it into
+	// every path that changes a video's resolved value. The enrich/decision/
+	// curation triggers live in the handlers themselves.
+	sc.SetRelinker(handlers.RelinkVideoEntity)
+	refreshSvc.SetRelinker(handlers.RelinkVideoEntity)
+	// One-time backfills so promotion doesn't require a manual rescan (ADR-053 §5 /
+	// ADR-072 P0-4). Each is gated on its own empty link table, genuinely one-time;
+	// idempotent. Person backfill is loss-guarded: it fails loudly (logs, doesn't
+	// panic) rather than silently accepting fewer links than raw extraction held
+	// pre-cutover (ADR-072 RD9).
 	backfillStudioLinks(ctx, repository, handlers.RelinkVideoStudios, log)
+	backfillPersonLinks(ctx, repository, handlers.RelinkVideoPeople, log)
 	handlers.SetWriteback(writeback.WriteBatch)
 	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
 	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)
@@ -374,6 +381,11 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	purger := purge.New(repository, purgeCfg, log)
 	handlers.SetDelete(purger, purgeCfg.Grace)
 
+	// Person orphan sweep (F40, ADR-072 §4/P0-9): a daily ticker that deletes people
+	// orphaned (zero video links) for more than the grace period, skipping anyone
+	// carrying authored identity (alias/curated image/manual decision or curation).
+	orphanSweeper := personorphan.New(repository, personorphan.Config{}, log)
+
 	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user
 	// zero-config default; on a non-loopback bind that means the admin surface is
 	// reachable without a token — warn loudly (fail-loud condition 1).
@@ -415,6 +427,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
 	go purger.Run(ctx)
+	go orphanSweeper.Run(ctx)
 	go writeQ.Start(ctx) // boot recovery + orphan sweep + worker pool (F30, ADR-048)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
@@ -422,7 +435,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if cfg.MCPEnabled && (cfg.MCPTransport == "http" || cfg.MCPTransport == "both") {
 		mcpAddr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.MCPPort))
 		go func() {
-			if err := mcp.New(repository, log, mappings).StartHTTP(ctx, mcpAddr); err != nil {
+			if err := mcp.New(repository, log, mappings, auth).StartHTTP(ctx, mcpAddr); err != nil {
 				log.Error("mcp http server failed", "err", err)
 			}
 		}()
@@ -521,6 +534,70 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 		log.Warn("studio link backfill: record job run failed", "err", err)
 	}
 	log.Info("studio link backfill complete", "videos", len(ids), "errors", errs)
+}
+
+// backfillPersonLinks runs the one-time video→person link derivation cutover
+// (F40, ADR-072 P0-4). Unlike studio's video_studios (greenfield table),
+// migration 0037 CARRIES FORWARD the pre-existing raw-extraction video_people
+// rows (role=''), so a non-empty table does not mean the backfill already ran —
+// this gates purely on the job-run marker, not PersonLinkCount. Loss-guarded
+// (ADR-072 RD9): logs loudly (never panics) if the post-backfill active link
+// count shrinks vs. pre-backfill, which would mean the derivation's source set
+// misses something raw extraction covered. Best-effort; idempotent.
+func backfillPersonLinks(ctx context.Context, r *repo.Repo, relink func(context.Context, int64) error, log *slog.Logger) {
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindPersonBackfill); err != nil {
+		log.Warn("person link backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	preCount, err := r.PersonLinkCount(ctx)
+	if err != nil {
+		log.Warn("person link backfill: pre-count failed", "err", err)
+		return
+	}
+	ids, err := r.AllActiveVideoIDs(ctx)
+	if err != nil {
+		log.Warn("person link backfill: list videos failed", "err", err)
+		return
+	}
+	if len(ids) == 0 {
+		return // nothing to backfill; no marker needed (a later boot with videos runs)
+	}
+	started := time.Now()
+	var errs int
+	for _, id := range ids {
+		if err := relink(ctx, id); err != nil {
+			errs++
+			log.Warn("person link backfill: relink failed", "id", id, "err", err)
+		}
+	}
+	postCount, err := r.PersonLinkCount(ctx)
+	if err != nil {
+		log.Warn("person link backfill: post-count failed", "err", err)
+		postCount = preCount // avoid a false-positive loss-guard trip on a read failure
+	}
+	if postCount < preCount {
+		log.Error("person link backfill: active link count SHRANK — derivation source set may miss an extraction tag",
+			"pre", preCount, "post", postCount)
+	}
+	finished := time.Now()
+	status := model.JobStatusOK
+	if errs > 0 {
+		status = model.JobStatusErr
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindPersonBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Errors:     errs,
+		Detail:     fmt.Sprintf("person-link backfill: processed %d videos (pre=%d post=%d links)", len(ids), preCount, postCount),
+	}); err != nil {
+		log.Warn("person link backfill: record job run failed", "err", err)
+	}
+	log.Info("person link backfill complete", "videos", len(ids), "errors", errs, "pre_links", preCount, "post_links", postCount)
 }
 
 // seedIdentityReviewQueue runs the one-time near-miss seed of identity_review_queue

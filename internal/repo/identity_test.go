@@ -36,9 +36,11 @@ func TestNameKeyConvergencePerson(t *testing.T) {
 	ctx := context.Background()
 
 	for _, name := range []string{"fox", "Fox", " fox ", "FOX"} {
-		if _, err := r.UpsertVideo(ctx, sampleVideo("/m/"+name+".mkv", "T", []string{name}, nil), nil); err != nil {
+		id, err := r.UpsertVideo(ctx, sampleVideo("/m/"+name+".mkv", "T", []string{name}, nil), nil)
+		if err != nil {
 			t.Fatalf("upsert %q: %v", name, err)
 		}
+		linkPeople(t, r, id, name)
 	}
 	if n := peopleCount(t, r); n != 1 {
 		t.Fatalf("case/whitespace variants forked identity: got %d people, want 1", n)
@@ -69,18 +71,22 @@ func TestAliasRoutesOnScan(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Robert Smith"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Robert Smith"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, idA, "Robert Smith")
 	pid := personIDByName(t, r, "Robert Smith")
 	if _, err := r.AddPersonAlias(ctx, pid, "Bob"); err != nil {
 		t.Fatalf("add alias: %v", err)
 	}
 
 	// A new file credits "bob" (different casing than the stored alias "Bob").
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"bob"}, nil), nil); err != nil {
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"bob"}, nil), nil)
+	if err != nil {
 		t.Fatalf("upsert 2: %v", err)
 	}
+	linkPeople(t, r, idB, "bob")
 	if n := peopleCount(t, r); n != 1 {
 		t.Fatalf("alias spelling created a second person: got %d, want 1", n)
 	}
@@ -102,9 +108,11 @@ func TestExactEntityMatch(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith"}, nil), nil); err != nil {
+	seedID, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, seedID, "Alice Smith")
 
 	id, ok, err := r.ExactEntityMatch(ctx, model.EnrichEntityPerson, "alice smith")
 	if err != nil || !ok {
@@ -133,9 +141,11 @@ func TestEntityNames(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith", "Bob Jones"}, nil), nil); err != nil {
+	seedID, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Alice Smith", "Bob Jones"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	linkPeople(t, r, seedID, "Alice Smith", "Bob Jones")
 
 	names, err := r.EntityNames(ctx, model.EnrichEntityPerson)
 	if err != nil {

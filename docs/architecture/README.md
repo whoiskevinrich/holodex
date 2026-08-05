@@ -109,6 +109,8 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 - [Tag governance & video enrichment (F50)](../specs/tag-governance-and-video-enrichment.md) — tag hierarchy + global deny-list + video-enrichment tag materialization + genre writeback, built on F43's identity spine; fixes a latent rescan data-loss gap (`video_tags` gains provenance) as its P0 (ADR-075)
 - [Tag writeback exclusion](../specs/tag-writeback-exclusion.md) — per-tag boolean flag excluding a tag from file `Genre` writeback while it stays a normal searchable Holodex tag; manual (not automatic) per-tag/bulk sync to already-written files, reusing the writeback-modal pattern (ADR-077; HOLODEX-239)
 - [Studio image roles (F51)](../specs/studio-images.md) — icon/logo/poster as independently owner-editable image slots (upload + enrichment, ADR-049-style provenance lock), replacing the single enrichment-only logo cache; realizes ADR-057's deferred Option D (ADR-079; HOLODEX-247)
+- [Owner person & studio media linking (F40)](../specs/person-media-linking.md) — owner-authored person/studio ↔ video links via curation, `video_people` migrated to resolved-value derivation with a role column and 30-day orphan grace, writeback round-trip (ADR-072; HOLODEX-114)
+- [Owner-mode video editing (F52)](../specs/video-owner-mode-editing.md) — Commentary field (zero-source manual-first replace field), poster upload as a new thumbnail-pipeline tier, studio moved next to the title, file metadata gated to owner-only; F40 implements the People/Studio-linking half of this same change (HOLODEX-251/HOLODEX-252)
 
 ## Cross-cutting
 - [Testing Strategy](../testing-strategy.md) — pyramid, fixture corpus, per-component plan, CI, phasing

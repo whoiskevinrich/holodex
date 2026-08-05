@@ -9,12 +9,15 @@ import (
 	"holodex/internal/repo"
 )
 
-// up upserts an active video and returns its id.
+// up upserts an active video (linking any people, F40/ADR-072) and returns its id.
 func up(t *testing.T, r *repo.Repo, path, title string, people, tags []string) int64 {
 	t.Helper()
 	id, err := r.UpsertVideo(context.Background(), sampleVideo(path, title, people, tags), nil)
 	if err != nil {
 		t.Fatalf("upsert %s: %v", path, err)
+	}
+	if len(people) > 0 {
+		linkPeople(t, r, id, people...)
 	}
 	return id
 }

@@ -5,7 +5,16 @@
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
-	import { formatBitrate, formatBytes, formatDuration, formatYear, resolutionBucket, toMessage, videoCount } from '$lib/format';
+	import {
+		formatBitrate,
+		formatBytes,
+		formatDuration,
+		formatYear,
+		providerFromWinningSource,
+		resolutionBucket,
+		toMessage,
+		videoCount
+	} from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
@@ -39,6 +48,11 @@
 	let openEnriched = $state<Record<string, boolean>>({});
 	let regenerating = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
+	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
+	// thumbnail pipeline regenerate/thumbVersion already drive.
+	let posterUploading = $state(false);
+	let posterError = $state('');
+	let posterInput = $state<HTMLInputElement | null>(null);
 
 	// Owner-only delete (F24, ADR-037). confirmMode drives which confirm dialog shows.
 	let confirmMode = $state<'soft' | 'purge' | null>(null);
@@ -91,8 +105,31 @@
 	);
 	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
 	// auto-registered non-canonical fields, which render read-only after them.
-	const canonicalResolved = $derived(resolved.filter((f) => !f.auto_registered));
+	// Studio (F52) and Commentary render in their own header-adjacent spots instead of
+	// the generic metadata dl — excluded here so they don't also render there.
+	const canonicalResolved = $derived(
+		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary')
+	);
+	// Visitor view only: a field whose winner is the file/tag baseline just restates
+	// what's already visible elsewhere on the page (title in the header, genres — a
+	// tag-materialized field, ADR-013 — in the Tags section) — hide it there and keep
+	// the Metadata section for genuine enrichment/manual content. providerFromWinningSource
+	// already excludes file/record/manual/computed; "tag" is the video's own Tag rows,
+	// excluded here rather than there since it still needs a provenance badge elsewhere.
+	// Owner view keeps everything (it's what they curate).
+	const visibleResolved = $derived(
+		isOwner
+			? canonicalResolved
+			: canonicalResolved.filter(
+					(f) => (f.winning_source ?? '').split(':')[0] !== 'tag' && providerFromWinningSource(f.winning_source)
+				)
+	);
+	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
+	const commentaryField = $derived(resolved.find((f) => f.canonical === 'commentary'));
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
+	// Gates the whole Metadata section for visitors: nothing to show there once
+	// title/genres-style baseline duplicates are filtered out of visibleResolved.
+	const hasVisibleMetadata = $derived(isOwner || visibleResolved.length > 0 || extraFields.length > 0);
 	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider — entity_enrichment keyed by
 	// provider). Was collapsed to the first capable provider, so a second matched
@@ -165,6 +202,40 @@
 		} finally {
 			regenerating = false;
 		}
+	}
+
+	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
+	// thumbnail pipeline regenerateThumbnail already drives, so it shares its
+	// cache-bust mechanism (thumbVersion).
+	function triggerPosterUpload() {
+		posterInput?.click();
+	}
+	async function runPosterAction(action: () => Promise<unknown>) {
+		if (!video || posterUploading) return;
+		posterUploading = true;
+		posterError = '';
+		try {
+			await action();
+			thumbVersion += 1;
+			await reloadDetail();
+		} catch (err) {
+			posterError = toMessage(err);
+		} finally {
+			posterUploading = false;
+		}
+	}
+	function onPosterFileChosen(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		(e.target as HTMLInputElement).value = ''; // allow re-choosing the same file
+		if (!file) return;
+		const vid = video;
+		if (!vid) return;
+		runPosterAction(() => api.uploadVideoPoster(vid.id, file));
+	}
+	function removePoster() {
+		const vid = video;
+		if (!vid) return;
+		runPosterAction(() => api.deleteVideoPoster(vid.id));
 	}
 
 	// Apply a freshly-fetched media detail to the page state (shared by the initial
@@ -472,11 +543,51 @@
 					onended={() => setPlaying(false)}
 					onerror={() => (playFailed = true)}
 				></video>
+				{#if isOwner}
+					<input
+						bind:this={posterInput}
+						type="file"
+						accept="image/*"
+						class="sr-only"
+						onchange={onPosterFileChosen}
+					/>
+					<button
+						onclick={triggerPosterUpload}
+						disabled={posterUploading}
+						title="Upload poster"
+						aria-label="Upload poster"
+						class="absolute right-16 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+					>
+						<svg
+							class="h-4 w-4 {posterUploading ? 'animate-spin' : ''}"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" />
+						</svg>
+					</button>
+					{#if video.poster_uploaded}
+						<button
+							onclick={removePoster}
+							disabled={posterUploading}
+							title="Remove uploaded poster"
+							aria-label="Remove uploaded poster"
+							class="absolute right-9 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					{/if}
+				{/if}
 				<button
 					onclick={regenerateThumbnail}
 					disabled={regenerating}
-					title="Regenerate thumbnail"
-					aria-label="Regenerate thumbnail"
+					title="Regenerate thumbnail from file"
+					aria-label="Regenerate thumbnail from file"
 					class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
 				>
 					<svg
@@ -492,9 +603,33 @@
 				</button>
 			{/if}
 		</div>
+		{#if posterError}
+			<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
+		{/if}
 
 		<header class="space-y-2">
 			<h1 class="skin-title text-2xl font-semibold text-ink">{displayTitle}</h1>
+			{#if isOwner || studioField?.values?.length}
+				<div class="flex flex-wrap items-center gap-2 text-sm">
+					{#if isOwner && studioField}
+						<SourceSelect field={studioField} decide={(s, mv) => decideField('studio', s, mv)} />
+						{#each studios as s (s.id)}
+							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
+						{/each}
+					{:else if studios.length}
+						<!-- Visitor view: the resolved studio value always matches its linked
+						     entity (RD1), so show the link alone instead of the text + arrow-link
+						     duplicate (owner view keeps both — the arrow-link there is a shortcut
+						     to the studio page distinct from the editable SourceSelect value). -->
+						{#each studios as s, i (s.id)}
+							{#if i > 0}<span class="text-muted">,</span>{/if}
+							<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
+						{/each}
+					{:else if studioField?.values?.length}
+						<span class="text-ink">{studioField.values[0]}</span>
+					{/if}
+				</div>
+			{/if}
 			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
 				<span>{video.width}×{video.height}</span>
@@ -505,6 +640,17 @@
 				{/if}
 			</div>
 		</header>
+
+		{#if isOwner || commentaryField?.values?.length}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Commentary</h2>
+				{#if isOwner && commentaryField}
+					<SourceSelect field={commentaryField} decide={(s, mv) => decideField('commentary', s, mv)} />
+				{:else if commentaryField?.values?.length}
+					<p class="leading-relaxed text-ink">{commentaryField.values[0]}</p>
+				{/if}
+			</section>
+		{/if}
 
 		{#if isOwner || video.tags?.length}
 			<section class="space-y-1.5">
@@ -622,7 +768,7 @@
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 		     enrichment controls and writeback inline in the header. Falls back to
 		     file-only fields when no resolver output is present. -->
-		{#if resolved.length || fields.length || isOwner}
+		{#if hasVisibleMetadata}
 			<section class="space-y-1.5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
@@ -686,9 +832,9 @@
 						{refreshStatus.text}
 					</p>
 				{/if}
-				{#if resolved.length}
+				{#if visibleResolved.length || extraFields.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each canonicalResolved as f (f.canonical)}
+					{#each visibleResolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 						{#if f.display === 'image_url'}
 							<div class="sm:col-span-2">
@@ -734,17 +880,7 @@
 											personStyle={f.canonical === 'actors' || f.canonical === 'director'}
 											onchanged={reloadDetail}
 										/>
-										{/if}
-										{#if f.canonical === 'studio' && studios.length}
-											<!-- F38 (ADR-053): link the resolved studio value to its entity. The
-											     target comes from video_studios, derived from this same resolution,
-											     so the link always matches the displayed value (RD1). -->
-											<div class="mt-1 flex flex-wrap gap-2 text-xs">
-												{#each studios as s (s.id)}
-													<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
-												{/each}
-											</div>
-										{/if}
+									{/if}
 								</dd>
 							</div>
 						{/if}
@@ -777,6 +913,7 @@
 			</section>
 		{/if}
 
+		{#if isOwner}
 		<section class="space-y-1.5">
 			<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
 			<div class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
@@ -792,6 +929,7 @@
 			</div>
 		</div>
 		</section>
+		{/if}
 
 		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
 		     its block is null or empty, so an item with no siblings shows no rail. -->

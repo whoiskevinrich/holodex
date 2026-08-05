@@ -11,6 +11,7 @@
 	import { toMessage } from '$lib/format';
 	import type { CurationRequest, Person, ResolvedField, ResolvedValue } from '$lib/types';
 	import CurationChip from './CurationChip.svelte';
+	import EntityPickerDialog from '../entity/EntityPickerDialog.svelte';
 
 	let {
 		field,
@@ -63,6 +64,14 @@
 	let draft = $state('');
 	let busy = $state(false);
 	let error = $state('');
+	let pickerOpen = $state(false);
+
+	// Person-typed fields (F40, ADR-072 — actors/director) open the entity-search
+	// picker instead of a bare text input, so linking a cast member finds an
+	// existing person rather than minting a typo'd near-duplicate. Reuses
+	// EntityPickerDialog (built for the Extraction tab's People/Studio edits) —
+	// same entity-generic search + inline-create shape the F40 design calls for.
+	const isPersonLink = $derived(field.entity_kind === 'person');
 
 	async function run(fn: () => Promise<unknown>) {
 		busy = true;
@@ -134,7 +143,16 @@
 	{/each}
 
 	{#if isOwner && isSet}
-		{#if adding}
+		{#if isPersonLink}
+			<button
+				type="button"
+				onclick={() => (pickerOpen = true)}
+				class="inline-flex items-center gap-1 rounded-full border border-rule px-2 py-0.5 text-xs text-muted hover:text-accent hover:border-accent focus-visible:text-accent"
+			>
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+				Add
+			</button>
+		{:else if adding}
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				bind:value={draft}
@@ -155,6 +173,15 @@
 				Add
 			</button>
 		{/if}
+	{/if}
+
+	{#if pickerOpen}
+		<EntityPickerDialog
+			kind="person"
+			seedQuery=""
+			onclose={() => (pickerOpen = false)}
+			onselect={(name) => run(() => doCurate({ field: field.canonical, value: name, action: 'add' }))}
+		/>
 	{/if}
 
 	{#if error}

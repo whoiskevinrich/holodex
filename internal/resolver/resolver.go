@@ -60,6 +60,13 @@ type ResolvedField struct {
 	// false. The SPA renders these in the "Additional details" group.
 	AutoRegistered bool `json:"auto_registered,omitempty"`
 
+	// EntityKind marks a field whose resolved value(s) name a linkable entity (F40,
+	// ADR-072): "" (not entity-typed), "person", or "studio" — mirrors
+	// registry.FieldDef.EntityKind. The SPA's "+ Add" affordance uses it to decide
+	// whether to open the entity search/create LinkPicker instead of a bare text
+	// input on a merge field row.
+	EntityKind string `json:"entity_kind,omitempty"`
+
 	// Promoted marks a non-canonical field that became first-class curatable via an
 	// in-app promotion (F44, ADR-062) rather than a native mapping. It is otherwise a
 	// normal mapped field (AutoRegistered=false, full Decision/Candidates/curation); the
@@ -310,6 +317,7 @@ func ResolveFields(
 			Items:         items,
 			Multi:         f.Multi || f.Merge,
 			WinningSource: winner,
+			EntityKind:    registry.Lookup(f.Canonical).EntityKind,
 		}
 		// F36 markers are replace-only (RD1): merge fields keep F30 per-value
 		// curation and carry no source decision.

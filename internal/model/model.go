@@ -20,13 +20,16 @@ const (
 	ThumbnailNone      = ""
 	ThumbnailEmbedded  = "embedded"  // Tier 1: extracted from container cover art
 	ThumbnailGenerated = "generated" // Tier 2: extracted frame via ffmpeg
-	ThumbnailFailed    = "failed"    // last attempt errored; retried by startup sweep
+	ThumbnailUploaded  = "uploaded"  // Tier 0: owner-uploaded poster (F52) — highest
+	// precedence; excluded from the startup sweep (repo.go's NULL/failed-only
+	// query) same as embedded/generated, so it is never auto-replaced.
+	ThumbnailFailed = "failed" // last attempt errored; retried by startup sweep
 )
 
 // HasThumbnailImage reports whether a thumbnail state implies an image exists on
 // disk (and thus a serving URL can be offered).
 func HasThumbnailImage(state string) bool {
-	return state == ThumbnailEmbedded || state == ThumbnailGenerated
+	return state == ThumbnailEmbedded || state == ThumbnailGenerated || state == ThumbnailUploaded
 }
 
 // Video is one indexed media file. file metadata is the source of truth; this
@@ -51,11 +54,14 @@ type Video struct {
 	Active      bool       `json:"-"`
 
 	// ThumbnailState is the cover-image pipeline state (ADR-009): "" (none yet),
-	// "embedded", "generated", or "failed". Internal bookkeeping — the API exposes
-	// ThumbnailURL instead.
+	// "embedded", "generated", "uploaded" (F52), or "failed". Internal bookkeeping —
+	// the API exposes ThumbnailURL and PosterUploaded instead.
 	ThumbnailState string `json:"-"`
 	// ThumbnailURL is the serving URL, set by the API layer when an image exists.
 	ThumbnailURL string `json:"thumbnail_url,omitempty"`
+	// PosterUploaded reports whether the current poster is an owner upload (F52) —
+	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
+	PosterUploaded bool `json:"poster_uploaded,omitempty"`
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`
@@ -292,16 +298,18 @@ const (
 // Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
 // extensible; scan is the only producer today, with enrichment (F22) the next.
 const (
-	JobKindScan             = "scan"
-	JobKindEnrich           = "enrich"
-	JobKindPurge            = "purge"             // grace-period hard-delete sweep (F24, ADR-037)
-	JobKindRefresh          = "refresh"           // per-item forced re-extract + re-enrich (F31, ADR-047)
-	JobKindWriteback        = "writeback"         // queued batch metadata write (F30, ADR-048)
-	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
-	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
-	JobKindExtraction       = "extraction"        // library-wide filename extraction pass (F48.5b, ADR-067)
-	JobStatusOK             = "success"
-	JobStatusErr            = "error"
+	JobKindScan              = "scan"
+	JobKindEnrich            = "enrich"
+	JobKindPurge             = "purge"               // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindRefresh           = "refresh"             // per-item forced re-extract + re-enrich (F31, ADR-047)
+	JobKindWriteback         = "writeback"           // queued batch metadata write (F30, ADR-048)
+	JobKindStudioBackfill    = "studio-backfill"     // one-time video→studio link derivation (F38, ADR-053)
+	JobKindIdentityBackfill  = "identity-backfill"   // one-time near-miss review-queue seed (F43, ADR-061)
+	JobKindExtraction        = "extraction"          // library-wide filename extraction pass (F48.5b, ADR-067)
+	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
+	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
+	JobStatusOK              = "success"
+	JobStatusErr             = "error"
 )
 
 // Enrichment entity types stored in entity_enrichment (F22, ADR-033). Tag is not

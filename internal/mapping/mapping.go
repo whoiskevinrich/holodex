@@ -95,9 +95,12 @@ func parse(data []byte) (*Mappings, error) {
 	m := &Mappings{}
 	for _, f := range fc.Fields {
 		f.Canonical = strings.TrimSpace(f.Canonical)
-		if f.Canonical == "" || len(f.Sources) == 0 {
+		if f.Canonical == "" {
 			continue // skip malformed entries rather than failing the whole load
 		}
+		// A field with no sources is not malformed — it's decision-only (F52): it
+		// never resolves on its own, but a manual decision (ADR-051) still works,
+		// since resolveDecided's manual branch never touches ParsedSources.
 		if f.Label == "" {
 			// Fall back to the registry label, then to the canonical name.
 			if def := registry.Lookup(f.Canonical); def.Label != "" {

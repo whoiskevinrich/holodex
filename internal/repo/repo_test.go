@@ -43,15 +43,31 @@ func sampleVideo(path, title string, people, tags []string) *model.Video {
 	return v
 }
 
+// linkPeople reconciles video_people (F40, ADR-072) for videoID to the given
+// names, each with role "actor" — the resolved-derivation path that replaced
+// UpsertVideo's old synchronous write. Tests that care about a specific role
+// call r.ReconcileVideoPeople directly instead.
+func linkPeople(t *testing.T, r *repo.Repo, videoID int64, names ...string) {
+	t.Helper()
+	links := make([]repo.PersonRoleName, len(names))
+	for i, n := range names {
+		links[i] = repo.PersonRoleName{Name: n, Role: "actor"}
+	}
+	if err := r.ReconcileVideoPeople(context.Background(), videoID, links); err != nil {
+		t.Fatalf("link people: %v", err)
+	}
+}
+
 func TestUpsertAndGet(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	id, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Amélie", []string{"Alice", "Bob"}, []string{"documentary"}),
-		[]model.ExtraMetadata{{SourceKey: "Publisher", Value: "Acme"}})
+	v := sampleVideo("/m/a.mkv", "Amélie", []string{"Alice", "Bob"}, []string{"documentary"})
+	id, err := r.UpsertVideo(ctx, v, []model.ExtraMetadata{{SourceKey: "Publisher", Value: "Acme"}})
 	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	linkPeople(t, r, id, "Alice", "Bob")
 
 	got, extra, err := r.GetVideo(ctx, id)
 	if err != nil {
@@ -74,6 +90,7 @@ func TestUpsertIsIdempotent(t *testing.T) {
 	v := sampleVideo("/m/a.mkv", "Title", []string{"Alice"}, []string{"x"})
 
 	id1, _ := r.UpsertVideo(ctx, v, nil)
+	linkPeople(t, r, id1, "Alice")
 	// Re-extract with changed cast — associations should be replaced, not duplicated.
 	v.People = []model.Person{{Name: "Carol"}}
 	id2, err := r.UpsertVideo(ctx, v, nil)
@@ -83,6 +100,7 @@ func TestUpsertIsIdempotent(t *testing.T) {
 	if id1 != id2 {
 		t.Fatalf("expected same id, got %d then %d", id1, id2)
 	}
+	linkPeople(t, r, id2, "Carol")
 	got, _, _ := r.GetVideo(ctx, id2)
 	if len(got.People) != 1 || got.People[0].Name != "Carol" {
 		t.Errorf("people not replaced: %+v", got.People)
@@ -162,10 +180,12 @@ func TestPeopleForVideos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed video a: %v", err)
 	}
+	linkPeople(t, r, a, "Bob", "Alice")
 	b, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Carol"}, nil), nil)
 	if err != nil {
 		t.Fatalf("seed video b: %v", err)
 	}
+	linkPeople(t, r, b, "Carol")
 	c, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
 	if err != nil {
 		t.Fatalf("seed video c (no people): %v", err)
@@ -197,8 +217,10 @@ func namesOf(people []model.Person) []string {
 func TestListFilterByPersonAndSearch(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/sun.mkv", "Sunrise", []string{"Alice"}, []string{"nature"}), nil)
-	_, _ = r.UpsertVideo(ctx, sampleVideo("/m/moon.mkv", "Moonset", []string{"Bob"}, []string{"nature"}), nil)
+	sunID, _ := r.UpsertVideo(ctx, sampleVideo("/m/sun.mkv", "Sunrise", []string{"Alice"}, []string{"nature"}), nil)
+	linkPeople(t, r, sunID, "Alice")
+	moonID, _ := r.UpsertVideo(ctx, sampleVideo("/m/moon.mkv", "Moonset", []string{"Bob"}, []string{"nature"}), nil)
+	linkPeople(t, r, moonID, "Bob")
 
 	alice, err := r.ListPeople(ctx, false)
 	if err != nil || len(alice) != 2 {

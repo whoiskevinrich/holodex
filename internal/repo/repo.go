@@ -164,7 +164,7 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 		return 0, fmt.Errorf("resolve video id: %w", err)
 	}
 
-	if err := replaceAssociations(ctx, tx, id, v.People, v.Tags, extra); err != nil {
+	if err := replaceAssociations(ctx, tx, id, v.Tags, extra); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -173,9 +173,13 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	return id, nil
 }
 
-// replaceAssociations clears and re-links people, tags, and raw metadata for a
-// video so re-extraction is idempotent.
-func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people []model.Person, tags []model.Tag, extra []model.ExtraMetadata) error {
+// replaceAssociations clears and re-links tags and raw metadata for a video so
+// re-extraction is idempotent. People are NOT written here (ADR-072 P0-3):
+// video_people is derived from resolved person-typed fields by
+// RelinkVideoPeople/RelinkVideoEntity, called post-commit by the scanner via
+// SetRelinker — the sole writer of that table. Tags remain raw-extraction
+// (documented asymmetry, ADR-053/ADR-072).
+func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, tags []model.Tag, extra []model.ExtraMetadata) error {
 	// Scoped to source=fieldsource.File (ADR-075 D3): a manually-attached or
 	// enrichment-materialized tag must survive every future rescan, since the
 	// file on disk has no way to re-supply it if this delete ever widened back
@@ -184,7 +188,6 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 	tagInsert := fmt.Sprintf(`INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) VALUES (?, ?, '%s')`, fieldsource.File)
 
 	for _, stmt := range []string{
-		`DELETE FROM video_people   WHERE video_id = ?`,
 		tagDelete,
 		`DELETE FROM video_metadata WHERE video_id = ?`,
 	} {
@@ -193,19 +196,9 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, people 
 		}
 	}
 
-	// People and tags both resolve through the shared name-identity spine (F43,
-	// ADR-061) so case/whitespace variants converge and a merged-away name routes to
-	// the canonical entity — the merge survives re-scans.
-	for _, p := range people {
-		pid, err := resolveOrCreatePerson(ctx, tx, p.Name)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO video_people (video_id, person_id) VALUES (?, ?)`, videoID, pid); err != nil {
-			return fmt.Errorf("link person: %w", err)
-		}
-	}
+	// Tags resolve through the shared name-identity spine (F43, ADR-061) so
+	// case/whitespace variants converge and a merged-away name routes to the
+	// canonical entity — the merge survives re-scans.
 	for _, t := range tags {
 		// A denied, oversized, or category-colliding term is skipped silently
 		// (ADR-075 D2/item 11; ADR-078 D3): the scanner has no owner present to

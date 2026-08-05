@@ -29,6 +29,14 @@ type entityIdentity struct {
 	assoc   string   // association junction table
 	assocFK string   // junction column referencing the entity
 	idMoves []idMove // extra tables whose entity FK is repointed on merge
+
+	// moveAssocSQL overrides step 1's generic two-column de-duped-union INSERT (below)
+	// when the association table carries more than (video_id, assocFK) — e.g. a
+	// provenance or role column that must be copied across, and factored into the
+	// de-dupe key, instead of falling back to that column's default. Binds
+	// (canonicalID, mergedID) in that order, same as the generic form. Empty uses the
+	// generic form.
+	moveAssocSQL string
 }
 
 // idMove names a table + column whose reference to the merged entity is repointed
@@ -53,9 +61,33 @@ type identityStep struct {
 }
 
 var entityIdentityByType = map[string]entityIdentity{
-	model.EnrichEntityPerson: {"people", "video_people", "person_id", nil},
-	model.EnrichEntityStudio: {"studios", "video_studios", "studio_id", []idMove{{"studio_external_ids", "studio_id", false}}},
-	model.EntityTag:          {"tags", "video_tags", "tag_id", []idMove{{"tags", "parent_tag_id", true}}},
+	model.EnrichEntityPerson: {
+		table: "people", assoc: "video_people", assocFK: "person_id",
+		// video_people's PK is (video_id, person_id, role) since migration 0037 (F40,
+		// ADR-072): carry the loser's role across so the de-duped union collides with a
+		// survivor's existing link in the *same* role, instead of defaulting role to ''
+		// and creating a second row alongside an 'actor'/'director' link that's already
+		// there.
+		moveAssocSQL: `INSERT OR IGNORE INTO video_people (video_id, person_id, role)
+			SELECT video_id, ?, role FROM video_people WHERE person_id = ?`,
+	},
+	model.EnrichEntityStudio: {
+		table: "studios", assoc: "video_studios", assocFK: "studio_id",
+		idMoves: []idMove{{"studio_external_ids", "studio_id", false}},
+	},
+	model.EntityTag: {
+		table: "tags", assoc: "video_tags", assocFK: "tag_id",
+		// video_tags carries a provenance column (source, F50 ADR-075 D3) the other two
+		// association tables don't have: copy it across instead of letting a newly
+		// created link fall back to the column's 'file' default, and only ever upgrade a
+		// survivor's existing link away from 'file' (never downgrade a more durable
+		// source already there).
+		moveAssocSQL: `INSERT INTO video_tags (video_id, tag_id, source)
+			SELECT video_id, ?, source FROM video_tags WHERE tag_id = ?
+			ON CONFLICT (video_id, tag_id) DO UPDATE SET source = excluded.source
+			WHERE video_tags.source = '` + fieldsource.File + `'`,
+		idMoves: []idMove{{"tags", "parent_tag_id", true}},
+	},
 }
 
 // entityAliasKeyByType holds, per entity type, the SQL predicate matching an alias by
@@ -289,19 +321,12 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	}
 	affectedRows.Close()
 
-	// 1. Move associations as a de-duped union (composite PK + OR IGNORE). Tags
-	//    carry a provenance column (video_tags.source, F50 ADR-075 D3) the other
-	//    two association tables don't have: copy it across instead of letting a
-	//    newly-created link fall back to the column's 'file' default, and only
-	//    ever upgrade a survivor's existing link away from 'file' (never
-	//    downgrade a more durable source already there).
-	moveAssocSQL := `INSERT OR IGNORE INTO ` + cfg.assoc + ` (video_id, ` + cfg.assocFK + `)
-		SELECT video_id, ? FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`
-	if entityType == model.EntityTag {
-		moveAssocSQL = `INSERT INTO video_tags (video_id, tag_id, source)
-			SELECT video_id, ?, source FROM video_tags WHERE tag_id = ?
-			ON CONFLICT (video_id, tag_id) DO UPDATE SET source = excluded.source
-			WHERE video_tags.source = '` + fieldsource.File + `'`
+	// 1. Move associations as a de-duped union (composite PK + OR IGNORE), or the
+	//    type's own moveAssocSQL when its association table needs more than that.
+	moveAssocSQL := cfg.moveAssocSQL
+	if moveAssocSQL == "" {
+		moveAssocSQL = `INSERT OR IGNORE INTO ` + cfg.assoc + ` (video_id, ` + cfg.assocFK + `)
+			SELECT video_id, ? FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`
 	}
 	steps := []identityStep{
 		{"move associations", moveAssocSQL, []any{canonicalID, mergedID}},

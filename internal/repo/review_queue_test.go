@@ -56,12 +56,16 @@ func TestReviewQueue_ScanFlagsAndList(t *testing.T) {
 func TestReviewQueue_InternalWhitespaceVariation(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Mary Jane"}, nil), nil); err != nil {
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Mary Jane"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed 1: %v", err)
 	}
-	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"MaryJane"}, nil), nil); err != nil {
+	linkPeople(t, r, idA, "Mary Jane")
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"MaryJane"}, nil), nil)
+	if err != nil {
 		t.Fatalf("seed 2: %v", err)
 	}
+	linkPeople(t, r, idB, "MaryJane")
 	pairs, _ := r.ListReviewPairs(ctx)
 	if len(pairs) != 1 || pairs[0].EntityType != model.EnrichEntityPerson || pairs[0].Variation != "internal-whitespace" {
 		t.Fatalf("pairs = %+v, want one person/internal-whitespace", pairs)
