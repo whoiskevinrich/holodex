@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation) · 2026-08-05 (F52 owner-mode video editing: commentary field, poster upload, studio placement, file-metadata gating; F40 implementation begins)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -648,6 +648,49 @@ authored-identity guard**. Maps to the [F40 design handoff](design/person-media-
   `rg 'zinc-|sky-|…'` guard stays empty; the accent left-border active-row and the role tags vs. the
   active-state accent eyeballed per skin via the handoff `[human]` checklist across Cinémathèque / Broadcast
   / Brutalist).
+
+**Owner-mode video editing — commentary, poster upload, studio placement, file-metadata gating (F52, HOLODEX-251/HOLODEX-252)** —
+rounds out owner-mode video editing alongside F40 in the same branch. Fully CI-testable, no network.
+Cardinal invariants: **a zero-source field is not malformed** (commentary resolves purely from
+decisions), **an uploaded poster is immune to automatic replacement**, and **file metadata never
+reaches a non-owner response**.
+- **Zero-source mapping field (P0-2)**: `mapping.parse` no longer skips a YAML field entry whose
+  `sources` list is empty — only a blank `canonical` is dropped. A `{canonical: commentary}` entry
+  with no `sources:` loads; `GET /media/{id}` omits the `commentary` row until a manual decision
+  exists, then includes it with `candidates: []` (no file/provider candidates ever compete) —
+  `internal/mapping`, `internal/resolver`. Regression: every existing multi-source field's precedence
+  is unchanged (existing mapping tests re-run clean).
+- **Commentary decision round-trip**: `PUT/DELETE /media/{id}/fields/commentary/decision` behaves
+  exactly like any other replace field's decision (owner-gated, sanitized manual value, no file
+  write) — reuses the existing `setFieldDecision`/`clearFieldDecision` test harness parameterized
+  with `commentary` alongside `title`/`studio`.
+- **Poster upload tier (P0-5/P0-6, cardinal)**: `model.ThumbnailUploaded` is a new terminal state;
+  `POST /media/{id}/poster` (multipart, size-capped, decode+normalize, mirrors the
+  `person_images.go` upload test shape) writes to the existing `thumbnail.ThumbPath` and sets state
+  `uploaded`; an oversized/undecodable image → 400, no partial write; storage unconfigured → 503.
+- **Uploaded posters are sweep-immune (P0-8, cardinal, adversarial)**: the startup-sweep query
+  (`thumbnail_state IS NULL OR = 'failed'`, `internal/repo/repo.go`) is asserted **not** to match
+  `'uploaded'` — a fixture library with an uploaded poster, after a full sweep + rescan cycle, has an
+  **unchanged** thumbnail file (byte-identical). Adversarial: a test asserting the sweep query's `IN`/`OR`
+  clause explicitly excludes `uploaded` fails loudly if a future edit widens the clause.
+- **Revert (P0-7)**: `DELETE /media/{id}/poster` removes the uploaded file, resets state, and
+  triggers the same extract/enqueue path `regenerateThumbnail` already uses — a subsequent
+  `GET` serves the file-derived poster again, not a 404.
+- **File-metadata gating (P0-11, cardinal, data-exposure)**: not just a frontend toggle — verified at
+  the point a visitor (no session / non-owner) actually can't observe codec/container/bitrate/path
+  data through any response path the page uses. If that data already ships in the `GET /media/{id}`
+  JSON payload regardless of caller (gated only by frontend render), this is a **security-review
+  finding**, not a passing test — flag explicitly rather than assume the UI gate is sufficient.
+- **Studio-near-title relocation (P0-10)**: pure template/layout change — the resolved `studio`
+  field's value, decision control, and entity link are unchanged in substance; a Vitest render check
+  confirms the studio row is a sibling of `<h1>`, not a descendant of the metadata `dl`, and that it
+  is excluded from the generic canonical-field loop (no duplicate render).
+- **Frontend** (Vitest + a11y): Commentary's `SourceSelect` in `long_text` mode renders a block
+  textarea, not a single-line input (regression against F30's long_text read-only rendering,
+  `+page.svelte`'s existing `long_text` branch); the poster upload trigger is a labeled button with a
+  visually-hidden file input (never `display:none`), disabled + spinning while in flight; the Remove
+  control appears only when `thumbnail_state === 'uploaded'`. Tokens-only (`rg 'zinc-|sky-|#'` clean);
+  **all 3 skins**.
 
 **Provider render hints + non-canonical field auto-registration (F39, HOLODEX-128, ADR-056)** — a provider
 advertises per-field render hints in `/describe.field_hints`; Holodex persists them and **auto-registers**
