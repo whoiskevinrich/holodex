@@ -173,15 +173,19 @@ not match** the page's scope, the NS1 panel renders instead.
   maps to one of the four scopes above); if one is added later, it defaults to panel-only
   behavior.
 
-**Acceptance criteria — NS2**
-- [ ] Given I land on `/people`, then the "People" tab is pre-selected and typing filters
+**Acceptance criteria — NS2** — Implemented (HOLODEX-249): `pageScopeFor()` +
+`navSearch.inPlace`/`setInPlace()` in `navSearch.svelte.ts`, driven by `+layout.svelte` off
+the route; verified live against `backend-amv`.
+- [x] Given I land on `/people`, then the "People" tab is pre-selected and typing filters
       the People grid in place, panel closed.
-- [ ] Given I'm on `/people` with "People" selected and I tap the "Videos" tab, then the
-      People grid stops updating and the NS1 panel opens showing grouped results
-      (Videos-focused), without navigating away from `/people`.
-- [ ] Given I'm on `/people` and select "All", then the panel opens (never in-place),
+- [x] Given I'm on `/people` with "People" selected and I tap the "Videos" tab, then the
+      People grid stops updating (reverts to its full unfiltered list — chosen over
+      freezing the last partial match, since the box is no longer driving this page) and
+      the NS1 panel opens showing grouped results (Videos-focused), without navigating
+      away from `/people`.
+- [x] Given I'm on `/people` and select "All", then the panel opens (never in-place),
       regardless of query content.
-- [ ] Given I switch back to the matching tab after previewing another, then in-place
+- [x] Given I switch back to the matching tab after previewing another, then in-place
       filtering resumes on the current page's own grid.
 
 #### NS3 — Per-page in-place filter mechanics
@@ -197,13 +201,16 @@ not match** the page's scope, the NS1 panel renders instead.
   instead of its own removed input (see NS4).
 - None of the above require new backend endpoints or query params for P0.
 
-**Acceptance criteria — NS3**
-- [ ] Given I type on `/`, then the Media grid re-queries the server and updates, and the
+**Acceptance criteria — NS3** — Implemented (HOLODEX-249), verified live against
+`backend-amv`.
+- [x] Given I type on `/`, then the Media grid re-queries the server and updates, and the
       URL reflects the query (shareable/bookmarkable, matching today's Media filter
       behavior).
-- [ ] Given I type on `/people` or `/studios`, then the grid filters client-side with no
-      network request beyond the page's original full-list fetch.
-- [ ] Given I type on `/tags`, then behavior matches today's Tags filter exactly, just
+- [x] Given I type on `/people` or `/studios`, then the grid filters client-side with no
+      network request beyond the page's original full-list fetch (`navSearch.inPlace`
+      gates the box's own debounced `/search` fetch off entirely while in-place, per
+      `navSearch.svelte.ts`'s `setQuery`/`setInPlace`).
+- [x] Given I type on `/tags`, then behavior matches today's Tags filter exactly, just
       driven by the top box.
 
 #### NS4 — Remove standalone duplicate inputs
@@ -212,11 +219,13 @@ The Media page's own text input and the Tags page's own text input are deleted �
 is now done entirely by the nav search box via NS2/NS3. Media's resolution/duration/year
 facet controls remain untouched.
 
-**Acceptance criteria — NS4**
-- [ ] The Media page renders with exactly one text-search affordance on screen (the nav
+**Acceptance criteria — NS4** — Implemented alongside NS2/NS3 (HOLODEX-249): removing each
+page's own input was a required part of making its `q`/`query` a read-only value derived
+from the shared box, not an independent follow-up step.
+- [x] The Media page renders with exactly one text-search affordance on screen (the nav
       box) — its own inline text input is gone; facet controls (resolution/duration/year)
       remain.
-- [ ] The Tags page renders with exactly one text-search affordance on screen.
+- [x] The Tags page renders with exactly one text-search affordance on screen.
 
 #### NS5 — Keyboard and accessibility parity
 
@@ -322,7 +331,7 @@ No hard deadline. Suggested order:
 3. **NS2 + NS3 + NS4** — wire scope-matched in-place filtering into Media, People,
    Studios, and Tags, and remove the two standalone inputs. These four can land together
    or be sequenced page-by-page (Media first, since it's highest-traffic and already has
-   the most infrastructure to hook into).
+   the most infrastructure to hook into). **Done** — landed together (HOLODEX-249).
 4. **`/testing-strategy`** pass covering the tab-mismatch/in-place routing logic (NS2) and
    all three skins/mobile (per this repo's frontend-theming QA rule).
 5. **NS6 (P1)** — once the engineering-tagged open question is resolved, fold in
