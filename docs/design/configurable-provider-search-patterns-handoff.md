@@ -31,7 +31,7 @@ optional P1 affordance, so an implementer isn't guessing at edge cases the spec 
   `entityName={enrich_queries?.[provider.name] ?? sanitizedFallback}` — a data change, not a markup
   change.
 - `person/[id]/+page.svelte` and `studios/[id]/+page.svelte` keep `entityName={person.name}` /
-  `entityName={studio?.name}` **exactly as today** — F53 is video-only (spec Non-goals). Call this
+  `entityName={studio?.name}` **exactly as today** — F54 is video-only (spec Non-goals). Call this
   out explicitly so an implementer doesn't "helpfully" extend the change to those pages: there is no
   studio/year/performer data on those entities to build a query from.
 - The optional P1 caption (below) reuses the picker's own existing status-line idiom

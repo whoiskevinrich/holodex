@@ -11,7 +11,7 @@
 [ADR-067](ADR-067-filename-extraction-confidence-and-rollback.md) (F48's `{token}` filename-**matching** grammar — a deliberate non-reuse; see D3) ·
 [ADR-060](ADR-060-runtime-owner-settings.md) (the DB-backed owner-settings pattern considered and deferred; see D2).
 **Contract:** [metadata provider contract](../specs/metadata-provider-contract.md) §2.2 (`/describe` manifest — gains one optional key) / §2.3 (`/resolve` hint — unchanged).
-**Spec:** [Configurable provider search patterns (F53)](../specs/configurable-provider-search-patterns.md).
+**Spec:** [Configurable provider search patterns (F54)](../specs/configurable-provider-search-patterns.md).
 **Issue:** [HOLODEX-254](https://whoiskevinrich.atlassian.net/browse/HOLODEX-254).
 
 ---
@@ -172,9 +172,9 @@ A **title sanitizer**, applied to that value wherever it is used (the `{title}` 
 ## Action Items
 
 1. [x] ADR-080 recorded; add to `docs/architecture/README.md`.
-2. [x] `/write-spec` — [F53 spec](../specs/configurable-provider-search-patterns.md) (functional requirements, acceptance criteria for the picker's new default-query behavior).
+2. [x] `/write-spec` — [F54 spec](../specs/configurable-provider-search-patterns.md) (functional requirements, acceptance criteria for the picker's new default-query behavior).
 3. [x] `/design-handoff` — [confirms zero `EnrichPicker.svelte` diff](../design/configurable-provider-search-patterns-handoff.md) beyond the seeded value (per D5); pins the exact content spec per scenario (incl. an empty-sanitization fallback the original spec pass missed) and specs the optional P1 transparency caption; [QA checklist](../design/configurable-provider-search-patterns-qa-checklist.md).
-4. [ ] `/testing-strategy` — precedence-tier resolution (all 4 D2 tiers + fallthrough on a failed required token), optional-token omission, malformed-pattern fail-soft/skip, the D4 sanitizer (bracket/comma stripping, resolution-token regex word-boundary cases — e.g. a title that legitimately ends in a number+letter must not be mistaken for a resolution tag, whitespace collapse). Note D4 is the one **unconditional** behavior change in this ADR (§ below) — its golden cases should confirm sanitization is a pure improvement, never a worse query than the literal title.
+4. [x] `/testing-strategy` — [precedence-tier resolution + token grammar + sanitizer block added](../testing-strategy.md) (§4 backend row, §5 frontend row, §9 adversarial Given/When/Then block, §Critical invariants, §11 tracked gap) — all 4 D2 tiers + required-token fallthrough vs. optional-token omission, `{title}`/floor sanitization word-boundary cases (`Agent 007`/`Suite 1080p` false-positive guard), the D4 empty-sanitization-falls-back-to-raw rule (AC-8a), the D1 wire-contract-unchanged golden test, and the D5 zero-`EnrichPicker.svelte`-diff regression guard. Written ahead of implementation (Action Item 5) — none of it automated yet, tracked in testing-strategy §11.
 5. [ ] **Implementation (HOLODEX-254)** — `enrich.Source.SearchPattern` + `fileConfig.DefaultSearchPattern`; `enrich.Manifest.PreferredSearchPattern`; `internal/enrich/query.go` (grammar + `BuildQuery` + `sanitizeTitle`); wire into `videoHint()`; `getMedia` response gains `enrich_queries`; SPA passes it into `EnrichPicker`'s existing `entityName` prop.
 6. [ ] Provider-contract spec (`docs/specs/metadata-provider-contract.md`) §2.2 — document `preferred_search_pattern` (shape, defaults, unknown-key-safe, no protocol bump).
 7. [ ] `/security-review` before merge — untrusted provider-advertised string (`preferred_search_pattern`) flows into a rendered query sent back out over HTTP; confirm sanitization posture matches ADR-056's precedent for untrusted `/describe` content.

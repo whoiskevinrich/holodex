@@ -22,7 +22,7 @@ unknown-token rejection) and `sanitizeTitle` (bracket/comma stripping, resolutio
 collapse, non-resolution-digit false-positive guards, empty-result fallback to raw).
 1.2 **[smoke]** `npm --prefix web run check` passes with 0 new errors.
 1.3 **[smoke]** A golden test asserting `POST /resolve`'s request body shape is byte-identical to
-pre-F53 for a video with no pattern configured (only the `hint.query` *content* changes per FR4, not
+pre-F54 for a video with no pattern configured (only the `hint.query` *content* changes per FR4, not
 the JSON shape).
 
 ## 2. Agent-verified (this session)

@@ -1,10 +1,10 @@
-# Spec: Configurable per-provider search query patterns (F53)
+# Spec: Configurable per-provider search query patterns (F54)
 
 **Status**: Draft
 **Phase**: Phase 3 follow-up (enrichment quality)
 **Owner**: Project owner
 **Date**: 2026-08-05
-**Feature block**: **F53** — let a provider advertise, and an operator override, a **search query
+**Feature block**: **F54** — let a provider advertise, and an operator override, a **search query
 pattern** (`{studio?} {title?} {performers?} {year?}`) rendered from a video's already-resolved
 fields instead of its raw title; additionally, sanitize the raw-title fallback itself (strip
 bracket/comma punctuation and resolution tokens) so an un-enriched file's messy filename doesn't
@@ -252,7 +252,7 @@ the owner can still freely retype the box; this changes the seeded default only.
   `EnrichPicker.svelte` is unchanged (a file-diff assertion, not just behavioral); F22.5b's
   auto-search-on-open still fires against the new seeded value.
 - **Backward-compat golden** — a provider/config with no pattern keys set produces identical `hint.query`
-  values to pre-F53, except where FR4's sanitizer changes the floor-tier output (a second golden
+  values to pre-F54, except where FR4's sanitizer changes the floor-tier output (a second golden
   confirming the sanitized floor is a pure improvement, never worse than the literal title).
 - **Security** (feeds `/security-review`) — an adversarial `preferred_search_pattern` from a provider
   (oversized string, control characters, an absurd number of tokens) is sanitized/bounded on ingest and
