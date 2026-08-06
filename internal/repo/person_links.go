@@ -51,13 +51,14 @@ func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
+	foldedExtIDByName := foldedExtIDIndex(extIDByName)
 	desired := make(map[personLinkKey]struct{}, len(links))
 	for _, l := range links {
 		name := strings.TrimSpace(l.Name)
 		if name == "" {
 			continue
 		}
-		pid, err := resolveOrCreatePerson(ctx, tx, name, extIDByName[name])
+		pid, err := resolveOrCreatePerson(ctx, tx, name, extIDFor(extIDByName, foldedExtIDByName, name))
 		if err != nil {
 			return err
 		}

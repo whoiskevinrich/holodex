@@ -50,6 +50,7 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
+	foldedExtIDByName := foldedExtIDIndex(extIDByName)
 	// Desired set — resolve-or-create each distinct, non-empty name (id-first).
 	desired := make(map[int64]struct{}, len(names))
 	for _, name := range names {
@@ -57,7 +58,7 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 		if trimmed == "" {
 			continue
 		}
-		sid, err := resolveOrCreateStudio(ctx, tx, trimmed, extIDByName[trimmed])
+		sid, err := resolveOrCreateStudio(ctx, tx, trimmed, extIDFor(extIDByName, foldedExtIDByName, trimmed))
 		if err != nil {
 			return err
 		}

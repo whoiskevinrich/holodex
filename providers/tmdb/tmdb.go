@@ -539,7 +539,7 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 		fields["imdb_id"] = []string{det.IMDbID}
 	}
 	if det.PosterPath != "" {
-		fields["poster_url"] = []string{"https://image.tmdb.org/t/p/original" + det.PosterPath}
+		fields["poster_url"] = []string{tmdbImageURL(det.PosterPath)}
 	}
 	// production_companies → studio (multi-valued), plus a self-describing sidecar
 	// carrying each company's TMDB id for studio-entity de-dup (HOLODEX-122, ADR-054).
@@ -566,10 +566,15 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 			fields[studioExternalIDsField] = companyIDs
 		}
 	}
-	// cast → actors (top 10 by billing order; TMDB returns them pre-sorted)
-	actors := make([]string, 0, 10)
+	// cast → actors (top maxCastCredits by billing order; TMDB returns them
+	// pre-sorted). Kept in sync with people[]'s cast window (buildPeopleCredits) so
+	// every linkable people[] cast credit also appears here — video_people links
+	// derive solely from this flat field (RelinkVideoPeople), so a narrower window
+	// here than people[]'s would leave people[] credits past the cutoff with no
+	// matching link, orphaning their Person rows on the next sweep.
+	actors := make([]string, 0, maxCastCredits)
 	for i, m := range credits.Cast {
-		if i >= 10 {
+		if i >= maxCastCredits {
 			break
 		}
 		if m.Name != "" {
@@ -646,13 +651,21 @@ func buildPeopleCredits(credits movieCredits) []personCredit {
 	return people
 }
 
+// tmdbImageURL builds the full-size TMDB CDN URL for an image path (a poster_path,
+// profile_path, logo_path, etc. as returned by any TMDB response) — the one place
+// the base URL is spelled out, shared by every asset/field builder in this file that
+// joins a TMDB image path.
+func tmdbImageURL(path string) string {
+	return "https://image.tmdb.org/t/p/original" + path
+}
+
 // headshotFor builds a people[] headshot asset from a TMDB profile_path, or nil when
 // absent — the contract's headshot field is optional, omitted when there is none.
 func headshotFor(profilePath string) *assetEntry {
 	if profilePath == "" {
 		return nil
 	}
-	return &assetEntry{Kind: "photo", URL: "https://image.tmdb.org/t/p/original" + profilePath}
+	return &assetEntry{Kind: "photo", URL: tmdbImageURL(profilePath)}
 }
 
 // tmdbMovieURL builds the canonical TMDB web page URL for a movie. TMDB looks the
@@ -892,7 +905,7 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 		}
 		assets = append(assets, assetEntry{
 			Kind: kind,
-			URL:  "https://image.tmdb.org/t/p/original" + p.FilePath,
+			URL:  tmdbImageURL(p.FilePath),
 		})
 	}
 	for _, t := range tags.Results {
@@ -902,7 +915,7 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 		if t.FilePath != "" && t.AspectRatio >= 1.5 {
 			assets = append(assets, assetEntry{
 				Kind: "banner",
-				URL:  "https://image.tmdb.org/t/p/original" + t.FilePath,
+				URL:  tmdbImageURL(t.FilePath),
 			})
 			break // one banner slot
 		}
@@ -1040,7 +1053,7 @@ func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
 	if det.LogoPath != "" {
 		assets = append(assets, assetEntry{
 			Kind: "logo",
-			URL:  "https://image.tmdb.org/t/p/original" + det.LogoPath,
+			URL:  tmdbImageURL(det.LogoPath),
 		})
 	}
 	return enrichResponse{Fields: fields, Assets: assets}

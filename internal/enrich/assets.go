@@ -132,6 +132,10 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 	return data, nil
 }
 
+// personHeadshotKind is the person-photo Asset Kind, shared by resolvePeopleCredits
+// (service.go) and assetRoleFor below so the two don't drift on a re-typed literal.
+const personHeadshotKind = "photo"
+
 // assetRoleFor maps a provider asset kind to an image role, entity-generic since F51
 // (ADR-079). For person: photo → headshot is the default; banner/poster map through
 // when a provider supplies them. For studio: "logo" (or the empty kind, the only kind
@@ -143,7 +147,7 @@ func assetRoleFor(entityType, kind string) (string, bool) {
 	switch entityType {
 	case model.EnrichEntityPerson:
 		switch kind {
-		case "photo", "portrait", "headshot", "":
+		case personHeadshotKind, "portrait", "headshot", "":
 			return model.PersonImageHeadshot, true
 		case "banner", "backdrop":
 			return model.PersonImageBanner, true

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -389,10 +390,14 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	}
 	fields := sanitizeFields(res.Fields)
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
-	// _person_external_ids sidecar field, persisted alongside the flat actors/director
-	// text the provider also emits — the person analogue of _studio_external_ids,
-	// synthesized here (rather than provider-authored like studio's) since people[]
-	// arrives as a separate array, not baked into a provider's flat fields.
+	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
+	// never provider-authored — people[] arrives as a separate array). Unconditionally
+	// discard whatever sanitizeFields let through under this key before rebuilding it
+	// below: otherwise a provider could smuggle a raw, unvalidated-by-sanitizePeople
+	// value through res.Fields whenever res.People yields zero valid credits. Also
+	// deliberately exempt from sanitizeFields' maxFields cap, which bounds an
+	// attacker-controlled field *count* — this is always exactly one core-owned key.
+	delete(fields, model.PersonExternalIDsField)
 	people := sanitizePeople(res.People)
 	if entityType == model.EnrichEntityVideo {
 		if sidecar := personExternalIDsField(people); len(sidecar) > 0 {
@@ -504,26 +509,46 @@ func (s *Service) resolvePeopleCredits(ctx context.Context, provider string, peo
 	if s.images == nil {
 		return
 	}
+	// A person can appear more than once in one video's credits (e.g. actor AND
+	// director, or two crew roles) but personIDs already collapsed every such entry
+	// onto the same Person row keyed by external_id — download each distinct
+	// external_id's headshot at most once rather than once per credit entry, or a
+	// repeat credit re-fetches and re-stores the identical image.
+	seen := make(map[string]bool, len(people))
+	// Bounded so a large credits list (up to maxPeopleCredits) can't fire dozens of
+	// concurrent outbound fetches from one enrich call; downloadAssets touches no
+	// shared state across calls (writes serialize inside the repo/image store).
+	const maxConcurrentHeadshots = 8
+	sem := make(chan struct{}, maxConcurrentHeadshots)
+	var wg sync.WaitGroup
 	for _, p := range people {
-		if p.Headshot == nil || p.Headshot.URL == "" {
+		if p.Headshot == nil || p.Headshot.URL == "" || seen[p.ExternalID] {
 			continue
 		}
+		seen[p.ExternalID] = true
 		personID, ok := personIDs[p.ExternalID]
 		if !ok {
 			continue
 		}
-		// Kind is forced to "photo" rather than passed through as the provider sent
-		// it: people[].headshot is contractually a single fixed-purpose portrait
-		// (contract §4.5), not a member of the heterogeneous assets[] list
+		// Kind is forced to personHeadshotKind rather than passed through as the
+		// provider sent it: people[].headshot is contractually a single fixed-purpose
+		// portrait (contract §4.5), not a member of the heterogeneous assets[] list
 		// assetRoleFor's kind-based dispatch exists to disambiguate. A conformant
 		// provider could otherwise send kind:"gallery" here (§4.3's general Asset
 		// shape doesn't constrain this field's kind beyond "photo" as an example) and
 		// silently divert the headshot into the capped gallery role instead of the
 		// single-occupancy headshot slot — bypassGalleryCap:false then relies on
 		// that slot being genuinely uncappable, which only holds once Kind is forced.
-		headshot := Asset{Kind: "photo", URL: p.Headshot.URL}
-		s.downloadAssets(ctx, model.EnrichEntityPerson, personID, provider, p.ExternalID, []Asset{headshot}, false)
+		headshot := Asset{Kind: personHeadshotKind, URL: p.Headshot.URL}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(personID int64, externalID string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			s.downloadAssets(ctx, model.EnrichEntityPerson, personID, provider, externalID, []Asset{headshot}, false)
+		}(personID, p.ExternalID)
 	}
+	wg.Wait()
 }
 
 // imageBackedEntityType reports whether entityType has an image sink table backing
