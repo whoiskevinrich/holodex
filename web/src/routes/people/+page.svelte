@@ -9,12 +9,16 @@
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
 	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
+	import PersonPosterGrid from '$lib/components/person/PersonPosterGrid.svelte';
+	import PersonViewToggle from '$lib/components/person/PersonViewToggle.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
+	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<PeopleTagSort>(readSort('people', PEOPLE_TAG_SORTS, 'name'));
@@ -24,6 +28,13 @@
 	// Persist the chosen sort per page (SP1).
 	$effect(() => {
 		writeSort('people', sort);
+	});
+
+	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own
+	// holodex:sort:people, same validated-read/fallback-on-corrupt shape.
+	let activeView = $state<PersonView>(readView());
+	$effect(() => {
+		writeView(activeView);
 	});
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
@@ -109,6 +120,14 @@
 		selectedIds = [];
 		choosing = false;
 	}
+
+	// Poster view has no select-mode checkbox affordance (F55 RD2) — entering select mode
+	// switches to List so the checkbox is visible, rather than leaving the click a dead end
+	// or hiding the button entirely.
+	function startSelect() {
+		activeView = 'list';
+		selecting = true;
+	}
 </script>
 
 <section class="space-y-4">
@@ -132,7 +151,7 @@
 					</button>
 				{:else}
 					<button
-						onclick={() => (selecting = true)}
+						onclick={startSelect}
 						class="rounded-theme border border-rule px-3 py-1 text-sm text-ink hover:bg-surface-2"
 					>
 						Merge people…
@@ -143,6 +162,30 @@
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
 			<SortToggle bind:sort />
+			<PersonViewToggle bind:view={activeView} />
+			{#if activeView === 'poster'}
+				<div class="flex items-center gap-2">
+					<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<rect x="3" y="3" width="7" height="7" rx="1" />
+						<rect x="14" y="3" width="7" height="7" rx="1" />
+						<rect x="3" y="14" width="7" height="7" rx="1" />
+						<rect x="14" y="14" width="7" height="7" rx="1" />
+					</svg>
+					<input
+						type="range"
+						min={DENSITY_MIN}
+						max={DENSITY_MAX}
+						step="1"
+						aria-label="Grid density"
+						value={invertDensity(mediaDensity.value)}
+						oninput={(e) => (mediaDensity.value = invertDensity(Number(e.currentTarget.value)))}
+						class="accent-accent"
+					/>
+					<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<rect x="4" y="4" width="16" height="16" rx="2" />
+					</svg>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -160,6 +203,8 @@
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
 	{:else if displayed.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No people match “{q.trim()}”.</p>
+	{:else if activeView === 'poster'}
+		<PersonPosterGrid people={displayed} />
 	{:else}
 		{#if sort === 'name' && !q.trim()}
 			<nav

@@ -16,4 +16,5 @@ gallery/viewer stack. Some pieces are reused verbatim by the studio page (not ta
 | `PersonPoster.svelte` | 2:3 poster card for the video-credits surface — thin wrapper over `PersonImageFrame`. |
 | `PersonPosterCard.svelte` | Poster-grid card for the People index (F55) — `PersonPoster`'s frame + a name/count block below, mirroring `VideoCard`'s title-below-thumbnail layout; conditional border/hover-lift/focus-ring chrome. |
 | `PersonPosterGrid.svelte` | Responsive grid of `PersonPosterCard`s (F55) — mirrors `VideoGrid`'s density→column computation, doubled (RD8). |
+| `PersonViewToggle.svelte` | List/Poster segmented control for the People index (F55) — same shell as `sort/SortToggle.svelte`, `aria-pressed` since it's a 2-way toggle rather than a 3-way sort. |
 | `StudioImageSlot.svelte` | Studio-only (F51, ADR-079): upload/replace/remove control for one of a studio's three core image roles (icon/logo/poster) — no gallery/promote/viewer, unlike Person's image system. Filed here per this folder's "image system" mechanism grouping, not by entity. |
