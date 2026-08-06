@@ -89,8 +89,9 @@ second way to browse the same list.
   is active is Open Question Q1 below (hide it vs. auto-switch to List) — the *scope* decision
   is final, the *affordance detail* isn't.
 - **RD3 — Card border is conditional, not removed outright.** No border on a card with a real
-  headshot (the 14px grid gap alone separates tiles); a card still showing the themed
-  placeholder keeps `border: 1px solid var(--rule)`. Verified by comparing `--bg`/`--surface-2`
+  headshot (the grid gap alone separates tiles — `gap-4`/16px, matching `VideoGrid`'s own gap,
+  not the mockup's 14px); a card still showing the themed placeholder keeps
+  `border: 1px solid var(--rule)`. Verified by comparing `--bg`/`--surface-2`
   across skins: Brutalist (`#0a0a0a` vs `#111111`) and Broadcast (`#060814` vs `#0a0e1f`) sit
   only ~4–11 units apart per channel — close enough that a borderless placeholder would read as
   a blank hole in the page rather than an empty card. Cinémathèque has more natural separation
@@ -101,15 +102,17 @@ second way to browse the same list.
   higher densities). Focus: a dedicated `:focus-visible` outline (2px `--accent`, 2px offset)
   on the frame — this is a **new** affordance, not a restyle; poster-style cards
   (`PersonPoster` included) have no keyboard-focus indicator today.
-- **RD5 — Cinémathèque's decorative top bar is removed from poster cards specifically.** The
-  existing 3px black/`opacity:.55` bar (`.video-frame`'s letterbox echo, also applied to
-  `.portrait-frame`) was harmless while the card also had a border; once RD3 removes that
-  border from photographed cards, the bar becomes the only chrome left and reads as a dead
-  sliver cut into the top of the photo rather than a deliberate accent. Scoped removal —
-  `.video-frame` itself (the actual Videos grid) is untouched; this only affects the new
-  poster-card frame instance.
-- **RD6 — Broadcast's scanline wash and Brutalist's catalog-number counter carry over
-  unchanged.** Neither depends on the border; no new per-skin branch needed for them.
+- **RD5 — No Cinémathèque top bar on poster cards.** *(Corrected during `/design-handoff`
+  grounding: `app.css` scopes the letterbox `::before`/`::after` bars to
+  `.video-grid … .video-frame` only — `.portrait-frame` has never had this bar. The mockup added
+  a parallel bar to `.portrait-frame` purely to preview the flourish; nothing in `app.css` needs
+  removing. `PersonPosterCard` needs zero Cinémathèque-specific CSS.)*
+- **RD6 — Broadcast's scanline wash carries over automatically; there's no Brutalist counter to
+  carry over.** *(Corrected during `/design-handoff` grounding: only
+  `[data-theme='broadcast'] .portrait-frame::after` is a real, existing `.portrait-frame`
+  flourish — it applies to the new card for free. The Brutalist catalog-number counter is
+  `.video-frame`-only in `app.css`; there is no `.portrait-frame` equivalent today, so there's
+  nothing to preserve. The outcome RD6 wanted — no new per-skin branch — still holds.)*
 - **RD7 — List view: avatar row padding becomes `0 16px 0 0`** (was a uniform `10px 16px`), so
   the avatar sits flush against the row's top, left, *and* bottom edges; only the text column
   keeps 16px of right padding. Avatar size and the 3-column responsive grid/gap are unchanged.
@@ -267,12 +270,12 @@ Single-owner personal server, so metrics are qualitative / self-observed:
 
 No hard deadline. Per the project's change-routing rules:
 
-1. **`/design-handoff`** — **needed, not yet done.** This introduces a real new UI surface
-   (view toggle, two new components, a new density control, new hover/focus states, 3-skin
-   QA) beyond what this spec's "UI" section covers structurally. The interactive mockup +
-   critique done this session covers the *decisions*; a formal handoff spec covering exact
-   spacing/breakpoints/component props should still land before implementation, per the
-   project's UX-routing rule.
+1. **`/design-handoff`** — **done.** See
+   [`people-poster-view-handoff.md`](../design/people-poster-view-handoff.md) — exact
+   markup/CSS for `PersonPosterCard`/`PersonPosterGrid`/the view toggle/density slider, plus
+   three corrections to RD3/RD5/RD6 found while grounding the spec's decisions in the real
+   `app.css` (the mockup simulated some skin flourishes that don't exist in production — the
+   corrected version needs *less* new CSS, not more).
 2. **`/testing-strategy`** — **needed, not yet done.** Add a People row to
    `docs/testing-strategy.md` covering: `poster_version` correctness (P0-6, backend unit test
    mirroring `TestListPeopleHeadshotVersion`), the conditional-border render logic, the density
@@ -288,7 +291,7 @@ No hard deadline. Per the project's change-routing rules:
 
 ## Gate status
 
-- [ ] `/design-handoff`
+- [x] `/design-handoff`
 - [ ] `/testing-strategy`
 - [x] `/security-review` — not required (see routing rationale above)
 - [x] `/architecture` — not required (see routing rationale above)
