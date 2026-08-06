@@ -36,8 +36,12 @@ type personLinkKey struct {
 // video's rows, and orphan-stamps (never deletes) any person left with zero links
 // anywhere. One write transaction under writeMu; idempotent. Passing nil/empty
 // links removes all of the video's people links (and orphan-stamps as needed) —
-// the soft-delete path.
-func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []PersonRoleName) error {
+// the soft-delete path. extIDByName maps a resolved name -> its provider external id
+// (F32, ADR-055), mirroring ReconcileVideoStudios' extIDByName so resolve-or-create
+// can id-dedup a video's cast/crew credits in the SAME transaction as the link
+// reconcile; a name absent from the map (or a nil map) resolves by name only. Pass
+// nil when no ids are known.
+func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
@@ -53,7 +57,7 @@ func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []
 		if name == "" {
 			continue
 		}
-		pid, err := resolveOrCreatePerson(ctx, tx, name)
+		pid, err := resolveOrCreatePerson(ctx, tx, name, extIDByName[name])
 		if err != nil {
 			return err
 		}

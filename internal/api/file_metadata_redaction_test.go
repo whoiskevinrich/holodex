@@ -50,7 +50,7 @@ func TestFileMetadataRedactedAcrossVideoEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed video: %v", err)
 	}
-	if err := r.ReconcileVideoPeople(ctx, id, []repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}}); err != nil {
+	if err := r.ReconcileVideoPeople(ctx, id, []repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}}, nil); err != nil {
 		t.Fatalf("link person: %v", err)
 	}
 	pid, _, err := r.PersonIDByName(ctx, "Denis Villeneuve")

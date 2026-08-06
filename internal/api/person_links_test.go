@@ -22,7 +22,7 @@ func TestRelinkVideoPeople_UnmappedFieldLeavesExistingLinksUntouched(t *testing.
 	// Seed a pre-existing person link directly through the repo -- standing in for a
 	// link that predates this boot (raw extraction, an earlier config, or a prior
 	// successful relink) that the config gap must not touch.
-	if err := r.ReconcileVideoPeople(ctx, vid, []repo.PersonRoleName{{Name: "Jane Doe"}}); err != nil {
+	if err := r.ReconcileVideoPeople(ctx, vid, []repo.PersonRoleName{{Name: "Jane Doe"}}, nil); err != nil {
 		t.Fatalf("seed person link: %v", err)
 	}
 	before, err := r.ListPeople(ctx, false)

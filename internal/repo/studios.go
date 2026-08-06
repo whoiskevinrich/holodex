@@ -30,23 +30,6 @@ func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name, externalID str
 	return resolveOrCreateByName(ctx, tx, model.EnrichEntityStudio, name, externalID)
 }
 
-// attachStudioExternalID records external_id → studio_id idempotently (ADR-054); a
-// no-op when externalID is empty. INSERT OR IGNORE: the external_id PK means an id
-// already owned by another studio is left where it is — the id-first lookup in
-// resolveOrCreateStudio would already have returned that owner, so this only ever
-// records a genuinely new (id, studio) pair.
-func attachStudioExternalID(ctx context.Context, tx *sql.Tx, studioID int64, externalID string) error {
-	if externalID == "" {
-		return nil
-	}
-	if _, err := tx.ExecContext(ctx,
-		`INSERT OR IGNORE INTO studio_external_ids (studio_id, external_id) VALUES (?, ?)`,
-		studioID, externalID); err != nil {
-		return fmt.Errorf("attach studio external id: %w", err)
-	}
-	return nil
-}
-
 // ReconcileVideoStudios makes video_studios for one video hold exactly the studios
 // named in `names` (the video's resolved studio value(s); empty/duplicate names are
 // dropped). It resolves-or-creates each name, inserts the missing links, deletes the

@@ -57,7 +57,7 @@ func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, ta
 		for i, p := range people {
 			links[i] = repo.PersonRoleName{Name: p, Role: "actor"}
 		}
-		if err := r.ReconcileVideoPeople(ctx, id, links); err != nil {
+		if err := r.ReconcileVideoPeople(ctx, id, links, nil); err != nil {
 			t.Fatalf("seed %s: link people: %v", path, err)
 		}
 	}

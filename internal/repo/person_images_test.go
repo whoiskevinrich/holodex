@@ -17,7 +17,7 @@ func seedPerson(t *testing.T, r *repo.Repo, name string) int64 {
 	if err != nil {
 		t.Fatalf("seed person: %v", err)
 	}
-	if err := r.ReconcileVideoPeople(ctx, id, []repo.PersonRoleName{{Name: name, Role: "actor"}}); err != nil {
+	if err := r.ReconcileVideoPeople(ctx, id, []repo.PersonRoleName{{Name: name, Role: "actor"}}, nil); err != nil {
 		t.Fatalf("seed person: reconcile: %v", err)
 	}
 	return personIDByName(t, r, name)

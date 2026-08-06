@@ -31,11 +31,14 @@ func (r *Repo) DeletePersonAlias(ctx context.Context, personID, aliasID int64) e
 }
 
 // resolveOrCreatePerson resolves an extracted person name to a person id via the shared
-// name-identity spine (F43, ADR-061): case/whitespace variants converge, and a merged-
-// away name routes through the alias table so a merge survives a re-scan. Thin wrapper
-// over resolveOrCreateByName; runs inside the scan transaction.
-func resolveOrCreatePerson(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
-	return resolveOrCreateByName(ctx, tx, model.EnrichEntityPerson, name, "")
+// name-identity spine (F43, ADR-061): a provider externalID matches FIRST (F32,
+// ADR-055 — so a person enriched under two spellings but the same provider id
+// converges), then case/whitespace-folded canonical name and alias (so "fox"/"Fox"
+// converge and a merged-away name survives re-derivation), then create. externalID is
+// namespace-qualified ("tmdb:6384") or empty (name-only, the pre-F32 behavior). Thin
+// wrapper over resolveOrCreateByName; runs inside the caller's transaction.
+func resolveOrCreatePerson(ctx context.Context, tx *sql.Tx, name, externalID string) (int64, error) {
+	return resolveOrCreateByName(ctx, tx, model.EnrichEntityPerson, name, externalID)
 }
 
 // PersonConflict returns the existing OTHER person that a candidate alias already

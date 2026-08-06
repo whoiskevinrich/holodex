@@ -147,7 +147,7 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 		}
 	}
 	if rc == nil {
-		return h.repo.ReconcileVideoPeople(ctx, videoID, nil)
+		return h.repo.ReconcileVideoPeople(ctx, videoID, nil, nil)
 	}
 	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
 		fields, h.resolveOptions(decisionsFromRows(rc.decRows)))
@@ -159,5 +159,8 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 			links = append(links, repo.PersonRoleName{Name: name, Role: role})
 		}
 	}
-	return h.repo.ReconcileVideoPeople(ctx, videoID, links)
+	// extIDByName is nil until F32's core-enrich slice adds a person analogue of
+	// studioExternalIDsFromRows (a _person_external_ids sidecar field parsed from
+	// rc.enrRows) — the hook is in place, the data source is not wired yet.
+	return h.repo.ReconcileVideoPeople(ctx, videoID, links, nil)
 }
