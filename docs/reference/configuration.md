@@ -204,6 +204,41 @@ controls — a global deny-list (`/owner/tags`) and a tag hierarchy (`/tags`' pa
 maintain in `metadata-mappings.yaml`. Full mechanism in
 [canonical-fields.md § Genre tag materialization & governance](canonical-fields.md#genre-tag-materialization--governance-f50-adr-075).
 
+### `actors` / `director` / `studio` drive the People and Studios pages (F40, ADR-072)
+
+Since F40, the People and Studios pages are **not** populated by raw file-tag extraction — `video_people` and
+`video_studios` are *derived* from the video's **resolved** `actors`, `director`, and `studio` canonical
+fields, re-run on every scan. If your `metadata-mappings.yaml` doesn't map these three fields, nobody and no
+studio can ever link, no matter what your file tags or enrichment provider say. This trips up two situations
+in particular:
+
+- **An instance whose config predates F40.** If you copied `metadata-mappings.yaml` from an older example
+  before these fields existed, add them — see `metadata-mappings.yaml.example`'s "Cast & crew" section for
+  the full, commented block (file tags + `tmdb:actors`/`tmdb:director`, unioned as `multi: true` fields).
+- **A `metadata-mappings.yaml` that's missing or unreadable at startup.** A missing file loads as an *empty*
+  mapping (no error, per the table above) — same effect as omitting `actors`/`director`/`studio` specifically.
+
+As of HOLODEX-256, an unmapped `actors`/`director` leaves any **existing** `video_people` links alone (a
+missing mapping means "no opinion," not "resolved to nobody") — but new links still can't form until the
+field is mapped, so the People page stays empty for a config that's never had these fields at all. `studio`
+predates that fix and still follows the original, harsher behavior: an unmapped `studio` field prunes
+`video_studios` immediately, with no orphan grace period (unlike person, ADR-072 §4) — map it before your
+first boot on a config that manages studios.
+
+Minimum snippet to restore person-linking (copy the fuller commented version from
+`metadata-mappings.yaml.example` when you also want the additional file-tag aliases and the F48 filename-token
+source):
+
+```yaml
+fields:
+  - canonical: actors
+    sources: ["Artist", "Actor", "Actors", "tmdb:actors"]
+    multi: true
+  - canonical: director
+    sources: ["Director", "tmdb:director"]
+    multi: true
+```
+
 ---
 
 ## Metadata source plugins
