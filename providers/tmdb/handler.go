@@ -51,6 +51,9 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 			"known_for_department",
 		},
 		AssetKinds: []string{"photo", "logo"},
+		// video enrich responses include structured people[] credits (§4.5, F32)
+		// alongside the flat actors/director fields above.
+		Credits: true,
 		// F39 (Holodex contract §4.7): presentation hints for our non-canonical keys,
 		// so they render labeled and ordered with no per-operator config. Canonical
 		// keys are omitted here — Holodex's registry owns those.

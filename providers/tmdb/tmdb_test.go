@@ -67,6 +67,9 @@ func TestDescribe(t *testing.T) {
 			t.Error("photo must not be in fields[] — it belongs in asset_kinds[]")
 		}
 	}
+	if !body.Credits {
+		t.Error("credits = false, want true (video enrich emits structured people[], §4.5)")
+	}
 }
 
 func TestResolveUnknownEntityType(t *testing.T) {
@@ -370,6 +373,34 @@ func TestTMDBEnrichMovie(t *testing.T) {
 	if len(res.Assets) != 0 {
 		t.Errorf("movie enrich should have no assets, got %v", res.Assets)
 	}
+
+	// Structured people[] credits (contract §4.5, F32): Helena Bonham Carter has no
+	// TMDB id in the fixture and must be skipped (ADR-055 — id-less is refused, not
+	// name-matched) even though she's still present in the flat actors field above.
+	// Brad Pitt + David Fincher carry a headshot; Edward Norton has an id but no
+	// profile_path, so his headshot is omitted.
+	if len(res.People) != 3 {
+		t.Fatalf("people = %+v, want 3 (Brad Pitt, Edward Norton, David Fincher; Helena Bonham Carter skipped)", res.People)
+	}
+	pitt := res.People[0]
+	if pitt.Name != "Brad Pitt" || pitt.Role != "actor" || pitt.ExternalID != "tmdb:287" || pitt.Order != 0 {
+		t.Errorf("people[0] = %+v, want Brad Pitt/actor/tmdb:287/order 0", pitt)
+	}
+	if pitt.Headshot == nil || pitt.Headshot.Kind != "photo" ||
+		!strings.HasPrefix(pitt.Headshot.URL, "https://image.tmdb.org/") {
+		t.Errorf("people[0].headshot = %+v, want a photo asset", pitt.Headshot)
+	}
+	norton := res.People[1]
+	if norton.Name != "Edward Norton" || norton.ExternalID != "tmdb:819" || norton.Headshot != nil {
+		t.Errorf("people[1] = %+v, want Edward Norton/tmdb:819/no headshot", norton)
+	}
+	fincher := res.People[2]
+	if fincher.Name != "David Fincher" || fincher.Role != "director" || fincher.ExternalID != "tmdb:7467" {
+		t.Errorf("people[2] = %+v, want David Fincher/director/tmdb:7467", fincher)
+	}
+	if fincher.Headshot == nil {
+		t.Error("people[2] (David Fincher) should carry a headshot")
+	}
 }
 
 func TestTMDBEnrichMovieNoPoster(t *testing.T) {
@@ -646,6 +677,32 @@ func TestBuildEnrichResponseCapsAt20(t *testing.T) {
 	}
 }
 
+func TestBuildPeopleCreditsCapsAt20(t *testing.T) {
+	var cast []movieCastEntry
+	for i := range 30 {
+		cast = append(cast, movieCastEntry{ID: i + 1, Name: fmt.Sprintf("Actor %d", i), Order: i})
+	}
+	people := buildPeopleCredits(movieCredits{Cast: cast})
+	if len(people) != maxCastCredits {
+		t.Errorf("want %d people (cap), got %d", maxCastCredits, len(people))
+	}
+}
+
+// TestBuildPeopleCreditsCapsCrew is the crew-side counterpart to
+// TestBuildPeopleCreditsCapsAt20: an anthology film crediting more directors than
+// maxCrewCredits must still stop at the cap (nothing in the TMDB API guarantees a
+// short director list).
+func TestBuildPeopleCreditsCapsCrew(t *testing.T) {
+	var crew []movieCrewEntry
+	for i := range 15 {
+		crew = append(crew, movieCrewEntry{ID: i + 1, Name: fmt.Sprintf("Director %d", i), Job: "Director"})
+	}
+	people := buildPeopleCredits(movieCredits{Crew: crew})
+	if len(people) != maxCrewCredits {
+		t.Errorf("want %d people (crew cap), got %d", maxCrewCredits, len(people))
+	}
+}
+
 func TestDisambiguate(t *testing.T) {
 	p := tmdbPerson{
 		KnownForDepartment: "Directing",
@@ -696,7 +753,11 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
 		case r.URL.Path == "/3/movie/550/credits":
-			io.WriteString(w, `{"cast":[{"name":"Brad Pitt","order":0},{"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"name":"David Fincher","job":"Director"},{"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
+			// Edward Norton deliberately carries no profile_path (exercises the
+			// omitted-headshot path); Helena Bonham Carter carries no TMDB id
+			// (exercises the id-less-credit-is-skipped-from-people[]-but-still-in-
+			// flat-actors path, ADR-055).
+			io.WriteString(w, `{"cast":[{"id":287,"name":"Brad Pitt","order":0,"profile_path":"/cckcYc2v0yh1tc9QjRelptcOBko.jpg"},{"id":819,"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"id":7467,"name":"David Fincher","job":"Director","profile_path":"/dcBHejOcOdghH0itOws5dc4tXvw.jpg"},{"id":11284,"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/movie/550":
 			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):

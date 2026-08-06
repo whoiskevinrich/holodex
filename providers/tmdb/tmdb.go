@@ -57,6 +57,10 @@ type describeResponse struct {
 	Fields          []string             `json:"fields"`
 	AssetKinds      []string             `json:"asset_kinds,omitempty"`
 	FieldHints      map[string]fieldHint `json:"field_hints,omitempty"`
+	// Credits advertises structured video credits (Holodex contract §4.5, F32): this
+	// provider's video enrich responses include people[] alongside the flat
+	// actors/director fields. Omit/false would mean flat-text-only.
+	Credits bool `json:"credits,omitempty"`
 	// BrandIcon advertises this provider's brand mark (Holodex contract §4.8, ADR-059):
 	// a single provider-level image URL Holodex self-hosts and shows in place of the
 	// repeated "from tmdb" provenance text. Env-configured (TMDB_BRAND_ICON_URL) and
@@ -98,9 +102,23 @@ type assetEntry struct {
 	URL  string `json:"url"`
 }
 
+// personCredit is one entry in a video enrich response's structured `people[]`
+// array (Holodex contract §4.5, F32) — a cast/crew member with a stable provider
+// identity, alongside the flat `actors`/`director` text fields Holodex still
+// consumes as a fallback. ExternalID is required (ADR-055): a credit whose TMDB
+// person id is unknown is skipped by buildPeopleCredits rather than emitted id-less.
+type personCredit struct {
+	Name       string      `json:"name"`
+	Role       string      `json:"role"`
+	ExternalID string      `json:"external_id"`
+	Order      int         `json:"order,omitempty"`
+	Headshot   *assetEntry `json:"headshot,omitempty"`
+}
+
 type enrichResponse struct {
 	Fields map[string][]string `json:"fields"`
 	Assets []assetEntry        `json:"assets,omitempty"`
+	People []personCredit      `json:"people,omitempty"`
 }
 
 // ---- TMDB API response shapes ----
@@ -209,13 +227,17 @@ type taggedImagesResult struct {
 }
 
 type movieCastEntry struct {
-	Name  string `json:"name"`
-	Order int    `json:"order"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Order       int    `json:"order"`
+	ProfilePath string `json:"profile_path"`
 }
 
 type movieCrewEntry struct {
-	Name string `json:"name"`
-	Job  string `json:"job"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Job         string `json:"job"`
+	ProfilePath string `json:"profile_path"`
 }
 
 // ---- resolve ----
@@ -567,7 +589,70 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 	if len(directors) > 0 {
 		fields["director"] = directors
 	}
-	return enrichResponse{Fields: fields}
+	return enrichResponse{Fields: fields, People: buildPeopleCredits(credits)}
+}
+
+// maxCastCredits caps the top-billed cast entries emitted in people[] (contract §4.5
+// caps ~50 overall; F32's own spec keeps this slice tighter — "top ~20 billed +
+// director/key crew").
+const maxCastCredits = 20
+
+// maxCrewCredits caps the director credits emitted in people[] — a co-director list
+// is normally 1-2 entries, but nothing in the TMDB API guarantees that (an anthology
+// film can credit a double-digit number of segment directors), and every other
+// list-building loop in this file (maxCastCredits, maxPersonPhotos, the search-result
+// caps) has an explicit local bound. This one gets the same discipline rather than
+// resting on an assumption about typical data shape.
+const maxCrewCredits = 10
+
+// buildPeopleCredits builds the structured people[] credits (contract §4.5) from a
+// movie's cast/crew: the top maxCastCredits billed actors, then up to maxCrewCredits
+// director(s) — the same actor/director subset the flat fields above extract, with
+// external_id + headshot attached. A cast/crew member with no TMDB person id is
+// skipped (external_id is required, ADR-055) rather than emitted id-less.
+func buildPeopleCredits(credits movieCredits) []personCredit {
+	var people []personCredit
+	for i, m := range credits.Cast {
+		if i >= maxCastCredits {
+			break
+		}
+		if m.Name == "" || m.ID == 0 {
+			continue
+		}
+		people = append(people, personCredit{
+			Name:       m.Name,
+			Role:       "actor",
+			ExternalID: fmt.Sprintf("tmdb:%d", m.ID),
+			Order:      m.Order,
+			Headshot:   headshotFor(m.ProfilePath),
+		})
+	}
+	crewCount := 0
+	for _, m := range credits.Crew {
+		if crewCount >= maxCrewCredits {
+			break
+		}
+		if m.Job != "Director" || m.Name == "" || m.ID == 0 {
+			continue
+		}
+		people = append(people, personCredit{
+			Name:       m.Name,
+			Role:       "director",
+			ExternalID: fmt.Sprintf("tmdb:%d", m.ID),
+			Headshot:   headshotFor(m.ProfilePath),
+		})
+		crewCount++
+	}
+	return people
+}
+
+// headshotFor builds a people[] headshot asset from a TMDB profile_path, or nil when
+// absent — the contract's headshot field is optional, omitted when there is none.
+func headshotFor(profilePath string) *assetEntry {
+	if profilePath == "" {
+		return nil
+	}
+	return &assetEntry{Kind: "photo", URL: "https://image.tmdb.org/t/p/original" + profilePath}
 }
 
 // tmdbMovieURL builds the canonical TMDB web page URL for a movie. TMDB looks the
