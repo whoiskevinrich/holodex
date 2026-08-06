@@ -36,11 +36,11 @@ func enrichServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int
 	if err := os.WriteFile(sp, []byte("sources:\n  - name: fake\n    base_url: http://fake:9100\n    entity_types: [person]\n    enabled: true\n"), 0o644); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
-	store, err := enrich.NewStore(sp)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	store, err := enrich.NewStore(sp, log)
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient { return enrich.NewFake("fake") })
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
@@ -85,11 +85,11 @@ func studioEnrichServer(t *testing.T, token string) (*httptest.Server, *repo.Rep
 	if err := os.WriteFile(sp, []byte("sources:\n  - name: fake\n    base_url: http://fake:9100\n    entity_types: [person, studio]\n    enabled: true\n"), 0o644); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
-	store, err := enrich.NewStore(sp)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	store, err := enrich.NewStore(sp, log)
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient { return enrich.NewFake("fake") })
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)

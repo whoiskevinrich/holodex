@@ -533,7 +533,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setThumbnailURL(v)
-	redactFileMetadataForVisitor(v, h.auth.authorized(r))
+	authorized := h.auth.authorized(r)
+	redactFileMetadataForVisitor(v, authorized)
 	var fields []mapping.Resolved
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
@@ -599,13 +600,21 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	} else {
 		studios = byVideo[id]
 	}
+	// enrich_queries only ever feeds the owner-only Enrich picker (EnrichPicker.svelte
+	// is gated behind isOwner client-side) — skip rendering it for a visitor request,
+	// who would only ever discard it.
+	var enrichQueries map[string]string
+	if authorized {
+		enrichQueries = h.buildVideoQueries(v, resolved)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"video":    v,
-		"metadata": extra,
-		"fields":   fields,
-		"resolved": resolved,
-		"enriched": enriched,
-		"studios":  studios,
+		"video":          v,
+		"metadata":       extra,
+		"fields":         fields,
+		"resolved":       resolved,
+		"enriched":       enriched,
+		"studios":        studios,
+		"enrich_queries": enrichQueries,
 	})
 }
 

@@ -51,11 +51,11 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err := os.WriteFile(sp, []byte("sources:\n  - name: fake\n    base_url: http://fake:9100\n    entity_types: [person, studio, video]\n    enabled: true\n"), 0o644); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
-	store, err := enrich.NewStore(sp)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	store, err := enrich.NewStore(sp, log)
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	resolveCalls = new(int)
 	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient {
 		return &resolveCounter{Fake: enrich.NewFake("fake"), n: resolveCalls}

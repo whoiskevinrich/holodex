@@ -314,7 +314,14 @@ func (h *Handlers) enrichEntityLookup(w http.ResponseWriter, r *http.Request, en
 
 // enrichQueryHint resolves an entity (404/409 on failure) and builds the /resolve hint
 // refresh-all uses for an unlinked provider — the entity's own name, plus (video only)
-// any embedded IMDb id (videoHint, shared with enrichVideoResolve).
+// any embedded IMDb id (videoHint, shared with enrichVideoResolve). One hint is shared
+// across every provider in the fan-out (enrichRefreshAll), so this deliberately does
+// not render a per-provider pattern (ADR-080 D2) the way getMedia's enrich_queries
+// does for the interactive picker — only the video's title is known here, common to
+// every provider. It does still owe the D4 sanitizer, which has no config gate and
+// applies to "the raw-title floor tier... wherever it is used": a fresh, un-enriched
+// video's title is exactly the case D4 exists for, and refresh-all is exactly the kind
+// of automated, no-owner-review call that should never send the literal messy title.
 func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entityType string, id int64) (enrich.Hint, bool) {
 	switch entityType {
 	case model.EnrichEntityPerson:
@@ -337,7 +344,7 @@ func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entit
 			h.videoLookupError(w, err)
 			return enrich.Hint{}, false
 		}
-		return videoHint(v, v.Title), true
+		return videoHint(v, enrich.SanitizeTitle(v.Title)), true
 	default:
 		writeError(w, http.StatusBadRequest, "unknown entity type")
 		return enrich.Hint{}, false

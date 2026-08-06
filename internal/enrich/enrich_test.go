@@ -40,7 +40,7 @@ sources:
     base_url: http://imdb:9100
     entity_types: [person]
     enabled: false
-`))
+`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +59,64 @@ sources:
 }
 
 func TestLoadMissingFileIsEmpty(t *testing.T) {
-	reg, err := Load(filepath.Join(t.TempDir(), "none.yaml"))
+	reg, err := Load(filepath.Join(t.TempDir(), "none.yaml"), nil)
 	if err != nil {
 		t.Fatalf("missing file should not error: %v", err)
 	}
 	if len(reg.Enabled()) != 0 {
 		t.Error("missing file should yield no providers")
+	}
+}
+
+// ADR-080 D3/FR3: a valid search_pattern/default_search_pattern is kept verbatim; an
+// unknown-token pattern is dropped at config-load time (logged, not the file's
+// problem) without disabling the provider itself.
+func TestRegistryLoadSearchPatternValidation(t *testing.T) {
+	path := writeSources(t, `
+default_search_pattern: "{studio?} {year?}"
+sources:
+  - name: good
+    base_url: http://good:9100
+    entity_types: [video]
+    enabled: true
+    search_pattern: "{title?} {performers?}"
+  - name: bad
+    base_url: http://bad:9100
+    entity_types: [video]
+    enabled: true
+    search_pattern: "{director?}"
+`)
+	var buf bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&buf, nil))
+	reg, err := Load(path, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := reg.DefaultSearchPattern(); got != "{studio?} {year?}" {
+		t.Errorf("valid default_search_pattern should survive verbatim, got %q", got)
+	}
+	good, ok := reg.ByName("good")
+	if !ok || good.SearchPattern != "{title?} {performers?}" {
+		t.Errorf("valid search_pattern should survive verbatim, got %+v ok=%v", good, ok)
+	}
+	bad, ok := reg.ByName("bad")
+	if !ok {
+		t.Fatal("a provider with an invalid search_pattern must stay enabled")
+	}
+	if bad.SearchPattern != "" {
+		t.Errorf("unknown-token search_pattern should be dropped, got %q", bad.SearchPattern)
+	}
+	if !strings.Contains(buf.String(), "bad.search_pattern") {
+		t.Errorf("expected a warning naming the offending field, got log: %s", buf.String())
+	}
+}
+
+// A nil logger (the common case in tests that don't care about warnings) must not
+// panic when a pattern is invalid.
+func TestRegistryLoadSearchPatternValidation_NilLoggerSafe(t *testing.T) {
+	path := writeSources(t, "sources:\n  - name: bad\n    base_url: http://bad:9100\n    entity_types: [video]\n    enabled: true\n    search_pattern: \"{director?}\"\n")
+	if _, err := Load(path, nil); err != nil {
+		t.Fatalf("nil logger should not error: %v", err)
 	}
 }
 
@@ -136,7 +188,7 @@ sources:
     base_url: http://fake:9100
     entity_types: [person, studio]
     enabled: true
-`))
+`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -839,7 +891,7 @@ sources:
     base_url: http://fake:9100
     entity_types: [person, studio, video]
     enabled: true
-`))
+`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

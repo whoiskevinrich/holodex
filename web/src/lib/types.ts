@@ -343,6 +343,13 @@ export interface MediaDetailResponse {
 	// links to its /studios/{id} page; the link target always matches the displayed
 	// value because video_studios is derived from that same resolution (RD1).
 	studios?: Studio[] | null;
+	// enrich_queries maps provider name -> the rendered /resolve search query the
+	// Enrich picker should default to (F54, ADR-080): each enabled video-capable
+	// provider's own precedence chain (operator pattern -> provider-advertised
+	// preference -> operator default -> sanitized-title floor) applied server-side to
+	// this video's already-resolved fields. A provider absent from the map (e.g.
+	// enrichment disabled) falls back to the plain resolved/raw title client-side.
+	enrich_queries?: Record<string, string> | null;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values
