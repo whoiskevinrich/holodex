@@ -62,6 +62,70 @@ func headshotVersionOf(people []model.Person, id int64) int64 {
 	return -1
 }
 
+// ListPeople's poster_id subquery mirrors headshot_id but for role='poster' (F55 P0-6).
+// The two roles are independently fillable — a person can have one without the other —
+// so this asserts all four combinations in one table-driven pass rather than as four
+// separate tests, and specifically the two mixed cases a naive shared-subquery
+// implementation would get wrong (headshot-only must NOT set poster_version, and vice
+// versa).
+func TestListPeoplePosterVersion(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	cases := []struct {
+		name           string
+		insertHeadshot bool
+		insertPoster   bool
+	}{
+		{"neither", false, false},
+		{"headshot only", true, false},
+		{"poster only", false, true},
+		{"both", true, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			pid := seedPerson(t, r, "Case "+c.name)
+			var wantHeadshot, wantPoster int64
+
+			if c.insertHeadshot {
+				id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImageHeadshot, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+				if err != nil {
+					t.Fatalf("insert headshot: %v", err)
+				}
+				wantHeadshot = id
+			}
+			if c.insertPoster {
+				id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImagePoster, Source: model.PersonImageSourceUpload, Width: 10, Height: 15, ByteSize: 1})
+				if err != nil {
+					t.Fatalf("insert poster: %v", err)
+				}
+				wantPoster = id
+			}
+
+			people, err := r.ListPeople(ctx, false)
+			if err != nil {
+				t.Fatalf("list people: %v", err)
+			}
+			if v := headshotVersionOf(people, pid); v != wantHeadshot {
+				t.Errorf("headshot_version = %d, want %d", v, wantHeadshot)
+			}
+			if v := posterVersionOf(people, pid); v != wantPoster {
+				t.Errorf("poster_version = %d, want %d", v, wantPoster)
+			}
+		})
+	}
+}
+
+func posterVersionOf(people []model.Person, id int64) int64 {
+	for _, p := range people {
+		if p.ID == id {
+			return p.PosterVersion
+		}
+	}
+	return -1
+}
+
 func TestPersonImagesCRUD(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
