@@ -269,8 +269,8 @@ func (r *Repo) Reactivate(ctx context.Context, id int64) error {
 // VideoFilter expresses the browse/search query (F4). Zero-valued fields are
 // ignored. People/Tags use AND semantics: a video must match every selected id.
 type VideoFilter struct {
-	Query                          string
-	PersonIDs                      []int64
+	Query     string
+	PersonIDs []int64
 	// PersonIDsAny matches videos credited to ANY of these people (OR), unlike
 	// PersonIDs which ANDs. Used by global search to fold a matched person's media
 	// (incl. alias matches) into the results (F23, ADR-036).
@@ -284,7 +284,7 @@ type VideoFilter struct {
 	// tags) — the browse-page "Categories" facet (HOLODEX-240, ADR-078 D2).
 	// Expands to member tag ids at query time via category_tags; no new
 	// filtering primitive beyond the TagIDs EXISTS(...) clause shape below.
-	CategoryIDs []int64
+	CategoryIDs                    []int64
 	DurationMinSec, DurationMaxSec int
 	WidthMin, WidthMax             int
 	YearMin, YearMax               int
