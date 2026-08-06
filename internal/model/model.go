@@ -82,6 +82,10 @@ type Person struct {
 	// headshot (the placeholder is served). Omitted on the detail read (which carries
 	// the full image set).
 	HeadshotVersion int64 `json:"headshot_version,omitempty"`
+	// PosterVersion mirrors HeadshotVersion for the poster role (F55 P0-6) — independent
+	// of HeadshotVersion, since a person can have one role without the other. 0 = no
+	// poster (the placeholder is served).
+	PosterVersion int64 `json:"poster_version,omitempty"`
 	// Aliases are owner-curated alternate names (F23, ADR-036), each searchable.
 	// Populated only on the person-detail read; omitted (nil) elsewhere.
 	Aliases []PersonAlias `json:"aliases,omitempty"`

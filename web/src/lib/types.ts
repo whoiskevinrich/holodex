@@ -39,6 +39,9 @@ export interface Person {
 	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
 	// the stale cached image (F25.29). Absent/0 = no headshot (placeholder).
 	headshot_version?: number;
+	// Poster image id on the people-list read (F55 P0-6) — independent of headshot_version;
+	// a person can have one role without the other. Absent/0 = no poster (placeholder).
+	poster_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
 }
 
