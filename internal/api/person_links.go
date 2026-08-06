@@ -130,9 +130,13 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 		roleByCanonical[strings.ToLower(f.Canonical)] = def.Role
 	}
 	if len(fields) == 0 {
-		// No person-typed field is configured — nothing to derive from, so no
-		// links can be true. Mirrors RelinkVideoStudios' unconfigured-field path.
-		return h.repo.ReconcileVideoPeople(ctx, videoID, nil)
+		// No person-typed field is configured. This is NOT the same as "resolved to
+		// zero people" — it means metadata-mappings.yaml doesn't map actors/director
+		// (yet), so this reconcile has no opinion at all. Leave any existing links
+		// untouched rather than treating "unconfigured" as an affirmative empty
+		// result and wiping them: that conflation is exactly what wiped video_people
+		// for every video on an instance whose config predated F40 (HOLODEX-256).
+		return nil
 	}
 
 	if rc == nil {
