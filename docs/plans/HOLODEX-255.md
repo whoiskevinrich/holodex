@@ -54,4 +54,4 @@ this is the human framing.>
 -->
 
 ### 2026-08-05 · session
-- skills: design-handoff, testing-strategy
+- skills: design-handoff, testing-strategy, simplify
