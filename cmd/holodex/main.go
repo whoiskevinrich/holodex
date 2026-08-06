@@ -214,7 +214,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 	// Metadata source plugins (F22, ADR-033): a registry of sidecar providers; the
 	// service is the only thing that dials them, and only on an owner action.
-	sources, err := enrich.NewStore(cfg.MetadataSourcesPath)
+	sources, err := enrich.NewStore(cfg.MetadataSourcesPath, log)
 	if err != nil {
 		return fmt.Errorf("load metadata sources: %w", err)
 	}

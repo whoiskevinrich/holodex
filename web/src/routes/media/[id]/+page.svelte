@@ -75,6 +75,9 @@
 	let enrichBusy = $state('');
 	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
+	// enrichQueries holds the server-rendered per-provider search query (F54,
+	// ADR-080 D5) — seeds EnrichPicker's search box in place of the raw title.
+	let enrichQueries = $state<Record<string, string>>({});
 
 	// Metadata writeback (F28, ADR-041). writebackOpen drives the batch form dialog.
 	let writebackOpen = $state(false);
@@ -247,6 +250,7 @@
 		resolved = res.resolved ?? [];
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
+		enrichQueries = res.enrich_queries ?? {};
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
@@ -1050,7 +1054,7 @@
 
 	{#if pickerProvider && video}
 		<EnrichPicker
-			entityName={video.title}
+			entityName={enrichQueries[pickerProvider] ?? displayTitle}
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}

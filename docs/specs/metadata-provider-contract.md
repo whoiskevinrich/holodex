@@ -125,7 +125,8 @@ provider loudly.
   "id_namespaces": ["<name>"],
   "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
   "asset_kinds": ["photo"],
-  "brand_icon": { "url": "https://<name>.example/brand-icon.png" }
+  "brand_icon": { "url": "https://<name>.example/brand-icon.png" },
+  "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}"
 }
 ```
 
@@ -141,6 +142,7 @@ provider loudly.
 | `credits` | boolean | optional | `true` when a `video`/`media` enrich response can include the structured **`people`** array (per-cast/crew person references + headshots — see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit/`false` for flat `actors`/`director` text only. Additive — does not change the `person` entity contract |
 | `field_hints` | object | optional | Per-field presentation hints (label / render mode / order) for **non-canonical** advertised keys, so they render first-class with **no** per-operator config — see [§4.7](#47-field-render-hints-describefield_hints). Keyed by field key; omit entirely if you have none. Additive (unknown key, ignored by older Holodex) |
 | `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
+| `preferred_search_pattern` | string | optional | **`video` only.** A search-query shape you'd like Holodex to build `/resolve`'s `hint.query` from instead of the raw/sanitized title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). Consulted only when the *operator* hasn't configured their own override for you (operator config always wins). Malformed/unparseable → ignored (logged on the Holodex side), never an error to you. Omit if you have no opinion — the sanitized-title fallback already applies unconditionally either way. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -172,7 +174,7 @@ owner to confirm.
 |---|---|---|---|
 | `entity_type` | string | yes | `"person"`, `"video"`, or `"studio"` — whichever you advertised in `entity_types` (see [§3](#3-entity-types-and-matching)) |
 | `hint` | object | yes | The identity input |
-| `hint.query` | string | optional | Free-text name to search (the dominant path for People). Omitted/empty when only IDs are given |
+| `hint.query` | string | optional | Free-text name to search (the dominant path for People). Omitted/empty when only IDs are given. **For `video`:** the content may be a shaped query built from `studio`/`title`/`performers`/`year` rather than a bare title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). The field shape itself never changes — it's always this one string either way |
 | `hint.external_ids` | string[] | optional | Namespace-qualified IDs (e.g. `"wikidata:Q7259"`) for a deterministic path. **Note:** Holodex's v1 People flow sends only `query` (from the owner's search box). Implement the `external_ids` path for forward compatibility, but `query` is what v1 exercises |
 
 **Response `200`:**
@@ -722,6 +724,50 @@ handles it exactly like every other ingested image:
   light background.
 - **Monogram fallback.** Omit `brand_icon`, advertise an un-allowlisted host, or serve an undecodable image, and
   Holodex renders your provider's initial as a themed monogram instead — never a broken image.
+
+---
+
+### 4.9 Preferred search query pattern (`/describe.preferred_search_pattern`)
+
+> **Status: additive extension** ([ADR-080](../architecture/ADR-080-configurable-provider-search-patterns.md),
+> HOLODEX-254). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
+> that omits it stays fully conformant, and an older Holodex that doesn't parse it is unaffected. **No
+> protocol bump** — it rides the [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule.
+> **`video` entity only** — Person/Studio have no studio/year/performer fields to build a pattern from.
+
+By default, `/resolve`'s `hint.query` ([§2.3](#23-post-resolve--identity-match-disambiguation)) carries a
+video's plain title — cleaned of bracket/comma punctuation and resolution/quality tokens (`720p`, `4k`, …)
+Holodex-side, but otherwise just the title. If your search index matches better on a shaped query — e.g.
+studio and year alongside the title — advertise the shape you want:
+
+```json
+{
+  "provider": "acme",
+  "protocol_version": 1,
+  "entity_types": ["video"],
+  "fields": ["title", "release_date"],
+  "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}"
+}
+```
+
+The grammar is a space-joined list of `{name}` (required) / `{name?}` (optional) tokens, `name` one of
+`studio` | `title` | `performers` | `year` — no other punctuation or literal text is allowed. Holodex
+renders it entirely on its own side from the video's already-resolved fields before calling `/resolve`; you
+still only ever receive the one flattened `hint.query` string ([§2.3](#23-post-resolve--identity-match-disambiguation)) — nothing about the request shape changes.
+
+| Behavior | Detail |
+|---|---|
+| Token values | `studio`/`title` are the field's top-precedence resolved value (`title` is passed through Holodex's title sanitizer even inside your pattern); `performers` is the top 3 of actors+director, space-joined; `year` is the 4-digit year parsed from the resolved release date |
+| Optional token, no value | Dropped from the output — no `"undefined"`, no stray delimiter |
+| Required token, no value | The **whole pattern** is skipped for that render — Holodex falls back to its next tier (an operator override, if the operator set one for you, then their fleet-wide default, then the sanitized-title floor). It never sends a query with a gap where your required token would have been |
+| Unknown token name | Your whole `preferred_search_pattern` is ignored (logged Holodex-side) — never an error response to you, and it doesn't affect anything else about your provider |
+| **Operator override always wins** | If the operator configures their own `search_pattern` for you in `metadata-sources.yaml`, it outranks this key entirely — you may still advertise a sensible default for operators who configure nothing |
+
+**Practical guidance:** advertise this if your search index is meaningfully better with a shaped query than a
+bare title — for example, disambiguating common titles by studio or year. If a bare title search already
+works well for you, omitting this key is a completely valid, fully conformant choice — the title Holodex
+sends is never worse than what it sent before this feature (bracket/resolution cleanup is unconditional
+either way).
 
 ---
 

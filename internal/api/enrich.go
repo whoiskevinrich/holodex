@@ -11,6 +11,7 @@ import (
 	"holodex/internal/enrich"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 )
 
 // imdbPathRe extracts an IMDb ID from a Plex/Jellyfin-style path component like
@@ -26,6 +27,61 @@ func videoHint(v *model.Video, query string) enrich.Hint {
 		hint.ExternalIDs = []string{"imdb:" + m[1]}
 	}
 	return hint
+}
+
+// buildVideoQueries computes, per enabled video-capable provider, the seeded
+// /resolve search query the owner's Enrich picker should default to (ADR-080 D5,
+// FR5) — the provider's own precedence chain (its operator-configured
+// SearchPattern, then its cached /describe preference, then the operator's
+// fleet-wide default, then the sanitized-title floor) rendered from the video's
+// already-resolved fields. Always non-empty per provider as long as the video has
+// any title at all (BuildQuery's sanitized floor never fails otherwise). A nil
+// h.enrich (enrichment disabled) or nil resolved (no mapping configured — falls
+// back to the raw video title) both degrade gracefully rather than omitting the map.
+func (h *Handlers) buildVideoQueries(v *model.Video, resolved []resolver.ResolvedField) map[string]string {
+	if h.enrich == nil {
+		return nil
+	}
+	title := firstResolvedValue(resolved, "title")
+	if title == "" {
+		title = v.Title
+	}
+	fields := enrich.QueryFields{
+		Studio:      firstResolvedValue(resolved, "studio"),
+		Title:       title,
+		Performers:  append(resolvedValues(resolved, "actors"), resolvedValues(resolved, "director")...),
+		ReleaseDate: firstResolvedValue(resolved, "release_date"),
+	}
+	defaultPattern := h.enrich.Store().Current().DefaultSearchPattern()
+	out := map[string]string{}
+	for _, src := range h.enrich.Store().Current().Enabled() {
+		if !src.Supports(model.EnrichEntityVideo) {
+			continue
+		}
+		preferred, _ := h.enrich.PreferredSearchPattern(src.Name)
+		out[src.Name] = src.BuildQuery(fields, preferred, defaultPattern)
+	}
+	return out
+}
+
+// firstResolvedValue returns a scalar field's top-precedence resolved value, or ""
+// when the field is absent or has no surviving values.
+func firstResolvedValue(fields []resolver.ResolvedField, canonical string) string {
+	rf, ok := resolvedByCanonical(fields, canonical)
+	if !ok || len(rf.Values) == 0 {
+		return ""
+	}
+	return rf.Values[0]
+}
+
+// resolvedValues returns every surviving value of a multi-valued field (e.g.
+// actors/director), or nil when the field is absent.
+func resolvedValues(fields []resolver.ResolvedField, canonical string) []string {
+	rf, ok := resolvedByCanonical(fields, canonical)
+	if !ok {
+		return nil
+	}
+	return rf.Values
 }
 
 // mountEnrich registers the owner-gated enrichment endpoints (F22.5/F22.9a). They

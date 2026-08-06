@@ -100,6 +100,17 @@ type Service struct {
 	// atomic pointer — lazily loaded and refreshed on /describe, so the visitor read
 	// path never queries the table (mirrors the mapping/registry store idiom).
 	fieldHints atomic.Pointer[map[string]map[string]repo.ProviderFieldHint]
+	// preferredPatterns caches each provider's most-recently-observed /describe
+	// preferred_search_pattern (ADR-080 D2 tier 2, FR2), keyed by provider name.
+	// Refreshed opportunistically alongside fieldHints on every owner-initiated
+	// resolve/enrich (verifiedClient already calls Describe for the protocol-version
+	// check, so this piggybacks on an existing round trip — no new outbound call).
+	// Unlike fieldHints there is no DB table: this tier is a "nice to have, works out
+	// of the box once warmed" bonus over the FR1/FR3 operator-default/sanitized-floor
+	// tiers, which have no dependency on it — an empty cache (e.g. right after a
+	// restart, before any owner has acted on this provider) simply falls through to
+	// them, exactly as if the provider advertised nothing.
+	preferredPatterns atomic.Pointer[map[string]string]
 }
 
 // assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
@@ -213,6 +224,7 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 		return nil, err
 	}
 	s.persistFieldHints(ctx, provider, m)
+	s.persistPreferredPattern(provider, m)
 	return c, nil
 }
 
@@ -282,6 +294,43 @@ func (s *Service) persistFieldHints(ctx context.Context, provider string, m Mani
 		return
 	}
 	s.reloadFieldHints(ctx) // reflect the new state in the cache
+}
+
+// persistPreferredPattern refreshes the in-memory cache of a provider's advertised
+// preferred_search_pattern from its /describe manifest (ADR-080 D2 tier 2, FR2). An
+// invalid pattern (ValidatePattern) is logged and treated as absent — untrusted
+// provider input never reaches BuildQuery unvalidated. An absent/empty value clears
+// any previously cached one (a provider that stops advertising a preference falls
+// back to the lower tiers, same as one that never did).
+func (s *Service) persistPreferredPattern(provider string, m Manifest) {
+	cur := map[string]string{}
+	if p := s.preferredPatterns.Load(); p != nil {
+		cur = maps.Clone(*p)
+	}
+	pattern := strings.TrimSpace(m.PreferredSearchPattern)
+	switch {
+	case pattern == "":
+		delete(cur, provider)
+	case !ValidatePattern(pattern):
+		s.log.Warn("invalid preferred_search_pattern, ignoring", "provider", provider, "pattern", pattern)
+		delete(cur, provider)
+	default:
+		cur[provider] = pattern
+	}
+	s.preferredPatterns.Store(&cur)
+}
+
+// PreferredSearchPattern returns provider's last-observed, validated /describe
+// preferred_search_pattern, if any owner action has warmed the cache for it since
+// boot (ADR-080 D2 tier 2). ok is false when nothing is cached yet — callers fall
+// through to the next precedence tier exactly as if the provider advertised nothing.
+func (s *Service) PreferredSearchPattern(provider string) (pattern string, ok bool) {
+	p := s.preferredPatterns.Load()
+	if p == nil {
+		return "", false
+	}
+	pattern, ok = (*p)[provider]
+	return pattern, ok
 }
 
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any

@@ -14,6 +14,7 @@ package enrich
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -41,6 +42,12 @@ type Source struct {
 	// host is neither the base host nor in this list are refused.
 	AssetHosts []string `yaml:"asset_hosts"`
 	Enabled    bool     `yaml:"enabled"`
+	// SearchPattern is an optional operator override of this provider's /resolve
+	// search-query shape (ADR-080 D2 tier 1, highest precedence — outranks both the
+	// provider's own advertised preference and the global default). See query.go for
+	// the {name}/{name?} grammar. Validated at config-load time by parse(); an
+	// unknown token name drops just this value (logged, provider unaffected).
+	SearchPattern string `yaml:"search_pattern"`
 }
 
 // Supports reports whether the source advertises an entity type (case-insensitive).
@@ -61,37 +68,66 @@ func entityTypesSupport(types []string, entityType string) bool {
 
 type fileConfig struct {
 	Sources []Source `yaml:"sources"`
+	// DefaultSearchPattern is the fleet-wide fallback search-query pattern (ADR-080 D2
+	// tier 3), applied to any enabled provider that sets neither its own
+	// SearchPattern nor advertises a preferred_search_pattern. Same grammar and
+	// config-load validation as Source.SearchPattern.
+	DefaultSearchPattern string `yaml:"default_search_pattern"`
 }
 
 // Registry is an immutable, parsed provider list (swapped atomically on reload,
 // never mutated in place — like the mapping config).
 type Registry struct {
-	sources []Source
+	sources        []Source
+	defaultPattern string
 }
 
 // Empty is the no-providers configuration (the default when no file is present).
 func Empty() *Registry { return &Registry{} }
 
-func parse(data []byte) (*Registry, error) {
+// DefaultSearchPattern returns the global fallback search-query pattern (ADR-080 D2
+// tier 3), or "" when unconfigured or invalid.
+func (reg *Registry) DefaultSearchPattern() string { return reg.defaultPattern }
+
+// validatedPattern trims pattern and returns it unchanged when empty (no tier
+// configured, not an error) or well-formed. A malformed pattern — an unknown token
+// name, or anything not a space-joined {name}/{name?} list (ADR-080 D3) — is logged
+// and dropped (returns ""), so BuildQuery never has to re-validate or re-warn on
+// every render; what named this pattern (e.g. "tmdb.search_pattern") is logged so a
+// warning is actionable. log may be nil (tests that don't care about warnings).
+func validatedPattern(pattern, what string, log *slog.Logger) string {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" || ValidatePattern(pattern) {
+		return pattern
+	}
+	if log != nil {
+		log.Warn("invalid search query pattern, ignoring", "field", what, "pattern", pattern)
+	}
+	return ""
+}
+
+func parse(data []byte, log *slog.Logger) (*Registry, error) {
 	var fc fileConfig
 	if err := yaml.Unmarshal(data, &fc); err != nil {
 		return nil, fmt.Errorf("parse metadata sources: %w", err)
 	}
-	reg := &Registry{}
+	reg := &Registry{defaultPattern: validatedPattern(fc.DefaultSearchPattern, "default_search_pattern", log)}
 	for _, s := range fc.Sources {
 		s.Name = strings.TrimSpace(s.Name)
 		s.BaseURL = strings.TrimSpace(s.BaseURL)
 		if s.Name == "" || s.BaseURL == "" {
 			continue // skip malformed entries rather than failing the whole load
 		}
+		s.SearchPattern = validatedPattern(s.SearchPattern, s.Name+".search_pattern", log)
 		reg.sources = append(reg.sources, s)
 	}
 	return reg, nil
 }
 
 // Load reads the provider registry from path. A missing file yields Empty
-// (providers are optional), not an error.
-func Load(path string) (*Registry, error) {
+// (providers are optional), not an error. log receives config-validation warnings
+// (e.g. a malformed search_pattern) and may be nil.
+func Load(path string, log *slog.Logger) (*Registry, error) {
 	if path == "" {
 		return Empty(), nil
 	}
@@ -102,7 +138,7 @@ func Load(path string) (*Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read metadata sources %s: %w", path, err)
 	}
-	return parse(data)
+	return parse(data, log)
 }
 
 // Enabled returns the configured providers that are switched on.
@@ -131,16 +167,20 @@ func (reg *Registry) ByName(name string) (Source, bool) {
 
 // Store holds the current Registry behind an atomic pointer so reads are
 // lock-free and reload (POST /admin/reload-config) swaps atomically — the same
-// shape as the mapping.Store.
+// atomic-swap shape as mapping.Store, plus a held logger (mapping.Store has none)
+// so config-validation warnings (e.g. an invalid search_pattern) have somewhere to
+// go on both the initial load and every subsequent Reload.
 type Store struct {
 	path string
+	log  *slog.Logger
 	cur  atomic.Pointer[Registry]
 }
 
-// NewStore loads the initial registry from path (missing file is fine).
-func NewStore(path string) (*Store, error) {
-	s := &Store{path: path}
-	reg, err := Load(path)
+// NewStore loads the initial registry from path (missing file is fine). log receives
+// config-validation warnings on load and every subsequent Reload; may be nil.
+func NewStore(path string, log *slog.Logger) (*Store, error) {
+	s := &Store{path: path, log: log}
+	reg, err := Load(path, log)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +193,7 @@ func (s *Store) Current() *Registry { return s.cur.Load() }
 
 // Reload re-reads the config file and swaps it in atomically.
 func (s *Store) Reload() error {
-	reg, err := Load(s.path)
+	reg, err := Load(s.path, s.log)
 	if err != nil {
 		return err
 	}
@@ -189,6 +229,14 @@ type Manifest struct {
 	// A pointer so an absent key (drop any cached icon) is distinguishable from an empty
 	// object. The URL is fetched through the same ADR-039 asset perimeter as portraits.
 	BrandIcon *IconRef `json:"brand_icon,omitempty"`
+	// PreferredSearchPattern is the provider's advertised /resolve search-query shape
+	// (ADR-080 D2 tier 2, FR2): a {name}/{name?} pattern over studio/title/performers/
+	// year (query.go), consulted only when the operator has set no search_pattern
+	// override for this provider. Additive/forward-compatible: an older provider that
+	// omits it, or an older Holodex that doesn't parse it, both work unchanged — no
+	// protocol version bump. Untrusted provider input; validated (ValidatePattern) and
+	// cached by the Service on every /describe, same posture as FieldHints/BrandIcon.
+	PreferredSearchPattern string `json:"preferred_search_pattern,omitempty"`
 }
 
 // IconRef is a single provider-level image reference — currently only the brand icon

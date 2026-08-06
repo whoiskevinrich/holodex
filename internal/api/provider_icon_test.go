@@ -82,11 +82,11 @@ func newProviderIconEnv(t *testing.T) *iconEnv {
 	if err := os.WriteFile(sp, []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
-	store, err := enrich.NewStore(sp)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	store, err := enrich.NewStore(sp, log)
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := enrich.NewService(store, r, log)
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)

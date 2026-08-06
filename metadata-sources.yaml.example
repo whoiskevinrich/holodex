@@ -31,6 +31,20 @@
 #                 allowlisted host if you prefer a CDN copy.)
 #   enabled       false keeps it configured-but-off; flip to true once the sidecar
 #                 is running and reachable at base_url
+#   search_pattern
+#                 (video only, F54/ADR-080) override this provider's /resolve search
+#                 query shape instead of sending the raw/sanitized title. Space-joined
+#                 {name} (required) / {name?} (optional) tokens over
+#                 studio|title|performers|year, e.g. "{studio?} {title?} {performers?}
+#                 {year?}" — rendered from the video's already-resolved fields.
+#                 A required token with no value drops that WHOLE pattern for this
+#                 render (falls to the provider's own preferred_search_pattern, then
+#                 default_search_pattern below, then the sanitized title) — it never
+#                 renders with a gap. An unknown token name is dropped at reload with
+#                 a logged warning; the provider stays enabled either way. Whether or
+#                 not any pattern is configured, the plain title fallback is always
+#                 sanitized (bracket/comma punctuation and 720p/1080p/4k-style
+#                 resolution tokens stripped) — that part has no on/off switch.
 
 sources:
   - name: tmdb
@@ -38,6 +52,12 @@ sources:
     entity_types: [person, video, studio]
     asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait + studio-logo downloads
     enabled: false
+    # search_pattern: "{studio?} {title?} {performers?} {year?}"
+
+# default_search_pattern applies to any enabled, video-capable provider above that sets
+# neither its own search_pattern nor advertises a preferred_search_pattern via /describe
+# (F54/ADR-080). Same grammar as search_pattern. Optional; omit for no fleet-wide default.
+# default_search_pattern: "{title?} {year?}"
 
   # --- Local manual-QA stub (no network/keys) ---
   # Run the bundled fake provider, then enable this entry:
