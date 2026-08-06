@@ -21,14 +21,15 @@ type Fake struct {
 	Calls    int                   // number of network-equivalent calls made
 }
 
-// FakePerson is one canned upstream record (used for people and studios alike — a
-// label plus fields/assets is all the contract needs).
+// FakePerson is one canned upstream record (used for people, studios, and video
+// alike — a label plus fields/assets/people is all the contract needs).
 type FakePerson struct {
 	Label          string
 	Disambiguation string // the picker hint (entity-appropriate: known-for, origin country, …)
 	ProfileURL     string // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
 	Fields         map[string][]string
-	Assets         []Asset // optional image assets (F25) the enrich response carries
+	Assets         []Asset          // optional image assets (F25) the enrich response carries
+	People         []ProviderPerson // structured video credits (F32, contract §4.5)
 }
 
 // NewFake builds a fake provider with one well-known person and one studio record.
@@ -122,7 +123,7 @@ func (f *Fake) Enrich(_ context.Context, entityType, externalID string) (EnrichR
 	if !ok {
 		return EnrichResult{}, fmt.Errorf("unknown record %q", externalID)
 	}
-	return EnrichResult{Fields: p.Fields, Assets: p.Assets}, nil
+	return EnrichResult{Fields: p.Fields, Assets: p.Assets, People: p.People}, nil
 }
 
 func idNamespace(id string) string {

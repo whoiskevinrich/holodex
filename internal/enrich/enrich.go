@@ -361,10 +361,26 @@ func SingleStrongMatch(cands []Candidate) (Candidate, bool) {
 
 // EnrichResult is the payload of `POST /enrich`: canonical field -> value(s), and
 // optional asset URLs. For a person, image assets are fetched through the SSRF-guarded
-// asset client and stored as person images (F25, ADR-038/039).
+// asset client and stored as person images (F25, ADR-038/039). For a video, People
+// carries structured cast/crew credits (F32, contract §4.5) alongside the flat
+// actors/director text in Fields.
 type EnrichResult struct {
 	Fields map[string][]string `json:"fields"`
 	Assets []Asset             `json:"assets,omitempty"`
+	People []ProviderPerson    `json:"people,omitempty"`
+}
+
+// ProviderPerson is one entry in a video enrich response's structured `people[]`
+// credits (contract §4.5, F32) — a cast/crew member with a stable provider identity
+// and an optional headshot, consumed alongside the flat actors/director fields. Name
+// is display-only, never an identity key (ADR-055); ExternalID is the required,
+// namespace-qualified identity a credit without one is refused for, not name-matched.
+type ProviderPerson struct {
+	Name       string `json:"name"`
+	Role       string `json:"role"`
+	ExternalID string `json:"external_id"`
+	Order      int    `json:"order,omitempty"`
+	Headshot   *Asset `json:"headshot,omitempty"`
 }
 
 // Asset is a binary the provider can supply (e.g. a portrait). Kind maps to a

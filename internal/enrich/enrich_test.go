@@ -918,6 +918,183 @@ sources:
 	}
 }
 
+// A video enrich response's structured people[] credits (F32, contract §4.5) get
+// resolved to real Person rows (id-first, ADR-055) and their headshots downloaded —
+// keyed by each PERSON's own id, not the video's — while a credit with no external_id
+// is skipped entirely (ADR-055: refused, not name-matched) rather than creating a
+// bare Person. The _person_external_ids sidecar also persists, ready for
+// RelinkVideoPeople's later name-based reconcile to consume.
+func TestEnrichVideoConsumesPeopleCredits(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	fake.People["tmdb:550"] = FakePerson{
+		Label: "Fight Club",
+		Fields: map[string][]string{
+			"title":    {"Fight Club"},
+			"actors":   {"Brad Pitt"},
+			"director": {"David Fincher"},
+		},
+		People: []ProviderPerson{
+			{Name: "Brad Pitt", Role: "actor", ExternalID: "tmdb:287", Order: 0,
+				Headshot: &Asset{Kind: "photo", URL: origin.URL + "/pitt.jpg"}},
+			{Name: "David Fincher", Role: "director", ExternalID: "tmdb:7467"}, // no headshot
+			{Name: "No External ID", Role: "actor", ExternalID: ""},            // dropped, ADR-055
+		},
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 42, "fake", "tmdb:550", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+
+	// Only Brad Pitt has a headshot; it's stored under HIS person id, not video 42's —
+	// 2 entries, because downloadAssets also seeds an empty poster from a fresh
+	// headshot (F25.29), same as any other person enrich (TestEnrichDownloadsAssets).
+	if len(sink.stored) != 2 {
+		t.Fatalf("stored = %+v, want 2 (headshot + seeded poster, Brad Pitt only)", sink.stored)
+	}
+	pitt := sink.stored[0]
+	if pitt.entityType != model.EnrichEntityPerson || pitt.role != model.PersonImageHeadshot {
+		t.Errorf("stored asset[0] = %+v, want entityType=person role=headshot", pitt)
+	}
+	if pitt.externalID != "tmdb:287" {
+		t.Errorf("stored asset externalID = %q, want tmdb:287", pitt.externalID)
+	}
+	for _, a := range sink.stored {
+		if a.personID != pitt.personID {
+			t.Errorf("stored asset %+v under a different person than the headshot (%d)", a, pitt.personID)
+		}
+	}
+
+	// Exactly 2 people exist — the id-less credit created no third row.
+	var personCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM people`).Scan(&personCount); err != nil {
+		t.Fatalf("count people: %v", err)
+	}
+	if personCount != 2 {
+		t.Errorf("people count = %d, want 2 (id-less credit skipped)", personCount)
+	}
+
+	// Both credited people resolved by external_id, and the headshot landed on the
+	// same person id resolveOrCreate returned (not some other/new row).
+	var pittID, fincherID int64
+	if err := database.QueryRow(`SELECT person_id FROM person_external_ids WHERE external_id = ?`, "tmdb:287").Scan(&pittID); err != nil {
+		t.Fatalf("brad pitt not resolved by external id: %v", err)
+	}
+	if err := database.QueryRow(`SELECT person_id FROM person_external_ids WHERE external_id = ?`, "tmdb:7467").Scan(&fincherID); err != nil {
+		t.Fatalf("david fincher not resolved by external id: %v", err)
+	}
+	if pitt.personID != pittID {
+		t.Errorf("headshot stored under person %d, want the resolved id %d", pitt.personID, pittID)
+	}
+
+	// The _person_external_ids sidecar persisted for RelinkVideoPeople's caller to
+	// recover later — same shape as _studio_external_ids ("<external_id> <name>").
+	rows, err := r.EnrichmentForEntity(context.Background(), model.EnrichEntityVideo, 42)
+	if err != nil {
+		t.Fatalf("enrichment rows: %v", err)
+	}
+	var sidecar []string
+	for _, row := range rows {
+		if row.FieldKey == model.PersonExternalIDsField {
+			sidecar = row.Values
+		}
+	}
+	want := []string{"tmdb:287 Brad Pitt", "tmdb:7467 David Fincher"}
+	if len(sidecar) != len(want) || sidecar[0] != want[0] || sidecar[1] != want[1] {
+		t.Errorf("_person_external_ids = %v, want %v", sidecar, want)
+	}
+}
+
+// A people[].headshot always fills the single-occupancy headshot core role, even
+// when a (contract-conformant, non-TMDB) provider sends a Kind other than "photo" —
+// e.g. "gallery", which for the general assets[] list maps to the capped
+// PersonImageExtra role. The headshot field's presence, not its Kind string, is what
+// designates it as the headshot; a provider-supplied Kind must never silently divert
+// it into the capped gallery instead.
+func TestEnrichVideoCreditHeadshotIgnoresProviderKind(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	fake.People["tmdb:551"] = FakePerson{
+		Label:  "Some Movie",
+		Fields: map[string][]string{"title": {"Some Movie"}},
+		People: []ProviderPerson{
+			{Name: "Someone", Role: "actor", ExternalID: "tmdb:999",
+				Headshot: &Asset{Kind: "gallery", URL: origin.URL + "/x.jpg"}},
+		},
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 99, "fake", "tmdb:551", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+
+	for _, a := range sink.stored {
+		if a.role == model.PersonImageExtra {
+			t.Fatalf("headshot landed in the capped gallery role: %+v", sink.stored)
+		}
+	}
+	found := false
+	for _, a := range sink.stored {
+		if a.role == model.PersonImageHeadshot {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("stored = %+v, want a headshot-role entry despite provider Kind=gallery", sink.stored)
+	}
+}
+
 // Untrusted-response bounding (F22.9b).
 func TestSanitizeValue(t *testing.T) {
 	if got := SanitizeValue("a\x00b\nc"); got != "ab c" {
@@ -964,6 +1141,32 @@ func TestSanitizeFieldsCaps(t *testing.T) {
 	}
 	if _, ok := out[""]; ok {
 		t.Error("blank field key should be dropped")
+	}
+}
+
+// TestSanitizePeopleRejectsWhitespaceInExternalID is the ADR-055/F32 spoofing guard:
+// personExternalIDsField round-trips external_id through the "_person_external_ids"
+// sidecar as "<external_id> <name>", split back on the FIRST space by
+// externalIDsFromRows — an external_id containing a space (or a control character
+// SanitizeValue collapses to one, e.g. newline) would let a malicious provider
+// smuggle an attacker-chosen id/name pair past that split, resolving a video credit
+// onto an unrelated existing Person. sanitizePeople must refuse any such entry, not
+// merely trim it.
+func TestSanitizePeopleRejectsWhitespaceInExternalID(t *testing.T) {
+	in := []ProviderPerson{
+		{Name: "Attacker", ExternalID: "tmdb:999 Victim"},  // space inside the id
+		{Name: "Attacker", ExternalID: "tmdb:999\nVictim"}, // newline → collapses to space
+		{Name: "Legit", ExternalID: "tmdb:287"},            // well-formed, must survive
+		{Name: "No Colon", ExternalID: "tmdb999"},          // not namespace-qualified
+		{Name: "Empty Namespace", ExternalID: ":999"},
+		{Name: "Empty ID", ExternalID: "tmdb:"},
+	}
+	out := sanitizePeople(in)
+	if len(out) != 1 {
+		t.Fatalf("sanitizePeople = %+v, want exactly 1 survivor (Legit)", out)
+	}
+	if out[0].Name != "Legit" || out[0].ExternalID != "tmdb:287" {
+		t.Errorf("survivor = %+v, want Legit/tmdb:287", out[0])
 	}
 }
 

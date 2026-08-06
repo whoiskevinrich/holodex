@@ -159,8 +159,13 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 			links = append(links, repo.PersonRoleName{Name: name, Role: role})
 		}
 	}
-	// extIDByName is nil until F32's core-enrich slice adds a person analogue of
-	// studioExternalIDsFromRows (a _person_external_ids sidecar field parsed from
-	// rc.enrRows) — the hook is in place, the data source is not wired yet.
-	return h.repo.ReconcileVideoPeople(ctx, videoID, links, nil)
+	return h.repo.ReconcileVideoPeople(ctx, videoID, links, personExternalIDsFromRows(rc.enrRows))
+}
+
+// personExternalIDsFromRows builds a resolved-name → provider external-id side-map
+// from a video's internal _person_external_ids sidecar rows (F32, ADR-055) — the
+// person analogue of studioExternalIDsFromRows (studios.go). See
+// externalIDsFromRows for the shared parse.
+func personExternalIDsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	return externalIDsFromRows(rows, model.PersonExternalIDsField)
 }

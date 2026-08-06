@@ -378,6 +378,15 @@ const InternalFieldPrefix = "_"
 // InternalFieldPrefix so it never displays or resolves.
 const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 
+// PersonExternalIDsField is the wire field-key core enrich synthesizes from a video
+// provider's structured `people[]` credits (F32, contract §4.5, ADR-055) — the
+// person analogue of StudioExternalIDsField. Unlike the studio sidecar (which a
+// provider emits directly alongside its flat `studio` field), `people[]` arrives as
+// a separate top-level array; core builds this sidecar from it so
+// RelinkVideoPeople's caller can recover a name→external_id map the same way studio
+// already does. Same self-describing "<namespace>:<id> <name>" value shape.
+const PersonExternalIDsField = InternalFieldPrefix + "person_external_ids"
+
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the
 // file-extracted fields; Provider carries the provenance the UI labels
