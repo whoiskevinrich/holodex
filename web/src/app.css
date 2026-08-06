@@ -390,6 +390,30 @@
 		);
 	}
 
+	/* ---- People poster-grid card hover-lift (F55) ----
+	   Border color and the focus ring are plain Tailwind utilities on the component
+	   (border-rule/border-transparent, group-focus-visible:ring-*) — this is the one bit
+	   with no Tailwind precedent (no motion-safe:/motion-reduce: variant is used anywhere
+	   in this app; every existing transition/animation lives in app.css gated by the raw
+	   prefers-reduced-motion query, e.g. reel-rise/portrait-fade/thumb-shimmer below). */
+	.poster-card:hover .poster-card-frame,
+	.poster-card:focus-visible .poster-card-frame {
+		box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.35);
+	}
+	.poster-card:hover,
+	.poster-card:focus-visible {
+		z-index: 1; /* the lifted card overlaps neighbors, not the reverse */
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.poster-card-frame {
+			transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+		}
+		.poster-card:hover .poster-card-frame,
+		.poster-card:focus-visible .poster-card-frame {
+			transform: scale(1.045);
+		}
+	}
+
 	/* ---- Crop-editor preview frame (F25, ADR-038) ----
 	   Aspect-locked well like .portrait-frame, but deliberately NOT a .portrait-frame:
 	   (1) no skin ::after flourish — scanlines/grain must never sit over the image you
@@ -456,18 +480,20 @@
 		color: var(--muted);
 	}
 
-	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced). */
+	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced).
+	   .people-poster-grid (F55) shares this table rather than a second copy. */
 	@media (prefers-reduced-motion: no-preference) {
-		.video-grid > * {
+		.video-grid > *,
+		.people-poster-grid > * {
 			animation: reel-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 		}
-		.video-grid > *:nth-child(1) { animation-delay: 0ms; }
-		.video-grid > *:nth-child(2) { animation-delay: 40ms; }
-		.video-grid > *:nth-child(3) { animation-delay: 80ms; }
-		.video-grid > *:nth-child(4) { animation-delay: 120ms; }
-		.video-grid > *:nth-child(5) { animation-delay: 160ms; }
-		.video-grid > *:nth-child(6) { animation-delay: 200ms; }
-		.video-grid > *:nth-child(n + 7) { animation-delay: 240ms; }
+		.video-grid > *:nth-child(1), .people-poster-grid > *:nth-child(1) { animation-delay: 0ms; }
+		.video-grid > *:nth-child(2), .people-poster-grid > *:nth-child(2) { animation-delay: 40ms; }
+		.video-grid > *:nth-child(3), .people-poster-grid > *:nth-child(3) { animation-delay: 80ms; }
+		.video-grid > *:nth-child(4), .people-poster-grid > *:nth-child(4) { animation-delay: 120ms; }
+		.video-grid > *:nth-child(5), .people-poster-grid > *:nth-child(5) { animation-delay: 160ms; }
+		.video-grid > *:nth-child(6), .people-poster-grid > *:nth-child(6) { animation-delay: 200ms; }
+		.video-grid > *:nth-child(n + 7), .people-poster-grid > *:nth-child(n + 7) { animation-delay: 240ms; }
 	}
 	@keyframes reel-rise {
 		from {

@@ -851,19 +851,16 @@ func namedCountQuery(table, junction, fk string, sortByCount, includeZero bool) 
 }
 
 // ListPeople returns every person with at least one active video, with counts and the
-// headshot image id (the list avatar's ?v= cache-buster, so it refreshes when the
-// headshot changes — F25.29). sortByCount orders by video count desc (else name asc).
+// headshot/poster image ids (the list read's ?v= cache-busters, so avatar/poster URLs
+// refresh when either image changes — F25.29, F55 P0-6). sortByCount orders by video
+// count desc (else name asc).
 func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person, error) {
 	order := "e.name COLLATE NOCASE ASC"
 	if sortByCount {
 		order = "cnt DESC, e.name COLLATE NOCASE ASC"
 	}
-	// People-specific (not namedCountQuery, which is shared with tags): the correlated
-	// subquery pulls the current headshot image id so the list avatar URL can carry a
-	// version that busts the browser cache after enrichment fills/replaces the headshot.
 	q := fmt.Sprintf(`
-		SELECT e.id, e.name, COUNT(j.video_id) AS cnt,
-		       (SELECT id FROM person_images WHERE person_id = e.id AND role = 'headshot') AS headshot_id
+		SELECT e.id, e.name, COUNT(j.video_id) AS cnt
 		FROM people e
 		JOIN video_people j ON j.person_id = e.id
 		JOIN videos v       ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
@@ -876,17 +873,73 @@ func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person
 	defer rows.Close()
 	var out []model.Person
 	for rows.Next() {
-		var (
-			p          model.Person
-			headshotID sql.NullInt64
-		)
-		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount, &headshotID); err != nil {
+		var p model.Person
+		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
 			return nil, err
 		}
-		p.HeadshotVersion = headshotID.Int64 // 0 when no headshot row (placeholder)
 		out = append(out, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachPersonImageVersions(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// personImageVersions returns personID -> {role: rowID} for every person in ids, in ONE
+// batch query — mirrors studioImageVersions (F51, ADR-079), the pattern this codebase
+// already uses to avoid an N-way per-entity correlated subquery as a list read grows to
+// track more than one core role's version (headshot, now also poster — F55 P0-6; banner
+// would extend here with zero new query shapes if it ever needs list-level tracking too).
+// 'extra' gallery rows are excluded — this only tracks the single-slot core roles.
+func (r *Repo) personImageVersions(ctx context.Context, ids []int64) (map[int64]map[string]int64, error) {
+	out := make(map[int64]map[string]int64, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT person_id, role, id FROM person_images
+		WHERE person_id IN (`+placeholders(len(ids))+`) AND role <> 'extra'`, toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("person image versions: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var personID, rowID int64
+		var role string
+		if err := rows.Scan(&personID, &role, &rowID); err != nil {
+			return nil, err
+		}
+		if out[personID] == nil {
+			out[personID] = map[string]int64{}
+		}
+		out[personID][role] = rowID
+	}
 	return out, rows.Err()
+}
+
+// attachPersonImageVersions fills HeadshotVersion/PosterVersion on each person from
+// person_images in one batch query (mirrors attachStudioImages, F51/ADR-079).
+func (r *Repo) attachPersonImageVersions(ctx context.Context, people []model.Person) error {
+	if len(people) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(people))
+	for i, p := range people {
+		ids[i] = p.ID
+	}
+	versions, err := r.personImageVersions(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range people {
+		roles := versions[people[i].ID]
+		people[i].HeadshotVersion = roles[model.PersonImageHeadshot]
+		people[i].PosterVersion = roles[model.PersonImagePoster]
+	}
+	return nil
 }
 
 // ListTags mirrors ListPeople for tags.
