@@ -188,9 +188,9 @@ func (h *Handlers) relinkStudios(ctx context.Context, videoID int64) {
 // RelinkVideoStudios re-derives a video's studio links from its RESOLVED `studio`
 // field and reconciles video_studios (ADR-053 RD1). It is the single resolution
 // entry point behind every relink trigger (scan/enrich/decision/curation) — the repo
-// reconcile is the sole writer of the table. A missing/soft-deleted video (or no
-// `studio` mapping) resolves to no names → all links removed + prune-on-empty. Safe
-// to call redundantly; idempotent.
+// reconcile is the sole writer of the table. A missing/soft-deleted video resolves
+// to no names → all links removed + prune-on-empty. Safe to call redundantly;
+// idempotent.
 func (h *Handlers) RelinkVideoStudios(ctx context.Context, videoID int64) error {
 	return h.relinkVideoStudios(ctx, videoID, nil)
 }
@@ -204,7 +204,16 @@ func (h *Handlers) relinkVideoStudios(ctx context.Context, videoID int64, rc *re
 	}
 	studioField, ok := h.mappings.Current().ByCanonical("studio")
 	if !ok {
-		return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
+		// No studio field is configured. This is NOT the same as "resolved to zero
+		// studios" — it means metadata-mappings.yaml doesn't map studio (yet), so
+		// this reconcile has no opinion at all. Leave any existing links untouched
+		// rather than treating "unconfigured" as an affirmative empty result and
+		// wiping them: the same conflation PR #216 fixed for people (HOLODEX-256).
+		// Studio has it worse than person did — ReconcileVideoStudios prunes
+		// immediately with no orphan grace (ADR-053 §2.4), so this path used to
+		// permanently delete every studio link and every studio entity the moment
+		// an instance's config omitted `studio`.
+		return nil
 	}
 	if rc == nil {
 		var err error
