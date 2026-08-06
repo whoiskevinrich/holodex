@@ -147,7 +147,7 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 		}
 	}
 	if rc == nil {
-		return h.repo.ReconcileVideoPeople(ctx, videoID, nil)
+		return h.repo.ReconcileVideoPeople(ctx, videoID, nil, nil)
 	}
 	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
 		fields, h.resolveOptions(decisionsFromRows(rc.decRows)))
@@ -159,5 +159,13 @@ func (h *Handlers) relinkVideoPeople(ctx context.Context, videoID int64, rc *rel
 			links = append(links, repo.PersonRoleName{Name: name, Role: role})
 		}
 	}
-	return h.repo.ReconcileVideoPeople(ctx, videoID, links)
+	return h.repo.ReconcileVideoPeople(ctx, videoID, links, personExternalIDsFromRows(rc.enrRows))
+}
+
+// personExternalIDsFromRows builds a resolved-name → provider external-id side-map
+// from a video's internal _person_external_ids sidecar rows (F32, ADR-055) — the
+// person analogue of studioExternalIDsFromRows (studios.go). See
+// externalIDsFromRows for the shared parse.
+func personExternalIDsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	return externalIDsFromRows(rows, model.PersonExternalIDsField)
 }

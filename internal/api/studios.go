@@ -237,14 +237,29 @@ func (h *Handlers) relinkVideoStudios(ctx context.Context, videoID int64, rc *re
 }
 
 // studioExternalIDsFromRows builds a resolved-name → provider external-id side-map
-// from a video's internal _studio_external_ids sidecar rows (ADR-054). Each sidecar
-// value is "<external_id> <name>" (the id token has no space, so the name is the
-// remainder). Keyed by trimmed name so it survives the resolver's reordering/curation;
-// a name with no entry resolves by name only. Returns nil when no ids are present.
+// from a video's internal _studio_external_ids sidecar rows (ADR-054). See
+// externalIDsFromRows for the shared parse.
 func studioExternalIDsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	return externalIDsFromRows(rows, model.StudioExternalIDsField)
+}
+
+// externalIDsFromRows builds a resolved-name → provider external-id side-map from an
+// internal sidecar field's rows — the shared parse behind studioExternalIDsFromRows
+// (ADR-054) and personExternalIDsFromRows (F32, ADR-055, person_links.go). Each
+// sidecar value is "<external_id> <name>" (the id token has no space, so the name is
+// the unambiguous remainder). Keyed by the raw trimmed provider name (see repo's
+// extIDFor for the casing-transform-drift fallback this implies for callers); a name
+// with no entry resolves by name only. Returns nil when no ids are present.
+//
+// Two distinct entities sharing an exact display name collide on this key —
+// first-write-wins, deterministic rather than depending on row order. This is a
+// pre-existing limit of name-keyed linking (the resolved field can only carry one
+// display entry per name, so at most one of the two could ever be linked here
+// regardless of map shape), not something this map could fix alone.
+func externalIDsFromRows(rows []repo.EnrichmentRow, fieldKey string) map[string]string {
 	var out map[string]string
 	for _, row := range rows {
-		if row.FieldKey != model.StudioExternalIDsField {
+		if row.FieldKey != fieldKey {
 			continue
 		}
 		for _, v := range row.Values {
@@ -259,6 +274,9 @@ func studioExternalIDsFromRows(rows []repo.EnrichmentRow) map[string]string {
 			}
 			if out == nil {
 				out = make(map[string]string)
+			}
+			if _, collision := out[name]; collision {
+				continue
 			}
 			out[name] = extID
 		}

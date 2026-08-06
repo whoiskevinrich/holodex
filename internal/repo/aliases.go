@@ -31,11 +31,59 @@ func (r *Repo) DeletePersonAlias(ctx context.Context, personID, aliasID int64) e
 }
 
 // resolveOrCreatePerson resolves an extracted person name to a person id via the shared
-// name-identity spine (F43, ADR-061): case/whitespace variants converge, and a merged-
-// away name routes through the alias table so a merge survives a re-scan. Thin wrapper
-// over resolveOrCreateByName; runs inside the scan transaction.
-func resolveOrCreatePerson(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
-	return resolveOrCreateByName(ctx, tx, model.EnrichEntityPerson, name, "")
+// name-identity spine (F43, ADR-061): a provider externalID matches FIRST (F32,
+// ADR-055 — so a person enriched under two spellings but the same provider id
+// converges), then case/whitespace-folded canonical name and alias (so "fox"/"Fox"
+// converge and a merged-away name survives re-derivation), then create. externalID is
+// namespace-qualified ("tmdb:6384") or empty (name-only, the pre-F32 behavior). Thin
+// wrapper over resolveOrCreateByName; runs inside the caller's transaction.
+func resolveOrCreatePerson(ctx context.Context, tx *sql.Tx, name, externalID string) (int64, error) {
+	return resolveOrCreateByName(ctx, tx, model.EnrichEntityPerson, name, externalID)
+}
+
+// PersonCredit is one (name, externalID) pair to resolve-or-create — the input to
+// ResolveOrCreatePeopleByExternalID.
+type PersonCredit struct {
+	Name       string
+	ExternalID string
+}
+
+// ResolveOrCreatePeopleByExternalID resolves-or-creates a Person for each credit
+// (id-first, ADR-055) in ONE transaction — the batch entry point core enrich's video
+// people[] consumption calls once per video enrich (F32), mirroring
+// ReconcileVideoStudios' single-transaction shape rather than a transaction per
+// person. Returns the resulting person id keyed by ExternalID, so the caller can
+// attach each credit's headshot to the right person. A credit with an empty
+// ExternalID is skipped — people[] credits are required to carry one (ADR-055); a
+// caller should already have filtered these out.
+func (r *Repo) ResolveOrCreatePeopleByExternalID(ctx context.Context, credits []PersonCredit) (map[string]int64, error) {
+	if len(credits) == 0 {
+		return nil, nil
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	out := make(map[string]int64, len(credits))
+	for _, c := range credits {
+		if c.ExternalID == "" {
+			continue
+		}
+		id, err := resolveOrCreatePerson(ctx, tx, c.Name, c.ExternalID)
+		if err != nil {
+			return nil, err
+		}
+		out[c.ExternalID] = id
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit resolve people credits: %w", err)
+	}
+	return out, nil
 }
 
 // PersonConflict returns the existing OTHER person that a candidate alias already

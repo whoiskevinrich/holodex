@@ -21,7 +21,7 @@ calls to enrich local entities with data the media files do not carry. This spec
 **TMDB** (The Movie Database) provider, which supports three entity types:
 
 - **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
-- **Films / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)**.
+- **Films / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)** — as flat text fields, plus the same cast/crew as a structured **`people[]`** array with provider ids and headshots (F32, `credits: true`).
 - **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, `website` (the company homepage, TMDB page as fallback), and a `logo` image URL. Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a plain `image_url` **field** (the `poster_url` pattern), not a downloaded asset.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
@@ -116,7 +116,8 @@ provider loudly.
     "actors", "director", "studio",
     "description", "country", "logo"
   ],
-  "asset_kinds": ["headshot", "gallery", "banner"]
+  "asset_kinds": ["headshot", "gallery", "banner"],
+  "credits": true
 }
 ```
 
@@ -129,6 +130,7 @@ provider loudly.
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
 | `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies person images: `["headshot", "gallery", "banner"]` (person only; video poster is a text `fields` entry) |
+| `credits` | boolean | optional | `true` — video enrich responses include the structured `people[]` array ([contract §4.5](metadata-provider-contract.md#45-video-credits--per-person-castcrew-with-headshots), F32) alongside the flat `actors`/`director` text fields below |
 
 ### 2.3 Entity type and matching fields
 
@@ -391,11 +393,39 @@ Map the responses → canonical `fields` (each value an array of strings):
 | `imdb_id` | details `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
 | `poster_url` | details `poster_path` | **Text field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
 | `studio` | details `production_companies[].name` | Multi-value — one per company (drop empty names) |
-| `actors` | credits `cast[].name` | Top **10** by billing order (TMDB returns `cast` pre-sorted). Drop empty names |
+| `actors` | credits `cast[].name` | Top **20** by billing order (`maxCastCredits`, TMDB returns `cast` pre-sorted) — kept in sync with `people[]`'s cast window below, since `video_people` links derive from this flat field, not from `people[]` directly. Drop empty names |
 | `director` | credits `crew[]` where `job == "Director"` | Multi-value (co-directors). Drop empty names |
 | `_studio_external_ids` | details `production_companies[].{id, name}` | **Internal sidecar** — see the contract's [§4.6](metadata-provider-contract.md#46-studio-external-ids-_studio_external_ids). One self-describing value `"tmdb:<id> <name>"` per company with a non-empty name **and** `id > 0`, paired with `studio`. **Not advertised in `/describe`** and never displayed or resolved — it powers studio-entity de-dup by company id (HOLODEX-122 / [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)). Omit when no company has an id |
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.
+
+**Structured `people[]` credits (F32, [contract §4.5](metadata-provider-contract.md#45-video-credits--per-person-castcrew-with-headshots)).**
+Alongside the flat `actors`/`director` fields above, the same `credits` response also builds a
+top-level `people[]` array — the richer, opt-in shape Holodex uses to create/link real Person
+records and download their headshots:
+
+```json
+"people": [
+  { "name": "Brad Pitt", "role": "actor", "external_id": "tmdb:287", "order": 0,
+    "headshot": { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/cckcYc2v0yh1tc9QjRelptcOBko.jpg" } },
+  { "name": "Edward Norton", "role": "actor", "external_id": "tmdb:819", "order": 1 },
+  { "name": "David Fincher", "role": "director", "external_id": "tmdb:7467",
+    "headshot": { "kind": "photo", "url": "https://image.tmdb.org/t/p/original/dcBHejOcOdghH0itOws5dc4tXvw.jpg" } }
+]
+```
+
+| `people[]` field | TMDB source | Notes |
+|---|---|---|
+| `name` | `cast[].name` / `crew[].name` | Display only — not an identity/match key |
+| `role` | `"actor"` for every `cast[]` entry; `"director"` for up to `maxCrewCredits` `crew[]` entries where `job == "Director"` | Other crew jobs (producer, writer, composer, …) are **not** emitted into `people[]`, and TMDB's `crew[]` credits for those jobs aren't surfaced anywhere else in this provider's response either — this slice covers actor + director only, matching the flat `actors`/`director` fields above |
+| `external_id` | `"tmdb:" + cast[]/crew[].id` | **Required** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — an entry whose TMDB person `id` is `0`/absent is **skipped from `people[]` entirely** (it still appears in the flat `actors` field, which has no id requirement) |
+| `order` | `cast[].order` | Actors only; omitted (zero value) for directors |
+| `headshot` | `cast[]/crew[].profile_path` | `{ "kind": "photo", "url": "https://image.tmdb.org/t/p/original" + profile_path }`. Omitted when `profile_path` is empty — a credit with an id but no photo is still emitted, just without a headshot |
+
+Capped at the top **20** billed cast entries (`maxCastCredits`) plus up to **10** director credits
+(`maxCrewCredits` — a co-director list is normally 1-2, but nothing in the TMDB API guarantees
+that) — tighter than the contract's ≈50 ceiling, per this feature's own spec
+(`docs/specs/video-credits-people.md`).
 
 **No `assets[]` for movies.** The poster is a text `fields` entry (`poster_url`), not an asset download — there is no film poster sink that maps to a stored image slot (unlike person photos which map to the headshot role). Holodex renders the URL directly as an image in the UI.
 

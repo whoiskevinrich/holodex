@@ -1223,6 +1223,43 @@ skins this session (create/collision/near-miss/empty-state/owner-gating/focus-re
 **no automated Vitest/Playwright coverage exists yet** for it, tracked in §11 alongside the equivalent gap
 every other recent frontend feature in this file carries at this stage.
 
+**Video credits → People (F32, HOLODEX-102/HOLODEX-22)** — a video's TMDB enrich response carries structured
+`people[]` cast/crew credits (name, role, external_id, order, headshot) instead of flat `actors`/`director`
+text; core enrich resolve-or-creates each Person by namespaced external_id (ADR-055's identity spine,
+mirroring F38's studio dedup) and downloads a real headshot through the existing SSRF-guarded asset pipeline
+**before** `RelinkVideoPeople` (F40/ADR-072, sole writer of `video_people`) derives links from the
+already-resolved `actors`/`director` text. F32 itself never writes `video_people` — its job is Person
+population plus a `_person_external_ids` sidecar (mirrors `_studio_external_ids`), consumed via an
+`extIDByName` map. Fully CI-testable, no network (in-process `Fake` TMDB).
+- **Resolve-or-create + dedup + merge-repoint (`internal/repo/aliases_test.go`)**: `TestReconcileVideoPeople_ExternalIDDedup`
+  — two credits sharing an external id converge to one Person; `TestReconcileVideoPeople_ExternalIDCascade`
+  — a name-only Person later gains an id and back-fills, converging a further spelling (the studio
+  back-fill pattern, §F38 above); `TestMergePersons_RepointsExternalID` — `person_external_ids` survives
+  `MergePersons` (F23).
+- **Provider (`providers/tmdb/tmdb_test.go`)**: `TestBuildPeopleCreditsCapsAt20` / `TestBuildPeopleCreditsCapsCrew`
+  — `people[]` caps at the top 20 billed cast plus up to 10 director/crew, each requiring a positive
+  provider id (`id`≤0 dropped); `TestDescribe` — `/describe` advertises `credits: true`.
+- **Core enrich consumption (`internal/enrich/enrich_test.go`)**: `TestEnrichVideoConsumesPeopleCredits` —
+  `resolvePeopleCredits` runs resolve-or-create + headshot download per credit; `TestEnrichVideoCreditHeadshotIgnoresProviderKind`
+  — the headshot download **forces `Kind: "photo"`** regardless of what the provider sends (closes a
+  role-diversion bug); `TestSanitizePeopleRejectsWhitespaceInExternalID` — provider `name`/`role`/`external_id`
+  are treated as **untrusted** input; whitespace inside `external_id` is rejected because the sidecar's
+  `"<external_id> <name>"` format is parsed by splitting on the first space, so an unsanitized value could
+  let a malicious provider hijack a video credit onto an unrelated existing Person — found and fixed
+  (`SanitizeValue` + `strings.Cut` + explicit space-rejection) during this feature's own `/security-review`.
+- **Side-map parse (`internal/api/person_links_internal_test.go`)**: `TestPersonExternalIDsFromRows` —
+  white-box parse of `_person_external_ids` rows into `extIDByName`, mirroring `studioExternalIDsFromRows`
+  (§Studio external-id de-dup above).
+- **Frontend**: no code changes — F30's actor/director chips (`CurationFieldRow.svelte`/`CurationChip.svelte`)
+  and the People poster grid (`media/[id]/+page.svelte`, `PersonImageFrame`/`PersonPoster`/`PersonAvatar`)
+  already name-match against `video.people` and render headshots with a themed placeholder fallback when
+  absent. **Verified live** (real TMDB "Dune (2021)" enrich, not a fixture): all 10 actors plus a
+  brand-new director Person linked in `video.people`; all 11 People got a real downloaded JPEG (headshot
+  and poster, confirmed via direct HTTP content-type checks, not just the UI); both the People-grid poster
+  links and the Actors/Director text chips resolve to `/people/{id}` with distinct, readable link-vs-label
+  contrast across Cinémathèque/Broadcast/Brutalist (computed-style verification, per this repo's
+  screenshot-times-out convention).
+
 ---
 
 ## 10. Example Test Cases (concrete)
@@ -1828,4 +1865,10 @@ Then BOTH grids' effective column counts change on next render — they read the
 - **`EntityPicker`/`CategoryPicker` focus-restore-to-trigger gap** (found while manually QA'ing this session's `PickerShell` extraction): on Escape/close, focus lands on `<body>` rather than back on the button that opened the dialog. Confirmed **pre-existing** — byte-identical behavior on the code as it stood before the `PickerShell` extraction, not a regression it introduced. Root cause not yet diagnosed (likely the trigger element already being removed from the DOM — e.g. a closed ⋯-menu button — by the time `onMount`'s cleanup reads `document.activeElement`). A real, if minor, a11y regression worth its own fix, separate from this testing-strategy pass.
 - **Tag & category create affordance (HOLODEX-243)**: spec + design handoff + implementation landed 2026-07-31/2026-08-01, including the `ListTags` left-join backend fix (§4/§9 above, Go-test-covered). What's left: **no automated Vitest/Playwright coverage** for the new `/tags` create pill/form/near-miss/collision flow — only manual driven-browser QA across all 3 skins this session. Not a silent gap: tracked against the ticket's own gate checklist (spec/design/testing/implementation all done; automated frontend tests are the one open item).
 - **F54 configurable provider search patterns (ADR-080, HOLODEX-254)**: spec + ADR-080 + design handoff + QA checklist landed 2026-08-05; the test plan above (§4 backend row, §5 frontend row, §9 adversarial block, Critical invariants) is written ahead of implementation — none of it is automated yet. Not a silent gap: tracked against ADR-080's own Action Items (5 = implementation, 6 = provider-contract doc update, 7 = security-review, the last gated on an actual diff existing). **Numbering note**: this feature was originally mislabeled F53 in its first drafting pass, colliding with the already-shipped Two-tier video poster resolution feature (also F53, HOLODEX-253); corrected to **F54** across ADR-080, the spec, the design docs, and the Jira issue on 2026-08-05 — if an older cached copy of any of those artifacts still says F53, it predates the correction.
+- **F32 video credits → People (HOLODEX-102/HOLODEX-22)**: automated coverage (§9 above) plus live TMDB
+  end-to-end QA closed this feature's gate. One item deliberately left out of scope: **HOLODEX-258** tracks
+  a sibling pre-existing vulnerability in the analogous `_studio_external_ids` mechanism (F38) — the same
+  split-on-first-space parsing exists there and was not hardened as part of this pass, since F32's
+  `/security-review` scope was the newly-written person path, not a retrofit of the already-shipped studio
+  one. Filed, not fixed.
 - **F55 Poster View for the People list page (HOLODEX-255)**: spec + design handoff landed 2026-08-05; the test plan above (§4 backend row, §5 frontend row, §10 adversarial block, Critical invariants) is written ahead of implementation — none of it is automated yet. Not a silent gap: tracked against the PR #215 gate checklist (`/design-handoff` done, `/testing-strategy` closed by this update, `/security-review`/`/architecture` explicitly not required). **Corrections found during design-handoff, folded into this update**: the spec's RD5 (Cinémathèque top bar) and RD6 (Brutalist counter) both assumed `.portrait-frame` had per-skin flourishes mirroring `.video-frame`'s — grounding against the real `app.css` found neither exists on `.portrait-frame` today, so `PersonPosterCard` needs zero new Cinémathèque/Brutalist CSS (Broadcast's real `.portrait-frame::after` scanline applies for free). The spec's two non-blocking open questions (Q1: Merge-button behavior in Poster view; Q2: tier-cap derivation) were locked in by the handoff for buildability — the auto-apply/lockstep test cases above assert those chosen resolutions, not the alternatives.

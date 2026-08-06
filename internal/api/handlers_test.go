@@ -75,7 +75,7 @@ func linkPeopleAs(t *testing.T, r *repo.Repo, videoID int64, role string, names 
 	for i, n := range names {
 		links[i] = repo.PersonRoleName{Name: n, Role: role}
 	}
-	if err := r.ReconcileVideoPeople(context.Background(), videoID, links); err != nil {
+	if err := r.ReconcileVideoPeople(context.Background(), videoID, links, nil); err != nil {
 		t.Fatalf("link people: %v", err)
 	}
 }

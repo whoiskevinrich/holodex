@@ -38,6 +38,25 @@ func canonicalTable(entityType string) string {
 	}
 }
 
+// externalIDCols names the join table + FK column an entity type's provider ids live
+// in (mirrors idMove's table+fk shape, identity_ops.go). Declared literally per case —
+// like canonicalTable, rather than derived from entityType by string concatenation —
+// so the naming is one source of truth instead of an assumed convention re-derived at
+// each of externalSelect's and attachInsert's build sites below. ok is false for an
+// entity type with no external identity (tags).
+type externalIDCols struct{ table, idColumn string }
+
+func externalIDTable(entityType string) (externalIDCols, bool) {
+	switch entityType {
+	case model.EnrichEntityStudio:
+		return externalIDCols{table: "studio_external_ids", idColumn: "studio_id"}, true // ADR-054
+	case model.EnrichEntityPerson:
+		return externalIDCols{table: "person_external_ids", idColumn: "person_id"}, true // ADR-055, F32
+	default:
+		return externalIDCols{}, false
+	}
+}
+
 // nameKeyExpr returns the SQLite expression that normalizes `col` to the entity's
 // identity key (ADR-061 D2 / RD2): person & studio fold case + edge whitespace; tag
 // also folds internal whitespace (`"sci fi"` → `"scifi"`). Diacritics are deliberately
@@ -53,30 +72,39 @@ func nameKeyExpr(entityType, col string) string {
 
 // identityQueries holds the per-entity resolve SQL. Built once at init from
 // canonicalTable + nameKeyExpr, so the scan hot path (resolveOrCreateByName, called
-// per person/tag/studio per video) does zero per-call string formatting.
-type identityQueries struct{ canonicalSelect, aliasSelect, insert string }
+// per person/tag/studio per video) does zero per-call string formatting — externalSelect
+// AND attachInsert both get this treatment (not just the read side), since a non-empty
+// externalID exercises both on every call. Both are empty for an entity type with no
+// external-id table (tags).
+type identityQueries struct{ canonicalSelect, aliasSelect, insert, externalSelect, attachInsert string }
 
 var identityQueryByType = func() map[string]identityQueries {
 	m := make(map[string]identityQueries, 3)
 	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag} {
 		table := canonicalTable(et)
-		m[et] = identityQueries{
+		q := identityQueries{
 			canonicalSelect: fmt.Sprintf(`SELECT id FROM %s WHERE %s = %s`, table, nameKeyExpr(et, "name"), nameKeyExpr(et, "?")),
 			aliasSelect:     fmt.Sprintf(`SELECT entity_id FROM entity_aliases WHERE entity_type = ? AND alias_key = %s LIMIT 1`, nameKeyExpr(et, "?")),
 			insert:          fmt.Sprintf(`INSERT INTO %s (name) VALUES (?)`, table),
 		}
+		if cols, ok := externalIDTable(et); ok {
+			q.externalSelect = fmt.Sprintf(`SELECT %s FROM %s WHERE external_id = ?`, cols.idColumn, cols.table)
+			q.attachInsert = fmt.Sprintf(`INSERT OR IGNORE INTO %s (%s, external_id) VALUES (?, ?)`, cols.table, cols.idColumn)
+		}
+		m[et] = q
 	}
 	return m
 }()
 
 // resolveOrCreateByName resolves a name to an entity id for person / studio / tag,
 // creating the entity if absent (F43, ADR-061). Resolution order (RD3): external-id
-// (studios only today) → canonical nameKey → alias key → create. Case/whitespace
-// variants converge on the one canonical entity (the "fox"/"Fox" fix); a merged-away
-// name routes through the alias table so a merge survives a re-scan / link
-// re-derivation. Runs inside the caller's transaction; writeMu serialization + the
-// canonical nameKey unique index make the select-then-insert race-free. externalID is
-// honored for studios only (ADR-054/055); empty for name-only entities.
+// (studio ADR-054, person ADR-055/F32) → canonical nameKey → alias key → create.
+// Case/whitespace variants converge on the one canonical entity (the "fox"/"Fox" fix);
+// a merged-away name routes through the alias table so a merge survives a re-scan /
+// link re-derivation. Runs inside the caller's transaction; writeMu serialization +
+// the canonical nameKey unique index make the select-then-insert race-free. externalID
+// is honored only for entity types with an external-id table (externalIDTable); empty
+// for name-only entities (tags) or when no id is known.
 func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, externalID string) (int64, error) {
 	q, ok := identityQueryByType[entityType]
 	if !ok {
@@ -105,11 +133,11 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		}
 	}
 
-	// 1. External-id first (studios, ADR-054/055): a company id owns exactly one entity.
-	if externalID != "" && entityType == model.EnrichEntityStudio {
+	// 1. External-id first (studio ADR-054, person ADR-055/F32): a provider id owns
+	// exactly one entity.
+	if externalID != "" && q.externalSelect != "" {
 		var id int64
-		switch err := tx.QueryRowContext(ctx,
-			`SELECT studio_id FROM studio_external_ids WHERE external_id = ?`, externalID).Scan(&id); {
+		switch err := tx.QueryRowContext(ctx, q.externalSelect, externalID).Scan(&id); {
 		case err == nil:
 			return id, nil
 		case !errors.Is(err, sql.ErrNoRows):
@@ -124,7 +152,7 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if id, ok, err := lookupByNameKey(ctx, tx, q, entityType, name); err != nil {
 		return 0, err
 	} else if ok {
-		return id, attachExternalID(ctx, tx, entityType, id, externalID)
+		return id, attachExternalID(ctx, tx, entityType, q.attachInsert, id, externalID)
 	}
 
 	// 3b. Length cap (tags only, ADR-075 item 11): the rename/alias HTTP handlers
@@ -162,7 +190,7 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if err := FlagNearMiss(ctx, tx, entityType, id); err != nil {
 		return 0, err
 	}
-	return id, attachExternalID(ctx, tx, entityType, id, externalID)
+	return id, attachExternalID(ctx, tx, entityType, q.attachInsert, id, externalID)
 }
 
 // queryRower is the read slice both *sql.Tx (inside resolveOrCreateByName's
@@ -194,14 +222,20 @@ func lookupByNameKey(ctx context.Context, qr queryRower, q identityQueries, enti
 	return 0, false, nil
 }
 
-// attachExternalID records external_id → entity idempotently; a no-op unless the
-// entity is a studio carrying an id (ADR-054). Keeps the external-id perimeter in
-// studios.go while resolveOrCreateByName stays entity-generic.
-func attachExternalID(ctx context.Context, tx *sql.Tx, entityType string, id int64, externalID string) error {
-	if externalID == "" || entityType != model.EnrichEntityStudio {
+// attachExternalID records external_id → entity idempotently via the precomputed
+// attachInsert (identityQueries.attachInsert, "" for an entity type with no
+// external-id table — tags); a no-op when externalID is empty. INSERT OR IGNORE: the
+// external_id PK means an id already owned by another entity is left where it is —
+// the id-first lookup in resolveOrCreateByName would already have returned that
+// owner, so this only ever records a genuinely new (id, entity) pair.
+func attachExternalID(ctx context.Context, tx *sql.Tx, entityType, attachInsert string, id int64, externalID string) error {
+	if externalID == "" || attachInsert == "" {
 		return nil
 	}
-	return attachStudioExternalID(ctx, tx, id, externalID)
+	if _, err := tx.ExecContext(ctx, attachInsert, id, externalID); err != nil {
+		return fmt.Errorf("attach %s external id: %w", entityType, err)
+	}
+	return nil
 }
 
 // ExactEntityMatch reports whether name resolves to an existing Person/Studio

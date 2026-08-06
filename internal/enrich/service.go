@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -44,6 +45,12 @@ type EnrichRepo interface {
 	// ProviderFieldHints reads every stored hint, keyed by provider then field key —
 	// the source for the Service's in-memory cache the read path consults (F39).
 	ProviderFieldHints(ctx context.Context) (map[string]map[string]repo.ProviderFieldHint, error)
+	// ResolveOrCreatePeopleByExternalID resolves-or-creates a Person per (name,
+	// external_id) credit in one transaction (F32, ADR-055) — the identity step a
+	// video's people[] consumption performs before headshot download and before
+	// RelinkVideoPeople's later name-based reconcile runs. Returns person id keyed
+	// by external_id.
+	ResolveOrCreatePeopleByExternalID(ctx context.Context, credits []repo.PersonCredit) (map[string]int64, error)
 }
 
 // ImageSink stores a downloaded, normalized provider asset as an image for an
@@ -382,6 +389,21 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 		return nil, err
 	}
 	fields := sanitizeFields(res.Fields)
+	// F32 (contract §4.5): a video's structured people[] credits become an internal
+	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
+	// never provider-authored — people[] arrives as a separate array). Unconditionally
+	// discard whatever sanitizeFields let through under this key before rebuilding it
+	// below: otherwise a provider could smuggle a raw, unvalidated-by-sanitizePeople
+	// value through res.Fields whenever res.People yields zero valid credits. Also
+	// deliberately exempt from sanitizeFields' maxFields cap, which bounds an
+	// attacker-controlled field *count* — this is always exactly one core-owned key.
+	delete(fields, model.PersonExternalIDsField)
+	people := sanitizePeople(res.People)
+	if entityType == model.EnrichEntityVideo {
+		if sidecar := personExternalIDsField(people); len(sidecar) > 0 {
+			fields[model.PersonExternalIDsField] = sidecar
+		}
+	}
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
@@ -403,7 +425,130 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 		s.log.Warn("discarding assets for an entity type with no image sink: use a fields entry instead",
 			"provider", provider, "entity_type", entityType, "entity_id", entityID, "asset_kinds", kinds)
 	}
+	if entityType == model.EnrichEntityVideo {
+		s.resolvePeopleCredits(ctx, provider, people)
+	}
 	return s.Fields(ctx, entityType, entityID)
+}
+
+// maxPeopleCredits caps a video enrich response's people[] (contract §4.5's own ~50
+// ceiling) — a defensive bound independent of whatever cap the provider itself
+// claims to apply, mirroring sanitizeFields/sanitizeCandidates' own caps.
+const maxPeopleCredits = 50
+
+// sanitizePeople bounds an untrusted provider people[] array (F32, contract §4.5):
+// sanitizes name, and requires a namespace-qualified external_id with NO embedded
+// whitespace (ADR-055 — an entry without a well-formed id is refused, not
+// name-matched; HOLODEX-124 tracks building a shared namespace parser across the
+// whole contract, so this is a local, ADR-055-scoped check, not a reusable one).
+// The whitespace rejection is load-bearing, not cosmetic: personExternalIDsField
+// below round-trips external_id through the "_person_external_ids" sidecar as
+// "<external_id> <name>", parsed back by splitting on the FIRST space
+// (externalIDsFromRows, internal/api/studios.go) — an external_id containing a
+// space would let a malicious provider smuggle an attacker-chosen id/name pair past
+// that split, resolving a video's credit onto an unrelated existing Person instead
+// of the one it claims to be. SanitizeValue alone doesn't close this: it collapses
+// \n/\r/\t to a literal space rather than rejecting it, so the space check runs
+// after sanitizing, not instead of it. Then caps the list. Role and Order are
+// carried through unsanitized-but-unused today: nothing in this slice persists or
+// acts on either (the video↔person link's role comes from the resolved
+// actors/director field the name is drawn from, not from people[].role — see
+// docs/specs/video-credits-people.md).
+func sanitizePeople(in []ProviderPerson) []ProviderPerson {
+	if len(in) > maxPeopleCredits {
+		in = in[:maxPeopleCredits]
+	}
+	out := make([]ProviderPerson, 0, len(in))
+	for _, p := range in {
+		p.Name = SanitizeValue(p.Name)
+		externalID := SanitizeValue(p.ExternalID)
+		ns, id, ok := strings.Cut(externalID, ":")
+		if p.Name == "" || !ok || ns == "" || id == "" || strings.Contains(externalID, " ") {
+			continue
+		}
+		p.ExternalID = externalID
+		out = append(out, p)
+	}
+	return out
+}
+
+// personExternalIDsField builds the _person_external_ids sidecar values (F32,
+// ADR-055) from already-sanitized people credits — mirrors
+// buildMovieEnrichResponse's own _studio_external_ids sidecar shape (one
+// self-describing "<external_id> <name>" value per entry; the id token has no
+// space, so the name is the unambiguous remainder), so relinkVideoPeople's
+// personExternalIDsFromRows can recover a name→external_id map from persisted
+// enrichment rows the same way studio already does.
+func personExternalIDsField(people []ProviderPerson) []string {
+	out := make([]string, 0, len(people))
+	for _, p := range people {
+		out = append(out, p.ExternalID+" "+p.Name)
+	}
+	return out
+}
+
+// resolvePeopleCredits is F32's identity step for a video's structured people[]
+// credits: resolve-or-create each credited Person by external_id (ADR-055, one
+// transaction — mirrors resolveOrCreateStudio's batching, not a transaction per
+// person) and download each one's headshot. This runs BEFORE RelinkVideoPeople's
+// later name-based reconcile (triggered by the caller once enrichment completes), so
+// that reconcile's own resolveOrCreatePerson-by-name resolves onto the Person this
+// step already created and attached the external_id + headshot to, instead of a bare
+// placeholder. Best-effort throughout: a failure is logged, never failing the field
+// enrichment that already succeeded.
+func (s *Service) resolvePeopleCredits(ctx context.Context, provider string, people []ProviderPerson) {
+	credits := make([]repo.PersonCredit, 0, len(people))
+	for _, p := range people {
+		credits = append(credits, repo.PersonCredit{Name: p.Name, ExternalID: p.ExternalID})
+	}
+	personIDs, err := s.repo.ResolveOrCreatePeopleByExternalID(ctx, credits)
+	if err != nil {
+		s.log.Warn("resolve people credits failed", "provider", provider, "err", err)
+		return
+	}
+	if s.images == nil {
+		return
+	}
+	// A person can appear more than once in one video's credits (e.g. actor AND
+	// director, or two crew roles) but personIDs already collapsed every such entry
+	// onto the same Person row keyed by external_id — download each distinct
+	// external_id's headshot at most once rather than once per credit entry, or a
+	// repeat credit re-fetches and re-stores the identical image.
+	seen := make(map[string]bool, len(people))
+	// Bounded so a large credits list (up to maxPeopleCredits) can't fire dozens of
+	// concurrent outbound fetches from one enrich call; downloadAssets touches no
+	// shared state across calls (writes serialize inside the repo/image store).
+	const maxConcurrentHeadshots = 8
+	sem := make(chan struct{}, maxConcurrentHeadshots)
+	var wg sync.WaitGroup
+	for _, p := range people {
+		if p.Headshot == nil || p.Headshot.URL == "" || seen[p.ExternalID] {
+			continue
+		}
+		seen[p.ExternalID] = true
+		personID, ok := personIDs[p.ExternalID]
+		if !ok {
+			continue
+		}
+		// Kind is forced to personHeadshotKind rather than passed through as the
+		// provider sent it: people[].headshot is contractually a single fixed-purpose
+		// portrait (contract §4.5), not a member of the heterogeneous assets[] list
+		// assetRoleFor's kind-based dispatch exists to disambiguate. A conformant
+		// provider could otherwise send kind:"gallery" here (§4.3's general Asset
+		// shape doesn't constrain this field's kind beyond "photo" as an example) and
+		// silently divert the headshot into the capped gallery role instead of the
+		// single-occupancy headshot slot — bypassGalleryCap:false then relies on
+		// that slot being genuinely uncappable, which only holds once Kind is forced.
+		headshot := Asset{Kind: personHeadshotKind, URL: p.Headshot.URL}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(personID int64, externalID string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			s.downloadAssets(ctx, model.EnrichEntityPerson, personID, provider, externalID, []Asset{headshot}, false)
+		}(personID, p.ExternalID)
+	}
+	wg.Wait()
 }
 
 // imageBackedEntityType reports whether entityType has an image sink table backing

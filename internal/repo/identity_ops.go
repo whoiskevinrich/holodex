@@ -70,6 +70,10 @@ var entityIdentityByType = map[string]entityIdentity{
 		// there.
 		moveAssocSQL: `INSERT OR IGNORE INTO video_people (video_id, person_id, role)
 			SELECT video_id, ?, role FROM video_people WHERE person_id = ?`,
+		// person_external_ids (migration 0038, F32/ADR-055): mirrors studio's idMoves
+		// entry below — a merged person's provider identity repoints onto the survivor
+		// instead of cascade-deleting with the loser, so a re-enrich still id-matches.
+		idMoves: []idMove{{"person_external_ids", "person_id", false}},
 	},
 	model.EnrichEntityStudio: {
 		table: "studios", assoc: "video_studios", assocFK: "studio_id",

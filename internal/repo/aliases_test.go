@@ -147,6 +147,86 @@ func TestPersonAliasesDeleteScopeAndCascade(t *testing.T) {
 	}
 }
 
+// TestReconcileVideoPeople_ExternalIDDedup is the F32/ADR-055 crux (the person
+// analogue of TestReconcileVideoStudios_ExternalIDDedup): two videos whose resolved
+// person name is a DIFFERENT spelling of the SAME provider person converge to one
+// Person, because resolve-or-create matches external_id before name. A third video
+// with a name and no id resolves by name only (the fallback).
+func TestReconcileVideoPeople_ExternalIDDedup(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+
+	// A: "Robert Downey Jr." carrying tmdb:3223 → creates the person + attaches the id.
+	if err := r.ReconcileVideoPeople(ctx, a, []repo.PersonRoleName{{Name: "Robert Downey Jr.", Role: "actor"}},
+		map[string]string{"Robert Downey Jr.": "tmdb:3223"}); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	// B: a DIFFERENT spelling, SAME id → converges to A's person, not a second entity.
+	if err := r.ReconcileVideoPeople(ctx, b, []repo.PersonRoleName{{Name: "Robert Downey Jr", Role: "actor"}},
+		map[string]string{"Robert Downey Jr": "tmdb:3223"}); err != nil {
+		t.Fatalf("reconcile b: %v", err)
+	}
+	people, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(people) != 1 || people[0].VideoCount != 2 {
+		t.Fatalf("people = %+v, want ONE person (id-deduped) count=2", people)
+	}
+	// The canonical name is the first spelling to create it (deterministic, mirrors
+	// studio's RD6).
+	if people[0].Name != "Robert Downey Jr." {
+		t.Fatalf("converged name = %q, want %q (first-seen)", people[0].Name, "Robert Downey Jr.")
+	}
+
+	// C: a distinct person, no id → resolves/creates independently by name.
+	c, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, c, []repo.PersonRoleName{{Name: "Chris Evans", Role: "actor"}}, nil); err != nil {
+		t.Fatalf("reconcile c: %v", err)
+	}
+	people, err = r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list after c: %v", err)
+	}
+	if len(people) != 2 {
+		t.Fatalf("people = %+v, want 2 (one id-deduped, one name-only)", people)
+	}
+}
+
+// TestReconcileVideoPeople_ExternalIDCascade proves person_external_ids' ON DELETE
+// CASCADE (migration 0038): hard-deleting the person row removes its external-id row
+// too, so a later reconcile for the same provider id is not silently orphaned onto a
+// nonexistent person — it creates a fresh one. Hard delete bypasses the orphan grace
+// period (there is no repo method for it; mirrors TestPersonAliasesDeleteScopeAndCascade's
+// direct-DB cascade check above).
+func TestReconcileVideoPeople_ExternalIDCascade(t *testing.T) {
+	r, database := newRepoDB(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, a, []repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}},
+		map[string]string{"Denis Villeneuve": "tmdb:137"}); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	first := personIDByName(t, r, "Denis Villeneuve")
+	if _, err := database.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, first); err != nil {
+		t.Fatalf("delete person: %v", err)
+	}
+
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, b, []repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}},
+		map[string]string{"Denis Villeneuve": "tmdb:137"}); err != nil {
+		t.Fatalf("reconcile b after delete: %v", err)
+	}
+	second := personIDByName(t, r, "Denis Villeneuve")
+	if second == first {
+		t.Fatalf("re-resolve returned the deleted person id %d (external id row leaked)", first)
+	}
+}
+
 func TestSearchMatchesAlias(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
@@ -347,6 +427,49 @@ func TestMergePersons_DedupesSameRoleLinkAtMergeTime(t *testing.T) {
 	}
 	if p.VideoCount != 1 {
 		t.Errorf("canonical video count = %d, want 1 (merge must dedupe same-role link on its own)", p.VideoCount)
+	}
+}
+
+// TestMergePersons_RepointsExternalID proves person_external_ids' idMove
+// (identity_ops.go, F32/ADR-055): merging two people repoints the LOSER's provider id
+// onto the survivor instead of losing it to person_external_ids' ON DELETE CASCADE
+// when the loser row is deleted. A later reconcile carrying that same id must resolve
+// to the survivor, not create a third person.
+func TestMergePersons_RepointsExternalID(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, a, []repo.PersonRoleName{{Name: "Jennifer Lawrence", Role: "actor"}},
+		map[string]string{"Jennifer Lawrence": "tmdb:1"}); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, b, []repo.PersonRoleName{{Name: "J Law", Role: "actor"}},
+		map[string]string{"J Law": "tmdb:2"}); err != nil {
+		t.Fatalf("reconcile b: %v", err)
+	}
+	jen := personIDByName(t, r, "Jennifer Lawrence")
+	jlaw := personIDByName(t, r, "J Law")
+
+	if err := r.MergePersons(ctx, jen, jlaw); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+
+	// The loser's id (tmdb:2) must now resolve to the survivor: without the idMove
+	// fix, it would have cascade-deleted with the loser row, and this reconcile would
+	// create a THIRD person instead of converging onto jen.
+	c, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
+	if err := r.ReconcileVideoPeople(ctx, c, []repo.PersonRoleName{{Name: "Someone New", Role: "actor"}},
+		map[string]string{"Someone New": "tmdb:2"}); err != nil {
+		t.Fatalf("reconcile c: %v", err)
+	}
+	people, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(people) != 1 || people[0].ID != jen || people[0].VideoCount != 3 {
+		t.Fatalf("people = %+v, want ONE person (id %d) count=3 (repointed id resolved c onto the survivor)", people, jen)
 	}
 }
 
