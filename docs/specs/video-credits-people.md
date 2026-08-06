@@ -11,6 +11,13 @@
 > the superseding notes inline (§2, §3, Open Q2).
 
 **Status**: Draft — implementation handoff (not yet built). Decisions locked; **rebased onto F40/ADR-072** — build F40 first (or together). Needs `/security-review` before/at implementation (the ADR is ADR-072 + F32's own external-id/asset notes).
+
+## Resolved decisions (2026-08-06)
+
+Brainstorm session confirmed two things that were previously implicit or open:
+
+1. **Link mechanism — confirmed, no design change needed.** The video↔person *link* is not written by F32 at all (per §2 below): `RelinkVideoPeople` only ever derives `video_people` from the video's already-resolved `actors`/`director` **text** fields — it has no awareness of `people[]`. So `people[]` is a side-channel: it exists solely to make sure the right `Person` row (correct `external_id`, real headshot) already exists *before* `RelinkVideoPeople`'s name-based `resolveOrCreatePerson` runs against the flat `actors`/`director` text the provider also emits (§1). This confirms F32 should **not** grow a second `video_people` writer — the "additive shadow → pure resolver → sole writer" architecture (ADR-033/051/052/072) already covers the actual link; F32 only has to win the *identity* race for the Person record.
+2. **`person_external_ids` (was open item, coordinated with HOLODEX-125) — build now, in F32's own scope**, not deferred. Rationale: without it, a Person created from a `people[]` `external_id` and one later created/matched by name (scan-time file tags, other providers) can diverge instead of converging — the exact failure mode ADR-055 exists to prevent, and the exact pattern `studio_external_ids` already solves for Studio. Building it as part of F32 avoids a two-step migration and keeps one person-identity table, not two. This closes Open Question 4 below and absorbs HOLODEX-125 rather than leaving it as a parallel follow-up.
 **Feature block**: F32
 **Phase**: 3 (Enrichment) — follow-on to F22/F26/F27/F30
 **Decision**: **Choice A** (provider-side) — locked with the owner 2026-06-28.
@@ -56,7 +63,7 @@ The provider returns structured per-person credits with a stable `external_id` a
   (derived from the source field, PK `(video_id, person_id, role)`, unset-capable) and the migration of
   `video_people` to `RelinkVideoPeople` land in F40. F32 **depends on** that model and adds nothing to it.
   *(The "a person can be both actor+director" case F32 flagged is resolved there: two rows, distinct by role.)*
-- `people` has **no `external_id`** (unique by `name` only). Add person external-id de-dup: either a `person.external_id` (namespace-qualified, nullable, unique) or a `person_external_ids(person_id, external_id)` table. Prefer a small join table (a person can carry IMDb+TMDB ids) — mirrors `person_aliases`. **This is F32's remaining data-model work**, and it is the person case of [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md) ([HOLODEX-125](https://whoiskevinrich.atlassian.net/browse/HOLODEX-125)) — coordinate so there is one person-external-id table, not two.
+- `people` has **no `external_id`** (unique by `name` only). Add person external-id de-dup: a `person_external_ids(person_id, external_id)` join table (a person can carry IMDb+TMDB ids) — mirrors `person_aliases`, and mirrors the id-first resolve pattern `studio_external_ids` already ships for Studio. **This is F32's remaining data-model work, built in F32's own scope** (resolved 2026-08-06, see "Resolved decisions" above) — it is the person case of [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md) and supersedes/absorbs [HOLODEX-125](https://whoiskevinrich.atlassian.net/browse/HOLODEX-125) rather than landing as a separate follow-up.
 - Person de-dup at scan time uses name (`resolveOrCreatePerson`, [`internal/repo/aliases.go`](../../internal/repo/aliases.go)); extend to also match on external_id so a scan-created "Denis Villeneuve" and an enrich-created one converge. **`RelinkVideoPeople` calls the same `resolveOrCreatePerson`**, so the external-id-first upgrade benefits derivation automatically.
 
 ### 4. Frontend — mostly already done (F30)
@@ -92,4 +99,4 @@ The provider returns structured per-person credits with a stable `external_id` a
 1. **Name-only fallback** (no `external_id`): match to an existing Person by normalized name, or always create? Risk of merging two real people who share a name (homonyms) — reuse the F23 "never auto-merge same-name" caution. Lean: external_id is the only auto-merge key; name-only always resolve-or-create by exact name (existing behavior).
 2. ~~**Role cardinality**~~ — **decided by ADR-072**: PK `(video_id, person_id, role)` allows multiple roles per (video, person); role is unset-capable. No longer open.
 3. **Headshot refresh**: re-enrich re-downloads? Reuse the F25 suppress-on-delete + StoreAssetIfAbsent semantics (don't clobber an owner-curated headshot).
-4. **De-dup migration of existing name-created People**: backfill external_ids on first enrich; no bulk migration needed.
+4. ~~**De-dup migration of existing name-created People**~~ — **resolved 2026-08-06**: backfill external_ids on first enrich; no bulk migration needed. `person_external_ids` is built in F32's own scope (see "Resolved decisions" above), not deferred.
