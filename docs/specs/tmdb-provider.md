@@ -393,7 +393,7 @@ Map the responses → canonical `fields` (each value an array of strings):
 | `imdb_id` | details `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
 | `poster_url` | details `poster_path` | **Text field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
 | `studio` | details `production_companies[].name` | Multi-value — one per company (drop empty names) |
-| `actors` | credits `cast[].name` | Top **10** by billing order (TMDB returns `cast` pre-sorted). Drop empty names |
+| `actors` | credits `cast[].name` | Top **20** by billing order (`maxCastCredits`, TMDB returns `cast` pre-sorted) — kept in sync with `people[]`'s cast window below, since `video_people` links derive from this flat field, not from `people[]` directly. Drop empty names |
 | `director` | credits `crew[]` where `job == "Director"` | Multi-value (co-directors). Drop empty names |
 | `_studio_external_ids` | details `production_companies[].{id, name}` | **Internal sidecar** — see the contract's [§4.6](metadata-provider-contract.md#46-studio-external-ids-_studio_external_ids). One self-describing value `"tmdb:<id> <name>"` per company with a non-empty name **and** `id > 0`, paired with `studio`. **Not advertised in `/describe`** and never displayed or resolved — it powers studio-entity de-dup by company id (HOLODEX-122 / [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)). Omit when no company has an id |
 
