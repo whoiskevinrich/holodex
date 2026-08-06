@@ -218,14 +218,17 @@ in particular:
 - **A `metadata-mappings.yaml` that's missing or unreadable at startup.** A missing file loads as an *empty*
   mapping (no error, per the table above) — same effect as omitting `actors`/`director`/`studio` specifically.
 
-As of HOLODEX-256, an unmapped `actors`/`director` leaves any **existing** `video_people` links alone (a
-missing mapping means "no opinion," not "resolved to nobody") — but new links still can't form until the
-field is mapped, so the People page stays empty for a config that's never had these fields at all. `studio`
-predates that fix and still follows the original, harsher behavior: an unmapped `studio` field prunes
-`video_studios` immediately, with no orphan grace period (unlike person, ADR-072 §4) — map it before your
-first boot on a config that manages studios.
+As of HOLODEX-256 (`actors`/`director`) and its studio follow-up, an unmapped field now leaves any
+**existing** `video_people`/`video_studios` links alone (a missing mapping means "no opinion," not "resolved
+to nobody") — but new links still can't form until the field is mapped, so the People/Studios pages stay
+empty for a config that's never had these fields at all. Before both fixes, an unmapped field wiped every
+existing link on the next relink trigger; `studio` had it worse, since `ReconcileVideoStudios` prunes
+immediately with no orphan grace period (unlike person, ADR-072 §4) — an unmapped `studio` field used to
+delete every studio link *and every studio entity* outright, not just leave them displayed-but-stale. Map
+all three fields before your first boot regardless — the guard only stops the wipe, it doesn't create links
+a missing mapping was never going to produce.
 
-Minimum snippet to restore person-linking (copy the fuller commented version from
+Minimum snippet to restore person- and studio-linking (copy the fuller commented version from
 `metadata-mappings.yaml.example` when you also want the additional file-tag aliases and the F48 filename-token
 source):
 
@@ -237,6 +240,8 @@ fields:
   - canonical: director
     sources: ["Director", "tmdb:director"]
     multi: true
+  - canonical: studio
+    sources: ["Publisher", "Label", "Studio", "tmdb:studio"]
 ```
 
 ---
