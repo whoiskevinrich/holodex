@@ -276,12 +276,13 @@ No hard deadline. Per the project's change-routing rules:
    three corrections to RD3/RD5/RD6 found while grounding the spec's decisions in the real
    `app.css` (the mockup simulated some skin flourishes that don't exist in production — the
    corrected version needs *less* new CSS, not more).
-2. **`/testing-strategy`** — **needed, not yet done.** Add a People row to
-   `docs/testing-strategy.md` covering: `poster_version` correctness (P0-6, backend unit test
-   mirroring `TestListPeopleHeadshotVersion`), the conditional-border render logic, the density
-   formula's tier caps, persisted-preference fallback-on-corrupt (mirroring SP1's test), and a
-   keyboard-focus adversarial check (Q: does Tab actually reach every card and show the ring in
-   all three skins?).
+2. **`/testing-strategy`** — **done.** See `docs/testing-strategy.md`: §4 backend row
+   (`TestListPeoplePosterVersion`, mirroring `TestListPeopleHeadshotVersion`), §5 frontend row,
+   a §10 adversarial Given/When/Then block, a Critical-invariants bullet (P0-6), and a §11
+   tracking entry. Covers `poster_version` correctness, the conditional-border render logic, the
+   density formula's tier-cap lockstep, `viewPreference.svelte.ts`'s fallback-on-corrupt behavior
+   (net-new coverage — `sortPreference.svelte.ts` has no test of its own to mirror today), and
+   the keyboard-focus adversarial check across all three skins.
 3. **`/security-review`** — **not needed, explicit call.** The only backend change (P0-6) adds
    one additive, unauthenticated-read field to an already-public list endpoint — no new
    owner-gated mutation, no new input surface, no change to what's already exposed at the
@@ -292,6 +293,6 @@ No hard deadline. Per the project's change-routing rules:
 ## Gate status
 
 - [x] `/design-handoff`
-- [ ] `/testing-strategy`
+- [x] `/testing-strategy`
 - [x] `/security-review` — not required (see routing rationale above)
 - [x] `/architecture` — not required (see routing rationale above)

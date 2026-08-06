@@ -27,7 +27,7 @@ this is the human framing.>
 - [/] design `design-handoff` → `docs/design/**`
 - [ ] backend
 - [ ] frontend
-- [ ] testing `testing-strategy`
+- [/] testing `testing-strategy`
 - [ ] security `security-review`
 
 <!-- Deferred gate example — carry the un-defer trigger so it isn't lost:
@@ -54,4 +54,4 @@ this is the human framing.>
 -->
 
 ### 2026-08-05 · session
-- skills: design-handoff
+- skills: design-handoff, testing-strategy
