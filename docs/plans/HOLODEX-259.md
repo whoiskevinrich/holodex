@@ -27,7 +27,7 @@ Manage mode just to fix a tag's place in the tree.
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] security `security-review`
 
 ## Up next — ordered (position = priority)
 
@@ -41,7 +41,7 @@ Manage mode just to fix a tag's place in the tree.
 4. [x] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`
 5. [x] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`
 6. [x] [testing] cover the reparent-confirm branch + frontend controls — `docs/testing-strategy.md`
-7. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
+7. [x] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -54,7 +54,7 @@ Manage mode just to fix a tag's place in the tree.
 -->
 
 ### 2026-08-07 · Frontend controls complete — spec, design, backend, and frontend all done
-- skills: product-brainstorming, write-spec, design-handoff, simplify
+- skills: product-brainstorming, write-spec, design-handoff, simplify, security-review
 - handoff: backend gate landed first this session (`ChildrenForTag`/`CategoriesForTag`, wired
   into `GetTag`, tested). Then the frontend gate: `web/src/lib/tagHierarchy.ts` extracted
   (`findTagByName`/`cycleMessage`), `/tags`' Manage-mode parent control refactored onto it,
@@ -85,3 +85,22 @@ Manage mode just to fix a tag's place in the tree.
   paths, both of which ride existing owner-gated endpoints (`SetTagParent`, `ResolveOrCreateTag`,
   `AssignTagsToCategory`/`UnassignTagsFromCategory`) rather than introducing a new mutation
   surface.
+
+### 2026-08-07 · Security gate closed — clean bill of health
+- skills: security-review
+- handoff: ran `/security-review` over the full diff (`internal/model/model.go`,
+  `internal/repo/categories.go`, `internal/repo/repo.go`, `internal/repo/tag_hierarchy.go`,
+  `web/src/lib/tagHierarchy.ts`, `web/src/lib/types.ts`, `web/src/routes/tags/+page.svelte`,
+  `web/src/routes/tags/[id]/+page.svelte`). **No findings.** Verified independently (not just
+  trusting the review agent): `ChildrenForTag`/`CategoriesForTag` are both parameterized queries
+  (`WHERE parent_tag_id = ?` / `WHERE ct.tag_id = ?`, matching the existing repo-wide pattern —
+  no string concatenation); `GET /tags/{id}` is registered at `internal/api/handlers.go:319`,
+  before the `r.Use(h.requireOwner)` line at 335, confirming it was already public pre-diff, and
+  the new `Children`/`Categories` fields disclose nothing not already reconstructable from the
+  already-public `GET /tags` list and `GET /categories/{id}`; every mutation the new UI calls
+  (`SetTagParent`, `ResolveOrCreateTag`, `AssignTagsToCategory`/`UnassignTagsFromCategory`) is a
+  pre-existing endpoint already inside the `requireOwner` group, untouched by this diff — this PR
+  adds zero new mutation endpoints. No `{@html}` or other unsafe sink in the new Svelte markup.
+  **All gates now closed for HOLODEX-259** (spec, design, backend, frontend, testing, security).
+  Next: mark PR #221 ready for review (drop Draft) — this fires the Jira In Review transition
+  per ADR-069.
