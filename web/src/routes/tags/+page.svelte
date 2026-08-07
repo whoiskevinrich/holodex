@@ -6,6 +6,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { toMessage, videoCount, tagCount, filterByName } from '$lib/format';
+	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
 	import { PEOPLE_TAG_SORTS, type Category, type EntityRef, type PeopleTagSort, type Tag } from '$lib/types';
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
@@ -297,7 +298,7 @@
 			const res = await api.setTagParent(tag.id, parentId);
 			if (res.cycle) {
 				// Straight passthrough of the ADR-075 D1 server-side cycle guard.
-				tagMenu.error = `Can't set ${tag.name} as its own ancestor.`;
+				tagMenu.error = cycleMessage(tag.name);
 				return;
 			}
 			tagMenu.close();
@@ -309,7 +310,7 @@
 		e.preventDefault();
 		const name = tagMenu.value.trim();
 		if (!name || tagMenu.busy) return;
-		const match = tags.find((x) => x.id !== tag.id && x.name.toLowerCase() === name.toLowerCase());
+		const match = findTagByName(tags, name, tag.id);
 		if (!match) {
 			tagMenu.error = `No tag named "${name}".`;
 			return;

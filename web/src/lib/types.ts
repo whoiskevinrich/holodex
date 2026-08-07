@@ -95,6 +95,12 @@ export interface Tag {
 	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
 	// Present only on the tag-detail read (getTag); absent on the /tags list.
 	ancestors?: string[];
+	// Direct children (one level, not the full subtree), name-ordered (HOLODEX-259).
+	// Present only on the tag-detail read (getTag); absent on the /tags list.
+	children?: EntityRef[];
+	// Category memberships, name-ordered (HOLODEX-259, ADR-078). Present only on
+	// the tag-detail read (getTag); absent on the /tags list.
+	categories?: EntityRef[];
 	// Whether this tag's name contributes to a video's Genre writeback value
 	// (HOLODEX-239, ADR-077 D1) — defaults true. Present and accurate on both
 	// the /tags list (ListTags batch-attaches it, same as parent_tag_id) and

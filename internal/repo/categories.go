@@ -266,6 +266,30 @@ func (r *Repo) TagsForCategory(ctx context.Context, categoryID int64) ([]model.T
 	return out, rows.Err()
 }
 
+// CategoriesForTag returns a tag's category memberships, name-ordered — the
+// tag-side counterpart to TagsForCategory (HOLODEX-259). A tag in no
+// categories returns an empty, non-nil slice.
+func (r *Repo) CategoriesForTag(ctx context.Context, tagID int64) ([]model.EntityRef, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT c.id, c.name FROM categories c
+		JOIN category_tags ct ON ct.category_id = c.id
+		WHERE ct.tag_id = ?
+		ORDER BY c.name COLLATE NOCASE`, tagID)
+	if err != nil {
+		return nil, fmt.Errorf("categories for tag: %w", err)
+	}
+	defer rows.Close()
+	out := []model.EntityRef{}
+	for rows.Next() {
+		var c model.EntityRef
+		if err := rows.Scan(&c.ID, &c.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // categoryExists reports that a category id is present (ErrNotFound
 // otherwise) -- a cheap existence check ahead of the assign/unassign writes
 // below, mirroring EntityExists/PersonExists.
