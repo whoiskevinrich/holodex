@@ -97,9 +97,17 @@ file (also ADR-021 and `docs/design/theming.md`).
 ## Before pushing or opening a PR
 
 1. Sync task tracking in **Jira (project `HOLODEX`)** — triage/refresh the affected issues (status, links) — before every `git push` and `gh pr create`.
-2. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
-3. Scan the working tree for secrets / PII (see "Secrets & publishing").
-4. **Draft unless the gates are green.** Open with `gh pr create --draft` whenever work
+2. **Update the flightplan worklog in the same push, not after.** Before pushing, open
+   `docs/plans/HOLODEX-<key>.md` and bring it current with what this push actually did: flip
+   any gate this push closed to `[x]`, append a session-log entry (skills run + a one-line
+   handoff sentence), and update `Up next`/`release_note` if they changed. Stage the worklog
+   file alongside the code/PR changes so it ships in the same commit — don't leave it for a
+   follow-up commit or wait for the user to notice it's stale. (`/handoff`, the skill meant to
+   automate this judgment call, is not yet built — see `flightplan/README.md` — so this is a
+   manual step until it lands.)
+3. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
+4. Scan the working tree for secrets / PII (see "Secrets & publishing").
+5. **Draft unless the gates are green.** Open with `gh pr create --draft` whenever work
    remains (see "Pre-implementation gates ship as a Draft PR" above); drop `--draft` — or mark
    an existing Draft ready — only when every gate in the routing table is satisfied. Marking
    ready is the act that moves the ticket to `In Review`.
