@@ -25,7 +25,7 @@ Manage mode just to fix a tag's place in the tree.
 - [~] architecture `architecture` → not required (spec explicitly extends ADR-075/ADR-078, no new decision)
 - [x] design `design-handoff` → `docs/design/tag-detail-hierarchy-reparent-confirm-handoff.md`
 - [x] backend
-- [ ] frontend
+- [x] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
@@ -37,9 +37,9 @@ Manage mode just to fix a tag's place in the tree.
 
 1. [x] [backend] direct-children query + `GetTag.Children` — `internal/repo/tag_hierarchy.go:ChildrenForTag`, `internal/repo/repo.go`, tested (`TestChildrenForTag`)
 2. [x] [backend] category-memberships query + `GetTag.Categories` — `internal/repo/categories.go:CategoriesForTag`, `internal/repo/repo.go`, tested (`TestCategoriesForTag`)
-3. [ ] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/routes/tags/[id]/+page.svelte`
-4. [ ] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`
-5. [ ] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`
+3. [x] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/lib/tagHierarchy.ts`, `web/src/routes/tags/[id]/+page.svelte`
+4. [x] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`
+5. [x] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`
 6. [ ] [testing] cover the reparent-confirm branch + frontend controls — `docs/testing-strategy.md`
 7. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
 
@@ -53,10 +53,21 @@ Manage mode just to fix a tag's place in the tree.
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-08-07 · Spec, design handoff, and backend complete
+### 2026-08-07 · Frontend controls complete — spec, design, backend, and frontend all done
 - skills: product-brainstorming, write-spec, design-handoff, simplify
-- handoff: spec and design are done. Backend gate is done: `ChildrenForTag` and `CategoriesForTag`
-  (direct children / category memberships, both name-ordered) landed and wired into
-  `GetTag.Children`/`GetTag.Categories`, tested (`TestChildrenForTag`, `TestCategoriesForTag`),
-  full repo+api suites green. Next: the frontend controls, starting with extracting the `/tags`
-  list's parent typeahead for reuse on the parent control.
+- handoff: backend gate landed first this session (`ChildrenForTag`/`CategoriesForTag`, wired
+  into `GetTag`, tested). Then the frontend gate: `web/src/lib/tagHierarchy.ts` extracted
+  (`findTagByName`/`cycleMessage`), `/tags`' Manage-mode parent control refactored onto it,
+  and `tags/[id]/+page.svelte` gained a new "Hierarchy & categories" card with all three owner-
+  gated controls — Parent (chip + typeahead, × clears immediately), Children (chip list, "+ Add
+  child" resolve-or-create with the reparent-confirm `ConfirmDialog` flow from the design
+  handoff for candidates with their own parent/children), and Categories (chip list + reused
+  `CategoryPicker` single-tag mode). Read states render for every visitor; only add/× is owner-
+  gated. `types.ts`'s `Tag` gained `children`/`categories`. Manually QA'd end-to-end in the
+  browser (set/clear parent, immediate-attach child, reparent-confirm dialog incl. cancel-
+  preserves-input-text and refocus, remove child, add/remove category) across all three skins
+  (Cinémathèque/Broadcast/Brutalist) — no theming issues. `/simplify` run and applied
+  (parameterized `childCycleMessage` to drop a closure capture); `npm run check` 0 errors,
+  `npm run test` 134/134 green. Next: the testing gate — cover the reparent-confirm branch and
+  new controls in `docs/testing-strategy.md` — then a light security pass on the two new
+  mutation-adjacent read paths (both already ride existing owner-gated endpoints).

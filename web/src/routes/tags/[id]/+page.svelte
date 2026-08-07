@@ -2,10 +2,13 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount } from '$lib/format';
-	import type { Tag, Video } from '$lib/types';
+	import { toMessage, videoCount, tagCount } from '$lib/format';
+	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
+	import type { Category, Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 
 	let tag = $state<Tag | null>(null);
@@ -34,6 +37,11 @@
 			.finally(() => (loading = false));
 	});
 
+	async function reloadTag() {
+		if (!tag) return;
+		tag = (await api.getTag(tag.id)).tag;
+	}
+
 	// Posts immediately, no confirm step (HOLODEX-239, ADR-077 D1) — toggling the
 	// flag alone never enqueues a write, so it's the lowest-stakes control on the
 	// card. tag is reassigned from the PATCH response so the label/glyph flip
@@ -50,7 +58,232 @@
 			toggleBusy = false;
 		}
 	}
+
+	// ── Parent (F50 S8, ADR-075 D1, HOLODEX-259) ─────────────────────────────────────
+	// Typeahead resolves against a lazily-loaded full tag list, same discipline as the
+	// /tags list's Manage-mode parent control (existing-tags-only, no create-on-typo) —
+	// the matching logic itself is shared via $lib/tagHierarchy.
+	let allTags = $state<Tag[]>([]);
+	let parentOpen = $state(false);
+	let parentValue = $state('');
+	let parentBusy = $state(false);
+	let parentError = $state('');
+	let parentInput = $state<HTMLInputElement | null>(null);
+
+	async function openParentAdd() {
+		parentValue = '';
+		parentError = '';
+		parentOpen = true;
+		if (allTags.length === 0) allTags = (await api.listTags('name')).items;
+		await Promise.resolve();
+		parentInput?.focus();
+	}
+
+	function closeParentAdd() {
+		parentOpen = false;
+		parentError = '';
+	}
+
+	// × on the chip clears immediately, no confirm — the lowest-stakes control on
+	// this card (same precedent as the writeback toggle above).
+	async function applyParent(parentId: number | null) {
+		if (!tag || parentBusy) return;
+		parentBusy = true;
+		parentError = '';
+		try {
+			const res = await api.setTagParent(tag.id, parentId);
+			if (res.cycle) {
+				parentError = cycleMessage(tag.name);
+				return;
+			}
+			await reloadTag();
+			closeParentAdd();
+		} catch (e) {
+			parentError = toMessage(e);
+		} finally {
+			parentBusy = false;
+		}
+	}
+
+	function submitParentAdd(e: SubmitEvent) {
+		e.preventDefault();
+		if (!tag) return;
+		const name = parentValue.trim();
+		if (!name || parentBusy) return;
+		const match = findTagByName(allTags, name, tag.id);
+		if (!match) {
+			parentError = `No tag named "${name}".`;
+			return;
+		}
+		applyParent(match.id);
+	}
+
+	// ── Children (F50 S8, ADR-075 D1, HOLODEX-259) ───────────────────────────────────
+	// "+ Add child" resolves-or-creates by name, same idiom as categories/[id]'s
+	// "+ Add tag". A brand-new tag or a childless root attaches immediately (low blast
+	// radius); a candidate that already has its own parent or children interrupts with
+	// a confirm first, since attaching it here would relocate an established branch —
+	// see docs/design/tag-detail-hierarchy-reparent-confirm-handoff.md.
+	let childOpen = $state(false);
+	let childValue = $state('');
+	let childBusy = $state(false);
+	let childError = $state('');
+	let childInput = $state<HTMLInputElement | null>(null);
+	let childRemoveBusy = $state<number | null>(null);
+
+	let confirmCandidate = $state<Tag | null>(null);
+	let confirmBusy = $state(false);
+	let confirmError = $state('');
+
+	async function openChildAdd() {
+		childValue = '';
+		childError = '';
+		childOpen = true;
+		await Promise.resolve();
+		childInput?.focus();
+	}
+
+	function closeChildAdd() {
+		childOpen = false;
+		childValue = '';
+		childError = '';
+	}
+
+	function childCycleMessage(childName: string, parentName: string): string {
+		return `Can't move "${childName}" here — ${parentName} is already under it.`;
+	}
+
+	// Returns true on a cycle (caller surfaces the error in whichever surface was
+	// showing — the add-child form or the confirm dialog); reloads the current tag's
+	// Children on success.
+	async function attachChild(childId: number): Promise<boolean> {
+		if (!tag) return false;
+		const res = await api.setTagParent(childId, tag.id);
+		if (res.cycle) return true;
+		await reloadTag();
+		return false;
+	}
+
+	async function submitChild(e: SubmitEvent) {
+		e.preventDefault();
+		if (!tag) return;
+		const name = childValue.trim();
+		if (!name || childBusy) return;
+		childBusy = true;
+		childError = '';
+		try {
+			const { tag: resolved } = await api.resolveOrCreateTag(name);
+			const candidate = (await api.getTag(resolved.id)).tag;
+			const hasSubtree = (candidate.ancestors?.length ?? 0) > 0 || (candidate.children?.length ?? 0) > 0;
+			if (!hasSubtree) {
+				if (await attachChild(candidate.id)) {
+					childError = childCycleMessage(candidate.name, tag.name);
+					return;
+				}
+				closeChildAdd();
+			} else {
+				// Focus the input before opening the dialog so ConfirmDialog captures it
+				// as the trigger and returns focus here on cancel/close, not the "Add"
+				// button (per the handoff's §3/§5 focus-restoration requirement).
+				childInput?.focus();
+				confirmCandidate = candidate;
+			}
+		} catch (err) {
+			childError = toMessage(err);
+		} finally {
+			childBusy = false;
+		}
+	}
+
+	async function confirmMove() {
+		if (!confirmCandidate || !tag) return;
+		confirmBusy = true;
+		confirmError = '';
+		try {
+			if (await attachChild(confirmCandidate.id)) {
+				confirmError = childCycleMessage(confirmCandidate.name, tag.name);
+				return;
+			}
+			confirmCandidate = null;
+			closeChildAdd();
+		} catch (err) {
+			confirmError = toMessage(err);
+		} finally {
+			confirmBusy = false;
+		}
+	}
+
+	function cancelMove() {
+		confirmCandidate = null;
+		confirmError = '';
+	}
+
+	async function removeChild(childId: number) {
+		if (!tag || childRemoveBusy) return;
+		childRemoveBusy = childId;
+		childError = '';
+		try {
+			await api.setTagParent(childId, null);
+			await reloadTag();
+		} catch (e) {
+			childError = toMessage(e);
+		} finally {
+			childRemoveBusy = null;
+		}
+	}
+
+	// ── Categories (HOLODEX-240, ADR-078, HOLODEX-259) ───────────────────────────────
+	// Exact port of categories/[id]'s member-tag idiom, direction-inverted: this tag
+	// owns many categories rather than a category owning many tags.
+	let allCategories = $state<Category[]>([]);
+	let catPickerOpen = $state(false);
+	let catRemoveBusy = $state<number | null>(null);
+	let catError = $state('');
+
+	async function openCatPicker() {
+		catError = '';
+		if (allCategories.length === 0) allCategories = (await api.listCategories()).items;
+		catPickerOpen = true;
+	}
+
+	async function removeCategory(categoryId: number) {
+		if (!tag || catRemoveBusy) return;
+		catRemoveBusy = categoryId;
+		catError = '';
+		try {
+			await api.unassignCategoryTags(categoryId, [tag.id]);
+			await reloadTag();
+		} catch (e) {
+			catError = toMessage(e);
+		} finally {
+			catRemoveBusy = null;
+		}
+	}
 </script>
+
+{#snippet entityChip(href: string, name: string, onRemove: () => void, busy: boolean, ariaLabel: string)}
+	<!-- The curation-chip idiom (categories/[id], media/[id]'s Tags section). -->
+	<span
+		class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
+	>
+		<a href={href} class="hover:text-accent focus-visible:text-accent">{name}</a>
+		<span class="curation-actions ml-0.5 inline-flex items-center">
+			<button
+				type="button"
+				onclick={onRemove}
+				disabled={busy}
+				aria-label={ariaLabel}
+				class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
+			>
+				×
+			</button>
+		</span>
+	</span>
+{/snippet}
+
+{#snippet plainLink(href: string, name: string)}
+	<a href={href} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">{name}</a>
+{/snippet}
 
 <AsyncState {loading} error={error || (!tag ? 'Not found.' : '')}>
 	<EntityVideos
@@ -72,10 +305,165 @@
 		{/snippet}
 
 		{#snippet detail()}
+			<!-- Hierarchy & categories (F50/HOLODEX-240, HOLODEX-259): parent, direct
+			     children, and category memberships. Read states are visible to every
+			     visitor (matching the ancestor breadcrumb above); only the add/×
+			     affordances are owner-gated. -->
+			{#if tag}
+				{@const t = tag}
+				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Hierarchy &amp; categories</h2>
+
+					<div class="space-y-1.5">
+						<h3 class="text-xs uppercase tracking-wide text-muted">Parent</h3>
+						<div class="flex flex-wrap items-center gap-2">
+							{#if t.parent_tag_id}
+								{@const parentName = t.ancestors?.[t.ancestors.length - 1] ?? '—'}
+								{#if isOwner}
+									{@render entityChip(
+										`/tags/${t.parent_tag_id}`,
+										parentName,
+										() => applyParent(null),
+										parentBusy,
+										`Clear parent ${parentName}`
+									)}
+								{:else}
+									{@render plainLink(`/tags/${t.parent_tag_id}`, parentName)}
+								{/if}
+							{:else if !isOwner}
+								<p class="text-sm text-muted">No parent — this is a root tag.</p>
+							{/if}
+
+							{#if isOwner}
+								{#if parentOpen}
+									<form onsubmit={submitParentAdd} class="inline-flex flex-wrap items-center gap-2">
+										<input
+											bind:this={parentInput}
+											bind:value={parentValue}
+											type="text"
+											list="parent-options"
+											placeholder="Parent tag"
+											aria-label="Set parent"
+											class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+										/>
+										<datalist id="parent-options">
+											{#each allTags.filter((x) => x.id !== t.id) as opt (opt.id)}
+												<option value={opt.name}></option>
+											{/each}
+										</datalist>
+										<button type="submit" disabled={parentBusy} class="btn-accent px-3 py-1.5 text-sm">
+											Set parent
+										</button>
+										<button
+											type="button"
+											onclick={closeParentAdd}
+											disabled={parentBusy}
+											class="btn-quiet px-3 py-1.5 text-sm"
+										>
+											Cancel
+										</button>
+									</form>
+								{:else}
+									<button type="button" onclick={openParentAdd} class="btn-quiet px-3 py-1.5 text-sm">
+										+ Set parent
+									</button>
+								{/if}
+							{/if}
+						</div>
+						{#if parentError}<p class="text-sm text-warn">{parentError}</p>{/if}
+					</div>
+
+					<div class="space-y-1.5 border-t border-rule pt-3">
+						<h3 class="text-xs uppercase tracking-wide text-muted">
+							Children{t.children?.length ? ` · ${t.children.length}` : ''}
+						</h3>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each t.children ?? [] as c (c.id)}
+								{#if isOwner}
+									{@render entityChip(
+										`/tags/${c.id}`,
+										c.name,
+										() => removeChild(c.id),
+										childRemoveBusy === c.id,
+										`Remove child ${c.name}`
+									)}
+								{:else}
+									{@render plainLink(`/tags/${c.id}`, c.name)}
+								{/if}
+							{/each}
+							{#if !t.children?.length && !isOwner}
+								<p class="text-sm text-muted">No children.</p>
+							{/if}
+
+							{#if isOwner}
+								{#if childOpen}
+									<form onsubmit={submitChild} class="inline-flex flex-wrap items-center gap-2">
+										<input
+											bind:this={childInput}
+											bind:value={childValue}
+											type="text"
+											placeholder="Add a child"
+											aria-label="Add a child"
+											class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+										/>
+										<button type="submit" disabled={childBusy} class="btn-accent px-3 py-1.5 text-sm">
+											Add
+										</button>
+										<button
+											type="button"
+											onclick={closeChildAdd}
+											disabled={childBusy}
+											class="btn-quiet px-3 py-1.5 text-sm"
+										>
+											Cancel
+										</button>
+									</form>
+								{:else}
+									<button type="button" onclick={openChildAdd} class="btn-quiet px-3 py-1.5 text-sm">
+										+ Add child
+									</button>
+								{/if}
+							{/if}
+						</div>
+						{#if childError}<p class="text-sm text-warn">{childError}</p>{/if}
+					</div>
+
+					<div class="space-y-1.5 border-t border-rule pt-3">
+						<h3 class="text-xs uppercase tracking-wide text-muted">
+							Categories{t.categories?.length ? ` · ${t.categories.length}` : ''}
+						</h3>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each t.categories ?? [] as c (c.id)}
+								{#if isOwner}
+									{@render entityChip(
+										`/categories/${c.id}`,
+										c.name,
+										() => removeCategory(c.id),
+										catRemoveBusy === c.id,
+										`Remove category ${c.name}`
+									)}
+								{:else}
+									{@render plainLink(`/categories/${c.id}`, c.name)}
+								{/if}
+							{/each}
+							{#if !t.categories?.length && !isOwner}
+								<p class="text-sm text-muted">No categories.</p>
+							{/if}
+
+							{#if isOwner}
+								<button type="button" onclick={openCatPicker} class="btn-quiet px-3 py-1.5 text-sm">
+									+ Add category
+								</button>
+							{/if}
+						</div>
+						{#if catError}<p class="text-sm text-warn">{catError}</p>{/if}
+					</div>
+				</section>
+			{/if}
+
 			<!-- Details (HOLODEX-239, ADR-077): writeback inclusion toggle + manual sync
 			     trigger, the tag-scoped analog of CurationChip's "don't write" glyph. Two
-			     dt/dd rows in one card, not a single hard-coded control — a future
-			     tag-categories row (spec P2) slots in as a third row without restructuring.
+			     dt/dd rows in one card, not a single hard-coded control.
 			     Non-owners see nothing (mirrors people/[id]'s activity.effectiveOwner gating). -->
 			{#if isOwner && tag}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
@@ -160,4 +548,44 @@
 		batchStatus={api.writebackBatchStatus}
 		onclose={() => (syncOpen = false)}
 	/>
+{/if}
+
+{#if catPickerOpen && tag}
+	{@const t = tag}
+	<CategoryPicker
+		tagIds={[t.id]}
+		mode="add"
+		categories={allCategories}
+		onclose={() => (catPickerOpen = false)}
+		onapplied={reloadTag}
+	/>
+{/if}
+
+{#if confirmCandidate && tag}
+	{@const candidate = confirmCandidate}
+	{@const parentName = candidate.ancestors?.[candidate.ancestors.length - 1]}
+	<ConfirmDialog
+		title={`Move "${candidate.name}" here?`}
+		confirmLabel="Move it here"
+		variant="destructive"
+		busy={confirmBusy}
+		error={confirmError}
+		onconfirm={confirmMove}
+		oncancel={cancelMove}
+	>
+		{#snippet body()}
+			{#if parentName}
+				<p>
+					“{candidate.name}” is currently under “{parentName}”. Moving it here removes it from that
+					parent — {parentName}'s other children are unaffected.
+				</p>
+			{/if}
+			{#if candidate.children?.length}
+				<p>
+					“{candidate.name}” has {tagCount(candidate.children.length)} of its own. They'll move here
+					along with it — nothing is deleted, but its whole branch relocates.
+				</p>
+			{/if}
+		{/snippet}
+	</ConfirmDialog>
 {/if}
