@@ -27,6 +27,7 @@ Backend (Go) via `Makefile`; frontend (`web/`) via npm:
 | Run the server | `make run` (`go run ./cmd/holodex`) |
 | Production build | `make build` |
 | Go tests | `make test` · integration: `make test-integration` |
+| Flightplan/scripts unit tests only | `make test-scripts` |
 | Frontend dev server | `make web-dev` (or `cd web && npm run dev`) |
 | Frontend type-check / tests | `cd web && npm run check` · `npm run test` |
 | Full stack in Docker | `make docker` (`docker compose up --build`) |
