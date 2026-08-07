@@ -1099,6 +1099,9 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	if t.Ancestors, err = r.AncestorNamesForTag(ctx, id); err != nil {
 		return nil, err
 	}
+	if t.Children, err = r.ChildrenForTag(ctx, id); err != nil {
+		return nil, err
+	}
 	return &t, nil
 }
 

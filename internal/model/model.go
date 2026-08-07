@@ -195,6 +195,10 @@ type Tag struct {
 	// read (GetTag); omitted on the /tags list, which has no per-row use
 	// for it.
 	Ancestors []string `json:"ancestors,omitempty"`
+	// Children is this tag's direct children only, name-ordered (not the full
+	// descendant subtree, HOLODEX-259) — the downward counterpart to Ancestors.
+	// Populated only on the tag-detail read (GetTag); omitted on the /tags list.
+	Children []EntityRef `json:"children,omitempty"`
 	// Source is this tag's provenance on the one video it was read alongside —
 	// "file" / "manual" / "provider:<name>" (F50, ADR-075 D3). Populated only on
 	// Video.Tags (attachAssociations); empty on the /tags list and tag-detail reads,

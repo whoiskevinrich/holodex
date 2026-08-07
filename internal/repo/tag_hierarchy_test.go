@@ -566,6 +566,40 @@ func TestAncestorNamesForTag(t *testing.T) {
 	}
 }
 
+// TestChildrenForTag covers HOLODEX-259's direct-children query: a tag with
+// multiple children returns them name-ordered, a leaf tag returns empty (not
+// the full subtree — Dog's grandchild GermanShepherd must not appear under
+// Mammal), and GetTag surfaces the same result on the tag-detail read.
+func TestChildrenForTag(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	got, err := r.ChildrenForTag(ctx, ids["Mammal"])
+	if err != nil {
+		t.Fatalf("children for tag: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != ids["Dog"] || got[0].Name != "dog" {
+		t.Errorf("Mammal children = %+v, want [{%d dog}]", got, ids["Dog"])
+	}
+
+	leaf, err := r.ChildrenForTag(ctx, ids["GermanShepherd"])
+	if err != nil {
+		t.Fatalf("children for tag (leaf): %v", err)
+	}
+	if len(leaf) != 0 {
+		t.Errorf("GermanShepherd children = %v, want empty", leaf)
+	}
+
+	tag, err := r.GetTag(ctx, ids["Mammal"])
+	if err != nil {
+		t.Fatalf("get tag: %v", err)
+	}
+	if len(tag.Children) != 1 || tag.Children[0].ID != ids["Dog"] {
+		t.Errorf("GetTag(Mammal).Children = %+v, want [{%d dog}]", tag.Children, ids["Dog"])
+	}
+}
+
 func TestSetTagParent_NotFound(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

@@ -111,6 +111,29 @@ func (r *Repo) AncestorNamesForTag(ctx context.Context, id int64) ([]string, err
 	return out, rows.Err()
 }
 
+// ChildrenForTag returns id's direct children only (id, name), name-ordered —
+// the downward counterpart to AncestorNamesForTag's upward walk (HOLODEX-259).
+// Not the full descendant subtree: one level of parent_tag_id = id, so the
+// tag-detail page drills into a child's own page to see further descendants.
+// A tag with no children returns an empty, non-nil slice.
+func (r *Repo) ChildrenForTag(ctx context.Context, id int64) ([]model.EntityRef, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, name FROM tags WHERE parent_tag_id = ? ORDER BY name`, id)
+	if err != nil {
+		return nil, fmt.Errorf("children for tag: %w", err)
+	}
+	defer rows.Close()
+	out := []model.EntityRef{}
+	for rows.Next() {
+		var c model.EntityRef
+		if err := rows.Scan(&c.ID, &c.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // TagNamesForVideo returns videoID's attached tags' names, ancestor-expanded
 // (F50 P0-10) — the tag-side input to genre writeback's value union
 // (genreWritebackValues, internal/api).
