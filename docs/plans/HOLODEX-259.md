@@ -26,7 +26,7 @@ Manage mode just to fix a tag's place in the tree.
 - [x] design `design-handoff` → `docs/design/tag-detail-hierarchy-reparent-confirm-handoff.md`
 - [x] backend
 - [x] frontend
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
@@ -40,7 +40,7 @@ Manage mode just to fix a tag's place in the tree.
 3. [x] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/lib/tagHierarchy.ts`, `web/src/routes/tags/[id]/+page.svelte`
 4. [x] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`
 5. [x] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`
-6. [ ] [testing] cover the reparent-confirm branch + frontend controls — `docs/testing-strategy.md`
+6. [x] [testing] cover the reparent-confirm branch + frontend controls — `docs/testing-strategy.md`
 7. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -68,6 +68,20 @@ Manage mode just to fix a tag's place in the tree.
   preserves-input-text and refocus, remove child, add/remove category) across all three skins
   (Cinémathèque/Broadcast/Brutalist) — no theming issues. `/simplify` run and applied
   (parameterized `childCycleMessage` to drop a closure capture); `npm run check` 0 errors,
-  `npm run test` 134/134 green. Next: the testing gate — cover the reparent-confirm branch and
-  new controls in `docs/testing-strategy.md` — then a light security pass on the two new
-  mutation-adjacent read paths (both already ride existing owner-gated endpoints).
+  `npm run test` 134/134 green.
+
+### 2026-08-07 · Testing gate closed
+- skills: testing-strategy
+- handoff: added a `docs/testing-strategy.md` entry for HOLODEX-259 in each of the three places
+  the file's own convention expects it — a §4 backend row for `ChildrenForTag`/`CategoriesForTag`
+  (both already Go-test-covered by `TestChildrenForTag`/`TestCategoriesForTag`), a §5 frontend row
+  documenting the Hierarchy & categories card's decision tree (immediate-attach vs. the three
+  reparent-confirm copy variants) and the manual 3-skin driven-browser QA already performed, and a
+  §11 Known Gaps bullet flagging the one thing still open — no automated Vitest/Playwright
+  coverage for the new card, the same standing gap every other recent frontend feature in that
+  file carries at this stage. Updated the file's date header. No test code was added this session
+  (the backend tests already existed; the frontend automation gap is logged, not silently closed).
+  Next: the security gate — a light `/security-review` pass on the two new mutation-adjacent read
+  paths, both of which ride existing owner-gated endpoints (`SetTagParent`, `ResolveOrCreateTag`,
+  `AssignTagsToCategory`/`UnassignTagsFromCategory`) rather than introducing a new mutation
+  surface.
