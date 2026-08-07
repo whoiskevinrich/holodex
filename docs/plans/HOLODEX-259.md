@@ -23,7 +23,7 @@ Manage mode just to fix a tag's place in the tree.
 
 - [x] spec `write-spec` → `docs/specs/tag-detail-hierarchy-and-categories.md`
 - [~] architecture `architecture` → not required (spec explicitly extends ADR-075/ADR-078, no new decision)
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/tag-detail-hierarchy-reparent-confirm-handoff.md`
 - [ ] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
@@ -35,14 +35,13 @@ Manage mode just to fix a tag's place in the tree.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [design] resolve the reparent-confirm copy/flow (spec Open Questions) — `docs/design/**`
-2. [ ] [backend] direct-children query + `GetTag.Children` — `internal/repo/tag_hierarchy.go`, `internal/repo/repo.go`
-3. [ ] [backend] category-memberships query + `GetTag.Categories` — `internal/repo/categories.go`, `internal/repo/repo.go`
-4. [ ] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #2
-5. [ ] [frontend] children control (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #1, #2
-6. [ ] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #3
-7. [ ] [testing] cover new repo queries + the reparent-confirm branch — `docs/testing-strategy.md`
-8. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
+1. [ ] [backend] direct-children query + `GetTag.Children` — `internal/repo/tag_hierarchy.go`, `internal/repo/repo.go`
+2. [ ] [backend] category-memberships query + `GetTag.Categories` — `internal/repo/categories.go`, `internal/repo/repo.go`
+3. [ ] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #1
+4. [ ] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #1
+5. [ ] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #2
+6. [ ] [testing] cover new repo queries + the reparent-confirm branch — `docs/testing-strategy.md`
+7. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -54,7 +53,9 @@ Manage mode just to fix a tag's place in the tree.
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-08-07 · Brainstormed and spec'd the feature; no code yet
-- skills: product-brainstorming, write-spec
-- handoff: spec is written and reviewed with the user pending; next session picks up at backend
-  (direct-children query + GetTag.Categories) once the reparent-confirm design question is settled.
+### 2026-08-07 · Spec + reparent-confirm design handoff; no code yet
+- skills: product-brainstorming, write-spec, design-handoff
+- handoff: spec and design are both done — the reparent-confirm flow reuses ConfirmDialog
+  (variant=destructive), copy driven by GetTag's existing Ancestors + new Children fields, no
+  new endpoint. Next session starts backend: direct-children query + GetTag.Children, then
+  GetTag.Categories.

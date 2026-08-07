@@ -102,7 +102,7 @@ Single-owner, self-hosted app — the practical bar:
 
 ## Open Questions
 
-- **Design**: exact copy and interaction shape for the reparent-confirm beat (point 3 of the Children control) — flagged as the single highest-risk new interaction in this spec, since it isn't a straight port of any existing component. Deferred to implementation/`/design-handoff`, but should get explicit scrutiny rather than reusing the near-miss card's tone by default.
+- ~~**Design**: exact copy and interaction shape for the reparent-confirm beat (point 3 of the Children control)~~ — **Resolved**: [tag-detail-hierarchy-reparent-confirm-handoff.md](../design/tag-detail-hierarchy-reparent-confirm-handoff.md). Reuses `ConfirmDialog` (`variant="destructive"`), not the near-miss card — the interrupt needs to be blocking, not advisory. Copy names what's actually moving (current parent name and/or child count, fetched via `api.getTag` on the resolved candidate — no new endpoint) rather than a generic "has a subtree" line.
 - **Engineering**: the `/tags` list's parent typeahead currently lives as inline logic (`applyParent`/`submitParent`) in `tags/+page.svelte`'s script, not a standalone component. This spec assumes that logic gets extracted/shared rather than duplicated on `tags/{id}` — confirm during implementation planning rather than allowing a second, divergent copy to appear.
 
 ## Timeline Considerations
