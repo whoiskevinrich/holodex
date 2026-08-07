@@ -300,6 +300,68 @@ func TestListCategoriesTagFields(t *testing.T) {
 	}
 }
 
+// TestCategoriesForTag covers HOLODEX-259's tag-side view of category
+// memberships: a tag in two categories returns them name-ordered, a tag in
+// none returns empty, and GetTag surfaces the same result on the tag-detail
+// read.
+func TestCategoriesForTag(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", nil, []string{"Beach"}), nil)
+	if err != nil {
+		t.Fatalf("seed tag: %v", err)
+	}
+	video, _, err := r.GetVideo(ctx, id)
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	beach := video.Tags[0].ID
+
+	nature, err := r.CreateCategory(ctx, "Nature")
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	vacation, err := r.CreateCategory(ctx, "Vacation")
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	if _, err := r.AssignTagsToCategory(ctx, vacation.ID, []int64{beach}); err != nil {
+		t.Fatalf("assign vacation: %v", err)
+	}
+	if _, err := r.AssignTagsToCategory(ctx, nature.ID, []int64{beach}); err != nil {
+		t.Fatalf("assign nature: %v", err)
+	}
+
+	got, err := r.CategoriesForTag(ctx, beach)
+	if err != nil {
+		t.Fatalf("categories for tag: %v", err)
+	}
+	if len(got) != 2 || got[0].Name != "Nature" || got[1].Name != "Vacation" {
+		t.Errorf("beach categories = %+v, want [Nature Vacation] name-ordered", got)
+	}
+
+	uncategorized, err := r.ResolveOrCreateTag(ctx, "Uncategorized")
+	if err != nil {
+		t.Fatalf("create uncategorized tag: %v", err)
+	}
+	none, err := r.CategoriesForTag(ctx, uncategorized.ID)
+	if err != nil {
+		t.Fatalf("categories for tag (uncategorized): %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("uncategorized tag categories = %v, want empty", none)
+	}
+
+	tag, err := r.GetTag(ctx, beach)
+	if err != nil {
+		t.Fatalf("get tag: %v", err)
+	}
+	if len(tag.Categories) != 2 {
+		t.Errorf("GetTag(beach).Categories = %+v, want 2 entries", tag.Categories)
+	}
+}
+
 // TestResolveOrCreateTag covers the S5 addition backing /categories/{id}'s
 // "+ Add tag" control (HOLODEX-240): resolve-or-create with no video attach,
 // sharing resolveOrCreateByName's deny-list/length-cap/category-collision

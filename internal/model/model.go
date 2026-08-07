@@ -199,6 +199,11 @@ type Tag struct {
 	// descendant subtree, HOLODEX-259) — the downward counterpart to Ancestors.
 	// Populated only on the tag-detail read (GetTag); omitted on the /tags list.
 	Children []EntityRef `json:"children,omitempty"`
+	// Categories is this tag's category memberships, name-ordered (HOLODEX-259,
+	// ADR-078) — the tag-side view of category_tags, symmetric to
+	// Category.Tags. Populated only on the tag-detail read (GetTag); omitted
+	// on the /tags list.
+	Categories []EntityRef `json:"categories,omitempty"`
 	// Source is this tag's provenance on the one video it was read alongside —
 	// "file" / "manual" / "provider:<name>" (F50, ADR-075 D3). Populated only on
 	// Video.Tags (attachAssociations); empty on the /tags list and tag-detail reads,

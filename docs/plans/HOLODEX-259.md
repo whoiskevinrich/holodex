@@ -24,7 +24,7 @@ Manage mode just to fix a tag's place in the tree.
 - [x] spec `write-spec` → `docs/specs/tag-detail-hierarchy-and-categories.md`
 - [~] architecture `architecture` → not required (spec explicitly extends ADR-075/ADR-078, no new decision)
 - [x] design `design-handoff` → `docs/design/tag-detail-hierarchy-reparent-confirm-handoff.md`
-- [/] backend
+- [x] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
@@ -36,10 +36,10 @@ Manage mode just to fix a tag's place in the tree.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [x] [backend] direct-children query + `GetTag.Children` — `internal/repo/tag_hierarchy.go:ChildrenForTag`, `internal/repo/repo.go`, tested (`TestChildrenForTag`)
-2. [ ] [backend] category-memberships query + `GetTag.Categories` — `internal/repo/categories.go`, `internal/repo/repo.go`
+2. [x] [backend] category-memberships query + `GetTag.Categories` — `internal/repo/categories.go:CategoriesForTag`, `internal/repo/repo.go`, tested (`TestCategoriesForTag`)
 3. [ ] [frontend] extract the `/tags` list's parent typeahead into shared logic, reuse for the parent control — `web/src/routes/tags/[id]/+page.svelte`
 4. [ ] [frontend] children control incl. the confirm-flow handoff (add via resolve-or-create + reparent-confirm guard, × to unparent) — `web/src/routes/tags/[id]/+page.svelte`
-5. [ ] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`  ⛔ blocked on #2
+5. [ ] [frontend] categories control (reuse `CategoryPicker` single-tag mode, chip + ×) — `web/src/routes/tags/[id]/+page.svelte`
 6. [ ] [testing] cover the reparent-confirm branch + frontend controls — `docs/testing-strategy.md`
 7. [ ] [security] confirm owner-gating on the two new mutation-adjacent read paths — light, since both call existing owner-gated endpoints
 
@@ -53,8 +53,10 @@ Manage mode just to fix a tag's place in the tree.
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-08-07 · Spec, design handoff, and first backend slice
+### 2026-08-07 · Spec, design handoff, and backend complete
 - skills: product-brainstorming, write-spec, design-handoff, simplify
-- handoff: spec and design are done. Backend: `ChildrenForTag` (direct children, name-ordered)
-  landed and wired into `GetTag.Children`, tested (`TestChildrenForTag`), full repo+api suites
-  green. Next: `GetTag.Categories` (category-memberships query), then the frontend controls.
+- handoff: spec and design are done. Backend gate is done: `ChildrenForTag` and `CategoriesForTag`
+  (direct children / category memberships, both name-ordered) landed and wired into
+  `GetTag.Children`/`GetTag.Categories`, tested (`TestChildrenForTag`, `TestCategoriesForTag`),
+  full repo+api suites green. Next: the frontend controls, starting with extracting the `/tags`
+  list's parent typeahead for reuse on the parent control.
