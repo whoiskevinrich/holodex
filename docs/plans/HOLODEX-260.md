@@ -15,7 +15,7 @@ signal, surfaced as an owner-mode browse sort/filter, a facet-first remediation 
 per-entity breakdown panel — done when the owner can find and fix metadata gaps without scrolling
 the library by eye. Ships as **one release**, not phased (explicit owner call during brainstorming).
 
-**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · ADR TBD · design TBD · testing-strategy TBD
+**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) · design TBD · testing-strategy TBD
 
 ## Gates — definition of done
 
@@ -23,7 +23,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
-- [ ] architecture `architecture` → facet-criticality data model, tri-state not-applicable persistence, score-computation seam
+- [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md`
 - [ ] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [ ] backend
 - [ ] frontend
@@ -36,9 +36,9 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [architecture] ADR: facet criticality metadata, tri-state `Standing` value (or equivalent), score/actionability computation seam — `docs/architecture/ADR-0NN-entity-completeness-score.md`
-2. [ ] [backend] registry criticality metadata + tri-state facet status + score/actionability computation — `internal/registry/registry.go`, `internal/resolver/`
-3. [ ] [backend] `imdb_id` → `external_provider_id` generalization + not-applicable mutation — `internal/registry/registry.go`, `internal/api/`  ⛔ blocked on #1 (ADR settles the persistence shape)
+1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/ADR-081-entity-completeness-score.md`
+2. [ ] [backend] registry criticality metadata + `facet_not_applicable` table/mutation + score/actionability computation — `internal/registry/registry.go`, `internal/resolver/`
+3. [ ] [backend] `imdb_id` → `external_provider_id` rename migration across the 9 `field_key`-keyed tables — `internal/registry/registry.go`, `internal/db/migrations/`
 4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [ ] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
@@ -55,8 +55,33 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-07 · Architecture gate closed — ADR-081 written
+- skills: architecture
+- handoff: wrote `docs/architecture/ADR-081-entity-completeness-score.md`, resolving the four
+  things the spec punted to an ADR. D1: facet criticality is a new static `Criticality` field on
+  `registry.FieldDef` (reuses the existing `Computed` bool for auto-exclusion, no double
+  bookkeeping). D2: not-applicable persists in a new dedicated `facet_not_applicable(entity_type,
+  entity_id, canonical_field)` table — modeled on `person_image_suppressions` (migration 0012),
+  explicitly rejected as a 4th `field_source_decisions.source` value because relevance and
+  source-selection are different questions (same overload mistake ADR-063 already avoided for
+  `computed:`). D3: score/actionability are a pure compute-on-read post-pass in `internal/resolver`
+  keyed off the already-computed `ResolvedField.WinningSource` (missing=0/provider=0.7/curated=1.0
+  tier table), no new per-field resolution logic, no storage — twin of ADR-063's `Derive`. D4:
+  browse-sort, the missing-facet filter, and the remediation queue all resolve+score the full
+  per-type entity set in Go rather than pushing into SQL `ORDER BY`/`WHERE`, bounded by this app's
+  personal-library scale (explicitly flagged as the first thing to revisit if that changes). D5:
+  `imdb_id` → `external_provider_id` is a straight rename — registry edit + one data migration
+  rewriting stored `field_key` strings across the 9 tables that key on it (confirmed via grep:
+  `field_source_decisions`, `entity_enrichment`, `metadata_curation`, `provider_field_hints`,
+  `field_promotions`, `metadata_extraction_review`, `file_writeback_snapshots`,
+  `file_writebacks`, `field_claims`), no parallel legacy field, since production never populated
+  the old name. Added the ADR-081 row to `docs/architecture/README.md`'s index and flipped the F55
+  Phase-specs line's "ADR TBD" to the real link. Next: `/design-handoff` for the remediation queue,
+  breakdown panel, and browse filter/sort, then backend implementation of D1–D3 (item #2 in Up
+  next).
+
 ### 2026-08-07 · Spec written, Jira epic + stories created, branch/issue wired up
-- skills: product-brainstorming, write-spec
+- skills: product-brainstorming, write-spec, architecture
 - handoff: brainstormed the completeness-score design end to end (two-metric split —
   completeness score vs. a non-score-affecting actionability signal; tri-state
   resolved/missing/not-applicable facet status; critical/nice-to-have weighting; generalizing
