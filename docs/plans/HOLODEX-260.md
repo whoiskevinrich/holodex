@@ -15,7 +15,7 @@ signal, surfaced as an owner-mode browse sort/filter, a facet-first remediation 
 per-entity breakdown panel — done when the owner can find and fix metadata gaps without scrolling
 the library by eye. Ships as **one release**, not phased (explicit owner call during brainstorming).
 
-**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) · design TBD · testing-strategy TBD
+**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) · [design handoff](../design/entity-completeness-handoff.md) · testing-strategy TBD
 
 ## Gates — definition of done
 
@@ -24,7 +24,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md`
-- [ ] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
+- [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [ ] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
@@ -55,8 +55,29 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-07 · Design gate closed — remediation queue + breakdown panel handoff written
+- skills: design-handoff, graphify
+- handoff: wrote `docs/design/entity-completeness-handoff.md`, covering both requested surfaces
+  plus §9 (browse sort/filter) to close the whole design gate in one document. Followed the
+  repo's real handoff convention (numbered DDn decisions ending in "chosen over," not the
+  generic Figma-oriented template) after researching prior art via a subagent. Remediation
+  queue (DD1-3): grouped by facet, critical-first then count-descending, candidate-ready rows
+  above needs-research within a group, one `.btn-accent` action per row for both apply-mutate
+  and search-navigate (explicitly not color-coded, not two co-equal buttons) — visual language
+  only from `ExtractionQueueRow.svelte`/HOLODEX-199, not the component itself, since this queue
+  groups by facet with a uniform row shape vs. extraction's per-video heterogeneous editors.
+  Breakdown panel (DD4-8): new owner-only wholesale-gated card high on the three detail pages;
+  score bar using only `bg-surface-2`/`bg-accent`; facets split Critical/Nice-to-have; status
+  pills map the new tri-state vocabulary onto existing idioms — curated=accent pill,
+  provider=reused `ProvenanceBadge`, missing=dashed pill echoing `CurationChip`'s pending motif,
+  not-applicable=plain muted text; not-applicable toggle reuses the tag-detail writeback
+  toggle's dt/dd + icon-button shape with no `ConfirmDialog` (direct toggle, not a reparent-style
+  confirm). Rendered a Cinémathèque-skin mockup via the visualization tool for both surfaces.
+  Next: item #2 in Up next — backend registry criticality metadata + `facet_not_applicable`
+  table/mutation + score/actionability computation.
+
 ### 2026-08-07 · Architecture gate closed — ADR-081 written
-- skills: architecture
+- skills: architecture, design-handoff, graphify
 - handoff: wrote `docs/architecture/ADR-081-entity-completeness-score.md`, resolving the four
   things the spec punted to an ADR. D1: facet criticality is a new static `Criticality` field on
   `registry.FieldDef` (reuses the existing `Computed` bool for auto-exclusion, no double
