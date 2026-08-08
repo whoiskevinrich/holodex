@@ -25,7 +25,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md`
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
-- [ ] backend
+- [/] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — new owner-gated not-applicable mutation
@@ -37,7 +37,8 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/ADR-081-entity-completeness-score.md`
-2. [ ] [backend] registry criticality metadata + `facet_not_applicable` table/mutation + score/actionability computation — `internal/registry/registry.go`, `internal/resolver/`
+2. [x] [backend] registry criticality metadata (D1) + `facet_not_applicable` table/mutation (D2) — `internal/registry/registry.go`, `internal/db/migrations/0039_facet_not_applicable.{up,down}.sql`, `internal/repo/facet_not_applicable.go`, `internal/api/facet_not_applicable.go`
+2b. [ ] [backend] score/actionability computation (D3) — `internal/resolver/`
 3. [ ] [backend] `imdb_id` → `external_provider_id` rename migration across the 9 `field_key`-keyed tables — `internal/registry/registry.go`, `internal/db/migrations/`
 4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
@@ -55,8 +56,37 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-07 · Backend D1+D2 — facet criticality metadata + not-applicable mutation
+- skills: simplify
+- handoff: implemented the narrower half of item #2 — D1 and D2 only, D3 (score/
+  actionability computation) deliberately deferred to a follow-up session. D1: added
+  `Criticality` (`CriticalityCritical`/`CriticalityNiceToHave`/`""`) to
+  `registry.FieldDef` and tagged every P0-scored facet per the spec's per-entity-type
+  tables (video/person/studio), including a new synthetic `branding_image` `FieldDef`
+  entry so the studio icon/logo/poster composite facet (F51/ADR-079) has one
+  code-reviewed home for its weight. D2: new `facet_not_applicable(entity_type,
+  entity_id, canonical_field, created_at)` table (migration 0039, modeled on
+  `person_image_suppressions`/0012) + `internal/repo/facet_not_applicable.go`
+  (Set/Clear/FacetsForEntity, mirroring `decisions.go`'s shape) + owner-gated
+  `PUT`/`DELETE /media/{id}/fields/{canonical}/not-applicable` in
+  `internal/api/facet_not_applicable.go`, wired into `Mount`. Video-only for v1,
+  matching the codebase's existing pattern of separate per-entity-type route files
+  (`decisions.go`/`person_decisions.go`/`studio_fields.go`) rather than one generic
+  route — person/studio not-applicable mutation is a follow-up, not a gap in this
+  session's scope. New tests: `registry_test.go` (criticality tagging + Computed
+  auto-exclusion invariant), `facet_not_applicable_test.go` in both `repo` and `api`
+  (CRUD/idempotency, 404/409 validation, owner-gating). Ran `/simplify`: reuse and
+  efficiency came back clean; one simplification finding (`created_at` looking
+  redundant against the table's own "no other columns" comment) and two altitude
+  findings (video-only route, cross-entity-type validation looseness) were all
+  checked against precedent and skipped as consistent with established patterns
+  elsewhere in the codebase (see PR description for the full reasoning). `go build`,
+  `go vet`, and the full `go test ./...` are all clean — no regressions. Next: D3
+  (score/actionability compute-on-read post-pass in `internal/resolver`, item #2b),
+  then item #3 (imdb_id → external_provider_id rename).
+
 ### 2026-08-07 · Design gate closed — remediation queue + breakdown panel handoff written
-- skills: design-handoff, graphify
+- skills: design-handoff, graphify, simplify
 - handoff: wrote `docs/design/entity-completeness-handoff.md`, covering both requested surfaces
   plus §9 (browse sort/filter) to close the whole design gate in one document. Followed the
   repo's real handoff convention (numbered DDn decisions ending in "chosen over," not the

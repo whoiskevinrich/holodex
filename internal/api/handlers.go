@@ -365,6 +365,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountCuration(r)
 		// Per-field source-of-truth decisions — pin file/provider/manual (F36, ADR-051).
 		h.mountDecisions(r)
+		// Not-applicable facet exclusions for the completeness score (F55, ADR-081).
+		h.mountFacetNotApplicable(r)
 		// In-app field promotion — promote an auto-registered field to curatable (F44, ADR-062).
 		h.mountFieldPromotions(r)
 		h.mountFieldClaims(r)
