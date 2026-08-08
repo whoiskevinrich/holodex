@@ -38,7 +38,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 
 1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/ADR-081-entity-completeness-score.md`
 2. [x] [backend] registry criticality metadata (D1) + `facet_not_applicable` table/mutation (D2) — `internal/registry/registry.go`, `internal/db/migrations/0039_facet_not_applicable.{up,down}.sql`, `internal/repo/facet_not_applicable.go`, `internal/api/facet_not_applicable.go`
-2b. [ ] [backend] score/actionability computation (D3) — `internal/resolver/`
+2b. [x] [backend] score/actionability computation (D3) — `internal/resolver/complete.go`
 3. [ ] [backend] `imdb_id` → `external_provider_id` rename migration across the 9 `field_key`-keyed tables — `internal/registry/registry.go`, `internal/db/migrations/`
 4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
@@ -84,6 +84,41 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
   `go vet`, and the full `go test ./...` are all clean — no regressions. Next: D3
   (score/actionability compute-on-read post-pass in `internal/resolver`, item #2b),
   then item #3 (imdb_id → external_provider_id rename).
+
+### 2026-08-07 · Backend D3 — score/actionability computation in internal/resolver
+- skills: simplify
+- handoff: implemented item #2b — `internal/resolver/complete.go`'s `Complete(fields
+  []mapping.Field, resolved []ResolvedField, notApplicable map[string]bool)
+  Completeness`, a pure post-pass mirroring `Derive`'s shape (no clock needed, unlike
+  `Derive`'s Age). Per-facet tier is read straight off `ResolvedField.WinningSource`
+  (empty → missing/0.0; `file:`/`manual:` namespace via `fieldsource.ForNamespace` →
+  curated/1.0; anything else → provider/0.7) — no new per-field resolution logic, per
+  D3. Score is `round(100 * Σ(weight*tier) / Σ(weight))` over non-not-applicable
+  scored facets (weight 3 critical / 1 nice-to-have, matching the spec's worked
+  example exactly — reproduced verbatim as `TestComplete_WorkedExample`).
+  Actionability is `nil` (not 0) when there are no missing facets, since the ratio is
+  undefined; otherwise the fraction of missing facets with a cached unapplied
+  provider candidate, read off `ResolvedField.Candidates` (F36/ADR-051) rather than
+  re-deriving availability — merge fields (Candidates always nil per RD1) are
+  correctly never actionable when missing. One deliberate divergence from the ADR's
+  suggested signature: `Complete` takes the full `fields []mapping.Field` list, not
+  just `resolved`, because `ResolveFields` silently drops an empty/undecided field's
+  row entirely — without `fields`, a genuinely missing scored facet could have no row
+  at all and would silently vanish from the score's denominator. Studio's synthetic
+  `branding_image` facet (no resolver row, resolved via `studio_images` directly) is
+  deliberately out of scope here — a future D4 caller injects it as a synthetic row
+  before calling `Complete`, same pattern `Derive` uses for computed rows. New tests:
+  `complete_test.go` (worked example, no-missing-facets, all-excluded/zero-score,
+  Computed-never-scored, merge-field-missing-never-actionable). Ran `/simplify`
+  (4-agent pass): reuse + altitude both flagged the same duplication —
+  `classifyTier`'s inline file/manual-vs-provider check re-derived what
+  `fieldsource.ForNamespace` already owns — fixed by delegating to it; simplification
+  flagged the tier weight/name pair as two parallel const blocks that could drift —
+  collapsed into a single comparable `tier` struct with three package vars; efficiency
+  came back clean. `go build`, `go vet`, and the full `go test ./...` are all clean —
+  no regressions. Not yet wired into any API endpoint — that's D4 (list-wide
+  resolve-all for browse sort/filter + the remediation queue), still open. Next: #3
+  (imdb_id → external_provider_id rename), or D4 if picked up first.
 
 ### 2026-08-07 · Design gate closed — remediation queue + breakdown panel handoff written
 - skills: design-handoff, graphify, simplify
