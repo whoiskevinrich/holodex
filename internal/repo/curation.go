@@ -53,17 +53,24 @@ func (r *Repo) CurationForEntity(ctx context.Context, entityType string, entityI
 // a single query so list pages avoid N+1 (mirrors EnrichmentForVideos). Missing keys
 // mean no curation.
 func (r *Repo) CurationForVideos(ctx context.Context, ids []int64) (map[int64][]CurationRow, error) {
+	return r.CurationForEntities(ctx, "video", ids)
+}
+
+// CurationForEntities is CurationForVideos generalized to any entity type — the F55
+// list-wide completeness resolve (ADR-081 D4) needs the same batch shape for
+// person/studio.
+func (r *Repo) CurationForEntities(ctx context.Context, entityType string, ids []int64) (map[int64][]CurationRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := append([]any{"video"}, toAnySlice(ids)...)
+	args := append([]any{entityType}, toAnySlice(ids)...)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT entity_id, field_key, norm_value, value, action
 		FROM metadata_curation
 		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
 		ORDER BY entity_id, field_key, norm_value`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("curation for videos: %w", err)
+		return nil, fmt.Errorf("curation for entities: %w", err)
 	}
 	defer rows.Close()
 

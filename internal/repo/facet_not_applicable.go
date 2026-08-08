@@ -62,3 +62,36 @@ func (r *Repo) FacetsNotApplicableForEntity(ctx context.Context, entityType stri
 	}
 	return out, rows.Err()
 }
+
+// FacetsNotApplicableForEntities is FacetsNotApplicableForEntity batched across a
+// set of ids — a single query so the F55 list-wide completeness resolve (ADR-081
+// D4) avoids N+1. Missing keys mean no exclusions for that entity.
+func (r *Repo) FacetsNotApplicableForEntities(ctx context.Context, entityType string, ids []int64) (map[int64]map[string]bool, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := append([]any{entityType}, toAnySlice(ids)...)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT entity_id, canonical_field FROM facet_not_applicable
+		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("facets not applicable for entities: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int64]map[string]bool, len(ids))
+	for rows.Next() {
+		var (
+			eid   int64
+			field string
+		)
+		if err := rows.Scan(&eid, &field); err != nil {
+			return nil, err
+		}
+		if out[eid] == nil {
+			out[eid] = make(map[string]bool)
+		}
+		out[eid][field] = true
+	}
+	return out, rows.Err()
+}

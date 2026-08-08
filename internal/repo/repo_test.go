@@ -58,6 +58,24 @@ func linkPeople(t *testing.T, r *repo.Repo, videoID int64, names ...string) {
 	}
 }
 
+// seedVideoAndPerson seeds one video ("T", /m/a.mkv) linked to a single person
+// ("Hayao Miyazaki") and returns both ids — the shared setup for the F55 D4
+// *ForEntities batch-loader tests, which prove a person id and a video id
+// sharing the same numeric value don't cross-contaminate.
+func seedVideoAndPerson(t *testing.T, r *repo.Repo) (vid, pid int64) {
+	t.Helper()
+	vid, err := r.UpsertVideo(context.Background(), sampleVideo("/m/a.mkv", "T", []string{"Hayao Miyazaki"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	linkPeople(t, r, vid, "Hayao Miyazaki")
+	pid, ok, err := r.PersonIDByName(context.Background(), "Hayao Miyazaki")
+	if err != nil || !ok {
+		t.Fatalf("person id: ok=%v err=%v", ok, err)
+	}
+	return vid, pid
+}
+
 func TestUpsertAndGet(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

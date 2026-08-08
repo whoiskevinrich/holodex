@@ -53,3 +53,29 @@ func TestFacetNotApplicable_SetGetClear(t *testing.T) {
 		t.Fatalf("want no exclusions after clear, got %v err=%v", facets, err)
 	}
 }
+
+// TestFacetsNotApplicableForEntities_Batch covers the F55 list-wide generic batch
+// loader (ADR-081 D4): entity-type-parameterized like FacetsNotApplicableForEntity,
+// but batched across ids and scoped by entity_type — a person id and a video id
+// sharing the same numeric value must not cross-contaminate.
+func TestFacetsNotApplicableForEntities_Batch(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, pid := seedVideoAndPerson(t, r)
+
+	if err := r.SetFacetNotApplicable(ctx, model.EnrichEntityPerson, pid, "nationality"); err != nil {
+		t.Fatalf("set person exclusion: %v", err)
+	}
+	if err := r.SetFacetNotApplicable(ctx, model.EnrichEntityVideo, vid, "imdb_id"); err != nil {
+		t.Fatalf("set video exclusion: %v", err)
+	}
+
+	got, err := r.FacetsNotApplicableForEntities(ctx, model.EnrichEntityPerson, []int64{pid})
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if len(got[pid]) != 1 || !got[pid]["nationality"] {
+		t.Fatalf("person exclusions = %v, want {nationality: true}", got[pid])
+	}
+}

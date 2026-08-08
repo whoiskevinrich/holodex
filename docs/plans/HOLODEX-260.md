@@ -39,6 +39,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/ADR-081-entity-completeness-score.md`
 2. [x] [backend] registry criticality metadata (D1) + `facet_not_applicable` table/mutation (D2) — `internal/registry/registry.go`, `internal/db/migrations/0039_facet_not_applicable.{up,down}.sql`, `internal/repo/facet_not_applicable.go`, `internal/api/facet_not_applicable.go`
 2b. [x] [backend] score/actionability computation (D3) — `internal/resolver/complete.go`
+2c. [x] [backend] list-wide resolve-all backend predicate (D4) — `internal/api/completeness.go`, generic `*ForEntities` batch loaders in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}.go`
 3. [ ] [backend] `imdb_id` → `external_provider_id` rename migration across the 9 `field_key`-keyed tables — `internal/registry/registry.go`, `internal/db/migrations/`
 4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
@@ -55,6 +56,55 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-08 · Backend D4 — list-wide resolve-all predicate for browse sort/filter + remediation queue
+- skills: simplify
+- handoff: implemented item #2c — the ADR-081 D4 backend predicate all three future consumers
+  (browse completeness sort, the missing-facet filter, the remediation queue) will share, per
+  the design handoff's §9/§1 "same backend predicate" requirement. New `internal/api/completeness.go`:
+  `completenessForVideos`/`completenessForPeople`/`completenessForStudios` on `*Handlers`, each
+  fetching the full per-type entity set (`ListAllVideos`/`ListPeople`/`ListStudios`, bypassing SQL
+  `LIMIT`/`OFFSET` per D4's explicit call) and replicating its detail handler's exact resolve
+  pipeline (`mergePromotions` → `mergeClaims` → resolve → `markPromoted` → `appendAutoRegistered` →
+  person-only `Derive`) in a loop over batch-loaded inputs, then scoring via D3's `resolver.Complete`.
+  Batch loading needed four entity-type-parameterized siblings of the existing video-only bulk
+  loaders — `EnrichmentForEntities`/`CurationForEntities`/`DecisionsForEntities`/
+  `FacetsNotApplicableForEntities` — with the three that had video-specific predecessors refactored
+  into one-line delegating wrappers (zero behavior change for existing callers).
+  Self-found correctness gap: D3's own note flagged that studio `branding_image` has no resolver
+  row (asset-only, F51/ADR-079), but I found the identical gap on person `photo` too — both are
+  Critical-weighted facets that `personFields()`/`studioFields()` explicitly exclude because
+  they're "delivered as an asset, not a field value," so `resolver.Complete` would have silently
+  under-scored every person and studio. Fixed with a shared `injectAssetFacet` helper (modeled on
+  `Derive`'s `insertComputed`, but appending to both `fields` and `resolved` since — unlike a
+  computed/display-only row — these are genuinely scored facets) wired off data both list functions
+  already batch-load for free (`ListStudios`→`attachStudioImages`→`ImageVersions`,
+  `ListPeople`→`attachPersonImageVersions`→`HeadshotVersion`). Present scores at the curated tier
+  (`"manual:"` winning source) — an asset is binary present/absent with no unapplied-candidate
+  concept the way text fields have. **Open judgment call for the user to confirm**: `photo`
+  presence is keyed on `HeadshotVersion != 0` only, not compositing with `PosterVersion` the way
+  `branding_image` composites icon/logo/poster — the spec's person facet table uses singular
+  "Portrait image" language (unlike branding_image's explicit "composite" language) and
+  `PersonImageHeadshot`'s doc comment calls it "the default avatar," but `PosterVersion`'s own doc
+  comment ties it to "F55 P0-6" and neither the spec nor ADR-081 elaborate what P0-6 required —
+  flagging rather than treating as settled. New tests: repo-layer entity-type-isolation tests for
+  all four `*ForEntities` loaders (a person id and video id sharing a numeric value must not
+  cross-contaminate) in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}_test.go`
+  + new `internal/repo/curation_test.go`; API-layer `internal/api/completeness_test.go` (internal
+  `package api`, since it calls the unexported `completenessFor*` methods directly) covering video
+  critical-facet scoring, not-applicable exclusion, and both synthetic-facet injections with a
+  before/after-image score assertion each. Ran `/simplify` (4-agent pass): reuse and altitude came
+  back clean (the asset-facet placement and `ListAllVideos` were checked against `Derive`/
+  `ExtractionQueue` precedent and confirmed as the right depth, not special-casing); efficiency
+  flagged a redundant `registry.Lookup` label lookup recomputed every loop iteration for a
+  loop-invariant canonical — hoisted `photoLabel`/`brandingLabel` above their loops; simplification
+  flagged repeated video/person-seed boilerplate across both new test files — extracted
+  `seedVideo` (`completeness_test.go`) and `seedVideoAndPerson` (`repo_test.go`) helpers. `go build`,
+  `go vet`, and the full `go test ./...` are all clean — no regressions. Next: item #3 (imdb_id →
+  external_provider_id rename), or the D4 frontend consumers (item #4, browse sort/filter) if
+  picked up first — either way, surface the photo/PosterVersion compositing question to the user
+  before the breakdown panel (item #6) ships, since it renders per-facet status and would need to
+  agree with whatever scoring decides.
 
 ### 2026-08-07 · Backend D1+D2 — facet criticality metadata + not-applicable mutation
 - skills: simplify
