@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-260                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Owner mode can now sort/filter entities by how complete their metadata is, and work a remediation queue to fill in the gaps.
 ---
@@ -28,7 +28,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy`
-- [ ] security `security-review` — new owner-gated not-applicable mutation
+- [x] security `security-review` — new owner-gated not-applicable mutation, clean
 
 ## Up next — ordered (position = priority)
 
@@ -45,7 +45,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 5. [x] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [x] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
 7. [x] [testing] F55 block in `docs/testing-strategy.md`
-8. [ ] [security] `/security-review` on the not-applicable mutation
+8. [x] [security] `/security-review` on the not-applicable mutation — clean, no findings
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -57,8 +57,8 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-08-09 · Items #6-7 — breakdown panel + testing-strategy block (F55.13-15)
-- skills: simplify, testing-strategy
+### 2026-08-09 · Items #6-8 — breakdown panel + testing-strategy block + security review (F55.13-15)
+- skills: simplify, testing-strategy, security-review
 - handoff: implemented item #6, closing the frontend gate — the last item in the design
   handoff's DD4-8. Backend: `getMedia`/`getPerson`/`getStudio` (`internal/api/handlers.go`,
   `person_fields.go`, `studios.go`) now expose the `fields []mapping.Field` slice each
@@ -133,8 +133,20 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
   testing-strategy pass's scope — disambiguated every new entry by Jira key instead
   (`F55/HOLODEX-260` vs. bare `F55, HOLODEX-255`) and flagged the collision explicitly in the
   new §11 bullet for a future pass to decide whether to formally supersede. `go build`/`go vet`
-  untouched (docs-only change). Next: item #8, `/security-review` on the not-applicable
-  mutation — the last gate before this epic's Draft PR can come out of draft.
+  untouched (docs-only change).
+
+  Item #8 — ran `/security-review` scoped to the not-applicable mutation
+  (`internal/api/facet_not_applicable.go`, `internal/repo/facet_not_applicable.go`, migrations
+  0039/0040) plus the epic's other new surface area (completeness/queue GET endpoints,
+  `registry.IsKnown` validation on the `{canonical}` path param, the TMDB sidecar's
+  namespace-qualified `external_provider_id` value construction). Traced the owner-auth gate
+  (`requireOwner`/`requireOwnerInline`) to every new call site, confirmed every new repo query is
+  parameterized (`?` placeholders, no request-derived SQL), confirmed the migration's SQL is
+  static with no dynamic construction, and confirmed the new Svelte components use plain
+  auto-escaped interpolation (no `{@html}`). **Clean — no HIGH or MEDIUM findings.** This closes
+  the last gate: all 7 gates (spec/architecture/design/backend/frontend/testing/security) are now
+  `[x]`. Marked PR #222 ready for review (Jira → In Review fires from CI on that transition, per
+  ADR-058/ADR-069). Epic HOLODEX-260 is done pending merge.
 
 ### 2026-08-08 · Item #5 — facet-first remediation queue (F55.7/F55.8)
 - skills: simplify
