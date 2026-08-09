@@ -1114,13 +1114,20 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
 	}
+	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
+	// lookup failure logs and serves the page with no badges rather than failing it.
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityPerson, id)
+	if linksErr != nil {
+		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"person": p, "items": items, "total": total,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
 		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
-		"resolved":     resolved,
-		"images":       images,
-		"completeness": completeness,
+		"resolved":       resolved,
+		"images":         images,
+		"completeness":   completeness,
+		"external_links": links,
 	})
 }
 

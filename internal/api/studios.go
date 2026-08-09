@@ -209,10 +209,17 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
 	}
+	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
+	// lookup failure logs and serves the page with no badges rather than failing it.
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityStudio, id)
+	if linksErr != nil {
+		h.log.Warn("external links for studio detail", "id", id, "err", linksErr)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"studio": s, "items": items, "total": total,
-		"resolved":     resolved,
-		"completeness": completeness,
+		"resolved":       resolved,
+		"completeness":   completeness,
+		"external_links": links,
 	})
 }
 

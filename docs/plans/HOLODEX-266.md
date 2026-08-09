@@ -25,7 +25,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 
 - [x] architecture `architecture` → `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md`
-- [ ] backend
+- [x] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
@@ -40,9 +40,9 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
    server-side (D2), one badge per stored id (D3) — `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
 2. [x] [design] design-handoff note covering the multi-badge and no-link-degradation states —
    `docs/design/provider-link-badge-handoff.md`
-3. [ ] [backend] `Manifest.LinkTemplates map[string]map[string]string` (`internal/enrich/enrich.go`)
+3. [x] [backend] `Manifest.LinkTemplates map[string]map[string]string` (`internal/enrich/enrich.go`)
    + sanitize/validate on `/describe` ingest + `BuildProviderLink(namespace, entityKind, id)` helper
-4. [ ] [backend] person/studio detail handlers project `person_external_ids`/`studio_external_ids`
+4. [x] [backend] person/studio detail handlers project `person_external_ids`/`studio_external_ids`
    into `external_links: [{provider, label, url}]` via the new helper
 5. [ ] [frontend] extract the video badge into a shared component; person/studio headers render
    zero-to-many badges from `external_links`
@@ -60,8 +60,43 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · Backend gate closed — LinkTemplates + external_links projection
+- skills: simplify
+- handoff: built items #3-4. New migration 0041 adds `provider_link_templates`, keyed by
+  `(namespace, entity_type)` rather than `(provider, ...)` like the sibling `provider_field_hints`
+  table — a namespace is a shared identity space across providers (ADR-055 D2), so on conflict
+  whichever provider's `/describe` was read most recently owns the row (proved with a dedicated
+  test: `TestProviderLinkTemplates_LastDescribeWinsAcrossProviders`). `Manifest.LinkTemplates`
+  (`internal/enrich/enrich.go`) extends the `/describe` wire contract; `internal/enrich/
+  link_templates.go` adds `ValidateLinkTemplate`/`SanitizeLinkTemplates`/`BuildLink` (one `{id}`
+  placeholder, http(s)-only, path-escaped on render — not an SSRF gate, since a link template is
+  never dialed server-side, only rendered as an outbound `<a href>`). `Service.linkTemplates` is a
+  new DB-backed atomic-pointer cache in `internal/enrich/service.go`, deliberately following the
+  DB-persisted `fieldHints` posture rather than the in-memory-only `preferredPatterns` one, since
+  person/studio badges are visitor-visible and must not silently lose their links on every
+  restart. `internal/repo/identity.go` gained `ExternalIDsForEntity`, reusing the existing
+  `externalIDTable` helper. `internal/api/external_links.go` projects those rows into
+  `ExternalLink{provider, label, url}` — the display label comes from a small Holodex-owned
+  `namespaceLabel()` map, deliberately kept OUT of the provider-declared manifest, because a
+  value's namespace can differ from the provider that emitted it (TMDB emits `imdb:`-namespaced
+  ids). Wired into `getPerson`/`getStudio` as `external_links` (best-effort: a lookup failure logs
+  and serves the page with no badges). Ran `/simplify`: extracted a shared `validHTTPURL` helper
+  (deduped against the pre-existing `sanitizeProfileURL`), removed a redundant string scan in
+  `ValidateLinkTemplate`, and added a `Service.LinkTemplates()` accessor mirroring `FieldHints()`
+  to simplify `BuildProviderLink`. Flagged but deliberately left for later, since they're either
+  out of this diff's scope or not yet load-bearing at current scale: `fieldHints`/
+  `preferredPatterns`/`linkTemplates` are now three separately hand-rolled atomic-cache trios in
+  `service.go` worth generalizing before a fourth provider-declared field lands; a disabled
+  provider's `provider_link_templates` row currently has no prune/ownership-reconciliation story;
+  `namespaceLabels`' 2-entry hardcoded map will need to move to config if it grows past a handful
+  of well-known namespaces. All builds/vet/tests pass. Next: frontend (item #5 — shared
+  `ProviderLinkBadge.svelte`, wired into person/studio/video headers), then testing-strategy and
+  security-review (items #6-7; `internal/enrich` is the SSRF perimeter, but LinkTemplates
+  introduces no new server-side-fetch surface — worth confirming formally via `/security-review`
+  rather than resting on that reasoning alone).
+
 ### 2026-08-09 · Design gate closed — multi-badge handoff written
-- skills: design-handoff
+- skills: design-handoff, simplify, graphify
 - handoff: wrote `docs/design/provider-link-badge-handoff.md`, closing the design gate. Treated
   the video badge's visual anatomy (pill shape, icon+label, hover/focus) as already settled from
   this session's earlier mockup/critique pass and scoped this doc to what's actually new for
