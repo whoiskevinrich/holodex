@@ -57,6 +57,23 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · `/code-review xhigh` findings applied — 6/6 fixed
+- skills: code-review
+- handoff: ran `/code-review xhigh` on the branch and applied all 6 findings with minimal
+  edits: a negative-offset slice panic in `listMediaByCompleteness` (`handlers.go`), a
+  missing genre-writeback pass in `completenessForVideos` that `getMedia` already applies
+  (`completeness.go`), `completenessForStudios` never calling `setStudioImageURLs` so the
+  remediation queue showed blank studio icons (`completeness.go`), a dead
+  `#field-{canonical}` Search anchor on the media detail page for missing Multi/Merge
+  facets — fixed by rendering hidden fallback anchors for any missing facet not already
+  covered by `visibleResolved` or the existing `#field-studio` special case
+  (`+page.svelte`), and two duplication cleanups: a shared `entityCompletenessBatch`/
+  `loadEntityCompletenessBatch` for the people/studio fetch prologue and a shared generic
+  `writeCompletenessList` helper for the two list-by-completeness handlers
+  (`completeness.go`, `handlers.go`, `studios.go`). `go build`/`go vet`/`go test
+  ./internal/api/...` and `npm run check` all pass clean. All 6 outcomes reported as
+  `fixed` via ReportFindings.
+
 ### 2026-08-09 · Items #6-8 — breakdown panel + testing-strategy block + security review (F55.13-15)
 - skills: simplify, testing-strategy, security-review
 - handoff: implemented item #6, closing the frontend gate — the last item in the design

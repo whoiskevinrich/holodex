@@ -924,6 +924,14 @@
 			</section>
 		{/if}
 
+		{#if isOwner && completeness}
+			{#each completeness.facets as cf (cf.canonical)}
+				{#if cf.tier === 'missing' && !visibleResolved.some((f) => f.canonical === cf.canonical) && cf.canonical !== 'studio'}
+					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
+				{/if}
+			{/each}
+		{/if}
+
 		{#if isOwner}
 			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 		{/if}

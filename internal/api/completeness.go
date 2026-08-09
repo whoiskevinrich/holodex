@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 
 	"holodex/internal/fieldsource"
@@ -129,6 +130,18 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 		resolved := resolver.Resolve(&v, extraByVideo[v.ID], enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 		h.markPromoted(resolved, promoted)
 		resolved = h.appendAutoRegistered(ctx, rows, fields, resolved)
+		// P0-10 (F50, ADR-075 RD9): same genre-writeback union getMedia applies
+		// (handlers.go) — without it, a video whose only genre source is
+		// manually-attached tags scores as missing genres despite its detail
+		// page showing them (see applyGenreWriteback's doc comment).
+		if field, ok := m.ByCanonical("genres"); ok {
+			rawGenres, rawOK := resolvedByCanonical(resolved, "genres")
+			if items, gerr := h.genreWritebackItemsFrom(ctx, v.ID, rawGenres, rawOK); gerr != nil {
+				h.log.Warn("genre writeback items for completeness", "id", v.ID, "err", gerr)
+			} else {
+				resolved = applyGenreWriteback(resolved, field, items)
+			}
+		}
 
 		out[i] = VideoCompleteness{
 			Video:        v,
@@ -136,6 +149,34 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 		}
 	}
 	return out, nil
+}
+
+// entityCompletenessBatch bundles the four per-entity-type batch loads
+// completenessForPeople and completenessForStudios both need (D4) — factored
+// out so the two functions don't repeat the same four-call fetch prologue.
+type entityCompletenessBatch struct {
+	enrichment    map[int64][]repo.EnrichmentRow
+	curation      map[int64][]repo.CurationRow
+	decisions     map[int64][]repo.DecisionRow
+	notApplicable map[int64]map[string]bool
+}
+
+func (h *Handlers) loadEntityCompletenessBatch(ctx context.Context, entityType string, ids []int64) (entityCompletenessBatch, error) {
+	var b entityCompletenessBatch
+	var err error
+	if b.enrichment, err = h.repo.EnrichmentForEntities(ctx, entityType, ids); err != nil {
+		return b, fmt.Errorf("enrichment for %s: %w", entityType, err)
+	}
+	if b.curation, err = h.repo.CurationForEntities(ctx, entityType, ids); err != nil {
+		return b, fmt.Errorf("curation for %s: %w", entityType, err)
+	}
+	if b.decisions, err = h.repo.DecisionsForEntities(ctx, entityType, ids); err != nil {
+		return b, fmt.Errorf("decisions for %s: %w", entityType, err)
+	}
+	if b.notApplicable, err = h.repo.FacetsNotApplicableForEntities(ctx, entityType, ids); err != nil {
+		return b, fmt.Errorf("facets not applicable for %s: %w", entityType, err)
+	}
+	return b, nil
 }
 
 // completenessForPeople resolves and scores every person with at least one
@@ -154,29 +195,17 @@ func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleten
 		ids[i] = p.ID
 	}
 
-	enrByPerson, err := h.repo.EnrichmentForEntities(ctx, model.EnrichEntityPerson, ids)
+	batch, err := h.loadEntityCompletenessBatch(ctx, model.EnrichEntityPerson, ids)
 	if err != nil {
-		return nil, fmt.Errorf("enrichment for people: %w", err)
-	}
-	curByPerson, err := h.repo.CurationForEntities(ctx, model.EnrichEntityPerson, ids)
-	if err != nil {
-		return nil, fmt.Errorf("curation for people: %w", err)
-	}
-	decByPerson, err := h.repo.DecisionsForEntities(ctx, model.EnrichEntityPerson, ids)
-	if err != nil {
-		return nil, fmt.Errorf("decisions for people: %w", err)
-	}
-	notApplicableByPerson, err := h.repo.FacetsNotApplicableForEntities(ctx, model.EnrichEntityPerson, ids)
-	if err != nil {
-		return nil, fmt.Errorf("facets not applicable for people: %w", err)
+		return nil, err
 	}
 
 	photoLabel := registry.Lookup("photo").Label
 	out := make([]PersonCompleteness, len(people))
 	for i, p := range people {
-		rows := enrByPerson[p.ID]
-		cur := curationFromRows(curByPerson[p.ID])
-		dec := decisionsFromRows(decByPerson[p.ID])
+		rows := batch.enrichment[p.ID]
+		cur := curationFromRows(batch.curation[p.ID])
+		dec := decisionsFromRows(batch.decisions[p.ID])
 
 		fields := personFields(h.personProviders(rows))
 		fields, promoted := h.mergePromotions(ctx, model.EnrichEntityPerson, fields, rows)
@@ -192,7 +221,7 @@ func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleten
 
 		out[i] = PersonCompleteness{
 			Person:       p,
-			Completeness: resolver.Complete(fields, resolved, notApplicableByPerson[p.ID]),
+			Completeness: resolver.Complete(fields, resolved, batch.notApplicable[p.ID]),
 		}
 	}
 	return out, nil
@@ -214,29 +243,17 @@ func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioComplete
 		ids[i] = s.ID
 	}
 
-	enrByStudio, err := h.repo.EnrichmentForEntities(ctx, model.EnrichEntityStudio, ids)
+	batch, err := h.loadEntityCompletenessBatch(ctx, model.EnrichEntityStudio, ids)
 	if err != nil {
-		return nil, fmt.Errorf("enrichment for studios: %w", err)
-	}
-	curByStudio, err := h.repo.CurationForEntities(ctx, model.EnrichEntityStudio, ids)
-	if err != nil {
-		return nil, fmt.Errorf("curation for studios: %w", err)
-	}
-	decByStudio, err := h.repo.DecisionsForEntities(ctx, model.EnrichEntityStudio, ids)
-	if err != nil {
-		return nil, fmt.Errorf("decisions for studios: %w", err)
-	}
-	notApplicableByStudio, err := h.repo.FacetsNotApplicableForEntities(ctx, model.EnrichEntityStudio, ids)
-	if err != nil {
-		return nil, fmt.Errorf("facets not applicable for studios: %w", err)
+		return nil, err
 	}
 
 	brandingLabel := registry.Lookup("branding_image").Label
 	out := make([]StudioCompleteness, len(studios))
 	for i, s := range studios {
-		rows := enrByStudio[s.ID]
-		cur := curationFromRows(curByStudio[s.ID])
-		dec := decisionsFromRows(decByStudio[s.ID])
+		rows := batch.enrichment[s.ID]
+		cur := curationFromRows(batch.curation[s.ID])
+		dec := decisionsFromRows(batch.decisions[s.ID])
 
 		fields := studioFields(h.studioProviders(rows))
 		fields, promoted := h.mergePromotions(ctx, model.EnrichEntityStudio, fields, rows)
@@ -248,10 +265,14 @@ func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioComplete
 		// value — resolved if any of the icon/logo/poster roles is set (spec
 		// F55.13), which ListStudios already batches onto s.ImageVersions.
 		fields, resolved = injectAssetFacet(fields, resolved, "branding_image", brandingLabel, len(s.ImageVersions) > 0)
+		// Every other studio-serializing path (listStudios, listStudiosByCompleteness,
+		// getStudio) populates the derived IconURL/LogoURL/PosterURL before returning
+		// the Studio; do the same here so queue/browse consumers don't always see it empty.
+		setStudioImageURLs(&s)
 
 		out[i] = StudioCompleteness{
 			Studio:       s,
-			Completeness: resolver.Complete(fields, resolved, notApplicableByStudio[s.ID]),
+			Completeness: resolver.Complete(fields, resolved, batch.notApplicable[s.ID]),
 		}
 	}
 	return out, nil
@@ -346,4 +367,24 @@ func sortByScore[T any](items []T, score func(T) int, desc bool) {
 		}
 		return si < sj
 	})
+}
+
+// writeCompletenessList is listPeopleByCompleteness/listStudiosByCompleteness's
+// shared body: filter by missing_facet, sort by score, map each scored item down
+// to its plain entity, and write the {"items": [...]} response. completenessOf
+// and toEntity let each caller supply its own pairing type and entity mapping
+// (e.g. studios also stamp image URLs) without duplicating the rest.
+func writeCompletenessList[T any, E any](w http.ResponseWriter, scored []T, missingFacets []string, desc bool, completenessOf func(T) resolver.Completeness, toEntity func(T) E) {
+	filtered := make([]T, 0, len(scored))
+	for _, item := range scored {
+		if isMissingAll(completenessOf(item), missingFacets) {
+			filtered = append(filtered, item)
+		}
+	}
+	sortByScore(filtered, func(item T) int { return completenessOf(item).Score }, desc)
+	items := make([]E, len(filtered))
+	for i, item := range filtered {
+		items[i] = toEntity(item)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }

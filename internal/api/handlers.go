@@ -513,7 +513,7 @@ func (h *Handlers) listMediaByCompleteness(w http.ResponseWriter, r *http.Reques
 	if limit <= 0 {
 		limit = 50
 	}
-	start := min(f.Offset, total)
+	start := max(min(f.Offset, total), 0)
 	end := min(start+limit, total)
 	page := filtered[start:end]
 
@@ -1074,18 +1074,10 @@ func (h *Handlers) listPeopleByCompleteness(w http.ResponseWriter, r *http.Reque
 		h.fail(w, "list people by completeness", err)
 		return
 	}
-	filtered := make([]PersonCompleteness, 0, len(scored))
-	for _, pc := range scored {
-		if isMissingAll(pc.Completeness, missingFacets) {
-			filtered = append(filtered, pc)
-		}
-	}
-	sortByScore(filtered, func(pc PersonCompleteness) int { return pc.Completeness.Score }, desc)
-	people := make([]model.Person, len(filtered))
-	for i, pc := range filtered {
-		people[i] = pc.Person
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": people})
+	writeCompletenessList(w, scored, missingFacets, desc,
+		func(pc PersonCompleteness) resolver.Completeness { return pc.Completeness },
+		func(pc PersonCompleteness) model.Person { return pc.Person },
+	)
 }
 
 func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {

@@ -167,19 +167,10 @@ func (h *Handlers) listStudiosByCompleteness(w http.ResponseWriter, r *http.Requ
 		h.fail(w, "list studios by completeness", err)
 		return
 	}
-	filtered := make([]StudioCompleteness, 0, len(scored))
-	for _, sc := range scored {
-		if isMissingAll(sc.Completeness, missingFacets) {
-			filtered = append(filtered, sc)
-		}
-	}
-	sortByScore(filtered, func(sc StudioCompleteness) int { return sc.Completeness.Score }, desc)
-	studios := make([]model.Studio, len(filtered))
-	for i, sc := range filtered {
-		studios[i] = sc.Studio
-		setStudioImageURLs(&studios[i])
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
+	writeCompletenessList(w, scored, missingFacets, desc,
+		func(sc StudioCompleteness) resolver.Completeness { return sc.Completeness },
+		func(sc StudioCompleteness) model.Studio { return sc.Studio },
+	)
 }
 
 // getStudio handles GET /studios/{id} (F38): the studio, its resolved[] fields (record
