@@ -1,4 +1,4 @@
-import type { Resolution } from './types';
+import type { ExternalLink, Resolution } from './types';
 
 // formatDuration renders seconds as H:MM:SS (or M:SS under an hour) — F2.4.
 export function formatDuration(totalSec: number): string {
@@ -79,6 +79,13 @@ export function filterByTitle<T extends { title: string }>(items: T[], query: st
 // (ADR-059). Empty/whitespace name → "?".
 export function monogram(name: string): string {
 	return name.trim().charAt(0).toUpperCase() || '?';
+}
+
+// sortExternalLinks orders a person/studio/video's provider-link badges (HOLODEX-266,
+// ADR-083 D3) alphabetically by display label — deterministic and stable across
+// reloads regardless of the backend's row order, not insertion order.
+export function sortExternalLinks(links: ExternalLink[]): ExternalLink[] {
+	return [...links].sort((a, b) => a.label.localeCompare(b.label));
 }
 
 // isHttpUrl gates a provider-supplied value before it becomes a link `href`.

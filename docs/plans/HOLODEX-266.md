@@ -26,7 +26,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - [x] architecture `architecture` → `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md`
 - [x] backend
-- [ ] frontend
+- [x] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
@@ -44,7 +44,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
    + sanitize/validate on `/describe` ingest + `BuildProviderLink(namespace, entityKind, id)` helper
 4. [x] [backend] person/studio detail handlers project `person_external_ids`/`studio_external_ids`
    into `external_links: [{provider, label, url}]` via the new helper
-5. [ ] [frontend] extract the video badge into a shared component; person/studio headers render
+5. [x] [frontend] extract the video badge into a shared component; person/studio headers render
    zero-to-many badges from `external_links`
 6. [ ] [testing] template-mismatch degradation + multi-badge cases
 7. [ ] [security] `LinkTemplates` validation (single `{id}` placeholder, `https://` scheme, no
@@ -59,6 +59,40 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-09 · Frontend gate closed — ProviderLinkBadge.svelte + person/studio wiring
+- skills: simplify
+- handoff: built item #5. Research first: the F55 video badge item #5 references doesn't exist
+  in code yet (the handoff doc itself flags this as still-open ADR-082 action item 6), so
+  `web/src/lib/components/enrichment/ProviderLinkBadge.svelte` is a fresh build against the
+  settled design spec, not an extraction — video-page wiring stays out of scope since the
+  backend `external_links` projection was only built for person/studio (items #3-4). New
+  `ExternalLink` type in `web/src/lib/types.ts` mirrors the Go `api.ExternalLink` struct;
+  `sortExternalLinks` (`format.ts`) gives DD3's alphabetical-by-label order. `ProviderIcon.svelte`
+  gained an opt-in `decorative` prop (default `false`, non-breaking for its 4 existing callers) so
+  the badge's icon doesn't double-announce the name its own visible text already carries.
+  `ProviderLinkBadge` renders `<svelte:element this={linked ? 'a' : 'span'}>` per DD2's linked
+  vs. degraded states — the design handoff's a11y spec (aria-label text, `target="_blank"
+  rel="noopener noreferrer"` for linked, tabindex-less span for degraded) implemented verbatim.
+  Wiring surfaced a real duplication `/simplify` caught (3 of 4 review agents independently
+  flagged the same thing): the count+badges row was copy-pasted between `EntityVideos.svelte`'s
+  default branch and the person page's own `hero` snippet — not the single-line precedent that
+  originally justified hero-owns-its-layout. Extracted `web/src/lib/components/entity/
+  EntityVideoMeta.svelte` (count + sorted badges) as the one shared row, called from both;
+  `ProviderLinkBadge`'s own linked/degraded branches were also deduped into the single
+  `svelte:element` above instead of two near-identical `<a>`/`<span>` blocks. Verified end-to-end
+  against real local data, not just `npm run check`/`test`: seeded a `provider_link_templates`
+  row + restarted `backend-films` to prove the linked (TMDB) state resolves
+  (`/api/v1/people/22` → `external_links[0].url`), confirmed the degraded state pre-existed
+  for TMDB (no `link_templates` declared by the sidecar yet — expected, not a bug), and
+  browser-verified both `/people/22` (badge renders, correct href/aria-label, no console errors
+  on a clean tab) and `/studios/1` (no external id → no badge, no regression) — plus contrast
+  ≥4.9:1 across all three skins (Cinémathèque 6.3:1, Broadcast 4.9:1, Brutalist 5.7:1) via
+  computed-style checks (browser screenshots time out in this environment). `npm run check`: 0
+  errors. `npm run test`: 134/134. Next: testing-strategy (item #6 — template-mismatch
+  degradation + multi-badge cases) and security-review (item #7 — `LinkTemplates` validation,
+  already backend-side; the frontend has no new server-fetch surface to review, just an `isHttpUrl`
+  defense-in-depth `href` gate mirroring `EnrichPicker`'s).
 
 ### 2026-08-09 · Backend gate closed — LinkTemplates + external_links projection
 - skills: simplify

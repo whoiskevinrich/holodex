@@ -10,6 +10,7 @@
 		DecisionSource,
 		EnrichSource,
 		EntityRef,
+		ExternalLink,
 		Person,
 		PersonAlias,
 		PersonDetailResponse,
@@ -25,6 +26,7 @@
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
+	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
@@ -46,6 +48,7 @@
 	let resolved = $state<ResolvedField[]>([]);
 	let images = $state<PersonImageSet>({ roles: {}, gallery: [] });
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
+	let externalLinks = $state<ExternalLink[]>([]); // HOLODEX-266, ADR-083 D1
 	let loading = $state(true);
 	let error = $state('');
 
@@ -159,6 +162,7 @@
 		images = res.images ?? { roles: {}, gallery: [] };
 		aliases = res.person.aliases ?? [];
 		completeness = res.completeness ?? null;
+		externalLinks = res.external_links ?? [];
 	}
 
 	function load(current: number) {
@@ -472,7 +476,11 @@
 							</h1>
 							<NationalityFlags values={nationalityValues} />
 						</div>
-						<p class="text-sm text-muted">{videoCount(videos.length)}</p>
+						<EntityVideoMeta
+							count={videos.length}
+							links={externalLinks}
+							entityName={person?.name ?? ''}
+						/>
 					</div>
 				</div>
 				{#if isOwner}

@@ -704,6 +704,9 @@ export interface PersonDetailResponse {
 	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
+	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
+	// entry per stored person_external_ids row (0..N), read-only, visitor-visible.
+	external_links?: ExternalLink[] | null;
 }
 
 // StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
@@ -717,6 +720,20 @@ export interface StudioDetailResponse {
 	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
+	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
+	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
+	external_links?: ExternalLink[] | null;
+}
+
+// ExternalLink is one badge-ready outbound link (HOLODEX-266, ADR-083 D2/D3), mirroring
+// the Go api.ExternalLink struct: `provider` is the id's namespace (e.g. "imdb"), `label`
+// its display text (e.g. "IMDb"), and `url` the server-built outbound link — absent when
+// no provider currently advertises a link_templates entry for this (namespace, entity
+// kind), the ADR-083 D2 degraded "known to, but nowhere to click through to" state.
+export interface ExternalLink {
+	provider: string;
+	label: string;
+	url?: string;
 }
 
 // PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the

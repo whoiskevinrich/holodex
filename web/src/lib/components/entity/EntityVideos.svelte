@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import type { Video } from '$lib/types';
+	import type { ExternalLink, Video } from '$lib/types';
 	import VideoGrid from '../video/VideoGrid.svelte';
+	import EntityVideoMeta from './EntityVideoMeta.svelte';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { videoCount, filterByTitle } from '$lib/format';
+	import { filterByTitle } from '$lib/format';
 	import { navSearch } from '$lib/navSearch.svelte';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
@@ -33,7 +34,8 @@
 		empty,
 		scrollKey,
 		hero,
-		detail
+		detail,
+		externalLinks = []
 	}: {
 		backHref: string;
 		backLabel: string;
@@ -43,6 +45,10 @@
 		scrollKey: string;
 		hero?: Snippet;
 		detail?: Snippet;
+		// HOLODEX-266 (ADR-083 D1/D3): the provider-link badge projection, rendered onto
+		// the default title+count block below — ignored when `hero` is supplied, since
+		// the caller (person page) renders its own badge row inline with its own hero.
+		externalLinks?: ExternalLink[];
 	} = $props();
 
 	// A single caller per scrollKey (one entity's own video grid, no sort control), so
@@ -81,7 +87,7 @@
 		{@render hero()}
 	{:else}
 		<h1 class="skin-title text-2xl font-semibold text-ink">{name}</h1>
-		<p class="text-sm text-muted">{videoCount(videos.length)}</p>
+		<EntityVideoMeta count={videos.length} links={externalLinks} entityName={name} />
 	{/if}
 	{#if detail}{@render detail()}{/if}
 	<VideoGrid videos={displayedVideos} empty={emptyMessage} />

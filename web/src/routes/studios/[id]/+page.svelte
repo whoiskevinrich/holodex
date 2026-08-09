@@ -9,6 +9,7 @@
 		Completeness,
 		DecisionSource,
 		EnrichSource,
+		ExternalLink,
 		PersonAlias,
 		ResolvedField,
 		Studio,
@@ -45,6 +46,7 @@
 	// register the loser/old name as an alias so RelinkVideoStudios won't resurrect it (RD6).
 	let aliases = $state<PersonAlias[]>([]);
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
+	let externalLinks = $state<ExternalLink[]>([]); // HOLODEX-266, ADR-083 D1
 	let loading = $state(true);
 	let error = $state('');
 
@@ -120,6 +122,7 @@
 		resolved = res.resolved ?? [];
 		aliases = res.studio.aliases ?? [];
 		completeness = res.completeness ?? null;
+		externalLinks = res.external_links ?? [];
 	}
 
 	function load(current: number) {
@@ -208,6 +211,7 @@
 		{videos}
 		empty="No videos for this studio."
 		scrollKey={`studio:${id}`}
+		{externalLinks}
 	>
 		{#snippet detail()}
 			<!-- Aliases are core identity, so the panel reads above the Details/enrichment
