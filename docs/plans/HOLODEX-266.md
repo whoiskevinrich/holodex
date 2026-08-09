@@ -27,7 +27,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md`
 - [x] backend
 - [x] frontend
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
@@ -46,7 +46,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
    into `external_links: [{provider, label, url}]` via the new helper
 5. [x] [frontend] extract the video badge into a shared component; person/studio headers render
    zero-to-many badges from `external_links`
-6. [ ] [testing] template-mismatch degradation + multi-badge cases
+6. [x] [testing] template-mismatch degradation + multi-badge cases
 7. [ ] [security] `LinkTemplates` validation (single `{id}` placeholder, `https://` scheme, no
    injection via a malicious provider) before interpolation into a served URL
 
@@ -60,8 +60,43 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · Testing gate closed — external_links projection + BuildProviderLink coverage
+- skills: testing-strategy, simplify
+- handoff: closed item #6. `externalLinksForEntity` (`internal/api/external_links.go`) and
+  `Service.BuildProviderLink`/`verifiedClient`'s link-template persistence had no dedicated tests
+  before this session — only their lower-level building blocks (`ExternalIDsForEntity`,
+  `ValidateLinkTemplate`, `SanitizeLinkTemplates`) were covered. New
+  `internal/api/external_links_test.go` exercises both layers together against a fake HTTP
+  provider, since `persistLinkTemplates` only fires as a side effect of a real provider action
+  (`Resolve`) — a direct repo write would skip the D2 wiring under test. `TestExternalLinks_
+  MultiBadge`/`_Studio` prove ADR-083 D3 (one badge per stored id, 0..N): two distinct
+  namespaced ids attached to the same entity via two separate `ReconcileVideoPeople`/
+  `ReconcileVideoStudios` calls (additive across namespaces per `attachExternalID`'s `INSERT OR
+  IGNORE`) round-trip as two independently namespace-split, labeled badges, and both handler call
+  sites (person, studio) share the one projection. `TestExternalLinks_TemplateMismatch`
+  table-drives ADR-083 D2's degraded state (no templates declared, wrong namespace, wrong entity
+  kind) — all yield a label-only badge (`url` key omitted, never empty-string or an error).
+  `TestExternalLinks_EnrichmentDisabled` covers the other D2 path (no enrichment service wired at
+  all, a real deployment state) as its own test rather than a table row, since it needs no fake
+  provider. `TestExternalLinks_MalformedIDSkipped` proves a stored id without a `namespace:id`
+  separator is silently dropped, not surfaced as a partial entry. On the frontend, `sortExternalLinks`
+  and `isHttpUrl` (`format.ts`) — the multi-badge ordering and the badge's XSS-safety `href` gate —
+  gained unit coverage in `format.test.ts` (5 new tests); the component layer itself
+  (`ProviderLinkBadge`, `EntityVideoMeta`) stays manual-QA-only per the standing frontend-
+  automation gap. Updated `docs/testing-strategy.md` in 4 places (§4 backend table row, critical
+  invariants bullet, §5 frontend table row, §11 known-gaps bullet). Ran `/simplify`: extracted a
+  shared `linksByProvider` test helper (deduped the map-building loop across
+  `TestExternalLinks_MultiBadge`/`_Studio`) and split `TestExternalLinks_EnrichmentDisabled` out
+  of the mismatch table so it no longer bootstraps and discards a full fake-provider environment.
+  Skipped (out of this diff's scope): extracting a shared fake-provider-harness helper across
+  `external_links_test.go`, `provider_icon_test.go`, and `internal/enrich/enrich_test.go` — a
+  pre-existing duplication those files already share, not introduced here. `go test ./internal/...`
+  and `npm run test`/`npm run check` both clean. Next: security-review (item #7 — `LinkTemplates`
+  validation, no injection via a malicious provider) — the last gate before the draft PR can leave
+  draft.
+
 ### 2026-08-09 · Frontend gate closed — ProviderLinkBadge.svelte + person/studio wiring
-- skills: simplify
+- skills: simplify, testing-strategy
 - handoff: built item #5. Research first: the F55 video badge item #5 references doesn't exist
   in code yet (the handoff doc itself flags this as still-open ADR-082 action item 6), so
   `web/src/lib/components/enrichment/ProviderLinkBadge.svelte` is a fresh build against the
