@@ -57,6 +57,25 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-08 · Item #4 follow-up — shared segmented-toggle class helper
+- skills: simplify
+- handoff: closed the one `/simplify` finding left unfixed from the item #4 pass — the reuse
+  agent's minor flag that `CompletenessSortToggle.svelte` and `SortToggle.svelte` each carried an
+  identical `cls(active)` helper plus identical wrapper markup. Extracted both into
+  `web/src/lib/components/sort/segmentedToggle.ts` (`segmentedToggleClass`,
+  `segmentedToggleWrapperClass`, plain functions/const — no reactivity needed) and pointed both
+  components at it; added the file to `sort/CLAUDE.md`. Everything else from that `/simplify` pass
+  (reuse+simplification's missing-facet-fetch triplication, reuse's `equalStrings`→`slices.Equal`,
+  simplification's owner-gate triplication, efficiency's clean-infinite-loop-fix confirmation) had
+  already been fixed in the item #4 commit (`c75a49d`) — this was the sole remainder. The three
+  efficiency findings on backend perf (double compute of facets+list, full re-score on every
+  "Load more" page, sequential `*ForEntities` batch loaders) stay deferred, per the same
+  reasoning as before: pre-existing ADR-081 D4 architecture, out of scope for a browse-UI item,
+  candidates for their own HOLODEX ticket once real usage shows it matters at this app's
+  personal-library scale. `npm run check` (0 errors) and `go build`/`go vet` both clean; verified
+  both toggles live in the browser (correct active-state class, no console/network regressions).
+  Next: item #5, the facet-first remediation queue.
+
 ### 2026-08-08 · Item #4 — browse Completeness sort + Missing facet filter chip (F55.5/F55.6)
 - skills: simplify
 - handoff: wired D4's backend predicate into all three public list endpoints and built the
