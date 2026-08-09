@@ -359,6 +359,9 @@ export interface MediaDetailResponse {
 	// this video's already-resolved fields. A provider absent from the map (e.g.
 	// enrichment disabled) falls back to the plain resolved/raw title client-side.
 	enrich_queries?: Record<string, string> | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values
@@ -698,6 +701,9 @@ export interface PersonDetailResponse {
 	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
 	resolved?: ResolvedField[] | null;
 	images?: PersonImageSet; // F25: per-role presence + version + ordered gallery
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
@@ -708,6 +714,9 @@ export interface StudioDetailResponse {
 	items: Video[];
 	total: number;
 	resolved?: ResolvedField[] | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the
@@ -743,6 +752,33 @@ export type SortOrder =
 // seeded shuffle of the name-ordered list (ADR-045 §3).
 export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
 export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
+
+// CompletenessFacet is one scored facet's tier/status on the per-entity
+// breakdown panel (F55.13-15) — mirrors internal/resolver.FacetScore.
+// not_applicable is still listed (muted status), but excluded from the
+// parent Completeness's score/actionability. provider is present only when
+// actionable is true.
+export interface CompletenessFacet {
+	canonical: string;
+	label: string;
+	criticality: string;
+	tier: 'missing' | 'provider' | 'curated';
+	not_applicable?: boolean;
+	actionable?: boolean;
+	provider?: string;
+}
+
+// Completeness is the F55 completeness score plus the separate actionability
+// signal for one entity — mirrors internal/resolver.Completeness. Present
+// only on an owner-authorized detail response (video/person/studio); null for
+// a visitor, mirroring enrich_queries' access-control shape.
+export interface Completeness {
+	score: number;
+	// undefined when there are no missing scored facets — the ratio is
+	// undefined, not zero.
+	actionability?: number;
+	facets: CompletenessFacet[];
+}
 
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
 // mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's

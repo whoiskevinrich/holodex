@@ -824,6 +824,23 @@ export const api = {
 			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`
 		),
 
+	// Per-facet not-applicable exclusion (F55.10, ADR-081 D2) — the completeness
+	// breakdown panel's DD8 toggle. Video-only: it is independent of any
+	// field_source_decisions row for the same field, and the mutation validates
+	// against the full registry (not just video-mapped fields), but v1's only UI
+	// target is external_provider_id, a video-only registry field. Owner-gated;
+	// 204 on success.
+	setFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
+		),
+	clearFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
+		),
+
 	// Person per-field source decisions (F37, RD7) — the media pair mirrored onto
 	// /people/{id}. source ∈ record | provider:<name> | manual (RD4 — the person baseline
 	// is `record`); `name` is rejected server-side (400, RD1 — it renames, never pins).

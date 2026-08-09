@@ -6,6 +6,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
 	import type {
+		Completeness,
 		DecisionSource,
 		EnrichSource,
 		PersonAlias,
@@ -18,6 +19,7 @@
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
@@ -42,6 +44,7 @@
 	// is derived identity, so the panel also offers Rename (allowRename) — the merge/rename
 	// register the loser/old name as an alias so RelinkVideoStudios won't resurrect it (RD6).
 	let aliases = $state<PersonAlias[]>([]);
+	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let loading = $state(true);
 	let error = $state('');
 
@@ -116,6 +119,7 @@
 		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
 		aliases = res.studio.aliases ?? [];
+		completeness = res.completeness ?? null;
 	}
 
 	function load(current: number) {
@@ -383,6 +387,10 @@
 						</dl>
 					{/if}
 				</section>
+			{/if}
+
+			{#if isOwner}
+				<CompletenessPanel {completeness} onchanged={reloadDetail} />
 			{/if}
 		{/snippet}
 	</EntityVideos>

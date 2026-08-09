@@ -22,6 +22,7 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/model"
 	"holodex/internal/refresh"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
@@ -659,6 +660,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	var fields []mapping.Resolved
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
+	var mfields []mapping.Field
 	if h.mappings != nil {
 		m := h.mappings.Current()
 		fields = m.Resolve(extra)
@@ -685,7 +687,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			} else {
 				dec = decisionsFromRows(decRows)
 			}
-			mfields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityVideo, m.Fields(), enrichRows)
+			var promoted map[string]bool
+			mfields, promoted = h.mergePromotions(r.Context(), model.EnrichEntityVideo, m.Fields(), enrichRows)
 			mfields = h.mergeClaims(r.Context(), model.EnrichEntityVideo, mfields)
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, h.resolveOptions(dec))
 			h.markPromoted(resolved, promoted)
@@ -725,8 +728,18 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	// is gated behind isOwner client-side) — skip rendering it for a visitor request,
 	// who would only ever discard it.
 	var enrichQueries map[string]string
+	var completeness *resolver.Completeness
 	if authorized {
 		enrichQueries = h.buildVideoQueries(v, resolved)
+		if mfields != nil {
+			na, naErr := h.repo.FacetsNotApplicableForEntity(r.Context(), model.EnrichEntityVideo, id)
+			if naErr != nil {
+				h.log.Warn("facets not applicable for detail", "id", id, "err", naErr)
+				na = map[string]bool{}
+			}
+			c := resolver.Complete(mfields, resolved, na)
+			completeness = &c
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"video":          v,
@@ -736,6 +749,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		"enriched":       enriched,
 		"studios":        studios,
 		"enrich_queries": enrichQueries,
+		"completeness":   completeness,
 	})
 }
 
@@ -1089,13 +1103,32 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "person videos", err)
 		return
 	}
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
+	authorized := h.auth.authorized(r)
+	redactFileMetadataForVisitors(items, authorized)
+	resolved, fields := h.personResolve(r, id, p)
+	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
+	var completeness *resolver.Completeness
+	if authorized {
+		na, naErr := h.repo.FacetsNotApplicableForEntity(r.Context(), model.EnrichEntityPerson, id)
+		if naErr != nil {
+			h.log.Warn("facets not applicable for person detail", "id", id, "err", naErr)
+			na = map[string]bool{}
+		}
+		// photo is delivered as an asset (person_images), never a field value —
+		// score it off the headshot role's presence, same signal
+		// completenessForPeople uses (F55.13).
+		cFields, cResolved := injectAssetFacet(fields, resolved, "photo", registry.Lookup("photo").Label,
+			images.Roles[model.PersonImageHeadshot].Present)
+		c := resolver.Complete(cFields, cResolved, na)
+		completeness = &c
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"person": p, "items": items, "total": total,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
 		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
-		"resolved": h.personResolved(r, id, p),
-		"images":   h.personImageSet(r, id), // F25: per-role presence + version + gallery
+		"resolved":     resolved,
+		"images":       images,
+		"completeness": completeness,
 	})
 }
 

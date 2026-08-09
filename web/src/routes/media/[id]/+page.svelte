@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -29,6 +29,7 @@
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -38,6 +39,7 @@
 	// Studio entities linked to this video (F38): the resolved studio value links to its
 	// /studios/{id} page; the link always matches the displayed value (RD1).
 	let studios = $state<Studio[]>([]);
+	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
 	let error = $state('');
@@ -251,6 +253,7 @@
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
 		enrichQueries = res.enrich_queries ?? {};
+		completeness = res.completeness ?? null;
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
@@ -919,6 +922,10 @@
 				</p>
 				{/if}
 			</section>
+		{/if}
+
+		{#if isOwner}
+			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 		{/if}
 
 		{#if isOwner}

@@ -25,8 +25,8 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md` (D5 superseded by `docs/architecture/ADR-082-external-provider-id-namespace-qualified-value.md`)
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
-- [/] backend
-- [/] frontend
+- [x] backend
+- [x] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — new owner-gated not-applicable mutation
 
@@ -43,7 +43,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 3. [x] [backend] `imdb_id` → `external_provider_id` rename, value namespace-qualified per ADR-082 — `internal/registry/registry.go`, `internal/db/migrations/0040_rename_imdb_id_field_key.{up,down}.sql`, `providers/tmdb/tmdb.go`, `providers/tmdb/handler.go`
 4. [x] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [x] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
-6. [ ] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
+6. [x] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
 7. [ ] [testing] F55 block in `docs/testing-strategy.md`
 8. [ ] [security] `/security-review` on the not-applicable mutation
 
@@ -56,6 +56,58 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-09 · Item #6 — per-entity completeness breakdown panel (F55.13-15)
+- skills: simplify
+- handoff: implemented item #6, closing the frontend gate — the last item in the design
+  handoff's DD4-8. Backend: `getMedia`/`getPerson`/`getStudio` (`internal/api/handlers.go`,
+  `person_fields.go`, `studios.go`) now expose the `fields []mapping.Field` slice each
+  already computes during its existing resolve pass (not a second re-resolve), so a new
+  owner-gated `completeness` field on all three detail responses can call `resolver.Complete`
+  against the same pass — mirrors the pre-existing `enrich_queries` owner-gating pattern.
+  `personResolved`→`personResolve` and `studioResolved`/`resolveStudio` widened to return
+  `(resolved, fields)` instead of just `resolved`; all call sites were single-chain, updated
+  safely. Found and fixed a real gap while wiring this up: `FacetScore.Provider` was only set
+  for missing+actionable facets, but DD7 needs it for already-curated provider-tier facets
+  too (so the panel's Provider pill can render `ProvenanceBadge` with the actual winning
+  namespace) — extended `resolver.Complete`'s per-facet loop with a `case providerTier` branch
+  and a new `winningNamespace` helper (refactored out of `classifyTier`'s existing
+  `strings.Cut`). New `internal/api/completeness_detail_test.go`: three tests (one per entity
+  type) asserting owner-present/visitor-omitted `completeness` shape. Frontend: new
+  `CompletenessPanel.svelte` (`components/completeness/`) implements DD4-8 — score bar +
+  actionability line ("Fully complete" fallback), facets grouped Critical/Nice-to-have, a
+  four-state status pill (Curated=accent outline, Provider=`ProvenanceBadge`,
+  Missing=dashed-muted, Not applicable=plain text), and the video-only not-applicable toggle
+  on `external_provider_id` reusing the tag-detail page's exact icon-button idiom. Wired into
+  all three detail pages (`media/[id]`, `people/[id]`, `studios/[id]`) right after each page's
+  primary Metadata/Details card, per DD4's placement rule. QA'd live in the browser end to end
+  on both testbeds (backend-amv for media+studio, backend-films for the DD8 toggle since amv's
+  local mapping has no `external_provider_id`-mapped field to exercise it) — score bar/pill
+  colors verified via computed styles across all three skins (screenshots time out on this
+  app), and the not-applicable toggle round-tripped correctly (score recalculates, pill flips
+  to "Not applicable", `onchanged` refetches). Also fixed a stale local dev config found during
+  QA: `metadata-mappings.local.films.yaml` (gitignored, shared across worktrees, lives at the
+  main repo root) still mapped the pre-ADR-082 `imdb_id` canonical instead of the renamed
+  `external_provider_id` — updated so the DD8 toggle has something to exercise on that testbed;
+  not part of this commit since the file is gitignored. Ran `/simplify` (4-agent pass): reuse
+  flagged the not-applicable toggle button hand-forking `border-accent text-accent` /
+  `border-rule text-muted hover:text-ink` instead of reusing the shared `.btn-accent`/
+  `.btn-ghost` treatments from `app.css` (fixed — also picks up their disabled-state styling,
+  which the hand-rolled version was missing entirely); simplification flagged `busyFacet`
+  tracking facet identity as a string when only one facet can ever be busy (the toggle only
+  ever renders for `external_provider_id`) — simplified to a plain `busy` boolean. Altitude and
+  efficiency findings were reviewed and skipped: `getMedia`'s hoisted `var mfields` (altitude)
+  would need a larger `resolveMedia`-style extraction to match the person/studio pattern —
+  correct but out of scope for this diff, worth a follow-up if `getMedia` grows again; the
+  toggle's hardcoded `external_provider_id` canonical (altitude) is intentional v1 scope per
+  the design handoff's own text ("v1's only UI target is external_provider_id"), not a bug;
+  sequential (not parallelized) `FacetsNotApplicableForEntity` reads (efficiency) are
+  negligible for a single owner-only detail-page GET at this app's personal-library scale.
+  `go build`/`go vet`/`go test ./internal/resolver/... ./internal/api/...` and `npm run check`
+  (0 errors) both clean before and after the simplify fixes; re-verified the toggle button's
+  `.btn-accent`/`.btn-ghost` classes live in the browser post-fix. Next: item #7 (F55 block in
+  `docs/testing-strategy.md`) and item #8 (`/security-review` on the not-applicable mutation) —
+  the two remaining gates before this epic's Draft PR can come out of draft.
 
 ### 2026-08-08 · Item #5 — facet-first remediation queue (F55.7/F55.8)
 - skills: simplify

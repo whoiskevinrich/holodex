@@ -65,10 +65,14 @@ type FacetScore struct {
 	// Actionable is true only for a missing (non-excluded, non-not-applicable)
 	// facet that has a cached unapplied provider candidate.
 	Actionable bool `json:"actionable,omitempty"`
-	// Provider is the namespace of the candidate Actionable refers to (e.g.
-	// "tmdb") — set only when Actionable, so the remediation queue (F55.7) can
-	// show which provider it would come from and apply it via setFieldDecision
-	// without a second lookup into resolved fields the API layer doesn't retain.
+	// Provider is a provider namespace (e.g. "tmdb"), set in either of two
+	// cases: when Actionable, the candidate it refers to, so the remediation
+	// queue (F55.7) can show which provider it would come from and apply it
+	// via setFieldDecision without a second lookup into resolved fields the API
+	// layer doesn't retain; or when Tier is TierProvider, the namespace that
+	// actually won the field, so the completeness breakdown panel (F55.13,
+	// design handoff DD7) can render a ProvenanceBadge naming the resolved
+	// source instead of a bare "Provider" label.
 	Provider string `json:"provider,omitempty"`
 }
 
@@ -121,13 +125,16 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 		weight := criticalityWeight(def.Criticality)
 		weightSum += weight
 		weightedSum += weight * t.weight
-		if t == missingTier {
+		switch t {
+		case missingTier:
 			missing++
 			if provider, ok := actionableCandidate(rf); ok {
 				fs.Actionable = true
 				fs.Provider = provider
 				actionable++
 			}
+		case providerTier:
+			fs.Provider = winningNamespace(rf.WinningSource)
 		}
 		facets = append(facets, fs)
 	}
@@ -152,13 +159,19 @@ func classifyTier(winningSource string) tier {
 	if winningSource == "" {
 		return missingTier
 	}
-	ns, _, _ := strings.Cut(winningSource, ":")
-	switch fieldsource.ForNamespace(ns) {
+	switch fieldsource.ForNamespace(winningNamespace(winningSource)) {
 	case fieldsource.File, fieldsource.Manual:
 		return curatedTier
 	default:
 		return providerTier
 	}
+}
+
+// winningNamespace extracts the namespace portion of a "namespace:key"
+// WinningSource string (the provider name for a provider-tier facet).
+func winningNamespace(winningSource string) string {
+	ns, _, _ := strings.Cut(winningSource, ":")
+	return ns
 }
 
 // criticalityWeight maps a facet's criticality tag to its numeric scoring weight
