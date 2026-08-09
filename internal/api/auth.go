@@ -193,18 +193,30 @@ func ttlForClass(class string) time.Duration {
 // unauthorized request gets 401 before reaching any handler.
 func (h *Handlers) requireOwner(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if h.auth.authorized(r) {
-			h.maybeRenewSession(w, r) // slide an active cookie's lifetime (ADR-046)
+		if h.requireOwnerInline(w, r) {
 			next.ServeHTTP(w, r)
-			return
 		}
-		// An expired/tampered cookie is no credential: tell the browser to drop it
-		// so it stops resending a dead value (ADR-046). Only when one was presented.
-		if _, err := r.Cookie(sessionCookieName); err == nil {
-			http.SetCookie(w, h.expireSessionCookie(r))
-		}
-		writeError(w, http.StatusUnauthorized, "owner authorization required")
 	})
+}
+
+// requireOwnerInline is requireOwner's check for a single conditional branch
+// inside an otherwise-public handler (e.g. a completeness sort/filter on a
+// public list endpoint, F55.5/F55.6) — same auth check, session renewal, and
+// dead-cookie clearing as the middleware, minus the http.Handler wrapping.
+// Returns true if the request may proceed; on false it has already written
+// the 401 and the caller must return without further work.
+func (h *Handlers) requireOwnerInline(w http.ResponseWriter, r *http.Request) bool {
+	if h.auth.authorized(r) {
+		h.maybeRenewSession(w, r) // slide an active cookie's lifetime (ADR-046)
+		return true
+	}
+	// An expired/tampered cookie is no credential: tell the browser to drop it
+	// so it stops resending a dead value (ADR-046). Only when one was presented.
+	if _, err := r.Cookie(sessionCookieName); err == nil {
+		http.SetCookie(w, h.expireSessionCookie(r))
+	}
+	writeError(w, http.StatusUnauthorized, "owner authorization required")
+	return false
 }
 
 // capabilities (ungated) tells the SPA what it may do: whether the current

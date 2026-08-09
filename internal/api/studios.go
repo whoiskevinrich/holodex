@@ -94,15 +94,17 @@ func (h *Handlers) studioProviders(rows []repo.EnrichmentRow) []string {
 
 // studioResolved resolves a studio's fields through the unified resolver (F38): the
 // record baseline + shadow enrichment + curation + standing decisions, in the record
-// vocabulary. Mirrors personResolved; degraded reads log and resolve without the
-// failing layer.
-func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) []resolver.ResolvedField {
+// vocabulary. Mirrors personResolve; degraded reads log and resolve without the
+// failing layer. Also returns the synthesized field list, so callers (e.g. the F55
+// completeness breakdown panel) can score the same resolve pass instead of
+// re-resolving from scratch.
+func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) ([]resolver.ResolvedField, []mapping.Field) {
 	return h.resolveStudio(r.Context(), id, s)
 }
 
 // resolveStudio is the ctx-based core of studioResolved, so it is callable off the
 // request path. Degraded reads log and resolve without the failing layer.
-func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) []resolver.ResolvedField {
+func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) ([]resolver.ResolvedField, []mapping.Field) {
 	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityStudio, id)
 	if err != nil {
 		h.log.Warn("enrichment for studio detail", "id", id, "err", err)
@@ -125,13 +127,26 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 	fields = h.mergeClaims(ctx, model.EnrichEntityStudio, fields)
 	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 	h.markPromoted(resolved, promoted)
-	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved))
+	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved)), fields
 }
 
-// listStudios handles GET /studios (F38): name-sorted (or count-sorted) studios with
-// active-video counts. Public, mirroring people/tags. Empty studios never appear.
+// listStudios handles GET /studios (F38): name-sorted (or count-sorted, or
+// completeness-sorted/filtered) studios with active-video counts. Public,
+// mirroring people/tags, except sort=completeness_asc|completeness_desc and
+// the repeatable missing_facet param, which are owner-only (F55.5/F55.6,
+// ADR-081 D4), same posture as listMedia/listPeople. Empty studios never appear.
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
-	studios, err := h.repo.ListStudios(r.Context(), r.URL.Query().Get("sort") == "count")
+	q := r.URL.Query()
+	sort := q.Get("sort")
+	missingFacets := q["missing_facet"]
+	if wantsCompleteness(sort, missingFacets) {
+		if !h.requireOwnerInline(w, r) {
+			return
+		}
+		h.listStudiosByCompleteness(w, r, sort == sortCompletenessDesc, missingFacets)
+		return
+	}
+	studios, err := h.repo.ListStudios(r.Context(), sort == "count")
 	if err != nil {
 		h.fail(w, "list studios", err)
 		return
@@ -140,6 +155,22 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 		setStudioImageURLs(&studios[i])
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
+}
+
+// listStudiosByCompleteness serves GET /studios once listStudios has
+// determined the request is completeness-sorted or missing-facet-filtered
+// (F55.5/F55.6). No other browse filter or pagination to preserve, like
+// people. Caller has already checked owner auth.
+func (h *Handlers) listStudiosByCompleteness(w http.ResponseWriter, r *http.Request, desc bool, missingFacets []string) {
+	scored, err := h.completenessForStudios(r.Context())
+	if err != nil {
+		h.fail(w, "list studios by completeness", err)
+		return
+	}
+	writeCompletenessList(w, scored, missingFacets, desc,
+		func(sc StudioCompleteness) resolver.Completeness { return sc.Completeness },
+		func(sc StudioCompleteness) model.Studio { return sc.Studio },
+	)
 }
 
 // getStudio handles GET /studios/{id} (F38): the studio, its resolved[] fields (record
@@ -160,10 +191,28 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "studio videos", err)
 		return
 	}
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
+	authorized := h.auth.authorized(r)
+	redactFileMetadataForVisitors(items, authorized)
+	resolved, fields := h.studioResolved(r, id, s)
+	var completeness *resolver.Completeness
+	if authorized {
+		na, naErr := h.repo.FacetsNotApplicableForEntity(r.Context(), model.EnrichEntityStudio, id)
+		if naErr != nil {
+			h.log.Warn("facets not applicable for studio detail", "id", id, "err", naErr)
+			na = map[string]bool{}
+		}
+		// branding_image is delivered as an asset (studio_images), never a field
+		// value — resolved if any of the icon/logo/poster roles is set (F55.13),
+		// same signal completenessForStudios uses.
+		cFields, cResolved := injectAssetFacet(fields, resolved, "branding_image", registry.Lookup("branding_image").Label,
+			len(s.ImageVersions) > 0)
+		c := resolver.Complete(cFields, cResolved, na)
+		completeness = &c
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"studio": s, "items": items, "total": total,
-		"resolved": h.studioResolved(r, id, s),
+		"resolved":     resolved,
+		"completeness": completeness,
 	})
 }
 

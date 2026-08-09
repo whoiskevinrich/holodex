@@ -359,6 +359,9 @@ export interface MediaDetailResponse {
 	// this video's already-resolved fields. A provider absent from the map (e.g.
 	// enrichment disabled) falls back to the plain resolved/raw title client-side.
 	enrich_queries?: Record<string, string> | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values
@@ -698,6 +701,9 @@ export interface PersonDetailResponse {
 	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
 	resolved?: ResolvedField[] | null;
 	images?: PersonImageSet; // F25: per-role presence + version + ordered gallery
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
@@ -708,6 +714,9 @@ export interface StudioDetailResponse {
 	items: Video[];
 	total: number;
 	resolved?: ResolvedField[] | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the
@@ -722,7 +731,9 @@ export interface PersonRenameConflict {
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
-// "random" is a seeded shuffle paired with a ?seed= param (ADR-045).
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045). completeness_asc/
+// desc (F55.5) are owner-only — the server 401s a non-owner request using them, so the
+// frontend must only ever offer/send them when isOwner is true.
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
@@ -732,13 +743,78 @@ export type SortOrder =
 	| 'duration_asc'
 	| 'resolution_desc'
 	| 'resolution_asc'
-	| 'random';
+	| 'random'
+	| 'completeness_asc'
+	| 'completeness_desc';
 
 // Sort options for the unpaged People/Tags indexes — the single source of truth for
 // both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
 // seeded shuffle of the name-ordered list (ADR-045 §3).
 export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
 export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
+
+// CompletenessFacet is one scored facet's tier/status on the per-entity
+// breakdown panel (F55.13-15) — mirrors internal/resolver.FacetScore.
+// not_applicable is still listed (muted status), but excluded from the
+// parent Completeness's score/actionability. provider is present only when
+// actionable is true.
+export interface CompletenessFacet {
+	canonical: string;
+	label: string;
+	criticality: string;
+	tier: 'missing' | 'provider' | 'curated';
+	not_applicable?: boolean;
+	actionable?: boolean;
+	provider?: string;
+}
+
+// Completeness is the F55 completeness score plus the separate actionability
+// signal for one entity — mirrors internal/resolver.Completeness. Present
+// only on an owner-authorized detail response (video/person/studio); null for
+// a visitor, mirroring enrich_queries' access-control shape.
+export interface Completeness {
+	score: number;
+	// undefined when there are no missing scored facets — the ratio is
+	// undefined, not zero.
+	actionability?: number;
+	facets: CompletenessFacet[];
+}
+
+// FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
+// mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's
+// option list: canonical (the value sent as ?missing_facet=), a display label,
+// and how many entities of this type are currently missing it.
+export interface FacetSummary {
+	canonical: string;
+	label: string;
+	criticality: string;
+	missing_count: number;
+}
+
+// CompletenessQueueRow is one (entity, missing facet) pair in the facet-first
+// remediation queue (F55.7, GET /owner/completeness-queue) — mirrors
+// internal/api.QueueRow. Exactly one of thumbnail_url/headshot_version/icon_url
+// is set, matching entity_type. provider is present only on candidate-ready
+// rows (F55.8 DD3).
+export interface CompletenessQueueRow {
+	entity_type: EnrichEntityKind;
+	entity_id: number;
+	name: string;
+	thumbnail_url?: string;
+	headshot_version?: number;
+	icon_url?: string;
+	provider?: string;
+}
+
+// CompletenessFacetGroup is one missing-facet group, pre-split into
+// candidate-ready and needs-research rows — mirrors internal/api.FacetGroup.
+export interface CompletenessFacetGroup {
+	canonical: string;
+	label: string;
+	criticality: string;
+	candidate_ready: CompletenessQueueRow[];
+	needs_research: CompletenessQueueRow[];
+}
 
 export interface MediaFilters {
 	q?: string;
@@ -763,6 +839,9 @@ export interface MediaFilters {
 	// sort==='random'.
 	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
+	// Missing-facet filter (F55.6): canonical facet keys the video must be missing
+	// (AND semantics across multiple). Owner-only, like the completeness sorts above.
+	missing_facet?: string[];
 	limit?: number;
 	offset?: number;
 }

@@ -391,6 +391,46 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	return out, total, nil
 }
 
+// ListAllVideos returns every active video matching filter, ignoring Limit/Offset —
+// the full-scan read the F55 list-wide completeness resolve needs (ADR-081 D4): a
+// compute-on-read score can't be pushed into SQL ORDER BY/WHERE, so sort/filter-by-
+// completeness must see every candidate before it can rank and page in Go. Bounded
+// by this app's personal-library scale, the same assumption the extraction review
+// queue's full-table read (ExtractionQueue) already leans on.
+func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video, error) {
+	where, args := f.build()
+	orderClause, orderArgs := f.orderBy()
+	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
+	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
+	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
+	      FROM videos v ` + where +
+		` ORDER BY ` + orderClause
+	qArgs := make([]any, 0, len(args)+len(orderArgs))
+	qArgs = append(qArgs, args...)
+	qArgs = append(qArgs, orderArgs...)
+	rows, err := r.db.QueryContext(ctx, q, qArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("list all videos: %w", err)
+	}
+	defer rows.Close()
+
+	var out []model.Video
+	for rows.Next() {
+		v, err := scanVideo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachAssociations(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // build assembles the shared WHERE clause + args for list and count queries.
 func (f VideoFilter) build() (string, []any) {
 	var clauses []string
@@ -697,6 +737,40 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 			return nil, err
 		}
 		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// ExtraMetadataForVideos returns video_metadata rows for a batch of video IDs,
+// grouped by id — a single query so the F55 list-wide completeness resolve (ADR-081
+// D4) avoids N+1. File-tag-sourced fields (e.g. studio, actors — see
+// metadata-mappings.yaml.example) live only here, not on model.Video, so a list
+// read that skipped this would misreport them as missing rather than curated.
+// Missing keys mean no extra metadata for that video.
+func (r *Repo) ExtraMetadataForVideos(ctx context.Context, ids []int64) (map[int64][]model.ExtraMetadata, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT video_id, source_key, value
+		FROM video_metadata
+		WHERE video_id IN (`+placeholders(len(ids))+`)
+		ORDER BY video_id, source_key`, toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("extra metadata for videos: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int64][]model.ExtraMetadata, len(ids))
+	for rows.Next() {
+		var (
+			vid int64
+			m   model.ExtraMetadata
+		)
+		if err := rows.Scan(&vid, &m.SourceKey, &m.Value); err != nil {
+			return nil, err
+		}
+		out[vid] = append(out[vid], m)
 	}
 	return out, rows.Err()
 }

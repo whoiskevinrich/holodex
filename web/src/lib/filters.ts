@@ -10,7 +10,9 @@ export const DEFAULT_SORT: SortOrder = 'added_desc';
 // order (F12.1). SortDropdown renders this; SORT_ORDERS derives the value set used
 // to validate a persisted preference (SP1) so a stale/unknown localStorage value
 // safely falls back to DEFAULT_SORT. "random" is a seeded shuffle (ADR-045).
-export const MEDIA_SORTS: readonly { value: SortOrder; label: string }[] = [
+// completeness_asc/desc (F55.5) carry an `ownerOnly` flag — the server 401s a
+// non-owner request using them, so SortDropdown filters them out unless owner=true.
+export const MEDIA_SORTS: readonly { value: SortOrder; label: string; ownerOnly?: boolean }[] = [
 	{ value: 'added_desc', label: 'Date added — newest' },
 	{ value: 'added_asc', label: 'Date added — oldest' },
 	{ value: 'title_asc', label: 'Title — A→Z' },
@@ -19,7 +21,9 @@ export const MEDIA_SORTS: readonly { value: SortOrder; label: string }[] = [
 	{ value: 'duration_asc', label: 'Duration — shortest' },
 	{ value: 'resolution_desc', label: 'Resolution — highest' },
 	{ value: 'resolution_asc', label: 'Resolution — lowest' },
-	{ value: 'random', label: 'Random' }
+	{ value: 'random', label: 'Random' },
+	{ value: 'completeness_desc', label: 'Completeness — most complete', ownerOnly: true },
+	{ value: 'completeness_asc', label: 'Completeness — least complete', ownerOnly: true }
 ];
 
 export const SORT_ORDERS: readonly SortOrder[] = MEDIA_SORTS.map((s) => s.value);
@@ -39,6 +43,7 @@ export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams
 	if (f.year_min) p.set('year_min', String(f.year_min));
 	if (f.year_max) p.set('year_max', String(f.year_max));
 	if (f.sort && f.sort !== DEFAULT_SORT) p.set('sort', f.sort);
+	for (const canonical of f.missing_facet ?? []) p.append('missing_facet', canonical);
 	for (const [k, v] of Object.entries(f.mapped ?? {})) {
 		if (v) p.set(k, v); // configurable mapped-field filter, keyed by canonical (F20.5)
 	}
@@ -81,6 +86,7 @@ export function paramsToFilters(p: URLSearchParams): MediaFilters {
 		tag: p.getAll('tag').map(Number).filter(Boolean),
 		studio_id: p.getAll('studio_id').map(Number).filter(Boolean),
 		category: p.getAll('category_id').map(Number).filter(Boolean),
-		sort: (p.get('sort') as SortOrder) || DEFAULT_SORT
+		sort: (p.get('sort') as SortOrder) || DEFAULT_SORT,
+		missing_facet: p.getAll('missing_facet').filter(Boolean)
 	};
 }

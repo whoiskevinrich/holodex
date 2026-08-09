@@ -6,6 +6,7 @@
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import type {
+		Completeness,
 		DecisionSource,
 		EnrichSource,
 		EntityRef,
@@ -35,6 +36,7 @@
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
+	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import { videoCount, providerFromWinningSource, calculatedFrom } from '$lib/format';
 
 	let person = $state<Person | null>(null);
@@ -43,6 +45,7 @@
 	// page consumes; the raw enriched[] block is retired.
 	let resolved = $state<ResolvedField[]>([]);
 	let images = $state<PersonImageSet>({ roles: {}, gallery: [] });
+	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let loading = $state(true);
 	let error = $state('');
 
@@ -155,6 +158,7 @@
 		resolved = res.resolved ?? [];
 		images = res.images ?? { roles: {}, gallery: [] };
 		aliases = res.person.aliases ?? [];
+		completeness = res.completeness ?? null;
 	}
 
 	function load(current: number) {
@@ -435,7 +439,7 @@
 							/>
 							{@render editBtn('poster', 'right-1 top-1')}
 							<div class="absolute -bottom-2 -left-2 rounded-theme bg-bg p-0.5">
-								<div class="relative">
+								<div class="relative" id="field-photo-upload">
 									<PersonImageFrame
 										personId={id}
 										role="headshot"
@@ -449,7 +453,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="relative shrink-0">
+						<div class="relative shrink-0" id="field-photo-upload">
 							<PersonImageFrame
 								personId={id}
 								role="headshot"
@@ -496,7 +500,7 @@
 			{#if resolved.length || (isOwner && personProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
 						{#if isOwner && personProviders.length}
 							<!-- HOLODEX-136: one compact chip per person-capable provider (icon +
 							     name + Enrich), Clear in a ⋯ overflow once linked. Each opens its
@@ -559,7 +563,7 @@
 									</div>
 								{:else if isOwner}
 									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
-									<div>
+									<div id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
 											<SourceSelect
@@ -571,7 +575,7 @@
 									</div>
 								{:else}
 									<!-- Visitor: read-only resolved value, exactly like the old rows. -->
-									<div>
+									<div id={`field-${f.canonical}`}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
 											<!-- HOLODEX-137: the link leads with the provider icon + host,
@@ -593,7 +597,7 @@
 								     display-only curation (✕ suppress / + Add); kept chips never route
 								     scans or search (that is the separate Aliases card below). No
 								     nowrite toggle: persons have no writeback. -->
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="mb-1 text-muted">
 										{f.canonical === 'aliases' ? 'Also known as' : f.label}:
 									</dt>
@@ -616,7 +620,7 @@
 								     doesn't bury the compact vitals above (design-critique 2026-07-01).
 								     Long-text fit (P1-1): the resolved value is the reading surface;
 								     the chip row beneath is the source selector (chips stay clamped). -->
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="inline text-muted">{f.label}:</dt>
 									{#if f.values[0]?.trim()}
 										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
@@ -656,6 +660,10 @@
 						<p class="text-sm text-warn">{actionError}</p>
 					{/if}
 				</section>
+			{/if}
+
+			{#if isOwner}
+				<CompletenessPanel {completeness} onchanged={reloadDetail} />
 			{/if}
 
 			<!-- The F23 routing-alias card, now the shared AliasPanel (F43) — deliberately its

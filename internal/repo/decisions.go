@@ -49,17 +49,24 @@ func (r *Repo) DecisionsForEntity(ctx context.Context, entityType string, entity
 // mean no decision (the file-first default). Used by the browse-title path so a
 // decided title drives the card just as it drives the detail view.
 func (r *Repo) DecisionsForVideos(ctx context.Context, ids []int64) (map[int64][]DecisionRow, error) {
+	return r.DecisionsForEntities(ctx, "video", ids)
+}
+
+// DecisionsForEntities is DecisionsForVideos generalized to any entity type — the
+// F55 list-wide completeness resolve (ADR-081 D4) needs the same batch shape for
+// person/studio.
+func (r *Repo) DecisionsForEntities(ctx context.Context, entityType string, ids []int64) (map[int64][]DecisionRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := append([]any{"video"}, toAnySlice(ids)...)
+	args := append([]any{entityType}, toAnySlice(ids)...)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT entity_id, field_key, source, manual_value
 		FROM field_source_decisions
 		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
 		ORDER BY entity_id, field_key`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("decisions for videos: %w", err)
+		return nil, fmt.Errorf("decisions for entities: %w", err)
 	}
 	defer rows.Close()
 

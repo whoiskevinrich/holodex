@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -29,6 +29,7 @@
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -38,6 +39,7 @@
 	// Studio entities linked to this video (F38): the resolved studio value links to its
 	// /studios/{id} page; the link always matches the displayed value (RD1).
 	let studios = $state<Studio[]>([]);
+	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
 	let error = $state('');
@@ -251,6 +253,7 @@
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
 		enrichQueries = res.enrich_queries ?? {};
+		completeness = res.completeness ?? null;
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
@@ -522,7 +525,10 @@
 	<article class="mx-auto max-w-4xl space-y-6">
 		<a href="/" class="text-sm text-muted hover:text-ink">← Back to library</a>
 
-		<div class="group relative overflow-hidden rounded-theme border border-rule bg-black">
+		<div
+			class="group relative overflow-hidden rounded-theme border border-rule bg-black"
+			id="field-poster_url-upload"
+		>
 			{#if playFailed}
 				<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
 					<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
@@ -615,7 +621,7 @@
 		<header class="space-y-2">
 			<h1 class="skin-title text-2xl font-semibold text-ink">{displayTitle}</h1>
 			{#if isOwner || studioField?.values?.length}
-				<div class="flex flex-wrap items-center gap-2 text-sm">
+				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}
 						<SourceSelect field={studioField} decide={(s, mv) => decideField('studio', s, mv)} />
 						{#each studios as s (s.id)}
@@ -842,7 +848,7 @@
 					{#each visibleResolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 						{#if f.display === 'image_url'}
-							<div class="sm:col-span-2">
+							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 								<dt class="mb-1 text-muted">{f.label}:</dt>
 								<dd>
 									<img
@@ -854,13 +860,13 @@
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
 						{:else if f.display === 'long_text'}
-							<div class="sm:col-span-2">
+							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 								<dt class="inline text-muted">{f.label}:</dt>
 								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
 								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 							</div>
 						{:else if f.display === 'url'}
-							<div>
+							<div id={`field-${f.canonical}`}>
 								<dt class="inline text-muted">{f.label}:</dt>
 								<!-- HOLODEX-137: provider icon + host in the link folds in provenance. -->
 								<dd class="inline"><UrlValueList values={f.values} provider={winnerProvider} /></dd>
@@ -868,7 +874,7 @@
 						{:else}
 							<!-- Curatable text/set field (F30): per-value chips with provenance,
 							     edit/remove/no-write, and an add affordance for set fields. -->
-							<div>
+							<div id={`field-${f.canonical}`}>
 								<dt class="mb-1 text-muted">{f.label}:</dt>
 								<dd>
 									{#if isReplaceField(f) && isOwner}
@@ -916,6 +922,18 @@
 				</p>
 				{/if}
 			</section>
+		{/if}
+
+		{#if isOwner && completeness}
+			{#each completeness.facets as cf (cf.canonical)}
+				{#if cf.tier === 'missing' && !visibleResolved.some((f) => f.canonical === cf.canonical) && cf.canonical !== 'studio'}
+					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
+				{/if}
+			{/each}
+		{/if}
+
+		{#if isOwner}
+			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 		{/if}
 
 		{#if isOwner}

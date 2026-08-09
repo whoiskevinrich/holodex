@@ -16,6 +16,7 @@
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
+	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -56,6 +57,11 @@
 		writeSort('media', sort);
 	});
 	let mapped = $state<Record<string, string>>({}); // configurable mapped-field filters (F20.5)
+	// Missing-facet filter (F55.6): canonical facet keys, AND semantics. Owner-only —
+	// currentFilters() strips this from the actual request for a non-owner, so a
+	// transient pre-capabilities-load state can't fire a doomed 401.
+	let missingFacetIDs = $state<string[]>(init.missing_facet ?? []);
+	const missingFacet = createMissingFacetOptions('video');
 
 	let videos = $state<Video[]>([]);
 	let total = $state(0);
@@ -86,7 +92,20 @@
 		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
 	});
 
+	// Missing-facet options (F55.6): owner-gated, so only fetched once effectiveOwner
+	// actually resolves true (capabilities load async — see activity.svelte.ts).
+	$effect(() => {
+		missingFacet.ensureFetched(isOwner);
+	});
+
 	const hasMore = $derived(videos.length < total);
+
+	// Completeness sort/missing-facet filter are owner-only (the server 401s a
+	// non-owner request using either, ADR-081 §Access control). Gate both here
+	// rather than resetting the underlying state, so a transient pre-capabilities-
+	// load isOwner=false doesn't clobber a URL/localStorage-restored preference —
+	// it just self-heals into the real request once caps resolve.
+	const isCompletenessSort = $derived(sort === 'completeness_asc' || sort === 'completeness_desc');
 
 	function currentFilters(): MediaFilters {
 		return {
@@ -100,11 +119,12 @@
 			tag: tagIDs,
 			studio_id: studioIDs,
 			category: categoryIDs,
-			sort,
+			sort: isOwner || !isCompletenessSort ? sort : DEFAULT_SORT,
 			// Seed rides the API request (not the shareable URL) so paged "Load more"
 			// tiles under one shuffle (ADR-045). Only sent for the random sort.
 			seed: sort === 'random' ? shuffleSeed.value : undefined,
 			mapped,
+			missing_facet: isOwner ? missingFacetIDs : undefined,
 			limit: PAGE_SIZE
 		};
 	}
@@ -234,6 +254,7 @@
 		categoryIDs = [];
 		sort = DEFAULT_SORT;
 		mapped = {};
+		missingFacetIDs = [];
 	}
 
 	// Keyboard navigation (F12.5): `/` focuses search, arrow keys move between grid
@@ -340,6 +361,14 @@
 
 		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
 
+		{#if isOwner}
+			<FacetFilter
+				label="Missing"
+				items={missingFacet.options.map((f) => ({ id: f.canonical, name: f.label, video_count: f.missing_count }))}
+				bind:selected={missingFacetIDs}
+			/>
+		{/if}
+
 		<div class="min-w-[160px]">
 			<span class="mb-1 block text-xs text-muted">Density</span>
 			<div class="flex items-center gap-2">
@@ -378,7 +407,7 @@
 		/>
 
 		<div class="flex items-end gap-2">
-			<SortDropdown bind:sort />
+			<SortDropdown bind:sort owner={isOwner} />
 			{#if sort === 'random'}
 				<SortReroll onreroll={rerollMedia} />
 			{/if}

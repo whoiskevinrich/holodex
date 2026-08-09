@@ -6,6 +6,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
 	import type {
+		Completeness,
 		DecisionSource,
 		EnrichSource,
 		PersonAlias,
@@ -18,6 +19,7 @@
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
@@ -42,6 +44,7 @@
 	// is derived identity, so the panel also offers Rename (allowRename) — the merge/rename
 	// register the loser/old name as an alias so RelinkVideoStudios won't resurrect it (RD6).
 	let aliases = $state<PersonAlias[]>([]);
+	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let loading = $state(true);
 	let error = $state('');
 
@@ -116,6 +119,7 @@
 		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
 		aliases = res.studio.aliases ?? [];
+		completeness = res.completeness ?? null;
 	}
 
 	function load(current: number) {
@@ -228,7 +232,7 @@
 			{#if studio}
 				<section class="space-y-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
-					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3" id="field-branding_image-upload">
 						<StudioImageSlot
 							studioId={id}
 							studioName={studio.name}
@@ -263,7 +267,7 @@
 			{#if hasDetails || (isOwner && studioProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
 						{#if isOwner && studioProviders.length}
 							<!-- HOLODEX-136: one compact chip per studio-capable provider
 							     (icon + name + Enrich), Clear in a ⋯ overflow once linked. -->
@@ -298,7 +302,7 @@
 
 							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
 											<SourceSelect
@@ -309,7 +313,7 @@
 										</dd>
 									</div>
 								{:else}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
 											<!-- HOLODEX-137: provider icon + host in the link folds in
@@ -333,7 +337,7 @@
 							{/each}
 
 							{#each longFields as f (f.canonical)}
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="inline text-muted">{f.label}:</dt>
 									{#if f.values[0]?.trim()}
 										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
@@ -356,7 +360,7 @@
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="mb-1 text-muted">{f.label}:</dt>
 									<dd>
 										<CurationFieldRow
@@ -383,6 +387,10 @@
 						</dl>
 					{/if}
 				</section>
+			{/if}
+
+			{#if isOwner}
+				<CompletenessPanel {completeness} onchanged={reloadDetail} />
 			{/if}
 		{/snippet}
 	</EntityVideos>

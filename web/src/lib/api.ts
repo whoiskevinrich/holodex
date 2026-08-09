@@ -18,6 +18,8 @@ import type {
 	ExtractionResolveAction,
 	ExtractionResult,
 	Facet,
+	FacetSummary,
+	CompletenessFacetGroup,
 	JobRun,
 	JobDigest,
 	MediaDetailResponse,
@@ -64,7 +66,8 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 
 // The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
 // /media, so this can't reuse ENTITY_BASE (F43's alias/merge/rename spine has no video).
-const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
+// Exported for CompletenessQueueRow, which links to the same entity pages by kind.
+export const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
 	video: 'media'
@@ -319,8 +322,19 @@ export const api = {
 	// list in canonical name order for both 'name' and 'random' — the random shuffle
 	// is applied client-side (these lists are unpaged) — so only 'count' reorders
 	// server-side. 'random' is still sent so the contract is exercised/observable.
-	listPeople: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Person[] }>(`/people${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) are owner-only — the server
+	// 401s a non-owner request using either; callers gate on isOwner before passing them.
+	listPeople: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Person[] }>(`/people${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
@@ -397,8 +411,19 @@ export const api = {
 	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
 	// random; random shuffled client-side). Detail carries resolved[] in the record
 	// vocabulary (no in_sync) plus the studio's videos.
-	listStudios: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Studio[] }>(`/studios${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) mirror listPeople — owner-only,
+	// callers gate on isOwner before passing them.
+	listStudios: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Studio[] }>(`/studios${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getStudio: (id: number, fetchFn?: typeof fetch) =>
 		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
@@ -423,6 +448,19 @@ export const api = {
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),
+
+	// Missing-facet summary (F55.6, ADR-081 D4) — canonical facets + how many
+	// entities of this type are currently missing each, for the browse page's
+	// Missing-facet filter chip options. Owner-gated (score/actionability are
+	// never exposed to non-owners, even as an aggregate count).
+	completenessFacets: (entityType: 'video' | 'person' | 'studio') =>
+		getAuthed<{ facets: FacetSummary[] }>(`/completeness/facets?entity_type=${entityType}`),
+
+	// Facet-first remediation queue (F55.7) — every missing scored facet across
+	// the whole library, grouped by facet and split candidate-ready/needs-research.
+	// Owner-gated; a pure DB read (no writes on load).
+	completenessQueue: () =>
+		getAuthed<{ groups: CompletenessFacetGroup[] }>(`/owner/completeness-queue`),
 
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),
@@ -784,6 +822,23 @@ export const api = {
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
+	// Per-facet not-applicable exclusion (F55.10, ADR-081 D2) — the completeness
+	// breakdown panel's DD8 toggle. Video-only: it is independent of any
+	// field_source_decisions row for the same field, and the mutation validates
+	// against the full registry (not just video-mapped fields), but v1's only UI
+	// target is external_provider_id, a video-only registry field. Owner-gated;
+	// 204 on success.
+	setFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
+		),
+	clearFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
 		),
 
 	// Person per-field source decisions (F37, RD7) — the media pair mirrored onto
