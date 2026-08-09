@@ -8,14 +8,14 @@ import (
 
 func TestFacetNotApplicableAPI_SetThenClear(t *testing.T) {
 	srv, r, id := decisionServer(t, "")
-	base := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/imdb_id/not-applicable"
+	base := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/external_provider_id/not-applicable"
 
 	if code := sendDecision(t, http.MethodPut, base, "", nil); code != 204 {
 		t.Fatalf("mark not-applicable: want 204, got %d", code)
 	}
 	facets, err := r.FacetsNotApplicableForEntity(context.Background(), "video", id)
-	if err != nil || !facets["imdb_id"] {
-		t.Fatalf("want imdb_id excluded, got %v err=%v", facets, err)
+	if err != nil || !facets["external_provider_id"] {
+		t.Fatalf("want external_provider_id excluded, got %v err=%v", facets, err)
 	}
 
 	if code := sendDecision(t, http.MethodDelete, base, "", nil); code != 204 {
@@ -37,7 +37,7 @@ func TestFacetNotApplicableAPI_Validation(t *testing.T) {
 	}
 
 	// Unknown video id → 404.
-	badID := srv.URL + "/api/v1/media/99999/fields/imdb_id/not-applicable"
+	badID := srv.URL + "/api/v1/media/99999/fields/external_provider_id/not-applicable"
 	if code := sendDecision(t, http.MethodPut, badID, "", nil); code != 404 {
 		t.Errorf("unknown id: want 404, got %d", code)
 	}
@@ -46,7 +46,7 @@ func TestFacetNotApplicableAPI_Validation(t *testing.T) {
 	if err := r.SoftDelete(context.Background(), id); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
-	live := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/imdb_id/not-applicable"
+	live := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/external_provider_id/not-applicable"
 	if code := sendDecision(t, http.MethodPut, live, "", nil); code != 409 {
 		t.Errorf("soft-deleted: want 409, got %d", code)
 	}
@@ -54,7 +54,7 @@ func TestFacetNotApplicableAPI_Validation(t *testing.T) {
 
 func TestFacetNotApplicableAPI_OwnerGated(t *testing.T) {
 	srv, _, id := decisionServer(t, "secret")
-	base := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/imdb_id/not-applicable"
+	base := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/external_provider_id/not-applicable"
 
 	if code := sendDecision(t, http.MethodPut, base, "", nil); code != 401 {
 		t.Errorf("PUT without token: want 401, got %d", code)

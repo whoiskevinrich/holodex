@@ -5,7 +5,7 @@
 **Issue**: [HOLODEX-260](https://whoiskevinrich.atlassian.net/browse/HOLODEX-260)
 **Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
 **Realizes**: F55 (new). Builds on the extraction-queue UX precedent ([HOLODEX-199](https://whoiskevinrich.atlassian.net/browse/HOLODEX-199)) — its deliberate deferral of bulk-apply directly informs this feature's queue design (§ Scope).
-**Architecture (to be produced)**: no ADR exists yet. One is required before P0 implementation — the facet-criticality data model, the tri-state (resolved/missing/not-applicable) persistence shape, and the score-computation seam all need a settled design. Tracked as the `needs-adr` label on HOLODEX-260.
+**Architecture**: [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, score computation, list consumption, and the `imdb_id` → `external_provider_id` rename) and [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id).
 **Design handoff (to be produced)**: `docs/design/entity-completeness-handoff.md` — the remediation queue layout, breakdown panel, and browse-page filter/sort affordances across all three skins. Tracked as `needs-design`.
 
 ---
@@ -45,8 +45,11 @@ candidate sitting in cache, so "quick wins" are visually distinct from "needs re
   mark a facet not-applicable ships narrow in v1 — only on the video `external_provider_id` facet (see
   below).
 - **Generalizing `imdb_id` to a provider-agnostic `external_provider_id` facet.** Production doesn't use
-  IMDb — it enriches against a different third-party provider with its own key format. The registry
-  already treats providers as declared-not-compiled-in configuration ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md));
+  IMDb, and isn't limited to a single non-IMDb provider either — the registry treats providers as
+  declared-not-compiled-in configuration ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md)),
+  so an operator-configured provider outside this repo can also populate this facet. The resolved value
+  is namespace-qualified (`"<provider>:<id>"`, e.g. `"tmdb:603"`) so it stays self-describing regardless
+  of which provider supplied it ([ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md));
   the completeness facet needs to match that, not assume IMDb specifically. Self-published/home content
   legitimately has no external ID at all, which is exactly what the not-applicable affordance is for.
 - **Owner-mode browse-page additions**: a "Completeness" sort order and a "Missing facet" filter chip
@@ -252,7 +255,7 @@ meaningful "gap" signal:
 | F55.8 | Queue rows support **individual** actions: apply a cached candidate (candidate-ready rows), or jump to search/upload (needs-research rows). No bulk action exists in v1. | Clicking Apply on a candidate-ready row applies that one candidate and removes the row from the queue; there is no "select all" or "apply all" control anywhere on the page. |
 | F55.9 | A **per-entity completeness breakdown panel** on the video/person/studio detail page lists every scored facet with its resolved tier. | Opening a video with a 65% score shows a panel listing all 15 scored facets with their tier (curated/provider/missing/not-applicable), matching the § Worked example. |
 | F55.10 | The owner can **mark `external_provider_id` not-applicable** for a video via an owner-gated mutation; the flag persists and the facet is excluded from that video's score and from the queue. | An owner PATCH marking the facet not-applicable removes that video from any "missing external ID" queue group and excludes the facet from its score on the next read; a non-owner request is rejected by the gate. |
-| F55.11 | `imdb_id` is generalized to a provider-agnostic **`external_provider_id`** concept in the registry and API, without breaking existing resolver/decision plumbing for videos that already have an IMDb value stored. | Existing videos with a stored `imdb_id` value continue to resolve correctly under the renamed/generalized facet; no data loss on migration. |
+| F55.11 | `imdb_id` is generalized to a provider-agnostic **`external_provider_id`** concept in the registry and API, without breaking existing resolver/decision plumbing for videos that already have an IMDb value stored. Resolved values are namespace-qualified (`"<provider>:<id>"`) so they stay unambiguous when more than one provider can populate the facet ([ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md)). | Existing videos with a stored `imdb_id` value continue to resolve correctly under the renamed/generalized facet, with their value namespace-qualified (`"imdb:tt..."`) by the migration; no data loss on migration. |
 | F55.12 | All new surfaces (browse filter chip, sort option, remediation queue, breakdown panel, not-applicable control) render correctly in **all three skins** using semantic tokens only. | QA in Cinémathèque, Broadcast, and Brutalist: `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty; every state (loading/empty/populated) reads correctly in each skin. |
 
 ### Nice-to-have (P1)
@@ -348,15 +351,25 @@ other owner-tooling features measure adoption.
 
 ---
 
+## Resolved Decisions
+
+- **Multi-provider external-ID shape.** Production enrichment is not limited to a single provider —
+  ADR-033's declared-not-compiled-in provider registry lets an operator run providers outside this repo
+  against a live instance. Resolved: `external_provider_id` stays a **single scalar** `field_key` (no
+  provider column, no schema change) but its **value** is namespace-qualified (`"<provider>:<id>"`),
+  reusing the convention `entity_enrichment.match_id`/`_studio_external_ids`/`person_external_ids`
+  already established, rather than F49's `field_claims`-style dedicated `provider` column (that
+  mechanism disambiguates key *identity*, not a value). See
+  [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), which
+  supersedes [ADR-081](../architecture/ADR-081-entity-completeness-score.md) D5 on this point only.
+
+---
+
 ## Open questions
 
 - **[product] Weight-ratio tuning.** Is critical:nice-to-have = 3:1 the right default, or should it be
   wider (e.g. 5:1) so a single missing critical facet drags the score down harder? Ships with 3:1 in v1;
   F55.14 makes it configurable later.
-- **[engineering] Multi-provider external-ID shape.** If a second enrichment provider is ever added
-  alongside the current one, does `external_provider_id` need to become provider-keyed (like F49's
-  claimed-provider-keys work) instead of a single scalar? Out of scope for v1 (single provider today) but
-  worth flagging before the registry change in F55.11 is considered final.
 - **[engineering] `imdb_id` rename timing.** Does F55.11 rename the canonical key outright (with a
   migration/alias for existing data) or introduce `external_provider_id` as a new field that supersedes
   `imdb_id` going forward, leaving the old key intact for already-stored values? Affects the ADR and the

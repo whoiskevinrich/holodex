@@ -15,7 +15,7 @@ signal, surfaced as an owner-mode browse sort/filter, a facet-first remediation 
 per-entity breakdown panel — done when the owner can find and fix metadata gaps without scrolling
 the library by eye. Ships as **one release**, not phased (explicit owner call during brainstorming).
 
-**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) · [design handoff](../design/entity-completeness-handoff.md) · testing-strategy TBD
+**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (+[ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), supersedes D5) · [design handoff](../design/entity-completeness-handoff.md) · testing-strategy TBD
 
 ## Gates — definition of done
 
@@ -23,7 +23,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md`
+- [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md` (D5 superseded by `docs/architecture/ADR-082-external-provider-id-namespace-qualified-value.md`)
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [/] backend
 - [ ] frontend
@@ -40,7 +40,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 2. [x] [backend] registry criticality metadata (D1) + `facet_not_applicable` table/mutation (D2) — `internal/registry/registry.go`, `internal/db/migrations/0039_facet_not_applicable.{up,down}.sql`, `internal/repo/facet_not_applicable.go`, `internal/api/facet_not_applicable.go`
 2b. [x] [backend] score/actionability computation (D3) — `internal/resolver/complete.go`
 2c. [x] [backend] list-wide resolve-all backend predicate (D4) — `internal/api/completeness.go`, generic `*ForEntities` batch loaders in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}.go`
-3. [ ] [backend] `imdb_id` → `external_provider_id` rename migration across the 9 `field_key`-keyed tables — `internal/registry/registry.go`, `internal/db/migrations/`
+3. [x] [backend] `imdb_id` → `external_provider_id` rename, value namespace-qualified per ADR-082 — `internal/registry/registry.go`, `internal/db/migrations/0040_rename_imdb_id_field_key.{up,down}.sql`, `providers/tmdb/tmdb.go`, `providers/tmdb/handler.go`
 4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [ ] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
@@ -58,7 +58,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 -->
 
 ### 2026-08-08 · Backend D4 — list-wide resolve-all predicate for browse sort/filter + remediation queue
-- skills: simplify
+- skills: simplify, architecture
 - handoff: implemented item #2c — the ADR-081 D4 backend predicate all three future consumers
   (browse completeness sort, the missing-facet filter, the remediation queue) will share, per
   the design handoff's §9/§1 "same backend predicate" requirement. New `internal/api/completeness.go`:

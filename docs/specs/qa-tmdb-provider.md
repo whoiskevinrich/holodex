@@ -128,7 +128,7 @@ Set up local Holodex pointing at the provider sidecar:
 
 **7a.1** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"query":"Fight Club"}}` → `200`, at least one candidate with `external_id:"tmdb:550"`, `label:"Fight Club"`, `disambiguation:"1999"`  
 **7a.2** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"query":"xyzzy_no_match_999"}}` → `200`, `{"candidates":[]}`  
-**7a.3** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"video","external_id":"tmdb:550"}` → `200`, fields include `overview`, `release_date:"1999-10-15"`, `runtime:"139"`, `genres:["Drama","Thriller"]`, `tagline`, `imdb_id:"tt0137523"`, `poster_url` starts with `"https://image.tmdb.org/t/p/original/"`; **no** `assets[]` in the response  
+**7a.3** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"video","external_id":"tmdb:550"}` → `200`, fields include `overview`, `release_date:"1999-10-15"`, `runtime:"139"`, `genres:["Drama","Thriller"]`, `tagline`, `external_provider_id:"imdb:tt0137523"`, `poster_url` starts with `"https://image.tmdb.org/t/p/original/"`; **no** `assets[]` in the response  
 **7a.4** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"external_ids":["imdb:tt0137523"]}}` → `200`, candidate for Fight Club  
 **7a.5** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"video","hint":{"external_ids":["tmdb:550"]}}` → `200`, single candidate for Fight Club with `confidence:1.0`  
 **7a.6** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"video","external_id":"tmdb:999999999"}` → non-2xx  

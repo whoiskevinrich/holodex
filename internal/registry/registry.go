@@ -156,14 +156,14 @@ var KnownFields = []FieldDef{
 		Criticality: CriticalityNiceToHave,
 	},
 	{
-		// F55 (ADR-081 D5) will generalize this to a provider-agnostic
-		// external_provider_id — a straight rename, not implemented yet. The
-		// nice_to_have criticality tag applies equally under either name, so
-		// it's set now rather than deferred to the rename.
-		Canonical:   "imdb_id",
-		Label:       "IMDb",
+		// F55 (ADR-081 D5, value shape per ADR-082): generalized from the old
+		// imdb_id name. The value is namespace-qualified ("<provider>:<id>",
+		// e.g. "tmdb:603", "imdb:tt1234567") so it stays unambiguous when more
+		// than one provider can populate this facet.
+		Canonical:   "external_provider_id",
+		Label:       "External ID",
 		Display:     "",
-		Description: "IMDb title identifier (tt… format).",
+		Description: "External metadata-provider identifier, namespace-qualified (\"<provider>:<id>\").",
 		Criticality: CriticalityNiceToHave,
 	},
 	{

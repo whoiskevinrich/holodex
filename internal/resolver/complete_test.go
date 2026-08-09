@@ -13,7 +13,7 @@ func fld(canonical string) mapping.Field { return mapping.Field{Canonical: canon
 func TestComplete_WorkedExample(t *testing.T) {
 	fields := []mapping.Field{
 		fld("title"), fld("studio"), fld("actors"), fld("poster_url"),
-		fld("overview"), fld("release_date"), fld("genres"), fld("imdb_id"),
+		fld("overview"), fld("release_date"), fld("genres"), fld("external_provider_id"),
 	}
 	resolved := []ResolvedField{
 		{Canonical: "title", WinningSource: "file:Title"},
@@ -28,7 +28,7 @@ func TestComplete_WorkedExample(t *testing.T) {
 			{Source: "provider:tmdb", Provider: "tmdb", Value: "https://cdn.example/poster.jpg"},
 		}},
 	}
-	notApplicable := map[string]bool{"imdb_id": true}
+	notApplicable := map[string]bool{"external_provider_id": true}
 
 	got := Complete(fields, resolved, notApplicable)
 
@@ -52,8 +52,8 @@ func TestComplete_WorkedExample(t *testing.T) {
 	if fs := byCanonical["genres"]; fs.Tier != TierMissing || fs.Actionable {
 		t.Errorf("genres = %+v, want missing, not actionable", fs)
 	}
-	if fs := byCanonical["imdb_id"]; !fs.NotApplicable {
-		t.Errorf("imdb_id = %+v, want not_applicable", fs)
+	if fs := byCanonical["external_provider_id"]; !fs.NotApplicable {
+		t.Errorf("external_provider_id = %+v, want not_applicable", fs)
 	}
 	if fs := byCanonical["actors"]; fs.Tier != TierProvider {
 		t.Errorf("actors = %+v, want provider", fs)
