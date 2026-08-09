@@ -42,7 +42,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 2c. [x] [backend] list-wide resolve-all backend predicate (D4) — `internal/api/completeness.go`, generic `*ForEntities` batch loaders in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}.go`
 3. [x] [backend] `imdb_id` → `external_provider_id` rename, value namespace-qualified per ADR-082 — `internal/registry/registry.go`, `internal/db/migrations/0040_rename_imdb_id_field_key.{up,down}.sql`, `providers/tmdb/tmdb.go`, `providers/tmdb/handler.go`
 4. [x] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
-5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
+5. [x] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [ ] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
 7. [ ] [testing] F55 block in `docs/testing-strategy.md`
 8. [ ] [security] `/security-review` on the not-applicable mutation
@@ -56,6 +56,48 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-08 · Item #5 — facet-first remediation queue (F55.7/F55.8)
+- skills: simplify
+- handoff: implemented item #5, closing the frontend half of the remediation queue and the last
+  backend endpoint before the breakdown panel (item #6). Backend: `internal/api/completeness_queue.go`
+  (`GET /owner/completeness-queue`) reshapes the D4 `completenessFor*` predicate by facet instead of
+  by entity — every video/person/studio's missing scored facets, grouped, pre-sorted critical-first-
+  then-count-desc, and pre-split candidate-ready/needs-research (DD1) so the frontend does zero
+  client-side grouping. `resolver.FacetScore` gained a `Provider` field so candidate-ready rows carry
+  which provider's cached candidate they'd apply. Frontend: `CompletenessQueueRow.svelte`
+  (`components/completeness/`, new folder) renders one (entity, facet) row per DD2/DD3 — Apply for
+  candidate-ready (mutates via the existing per-field decision endpoints, row disappears on success,
+  no toast), Search+optional Upload links for needs-research (deep-link to the entity page anchored
+  at that facet's control). New `owner/completeness/+page.svelte` route + nav tab. Found and fixed two
+  real bugs during live browser QA (neither caught by type-check or unit tests): (1) `FacetGroup`'s
+  `CandidateReady`/`NeedsResearch` slices left at their Go zero value serialized as JSON `null`
+  instead of `[]` whenever a group was one-sided, crashing the frontend's `.length` access — fixed by
+  initializing both as `[]QueueRow{}` at construction; (2) the media detail page's dedicated studio-
+  display block (excluded from the generic resolved-fields `id`-tagged loop, unlike every other field)
+  was missing its `#field-studio` anchor entirely — every Search link for the queue's single largest
+  group (200 of ~400 rows in the test dataset) would have silently done nothing; fixed by adding
+  `id="field-studio"` to that block. QA'd all three skins (contrast-checked via computed styles, not
+  screenshots — this app's screenshots time out) and the live queue end to end. Ran `/simplify`
+  (4-agent pass) and fixed: reuse's flag that a local `ENTITY_PATH` map duplicated `api.ts`'s existing
+  `ENRICH_ENTITY_BASE` (exported it, reused); reuse's flag that the row's Apply/Search/Upload buttons
+  used ad-hoc padding/text-size utilities instead of the `.btn-row`/`.btn-pill` sizing convention the
+  other three owner queue rows (Extraction/Enrich/DuplicatePair) already share (switched); efficiency's
+  flag that the queue handler ran three independent full-library scans (`completenessForVideos/People/
+  Studios`) sequentially despite them being disjoint lock-free WAL reads (parallelized with goroutines
+  + `sync.WaitGroup`, no new dependency); simplification's flags that the per-entity-type filter check
+  was copy-pasted three times (hoisted into `addRow`) and that `SEARCH_ANCHOR_OVERRIDE`/`UPLOAD_ANCHOR`
+  were two parallel maps expressing one concept (merged into one `FACET_ANCHOR` map keyed by facet).
+  Skipped two altitude findings as out-of-scope refactors, noted for a future ticket rather than this
+  pass: the `id="field-<canonical>"` anchor convention is hand-repeated across all three detail pages
+  with nothing enforcing the queue's anchor references stay in sync with what each page actually
+  renders (would want a shared helper/registry-driven mechanism, not a per-page string literal); and
+  the studio icon/monogram fallback markup in the new row is a third hand-copy of markup already
+  duplicated in `studios/+page.svelte` (wants a shared `StudioIcon` component, pre-existing debt this
+  diff added to rather than caused). `go build`/`go vet`/`go test ./internal/api/... ./internal/resolver/...`
+  and `npm run check` (0 errors) both clean after fixes; re-verified live in the browser (200 OK on the
+  queue endpoint, correct `.btn-row .btn-pill` computed styles) post-refactor. Next: item #6, the
+  per-entity completeness breakdown panel on video/person/studio detail pages.
 
 ### 2026-08-08 · Item #4 follow-up — shared segmented-toggle class helper
 - skills: simplify

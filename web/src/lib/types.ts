@@ -755,6 +755,31 @@ export interface FacetSummary {
 	missing_count: number;
 }
 
+// CompletenessQueueRow is one (entity, missing facet) pair in the facet-first
+// remediation queue (F55.7, GET /owner/completeness-queue) — mirrors
+// internal/api.QueueRow. Exactly one of thumbnail_url/headshot_version/icon_url
+// is set, matching entity_type. provider is present only on candidate-ready
+// rows (F55.8 DD3).
+export interface CompletenessQueueRow {
+	entity_type: EnrichEntityKind;
+	entity_id: number;
+	name: string;
+	thumbnail_url?: string;
+	headshot_version?: number;
+	icon_url?: string;
+	provider?: string;
+}
+
+// CompletenessFacetGroup is one missing-facet group, pre-split into
+// candidate-ready and needs-research rows — mirrors internal/api.FacetGroup.
+export interface CompletenessFacetGroup {
+	canonical: string;
+	label: string;
+	criticality: string;
+	candidate_ready: CompletenessQueueRow[];
+	needs_research: CompletenessQueueRow[];
+}
+
 export interface MediaFilters {
 	q?: string;
 	person?: number[];

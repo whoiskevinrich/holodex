@@ -65,6 +65,11 @@ type FacetScore struct {
 	// Actionable is true only for a missing (non-excluded, non-not-applicable)
 	// facet that has a cached unapplied provider candidate.
 	Actionable bool `json:"actionable,omitempty"`
+	// Provider is the namespace of the candidate Actionable refers to (e.g.
+	// "tmdb") — set only when Actionable, so the remediation queue (F55.7) can
+	// show which provider it would come from and apply it via setFieldDecision
+	// without a second lookup into resolved fields the API layer doesn't retain.
+	Provider string `json:"provider,omitempty"`
 }
 
 // Complete computes the completeness score and actionability signal for one
@@ -118,7 +123,9 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 		weightedSum += weight * t.weight
 		if t == missingTier {
 			missing++
-			if fs.Actionable = hasUnappliedCandidate(rf); fs.Actionable {
+			if provider, ok := actionableCandidate(rf); ok {
+				fs.Actionable = true
+				fs.Provider = provider
 				actionable++
 			}
 		}
@@ -164,19 +171,19 @@ func criticalityWeight(c string) float64 {
 	return weightNiceToHave
 }
 
-// hasUnappliedCandidate reports whether a missing replace field has a cached,
-// non-empty provider candidate sitting unapplied (F55 actionability) — reading
-// the same Candidates list F36's SourceSelect renders (ADR-051) rather than
-// re-deriving availability from raw enrichment data, so the two can't diverge on
-// what counts as "available." Merge fields carry no Candidates (F36 is
-// replace-only, RD1): every value any matched provider supplies is already
-// merged into the field, so a missing merge field already means no candidate
-// exists anywhere, and correctly reports not actionable.
-func hasUnappliedCandidate(rf ResolvedField) bool {
+// actionableCandidate reports the provider namespace of a missing replace
+// field's cached, non-empty candidate sitting unapplied (F55 actionability),
+// if any — reading the same Candidates list F36's SourceSelect renders
+// (ADR-051) rather than re-deriving availability from raw enrichment data, so
+// the two can't diverge on what counts as "available." Merge fields carry no
+// Candidates (F36 is replace-only, RD1): every value any matched provider
+// supplies is already merged into the field, so a missing merge field already
+// means no candidate exists anywhere, and correctly reports not actionable.
+func actionableCandidate(rf ResolvedField) (string, bool) {
 	for _, c := range rf.Candidates {
 		if c.Source != fieldsource.File && c.Value != "" {
-			return true
+			return c.Provider, true
 		}
 	}
-	return false
+	return "", false
 }

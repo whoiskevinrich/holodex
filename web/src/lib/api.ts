@@ -19,6 +19,7 @@ import type {
 	ExtractionResult,
 	Facet,
 	FacetSummary,
+	CompletenessFacetGroup,
 	JobRun,
 	JobDigest,
 	MediaDetailResponse,
@@ -65,7 +66,8 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 
 // The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
 // /media, so this can't reuse ENTITY_BASE (F43's alias/merge/rename spine has no video).
-const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
+// Exported for CompletenessQueueRow, which links to the same entity pages by kind.
+export const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
 	video: 'media'
@@ -453,6 +455,12 @@ export const api = {
 	// never exposed to non-owners, even as an aggregate count).
 	completenessFacets: (entityType: 'video' | 'person' | 'studio') =>
 		getAuthed<{ facets: FacetSummary[] }>(`/completeness/facets?entity_type=${entityType}`),
+
+	// Facet-first remediation queue (F55.7) — every missing scored facet across
+	// the whole library, grouped by facet and split candidate-ready/needs-research.
+	// Owner-gated; a pure DB read (no writes on load).
+	completenessQueue: () =>
+		getAuthed<{ groups: CompletenessFacetGroup[] }>(`/owner/completeness-queue`),
 
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),

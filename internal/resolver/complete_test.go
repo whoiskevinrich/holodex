@@ -46,8 +46,8 @@ func TestComplete_WorkedExample(t *testing.T) {
 	if len(byCanonical) != 8 {
 		t.Fatalf("Facets = %d entries, want 8", len(byCanonical))
 	}
-	if fs := byCanonical["poster_url"]; fs.Tier != TierMissing || !fs.Actionable {
-		t.Errorf("poster_url = %+v, want missing+actionable", fs)
+	if fs := byCanonical["poster_url"]; fs.Tier != TierMissing || !fs.Actionable || fs.Provider != "tmdb" {
+		t.Errorf("poster_url = %+v, want missing+actionable, provider tmdb", fs)
 	}
 	if fs := byCanonical["genres"]; fs.Tier != TierMissing || fs.Actionable {
 		t.Errorf("genres = %+v, want missing, not actionable", fs)

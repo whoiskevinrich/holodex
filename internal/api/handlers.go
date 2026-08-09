@@ -371,6 +371,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		// Missing-facet filter chip options + live counts, for browse sort/filter
 		// (F55.6, ADR-081 D4).
 		r.Get("/completeness/facets", h.completenessFacets)
+		// Facet-first remediation queue — grouped by missing facet, split
+		// candidate-ready/needs-research (F55.7, ADR-081 D4).
+		r.Get("/owner/completeness-queue", h.completenessQueue)
 		// In-app field promotion — promote an auto-registered field to curatable (F44, ADR-062).
 		h.mountFieldPromotions(r)
 		h.mountFieldClaims(r)

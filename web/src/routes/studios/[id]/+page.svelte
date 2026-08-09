@@ -228,7 +228,7 @@
 			{#if studio}
 				<section class="space-y-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
-					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3" id="field-branding_image-upload">
 						<StudioImageSlot
 							studioId={id}
 							studioName={studio.name}
@@ -263,7 +263,7 @@
 			{#if hasDetails || (isOwner && studioProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
 						{#if isOwner && studioProviders.length}
 							<!-- HOLODEX-136: one compact chip per studio-capable provider
 							     (icon + name + Enrich), Clear in a ⋯ overflow once linked. -->
@@ -298,7 +298,7 @@
 
 							{#each compactFields as f (f.canonical)}
 								{#if isOwner}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
 											<SourceSelect
@@ -309,7 +309,7 @@
 										</dd>
 									</div>
 								{:else}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''}>
+									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
 										<dt class="inline text-muted">{f.label}:</dt>
 										{#if f.display === 'url'}
 											<!-- HOLODEX-137: provider icon + host in the link folds in
@@ -333,7 +333,7 @@
 							{/each}
 
 							{#each longFields as f (f.canonical)}
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="inline text-muted">{f.label}:</dt>
 									{#if f.values[0]?.trim()}
 										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
@@ -356,7 +356,7 @@
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}
-								<div class="sm:col-span-2">
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="mb-1 text-muted">{f.label}:</dt>
 									<dd>
 										<CurationFieldRow
