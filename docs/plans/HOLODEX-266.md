@@ -24,7 +24,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] architecture `architecture` → `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
-- [ ] design `design-handoff`
+- [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md`
 - [ ] backend
 - [ ] frontend
 - [ ] testing `testing-strategy`
@@ -38,8 +38,8 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 
 1. [x] [architecture] ADR: read-only projection (D1), provider-declared `link_templates` resolved
    server-side (D2), one badge per stored id (D3) — `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
-2. [ ] [design] design-handoff note covering the multi-badge and no-link-degradation states (visual
-   spec otherwise reuses the existing video badge mockups from this session)
+2. [x] [design] design-handoff note covering the multi-badge and no-link-degradation states —
+   `docs/design/provider-link-badge-handoff.md`
 3. [ ] [backend] `Manifest.LinkTemplates map[string]map[string]string` (`internal/enrich/enrich.go`)
    + sanitize/validate on `/describe` ingest + `BuildProviderLink(namespace, entityKind, id)` helper
 4. [ ] [backend] person/studio detail handlers project `person_external_ids`/`studio_external_ids`
@@ -60,8 +60,26 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · Design gate closed — multi-badge handoff written
+- skills: design-handoff
+- handoff: wrote `docs/design/provider-link-badge-handoff.md`, closing the design gate. Treated
+  the video badge's visual anatomy (pill shape, icon+label, hover/focus) as already settled from
+  this session's earlier mockup/critique pass and scoped this doc to what's actually new for
+  person/studio: DD1 badges join the existing muted video-count line rather than opening a new
+  row (person/studio have no resolution/duration/year row to slot into the way video does); DD2
+  wrap (not truncate/overflow) at 3+ badges, no "+N more" control since that's premature per
+  ADR-083's own revisit note; DD3 alphabetical-by-label ordering for determinism. Specced the
+  three cardinality states (0/1/N) — zero renders nothing, no "not enriched" placeholder, since
+  this is a passive metadata line, not the completeness panel. Specced the degraded no-link-
+  template state from ADR-083 D2: badge still renders (the identity signal is the point, not the
+  click-through) but as a non-interactive `<span>`, no href/hover/focus/tabindex. Reused
+  `EnrichPicker.svelte`'s existing `profile_url` link pattern verbatim for the linked badge's
+  `target="_blank" rel="noopener noreferrer"` + aria-label convention rather than inventing a new
+  one, since it's the same provider-attested-URL shape. Next: backend (`Manifest.LinkTemplates` +
+  the person/studio `external_links` projection, items #3-4).
+
 ### 2026-08-09 · Architecture gate closed — ADR-083 written
-- skills: architecture
+- skills: architecture, design-handoff
 - handoff: this session started from an observation that `imdb_id` was mislabeled for a
   provider-agnostic deployment (already fully resolved at the schema/registry/provider level by
   ADR-082 — the only real gap was frontend display), iterated through mockups to a clickable
