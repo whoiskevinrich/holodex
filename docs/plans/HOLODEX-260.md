@@ -15,7 +15,7 @@ signal, surfaced as an owner-mode browse sort/filter, a facet-first remediation 
 per-entity breakdown panel — done when the owner can find and fix metadata gaps without scrolling
 the library by eye. Ships as **one release**, not phased (explicit owner call during brainstorming).
 
-**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (+[ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), supersedes D5) · [design handoff](../design/entity-completeness-handoff.md) · testing-strategy TBD
+**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (+[ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), supersedes D5) · [design handoff](../design/entity-completeness-handoff.md) · [testing-strategy](../testing-strategy.md) F55/HOLODEX-260 block
 
 ## Gates — definition of done
 
@@ -27,7 +27,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [x] backend
 - [x] frontend
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy`
 - [ ] security `security-review` — new owner-gated not-applicable mutation
 
 ## Up next — ordered (position = priority)
@@ -44,7 +44,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 4. [x] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [x] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [x] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
-7. [ ] [testing] F55 block in `docs/testing-strategy.md`
+7. [x] [testing] F55 block in `docs/testing-strategy.md`
 8. [ ] [security] `/security-review` on the not-applicable mutation
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -57,8 +57,8 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-08-09 · Item #6 — per-entity completeness breakdown panel (F55.13-15)
-- skills: simplify
+### 2026-08-09 · Items #6-7 — breakdown panel + testing-strategy block (F55.13-15)
+- skills: simplify, testing-strategy
 - handoff: implemented item #6, closing the frontend gate — the last item in the design
   handoff's DD4-8. Backend: `getMedia`/`getPerson`/`getStudio` (`internal/api/handlers.go`,
   `person_fields.go`, `studios.go`) now expose the `fields []mapping.Field` slice each
@@ -105,9 +105,36 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
   negligible for a single owner-only detail-page GET at this app's personal-library scale.
   `go build`/`go vet`/`go test ./internal/resolver/... ./internal/api/...` and `npm run check`
   (0 errors) both clean before and after the simplify fixes; re-verified the toggle button's
-  `.btn-accent`/`.btn-ghost` classes live in the browser post-fix. Next: item #7 (F55 block in
-  `docs/testing-strategy.md`) and item #8 (`/security-review` on the not-applicable mutation) —
-  the two remaining gates before this epic's Draft PR can come out of draft.
+  `.btn-accent`/`.btn-ghost` classes live in the browser post-fix. Committed as 42f77e4, pushed,
+  Jira gate status + PR #222 description both updated (Backend/Frontend now checked).
+
+  Item #7 — closed the testing gate by adding one consolidated F55/HOLODEX-260 block to
+  `docs/testing-strategy.md` covering the whole epic (items #1-6), since none of this epic's
+  incrementally-written Go tests had been rolled up into the strategy doc yet. Added: 6 new §4
+  backend table rows (score/facet model unit tests in `internal/resolver/complete_test.go`;
+  computation + asset-facet injection, browse sort/filter/facet-summary, remediation queue,
+  detail-page field, and the not-applicable mutation — all in their respective
+  `internal/api/*_test.go` + `internal/repo/facet_not_applicable_test.go`), citing every actual
+  `Test*` function name rather than describing tests in the abstract; 4 new Critical-invariants
+  bullets (not-applicable removes a facet from the score/actionability pool in both directions,
+  not just "resolved → missing"; an uncriticality-tagged field is invisible not zero; asset
+  facets only exist via `injectAssetFacet` synthesis; `completeness` is owner-gated off the same
+  resolve pass, no second query) — read `internal/resolver/complete.go` directly to get the
+  not-applicable/score-pool semantics exactly right rather than guessing from the tests; one new
+  §5 frontend row covering browse controls + remediation queue + the breakdown panel together
+  (still no Vitest/Playwright coverage, consistent with this doc's standing §0/§11
+  frontend-automation gap); and a §11 Known Gaps entry. **Found in passing, not fixed**: this
+  epic's spec/ADR-081/ADR-082/design-handoff/Jira all self-label "F55", but
+  `docs/testing-strategy.md` already had an unrelated, already-shipped "F55" (Poster View for
+  the People list page, HOLODEX-255, landed 2026-08-05 — five days before this epic's spec was
+  written) — a genuine numbering collision, unlike the F53/F54 one line above it in this same
+  file which got caught and corrected before any code shipped. Renumbering HOLODEX-260 now would
+  touch an accepted (supersede-only) ADR plus the spec/handoff/Jira, well outside a
+  testing-strategy pass's scope — disambiguated every new entry by Jira key instead
+  (`F55/HOLODEX-260` vs. bare `F55, HOLODEX-255`) and flagged the collision explicitly in the
+  new §11 bullet for a future pass to decide whether to formally supersede. `go build`/`go vet`
+  untouched (docs-only change). Next: item #8, `/security-review` on the not-applicable
+  mutation — the last gate before this epic's Draft PR can come out of draft.
 
 ### 2026-08-08 · Item #5 — facet-first remediation queue (F55.7/F55.8)
 - skills: simplify
