@@ -85,7 +85,7 @@ func TestCompletenessForVideos_ScoresCriticalFacets(t *testing.T) {
 
 	seedVideo(t, r, model.ExtraMetadata{SourceKey: "Publisher", Value: "Acme"})
 
-	out, err := h.completenessForVideos(ctx)
+	out, err := h.completenessForVideos(ctx, repo.VideoFilter{})
 	if err != nil {
 		t.Fatalf("completenessForVideos: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestCompletenessForVideos_NotApplicableExcluded(t *testing.T) {
 		t.Fatalf("set not applicable: %v", err)
 	}
 
-	out, err := h.completenessForVideos(ctx)
+	out, err := h.completenessForVideos(ctx, repo.VideoFilter{})
 	if err != nil {
 		t.Fatalf("completenessForVideos: %v", err)
 	}

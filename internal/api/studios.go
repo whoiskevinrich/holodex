@@ -128,15 +128,53 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved))
 }
 
-// listStudios handles GET /studios (F38): name-sorted (or count-sorted) studios with
-// active-video counts. Public, mirroring people/tags. Empty studios never appear.
+// listStudios handles GET /studios (F38): name-sorted (or count-sorted, or
+// completeness-sorted/filtered) studios with active-video counts. Public,
+// mirroring people/tags, except sort=completeness_asc|completeness_desc and
+// the repeatable missing_facet param, which are owner-only (F55.5/F55.6,
+// ADR-081 D4), same posture as listMedia/listPeople. Empty studios never appear.
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
-	studios, err := h.repo.ListStudios(r.Context(), r.URL.Query().Get("sort") == "count")
+	q := r.URL.Query()
+	sort := q.Get("sort")
+	missingFacets := q["missing_facet"]
+	if wantsCompleteness(sort, missingFacets) {
+		if !h.requireOwnerInline(w, r) {
+			return
+		}
+		h.listStudiosByCompleteness(w, r, sort == sortCompletenessDesc, missingFacets)
+		return
+	}
+	studios, err := h.repo.ListStudios(r.Context(), sort == "count")
 	if err != nil {
 		h.fail(w, "list studios", err)
 		return
 	}
 	for i := range studios {
+		setStudioImageURLs(&studios[i])
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
+}
+
+// listStudiosByCompleteness serves GET /studios once listStudios has
+// determined the request is completeness-sorted or missing-facet-filtered
+// (F55.5/F55.6). No other browse filter or pagination to preserve, like
+// people. Caller has already checked owner auth.
+func (h *Handlers) listStudiosByCompleteness(w http.ResponseWriter, r *http.Request, desc bool, missingFacets []string) {
+	scored, err := h.completenessForStudios(r.Context())
+	if err != nil {
+		h.fail(w, "list studios by completeness", err)
+		return
+	}
+	filtered := make([]StudioCompleteness, 0, len(scored))
+	for _, sc := range scored {
+		if isMissingAll(sc.Completeness, missingFacets) {
+			filtered = append(filtered, sc)
+		}
+	}
+	sortByScore(filtered, func(sc StudioCompleteness) int { return sc.Completeness.Score }, desc)
+	studios := make([]model.Studio, len(filtered))
+	for i, sc := range filtered {
+		studios[i] = sc.Studio
 		setStudioImageURLs(&studios[i])
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": studios})

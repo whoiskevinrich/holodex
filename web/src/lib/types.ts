@@ -722,7 +722,9 @@ export interface PersonRenameConflict {
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
-// "random" is a seeded shuffle paired with a ?seed= param (ADR-045).
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045). completeness_asc/
+// desc (F55.5) are owner-only — the server 401s a non-owner request using them, so the
+// frontend must only ever offer/send them when isOwner is true.
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
@@ -732,13 +734,26 @@ export type SortOrder =
 	| 'duration_asc'
 	| 'resolution_desc'
 	| 'resolution_asc'
-	| 'random';
+	| 'random'
+	| 'completeness_asc'
+	| 'completeness_desc';
 
 // Sort options for the unpaged People/Tags indexes — the single source of truth for
 // both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
 // seeded shuffle of the name-ordered list (ADR-045 §3).
 export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
 export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
+
+// FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
+// mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's
+// option list: canonical (the value sent as ?missing_facet=), a display label,
+// and how many entities of this type are currently missing it.
+export interface FacetSummary {
+	canonical: string;
+	label: string;
+	criticality: string;
+	missing_count: number;
+}
 
 export interface MediaFilters {
 	q?: string;
@@ -763,6 +778,9 @@ export interface MediaFilters {
 	// sort==='random'.
 	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
+	// Missing-facet filter (F55.6): canonical facet keys the video must be missing
+	// (AND semantics across multiple). Owner-only, like the completeness sorts above.
+	missing_facet?: string[];
 	limit?: number;
 	offset?: number;
 }

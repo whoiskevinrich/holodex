@@ -18,6 +18,7 @@ import type {
 	ExtractionResolveAction,
 	ExtractionResult,
 	Facet,
+	FacetSummary,
 	JobRun,
 	JobDigest,
 	MediaDetailResponse,
@@ -319,8 +320,19 @@ export const api = {
 	// list in canonical name order for both 'name' and 'random' — the random shuffle
 	// is applied client-side (these lists are unpaged) — so only 'count' reorders
 	// server-side. 'random' is still sent so the contract is exercised/observable.
-	listPeople: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Person[] }>(`/people${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) are owner-only — the server
+	// 401s a non-owner request using either; callers gate on isOwner before passing them.
+	listPeople: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Person[] }>(`/people${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
@@ -397,8 +409,19 @@ export const api = {
 	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
 	// random; random shuffled client-side). Detail carries resolved[] in the record
 	// vocabulary (no in_sync) plus the studio's videos.
-	listStudios: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Studio[] }>(`/studios${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) mirror listPeople — owner-only,
+	// callers gate on isOwner before passing them.
+	listStudios: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Studio[] }>(`/studios${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getStudio: (id: number, fetchFn?: typeof fetch) =>
 		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
@@ -423,6 +446,13 @@ export const api = {
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),
+
+	// Missing-facet summary (F55.6, ADR-081 D4) — canonical facets + how many
+	// entities of this type are currently missing each, for the browse page's
+	// Missing-facet filter chip options. Owner-gated (score/actionability are
+	// never exposed to non-owners, even as an aggregate count).
+	completenessFacets: (entityType: 'video' | 'person' | 'studio') =>
+		getAuthed<{ facets: FacetSummary[] }>(`/completeness/facets?entity_type=${entityType}`),
 
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),

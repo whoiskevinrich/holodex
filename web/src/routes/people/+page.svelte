@@ -12,6 +12,8 @@
 	import PersonPosterGrid from '$lib/components/person/PersonPosterGrid.svelte';
 	import PersonViewToggle from '$lib/components/person/PersonViewToggle.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
+	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
+	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
@@ -19,6 +21,7 @@
 	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
+	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
 	let people = $state<Person[]>([]);
 	let sort = $state<PeopleTagSort>(readSort('people', PEOPLE_TAG_SORTS, 'name'));
@@ -42,13 +45,21 @@
 	// type via the overlay panel and this grid stays unfiltered.
 	const q = $derived(navSearch.inPlace ? navSearch.query : '');
 
+	// Completeness sort (F55.5) — owner-only, a separate control/state from `sort`
+	// (see CompletenessSortToggle) since PeopleTagSort is shared with the
+	// (out-of-scope) Tags page. Declared here (ahead of `sorted` below) so it's
+	// initialized before that derived's first read.
+	let completenessDir = $state<'' | 'asc' | 'desc'>('');
+
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2,
 	// ADR-045) — stable across re-renders, reshuffled only on reroll/new session (kept
 	// a separate $derived from `displayed` so a keystroke's filter pass doesn't also
 	// re-shuffle). The A–Z jump-nav stays tied to sort==='name' with no active filter,
 	// where `displayed` equals `people` (NS3: filterByName over the already-fetched
 	// list, no new fetch).
-	const sorted = $derived(sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
+	// completenessDir overrides the client-side random shuffle — the server has already
+	// ordered `people` by score in that case.
+	const sorted = $derived(!completenessDir && sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 	const displayed = $derived(filterByName(sorted, q));
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
@@ -60,6 +71,20 @@
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
+
+	// Missing-facet filter (F55.6) — owner-only, AND semantics across selections.
+	// `missingFacetFetched` is a plain (non-reactive) guard, not `$state` — the person
+	// facet list can legitimately come back empty ([] length 0), and re-assigning a
+	// fresh empty array on every response is itself a $state write, so gating on
+	// `.length === 0` would refire the fetch forever and hammer the server.
+	let missingFacetIDs = $state<string[]>([]);
+	const missingFacet = createMissingFacetOptions('person');
+	$effect(() => {
+		missingFacet.ensureFetched(isOwner);
+	});
+	function effectiveSort(): PeopleTagSort | 'completeness_asc' | 'completeness_desc' {
+		return completenessDir ? (`completeness_${completenessDir}` as const) : sort;
+	}
 
 	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
 	// the first person under each letter. Logic lives in $lib/peopleNav (unit-tested).
@@ -80,8 +105,11 @@
 	function reload() {
 		loading = true;
 		loadError = '';
+		// Owner-gated: never send the completeness sort/filter for a non-owner (a
+		// transient pre-capabilities-load isOwner=false just falls back to the plain
+		// sort, and self-heals into the real request once caps resolve).
 		api
-			.listPeople(sort)
+			.listPeople(isOwner ? effectiveSort() : sort, undefined, isOwner ? missingFacetIDs : undefined)
 			.then((res) => (people = res.items ?? []))
 			.catch((err) => {
 				// Surface a failed fetch instead of masking it as the empty "no people" state.
@@ -92,21 +120,25 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = listScroll.take('people', sort);
+					const snap = listScroll.take('people', scrollKey());
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
 	}
 
+	function scrollKey(): string {
+		return `${isOwner ? effectiveSort() : sort}|${isOwner ? missingFacetIDs.join(',') : ''}`;
+	}
+
 	$effect(() => {
-		void sort; // re-run on sort change
+		void sort; void completenessDir; void missingFacetIDs; // re-run on any sort/filter change
 		reload();
 	});
 
 	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
-	// where the list was. Keyed by sort; a sort change invalidates it (listScroll.take).
+	// where the list was. Keyed by the effective sort/filter; a change invalidates it.
 	beforeNavigate(() => {
-		listScroll.save('people', { key: sort, scrollY: window.scrollY });
+		listScroll.save('people', { key: scrollKey(), scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {
@@ -158,10 +190,18 @@
 					</button>
 				{/if}
 			{/if}
-			{#if sort === 'random'}
+			{#if !completenessDir && sort === 'random'}
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
 			<SortToggle bind:sort />
+			{#if isOwner}
+				<CompletenessSortToggle bind:dir={completenessDir} />
+				<FacetFilter
+					label="Missing"
+					items={missingFacet.options.map((f) => ({ id: f.canonical, name: f.label, video_count: f.missing_count }))}
+					bind:selected={missingFacetIDs}
+				/>
+			{/if}
 			<PersonViewToggle bind:view={activeView} />
 			{#if activeView === 'poster'}
 				<div class="flex items-center gap-2">
@@ -206,7 +246,7 @@
 	{:else if activeView === 'poster'}
 		<PersonPosterGrid people={displayed} />
 	{:else}
-		{#if sort === 'name' && !q.trim()}
+		{#if !completenessDir && sort === 'name' && !q.trim()}
 			<nav
 				aria-label="Jump to letter"
 				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"

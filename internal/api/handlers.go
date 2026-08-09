@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -367,6 +368,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDecisions(r)
 		// Not-applicable facet exclusions for the completeness score (F55, ADR-081).
 		h.mountFacetNotApplicable(r)
+		// Missing-facet filter chip options + live counts, for browse sort/filter
+		// (F55.6, ADR-081 D4).
+		r.Get("/completeness/facets", h.completenessFacets)
 		// In-app field promotion — promote an auto-registered field to curatable (F44, ADR-062).
 		h.mountFieldPromotions(r)
 		h.mountFieldClaims(r)
@@ -403,9 +407,47 @@ func (h *Handlers) Mount(r chi.Router) {
 //	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
 //
 // sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
-// duration_asc|duration_desc|resolution_asc|resolution_desc; default added_desc.
+// duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
+// completeness_desc; default added_desc. completeness_asc/desc, and the
+// repeatable missing_facet param, are owner-only (F55.5/F55.6, ADR-081 D4) —
+// score/actionability is an owner curation signal, never public library
+// metadata (spec "Access control & security"), so a non-owner request using
+// either is rejected rather than silently ignored.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	f := h.videoFilterFromQuery(q)
+
+	missingFacets := q["missing_facet"]
+	if wantsCompleteness(f.Sort, missingFacets) {
+		if !h.requireOwnerInline(w, r) {
+			return
+		}
+		h.listMediaByCompleteness(w, r, f, missingFacets)
+		return
+	}
+
+	items, total, err := h.repo.ListVideos(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list media", err)
+		return
+	}
+	h.prepareThumbnails(items)
+	// Browse-title resolution (F27): any field with browse:true overwrites video.Title
+	// with the highest-precedence source (e.g. tmdb:title before file:title).
+	if h.mappings != nil {
+		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
+	}
+	redactFileMetadataForVisitors(items, h.auth.authorized(r))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
+	})
+}
+
+// videoFilterFromQuery builds a VideoFilter from GET /media's query params.
+// Factored out of listMedia so /completeness/facets (F55.6) can compute its
+// missing-facet counts against the exact same filtered subset a completeness
+// sort/filter request on /media would score — the two must never disagree.
+func (h *Handlers) videoFilterFromQuery(q url.Values) repo.VideoFilter {
 	f := repo.VideoFilter{
 		Query:          q.Get("q"),
 		PersonIDs:      parseIDs(q["person"]),
@@ -435,22 +477,96 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	return f
+}
 
-	items, total, err := h.repo.ListVideos(r.Context(), f)
+// listMediaByCompleteness serves GET /media once listMedia has determined the
+// request is sorted by completeness or filtered by missing facet (F55.5/
+// F55.6, ADR-081 D4): a Go-side rank/filter/paginate pass over
+// completenessForVideos, sharing the exact predicate the remediation queue
+// will read. f.Sort still carries the caller's non-completeness sort (e.g.
+// title_asc) when only missing_facet was given — completenessForVideos already
+// applied it via SQL, so relative order is preserved unless f.Sort is itself a
+// completeness key. Caller (listMedia) has already checked owner auth.
+func (h *Handlers) listMediaByCompleteness(w http.ResponseWriter, r *http.Request, f repo.VideoFilter, missingFacets []string) {
+	scored, err := h.completenessForVideos(r.Context(), f)
 	if err != nil {
-		h.fail(w, "list media", err)
+		h.fail(w, "list media by completeness", err)
 		return
 	}
+	filtered := make([]VideoCompleteness, 0, len(scored))
+	for _, vc := range scored {
+		if isMissingAll(vc.Completeness, missingFacets) {
+			filtered = append(filtered, vc)
+		}
+	}
+	if f.Sort == sortCompletenessAsc || f.Sort == sortCompletenessDesc {
+		sortByScore(filtered, func(vc VideoCompleteness) int { return vc.Completeness.Score }, f.Sort == sortCompletenessDesc)
+	}
+
+	total := len(filtered)
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	start := min(f.Offset, total)
+	end := min(start+limit, total)
+	page := filtered[start:end]
+
+	items := make([]model.Video, len(page))
+	for i, vc := range page {
+		items[i] = vc.Video
+	}
 	h.prepareThumbnails(items)
-	// Browse-title resolution (F27): any field with browse:true overwrites video.Title
-	// with the highest-precedence source (e.g. tmdb:title before file:title).
 	if h.mappings != nil {
 		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
 	}
 	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
+		"items": items, "total": total, "limit": limit, "offset": f.Offset,
 	})
+}
+
+// completenessFacets handles GET /completeness/facets?entity_type=video|
+// person|studio (F55.6): the "Missing facet" filter chip's option list, with
+// a live missing-count per facet from the same completeness pass the
+// corresponding listXByCompleteness path scores — so the chip's counts can
+// never disagree with what selecting a facet actually filters to. video
+// additionally accepts /media's other filter params (q, tag, person, ...) so
+// the counts reflect the caller's current browse filters, not the whole
+// library. Owner-only: mounted in the requireOwner group (Mount).
+func (h *Handlers) completenessFacets(w http.ResponseWriter, r *http.Request) {
+	switch entityType := r.URL.Query().Get("entity_type"); entityType {
+	case "video":
+		scored, err := h.completenessForVideos(r.Context(), h.videoFilterFromQuery(r.URL.Query()))
+		if err != nil {
+			h.fail(w, "completeness facets", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"facets": summarizeFacets(scored, func(vc VideoCompleteness) resolver.Completeness { return vc.Completeness }),
+		})
+	case "person":
+		scored, err := h.completenessForPeople(r.Context())
+		if err != nil {
+			h.fail(w, "completeness facets", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"facets": summarizeFacets(scored, func(pc PersonCompleteness) resolver.Completeness { return pc.Completeness }),
+		})
+	case "studio":
+		scored, err := h.completenessForStudios(r.Context())
+		if err != nil {
+			h.fail(w, "completeness facets", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"facets": summarizeFacets(scored, func(sc StudioCompleteness) resolver.Completeness { return sc.Completeness }),
+		})
+	default:
+		writeError(w, http.StatusBadRequest, "entity_type must be video, person, or studio")
+	}
 }
 
 // setThumbnailURL fills ThumbnailURL when an image exists on disk (ADR-009). The
@@ -907,11 +1023,50 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"keys": out})
 }
 
+// listPeople handles GET /people (F19): name-sorted (or count-sorted, or
+// completeness-sorted/filtered) people with active-video counts. sort=
+// completeness_asc|completeness_desc and the repeatable missing_facet param
+// are owner-only (F55.5/F55.6, ADR-081 D4), same posture as listMedia.
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
-	people, err := h.repo.ListPeople(r.Context(), r.URL.Query().Get("sort") == "count")
+	q := r.URL.Query()
+	sort := q.Get("sort")
+	missingFacets := q["missing_facet"]
+	if wantsCompleteness(sort, missingFacets) {
+		if !h.requireOwnerInline(w, r) {
+			return
+		}
+		h.listPeopleByCompleteness(w, r, sort == sortCompletenessDesc, missingFacets)
+		return
+	}
+	people, err := h.repo.ListPeople(r.Context(), sort == "count")
 	if err != nil {
 		h.fail(w, "list people", err)
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": people})
+}
+
+// listPeopleByCompleteness serves GET /people once listPeople has determined
+// the request is completeness-sorted or missing-facet-filtered (F55.5/F55.6).
+// Unlike video, people has no other browse filter to preserve order from, and
+// no pagination — filter, sort, and return the full set. Caller has already
+// checked owner auth.
+func (h *Handlers) listPeopleByCompleteness(w http.ResponseWriter, r *http.Request, desc bool, missingFacets []string) {
+	scored, err := h.completenessForPeople(r.Context())
+	if err != nil {
+		h.fail(w, "list people by completeness", err)
+		return
+	}
+	filtered := make([]PersonCompleteness, 0, len(scored))
+	for _, pc := range scored {
+		if isMissingAll(pc.Completeness, missingFacets) {
+			filtered = append(filtered, pc)
+		}
+	}
+	sortByScore(filtered, func(pc PersonCompleteness) int { return pc.Completeness.Score }, desc)
+	people := make([]model.Person, len(filtered))
+	for i, pc := range filtered {
+		people[i] = pc.Person
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": people})
 }

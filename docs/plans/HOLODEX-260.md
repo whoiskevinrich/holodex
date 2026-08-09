@@ -26,7 +26,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md` (D5 superseded by `docs/architecture/ADR-082-external-provider-id-namespace-qualified-value.md`)
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [/] backend
-- [ ] frontend
+- [/] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — new owner-gated not-applicable mutation
 
@@ -41,7 +41,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 2b. [x] [backend] score/actionability computation (D3) — `internal/resolver/complete.go`
 2c. [x] [backend] list-wide resolve-all backend predicate (D4) — `internal/api/completeness.go`, generic `*ForEntities` batch loaders in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}.go`
 3. [x] [backend] `imdb_id` → `external_provider_id` rename, value namespace-qualified per ADR-082 — `internal/registry/registry.go`, `internal/db/migrations/0040_rename_imdb_id_field_key.{up,down}.sql`, `providers/tmdb/tmdb.go`, `providers/tmdb/handler.go`
-4. [ ] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
+4. [x] [frontend] browse "Completeness" sort + "Missing facet" filter chip (reuse `FacetFilter.svelte`, `SortDropdown`) — `web/src/routes/+page.svelte`, `web/src/routes/people/+page.svelte`, `web/src/routes/studios/+page.svelte`
 5. [ ] [backend+frontend] facet-first remediation queue (candidate-ready vs needs-research, individual apply/search/upload) — new `web/src/routes/owner/completeness/+page.svelte`, backend predicate shared with #4
 6. [ ] [frontend] per-entity completeness breakdown panel — video/person/studio detail pages
 7. [ ] [testing] F55 block in `docs/testing-strategy.md`
@@ -56,6 +56,47 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-08 · Item #4 — browse Completeness sort + Missing facet filter chip (F55.5/F55.6)
+- skills: simplify
+- handoff: wired D4's backend predicate into all three public list endpoints and built the
+  matching owner-only browse UI, closing item #4. Backend: `listMedia`/`listPeople`/`listStudios`
+  now route `sort=completeness_asc|desc` or any `missing_facet` param to the D4 completeness path
+  (`listMediaByCompleteness` etc.) instead of the normal SQL-paginated one; new owner-gated `GET
+  /completeness/facets?entity_type=` returns `FacetSummary[]` (canonical/label/criticality/
+  missing_count) for the filter chip's options, scored against the exact same filtered subset a
+  sort/filter request would return so the chip's counts can never disagree with the filter itself.
+  Frontend: `SortDropdown` gains owner-filtered completeness options, a new
+  `CompletenessSortToggle.svelte` (`entity/`, F55.5) for People/Studios — kept separate from
+  `SortToggle` since its `PeopleTagSort` type is shared with the out-of-scope Tags page — and
+  `FacetFilter.svelte` widened to generic `Id extends string | number` so it can host both the
+  existing numeric tag/person facets and the new string canonical-field ones. All three browse
+  pages gate the *outgoing request* on `isOwner` (`isOwner ? realValue : fallback`), never the
+  persisted UI state itself — a transient pre-capabilities-load `isOwner=false` self-heals into
+  the real request once `activity.effectiveOwner` resolves, instead of clobbering a
+  URL/localStorage-restored preference and risking a doomed 401. Found and fixed a real bug during
+  QA: the missing-facet options fetch was gated on `options.length === 0`, which loops forever
+  when the API legitimately returns `[]` (a fresh empty array is itself a `$state` write) — it
+  crashed the dev server mid-session; fixed with a plain non-reactive `fetched` boolean instead,
+  since extracted into a shared `web/src/lib/missingFacetOptions.svelte.ts` composable so the
+  fetch-once effect isn't triplicated across the three pages. QA'd owner/non-owner request
+  composition and all three skins (Cinémathèque/Broadcast/Brutalist) live in the browser. Ran
+  `/simplify` (4-agent pass): altitude's highest-priority finding was that the three inline
+  `if !h.auth.authorized(r) { writeError(...); return }` gate blocks bypassed `requireOwner`'s
+  middleware, silently dropping `maybeRenewSession` (ADR-046 session-lifetime slide) and dead-cookie
+  clearing for these three endpoints — a real bug, not just duplication; fixed by extracting
+  `requireOwnerInline(w, r) bool` in `internal/api/auth.go` (both `requireOwner` and the three call
+  sites now delegate to it) plus a `wantsCompleteness(sort, missingFacets) bool` helper collapsing
+  the repeated condition; reuse flagged a hand-rolled `equalStrings` test helper duplicating stdlib
+  `slices.Equal` (fixed). Deferred (noted, not fixed — architectural, wants its own review): three
+  efficiency findings — `listMediaByCompleteness` computing facets and the list separately on the
+  same request, a full re-score of the whole matching set on every browse "Load more" page under a
+  completeness sort, and the `*ForEntities` batch loaders running sequentially rather than
+  concurrently — candidates for a follow-up HOLODEX ticket once real usage shows it matters at this
+  app's personal-library scale (ADR-081 D4's own explicit bound). `go build`/`go vet`/`go test
+  ./internal/api/...` and `npm run check` all clean. Next: item #5, the facet-first remediation
+  queue (backend+frontend, shares this session's backend predicate) — or file the deferred
+  efficiency findings as their own HOLODEX ticket first if picked up before #5.
 
 ### 2026-08-08 · Backend D4 — list-wide resolve-all predicate for browse sort/filter + remediation queue
 - skills: simplify, architecture

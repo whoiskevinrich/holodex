@@ -6,6 +6,7 @@ into another, and the shared video-list body for an entity's detail page.
 | File | Purpose |
 |---|---|
 | `CategoryPicker.svelte` | Category assign/remove picker (HOLODEX-240): search-or-create (`mode="add"`) or search-only (`mode="remove"`) a category for the selected tags — single-step, no informed confirm (assign/remove are reversible, unlike merge). |
+| `CompletenessSortToggle.svelte` | Owner-only "Completeness ↓/↑" segmented toggle (F55.5) for the People/Studios indexes — kept separate from `SortToggle` since its `PeopleTagSort` type is shared with the Tags page, which has no completeness scoring. |
 | `EntityPicker.svelte` | Merge picker: search/pick another entity, then an informed confirm showing both video counts (never a silent merge). Generalized from F23's PersonPicker. |
 | `EntityPickerDialog.svelte` | Local entity-search picker for the Extraction tab's People/Studio field edits — searches the app's own entities (no external round trip); confirming never writes, just hands back a name. |
 | `EntityVideos.svelte` | Shared body for person/[id], studio/[id], and tag/[id] detail pages: back-link, title, video count, the video grid, scroll restoration (HOLODEX-248, keyed by the `scrollKey` prop), and NS6 in-place video-title filtering off the shared nav search box (HOLODEX-249) — all three callers pass their raw `videos`/`empty`, this component owns the `navSearch`-driven filtering and empty-state swap. Optional `hero`/`detail` snippets. |
