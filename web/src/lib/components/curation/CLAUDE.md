@@ -14,5 +14,6 @@ source selection, read-only auto-registered field rows, and the promote-to-canon
 | `MappedFacets.svelte` | Loads the mapped-facet list and lets the browse page bind selected values per canonical facet. |
 | `PromoteFieldEditor.svelte` | Shared inline editor driving promote/edit/de-promote of a non-canonical field (label/render/group/order). |
 | `PromotedFieldEdit.svelte` | Owner-only Edit/Remove-promotion affordance on an already-promoted field row; opens `PromoteFieldEditor` in edit mode. |
-| `SourceSelect.svelte` | Per-field source-of-truth control (F36) — one row of source-tagged, single-select value chips plus a Custom chip and "file out of sync" warning. |
+| `SourceBadge.svelte` | Tier-2 per-field source-of-truth control (F56) — collapsed `ProvenanceBadge` at rest, click-to-expand `CurationChip` radio row with staged (not auto-committing) selection + explicit Confirm/Cancel. Replaces `SourceSelect` for every replace field except Person's `onadopt`-intercepted name. |
+| `SourceSelect.svelte` | Per-field source-of-truth control (F36) — one row of source-tagged, single-select value chips plus a Custom chip and "file out of sync" warning. Kept alive only for Person's name field (Tier-1, HOLODEX-269); `SourceBadge` supersedes it elsewhere. |
 | `UrlValueList.svelte` | Renders a `url`-display field's values as scheme-gated links, with optional hostname-only text and a leading provider brand icon. |

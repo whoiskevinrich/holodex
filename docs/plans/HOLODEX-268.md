@@ -28,8 +28,8 @@ side effect of the new Confirm step — not patched standalone.
 - [x] spec `write-spec` → `docs/specs/two-tier-field-editing.md`
 - [~] architecture `architecture` → none needed — presentation-layer restructuring of ADR-051, no new persistence/API/access-control shape (see spec's Depends-on line)
 - [x] design `design-handoff` → `docs/design/two-tier-field-editing-handoff.md` + `docs/design/two-tier-field-editing-qa-checklist.md`
-- [ ] backend
-- [ ] frontend
+- [~] backend — none needed, this story is a frontend-only presentation restructuring (no API/schema change)
+- [/] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` §5 frontend row + §11 gap-tracking bullet (frontend-only feature, no §4 backend row needed)
 - [~] security `security-review` — until: a new mutation surface is introduced (none planned; see spec § Access control & security)
 
@@ -39,9 +39,9 @@ side effect of the new Confirm step — not patched standalone.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [frontend] Build `SourceBadge.svelte` (badge/expand/chip-row/Confirm-Cancel), reusing `CurationChip` radio mode + `ProvenanceBadge` — `web/src/lib/components/curation/SourceBadge.svelte`
-2. [ ] [frontend] F56.4 RD6-confirm bug fix — verify Confirm commits a standing decision for the pending implicit winner, and land the regression test the testing-strategy §5 row calls for — `SourceBadge.svelte` + `web/src/lib/f36.ts`
-3. [ ] [frontend] Roll `SourceBadge` out to all remaining Tier-2 replace fields on Video/Person/Studio  ⛔ blocked on #1
+1. [x] [frontend] Build `SourceBadge.svelte` (badge/expand/chip-row/Confirm-Cancel), reusing `CurationChip` radio mode + `ProvenanceBadge` — `web/src/lib/components/curation/SourceBadge.svelte`
+2. [x] [frontend] F56.4 RD6-confirm bug fix — verified live against `backend-films`: Confirm alone (no chip click) on an RD6-pending chip issued exactly one `PUT .../decision` and flipped `decision.standing` to `true`
+3. [ ] [frontend] Roll `SourceBadge` out to the remaining Tier-2 replace fields on Video (`media/[id]/+page.svelte`) and Studio (`studios/[id]/+page.svelte`) detail pages, mirroring today's Person rollout
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -52,6 +52,10 @@ side effect of the new Confirm step — not patched standalone.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-10 · Frontend implementation — `SourceBadge.svelte` + HOLODEX-245 fix
+- skills: (none — direct implementation)
+- handoff: Built `SourceBadge.svelte` (`web/src/lib/components/curation/SourceBadge.svelte`) as a structurally independent sibling to `SourceSelect`, per the design handoff — collapsed `ProvenanceBadge` at rest, click-to-expand `CurationChip` radio row with locally staged (not auto-committing) selection, explicit Confirm/Cancel. New `web/src/lib/expandedField.svelte.ts` module-level singleton coordinates F56.9 single-expansion across the page. Wired into `people/[id]/+page.svelte`'s `compactFields` and `longFields` owner branches, replacing `SourceSelect`; the Name field's `SourceSelect` (Tier-1, `onadopt`-intercepted) was left untouched. `npm run check` clean (0 errors). Live-QA'd against `backend-films` (TMDB-enriched `Oscar Isaac`, id 4): the F56.4/HOLODEX-245 RD6-confirm fix verified end-to-end — Confirm alone on the pending `nationality` chip issued exactly one `PUT .../decision` and flipped `decision.standing` to `true`; chip staging and inline-Custom-draft editing confirmed zero network calls until Confirm; Cancel discarded a staged custom value with zero calls; F56.9 single-expansion confirmed (expanding Website collapsed an unconfirmed Born); Escape returned focus to the badge; click-away (clicking the theme switcher) also collapsed via the shared `dismissable` action. All 3 skins checked via computed-style contrast (screenshots time out in this environment) — Confirm/Cancel contrast ratios all well above WCAG AA in Cinémathèque/Broadcast/Brutalist. Updated `docs/testing-strategy.md`'s F56 row from pre-implementation to implemented+manually-QA'd, and `curation/CLAUDE.md`'s component table. No automated component tests added — this codebase's Vitest setup has no `@testing-library/svelte`/`jsdom`, consistent with the established gap tracked in testing-strategy §11. Next session should tackle Up-next item 3: roll `SourceBadge` out to Video and Studio detail pages, replacing their `SourceSelect` call sites the same way.
 
 ### 2026-08-10 · Testing strategy for HOLODEX-268
 - skills: testing-strategy
