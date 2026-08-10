@@ -28,7 +28,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] security `security-review`
 
 ## Up next — ordered (position = priority)
 
@@ -47,7 +47,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 5. [x] [frontend] extract the video badge into a shared component; person/studio headers render
    zero-to-many badges from `external_links`
 6. [x] [testing] template-mismatch degradation + multi-badge cases
-7. [ ] [security] `LinkTemplates` validation (single `{id}` placeholder, `https://` scheme, no
+7. [x] [security] `LinkTemplates` validation (single `{id}` placeholder, `https://` scheme, no
    injection via a malicious provider) before interpolation into a served URL
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -60,8 +60,35 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · Security gate closed — LinkTemplates injection review, no findings
+- skills: security-review
+- handoff: closed item #7, the last gate. Reviewed the full malicious-provider data flow —
+  `/describe` response → `SanitizeLinkTemplates`/`ValidateLinkTemplate` (`internal/enrich/
+  link_templates.go`) → `persistLinkTemplates`/`BuildProviderLink` (`internal/enrich/service.go`)
+  → `provider_link_templates` storage (`internal/repo/provider_link_templates.go`, migration 0041)
+  → `external_links` JSON projection (`internal/api/external_links.go`) → `<a href>` render
+  (`ProviderLinkBadge.svelte`) — with a dedicated subagent plus independent spot-checks of the
+  actual file contents (not just the diff). **No findings.** `ValidateLinkTemplate` requires
+  exactly one `{id}` placeholder and validates the placeholder-substituted string through the
+  same `validHTTPURL` helper `sanitizeProfileURL` already uses elsewhere (http/https scheme +
+  non-empty host) — this PR correctly reused the established pattern rather than diverging from
+  it. `BuildLink` interpolates the id via `url.PathEscape`, not raw string substitution or a
+  template engine, which blocks `/`, `?`, `#` from the id — the characters that would let an
+  attacker-controlled id introduce a new path segment, query string, or fragment and redirect off
+  the declared host. SQL access in `provider_link_templates.go` is fully parameterized, no
+  string-built queries from provider-supplied namespace/entityKind/template values. The frontend's
+  `isHttpUrl` (`format.ts`) is a real scheme allowlist gating `href` as defense-in-depth (the
+  backend already only emits validated http(s) URLs); no `{@html}`/unsafe sink anywhere in the
+  changed `.svelte` files. One documented, intentional design tradeoff (not a vulnerability):
+  `provider_link_templates` is keyed by `(namespace, entity_type)` rather than by provider
+  (ADR-083 D2's shared-identity-space model, mirroring ADR-055), so any enabled provider's
+  `/describe` can overwrite another provider's link template for a namespace it doesn't own,
+  last-write-wins — worst case is still just an unexpected outbound link, matching the threat
+  model's own stated ceiling. All 7 worklog gates are now closed — this is the last one. Next:
+  mark draft PR #226 ready for review (fires the Jira In Review transition).
+
 ### 2026-08-09 · Testing gate closed — external_links projection + BuildProviderLink coverage
-- skills: testing-strategy, simplify
+- skills: testing-strategy, simplify, security-review
 - handoff: closed item #6. `externalLinksForEntity` (`internal/api/external_links.go`) and
   `Service.BuildProviderLink`/`verifiedClient`'s link-template persistence had no dedicated tests
   before this session — only their lower-level building blocks (`ExternalIDsForEntity`,
