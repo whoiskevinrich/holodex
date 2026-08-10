@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ExternalLink is one badge-ready outbound link for a person/studio detail response
@@ -13,9 +15,13 @@ import (
 // kind) — the degraded state the design handoff (docs/design/provider-link-badge-
 // handoff.md §3) specs: the badge still renders, just non-interactive.
 type ExternalLink struct {
-	Provider string `json:"provider"` // the id's namespace, e.g. "imdb"
-	Label    string `json:"label"`    // display label, e.g. "IMDb"
-	URL      string `json:"url,omitempty"`
+	// Namespace is the id's namespace (e.g. "imdb"), not necessarily the provider that
+	// enriched this entity — a provider can emit a foreign-namespaced id (TMDB emitting
+	// "imdb:"-prefixed values). Wire field stays "provider" for API compatibility with
+	// existing frontend consumers.
+	Namespace string `json:"provider"`
+	Label     string `json:"label"` // display label, e.g. "IMDb"
+	URL       string `json:"url,omitempty"`
 }
 
 // namespaceLabels are the well-known namespace -> display label overrides this
@@ -41,7 +47,10 @@ func namespaceLabel(namespace string) string {
 	if namespace == "" {
 		return ""
 	}
-	return strings.ToUpper(namespace[:1]) + namespace[1:]
+	// Rune-safe, not a byte slice: namespace[:1] would split a multi-byte UTF-8 first
+	// character and corrupt it.
+	r, size := utf8.DecodeRuneInString(namespace)
+	return string(unicode.ToUpper(r)) + namespace[size:]
 }
 
 // externalLinksForEntity projects a person/studio's stored external ids
@@ -61,12 +70,21 @@ func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string
 		return nil, nil
 	}
 	out := make([]ExternalLink, 0, len(ids))
+	seenNamespaces := make(map[string]bool, len(ids))
 	for _, raw := range ids {
 		namespace, id, ok := strings.Cut(raw, ":")
 		if !ok || namespace == "" || id == "" {
 			continue
 		}
-		link := ExternalLink{Provider: namespace, Label: namespaceLabel(namespace)}
+		// Normalize case here (BuildProviderLink and namespaceLabel both key off a
+		// lowercase namespace) and dedup by namespace: the frontend keys its badge list
+		// on this value, so two ids under the same namespace would otherwise collide.
+		namespace = strings.ToLower(namespace)
+		if seenNamespaces[namespace] {
+			continue
+		}
+		seenNamespaces[namespace] = true
+		link := ExternalLink{Namespace: namespace, Label: namespaceLabel(namespace)}
 		if h.enrich != nil {
 			if u, ok := h.enrich.BuildProviderLink(ctx, namespace, entityType, id); ok {
 				link.URL = u

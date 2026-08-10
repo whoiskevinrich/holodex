@@ -134,6 +134,12 @@ type Service struct {
 	// any owner action, so its link must survive a restart rather than resetting to
 	// the degraded no-link state until an owner happens to act again.
 	linkTemplates atomic.Pointer[map[string]map[string]string]
+	// linkTemplatesMu serializes persistLinkTemplates's write-then-reload sequence.
+	// Without it, two providers' concurrent /describe calls (e.g. the owner's "Refresh
+	// All") can interleave their unlocked reload SELECTs and atomic.Pointer.Store
+	// calls out of commit order, losing one provider's templates from the cache even
+	// though the DB has both.
+	linkTemplatesMu sync.Mutex
 }
 
 // assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
@@ -358,13 +364,18 @@ func (s *Service) PreferredSearchPattern(provider string) (pattern string, ok bo
 }
 
 // reloadLinkTemplates reads the link-template table and swaps it into the cache
-// atomically (HOLODEX-266, ADR-083 D2). A read error logs and caches an empty map
-// (badges then render in the degraded no-link state) rather than failing the page.
+// atomically (HOLODEX-266, ADR-083 D2). A read error logs and keeps the last
+// known-good cache (falling back to an empty map only if nothing has ever loaded
+// successfully) rather than wiping every provider's badges to the degraded no-link
+// state over one transient read failure.
 func (s *Service) reloadLinkTemplates(ctx context.Context) map[string]map[string]string {
 	m, err := s.repo.ProviderLinkTemplates(ctx)
 	if err != nil {
 		s.log.Warn("load provider link templates", "err", err)
-		m = map[string]map[string]string{}
+		if p := s.linkTemplates.Load(); p != nil {
+			return *p
+		}
+		return map[string]map[string]string{}
 	}
 	s.linkTemplates.Store(&m)
 	return m
@@ -380,6 +391,10 @@ func (s *Service) reloadLinkTemplates(ctx context.Context) map[string]map[string
 // calls are low-frequency, so the extra write is an acceptable trade for the
 // simpler cache shape. Best effort: a failure logs and is swallowed so it never
 // blocks the owner's action.
+//
+// The write and the reload that follows it are held under linkTemplatesMu so two
+// providers' concurrent calls (e.g. "Refresh All") can't interleave their reload
+// reads out of commit order and lose one provider's templates from the cache.
 func (s *Service) persistLinkTemplates(ctx context.Context, provider string, m Manifest) {
 	sanitized := SanitizeLinkTemplates(m.LinkTemplates)
 	var templates []repo.ProviderLinkTemplate
@@ -388,6 +403,8 @@ func (s *Service) persistLinkTemplates(ctx context.Context, provider string, m M
 			templates = append(templates, repo.ProviderLinkTemplate{Namespace: namespace, EntityType: kind, Template: tmpl})
 		}
 	}
+	s.linkTemplatesMu.Lock()
+	defer s.linkTemplatesMu.Unlock()
 	if err := s.repo.ReplaceProviderLinkTemplates(ctx, provider, templates); err != nil {
 		s.log.Warn("persist provider link templates", "provider", provider, "err", err)
 		return

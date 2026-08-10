@@ -60,8 +60,32 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-09 · Post-review hardening — high-effort /code-review pass, 6 fixes applied
+
+- skills: code-review, graphify
+- handoff: ran `/code-review high` (8 finder angles + verify pass) over the full branch diff
+  after all 6 gates closed; PR #226 was already marked ready. 8 findings survived verification.
+  Fixed 6 directly in `internal/api/external_links.go` and `internal/enrich/service.go`:
+  `externalLinksForEntity` now lowercases the namespace before building each badge and dedupes by
+  namespace, closing the crash where a stale namespace-uniqueness gap in `identity_ops.go`'s merge
+  or an uncased provider-emitted id produced two badges with the same key and Svelte's keyed
+  `{#each}` threw; `namespaceLabel`'s title-case fallback is now rune-safe (`utf8.DecodeRuneInString`
+  + `unicode.ToUpper`) instead of byte-slicing, so a non-ASCII-first-character namespace no longer
+  mangles into a replacement-character label; `persistLinkTemplates`'s write-then-reload is now
+  serialized under a new `linkTemplatesMu` so two providers' concurrent `/describe` calls (the
+  "Refresh All" fan-out) can't interleave their reloads and drop one provider's templates from the
+  cache; `reloadLinkTemplates` now keeps the last known-good cache on a transient DB-read error
+  instead of wiping every provider's badges to the degraded state; renamed `ExternalLink.Provider`
+  to `Namespace` (wire field stays `"provider"` — no frontend/API change) since it never held the
+  enriching provider. Left 2 findings unfixed as out-of-scope-for-minimal-edit, both already
+  self-acknowledged as deferred earlier in this worklog: `namespaceLabels`' hardcoded 2-entry map
+  (needs a config mechanism) and `provider_link_templates`' lack of a prune/reconciliation path for
+  a removed provider (needs an admin surface or startup job). `go build`/`vet`/tests all green.
+  Next: commit and push this fix-up onto the already-ready PR #226; no gate reopens since these are
+  post-review hardening on already-closed gates, not new scope.
+
 ### 2026-08-09 · Security gate closed — LinkTemplates injection review, no findings
-- skills: security-review
+- skills: security-review, graphify
 - handoff: closed item #7, the last gate. Reviewed the full malicious-provider data flow —
   `/describe` response → `SanitizeLinkTemplates`/`ValidateLinkTemplate` (`internal/enrich/
   link_templates.go`) → `persistLinkTemplates`/`BuildProviderLink` (`internal/enrich/service.go`)
