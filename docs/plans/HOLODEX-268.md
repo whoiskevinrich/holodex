@@ -18,7 +18,7 @@ shipped for all in-scope replace fields *and* the confirmed pending-chip bug
 (`SourceSelect.activate()`'s no-op guard on the RD6-pending chip) is fixed as a structural
 side effect of the new Confirm step — not patched standalone.
 
-**Design package:** [two-tier-field-editing.md](../specs/two-tier-field-editing.md) · ADR: none (extends ADR-051, no new architecture) · handoff: [two-tier-field-editing-handoff.md](../design/two-tier-field-editing-handoff.md) + [qa-checklist](../design/two-tier-field-editing-qa-checklist.md) · testing-strategy §: not yet added
+**Design package:** [two-tier-field-editing.md](../specs/two-tier-field-editing.md) · ADR: none (extends ADR-051, no new architecture) · handoff: [two-tier-field-editing-handoff.md](../design/two-tier-field-editing-handoff.md) + [qa-checklist](../design/two-tier-field-editing-qa-checklist.md) · testing-strategy §: [§5 frontend row](../testing-strategy.md) + [§11 gap tracking](../testing-strategy.md)
 
 ## Gates — definition of done
 
@@ -30,7 +30,7 @@ side effect of the new Confirm step — not patched standalone.
 - [x] design `design-handoff` → `docs/design/two-tier-field-editing-handoff.md` + `docs/design/two-tier-field-editing-qa-checklist.md`
 - [ ] backend
 - [ ] frontend
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` §5 frontend row + §11 gap-tracking bullet (frontend-only feature, no §4 backend row needed)
 - [~] security `security-review` — until: a new mutation surface is introduced (none planned; see spec § Access control & security)
 
 ## Up next — ordered (position = priority)
@@ -40,9 +40,8 @@ side effect of the new Confirm step — not patched standalone.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [frontend] Build `SourceBadge.svelte` (badge/expand/chip-row/Confirm-Cancel), reusing `CurationChip` radio mode + `ProvenanceBadge` — `web/src/lib/components/curation/SourceBadge.svelte`
-2. [ ] [frontend] F56.4 RD6-confirm bug fix — verify Confirm commits a standing decision for the pending implicit winner — `SourceBadge.svelte` + `web/src/lib/f36.ts`
+2. [ ] [frontend] F56.4 RD6-confirm bug fix — verify Confirm commits a standing decision for the pending implicit winner, and land the regression test the testing-strategy §5 row calls for — `SourceBadge.svelte` + `web/src/lib/f36.ts`
 3. [ ] [frontend] Roll `SourceBadge` out to all remaining Tier-2 replace fields on Video/Person/Studio  ⛔ blocked on #1
-4. [ ] [testing] Add F56 block to `docs/testing-strategy.md` + regression test for the RD6-confirm fix
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -53,6 +52,10 @@ side effect of the new Confirm step — not patched standalone.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-10 · Testing strategy for HOLODEX-268
+- skills: testing-strategy
+- handoff: Added the F56 block to `docs/testing-strategy.md` — a §5 frontend-strategy table row (frontend-only feature, no §4 backend row needed) plus a §11 gap-tracking bullet, both marked pre-implementation/target-coverage. The row calls out the F56.4 RD6-confirm case as the direct regression test for the bug this story exists to fix (Confirm alone, no chip click, must issue exactly one decision PUT and flip `decision.standing` true). Security-review and architecture stay not-applicable (no new mutation surface). All four applicable gates (spec/design/testing) are now green — only `[backend]`/`[frontend]` remain before this can leave Draft. Next session should start `[frontend]` implementation with `SourceBadge.svelte`, landing the F56.4 RD6-confirm bug fix + its regression test first since it has the clearest, most testable acceptance criterion.
 
 ### 2026-08-09 · Spec + design handoff for HOLODEX-268
 - skills: write-spec, design-handoff
