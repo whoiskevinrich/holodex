@@ -6,9 +6,9 @@
 	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
-	import { fileCandidateValue, needsWriteback } from '$lib/f36';
+	import { fileCandidateValue, isReplaceField, needsWriteback } from '$lib/f36';
 	import { waitForWritebackJob, type WritebackJobState } from '$lib/writebackJob';
-	import type { ResolvedField, WritebackRequest } from '$lib/types';
+	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
 		fields,
@@ -17,7 +17,8 @@
 		onclose,
 		onapplied,
 		writeback,
-		jobStatus
+		jobStatus,
+		decide
 	}: {
 		fields: ResolvedField[];
 		videoId: number;
@@ -27,6 +28,8 @@
 		writeback: (id: number, req: WritebackRequest) => Promise<unknown>;
 		// Reads one queued job's state, for polling it to completion.
 		jobStatus: (jobId: number) => Promise<WritebackJobState>;
+		// Creates a standing decision for one field (HOLODEX-273) — DB-only, no reload.
+		decide: (canonical: string, source: DecisionSource, manualValue?: string) => Promise<unknown>;
 	} = $props();
 
 	type RowStatus = 'idle' | 'writing' | 'done' | 'error';
@@ -34,6 +37,9 @@
 	interface Row {
 		field: ResolvedField;
 		value: string;
+		// Pre-edit seed value, so submit() can tell an untouched row from a manual
+		// override (HOLODEX-273) — same expression `value` was seeded with below.
+		originalValue: string;
 		checked: boolean;
 		status: RowStatus;
 		error: string;
@@ -47,13 +53,17 @@
 	// download + cover-art embed. image_url fields show as thumbnail + URL (read-only).
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(
-		fields.map((f) => ({
-			field: f,
-			value: f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', '),
-			checked: needsWriteback(f),
-			status: 'idle' as RowStatus,
-			error: ''
-		}))
+		fields.map((f) => {
+			const seed = f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', ');
+			return {
+				field: f,
+				value: seed,
+				originalValue: seed,
+				checked: needsWriteback(f),
+				status: 'idle' as RowStatus,
+				error: ''
+			};
+		})
 	);
 
 	const checkedCount = $derived(rows.filter((r) => r.checked).length);
@@ -140,6 +150,33 @@
 		return { destroy: () => node.removeEventListener('input', resize) };
 	}
 
+	// HOLODEX-273: an undecided row (the "provider values you haven't decided on"
+	// group, or one individually checked) writes to the file today without ever
+	// creating a standing field_source_decisions row — the DB still shows the field
+	// undecided after the write. Checking the box is the commit action for this
+	// dialog (its equivalent of the Tier-2 badge's explicit Confirm), so submit()
+	// creates the decision first. A row already decided is a no-op (nothing to
+	// create); image_url fields are excluded — picking a candidate there stays a
+	// SourceSelect-only decision (RD5), never baked into the writeback action. Merge
+	// (multi) fields are excluded too — the `fields` prop is the full resolved array
+	// (Genres/Actors/Director included), but per f36.ts they keep F30 per-value
+	// curation and never carry a source decision (RD1); the resolver ignores a
+	// decision on a multi canonical outright, so creating one would just be a
+	// misleading ghost row. An edited value (vs. the row's pre-edit seed) commits as
+	// `manual` with that value, so the new decision never disagrees with what
+	// actually gets written.
+	async function ensureDecision(row: Row) {
+		if (!isReplaceField(row.field)) return;
+		if (row.field.decision?.standing) return;
+		if (row.field.display === 'image_url') return;
+		if (row.value.trim() !== row.originalValue.trim()) {
+			await decide(row.field.canonical, 'manual', row.value);
+			return;
+		}
+		const provider = providerFromWinningSource(row.field.winning_source);
+		if (provider) await decide(row.field.canonical, `provider:${provider}`);
+	}
+
 	async function submit() {
 		if (busy || checkedCount === 0) return;
 		busy = true;
@@ -165,6 +202,7 @@
 		}));
 
 		try {
+			await Promise.all(checkedRows.map(ensureDecision));
 			const res = await writeback(videoId, { fields });
 			// The durable queue (F30, ADR-048) answers 202 + job_id the moment the job
 			// is enqueued — nothing has been written yet, so wait for it to land before
