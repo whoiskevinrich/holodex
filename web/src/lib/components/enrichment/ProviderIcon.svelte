@@ -12,8 +12,18 @@
 		name,
 		iconUrl = '',
 		size = 16,
-		title = ''
-	}: { name: string; iconUrl?: string; size?: number; title?: string } = $props();
+		title = '',
+		decorative = false
+	}: {
+		name: string;
+		iconUrl?: string;
+		size?: number;
+		title?: string;
+		// decorative drops the alt/aria-label (HOLODEX-266, ADR-083): set when a caller's
+		// own wrapping element already carries the accessible name (e.g. ProviderLinkBadge's
+		// visible text label), so the icon isn't announced twice.
+		decorative?: boolean;
+	} = $props();
 
 	const label = $derived(title || name);
 	// A real logo keeps its own aspect: fixed HEIGHT, auto width, capped — so a wide
@@ -29,7 +39,7 @@
 {#if iconUrl}
 	<img
 		src={iconUrl}
-		alt={label}
+		alt={decorative ? '' : label}
 		{title}
 		style={imgStyle}
 		class="inline-block shrink-0 rounded-theme bg-logo-plate object-contain align-middle"
@@ -37,7 +47,8 @@
 {:else}
 	<span
 		{title}
-		aria-label={label}
+		aria-label={decorative ? undefined : label}
+		aria-hidden={decorative ? 'true' : undefined}
 		style={monoStyle}
 		class="inline-flex shrink-0 items-center justify-center rounded-theme bg-logo-plate align-middle font-display font-semibold text-logo-plate-ink"
 		>{monogram(name)}</span
