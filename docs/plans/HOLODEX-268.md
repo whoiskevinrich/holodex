@@ -29,7 +29,7 @@ side effect of the new Confirm step — not patched standalone.
 - [~] architecture `architecture` → none needed — presentation-layer restructuring of ADR-051, no new persistence/API/access-control shape (see spec's Depends-on line)
 - [x] design `design-handoff` → `docs/design/two-tier-field-editing-handoff.md` + `docs/design/two-tier-field-editing-qa-checklist.md`
 - [~] backend — none needed, this story is a frontend-only presentation restructuring (no API/schema change)
-- [/] frontend
+- [x] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` §5 frontend row + §11 gap-tracking bullet (frontend-only feature, no §4 backend row needed)
 - [~] security `security-review` — until: a new mutation surface is introduced (none planned; see spec § Access control & security)
 
@@ -41,7 +41,7 @@ side effect of the new Confirm step — not patched standalone.
 
 1. [x] [frontend] Build `SourceBadge.svelte` (badge/expand/chip-row/Confirm-Cancel), reusing `CurationChip` radio mode + `ProvenanceBadge` — `web/src/lib/components/curation/SourceBadge.svelte`
 2. [x] [frontend] F56.4 RD6-confirm bug fix — verified live against `backend-films`: Confirm alone (no chip click) on an RD6-pending chip issued exactly one `PUT .../decision` and flipped `decision.standing` to `true`
-3. [ ] [frontend] Roll `SourceBadge` out to the remaining Tier-2 replace fields on Video (`media/[id]/+page.svelte`) and Studio (`studios/[id]/+page.svelte`) detail pages, mirroring today's Person rollout
+3. [x] [frontend] Roll `SourceBadge` out to the remaining Tier-2 replace fields on Video (`media/[id]/+page.svelte`) and Studio (`studios/[id]/+page.svelte`) detail pages, mirroring today's Person rollout
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -52,6 +52,10 @@ side effect of the new Confirm step — not patched standalone.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-10 · Video/Studio `SourceBadge` rollout — frontend gate complete
+- skills: (none — direct implementation)
+- handoff: Rolled `SourceBadge` out to the two remaining entity pages. Resolved a spec ambiguity first: `docs/specs/two-tier-field-editing.md`'s F56.6 requirements table lists Video's Studio field as Tier-1, but its own §Non-Goals prose reads as converting it to Tier-2 like any other replace field — treated the later, more specific `docs/design/two-tier-field-editing-handoff.md` Overview line ("excluding Title/People/Studio on Video and name on Person/Studio") as authoritative, so Video's Studio field stays on `SourceSelect`, unconverted, pending HOLODEX-271's relationship popover. On `media/[id]/+page.svelte`: converted the Commentary field block and the generic Metadata `dl` replace-field rows to `SourceBadge` (both default `baselineKey`, matching existing `SourceSelect` usage); left the Studio field's `SourceSelect` untouched. On `studios/[id]/+page.svelte`: converted both the compact- and long-fields owner branches to `SourceBadge` (`baselineKey="record"`); found Studio's own `name` field was never on `SourceSelect` at all (it's routed through `AliasPanel`'s `allowRename` instead), so the `SourceSelect` import was removed entirely from that page — no remaining Tier-1 `SourceSelect` usage on Studio. Updated `curation/CLAUDE.md`'s component table to reflect final ownership. `npm run check` clean (486 files, 0 errors, 6 pre-existing unrelated a11y warnings). Live-QA'd the HOLODEX-245/F56.4 RD6-confirm regression on both new entity types with real provider-enriched data (not synthetic): Video's `tagline` field (id 8, "Dune," from TMDB) and Studio's `country` field (id 7, "Legendary Pictures," generated via the page's own "Enrich from tmdb" button) — both confirmed via a single Confirm click issuing exactly one `PUT .../decision` and flipping `decision.standing` to `true`, verified independently via direct `curl` against the resolved API response (network-log tooling reported an ambiguous `ERR_ABORTED` annotation alongside the real `204` on the Video case; the `curl` check confirmed the PUT genuinely committed). Updated `docs/testing-strategy.md`'s F56 row and PR #227's body/gate-status to drop the "Video/Studio remaining" qualifiers. All applicable gates (spec/design/testing/frontend) are now green — architecture/backend/security correctly stay N/A. PR #227 is ready to leave Draft.
 
 ### 2026-08-10 · Frontend implementation — `SourceBadge.svelte` + HOLODEX-245 fix
 - skills: (none — direct implementation)

@@ -29,6 +29,7 @@
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 
 	let video = $state<Video | null>(null);
@@ -656,7 +657,10 @@
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Commentary</h2>
 				{#if isOwner && commentaryField}
-					<SourceSelect field={commentaryField} decide={(s, mv) => decideField('commentary', s, mv)} />
+					<!-- Tier-2 replace field (F56): SourceBadge, not SourceSelect — Commentary
+					     has its own section but isn't in the Video Tier-1 set (Title/People/
+					     Studio/Tags, per spec §Non-Goals / design handoff Overview). -->
+					<SourceBadge field={commentaryField} decide={(s, mv) => decideField('commentary', s, mv)} />
 				{:else if commentaryField?.values?.length}
 					<p class="leading-relaxed text-ink">{commentaryField.values[0]}</p>
 				{/if}
@@ -878,10 +882,11 @@
 								<dt class="mb-1 text-muted">{f.label}:</dt>
 								<dd>
 									{#if isReplaceField(f) && isOwner}
-										<!-- F36 (ADR-051): replace field gets the owner-only source control
-										     (resolved chip + SourceSelect + candidates). Merge fields and the
-										     visitor view keep the F30 CurationFieldRow read-only render. -->
-										<SourceSelect field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+										<!-- Tier-2 replace field (F56): SourceBadge — collapsed
+										     ProvenanceBadge at rest, click-to-expand chip row + Confirm/
+										     Cancel. Merge fields and the visitor view keep the F30
+										     CurationFieldRow read-only render. -->
+										<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
 									{:else}
 										<CurationFieldRow
 											field={f}
