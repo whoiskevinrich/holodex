@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-273                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — "Select all undecided" in the writeback dialog now creates a standing field decision for every field it writes, instead of leaving the DB reporting it undecided after the write.
 ---
@@ -33,7 +33,7 @@ value in the file.
 1. [x] [frontend] add `decide` prop + `ensureDecision()` to `WritebackFormDialog.svelte`, wire from `+page.svelte` — `web/src/lib/components/writeback/WritebackFormDialog.svelte`
 2. [x] [testing] document the fix + live-verification in testing-strategy.md — `docs/testing-strategy.md`
 3. [x] [security] run `/security-review` (label was set on the Jira issue) — no findings
-4. [ ] [—] push, open PR, sync Jira
+4. [x] [—] push, open PR (#228), sync Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
