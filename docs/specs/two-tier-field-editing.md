@@ -76,9 +76,9 @@ picking a *different* chip and back, to turn a pending implicit winner into a st
 - **The video composite-key ({title, people, date, studio}) collision check** —
   [HOLODEX-270](https://whoiskevinrich.atlassian.net/browse/HOLODEX-270).
 - **The Studio relationship-edit popover** (known-candidates + search-any-studio + create-new) —
-  [HOLODEX-271](https://whoiskevinrich.atlassian.net/browse/HOLODEX-271). Video's Studio field
-  keeps its current `SourceSelect` presentation, converted to the Tier-2 shape like any other
-  replace field, until 271 replaces it with the relationship popover.
+  [HOLODEX-271](https://whoiskevinrich.atlassian.net/browse/HOLODEX-271). Video's Studio field is
+  classified Tier-1 (F56.6) and is excluded from this spec's conversion — it keeps its current
+  `SourceSelect` presentation until 271 replaces it with the relationship popover.
 - **People add/remove on video** — [HOLODEX-272](https://whoiskevinrich.atlassian.net/browse/HOLODEX-272). The People grid is untouched by this spec.
 - **The writeback dialog's "Select all undecided" bug** —
   [HOLODEX-273](https://whoiskevinrich.atlassian.net/browse/HOLODEX-273). That story's fix

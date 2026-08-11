@@ -5,6 +5,7 @@
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
+	import { expandedField } from '$lib/expandedField.svelte';
 	import type {
 		Completeness,
 		DecisionSource,
@@ -135,7 +136,10 @@
 			.finally(() => (loading = false));
 	}
 
-	$effect(() => load(id));
+	$effect(() => {
+		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between studios
+		load(id);
+	});
 
 	// Load providers once the client is confirmed owner (the layout polls caps).
 	$effect(() => {
@@ -343,10 +347,8 @@
 							{#each longFields as f (f.canonical)}
 								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="inline text-muted">{f.label}:</dt>
-									{#if f.values[0]?.trim()}
+									{#if !isOwner && f.values[0]?.trim()}
 										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-									{:else if isOwner}
-										<dd class="mt-1 block text-muted">—</dd>
 									{/if}
 									{#if isOwner}
 										<dd class="block">

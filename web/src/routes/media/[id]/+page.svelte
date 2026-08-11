@@ -17,6 +17,7 @@
 	} from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
+	import { expandedField } from '$lib/expandedField.svelte';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
@@ -66,6 +67,7 @@
 	let cameFromInApp = $state(false);
 	afterNavigate(({ type }) => {
 		cameFromInApp = type !== 'enter';
+		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between videos
 	});
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.

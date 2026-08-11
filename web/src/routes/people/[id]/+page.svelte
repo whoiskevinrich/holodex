@@ -21,6 +21,7 @@
 		Video
 	} from '$lib/types';
 	import { providerOf } from '$lib/f36';
+	import { expandedField } from '$lib/expandedField.svelte';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
@@ -178,7 +179,10 @@
 			.finally(() => (loading = false));
 	}
 
-	$effect(() => load(id));
+	$effect(() => {
+		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between people
+		load(id);
+	});
 
 	// Load providers once the client is confirmed owner (the layout polls caps).
 	$effect(() => {
@@ -644,13 +648,17 @@
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
 											/>
 										</dd>
-									{:else}
-										{#if f.values[0]?.trim()}
-											<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-										{/if}
-										{#if winnerProvider(f)}
-											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
-										{/if}
+									{:else if f.values[0]?.trim()}
+										<!-- ProvenanceBadge sits inside the same block dd as the text — this dd
+										     is `block` (full-width prose), unlike the `inline` dd used elsewhere,
+										     so a sibling badge outside it would drop to its own line instead of
+										     reading next to the value. -->
+										<dd class="mt-1 block leading-relaxed text-ink">
+											{f.values[0]}
+											{#if winnerProvider(f)}
+												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{/if}
+										</dd>
 									{/if}
 								</div>
 								{@render promotedEdit(f)}

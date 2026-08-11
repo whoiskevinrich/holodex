@@ -19,7 +19,7 @@
 	// No `onadopt` — Tier-2 never intercepts into a rename/collision flow; every Confirm
 	// calls `decide` directly. Entity-agnostic like SourceSelect (`baselineKey`: 'file' for
 	// videos, 'record' for persons/studios). Tokens only; QA 3 skins.
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
 	import { isProviderSource, outOfSync, providerOf, resolveSelection, sourceChips, type SourceChip } from '$lib/f36';
 	import { toMessage } from '$lib/format';
@@ -44,7 +44,13 @@
 	// manual literal does (it IS a second source alongside the baseline). Single-source
 	// fields get no badge at all — nothing to decide (handoff "Single candidate source" row).
 	const hasCustomValue = $derived(chips.find((c) => c.key === 'custom')?.value.trim() !== '');
-	const isMultiSource = $derived(chips.filter((c) => c.key !== 'custom').length > 1 || hasCustomValue);
+	// A provider whose value agrees with the baseline folds into the baseline chip
+	// (f36.ts sourceChips) rather than becoming its own row — so chip *count* alone
+	// undercounts. chips[0] is always the anchored baseline chip; a folded agreement
+	// pushes onto its `sources`, so length > 1 there also means "2+ sources on offer".
+	const isMultiSource = $derived(
+		chips.filter((c) => c.key !== 'custom').length > 1 || hasCustomValue || chips[0].sources.length > 1
+	);
 
 	// selection resolves the committed key + whether it's an RD6 implicit winner in one walk
 	// (shared with SourceSelect via f36.ts). The badge's provider icon reflects whichever
@@ -79,13 +85,19 @@
 	// is a no-op by construction: nothing was ever committed, so there's nothing to undo.
 	$effect(() => {
 		if (expanded) {
-			stagedKey = selection.key;
-			stagedCustomValue = field.decision?.source === 'manual' ? (field.decision.manual_value ?? '') : '';
+			// untrack: seed only from the expand toggle, not from selection/field.decision —
+			// otherwise a same-page reloadDetail() elsewhere (replacing this field's prop
+			// object) re-fires this effect while still expanded and clobbers a staged pick.
+			untrack(() => {
+				stagedKey = selection.key;
+				stagedCustomValue = field.decision?.source === 'manual' ? (field.decision.manual_value ?? '') : '';
+			});
 		} else {
 			stagedKey = null;
 			stagedCustomValue = '';
 			editing = false;
 			error = '';
+			busy = false;
 		}
 	});
 
@@ -151,8 +163,10 @@
 			e.preventDefault();
 			const target = chips[(i + delta + n) % n];
 			focusChip(target.key);
-			if (target.key === 'custom') startCustom();
-			else stagedKey = target.key;
+			if (target.key === 'custom') {
+				stagedKey = 'custom';
+				startCustom();
+			} else stagedKey = target.key;
 		} else if (e.key === ' ' || e.key === 'Enter') {
 			e.preventDefault();
 			stage(chips[i]);
@@ -168,7 +182,10 @@
 		error = '';
 		try {
 			await decide(chip.decisionSource, chip.key === 'custom' ? stagedCustomValue : undefined);
-			close();
+			// A sibling badge may have taken over the expanded slot while this request was
+			// in flight (F56.9) — only collapse/refocus if this field is still the one open,
+			// so a stale resolve doesn't steal focus from wherever the owner is now.
+			if (expandedField.isOpen(field.canonical)) close();
 		} catch (e) {
 			error = toMessage(e); // stays expanded, staged selection intact for retry
 		} finally {
@@ -177,6 +194,14 @@
 	}
 
 	function onDismiss(viaEscape: boolean) {
+		// dismissable's window-level capture-phase Escape listener runs (and stops
+		// propagation) before the Custom input's own onCustomKey ever sees the keydown —
+		// so when the inline input is open, Escape here means "cancel just the input",
+		// matching onCustomKey/cancelCustomEdit's documented intent, not "collapse the field".
+		if (viaEscape && editing) {
+			cancelCustomEdit();
+			return;
+		}
 		// Escape returns focus to the badge (keyboard-close); an outside click leaves focus
 		// where the pointer went (dismissable's own contract — mirrors SourceSelect/EnrichProviderChips).
 		close(viaEscape);
@@ -185,18 +210,21 @@
 
 <div class="inline-flex flex-wrap items-center gap-2" data-source-badge={field.canonical}>
 	{#if !isMultiSource}
-		<span class="text-ink">{field.values.join(', ') || '—'}</span>
+		<span class={field.values.join(', ') ? 'text-ink' : 'text-muted'}>{field.values.join(', ') || '—'}</span>
 	{:else}
-		<span class="text-ink">{field.values.join(', ') || '—'}</span>
+		<span class={field.values.join(', ') ? 'text-ink' : 'text-muted'}>{field.values.join(', ') || '—'}</span>
 		<button
 			type="button"
 			bind:this={badgeEl}
 			aria-expanded={expanded}
-			aria-label={`${field.label} — from ${badgeProvider || 'file'}, click to change source`}
-			onclick={() => (expanded ? close() : open())}
+			aria-label={`${field.label} — from ${badgeProvider || (selectedChip.manual ? 'a custom value' : baselineKey)}, click to change source`}
+			onclick={() => {
+				if (busy) return; // a Confirm is in flight — don't collapse mid-request (F56 Open Questions)
+				expanded ? close() : open();
+			}}
 			class="inline-flex rounded-full align-middle transition-colors duration-150 hover:ring-1 hover:ring-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
 		>
-			<ProvenanceBadge provider={badgeProvider} label={badgeProvider} />
+			<ProvenanceBadge provider={badgeProvider} label={badgeProvider} manual={selectedChip.manual} />
 		</button>
 	{/if}
 
@@ -206,7 +234,7 @@
 			class:opacity-60={busy}
 			aria-busy={busy}
 			use:dismissable={{
-				enabled: expanded,
+				enabled: expanded && !busy,
 				inside: `[data-source-badge="${field.canonical}"]`,
 				onclose: onDismiss
 			}}
@@ -282,7 +310,7 @@
 								checked: stagedKey === chip.key,
 								tabindex: stagedKey === chip.key ? 0 : -1,
 								onselect: () => stage(chip),
-								pending: selection.pending
+								pending: selection.pending && stagedKey === selection.key
 							}}
 						/>
 					{/if}
