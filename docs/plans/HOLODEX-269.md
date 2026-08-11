@@ -44,7 +44,7 @@ collision surface is the separate composite-key story, HOLODEX-270.
 4. [ ] [frontend] shared name-edit component + per-entity wiring (Person, Studio, Tag, Video Title) — `web/src/lib/components/entity/`
 5. [ ] [testing] `/testing-strategy` update
 6. [ ] [security] `/security-review`
-7. [ ] [—] push Draft PR now that the spec (first gate artifact) has landed; sync Jira first
+7. [x] [—] push Draft PR now that the spec (first gate artifact) has landed; sync Jira first — [#229](https://github.com/whoiskevinrich/holodex/pull/229)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
