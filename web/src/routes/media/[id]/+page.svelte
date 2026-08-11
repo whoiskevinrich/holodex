@@ -1064,6 +1064,11 @@
 			filePath={video.file_path}
 			writeback={api.writebackMedia}
 			jobStatus={api.writebackJobStatus}
+			decide={(canonical, source, manualValue) =>
+				api.setFieldDecision(id, canonical, {
+					source,
+					...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
+				})}
 			onclose={() => (writebackOpen = false)}
 			onapplied={async () => {
 				// The dialog reports applied only once the queued write has landed and the
