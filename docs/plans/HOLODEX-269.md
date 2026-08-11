@@ -31,7 +31,14 @@ collision surface is the separate composite-key story, HOLODEX-270.
   already exist — this story is a consumer-side frontend consolidation, no new data model or seam
   (same "no new ADR required" call HOLODEX-259 made for the same page)
 - [x] design `design-handoff` → [docs/design/unified-name-edit-handoff.md](../design/unified-name-edit-handoff.md)
-- [ ] backend
+- [~] backend — no new Go code needed. Audit confirmed `POST /{people|studios|tags}/{id}/rename`
+  already return byte-identical `{error, conflict: <entity>}` on 409 / empty `204` on success
+  (`entity_identity.go:237-247`, `person_decisions.go:220-229`), all behind the same
+  `requireOwner` gate. Video Title's `PUT /media/{id}/fields/title/decision` has no
+  collision branch at all, matching the spec's no-op-checker plan. One bug found (frontend-only):
+  `renamePerson` in `web/src/lib/api.ts:938-959` doesn't unwrap `body.conflict`, unlike the generic
+  `renameEntity`, masked by an incorrectly-mocked unit test — fixed by retiring it in favor of
+  `renameEntity('person', ...)` during the frontend gate (parity requirement, not scope creep)
 - [ ] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — rename/merge mutations, likely required
@@ -40,8 +47,8 @@ collision surface is the separate composite-key story, HOLODEX-270.
 
 1. [x] [spec] `/write-spec` for HOLODEX-269 — `docs/specs/unified-name-edit.md`
 2. [x] [design] `/design-handoff` for the docked-pencil + verdict panel — `docs/design/unified-name-edit-handoff.md`
-3. [ ] [backend] shared collision-check + rename endpoint(s) per entity type — `internal/api`
-4. [ ] [frontend] shared name-edit component + per-entity wiring (Person, Studio, Tag, Video Title) — `web/src/lib/components/entity/`
+3. [x] [backend] audited existing rename/merge/collision endpoints — no new Go code needed (see gate note)
+4. [ ] [frontend] `MergeOfferCard` + `NameEditControl` + per-entity wiring (Person, Studio, Tag, Video Title), retire buggy `renamePerson` — `web/src/lib/components/entity/`, `web/src/lib/api.ts`
 5. [ ] [testing] `/testing-strategy` update
 6. [ ] [security] `/security-review`
 7. [x] [—] push Draft PR now that the spec (first gate artifact) has landed; sync Jira first — [#229](https://github.com/whoiskevinrich/holodex/pull/229)
@@ -49,7 +56,7 @@ collision surface is the separate composite-key story, HOLODEX-270.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-08-10 · Started HOLODEX-269, worktree + Jira set up, research dispatched
-- skills: (none yet — spec pass next), design-handoff
+- skills: (none yet — spec pass next), design-handoff, graphify
 - handoff: fresh worktree `HOLODEX-269-name-edit-mechanism` branched off origin/main (which already
   includes the merged HOLODEX-273 fix). Jira transitioned to In Progress. Dispatched an Explore
   agent to ground the spec in the four current rename implementations (Person/Studio/Tag/Video
@@ -88,3 +95,18 @@ collision surface is the separate composite-key story, HOLODEX-270.
   `conflict`/`onmerge`/`onkeepseparate` shape exactly — no behavior change, just relocation.
   Next: push a Draft PR (spec is the first landed gate, per ADR-069) — sync Jira first, then
   backend/frontend implementation.
+
+### 2026-08-10 · Backend audit: no new Go code needed
+- skills: (none — direct research + worklog update)
+- handoff: dispatched an Explore agent to map every rename/merge/collision/near-miss endpoint
+  across Person, Studio, Tag, and Video Title before writing anything. Confirmed the spec's claim
+  precisely: Person/Studio/Tag rename endpoints return byte-identical JSON shapes on both success
+  (204) and collision (409, `{error, conflict: <entity>}`), all gated by the same `requireOwner`
+  middleware; merge only differs in its response-wrapper key (`person`/`studio`/`tag`); near-miss
+  is legitimately studio/tag-only (route omission, not a Go-level type restriction); Video Title's
+  field-decision endpoint has no collision branch at all, matching the planned no-op checker.
+  Found one real, preexisting bug while there: the frontend's dedicated `renamePerson` (api.ts)
+  doesn't unwrap `body.conflict` the way the generic `renameEntity` does, masked by a unit test
+  that mocks the wrong response shape. Marked the backend gate `[~]` — no Go changes required.
+  Next: frontend — extract `MergeOfferCard`, build `NameEditControl`, wire into all four pages,
+  retire `renamePerson` in favor of `renameEntity` (fixes the bug as a parity side effect).
