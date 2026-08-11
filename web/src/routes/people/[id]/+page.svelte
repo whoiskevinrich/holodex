@@ -32,6 +32,7 @@
 	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
 	import PersonGallery from '$lib/components/person/PersonGallery.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
@@ -536,11 +537,13 @@
 										</dd>
 									</div>
 								{:else if isOwner}
-									<!-- Replace field, owner: the selected chip IS the value (media idiom). -->
+									<!-- Tier-2 replace field, owner (F56): SourceBadge renders the resolved
+									     value + a click-to-expand ProvenanceBadge, byte-identical to the
+									     visitor branch at rest. -->
 									<div id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
-											<SourceSelect
+											<SourceBadge
 												field={f}
 												baselineKey="record"
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
@@ -596,21 +599,24 @@
 								     the chip row beneath is the source selector (chips stay clamped). -->
 								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 									<dt class="inline text-muted">{f.label}:</dt>
-									{#if f.values[0]?.trim()}
-										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-									{:else if isOwner}
-										<dd class="mt-1 block text-muted">—</dd>
-									{/if}
 									{#if isOwner}
-										<dd class="block">
-											<SourceSelect
+										<!-- Tier-2 long-text field, owner (F56): SourceBadge owns both the
+										     resolved value and the source control — no separate value dd, so
+										     nothing renders twice. -->
+										<dd class="mt-1 block leading-relaxed">
+											<SourceBadge
 												field={f}
 												baselineKey="record"
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
 											/>
 										</dd>
-									{:else if winnerProvider(f)}
-										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+									{:else}
+										{#if f.values[0]?.trim()}
+											<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+										{/if}
+										{#if winnerProvider(f)}
+											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+										{/if}
 									{/if}
 								</div>
 								{@render promotedEdit(f)}
