@@ -32,7 +32,6 @@
 	import PersonImageFrame from '$lib/components/person/PersonImageFrame.svelte';
 	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
 	import PersonGallery from '$lib/components/person/PersonGallery.svelte';
-	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
@@ -268,7 +267,7 @@
 		try {
 			await api.mergeEntities('person', id, mergeConflict.id);
 			resolve();
-			await load(id);
+			await reloadDetail();
 		} catch (e) {
 			renameMergeError = toMessage(e);
 		} finally {
@@ -362,7 +361,6 @@
 	<EntityVideos
 		backHref="/people"
 		backLabel="All people"
-		name={person?.name ?? ''}
 		{videos}
 		empty="No videos for this person."
 		scrollKey={`person:${id}`}
@@ -462,7 +460,10 @@
 									busy={renameMergeBusy}
 									error={renameMergeError}
 									onmerge={() => mergeRenameConflict(c, resolve)}
-									onkeepseparate={resolve}
+									onkeepseparate={() => {
+										renameMergeError = '';
+										resolve();
+									}}
 								/>
 							{/snippet}
 						</NameEditControl>

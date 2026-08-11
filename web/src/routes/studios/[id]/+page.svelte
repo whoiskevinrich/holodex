@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, providerFromWinningSource, aliasHint } from '$lib/format';
+	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
@@ -55,6 +55,12 @@
 	// merge offer; NameEditControl owns the rest of the rename flow itself.
 	let renameMergeBusy = $state(false);
 	let renameMergeError = $state('');
+	// Non-blocking near-miss advisory (F43 P1-5, mirrors AliasPanel's flagNearMiss) — a
+	// fuzzy look-alike surfaced after a successful rename, distinct from the exact-name
+	// `conflict` above. Studio only (`api.nearMiss` excludes person).
+	let nearMiss = $state<EntityRef | null>(null);
+	let nearMissBusy = $state(false);
+	let nearMissError = $state('');
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let externalLinks = $state<ExternalLink[]>([]); // HOLODEX-266, ADR-083 D1
 	let loading = $state(true);
@@ -221,6 +227,13 @@
 		const res = await api.renameEntity('studio', id, value);
 		if (res.conflict) return { conflict: res.conflict };
 		await reloadDetail();
+		// Advisory-only fuzzy look-alike check, same as AliasPanel's post-add flagNearMiss —
+		// must never block the rename that already succeeded.
+		try {
+			nearMiss = (await api.nearMiss('studio', id, value)).near_miss;
+		} catch {
+			nearMiss = null;
+		}
 		return { ok: true };
 	}
 
@@ -230,11 +243,40 @@
 		try {
 			await api.mergeEntities('studio', id, mergeConflict.id);
 			resolve();
-			await load(id);
+			await reloadDetail();
 		} catch (e) {
 			renameMergeError = toMessage(e);
 		} finally {
 			renameMergeBusy = false;
+		}
+	}
+
+	async function mergeNearMiss() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.mergeEntities('studio', id, nearMiss.id);
+			nearMiss = null;
+			await reloadDetail();
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
+		}
+	}
+
+	async function keepNearMissSeparate() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.dismissDuplicate('studio', id, nearMiss.id);
+			nearMiss = null;
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
 		}
 	}
 </script>
@@ -243,11 +285,9 @@
 	<EntityVideos
 		backHref="/studios"
 		backLabel="All studios"
-		name={studio?.name ?? ''}
 		{videos}
 		empty="No videos for this studio."
 		scrollKey={`studio:${id}`}
-		{externalLinks}
 	>
 		{#snippet hero()}
 			<!-- Docked-pencil rename (HOLODEX-269), replacing AliasPanel's old allowRename
@@ -270,10 +310,38 @@
 						busy={renameMergeBusy}
 						error={renameMergeError}
 						onmerge={() => mergeRenameConflict(c, resolve)}
-						onkeepseparate={resolve}
+						onkeepseparate={() => {
+							renameMergeError = '';
+							resolve();
+						}}
 					/>
 				{/snippet}
 			</NameEditControl>
+			{#if nearMiss}
+				<!-- Non-blocking near-miss (P1-5): the rename already saved; this is an advisory
+				     nudge, distinct from the blocking exact-name conflict above (mirrors AliasPanel). -->
+				<div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
+					<p class="text-sm text-ink">
+						Saved. Looks a lot like <span class="font-semibold">{nearMiss.name}</span>
+						({videoCount(nearMiss.video_count ?? 0)}) — merge them?
+					</p>
+					<div class="flex flex-wrap items-center gap-2">
+						<button onclick={mergeNearMiss} disabled={nearMissBusy} class="btn-accent px-3 py-1.5 text-sm">
+							Yes, merge them in
+						</button>
+						<button
+							onclick={keepNearMissSeparate}
+							disabled={nearMissBusy}
+							class="btn-ghost px-3 py-1.5 text-sm"
+						>
+							No, keep separate
+						</button>
+					</div>
+					{#if nearMissError}
+						<p class="text-sm text-warn">{nearMissError}</p>
+					{/if}
+				</div>
+			{/if}
 			<EntityVideoMeta count={videos.length} links={externalLinks} entityName={studio?.name ?? ''} />
 		{/snippet}
 

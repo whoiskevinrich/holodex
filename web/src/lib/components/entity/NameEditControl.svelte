@@ -9,6 +9,7 @@
 	// MergeOfferCard) renders inline in place of the edit form — no modal, no navigation.
 	import type { Snippet } from 'svelte';
 	import type { EntityRef } from '$lib/types';
+	import { toMessage } from '$lib/format';
 
 	let {
 		name,
@@ -18,13 +19,17 @@
 		headingClass,
 		hint,
 		trailing,
-		verdict
+		verdict,
+		id
 	}: {
 		name: string;
 		isOwner: boolean;
 		onCommit: (value: string) => Promise<{ ok: true } | { conflict: EntityRef }>;
 		label: string;
 		headingClass: string;
+		// Optional anchor id for deep links (e.g. the completeness queue's #field-title) —
+		// applied to the root wrapper since the rendered element differs by editing state.
+		id?: string;
 		// Optional note shown under the open edit form (e.g. "kept as an alias") — entities on
 		// the identity spine (person/studio/tag) pass one, Video Title (no alias mechanism) omits it.
 		hint?: string;
@@ -41,6 +46,7 @@
 	let conflict = $state<EntityRef | null>(null);
 	let input = $state<HTMLInputElement | null>(null);
 	let pencil = $state<HTMLButtonElement | null>(null);
+	let verdictRoot = $state<HTMLDivElement | null>(null);
 
 	function focusPencil() {
 		Promise.resolve().then(() => pencil?.focus());
@@ -49,6 +55,10 @@
 	function startEdit() {
 		value = name;
 		error = '';
+		// A prior rename's collision offer (if any) is no longer relevant to this fresh
+		// edit — leaving it set would let a stale MergeOfferCard be actioned against the
+		// wrong entity once this edit commits.
+		conflict = null;
 		editing = true;
 		Promise.resolve().then(() => input?.select());
 	}
@@ -78,13 +88,22 @@
 			const res = await onCommit(next);
 			if ('conflict' in res) {
 				conflict = res.conflict;
+				if (import.meta.env.DEV && !verdict) {
+					console.warn(
+						`NameEditControl: onCommit resolved a conflict but no \`verdict\` snippet was supplied for this ${label} — the conflict will be silently dropped.`
+					);
+				}
 				closeEdit();
+				// Move focus into the verdict card (mirrors the old rename flow's focus-trapped
+				// ConfirmDialog) instead of letting it fall to <body>.
+				Promise.resolve().then(() => verdictRoot?.querySelector<HTMLElement>('button')?.focus());
 				return;
 			}
+			conflict = null;
 			closeEdit();
 			focusPencil();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Rename failed.';
+			error = toMessage(err);
 		} finally {
 			busy = false;
 		}
@@ -97,13 +116,16 @@
 </script>
 
 {#if editing}
-	<form onsubmit={commit} class="flex flex-wrap items-center gap-2">
+	<form {id} onsubmit={commit} class="flex flex-wrap items-center gap-2">
 		<input
 			bind:this={input}
 			bind:value
 			type="text"
 			aria-label={`Rename this ${label}`}
 			aria-describedby={error ? 'name-edit-error' : undefined}
+			onkeydown={(e) => {
+				if (e.key === 'Escape') cancelEdit();
+			}}
 			class="min-w-0 flex-1 rounded-theme border border-rule bg-surface px-3 py-1.5 text-lg text-ink focus:border-accent focus:outline-none"
 		/>
 		<button type="submit" disabled={busy} class="btn-accent px-3 py-1.5 text-sm">
@@ -120,7 +142,7 @@
 		{/if}
 	</form>
 {:else}
-	<div class="name-edit-row flex items-center gap-2">
+	<div {id} class="name-edit-row flex items-center gap-2">
 		<h1 class={headingClass}>{name}</h1>
 		{#if trailing}{@render trailing()}{/if}
 		{#if isOwner}
@@ -144,5 +166,7 @@
 {/if}
 
 {#if conflict && verdict}
-	{@render verdict(conflict, resolveConflict)}
+	<div bind:this={verdictRoot}>
+		{@render verdict(conflict, resolveConflict)}
+	</div>
 {/if}
