@@ -19,6 +19,14 @@ class ExpandedFieldState {
 	close() {
 		this.key = null;
 	}
+
+	// Callers reset this on their own id-driven reload/navigation trigger (media/person/
+	// studio detail pages) — the singleton has no entity scope of its own, so a field left
+	// expanded on one entity would otherwise render pre-expanded on the next same-type
+	// entity navigated to.
+	reset() {
+		this.key = null;
+	}
 }
 
 export const expandedField = new ExpandedFieldState();
