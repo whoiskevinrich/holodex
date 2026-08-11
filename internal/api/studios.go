@@ -241,6 +241,23 @@ func (h *Handlers) relinkStudios(ctx context.Context, videoID int64) {
 	}
 }
 
+// relinkStudiosWithContext reconciles video_studios directly from a relinkContext and
+// resolved names a caller already has in hand (HOLODEX-271's studioCollision, which
+// resolves the pending decision to check for a composite-key collision before it
+// commits) — skipping the fetch-and-resolve relinkStudios/RelinkVideoStudios would
+// otherwise repeat immediately afterward for the same video and the same decision.
+// Falls back to the normal fetch-on-call path if rc is nil (loadRelinkContext found
+// no live video), best-effort like relinkStudios.
+func (h *Handlers) relinkStudiosWithContext(ctx context.Context, videoID int64, rc *relinkContext, names []string) {
+	if rc == nil {
+		h.relinkStudios(ctx, videoID)
+		return
+	}
+	if err := h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(rc.enrRows)); err != nil {
+		h.log.Warn("relink studios", "video", videoID, "err", err)
+	}
+}
+
 // RelinkVideoStudios re-derives a video's studio links from its RESOLVED `studio`
 // field and reconciles video_studios (ADR-053 RD1). It is the single resolution
 // entry point behind every relink trigger (scan/enrich/decision/curation) — the repo

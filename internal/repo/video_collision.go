@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -21,30 +22,26 @@ type VideoCollision struct {
 	Studio     *string  `json:"studio"`
 }
 
+// compositeKeyCandidate is one other active video sharing a proposed title+date pair
+// — the cheap first filter shared by every composite-key collision check, before the
+// more expensive people/studio set comparison narrows it further.
+type compositeKeyCandidate struct {
+	id    int64
+	title string
+}
+
 // FindTitleCollision reports whether renaming videoID's title to proposedTitle would
 // produce a composite-key collision {title, people, date, studio} against another
-// active video. Title is this story's only wired trigger (HOLODEX-270 P0); Studio and
-// People triggers reuse this same check once HOLODEX-271/272 land. People and Studio
-// are read from videoID's *current* links since only Title changes on this path.
-// Comparison is exact-normalized only (lower+trim on title, exact match on
-// date/people-set/studio-set) — no fuzzy/near-miss matching, per the spec's "no merge
-// verb, no third option" posture.
-//
-// Title+date matches are rare in a personal media library, so candidates are filtered
-// on the cheap indexed columns first; only survivors get their people/studio sets
-// compared. This avoids materializing a group_concat key across every video in the
-// library just to rule out the common case of zero matches.
+// active video. People and Studio are read from videoID's *current* links since only
+// Title changes on this path — the inverse of FindStudioCollision (studio varies,
+// title fixed). Comparison is exact-normalized only (lower+trim on title, exact match
+// on date/people-set/studio-set) — no fuzzy/near-miss matching, per the spec's "no
+// merge verb, no third option" posture.
 func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTitle string) (*VideoCollision, error) {
-	var recordedAt sql.NullString
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT recorded_at FROM videos WHERE id = ? AND deleted_at IS NULL`, videoID,
-	).Scan(&recordedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
+	recordedAt, err := r.recordedAtOf(ctx, videoID)
+	if err != nil {
 		return nil, fmt.Errorf("find title collision: source video: %w", err)
 	}
-
 	peopleKey, err := r.linkedIDKey(ctx,
 		`SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`, videoID)
 	if err != nil {
@@ -56,35 +53,11 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 		return nil, fmt.Errorf("find title collision: studios: %w", err)
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, title FROM videos
-		WHERE active = 1 AND deleted_at IS NULL AND id != ?
-		  AND lower(trim(title)) = lower(trim(?))
-		  AND COALESCE(recorded_at, '') = COALESCE(?, '')`,
-		videoID, proposedTitle, recordedAt,
-	)
+	candidates, err := r.compositeKeyCandidates(ctx, videoID, proposedTitle, recordedAt)
 	if err != nil {
-		return nil, fmt.Errorf("find title collision: candidates: %w", err)
+		return nil, fmt.Errorf("find title collision: %w", err)
 	}
-	type candidate struct {
-		id    int64
-		title string
-	}
-	var candidates []candidate
-	for rows.Next() {
-		var c candidate
-		if err := rows.Scan(&c.id, &c.title); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("find title collision: candidates: %w", err)
-		}
-		candidates = append(candidates, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("find title collision: candidates: %w", err)
-	}
-	rows.Close()
 
-	var c VideoCollision
 	for _, cand := range candidates {
 		ck, err := r.linkedIDKey(ctx,
 			`SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`, cand.id)
@@ -102,39 +75,140 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 		if sk != studioKey {
 			continue
 		}
-		c.ID, c.Title = cand.id, cand.title
-		break
+		return r.hydrateCollision(ctx, cand.id, cand.title, recordedAt)
 	}
-	if c.ID == 0 {
-		return nil, nil
+	return nil, nil
+}
+
+// FindStudioCollision reports whether reassigning videoID's studio to
+// proposedStudioNames would produce a composite-key collision {title, people, date,
+// studio} against another active video. Title, date, and people are read from
+// videoID's *current* row/links since only Studio changes on this path (HOLODEX-271).
+// Comparison is by normalized studio *name*, not id, so a proposed studio that
+// doesn't exist yet — the picker's create-new path — still collides correctly
+// against an existing video's linked studio names.
+func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedStudioNames []string) (*VideoCollision, error) {
+	var title string
+	var recordedAt sql.NullString
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT title, recorded_at FROM videos WHERE id = ? AND deleted_at IS NULL`, videoID,
+	).Scan(&title, &recordedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("find studio collision: source video: %w", err)
 	}
+	peopleKey, err := r.linkedIDKey(ctx,
+		`SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("find studio collision: people: %w", err)
+	}
+	studioKey := normalizedNameKey(proposedStudioNames)
+
+	candidates, err := r.compositeKeyCandidates(ctx, videoID, title, recordedAt)
+	if err != nil {
+		return nil, fmt.Errorf("find studio collision: %w", err)
+	}
+
+	for _, cand := range candidates {
+		ck, err := r.linkedIDKey(ctx,
+			`SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`, cand.id)
+		if err != nil {
+			return nil, fmt.Errorf("find studio collision: candidate people: %w", err)
+		}
+		if ck != peopleKey {
+			continue
+		}
+		sk, err := r.linkedNameKey(ctx,
+			`SELECT s.name FROM video_studios vs JOIN studios s ON s.id = vs.studio_id WHERE vs.video_id = ?`, cand.id)
+		if err != nil {
+			return nil, fmt.Errorf("find studio collision: candidate studios: %w", err)
+		}
+		if sk != studioKey {
+			continue
+		}
+		return r.hydrateCollision(ctx, cand.id, cand.title, recordedAt)
+	}
+	return nil, nil
+}
+
+// recordedAtOf reads an active video's recorded_at, shared by every composite-key
+// collision check that needs the *current* row (Title's check needs it as the fixed
+// half of the candidate filter; Studio's check reads it directly instead since it
+// also needs the current title in the same query).
+func (r *Repo) recordedAtOf(ctx context.Context, videoID int64) (sql.NullString, error) {
+	var recordedAt sql.NullString
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT recorded_at FROM videos WHERE id = ? AND deleted_at IS NULL`, videoID,
+	).Scan(&recordedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return recordedAt, ErrNotFound
+		}
+		return recordedAt, err
+	}
+	return recordedAt, nil
+}
+
+// compositeKeyCandidates finds other active videos sharing a normalized title+date
+// pair with videoID — the cheap indexed-column filter every composite-key collision
+// check runs first, before the more expensive people/studio set comparison narrows
+// survivors down. Title+date matches are rare in a personal media library, so this
+// avoids materializing a group_concat key across every video in the table just to
+// rule out the common case of zero matches.
+func (r *Repo) compositeKeyCandidates(ctx context.Context, videoID int64, title string, recordedAt sql.NullString) ([]compositeKeyCandidate, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, title FROM videos
+		WHERE active = 1 AND deleted_at IS NULL AND id != ?
+		  AND lower(trim(title)) = lower(trim(?))
+		  AND COALESCE(recorded_at, '') = COALESCE(?, '')`,
+		videoID, title, recordedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("candidates: %w", err)
+	}
+	defer rows.Close()
+	var candidates []compositeKeyCandidate
+	for rows.Next() {
+		var c compositeKeyCandidate
+		if err := rows.Scan(&c.id, &c.title); err != nil {
+			return nil, fmt.Errorf("candidates: %w", err)
+		}
+		candidates = append(candidates, c)
+	}
+	return candidates, rows.Err()
+}
+
+// hydrateCollision fills in a winning candidate's people/studio/recorded_at display
+// values, shared by both Find*Collision functions once they've settled on a match.
+func (r *Repo) hydrateCollision(ctx context.Context, id int64, title string, recordedAt sql.NullString) (*VideoCollision, error) {
+	c := VideoCollision{ID: id, Title: title}
 	if recordedAt.Valid {
 		c.RecordedAt = &recordedAt.String
 	}
 
-	people, err := r.PeopleForVideos(ctx, []int64{c.ID})
+	people, err := r.PeopleForVideos(ctx, []int64{id})
 	if err != nil {
-		return nil, fmt.Errorf("find title collision: collision people: %w", err)
+		return nil, fmt.Errorf("collision people: %w", err)
 	}
 	// c.People must marshal as `[]`, never `null` — CollisionOfferCard reads
 	// video.people.length unconditionally (HOLODEX-270).
 	c.People = []string{}
-	for _, p := range people[c.ID] {
+	for _, p := range people[id] {
 		c.People = append(c.People, p.Name)
 	}
-	studios, err := r.StudiosForVideos(ctx, []int64{c.ID})
+	studios, err := r.StudiosForVideos(ctx, []int64{id})
 	if err != nil {
-		return nil, fmt.Errorf("find title collision: collision studios: %w", err)
+		return nil, fmt.Errorf("collision studios: %w", err)
 	}
-	if ss := studios[c.ID]; len(ss) > 0 {
+	if ss := studios[id]; len(ss) > 0 {
 		c.Studio = &ss[0].Name
 	}
 	return &c, nil
 }
 
 // linkedIDKey runs a fixed, caller-supplied SELECT of a single int64 column and
-// returns its results as a comma-joined key, so two videos' people/studio sets can be
-// compared for exact equality by comparing the resulting strings.
+// returns its results as a comma-joined key, so two videos' people/studio id sets can
+// be compared for exact equality by comparing the resulting strings.
 func (r *Repo) linkedIDKey(ctx context.Context, query string, videoID int64) (string, error) {
 	rows, err := r.db.QueryContext(ctx, query, videoID)
 	if err != nil {
@@ -150,4 +224,42 @@ func (r *Repo) linkedIDKey(ctx context.Context, query string, videoID int64) (st
 		parts = append(parts, strconv.FormatInt(id, 10))
 	}
 	return strings.Join(parts, ","), rows.Err()
+}
+
+// linkedNameKey runs a fixed, caller-supplied SELECT of a single name column and
+// returns a normalizedNameKey over the results — the name-based sibling of
+// linkedIDKey, used for Studio (HOLODEX-271) since a proposed studio may not have an
+// id yet (the picker's create-new path).
+func (r *Repo) linkedNameKey(ctx context.Context, query string, videoID int64) (string, error) {
+	rows, err := r.db.QueryContext(ctx, query, videoID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return "", err
+		}
+		names = append(names, name)
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	return normalizedNameKey(names), nil
+}
+
+// normalizedNameKey folds (foldNameKey) and sorts names into a comma-joined key so
+// two name sets compare equal regardless of case or input order — mirrors
+// linkedIDKey's role for id sets.
+func normalizedNameKey(names []string) string {
+	norm := make([]string, 0, len(names))
+	for _, n := range names {
+		if n = foldNameKey(n); n != "" {
+			norm = append(norm, n)
+		}
+	}
+	sort.Strings(norm)
+	return strings.Join(norm, ",")
 }

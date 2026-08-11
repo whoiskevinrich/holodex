@@ -34,6 +34,7 @@
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
+	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -112,6 +113,14 @@
 	let pendingTitleValue = $state('');
 	let titleCollisionBusy = $state(false);
 	let titleCollisionError = $state('');
+
+	// Studio composite-key collision verdict (HOLODEX-271, reusing HOLODEX-270's mechanism).
+	// Unlike Title, a Studio pick isn't manual-only, so the pending source is remembered too
+	// (not just the value) so "Save anyway" resubmits the exact same decision with override.
+	let pendingStudioSource = $state<DecisionSource | null>(null);
+	let pendingStudioValue = $state<string | undefined>(undefined);
+	let studioCollisionBusy = $state(false);
+	let studioCollisionError = $state('');
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -319,6 +328,46 @@
 			titleCollisionError = toMessage(e);
 		} finally {
 			titleCollisionBusy = false;
+		}
+	}
+
+	// Studio reassignment (HOLODEX-271, StudioPicker). Unlike Title, every source pick
+	// (known-candidate chip, searched, or created) runs through this same collision-checked
+	// path — a chip pick changes the composite key exactly as much as a manual one does.
+	async function decideStudio(
+		source: DecisionSource,
+		manualValue?: string
+	): Promise<{ ok: true } | { conflict: VideoCollisionRef }> {
+		const res = await api.setFieldDecision(id, 'studio', {
+			source,
+			...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
+		});
+		if (res.conflict) {
+			pendingStudioSource = source;
+			pendingStudioValue = manualValue;
+			return { conflict: res.conflict };
+		}
+		await reloadDetail();
+		return { ok: true };
+	}
+
+	// "Save anyway, keep both" — resubmits the exact same pending decision with override.
+	async function saveStudioAnyway(resolve: () => void) {
+		if (!pendingStudioSource) return;
+		studioCollisionBusy = true;
+		studioCollisionError = '';
+		try {
+			await api.setFieldDecision(id, 'studio', {
+				source: pendingStudioSource,
+				...(pendingStudioSource === 'manual' ? { manual_value: pendingStudioValue ?? '' } : {}),
+				override: true
+			});
+			resolve();
+			await reloadDetail();
+		} catch (e) {
+			studioCollisionError = toMessage(e);
+		} finally {
+			studioCollisionBusy = false;
 		}
 	}
 
@@ -691,7 +740,17 @@
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}
-						<SourceSelect field={studioField} decide={(s, mv) => decideField('studio', s, mv)} />
+						<StudioPicker field={studioField} {isOwner} decide={decideStudio}>
+							{#snippet verdict(c, resolve)}
+								<CollisionOfferCard
+									video={c}
+									busy={studioCollisionBusy}
+									error={studioCollisionError}
+									onviewexisting={() => goto(`/media/${c.id}`)}
+									onsaveanyway={() => saveStudioAnyway(resolve)}
+								/>
+							{/snippet}
+						</StudioPicker>
 						{#each studios as s (s.id)}
 							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
 						{/each}
