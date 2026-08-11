@@ -736,15 +736,6 @@ export interface ExternalLink {
 	url?: string;
 }
 
-// PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the
-// existing person the new name collides with, so the UI can offer the F23 merge flow
-// (with both video counts) instead — never an auto-merge.
-export interface PersonRenameConflict {
-	id: number;
-	name: string;
-	video_count: number;
-}
-
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.

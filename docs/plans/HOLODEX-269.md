@@ -39,24 +39,28 @@ collision surface is the separate composite-key story, HOLODEX-270.
   `renamePerson` in `web/src/lib/api.ts:938-959` doesn't unwrap `body.conflict`, unlike the generic
   `renameEntity`, masked by an incorrectly-mocked unit test — fixed by retiring it in favor of
   `renameEntity('person', ...)` during the frontend gate (parity requirement, not scope creep)
-- [ ] frontend
-- [ ] testing `testing-strategy`
-- [ ] security `security-review` — rename/merge mutations, likely required
+- [x] frontend — `MergeOfferCard` + `NameEditControl` wired into Person/Studio/Tag/Video Title,
+  `renamePerson` retired in favor of `renameEntity`; type-check clean (0 errors), full suite
+  139/139, live-QA'd across all 4 entities (rename success, 409 conflict + merge-offer,
+  keep-separate, Person merge-into-alias round-trip) and all 3 skins (token checks)
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` §11 updated
+- [x] security `security-review` — frontend-only diff, no backend mutation surface changed
+  (consumes pre-existing owner-gated endpoints); no findings
 
 ## Up next — ordered (position = priority)
 
 1. [x] [spec] `/write-spec` for HOLODEX-269 — `docs/specs/unified-name-edit.md`
 2. [x] [design] `/design-handoff` for the docked-pencil + verdict panel — `docs/design/unified-name-edit-handoff.md`
 3. [x] [backend] audited existing rename/merge/collision endpoints — no new Go code needed (see gate note)
-4. [ ] [frontend] `MergeOfferCard` + `NameEditControl` + per-entity wiring (Person, Studio, Tag, Video Title), retire buggy `renamePerson` — `web/src/lib/components/entity/`, `web/src/lib/api.ts`
-5. [ ] [testing] `/testing-strategy` update
-6. [ ] [security] `/security-review`
+4. [x] [frontend] `MergeOfferCard` + `NameEditControl` + per-entity wiring (Person, Studio, Tag, Video Title), retire buggy `renamePerson` — `web/src/lib/components/entity/`, `web/src/lib/api.ts`
+5. [x] [testing] `/testing-strategy` update
+6. [x] [security] `/security-review`
 7. [x] [—] push Draft PR now that the spec (first gate artifact) has landed; sync Jira first — [#229](https://github.com/whoiskevinrich/holodex/pull/229)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-08-10 · Started HOLODEX-269, worktree + Jira set up, research dispatched
-- skills: (none yet — spec pass next), design-handoff, graphify
+- skills: (none yet — spec pass next), design-handoff, graphify, testing-strategy, security-review, simplify
 - handoff: fresh worktree `HOLODEX-269-name-edit-mechanism` branched off origin/main (which already
   includes the merged HOLODEX-273 fix). Jira transitioned to In Progress. Dispatched an Explore
   agent to ground the spec in the four current rename implementations (Person/Studio/Tag/Video
@@ -110,3 +114,24 @@ collision surface is the separate composite-key story, HOLODEX-270.
   that mocks the wrong response shape. Marked the backend gate `[~]` — no Go changes required.
   Next: frontend — extract `MergeOfferCard`, build `NameEditControl`, wire into all four pages,
   retire `renamePerson` in favor of `renameEntity` (fixes the bug as a parity side effect).
+
+### 2026-08-10 · Frontend landed, testing + security gates closed — all gates green
+- skills: testing-strategy, security-review
+- handoff: built `NameEditControl.svelte` + `MergeOfferCard.svelte` (extracted verbatim from
+  `AliasPanel.svelte`'s collision-card markup, contract unchanged) in
+  `web/src/lib/components/entity/`, wired into Person/Studio/Tag detail pages (with the
+  `verdict` snippet for 409 conflicts) and Video Title (no verdict — Video isn't on the
+  identity spine, HOLODEX-270 fills in its own collision check later). Retired `renamePerson`
+  in `web/src/lib/api.ts` in favor of the shared `renameEntity('person', ...)`, which fixes the
+  409-conflict-unwrap bug as a parity side effect; `api.test.ts` updated (204/409/error cases).
+  Type-check clean, full suite 139/139. Live-QA'd across all 4 entity pages: rename success,
+  409 conflict → `MergeOfferCard`, keep-separate dismissal, a full Person merge-into-alias
+  round-trip (confirmed ADR-061 D6 — loser's name becomes an alias of the survivor), and Video
+  Title's no-conflict-UI path plus the old canonical-`title` metadata row correctly disappearing.
+  3-skin token pass (Cinémathèque/Broadcast/Brutalist) on the pencil, edit-form input, and
+  `MergeOfferCard` buttons — no hardcoded colors. `/testing-strategy` appended a bullet to
+  `docs/testing-strategy.md` §11. `/security-review` dispatched one identification sub-agent
+  over the full diff — zero findings (frontend-only diff, no new backend mutation surface).
+  All seven gates now green (architecture/backend intentionally `[~]` — no-op, explained
+  in-line). Next: pre-commit checklist (`/simplify`, secrets scan), commit, push, mark Draft PR
+  #229 ready for review, sync Jira to In Review.

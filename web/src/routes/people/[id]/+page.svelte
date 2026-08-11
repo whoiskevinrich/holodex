@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { toMessage, aliasHint } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import type {
@@ -16,13 +15,11 @@
 		PersonDetailResponse,
 		PersonImageRole,
 		PersonImageSet,
-		PersonRenameConflict,
 		ResolvedField,
 		Video
 	} from '$lib/types';
 	import { providerOf } from '$lib/f36';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
@@ -39,7 +36,9 @@
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
-	import { videoCount, providerFromWinningSource, calculatedFrom } from '$lib/format';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
+	import { providerFromWinningSource, calculatedFrom } from '$lib/format';
 
 	let person = $state<Person | null>(null);
 	let videos = $state<Video[]>([]);
@@ -79,15 +78,11 @@
 	// which AsyncState uses to replace the whole page.
 	let actionError = $state('');
 
-	// Rename flow (F37 RD1 — name materializes, never pins). Selecting a non-record name
-	// chip (or committing a custom name) opens the confirm dialog; on confirm the person is
-	// renamed and the old name kept as an F23 alias. A 409 swaps the dialog to the merge
-	// offer, routing into the existing F23 conflict confirm — never an auto-merge.
-	let renameTo = $state(''); // '' = dialog closed
-	let renameBusy = $state(false);
-	let renameError = $state('');
-	let renameConflict = $state<PersonRenameConflict | null>(null);
-	let nameRowEl = $state<HTMLElement | null>(null);
+	// Rename flow (HOLODEX-269, docked-pencil NameEditControl on the hero name — replaces
+	// the F37 RD1 SourceSelect/onadopt intercept). A 409 shows the merge offer inline; these
+	// two only cover the inline verdict's own busy/error (NameEditControl owns the rest).
+	let renameMergeBusy = $state(false);
+	let renameMergeError = $state('');
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -117,10 +112,10 @@
 		);
 	}
 
-	// Field partitions (F37 handoff): Name first, then the replace fields, then the
-	// merge fields ("Also known as"). A field with no value and no candidates doesn't
-	// render; visitors additionally see only fields that resolved to a value.
-	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	// Field partitions (F37 handoff): the replace fields, then the merge fields ("Also
+	// known as"). Name is excluded (rendered via NameEditControl in the hero, HOLODEX-269),
+	// as is a field with no value and no candidates; visitors additionally see only fields
+	// that resolved to a value.
 	// HOLODEX-139: the resolved `nationality` values feed the hero flag beside the name.
 	// Free text (TMDB place of birth, or a plain nationality word) → country → flag,
 	// derived client-side; visitors see it too since resolved carries surviving values.
@@ -250,61 +245,34 @@
 		await reloadDetail();
 	}
 
-	// Rename flow (RD1). openRename is the SourceSelect `onadopt` interceptor for the
-	// name field: no decision call ever fires; the confirm dialog owns what happens next.
-	function openRename(_source: DecisionSource, value: string) {
-		const next = value.trim();
-		if (!next || next === person?.name) return;
-		renameError = '';
-		renameConflict = null;
-		renameTo = next;
+	// Rename flow (HOLODEX-269). NameEditControl performs the rename call itself via
+	// onCommit; a 409 resolves to {conflict} and NameEditControl renders the `verdict`
+	// snippet below inline (no navigation into the Aliases card).
+	async function commitPersonRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		const res = await api.renameEntity('person', id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadDetail();
+		return { ok: true };
 	}
 
-	function closeRename() {
-		// ConfirmDialog returns focus to the chip that opened it on unmount (a11y).
-		renameTo = '';
-		renameConflict = null;
-		renameError = '';
-	}
-
-	async function confirmRename() {
-		if (renameBusy || !renameTo) return;
-		renameBusy = true;
-		renameError = '';
+	// The owner confirmed the colliding entity is the same person — fold it in (never
+	// auto-merge, F23 invariant). `resolve` is NameEditControl's own dismiss callback.
+	async function mergeRenameConflict(mergeConflict: EntityRef, resolve: () => void) {
+		renameMergeBusy = true;
+		renameMergeError = '';
 		try {
-			const res = await api.renamePerson(id, renameTo);
-			if (res.conflict) {
-				// Name taken — swap to the merge offer (never auto-merge, F23 invariant).
-				renameConflict = res.conflict;
-				return;
-			}
-			renameTo = '';
-			await reloadDetail();
-			// Focus lands back on the name row: the record chip now carries the new name.
-			await tick();
-			nameRowEl?.querySelector<HTMLElement>('[data-seg="record"]')?.focus();
+			await api.mergeEntities('person', id, mergeConflict.id);
+			resolve();
+			await load(id);
 		} catch (e) {
-			renameError = toMessage(e);
+			renameMergeError = toMessage(e);
 		} finally {
-			renameBusy = false;
+			renameMergeBusy = false;
 		}
 	}
 
-	// The owner chose "Merge into …" from the rename collision: route into the existing
-	// F23 merge confirmation (the conflict panel in the Aliases card) — same informed
-	// confirm as an alias collision, with both video counts. Nothing merges until the
-	// owner confirms there.
-	function mergeFromRename() {
-		if (!renameConflict) return;
-		conflict = {
-			id: renameConflict.id,
-			name: renameConflict.name,
-			video_count: renameConflict.video_count
-		};
-		closeRename();
-	}
-
-	// After any merge (via AliasPanel), reload so the (now larger) video list + new alias show.
+	// After any merge (via AliasPanel or the rename verdict), reload so the (now larger)
+	// video list + new alias show.
 	function onMerged() {
 		load(id);
 	}
@@ -470,12 +438,29 @@
 						</div>
 					{/if}
 					<div class="min-w-0 flex-1 pb-1">
-						<div class="flex items-center gap-2">
-							<h1 class="skin-title min-w-0 truncate text-3xl font-semibold text-ink sm:text-4xl">
-								{person?.name ?? ''}
-							</h1>
-							<NationalityFlags values={nationalityValues} />
-						</div>
+						<NameEditControl
+							name={person?.name ?? ''}
+							{isOwner}
+							onCommit={commitPersonRename}
+							label="person"
+							headingClass="skin-title min-w-0 truncate text-3xl font-semibold text-ink sm:text-4xl"
+							hint={person ? aliasHint(person.name) : undefined}
+						>
+							{#snippet trailing()}
+								<NationalityFlags values={nationalityValues} />
+							{/snippet}
+							{#snippet verdict(c, resolve)}
+								<MergeOfferCard
+									noun="person"
+									entityName={person?.name ?? ''}
+									conflict={c}
+									busy={renameMergeBusy}
+									error={renameMergeError}
+									onmerge={() => mergeRenameConflict(c, resolve)}
+									onkeepseparate={resolve}
+								/>
+							{/snippet}
+						</NameEditControl>
 						<EntityVideoMeta
 							count={videos.length}
 							links={externalLinks}
@@ -528,25 +513,6 @@
 
 					{#if resolved.length}
 						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-							{#if nameField && isOwner}
-								<!-- The Name row (RD1): the same chip radiogroup, but selecting a
-								     non-record chip opens the rename confirm — never a decision. -->
-								<div class="sm:col-span-2" bind:this={nameRowEl}>
-									<dt class="mb-1 text-muted">{nameField.label}:</dt>
-									<dd>
-										<SourceSelect
-											field={nameField}
-											baselineKey="record"
-											groupLabel="Name — selecting a source renames this person"
-											onadopt={openRename}
-											decide={async () => {
-												/* unreachable: the intercept owns every non-record selection (RD1) */
-											}}
-										/>
-									</dd>
-								</div>
-							{/if}
-
 							{#snippet promotedEdit(f: ResolvedField)}
 								<PromotedFieldEdit {isOwner} field={f} entityType="person" entityNoun="people" onchanged={reloadDetail} />
 							{/snippet}
@@ -718,43 +684,3 @@
 	/>
 {/if}
 
-<!-- Rename confirm (RD1) — the F23 merge-confirm modal idiom (role=dialog, aria-modal,
-     focus trapped, Escape cancels + focus returns to the opening chip via ConfirmDialog's
-     trigger restore). Informational, never warn-toned (accent variant). -->
-{#if renameTo && !renameConflict}
-	<ConfirmDialog
-		title={`Rename to “${renameTo}”?`}
-		confirmLabel="Rename"
-		variant="accent"
-		busy={renameBusy}
-		error={renameError}
-		onconfirm={confirmRename}
-		oncancel={closeRename}
-	>
-		{#snippet body()}
-			<p>
-				“{person?.name}” is kept as an alias — search and future scans still match it.
-			</p>
-		{/snippet}
-	</ConfirmDialog>
-{:else if renameConflict}
-	<!-- Name-collision (409): swap to the merge offer. Confirming routes into the existing
-	     F23 merge confirmation (the conflict panel above) — never an auto-merge. -->
-	<ConfirmDialog
-		title={`“${renameConflict.name}” already exists (${videoCount(renameConflict.video_count)})`}
-		confirmLabel={`Merge with “${renameConflict.name}”…`}
-		cancelLabel="Keep separate"
-		variant="accent"
-		busy={false}
-		onconfirm={mergeFromRename}
-		oncancel={closeRename}
-	>
-		{#snippet body()}
-			<p>
-				Renaming would collide with that person. You can merge this person ({videoCount(
-					videos.length
-				)}) with them instead — videos combine and both names stay searchable.
-			</p>
-		{/snippet}
-	</ConfirmDialog>
-{/if}
