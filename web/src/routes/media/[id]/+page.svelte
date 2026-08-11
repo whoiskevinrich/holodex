@@ -32,6 +32,7 @@
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -114,9 +115,13 @@
 	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
 	// auto-registered non-canonical fields, which render read-only after them.
 	// Studio (F52) and Commentary render in their own header-adjacent spots instead of
-	// the generic metadata dl — excluded here so they don't also render there.
+	// the generic metadata dl — excluded here so they don't also render there. Title
+	// (HOLODEX-269) is now edited in place via NameEditControl on the header <h1> —
+	// excluded here so it doesn't also render as a SourceSelect row below.
 	const canonicalResolved = $derived(
-		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary')
+		resolved.filter(
+			(f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary' && f.canonical !== 'title'
+		)
 	);
 	// Visitor view only: a field whose winner is the file/tag baseline just restates
 	// what's already visible elsewhere on the page (title in the header, genres — a
@@ -272,6 +277,14 @@
 			});
 		}
 		await reloadDetail();
+	}
+
+	// Title rename (HOLODEX-269, docked-pencil NameEditControl on the header <h1>).
+	// Video isn't on the identity spine (no alias/merge/collision concept for videos), so
+	// this always commits as a manual decision — no verdict snippet, no conflict state.
+	async function commitTitle(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		await decideField('title', 'manual', value);
+		return { ok: true };
 	}
 
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
@@ -622,7 +635,13 @@
 		{/if}
 
 		<header class="space-y-2">
-			<h1 class="skin-title text-2xl font-semibold text-ink">{displayTitle}</h1>
+			<NameEditControl
+				name={displayTitle}
+				{isOwner}
+				onCommit={commitTitle}
+				label="video"
+				headingClass="skin-title text-2xl font-semibold text-ink"
+			/>
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}

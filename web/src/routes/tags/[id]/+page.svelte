@@ -2,14 +2,16 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount, tagCount } from '$lib/format';
+	import { toMessage, videoCount, tagCount, aliasHint } from '$lib/format';
 	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
-	import type { Category, Tag, Video } from '$lib/types';
+	import type { Category, EntityRef, Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 
 	let tag = $state<Tag | null>(null);
 	let videos = $state<Video[]>([]);
@@ -39,7 +41,36 @@
 
 	async function reloadTag() {
 		if (!tag) return;
-		tag = (await api.getTag(tag.id)).tag;
+		const res = await api.getTag(tag.id);
+		tag = res.tag;
+		videos = res.items ?? [];
+	}
+
+	// Rename (HOLODEX-269, docked-pencil NameEditControl beside the hero name). A 409
+	// shows the merge offer inline; these two only cover the inline verdict's own
+	// busy/error (NameEditControl owns the rest of the rename flow itself).
+	let renameMergeBusy = $state(false);
+	let renameMergeError = $state('');
+
+	async function commitTagRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		const res = await api.renameEntity('tag', id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadTag();
+		return { ok: true };
+	}
+
+	async function mergeRenameConflict(mergeConflict: EntityRef, resolve: () => void) {
+		renameMergeBusy = true;
+		renameMergeError = '';
+		try {
+			await api.mergeEntities('tag', id, mergeConflict.id);
+			resolve();
+			await reloadTag();
+		} catch (e) {
+			renameMergeError = toMessage(e);
+		} finally {
+			renameMergeBusy = false;
+		}
 	}
 
 	// Posts immediately, no confirm step (HOLODEX-239, ADR-077 D1) — toggling the
@@ -300,7 +331,26 @@
 			{#if tag?.ancestors?.length}
 				<p class="text-sm text-muted">{tag.ancestors.join(' › ')} ›</p>
 			{/if}
-			<h1 class="skin-title text-2xl font-semibold text-ink">{tag?.name ?? ''}</h1>
+			<NameEditControl
+				name={tag?.name ?? ''}
+				{isOwner}
+				onCommit={commitTagRename}
+				label="tag"
+				headingClass="skin-title text-2xl font-semibold text-ink"
+				hint={tag ? aliasHint(tag.name) : undefined}
+			>
+				{#snippet verdict(c, resolve)}
+					<MergeOfferCard
+						noun="tag"
+						entityName={tag?.name ?? ''}
+						conflict={c}
+						busy={renameMergeBusy}
+						error={renameMergeError}
+						onmerge={() => mergeRenameConflict(c, resolve)}
+						onkeepseparate={resolve}
+					/>
+				{/snippet}
+			</NameEditControl>
 			<p class="text-sm text-muted">{videoCount(videos.length)}</p>
 		{/snippet}
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, providerFromWinningSource } from '$lib/format';
+	import { toMessage, providerFromWinningSource, aliasHint } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { activity } from '$lib/activity.svelte';
 	import { providerOf } from '$lib/f36';
@@ -10,6 +10,7 @@
 		Completeness,
 		DecisionSource,
 		EnrichSource,
+		EntityRef,
 		ExternalLink,
 		PersonAlias,
 		ResolvedField,
@@ -21,6 +22,9 @@
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
@@ -43,9 +47,14 @@
 	let videos = $state<Video[]>([]);
 	let resolved = $state<ResolvedField[]>([]);
 	// Owner-curated routing aliases (F43, ADR-061), bound into AliasPanel. A studio's name
-	// is derived identity, so the panel also offers Rename (allowRename) — the merge/rename
-	// register the loser/old name as an alias so RelinkVideoStudios won't resurrect it (RD6).
+	// is derived identity, renamed via the hero's NameEditControl (HOLODEX-269) — the
+	// merge/rename register the loser/old name as an alias so RelinkVideoStudios won't
+	// resurrect it (RD6).
 	let aliases = $state<PersonAlias[]>([]);
+	// Rename-collision verdict state (HOLODEX-269) — mirrors the person page's inline
+	// merge offer; NameEditControl owns the rest of the rename flow itself.
+	let renameMergeBusy = $state(false);
+	let renameMergeError = $state('');
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let externalLinks = $state<ExternalLink[]>([]); // HOLODEX-266, ADR-083 D1
 	let loading = $state(true);
@@ -205,6 +214,29 @@
 		});
 		await reloadDetail();
 	}
+
+	// Rename flow (HOLODEX-269) — same shared mechanism as Person: NameEditControl performs
+	// the rename call and, on a 409, renders the `verdict` snippet below inline.
+	async function commitStudioRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		const res = await api.renameEntity('studio', id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadDetail();
+		return { ok: true };
+	}
+
+	async function mergeRenameConflict(mergeConflict: EntityRef, resolve: () => void) {
+		renameMergeBusy = true;
+		renameMergeError = '';
+		try {
+			await api.mergeEntities('studio', id, mergeConflict.id);
+			resolve();
+			await load(id);
+		} catch (e) {
+			renameMergeError = toMessage(e);
+		} finally {
+			renameMergeBusy = false;
+		}
+	}
 </script>
 
 <AsyncState {loading} {error}>
@@ -217,10 +249,38 @@
 		scrollKey={`studio:${id}`}
 		{externalLinks}
 	>
+		{#snippet hero()}
+			<!-- Docked-pencil rename (HOLODEX-269), replacing AliasPanel's old allowRename
+			     trigger — same shared mechanism as Person/Tag. A studio's name is derived
+			     identity; the old name is kept as an alias so re-derivation (RelinkVideoStudios)
+			     survives (RD6). -->
+			<NameEditControl
+				name={studio?.name ?? ''}
+				{isOwner}
+				onCommit={commitStudioRename}
+				label="studio"
+				headingClass="skin-title text-2xl font-semibold text-ink"
+				hint={studio ? aliasHint(studio.name) : undefined}
+			>
+				{#snippet verdict(c, resolve)}
+					<MergeOfferCard
+						noun="studio"
+						entityName={studio?.name ?? ''}
+						conflict={c}
+						busy={renameMergeBusy}
+						error={renameMergeError}
+						onmerge={() => mergeRenameConflict(c, resolve)}
+						onkeepseparate={resolve}
+					/>
+				{/snippet}
+			</NameEditControl>
+			<EntityVideoMeta count={videos.length} links={externalLinks} entityName={studio?.name ?? ''} />
+		{/snippet}
+
 		{#snippet detail()}
 			<!-- Aliases are core identity, so the panel reads above the Details/enrichment
-			     shadow (F43 handoff §1). Studio name is derived identity → allowRename lets the
-			     owner correct it; the old name is kept as an alias so re-derivation survives. -->
+			     shadow (F43 handoff §1). Rename lives on the hero's NameEditControl now
+			     (HOLODEX-269); this panel keeps only its Add-alias/merge functionality. -->
 			{#if studio}
 				<AliasPanel
 					entityType="studio"
@@ -228,9 +288,7 @@
 					entityName={studio.name}
 					bind:aliases
 					{isOwner}
-					allowRename
 					onmerged={() => load(id)}
-					onrenamed={() => load(id)}
 				/>
 			{/if}
 

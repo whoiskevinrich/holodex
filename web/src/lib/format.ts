@@ -57,6 +57,12 @@ export function tagCount(n: number): string {
 	return `${n} tag${n === 1 ? '' : 's'}`;
 }
 
+// aliasHint is NameEditControl's `hint` copy for Person/Studio/Tag (HOLODEX-269) — the
+// old name is kept as an alias on rename, so search and future scans still match it.
+export function aliasHint(name: string): string {
+	return `“${name}” is kept as an alias — search and future scans still match it.`;
+}
+
 // filterByName narrows items to those whose name contains query, case-insensitive
 // (personal-library scale, client-side filter over an already-loaded unpaged
 // list — the shape EntityPicker/CategoryPicker/tags' unified search all share).
