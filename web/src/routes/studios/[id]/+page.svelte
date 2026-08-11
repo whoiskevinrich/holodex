@@ -24,7 +24,7 @@
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
+	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
@@ -309,7 +309,7 @@
 									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
-											<SourceSelect
+											<SourceBadge
 												field={f}
 												baselineKey="record"
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
@@ -350,7 +350,7 @@
 									{/if}
 									{#if isOwner}
 										<dd class="block">
-											<SourceSelect
+											<SourceBadge
 												field={f}
 												baselineKey="record"
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
