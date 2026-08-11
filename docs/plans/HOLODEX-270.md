@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-270                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: [HOLODEX-269]               # [KEY-…] cross-epic deps that must land first
 release_note: Editing a video's title now warns you when another video already has the same title, people, date, and studio — so accidental duplicates don't slip in unnoticed.
 ---
@@ -37,13 +37,22 @@ those stories land.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Commit, push, open/update Draft PR, Jira sync
-2. [ ] [—] Studio trigger point → HOLODEX-271 (reuses `FindTitleCollision`'s sibling once
+1. [ ] [—] Studio trigger point → HOLODEX-271 (reuses `FindTitleCollision`'s sibling once
    that story adds a studio-composite variant)
-3. [ ] [—] People trigger point → HOLODEX-272 (same, once that story's attach/detach
+2. [ ] [—] People trigger point → HOLODEX-272 (same, once that story's attach/detach
    surface exists)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-11c · committed, pushed, PR #230 ready, Jira synced
+- skills: —
+- handoff: Committed as `90a691f` (`feat(video): composite-key collision check on title
+  edit`), pushed, opened [PR #230](https://github.com/whoiskevinrich/holodex/pull/230)
+  directly ready-for-review (not draft — every gate was already green at PR-creation
+  time). CI's `jira-sync.yml` fired the In-Review transition automatically on the
+  non-draft PR. Cleared the stale `needs-design`/`needs-spec` labels on HOLODEX-270 now
+  that both artifacts landed. HOLODEX-270 is fully done pending human review/merge. Next
+  in the epic: HOLODEX-271 (studio relationship popover), starting with `/write-spec`.
 
 ### 2026-08-11b · testing-strategy doc, /simplify, /security-review, all gates green
 - skills: testing-strategy, simplify, security-review
