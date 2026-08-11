@@ -1,4 +1,4 @@
-<script lang="ts">
+<script generics="TConflict = EntityRef" lang="ts">
 	// Docked-pencil rename control (HOLODEX-269) — replaces Person's SourceSelect/onadopt
 	// intercept, Studio's AliasPanel-embedded rename form, and Tag's list-page-only rename with
 	// one shared mechanism, and adds a rename affordance to Video Title where none existed. At
@@ -7,6 +7,11 @@
 	// (.name-edit-row/.name-edit-pencil in app.css, mirroring .curation-actions). On a name
 	// collision, onCommit resolves {conflict} and the caller-supplied `verdict` snippet (typically
 	// MergeOfferCard) renders inline in place of the edit form — no modal, no navigation.
+	//
+	// Generic over the conflict payload (HOLODEX-270): Person/Studio/Tag all resolve
+	// {conflict: EntityRef} and get TConflict=EntityRef for free via the default type
+	// parameter — no call-site changes. Video Title's onCommit resolves
+	// {conflict: VideoCollisionRef} instead, which Svelte infers from that prop alone.
 	import type { Snippet } from 'svelte';
 	import type { EntityRef } from '$lib/types';
 	import { toMessage } from '$lib/format';
@@ -24,7 +29,7 @@
 	}: {
 		name: string;
 		isOwner: boolean;
-		onCommit: (value: string) => Promise<{ ok: true } | { conflict: EntityRef }>;
+		onCommit: (value: string) => Promise<{ ok: true } | { conflict: TConflict }>;
 		label: string;
 		headingClass: string;
 		// Optional anchor id for deep links (e.g. the completeness queue's #field-title) —
@@ -36,14 +41,14 @@
 		// Optional content rendered beside the heading, inside the same hover-reveal row (e.g.
 		// Person's nationality flags) — kept out of the edit form, which takes over the row.
 		trailing?: Snippet;
-		verdict?: Snippet<[EntityRef, () => void]>;
+		verdict?: Snippet<[TConflict, () => void]>;
 	} = $props();
 
 	let editing = $state(false);
 	let busy = $state(false);
 	let error = $state('');
 	let value = $state('');
-	let conflict = $state<EntityRef | null>(null);
+	let conflict = $state<TConflict | null>(null);
 	let input = $state<HTMLInputElement | null>(null);
 	let pencil = $state<HTMLButtonElement | null>(null);
 	let verdictRoot = $state<HTMLDivElement | null>(null);

@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -33,6 +33,7 @@
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -104,6 +105,13 @@
 	let tagError = $state('');
 	let tagNearMiss = $state<EntityRef | null>(null);
 	let tagJustAdded = $state<EntityRef | null>(null);
+
+	// Title composite-key collision verdict (HOLODEX-270). pendingTitleValue remembers the
+	// value that collided so "Save anyway" can resubmit it with override — NameEditControl
+	// clears its own input state as soon as the conflict comes back, so the page must hold it.
+	let pendingTitleValue = $state('');
+	let titleCollisionBusy = $state(false);
+	let titleCollisionError = $state('');
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -279,12 +287,39 @@
 		await reloadDetail();
 	}
 
-	// Title rename (HOLODEX-269, docked-pencil NameEditControl on the header <h1>).
-	// Video isn't on the identity spine (no alias/merge/collision concept for videos), so
-	// this always commits as a manual decision — no verdict snippet, no conflict state.
-	async function commitTitle(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
-		await decideField('title', 'manual', value);
+	// Title rename (HOLODEX-269, docked-pencil NameEditControl on the header <h1>). Video
+	// isn't on the identity spine (no alias/merge concept), but a manual title edit can still
+	// collide on the composite key {title, people, date, studio} (HOLODEX-270) — that 409
+	// resolves to {conflict} the same way a Person/Studio/Tag rename does, rendering
+	// CollisionOfferCard via NameEditControl's verdict slot instead of MergeOfferCard.
+	async function commitTitle(value: string): Promise<{ ok: true } | { conflict: VideoCollisionRef }> {
+		const res = await api.setFieldDecision(id, 'title', { source: 'manual', manual_value: value });
+		if (res.conflict) {
+			pendingTitleValue = value;
+			return { conflict: res.conflict };
+		}
+		await reloadDetail();
 		return { ok: true };
+	}
+
+	// "Save anyway, keep both" — resubmits the same pending value with override, bypassing
+	// the collision gate. `resolve` is NameEditControl's own dismiss callback.
+	async function saveTitleAnyway(resolve: () => void) {
+		titleCollisionBusy = true;
+		titleCollisionError = '';
+		try {
+			await api.setFieldDecision(id, 'title', {
+				source: 'manual',
+				manual_value: pendingTitleValue,
+				override: true
+			});
+			resolve();
+			await reloadDetail();
+		} catch (e) {
+			titleCollisionError = toMessage(e);
+		} finally {
+			titleCollisionBusy = false;
+		}
 	}
 
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
@@ -642,7 +677,17 @@
 				onCommit={commitTitle}
 				label="video"
 				headingClass="skin-title text-2xl font-semibold text-ink"
-			/>
+			>
+				{#snippet verdict(c, resolve)}
+					<CollisionOfferCard
+						video={c}
+						busy={titleCollisionBusy}
+						error={titleCollisionError}
+						onviewexisting={() => goto(`/media/${c.id}`)}
+						onsaveanyway={() => saveTitleAnyway(resolve)}
+					/>
+				{/snippet}
+			</NameEditControl>
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}

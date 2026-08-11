@@ -23,10 +23,13 @@ func (h *Handlers) mountDecisions(r chi.Router) {
 }
 
 // decisionBody is the PUT request shape: the pinned source and, for a manual pick,
-// the frozen literal value.
+// the frozen literal value. Override bypasses the title composite-key collision
+// check (HOLODEX-270) — set only on a resubmit after the owner has already seen and
+// dismissed a collision verdict for this exact edit.
 type decisionBody struct {
 	Source      string `json:"source"`
 	ManualValue string `json:"manual_value"`
+	Override    bool   `json:"override"`
 }
 
 // setFieldDecision records a standing decision pinning a replace field to a source
@@ -70,6 +73,24 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r, model.EnrichEntityVideo, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this item")
 		return
+	}
+
+	// Title composite-key collision gate (HOLODEX-270): a manual title edit that
+	// would produce a {title, people, date, studio} match against another active
+	// video blocks here unless the owner already saw and overrode it.
+	if field.Canonical == "title" && body.Source == fieldsource.Manual && !body.Override {
+		collision, err := h.repo.FindTitleCollision(r.Context(), id, manualValue)
+		if err != nil {
+			h.fail(w, "check title collision", err)
+			return
+		}
+		if collision != nil {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":    "another video already matches this title, people, date, and studio",
+				"conflict": collision,
+			})
+			return
+		}
 	}
 
 	if err := h.repo.SetDecision(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue); err != nil {

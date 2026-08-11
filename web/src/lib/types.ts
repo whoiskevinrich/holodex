@@ -21,6 +21,18 @@ export interface EntityRef {
 	video_count?: number;
 }
 
+// VideoCollisionRef is the minimal shape the composite-key collision 409 body returns for the
+// OTHER (colliding) video — enough for CollisionOfferCard to render without a follow-up fetch
+// (HOLODEX-270). Deliberately separate from EntityRef: a video isn't on the identity spine and
+// carries different identifying fields (people/date/studio, not a single name).
+export interface VideoCollisionRef {
+	id: number;
+	title: string;
+	people: string[]; // display names, already resolved server-side — no extra lookup needed
+	recorded_at: string | null; // ISO date, same format as Video.recorded_at
+	studio: string | null; // display name; null when the video has no studio linked
+}
+
 // DuplicatePair is one flagged possible-duplicate (F43 S5, ADR-061): two entities that
 // are a loose-key near-miss (not an exact-nameKey match) and the variation kind. Served
 // by GET /owner/duplicates, grouped tags-first.
@@ -276,9 +288,12 @@ export interface FieldCandidate {
 
 // DecisionRequest is the body of PUT …/decision (F36, ADR-051 §7). `manual_value` is
 // required iff source === 'manual'; a `provider:<name>` must be a currently-matched provider.
+// `override` bypasses the Video Title composite-key collision check (HOLODEX-270) — set only
+// on a resubmit after the owner has already seen and dismissed a collision verdict.
 export interface DecisionRequest {
 	source: DecisionSource;
 	manual_value?: string;
+	override?: boolean;
 }
 
 // F44 (ADR-062) — the render-mode vocabulary a promotion may set (F39's five modes; no

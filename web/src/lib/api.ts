@@ -42,6 +42,7 @@ import type {
 	Tag,
 	TrashEntry,
 	Video,
+	VideoCollisionRef,
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
@@ -811,13 +812,33 @@ export const api = {
 	// pins a replace field to a source (file / provider:<name> / manual + literal);
 	// clearFieldDecision removes the decision, reverting the field to the file default.
 	// Both are DB-only — they never touch the file (RD5); the file changes solely via
-	// writebackMedia ("Write decisions to file").
-	setFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
-		sendAuthed<Record<string, never>>(
-			'PUT',
-			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`,
-			req
-		),
+	// writebackMedia ("Write decisions to file"). A manual title edit may 409 on a
+	// composite-key collision (HOLODEX-270); like renameEntity, that returns as `conflict`
+	// (conflict-as-return-value, not an exception) rather than throwing — every other
+	// field/source combination never produces one.
+	setFieldDecision: async (
+		id: number,
+		canonical: string,
+		req: DecisionRequest
+	): Promise<{ conflict?: VideoCollisionRef }> => {
+		const path = `/media/${id}/fields/${encodeURIComponent(canonical)}/decision`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'PUT',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(req)
+		});
+		checkRedirect(res);
+		if (res.status === 409) {
+			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+			return { conflict: body.conflict };
+		}
+		if (!res.ok && res.status !== 204) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	},
 	clearFieldDecision: (id: number, canonical: string) =>
 		sendAuthed<Record<string, never>>(
 			'DELETE',
