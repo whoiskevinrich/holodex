@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -32,6 +32,8 @@
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -104,6 +106,13 @@
 	let tagNearMiss = $state<EntityRef | null>(null);
 	let tagJustAdded = $state<EntityRef | null>(null);
 
+	// Title composite-key collision verdict (HOLODEX-270). pendingTitleValue remembers the
+	// value that collided so "Save anyway" can resubmit it with override — NameEditControl
+	// clears its own input state as soon as the conflict comes back, so the page must hold it.
+	let pendingTitleValue = $state('');
+	let titleCollisionBusy = $state(false);
+	let titleCollisionError = $state('');
+
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Prefer the resolved title (may come from an enrichment provider) over the
@@ -114,9 +123,13 @@
 	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
 	// auto-registered non-canonical fields, which render read-only after them.
 	// Studio (F52) and Commentary render in their own header-adjacent spots instead of
-	// the generic metadata dl — excluded here so they don't also render there.
+	// the generic metadata dl — excluded here so they don't also render there. Title
+	// (HOLODEX-269) is now edited in place via NameEditControl on the header <h1> —
+	// excluded here so it doesn't also render as a SourceSelect row below.
 	const canonicalResolved = $derived(
-		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary')
+		resolved.filter(
+			(f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary' && f.canonical !== 'title'
+		)
 	);
 	// Visitor view only: a field whose winner is the file/tag baseline just restates
 	// what's already visible elsewhere on the page (title in the header, genres — a
@@ -266,12 +279,53 @@
 		if (source === 'file') {
 			await api.clearFieldDecision(id, canonical);
 		} else {
-			await api.setFieldDecision(id, canonical, {
+			const res = await api.setFieldDecision(id, canonical, {
 				source,
 				...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
 			});
+			// decideField has no verdict UI to hand a collision to — SourceSelect/SourceBadge and
+			// WritebackFormDialog only expect ok-or-throw, so surface it as a thrown error instead
+			// of silently proceeding to reloadDetail() (HOLODEX-270 review fix).
+			if (res.conflict) {
+				throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+			}
 		}
 		await reloadDetail();
+	}
+
+	// Title rename (HOLODEX-269, docked-pencil NameEditControl on the header <h1>). Video
+	// isn't on the identity spine (no alias/merge concept), but a manual title edit can still
+	// collide on the composite key {title, people, date, studio} (HOLODEX-270) — that 409
+	// resolves to {conflict} the same way a Person/Studio/Tag rename does, rendering
+	// CollisionOfferCard via NameEditControl's verdict slot instead of MergeOfferCard.
+	async function commitTitle(value: string): Promise<{ ok: true } | { conflict: VideoCollisionRef }> {
+		const res = await api.setFieldDecision(id, 'title', { source: 'manual', manual_value: value });
+		if (res.conflict) {
+			pendingTitleValue = value;
+			return { conflict: res.conflict };
+		}
+		await reloadDetail();
+		return { ok: true };
+	}
+
+	// "Save anyway, keep both" — resubmits the same pending value with override, bypassing
+	// the collision gate. `resolve` is NameEditControl's own dismiss callback.
+	async function saveTitleAnyway(resolve: () => void) {
+		titleCollisionBusy = true;
+		titleCollisionError = '';
+		try {
+			await api.setFieldDecision(id, 'title', {
+				source: 'manual',
+				manual_value: pendingTitleValue,
+				override: true
+			});
+			resolve();
+			await reloadDetail();
+		} catch (e) {
+			titleCollisionError = toMessage(e);
+		} finally {
+			titleCollisionBusy = false;
+		}
 	}
 
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
@@ -328,6 +382,11 @@
 		playFailed = false;
 		refreshStatus = null; // a freshly-opened item starts with no refresh outcome
 		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
+		// A pending title-collision verdict is scoped to the video that produced it — carrying
+		// it across navigation would let "Save anyway" commit the old value onto the new id.
+		pendingTitleValue = '';
+		titleCollisionBusy = false;
+		titleCollisionError = '';
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -622,7 +681,28 @@
 		{/if}
 
 		<header class="space-y-2">
-			<h1 class="skin-title text-2xl font-semibold text-ink">{displayTitle}</h1>
+			{#key id}
+				<NameEditControl
+					id="field-title"
+					name={displayTitle}
+					{isOwner}
+					onCommit={commitTitle}
+					label="video"
+					headingClass="skin-title text-2xl font-semibold text-ink"
+				>
+					{#snippet verdict(c, resolve)}
+						<CollisionOfferCard
+							video={c}
+							proposedTitle={pendingTitleValue}
+							busy={titleCollisionBusy}
+							error={titleCollisionError}
+							onviewexisting={() => goto(`/media/${c.id}`)}
+							onsaveanyway={() => saveTitleAnyway(resolve)}
+							oncancel={resolve}
+						/>
+					{/snippet}
+				</NameEditControl>
+			{/key}
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}
@@ -1064,11 +1144,18 @@
 			filePath={video.file_path}
 			writeback={api.writebackMedia}
 			jobStatus={api.writebackJobStatus}
-			decide={(canonical, source, manualValue) =>
-				api.setFieldDecision(id, canonical, {
+			decide={async (canonical, source, manualValue) => {
+				const res = await api.setFieldDecision(id, canonical, {
 					source,
 					...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
-				})}
+				});
+				// ensureDecision doesn't inspect this return value — a collision must throw so
+				// submit() aborts before writeback() commits the colliding value to the file
+				// (HOLODEX-270 review fix).
+				if (res.conflict) {
+					throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+				}
+			}}
 			onclose={() => (writebackOpen = false)}
 			onapplied={async () => {
 				// The dialog reports applied only once the queued write has landed and the

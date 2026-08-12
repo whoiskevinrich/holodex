@@ -29,7 +29,6 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
-	PersonRenameConflict,
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
@@ -43,6 +42,7 @@ import type {
 	Tag,
 	TrashEntry,
 	Video,
+	VideoCollisionRef,
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
@@ -566,8 +566,9 @@ export const api = {
 
 	// Shared entity name-identity mutations (F43, ADR-061) — one owner-gated client trio
 	// over the per-entity routes (people | studios | tags), mirroring the F23 person shape.
-	// Person uses these too, so the AliasPanel/EntityPicker are entity-uniform; the person
-	// page's rename flow keeps its dedicated renamePerson (it carries the F37 name-chip UX).
+	// Person uses these too (HOLODEX-269 retired the person-only renamePerson, which had a
+	// conflict-parsing bug this shared renameEntity doesn't have), so AliasPanel/EntityPicker/
+	// NameEditControl are all entity-uniform.
 
 	// addEntityAlias adds an alias, returning the updated list — or, when the name already
 	// belongs to another entity of this kind, that entity as a `conflict` (409), so the UI
@@ -811,13 +812,37 @@ export const api = {
 	// pins a replace field to a source (file / provider:<name> / manual + literal);
 	// clearFieldDecision removes the decision, reverting the field to the file default.
 	// Both are DB-only — they never touch the file (RD5); the file changes solely via
-	// writebackMedia ("Write decisions to file").
-	setFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
-		sendAuthed<Record<string, never>>(
-			'PUT',
-			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`,
-			req
-		),
+	// writebackMedia ("Write decisions to file"). A manual title edit may 409 on a
+	// composite-key collision (HOLODEX-270); like renameEntity, that returns as `conflict`
+	// (conflict-as-return-value, not an exception) rather than throwing — every other
+	// field/source combination never produces one.
+	setFieldDecision: async (
+		id: number,
+		canonical: string,
+		req: DecisionRequest
+	): Promise<{ conflict?: VideoCollisionRef }> => {
+		const path = `/media/${id}/fields/${encodeURIComponent(canonical)}/decision`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'PUT',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(req)
+		});
+		checkRedirect(res);
+		if (res.status === 409) {
+			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+			// Only a genuine composite-key collision carries `conflict` — decisionTargetLive's
+			// "item is deleted" 409 (and any other 409) has none and must still throw, or callers
+			// checking only `if (res.conflict)` would fall through to their success path.
+			if (body.conflict) return { conflict: body.conflict };
+			throw new ApiError(res.status, path);
+		}
+		if (!res.ok && res.status !== 204) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	},
 	clearFieldDecision: (id: number, canonical: string) =>
 		sendAuthed<Record<string, never>>(
 			'DELETE',
@@ -929,32 +954,5 @@ export const api = {
 	listFieldClaims: (entityType: PromotionEntityType) =>
 		getAuthed<FieldClaim[]>(`/admin/field-claims/${entityType}`),
 	listFieldTargets: (entityType: PromotionEntityType) =>
-		getAuthed<FieldTarget[]>(`/admin/field-targets/${entityType}`),
-
-	// Rename a person, keeping the old name as an F23 alias (one transaction — search
-	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name
-	// already belongs to another person) returns that person as `conflict` so the UI
-	// can offer the existing merge flow instead — never an auto-merge.
-	renamePerson: async (
-		personId: number,
-		name: string
-	): Promise<{ conflict?: PersonRenameConflict }> => {
-		const path = `/people/${personId}/rename`;
-		const res = await fetch(`${BASE}${path}`, {
-			method: 'POST',
-			credentials: CREDS,
-			redirect: 'manual',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name })
-		});
-		checkRedirect(res);
-		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as PersonRenameConflict;
-			return { conflict: body };
-		}
-		if (!res.ok && res.status !== 204) {
-			throw new ApiError(res.status, path);
-		}
-		return {};
-	}
+		getAuthed<FieldTarget[]>(`/admin/field-targets/${entityType}`)
 };

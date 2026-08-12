@@ -90,11 +90,19 @@ func (r *Repo) DecisionsForEntities(ctx context.Context, entityType string, ids 
 // stored only when source == "manual"; for file/provider it is forced empty so a
 // later source change can't leave a stale literal behind.
 func (r *Repo) SetDecision(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return r.setDecisionLocked(ctx, entityType, entityID, fieldKey, source, manualValue)
+}
+
+// setDecisionLocked is SetDecision's write with locking factored out, so
+// SetTitleDecisionChecked (HOLODEX-270) can perform a collision read and this write
+// under one writeMu critical section instead of two separate lock/unlock cycles with a
+// race window between them. Callers must already hold r.writeMu.
+func (r *Repo) setDecisionLocked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
 	if source != fieldsource.Manual {
 		manualValue = ""
 	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO field_source_decisions (entity_type, entity_id, field_key, source, manual_value, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)

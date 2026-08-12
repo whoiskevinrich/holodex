@@ -1,22 +1,20 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import type { ExternalLink, Video } from '$lib/types';
+	import type { Video } from '$lib/types';
 	import VideoGrid from '../video/VideoGrid.svelte';
-	import EntityVideoMeta from './EntityVideoMeta.svelte';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { filterByTitle } from '$lib/format';
 	import { navSearch } from '$lib/navSearch.svelte';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
-	// title, video count, and the reused grid. The optional `detail` snippet renders an
-	// entity-specific panel (e.g. People enrichment, F22) between the count and grid;
-	// the tag page omits it, keeping this component shared.
+	// hero, and the reused grid. The optional `detail` snippet renders an entity-specific
+	// panel (e.g. People enrichment, F22) between the hero and grid; the tag page omits
+	// it, keeping this component shared.
 	//
-	// The optional `hero` snippet REPLACES the default title+count block — the person
-	// page uses it to render its banner with the name beside the portrait (so the name
-	// reads as one unit with the face), supplying its own title and count within. When
-	// `hero` is omitted (the tag/studio pages) the plain title+count is rendered as before.
+	// `hero` renders each page's own title/count block — since HOLODEX-269 gave Studio a
+	// hero too (its NameEditControl-based rename control), all three callers supply one;
+	// there is no title+count fallback to keep in sync with them.
 	//
 	// Scroll restoration (HOLODEX-248): every caller reduces to the same (entity kind, id)
 	// shape, so the wiring lives here once instead of copy-pasted per page. `scrollKey`
@@ -29,26 +27,19 @@
 	let {
 		backHref,
 		backLabel,
-		name,
 		videos,
 		empty,
 		scrollKey,
 		hero,
-		detail,
-		externalLinks = []
+		detail
 	}: {
 		backHref: string;
 		backLabel: string;
-		name: string;
 		videos: Video[];
 		empty: string;
 		scrollKey: string;
-		hero?: Snippet;
+		hero: Snippet;
 		detail?: Snippet;
-		// HOLODEX-266 (ADR-083 D1/D3): the provider-link badge projection, rendered onto
-		// the default title+count block below — ignored when `hero` is supplied, since
-		// the caller (person page) renders its own badge row inline with its own hero.
-		externalLinks?: ExternalLink[];
 	} = $props();
 
 	// A single caller per scrollKey (one entity's own video grid, no sort control), so
@@ -83,12 +74,7 @@
 
 <section class="space-y-4">
 	<a href={backHref} class="text-sm text-muted hover:text-ink">← {backLabel}</a>
-	{#if hero}
-		{@render hero()}
-	{:else}
-		<h1 class="skin-title text-2xl font-semibold text-ink">{name}</h1>
-		<EntityVideoMeta count={videos.length} links={externalLinks} entityName={name} />
-	{/if}
+	{@render hero()}
 	{#if detail}{@render detail()}{/if}
 	<VideoGrid videos={displayedVideos} empty={emptyMessage} />
 </section>

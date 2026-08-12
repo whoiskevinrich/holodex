@@ -2,14 +2,16 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount, tagCount } from '$lib/format';
+	import { toMessage, videoCount, tagCount, aliasHint } from '$lib/format';
 	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
-	import type { Category, Tag, Video } from '$lib/types';
+	import type { Category, EntityRef, Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 
 	let tag = $state<Tag | null>(null);
 	let videos = $state<Video[]>([]);
@@ -39,7 +41,83 @@
 
 	async function reloadTag() {
 		if (!tag) return;
-		tag = (await api.getTag(tag.id)).tag;
+		try {
+			const res = await api.getTag(tag.id);
+			tag = res.tag;
+			videos = res.items ?? [];
+		} catch {
+			// Non-fatal — the mutation already succeeded; a full reload reconciles.
+		}
+	}
+
+	// Rename (HOLODEX-269, docked-pencil NameEditControl beside the hero name). A 409
+	// shows the merge offer inline; these two only cover the inline verdict's own
+	// busy/error (NameEditControl owns the rest of the rename flow itself).
+	let renameMergeBusy = $state(false);
+	let renameMergeError = $state('');
+	// Non-blocking near-miss advisory (F43 P1-5, mirrors AliasPanel's flagNearMiss) — a
+	// fuzzy look-alike surfaced after a successful rename, distinct from the exact-name
+	// `conflict` above.
+	let nearMiss = $state<EntityRef | null>(null);
+	let nearMissBusy = $state(false);
+	let nearMissError = $state('');
+
+	async function commitTagRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		const res = await api.renameEntity('tag', id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadTag();
+		// Advisory-only fuzzy look-alike check, same as AliasPanel's post-add flagNearMiss and
+		// the tag list page's manage-mode rename — must never block the rename that already
+		// succeeded.
+		try {
+			nearMiss = (await api.nearMiss('tag', id, value)).near_miss;
+		} catch {
+			nearMiss = null;
+		}
+		return { ok: true };
+	}
+
+	async function mergeRenameConflict(mergeConflict: EntityRef, resolve: () => void) {
+		renameMergeBusy = true;
+		renameMergeError = '';
+		try {
+			await api.mergeEntities('tag', id, mergeConflict.id);
+			resolve();
+			await reloadTag();
+		} catch (e) {
+			renameMergeError = toMessage(e);
+		} finally {
+			renameMergeBusy = false;
+		}
+	}
+
+	async function mergeNearMiss() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.mergeEntities('tag', id, nearMiss.id);
+			nearMiss = null;
+			await reloadTag();
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
+		}
+	}
+
+	async function keepNearMissSeparate() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.dismissDuplicate('tag', id, nearMiss.id);
+			nearMiss = null;
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
+		}
 	}
 
 	// Posts immediately, no confirm step (HOLODEX-239, ADR-077 D1) — toggling the
@@ -289,7 +367,6 @@
 	<EntityVideos
 		backHref="/tags"
 		backLabel="All tags"
-		name={tag?.name ?? ''}
 		{videos}
 		empty="No videos for this tag."
 		scrollKey={`tag:${id}`}
@@ -300,7 +377,54 @@
 			{#if tag?.ancestors?.length}
 				<p class="text-sm text-muted">{tag.ancestors.join(' › ')} ›</p>
 			{/if}
-			<h1 class="skin-title text-2xl font-semibold text-ink">{tag?.name ?? ''}</h1>
+			<NameEditControl
+				name={tag?.name ?? ''}
+				{isOwner}
+				onCommit={commitTagRename}
+				label="tag"
+				headingClass="skin-title text-2xl font-semibold text-ink"
+				hint={tag ? aliasHint(tag.name) : undefined}
+			>
+				{#snippet verdict(c, resolve)}
+					<MergeOfferCard
+						noun="tag"
+						entityName={tag?.name ?? ''}
+						conflict={c}
+						busy={renameMergeBusy}
+						error={renameMergeError}
+						onmerge={() => mergeRenameConflict(c, resolve)}
+						onkeepseparate={() => {
+							renameMergeError = '';
+							resolve();
+						}}
+					/>
+				{/snippet}
+			</NameEditControl>
+			{#if nearMiss}
+				<!-- Non-blocking near-miss (P1-5): the rename already saved; this is an advisory
+				     nudge, distinct from the blocking exact-name conflict above (mirrors AliasPanel). -->
+				<div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
+					<p class="text-sm text-ink">
+						Saved. Looks a lot like <span class="font-semibold">{nearMiss.name}</span>
+						({videoCount(nearMiss.video_count ?? 0)}) — merge them?
+					</p>
+					<div class="flex flex-wrap items-center gap-2">
+						<button onclick={mergeNearMiss} disabled={nearMissBusy} class="btn-accent px-3 py-1.5 text-sm">
+							Yes, merge them in
+						</button>
+						<button
+							onclick={keepNearMissSeparate}
+							disabled={nearMissBusy}
+							class="btn-ghost px-3 py-1.5 text-sm"
+						>
+							No, keep separate
+						</button>
+					</div>
+					{#if nearMissError}
+						<p class="text-sm text-warn">{nearMissError}</p>
+					{/if}
+				</div>
+			{/if}
 			<p class="text-sm text-muted">{videoCount(videos.length)}</p>
 		{/snippet}
 
