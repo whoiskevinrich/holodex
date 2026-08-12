@@ -636,6 +636,7 @@
 
 		<header class="space-y-2">
 			<NameEditControl
+				id="field-title"
 				name={displayTitle}
 				{isOwner}
 				onCommit={commitTitle}
