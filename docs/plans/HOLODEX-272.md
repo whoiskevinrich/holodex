@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-272
-status: in-progress
+status: ready-for-review
 depends-on: [HOLODEX-270]
 release_note: Adding or removing a person on a video now goes through a picker on the video detail page — known candidates, full-library search, or an inline create-fallback — protected by the same duplicate-video safeguard as a title or studio change.
 ---
@@ -21,8 +21,8 @@ attach/detach runs through the HOLODEX-270 composite-key collision gate exactly 
 already do. This is the last open story under epic HOLODEX-267.
 
 **Design package:** [spec](../specs/people-relationship-picker.md) ·
-[design handoff](../design/people-relationship-picker-handoff.md) · testing-strategy §5: not yet
-written
+[design handoff](../design/people-relationship-picker-handoff.md) · testing-strategy §5: written
+(see below)
 
 ## Gates — definition of done
 
@@ -35,21 +35,64 @@ written
       `FindTitleCollision`/`FindStudioCollision`), wired into the existing curation add/suppress
       endpoint (`internal/repo/curation.go` `SetCurationChecked`, `internal/api/curation.go`) with
       the same 409+override gate — no new endpoint (see spec's corrected Resolved Decision #1)
-- [ ] frontend — `PersonPicker.svelte` (new, multi-select — `StudioPicker`/`EntityPickerDialog`
+- [x] frontend — `PersonPicker.svelte` (new, multi-select — `StudioPicker`/`EntityPickerDialog`
       are both single-select and not directly reusable), People-grid empty-state guard fix,
       hover-reveal remove control on `PersonPoster` call sites
-- [ ] testing `testing-strategy` → `docs/testing-strategy.md` §5
-- [ ] security `security-review` — required before this leaves Draft: attach/detach is a new
-      owner-mutable surface (person↔video linking has no dedicated endpoint today)
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` §5
+- [x] security `security-review` — zero findings; `POST /media/{id}/curation` stays inside the
+      same `requireOwner` group as every other mutation, `FindPeopleCollision` and the new
+      `curation.go`/`repo.go` changes are fully parameterized, no unsafe Svelte sink introduced
 
 ## Up next — ordered (position = priority)
 
 1. [x] [backend] `FindPeopleCollision` + collision gate on the existing curation endpoint
-2. [ ] [frontend] `PersonPicker.svelte` + People-grid wiring (empty-state guard, remove control)
-3. [ ] [testing] `docs/testing-strategy.md` §5 row
-4. [ ] [security] `/security-review` — new mutation surface, required before Draft → ready
+2. [x] [frontend] `PersonPicker.svelte` + People-grid wiring (empty-state guard, remove control)
+3. [x] [testing] `docs/testing-strategy.md` §5 row
+4. [x] [security] `/security-review` — new mutation surface, required before Draft → ready
+
+All gates green — mark [PR #235](https://github.com/whoiskevinrich/holodex/pull/235) ready for
+review (out of Draft) in the same push as this update.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-12 · Frontend QA, testing-strategy, security-review — all gates green
+- skills: testing-strategy, security-review
+- handoff: `PersonPicker.svelte` + the People-grid wiring (`Person.Role`, repo query, types.ts,
+  `+page.svelte`) had already been written and unit-verified (`go build`/`go test`/`npm run
+  check`/`npm run test`) in the prior session; this session's job was live driven-browser QA
+  against a real backend+frontend instance. Spent significant time on an environment problem
+  before any QA could start: this session's Browser-preview tooling (`preview_start`) was bound
+  to an unrelated, stale worktree (`heuristic-golick-1459ef`, still on the already-merged
+  HOLODEX-268 branch) rather than this one — confirmed via `preview_list`'s `cwd` field, root-
+  caused via `netstat`/process inspection after ruling out a stale Vite cache. Worked around it
+  by stopping the wrongly-rooted servers and launching `go run`/`npm run dev` directly via Bash
+  (correctly scoped to this worktree) with `run_in_background: true`, using the Browser pane only
+  to drive `localhost` over HTTP. Also hit and fixed, incidentally: `MappedFacets.svelte` crashed
+  on every route (breaking SvelteKit hydration app-wide, not just the video page) because
+  `/api/v1/facets` marshals a Go nil slice as JSON `null` for a zero-value facet — same bug class
+  as the HOLODEX-270 `VideoCollision.People` nil-slice fix. Patched with a one-line
+  `facet.values?.length` guard to unblock QA; filed the backend-side root cause as a separate
+  follow-up rather than fixing it here (out of this story's scope). With the environment fixed,
+  QA'd the full interaction set against a fresh, unenriched `E:\TestCopy-Film` database (zero
+  pre-existing people): 2-char search threshold, no-match + create-fallback with the Actor/
+  Director role toggle, immediate-commit-without-closing (multi-select, per the design's explicit
+  non-goal), grid↔picker live sync in both directions, re-search-finds-the-real-person with the
+  role toggle correctly excluding an already-held role, the "Already attached as Actor, Director"
+  disabled no-op row, detach from both the picker's own chip and the grid's remove control, zero
+  console errors throughout. 3-skin token check (Cinémathèque/Broadcast/Brutalist) via
+  `javascript_tool` computed-style reads (screenshots time out in this environment) — all
+  token-driven, no hardcoded colors. The 409/`CollisionOfferCard` path was not re-driven through
+  the browser (forcing an exact `{Title, Date, Studio}` match in this fresh dataset would need
+  real fixture seeding) — covered instead by the backend's `TestCurationAPI_PeopleCollision`/
+  `_Suppress` plus `CollisionOfferCard` being the same already-QA'd component from the
+  HOLODEX-270/271 rows, same posture Studio's own row already took. Wrote the `docs/
+  testing-strategy.md` §5 row and a §11 gap bullet documenting all of the above. Ran
+  `/security-review` against the full diff (backend collision gate + frontend picker): zero
+  findings — `POST /media/{id}/curation` stays inside the existing `requireOwner` group,
+  `FindPeopleCollision` and the new repo/curation.go changes are fully parameterized (no
+  deviation from the `FindTitleCollision`/`FindStudioCollision` precedent), and `PersonPicker.svelte`
+  uses only normal Svelte text interpolation (no `{@html}`). All seven gates are now green; PR
+  #235 moves from Draft to ready for review in this same push.
 
 ### 2026-08-11 · Backend: FindPeopleCollision + collision gate on the curation endpoint
 - skills: simplify

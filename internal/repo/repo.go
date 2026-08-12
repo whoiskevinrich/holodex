@@ -685,9 +685,9 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	args := toAnySlice(ids)
 
 	prows, err := r.db.QueryContext(ctx,
-		`SELECT vp.video_id, p.id, p.name FROM people p
+		`SELECT vp.video_id, p.id, p.name, vp.role FROM people p
 		 JOIN video_people vp ON vp.person_id = p.id
-		 WHERE vp.video_id IN `+in+` ORDER BY vp.video_id, p.name COLLATE NOCASE`, args...)
+		 WHERE vp.video_id IN `+in+` ORDER BY vp.video_id, p.name COLLATE NOCASE, vp.role`, args...)
 	if err != nil {
 		return fmt.Errorf("batch people: %w", err)
 	}
@@ -695,7 +695,7 @@ func (r *Repo) attachAssociations(ctx context.Context, videos []model.Video) err
 	for prows.Next() {
 		var vid int64
 		var p model.Person
-		if err := prows.Scan(&vid, &p.ID, &p.Name); err != nil {
+		if err := prows.Scan(&vid, &p.ID, &p.Name, &p.Role); err != nil {
 			return err
 		}
 		videos[idx[vid]].People = append(videos[idx[vid]].People, p)

@@ -802,9 +802,30 @@ export const api = {
 
 	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
 	// suppress / nowrite decision; clearMediaCuration removes one (restoring the
-	// underlying source value). Owner-gated; 204 on success.
-	curateMedia: (id: number, req: CurationRequest) =>
-		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation`, req),
+	// underlying source value). Owner-gated; 204 on success. A person-typed field
+	// add/suppress may 409 on the People composite-key collision gate (HOLODEX-272);
+	// like setFieldDecision, that returns as `conflict` (conflict-as-return-value, not
+	// an exception) — every other field/action combination never produces one.
+	curateMedia: async (id: number, req: CurationRequest): Promise<{ conflict?: VideoCollisionRef }> => {
+		const path = `/media/${id}/curation`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'POST',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(req)
+		});
+		checkRedirect(res);
+		if (res.status === 409) {
+			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+			if (body.conflict) return { conflict: body.conflict };
+			throw new ApiError(res.status, path);
+		}
+		if (!res.ok && res.status !== 204) {
+			throw new ApiError(res.status, path);
+		}
+		return {};
+	},
 	clearMediaCuration: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req),
 

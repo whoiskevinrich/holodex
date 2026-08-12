@@ -89,6 +89,12 @@ type Person struct {
 	// Aliases are owner-curated alternate names (F23, ADR-036), each searchable.
 	// Populated only on the person-detail read; omitted (nil) elsewhere.
 	Aliases []PersonAlias `json:"aliases,omitempty"`
+	// Role is the video_people link role ('actor' | 'director') this person holds on
+	// the video being read (HOLODEX-272). Populated only on a video's People list —
+	// a video_people row is scoped to one role, so a dual-role attachment surfaces as
+	// two Person entries sharing the same ID. Omitted elsewhere (people-list, person
+	// detail), same convention as HeadshotVersion/PosterVersion above.
+	Role string `json:"role,omitempty"`
 }
 
 // EntityAlias is one owner-curated alternate name for a named entity — person,
