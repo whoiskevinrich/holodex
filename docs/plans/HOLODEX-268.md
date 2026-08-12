@@ -53,8 +53,24 @@ side effect of the new Confirm step — not patched standalone.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-11b · discovered branch was stale, resynced with main, reopened PR
+- skills: —
+- handoff: The previous session's worklog claimed the implementation PR had been opened
+  ready-for-review, but that referred to PR #232, which had already merged separately —
+  this branch's own follow-up commit (`c2bf1e8`, the 14 code-review fixes) was never
+  actually pushed or opened as its own PR. Pushed it and opened PR #234, then found via
+  `gh pr view 234` that it was `mergeable: CONFLICTING` — this branch's merge-base with
+  `main` was still `74de929` (right after PR #227), predating HOLODEX-269/270/271 all
+  landing on `main` since. Merged `origin/main` in: only one real conflict
+  (`docs/plans/HOLODEX-268.md`'s own session-log entry, trivial — kept the newer side);
+  the three shared entity detail pages (`media`/`people`/`studios` `+page.svelte`)
+  auto-merged cleanly with no manual resolution needed. `go build ./...`, `go test ./...`
+  (full suite), `npm run check` (489 files, 0 errors, same 6 pre-existing a11y warnings),
+  and `npm run test` (139/139) all clean after the merge. Next: commit, push, re-verify
+  PR #234 is mergeable.
+
 ### 2026-08-11 · Code-review fixes applied, implementation PR opened
-- skills: code-review, simplify
+- skills: code-review, simplify, graphify
 - handoff: Applied 14 of 15 findings from a code review of the `SourceBadge`/`expandedField`/`ProvenanceBadge` implementation (undercounted multi-source detection, owner-view double-render, collapse not gated on busy, an over-tracking effect, `close()` stealing Custom-input focus, `dismissable`'s capture-phase Escape preempting the Custom input's own handler, a `longFields` layout bug dropping `ProvenanceBadge` to its own line, wrong provider/aria-label for manual values, a stale `busy` flag on collapse, the `expandedField` singleton leaking across entity navigation, the pending indicator landing on the wrong chip, arrow-key nav clobbering staged Custom text, an unmuted empty-value placeholder, and a spec self-contradiction on Video's Studio field). Left `SourceBadge`/`SourceSelect` logic duplication unfixed — real but disproportionate to a review-fix pass; tracked as a known gap, not a new issue. `npm run check` clean (486 files, 0 errors). Pushed and opened the implementation PR (spec/design/testing docs already merged via PR #227; this PR covers the `SourceBadge` build-out + review fixes) — all epic gates were already green going in, so it was opened ready for review, not Draft.
 
 ### 2026-08-10 · Video/Studio `SourceBadge` rollout — frontend gate complete
