@@ -45,6 +45,33 @@ a video's {title, people, date, studio} identity exactly as much as a typed rena
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-08-11d · merged origin/main into PR #231, resolved 11-file conflict
+- skills: —
+- handoff: A CI-monitor alert reported PR #231 had merge conflicts against `main`. Root
+  cause: this branch was stacked on a stale, independently-implemented pre-merge copy of
+  HOLODEX-270 (`e1ceeaa`) instead of the version that actually landed on `main` via PR
+  #230 (`4483f14`, itself the product of a 15-finding `/code-review xhigh` pass) — so
+  `git merge origin/main` conflicted across 11 files where both sides had touched the
+  same collision-check machinery independently. Resolved by preserving both sides'
+  genuinely distinct work rather than picking one: kept `main`'s reviewed fixes (the
+  `{#key id}` remount fix on Title's `NameEditControl`, the `field_source_decisions`
+  COALESCE-to-effective-title correctness fix, the SQLite `IS`-based null-safe date
+  comparison, the required `CollisionOfferCard` `oncancel`/Cancel button) and HEAD's
+  Studio-only mechanism (`FindStudioCollision`, name-based `linkedNameKey`/
+  `normalizedNameKey` comparison, `StudioPicker`), then unified both onto a single
+  `Repo.SetDecisionChecked` — deleting `main`'s Title-only `SetTitleDecisionChecked` in
+  favor of the generic version already generalized during this branch's own
+  code-review pass. Folded `main`'s effective-title COALESCE fix into the shared
+  `compositeKeyCandidates` helper so it now benefits the Studio path too (HEAD's
+  pre-merge version of that helper had silently dropped it). Re-authored
+  `docs/plans/HOLODEX-270.md`'s intro/Up-next since its text and this doc's made
+  contradictory claims about whether a shared mechanism existed — it now correctly
+  describes the post-merge unification and cross-references this entry.
+- `go build ./...`, `go test ./...` (full suite), `npm run check` (490 files, 0 errors,
+  6 pre-existing unrelated a11y warnings), and `npm run test` (139/139) all clean after
+  the resolution. Next: conclude the merge commit, re-confirm Jira status, scan for
+  secrets, push to update PR #231.
+
 ### 2026-08-11c · PR #231 code-review fixes + a second /simplify pass
 - skills: code-review, simplify
 - handoff: `/code-review PR #231` surfaced 5 findings, all fixed: an empty-studio pick

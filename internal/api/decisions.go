@@ -79,10 +79,20 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 
 	// Title composite-key collision gate (HOLODEX-270): a manual title edit that
 	// would produce a {title, people, date, studio} match against another active
-	// video blocks here unless the owner already saw and overrode it.
-	if field.Canonical == "title" && body.Source == fieldsource.Manual && !body.Override {
-		collision, err := h.repo.FindTitleCollision(r.Context(), id, manualValue)
+	// video blocks here unless the owner already saw and overrode it. The check and
+	// the write happen as one writeMu-locked operation (SetDecisionChecked) so two
+	// concurrent title edits can't both pass the check before either commits.
+	if field.Canonical == "title" && body.Source == fieldsource.Manual {
+		var check func() (*repo.VideoCollision, error)
+		if !body.Override {
+			check = func() (*repo.VideoCollision, error) { return h.repo.FindTitleCollision(r.Context(), id, manualValue) }
+		}
+		collision, err := h.repo.SetDecisionChecked(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue, check)
 		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "media not found")
+				return
+			}
 			h.fail(w, "check title collision", err)
 			return
 		}
@@ -90,6 +100,9 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 			writeCollisionConflict(w, collision)
 			return
 		}
+		h.relinkIfEntity(r.Context(), id, field.Canonical)
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
 	// Studio composite-key collision gate (HOLODEX-271, reusing HOLODEX-270's

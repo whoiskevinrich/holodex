@@ -22,9 +22,15 @@ type VideoCollision struct {
 	Studios    []string `json:"studios"`
 }
 
-// compositeKeyCandidate is one other active video sharing a proposed title+date pair
-// — the cheap first filter shared by every composite-key collision check, before the
-// more expensive people/studio set comparison narrows it further.
+// compositeKeyCandidate is one other active video sharing a proposed effective-title+
+// date pair — the cheap first filter shared by every composite-key collision check,
+// before the more expensive people/studio set comparison narrows it further. Title+
+// date matches are rare in a personal media library, so filtering on these indexed
+// columns first avoids materializing a group_concat key across every video just to
+// rule out the common case of zero matches. title is the *effective* title (a
+// candidate's standing manual decision, if any, else its file title) so a candidate
+// whose displayed title differs from its raw file title is still matched/displayed
+// correctly.
 type compositeKeyCandidate struct {
 	id    int64
 	title string
@@ -149,18 +155,24 @@ func (r *Repo) recordedAtOf(ctx context.Context, videoID int64) (sql.NullString,
 	return recordedAt, nil
 }
 
-// compositeKeyCandidates finds other active videos sharing a normalized title+date
-// pair with videoID — the cheap indexed-column filter every composite-key collision
-// check runs first, before the more expensive people/studio set comparison narrows
-// survivors down. Title+date matches are rare in a personal media library, so this
-// avoids materializing a group_concat key across every video in the table just to
-// rule out the common case of zero matches.
+// compositeKeyCandidates finds other active videos sharing a normalized effective-
+// title+date pair with videoID — the cheap indexed-column filter every composite-key
+// collision check runs first, before the more expensive people/studio set comparison
+// narrows survivors down. Title+date matches are rare in a personal media library, so
+// this avoids materializing a group_concat key across every video in the table just to
+// rule out the common case of zero matches. A candidate's *effective* title (its
+// standing manual decision, if any, else its file title) is used for both the match
+// and the returned display value, so a candidate whose displayed title diverges from
+// its raw file title is neither missed nor misreported.
 func (r *Repo) compositeKeyCandidates(ctx context.Context, videoID int64, title string, recordedAt sql.NullString) ([]compositeKeyCandidate, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, title FROM videos
-		WHERE active = 1 AND deleted_at IS NULL AND id != ?
-		  AND lower(trim(title)) = lower(trim(?))
-		  AND COALESCE(recorded_at, '') = COALESCE(?, '')`,
+		SELECT v.id, COALESCE(fsd.manual_value, v.title) AS effective_title FROM videos v
+		LEFT JOIN field_source_decisions fsd
+		  ON fsd.entity_type = 'video' AND fsd.entity_id = v.id
+		  AND fsd.field_key = 'title' AND fsd.source = 'manual'
+		WHERE v.active = 1 AND v.deleted_at IS NULL AND v.id != ?
+		  AND lower(trim(COALESCE(fsd.manual_value, v.title))) = lower(trim(?))
+		  AND v.recorded_at IS ?`,
 		videoID, title, recordedAt,
 	)
 	if err != nil {

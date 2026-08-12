@@ -832,7 +832,11 @@ export const api = {
 		checkRedirect(res);
 		if (res.status === 409) {
 			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
-			return { conflict: body.conflict };
+			// Only a genuine composite-key collision carries `conflict` — decisionTargetLive's
+			// "item is deleted" 409 (and any other 409) has none and must still throw, or callers
+			// checking only `if (res.conflict)` would fall through to their success path.
+			if (body.conflict) return { conflict: body.conflict };
+			throw new ApiError(res.status, path);
 		}
 		if (!res.ok && res.status !== 204) {
 			throw new ApiError(res.status, path);

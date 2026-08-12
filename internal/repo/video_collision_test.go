@@ -76,6 +76,21 @@ func TestFindTitleCollision(t *testing.T) {
 		t.Errorf("different people: collision=%v err=%v", collision, err)
 	}
 
+	// Same normalized title, date, and people, but a different studio is not a collision.
+	d := sampleVideo("/m/d.mkv", "Session Five", []string{"Alice", "Bob"}, nil)
+	d.RecordedAt = &when
+	dID, err := r.UpsertVideo(ctx, d, nil)
+	if err != nil {
+		t.Fatalf("seed d: %v", err)
+	}
+	linkPeople(t, r, dID, "Alice", "Bob")
+	if err := r.ReconcileVideoStudios(ctx, dID, []string{"Other Studio"}, nil); err != nil {
+		t.Fatalf("link studio d: %v", err)
+	}
+	if collision, err := r.FindTitleCollision(ctx, dID, "Session One"); err != nil || collision != nil {
+		t.Errorf("different studio: collision=%v err=%v", collision, err)
+	}
+
 	// A soft-deleted video with an otherwise-matching key is not reported.
 	if err := r.SoftDelete(ctx, aID); err != nil {
 		t.Fatalf("soft delete a: %v", err)
