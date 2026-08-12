@@ -45,6 +45,36 @@ a video's {title, people, date, studio} identity exactly as much as a typed rena
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-08-11c · PR #231 code-review fixes + a second /simplify pass
+- skills: code-review, simplify
+- handoff: `/code-review PR #231` surfaced 5 findings, all fixed: an empty-studio pick
+  skipping the collision check (two videos both dropping their studio, matching on
+  every other axis, wasn't being caught), a non-atomic check-then-write race on the
+  Studio decision write, a multi-studio collision response collapsing to one name
+  (`VideoCollision.Studio *string` → `Studios []string`), a stale doc claim in
+  `web/src/lib/components/entity/CLAUDE.md` (said `StudioPicker` commits via a
+  `decideField('studio', ...)` path that doesn't exist — it goes through
+  `decideStudio`/`saveStudioAnyway`), and duplicated studio-name resolve/extract logic
+  between `relinkVideoStudios` and the collision check.
+- The mandatory pre-commit `/simplify` pass on that fix diff then caught a deeper issue
+  in the race-condition fix itself: my first attempt (`WithWriteLock`/
+  `SetDecisionLocked`, both exported) leaked `repo`'s `writeMu` out to `internal/api`,
+  breaking the encapsulation every other locked write in the package honors — confirmed
+  by finding the real precedent (`SetTitleDecisionChecked`, merged to `main` via PR
+  #230) keeps its lock private. Replaced with `Repo.SetDecisionChecked(ctx, ...,
+  check func() (*VideoCollision, error))`: `writeMu` and the locked write
+  (`setDecisionLocked`) stay unexported, `internal/api` injects its resolver-dependent
+  check as a closure. Paired efficiency fix: the expensive `loadRelinkContext` +
+  `resolver.Resolve` pass now runs unlocked (skipped entirely on override) with only a
+  cheap recheck + the SQL upsert inside the lock, so a Studio decision no longer
+  serializes every other app write behind a multi-query fetch. This branch is stacked
+  on a stale, pre-merge copy of HOLODEX-270 (not `main`'s merged version), so the fix
+  is same-branch and non-destructive rather than a rebase.
+- `go build ./...`, `go test ./internal/repo/... ./internal/api/...` (incl.
+  `TestDecisionAPI_StudioCollision`, `TestFindStudioCollision`, `TestFindTitleCollision`)
+  and `npm run check` (490 files, 0 errors) all clean. Next: commit/push (PR #231
+  already open, ready for review), Jira sync.
+
 ### 2026-08-11 · simplify + security-review, all gates green, ready to commit
 - skills: simplify, security-review
 - handoff: `/simplify` ran 4 parallel review agents (reuse/simplification/efficiency/

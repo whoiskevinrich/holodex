@@ -90,11 +90,41 @@ func (r *Repo) DecisionsForEntities(ctx context.Context, entityType string, ids 
 // stored only when source == "manual"; for file/provider it is forced empty so a
 // later source change can't leave a stale literal behind.
 func (r *Repo) SetDecision(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return r.setDecisionLocked(ctx, entityType, entityID, fieldKey, source, manualValue)
+}
+
+// SetDecisionChecked runs check() and, absent a collision, the decision write, as one
+// writeMu-locked operation — the atomicity Studio's composite-key collision gate
+// needs: a picker chip/search/create pick changes the composite key exactly like a
+// typed rename does, so two concurrent Studio decisions must not both pass their
+// collision check before either commits (HOLODEX-271 review fix). check is
+// caller-supplied, since the resolve step it needs (loadRelinkContext +
+// resolver.Resolve) lives in internal/api, which this package doesn't import
+// (ADR-051 layering) — passing it in as a closure keeps writeMu and the locked write
+// path private to repo instead of exposing them to outside callers. A nil check
+// skips straight to the write (the override path, which must commit regardless of
+// what a collision check would report). (Title's own FindTitleCollision-then-
+// SetDecision path has the same unlocked race and isn't fixed here — pre-existing,
+// out of scope for this fix.)
+func (r *Repo) SetDecisionChecked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string, check func() (*VideoCollision, error)) (*VideoCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if check != nil {
+		if collision, err := check(); err != nil || collision != nil {
+			return collision, err
+		}
+	}
+	return nil, r.setDecisionLocked(ctx, entityType, entityID, fieldKey, source, manualValue)
+}
+
+// setDecisionLocked is SetDecision's implementation, assuming the caller already
+// holds writeMu — shared by SetDecision and SetDecisionChecked.
+func (r *Repo) setDecisionLocked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
 	if source != fieldsource.Manual {
 		manualValue = ""
 	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO field_source_decisions (entity_type, entity_id, field_key, source, manual_value, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)

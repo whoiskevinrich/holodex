@@ -50,7 +50,7 @@ export interface VideoCollisionRef {
 	title: string;
 	people: string[]; // display names, already resolved server-side — no extra lookup needed
 	recorded_at: string | null; // ISO date, same format as Video.recorded_at
-	studio: string | null; // display name; null when the video has no studio linked
+	studios: string[]; // display names; empty when the video has no studio linked
 }
 ```
 

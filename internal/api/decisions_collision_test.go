@@ -133,8 +133,9 @@ func TestDecisionAPI_StudioCollision(t *testing.T) {
 	if conflict == nil || int64(conflict["id"].(float64)) != id {
 		t.Fatalf("409 conflict payload = %v, want video #%d", body["conflict"], id)
 	}
-	if conflict["studio"] != "Acme" {
-		t.Errorf("conflict studio = %v", conflict["studio"])
+	conflictStudios, _ := conflict["studios"].([]any)
+	if len(conflictStudios) != 1 || conflictStudios[0] != "Acme" {
+		t.Errorf("conflict studios = %v", conflict["studios"])
 	}
 
 	// The rejected edit must not have persisted.

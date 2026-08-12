@@ -52,8 +52,8 @@ func TestFindTitleCollision(t *testing.T) {
 	if len(collision.People) != 2 || !wantPeople[collision.People[0]] || !wantPeople[collision.People[1]] {
 		t.Errorf("collision people = %v", collision.People)
 	}
-	if collision.Studio == nil || *collision.Studio != "Acme" {
-		t.Errorf("collision studio = %v", collision.Studio)
+	if len(collision.Studios) != 1 || collision.Studios[0] != "Acme" {
+		t.Errorf("collision studios = %v", collision.Studios)
 	}
 	if collision.RecordedAt == nil || *collision.RecordedAt != when.Format(time.RFC3339) {
 		t.Errorf("collision recorded_at = %v", collision.RecordedAt)
@@ -163,8 +163,8 @@ func TestFindStudioCollision(t *testing.T) {
 	if collision.ID != aID {
 		t.Errorf("collision id = %d, want %d", collision.ID, aID)
 	}
-	if collision.Studio == nil || *collision.Studio != "Acme" {
-		t.Errorf("collision studio = %v", collision.Studio)
+	if len(collision.Studios) != 1 || collision.Studios[0] != "Acme" {
+		t.Errorf("collision studios = %v", collision.Studios)
 	}
 
 	// A distinct proposed studio name produces no collision.

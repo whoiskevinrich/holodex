@@ -19,7 +19,7 @@ type VideoCollision struct {
 	Title      string   `json:"title"`
 	People     []string `json:"people"`
 	RecordedAt *string  `json:"recorded_at"`
-	Studio     *string  `json:"studio"`
+	Studios    []string `json:"studios"`
 }
 
 // compositeKeyCandidate is one other active video sharing a proposed title+date pair
@@ -200,8 +200,10 @@ func (r *Repo) hydrateCollision(ctx context.Context, id int64, title string, rec
 	if err != nil {
 		return nil, fmt.Errorf("collision studios: %w", err)
 	}
-	if ss := studios[id]; len(ss) > 0 {
-		c.Studio = &ss[0].Name
+	// c.Studios must marshal as `[]`, never `null`, mirroring c.People above.
+	c.Studios = []string{}
+	for _, s := range studios[id] {
+		c.Studios = append(c.Studios, s.Name)
 	}
 	return &c, nil
 }

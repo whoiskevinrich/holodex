@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -96,36 +95,55 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	// Studio composite-key collision gate (HOLODEX-271, reusing HOLODEX-270's
 	// mechanism): unlike Title, this isn't manual-only — a known-candidate chip
 	// pick changes the composite key exactly as much as a searched/created value
-	// does, so every Studio source pick is checked.
-	var studioRC *relinkContext
-	var studioNames []string
-	if field.Canonical == "studio" && !body.Override {
-		var collision *repo.VideoCollision
-		var err error
-		collision, studioRC, studioNames, err = h.studioCollision(r.Context(), id, field, body.Source, manualValue)
+	// does, so every non-override Studio source pick is checked, including one that
+	// resolves to no studio at all (two videos that both drop their studio, matching
+	// on every other axis, is still a real composite-key collision). The proposed
+	// names are resolved once, unlocked, and checked immediately so the common
+	// blocking case (and every override write) never touches the write lock at all;
+	// SetDecisionChecked then re-runs the same cheap FindStudioCollision query inside
+	// one writeMu-locked operation right before the write, closing the TOCTOU gap two
+	// concurrent Studio decisions could otherwise race through — without holding the
+	// lock across the earlier fetch+resolve pass the way a single locked closure
+	// would. (Title's own FindTitleCollision-then-SetDecision path has the same
+	// unlocked race and isn't fixed here — pre-existing, out of scope.)
+	if field.Canonical == "studio" {
+		rc, names, err := h.resolveProposedStudioNames(r.Context(), id, field, body.Source, manualValue)
 		if err != nil {
+			h.fail(w, "resolve studio proposal", err)
+			return
+		}
+		check := func() (*repo.VideoCollision, error) { return h.repo.FindStudioCollision(r.Context(), id, names) }
+		if body.Override {
+			check = nil
+		} else if collision, err := check(); err != nil {
 			h.fail(w, "check studio collision", err)
+			return
+		} else if collision != nil {
+			writeCollisionConflict(w, collision)
+			return
+		}
+		collision, err := h.repo.SetDecisionChecked(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue, check)
+		if err != nil {
+			h.fail(w, "set studio decision", err)
 			return
 		}
 		if collision != nil {
 			writeCollisionConflict(w, collision)
 			return
 		}
+		// Studio reuses the fetch+resolve the collision gate above already ran (same
+		// video, same pending decision) instead of paying for a second
+		// loadRelinkContext + resolver.Resolve pass here.
+		h.relinkStudiosWithContext(r.Context(), id, rc, names)
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
 	if err := h.repo.SetDecision(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue); err != nil {
 		h.fail(w, "set decision", err)
 		return
 	}
-	// An entity-typed field decision (studio, actors, director) moves the resolved
-	// value → re-derive links (F38/F40). Studio reuses the fetch+resolve the
-	// collision gate above already ran (same video, same pending decision) instead
-	// of paying for a second loadRelinkContext + resolver.Resolve pass here.
-	if field.Canonical == "studio" && studioRC != nil {
-		h.relinkStudiosWithContext(r.Context(), id, studioRC, studioNames)
-	} else {
-		h.relinkIfEntity(r.Context(), id, field.Canonical)
-	}
+	h.relinkIfEntity(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -138,38 +156,26 @@ func writeCollisionConflict(w http.ResponseWriter, collision *repo.VideoCollisio
 	})
 }
 
-// studioCollision resolves the studio names that a proposed Studio decision
-// (source/manualValue) would produce — mirroring relinkVideoStudios' own resolve,
-// without persisting anything — then checks that proposed set for a composite-key
-// collision (HOLODEX-271). Runs the same resolver.Resolve pass relinkVideoStudios
-// runs after a decision commits, just with the pending decision substituted in first,
-// so the collision check sees exactly what would end up linked. Also returns the
-// fetched relinkContext and resolved names so the no-collision path can reconcile
-// video_studios directly (relinkStudiosWithContext) instead of re-fetching and
-// re-resolving from scratch.
-func (h *Handlers) studioCollision(ctx context.Context, videoID int64, field mapping.Field, source, manualValue string) (*repo.VideoCollision, *relinkContext, []string, error) {
+// resolveProposedStudioNames resolves the studio names that a proposed Studio
+// decision (source/manualValue) would produce — mirroring relinkVideoStudios' own
+// resolve (resolveStudioNames), without persisting or collision-checking anything
+// (HOLODEX-271). An empty resolved set (e.g. picking the baseline chip when the file
+// has no studio) is a legitimate proposal, not an error — the caller still runs it
+// through FindStudioCollision, since two videos that both resolve to no studio,
+// matching on every other axis, is a real collision. Also returns the fetched
+// relinkContext so the no-collision path can reconcile video_studios directly
+// (relinkStudiosWithContext) instead of re-fetching and re-resolving from scratch.
+func (h *Handlers) resolveProposedStudioNames(ctx context.Context, videoID int64, field mapping.Field, source, manualValue string) (*relinkContext, []string, error) {
 	rc, err := h.loadRelinkContext(ctx, videoID)
 	if err != nil || rc == nil {
-		return nil, rc, nil, err
+		return rc, nil, err
 	}
 	decisions := decisionsFromRows(rc.decRows)
 	if decisions == nil {
 		decisions = resolver.Decisions{}
 	}
 	decisions["studio"] = resolver.Decision{Source: source, ManualValue: manualValue}
-	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
-		[]mapping.Field{field}, h.resolveOptions(decisions))
-	var names []string
-	for _, rf := range resolved {
-		if strings.EqualFold(rf.Canonical, "studio") {
-			names = append(names, rf.Values...)
-		}
-	}
-	if len(names) == 0 {
-		return nil, rc, names, nil
-	}
-	collision, err := h.repo.FindStudioCollision(ctx, videoID, names)
-	return collision, rc, names, err
+	return rc, h.resolveStudioNames(rc, field, decisions), nil
 }
 
 // clearFieldDecision removes a field's standing decision, reverting it to the

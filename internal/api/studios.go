@@ -298,15 +298,25 @@ func (h *Handlers) relinkVideoStudios(ctx context.Context, videoID int64, rc *re
 	if rc == nil {
 		return h.repo.ReconcileVideoStudios(ctx, videoID, nil, nil)
 	}
+	names := h.resolveStudioNames(rc, studioField, decisionsFromRows(rc.decRows))
+	return h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(rc.enrRows))
+}
+
+// resolveStudioNames resolves the studio field against rc under decisions and
+// extracts the canonical `studio` values — the single resolve+extract shared by
+// relinkVideoStudios (the committed state) and decisions.go's studioCollision (a
+// pending decision's proposed state, before it commits), which independently
+// duplicated this same loop (HOLODEX-271 review fix).
+func (h *Handlers) resolveStudioNames(rc *relinkContext, studioField mapping.Field, decisions resolver.Decisions) []string {
 	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
-		[]mapping.Field{studioField}, h.resolveOptions(decisionsFromRows(rc.decRows)))
+		[]mapping.Field{studioField}, h.resolveOptions(decisions))
 	var names []string
 	for _, rf := range resolved {
 		if strings.EqualFold(rf.Canonical, "studio") {
 			names = append(names, rf.Values...)
 		}
 	}
-	return h.repo.ReconcileVideoStudios(ctx, videoID, names, studioExternalIDsFromRows(rc.enrRows))
+	return names
 }
 
 // studioExternalIDsFromRows builds a resolved-name → provider external-id side-map
