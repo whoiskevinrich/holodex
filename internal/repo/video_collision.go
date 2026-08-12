@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"holodex/internal/fieldsource"
+	"holodex/internal/model"
 )
 
 // VideoCollision is the other active video that exactly matches a proposed composite
@@ -18,13 +21,15 @@ type VideoCollision struct {
 	Title      string   `json:"title"`
 	People     []string `json:"people"`
 	RecordedAt *string  `json:"recorded_at"`
-	Studio     *string  `json:"studio"`
+	Studios    []string `json:"studios"`
 }
 
 // FindTitleCollision reports whether renaming videoID's title to proposedTitle would
 // produce a composite-key collision {title, people, date, studio} against another
-// active video. Title is this story's only wired trigger (HOLODEX-270 P0); Studio and
-// People triggers reuse this same check once HOLODEX-271/272 land. People and Studio
+// active video. Title is this story's only wired trigger (HOLODEX-270 P0). HOLODEX-271
+// (studio popover) shipped its own separate collision check rather than generalizing
+// this one — a shared entity-generic mechanism Studio/People could reuse is still
+// unbuilt; treat that claim as aspirational, not current state. People and Studio
 // are read from videoID's *current* links since only Title changes on this path.
 // Comparison is exact-normalized only (lower+trim on title, exact match on
 // date/people-set/studio-set) — no fuzzy/near-miss matching, per the spec's "no merge
@@ -57,10 +62,13 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, title FROM videos
-		WHERE active = 1 AND deleted_at IS NULL AND id != ?
-		  AND lower(trim(title)) = lower(trim(?))
-		  AND COALESCE(recorded_at, '') = COALESCE(?, '')`,
+		SELECT v.id, COALESCE(fsd.manual_value, v.title) AS effective_title FROM videos v
+		LEFT JOIN field_source_decisions fsd
+		  ON fsd.entity_type = 'video' AND fsd.entity_id = v.id
+		  AND fsd.field_key = 'title' AND fsd.source = 'manual'
+		WHERE v.active = 1 AND v.deleted_at IS NULL AND v.id != ?
+		  AND lower(trim(COALESCE(fsd.manual_value, v.title))) = lower(trim(?))
+		  AND v.recorded_at IS ?`,
 		videoID, proposedTitle, recordedAt,
 	)
 	if err != nil {
@@ -126,10 +134,34 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 	if err != nil {
 		return nil, fmt.Errorf("find title collision: collision studios: %w", err)
 	}
-	if ss := studios[c.ID]; len(ss) > 0 {
-		c.Studio = &ss[0].Name
+	// c.Studios must marshal as `[]`, never `null`, mirroring c.People above.
+	c.Studios = []string{}
+	for _, s := range studios[c.ID] {
+		c.Studios = append(c.Studios, s.Name)
 	}
 	return &c, nil
+}
+
+// SetTitleDecisionChecked performs the composite-key collision check and, on a clean
+// result, the manual title decision write as one writeMu-locked operation (HOLODEX-270
+// review fix). FindTitleCollision alone takes no lock, so two concurrent title edits
+// could both read "no collision" before either write landed — locking only the read,
+// not the read+write pair, leaves that race open. FindTitleCollision itself never
+// locks, so calling it here under writeMu is safe. override skips the check entirely,
+// matching setFieldDecision's existing bypass semantics.
+func (r *Repo) SetTitleDecisionChecked(ctx context.Context, videoID int64, manualValue string, override bool) (*VideoCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if !override {
+		collision, err := r.FindTitleCollision(ctx, videoID, manualValue)
+		if err != nil {
+			return nil, err
+		}
+		if collision != nil {
+			return collision, nil
+		}
+	}
+	return nil, r.setDecisionLocked(ctx, model.EnrichEntityVideo, videoID, "title", fieldsource.Manual, manualValue)
 }
 
 // linkedIDKey runs a fixed, caller-supplied SELECT of a single int64 column and

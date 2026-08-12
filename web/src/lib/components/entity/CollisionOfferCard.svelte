@@ -10,25 +10,31 @@
 
 	let {
 		video,
+		proposedTitle,
 		busy = false,
 		error = '',
 		onviewexisting,
-		onsaveanyway
+		onsaveanyway,
+		oncancel
 	}: {
 		video: VideoCollisionRef;
+		proposedTitle: string;
 		busy?: boolean;
 		error?: string;
 		onviewexisting: () => void;
 		onsaveanyway: () => void;
+		oncancel: () => void;
 	} = $props();
 </script>
 
 <div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
-	<p class="text-sm text-ink">"{video.title}" already matches another video:</p>
+	<p class="text-sm text-ink">"{proposedTitle}" already matches another video:</p>
 	<p class="text-sm font-semibold text-ink">{video.title}</p>
 	<p class="text-sm text-muted">
-		{video.people.length ? video.people.join(', ') : '—'} · {formatYear(video.recorded_at)} · {video.studio ??
-			'—'}
+		{video.people.length ? video.people.join(', ') : '—'} · {formatYear(video.recorded_at) || '—'} · {video
+			.studios.length
+			? video.studios.join(', ')
+			: '—'}
 	</p>
 	<div class="flex flex-wrap items-center gap-2">
 		<button onclick={onviewexisting} disabled={busy} class="btn-accent px-3 py-1.5 text-sm">
@@ -37,6 +43,7 @@
 		<button onclick={onsaveanyway} disabled={busy} class="btn-ghost px-3 py-1.5 text-sm">
 			{busy ? 'Saving…' : 'Save anyway, keep both'}
 		</button>
+		<button onclick={oncancel} disabled={busy} class="btn-quiet px-3 py-1.5 text-sm"> Cancel </button>
 	</div>
 	{#if error}
 		<p class="text-sm text-warn">{error}</p>

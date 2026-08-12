@@ -279,10 +279,16 @@
 		if (source === 'file') {
 			await api.clearFieldDecision(id, canonical);
 		} else {
-			await api.setFieldDecision(id, canonical, {
+			const res = await api.setFieldDecision(id, canonical, {
 				source,
 				...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
 			});
+			// decideField has no verdict UI to hand a collision to — SourceSelect/SourceBadge and
+			// WritebackFormDialog only expect ok-or-throw, so surface it as a thrown error instead
+			// of silently proceeding to reloadDetail() (HOLODEX-270 review fix).
+			if (res.conflict) {
+				throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+			}
 		}
 		await reloadDetail();
 	}
@@ -376,6 +382,11 @@
 		playFailed = false;
 		refreshStatus = null; // a freshly-opened item starts with no refresh outcome
 		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
+		// A pending title-collision verdict is scoped to the video that produced it — carrying
+		// it across navigation would let "Save anyway" commit the old value onto the new id.
+		pendingTitleValue = '';
+		titleCollisionBusy = false;
+		titleCollisionError = '';
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -670,24 +681,28 @@
 		{/if}
 
 		<header class="space-y-2">
-			<NameEditControl
-				id="field-title"
-				name={displayTitle}
-				{isOwner}
-				onCommit={commitTitle}
-				label="video"
-				headingClass="skin-title text-2xl font-semibold text-ink"
-			>
-				{#snippet verdict(c, resolve)}
-					<CollisionOfferCard
-						video={c}
-						busy={titleCollisionBusy}
-						error={titleCollisionError}
-						onviewexisting={() => goto(`/media/${c.id}`)}
-						onsaveanyway={() => saveTitleAnyway(resolve)}
-					/>
-				{/snippet}
-			</NameEditControl>
+			{#key id}
+				<NameEditControl
+					id="field-title"
+					name={displayTitle}
+					{isOwner}
+					onCommit={commitTitle}
+					label="video"
+					headingClass="skin-title text-2xl font-semibold text-ink"
+				>
+					{#snippet verdict(c, resolve)}
+						<CollisionOfferCard
+							video={c}
+							proposedTitle={pendingTitleValue}
+							busy={titleCollisionBusy}
+							error={titleCollisionError}
+							onviewexisting={() => goto(`/media/${c.id}`)}
+							onsaveanyway={() => saveTitleAnyway(resolve)}
+							oncancel={resolve}
+						/>
+					{/snippet}
+				</NameEditControl>
+			{/key}
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}
@@ -1129,11 +1144,18 @@
 			filePath={video.file_path}
 			writeback={api.writebackMedia}
 			jobStatus={api.writebackJobStatus}
-			decide={(canonical, source, manualValue) =>
-				api.setFieldDecision(id, canonical, {
+			decide={async (canonical, source, manualValue) => {
+				const res = await api.setFieldDecision(id, canonical, {
 					source,
 					...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
-				})}
+				});
+				// ensureDecision doesn't inspect this return value — a collision must throw so
+				// submit() aborts before writeback() commits the colliding value to the file
+				// (HOLODEX-270 review fix).
+				if (res.conflict) {
+					throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+				}
+			}}
 			onclose={() => (writebackOpen = false)}
 			onapplied={async () => {
 				// The dialog reports applied only once the queued write has landed and the

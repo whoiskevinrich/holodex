@@ -12,9 +12,9 @@ release_note: Editing a video's title now warns you when another video already h
 
 A video's real identity is {Title, People, Date, Studio}, not just its title. Done means a manual
 title edit that would produce that exact combination on another active video is blocked with a
-verdict panel (view the existing video, or save anyway) instead of silently committing — the
-Studio (HOLODEX-271) and People (HOLODEX-272) trigger points reuse the same backend check once
-those stories land.
+verdict panel (view the existing video, or save anyway) instead of silently committing. HOLODEX-271
+(studio popover) shipped its own separate collision check rather than reusing this one — a shared
+entity-generic mechanism for HOLODEX-272's People trigger is still unbuilt.
 
 **Design package:** [spec](../specs/video-composite-key-collision.md) ·
 [design handoff](../design/video-collision-verdict-handoff.md) ·
@@ -37,12 +37,40 @@ those stories land.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Studio trigger point → HOLODEX-271 (reuses `FindTitleCollision`'s sibling once
-   that story adds a studio-composite variant)
-2. [ ] [—] People trigger point → HOLODEX-272 (same, once that story's attach/detach
-   surface exists)
+1. [x] [—] Studio trigger point → HOLODEX-271 shipped, but with its own independent
+   collision check rather than reusing `FindTitleCollision` — no shared mechanism exists
+2. [ ] [—] People trigger point → HOLODEX-272 (still needs a trigger; no generalized
+   collision mechanism to plug into yet — either build one now or add a third
+   independent check)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-11d · xhigh code-review, 15 findings, 13 fixed
+- skills: code-review
+- handoff: `/code-review xhigh PR #230` surfaced 15 findings; applied 13 with minimal edits.
+  Fixed: the `setFieldDecision` 409-handling gap that let a real collision silently pass
+  as success in `WritebackFormDialog`/`decideField` (both `api.ts` and the two call
+  sites now throw); stale title-collision state surviving `/media/[id]` navigation
+  (`{#key id}` + explicit reset); the `FindTitleCollision`/`SetDecision` check-then-act
+  race (new `SetTitleDecisionChecked`, one writeMu-locked critical section); the
+  collision query comparing the raw `videos.title` column instead of the
+  manual-decision-resolved title, plus its NULL-vs-empty-string date bug (one combined
+  SQL rewrite); `CollisionOfferCard` showing the existing video's title twice instead of
+  the owner's attempted value; the missing "Cancel" action (third `.btn-quiet` button,
+  mirroring `MergeOfferCard`'s "keep separate"); the collision payload dropping all but
+  one linked studio (`Studio *string` → `Studios []string`, propagated through Go/TS/
+  Svelte/tests); a 500 instead of 404 on a delete-race in the collision check; a missing
+  `|| '—'` fallback on the dateless meta line; and a coverage gap for the studio-differs
+  branch (new test case). Skipped 2 as real-but-out-of-scope for a minimal fix: the
+  hardcoded title-only collision gate (confirmed via `git log origin/main` that
+  HOLODEX-271 shipped its own independent studio-collision check rather than
+  generalizing this one — corrected the stale "reuse" claims in this doc and in
+  `video_collision.go`'s doc comment, but building the actual shared mechanism is
+  feature-scope work, not a review fix) and the ASCII-only `lower()` case-folding gap
+  (matches an existing accepted limitation in `identity.go`'s `nameKeyExpr()`). Skipped
+  1 as non-code (the pre-implementation-gate/Draft-PR process finding — historical,
+  already-pushed git history, not something a code edit fixes). `go test ./...` and
+  `npm run check`/`npm run test` (139/139) all clean after the fixes.
 
 ### 2026-08-11c · committed, pushed, PR #230 ready, Jira synced
 - skills: —
