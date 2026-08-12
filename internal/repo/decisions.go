@@ -95,10 +95,30 @@ func (r *Repo) SetDecision(ctx context.Context, entityType string, entityID int6
 	return r.setDecisionLocked(ctx, entityType, entityID, fieldKey, source, manualValue)
 }
 
-// setDecisionLocked is SetDecision's write with locking factored out, so
-// SetTitleDecisionChecked (HOLODEX-270) can perform a collision read and this write
-// under one writeMu critical section instead of two separate lock/unlock cycles with a
-// race window between them. Callers must already hold r.writeMu.
+// SetDecisionChecked runs check() and, absent a collision, the decision write, as one
+// writeMu-locked operation — the atomicity every composite-key collision gate needs:
+// a manual title rename or a Studio chip/search/create pick both change the video's
+// composite key, so two concurrent edits to the same field must not both pass their
+// collision check before either commits (HOLODEX-270/271). check is caller-supplied
+// so this stays entity/field-agnostic: Title's check (FindTitleCollision) is fully
+// self-contained in this package, while Studio's needs a resolver pass that lives in
+// internal/api (ADR-051 layering) — passing it in as a closure either way keeps
+// writeMu and the locked write path private to repo instead of exposing them to
+// outside callers. A nil check skips straight to the write (the override path, which
+// must commit regardless of what a collision check would report).
+func (r *Repo) SetDecisionChecked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string, check func() (*VideoCollision, error)) (*VideoCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if check != nil {
+		if collision, err := check(); err != nil || collision != nil {
+			return collision, err
+		}
+	}
+	return nil, r.setDecisionLocked(ctx, entityType, entityID, fieldKey, source, manualValue)
+}
+
+// setDecisionLocked is SetDecision's implementation, assuming the caller already
+// holds writeMu — shared by SetDecision and SetDecisionChecked.
 func (r *Repo) setDecisionLocked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
 	if source != fieldsource.Manual {
 		manualValue = ""

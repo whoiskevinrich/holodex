@@ -13,8 +13,10 @@ release_note: Editing a video's title now warns you when another video already h
 A video's real identity is {Title, People, Date, Studio}, not just its title. Done means a manual
 title edit that would produce that exact combination on another active video is blocked with a
 verdict panel (view the existing video, or save anyway) instead of silently committing. HOLODEX-271
-(studio popover) shipped its own separate collision check rather than reusing this one — a shared
-entity-generic mechanism for HOLODEX-272's People trigger is still unbuilt.
+(studio popover) initially shipped its own separate collision check rather than reusing this one;
+the two were unified onto a single `Repo.SetDecisionChecked` mechanism while resolving HOLODEX-271's
+merge with `main` (see `docs/plans/HOLODEX-271.md`'s session log) — the People (HOLODEX-272) trigger
+point can now plug straight into that shared mechanism once its attach/detach surface exists.
 
 **Design package:** [spec](../specs/video-composite-key-collision.md) ·
 [design handoff](../design/video-collision-verdict-handoff.md) ·
@@ -37,11 +39,11 @@ entity-generic mechanism for HOLODEX-272's People trigger is still unbuilt.
 
 ## Up next — ordered (position = priority)
 
-1. [x] [—] Studio trigger point → HOLODEX-271 shipped, but with its own independent
-   collision check rather than reusing `FindTitleCollision` — no shared mechanism exists
-2. [ ] [—] People trigger point → HOLODEX-272 (still needs a trigger; no generalized
-   collision mechanism to plug into yet — either build one now or add a third
-   independent check)
+1. [x] [—] Studio trigger point → HOLODEX-271 shipped; initially with its own independent
+   collision check, later unified onto the shared `Repo.SetDecisionChecked` mechanism
+   while resolving that story's merge with `main`
+2. [ ] [—] People trigger point → HOLODEX-272 (still needs a trigger; can now plug
+   straight into the existing shared `SetDecisionChecked` mechanism)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

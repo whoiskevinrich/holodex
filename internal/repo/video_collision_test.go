@@ -136,3 +136,77 @@ func TestFindTitleCollision_NoPeople(t *testing.T) {
 		t.Errorf("collision.People = %v, want empty", collision.People)
 	}
 }
+
+func TestFindStudioCollision(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	when := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+
+	a := sampleVideo("/m/a.mkv", "Session One", []string{"Alice", "Bob"}, nil)
+	a.RecordedAt = &when
+	aID, err := r.UpsertVideo(ctx, a, nil)
+	if err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	linkPeople(t, r, aID, "Alice", "Bob")
+	if err := r.ReconcileVideoStudios(ctx, aID, []string{"Acme"}, nil); err != nil {
+		t.Fatalf("link studio a: %v", err)
+	}
+
+	// b shares a's exact title/date/people but a different studio — reassigning
+	// b's studio to "Acme" (any case/whitespace) should collide with a.
+	b := sampleVideo("/m/b.mkv", "Session One", []string{"Alice", "Bob"}, nil)
+	b.RecordedAt = &when
+	bID, err := r.UpsertVideo(ctx, b, nil)
+	if err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+	linkPeople(t, r, bID, "Alice", "Bob")
+	if err := r.ReconcileVideoStudios(ctx, bID, []string{"Other"}, nil); err != nil {
+		t.Fatalf("link studio b: %v", err)
+	}
+
+	// Reassigning b's studio to a's studio name (by name, not id — the create-new
+	// path has no id yet) collides.
+	collision, err := r.FindStudioCollision(ctx, bID, []string{"  ACME  "})
+	if err != nil {
+		t.Fatalf("find collision: %v", err)
+	}
+	if collision == nil {
+		t.Fatal("want a collision, got none")
+	}
+	if collision.ID != aID {
+		t.Errorf("collision id = %d, want %d", collision.ID, aID)
+	}
+	if len(collision.Studios) != 1 || collision.Studios[0] != "Acme" {
+		t.Errorf("collision studios = %v", collision.Studios)
+	}
+
+	// A distinct proposed studio name produces no collision.
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Nonexistent Studio"}); err != nil || collision != nil {
+		t.Errorf("distinct studio: collision=%v err=%v", collision, err)
+	}
+
+	// Same title/date/studio but a different people set is not a collision.
+	c := sampleVideo("/m/c.mkv", "Session One", []string{"Carol"}, nil)
+	c.RecordedAt = &when
+	cID, err := r.UpsertVideo(ctx, c, nil)
+	if err != nil {
+		t.Fatalf("seed c: %v", err)
+	}
+	linkPeople(t, r, cID, "Carol")
+	if err := r.ReconcileVideoStudios(ctx, cID, []string{"Other"}, nil); err != nil {
+		t.Fatalf("link studio c: %v", err)
+	}
+	if collision, err := r.FindStudioCollision(ctx, cID, []string{"Acme"}); err != nil || collision != nil {
+		t.Errorf("different people: collision=%v err=%v", collision, err)
+	}
+
+	// A soft-deleted video with an otherwise-matching key is not reported.
+	if err := r.SoftDelete(ctx, aID); err != nil {
+		t.Fatalf("soft delete a: %v", err)
+	}
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Acme"}); err != nil || collision != nil {
+		t.Errorf("soft-deleted source excluded: collision=%v err=%v", collision, err)
+	}
+}
