@@ -1,12 +1,15 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
 	"holodex/internal/model"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 )
 
@@ -17,11 +20,15 @@ func (h *Handlers) mountCuration(r chi.Router) {
 	r.Post("/media/{id}/curation/clear", h.clearCuration)
 }
 
-// curationBody is the shared request shape for set/clear.
+// curationBody is the shared request shape for set/clear. Override bypasses the
+// People composite-key collision check (HOLODEX-272) — set only on a resubmit after
+// the owner has already seen and dismissed a collision verdict for this exact edit;
+// unused (and harmless) for any field other than a person-typed one.
 type curationBody struct {
-	Field  string `json:"field"`
-	Value  string `json:"value"`
-	Action string `json:"action"` // add | suppress | nowrite
+	Field    string `json:"field"`
+	Value    string `json:"value"`
+	Action   string `json:"action"` // add | suppress | nowrite
+	Override bool   `json:"override"`
 }
 
 func validCurationAction(a string) bool {
@@ -66,8 +73,31 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
-	if err := h.repo.SetCuration(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action); err != nil {
+
+	// People composite-key collision gate (HOLODEX-272, reusing HOLODEX-270/271's
+	// mechanism): a person-typed field (actors/director) add or suppress changes
+	// video_people's composite-key dimension exactly as a Title rename or Studio pick
+	// changes theirs, so every non-override add/suppress on a person-typed field is
+	// checked. Field-generic via the registry marker (ADR-072 §3), not a hardcoded
+	// field-name list. Other curation fields (genres, etc.) aren't part of the
+	// composite key and skip this gate entirely (check stays nil, same as override).
+	var check func() (*repo.VideoCollision, error)
+	if !body.Override && registry.Lookup(body.Field).EntityKind == registry.EntityKindPerson &&
+		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress) {
+		names, err := h.proposedPeopleNames(r.Context(), id, value, body.Action)
+		if err != nil {
+			h.fail(w, "resolve people proposal", err)
+			return
+		}
+		check = func() (*repo.VideoCollision, error) { return h.repo.FindPeopleCollision(r.Context(), id, names) }
+	}
+	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action, check)
+	if err != nil {
 		h.fail(w, "set curation", err)
+		return
+	}
+	if collision != nil {
+		writeCollisionConflict(w, collision)
 		return
 	}
 	// Curating an entity-typed field (studio, actors, director) moves its resolved
@@ -75,6 +105,29 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	// attaches a person/studio to a video — a link IS a curation add (ADR-072 RD1).
 	h.relinkIfEntity(r.Context(), id, body.Field)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// proposedPeopleNames computes videoID's resulting linked-people name set after a
+// pending person-typed-field curation add or suppress, without persisting anything —
+// the People-flavored sibling of resolveProposedStudioNames (decisions.go). Used only
+// to feed FindPeopleCollision; the actual write still goes through SetCurationChecked.
+func (h *Handlers) proposedPeopleNames(ctx context.Context, videoID int64, value, action string) ([]string, error) {
+	people, err := h.repo.PeopleForVideos(ctx, []int64{videoID})
+	if err != nil {
+		return nil, err
+	}
+	current := people[videoID]
+	names := make([]string, 0, len(current)+1)
+	for _, p := range current {
+		if action == repo.CurationSuppress && strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(value)) {
+			continue
+		}
+		names = append(names, p.Name)
+	}
+	if action == repo.CurationAdd {
+		names = append(names, value)
+	}
+	return names, nil
 }
 
 // clearCuration removes one decision so the underlying source value is restored

@@ -138,6 +138,60 @@ func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedS
 	return nil, nil
 }
 
+// FindPeopleCollision reports whether adding/removing a person to reach
+// proposedPersonNames would produce a composite-key collision {title, people, date,
+// studio} against another active video. Title, date, and studio are read from
+// videoID's *current* row/links since only People changes on this path (HOLODEX-272)
+// — the inverse of FindTitleCollision (people fixed, title varies). Comparison is by
+// normalized person *name*, not id, mirroring FindStudioCollision — a newly-created
+// person (the picker's create-new path) has no id yet at check time.
+// proposedPersonNames is the caller's full resulting set (current links plus the one
+// being added, or minus the one being removed), not a delta.
+func (r *Repo) FindPeopleCollision(ctx context.Context, videoID int64, proposedPersonNames []string) (*VideoCollision, error) {
+	var title string
+	var recordedAt sql.NullString
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT title, recorded_at FROM videos WHERE id = ? AND deleted_at IS NULL`, videoID,
+	).Scan(&title, &recordedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("find people collision: source video: %w", err)
+	}
+	studioKey, err := r.linkedIDKey(ctx,
+		`SELECT studio_id FROM video_studios WHERE video_id = ? ORDER BY studio_id`, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("find people collision: studios: %w", err)
+	}
+	peopleKey := normalizedNameKey(proposedPersonNames)
+
+	candidates, err := r.compositeKeyCandidates(ctx, videoID, title, recordedAt)
+	if err != nil {
+		return nil, fmt.Errorf("find people collision: %w", err)
+	}
+
+	for _, cand := range candidates {
+		pk, err := r.linkedNameKey(ctx,
+			`SELECT p.name FROM video_people vp JOIN people p ON p.id = vp.person_id WHERE vp.video_id = ?`, cand.id)
+		if err != nil {
+			return nil, fmt.Errorf("find people collision: candidate people: %w", err)
+		}
+		if pk != peopleKey {
+			continue
+		}
+		sk, err := r.linkedIDKey(ctx,
+			`SELECT studio_id FROM video_studios WHERE video_id = ? ORDER BY studio_id`, cand.id)
+		if err != nil {
+			return nil, fmt.Errorf("find people collision: candidate studios: %w", err)
+		}
+		if sk != studioKey {
+			continue
+		}
+		return r.hydrateCollision(ctx, cand.id, cand.title, recordedAt)
+	}
+	return nil, nil
+}
+
 // recordedAtOf reads an active video's recorded_at, shared by every composite-key
 // collision check that needs the *current* row (Title's check needs it as the fixed
 // half of the candidate filter; Studio's check reads it directly instead since it

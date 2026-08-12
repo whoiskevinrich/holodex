@@ -34,11 +34,20 @@ metadata out-of-band and force a re-scan just to get one name changed.
   over the *resolved* `actors`/`director` field decisions — ordinary `field_source_decisions`
   rows, same `SetDecision`/`SetDecisionChecked` mechanism Title and Studio already use. There is
   no other writer of `video_people` anywhere in the codebase today.
-- **Commit path precedent (Studio, HOLODEX-271)**: `decideField('studio', source, manualValue?)`
-  → `PUT /media/{id}/fields/studio/decision` → `internal/api/decisions.go` `setFieldDecision`,
-  which special-cases `title` and `studio` for the 409 collision gate and falls through to the
-  generic `SetDecision` + `relinkIfEntity` path for everything else, including `actors`/`director`
-  today.
+- **Commit path precedent — corrected during implementation.** `actors`/`director` are configured
+  `multi: true` (Merge-mode) fields in `metadata-mappings.yaml`, and `internal/api/decisions.go`'s
+  `replaceField` gate explicitly rejects any field where `f.Multi || f.Merge` with a 400 —
+  `SetDecision`/`setFieldDecision` structurally cannot be used for these fields at all, so the
+  "falls through to `SetDecision`" framing below (written before implementation) was wrong. The
+  actual, already-shipped mechanism is `metadata_curation` (F30/ADR-048) via `SetCuration`/
+  `ClearCuration` (`action=add`/`suppress`/`nowrite`) — confirmed by `internal/api/curation.go`'s
+  own comment ("Also how the owner-view link picker attaches a person/studio to a video — a link
+  IS a curation add (ADR-072 RD1)") and by ADR-072 Action Item 9 ("Owner-view link picker (curation
+  add) — reuses the F30 curation endpoint; no new API"). `CurationFieldRow.svelte` already
+  implements this attach/detach mechanism live in production for `actors`/`director` today via the
+  generic Metadata-fields curation row — this story's actual gap is narrower than originally
+  scoped: `POST /media/{id}/curation` had no composite-key collision check, unlike Title/Studio's
+  `setFieldDecision`.
 - **No `FindPeopleCollision` exists.** `FindTitleCollision`/`FindStudioCollision`
   (`internal/repo/video_collision.go`) share `compositeKeyCandidates`/`hydrateCollision`/
   `recordedAtOf`/`linkedIDKey`/`linkedNameKey`/`normalizedNameKey` helpers and both currently treat
@@ -67,16 +76,24 @@ requirements, since they determine both the backend shape and whether this story
 ADR (every prior HOLODEX-267 story marked `architecture` `[~]` not needed — this is the first that
 might not have):
 
-1. **Attach/detach writes through the field-decision model, not `video_people` directly.**
-   Attaching or detaching a person constructs the corresponding `actors`/`director` manual
-   decision (a structured list of person refs, not a free-text string) and commits it through the
-   same `SetDecision`/`relinkIfEntity` path Title and Studio already use. `video_people` stays
-   fully derived — the ADR-072 invariant is preserved, not bypassed — so **no new ADR is needed**;
-   this extends ADR-051/ADR-072 the same way Studio's picker did, just with a friendlier UI in
-   front of an existing mechanism instead of a raw-text field editor. The alternative (a new
-   endpoint writing `video_people` directly) was rejected because it would silently break under
-   the next unrelated field edit, since `ReconcileVideoPeople` unconditionally rebuilds the table
-   from the resolved `actors`/`director` decisions on every relink.
+1. **Attach/detach writes through the curation model, not `video_people` directly — corrected
+   during implementation.** `actors`/`director` are `multi`/`merge` fields, which
+   `setFieldDecision`'s `replaceField` gate structurally refuses (400) — so "the same
+   `SetDecision`/`relinkIfEntity` path Title and Studio already use," as originally written here,
+   was never actually available for People. The real mechanism, already shipped and in production
+   use via `CurationFieldRow.svelte`, is `metadata_curation` (F30/ADR-048): attaching a person is a
+   curation `action=add` on the `actors`/`director` field, detaching is `action=suppress`, both via
+   `POST /media/{id}/curation` → `relinkIfEntity`. `video_people` stays fully derived — the
+   ADR-072 invariant is preserved, not bypassed — so **no new ADR is needed**; ADR-072 Action Item
+   9 pre-decided this exact reuse ("reuses the F30 curation endpoint; no new API"). What *is* new
+   for this story is narrower than originally scoped: `POST /media/{id}/curation` had no
+   composite-key collision check on a person-typed add/suppress, unlike Title/Studio's
+   `setFieldDecision` — closing that gap (`FindPeopleCollision` + a `SetCurationChecked` atomic
+   check-then-write, gated by `registry.Lookup(field).EntityKind == EntityKindPerson`) is the
+   entirety of the backend work this story adds. The alternative (a new endpoint writing
+   `video_people` directly) remains rejected for the same reason as originally written: it would
+   silently break under the next unrelated field edit, since `ReconcileVideoPeople`
+   unconditionally rebuilds the table from the resolved `actors`/`director` values on every relink.
 2. **The picker requires a role choice (Actor or Director) at attach time.** `video_people`'s PK
    is `(video_id, person_id, role)`, and the resolver already treats `actors` and `director` as
    distinct typed fields with distinct provider sourcing — defaulting every add to a generic
@@ -154,14 +171,18 @@ might not have):
   - Inline create-fallback ("Use "…" as a new person") when no match exists.
   - A role choice (Actor / Director) presented as part of picking or confirming a person, per the
     Resolved Decisions above — not defaulted silently.
-- **Backend: attach/detach commits through the field-decision model.** A new endpoint (or a
-  request-shape addition to the existing `setFieldDecision` path) that, given a person (existing
-  ID or new name) and a role, constructs the corresponding `actors`/`director` manual decision and
-  commits it via `SetDecision`/`relinkIfEntity` — no direct `video_people` write.
+- **Backend: attach/detach commits through the existing curation endpoint.** No new endpoint —
+  attach is `POST /media/{id}/curation` with `{field: "actors"|"director", value: <name>,
+  action: "add"}`; detach is the same route with `action: "suppress"`, given a person (existing
+  name or a new inline-create) and a role. This is already how `CurationFieldRow.svelte` attaches
+  people today; the picker is a friendlier front end over the same mechanism, not a new write path.
 - **`FindPeopleCollision`**, structurally a sibling of `FindTitleCollision`/`FindStudioCollision`
-  reusing `compositeKeyCandidates`/`hydrateCollision`/`recordedAtOf`, inverted to hold
-  Title/Studio/Date fixed and vary the proposed person-id-set; wired into the attach/detach commit
-  path with the same 409 + `override` gate Title/Studio use.
+  reusing `compositeKeyCandidates`/`hydrateCollision`, inverted to hold Title/Studio/Date fixed and
+  vary the proposed person-*name*-set (name, not id — mirroring `FindStudioCollision`, since a
+  newly-created person has no id yet at check time); wired into `setCuration`'s add/suppress path
+  via a new `SetCurationChecked` (atomic check-then-write, mirroring `SetDecisionChecked`), gated
+  on `registry.Lookup(field).EntityKind == EntityKindPerson` so it's field-generic rather than a
+  hardcoded `actors`/`director` string list. Same 409 + `override` contract Title/Studio use.
   - Given an attach/detach would produce an exact composite-key match against another active
     video, when the owner commits, then they see the same `CollisionOfferCard` verdict panel
     (View existing video / Save anyway) already shared by Title and Studio.
@@ -190,13 +211,12 @@ HOLODEX-271 used for Studio).
 
 ## Open Questions
 
-None blocking — the two load-bearing architectural questions were resolved above before writing
-requirements. One non-blocking implementation detail is left to engineering judgment during
-implementation: whether attach/detach is a new dedicated endpoint
-(`PUT /media/{id}/people/{personId}/decision` or similar) or a request-shape addition to the
-existing `setFieldDecision` route, since both satisfy "commits through the field-decision model."
-Resolve at implementation time by whichever keeps `internal/api/decisions.go`'s existing
-title/studio special-casing pattern most consistent.
+None blocking. The implementation-detail question originally left open here (new dedicated
+endpoint vs. an addition to `setFieldDecision`) turned out to be moot: `actors`/`director` are
+`multi`/`merge` fields that `setFieldDecision` structurally can't handle, so there was never a
+choice to make — attach/detach reuses the existing `POST /media/{id}/curation` endpoint (see
+Resolved Decision #1, corrected during implementation), matching `internal/api/curation.go`'s
+existing title/studio-style special-casing pattern rather than `decisions.go`'s.
 
 ## Timeline Considerations
 
