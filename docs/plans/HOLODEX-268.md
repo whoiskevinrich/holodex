@@ -54,7 +54,7 @@ side effect of the new Confirm step — not patched standalone.
 -->
 
 ### 2026-08-11 · Code-review fixes applied, implementation PR opened
-- skills: code-review, simplify
+- skills: code-review, simplify, graphify
 - handoff: Applied 14 of 15 findings from a code review of the `SourceBadge`/`expandedField`/`ProvenanceBadge` implementation (undercounted multi-source detection, owner-view double-render, collapse not gated on busy, an over-tracking effect, `close()` stealing Custom-input focus, `dismissable`'s capture-phase Escape preempting the Custom input's own handler, a `longFields` layout bug dropping `ProvenanceBadge` to its own line, wrong provider/aria-label for manual values, a stale `busy` flag on collapse, the `expandedField` singleton leaking across entity navigation, the pending indicator landing on the wrong chip, arrow-key nav clobbering staged Custom text, an unmuted empty-value placeholder, and a spec self-contradiction on Video's Studio field). Left `SourceBadge`/`SourceSelect` logic duplication unfixed — real but disproportionate to a review-fix pass; tracked as a known gap, not a new issue. `npm run check` clean (486 files, 0 errors). Pushed and opened the implementation PR (spec/design/testing docs already merged via PR #227; this PR covers the `SourceBadge` build-out + review fixes) — all epic gates were already green going in, so it was opened ready for review, not Draft.
 
 ### 2026-08-10 · Video/Studio `SourceBadge` rollout — frontend gate complete
