@@ -583,3 +583,49 @@ func TestCodecRoundTrip(t *testing.T) {
 		t.Errorf("list codec = %+v", items)
 	}
 }
+
+// TestNilSliceRegressions confirms every list-shaped repo read that a JSON
+// handler serializes directly returns a non-nil (possibly empty) slice, never
+// nil — a nil slice marshals to JSON `null`, and several frontend components
+// read `.length` on these fields unconditionally. Caught live for
+// FacetValues (MappedFacets.svelte crashed app-wide on hydration); this test
+// also covers ListVideos, ListPeople, and Search, which shared the same bug
+// class (HOLODEX-275).
+func TestNilSliceRegressions(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if fv, err := r.FacetValues(ctx, nil); err != nil {
+		t.Fatalf("facet values (no sources): %v", err)
+	} else if fv == nil || len(fv) != 0 {
+		t.Errorf("facet values (no sources) = %#v, want empty non-nil slice", fv)
+	}
+	if fv, err := r.FacetValues(ctx, []string{"Publisher"}); err != nil {
+		t.Fatalf("facet values (no matches): %v", err)
+	} else if fv == nil || len(fv) != 0 {
+		t.Errorf("facet values (no matches) = %#v, want empty non-nil slice", fv)
+	}
+
+	if items, total, err := r.ListVideos(ctx, repo.VideoFilter{Limit: 10}); err != nil {
+		t.Fatalf("list videos: %v", err)
+	} else if items == nil || len(items) != 0 || total != 0 {
+		t.Errorf("list videos = %#v (total %d), want empty non-nil slice", items, total)
+	}
+
+	if people, err := r.ListPeople(ctx, false); err != nil {
+		t.Fatalf("list people: %v", err)
+	} else if people == nil || len(people) != 0 {
+		t.Errorf("list people = %#v, want empty non-nil slice", people)
+	}
+
+	if res, err := r.Search(ctx, "", 10); err != nil {
+		t.Fatalf("search (empty query): %v", err)
+	} else if res.Videos == nil || res.People == nil || res.Tags == nil || res.Studios == nil {
+		t.Errorf("search (empty query) = %#v, want every field non-nil", res)
+	}
+	if res, err := r.Search(ctx, "no-such-thing-anywhere", 10); err != nil {
+		t.Fatalf("search (no matches): %v", err)
+	} else if res.Videos == nil || res.People == nil || res.Tags == nil || res.Studios == nil {
+		t.Errorf("search (no matches) = %#v, want every field non-nil", res)
+	}
+}

@@ -374,7 +374,8 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	}
 	defer rows.Close()
 
-	var out []model.Video
+	// Non-nil so a zero-row page marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Video{}
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -789,8 +790,11 @@ type FacetValue struct {
 // active videos — the union of metadata rows whose source_key is in sourceKeys
 // (case-insensitive). Drives the filter facet value list (F20.4).
 func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetValue, error) {
+	// Non-nil so a facet with zero (or no configured) sources marshals its
+	// `values` as `[]`, never `null` — MappedFacets.svelte reads
+	// facet.values.length unconditionally (HOLODEX-275).
 	if len(sourceKeys) == 0 {
-		return nil, nil
+		return []FacetValue{}, nil
 	}
 	q := `SELECT m.value, COUNT(DISTINCT m.video_id) AS cnt
 	      FROM video_metadata m
@@ -802,7 +806,7 @@ func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetVal
 		return nil, fmt.Errorf("facet values: %w", err)
 	}
 	defer rows.Close()
-	var out []FacetValue
+	out := []FacetValue{}
 	for rows.Next() {
 		var fv FacetValue
 		if err := rows.Scan(&fv.Value, &fv.Count); err != nil {
@@ -945,7 +949,8 @@ func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person
 		return nil, fmt.Errorf("list people: %w", err)
 	}
 	defer rows.Close()
-	var out []model.Person
+	// Non-nil so a zero-person library marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Person{}
 	for rows.Next() {
 		var p model.Person
 		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
@@ -1331,7 +1336,14 @@ type SearchResult struct {
 // Search runs a prefix FTS query across videos, people, and tags (limit per
 // group).
 func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
-	var res SearchResult
+	// Every field starts non-nil so an empty query or a category with zero hits
+	// marshals as `[]`, never `null` (HOLODEX-275).
+	res := SearchResult{
+		Videos:  []model.Video{},
+		People:  []model.Person{},
+		Tags:    []model.Tag{},
+		Studios: []model.Studio{},
+	}
 	q := strings.TrimSpace(query)
 	if q == "" {
 		return res, nil
