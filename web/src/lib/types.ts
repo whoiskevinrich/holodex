@@ -55,7 +55,15 @@ export interface Person {
 	// a person can have one role without the other. Absent/0 = no poster (placeholder).
 	poster_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
+	// role is the video_people link role this person holds on the video being read
+	// (HOLODEX-272). Present only on a video's People list — a dual-role attachment
+	// surfaces as two Person entries sharing the same id. Absent elsewhere.
+	role?: 'actor' | 'director';
 }
+
+// ResolvedPerson narrows Person.role to required — the shape a video's People list
+// (video.people) always carries, vs. Person's other read contexts where it's absent.
+export type ResolvedPerson = Person & { role: 'actor' | 'director' };
 
 // Person image roles (F25, ADR-038). Three single-slot core roles plus the
 // free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
@@ -350,11 +358,15 @@ export interface FieldTarget {
 // CurationAction is a value-level owner decision (F30, ADR-048).
 export type CurationAction = 'add' | 'suppress' | 'nowrite';
 
-// CurationRequest records or clears one value-level decision for a field.
+// CurationRequest records or clears one value-level decision for a field. override
+// bypasses the People composite-key collision gate (HOLODEX-272) on a resubmit after
+// the owner has already seen and dismissed a collision verdict for this exact edit —
+// harmless (ignored server-side) for any field other than a person-typed one.
 export interface CurationRequest {
 	field: string;
 	value: string;
 	action: CurationAction;
+	override?: boolean;
 }
 
 export interface MediaDetailResponse {

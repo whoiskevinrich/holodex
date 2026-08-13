@@ -93,12 +93,36 @@ func (r *Repo) CurationForEntities(ctx context.Context, entityType string, ids [
 // the value being acted on (its norm key is what matches at resolution). Returns
 // nil for an empty value.
 func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+}
+
+// SetCurationChecked runs check() and, absent a collision, the curation write, as one
+// writeMu-locked operation — mirrors SetDecisionChecked's atomicity guarantee
+// (decisions.go), needed for People (HOLODEX-272): a person-typed field add/suppress
+// changes video_people's composite key exactly as a Title/Studio decision changes
+// their own dimension, so two concurrent edits must not both pass their collision
+// check before either commits. A nil check skips straight to the write (the override
+// path, which must commit regardless of what a collision check would report).
+func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error)) (*VideoCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if check != nil {
+		if collision, err := check(); err != nil || collision != nil {
+			return collision, err
+		}
+	}
+	return nil, r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+}
+
+// setCurationLocked is SetCuration's implementation, assuming the caller already
+// holds writeMu — shared by SetCuration and SetCurationChecked.
+func (r *Repo) setCurationLocked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return fmt.Errorf("curation: empty value")
 	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO metadata_curation (entity_type, entity_id, field_key, norm_value, value, action, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, 'manual', ?)

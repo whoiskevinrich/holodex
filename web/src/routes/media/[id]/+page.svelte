@@ -4,12 +4,13 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
 		formatDuration,
 		formatYear,
+		personKey,
 		providerFromWinningSource,
 		resolutionBucket,
 		toMessage,
@@ -35,6 +36,7 @@
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
+	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -121,6 +123,22 @@
 	let pendingStudioValue = $state<string | undefined>(undefined);
 	let studioCollisionBusy = $state(false);
 	let studioCollisionError = $state('');
+
+	// People composite-key collision verdict (HOLODEX-272, reusing HOLODEX-270/271's
+	// mechanism). Attach/detach both flow through the curation model (F30/ADR-048;
+	// actors/director are multi/merge fields the field-decision model structurally
+	// rejects, worklog HOLODEX-272) rather than SetDecision, so the pending value is a
+	// curation field+value+action triple. Shared by both call sites — the grid's own
+	// remove control and PersonPicker's search/attached-list — since a detach from
+	// either produces the identical curation call.
+	let pendingPersonField = $state<'actors' | 'director' | null>(null);
+	let pendingPersonValue = $state('');
+	let pendingPersonAction = $state<'add' | 'suppress'>('add');
+	let personConflict = $state<VideoCollisionRef | null>(null);
+	let personCollisionBusy = $state(false);
+	let personCollisionError = $state('');
+	let personBusyKey = $state<string | null>(null);
+	let personRemoveError = $state('');
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -377,6 +395,83 @@
 		}
 	}
 
+	function roleField(role: 'actor' | 'director'): 'actors' | 'director' {
+		return role === 'actor' ? 'actors' : 'director';
+	}
+
+	// People attach/detach (HOLODEX-272, PersonPicker + grid remove control). Both commit
+	// through the curation model (F30/ADR-048) — actors/director are multi/merge fields
+	// SetDecision structurally rejects (worklog HOLODEX-272) — rather than the field-decision
+	// model Title/Studio use. A person-typed add/suppress may 409 on the People composite-key
+	// collision gate; conflict handling is shared across both call sites since detaching from
+	// either the grid or the picker produces the identical curation call.
+	async function curatePerson(
+		field: 'actors' | 'director',
+		value: string,
+		action: 'add' | 'suppress'
+	): Promise<{ ok: true } | { conflict: VideoCollisionRef }> {
+		const res = await api.curateMedia(id, { field, value, action });
+		if (res.conflict) {
+			pendingPersonField = field;
+			pendingPersonValue = value;
+			pendingPersonAction = action;
+			personConflict = res.conflict;
+			return { conflict: res.conflict };
+		}
+		await reloadDetail();
+		return { ok: true };
+	}
+
+	const attachPerson = (name: string, role: 'actor' | 'director') => curatePerson(roleField(role), name, 'add');
+	const detachPerson = (name: string, role: 'actor' | 'director') => curatePerson(roleField(role), name, 'suppress');
+
+	// "Save anyway, keep both" — resubmits the exact same pending curation with override.
+	async function savePersonAnyway(resolve: () => void) {
+		if (!pendingPersonField) return;
+		personCollisionBusy = true;
+		personCollisionError = '';
+		try {
+			await api.curateMedia(id, {
+				field: pendingPersonField,
+				value: pendingPersonValue,
+				action: pendingPersonAction,
+				override: true
+			});
+			resolve();
+			await reloadDetail();
+		} catch (e) {
+			personCollisionError = toMessage(e);
+		} finally {
+			personCollisionBusy = false;
+		}
+	}
+
+	function resolvePersonConflict() {
+		personConflict = null;
+		pendingPersonField = null;
+		personCollisionError = '';
+	}
+
+	async function removeGridPerson(p: ResolvedPerson) {
+		if (personBusyKey) return;
+		// A legacy pre-migration-0037 link can still carry the unset-role sentinel
+		// ('') — roleField('') would silently fall through to 'director', suppressing
+		// the wrong field's link (HOLODEX-272 review fix).
+		if (p.role !== 'actor' && p.role !== 'director') {
+			personRemoveError = `${p.name} has no role set on this video — can't determine which field to remove.`;
+			return;
+		}
+		personBusyKey = personKey(p);
+		personRemoveError = '';
+		try {
+			await detachPerson(p.name, p.role);
+		} catch (e) {
+			personRemoveError = toMessage(e);
+		} finally {
+			personBusyKey = null;
+		}
+	}
+
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
 	// then refetch the detail so resolved[] reflects the new data and bust the cover.
 	async function refreshMetadata() {
@@ -469,6 +564,12 @@
 		} catch {
 			// Non-fatal — caller's optimistic state stands.
 		}
+		// Any other successful commit invalidates a still-open People collision
+		// verdict — resubmitting its forgotten field/value/action with override:true
+		// via "Save anyway" would silently clobber unrelated state (HOLODEX-272
+		// review fix). curatePerson never calls reloadDetail on the branch that sets
+		// personConflict, so this only ever clears an already-stale card.
+		if (personConflict) resolvePersonConflict();
 	}
 
 	// Video↔tag attach/detach (F50, ADR-075 P0-8/P0-7).
@@ -899,27 +1000,67 @@
 			</section>
 		{/if}
 
-		{#if video.people?.length}
+		{#if isOwner || video.people?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">People</h2>
-				<!-- F25: 2:3 poster cards (placeholder when a person has no poster). -->
+				<!-- F25: 2:3 poster cards (placeholder when a person has no poster). Composite
+				     each-key (id + role): video_people's PK is (video_id, person_id, role)
+				     (ADR-072), so a dual-role attachment is two rows sharing the same id. -->
 				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-					{#each video.people as p (p.id)}
-						<li>
-							<a
-								href={`/people/${p.id}`}
-								class="group block space-y-1.5 text-ink"
-								title={p.name}
-							>
+					{#each (video.people ?? []) as ResolvedPerson[] as p (p.id + ':' + p.role)}
+						<li class="curation-chip group relative">
+							<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
 								<div class="rounded-theme transition group-hover:opacity-90">
 									<PersonPoster personId={p.id} name={p.name} />
 								</div>
 								<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
 							</a>
+							{#if isOwner}
+								<!-- Hover-reveal remove badge (HOLODEX-272), same opacity mechanism as
+								     Tags' curation-chip/curation-actions (:912-913 above), adapted from a
+								     chip shape to an absolutely-positioned corner badge on the poster
+								     frame; a sibling of <a> rather than nested inside it (a nested
+								     interactive control inside an anchor is invalid). -->
+								<button
+									type="button"
+									onclick={() => removeGridPerson(p)}
+									disabled={personBusyKey === personKey(p)}
+									aria-label={`Remove ${p.name}`}
+									class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
+								>
+									{personBusyKey === personKey(p) ? '…' : '×'}
+								</button>
+							{/if}
 						</li>
 					{/each}
+					{#if isOwner}
+						<li>
+							<PersonPicker
+								people={(video.people ?? []) as ResolvedPerson[]}
+								{isOwner}
+								attach={attachPerson}
+								detach={detachPerson}
+								bind:busyKey={personBusyKey}
+							/>
+						</li>
+					{/if}
 				</ul>
+				{#if personRemoveError}
+					<p class="text-sm text-warn" aria-live="polite">{personRemoveError}</p>
+				{/if}
 			</section>
+		{/if}
+
+		{#if personConflict}
+			{@const conflict = personConflict}
+			<CollisionOfferCard
+				video={conflict}
+				busy={personCollisionBusy}
+				error={personCollisionError}
+				onviewexisting={() => goto(`/media/${conflict.id}`)}
+				onsaveanyway={() => savePersonAnyway(resolvePersonConflict)}
+				oncancel={resolvePersonConflict}
+			/>
 		{/if}
 
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
