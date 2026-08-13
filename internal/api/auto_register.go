@@ -54,7 +54,7 @@ func (h *Handlers) appendAutoRegistered(ctx context.Context, rows []repo.Enrichm
 	// provider's asset-host allowlist must not render as an <img> — degrade it to text.
 	// Shared with the F44 promotion path (markPromoted) via gateImageURL.
 	for i := range auto {
-		auto[i].Display = h.gateImageURL(auto[i].Display, auto[i].WinningSource, auto[i].Values)
+		auto[i].Display = h.gateImageURL(auto[i].Display, auto[i].Items)
 	}
 	return append(resolved, auto...)
 }

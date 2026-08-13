@@ -277,7 +277,14 @@ func (h *Handlers) resolveOptions(decisions resolver.Decisions) resolver.Options
 		Decisions:          decisions,
 		DefaultSource:      h.defaultSource,
 		ProviderTrustOrder: h.providerTrustOrder,
+		ImageURLAllowed:    h.imageURLAllowed,
 	}
+}
+
+// imageURLAllowed is the nil-safe ResolveFields gate (HOLODEX-212): with no
+// enrichment service wired, no provider-sourced image_url is trusted.
+func (h *Handlers) imageURLAllowed(provider, rawURL string) bool {
+	return h.enrich != nil && h.enrich.ImageURLAllowed(provider, rawURL)
 }
 
 // controlsUnauthenticated is true when the admin surface is reachable beyond
