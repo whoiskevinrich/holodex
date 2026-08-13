@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -589,8 +590,9 @@ func TestCodecRoundTrip(t *testing.T) {
 // nil — a nil slice marshals to JSON `null`, and several frontend components
 // read `.length` on these fields unconditionally. Caught live for
 // FacetValues (MappedFacets.svelte crashed app-wide on hydration); this test
-// also covers ListVideos, ListPeople, and Search, which shared the same bug
-// class (HOLODEX-275).
+// also covers ListVideos, ListPeople, Search, ListTags, ListStudios,
+// GetVideo's metadata, and ListAllVideos, which shared the same bug class
+// (HOLODEX-275).
 func TestNilSliceRegressions(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
@@ -612,10 +614,28 @@ func TestNilSliceRegressions(t *testing.T) {
 		t.Errorf("list videos = %#v (total %d), want empty non-nil slice", items, total)
 	}
 
+	if items, err := r.ListAllVideos(ctx, repo.VideoFilter{}); err != nil {
+		t.Fatalf("list all videos: %v", err)
+	} else if items == nil || len(items) != 0 {
+		t.Errorf("list all videos = %#v, want empty non-nil slice", items)
+	}
+
 	if people, err := r.ListPeople(ctx, false); err != nil {
 		t.Fatalf("list people: %v", err)
 	} else if people == nil || len(people) != 0 {
 		t.Errorf("list people = %#v, want empty non-nil slice", people)
+	}
+
+	if tags, err := r.ListTags(ctx, false); err != nil {
+		t.Fatalf("list tags: %v", err)
+	} else if tags == nil || len(tags) != 0 {
+		t.Errorf("list tags = %#v, want empty non-nil slice", tags)
+	}
+
+	if studios, err := r.ListStudios(ctx, false); err != nil {
+		t.Fatalf("list studios: %v", err)
+	} else if studios == nil || len(studios) != 0 {
+		t.Errorf("list studios = %#v, want empty non-nil slice", studios)
 	}
 
 	if res, err := r.Search(ctx, "", 10); err != nil {
@@ -627,5 +647,33 @@ func TestNilSliceRegressions(t *testing.T) {
 		t.Fatalf("search (no matches): %v", err)
 	} else if res.Videos == nil || res.People == nil || res.Tags == nil || res.Studios == nil {
 		t.Errorf("search (no matches) = %#v, want every field non-nil", res)
+	}
+
+	// A video with zero video_metadata rows (never extracted, or nothing matched a
+	// configured source key) is a normal, reachable state — not a contrived edge case.
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/nil-metadata.mkv", "No Metadata", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("upsert video for metadata check: %v", err)
+	}
+	if _, extra, err := r.GetVideo(ctx, id); err != nil {
+		t.Fatalf("get video: %v", err)
+	} else if extra == nil || len(extra) != 0 {
+		t.Errorf("get video metadata = %#v, want empty non-nil slice", extra)
+	}
+
+	// Wire-level check: a Go-value nil check alone can't distinguish JSON `null`
+	// from `[]` (json.Unmarshal("null", ...) also leaves a slice nil with no
+	// error), so assert on the actual marshaled bytes for one representative
+	// field — this is the check the in-memory-only assertions above cannot do.
+	fv, err := r.FacetValues(ctx, nil)
+	if err != nil {
+		t.Fatalf("facet values for marshal check: %v", err)
+	}
+	b, err := json.Marshal(fv)
+	if err != nil {
+		t.Fatalf("marshal facet values: %v", err)
+	}
+	if string(b) != "[]" {
+		t.Errorf("facet values marshaled = %s, want []", b)
 	}
 }

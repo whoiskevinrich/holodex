@@ -374,8 +374,10 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	}
 	defer rows.Close()
 
-	// Non-nil so a zero-row page marshals as `[]`, never `null` (HOLODEX-275).
-	out := []model.Video{}
+	// Non-nil, capacity-hinted to limit so a zero-row page marshals as `[]`, never
+	// `null` (HOLODEX-275), without the extra reallocations a `[]model.Video{}` start
+	// costs as append grows it back to the SQL LIMIT bound already computed above.
+	out := make([]model.Video, 0, limit)
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -415,7 +417,9 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 	}
 	defer rows.Close()
 
-	var out []model.Video
+	// Non-nil so a zero-row result marshals as `[]`, never `null`, if a caller ever
+	// serializes this directly (HOLODEX-275) — today's callers all re-wrap it first.
+	out := []model.Video{}
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -731,7 +735,8 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 		return nil, fmt.Errorf("video metadata: %w", err)
 	}
 	defer rows.Close()
-	var out []model.ExtraMetadata
+	// Non-nil so a zero-row result marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.ExtraMetadata{}
 	for rows.Next() {
 		var m model.ExtraMetadata
 		if err := rows.Scan(&m.SourceKey, &m.Value); err != nil {
@@ -1028,7 +1033,8 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 		return nil, fmt.Errorf("list tags: %w", err)
 	}
 	defer rows.Close()
-	var out []model.Tag
+	// Non-nil so a zero-row result marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Tag{}
 	for rows.Next() {
 		var t model.Tag
 		if err := rows.Scan(&t.ID, &t.Name, &t.VideoCount); err != nil {
@@ -1336,20 +1342,27 @@ type SearchResult struct {
 // Search runs a prefix FTS query across videos, people, and tags (limit per
 // group).
 func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
-	// Every field starts non-nil so an empty query or a category with zero hits
-	// marshals as `[]`, never `null` (HOLODEX-275).
-	res := SearchResult{
-		Videos:  []model.Video{},
-		People:  []model.Person{},
-		Tags:    []model.Tag{},
-		Studios: []model.Studio{},
+	if limit <= 0 {
+		limit = 10
 	}
 	q := strings.TrimSpace(query)
 	if q == "" {
-		return res, nil
+		// Non-nil so an empty query marshals every field as `[]`, never `null`
+		// (HOLODEX-275), without paying for capacity no result will ever fill.
+		return SearchResult{
+			Videos:  []model.Video{},
+			People:  []model.Person{},
+			Tags:    []model.Tag{},
+			Studios: []model.Studio{},
+		}, nil
 	}
-	if limit <= 0 {
-		limit = 10
+	// People/Tags/Studios are appended to below, so capacity-hinting to limit avoids
+	// reallocation; Videos is populated wholesale from ListVideos (already non-nil and
+	// correctly sized) below, so it's left zero-value here rather than double-allocated.
+	res := SearchResult{
+		People:  make([]model.Person, 0, limit),
+		Tags:    make([]model.Tag, 0, limit),
+		Studios: make([]model.Studio, 0, limit),
 	}
 	match := ftsPrefixQuery(q)
 
