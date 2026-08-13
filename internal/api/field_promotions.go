@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
+	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/registry"
@@ -188,12 +189,20 @@ func (h *Handlers) markPromoted(fields []resolver.ResolvedField, promoted map[st
 // broken <img>, no error). It is the single definition shared by the F39
 // auto-registration (appendAutoRegistered) and F44 promotion (markPromoted) paths so the
 // image perimeter never drifts between them. Non-image displays pass through unchanged.
+// file/manual sources are trusted and pass through ungated — they are operator/file
+// controlled, not the untrusted provider vector this perimeter protects — mirroring
+// resolver.gateImageDisplay's exemption (HOLODEX-212); without it, a legitimate
+// file-embedded or owner-typed image would degrade to text because ImageURLAllowed
+// only recognizes real provider names.
 func (h *Handlers) gateImageURL(display, winningSource string, values []string) string {
-	if display != registry.DisplayImageURL {
+	if display != registry.DisplayImageURL || len(values) == 0 {
 		return display
 	}
 	provider, _, _ := strings.Cut(winningSource, ":")
-	if len(values) == 0 || h.enrich == nil || !h.enrich.ImageURLAllowed(provider, values[0]) {
+	if provider == "" || provider == fieldsource.File || provider == fieldsource.Manual {
+		return display
+	}
+	if h.enrich == nil || !h.enrich.ImageURLAllowed(provider, values[0]) {
 		return registry.DisplayText
 	}
 	return display

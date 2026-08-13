@@ -827,6 +827,24 @@ func (s *Service) FetchAsset(ctx context.Context, provider, rawURL string) ([]by
 	return s.newAssetGet(src).Fetch(ctx, rawURL)
 }
 
+// FetchAllowedImage downloads rawURL through the SSRF-guarded asset transport of
+// whichever enabled provider's allowlist (base_url host ∪ asset_hosts, ADR-039)
+// covers this URL's host, trying each enabled provider in turn. Unlike FetchAsset
+// it does not take a provider name: it is the writeback cover-art download's
+// perimeter (HOLODEX-212, internal/writeback.ImageFetcher) for a canonical
+// image_url field (poster_url, photo), which — unlike a person/studio asset — has
+// no single owning provider to key off of by the time it reaches WriteBatch.
+// Refuses (no dial, no partial match) when no enabled provider's allowlist covers
+// the host.
+func (s *Service) FetchAllowedImage(ctx context.Context, rawURL string) ([]byte, error) {
+	for _, src := range s.store.Current().Enabled() {
+		if assetHostAllowed(src, rawURL) {
+			return s.newAssetGet(src).Fetch(ctx, rawURL)
+		}
+	}
+	return nil, fmt.Errorf("image host not allowlisted by any enabled provider")
+}
+
 // Clear removes a provider's contribution for an entity (F22.7b).
 func (s *Service) Clear(ctx context.Context, entityType string, entityID int64, provider string) error {
 	_, err := s.repo.DeleteEnrichmentByProvider(ctx, entityType, entityID, provider)

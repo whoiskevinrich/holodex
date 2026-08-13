@@ -157,6 +157,17 @@ type Options struct {
 	// per-field decision always overrides. Unlisted providers keep mapping order
 	// behind the listed ones; empty means today's mapping-order fallback.
 	ProviderTrustOrder []string
+
+	// ImageURLAllowed reports whether a provider's declared image_url value's host
+	// is on that provider's asset-host allowlist (ADR-039). ResolveFields consults
+	// it for every field whose Display resolves to image_url and whose winning
+	// source is a provider — file/manual sources are trusted (operator/file
+	// controlled, not the untrusted vector this perimeter protects) and are never
+	// checked. A disallowed value's Display degrades to text rather than rendering
+	// an unvetted <img> src (HOLODEX-212). nil is treated as "deny" for a
+	// provider-sourced image_url field — every production caller must set this
+	// once enrichment is wired; leaving it nil fails closed, not open.
+	ImageURLAllowed func(provider, rawURL string) bool
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
@@ -316,6 +327,7 @@ func ResolveFields(
 			values[i] = it.Value
 		}
 		label, display := LabelAndDisplay(f)
+		display = gateImageDisplay(display, winner, values, opts.ImageURLAllowed)
 		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
@@ -355,6 +367,30 @@ func LabelAndDisplay(f mapping.Field) (label, display string) {
 		display = f.Display
 	}
 	return label, display
+}
+
+// gateImageDisplay enforces the ADR-039 asset-host allowlist on a resolved
+// image_url field (HOLODEX-212): a value whose winning source is a provider not
+// on that provider's allowlist degrades to text rather than rendering an
+// unvetted <img> src. file/manual sources are trusted and pass through
+// unchanged — they are operator/file controlled, not the untrusted provider
+// vector the perimeter protects, and blocking them would break a legitimate
+// file-embedded or owner-typed value. Non-image displays pass through
+// unchanged. Mirrors the API layer's gateImageURL (internal/api/field_promotions.go),
+// which applies the same rule to F39 auto-registered/F44 promoted fields that
+// never flow through ResolveFields.
+func gateImageDisplay(display, winner string, values []string, allowed func(provider, rawURL string) bool) string {
+	if display != registry.DisplayImageURL || len(values) == 0 {
+		return display
+	}
+	provider, _, _ := strings.Cut(winner, ":")
+	if provider == "" || provider == fieldsource.File || provider == fieldsource.Manual {
+		return display
+	}
+	if allowed == nil || !allowed(provider, values[0]) {
+		return registry.DisplayText
+	}
+	return display
 }
 
 // optDecision returns the standing decision for a field as a pointer (nil when
