@@ -708,6 +708,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 					resolved = applyGenreWriteback(resolved, field, items)
 				}
 			}
+			// HOLODEX-216: last mutation of `resolved` before the response is built, so
+			// every row present in the final slice — including a "genres" row appended by
+			// applyGenreWriteback above — gets a WriteTarget stamp. Stamping before either
+			// append (as an earlier draft did) leaves append-only rows permanently
+			// unwritable in the dialog regardless of whether they actually have a mapping.
+			h.markWriteTargets(resolved, v.Container)
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}

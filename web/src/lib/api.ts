@@ -793,10 +793,16 @@ export const api = {
 
 	// Metadata writeback — embed curated field values into the media file's tags.
 	// Owner-gated. Returns {job_id, queued} when the durable queue is wired (202,
-	// F30/ADR-048), or {} on the legacy synchronous path (204, F28). 422 when a
-	// field has no tag mapping for the file's container.
+	// F30/ADR-048) — no per-field outcome yet, wait on writebackJobStatus. On the
+	// legacy synchronous path (F28) returns {written, skipped} (200, HOLODEX-216)
+	// naming exactly which submitted fields landed; 422 only when every field has
+	// no tag mapping for the file's container.
 	writebackMedia: (id: number, req: WritebackRequest) =>
-		sendAuthed<{ job_id?: number; queued?: number }>('POST', `/media/${id}/writeback`, req),
+		sendAuthed<{ job_id?: number; queued?: number; written?: string[]; skipped?: string[] }>(
+			'POST',
+			`/media/${id}/writeback`,
+			req
+		),
 
 	// One queued write's state, for polling it to completion (ADR-073): "pending" /
 	// "running" while in flight, "done" once the queue row is gone (it deletes on
