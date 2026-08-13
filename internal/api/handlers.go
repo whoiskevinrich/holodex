@@ -718,11 +718,13 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	// Studio entities linked to this video (F38, ADR-053): the resolved studio
 	// value links to its /studios/{id} page, and the link target always matches the
 	// displayed value because video_studios is derived from that same resolution.
-	var studios []model.Studio
+	// Non-nil so a video with no studio link marshals "studios": [], never null
+	// (HOLODEX-275) — StudiosForVideos omits any such video from its map entirely.
+	studios := []model.Studio{}
 	if byVideo, serr := h.repo.StudiosForVideos(r.Context(), []int64{id}); serr != nil {
 		h.log.Warn("studios for media detail", "id", id, "err", serr)
-	} else {
-		studios = byVideo[id]
+	} else if s := byVideo[id]; s != nil {
+		studios = s
 	}
 	// enrich_queries only ever feeds the owner-only Enrich picker (EnrichPicker.svelte
 	// is gated behind isOwner client-side) — skip rendering it for a visitor request,
@@ -996,7 +998,11 @@ func (h *Handlers) facetValues(ctx context.Context, fld mapping.Field) ([]repo.F
 	if h.cache != nil {
 		if b, ok := h.cache.Get(ctx, key); ok {
 			var v []repo.FacetValue
-			if json.Unmarshal(b, &v) == nil {
+			// v != nil guards against a stale pre-HOLODEX-275 (or rolled-back) cache
+			// entry that was marshaled from a nil slice as literal JSON `null` —
+			// json.Unmarshal("null", &v) succeeds but leaves v nil, which would
+			// otherwise bypass FacetValues's non-nil guarantee for the entry's TTL.
+			if json.Unmarshal(b, &v) == nil && v != nil {
 				return v, nil
 			}
 		}

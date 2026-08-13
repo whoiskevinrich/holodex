@@ -66,6 +66,12 @@ func (r *Repo) GalleryCapValue() int {
 // timeLayout is the storage format for timestamps (ISO-8601, UTC).
 const timeLayout = time.RFC3339
 
+// maxListLimit bounds any caller-supplied page/result limit before it's used as both a
+// SQL LIMIT and a slice capacity hint. Without this cap, a request like
+// GET /media?limit=999999999 would flow straight into make([]T, 0, limit) and attempt an
+// excessive allocation (CodeQL: "Slice memory allocation with excessive size value").
+const maxListLimit = 1000
+
 // ---------------------------------------------------------------------------
 // Write path (scanner)
 // ---------------------------------------------------------------------------
@@ -356,6 +362,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if limit <= 0 {
 		limit = 50
 	}
+	limit = min(limit, maxListLimit)
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -374,7 +381,11 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	}
 	defer rows.Close()
 
-	var out []model.Video
+	// Non-nil so a zero-row page marshals as `[]`, never `null` (HOLODEX-275). Not
+	// capacity-hinted to limit: limit is caller-supplied, and sizing an allocation
+	// directly off it is exactly the excessive-allocation pattern CodeQL flags, even
+	// once limit is capped elsewhere (its own value is still attacker-influenced).
+	out := []model.Video{}
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -414,7 +425,9 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 	}
 	defer rows.Close()
 
-	var out []model.Video
+	// Non-nil so a zero-row result marshals as `[]`, never `null`, if a caller ever
+	// serializes this directly (HOLODEX-275) — today's callers all re-wrap it first.
+	out := []model.Video{}
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -730,7 +743,8 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 		return nil, fmt.Errorf("video metadata: %w", err)
 	}
 	defer rows.Close()
-	var out []model.ExtraMetadata
+	// Non-nil so a zero-row result marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.ExtraMetadata{}
 	for rows.Next() {
 		var m model.ExtraMetadata
 		if err := rows.Scan(&m.SourceKey, &m.Value); err != nil {
@@ -789,8 +803,11 @@ type FacetValue struct {
 // active videos — the union of metadata rows whose source_key is in sourceKeys
 // (case-insensitive). Drives the filter facet value list (F20.4).
 func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetValue, error) {
+	// Non-nil so a facet with zero (or no configured) sources marshals its
+	// `values` as `[]`, never `null` — MappedFacets.svelte reads
+	// facet.values.length unconditionally (HOLODEX-275).
 	if len(sourceKeys) == 0 {
-		return nil, nil
+		return []FacetValue{}, nil
 	}
 	q := `SELECT m.value, COUNT(DISTINCT m.video_id) AS cnt
 	      FROM video_metadata m
@@ -802,7 +819,7 @@ func (r *Repo) FacetValues(ctx context.Context, sourceKeys []string) ([]FacetVal
 		return nil, fmt.Errorf("facet values: %w", err)
 	}
 	defer rows.Close()
-	var out []FacetValue
+	out := []FacetValue{}
 	for rows.Next() {
 		var fv FacetValue
 		if err := rows.Scan(&fv.Value, &fv.Count); err != nil {
@@ -945,7 +962,8 @@ func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person
 		return nil, fmt.Errorf("list people: %w", err)
 	}
 	defer rows.Close()
-	var out []model.Person
+	// Non-nil so a zero-person library marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Person{}
 	for rows.Next() {
 		var p model.Person
 		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
@@ -1023,7 +1041,8 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 		return nil, fmt.Errorf("list tags: %w", err)
 	}
 	defer rows.Close()
-	var out []model.Tag
+	// Non-nil so a zero-row result marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Tag{}
 	for rows.Next() {
 		var t model.Tag
 		if err := rows.Scan(&t.ID, &t.Name, &t.VideoCount); err != nil {
@@ -1331,13 +1350,30 @@ type SearchResult struct {
 // Search runs a prefix FTS query across videos, people, and tags (limit per
 // group).
 func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
-	var res SearchResult
-	q := strings.TrimSpace(query)
-	if q == "" {
-		return res, nil
-	}
 	if limit <= 0 {
 		limit = 10
+	}
+	limit = min(limit, maxListLimit)
+	q := strings.TrimSpace(query)
+	if q == "" {
+		// Non-nil so an empty query marshals every field as `[]`, never `null`
+		// (HOLODEX-275), without paying for capacity no result will ever fill.
+		return SearchResult{
+			Videos:  []model.Video{},
+			People:  []model.Person{},
+			Tags:    []model.Tag{},
+			Studios: []model.Studio{},
+		}, nil
+	}
+	// Non-nil so a zero-hit category marshals as `[]`, never `null` (HOLODEX-275). Not
+	// capacity-hinted to limit: limit is caller-supplied, and sizing an allocation
+	// directly off it is exactly the excessive-allocation pattern CodeQL flags, even
+	// once limit is capped above (its own value is still attacker-influenced). Videos
+	// is populated wholesale from ListVideos (already non-nil) below.
+	res := SearchResult{
+		People:  []model.Person{},
+		Tags:    []model.Tag{},
+		Studios: []model.Studio{},
 	}
 	match := ftsPrefixQuery(q)
 

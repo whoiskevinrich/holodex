@@ -152,7 +152,7 @@
 		parentValue = '';
 		parentError = '';
 		parentOpen = true;
-		if (allTags.length === 0) allTags = (await api.listTags('name')).items;
+		if (allTags.length === 0) allTags = (await api.listTags('name')).items ?? [];
 		await Promise.resolve();
 		parentInput?.focus();
 	}
