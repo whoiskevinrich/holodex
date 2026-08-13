@@ -381,10 +381,11 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	}
 	defer rows.Close()
 
-	// Non-nil, capacity-hinted to limit so a zero-row page marshals as `[]`, never
-	// `null` (HOLODEX-275), without the extra reallocations a `[]model.Video{}` start
-	// costs as append grows it back to the SQL LIMIT bound already computed above.
-	out := make([]model.Video, 0, limit)
+	// Non-nil so a zero-row page marshals as `[]`, never `null` (HOLODEX-275). Not
+	// capacity-hinted to limit: limit is caller-supplied, and sizing an allocation
+	// directly off it is exactly the excessive-allocation pattern CodeQL flags, even
+	// once limit is capped elsewhere (its own value is still attacker-influenced).
+	out := []model.Video{}
 	for rows.Next() {
 		v, err := scanVideo(rows)
 		if err != nil {
@@ -1364,13 +1365,15 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 			Studios: []model.Studio{},
 		}, nil
 	}
-	// People/Tags/Studios are appended to below, so capacity-hinting to limit avoids
-	// reallocation; Videos is populated wholesale from ListVideos (already non-nil and
-	// correctly sized) below, so it's left zero-value here rather than double-allocated.
+	// Non-nil so a zero-hit category marshals as `[]`, never `null` (HOLODEX-275). Not
+	// capacity-hinted to limit: limit is caller-supplied, and sizing an allocation
+	// directly off it is exactly the excessive-allocation pattern CodeQL flags, even
+	// once limit is capped above (its own value is still attacker-influenced). Videos
+	// is populated wholesale from ListVideos (already non-nil) below.
 	res := SearchResult{
-		People:  make([]model.Person, 0, limit),
-		Tags:    make([]model.Tag, 0, limit),
-		Studios: make([]model.Studio, 0, limit),
+		People:  []model.Person{},
+		Tags:    []model.Tag{},
+		Studios: []model.Studio{},
 	}
 	match := ftsPrefixQuery(q)
 
