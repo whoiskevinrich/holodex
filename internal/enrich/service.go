@@ -495,6 +495,16 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 		return nil, err
 	}
 	fields := sanitizeFields(res.Fields)
+	// HOLODEX-258: unlike _person_external_ids (synthesized by core below, never
+	// provider-authored), _studio_external_ids is emitted by the provider directly as one
+	// self-describing string — sanitizeFields' generic SanitizeValue pass lets any string
+	// through as the "id" with no shape validation. Reject malformed entries here, the
+	// same way sanitizePeople already does for the person channel.
+	if cleaned := sanitizeStudioExternalIDs(fields[model.StudioExternalIDsField]); len(cleaned) > 0 {
+		fields[model.StudioExternalIDsField] = cleaned
+	} else {
+		delete(fields, model.StudioExternalIDsField)
+	}
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
 	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
 	// never provider-authored — people[] arrives as a separate array). Unconditionally
@@ -574,6 +584,33 @@ func sanitizePeople(in []ProviderPerson) []ProviderPerson {
 		}
 		p.ExternalID = externalID
 		out = append(out, p)
+	}
+	return out
+}
+
+// sanitizeStudioExternalIDs rejects any _studio_external_ids value whose id token (the text
+// before the first space) is not a well-formed "<namespace>:<id>" pair — mirrors sanitizePeople's
+// ADR-055 guard (F32/HOLODEX-102) for the studio sidecar (ADR-054). Unlike the person channel, a
+// provider emits this sidecar directly as one self-describing string — there is no separate
+// structured external_id field to validate before construction — so sanitizeFields' generic
+// SanitizeValue pass alone lets any string through as the "id". This closes that gap the same way
+// sanitizePeople does: reject malformed entries rather than merely trimming them. Unlike
+// sanitizePeople, no explicit "contains a space" check is needed on the id token itself — it's
+// defined as v[:sep], the text before the first space, so it cannot contain one by construction.
+// A local, ADR-055-scoped check (HOLODEX-124 tracks a shared cross-contract parser eventually).
+func sanitizeStudioExternalIDs(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		sep := strings.IndexByte(v, ' ')
+		if sep <= 0 {
+			continue
+		}
+		extID, name := v[:sep], strings.TrimSpace(v[sep+1:])
+		ns, id, ok := strings.Cut(extID, ":")
+		if name == "" || !ok || ns == "" || id == "" {
+			continue
+		}
+		out = append(out, v)
 	}
 	return out
 }
