@@ -66,6 +66,12 @@ func (r *Repo) GalleryCapValue() int {
 // timeLayout is the storage format for timestamps (ISO-8601, UTC).
 const timeLayout = time.RFC3339
 
+// maxListLimit bounds any caller-supplied page/result limit before it's used as both a
+// SQL LIMIT and a slice capacity hint. Without this cap, a request like
+// GET /media?limit=999999999 would flow straight into make([]T, 0, limit) and attempt an
+// excessive allocation (CodeQL: "Slice memory allocation with excessive size value").
+const maxListLimit = 1000
+
 // ---------------------------------------------------------------------------
 // Write path (scanner)
 // ---------------------------------------------------------------------------
@@ -355,6 +361,8 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	limit := f.Limit
 	if limit <= 0 {
 		limit = 50
+	} else if limit > maxListLimit {
+		limit = maxListLimit
 	}
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
@@ -1344,6 +1352,8 @@ type SearchResult struct {
 func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
 	if limit <= 0 {
 		limit = 10
+	} else if limit > maxListLimit {
+		limit = maxListLimit
 	}
 	q := strings.TrimSpace(query)
 	if q == "" {
