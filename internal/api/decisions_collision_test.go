@@ -210,12 +210,20 @@ func studioDecisionServer(t *testing.T) (*httptest.Server, *repo.Repo, int64) {
 // putDecisionRaw is sendDecision's sibling for the 409 case, returning the decoded body.
 func putDecisionRaw(t *testing.T, url string, body any) (int, map[string]any) {
 	t.Helper()
+	return rawRequest(t, http.MethodPut, url, body)
+}
+
+// rawRequest issues a JSON request and returns the decoded response body,
+// for tests that need to inspect a 409 conflict payload rather than just the
+// status code (sendDecision only returns the code).
+func rawRequest(t *testing.T, method, url string, body any) (int, map[string]any) {
+	t.Helper()
 	buf, _ := json.Marshal(body)
-	req, _ := http.NewRequest(http.MethodPut, url, strings.NewReader(string(buf)))
+	req, _ := http.NewRequest(method, url, strings.NewReader(string(buf)))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("PUT %s: %v", url, err)
+		t.Fatalf("%s %s: %v", method, url, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)

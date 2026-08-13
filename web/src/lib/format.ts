@@ -63,6 +63,14 @@ export function aliasHint(name: string): string {
 	return `“${name}” is kept as an alias — search and future scans still match it.`;
 }
 
+// personKey identifies one video↔person link (HOLODEX-272): video_people's PK is
+// (video_id, person_id, role) (ADR-072), so a dual-role attachment is two distinct
+// rows sharing a person id — id alone can't key a #each or a busy-state map.
+// Shared by the video page's People grid and PersonPicker's attached-list/list keys.
+export function personKey(p: { id: number; role?: string }): string {
+	return `${p.id}:${p.role}`;
+}
+
 // filterByName narrows items to those whose name contains query, case-insensitive
 // (personal-library scale, client-side filter over an already-loaded unpaged
 // list — the shape EntityPicker/CategoryPicker/tags' unified search all share).
