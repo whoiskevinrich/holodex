@@ -327,7 +327,7 @@ func ResolveFields(
 			values[i] = it.Value
 		}
 		label, display := LabelAndDisplay(f)
-		display = gateImageDisplay(display, winner, values, opts.ImageURLAllowed)
+		display = gateImageDisplay(display, items, opts.ImageURLAllowed)
 		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
@@ -370,27 +370,50 @@ func LabelAndDisplay(f mapping.Field) (label, display string) {
 }
 
 // gateImageDisplay enforces the ADR-039 asset-host allowlist on a resolved
-// image_url field (HOLODEX-212): a value whose winning source is a provider not
-// on that provider's allowlist degrades to text rather than rendering an
-// unvetted <img> src. file/manual sources are trusted and pass through
-// unchanged — they are operator/file controlled, not the untrusted provider
-// vector the perimeter protects, and blocking them would break a legitimate
-// file-embedded or owner-typed value. Non-image displays pass through
-// unchanged. Mirrors the API layer's gateImageURL (internal/api/field_promotions.go),
-// which applies the same rule to F39 auto-registered/F44 promoted fields that
-// never flow through ResolveFields.
-func gateImageDisplay(display, winner string, values []string, allowed func(provider, rawURL string) bool) string {
-	if display != registry.DisplayImageURL || len(values) == 0 {
+// image_url field (HOLODEX-212): every item whose contributing sources are all
+// providers not on their own allowlist degrades the whole field to text rather
+// than rendering an unvetted <img> src. Checked per item, not just the winner's
+// first value: a merge/multi field (F30) can carry values from more than one
+// provider, and gating only the winner would leave every other merged value
+// unchecked (a provider could smuggle an unvetted URL in as a second merged
+// value). file/manual sources are trusted and pass through unchecked — they are
+// operator/file controlled, not the untrusted provider vector the perimeter
+// protects, and blocking them would break a legitimate file-embedded or
+// owner-typed value. Non-image displays pass through unchanged. Mirrors the API
+// layer's gateImageURL (internal/api/field_promotions.go), which applies the
+// same rule to F39 auto-registered/F44 promoted fields that never flow through
+// ResolveFields.
+func gateImageDisplay(display string, items []ResolvedValue, allowed func(provider, rawURL string) bool) string {
+	if display != registry.DisplayImageURL || len(items) == 0 {
 		return display
 	}
-	provider, _, _ := strings.Cut(winner, ":")
-	if provider == "" || provider == fieldsource.File || provider == fieldsource.Manual {
-		return display
-	}
-	if allowed == nil || !allowed(provider, values[0]) {
-		return registry.DisplayText
+	for _, it := range items {
+		if !imageValueAllowed(it, allowed) {
+			return registry.DisplayText
+		}
 	}
 	return display
+}
+
+// imageValueAllowed reports whether a single merged image_url value is safe to
+// render: trusted outright if any contributing source is file/manual, else
+// allowed if at least one contributing provider's own allowlist covers the
+// value's host (HOLODEX-212).
+func imageValueAllowed(it ResolvedValue, allowed func(provider, rawURL string) bool) bool {
+	for _, src := range it.Sources {
+		if src == "" || src == fieldsource.File || src == fieldsource.Manual {
+			return true
+		}
+	}
+	if allowed == nil {
+		return false
+	}
+	for _, src := range it.Sources {
+		if allowed(src, it.Value) {
+			return true
+		}
+	}
+	return false
 }
 
 // optDecision returns the standing decision for a field as a pointer (nil when

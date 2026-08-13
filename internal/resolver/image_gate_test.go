@@ -20,8 +20,23 @@ func imageField(canonical, source string) mapping.Field {
 	return f
 }
 
+// mergeImageField builds a Merge-mode (F30) image_url field over several sources, so
+// a test can exercise a field whose resolved value merges more than one provider's
+// contribution — the case gateImageDisplay's per-winner check used to miss (HOLODEX-212).
+func mergeImageField(canonical string, sources ...string) mapping.Field {
+	f := stubField(canonical, false, sources...)
+	f.Display = registry.DisplayImageURL
+	f.Merge = true
+	return f
+}
+
 var imageEnrich = resolver.Enrichment{
 	"tmdb": {"poster_url": {"https://image.tmdb.org/poster.jpg"}},
+}
+
+var mergeImageEnrich = resolver.Enrichment{
+	"tmdb":  {"poster_url": {"https://image.tmdb.org/a.jpg"}},
+	"other": {"poster_url": {"https://evil.example/b.jpg"}},
 }
 
 var fileCoverExtra = []model.ExtraMetadata{{SourceKey: "Cover", Value: "https://file-embedded.example/cover.jpg"}}
@@ -79,6 +94,23 @@ func TestResolveFields_ImageGate(t *testing.T) {
 			fields:      []mapping.Field{imageField("poster_url", "tmdb:poster_url")},
 			enrich:      imageEnrich,
 			opts:        resolver.Options{Decisions: manualDecision, ImageURLAllowed: denyAll},
+			wantDisplay: registry.DisplayImageURL,
+		},
+		{
+			// A merge field can carry values from more than one provider (F30); the gate
+			// must check every merged value, not just the winner's — else a second,
+			// disallowed provider could smuggle an unvetted URL into the same field.
+			name:        "merge field: one disallowed value degrades the whole field",
+			fields:      []mapping.Field{mergeImageField("poster_url", "tmdb:poster_url", "other:poster_url")},
+			enrich:      mergeImageEnrich,
+			opts:        resolver.Options{ImageURLAllowed: func(provider, rawURL string) bool { return provider == "tmdb" }},
+			wantDisplay: registry.DisplayText,
+		},
+		{
+			name:        "merge field: every value allowed keeps image display",
+			fields:      []mapping.Field{mergeImageField("poster_url", "tmdb:poster_url", "other:poster_url")},
+			enrich:      mergeImageEnrich,
+			opts:        resolver.Options{ImageURLAllowed: allowAll},
 			wantDisplay: registry.DisplayImageURL,
 		},
 	}

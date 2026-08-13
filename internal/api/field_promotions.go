@@ -180,30 +180,39 @@ func (h *Handlers) markPromoted(fields []resolver.ResolvedField, promoted map[st
 		f.Promoted = true
 		// A promoted image_url is a mapped field and so skips the auto-register gate;
 		// re-apply the shared allowlist gate so promotion never bypasses the perimeter.
-		f.Display = h.gateImageURL(f.Display, f.WinningSource, f.Values)
+		f.Display = h.gateImageURL(f.Display, f.Items)
 	}
 }
 
 // gateImageURL enforces the ADR-039/056 asset-host allowlist on an image_url render:
-// a value whose host is not on the supplying provider's allowlist degrades to text (no
-// broken <img>, no error). It is the single definition shared by the F39
-// auto-registration (appendAutoRegistered) and F44 promotion (markPromoted) paths so the
-// image perimeter never drifts between them. Non-image displays pass through unchanged.
-// file/manual sources are trusted and pass through ungated — they are operator/file
-// controlled, not the untrusted provider vector this perimeter protects — mirroring
-// resolver.gateImageDisplay's exemption (HOLODEX-212); without it, a legitimate
-// file-embedded or owner-typed image would degrade to text because ImageURLAllowed
-// only recognizes real provider names.
-func (h *Handlers) gateImageURL(display, winningSource string, values []string) string {
-	if display != registry.DisplayImageURL || len(values) == 0 {
+// a merged field degrades to text if any of its values isn't vetted (no broken <img>,
+// no error) — checked per item, not just the first value, since an auto-registered or
+// promoted field can merge values from more than one provider (HOLODEX-212). It is the
+// single definition shared by the F39 auto-registration (appendAutoRegistered) and F44
+// promotion (markPromoted) paths so the image perimeter never drifts between them.
+// Non-image displays pass through unchanged. file/manual sources are trusted and pass
+// through ungated — they are operator/file controlled, not the untrusted provider
+// vector this perimeter protects — mirroring resolver.gateImageDisplay's exemption;
+// without it, a legitimate file-embedded or owner-typed image would degrade to text
+// because ImageURLAllowed only recognizes real provider names.
+func (h *Handlers) gateImageURL(display string, items []resolver.ResolvedValue) string {
+	if display != registry.DisplayImageURL || len(items) == 0 {
 		return display
 	}
-	provider, _, _ := strings.Cut(winningSource, ":")
-	if provider == "" || provider == fieldsource.File || provider == fieldsource.Manual {
-		return display
+	allowed := func(provider, rawURL string) bool {
+		return h.enrich != nil && h.enrich.ImageURLAllowed(provider, rawURL)
 	}
-	if h.enrich == nil || !h.enrich.ImageURLAllowed(provider, values[0]) {
-		return registry.DisplayText
+	for _, it := range items {
+		trusted := false
+		for _, src := range it.Sources {
+			if src == "" || src == fieldsource.File || src == fieldsource.Manual || allowed(src, it.Value) {
+				trusted = true
+				break
+			}
+		}
+		if !trusted {
+			return registry.DisplayText
+		}
 	}
 	return display
 }
