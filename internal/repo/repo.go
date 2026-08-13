@@ -361,9 +361,8 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	limit := f.Limit
 	if limit <= 0 {
 		limit = 50
-	} else if limit > maxListLimit {
-		limit = maxListLimit
 	}
+	limit = min(limit, maxListLimit)
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -1352,9 +1351,8 @@ type SearchResult struct {
 func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
 	if limit <= 0 {
 		limit = 10
-	} else if limit > maxListLimit {
-		limit = maxListLimit
 	}
+	limit = min(limit, maxListLimit)
 	q := strings.TrimSpace(query)
 	if q == "" {
 		// Non-nil so an empty query marshals every field as `[]`, never `null`
