@@ -10,6 +10,7 @@
 		formatBytes,
 		formatDuration,
 		formatYear,
+		personKey,
 		providerFromWinningSource,
 		resolutionBucket,
 		toMessage,
@@ -398,10 +399,6 @@
 		return role === 'actor' ? 'actors' : 'director';
 	}
 
-	function personKey(p: { id: number; role?: string }) {
-		return `${p.id}:${p.role}`;
-	}
-
 	// People attach/detach (HOLODEX-272, PersonPicker + grid remove control). Both commit
 	// through the curation model (F30/ADR-048) — actors/director are multi/merge fields
 	// SetDecision structurally rejects (worklog HOLODEX-272) — rather than the field-decision
@@ -457,6 +454,13 @@
 
 	async function removeGridPerson(p: ResolvedPerson) {
 		if (personBusyKey) return;
+		// A legacy pre-migration-0037 link can still carry the unset-role sentinel
+		// ('') — roleField('') would silently fall through to 'director', suppressing
+		// the wrong field's link (HOLODEX-272 review fix).
+		if (p.role !== 'actor' && p.role !== 'director') {
+			personRemoveError = `${p.name} has no role set on this video — can't determine which field to remove.`;
+			return;
+		}
 		personBusyKey = personKey(p);
 		personRemoveError = '';
 		try {
@@ -560,6 +564,12 @@
 		} catch {
 			// Non-fatal — caller's optimistic state stands.
 		}
+		// Any other successful commit invalidates a still-open People collision
+		// verdict — resubmitting its forgotten field/value/action with override:true
+		// via "Save anyway" would silently clobber unrelated state (HOLODEX-272
+		// review fix). curatePerson never calls reloadDetail on the branch that sets
+		// personConflict, so this only ever clears an already-stale card.
+		if (personConflict) resolvePersonConflict();
 	}
 
 	// Video↔tag attach/detach (F50, ADR-075 P0-8/P0-7).
@@ -1030,6 +1040,7 @@
 								{isOwner}
 								attach={attachPerson}
 								detach={detachPerson}
+								bind:busyKey={personBusyKey}
 							/>
 						</li>
 					{/if}

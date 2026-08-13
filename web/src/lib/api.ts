@@ -195,6 +195,35 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
 
+// sendConflictable is sendAuthed's sibling for the two owner mutations that can
+// resolve a composite-key collision (HOLODEX-270/272) as `{conflict}` instead of
+// throwing: curateMedia and setFieldDecision. Any other 409 (e.g. "item deleted")
+// still throws, or a caller checking only `if (res.conflict)` would fall through
+// to its success path.
+async function sendConflictable<TReq>(
+	method: 'POST' | 'PUT',
+	path: string,
+	body: TReq
+): Promise<{ conflict?: VideoCollisionRef }> {
+	const res = await fetch(`${BASE}${path}`, {
+		method,
+		credentials: CREDS,
+		redirect: 'manual',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	checkRedirect(res);
+	if (res.status === 409) {
+		const conflictBody = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+		if (conflictBody.conflict) return { conflict: conflictBody.conflict };
+		throw new ApiError(res.status, path);
+	}
+	if (!res.ok && res.status !== 204) {
+		throw new ApiError(res.status, path);
+	}
+	return {};
+}
+
 // uploadAuthed POSTs multipart FormData on the owner surface with the session
 // cookie (no Content-Type — the browser sets the multipart boundary). Returns the
 // decoded JSON body. A 409 is surfaced verbatim so callers can show "gallery is full".
@@ -806,26 +835,8 @@ export const api = {
 	// add/suppress may 409 on the People composite-key collision gate (HOLODEX-272);
 	// like setFieldDecision, that returns as `conflict` (conflict-as-return-value, not
 	// an exception) — every other field/action combination never produces one.
-	curateMedia: async (id: number, req: CurationRequest): Promise<{ conflict?: VideoCollisionRef }> => {
-		const path = `/media/${id}/curation`;
-		const res = await fetch(`${BASE}${path}`, {
-			method: 'POST',
-			credentials: CREDS,
-			redirect: 'manual',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(req)
-		});
-		checkRedirect(res);
-		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
-			if (body.conflict) return { conflict: body.conflict };
-			throw new ApiError(res.status, path);
-		}
-		if (!res.ok && res.status !== 204) {
-			throw new ApiError(res.status, path);
-		}
-		return {};
-	},
+	curateMedia: (id: number, req: CurationRequest) =>
+		sendConflictable('POST', `/media/${id}/curation`, req),
 	clearMediaCuration: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req),
 
@@ -837,33 +848,8 @@ export const api = {
 	// composite-key collision (HOLODEX-270); like renameEntity, that returns as `conflict`
 	// (conflict-as-return-value, not an exception) rather than throwing — every other
 	// field/source combination never produces one.
-	setFieldDecision: async (
-		id: number,
-		canonical: string,
-		req: DecisionRequest
-	): Promise<{ conflict?: VideoCollisionRef }> => {
-		const path = `/media/${id}/fields/${encodeURIComponent(canonical)}/decision`;
-		const res = await fetch(`${BASE}${path}`, {
-			method: 'PUT',
-			credentials: CREDS,
-			redirect: 'manual',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(req)
-		});
-		checkRedirect(res);
-		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
-			// Only a genuine composite-key collision carries `conflict` — decisionTargetLive's
-			// "item is deleted" 409 (and any other 409) has none and must still throw, or callers
-			// checking only `if (res.conflict)` would fall through to their success path.
-			if (body.conflict) return { conflict: body.conflict };
-			throw new ApiError(res.status, path);
-		}
-		if (!res.ok && res.status !== 204) {
-			throw new ApiError(res.status, path);
-		}
-		return {};
-	},
+	setFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
+		sendConflictable('PUT', `/media/${id}/fields/${encodeURIComponent(canonical)}/decision`, req),
 	clearFieldDecision: (id: number, canonical: string) =>
 		sendAuthed<Record<string, never>>(
 			'DELETE',

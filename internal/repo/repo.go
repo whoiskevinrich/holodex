@@ -529,7 +529,7 @@ func (r *Repo) PeopleForVideos(ctx context.Context, ids []int64) (map[int64][]mo
 	if len(ids) == 0 {
 		return map[int64][]model.Person{}, nil
 	}
-	q := `SELECT vp.video_id, p.id, p.name
+	q := `SELECT vp.video_id, p.id, p.name, vp.role
 	      FROM video_people vp JOIN people p ON p.id = vp.person_id
 	      WHERE vp.video_id IN (` + placeholders(len(ids)) + `)
 	      ORDER BY p.name COLLATE NOCASE`
@@ -542,7 +542,7 @@ func (r *Repo) PeopleForVideos(ctx context.Context, ids []int64) (map[int64][]mo
 	for rows.Next() {
 		var vid int64
 		var p model.Person
-		if err := rows.Scan(&vid, &p.ID, &p.Name); err != nil {
+		if err := rows.Scan(&vid, &p.ID, &p.Name, &p.Role); err != nil {
 			return nil, err
 		}
 		out[vid] = append(out[vid], p)

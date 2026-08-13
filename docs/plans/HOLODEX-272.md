@@ -55,6 +55,43 @@ review (out of Draft) in the same push as this update.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-08-12 · PR #235 code-review findings applied
+- skills: code-review (xhigh), simplify
+- handoff: Ran the xhigh-effort `/code-review` on PR #235 (5+5 angles × 8 candidates, 1-vote
+  verify, sweep) and got 15 findings. Applied all with minimal edits: the two real correctness
+  bugs in the People collision gate itself — `proposedPeopleNames` (`internal/api/curation.go`)
+  ignored `role`, so a dual-role suppress couldn't tell which `video_people` row was being
+  removed and silently missed a collision; and it read `PeopleForVideos` unlocked before
+  `writeMu`, letting two concurrent same-video commits race past the check — now recomputed
+  inside the `writeMu`-locked `check()` closure. Root-caused both to `PeopleForVideos`
+  (`internal/repo/repo.go`) dropping the `role` column entirely; added it. Fixed four frontend
+  correctness bugs: `CurationFieldRow.svelte`'s `run()` silently swallowed a 409 `{conflict}`
+  response instead of erroring; a stale `CollisionOfferCard` could resubmit a forgotten pending
+  action after an unrelated commit; `PersonPicker`'s role toggle could resubmit an already-taken
+  role within one session; and the page's `personBusyKey` and the picker's local `busyKey` were
+  independent locks that could race on the same video — unified via a `$bindable` prop, following
+  `PickerShell`'s existing `dialogEl` precedent. Deduped: extracted `sendConflictable` in `api.ts`
+  (shared 409-parsing fetch wrapper for `curateMedia`/`setFieldDecision`), `personKey` in
+  `format.ts` (was duplicated verbatim in `PersonPicker.svelte` and `+page.svelte`), a `roleToggle`
+  Svelte snippet (was copy-pasted between the search-candidate and create-new rows), and removed
+  `PersonPicker`'s dead `addTile` binding (redundant with `PickerShell`'s own focus-restore). On
+  inspection, the reviewer's "triplicated ~30-40 line shell" finding for
+  `Find{Title,Studio,People}Collision` (`internal/repo/video_collision.go`) overstated the gap —
+  the actual scan/hydrate loop was already shared via `scanCollisionCandidates`/
+  `compositeKeyCandidates`/`hydrateCollision`; what remained was one identical title+recorded_at
+  query block duplicated between `FindStudioCollision` and `FindPeopleCollision`, extracted into
+  `titleAndRecordedAtOf`. Skipped 3 findings as real-but-not-worth-it under a minimal-edits
+  mandate: `FindPeopleCollision`'s redundant re-query of title/recorded_at (the caller already has
+  the video via `GetVideo`, but fixing it needs a signature change or diverges from
+  `FindStudioCollision`'s identical existing pattern); sharing `PersonPicker`'s debounced-
+  search/keyboard-nav logic with `StudioPicker` (would require touching a previously-shipped,
+  out-of-scope HOLODEX-271 component); and `curatePerson`'s full `reloadDetail()` after every
+  attach/detach (confirmed this matches the page's existing full-reload-per-mutation pattern at 16
+  other call sites — not a regression this PR introduced). Verified clean: `go build ./...`,
+  `go test ./internal/repo/... ./internal/api/...`, `npm run check` (0 errors), `npm run test`
+  (139/139). No gate changed — PR #235 was already ready for review; this just closes the review
+  loop on it in the same push.
+
 ### 2026-08-12 · Frontend QA, testing-strategy, security-review — all gates green
 - skills: testing-strategy, security-review
 - handoff: `PersonPicker.svelte` + the People-grid wiring (`Person.Role`, repo query, types.ts,

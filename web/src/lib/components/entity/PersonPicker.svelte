@@ -13,7 +13,7 @@
 	// popover — on a conflict this just closes, and the page renders the shared
 	// CollisionOfferCard where the tile was.
 	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { personKey, toMessage } from '$lib/format';
 	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
@@ -21,20 +21,23 @@
 		people,
 		isOwner,
 		attach,
-		detach
+		detach,
+		busyKey = $bindable(null)
 	}: {
 		people: ResolvedPerson[];
 		isOwner: boolean;
 		attach: (name: string, role: 'actor' | 'director') => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
 		detach: (name: string, role: 'actor' | 'director') => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
+		// Shared with the video page's grid-remove control (HOLODEX-272 review fix) —
+		// both surfaces mutate the same video's people, so they must share one busy
+		// gate or a grid remove and a picker commit can race on the same video.
+		busyKey?: string | null;
 	} = $props();
 
 	const ROLES: ('actor' | 'director')[] = ['actor', 'director'];
 
 	let open = $state(false);
-	let busyKey = $state<string | null>(null);
 	let commitError = $state('');
-	let addTile = $state<HTMLButtonElement | null>(null);
 	let dialogEl = $state<HTMLElement | null>(null);
 	let input = $state<HTMLInputElement | null>(null);
 
@@ -57,10 +60,6 @@
 		return role === 'actor' ? 'Actor' : 'Director';
 	}
 
-	function personKey(p: ResolvedPerson) {
-		return `${p.id}:${p.role}`;
-	}
-
 	// A search result's available roles are the two minus whichever this video
 	// already links this person id under — a dual-role attach is two separate
 	// commits (video_people's PK is (video_id, person_id, role), ADR-072), not one.
@@ -69,8 +68,13 @@
 		return ROLES.filter((r) => !taken.has(r));
 	}
 
-	function roleFor(key: string, fallback: 'actor' | 'director') {
-		return selectedRole[key] ?? fallback;
+	// Validates the remembered selection against the CURRENT available-roles list —
+	// a role picked earlier in this session (e.g. 'actor') can go stale mid-session
+	// once that role is taken by a just-committed attach, and resubmitting it would
+	// silently target the wrong role (HOLODEX-272 review fix).
+	function roleFor(key: string, avail: ('actor' | 'director')[]): 'actor' | 'director' {
+		const chosen = selectedRole[key];
+		return chosen && avail.includes(chosen) ? chosen : avail[0];
 	}
 
 	function setRole(key: string, role: 'actor' | 'director') {
@@ -163,9 +167,9 @@
 			const c = candidates[i];
 			const avail = availableRoles(c.id);
 			if (!avail.length) return;
-			void commitAttach(`search:${c.id}`, c.name, roleFor(`search:${c.id}`, avail[0]));
+			void commitAttach(`search:${c.id}`, c.name, roleFor(`search:${c.id}`, avail));
 		} else if (showCreateRow) {
-			void commitAttach('create', trimmedQuery, roleFor('create', 'actor'));
+			void commitAttach('create', trimmedQuery, roleFor('create', ROLES));
 		}
 	}
 
@@ -201,7 +205,6 @@
 
 {#if isOwner}
 	<button
-		bind:this={addTile}
 		type="button"
 		aria-haspopup="dialog"
 		onclick={openPicker}
@@ -213,6 +216,26 @@
 		<span class="text-xs">Add person</span>
 	</button>
 {/if}
+
+{#snippet roleToggle(key: string, avail: ('actor' | 'director')[], ariaLabel: string)}
+	<div role="group" aria-label={ariaLabel} class="flex shrink-0 gap-1">
+		{#each avail as r (r)}
+			<button
+				type="button"
+				aria-pressed={roleFor(key, avail) === r}
+				onclick={(e) => {
+					e.stopPropagation();
+					setRole(key, r);
+				}}
+				class="rounded-full border px-2 py-0.5 text-xs {roleFor(key, avail) === r
+					? 'border-accent bg-accent text-accent-ink'
+					: 'border-rule text-muted'}"
+			>
+				{roleLabel(r)}
+			</button>
+		{/each}
+	</div>
+{/snippet}
 
 {#if open}
 	<PickerShell titleId="person-picker-title" onclose={closePicker} bind:dialogEl>
@@ -293,23 +316,7 @@
 						{#if !avail.length}
 							<span class="shrink-0 text-xs text-muted">Already attached as Actor, Director</span>
 						{:else}
-							<div role="group" aria-label={`Role for ${c.name}`} class="flex shrink-0 gap-1">
-								{#each avail as r (r)}
-									<button
-										type="button"
-										aria-pressed={roleFor(key, avail[0]) === r}
-										onclick={(e) => {
-											e.stopPropagation();
-											setRole(key, r);
-										}}
-										class="rounded-full border px-2 py-0.5 text-xs {roleFor(key, avail[0]) === r
-											? 'border-accent bg-accent text-accent-ink'
-											: 'border-rule text-muted'}"
-									>
-										{roleLabel(r)}
-									</button>
-								{/each}
-							</div>
+							{@render roleToggle(key, avail, `Role for ${c.name}`)}
 						{/if}
 					</div>
 				</li>
@@ -333,23 +340,7 @@
 					<div class="flex items-center justify-between gap-2">
 						<span class="text-xs text-accent">Use "{trimmedQuery}" as a new person{busyKey === 'create' ? '…' : ''}</span
 						>
-						<div role="group" aria-label={`Role for ${trimmedQuery}`} class="flex shrink-0 gap-1">
-							{#each ROLES as r (r)}
-								<button
-									type="button"
-									aria-pressed={roleFor('create', 'actor') === r}
-									onclick={(e) => {
-										e.stopPropagation();
-										setRole('create', r);
-									}}
-									class="rounded-full border px-2 py-0.5 text-xs {roleFor('create', 'actor') === r
-										? 'border-accent bg-accent text-accent-ink'
-										: 'border-rule text-muted'}"
-								>
-									{roleLabel(r)}
-								</button>
-							{/each}
-						</div>
+						{@render roleToggle('create', ROLES, `Role for ${trimmedQuery}`)}
 					</div>
 				</li>
 			{/if}

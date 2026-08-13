@@ -84,12 +84,17 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	var check func() (*repo.VideoCollision, error)
 	if !body.Override && registry.Lookup(body.Field).EntityKind == registry.EntityKindPerson &&
 		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress) {
-		names, err := h.proposedPeopleNames(r.Context(), id, value, body.Action)
-		if err != nil {
-			h.fail(w, "resolve people proposal", err)
-			return
+		// Recomputed inside check() itself, which SetCurationChecked calls only once
+		// it holds writeMu — the current-people read and the collision check it feeds
+		// must observe the same locked snapshot, or two concurrent edits to the same
+		// video can each pass a stale check before either commits.
+		check = func() (*repo.VideoCollision, error) {
+			names, err := h.proposedPeopleNames(r.Context(), id, value, body.Field, body.Action)
+			if err != nil {
+				return nil, err
+			}
+			return h.repo.FindPeopleCollision(r.Context(), id, names)
 		}
-		check = func() (*repo.VideoCollision, error) { return h.repo.FindPeopleCollision(r.Context(), id, names) }
 	}
 	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action, check)
 	if err != nil {
@@ -111,15 +116,21 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 // pending person-typed-field curation add or suppress, without persisting anything —
 // the People-flavored sibling of resolveProposedStudioNames (decisions.go). Used only
 // to feed FindPeopleCollision; the actual write still goes through SetCurationChecked.
-func (h *Handlers) proposedPeopleNames(ctx context.Context, videoID int64, value, action string) ([]string, error) {
+// A suppress only drops the current link matching both the field's role (actors →
+// 'actor', director → 'director') and the target name — a person linked under both
+// roles has two video_people rows sharing a name, and suppressing one role must leave
+// the other's link (and its contribution to the collision key) in place.
+func (h *Handlers) proposedPeopleNames(ctx context.Context, videoID int64, value, field, action string) ([]string, error) {
 	people, err := h.repo.PeopleForVideos(ctx, []int64{videoID})
 	if err != nil {
 		return nil, err
 	}
 	current := people[videoID]
+	fieldRole := registry.Lookup(field).Role
 	names := make([]string, 0, len(current)+1)
 	for _, p := range current {
-		if action == repo.CurationSuppress && strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(value)) {
+		if action == repo.CurationSuppress && p.Role == fieldRole &&
+			strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(value)) {
 			continue
 		}
 		names = append(names, p.Name)
