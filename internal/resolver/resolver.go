@@ -92,6 +92,13 @@ type ResolvedField struct {
 	Decision   *FieldDecision   `json:"decision,omitempty"`
 	InSync     *bool            `json:"in_sync,omitempty"`
 	Candidates []FieldCandidate `json:"candidates,omitempty"`
+
+	// WriteTarget names the destination file tag this field maps to for the video's
+	// current container (HOLODEX-216) — e.g. "QuickTime:Artist" — empty when the
+	// container has no writeback mapping for this canonical field. Video-only: the
+	// resolver has no container (ADR-052 keeps it entity-agnostic), so this is
+	// never resolver-set — like Promoted, the API layer stamps it after resolve.
+	WriteTarget string `json:"write_target,omitempty"`
 }
 
 // FieldDecision is the per-field source-of-truth marker on a replace field (F36,

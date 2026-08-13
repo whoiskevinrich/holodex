@@ -263,6 +263,10 @@ export interface ResolvedField {
 	// mirrors registry.FieldDef.EntityKind. CurationFieldRow's "+ Add" opens the
 	// entity-search LinkPicker instead of a bare text input when this is set.
 	entity_kind?: 'person' | 'studio' | '';
+	// write_target (HOLODEX-216) — the destination file tag this field maps to for
+	// the video's current container (e.g. "QuickTime:Artist"), absent/empty when the
+	// container has no writeback mapping for this canonical. Video-only.
+	write_target?: string;
 }
 
 // F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field

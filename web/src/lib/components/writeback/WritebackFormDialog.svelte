@@ -6,7 +6,7 @@
 	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
-	import { fileCandidateValue, isReplaceField, needsWriteback } from '$lib/f36';
+	import { fileCandidateValue, isReplaceField, isWritable, needsWriteback } from '$lib/f36';
 	import { waitForWritebackJob, type WritebackJobState } from '$lib/writebackJob';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 
@@ -181,8 +181,10 @@
 		if (busy || checkedCount === 0) return;
 		busy = true;
 
-		// Mark all checked rows as in-progress, build the batch payload.
-		const checkedRows = rows.filter((r) => r.checked);
+		// Mark all checked rows as in-progress, build the batch payload. isWritable is
+		// a defense-in-depth filter, not the primary guard — the checkbox for an
+		// unwritable row is disabled below, so `checked` should never be true for one.
+		const checkedRows = rows.filter((r) => r.checked && isWritable(r.field));
 		for (const row of checkedRows) {
 			row.status = 'writing';
 			row.error = '';
@@ -204,14 +206,32 @@
 		try {
 			await Promise.all(checkedRows.map(ensureDecision));
 			const res = await writeback(videoId, { fields });
-			// The durable queue (F30, ADR-048) answers 202 + job_id the moment the job
-			// is enqueued — nothing has been written yet, so wait for it to land before
-			// reporting applied (ADR-073).
+			// The durable queue (F30, ADR-048) answers 202 + job_id the moment the job is
+			// enqueued — nothing has been written yet, so wait for it to land before
+			// reporting applied (ADR-073). Every submitted field passed isWritable above,
+			// so once the job succeeds it wrote all of them — the worker's own re-resolve
+			// against the container can only diverge in the rare case the file's container
+			// changed since this dialog opened.
 			const jobId = (res as { job_id?: number } | null)?.job_id;
-			if (jobId) await waitForWritebackJob(jobId, jobStatus, { cancelled: () => unmounted });
-			for (const row of checkedRows) row.status = 'done';
-			onapplied(fields.map((f) => f.field));
-			onclose();
+			if (jobId) {
+				await waitForWritebackJob(jobId, jobStatus, { cancelled: () => unmounted });
+				for (const row of checkedRows) row.status = 'done';
+			} else {
+				// Legacy synchronous path (HOLODEX-216): the response names exactly which
+				// submitted fields were written vs. skipped, so a row's status reflects
+				// what actually happened rather than assuming success for everything sent.
+				const written = new Set((res as { written?: string[] } | null)?.written ?? []);
+				for (const row of checkedRows) {
+					if (written.has(row.field.canonical)) {
+						row.status = 'done';
+					} else {
+						row.status = 'error';
+						row.error = 'No tag mapping for this file — not written.';
+					}
+				}
+			}
+			onapplied(checkedRows.filter((r) => r.status === 'done').map((r) => r.field.canonical));
+			if (checkedRows.every((r) => r.status === 'done')) onclose();
 		} catch (e) {
 			const msg = toMessage(e);
 			for (const row of checkedRows) {
@@ -340,6 +360,7 @@
 				{@const isDone = row.status === 'done'}
 				{@const isWriting = row.status === 'writing'}
 				{@const isError = row.status === 'error'}
+				{@const writable = isWritable(row.field)}
 				{@const tag = sourceTag(row.field.winning_source)}
 				{@const hasFileValue = row.field.candidates !== undefined}
 				{@const fileVal = fileCandidateValue(row.field)}
@@ -365,6 +386,18 @@
 							<svg class="h-4 w-4 text-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 							</svg>
+						{:else if !writable}
+							<!-- No file-tag mapping for this container (HOLODEX-216): shown, not checkable —
+							     never a bare checkbox that would only silently drop the value on write. -->
+							<svg
+								class="h-4 w-4 text-muted"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>No file tag for this container — can't be written</title>
+								<circle cx="12" cy="12" r="9" />
+								<path stroke-linecap="round" d="M7 12h10" />
+							</svg>
 						{:else}
 							<input
 								type="checkbox"
@@ -379,17 +412,29 @@
 					<!-- Label + input -->
 					<div class="min-w-0 flex-1">
 						<div class="mb-1 flex items-center gap-1.5">
-							<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
-								>{row.field.label}</label
-							>
+							{#if writable}
+								<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
+									>{row.field.label}</label
+								>
+							{:else}
+								<span class="text-xs font-medium text-muted">{row.field.label}</span>
+							{/if}
 							{#if tag}
 								<span class="text-[0.65rem] {tag.isProvider ? 'text-accent' : 'text-muted'}"
 									>·{tag.name}</span
 								>
 							{/if}
+							{#if writable}
+								<span class="text-[0.65rem] text-muted">→ {row.field.write_target}</span>
+							{/if}
 						</div>
 
-						{#if matchesFile}
+						{#if !writable}
+							<p class="text-xs text-muted">
+								{row.value || '—'}
+								<span class="block">No file tag for this container — can't be written.</span>
+							</p>
+						{:else if matchesFile}
 							<p class="flex items-center gap-1.5 text-xs text-muted">
 								{@render checkIcon('h-3.5 w-3.5 shrink-0')}
 								<span class="text-ink">{row.value || '—'}</span>
