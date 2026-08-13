@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-258                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Hardened metadata-provider enrichment so a compromised provider can no longer redirect a video's studio credit onto an unrelated existing studio.
 ---
@@ -45,17 +45,19 @@ means `_studio_external_ids` gets the same ingest-time shape guard, mirroring `s
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] commit as `fix(enrich): ...`, push, open a normal (non-draft) PR — no pre-implementation
-      gates block this (no spec/ADR/design needed)
+1. [ ] [—] get [PR #239](https://github.com/whoiskevinrich/holodex/pull/239) reviewed and merged
+      to main (all gates green; Jira issue in **In Review**)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-08-13 · implementation + tests + docs sync
+### 2026-08-13 · implementation + tests + docs sync + PR opened
 - skills: (plan mode — no slash skill yet this session), simplify, security-review
 - handoff: `sanitizeStudioExternalIDs` implemented and wired into `internal/enrich/service.go`
   right after `sanitizeFields`; both tests added and green
   (`go test ./internal/enrich/... ./internal/api/...`); `docs/testing-strategy.md` and
   `docs/plans/HOLODEX-102.md` (Up next #2) updated. `/simplify` (4-agent pass) found nothing
   requiring a code change. `/security-review` came back clean — no high-confidence findings,
-  confirmed the fix closes HOLODEX-258. All gates green. **Next session (if any):** commit as
-  `fix(enrich): ...`, push, open a normal (non-draft) PR.
+  confirmed the fix closes HOLODEX-258. All gates green; committed (c37feb0), pushed, and opened
+  [PR #239](https://github.com/whoiskevinrich/holodex/pull/239) ready for review. **Next
+  session (if any):** watch for PR review feedback; merge → Jira Done → GHCR release → Jira
+  Released, all automatic per ADR-058.
