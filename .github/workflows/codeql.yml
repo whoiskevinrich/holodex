@@ -47,7 +47,7 @@ jobs:
           cache: true
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.37.3
+        uses: github/codeql-action/init@v4.37.6
         with:
           languages: ${{ matrix.language }}   # input is `languages` (plural); `language` is silently ignored
           build-mode: ${{ matrix.build-mode }}
@@ -57,6 +57,6 @@ jobs:
         run: go build ./...   # compiles every package, runs nothing
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v4.37.3
+        uses: github/codeql-action/analyze@v4.37.6
         with:
           category: "/language:${{ matrix.language }}"
