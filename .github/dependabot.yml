@@ -16,6 +16,10 @@ updates:
     groups:
       npm-deps:
         patterns: ["*"]
+    ignore:
+      # @sveltejs/kit's peer range doesn't accept TS 7 yet — drop this once it does.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
