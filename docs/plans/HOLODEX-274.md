@@ -33,10 +33,10 @@ change, not a pure perf one.
       semantics are unchanged; the correctness fixes below are internal to the relink
       mechanism, not a contract change)
 - [x] architecture — not needed (no new ADR; reuses ADR-072's `RelinkVideoPeople`/
-      `ReconcileVideoPeople` contract, generalizing HOLODEX-271's precedent) — **revisit
-      if the concurrency follow-up below turns into a `SetCurationChecked` contract
-      change**, since that would touch the shared Title/Studio/People collision
-      mechanism, not just People
+      `ReconcileVideoPeople` contract, generalizing HOLODEX-271's precedent) — **revisited**:
+      the concurrency follow-up below did turn into a `SetCurationChecked` contract change,
+      tracked as [ADR-084](../architecture/ADR-084-locked-curation-relink-commit.md) under
+      HOLODEX-277
 - [x] design — not needed (backend-only; no frontend/UX surface touched)
 - [x] backend — `internal/api/curation.go`'s `proposedPeopleNames` → `proposedPeopleLinks`,
       now returning the full `[]repo.PersonRoleName` link set (both roles) instead of a flat
