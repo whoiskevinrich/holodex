@@ -81,9 +81,14 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	// checked. Field-generic via the registry marker (ADR-072 §3), not a hardcoded
 	// field-name list. Other curation fields (genres, etc.) aren't part of the
 	// composite key and skip this gate entirely (isPeopleField stays false, same as
-	// a non-person field).
+	// a non-person field). Also requires the field be mapped in
+	// metadata-mappings.yaml (personFieldMapped): an unconfigured field has no
+	// resolved value to link, so treating it as people-typed anyway would route
+	// through relinkPeopleWithContext and write video_people where the guarded slow
+	// path (relinkVideoPeople) would no-op — the exact conflation HOLODEX-256 fixed.
 	isPeopleField := registry.Lookup(body.Field).EntityKind == registry.EntityKindPerson &&
-		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress)
+		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress) &&
+		h.personFieldMapped(body.Field)
 	var links []repo.PersonRoleName
 	var check func() (*repo.VideoCollision, error)
 	if isPeopleField {
