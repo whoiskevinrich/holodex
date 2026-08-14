@@ -1,12 +1,9 @@
 package api_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 
 	"holodex/internal/repo"
@@ -43,21 +40,16 @@ func TestCurationAPI_PeopleConcurrentDifferentFields_NoLostUpdate(t *testing.T) 
 			err  error
 		}
 		results := make(chan result, 2)
-		var wg sync.WaitGroup
-		wg.Add(2)
 		go func() {
-			defer wg.Done()
 			code, err := postCurationNoFatal(base, map[string]any{"field": "actors", "value": "Alice", "action": "add"})
 			results <- result{code, err}
 		}()
 		go func() {
-			defer wg.Done()
 			code, err := postCurationNoFatal(base, map[string]any{"field": "director", "value": "Bob", "action": "add"})
 			results <- result{code, err}
 		}()
-		wg.Wait()
-		close(results)
-		for res := range results {
+		for i := 0; i < 2; i++ {
+			res := <-results
 			if res.err != nil {
 				t.Fatalf("round %d: request error: %v", round, res.err)
 			}
@@ -88,21 +80,10 @@ func TestCurationAPI_PeopleConcurrentDifferentFields_NoLostUpdate(t *testing.T) 
 	}
 }
 
-// postCurationNoFatal is sendDecision's goroutine-safe sibling: it returns the
-// error instead of calling t.Fatalf, since testing.T's Fatal family must only be
-// called from the goroutine running the test (this helper is called from spawned
-// goroutines racing concurrent requests).
+// postCurationNoFatal is doJSONRequest (decisions_test.go) specialized to an
+// unauthenticated POST — this test's fixture leaves the owner-token gate open.
 func postCurationNoFatal(url string, body any) (int, error) {
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return 0, err
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewReader(buf))
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode, nil
+	return doJSONRequest(http.MethodPost, url, "", body)
 }
 
 // actorsAndDirectorServer is peopleDecisionServerWithFields (curation_collision_test.go)

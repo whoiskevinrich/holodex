@@ -243,9 +243,10 @@ alternative that was tried and rejected).
 3. [x] Regression test: two concurrent `setCuration` calls to different person-typed fields
    (`actors` add + `director` add) on the same video both survive in `video_people`
    (`internal/api/curation_concurrency_test.go`).
-4. [ ] File a follow-up HOLODEX ticket for the suppress-match blast-radius finding (Non-goals),
-   referencing this ADR and HOLODEX-274's original review.
-5. [ ] `/testing-strategy` pass per the change-routing table (multi-file backend behavior
-   change).
-6. [ ] `/security-review` — no new query shape or privilege boundary, but the locking change
-   touches the owner-gated write path; confirm no regression.
+4. [x] File a follow-up HOLODEX ticket for the suppress-match blast-radius finding (Non-goals),
+   referencing this ADR and HOLODEX-274's original review. Filed as
+   [HOLODEX-278](https://whoiskevinrich.atlassian.net/browse/HOLODEX-278).
+5. [x] `/testing-strategy` pass per the change-routing table (multi-file backend behavior
+   change) — added the "Locked curation-relink commit" row (`docs/testing-strategy.md`).
+6. [x] `/security-review` — no new query shape or privilege boundary; the locking change only
+   moves an existing write inside an existing lock. No findings.

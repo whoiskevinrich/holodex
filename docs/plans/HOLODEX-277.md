@@ -28,9 +28,8 @@ review-fix's scope.
       `setDecisionLocked`). Chose extending the lock over re-resolving from source inside
       `check()` (Option A, rejected — reintroduces the I/O HOLODEX-274 removed). An
       unforgeable `WriteLock` capability-token variant was drafted first, then dropped
-      during `/simplify`: an unexported struct field only blocks a *keyed* literal from
-      another package, not the zero-value `WriteLock{}`, so it bought no real compile-time
-      guarantee over the doc comment alone (verified with a standalone two-package build).
+      during `/simplify` as providing no real compile-time guarantee over the doc comment
+      alone — see the session log below for why, and ADR-084 Sub-decision B2 for the record.
       `SetDecisionChecked` (Title/Studio) is explicitly untouched (non-goal).
 - [x] spec — not needed (no contract/request-response change; internal locking fix)
 - [x] design — not needed (backend-only)

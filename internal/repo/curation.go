@@ -112,14 +112,10 @@ func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int6
 // error return: like the People relink it exists for, a relink failure must never
 // fail the owner's curation write, so the callback is expected to log its own
 // failures and swallow them (see relinkPeopleWithContext's commit closure,
-// internal/api/curation.go). Like ReconcileVideoPeopleLocked (person_links.go),
-// commit must only call other "Locked"-suffixed methods that assume writeMu is
-// already held — that contract is doc-comment-enforced, the same
-// xLocked-plus-doc-comment convention this package already uses for
-// setCurationLocked/setDecisionLocked (a capability-token parameter was considered
-// and dropped: an unexported struct field only blocks a *keyed* literal from another
-// package, not the zero-value `WriteLock{}`, so it would have bought no real
-// compile-time guarantee over the doc comment alone).
+// internal/api/curation.go). commit must only call other "Locked"-suffixed methods
+// that assume writeMu is already held — see ReconcileVideoPeopleLocked
+// (person_links.go) for that contract and why it's doc-comment- rather than
+// compiler-enforced.
 func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error), commit func()) (*VideoCollision, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
@@ -128,13 +124,11 @@ func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entity
 			return collision, err
 		}
 	}
-	if err := r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action); err != nil {
-		return nil, err
-	}
-	if commit != nil {
+	err := r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+	if err == nil && commit != nil {
 		commit()
 	}
-	return nil, nil
+	return nil, err
 }
 
 // setCurationLocked is SetCuration's implementation, assuming the caller already
