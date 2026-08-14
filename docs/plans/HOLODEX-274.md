@@ -56,7 +56,7 @@ change, not a pure perf one.
 
 ## Up next — ordered (position = priority)
 
-1. **Concurrency follow-up (needs its own ticket + design):** `proposedPeopleLinks`
+1. **Concurrency follow-up — filed as [HOLODEX-277](https://whoiskevinrich.atlassian.net/browse/HOLODEX-277), needs design:** `proposedPeopleLinks`
    builds the People fast-path write from the current `video_people` table snapshot
    rather than a fresh resolve, so it lost the self-healing convergence the old
    resolver-based relink had. Two concurrent curation edits to *different*
