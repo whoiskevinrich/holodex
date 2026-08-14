@@ -47,6 +47,54 @@ func TestNameKeyConvergencePerson(t *testing.T) {
 	}
 }
 
+// TestExternalIDsForEntity proves the HOLODEX-266/ADR-083 badge-projection read: a
+// person's attached external id (person_external_ids, ADR-055/F32) round-trips as
+// the same namespace-qualified string it was attached with, and an entity with none
+// yet reads back empty rather than erroring.
+func TestExternalIDsForEntity(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", []string{"Denis Villeneuve"}, nil), nil)
+	if err != nil {
+		t.Fatalf("upsert video: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, vid,
+		[]repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}},
+		map[string]string{"Denis Villeneuve": "tmdb:137"}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	pid := personIDByName(t, r, "Denis Villeneuve")
+
+	ids, err := r.ExternalIDsForEntity(ctx, model.EnrichEntityPerson, pid)
+	if err != nil {
+		t.Fatalf("external ids: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "tmdb:137" {
+		t.Fatalf("external ids = %v, want [tmdb:137]", ids)
+	}
+
+	// A person with no attached external id reads back empty, not an error.
+	other, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "T2", []string{"No External Id"}, nil), nil)
+	if err != nil {
+		t.Fatalf("upsert video 2: %v", err)
+	}
+	linkPeople(t, r, other, "No External Id")
+	pid2 := personIDByName(t, r, "No External Id")
+	ids2, err := r.ExternalIDsForEntity(ctx, model.EnrichEntityPerson, pid2)
+	if err != nil {
+		t.Fatalf("external ids 2: %v", err)
+	}
+	if len(ids2) != 0 {
+		t.Fatalf("external ids for unenriched person = %v, want empty", ids2)
+	}
+
+	// A tag has no external-id table — nil, not an error.
+	if ids3, err := r.ExternalIDsForEntity(ctx, model.EntityTag, 1); err != nil || ids3 != nil {
+		t.Fatalf("external ids for tag = (%v, %v), want (nil, nil)", ids3, err)
+	}
+}
+
 // TestNameKeyConvergenceTag proves the tag fold (RD2): tags additionally fold INTERNAL
 // whitespace, so "sci fi", "scifi", and "Sci Fi" are one tag.
 func TestNameKeyConvergenceTag(t *testing.T) {

@@ -7,9 +7,10 @@
 	import ProviderIcon from './ProviderIcon.svelte';
 	import { providers } from '$lib/providers.svelte';
 
-	let { provider = '', label = '' }: { provider?: string; label?: string } = $props();
+	let { provider = '', label = '', manual = false }: { provider?: string; label?: string; manual?: boolean } =
+		$props();
 
-	const text = $derived(provider ? `from ${label || provider}` : 'from file');
+	const text = $derived(provider ? `from ${label || provider}` : manual ? 'from a custom value' : 'from file');
 
 	// Load the public provider directory once (idempotent + shared across every badge)
 	// so the icon URL is available; until it resolves — or when the provider has no
@@ -28,6 +29,6 @@
 		class="ml-2 inline-block rounded-full bg-surface-2 px-2 py-0.5 align-middle text-xs text-muted"
 		aria-label={`source: ${text}`}
 	>
-		file
+		{manual ? 'custom' : 'file'}
 	</span>
 {/if}

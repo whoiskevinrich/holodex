@@ -115,9 +115,9 @@ fields:
     sources:
       - tmdb:homepage
 
-  - canonical: imdb_id
+  - canonical: external_provider_id
     sources:
-      - tmdb:imdb_id
+      - tmdb:external_provider_id
 
   # --- Poster → file cover art (MKV attachment / MP4 CoverArt / mp3+flac Picture) ---
   # When written back, Holodex downloads the URL and embeds the image as cover art.

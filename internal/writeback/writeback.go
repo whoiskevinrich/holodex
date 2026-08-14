@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
 // FieldWrite is one tag assignment for WriteBatch.
@@ -451,38 +450,49 @@ func isNotFound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "executable file not found")
 }
 
-// downloadImageToTemp downloads an https:// image URL to a temp file and
-// returns the path plus a cleanup function. Only https is accepted.
-// The response body is capped at 10 MiB; the caller must call cleanup() when done.
+// ImageFetcher downloads an image URL under an SSRF-guarded transport (host
+// allowlist, cross-host-redirect refusal, size/time caps — ADR-039) and returns
+// the raw bytes. Satisfied by enrich.Service.FetchAllowedImage in production.
+type ImageFetcher func(ctx context.Context, rawURL string) ([]byte, error)
+
+// imageFetch is the guarded downloader downloadImageToTemp uses. Wired once at
+// startup via SetImageFetcher; left nil, every image-field write is refused
+// rather than falling back to an unguarded fetch (HOLODEX-212 — fail closed,
+// not open).
+var imageFetch ImageFetcher
+
+// SetImageFetcher wires the SSRF-guarded image download used by an IsImage
+// FieldWrite (HOLODEX-212, ADR-039). Mirrors the SetImageSink/SetWriteback
+// startup-wiring idiom. Must be called before any writeback with an image field
+// runs — production wires enrich.Service.FetchAllowedImage.
+func SetImageFetcher(fn ImageFetcher) { imageFetch = fn }
+
+// downloadImageToTemp downloads an https:// image URL to a temp file through
+// the guarded imageFetch and returns the path plus a cleanup function. Only
+// https is accepted; the caller must call cleanup() when done. The fetch itself
+// is size/host capped by imageFetch (ADR-039) — a nil imageFetch or a host
+// outside every enabled provider's allowlist refuses rather than downloading.
 func downloadImageToTemp(ctx context.Context, rawURL string) (path string, cleanup func(), err error) {
 	if !strings.HasPrefix(rawURL, "https://") {
 		return "", nil, fmt.Errorf("cover image: only https URLs are supported")
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return "", nil, fmt.Errorf("cover image: bad URL: %w", err)
+	if imageFetch == nil {
+		return "", nil, fmt.Errorf("cover image: no allowlisted image fetcher configured")
 	}
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	data, err := imageFetch(ctx, rawURL)
 	if err != nil {
-		return "", nil, fmt.Errorf("cover image: download: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("cover image: server returned %d", resp.StatusCode)
+		return "", nil, fmt.Errorf("cover image: %w", err)
 	}
 
 	ext := ".jpg"
-	if ct := resp.Header.Get("Content-Type"); strings.Contains(ct, "png") {
+	if ct := http.DetectContentType(data); strings.Contains(ct, "png") {
 		ext = ".png"
 	}
 	tmp, err := os.CreateTemp("", "holodex-cover-*"+ext)
 	if err != nil {
 		return "", nil, fmt.Errorf("cover image: create temp: %w", err)
 	}
-	if _, err := io.Copy(tmp, io.LimitReader(resp.Body, 10<<20)); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", nil, fmt.Errorf("cover image: write temp: %w", err)

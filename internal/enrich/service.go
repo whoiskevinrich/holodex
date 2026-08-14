@@ -45,6 +45,14 @@ type EnrichRepo interface {
 	// ProviderFieldHints reads every stored hint, keyed by provider then field key —
 	// the source for the Service's in-memory cache the read path consults (F39).
 	ProviderFieldHints(ctx context.Context) (map[string]map[string]repo.ProviderFieldHint, error)
+	// ReplaceProviderLinkTemplates persists a provider's advertised outbound-link
+	// templates (HOLODEX-266, ADR-083 D2), refreshed whenever /describe is read. Best
+	// effort — a persistence failure never fails the provider action.
+	ReplaceProviderLinkTemplates(ctx context.Context, provider string, templates []repo.ProviderLinkTemplate) error
+	// ProviderLinkTemplates reads every stored template, keyed by namespace then
+	// entity kind — the source for the Service's in-memory cache the read path
+	// consults to build outbound badge links (HOLODEX-266, ADR-083 D2).
+	ProviderLinkTemplates(ctx context.Context) (map[string]map[string]string, error)
 	// ResolveOrCreatePeopleByExternalID resolves-or-creates a Person per (name,
 	// external_id) credit in one transaction (F32, ADR-055) — the identity step a
 	// video's people[] consumption performs before headshot download and before
@@ -118,6 +126,20 @@ type Service struct {
 	// restart, before any owner has acted on this provider) simply falls through to
 	// them, exactly as if the provider advertised nothing.
 	preferredPatterns atomic.Pointer[map[string]string]
+	// linkTemplates caches the persisted provider outbound-link templates
+	// (HOLODEX-266, ADR-083 D2) behind an atomic pointer, keyed by namespace then
+	// entity kind — lazily loaded and refreshed on /describe. Unlike
+	// preferredPatterns this IS backed by a DB table (provider_link_templates,
+	// mirroring fieldHints): a person/studio badge is visitor-visible, unrelated to
+	// any owner action, so its link must survive a restart rather than resetting to
+	// the degraded no-link state until an owner happens to act again.
+	linkTemplates atomic.Pointer[map[string]map[string]string]
+	// linkTemplatesMu serializes persistLinkTemplates's write-then-reload sequence.
+	// Without it, two providers' concurrent /describe calls (e.g. the owner's "Refresh
+	// All") can interleave their unlocked reload SELECTs and atomic.Pointer.Store
+	// calls out of commit order, losing one provider's templates from the cache even
+	// though the DB has both.
+	linkTemplatesMu sync.Mutex
 }
 
 // assetFetcher is the SSRF-guarded asset transport (satisfied by *AssetClient);
@@ -232,6 +254,7 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	}
 	s.persistFieldHints(ctx, provider, m)
 	s.persistPreferredPattern(provider, m)
+	s.persistLinkTemplates(ctx, provider, m)
 	return c, nil
 }
 
@@ -340,6 +363,89 @@ func (s *Service) PreferredSearchPattern(provider string) (pattern string, ok bo
 	return pattern, ok
 }
 
+// reloadLinkTemplates reads the link-template table and swaps it into the cache
+// atomically (HOLODEX-266, ADR-083 D2). A read error logs and keeps the last
+// known-good cache (falling back to an empty map only if nothing has ever loaded
+// successfully) rather than wiping every provider's badges to the degraded no-link
+// state over one transient read failure.
+func (s *Service) reloadLinkTemplates(ctx context.Context) map[string]map[string]string {
+	m, err := s.repo.ProviderLinkTemplates(ctx)
+	if err != nil {
+		s.log.Warn("load provider link templates", "err", err)
+		if p := s.linkTemplates.Load(); p != nil {
+			return *p
+		}
+		return map[string]map[string]string{}
+	}
+	s.linkTemplates.Store(&m)
+	return m
+}
+
+// persistLinkTemplates refreshes the stored outbound-link templates for a provider
+// from its /describe manifest (HOLODEX-266, ADR-083 D2). Mirrors persistFieldHints's
+// delete-then-insert-under-one-provider write, but always writes rather than
+// skipping on an unchanged-since-last-describe check: fieldHints' skip compares
+// against its own provider-partitioned cache, but linkTemplates is cached by
+// namespace (not provider, per ADR-055 D2 — see the struct field comment), so a
+// cheap per-provider diff isn't available the same way. Owner-triggered /describe
+// calls are low-frequency, so the extra write is an acceptable trade for the
+// simpler cache shape. Best effort: a failure logs and is swallowed so it never
+// blocks the owner's action.
+//
+// The write and the reload that follows it are held under linkTemplatesMu so two
+// providers' concurrent calls (e.g. "Refresh All") can't interleave their reload
+// reads out of commit order and lose one provider's templates from the cache.
+func (s *Service) persistLinkTemplates(ctx context.Context, provider string, m Manifest) {
+	sanitized := SanitizeLinkTemplates(m.LinkTemplates)
+	var templates []repo.ProviderLinkTemplate
+	for namespace, byKind := range sanitized {
+		for kind, tmpl := range byKind {
+			templates = append(templates, repo.ProviderLinkTemplate{Namespace: namespace, EntityType: kind, Template: tmpl})
+		}
+	}
+	s.linkTemplatesMu.Lock()
+	defer s.linkTemplatesMu.Unlock()
+	if err := s.repo.ReplaceProviderLinkTemplates(ctx, provider, templates); err != nil {
+		s.log.Warn("persist provider link templates", "provider", provider, "err", err)
+		return
+	}
+	s.reloadLinkTemplates(ctx) // reflect the new state in the cache
+}
+
+// LinkTemplates returns the cached provider-declared link-template map (HOLODEX-266,
+// ADR-083 D2), keyed by namespace then entity kind — from whichever provider most
+// recently advertised a link_templates entry for that pair (ADR-055 D2: a namespace
+// is a shared identity space across providers, so the row isn't provider-scoped). It
+// is lazily loaded from the store on first use and refreshed whenever /describe is
+// persisted, so the visitor read path never queries the table. Nil-safe for callers;
+// the map is treated as immutable.
+func (s *Service) LinkTemplates(ctx context.Context) map[string]map[string]string {
+	if p := s.linkTemplates.Load(); p != nil {
+		return *p
+	}
+	return s.reloadLinkTemplates(ctx)
+}
+
+// BuildProviderLink renders the outbound URL for a namespace-qualified external id
+// (HOLODEX-266, ADR-083 D2) — e.g. namespace "imdb", entityKind "person", id
+// "nm0000001". ok is false when no provider has advertised a template for this pair
+// (e.g. a freshly booted instance before any owner action has warmed this provider's
+// row, or a namespace with no declared template) — the caller (the person/studio/
+// video badge projection) treats that as the ADR-083 D2 degraded no-link state, not
+// an error.
+func (s *Service) BuildProviderLink(ctx context.Context, namespace, entityKind, id string) (link string, ok bool) {
+	namespace = strings.ToLower(strings.TrimSpace(namespace))
+	entityKind = strings.ToLower(strings.TrimSpace(entityKind))
+	if namespace == "" || entityKind == "" || id == "" {
+		return "", false
+	}
+	tmpl, ok := s.LinkTemplates(ctx)[namespace][entityKind]
+	if !ok {
+		return "", false
+	}
+	return BuildLink(tmpl, id), true
+}
+
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
 // embedded external ids (deterministic path) and/or a name query (fallback). The
 // caller always confirms a candidate before Enrich — nothing is applied here.
@@ -389,6 +495,20 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 		return nil, err
 	}
 	fields := sanitizeFields(res.Fields)
+	// HOLODEX-258: unlike _person_external_ids (synthesized by core below, never
+	// provider-authored), _studio_external_ids is emitted by the provider directly as one
+	// self-describing string — sanitizeFields' generic SanitizeValue pass lets any string
+	// through as the "id" with no shape validation. Reject malformed entries here, the
+	// same way sanitizePeople already does for the person channel. Only act when the
+	// provider actually sent this key (raw/ok) — sanitizeFields drops it entirely when
+	// every raw value fails its own sanitization, so ok distinguishes "provider omitted
+	// it" (leave any previously-stored row alone, ADR-033's additive shadow store) from
+	// "provider sent it and it was garbage" (overwrite with empty so UpsertEnrichment's
+	// per-key upsert actually clears a stale/pre-fix-poisoned row instead of leaving it,
+	// since UpsertEnrichment never deletes a key merely absent from this map).
+	if raw, ok := fields[model.StudioExternalIDsField]; ok {
+		fields[model.StudioExternalIDsField] = sanitizeStudioExternalIDs(raw)
+	}
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
 	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
 	// never provider-authored — people[] arrives as a separate array). Unconditionally
@@ -468,6 +588,33 @@ func sanitizePeople(in []ProviderPerson) []ProviderPerson {
 		}
 		p.ExternalID = externalID
 		out = append(out, p)
+	}
+	return out
+}
+
+// sanitizeStudioExternalIDs rejects any _studio_external_ids value whose id token (the text
+// before the first space) is not a well-formed "<namespace>:<id>" pair — mirrors sanitizePeople's
+// ADR-055 guard (F32/HOLODEX-102) for the studio sidecar (ADR-054). Unlike the person channel, a
+// provider emits this sidecar directly as one self-describing string — there is no separate
+// structured external_id field to validate before construction — so sanitizeFields' generic
+// SanitizeValue pass alone lets any string through as the "id". This closes that gap the same way
+// sanitizePeople does: reject malformed entries rather than merely trimming them. Unlike
+// sanitizePeople, no explicit "contains a space" check is needed on the id token itself — it's
+// defined as v[:sep], the text before the first space, so it cannot contain one by construction.
+// A local, ADR-055-scoped check (HOLODEX-124 tracks a shared cross-contract parser eventually).
+func sanitizeStudioExternalIDs(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		extID, name, found := strings.Cut(v, " ")
+		if !found || extID == "" {
+			continue
+		}
+		name = strings.TrimSpace(name)
+		ns, id, ok := strings.Cut(extID, ":")
+		if name == "" || !ok || ns == "" || id == "" {
+			continue
+		}
+		out = append(out, v)
 	}
 	return out
 }
@@ -721,6 +868,24 @@ func (s *Service) FetchAsset(ctx context.Context, provider, rawURL string) ([]by
 	return s.newAssetGet(src).Fetch(ctx, rawURL)
 }
 
+// FetchAllowedImage downloads rawURL through the SSRF-guarded asset transport of
+// whichever enabled provider's allowlist (base_url host ∪ asset_hosts, ADR-039)
+// covers this URL's host, trying each enabled provider in turn. Unlike FetchAsset
+// it does not take a provider name: it is the writeback cover-art download's
+// perimeter (HOLODEX-212, internal/writeback.ImageFetcher) for a canonical
+// image_url field (poster_url, photo), which — unlike a person/studio asset — has
+// no single owning provider to key off of by the time it reaches WriteBatch.
+// Refuses (no dial, no partial match) when no enabled provider's allowlist covers
+// the host.
+func (s *Service) FetchAllowedImage(ctx context.Context, rawURL string) ([]byte, error) {
+	for _, src := range s.store.Current().Enabled() {
+		if assetHostAllowed(src, rawURL) {
+			return s.newAssetGet(src).Fetch(ctx, rawURL)
+		}
+	}
+	return nil, fmt.Errorf("image host not allowlisted by any enabled provider")
+}
+
 // Clear removes a provider's contribution for an entity (F22.7b).
 func (s *Service) Clear(ctx context.Context, entityType string, entityID int64, provider string) error {
 	_, err := s.repo.DeleteEnrichmentByProvider(ctx, entityType, entityID, provider)
@@ -815,14 +980,19 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 // the candidate itself is still usable, just without the "view source" link.
 func sanitizeProfileURL(raw string) string {
 	raw = SanitizeValue(raw)
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	if raw == "" || !validHTTPURL(raw) {
 		return ""
 	}
 	return raw
+}
+
+// validHTTPURL reports whether raw parses as an absolute http(s) URL with a host —
+// shared by sanitizeProfileURL and ValidateLinkTemplate (link_templates.go), both of
+// which validate an outbound-link URL the visitor's browser will navigate, never one
+// dialed server-side.
+func validHTTPURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // SanitizeValue removes control characters (keeping normal whitespace), collapses

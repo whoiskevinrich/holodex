@@ -200,8 +200,18 @@ func TestGenreWritebackEndpoint(t *testing.T) {
 		t.Fatalf("POST writeback: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("writeback status = %d, want 204", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("writeback status = %d, want 200", resp.StatusCode)
+	}
+	var out struct {
+		Written []string `json:"written"`
+		Skipped []string `json:"skipped"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode writeback response: %v", err)
+	}
+	if len(out.Written) != 1 || out.Written[0] != "genres" || len(out.Skipped) != 0 {
+		t.Errorf("writeback response = %+v, want written=[genres] skipped=[]", out)
 	}
 
 	if len(*written) != 1 {
@@ -306,4 +316,45 @@ func TestGetMedia_GenresRow(t *testing.T) {
 	if len(values) != 1 || values[0] != "Action" {
 		t.Errorf("genres values after detach = %v, want [Action] only", values)
 	}
+}
+
+// TestGetMedia_GenresRow_WriteTarget covers HOLODEX-216: the "genres" row that
+// applyGenreWriteback appends when there's no pre-existing resolved row (a
+// tag-only video, P0-10's whole point) must still get its WriteTarget stamped.
+// markWriteTargets has to run after applyGenreWriteback, not before — this
+// pins the ordering so a regression shows up here instead of only silently
+// disabling the checkbox in the dialog.
+func TestGetMedia_GenresRow_WriteTarget(t *testing.T) {
+	_, srv, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+
+	// Tag-only video: no provider/file genre value, so resolver.Resolve produces
+	// no "genres" row at all — applyGenreWriteback must append one from scratch.
+	if _, err := r.AttachTagToVideo(ctx, vid, "Comedy"); err != nil {
+		t.Fatalf("attach tag: %v", err)
+	}
+
+	resp, err := http.Get(srv.URL + "/api/v1/media/" + itoa(vid))
+	if err != nil {
+		t.Fatalf("GET media: %v", err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Resolved []struct {
+			Canonical   string `json:"canonical"`
+			WriteTarget string `json:"write_target"`
+		} `json:"resolved"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode media: %v", err)
+	}
+	for _, f := range body.Resolved {
+		if strings.EqualFold(f.Canonical, "genres") {
+			if f.WriteTarget == "" {
+				t.Fatalf("genres row (appended, no pre-existing row) has empty write_target — markWriteTargets must run after applyGenreWriteback")
+			}
+			return
+		}
+	}
+	t.Fatalf("genres row missing for a tag-only video")
 }

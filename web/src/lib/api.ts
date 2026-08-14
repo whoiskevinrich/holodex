@@ -18,6 +18,8 @@ import type {
 	ExtractionResolveAction,
 	ExtractionResult,
 	Facet,
+	FacetSummary,
+	CompletenessFacetGroup,
 	JobRun,
 	JobDigest,
 	MediaDetailResponse,
@@ -27,7 +29,6 @@ import type {
 	Person,
 	PersonAlias,
 	PersonDetailResponse,
-	PersonRenameConflict,
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
@@ -41,6 +42,7 @@ import type {
 	Tag,
 	TrashEntry,
 	Video,
+	VideoCollisionRef,
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
@@ -64,7 +66,8 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 
 // The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
 // /media, so this can't reuse ENTITY_BASE (F43's alias/merge/rename spine has no video).
-const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
+// Exported for CompletenessQueueRow, which links to the same entity pages by kind.
+export const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
 	video: 'media'
@@ -190,6 +193,35 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 		throw new ApiError(res.status, path);
 	}
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
+}
+
+// sendConflictable is sendAuthed's sibling for the two owner mutations that can
+// resolve a composite-key collision (HOLODEX-270/272) as `{conflict}` instead of
+// throwing: curateMedia and setFieldDecision. Any other 409 (e.g. "item deleted")
+// still throws, or a caller checking only `if (res.conflict)` would fall through
+// to its success path.
+async function sendConflictable<TReq>(
+	method: 'POST' | 'PUT',
+	path: string,
+	body: TReq
+): Promise<{ conflict?: VideoCollisionRef }> {
+	const res = await fetch(`${BASE}${path}`, {
+		method,
+		credentials: CREDS,
+		redirect: 'manual',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	checkRedirect(res);
+	if (res.status === 409) {
+		const conflictBody = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+		if (conflictBody.conflict) return { conflict: conflictBody.conflict };
+		throw new ApiError(res.status, path);
+	}
+	if (!res.ok && res.status !== 204) {
+		throw new ApiError(res.status, path);
+	}
+	return {};
 }
 
 // uploadAuthed POSTs multipart FormData on the owner surface with the session
@@ -319,8 +351,19 @@ export const api = {
 	// list in canonical name order for both 'name' and 'random' — the random shuffle
 	// is applied client-side (these lists are unpaged) — so only 'count' reorders
 	// server-side. 'random' is still sent so the contract is exercised/observable.
-	listPeople: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Person[] }>(`/people${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) are owner-only — the server
+	// 401s a non-owner request using either; callers gate on isOwner before passing them.
+	listPeople: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Person[] }>(`/people${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
@@ -397,8 +440,19 @@ export const api = {
 	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
 	// random; random shuffled client-side). Detail carries resolved[] in the record
 	// vocabulary (no in_sync) plus the studio's videos.
-	listStudios: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Studio[] }>(`/studios${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	// completeness_asc/desc + missingFacet (F55.5/F55.6) mirror listPeople — owner-only,
+	// callers gate on isOwner before passing them.
+	listStudios: (
+		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
+		fetchFn?: typeof fetch,
+		missingFacet?: string[]
+	) => {
+		const p = new URLSearchParams();
+		if (sort !== 'name') p.set('sort', sort);
+		for (const canonical of missingFacet ?? []) p.append('missing_facet', canonical);
+		const qs = p.toString();
+		return get<{ items: Studio[] }>(`/studios${qs ? `?${qs}` : ''}`, fetchFn);
+	},
 
 	getStudio: (id: number, fetchFn?: typeof fetch) =>
 		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
@@ -423,6 +477,19 @@ export const api = {
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),
+
+	// Missing-facet summary (F55.6, ADR-081 D4) — canonical facets + how many
+	// entities of this type are currently missing each, for the browse page's
+	// Missing-facet filter chip options. Owner-gated (score/actionability are
+	// never exposed to non-owners, even as an aggregate count).
+	completenessFacets: (entityType: 'video' | 'person' | 'studio') =>
+		getAuthed<{ facets: FacetSummary[] }>(`/completeness/facets?entity_type=${entityType}`),
+
+	// Facet-first remediation queue (F55.7) — every missing scored facet across
+	// the whole library, grouped by facet and split candidate-ready/needs-research.
+	// Owner-gated; a pure DB read (no writes on load).
+	completenessQueue: () =>
+		getAuthed<{ groups: CompletenessFacetGroup[] }>(`/owner/completeness-queue`),
 
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),
@@ -528,8 +595,9 @@ export const api = {
 
 	// Shared entity name-identity mutations (F43, ADR-061) — one owner-gated client trio
 	// over the per-entity routes (people | studios | tags), mirroring the F23 person shape.
-	// Person uses these too, so the AliasPanel/EntityPicker are entity-uniform; the person
-	// page's rename flow keeps its dedicated renamePerson (it carries the F37 name-chip UX).
+	// Person uses these too (HOLODEX-269 retired the person-only renamePerson, which had a
+	// conflict-parsing bug this shared renameEntity doesn't have), so AliasPanel/EntityPicker/
+	// NameEditControl are all entity-uniform.
 
 	// addEntityAlias adds an alias, returning the updated list — or, when the name already
 	// belongs to another entity of this kind, that entity as a `conflict` (409), so the UI
@@ -725,10 +793,16 @@ export const api = {
 
 	// Metadata writeback — embed curated field values into the media file's tags.
 	// Owner-gated. Returns {job_id, queued} when the durable queue is wired (202,
-	// F30/ADR-048), or {} on the legacy synchronous path (204, F28). 422 when a
-	// field has no tag mapping for the file's container.
+	// F30/ADR-048) — no per-field outcome yet, wait on writebackJobStatus. On the
+	// legacy synchronous path (F28) returns {written, skipped} (200, HOLODEX-216)
+	// naming exactly which submitted fields landed; 422 only when every field has
+	// no tag mapping for the file's container.
 	writebackMedia: (id: number, req: WritebackRequest) =>
-		sendAuthed<{ job_id?: number; queued?: number }>('POST', `/media/${id}/writeback`, req),
+		sendAuthed<{ job_id?: number; queued?: number; written?: string[]; skipped?: string[] }>(
+			'POST',
+			`/media/${id}/writeback`,
+			req
+		),
 
 	// One queued write's state, for polling it to completion (ADR-073): "pending" /
 	// "running" while in flight, "done" once the queue row is gone (it deletes on
@@ -763,9 +837,12 @@ export const api = {
 
 	// Value-level curation (F30, ADR-048). curateMedia records a manual add /
 	// suppress / nowrite decision; clearMediaCuration removes one (restoring the
-	// underlying source value). Owner-gated; 204 on success.
+	// underlying source value). Owner-gated; 204 on success. A person-typed field
+	// add/suppress may 409 on the People composite-key collision gate (HOLODEX-272);
+	// like setFieldDecision, that returns as `conflict` (conflict-as-return-value, not
+	// an exception) — every other field/action combination never produces one.
 	curateMedia: (id: number, req: CurationRequest) =>
-		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation`, req),
+		sendConflictable('POST', `/media/${id}/curation`, req),
 	clearMediaCuration: (id: number, req: CurationRequest) =>
 		sendAuthed<Record<string, never>>('POST', `/media/${id}/curation/clear`, req),
 
@@ -773,17 +850,33 @@ export const api = {
 	// pins a replace field to a source (file / provider:<name> / manual + literal);
 	// clearFieldDecision removes the decision, reverting the field to the file default.
 	// Both are DB-only — they never touch the file (RD5); the file changes solely via
-	// writebackMedia ("Write decisions to file").
+	// writebackMedia ("Write decisions to file"). A manual title edit may 409 on a
+	// composite-key collision (HOLODEX-270); like renameEntity, that returns as `conflict`
+	// (conflict-as-return-value, not an exception) rather than throwing — every other
+	// field/source combination never produces one.
 	setFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
-		sendAuthed<Record<string, never>>(
-			'PUT',
-			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`,
-			req
-		),
+		sendConflictable('PUT', `/media/${id}/fields/${encodeURIComponent(canonical)}/decision`, req),
 	clearFieldDecision: (id: number, canonical: string) =>
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/media/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
+	// Per-facet not-applicable exclusion (F55.10, ADR-081 D2) — the completeness
+	// breakdown panel's DD8 toggle. Video-only: it is independent of any
+	// field_source_decisions row for the same field, and the mutation validates
+	// against the full registry (not just video-mapped fields), but v1's only UI
+	// target is external_provider_id, a video-only registry field. Owner-gated;
+	// 204 on success.
+	setFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
+		),
+	clearFacetNotApplicable: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/media/${id}/fields/${encodeURIComponent(canonical)}/not-applicable`
 		),
 
 	// Person per-field source decisions (F37, RD7) — the media pair mirrored onto
@@ -874,32 +967,5 @@ export const api = {
 	listFieldClaims: (entityType: PromotionEntityType) =>
 		getAuthed<FieldClaim[]>(`/admin/field-claims/${entityType}`),
 	listFieldTargets: (entityType: PromotionEntityType) =>
-		getAuthed<FieldTarget[]>(`/admin/field-targets/${entityType}`),
-
-	// Rename a person, keeping the old name as an F23 alias (one transaction — search
-	// and scan routing keep matching it; F37 RD1). 204 on success. A 409 (the name
-	// already belongs to another person) returns that person as `conflict` so the UI
-	// can offer the existing merge flow instead — never an auto-merge.
-	renamePerson: async (
-		personId: number,
-		name: string
-	): Promise<{ conflict?: PersonRenameConflict }> => {
-		const path = `/people/${personId}/rename`;
-		const res = await fetch(`${BASE}${path}`, {
-			method: 'POST',
-			credentials: CREDS,
-			redirect: 'manual',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name })
-		});
-		checkRedirect(res);
-		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as PersonRenameConflict;
-			return { conflict: body };
-		}
-		if (!res.ok && res.status !== 204) {
-			throw new ApiError(res.status, path);
-		}
-		return {};
-	}
+		getAuthed<FieldTarget[]>(`/admin/field-targets/${entityType}`)
 };

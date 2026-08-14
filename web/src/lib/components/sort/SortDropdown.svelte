@@ -2,10 +2,12 @@
 	import type { SortOrder } from '$lib/types';
 	import { MEDIA_SORTS } from '$lib/filters';
 
-	let { sort = $bindable() }: { sort: SortOrder } = $props();
+	// owner gates the ownerOnly entries (F55.5 Completeness sorts) — the server
+	// 401s a non-owner request using them, so they must not even render as options.
+	let { sort = $bindable(), owner = false }: { sort: SortOrder; owner?: boolean } = $props();
 
 	// Options + order come from the single source of truth in filters.ts (F12.1).
-	const OPTIONS = MEDIA_SORTS;
+	const OPTIONS = $derived(MEDIA_SORTS.filter((o) => owner || !o.ownerOnly));
 </script>
 
 <div>

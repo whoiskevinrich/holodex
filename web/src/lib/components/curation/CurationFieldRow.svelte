@@ -77,7 +77,14 @@
 		busy = true;
 		error = '';
 		try {
-			await fn();
+			const result = await fn();
+			// curateMedia/setFieldDecision resolve (rather than throw) on a composite-key
+			// collision, carrying `{conflict}` — treat that as a failure too, or the
+			// caller never learns the edit didn't apply (HOLODEX-272).
+			if (result && typeof result === 'object' && 'conflict' in result && (result as { conflict?: unknown }).conflict) {
+				error = 'This change conflicts with another video with the same title, people, date, and studio.';
+				return;
+			}
 			await onchanged();
 		} catch (e) {
 			error = toMessage(e);

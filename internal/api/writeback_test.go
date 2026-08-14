@@ -2,10 +2,158 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
+
+	"holodex/internal/api"
+	"holodex/internal/cache"
+	"holodex/internal/db"
+	"holodex/internal/mapping"
+	"holodex/internal/model"
+	"holodex/internal/repo"
+	"holodex/internal/writeback"
 )
+
+// syncWritebackServer wires the legacy synchronous writeback path (no queue) over
+// a real repo with a "title" (mapped for every container) and "director" (mapped
+// for none — see internal/writeback/tags.go's formatMap) canonical field, plus a
+// capturing WriteBatchFunc, so tests can drive the actual POST /media/{id}/writeback
+// mixed-batch behavior (HOLODEX-216) and the GET /media/{id} write_target stamping
+// end to end.
+func syncWritebackServer(t *testing.T) (srv *httptest.Server, vid int64, r *repo.Repo, written *[]writeback.FieldWrite) {
+	t.Helper()
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r = repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	ctx := context.Background()
+	vid, err = r.UpsertVideo(ctx, &model.Video{
+		FilePath: filepath.Join(dir, "v.mp4"), FileSize: 1, Title: "A", Container: "MP4",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	mpath := filepath.Join(dir, "metadata-mappings.yaml")
+	yaml := "fields:\n" +
+		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
+		"  - canonical: director\n    label: Director\n    sources: [tmdb:director]\n"
+	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := mapping.NewStore(mpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetMetadataFields(store, cache.Noop{})
+	written = &[]writeback.FieldWrite{}
+	h.SetWriteback(func(_ context.Context, _ string, fields []writeback.FieldWrite) error {
+		*written = append(*written, fields...)
+		return nil
+	})
+	srv = httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+	return srv, vid, r, written
+}
+
+// TestWritebackEndpoint_MixedBatchReportsWrittenAndSkipped covers HOLODEX-216: a
+// batch mixing a mapped field (title) and an unmapped one (director — mapped for
+// no container) must write only the mappable field and report exactly that in the
+// response, rather than the old bare 204 that let the unmapped field vanish
+// without a trace.
+func TestWritebackEndpoint_MixedBatchReportsWrittenAndSkipped(t *testing.T) {
+	srv, vid, _, written := syncWritebackServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"fields": []map[string]any{
+			{"field": "title", "values": []string{"New Title"}, "source": "file:title"},
+			{"field": "director", "values": []string{"Someone"}, "source": "tmdb:director"},
+		},
+	})
+	resp, err := http.Post(srv.URL+"/api/v1/media/"+strconv.FormatInt(vid, 10)+"/writeback",
+		"application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("POST writeback: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("writeback status = %d, want 200", resp.StatusCode)
+	}
+	var out struct {
+		Written []string `json:"written"`
+		Skipped []string `json:"skipped"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode writeback response: %v", err)
+	}
+	if len(out.Written) != 1 || out.Written[0] != "title" {
+		t.Errorf("written = %v, want [title]", out.Written)
+	}
+	if len(out.Skipped) != 1 || out.Skipped[0] != "director" {
+		t.Errorf("skipped = %v, want [director]", out.Skipped)
+	}
+	if len(*written) != 1 || (*written)[0].TagName != "QuickTime:Title" {
+		t.Fatalf("actually-written fields = %+v, want only QuickTime:Title", *written)
+	}
+}
+
+// TestGetMedia_WriteTarget covers HOLODEX-216's other half: the resolved[] payload
+// names each field's destination file tag for the video's actual container, empty
+// for a canonical with no mapping there, so the dialog can show the target and
+// disable a field that can never be written instead of offering it and silently
+// dropping it on write.
+func TestGetMedia_WriteTarget(t *testing.T) {
+	srv, vid, r, _ := syncWritebackServer(t)
+
+	// director needs a resolved value to appear in resolved[] at all; seeding it
+	// via enrichment is what exercises "has a value, but no mapping for MP4".
+	if err := r.UpsertEnrichment(context.Background(), model.EnrichEntityVideo, vid, "tmdb", "ext-1",
+		map[string][]string{"director": {"Someone"}}); err != nil {
+		t.Fatalf("seed director enrichment: %v", err)
+	}
+
+	resp, err := http.Get(srv.URL + "/api/v1/media/" + strconv.FormatInt(vid, 10))
+	if err != nil {
+		t.Fatalf("GET media: %v", err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Resolved []struct {
+			Canonical   string `json:"canonical"`
+			WriteTarget string `json:"write_target"`
+		} `json:"resolved"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode media: %v", err)
+	}
+	targets := make(map[string]string, len(out.Resolved))
+	for _, f := range out.Resolved {
+		targets[f.Canonical] = f.WriteTarget
+	}
+	if targets["title"] != "QuickTime:Title" {
+		t.Errorf("title write_target = %q, want QuickTime:Title", targets["title"])
+	}
+	if got, ok := targets["director"]; !ok || got != "" {
+		t.Errorf("director write_target = %q (present=%v), want empty (no mapping for MP4)", got, ok)
+	}
+}
 
 // jobStatusURL builds the status URL for one queued write.
 func jobStatusURL(base string, jobID int64) string {

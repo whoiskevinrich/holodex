@@ -50,12 +50,26 @@ type FieldDef struct {
 	// unset sentinel stored as '', never SQL NULL) — a person-typed field can be
 	// entity-linkable without every credit having a meaningful role.
 	Role string
+	// Criticality is the facet's weight class for the entity completeness score
+	// (F55, ADR-081 D1): CriticalityCritical, CriticalityNiceToHave, or "" (the
+	// zero value — excluded from scoring; the default for most fields, since only
+	// P0-scored facets per entity type get an explicit tag). A field can never be
+	// both Computed and criticality-tagged — the scorer treats Computed as an
+	// automatic exclusion, reusing the invariant ADR-063 already established for
+	// age/age_at_death rather than re-deriving it here.
+	Criticality string
 }
 
 // EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
 const (
 	EntityKindPerson = "person"
 	EntityKindStudio = "studio"
+)
+
+// Criticality values (F55, ADR-081 D1) — see FieldDef.Criticality.
+const (
+	CriticalityCritical   = "critical"
+	CriticalityNiceToHave = "nice_to_have"
 )
 
 // KnownFields is the full canonical field registry. Order is documentation order;
@@ -67,26 +81,33 @@ var KnownFields = []FieldDef{
 		Label:       "Title",
 		Display:     "",
 		Description: "Display title of the video. Prefer a provider value over the filename-derived title.",
+		Criticality: CriticalityCritical,
 	},
 	{
 		Canonical:   "original_title",
 		Label:       "Original Title",
 		Display:     "",
 		Description: "Title in the original language when it differs from the primary title.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "overview",
 		Label:       "Overview",
 		Display:     "long_text",
 		Description: "Plot summary or description. Trimmed to ≤4000 chars at a sentence boundary.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "tagline",
 		Label:       "Tagline",
 		Display:     "",
 		Description: "Short marketing tagline.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
+		// Excluded from completeness scoring (F55, ADR-081): a zero-source,
+		// manual-first field (F52) with no provider tier to distinguish from
+		// curated, and "no commentary" is a normal, non-deficient state.
 		Canonical:   "commentary",
 		Label:       "Commentary",
 		Display:     "long_text",
@@ -97,48 +118,60 @@ var KnownFields = []FieldDef{
 		Label:       "Released",
 		Display:     "",
 		Description: "Release date in YYYY-MM-DD format.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "runtime",
 		Label:       "Runtime (min)",
 		Display:     "",
 		Description: "Runtime in minutes (integer string).",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "genres",
 		Label:       "Genres",
 		Display:     "",
 		Description: "Genre list. Multi-valued; each value is one genre name.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "status",
 		Label:       "Status",
 		Display:     "",
 		Description: "Release status (e.g. Released, Post Production, In Production).",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "original_language",
 		Label:       "Language",
 		Display:     "",
 		Description: "ISO 639-1 language code of the original language.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "homepage",
 		Label:       "Website",
 		Display:     "url",
 		Description: "Official website URL for the film. Rendered as a link (opens in a new tab).",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
-		Canonical:   "imdb_id",
-		Label:       "IMDb",
+		// F55 (ADR-081 D5, value shape per ADR-082): generalized from the old
+		// imdb_id name. The value is namespace-qualified ("<provider>:<id>",
+		// e.g. "tmdb:603", "imdb:tt1234567") so it stays unambiguous when more
+		// than one provider can populate this facet.
+		Canonical:   "external_provider_id",
+		Label:       "External ID",
 		Display:     "",
-		Description: "IMDb title identifier (tt… format).",
+		Description: "External metadata-provider identifier, namespace-qualified (\"<provider>:<id>\").",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "poster_url",
 		Label:       "Poster",
 		Display:     "image_url",
 		Description: "Poster image URL. Must be on an operator-allowlisted CDN host (ADR-039). Rendered as <img>.",
+		Criticality: CriticalityCritical,
 	},
 
 	// ---- Person fields ----
@@ -147,14 +180,18 @@ var KnownFields = []FieldDef{
 		Label:       "Bio",
 		Display:     "long_text",
 		Description: "Biography or description. Trimmed to ≤4000 chars at a sentence boundary.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "birthdate",
 		Label:       "Born",
 		Display:     "",
 		Description: "Birth date in YYYY-MM-DD format.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
+		// Excluded from completeness scoring (F55, ADR-081): legitimately absent
+		// for most (living) people — not a meaningful completeness gap.
 		Canonical:   "deathdate",
 		Label:       "Died",
 		Display:     "",
@@ -165,8 +202,11 @@ var KnownFields = []FieldDef{
 		Label:       "Nationality",
 		Display:     "",
 		Description: "Place of birth or nationality string as provided by the source.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
+		// Excluded from completeness scoring (F55, ADR-081): low signal for "is
+		// this person's profile complete."
 		Canonical:   "website",
 		Label:       "Website",
 		Display:     "url",
@@ -177,12 +217,14 @@ var KnownFields = []FieldDef{
 		Label:       "Aliases",
 		Display:     "",
 		Description: "Alternate names or pseudonyms. Multi-valued.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "photo",
 		Label:       "Photo",
 		Display:     "image_url",
 		Description: "Portrait image. Delivered as an asset (not a field value) by providers that support it.",
+		Criticality: CriticalityCritical,
 	},
 
 	// ---- Derived / computed person fields (F45, ADR-063) ----
@@ -212,16 +254,32 @@ var KnownFields = []FieldDef{
 		Label:       "Description",
 		Display:     "long_text",
 		Description: "Studio description or summary. Trimmed to ≤4000 chars at a sentence boundary.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "country",
 		Label:       "Country",
 		Display:     "",
 		Description: "Origin country of the studio (ISO 3166-1 code as provided by the source).",
+		Criticality: CriticalityNiceToHave,
 	},
 	// "logo" was a plain image_url field through F38 (ADR-057); retired in F51
 	// (ADR-079) — the studio logo (plus icon/poster) is now a downloaded asset in
 	// studio_images, delivered like a person photo, not a resolved field value.
+	{
+		// Composite completeness facet (F55, ADR-081 D1): resolved when the
+		// studio has at least one image in any of the icon/logo/poster roles
+		// (F51/ADR-079), scored as one facet, not three. Synthetic — never
+		// produced by a provider, file, or the resolver; studio_images is
+		// queried directly for its status. It exists here only so the
+		// completeness scorer has a single, code-reviewed place to carry the
+		// facet's criticality weight, the same as every other scored facet.
+		Canonical:   "branding_image",
+		Label:       "Branding image",
+		Display:     "",
+		Description: "Whether the studio has at least one icon/logo/poster image set (F51, ADR-079).",
+		Criticality: CriticalityNiceToHave,
+	},
 
 	// ---- File-metadata fields (examples; operators add more via metadata-mappings.yaml) ----
 	{
@@ -231,6 +289,7 @@ var KnownFields = []FieldDef{
 		Description: "Cast members. Multi-valued; each value is one performer's name. Written as a comma-delimited Artist tag.",
 		EntityKind:  EntityKindPerson,
 		Role:        "actor",
+		Criticality: CriticalityCritical,
 	},
 	{
 		Canonical:   "studio",
@@ -238,12 +297,14 @@ var KnownFields = []FieldDef{
 		Display:     "",
 		Description: "Production company, publisher, or label. Typically sourced from Publisher/Label/Studio file tags.",
 		EntityKind:  EntityKindStudio,
+		Criticality: CriticalityCritical,
 	},
 	{
 		Canonical:   "collection",
 		Label:       "Collection",
 		Display:     "",
 		Description: "Album or collection name. Typically sourced from the Album file tag.",
+		Criticality: CriticalityNiceToHave,
 	},
 	{
 		Canonical:   "director",
@@ -252,6 +313,7 @@ var KnownFields = []FieldDef{
 		Description: "Director(s). Multi-valued.",
 		EntityKind:  EntityKindPerson,
 		Role:        "director",
+		Criticality: CriticalityNiceToHave,
 	},
 }
 
