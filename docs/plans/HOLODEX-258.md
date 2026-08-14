@@ -61,3 +61,19 @@ means `_studio_external_ids` gets the same ingest-time shape guard, mirroring `s
   [PR #239](https://github.com/whoiskevinrich/holodex/pull/239) ready for review. **Next
   session (if any):** watch for PR review feedback; merge → Jira Done → GHCR release → Jira
   Released, all automatic per ADR-058.
+
+### 2026-08-13 · code-review xhigh --fix
+- skills: code-review
+- handoff: 10-angle xhigh pass over the PR #239 diff surfaced one real correctness gap (Angle B):
+  the call site's `delete(fields, model.StudioExternalIDsField)` on an all-malformed response left
+  any **pre-existing** stale/poisoned row (e.g. one stored before this fix shipped) untouched
+  forever, since `UpsertEnrichment` never deletes a key merely absent from the fields map it's
+  given. Fixed by keying off whether the provider actually sent the field
+  (`raw, ok := fields[...]`) — absent stays absent (no spurious row for entities/providers that
+  never send it), present-but-fully-malformed now writes an empty slice so the next re-enrich's
+  upsert actively clears the stale row. Added a regression test
+  (`TestEnrichVideoClearsStaleStudioExternalIDOnReenrich`) proving the self-heal. Also applied a
+  minor cleanup: `sanitizeStudioExternalIDs`'s manual `IndexByte`+slice split now uses
+  `strings.Cut`, matching the idiom already used on the next line. `go build`, `go vet`, `gofmt`,
+  and `go test ./internal/enrich/... ./internal/api/... ./internal/repo/...` all green. **Next
+  session (if any):** commit + push this follow-up to PR #239; watch for review feedback.

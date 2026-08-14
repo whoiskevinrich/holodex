@@ -499,11 +499,15 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// provider-authored), _studio_external_ids is emitted by the provider directly as one
 	// self-describing string — sanitizeFields' generic SanitizeValue pass lets any string
 	// through as the "id" with no shape validation. Reject malformed entries here, the
-	// same way sanitizePeople already does for the person channel.
-	if cleaned := sanitizeStudioExternalIDs(fields[model.StudioExternalIDsField]); len(cleaned) > 0 {
-		fields[model.StudioExternalIDsField] = cleaned
-	} else {
-		delete(fields, model.StudioExternalIDsField)
+	// same way sanitizePeople already does for the person channel. Only act when the
+	// provider actually sent this key (raw/ok) — sanitizeFields drops it entirely when
+	// every raw value fails its own sanitization, so ok distinguishes "provider omitted
+	// it" (leave any previously-stored row alone, ADR-033's additive shadow store) from
+	// "provider sent it and it was garbage" (overwrite with empty so UpsertEnrichment's
+	// per-key upsert actually clears a stale/pre-fix-poisoned row instead of leaving it,
+	// since UpsertEnrichment never deletes a key merely absent from this map).
+	if raw, ok := fields[model.StudioExternalIDsField]; ok {
+		fields[model.StudioExternalIDsField] = sanitizeStudioExternalIDs(raw)
 	}
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
 	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
@@ -601,11 +605,11 @@ func sanitizePeople(in []ProviderPerson) []ProviderPerson {
 func sanitizeStudioExternalIDs(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, v := range in {
-		sep := strings.IndexByte(v, ' ')
-		if sep <= 0 {
+		extID, name, found := strings.Cut(v, " ")
+		if !found || extID == "" {
 			continue
 		}
-		extID, name := v[:sep], strings.TrimSpace(v[sep+1:])
+		name = strings.TrimSpace(name)
 		ns, id, ok := strings.Cut(extID, ":")
 		if name == "" || !ok || ns == "" || id == "" {
 			continue

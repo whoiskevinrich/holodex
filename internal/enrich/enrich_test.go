@@ -1086,6 +1086,80 @@ sources:
 	}
 }
 
+// TestEnrichVideoClearsStaleStudioExternalIDOnReenrich is HOLODEX-258's self-heal guard: a
+// _studio_external_ids row already persisted (e.g. from before this fix shipped, when any shape
+// could get stored) must not survive untouched forever just because sanitizeStudioExternalIDs now
+// rejects bad values on the write side. UpsertEnrichment only upserts keys present in the fields
+// map it's given and never deletes a key merely absent from it, so a naive `delete(fields, ...)`
+// when every value is malformed would leave a pre-existing stale row completely untouched. The
+// call site must instead keep the key (mapped to an empty slice) whenever the provider actually
+// sent it, so the next re-enrich's upsert overwrites the stale row rather than skipping it.
+func TestEnrichVideoClearsStaleStudioExternalIDOnReenrich(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:608"] = FakePerson{
+		Label: "Men in Black",
+		Fields: map[string][]string{
+			"title":                      {"Men in Black"},
+			"studio":                     {"Amblin Entertainment"},
+			model.StudioExternalIDsField: {"tmdb:56 Amblin Entertainment"},
+		},
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 43, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich (initial, well-formed): %v", err)
+	}
+
+	// Provider now returns only a malformed value on re-enrich — mimics a stale row left
+	// over from before this fix shipped, when a compromised provider could persist anything.
+	fake.People["tmdb:608"] = FakePerson{
+		Label: "Men in Black",
+		Fields: map[string][]string{
+			"title":                      {"Men in Black"},
+			"studio":                     {"Attacker Studio"},
+			model.StudioExternalIDsField: {"noSpaceAtAll"},
+		},
+	}
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 43, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich (re-enrich, malformed): %v", err)
+	}
+
+	rows, err := r.EnrichmentForEntity(context.Background(), model.EnrichEntityVideo, 43)
+	if err != nil {
+		t.Fatalf("enrichment rows: %v", err)
+	}
+	found := false
+	for _, row := range rows {
+		if row.FieldKey == model.StudioExternalIDsField {
+			found = true
+			if len(row.Values) != 1 || row.Values[0] != "" {
+				t.Errorf("_studio_external_ids = %v, want the stale value cleared after a fully-malformed re-enrich", row.Values)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("_studio_external_ids row missing entirely after re-enrich, want a cleared (empty) row")
+	}
+}
+
 // A people[].headshot always fills the single-occupancy headshot core role, even
 // when a (contract-conformant, non-TMDB) provider sends a Kind other than "photo" —
 // e.g. "gallery", which for the general assets[] list maps to the capped
