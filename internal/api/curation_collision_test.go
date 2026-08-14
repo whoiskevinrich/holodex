@@ -214,6 +214,18 @@ func TestCurationAPI_PersonFieldNotMapped(t *testing.T) {
 // collision gate — and the relink that follows a commit — can be exercised.
 func peopleDecisionServer(t *testing.T) (*httptest.Server, *repo.Repo, int64) {
 	t.Helper()
+	return peopleDecisionServerWithFields(t, "fields:\n"+
+		"  - canonical: title\n    label: Title\n    sources: [tmdb:title, file:title]\n"+
+		"  - canonical: actors\n    label: Actors\n    multi: true\n    sources: [tmdb:actors, file:Artist]\n"+
+		"  - canonical: genres\n    label: Genres\n    merge: true\n    sources: [tmdb:genres, file:genres]\n")
+}
+
+// peopleDecisionServerWithFields is peopleDecisionServer's parameterized core —
+// fieldsYAML is the full metadata-mappings.yaml body, so a test that needs a
+// different set of mapped fields (e.g. curation_concurrency_test.go's
+// actors+director fixture) can reuse this scaffolding instead of forking it.
+func peopleDecisionServerWithFields(t *testing.T, fieldsYAML string) (*httptest.Server, *repo.Repo, int64) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -233,11 +245,7 @@ func peopleDecisionServer(t *testing.T) (*httptest.Server, *repo.Repo, int64) {
 	}
 
 	mpath := filepath.Join(dir, "metadata-mappings.yaml")
-	yaml := "fields:\n" +
-		"  - canonical: title\n    label: Title\n    sources: [tmdb:title, file:title]\n" +
-		"  - canonical: actors\n    label: Actors\n    multi: true\n    sources: [tmdb:actors, file:Artist]\n" +
-		"  - canonical: genres\n    label: Genres\n    merge: true\n    sources: [tmdb:genres, file:genres]\n"
-	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
+	if err := os.WriteFile(mpath, []byte(fieldsYAML), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	store, err := mapping.NewStore(mpath)

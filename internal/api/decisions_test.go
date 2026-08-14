@@ -71,16 +71,24 @@ func decisionServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, i
 	return srv, r, id
 }
 
-// sendDecision issues a PUT/DELETE with an optional owner token + JSON body and
-// returns the status code.
-func sendDecision(t *testing.T, method, url, token string, body any) int {
-	t.Helper()
+// doJSONRequest issues method to url with an optional JSON-encoded body and
+// returns the response status code, or an error if the request couldn't be
+// built or sent — the goroutine-safe core sendDecision and postCurationNoFatal
+// (curation_concurrency_test.go) share, since testing.T's Fatal family must
+// only be called from the goroutine running the test.
+func doJSONRequest(method, url, token string, body any) (int, error) {
 	var rdr io.Reader
 	if body != nil {
-		buf, _ := json.Marshal(body)
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return 0, err
+		}
 		rdr = strings.NewReader(string(buf))
 	}
-	req, _ := http.NewRequest(method, url, rdr)
+	req, err := http.NewRequest(method, url, rdr)
+	if err != nil {
+		return 0, err
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -89,10 +97,21 @@ func sendDecision(t *testing.T, method, url, token string, body any) int {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
+}
+
+// sendDecision issues a PUT/DELETE with an optional owner token + JSON body and
+// returns the status code.
+func sendDecision(t *testing.T, method, url, token string, body any) int {
+	t.Helper()
+	code, err := doJSONRequest(method, url, token, body)
+	if err != nil {
 		t.Fatalf("%s %s: %v", method, url, err)
 	}
-	resp.Body.Close()
-	return resp.StatusCode
+	return code
 }
 
 // resolvedField pulls one canonical field out of GET /media/{id}'s resolved array.

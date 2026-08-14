@@ -105,7 +105,18 @@ func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int6
 // their own dimension, so two concurrent edits must not both pass their collision
 // check before either commits. A nil check skips straight to the write (the override
 // path, which must commit regardless of what a collision check would report).
-func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error)) (*VideoCollision, error) {
+//
+// commit, if non-nil, runs after the curation write succeeds, still under the same
+// lock (ADR-084) — so a caller's relink write can no longer race a concurrent
+// request's own check-write-relink cycle the way HOLODEX-277 found. commit takes no
+// error return: like the People relink it exists for, a relink failure must never
+// fail the owner's curation write, so the callback is expected to log its own
+// failures and swallow them (see relinkPeopleWithContext's commit closure,
+// internal/api/curation.go). commit must only call other "Locked"-suffixed methods
+// that assume writeMu is already held — see ReconcileVideoPeopleLocked
+// (person_links.go) for that contract and why it's doc-comment- rather than
+// compiler-enforced.
+func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error), commit func()) (*VideoCollision, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	if check != nil {
@@ -113,7 +124,11 @@ func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entity
 			return collision, err
 		}
 	}
-	return nil, r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+	err := r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+	if err == nil && commit != nil {
+		commit()
+	}
+	return nil, err
 }
 
 // setCurationLocked is SetCuration's implementation, assuming the caller already
