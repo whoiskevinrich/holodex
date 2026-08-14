@@ -45,7 +45,11 @@ func (h *Handlers) relinkIfEntity(ctx context.Context, videoID int64, canonical 
 // relinkPeople/RelinkVideoPeople would otherwise repeat immediately afterward for the
 // same video and the same pending edit. Still pays for one EnrichmentForEntity fetch
 // (extIDByName) that proposedPeopleLinks' PeopleForVideos read doesn't cover — far
-// cheaper than a full loadRelinkContext + resolver.Resolve pass (HOLODEX-274).
+// cheaper than a full loadRelinkContext + resolver.Resolve pass (HOLODEX-274). Its
+// only caller (setCuration's commit closure) runs inside SetCurationChecked's
+// writeMu lock (ADR-084), which is what lets it call ReconcileVideoPeopleLocked
+// instead of ReconcileVideoPeople's own re-locking (which would deadlock;
+// sync.Mutex isn't reentrant) — do not call this outside that commit callback.
 // Best-effort like relinkPeople: a relink failure is logged, never failing the user
 // action that triggered it. Self-guards against an unconfigured instance the same
 // way relinkVideoPeople does — callers (setCuration) also gate on personFieldMapped
@@ -60,7 +64,7 @@ func (h *Handlers) relinkPeopleWithContext(ctx context.Context, videoID int64, l
 		h.log.Warn("relink people: enrichment fetch", "video", videoID, "err", err)
 		return
 	}
-	if err := h.repo.ReconcileVideoPeople(ctx, videoID, links, personExternalIDsFromRows(enrRows)); err != nil {
+	if err := h.repo.ReconcileVideoPeopleLocked(ctx, videoID, links, personExternalIDsFromRows(enrRows)); err != nil {
 		h.log.Warn("relink people: reconcile", "video", videoID, "err", err)
 	}
 }

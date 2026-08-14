@@ -1,6 +1,6 @@
 # ADR-084: Locked curation-relink commit — extending `SetCurationChecked`'s `writeMu` to cover the People relink write
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-08-14
 **Deciders:** Kevin Rich
 
@@ -53,9 +53,9 @@ not a visible error, so it's worth closing deliberately (HOLODEX-277).
 
 ## Decision
 
-Extend `SetCurationChecked`'s contract with an optional `commit func(WriteLock)` callback that
-runs — under the same `writeMu` lock, immediately after the curation row write succeeds — so
-the People relink write becomes part of the same locked critical section as the check and the
+Extend `SetCurationChecked`'s contract with an optional `commit func()` callback that runs —
+under the same `writeMu` lock, immediately after the curation row write succeeds — so the
+People relink write becomes part of the same locked critical section as the check and the
 curation write, instead of a separate, unlocked step run afterward. This closes the race
 without reintroducing the resolve-from-source I/O HOLODEX-274 removed.
 
@@ -63,14 +63,13 @@ without reintroducing the resolve-from-source I/O HOLODEX-274 removed.
 // internal/repo/curation.go
 func (r *Repo) SetCurationChecked(
     ctx context.Context, entityType string, entityID int64, fieldKey, value, action string,
-    check func(WriteLock) (*VideoCollision, error),
-    commit func(WriteLock),
+    check func() (*VideoCollision, error),
+    commit func(),
 ) (*VideoCollision, error) {
     r.writeMu.Lock()
     defer r.writeMu.Unlock()
-    var lock WriteLock
     if check != nil {
-        if collision, err := check(lock); err != nil || collision != nil {
+        if collision, err := check(); err != nil || collision != nil {
             return collision, err
         }
     }
@@ -78,7 +77,7 @@ func (r *Repo) SetCurationChecked(
         return nil, err
     }
     if commit != nil {
-        commit(lock)
+        commit()
     }
     return nil, nil
 }
@@ -92,32 +91,25 @@ interleave with it, regardless of whether the relink itself succeeds.
 
 `ReconcileVideoPeople`'s existing body (already lock-and-transact,
 [person_links.go:44-134](../../internal/repo/person_links.go)) splits into a private
-locked core and the current public method becomes a thin locking wrapper around it:
+locked core and the current public method becomes a thin locking wrapper around it, using
+this codebase's existing `XxxLocked`-plus-doc-comment convention
+(`setCurationLocked`/`setDecisionLocked`) rather than a new enforcement mechanism (see
+Sub-decision below):
 
 ```go
 // ReconcileVideoPeopleLocked is ReconcileVideoPeople's implementation for a caller that
 // already holds writeMu — obtainable only from inside a SetCurationChecked check/commit
-// callback (see WriteLock). Do not call this without holding writeMu: it performs the
-// same full-replace write ReconcileVideoPeople does, with no locking of its own.
-func (r *Repo) ReconcileVideoPeopleLocked(ctx context.Context, _ WriteLock, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
+// callback. Do not call this without holding writeMu: it performs the same full-replace
+// write ReconcileVideoPeople does, with no locking of its own.
+func (r *Repo) ReconcileVideoPeopleLocked(ctx context.Context, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
     // ...current ReconcileVideoPeople body, minus the writeMu.Lock()/Unlock()...
 }
 
 func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
     r.writeMu.Lock()
     defer r.writeMu.Unlock()
-    var lock WriteLock
-    return r.ReconcileVideoPeopleLocked(ctx, lock, videoID, links, extIDByName)
+    return r.ReconcileVideoPeopleLocked(ctx, videoID, links, extIDByName)
 }
-```
-
-`WriteLock` is an empty struct with an unexported field, constructible only inside `internal/repo`:
-
-```go
-// WriteLock is proof the caller is executing inside a writeMu-locked repo callback
-// (SetCurationChecked's check/commit). Only repo can construct one, so a Locked method
-// that requires it cannot compile-time be called outside that lock.
-type WriteLock struct{ _ [0]byte }
 ```
 
 `internal/api/curation.go`'s `setCuration` then builds a `commit` closure alongside the
@@ -125,15 +117,15 @@ existing `check` closure, moving the `relinkPeopleWithContext` call from after
 `SetCurationChecked` returns to inside `commit`:
 
 ```go
-var commit func(repo.WriteLock)
+var commit func()
 if isPeopleField {
-    commit = func(lock repo.WriteLock) {
+    commit = func() {
         enrRows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityVideo, id)
         if err != nil {
             h.log.Warn("relink people: enrichment fetch", "video", id, "err", err)
             return
         }
-        if err := h.repo.ReconcileVideoPeopleLocked(r.Context(), lock, id, links, personExternalIDsFromRows(enrRows)); err != nil {
+        if err := h.repo.ReconcileVideoPeopleLocked(r.Context(), id, links, personExternalIDsFromRows(enrRows)); err != nil {
             h.log.Warn("relink people: reconcile", "video", id, "err", err)
         }
     }
@@ -165,7 +157,7 @@ window. Option B buys the same correctness without paying that cost on every edi
 
 | Dimension | Assessment |
 |-----------|------------|
-| Complexity | Medium — new `WriteLock` token type, `SetCurationChecked` gains a `commit` parameter, `ReconcileVideoPeople` splits into locked-core + locking-wrapper |
+| Complexity | Low-medium — `SetCurationChecked` gains a `commit` parameter, `ReconcileVideoPeople` splits into locked-core + locking-wrapper (same `XxxLocked` shape already used elsewhere in this package) |
 | Blast radius | `internal/repo/curation.go`, `internal/repo/person_links.go`, `internal/api/curation.go`, `internal/api/person_links.go` — contained to the People path; `SetDecisionChecked` (Title/Studio) is untouched (see Non-goals) |
 | Cost | No added I/O over what HOLODEX-274 already pays; `writeMu` hold time grows only by the relink write's own transaction, which was going to happen either way |
 | Correctness | Closes the race by serializing each request's full check→write→relink cycle against every other request's, independent of whether any individual relink succeeds |
@@ -182,15 +174,18 @@ field ever needs the same guarantee.
   `Locked`-suffixed method whose safety is a documented precondition, not a compiler
   guarantee, on the "trust the doc comment" model this codebase already relies on elsewhere
   (`relinkVideoPeople`'s optional `rc`, `anyPersonFieldMapped`'s defense-in-depth checks).
-- **B2 — unforgeable `WriteLock` capability token (chosen, refines B1):** a zero-size struct
-  with an unexported field, constructible only inside `internal/repo`, threaded through
-  `check`/`commit` and required by `ReconcileVideoPeopleLocked`'s signature. This is strictly
-  additive to B1 — it costs one small type and turns "don't call this without the lock" from a
-  comment into something the compiler enforces at the one place that matters (a call from
-  outside `internal/repo`, where the existing unexported-name convention can't reach). Adopted
-  because the failure mode (silent data loss) is exactly the kind of mistake a doc comment
-  alone has already failed to prevent once (this ADR *is* that mistake, for the read-write
-  cycle rather than the lock itself).
+- **B2 — unforgeable `WriteLock` capability token (considered, rejected):** an earlier draft
+  of this ADR proposed a zero-size struct with an unexported field
+  (`type WriteLock struct{ _ [0]byte }`), threaded through `check`/`commit` and required by
+  `ReconcileVideoPeopleLocked`'s signature, on the premise that "only `internal/repo` can
+  construct one" would make the lock requirement a compiler-enforced precondition instead of
+  a documented one. That premise doesn't hold in Go: an unexported struct field only blocks a
+  *keyed* composite literal (`repo.WriteLock{ ... }`) from another package — the *empty*
+  literal `repo.WriteLock{}` (and `var lock repo.WriteLock`) zero-values the struct and
+  compiles fine from any package, exactly as `sync.Mutex{}` is constructible outside
+  `package sync`. Caught during the `/simplify` pass on the initial implementation (verified
+  with a standalone two-package build) — the token added a parameter threaded through three
+  layers for a guarantee it never actually provided over B1 alone. Dropped in favor of B1.
 
 ## Trade-off Analysis
 
@@ -198,9 +193,10 @@ The real choice was never "resolve fresh" vs. "lock harder" in the abstract — 
 race. It was whether to pay the resolve cost on *every* People curation edit (Option A) or pay
 a small, one-time API-surface cost to make the *existing* relink write lock-compatible (Option
 B). Given this is an admin-only path with no throughput requirement, Option B's slightly larger
-diff is worth it for not undoing HOLODEX-274. The `WriteLock` token is the one piece of new
-machinery in this ADR; it's justified specifically because the boundary it guards is a
-cross-package one where the codebase's usual doc-comment discipline has less bite.
+diff is worth it for not undoing HOLODEX-274. No new type is introduced — `commit`'s locked-write
+contract rests on the same doc-comment discipline the codebase already trusts for
+`setCurationLocked`/`setDecisionLocked` (see Sub-decision B2 for the capability-token
+alternative that was tried and rejected).
 
 ## Consequences
 
@@ -240,12 +236,13 @@ cross-package one where the codebase's usual doc-comment discipline has less bit
 
 ## Action Items
 
-1. [ ] Implement `WriteLock`, `SetCurationChecked`'s `commit` parameter, and
-   `ReconcileVideoPeopleLocked` in `internal/repo`.
-2. [ ] Move `relinkPeopleWithContext`'s call from `setCuration` (after `SetCurationChecked`
+1. [x] Implement `SetCurationChecked`'s `commit` parameter and `ReconcileVideoPeopleLocked` in
+   `internal/repo`.
+2. [x] Move `relinkPeopleWithContext`'s call from `setCuration` (after `SetCurationChecked`
    returns) into a `commit` closure passed alongside `check`.
-3. [ ] Regression test: two concurrent `setCuration` calls to different person-typed fields
-   (`actors` add + `director` add) on the same video both survive in `video_people`.
+3. [x] Regression test: two concurrent `setCuration` calls to different person-typed fields
+   (`actors` add + `director` add) on the same video both survive in `video_people`
+   (`internal/api/curation_concurrency_test.go`).
 4. [ ] File a follow-up HOLODEX ticket for the suppress-match blast-radius finding (Non-goals),
    referencing this ADR and HOLODEX-274's original review.
 5. [ ] `/testing-strategy` pass per the change-routing table (multi-file backend behavior

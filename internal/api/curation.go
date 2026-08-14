@@ -91,14 +91,15 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 		h.personFieldMapped(body.Field)
 	var links []repo.PersonRoleName
 	var check func() (*repo.VideoCollision, error)
+	var commit func()
 	if isPeopleField {
 		// Recomputed inside check() itself, which SetCurationChecked calls only once
 		// it holds writeMu — the current-people read and the collision check it feeds
 		// must observe the same locked snapshot, or two concurrent edits to the same
 		// video can each pass a stale check before either commits. check() always runs
 		// (even under Override, which only skips the collision query below) so links
-		// is populated from that same locked snapshot for relinkPeopleWithContext to
-		// commit below — reusing this read instead of paying for a second
+		// is populated from that same locked snapshot for commit (below) to relink
+		// against — reusing this read instead of paying for a second
 		// loadRelinkContext + resolver.Resolve pass immediately afterward (HOLODEX-274).
 		check = func() (*repo.VideoCollision, error) {
 			var err error
@@ -115,8 +116,17 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 			}
 			return h.repo.FindPeopleCollision(r.Context(), id, names)
 		}
+		// Runs under the same writeMu lock as check() and the curation write, right
+		// after the write succeeds (ADR-084) — closing the HOLODEX-277 race where two
+		// concurrent edits to different person-typed fields could each relink from a
+		// snapshot captured before the other's write landed. Best-effort like
+		// relinkPeopleWithContext always was: a relink failure must never fail the
+		// owner's curation write, so it's logged here and swallowed, not returned.
+		commit = func() {
+			h.relinkPeopleWithContext(r.Context(), id, links)
+		}
 	}
-	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action, check)
+	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action, check, commit)
 	if err != nil {
 		h.fail(w, "set curation", err)
 		return
@@ -128,9 +138,9 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	// Curating an entity-typed field (studio, actors, director) moves its resolved
 	// value → re-derive links (F38/F40). Also how the owner-view link picker
 	// attaches a person/studio to a video — a link IS a curation add (ADR-072 RD1).
-	if isPeopleField {
-		h.relinkPeopleWithContext(r.Context(), id, links)
-	} else {
+	// People already relinked inside commit (above), under the lock; only the
+	// non-people entity path (studio) still relinks here, unlocked (ADR-084 non-goal).
+	if !isPeopleField {
 		h.relinkIfEntity(r.Context(), id, body.Field)
 	}
 	w.WriteHeader(http.StatusNoContent)
