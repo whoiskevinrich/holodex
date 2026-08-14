@@ -44,7 +44,7 @@ small enough not to need a standalone ADR) · [docs/testing-strategy.md](../test
 
 1. [ ] [—] Get [PR #219](https://github.com/whoiskevinrich/holodex/pull/219) reviewed and merged
       to main (all 7 gates green; Jira issue in **In Review**)
-2. [ ] [—] HOLODEX-258 → fix the identical `sanitizePeople`-whitespace gap in
+2. [x] [—] HOLODEX-258 → fix the identical `sanitizePeople`-whitespace gap in
       `_studio_external_ids` (F38), deferred out of this PR on purpose
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)

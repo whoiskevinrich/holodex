@@ -1031,6 +1031,135 @@ sources:
 	}
 }
 
+// TestEnrichVideoRejectsMalformedStudioExternalID is HOLODEX-258's end-to-end guard: a video
+// enrich response carrying a malformed _studio_external_ids value (mimicking a
+// malicious/compromised provider) must not have that value persisted — proving the call-site
+// wiring (sanitizeStudioExternalIDs applied right after sanitizeFields), not just the pure
+// function tested by TestSanitizeStudioExternalIDsRejectsMalformedID above.
+func TestEnrichVideoRejectsMalformedStudioExternalID(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:608"] = FakePerson{
+		Label: "Men in Black",
+		Fields: map[string][]string{
+			"title":                      {"Men in Black"},
+			"studio":                     {"Amblin Entertainment", "Attacker Studio"},
+			model.StudioExternalIDsField: {"tmdb:56 Amblin Entertainment", "noSpaceAtAll"},
+		},
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 42, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+
+	rows, err := r.EnrichmentForEntity(context.Background(), model.EnrichEntityVideo, 42)
+	if err != nil {
+		t.Fatalf("enrichment rows: %v", err)
+	}
+	var sidecar []string
+	for _, row := range rows {
+		if row.FieldKey == model.StudioExternalIDsField {
+			sidecar = row.Values
+		}
+	}
+	want := []string{"tmdb:56 Amblin Entertainment"}
+	if len(sidecar) != len(want) || sidecar[0] != want[0] {
+		t.Errorf("_studio_external_ids = %v, want %v (malformed entry dropped)", sidecar, want)
+	}
+}
+
+// TestEnrichVideoClearsStaleStudioExternalIDOnReenrich is HOLODEX-258's self-heal guard: a
+// _studio_external_ids row already persisted (e.g. from before this fix shipped, when any shape
+// could get stored) must not survive untouched forever just because sanitizeStudioExternalIDs now
+// rejects bad values on the write side. UpsertEnrichment only upserts keys present in the fields
+// map it's given and never deletes a key merely absent from it, so a naive `delete(fields, ...)`
+// when every value is malformed would leave a pre-existing stale row completely untouched. The
+// call site must instead keep the key (mapped to an empty slice) whenever the provider actually
+// sent it, so the next re-enrich's upsert overwrites the stale row rather than skipping it.
+func TestEnrichVideoClearsStaleStudioExternalIDOnReenrich(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:608"] = FakePerson{
+		Label: "Men in Black",
+		Fields: map[string][]string{
+			"title":                      {"Men in Black"},
+			"studio":                     {"Amblin Entertainment"},
+			model.StudioExternalIDsField: {"tmdb:56 Amblin Entertainment"},
+		},
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewServiceWithClient(store, r, log, func(Source) ProviderClient { return fake })
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 43, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich (initial, well-formed): %v", err)
+	}
+
+	// Provider now returns only a malformed value on re-enrich — mimics a stale row left
+	// over from before this fix shipped, when a compromised provider could persist anything.
+	fake.People["tmdb:608"] = FakePerson{
+		Label: "Men in Black",
+		Fields: map[string][]string{
+			"title":                      {"Men in Black"},
+			"studio":                     {"Attacker Studio"},
+			model.StudioExternalIDsField: {"noSpaceAtAll"},
+		},
+	}
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityVideo, 43, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich (re-enrich, malformed): %v", err)
+	}
+
+	rows, err := r.EnrichmentForEntity(context.Background(), model.EnrichEntityVideo, 43)
+	if err != nil {
+		t.Fatalf("enrichment rows: %v", err)
+	}
+	found := false
+	for _, row := range rows {
+		if row.FieldKey == model.StudioExternalIDsField {
+			found = true
+			if len(row.Values) != 1 || row.Values[0] != "" {
+				t.Errorf("_studio_external_ids = %v, want the stale value cleared after a fully-malformed re-enrich", row.Values)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("_studio_external_ids row missing entirely after re-enrich, want a cleared (empty) row")
+	}
+}
+
 // A people[].headshot always fills the single-occupancy headshot core role, even
 // when a (contract-conformant, non-TMDB) provider sends a Kind other than "photo" —
 // e.g. "gallery", which for the general assets[] list maps to the capped
@@ -1167,6 +1296,29 @@ func TestSanitizePeopleRejectsWhitespaceInExternalID(t *testing.T) {
 	}
 	if out[0].Name != "Legit" || out[0].ExternalID != "tmdb:287" {
 		t.Errorf("survivor = %+v, want Legit/tmdb:287", out[0])
+	}
+}
+
+// TestSanitizeStudioExternalIDsRejectsMalformedID is HOLODEX-258's guard, the studio-sidecar
+// sibling of TestSanitizePeopleRejectsWhitespaceInExternalID above: _studio_external_ids is
+// provider-authored as one self-describing "<id> <name>" string (no separate structured
+// external_id field to validate before construction), so sanitizeStudioExternalIDs must itself
+// reject any value whose id token isn't a well-formed "<namespace>:<id>" pair.
+func TestSanitizeStudioExternalIDsRejectsMalformedID(t *testing.T) {
+	in := []string{
+		"tmdb:174 Warner Bros. Pictures", // well-formed, must survive
+		"tmdb999 Attacker Studio",        // no colon — not namespace-qualified
+		":174 Attacker Studio",           // empty namespace
+		"tmdb: Attacker Studio",          // empty id
+		"noSpaceAtAll",                   // no separator at all
+		"tmdb:174 ",                      // id only, name empty after trim — defensive: not
+		// reachable via the real sanitizeFields call site today (its SanitizeValue pass
+		// already trims the whole value first, collapsing this into the no-separator case
+		// above), but exercised directly here to lock down the function's own contract.
+	}
+	out := sanitizeStudioExternalIDs(in)
+	if len(out) != 1 || out[0] != "tmdb:174 Warner Bros. Pictures" {
+		t.Fatalf("sanitizeStudioExternalIDs = %+v, want exactly 1 survivor", out)
 	}
 }
 
