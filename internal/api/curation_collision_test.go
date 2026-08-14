@@ -185,6 +185,30 @@ func TestCurationAPI_NonPersonFieldSkipsCollisionGate(t *testing.T) {
 	}
 }
 
+// TestCurationAPI_PersonFieldNotMapped confirms setCuration's People collision
+// gate and relinkPeopleWithContext fast path only engage for a person-typed field
+// that's actually mapped in metadata-mappings.yaml (HOLODEX-274 review fix) — an
+// unmapped field (director, in this fixture, which maps only actors) must fall
+// back to the guarded relinkIfEntity path and leave video_people untouched, same
+// as before HOLODEX-274 (HOLODEX-256's "unconfigured means no opinion" invariant).
+func TestCurationAPI_PersonFieldNotMapped(t *testing.T) {
+	srv, r, id := peopleDecisionServer(t)
+	ctx := context.Background()
+
+	base := srv.URL + "/api/v1/media/" + itoa(id) + "/curation"
+	if code := sendDecision(t, http.MethodPost, base, "", map[string]any{"field": "director", "value": "Carol", "action": "add"}); code != http.StatusNoContent {
+		t.Fatalf("unmapped field add: want 204, got %d", code)
+	}
+
+	people, err := r.PeopleForVideos(ctx, []int64{id})
+	if err != nil {
+		t.Fatalf("people for video: %v", err)
+	}
+	if len(people[id]) != 0 {
+		t.Errorf("director isn't mapped in this fixture; curation add must not link it, got %v", people[id])
+	}
+}
+
 // peopleDecisionServer is decisionServer's sibling with an "actors" field added to
 // the mapping (multi-valued, matching real config) so the HOLODEX-272 people
 // collision gate — and the relink that follows a commit — can be exercised.
