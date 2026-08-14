@@ -39,6 +39,26 @@ func (h *Handlers) relinkIfEntity(ctx context.Context, videoID int64, canonical 
 	}
 }
 
+// relinkPeopleWithContext reconciles video_people directly from role-tagged links a
+// caller already computed (proposedPeopleLinks, curation.go) — the People-flavored
+// sibling of relinkStudiosWithContext (studios.go), skipping the fetch-and-resolve
+// relinkPeople/RelinkVideoPeople would otherwise repeat immediately afterward for the
+// same video and the same pending edit. Still pays for one EnrichmentForEntity fetch
+// (extIDByName) that proposedPeopleLinks' PeopleForVideos read doesn't cover — far
+// cheaper than a full loadRelinkContext + resolver.Resolve pass (HOLODEX-274).
+// Best-effort like relinkPeople: a relink failure is logged, never failing the user
+// action that triggered it.
+func (h *Handlers) relinkPeopleWithContext(ctx context.Context, videoID int64, links []repo.PersonRoleName) {
+	enrRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("relink people", "video", videoID, "err", err)
+		return
+	}
+	if err := h.repo.ReconcileVideoPeople(ctx, videoID, links, personExternalIDsFromRows(enrRows)); err != nil {
+		h.log.Warn("relink people", "video", videoID, "err", err)
+	}
+}
+
 // RelinkVideoEntity re-derives every entity-linked table for a video — studio and
 // person (ADR-072 RD6: the generalized reconcile every relink trigger wires to,
 // via SetRelinker). Both run best-effort/independently: a studio relink failure

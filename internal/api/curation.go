@@ -80,18 +80,33 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	// changes theirs, so every non-override add/suppress on a person-typed field is
 	// checked. Field-generic via the registry marker (ADR-072 §3), not a hardcoded
 	// field-name list. Other curation fields (genres, etc.) aren't part of the
-	// composite key and skip this gate entirely (check stays nil, same as override).
+	// composite key and skip this gate entirely (isPeopleField stays false, same as
+	// a non-person field).
+	isPeopleField := registry.Lookup(body.Field).EntityKind == registry.EntityKindPerson &&
+		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress)
+	var links []repo.PersonRoleName
 	var check func() (*repo.VideoCollision, error)
-	if !body.Override && registry.Lookup(body.Field).EntityKind == registry.EntityKindPerson &&
-		(body.Action == repo.CurationAdd || body.Action == repo.CurationSuppress) {
+	if isPeopleField {
 		// Recomputed inside check() itself, which SetCurationChecked calls only once
 		// it holds writeMu — the current-people read and the collision check it feeds
 		// must observe the same locked snapshot, or two concurrent edits to the same
-		// video can each pass a stale check before either commits.
+		// video can each pass a stale check before either commits. check() always runs
+		// (even under Override, which only skips the collision query below) so links
+		// is populated from that same locked snapshot for relinkPeopleWithContext to
+		// commit below — reusing this read instead of paying for a second
+		// loadRelinkContext + resolver.Resolve pass immediately afterward (HOLODEX-274).
 		check = func() (*repo.VideoCollision, error) {
-			names, err := h.proposedPeopleNames(r.Context(), id, value, body.Field, body.Action)
+			var err error
+			links, err = h.proposedPeopleLinks(r.Context(), id, value, body.Field, body.Action)
 			if err != nil {
 				return nil, err
+			}
+			if body.Override {
+				return nil, nil
+			}
+			names := make([]string, len(links))
+			for i, l := range links {
+				names[i] = l.Name
 			}
 			return h.repo.FindPeopleCollision(r.Context(), id, names)
 		}
@@ -108,37 +123,45 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 	// Curating an entity-typed field (studio, actors, director) moves its resolved
 	// value → re-derive links (F38/F40). Also how the owner-view link picker
 	// attaches a person/studio to a video — a link IS a curation add (ADR-072 RD1).
-	h.relinkIfEntity(r.Context(), id, body.Field)
+	if isPeopleField {
+		h.relinkPeopleWithContext(r.Context(), id, links)
+	} else {
+		h.relinkIfEntity(r.Context(), id, body.Field)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// proposedPeopleNames computes videoID's resulting linked-people name set after a
-// pending person-typed-field curation add or suppress, without persisting anything —
-// the People-flavored sibling of resolveProposedStudioNames (decisions.go). Used only
-// to feed FindPeopleCollision; the actual write still goes through SetCurationChecked.
-// A suppress only drops the current link matching both the field's role (actors →
-// 'actor', director → 'director') and the target name — a person linked under both
-// roles has two video_people rows sharing a name, and suppressing one role must leave
-// the other's link (and its contribution to the collision key) in place.
-func (h *Handlers) proposedPeopleNames(ctx context.Context, videoID int64, value, field, action string) ([]string, error) {
+// proposedPeopleLinks computes videoID's resulting role-tagged people links (both
+// actors and director, per registry.PersonTypedFields — not just the field being
+// edited) after a pending person-typed-field curation add or suppress, without
+// persisting anything — the People-flavored sibling of resolveProposedStudioNames
+// (decisions.go). Returns the full ReconcileVideoPeople-ready link set, so the caller
+// can both derive the flat name list FindPeopleCollision checks and commit the
+// pending write's resulting link state directly (relinkPeopleWithContext) instead of
+// a fresh resolve pass (HOLODEX-274). A suppress only drops the current link matching
+// both the field's role (actors → 'actor', director → 'director') and the target
+// name — a person linked under both roles has two video_people rows sharing a name,
+// and suppressing one role must leave the other's link (and its contribution to the
+// collision key) in place.
+func (h *Handlers) proposedPeopleLinks(ctx context.Context, videoID int64, value, field, action string) ([]repo.PersonRoleName, error) {
 	people, err := h.repo.PeopleForVideos(ctx, []int64{videoID})
 	if err != nil {
 		return nil, err
 	}
 	current := people[videoID]
 	fieldRole := registry.Lookup(field).Role
-	names := make([]string, 0, len(current)+1)
+	links := make([]repo.PersonRoleName, 0, len(current)+1)
 	for _, p := range current {
 		if action == repo.CurationSuppress && p.Role == fieldRole &&
 			strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(value)) {
 			continue
 		}
-		names = append(names, p.Name)
+		links = append(links, repo.PersonRoleName{Name: p.Name, Role: p.Role})
 	}
 	if action == repo.CurationAdd {
-		names = append(names, value)
+		links = append(links, repo.PersonRoleName{Name: value, Role: fieldRole})
 	}
-	return names, nil
+	return links, nil
 }
 
 // clearCuration removes one decision so the underlying source value is restored
