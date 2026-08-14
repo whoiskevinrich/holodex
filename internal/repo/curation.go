@@ -53,17 +53,24 @@ func (r *Repo) CurationForEntity(ctx context.Context, entityType string, entityI
 // a single query so list pages avoid N+1 (mirrors EnrichmentForVideos). Missing keys
 // mean no curation.
 func (r *Repo) CurationForVideos(ctx context.Context, ids []int64) (map[int64][]CurationRow, error) {
+	return r.CurationForEntities(ctx, "video", ids)
+}
+
+// CurationForEntities is CurationForVideos generalized to any entity type — the F55
+// list-wide completeness resolve (ADR-081 D4) needs the same batch shape for
+// person/studio.
+func (r *Repo) CurationForEntities(ctx context.Context, entityType string, ids []int64) (map[int64][]CurationRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := append([]any{"video"}, toAnySlice(ids)...)
+	args := append([]any{entityType}, toAnySlice(ids)...)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT entity_id, field_key, norm_value, value, action
 		FROM metadata_curation
 		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
 		ORDER BY entity_id, field_key, norm_value`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("curation for videos: %w", err)
+		return nil, fmt.Errorf("curation for entities: %w", err)
 	}
 	defer rows.Close()
 
@@ -86,12 +93,51 @@ func (r *Repo) CurationForVideos(ctx context.Context, ids []int64) (map[int64][]
 // the value being acted on (its norm key is what matches at resolution). Returns
 // nil for an empty value.
 func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+}
+
+// SetCurationChecked runs check() and, absent a collision, the curation write, as one
+// writeMu-locked operation — mirrors SetDecisionChecked's atomicity guarantee
+// (decisions.go), needed for People (HOLODEX-272): a person-typed field add/suppress
+// changes video_people's composite key exactly as a Title/Studio decision changes
+// their own dimension, so two concurrent edits must not both pass their collision
+// check before either commits. A nil check skips straight to the write (the override
+// path, which must commit regardless of what a collision check would report).
+//
+// commit, if non-nil, runs after the curation write succeeds, still under the same
+// lock (ADR-084) — so a caller's relink write can no longer race a concurrent
+// request's own check-write-relink cycle the way HOLODEX-277 found. commit takes no
+// error return: like the People relink it exists for, a relink failure must never
+// fail the owner's curation write, so the callback is expected to log its own
+// failures and swallow them (see relinkPeopleWithContext's commit closure,
+// internal/api/curation.go). commit must only call other "Locked"-suffixed methods
+// that assume writeMu is already held — see ReconcileVideoPeopleLocked
+// (person_links.go) for that contract and why it's doc-comment- rather than
+// compiler-enforced.
+func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error), commit func()) (*VideoCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if check != nil {
+		if collision, err := check(); err != nil || collision != nil {
+			return collision, err
+		}
+	}
+	err := r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+	if err == nil && commit != nil {
+		commit()
+	}
+	return nil, err
+}
+
+// setCurationLocked is SetCuration's implementation, assuming the caller already
+// holds writeMu — shared by SetCuration and SetCurationChecked.
+func (r *Repo) setCurationLocked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return fmt.Errorf("curation: empty value")
 	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO metadata_curation (entity_type, entity_id, field_key, norm_value, value, action, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, 'manual', ?)

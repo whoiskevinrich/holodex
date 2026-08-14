@@ -5,8 +5,11 @@ import {
 	resolutionBucket,
 	providerFromWinningSource,
 	calculatedFrom,
-	filterByTitle
+	filterByTitle,
+	sortExternalLinks,
+	isHttpUrl
 } from './format';
+import type { ExternalLink } from './types';
 
 describe('formatYear', () => {
 	// Regression: recorded_at is a UTC instant. Reading the year in local time made
@@ -80,5 +83,55 @@ describe('filterByTitle', () => {
 
 	it('returns an empty array when nothing matches', () => {
 		expect(filterByTitle(videos, 'nonexistent')).toEqual([]);
+	});
+});
+
+describe('sortExternalLinks', () => {
+	// HOLODEX-266/ADR-083 D3: the multi-badge row orders by display label, not
+	// insertion/backend row order, so it's stable across reloads regardless of
+	// which provider ran last.
+	it('orders by label alphabetically, independent of input order', () => {
+		const links: ExternalLink[] = [
+			{ provider: 'x', label: 'X-Provider', url: 'https://x.example/1' },
+			{ provider: 'imdb', label: 'IMDb', url: 'https://imdb.example/1' },
+			{ provider: 'tmdb', label: 'TMDB', url: 'https://tmdb.example/1' }
+		];
+		expect(sortExternalLinks(links).map((l) => l.label)).toEqual(['IMDb', 'TMDB', 'X-Provider']);
+	});
+
+	it('does not mutate the input array', () => {
+		const links: ExternalLink[] = [
+			{ provider: 'tmdb', label: 'TMDB' },
+			{ provider: 'imdb', label: 'IMDb' }
+		];
+		const original = [...links];
+		sortExternalLinks(links);
+		expect(links).toEqual(original);
+	});
+
+	it('handles a degraded (no-url) badge the same as a resolved one', () => {
+		const links: ExternalLink[] = [
+			{ provider: 'tmdb', label: 'TMDB', url: 'https://tmdb.example/1' },
+			{ provider: 'unknown', label: 'Unknown' }
+		];
+		expect(sortExternalLinks(links).map((l) => l.label)).toEqual(['TMDB', 'Unknown']);
+	});
+});
+
+describe('isHttpUrl', () => {
+	// The provider-link badge's XSS gate (ProviderLinkBadge.svelte): only http(s)
+	// values may become an `href`, since Svelte doesn't sanitize it and a
+	// provider-declared link_template could otherwise emit javascript:/data:/etc.
+	it('accepts http and https, case-insensitively', () => {
+		expect(isHttpUrl('https://example.com/x')).toBe(true);
+		expect(isHttpUrl('HTTP://example.com/x')).toBe(true);
+	});
+
+	it('rejects non-http(s) schemes and non-URLs', () => {
+		expect(isHttpUrl('javascript:alert(1)')).toBe(false);
+		expect(isHttpUrl('data:text/html,x')).toBe(false);
+		expect(isHttpUrl('mailto:a@b.com')).toBe(false);
+		expect(isHttpUrl('not a url')).toBe(false);
+		expect(isHttpUrl('')).toBe(false);
 	});
 });

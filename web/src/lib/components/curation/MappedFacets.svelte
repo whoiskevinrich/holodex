@@ -25,7 +25,7 @@
 </script>
 
 {#each facets as facet (facet.canonical)}
-	{#if facet.values.length}
+	{#if facet.values?.length}
 		<div>
 			<label class="mb-1 block text-xs text-muted" for={`facet-${facet.canonical}`}>{facet.label}</label>
 			<select

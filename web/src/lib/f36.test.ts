@@ -5,6 +5,7 @@ import {
 	fileCandidateValue,
 	isPendingSelection,
 	isReplaceField,
+	isWritable,
 	needsWriteback,
 	outOfSync,
 	outOfSyncCount,
@@ -379,9 +380,9 @@ describe('outOfSync / outOfSyncCount', () => {
 	});
 	it('counts only out-of-sync replace fields (merge fields excluded, RD1)', () => {
 		const fields = [
-			field({ canonical: 'title', in_sync: false }),
-			field({ canonical: 'studio', in_sync: true }),
-			field({ canonical: 'director', in_sync: false }),
+			field({ canonical: 'title', in_sync: false, write_target: 'Title' }),
+			field({ canonical: 'studio', in_sync: true, write_target: 'Publisher' }),
+			field({ canonical: 'director', in_sync: false, write_target: 'Artist' }),
 			field({ canonical: 'year' }), // undecided ⇒ undefined ⇒ not counted
 			field({ canonical: 'genres', multi: true, in_sync: false }) // merge ⇒ not counted
 		];
@@ -393,7 +394,19 @@ describe('outOfSync / outOfSyncCount', () => {
 // same predicate, so the dialog can never open pre-checking more than the header reported.
 describe('needsWriteback', () => {
 	it('is true for an out-of-sync replace field (an explicit decision the file lags)', () => {
-		expect(needsWriteback(field({ decision: { source: 'provider:tmdb', standing: true }, in_sync: false }))).toBe(true);
+		expect(
+			needsWriteback(
+				field({ decision: { source: 'provider:tmdb', standing: true }, in_sync: false, write_target: 'Title' })
+			)
+		).toBe(true);
+	});
+
+	it('is false for an out-of-sync field with no file-tag mapping for the container (HOLODEX-216)', () => {
+		// A decided value the file lags, but the container has no destination tag for it — writing
+		// would only silently drop it, so this must never auto-check into the batch.
+		expect(
+			needsWriteback(field({ decision: { source: 'manual', standing: true }, in_sync: false }))
+		).toBe(false);
 	});
 
 	it('is false for a provider value winning by mapping precedence (undecided ⇒ in sync)', () => {
@@ -421,13 +434,25 @@ describe('needsWriteback', () => {
 
 	it('agrees with outOfSyncCount field-for-field (the two surfaces cannot disagree)', () => {
 		const fields = [
-			field({ canonical: 'title', in_sync: false }),
+			field({ canonical: 'title', in_sync: false, write_target: 'Title' }),
 			field({ canonical: 'overview', winning_source: 'tmdb:overview' }),
 			field({ canonical: 'poster_url', winning_source: 'tmdb:poster_url' }),
-			field({ canonical: 'director', in_sync: false }),
+			field({ canonical: 'director', in_sync: false, write_target: 'Artist' }),
 			field({ canonical: 'genres', multi: true, in_sync: false })
 		];
 		expect(fields.filter(needsWriteback).length).toBe(outOfSyncCount(fields));
 		expect(outOfSyncCount(fields)).toBe(2);
+	});
+});
+
+describe('isWritable', () => {
+	it('is true when the backend stamped a destination tag', () => {
+		expect(isWritable(field({ write_target: 'Title' }))).toBe(true);
+	});
+	it('is false when write_target is absent (no mapping for the container)', () => {
+		expect(isWritable(field())).toBe(false);
+	});
+	it('is false for an empty write_target', () => {
+		expect(isWritable(field({ write_target: '' }))).toBe(false);
 	});
 });

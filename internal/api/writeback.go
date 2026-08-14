@@ -10,6 +10,7 @@ import (
 
 	"holodex/internal/enrich"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
 )
@@ -47,6 +48,31 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 	// job sharing a batchID, so an N-video tag-sync's dialog polls one
 	// endpoint instead of fanning out to N individual job-status calls.
 	r.Get("/writeback/batches/{batchID}/status", h.writebackBatchStatus)
+}
+
+// markWriteTargets stamps each field's destination file tag for the video's
+// current container (HOLODEX-216), so the writeback dialog can show exactly
+// where a value will land and disable a field with no mapping rather than
+// offering it and silently dropping it on write. Video-only — like
+// markPromoted, the API layer stamps this after resolve since the resolver
+// itself is entity-generic and has no container (ADR-052). Delegates to
+// writeback.ResolveForContainer — the same mapper the sync write path and the
+// durable queue worker use — rather than re-deriving the image-vs-text
+// dispatch here, so this preview can never disagree with what actually gets
+// written.
+func (h *Handlers) markWriteTargets(fields []resolver.ResolvedField, container string) {
+	specs := make([]writeback.FieldValues, len(fields))
+	for i, f := range fields {
+		specs[i] = writeback.FieldValues{Field: f.Canonical, Values: f.Values}
+	}
+	mapped, _ := writeback.ResolveForContainer(container, specs)
+	targets := make(map[string]string, len(mapped))
+	for _, m := range mapped {
+		targets[m.Field] = m.TagName
+	}
+	for i := range fields {
+		fields[i].WriteTarget = targets[fields[i].Canonical]
+	}
 }
 
 // writebackBatchStatus reports aggregate counts (pending/running/done/failed)
@@ -92,9 +118,14 @@ func (h *Handlers) writebackJobStatus(w http.ResponseWriter, r *http.Request) {
 // tags in a single tool pass (exiftool for MP4/mp3/flac; mkvpropedit for
 // MKV/WebM — F28, ADR-041). The operator has confirmed the values in the UI.
 //
-// All canonical→tag-name mappings are validated before any write; if any field
-// has no mapping for the file's container a 422 is returned listing the
-// unmappable fields. On success one audit row per field is inserted.
+// When queued (the durable path, F30/ADR-048), tag-name resolution happens
+// later in the worker, so this returns 202 + job_id with no per-field outcome
+// yet. On the legacy synchronous path (writeQueue == nil): if every submitted
+// field is unmappable for the file's container, this returns a single 422
+// naming them; a batch mixing mapped and unmapped fields instead writes the
+// mappable subset and returns 200 with `written`/`skipped` naming exactly
+// which is which (HOLODEX-216) — a skipped field must never read as written.
+// On success one audit row per written field is inserted.
 func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	if h.writeback == nil && h.writeQueue == nil {
 		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
@@ -212,8 +243,8 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	// Unmapped fields are silently skipped — only the mappable subset is written;
-	// the audit rows below record exactly what was written.
+	// A mixed batch writes only the mappable subset; unmapped is carried into the
+	// response below so a partial batch never reads as a full success (HOLODEX-216).
 
 	// Single tool invocation for all fields (exiftool or mkvpropedit by extension).
 	batchFields := make([]writeback.FieldWrite, len(mapped))
@@ -253,7 +284,14 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	written := make([]string, len(mapped))
+	for i, m := range mapped {
+		written[i] = m.Field
+	}
+	if unmapped == nil {
+		unmapped = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"written": written, "skipped": unmapped})
 }
 
 // writebackRevert restores every field snapshotted under batchID to its

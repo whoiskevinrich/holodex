@@ -44,7 +44,19 @@ type personLinkKey struct {
 func (r *Repo) ReconcileVideoPeople(ctx context.Context, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
+	return r.ReconcileVideoPeopleLocked(ctx, videoID, links, extIDByName)
+}
 
+// ReconcileVideoPeopleLocked is ReconcileVideoPeople's implementation for a caller
+// that already holds writeMu — obtainable only from inside a SetCurationChecked
+// check/commit callback (ADR-084), which is what lets the People curation fast path
+// commit its relink write in the same locked critical section as the curation write
+// itself instead of a separate, unlocked step after it (HOLODEX-277). Do not call
+// this without holding writeMu: it performs the same full-replace write
+// ReconcileVideoPeople does, with no locking of its own — same
+// xLocked-plus-doc-comment contract as setCurationLocked/setDecisionLocked
+// (curation.go/decisions.go).
+func (r *Repo) ReconcileVideoPeopleLocked(ctx context.Context, videoID int64, links []PersonRoleName, extIDByName map[string]string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

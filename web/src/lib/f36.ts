@@ -184,6 +184,18 @@ export function outOfSync(field: ResolvedField): boolean {
 	return field.in_sync === false;
 }
 
+// isWritable is true when the field has a destination file tag for the video's
+// current container (HOLODEX-216) — the predicate behind the writeback dialog's
+// row treatment: an unwritable field is shown (so the operator can see it exists
+// and why it's excluded) but can never be checked, so it can no longer be
+// offered and then silently dropped on write. A field the backend never stamped
+// `write_target` on (older payload shape, or a non-video entity) reads as
+// unwritable rather than writable-by-default — this predicate only turns TRUE on
+// an explicit target name.
+export function isWritable(field: ResolvedField): boolean {
+	return !!field.write_target;
+}
+
 // needsWriteback is the single predicate behind BOTH writeback surfaces: the header's "{n} out
 // of sync" count and the batch dialog's initial checked state (HOLODEX-213). Deriving them from
 // one function is what makes them unable to disagree — a dialog opened on N reported out-of-sync
@@ -191,9 +203,12 @@ export function outOfSync(field: ResolvedField): boolean {
 // decision, so the filter makes that explicit rather than relying on the backend never setting
 // `in_sync` on them. A provider value that merely wins by mapping precedence is UNDECIDED and so
 // in sync by construction (see outOfSync): it stays listed and checkable in the dialog, just not
-// pre-checked, because the button writes *decisions*.
+// pre-checked, because the button writes *decisions*. Also requires isWritable — a decided value
+// with no file-tag mapping for the container must never auto-check into a write that can only
+// silently drop it (HOLODEX-216); it still lists, just unchecked and disabled, like any other
+// unwritable row.
 export function needsWriteback(field: ResolvedField): boolean {
-	return isReplaceField(field) && outOfSync(field);
+	return isReplaceField(field) && outOfSync(field) && isWritable(field);
 }
 
 // outOfSyncCount is the aggregate the header surfaces as "Write decisions to file · {n} out of

@@ -237,6 +237,23 @@ type Manifest struct {
 	// protocol version bump. Untrusted provider input; validated (ValidatePattern) and
 	// cached by the Service on every /describe, same posture as FieldHints/BrandIcon.
 	PreferredSearchPattern string `json:"preferred_search_pattern,omitempty"`
+	// LinkTemplates lets a provider declare how a namespace-qualified external id
+	// becomes an outbound link (HOLODEX-266, ADR-083 D2): namespace -> entity kind ->
+	// URL template containing exactly one "{id}" placeholder, e.g. {"imdb": {"video":
+	// "https://www.imdb.com/title/{id}/", "person": "https://www.imdb.com/name/{id}/"}}.
+	// Additive/forward-compatible, same posture as FieldHints/PreferredSearchPattern:
+	// an older provider that omits it, or an older Holodex that doesn't parse it, both
+	// work unchanged. Keyed by namespace rather than provider because a namespace is a
+	// shared identity space across providers (ADR-055 D2) — the link a namespace
+	// resolves to is provider-independent, so on conflict whichever provider's
+	// /describe was read most recently wins that namespace's row. A namespace's
+	// display LABEL (e.g. "IMDb") is deliberately NOT carried here either, for the
+	// same reason: it comes from a small Holodex-owned namespace lookup in the api
+	// package, not a provider declaration, since a value's namespace can differ from
+	// whichever provider matched/emitted it (TMDB emits "imdb:"-namespaced ids).
+	// Untrusted provider input; validated (ValidateLinkTemplate) and cached by the
+	// Service on every /describe, same posture as FieldHints/PreferredSearchPattern.
+	LinkTemplates map[string]map[string]string `json:"link_templates,omitempty"`
 }
 
 // IconRef is a single provider-level image reference — currently only the brand icon

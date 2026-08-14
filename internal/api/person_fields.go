@@ -103,11 +103,14 @@ func personizeResolved(fields []resolver.ResolvedField) []resolver.ResolvedField
 	return recordizeResolved(fields)
 }
 
-// personResolved resolves a person's fields through the unified resolver (F37
+// personResolve resolves a person's fields through the unified resolver (F37
 // P0-2): the record baseline + shadow enrichment + curation + standing
 // decisions, personized to the record vocabulary. Mirrors the getMedia
 // preload; degraded reads log and resolve without that layer, as there.
-func (h *Handlers) personResolved(r *http.Request, id int64, p *model.Person) []resolver.ResolvedField {
+// Also returns the synthesized field list, so callers (e.g. the F55
+// completeness breakdown panel) can score the same resolve pass instead of
+// re-resolving from scratch.
+func (h *Handlers) personResolve(r *http.Request, id int64, p *model.Person) ([]resolver.ResolvedField, []mapping.Field) {
 	rows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityPerson, id)
 	if err != nil {
 		h.log.Warn("enrichment for person detail", "id", id, "err", err)
@@ -134,7 +137,7 @@ func (h *Handlers) personResolved(r *http.Request, id int64, p *model.Person) []
 	// F45 (ADR-063 §D5): append the derived rows (Age / Age at death) last, with the
 	// clock injected here so the resolver stays pure. Derive positions each computed
 	// row directly under its dependency (Age under Born, spec D2).
-	return resolver.Derive(resolved, h.clock())
+	return resolver.Derive(resolved, h.clock()), fields
 }
 
 // personProviders lists the provider namespaces the synthesized person fields

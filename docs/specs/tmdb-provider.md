@@ -112,7 +112,7 @@ provider loudly.
   "fields": [
     "bio", "birthdate", "nationality", "deathdate", "website", "aliases",
     "title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
-    "original_language", "original_title", "status", "imdb_id", "poster_url",
+    "original_language", "original_title", "status", "external_provider_id", "poster_url",
     "actors", "director", "studio",
     "description", "country", "logo"
   ],
@@ -390,7 +390,7 @@ Map the responses → canonical `fields` (each value an array of strings):
 | `original_language` | details `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
 | `original_title` | details `original_title` | Emitted **only** when non-empty and different from `title` (avoid redundancy) |
 | `status` | details `status` | e.g. `"Released"`. Omit if empty |
-| `imdb_id` | details `imdb_id` | e.g. `"tt0137523"`. Omit if empty |
+| `external_provider_id` | details `imdb_id`, namespace-qualified | e.g. `"imdb:tt0137523"`. Omit if `imdb_id` empty — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | details `poster_path` | **Text field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the Film Details panel. Omit when `poster_path` is null |
 | `studio` | details `production_companies[].name` | Multi-value — one per company (drop empty names) |
 | `actors` | credits `cast[].name` | Top **20** by billing order (`maxCastCredits`, TMDB returns `cast` pre-sorted) — kept in sync with `people[]`'s cast window below, since `video_people` links derive from this flat field, not from `people[]` directly. Drop empty names |
