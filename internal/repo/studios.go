@@ -127,7 +127,8 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 		return nil, fmt.Errorf("list studios: %w", err)
 	}
 	defer rows.Close()
-	var out []model.Studio
+	// Non-nil so a zero-row result marshals as `[]`, never `null` (HOLODEX-275).
+	out := []model.Studio{}
 	for rows.Next() {
 		var s model.Studio
 		if err := rows.Scan(&s.ID, &s.Name, &s.VideoCount); err != nil {

@@ -41,7 +41,7 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 			"bio", "birthdate", "nationality", "deathdate", "website", "aliases",
 			// video/film fields
 			"title", "overview", "release_date", "runtime", "genres", "tagline", "homepage",
-			"original_language", "original_title", "status", "imdb_id", "poster_url",
+			"original_language", "original_title", "status", "external_provider_id", "poster_url",
 			"actors", "director", "studio",
 			// studio-entity fields (F38 S3). website is shared with person/video. logo
 			// moved to AssetKinds (F51, ADR-079) — it is now a downloaded image asset,

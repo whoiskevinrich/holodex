@@ -157,6 +157,24 @@
 		}
 	}
 
+	/* ---- Name-edit pencil (HOLODEX-269) ---- Same reveal-on-hover/focus mechanism as
+	   .curation-actions above, kept as its own pair rather than reused verbatim: this docks
+	   on an entity heading (<h1> row), not a curation chip, and the class name should say so.
+	   Interaction-only — no colors/tokens here, so it's not skin-gated. */
+	.name-edit-pencil {
+		opacity: 0;
+		transition: opacity 120ms ease;
+	}
+	.name-edit-row:hover .name-edit-pencil,
+	.name-edit-row:focus-within .name-edit-pencil {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.name-edit-pencil {
+			opacity: 1;
+		}
+	}
+
 	/* ---- Shared button treatments ---- Three roles for non-primary actions
 	   (rationale, contrast figures, and the no-`transition` gotcha are canonical
 	   in docs/design/theming.md — keep numbers there, not duplicated here).

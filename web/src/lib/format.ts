@@ -1,4 +1,4 @@
-import type { Resolution } from './types';
+import type { ExternalLink, Resolution } from './types';
 
 // formatDuration renders seconds as H:MM:SS (or M:SS under an hour) — F2.4.
 export function formatDuration(totalSec: number): string {
@@ -57,6 +57,20 @@ export function tagCount(n: number): string {
 	return `${n} tag${n === 1 ? '' : 's'}`;
 }
 
+// aliasHint is NameEditControl's `hint` copy for Person/Studio/Tag (HOLODEX-269) — the
+// old name is kept as an alias on rename, so search and future scans still match it.
+export function aliasHint(name: string): string {
+	return `“${name}” is kept as an alias — search and future scans still match it.`;
+}
+
+// personKey identifies one video↔person link (HOLODEX-272): video_people's PK is
+// (video_id, person_id, role) (ADR-072), so a dual-role attachment is two distinct
+// rows sharing a person id — id alone can't key a #each or a busy-state map.
+// Shared by the video page's People grid and PersonPicker's attached-list/list keys.
+export function personKey(p: { id: number; role?: string }): string {
+	return `${p.id}:${p.role}`;
+}
+
 // filterByName narrows items to those whose name contains query, case-insensitive
 // (personal-library scale, client-side filter over an already-loaded unpaged
 // list — the shape EntityPicker/CategoryPicker/tags' unified search all share).
@@ -79,6 +93,13 @@ export function filterByTitle<T extends { title: string }>(items: T[], query: st
 // (ADR-059). Empty/whitespace name → "?".
 export function monogram(name: string): string {
 	return name.trim().charAt(0).toUpperCase() || '?';
+}
+
+// sortExternalLinks orders a person/studio/video's provider-link badges (HOLODEX-266,
+// ADR-083 D3) alphabetically by display label — deterministic and stable across
+// reloads regardless of the backend's row order, not insertion order.
+export function sortExternalLinks(links: ExternalLink[]): ExternalLink[] {
+	return [...links].sort((a, b) => a.label.localeCompare(b.label));
 }
 
 // isHttpUrl gates a provider-supplied value before it becomes a link `href`.

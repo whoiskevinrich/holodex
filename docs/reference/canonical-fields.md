@@ -201,7 +201,7 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 | `status` | Status | text | Release status (e.g. `Released`, `Post Production`). |
 | `original_language` | Language | text | ISO 639-1 language code. |
 | `homepage` | Website | text | Official website URL. Rendered as plain text (not a link). |
-| `imdb_id` | IMDb | text | IMDb title identifier (`tt…` format). |
+| `external_provider_id` | External ID | text | External metadata-provider identifier, namespace-qualified (`"<provider>:<id>"`, e.g. `tmdb:603`, `imdb:tt1234567`) — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md). |
 | `poster_url` | Poster | image_url (`<img>`) | Poster URL. **Must be on an `asset_hosts`-allowlisted CDN** (ADR-039). |
 
 ---

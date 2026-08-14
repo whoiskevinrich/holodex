@@ -378,7 +378,7 @@ Rules:
 | `status` | Release status | single | Plain text (e.g. `"Released"`) |
 | `original_language` | Original language | single | ISO 639-1 code preferred (e.g. `"en"`) |
 | `homepage` | Official/home page | single | Absolute URL, `render: url` |
-| `imdb_id` | IMDb identifier | single | e.g. `"tt1160419"` |
+| `external_provider_id` | External metadata-provider identifier | single | Namespace-qualified `"<provider>:<id>"`, e.g. `"imdb:tt1160419"` — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | Poster / cover art | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry.** Holodex downloads it on writeback and embeds it as the file's cover art (see [§4.3](#43-assets) for why `assets[]` doesn't apply here) |
 | `actors` | Cast (flat text) | multi | One name per element, billing order first. Prefer the structured [`people[]`](#45-video-credits--per-person-castcrew-with-headshots) shape instead if you want headshots/Person linking |
 | `director` | Director(s) (flat text) | multi | One name per element |

@@ -90,6 +90,32 @@ func TestDecisions_ForVideosBatch(t *testing.T) {
 }
 
 
+// TestDecisions_ForEntitiesBatch covers the F55 list-wide generic batch loader
+// (ADR-081 D4): entity-type-parameterized like DecisionsForVideos, but not
+// hardcoded to "video" — a person id and a video id sharing the same numeric value
+// must not cross-contaminate.
+func TestDecisions_ForEntitiesBatch(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, pid := seedVideoAndPerson(t, r)
+
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, pid, "bio", "provider:tmdb", ""); err != nil {
+		t.Fatalf("set person decision: %v", err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityVideo, vid, "title", "manual", "Custom"); err != nil {
+		t.Fatalf("set video decision: %v", err)
+	}
+
+	got, err := r.DecisionsForEntities(ctx, model.EnrichEntityPerson, []int64{pid})
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if len(got[pid]) != 1 || got[pid][0].FieldKey != "bio" {
+		t.Fatalf("person rows = %v, want one bio row", got[pid])
+	}
+}
+
 // TestHasManualSource proves F48.3e's precedence check: a manual: decision on
 // a field is detectable independent of DecisionsForEntity's full row list.
 func TestHasManualSource(t *testing.T) {

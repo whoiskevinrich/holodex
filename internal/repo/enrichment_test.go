@@ -73,3 +73,29 @@ func TestEnrichmentShadowStore(t *testing.T) {
 		t.Errorf("rows after clear = %d, want 0", len(rows4))
 	}
 }
+
+// TestEnrichmentForEntities_Batch covers the F55 list-wide generic batch loader
+// (ADR-081 D4): entity-type-parameterized like EnrichmentForVideos, but not
+// hardcoded to "video" — a person id and a video id sharing the same numeric value
+// must not cross-contaminate.
+func TestEnrichmentForEntities_Batch(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, pid := seedVideoAndPerson(t, r)
+
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityPerson, pid, "tmdb", "tmdb:608", map[string][]string{"bio": {"a filmmaker"}}); err != nil {
+		t.Fatalf("upsert person enrichment: %v", err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "tmdb:1", map[string][]string{"title": {"Spirited Away"}}); err != nil {
+		t.Fatalf("upsert video enrichment: %v", err)
+	}
+
+	got, err := r.EnrichmentForEntities(ctx, model.EnrichEntityPerson, []int64{pid})
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if len(got[pid]) != 1 || got[pid][0].FieldKey != "bio" {
+		t.Fatalf("person rows = %v, want one bio row", got[pid])
+	}
+}

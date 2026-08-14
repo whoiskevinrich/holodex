@@ -255,6 +255,35 @@ func (r *Repo) ExactEntityMatch(ctx context.Context, entityType, name string) (i
 	return lookupByNameKey(ctx, r.db, q, entityType, name)
 }
 
+// ExternalIDsForEntity returns every namespace-qualified external id
+// (person_external_ids/studio_external_ids, ADR-054/055) stored for a person/studio
+// — the read source for the HOLODEX-266/ADR-083 provider-link badge projection.
+// Each value is already "<namespace>:<id>" (ADR-082's value shape, shared with the
+// video _person_external_ids/_studio_external_ids enrichment sidecars). Empty, not
+// an error, for an entity type with no external-id table (tags).
+func (r *Repo) ExternalIDsForEntity(ctx context.Context, entityType string, entityID int64) ([]string, error) {
+	cols, ok := externalIDTable(entityType)
+	if !ok {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx,
+		fmt.Sprintf(`SELECT external_id FROM %s WHERE %s = ?`, cols.table, cols.idColumn), entityID)
+	if err != nil {
+		return nil, fmt.Errorf("external ids for %s: %w", entityType, err)
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // EntityNames returns every Person/Studio id -> name pair for entityType — the
 // candidate pool F48.3d's Jaro-Winkler ranking searches when no exact match
 // exists. Built on enrichQueueEntities (enrich_queue.go), the same

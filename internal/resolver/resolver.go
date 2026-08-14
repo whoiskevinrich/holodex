@@ -92,6 +92,13 @@ type ResolvedField struct {
 	Decision   *FieldDecision   `json:"decision,omitempty"`
 	InSync     *bool            `json:"in_sync,omitempty"`
 	Candidates []FieldCandidate `json:"candidates,omitempty"`
+
+	// WriteTarget names the destination file tag this field maps to for the video's
+	// current container (HOLODEX-216) — e.g. "QuickTime:Artist" — empty when the
+	// container has no writeback mapping for this canonical field. Video-only: the
+	// resolver has no container (ADR-052 keeps it entity-agnostic), so this is
+	// never resolver-set — like Promoted, the API layer stamps it after resolve.
+	WriteTarget string `json:"write_target,omitempty"`
 }
 
 // FieldDecision is the per-field source-of-truth marker on a replace field (F36,
@@ -150,6 +157,17 @@ type Options struct {
 	// per-field decision always overrides. Unlisted providers keep mapping order
 	// behind the listed ones; empty means today's mapping-order fallback.
 	ProviderTrustOrder []string
+
+	// ImageURLAllowed reports whether a provider's declared image_url value's host
+	// is on that provider's asset-host allowlist (ADR-039). ResolveFields consults
+	// it for every field whose Display resolves to image_url and whose winning
+	// source is a provider — file/manual sources are trusted (operator/file
+	// controlled, not the untrusted vector this perimeter protects) and are never
+	// checked. A disallowed value's Display degrades to text rather than rendering
+	// an unvetted <img> src (HOLODEX-212). nil is treated as "deny" for a
+	// provider-sourced image_url field — every production caller must set this
+	// once enrichment is wired; leaving it nil fails closed, not open.
+	ImageURLAllowed func(provider, rawURL string) bool
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
@@ -309,6 +327,7 @@ func ResolveFields(
 			values[i] = it.Value
 		}
 		label, display := LabelAndDisplay(f)
+		display = gateImageDisplay(display, items, opts.ImageURLAllowed)
 		rf := ResolvedField{
 			Canonical:     f.Canonical,
 			Label:         label,
@@ -348,6 +367,53 @@ func LabelAndDisplay(f mapping.Field) (label, display string) {
 		display = f.Display
 	}
 	return label, display
+}
+
+// gateImageDisplay enforces the ADR-039 asset-host allowlist on a resolved
+// image_url field (HOLODEX-212): every item whose contributing sources are all
+// providers not on their own allowlist degrades the whole field to text rather
+// than rendering an unvetted <img> src. Checked per item, not just the winner's
+// first value: a merge/multi field (F30) can carry values from more than one
+// provider, and gating only the winner would leave every other merged value
+// unchecked (a provider could smuggle an unvetted URL in as a second merged
+// value). file/manual sources are trusted and pass through unchecked — they are
+// operator/file controlled, not the untrusted provider vector the perimeter
+// protects, and blocking them would break a legitimate file-embedded or
+// owner-typed value. Non-image displays pass through unchanged. Mirrors the API
+// layer's gateImageURL (internal/api/field_promotions.go), which applies the
+// same rule to F39 auto-registered/F44 promoted fields that never flow through
+// ResolveFields.
+func gateImageDisplay(display string, items []ResolvedValue, allowed func(provider, rawURL string) bool) string {
+	if display != registry.DisplayImageURL || len(items) == 0 {
+		return display
+	}
+	for _, it := range items {
+		if !imageValueAllowed(it, allowed) {
+			return registry.DisplayText
+		}
+	}
+	return display
+}
+
+// imageValueAllowed reports whether a single merged image_url value is safe to
+// render: trusted outright if any contributing source is file/manual, else
+// allowed if at least one contributing provider's own allowlist covers the
+// value's host (HOLODEX-212).
+func imageValueAllowed(it ResolvedValue, allowed func(provider, rawURL string) bool) bool {
+	for _, src := range it.Sources {
+		if src == "" || src == fieldsource.File || src == fieldsource.Manual {
+			return true
+		}
+	}
+	if allowed == nil {
+		return false
+	}
+	for _, src := range it.Sources {
+		if allowed(src, it.Value) {
+			return true
+		}
+	}
+	return false
 }
 
 // optDecision returns the standing decision for a field as a pointer (nil when

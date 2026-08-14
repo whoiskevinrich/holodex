@@ -90,26 +90,30 @@ describe('person source-of-truth clients (F37)', () => {
 		);
 	});
 
-	it('renamePerson POSTs the name and resolves empty on 204', async () => {
+	// HOLODEX-269: person rename now goes through the shared renameEntity trio (retiring
+	// the person-only renamePerson, whose 409 handling didn't unwrap `body.conflict` and
+	// was masked by a mock using the wrong, flat response shape — the real backend always
+	// wraps it, pinned below).
+	it('renameEntity(person) POSTs the name and resolves empty on 204', async () => {
 		const fetchMock = stub(204);
-		await expect(api.renamePerson(3, 'New Name')).resolves.toEqual({});
+		await expect(api.renameEntity('person', 3, 'New Name')).resolves.toEqual({});
 		expect(fetchMock).toHaveBeenCalledWith(
 			'/api/v1/people/3/rename',
 			expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'New Name' }) })
 		);
 	});
 
-	it('renamePerson surfaces the colliding person on 409 instead of throwing (RD1)', async () => {
+	it('renameEntity(person) surfaces the colliding person on 409 instead of throwing', async () => {
 		const colliding = { id: 9, name: 'Existing Person', video_count: 14 };
-		stub(409, colliding);
-		await expect(api.renamePerson(3, 'Existing Person')).resolves.toEqual({
+		stub(409, { conflict: colliding });
+		await expect(api.renameEntity('person', 3, 'Existing Person')).resolves.toEqual({
 			conflict: colliding
 		});
 	});
 
-	it('renamePerson throws ApiError on other failures', async () => {
+	it('renameEntity(person) throws ApiError on other failures', async () => {
 		stub(400);
-		await expect(api.renamePerson(3, 'x')).rejects.toMatchObject({ status: 400 });
+		await expect(api.renameEntity('person', 3, 'x')).rejects.toMatchObject({ status: 400 });
 	});
 });
 

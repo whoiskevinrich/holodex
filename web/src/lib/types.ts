@@ -21,6 +21,18 @@ export interface EntityRef {
 	video_count?: number;
 }
 
+// VideoCollisionRef is the minimal shape the composite-key collision 409 body returns for the
+// OTHER (colliding) video — enough for CollisionOfferCard to render without a follow-up fetch
+// (HOLODEX-270). Deliberately separate from EntityRef: a video isn't on the identity spine and
+// carries different identifying fields (people/date/studio, not a single name).
+export interface VideoCollisionRef {
+	id: number;
+	title: string;
+	people: string[]; // display names, already resolved server-side — no extra lookup needed
+	recorded_at: string | null; // ISO date, same format as Video.recorded_at
+	studios: string[]; // display names; empty when the video has no studio linked
+}
+
 // DuplicatePair is one flagged possible-duplicate (F43 S5, ADR-061): two entities that
 // are a loose-key near-miss (not an exact-nameKey match) and the variation kind. Served
 // by GET /owner/duplicates, grouped tags-first.
@@ -43,7 +55,15 @@ export interface Person {
 	// a person can have one role without the other. Absent/0 = no poster (placeholder).
 	poster_version?: number;
 	aliases?: PersonAlias[]; // present on the person-detail read (F23)
+	// role is the video_people link role this person holds on the video being read
+	// (HOLODEX-272). Present only on a video's People list — a dual-role attachment
+	// surfaces as two Person entries sharing the same id. Absent elsewhere.
+	role?: 'actor' | 'director';
 }
+
+// ResolvedPerson narrows Person.role to required — the shape a video's People list
+// (video.people) always carries, vs. Person's other read contexts where it's absent.
+export type ResolvedPerson = Person & { role: 'actor' | 'director' };
 
 // Person image roles (F25, ADR-038). Three single-slot core roles plus the
 // free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
@@ -243,6 +263,10 @@ export interface ResolvedField {
 	// mirrors registry.FieldDef.EntityKind. CurationFieldRow's "+ Add" opens the
 	// entity-search LinkPicker instead of a bare text input when this is set.
 	entity_kind?: 'person' | 'studio' | '';
+	// write_target (HOLODEX-216) — the destination file tag this field maps to for
+	// the video's current container (e.g. "QuickTime:Artist"), absent/empty when the
+	// container has no writeback mapping for this canonical. Video-only.
+	write_target?: string;
 }
 
 // F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field
@@ -276,9 +300,12 @@ export interface FieldCandidate {
 
 // DecisionRequest is the body of PUT …/decision (F36, ADR-051 §7). `manual_value` is
 // required iff source === 'manual'; a `provider:<name>` must be a currently-matched provider.
+// `override` bypasses the Video Title composite-key collision check (HOLODEX-270) — set only
+// on a resubmit after the owner has already seen and dismissed a collision verdict.
 export interface DecisionRequest {
 	source: DecisionSource;
 	manual_value?: string;
+	override?: boolean;
 }
 
 // F44 (ADR-062) — the render-mode vocabulary a promotion may set (F39's five modes; no
@@ -335,11 +362,15 @@ export interface FieldTarget {
 // CurationAction is a value-level owner decision (F30, ADR-048).
 export type CurationAction = 'add' | 'suppress' | 'nowrite';
 
-// CurationRequest records or clears one value-level decision for a field.
+// CurationRequest records or clears one value-level decision for a field. override
+// bypasses the People composite-key collision gate (HOLODEX-272) on a resubmit after
+// the owner has already seen and dismissed a collision verdict for this exact edit —
+// harmless (ignored server-side) for any field other than a person-typed one.
 export interface CurationRequest {
 	field: string;
 	value: string;
 	action: CurationAction;
+	override?: boolean;
 }
 
 export interface MediaDetailResponse {
@@ -359,6 +390,9 @@ export interface MediaDetailResponse {
 	// this video's already-resolved fields. A provider absent from the map (e.g.
 	// enrichment disabled) falls back to the plain resolved/raw title client-side.
 	enrich_queries?: Record<string, string> | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values
@@ -698,6 +732,12 @@ export interface PersonDetailResponse {
 	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
 	resolved?: ResolvedField[] | null;
 	images?: PersonImageSet; // F25: per-role presence + version + ordered gallery
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
+	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
+	// entry per stored person_external_ids row (0..N), read-only, visitor-visible.
+	external_links?: ExternalLink[] | null;
 }
 
 // StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
@@ -708,21 +748,31 @@ export interface StudioDetailResponse {
 	items: Video[];
 	total: number;
 	resolved?: ResolvedField[] | null;
+	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
+	// like getMedia's enrich_queries — null for a visitor.
+	completeness?: Completeness | null;
+	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
+	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
+	external_links?: ExternalLink[] | null;
 }
 
-// PersonRenameConflict is the 409 body of POST /people/{id}/rename (F37, RD1): the
-// existing person the new name collides with, so the UI can offer the F23 merge flow
-// (with both video counts) instead — never an auto-merge.
-export interface PersonRenameConflict {
-	id: number;
-	name: string;
-	video_count: number;
+// ExternalLink is one badge-ready outbound link (HOLODEX-266, ADR-083 D2/D3), mirroring
+// the Go api.ExternalLink struct: `provider` is the id's namespace (e.g. "imdb"), `label`
+// its display text (e.g. "IMDb"), and `url` the server-built outbound link — absent when
+// no provider currently advertises a link_templates entry for this (namespace, entity
+// kind), the ADR-083 D2 degraded "known to, but nowhere to click through to" state.
+export interface ExternalLink {
+	provider: string;
+	label: string;
+	url?: string;
 }
 
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
-// "random" is a seeded shuffle paired with a ?seed= param (ADR-045).
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045). completeness_asc/
+// desc (F55.5) are owner-only — the server 401s a non-owner request using them, so the
+// frontend must only ever offer/send them when isOwner is true.
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
@@ -732,13 +782,78 @@ export type SortOrder =
 	| 'duration_asc'
 	| 'resolution_desc'
 	| 'resolution_asc'
-	| 'random';
+	| 'random'
+	| 'completeness_asc'
+	| 'completeness_desc';
 
 // Sort options for the unpaged People/Tags indexes — the single source of truth for
 // both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
 // seeded shuffle of the name-ordered list (ADR-045 §3).
 export const PEOPLE_TAG_SORTS = ['name', 'count', 'random'] as const;
 export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
+
+// CompletenessFacet is one scored facet's tier/status on the per-entity
+// breakdown panel (F55.13-15) — mirrors internal/resolver.FacetScore.
+// not_applicable is still listed (muted status), but excluded from the
+// parent Completeness's score/actionability. provider is present only when
+// actionable is true.
+export interface CompletenessFacet {
+	canonical: string;
+	label: string;
+	criticality: string;
+	tier: 'missing' | 'provider' | 'curated';
+	not_applicable?: boolean;
+	actionable?: boolean;
+	provider?: string;
+}
+
+// Completeness is the F55 completeness score plus the separate actionability
+// signal for one entity — mirrors internal/resolver.Completeness. Present
+// only on an owner-authorized detail response (video/person/studio); null for
+// a visitor, mirroring enrich_queries' access-control shape.
+export interface Completeness {
+	score: number;
+	// undefined when there are no missing scored facets — the ratio is
+	// undefined, not zero.
+	actionability?: number;
+	facets: CompletenessFacet[];
+}
+
+// FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
+// mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's
+// option list: canonical (the value sent as ?missing_facet=), a display label,
+// and how many entities of this type are currently missing it.
+export interface FacetSummary {
+	canonical: string;
+	label: string;
+	criticality: string;
+	missing_count: number;
+}
+
+// CompletenessQueueRow is one (entity, missing facet) pair in the facet-first
+// remediation queue (F55.7, GET /owner/completeness-queue) — mirrors
+// internal/api.QueueRow. Exactly one of thumbnail_url/headshot_version/icon_url
+// is set, matching entity_type. provider is present only on candidate-ready
+// rows (F55.8 DD3).
+export interface CompletenessQueueRow {
+	entity_type: EnrichEntityKind;
+	entity_id: number;
+	name: string;
+	thumbnail_url?: string;
+	headshot_version?: number;
+	icon_url?: string;
+	provider?: string;
+}
+
+// CompletenessFacetGroup is one missing-facet group, pre-split into
+// candidate-ready and needs-research rows — mirrors internal/api.FacetGroup.
+export interface CompletenessFacetGroup {
+	canonical: string;
+	label: string;
+	criticality: string;
+	candidate_ready: CompletenessQueueRow[];
+	needs_research: CompletenessQueueRow[];
+}
 
 export interface MediaFilters {
 	q?: string;
@@ -763,6 +878,9 @@ export interface MediaFilters {
 	// sort==='random'.
 	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
+	// Missing-facet filter (F55.6): canonical facet keys the video must be missing
+	// (AND semantics across multiple). Owner-only, like the completeness sorts above.
+	missing_facet?: string[];
 	limit?: number;
 	offset?: number;
 }

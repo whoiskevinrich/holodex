@@ -536,7 +536,9 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 		fields["status"] = []string{det.Status}
 	}
 	if det.IMDbID != "" {
-		fields["imdb_id"] = []string{det.IMDbID}
+		// Namespace-qualified per ADR-082 — external_provider_id must stay
+		// self-describing since more than one provider can populate it.
+		fields["external_provider_id"] = []string{"imdb:" + det.IMDbID}
 	}
 	if det.PosterPath != "" {
 		fields["poster_url"] = []string{tmdbImageURL(det.PosterPath)}
