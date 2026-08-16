@@ -105,15 +105,6 @@ var KnownFields = []FieldDef{
 		Criticality: CriticalityNiceToHave,
 	},
 	{
-		// Excluded from completeness scoring (F55, ADR-081): a zero-source,
-		// manual-first field (F52) with no provider tier to distinguish from
-		// curated, and "no commentary" is a normal, non-deficient state.
-		Canonical:   "commentary",
-		Label:       "Commentary",
-		Display:     "long_text",
-		Description: "Owner note or commentary on the video. Manual by default; a provider may optionally supply one -- not every video has commentary, and that is expected.",
-	},
-	{
 		Canonical:   "release_date",
 		Label:       "Released",
 		Display:     "",

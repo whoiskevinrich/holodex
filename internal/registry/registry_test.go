@@ -8,8 +8,8 @@ func TestCriticality(t *testing.T) {
 	if got := Lookup("title").Criticality; got != CriticalityCritical {
 		t.Errorf("title criticality = %q, want %q", got, CriticalityCritical)
 	}
-	if got := Lookup("commentary").Criticality; got != "" {
-		t.Errorf("commentary criticality = %q, want unset (excluded)", got)
+	if got := Lookup("deathdate").Criticality; got != "" {
+		t.Errorf("deathdate criticality = %q, want unset (excluded)", got)
 	}
 	// A Computed field is always excluded from scoring, regardless of any
 	// criticality tag — the scorer treats Computed as automatic exclusion.

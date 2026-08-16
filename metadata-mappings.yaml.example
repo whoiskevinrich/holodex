@@ -74,15 +74,6 @@ fields:
     sources:
       - tmdb:tagline
 
-  # --- Commentary (F52): owner-only manual note by default (no sources needed) ---
-  # A field with no `sources:` is decision-only: it never auto-resolves, but the
-  # owner's manual value (set via the detail-page control) still works, and it
-  # simply stays absent for a video with no commentary set. Uncomment a provider
-  # source below only if one of your providers ever exposes something like this.
-  - canonical: commentary
-    # sources:
-    #   - someprovider:commentary
-
   - canonical: release_date
     sources:
       - filename:release_date   # candidate: parsed year from a filename pattern (F48)

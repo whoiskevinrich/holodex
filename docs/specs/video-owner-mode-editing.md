@@ -1,6 +1,16 @@
 # Spec: Owner-mode video editing — Commentary, poster upload, studio placement, file-metadata gating (F52)
 
 **Status**: Draft
+> **Commentary superseded 2026-08-16 ([HOLODEX-115](https://whoiskevinrich.atlassian.net/browse/HOLODEX-115))**:
+> the bespoke, zero-source `commentary` field this spec introduces (P0-1 through P0-4 below) was
+> retired — the owner determined the file's `Comment` tag should be whatever the *system owner* maps
+> it to via `metadata-mappings.yaml` (ADR-013), not a hardcoded application facet. `overview` (TMDB
+> plot synopsis) already had that exact mapping and simply needed its UI unlocked: the generic
+> Metadata `dl`'s `long_text` branch now renders `SourceBadge` for any long_text replace field an
+> operator maps, same as this spec's P0-4 intended for Commentary specifically. Poster upload,
+> studio-near-title placement, and file-metadata gating (the rest of this spec) are unaffected and
+> remain as shipped. See [docs/testing-strategy.md](../testing-strategy.md)'s F52 retirement note for
+> the full account.
 **Feature block**: **F52** — round out owner-mode editing on the video detail page. Title, Studio, and
 Tags are already owner-editable (F36/F30); this spec closes the remaining gaps the owner asked for:
 a new **Commentary** field, an **upload** path for the video poster, **Studio** shown next to the

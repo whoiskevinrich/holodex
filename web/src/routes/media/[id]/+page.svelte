@@ -149,14 +149,12 @@
 	);
 	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
 	// auto-registered non-canonical fields, which render read-only after them.
-	// Studio (F52) and Commentary render in their own header-adjacent spots instead of
-	// the generic metadata dl — excluded here so they don't also render there. Title
+	// Studio (F52) renders in its own header-adjacent spot instead of the generic
+	// metadata dl — excluded here so it doesn't also render there. Title
 	// (HOLODEX-269) is now edited in place via NameEditControl on the header <h1> —
 	// excluded here so it doesn't also render as a SourceSelect row below.
 	const canonicalResolved = $derived(
-		resolved.filter(
-			(f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'commentary' && f.canonical !== 'title'
-		)
+		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'title')
 	);
 	// Visitor view only: a field whose winner is the file/tag baseline just restates
 	// what's already visible elsewhere on the page (title in the header, genres — a
@@ -173,7 +171,6 @@
 				)
 	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
-	const commentaryField = $derived(resolved.find((f) => f.canonical === 'commentary'));
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 	// Gates the whole Metadata section for visitors: nothing to show there once
 	// title/genres-style baseline duplicates are filtered out of visibleResolved.
@@ -896,20 +893,6 @@
 			</div>
 		</header>
 
-		{#if isOwner || commentaryField?.values?.length}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Commentary</h2>
-				{#if isOwner && commentaryField}
-					<!-- Tier-2 replace field (F56): SourceBadge, not SourceSelect — Commentary
-					     has its own section but isn't in the Video Tier-1 set (Title/People/
-					     Studio/Tags, per spec §Non-Goals / design handoff Overview). -->
-					<SourceBadge field={commentaryField} decide={(s, mv) => decideField('commentary', s, mv)} />
-				{:else if commentaryField?.values?.length}
-					<p class="leading-relaxed text-ink">{commentaryField.values[0]}</p>
-				{/if}
-			</section>
-		{/if}
-
 		{#if isOwner || video.tags?.length}
 			<section class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
@@ -1149,8 +1132,14 @@
 						{:else if f.display === 'long_text'}
 							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 								<dt class="inline text-muted">{f.label}:</dt>
-								<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								{#if isReplaceField(f) && isOwner}
+									<dd class="mt-1 block leading-relaxed">
+										<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+									</dd>
+								{:else if f.values[0]?.trim()}
+									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+									{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+								{/if}
 							</div>
 						{:else if f.display === 'url'}
 							<div id={`field-${f.canonical}`}>

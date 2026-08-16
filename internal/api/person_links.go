@@ -27,7 +27,7 @@ func (h *Handlers) relinkPeople(ctx context.Context, videoID int64) {
 }
 
 // relinkIfEntity relinks only the entity kind the mutated field is marked with
-// (registry EntityKind) — so the common case (a title/commentary/… decision or
+// (registry EntityKind) — so the common case (a title/overview/… decision or
 // curation) doesn't pay for a resolve (ADR-053 §4.3's rationale, generalized
 // beyond the studio-only field-name check it replaces).
 func (h *Handlers) relinkIfEntity(ctx context.Context, videoID int64, canonical string) {
