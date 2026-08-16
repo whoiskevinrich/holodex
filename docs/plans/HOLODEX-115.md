@@ -3,11 +3,9 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-115                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
-                             # Release-Note: git trailer → release notes. An epic can't close with all
-                             # gates [x] but this empty.
+release_note: Comments (mapped to Overview) are now manually editable on the video detail page and write back to the file, same as Title/Studio/Performers/Genres.
 ---
 
 # HOLODEX-115 · Core file-metadata fields manually editable + writable
@@ -37,7 +35,7 @@ was retired in the same change.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] commit, push, open PR (all gates green — ready for review, not draft)
+1. [ ] [—] address PR review feedback, if any; merge once approved
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -51,4 +49,4 @@ was retired in the same change.
 
 ### 2026-08-16 · session
 - skills: testing-strategy, simplify, security-review
-- handoff: All gates green (backend/frontend/testing/security done; spec/architecture/design deliberately deferred-never — no new surface needed). `/simplify` found one stale comment reference (fixed, `internal/api/person_links.go`) and one minor duplicated conditional (skipped — mirrors an already-approved pattern). `/security-review` confirmed the retired `commentary` route 404s generically and `overview`'s manual values are sanitized uniformly with title/studio. Next session should commit, push, and open the PR ready for review (not draft).
+- handoff: Committed, pushed, and opened PR #245 ready for review (not draft) — all applicable gates green. Manually driven-browser QA'd `overview`'s new `SourceBadge` control against `backend-films` fixture video 211 ("DUNE"): renders, popover opens with manual-edit option, no stray "Commentary" text, confirmed across all 3 skins, zero attributable console/network errors. Next session should address any PR review feedback and merge once approved.
