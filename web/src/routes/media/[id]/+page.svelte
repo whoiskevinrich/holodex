@@ -1133,8 +1133,10 @@
 							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
 								<dt class="inline text-muted">{f.label}:</dt>
 								{#if isReplaceField(f) && isOwner}
-									<dd class="mt-1 block"><SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} /></dd>
-								{:else}
+									<dd class="mt-1 block leading-relaxed">
+										<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+									</dd>
+								{:else if f.values[0]?.trim()}
 									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
 									{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
 								{/if}
