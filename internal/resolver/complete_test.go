@@ -75,15 +75,15 @@ func TestComplete_NoMissingFacets(t *testing.T) {
 }
 
 func TestComplete_AllExcludedYieldsZeroScore(t *testing.T) {
-	// commentary carries no Criticality tag (excluded, F52) — nothing left to score.
-	fields := []mapping.Field{fld("commentary")}
+	// deathdate carries no Criticality tag (excluded, F55) — nothing left to score.
+	fields := []mapping.Field{fld("deathdate")}
 	got := Complete(fields, nil, nil)
 
 	if got.Score != 0 {
 		t.Errorf("Score = %d, want 0", got.Score)
 	}
 	if len(got.Facets) != 0 {
-		t.Errorf("Facets = %v, want empty (commentary is unscored)", got.Facets)
+		t.Errorf("Facets = %v, want empty (deathdate is unscored)", got.Facets)
 	}
 }
 

@@ -26,7 +26,7 @@ missing case entirely:
 - **Video Title**: no rename affordance near the `<h1>` at all
   (`media/[id]/+page.svelte:622` is a plain, non-editable heading). Title *is* technically
   editable today, but only by scrolling to the generic Metadata list and using the same
-  `SourceSelect` control used for genres or commentary — a location with no relationship to
+  generic source-of-truth control used for genres or overview — a location with no relationship to
   where the title is actually displayed.
 
 An owner has to remember a different interaction per entity type to do the same conceptual

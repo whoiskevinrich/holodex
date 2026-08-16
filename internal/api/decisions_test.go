@@ -43,10 +43,13 @@ func decisionServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, i
 	if err != nil {
 		t.Fatalf("seed video: %v", err)
 	}
-	// A matched tmdb provider supplying both a replace and a merge field.
+	// A matched tmdb provider supplying both a replace and a merge field, plus a
+	// long_text replace field (overview) — HOLODEX-115's "Comments... manually
+	// editable" AC covers a long_text field, not just plain-text title/studio.
 	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, id, "tmdb", "ext-1", map[string][]string{
-		"title":  {"TMDB Title"},
-		"genres": {"Action", "Drama"},
+		"title":    {"TMDB Title"},
+		"genres":   {"Action", "Drama"},
+		"overview": {"TMDB synopsis."},
 	}); err != nil {
 		t.Fatalf("seed enrichment: %v", err)
 	}
@@ -54,7 +57,8 @@ func decisionServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, i
 	mpath := filepath.Join(dir, "metadata-mappings.yaml")
 	yaml := "fields:\n" +
 		"  - canonical: title\n    label: Title\n    sources: [tmdb:title, file:title]\n" +
-		"  - canonical: genres\n    label: Genres\n    merge: true\n    sources: [tmdb:genres, file:genres]\n"
+		"  - canonical: genres\n    label: Genres\n    merge: true\n    sources: [tmdb:genres, file:genres]\n" +
+		"  - canonical: overview\n    label: Overview\n    sources: [tmdb:overview]\n"
 	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -187,6 +191,40 @@ func TestDecisionAPI_ManualLiteral(t *testing.T) {
 	}
 	if dec := f["decision"].(map[string]any); dec["manual_value"] != "My Cut" {
 		t.Errorf("decision should carry the manual literal, got %v", dec)
+	}
+}
+
+// TestDecisionAPI_OverviewReplaceField covers HOLODEX-115: a long_text replace
+// field (overview, display: "long_text") accepts a manual override and an
+// adopt-provider decision through the same generic F36 decision surface as
+// title/studio — the +page.svelte long_text branch just needed to offer the
+// SourceBadge control this endpoint already supported.
+func TestDecisionAPI_OverviewReplaceField(t *testing.T) {
+	srv, _, id := decisionServer(t, "")
+	base := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/overview/decision"
+
+	// Undecided: the provider value resolves by default (no file fallback mapped).
+	f := resolvedField(t, srv, id, "overview")
+	if vals := f["values"].([]any); vals[0] != "TMDB synopsis." {
+		t.Fatalf("undecided should show provider value, got %v", vals)
+	}
+
+	// Manual literal → 204, resolved field reflects the owner's text.
+	if code := sendDecision(t, http.MethodPut, base, "", map[string]string{"source": "manual", "manual_value": "Owner's own summary."}); code != 204 {
+		t.Fatalf("manual: want 204, got %d", code)
+	}
+	f = resolvedField(t, srv, id, "overview")
+	if f["values"].([]any)[0] != "Owner's own summary." {
+		t.Errorf("manual: want owner text, got %v", f["values"])
+	}
+
+	// Clear → 204, back to the provider default.
+	if code := sendDecision(t, http.MethodDelete, base, "", nil); code != 204 {
+		t.Fatalf("clear: want 204, got %d", code)
+	}
+	f = resolvedField(t, srv, id, "overview")
+	if f["values"].([]any)[0] != "TMDB synopsis." {
+		t.Errorf("after clear: want provider value, got %v", f["values"])
 	}
 }
 

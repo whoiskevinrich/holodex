@@ -47,6 +47,12 @@ every other owner-editable replace field — the control itself is the affordanc
 
 ## 2. Commentary block
 
+> **Superseded 2026-08-16 ([HOLODEX-115](https://whoiskevinrich.atlassian.net/browse/HOLODEX-115))**:
+> this dedicated Commentary section/field was retired — see [video-owner-mode-editing.md](../specs/video-owner-mode-editing.md)'s
+> superseded note. `overview` now covers the same "owner-editable long-text field written back to the
+> file's Comment tag" need generically, via the shared Metadata `dl`'s `long_text` branch, with no
+> bespoke section of its own.
+
 **New**, positioned directly after the studio row (still inside `<header>` or as its own `<section>`
 immediately following — either reads fine; **section** is preferred so it gets the same
 `space-y-6` rhythm as Tags/People below it):

@@ -202,7 +202,6 @@ not technical file properties.
 | `collection` | Nice-to-have | |
 | `external_provider_id` (generalized from `imdb_id`) | Nice-to-have | Tri-state — the only v1 not-applicable UI target. |
 | `director` | Nice-to-have | |
-| `commentary` | **Excluded** | F52's zero-source, manual-first field — structurally doesn't fit the source-tier model (see below). |
 
 **Person**
 
@@ -230,8 +229,11 @@ not technical file properties.
 A field is excluded from scoring (not `missing`, not counted at all) when it structurally can't carry a
 meaningful "gap" signal:
 
-- **Zero-source, manual-only fields** (`commentary`, F52) — there's no provider tier to distinguish from
-  curated, and "no commentary" is a completely normal, non-deficient state for most videos.
+- **Zero-source, manual-only fields** — there's no provider tier to distinguish from curated, and "no
+  value set" is a completely normal, non-deficient state. (F52's `commentary` field was the original
+  exemplar of this category; it was retired 2026-08-16, [HOLODEX-115](https://whoiskevinrich.atlassian.net/browse/HOLODEX-115) —
+  see [video-owner-mode-editing.md](video-owner-mode-editing.md)'s superseded note. The category itself
+  remains valid for any future zero-source field.)
 - **Computed/derived fields** (`age`, `age_at_death`, ADR-063) — always in lockstep with their source
   field; scoring them is redundant.
 - **Low-signal or usually-absent-by-default fields** (person `website`, `deathdate`) — see the tables
@@ -245,7 +247,7 @@ meaningful "gap" signal:
 
 | ID | Requirement | Acceptance criteria |
 |----|-------------|---------------------|
-| F55.1 | The field registry carries a **criticality** (`critical` \| `nice_to_have` \| unset-for-excluded) per scored facet, matching the tables above. | `Lookup()` for `title` returns `critical`; `Lookup()` for `commentary` returns no criticality (excluded). |
+| F55.1 | The field registry carries a **criticality** (`critical` \| `nice_to_have` \| unset-for-excluded) per scored facet, matching the tables above. | `Lookup()` for `title` returns `critical`; `Lookup()` for `deathdate` returns no criticality (excluded). |
 | F55.2 | Every scored facet on an entity resolves to a **tri-state status**: `resolved` (with a source tier), `missing`, or `not-applicable`. | A video with a curated title reads `resolved`/`curated`; an unset genres reads `missing`; a video with `external_provider_id` marked not-applicable reads `not-applicable`. |
 | F55.3 | **Completeness score** is computed per the § Scoring model formula, at read/resolve time (not stored), mirroring the ADR-063 computed-field precedent. | For the § Worked example inputs, the API returns `65` for that video. Changing a facet's resolved tier (e.g. curating the poster) changes the score on the next read with no migration or backfill. |
 | F55.4 | **Actionability** is computed separately from the score, per the formula above, and never influences `completeness_score`. | A video with 2 missing facets, 1 with a cached candidate, reports `actionability: 50` alongside an unchanged `completeness_score`. |
