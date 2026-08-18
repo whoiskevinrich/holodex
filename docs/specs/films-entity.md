@@ -29,16 +29,19 @@ the existing shape.
   handler) — the existing mechanism for shipping a server-computed flag to the SPA
   (`card_layout`, `person_gallery_max`) that `films_enabled` extends
 
-**ADR**: **ADR-085 (Proposed, pending `/architecture`)** will record the decisions that rise to
-ADR level: (1) the `films`/`film_videos`/`film_images` data model, including the
-`UNIQUE(film_id, scene_number)`-with-NULL sentinel (RD5) and the `UNIQUE(name, year)` identity
-key (RD9); (2) the **asserted-link model** — a link the resolver may never derive or prune
-(RD1), the inverse of ADR-053's rule; (3) the film-as-resolver-source mechanism for `album`/
-`title` precedence, including how a video attached to multiple films presents multiple
-candidate values to one scalar field (flagged as an open technical question below — the spec
-locks the *behavior*, the ADR must lock the *mechanism*); (4) `films_enabled` suspend semantics
-over `field_source_decisions` (RD6). Touches **access** (new owner-gated endpoints, new
-owner-gated bulk-attach mutation) → `/security-review` before merge.
+**ADR**: **[ADR-085](../architecture/ADR-085-films-entity.md) (Proposed)** records the decisions
+that rise to ADR level: (1) the `films`/`film_videos`/`film_people_roles`/`film_images` data
+model (migration 0042), including the `UNIQUE(film_id, scene_number)`-with-NULL sentinel (RD5)
+and the `UNIQUE(name, year)` identity key (RD8/RD9 in this doc); (2) the **asserted-link model**
+— a link the resolver may never derive or prune (RD1), the inverse of ADR-053's rule, enforced
+by having no reconciler at all; (3) the film-as-resolver-source mechanism for `album`/`title`
+precedence — a video attached to multiple films presents multiple `provider:film:<id>`
+candidates, one per film, resolved via a caller-injected synthetic `Enrichment` row and one
+narrow `resolveDecided` branch; (4) `films_enabled` suspend semantics over
+`field_source_decisions` (RD6) — suspension is injection non-participation, reusing the
+existing "decided source currently unmatched" resolver path with no new schema/state. Touches
+**access** (new owner-gated endpoints, new owner-gated bulk-attach mutation) →
+`/security-review` before merge.
 
 **Design handoff**: pending `/design-handoff` — films list/detail layout, the two attach
 pickers (video-side and film-side), the two-region film detail page, the new films row on
@@ -417,33 +420,30 @@ Single-owner feature (no adoption funnel — success is architectural correctnes
 
 ## Open Questions
 
-- **Q1 (engineering, blocking for ADR-085):** the exact mechanism by which a video attached to
-  **multiple** films presents multiple candidate values to one scalar `album`/`title` field
-  under `field_source_decisions`. Candidates include: a per-film-id source string
-  (`provider:film:<id>`, mirroring how the source vocabulary already parameterizes
-  `provider:<name>`), or a single `provider:film` source whose value the resolver picks via a
-  secondary tie-break (e.g. most-recently-attached) with the decision UI surfacing all
-  attached-film candidates individually. This governs both the `field_source_decisions.source`
-  string format and the decision-UI candidate list — must be locked in ADR-085 before P0-7
-  implementation starts.
-- **Q2 (engineering, blocking for ADR-085):** the concrete "suspend, don't delete" mechanism for
-  `field_source_decisions` rows referencing a film source when `films_enabled=false` (RD7) — a
-  status/availability column on the decision row, a resolver-level source-availability check
-  against the live flag, or something else. Must produce identical before/after state across a
-  flag-off/flag-on cycle (Success Metrics, leading #2).
+- **Q1** (multi-film resolver-source candidate naming) and **Q2** (suspend-without-delete
+  mechanism) are now **resolved by [ADR-085](../architecture/ADR-085-films-entity.md)**: a film
+  competes as a `provider:film:<id>` decision source injected as a synthetic candidate at the
+  resolver call site (one namespace per attached film, so N films = N distinct decision chips),
+  and `films_enabled=false` suspends resolution by simply not injecting those candidates — the
+  existing "decided source currently unmatched → empty" resolver path handles the rest with no
+  new schema or state. See ADR-085 §4/§5 for the full mechanism and its one genuine
+  `resolveDecided` core diff.
 - **Q3 (engineering, non-blocking):** provider selection for P1-1 film enrichment — reuse the
   existing TMDB movie-metadata surface already integrated elsewhere in the codebase, or treat
   film enrichment as provider-agnostic from day one. Either satisfies P1-1; pick at
   implementation.
 - **Q4 (design, non-blocking):** exact visual treatment of the films row on person/studio/tag
-  pages (P0-5) — inline chip row vs. a dedicated section with its own heading. Resolve in
+  pages (P0-5) — inline chip row vs. a dedicated section with its own heading. Also new per
+  ADR-085 §5: the visual treatment of a field whose decided film source is currently suspended
+  (`films_enabled=false`) — must read as "source unavailable," not "data lost." Resolve both in
   `/design-handoff`.
 
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ⬜ **`/architecture`** — ADR-085: asserted-link data model (RD1/RD5/RD8), the film
-   resolver-source mechanism (RD7, Q1/Q2), and the `films_enabled` suspend semantics (RD6).
+1. ✅ **`/architecture`** — [ADR-085](../architecture/ADR-085-films-entity.md): asserted-link
+   data model (RD1/RD5/RD8), the film resolver-source mechanism (RD7, Q1/Q2 resolved), and the
+   `films_enabled` suspend semantics (RD6).
 2. ⬜ **`/design-handoff`** — films list/detail layout, the two attach pickers (RD9), the
    two-region film detail page (RD4), the new films row on three existing pages (RD6/P0-5),
    3-skin QA.
