@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-115                 # the tracker key; must match the branch key regex
-status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: done                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Comments (mapped to Overview) are now manually editable on the video detail page and write back to the file, same as Title/Studio/Performers/Genres.
 ---
@@ -35,7 +35,7 @@ was retired in the same change.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] address PR review feedback, if any; merge once approved
+1. [x] [—] merge PR #247 (the `a9327df` review-feedback fix, resolved and landed via the #245/#247 worklog conflict)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -46,6 +46,14 @@ was retired in the same change.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-21 · session (2)
+- skills: (none — direct fix)
+- handoff: Resolved the #245/#247 worklog conflict: PR #245's squash-merge to `main` actually included `a9327df`'s code (the `.trim()` guard + `leading-relaxed` class were already present on `main`, confirmed by diff) even though the prior session's handoff believed it hadn't shipped — only this worklog file had diverged. Merged `main` into the branch, resolved the conflict by marking the item done, and landed PR #247. Epic complete, status → done.
+
+### 2026-08-21 · session
+- skills: (none — direct fix)
+- handoff: Discovered via the flightplan Stop hook that `a9327df` (the PR #245 review-feedback fix: `.trim()` guard on the non-owner/non-replace `overview` fallback + missing `leading-relaxed` class on the `SourceBadge` wrapper) was committed locally but never pushed — #245 merged without it, so the fix never actually shipped. Pushed the branch and opened PR #247 to land it, plus this worklog catch-up commit. No gate changes — same-epic polish fix on already-`[x]` frontend work. Next session should merge PR #247 once approved.
 
 ### 2026-08-16 · session
 - skills: testing-strategy, simplify, security-review
