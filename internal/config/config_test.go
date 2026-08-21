@@ -176,6 +176,25 @@ func TestDefaultSourceConfig(t *testing.T) {
 	}
 }
 
+func TestFilmsEnabledConfig(t *testing.T) {
+	// Default is off (F56, ADR-085 — opt-in, matching mcp_enabled's precedent).
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.FilmsEnabled {
+		t.Errorf("films_enabled default = true, want false")
+	}
+
+	t.Setenv("FILMS_ENABLED", "true")
+	if cfg, err = Load(""); err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.FilmsEnabled {
+		t.Errorf("films_enabled override = false, want true")
+	}
+}
+
 func TestProviderTrustOrderConfig(t *testing.T) {
 	// Absent by default (mapping-order fallback among providers).
 	cfg, err := Load("")

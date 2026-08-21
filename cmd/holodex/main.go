@@ -403,6 +403,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
+	handlers.SetFilmsEnabled(cfg.FilmsEnabled)
 	handlers.SetDefaultSource(cfg.DefaultSource)
 	handlers.SetProviderTrustOrder(cfg.ProviderTrustOrder)
 	apiHandler := api.Router(log, health, handlers, reg.Handler())

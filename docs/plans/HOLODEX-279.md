@@ -40,11 +40,15 @@ Done means all seven gates below are checked and the feature merges to main behi
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [design] `/design-handoff` — films list/detail layout, two attach pickers (video→film, film→video bulk), films row on person/studio/tag pages, suspended-film-source visual state (ADR-085 §5 action item), 3-skin QA
-2. [ ] [backend] `films_enabled` config flag (`internal/config/`, `FILMS_ENABLED` env override, threaded into `Handlers` via the `cardLayout` pattern) + `FilmsForVideo` repo method + `getMedia` call-site injection (`internal/api/handlers.go`, between `enr := enrichmentFromRows(enrichRows)` and `resolver.Resolve(...)`)
+2. [ ] [backend] `FilmsForVideo` repo method + `getMedia` call-site injection (`internal/api/handlers.go`, between `enr := enrichmentFromRows(enrichRows)` and `resolver.Resolve(...)`), gated by `films_enabled`
 3. [ ] [backend] Film API handlers (`films.go`, `film_fields.go`, `film_images.go`, `film_videos.go` — attach/detach/bulk-attach, scene-number-collision 409) mirroring `studios.go`/`studio_fields.go`/`studio_images.go`
 4. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-21 · session (cont. 2)
+- skills: (none — direct implementation)
+- handoff: Wired `films_enabled` end-to-end following the `card_layout` precedent exactly: `internal/config.FilmsEnabled` (`FILMS_ENABLED` env, default false) → `Handlers.SetFilmsEnabled` → `main.go` wiring → surfaced on `GET /capabilities` (`films_enabled` field) so the SPA can gate films routes/nav. Documented in `holodex.yaml.example` (paired with the existing `card_layout: poster` guidance, per ADR-085) and a new "Films" section in `docs/reference/configuration.md`. Added `TestFilmsEnabledConfig` (default-off + env-override, mirroring `TestDefaultSourceConfig`'s shape — no existing capabilities-endpoint test covers individual fields like `card_layout`, so none was added there either, for consistency). Full `go build`/`go vet`/`go test ./...` clean. The flag is wired but not yet consumed anywhere (no route gating, no resolver-source injection point yet) — next session: `FilmsForVideo` repo method + the `getMedia` call-site injection that actually reads this flag, then the film API handler layer.
 
 ### 2026-08-21 · session (cont.)
 - skills: (none — direct implementation, continuing the system-design build sequence)

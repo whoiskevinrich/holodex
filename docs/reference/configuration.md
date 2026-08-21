@@ -281,6 +281,14 @@ This is an operator setting: all visitors see the same layout. It is applied as 
 
 > **Related settings:** `thumbnail_width` controls the pixel width of the stored image; `card_layout` controls the display shape. Both are independent — changing `card_layout` does not regenerate thumbnails.
 
+## Films
+
+| `holodex.yaml` key | Env var | Default | Description |
+|--------------------|---------|---------|-------------|
+| `films_enabled` | `FILMS_ENABLED` | `false` | Enable the Films entity (F56, ADR-085): browsable films with owner-asserted video/scene attachments and resolver-source Album/Title writeback. |
+
+Off by default, matching `mcp_enabled`'s precedent. Server-side and real, not cosmetic: `/films` routes are unregistered, films are excluded from search/MCP, and any per-video "attached to film X" decision is *suspended* (not deregistered) while off — the file on disk keeps whatever was last written, and re-enabling restores the same resolved value with no owner action. Turning this flag off never reverts Album/Title values already written to files. Migrations run regardless of this flag; it gates behavior, not schema. Film-library operators typically pair this with `card_layout: "poster"` above.
+
 ## Metadata source of truth
 
 Controls which layer wins a **replace (scalar)** field when the owner has made no per-field decision (F36, [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)).

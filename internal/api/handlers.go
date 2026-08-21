@@ -127,6 +127,10 @@ type Handlers struct {
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
 
+	// filmsEnabled gates the Films entity (F56, ADR-085); default false. Surfaced
+	// via /capabilities so the SPA knows whether to render films routes/nav at all.
+	filmsEnabled bool
+
 	// defaultSource is the F36 undecided source-of-truth mode ("file" | "mapping",
 	// ADR-051/RD4). It feeds resolver.Options so an undecided field resolves
 	// file-first by default; empty means file-first.
@@ -252,6 +256,14 @@ func (h *Handlers) SetAuth(auth *Auth, exposedBind bool) {
 // the value to "wide" or "poster" before this is called; this is a simple assignment.
 func (h *Handlers) SetCardLayout(layout string) {
 	h.cardLayout = layout
+}
+
+// SetFilmsEnabled wires the Films entity flag (F56, ADR-085). Called once at
+// startup before serving; route registration, search/MCP exclusion, and the film
+// resolver source injection point all read this via capabilities()/direct field
+// access rather than re-deriving it from config.
+func (h *Handlers) SetFilmsEnabled(enabled bool) {
+	h.filmsEnabled = enabled
 }
 
 // SetDefaultSource wires the F36 undecided source-of-truth mode ("file" | "mapping",

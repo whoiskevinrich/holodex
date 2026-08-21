@@ -114,6 +114,15 @@ type Config struct {
 	// "poster" shows 2:3 cards, suited to film libraries with poster-format cover art.
 	CardLayout string `yaml:"card_layout"`
 
+	// FilmsEnabled gates the Films entity (F56, ADR-085): default false (opt-in),
+	// matching MCPEnabled's precedent. Server-side and real, not cosmetic — /films
+	// routes are unregistered, films are excluded from FTS search/MCP, and the
+	// film resolver source (a video's decided "provider:film:<id>" field) is
+	// suspended (not deregistered) while false, via injection non-participation
+	// (ADR-085 §5) — never write-destructive. Migrations run regardless of this
+	// flag; it gates behavior, not schema.
+	FilmsEnabled bool `yaml:"films_enabled"`
+
 	// DefaultSource governs the undecided per-field source of truth (F36, ADR-051).
 	// "file" (default) makes the file/baseline layer win when no per-field decision
 	// exists — a provider is a candidate, never an automatic winner (the F31
@@ -353,6 +362,7 @@ func applyEnv(c *Config) {
 	}
 	c.ExtractionAutoApplyEnabled = envBool("EXTRACTION_AUTO_APPLY_ENABLED", c.ExtractionAutoApplyEnabled)
 	c.FilenamePatternsPath = envStr("FILENAME_PATTERNS_PATH", c.FilenamePatternsPath)
+	c.FilmsEnabled = envBool("FILMS_ENABLED", c.FilmsEnabled)
 	c.CardLayout = envStr("CARD_LAYOUT", c.CardLayout)
 	if c.CardLayout != "wide" && c.CardLayout != "poster" {
 		c.CardLayout = "wide"
