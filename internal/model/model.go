@@ -303,6 +303,19 @@ type Studio struct {
 	ImageVersions map[string]int64 `json:"-"`
 }
 
+// Film is a first-class entity (F56, ADR-085) whose video links (film_videos) are
+// an owner ASSERTION, not derived from resolved fields — structurally the opposite
+// of Studio/Person. Name+Year is the identity pair (UNIQUE(name, year), migration
+// 0043): film-name collisions across different releases/years are the common case,
+// unlike Studio names. Description/release date/poster are not struct fields, for
+// the same reason Studio/Person omit their resolver-only fields (they exist only
+// as resolver output, never persisted onto the entity struct) — see filmBaseline.
+type Film struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Year int    `json:"year,omitempty"`
+}
+
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
 // field (ADR-013, F2.9).
 type ExtraMetadata struct {

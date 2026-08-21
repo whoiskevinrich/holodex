@@ -40,11 +40,15 @@ Done means all seven gates below are checked and the feature merges to main behi
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [design] `/design-handoff` — films list/detail layout, two attach pickers (video→film, film→video bulk), films row on person/studio/tag pages, suspended-film-source visual state (ADR-085 §5 action item), 3-skin QA
-2. [ ] [backend] Schema migrations (`films`, `film_videos`, `film_people_roles`, `film_images`, `films_fts` — ADR-085 §1) + asserted-link non-participation guarantee/regression test — `internal/db/migrations/`
-3. [ ] [backend] Film resolver source (`resolveDecided`/`gather` `film:` branch) + `films_enabled` config flag + film API — `internal/resolver/`, `internal/config/`, `internal/api/`
+2. [ ] [backend] `films_enabled` config flag (`internal/config/`, `FILMS_ENABLED` env override, threaded into `Handlers` via the `cardLayout` pattern) + `FilmsForVideo` repo method + `getMedia` call-site injection (`internal/api/handlers.go`, between `enr := enrichmentFromRows(enrichRows)` and `resolver.Resolve(...)`)
+3. [ ] [backend] Film API handlers (`films.go`, `film_fields.go`, `film_images.go`, `film_videos.go` — attach/detach/bulk-attach, scene-number-collision 409) mirroring `studios.go`/`studio_fields.go`/`studio_images.go`
 4. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-21 · session (cont.)
+- skills: (none — direct implementation, continuing the system-design build sequence)
+- handoff: Wrote the zero-relink-participation regression test first, per ADR-085 action item 6 (`internal/api/film_links_test.go`, `TestFilmVideosSurviveFullRelinkCycle`) — seeds a `film_videos` row directly via SQL (no attach endpoint exists yet) and asserts it survives byte-for-byte across a full scan (`RelinkVideoEntity`) → enrich → decision (`SetDecision`) → curation (`SetCuration`) cycle, since there is and must never be a `RelinkFilmVideos` function. Added `model.Film` (`internal/model/model.go`, minimal: ID/Name/Year — mirrors Studio/Person in keeping resolver-only fields off the struct) and `filmBaseline` (`internal/resolver/film_baseline.go` + `film_baseline_test.go`, mirrors `studioBaseline` exactly: name is baseline-backed, everything else empty-but-claimed for RD6 additivity). Implemented the one genuine resolver-core diff ADR-085 §4 calls out: `resolveDecided`'s and `gather`'s `film:`-prefixed branches (`internal/resolver/resolver.go:491-524`, `:464-475`) reading `enrichment[name][f.Canonical]` directly instead of scanning `ParsedSources`, covered by `internal/resolver/film_source_test.go` (decided-wins, undecided-never-auto-wins, suspended-drops-not-fallback, multi-film-disambiguates-by-namespace). Full `go build`/`go vet`/`go test ./...` clean. Next session: `films_enabled` config flag + `FilmsForVideo` repo method + `getMedia` injection, then the film API handler layer (see renumbered Up next above) — the design-handoff artifact (`docs/design/films-entity-handoff.md`) still needs to be written before that gate can flip.
 
 ### 2026-08-21 · session
 - skills: design-handoff, system-design

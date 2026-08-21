@@ -465,6 +465,13 @@ func resolveField(
 		if vals, ok := baseline.Baseline(src); ok {
 			return vals
 		}
+		// A film namespace ("film:<id>", F56/ADR-085 §4) is a synthetic,
+		// dynamically-injected candidate with no YAML-declared source key — the
+		// field's own canonical name doubles as the pseudo-key instead. Mirrors
+		// resolveDecided's identical guard below, for symmetry.
+		if strings.HasPrefix(src.Namespace, "film:") {
+			return enrichment[src.Namespace][f.Canonical]
+		}
 		if pFields, ok := enrichment[src.Namespace]; ok {
 			return pFields[src.Key]
 		}
@@ -490,6 +497,20 @@ func resolveField(
 // item (the field drops), exactly as an undecided empty field would.
 func resolveDecided(baseline BaselineSource, enrichment Enrichment, fc FieldCuration, dec Decision, f mapping.Field) ([]ResolvedValue, string) {
 	if name := fieldsource.Provider(dec.Source); name != "" {
+		// A film source ("provider:film:<id>", F56/ADR-085 §4) has no
+		// YAML-declared ParsedSources entry, by design (a film attachment is
+		// asserted per-video at runtime, not statically configured) — skip the
+		// scan below and read the synthetic candidate directly, keyed by the
+		// field's own canonical name. films_enabled=false or a since-detached
+		// film simply omits this namespace from enrichment, so this falls
+		// through to nil exactly like a decided-but-currently-unmatched
+		// provider does (ADR-085 §5's suspend mechanism — no new state needed).
+		if strings.HasPrefix(name, "film:") {
+			if cand := firstNonEmpty(enrichment[name][f.Canonical]); cand != "" {
+				return decidedItem(cand, name, fc, f, false), name + ":" + f.Canonical
+			}
+			return nil, ""
+		}
 		pFields := enrichment[name]
 		for _, src := range f.ParsedSources {
 			if src.Namespace != name {
