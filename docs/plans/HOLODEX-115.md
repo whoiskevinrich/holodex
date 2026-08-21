@@ -35,7 +35,7 @@ was retired in the same change.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] address PR review feedback, if any; merge once approved
+1. [ ] [—] merge PR #247 once approved (the `a9327df` review-feedback fix that never actually shipped with #245)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -49,7 +49,7 @@ was retired in the same change.
 
 ### 2026-08-21 · session
 - skills: (none — direct fix)
-- handoff: Addressed PR #245 review feedback in `a9327df`: guarded the non-owner/non-replace `overview` fallback with the same `.trim()` check the equivalent Person-page branch already has (was rendering `f.values[0]` unconditionally), and added the missing `leading-relaxed` class to the `SourceBadge` wrapper to match its sibling instances. No gate changes — this is a same-epic polish fix on already-`[x]` frontend work. Next session should merge PR #245 once approved.
+- handoff: Discovered via the flightplan Stop hook that `a9327df` (the PR #245 review-feedback fix: `.trim()` guard on the non-owner/non-replace `overview` fallback + missing `leading-relaxed` class on the `SourceBadge` wrapper) was committed locally but never pushed — #245 merged without it, so the fix never actually shipped. Pushed the branch and opened PR #247 to land it, plus this worklog catch-up commit. No gate changes — same-epic polish fix on already-`[x]` frontend work. Next session should merge PR #247 once approved.
 
 ### 2026-08-16 · session
 - skills: testing-strategy, simplify, security-review
