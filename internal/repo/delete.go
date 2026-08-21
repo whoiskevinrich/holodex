@@ -123,9 +123,13 @@ func (r *Repo) PurgePath(ctx context.Context, id int64) (string, error) {
 }
 
 // HardDelete removes a video row permanently (F24.4/F24.5). The ON DELETE CASCADE
-// foreign keys (video_people/video_tags/video_metadata) and the videos_ad FTS
-// trigger clean up the junctions and search index automatically. A no-op (0 rows)
-// is not an error — the desired end state is "the row is gone".
+// foreign keys (video_people/video_tags/video_metadata/video_studios/
+// file_writebacks/writeback_queue) and the videos_ad FTS trigger clean up the
+// junctions and search index automatically. A no-op (0 rows) is not an error —
+// the desired end state is "the row is gone". Every video_* child table must
+// carry ON DELETE CASCADE on its video_id FK, or this fails with a FOREIGN KEY
+// constraint error for any video with rows there (see migration 0042 —
+// file_writebacks/writeback_queue originally lacked it).
 func (r *Repo) HardDelete(ctx context.Context, id int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
