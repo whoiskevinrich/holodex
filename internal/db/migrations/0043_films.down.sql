@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS idx_film_images_film;
+DROP TABLE IF EXISTS film_images;
+DROP TRIGGER IF EXISTS films_au;
+DROP TRIGGER IF EXISTS films_ad;
+DROP TRIGGER IF EXISTS films_ai;
+DROP TABLE IF EXISTS films_fts;
+DROP TABLE IF EXISTS film_people_roles;
+DROP INDEX IF EXISTS idx_film_videos_video;
+DROP TABLE IF EXISTS film_videos;
+DROP TABLE IF EXISTS films;

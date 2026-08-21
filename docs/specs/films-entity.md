@@ -31,7 +31,7 @@ the existing shape.
 
 **ADR**: **[ADR-085](../architecture/ADR-085-films-entity.md) (Proposed)** records the decisions
 that rise to ADR level: (1) the `films`/`film_videos`/`film_people_roles`/`film_images` data
-model (migration 0042), including the `UNIQUE(film_id, scene_number)`-with-NULL sentinel (RD5)
+model (migration 0043), including the `UNIQUE(film_id, scene_number)`-with-NULL sentinel (RD5)
 and the `UNIQUE(name, year)` identity key (RD8/RD9 in this doc); (2) the **asserted-link model**
 — a link the resolver may never derive or prune (RD1), the inverse of ADR-053's rule, enforced
 by having no reconciler at all; (3) the film-as-resolver-source mechanism for `album`/`title`

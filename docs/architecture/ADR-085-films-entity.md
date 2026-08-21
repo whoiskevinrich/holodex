@@ -85,7 +85,7 @@ source is temporarily unavailable" actually *does* inside `resolveDecided`, conc
 
 ## Decision
 
-### 1 — Data model (migration 0042)
+### 1 — Data model (migration 0043)
 
 The ADR-053 pattern (name-keyed entity + join + FTS5 mirror), extended with the two columns the
 spec's scene semantics require, plus a film-only roles table:
@@ -408,7 +408,7 @@ explicitly deferred to `/design-handoff` as a named action item, not solved by a
 
 ## Action Items
 
-1. [ ] Migration 0042: `films`, `film_videos`, `film_people_roles`, `film_images`, `films_fts` +
+1. [ ] Migration 0043: `films`, `film_videos`, `film_people_roles`, `film_images`, `films_fts` +
    triggers (§1); down migration drops them.
 2. [ ] `filmBaseline` (`NewFilmBaseline`) in `internal/resolver`, mirroring `personBaseline`/
    `studioBaseline` for film-owned fields; cast/tag union assembled separately, not through
