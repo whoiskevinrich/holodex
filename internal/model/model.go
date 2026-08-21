@@ -311,9 +311,10 @@ type Studio struct {
 // the same reason Studio/Person omit their resolver-only fields (they exist only
 // as resolver output, never persisted onto the entity struct) — see filmBaseline.
 type Film struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-	Year int    `json:"year,omitempty"`
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Year       int    `json:"year,omitempty"`
+	VideoCount int    `json:"video_count,omitempty"`
 }
 
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
@@ -356,6 +357,7 @@ const (
 	EnrichEntityPerson = "person"
 	EnrichEntityVideo  = "video"
 	EnrichEntityStudio = "studio"
+	EnrichEntityFilm   = "film" // F56, ADR-085
 	EntityTag          = "tag"
 )
 

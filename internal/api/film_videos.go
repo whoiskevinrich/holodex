@@ -1,0 +1,160 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"holodex/internal/repo"
+)
+
+// Film↔video attach/detach (F56, ADR-085 §2/§6): film_videos is an owner
+// ASSERTION, never a value RelinkVideoEntity derives -- see
+// internal/repo/films.go's AttachFilmVideo doc comment and the zero-relink-
+// participation regression test (film_links_test.go). These are the ONLY writers
+// of film_videos; no relink trigger may ever call them.
+
+// mountFilmVideos registers the owner-gated attach/detach/bulk-attach routes,
+// called from mountFilms.
+func (h *Handlers) mountFilmVideos(r chi.Router) {
+	r.Post("/films/{filmId}/videos", h.attachFilmVideo)
+	r.Post("/films/{filmId}/videos/bulk", h.bulkAttachFilmVideos)
+	r.Delete("/films/{filmId}/videos/{videoId}", h.detachFilmVideo)
+}
+
+// writeSceneCollisionConflict writes the 409 envelope for a scene-number collision
+// (spec: "reject with an inline error naming the current occupant, no silent swap,
+// no auto-bump renumbering"), mirroring writeCollisionConflict's shape.
+func writeSceneCollisionConflict(w http.ResponseWriter, occupant *repo.FilmSceneCollision) {
+	writeJSON(w, http.StatusConflict, map[string]any{
+		"error":    "scene number already taken",
+		"conflict": occupant,
+	})
+}
+
+// filmVideoMutationError translates AttachFilmVideo/BulkAttachFilmVideos/
+// DetachFilmVideo's shared error set into a response, reporting whether it wrote
+// one. occupant is the *repo.FilmSceneCollision an attach call returned alongside
+// ErrSceneNumberTaken (nil for detach's error set, which has no collision).
+func (h *Handlers) filmVideoMutationError(w http.ResponseWriter, op string, err error, occupant *repo.FilmSceneCollision) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, repo.ErrNotFound):
+		writeError(w, http.StatusNotFound, "film or video not found")
+	case errors.Is(err, repo.ErrFilmVideoAlreadyAttached):
+		writeError(w, http.StatusConflict, "video already attached to this film")
+	case errors.Is(err, repo.ErrSceneNumberTaken):
+		writeSceneCollisionConflict(w, occupant)
+	default:
+		h.fail(w, op, err)
+	}
+	return true
+}
+
+// requireLiveFilmAndVideo validates that both the film and the video exist (and the
+// video is live -- not soft-deleted), writing 404/409 and returning false
+// otherwise. Attach must never silently create a link to a trashed video.
+func (h *Handlers) requireLiveFilmAndVideo(w http.ResponseWriter, r *http.Request, filmID, videoID int64) bool {
+	if _, err := h.repo.GetFilm(r.Context(), filmID); err != nil {
+		h.filmLookupError(w, err)
+		return false
+	}
+	switch _, err := h.repo.RefreshTarget(r.Context(), videoID); {
+	case errors.Is(err, repo.ErrNotFound):
+		writeError(w, http.StatusNotFound, "video not found")
+		return false
+	case errors.Is(err, repo.ErrDeleted):
+		writeError(w, http.StatusConflict, "video is deleted")
+		return false
+	case err != nil:
+		h.fail(w, "get video", err)
+		return false
+	}
+	return true
+}
+
+// attachFilmVideo handles POST /films/{filmId}/videos (owner-gated): {video_id,
+// scene_number, is_full_film}. scene_number is optional (nil = unnumbered, legal
+// and non-colliding). 409 on an already-attached pair or a taken scene number
+// (naming the occupant); 404/409 if the film/video isn't live.
+func (h *Handlers) attachFilmVideo(w http.ResponseWriter, r *http.Request) {
+	filmID, ok := urlParamID(w, r, "filmId")
+	if !ok {
+		return
+	}
+	var body struct {
+		VideoID     int64  `json:"video_id"`
+		SceneNumber *int64 `json:"scene_number"`
+		IsFullFilm  bool   `json:"is_full_film"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.VideoID <= 0 {
+		writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+	if !h.requireLiveFilmAndVideo(w, r, filmID, body.VideoID) {
+		return
+	}
+	occupant, err := h.repo.AttachFilmVideo(r.Context(), filmID, body.VideoID, body.SceneNumber, body.IsFullFilm)
+	if h.filmVideoMutationError(w, "attach film video", err, occupant) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// bulkAttachFilmVideos handles POST /films/{filmId}/videos/bulk (owner-gated):
+// {video_ids, starting_scene_number} -- the film→video picker's multi-select
+// attach, sequentially auto-numbered from starting_scene_number. All-or-nothing:
+// see BulkAttachFilmVideos. Always scene files, never is_full_film (a full-film
+// attach is always the single-video attachFilmVideo path).
+func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) {
+	filmID, ok := urlParamID(w, r, "filmId")
+	if !ok {
+		return
+	}
+	var body struct {
+		VideoIDs            []int64 `json:"video_ids"`
+		StartingSceneNumber int64   `json:"starting_scene_number"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if len(body.VideoIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "video_ids is required")
+		return
+	}
+	if body.StartingSceneNumber <= 0 {
+		writeError(w, http.StatusBadRequest, "starting_scene_number must be positive")
+		return
+	}
+	if _, err := h.repo.GetFilm(r.Context(), filmID); err != nil {
+		h.filmLookupError(w, err)
+		return
+	}
+	occupant, err := h.repo.BulkAttachFilmVideos(r.Context(), filmID, body.VideoIDs, body.StartingSceneNumber)
+	if h.filmVideoMutationError(w, "bulk attach film videos", err, occupant) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// detachFilmVideo handles DELETE /films/{filmId}/videos/{videoId} (owner-gated).
+// 404 if the pair wasn't attached (not idempotent -- mirrors DetachFilmVideo).
+func (h *Handlers) detachFilmVideo(w http.ResponseWriter, r *http.Request) {
+	filmID, ok := urlParamID(w, r, "filmId")
+	if !ok {
+		return
+	}
+	videoID, ok := urlParamID(w, r, "videoId")
+	if !ok {
+		return
+	}
+	if err := h.repo.DetachFilmVideo(r.Context(), filmID, videoID); h.filmVideoMutationError(w, "detach film video", err, nil) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

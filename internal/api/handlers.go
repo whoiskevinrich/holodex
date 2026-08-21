@@ -319,6 +319,12 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/poster", h.servePoster)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
+	// Films (F56, ADR-085) — unregistered entirely when films_enabled is off,
+	// per spec: not merely hidden, the routes don't exist. Mutations gated below.
+	if h.filmsEnabled {
+		r.Get("/films", h.listFilms)
+		r.Get("/films/{id}", h.getFilm)
+	}
 	// Studio images (F51, ADR-079): the on-disk normalized JPEG for a filled role, or
 	// 404 (the SPA renders its own fallback). Public read; mutations are gated below.
 	r.Get("/studios/{id}/images/{role}", h.serveStudioImage)
@@ -375,6 +381,11 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
 		h.mountStudioImages(r)
+		// Films — create + attach/detach/bulk-attach (F56, ADR-085); unregistered
+		// entirely when films_enabled is off, mirroring the public routes above.
+		if h.filmsEnabled {
+			h.mountFilms(r)
+		}
 		// Video poster — owner-gated upload/remove, a new tier on the existing
 		// thumbnail pipeline (F52, HOLODEX-252).
 		h.mountVideoPoster(r)
@@ -1227,10 +1238,18 @@ func (h *Handlers) fail(w http.ResponseWriter, op string, err error) {
 	writeError(w, http.StatusInternalServerError, "internal error")
 }
 
+// pathID parses the conventional single-{id} path param.
 func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	return urlParamID(w, r, "id")
+}
+
+// urlParamID parses a named chi path param as a positive int64, writing 400 and
+// returning false otherwise. Routes that nest two ids (e.g. film_videos.go's
+// {filmId}/{videoId}) name them explicitly; pathID is the single-{id} shorthand.
+func urlParamID(w http.ResponseWriter, r *http.Request, param string) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, param), 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid id")
+		writeError(w, http.StatusBadRequest, "invalid "+param)
 		return 0, false
 	}
 	return id, true

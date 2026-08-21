@@ -28,7 +28,7 @@ Done means all seven gates below are checked and the feature merges to main behi
 - [x] spec `write-spec` → `docs/specs/films-entity.md`
 - [x] architecture `architecture` → [ADR-085](../architecture/ADR-085-films-entity.md) (asserted-link model, film resolver source, films_enabled suspend semantics)
 - [ ] design `design-handoff` → `docs/design/**` (films list/detail, two attach pickers, films row on person/studio/tag pages)
-- [ ] backend
+- [/] backend — CRUD read/create + attach/detach/bulk-attach done; poster pipeline (`film_images.go`) and `film_people_roles` CRUD still open, see Up next
 - [ ] frontend
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
@@ -40,10 +40,15 @@ Done means all seven gates below are checked and the feature merges to main behi
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [design] `/design-handoff` — films list/detail layout, two attach pickers (video→film, film→video bulk), films row on person/studio/tag pages, suspended-film-source visual state (ADR-085 §5 action item), 3-skin QA
-2. [ ] [backend] Film API handlers (`films.go`, `film_fields.go`, `film_images.go`, `film_videos.go` — attach/detach/bulk-attach, scene-number-collision 409) mirroring `studios.go`/`studio_fields.go`/`studio_images.go`
-3. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
+2. [ ] [backend] `film_images.go` — poster/thumb asset pipeline for films; needs extending `internal/imagesink` + a new `filmimage` package mirroring `studioimage` + config/env/main.go wiring. Its own vertical slice, deliberately deferred out of the session that shipped CRUD/attach — **could not open a HOLODEX follow-up issue this session (Atlassian MCP needs interactive OAuth); file one before starting**
+3. [ ] [backend] `film_people_roles` CRUD — film-level additive billing/role data (director, billing order). Only read-only inherited cast (`FilmCast`, set union over attached videos) exists so far; the additive roles table has no API surface yet. **Same Jira-filing caveat as item 2**
+4. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-21 · session (cont. 4)
+- skills: (none — direct implementation, plus a `code-simplifier` sub-agent pass before commit)
+- handoff: Built the film API handler layer — `internal/api/films.go` (`mountFilms`/`listFilms`/`getFilm`/`createFilm`, get-or-create 200-vs-201 semantics on a name+year collision), `internal/api/film_fields.go` (`resolveFilm` — a trimmed `resolveStudio`, no promotion/claims/completeness machinery), and `internal/api/film_videos.go` (attach/detach/bulk-attach, the `repo.ErrSceneNumberTaken`/`FilmSceneCollision` → 409-naming-the-occupant translator, all-or-nothing bulk semantics). Backing repo layer (`internal/repo/films.go`): `CreateFilm`/`ListFilms`/`GetFilm`/`SearchFilms`/`AttachFilmVideo`/`DetachFilmVideo`/`BulkAttachFilmVideos`/`FilmCast`/`FilmTags`/`FilmStudios`, all owner-assertion writes (never touched by `RelinkVideoEntity`). Wired `/films` routes into `handlers.go`'s `Mount()`, gated on `h.filmsEnabled` at the route-registration level (unregistered entirely when off, confirmed by `TestFilmsDisabled_RoutesUnregistered`'s 404-not-403 assertion) — both the public `GET /films`/`GET /films/{id}` and the owner-gated `mountFilms(r)` call. Added `internal/repo/films_test.go` (4 new tests: create dedup/year-legality, list/search incl. zero-count films, attach collision/already-attached/detach-idempotency, bulk-attach sequential-numbering/all-or-nothing rollback) and `internal/api/films_test.go` (6 tests: routes-unregistered-when-disabled, create get-or-create, attach/detach incl. non-idempotent re-attach/re-detach, scene collision on both single and bulk attach paths). Full `go build`/`go vet`/`go test ./...` clean (all packages, ~90s). Ran the `code-simplifier` agent against every new/changed file before committing, per the pre-commit checklist. **Deliberately deferred this session** (own follow-up work, see renumbered Up next): `film_images.go` (poster pipeline) and `film_people_roles` CRUD (film-level billing/role data) — both would have doubled this session's scope. Could not file HOLODEX follow-up issues for either (Atlassian MCP requires interactive OAuth, unavailable non-interactively) — flagging here and to Kevin directly instead; file them before starting either. Next session: either the deferred backend slices above, or jump to `/design-handoff` (still the oldest open gate) now that there's a real `/films` API surface to design against.
 
 ### 2026-08-21 · session (cont. 3)
 - skills: (none — direct implementation)
