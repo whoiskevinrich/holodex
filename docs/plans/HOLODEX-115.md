@@ -47,6 +47,10 @@ was retired in the same change.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-08-21 · session
+- skills: (none — direct fix)
+- handoff: Addressed PR #245 review feedback in `a9327df`: guarded the non-owner/non-replace `overview` fallback with the same `.trim()` check the equivalent Person-page branch already has (was rendering `f.values[0]` unconditionally), and added the missing `leading-relaxed` class to the `SourceBadge` wrapper to match its sibling instances. No gate changes — this is a same-epic polish fix on already-`[x]` frontend work. Next session should merge PR #245 once approved.
+
 ### 2026-08-16 · session
 - skills: testing-strategy, simplify, security-review
 - handoff: Committed, pushed, and opened PR #245 ready for review (not draft) — all applicable gates green. Manually driven-browser QA'd `overview`'s new `SourceBadge` control against `backend-films` fixture video 211 ("DUNE"): renders, popover opens with manual-edit option, no stray "Commentary" text, confirmed across all 3 skins, zero attributable console/network errors. Next session should address any PR review feedback and merge once approved.
