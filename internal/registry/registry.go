@@ -292,9 +292,9 @@ var KnownFields = []FieldDef{
 	},
 	{
 		Canonical:   "collection",
-		Label:       "Collection",
+		Label:       "Film",
 		Display:     "",
-		Description: "Album or collection name. Typically sourced from the Album file tag.",
+		Description: "The film or collection this video belongs to. Sourced from the Album file tag by default (remappable in metadata-mappings.yaml).",
 		Criticality: CriticalityNiceToHave,
 	},
 	{
