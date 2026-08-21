@@ -138,3 +138,29 @@ func TestWritebackSnapshots_VideoDeleteCascades(t *testing.T) {
 		t.Errorf("want snapshots cascade-deleted with the video, got %+v", snaps)
 	}
 }
+
+// TestHardDelete_WritebackHistoryAndQueueCascade guards against a regression
+// found in production (2026-08-21): file_writebacks (0011) and writeback_queue
+// (0014) were created without ON DELETE CASCADE, so HardDelete failed with a
+// FOREIGN KEY constraint error for any video with writeback history — silently
+// wedging the purge job into an infinite hourly retry loop. Migration 0042 adds
+// the missing CASCADE; this confirms HardDelete now succeeds and cleans up both
+// tables, matching video_people/video_tags/video_metadata's existing behavior.
+func TestHardDelete_WritebackHistoryAndQueueCascade(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	id, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if err := r.InsertWriteback(ctx, id, "title", "Title", "T", "filename"); err != nil {
+		t.Fatalf("insert file_writebacks row: %v", err)
+	}
+	if _, err := r.EnqueueWriteback(ctx, id, `{"title":"T"}`, "batch-cascade"); err != nil {
+		t.Fatalf("enqueue writeback_queue row: %v", err)
+	}
+
+	if err := r.HardDelete(ctx, id); err != nil {
+		t.Fatalf("hard delete video with writeback history: %v", err)
+	}
+}
