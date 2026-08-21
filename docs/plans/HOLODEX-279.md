@@ -40,11 +40,14 @@ Done means all seven gates below are checked and the feature merges to main behi
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [ ] [design] `/design-handoff` — films list/detail layout, two attach pickers (video→film, film→video bulk), films row on person/studio/tag pages, suspended-film-source visual state (ADR-085 §5 action item), 3-skin QA
-2. [ ] [backend] `FilmsForVideo` repo method + `getMedia` call-site injection (`internal/api/handlers.go`, between `enr := enrichmentFromRows(enrichRows)` and `resolver.Resolve(...)`), gated by `films_enabled`
-3. [ ] [backend] Film API handlers (`films.go`, `film_fields.go`, `film_images.go`, `film_videos.go` — attach/detach/bulk-attach, scene-number-collision 409) mirroring `studios.go`/`studio_fields.go`/`studio_images.go`
-4. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
+2. [ ] [backend] Film API handlers (`films.go`, `film_fields.go`, `film_images.go`, `film_videos.go` — attach/detach/bulk-attach, scene-number-collision 409) mirroring `studios.go`/`studio_fields.go`/`studio_images.go`
+3. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-21 · session (cont. 3)
+- skills: (none — direct implementation)
+- handoff: `FilmsForVideo` repo method (`internal/repo/films.go`) + the `getMedia` call-site injection (`internal/api/handlers.go`) that finally makes `films_enabled` observable — the flag was wired last session but consumed nowhere. `injectFilmSources` builds synthetic `"film:<id>"` enrichment candidates (canonical `collection` for every attachment, plus `title` when `is_full_film`) and is called right after `enr := enrichmentFromRows(enrichRows)`, gated on `h.filmsEnabled`; when off, the call is skipped entirely (ADR-085 §5's read-suppression, not a resolver-state change). Added `TestFilmsForVideo` (repo-level: ordering, per-video isolation) and `TestFilmSourceInjection_SceneVsFullFilm` (`internal/api/film_injection_test.go`, full HTTP round-trip against a real server: scene vs. full-film candidate shape, and — the important negative case — flipping `films_enabled` off on a video with a standing film decision resolves to *no value*, never a silent fallback to the file baseline). Full `go build`/`go vet`/`go test ./...` clean. Next session: the film API handler layer (`films.go`/`film_fields.go`/`film_images.go`/`film_videos.go`, mirroring `studios.go`) — attach/detach/bulk-attach with scene-number-collision 409s is the last backend gap before `/films` routes exist to hit at all. The design-handoff artifact (`docs/design/films-entity-handoff.md`) is still unwritten and blocks the design gate.
 
 ### 2026-08-21 · session (cont. 2)
 - skills: (none — direct implementation)

@@ -691,6 +691,18 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			h.log.Warn("enrichment for detail", "id", id, "err", err2)
 		} else {
 			enr := enrichmentFromRows(enrichRows)
+			// Film resolver source (F56, ADR-085 §4/§5): injecting synthetic
+			// "film:<id>" candidates is the whole of films_enabled's read-suppression
+			// -- when off, this call is simply skipped and any standing per-field
+			// decision on a film source falls through to the existing
+			// decided-but-currently-unmatched-provider path (empty, not re-derived).
+			if h.filmsEnabled {
+				if films, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
+					h.log.Warn("films for detail", "id", id, "err", ferr)
+				} else {
+					enr = injectFilmSources(enr, films)
+				}
+			}
 			// Value-level curation (F30): manual adds, suppressions, no-write flags.
 			var cur resolver.Curation
 			if curRows, curErr := h.repo.CurationForEntity(r.Context(), model.EnrichEntityVideo, id); curErr != nil {
@@ -1272,6 +1284,29 @@ func enrichmentFromRows(rows []repo.EnrichmentRow) resolver.Enrichment {
 		out[r.Provider][r.FieldKey] = r.Values
 	}
 	return out
+}
+
+// injectFilmSources adds synthetic "film:<id>" resolver-source candidates for a video's
+// film attachments (F56, ADR-085 §4): the film name as a "collection" (Album) candidate
+// for every attachment, plus a "title" candidate when the file represents the entire
+// film. Mirrors enrichmentFromRows' shape so resolveDecided/gather's "film:"-prefixed
+// branches (internal/resolver/resolver.go) read it the same way they read a provider's
+// enrichment row.
+func injectFilmSources(enr resolver.Enrichment, films []repo.FilmAttachment) resolver.Enrichment {
+	if len(films) == 0 {
+		return enr
+	}
+	if enr == nil {
+		enr = make(resolver.Enrichment, len(films))
+	}
+	for _, f := range films {
+		fields := map[string][]string{"collection": {f.FilmName}}
+		if f.IsFullFilm {
+			fields["title"] = []string{f.FilmName}
+		}
+		enr["film:"+strconv.FormatInt(f.FilmID, 10)] = fields
+	}
+	return enr
 }
 
 // curationFromRows converts repo curation rows to the resolver.Curation map
