@@ -18,7 +18,7 @@ Album/Title writeback, inherited cast/tags, enrichment, posters, and a two-regio
 Done means all seven gates below are checked and the feature merges to main behind
 `films_enabled` (default false).
 
-**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md) · [design handoff](../design/films-entity-handoff.md) · testing-strategy (not yet written)
+**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md) · [design handoff](../design/films-entity-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component) (§4/§5/Critical invariants/§10/§11)
 
 ## Gates — definition of done
 
@@ -30,7 +30,7 @@ Done means all seven gates below are checked and the feature merges to main behi
 - [x] design `design-handoff` → [films-entity-handoff.md](../design/films-entity-handoff.md) (films list/detail, two attach pickers, films row on person/studio/tag pages, ADR-085 §5 suspended-source display resolved)
 - [/] backend — CRUD read/create + attach/detach/bulk-attach done; poster pipeline (`film_images.go`) and `film_people_roles` CRUD still open, see Up next
 - [ ] frontend
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) (§4: 3 new backend rows citing real test names for CRUD/attach, baseline union-of-scenes, resolver-source injection/suspend; Critical invariants: 3 new bullets for P0-2 zero-relink, RD7 suspend/restore, films_enabled read-suppression; §5: 1 pre-implementation frontend row against the design handoff; §10: a 5-scenario adversarial block; §11: a Known Gaps entry flagging RD6's video-list-hiding as untested/possibly-unbuilt)
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
@@ -44,6 +44,10 @@ Done means all seven gates below are checked and the feature merges to main behi
 3. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`, built against [films-entity-handoff.md](../design/films-entity-handoff.md)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-23 · session (cont.)
+- skills: testing-strategy
+- handoff: Updated `docs/testing-strategy.md` for F56, closing the testing-strategy gate. Grounded §4's three new backend rows against the real, already-shipped test files rather than describing planned coverage: `internal/repo/films_test.go`/`internal/api/films_test.go` (CRUD/attach/detach/scene-collision/bulk-attach), `internal/resolver/film_baseline_test.go` (RD2/RD6 union-of-scenes baseline), and `internal/resolver/film_source_test.go`/`internal/api/film_injection_test.go`/`internal/api/film_links_test.go` (RD7 resolver-source injection, the suspend-not-drop mechanism, and `TestFilmVideosSurviveFullRelinkCycle` — the regression guard for spec P0-2, the epic's flagged single highest-risk gap). Added three Critical-invariants bullets (asserted-not-derived links, suspend/restore losslessness, read-suppression-only semantics) and one §5 frontend row in the established "pre-implementation, target coverage" style (matching the F55/HOLODEX-249 precedent), since the frontend build hasn't started. Added a 5-scenario §10 adversarial block and a §11 Known Gaps entry. **Found and flagged, not fabricated**: grepped for RD6's subtractive video-list-hiding (browse/RelatedShelf/landing/search/`EntityVideos.svelte`) across `internal/api`/`internal/repo` and found no matching filter logic anywhere outside the film-specific files — that half of RD6 appears not yet implemented, called out explicitly in the Known Gaps entry rather than assumed covered by the CRUD/baseline/resolver-source rows (which don't touch it). Next session: either backend follow-up (HOLODEX-280 poster pipeline, HOLODEX-281 `film_people_roles`), confirming/building RD6's video-hiding filter, or starting the frontend build.
 
 ### 2026-08-23 · session
 - skills: design-handoff
