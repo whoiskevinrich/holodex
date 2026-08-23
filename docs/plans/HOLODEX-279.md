@@ -18,7 +18,7 @@ Album/Title writeback, inherited cast/tags, enrichment, posters, and a two-regio
 Done means all seven gates below are checked and the feature merges to main behind
 `films_enabled` (default false).
 
-**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md) · design handoff (not yet written) · testing-strategy (not yet written)
+**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md) · [design handoff](../design/films-entity-handoff.md) · testing-strategy (not yet written)
 
 ## Gates — definition of done
 
@@ -27,7 +27,7 @@ Done means all seven gates below are checked and the feature merges to main behi
 
 - [x] spec `write-spec` → `docs/specs/films-entity.md`
 - [x] architecture `architecture` → [ADR-085](../architecture/ADR-085-films-entity.md) (asserted-link model, film resolver source, films_enabled suspend semantics)
-- [ ] design `design-handoff` → `docs/design/**` (films list/detail, two attach pickers, films row on person/studio/tag pages)
+- [x] design `design-handoff` → [films-entity-handoff.md](../design/films-entity-handoff.md) (films list/detail, two attach pickers, films row on person/studio/tag pages, ADR-085 §5 suspended-source display resolved)
 - [/] backend — CRUD read/create + attach/detach/bulk-attach done; poster pipeline (`film_images.go`) and `film_people_roles` CRUD still open, see Up next
 - [ ] frontend
 - [ ] testing `testing-strategy`
@@ -39,12 +39,15 @@ Done means all seven gates below are checked and the feature merges to main behi
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [design] `/design-handoff` — films list/detail layout, two attach pickers (video→film, film→video bulk), films row on person/studio/tag pages, suspended-film-source visual state (ADR-085 §5 action item), 3-skin QA
-2. [ ] [backend] → [HOLODEX-280](https://whoiskevinrich.atlassian.net/browse/HOLODEX-280) `film_images.go` — poster/thumb asset pipeline for films; needs extending `internal/imagesink` + a new `filmimage` package mirroring `studioimage` + config/env/main.go wiring. Its own vertical slice, deliberately deferred out of the session that shipped CRUD/attach.
-3. [ ] [backend] → [HOLODEX-281](https://whoiskevinrich.atlassian.net/browse/HOLODEX-281) `film_people_roles` CRUD — film-level additive billing/role data (director, billing order). Only read-only inherited cast (`FilmCast`, set union over attached videos) exists so far; the additive roles table has no API surface yet.
-4. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`
+1. [ ] [backend] → [HOLODEX-280](https://whoiskevinrich.atlassian.net/browse/HOLODEX-280) `film_images.go` — poster/thumb asset pipeline for films; needs extending `internal/imagesink` + a new `filmimage` package mirroring `studioimage` + config/env/main.go wiring. Its own vertical slice, deliberately deferred out of the session that shipped CRUD/attach.
+2. [ ] [backend] → [HOLODEX-281](https://whoiskevinrich.atlassian.net/browse/HOLODEX-281) `film_people_roles` CRUD — film-level additive billing/role data (director, billing order). Only read-only inherited cast (`FilmCast`, set union over attached videos) exists so far; the additive roles table has no API surface yet.
+3. [ ] [frontend] `/films` list + `/films/[id]` detail + both attach pickers + video-list hiding + films rows — `web/src/`, built against [films-entity-handoff.md](../design/films-entity-handoff.md)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-23 · session
+- skills: design-handoff
+- handoff: Wrote [docs/design/films-entity-handoff.md](../design/films-entity-handoff.md), closing the design gate — grounded against the real `EntityPickerDialog.svelte`/`EnrichPicker`/Studio-handoff precedent rather than invented from scratch. Covers the poster-forward `/films` list (denser grid than People/Studio's row pattern, monogram fallback reusing Studio's `logo-plate-ink` token), the two-region `/films/{id}` detail page (full-film file list vs. scenes list, `·record`-baseline Details chips inherited from Studio), the asymmetric attach pickers per RD9 (`FilmAttachDialog` — single-select, poster/name/year rows, in-place scene-number/full-film second step, modeled on `EntityPickerDialog`'s chrome but not a direct reuse; the film-side bulk picker — new component, default-unattached scope, studio/people filter chips, filename search, multi-select, sequential auto-numbering, all-or-nothing collision handling), the films row on person/studio/tag pages (shown only when it has something to show, per the project's no-dead-end convention), and film-name-labeled candidate chips on a video's Album/Title `SourceSelect` row. **Resolved ADR-085 §5's open design action item**: no new "source unavailable" visual state — a suspended film decision hits the exact same code path as `field-source-of-truth-handoff.md`'s already-documented "decided source later un-matched/cleared → falls back to file chip" edge case, so giving films a bespoke badge would be new UI for a state that's otherwise indistinguishable from an existing, undesigned one. Updated this worklog's Design package link, flipped the design gate to `[x]`, and re-numbered Up next now that only backend follow-ups and the frontend build remain. Next session: either of the two filed backend follow-ups (HOLODEX-280 poster pipeline, HOLODEX-281 film_people_roles), or start the frontend build directly against this handoff.
 
 ### 2026-08-21 · session (cont. 4)
 - skills: (none — direct implementation, plus a `code-simplifier` sub-agent pass before commit)
