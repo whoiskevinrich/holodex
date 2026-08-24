@@ -142,15 +142,19 @@
 					{#if studios.length}
 						<div class="flex flex-wrap items-center gap-1.5 pt-1">
 							<span class="text-xs uppercase tracking-wide text-muted">Studios</span>
-							{#each studios as s (s.id)}
-								<a
-									href={`/studios/${s.id}`}
-									class="rounded-full border border-rule px-2.5 py-0.5 text-sm text-ink hover:text-accent"
-									>{s.name}</a
-								>
+							{#each studios as s, i (s.id)}
+								{#if i > 0}<span class="text-muted">,</span>{/if}
+								<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
 							{/each}
 						</div>
 					{/if}
+
+					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
+						{#if f.values[0]?.trim()}
+							<p class="leading-relaxed text-ink">{f.values[0]}</p>
+						{/if}
+					{/each}
+
 					{#if tags.length}
 						<div class="flex flex-wrap items-center gap-1.5">
 							<span class="text-xs uppercase tracking-wide text-muted">Tags</span>
@@ -163,12 +167,6 @@
 							{/each}
 						</div>
 					{/if}
-
-					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
-						{#if f.values[0]?.trim()}
-							<p class="leading-relaxed text-ink">{f.values[0]}</p>
-						{/if}
-					{/each}
 				</div>
 			</div>
 
@@ -178,7 +176,7 @@
 			{#if cast.length}
 				<section class="space-y-1.5">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Cast</h2>
-					<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+					<ul class="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-8">
 						{#each cast as p (p.id)}
 							<li>
 								<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>

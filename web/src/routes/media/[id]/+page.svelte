@@ -1016,7 +1016,7 @@
 				<!-- F25: 2:3 poster cards (placeholder when a person has no poster). Composite
 				     each-key (id + role): video_people's PK is (video_id, person_id, role)
 				     (ADR-072), so a dual-role attachment is two rows sharing the same id. -->
-				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+				<ul class="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-8">
 					{#each (video.people ?? []) as ResolvedPerson[] as p (p.id + ':' + p.role)}
 						<li class="curation-chip group relative">
 							<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
