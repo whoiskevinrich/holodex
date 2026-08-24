@@ -16,6 +16,7 @@
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
@@ -137,11 +138,6 @@
 				<div class="flex-1 space-y-2">
 					<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
 					{#if film.year}<p class="text-sm text-muted">{film.year}</p>{/if}
-					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
-						{#if f.values[0]?.trim()}
-							<p class="leading-relaxed text-ink">{f.values[0]}</p>
-						{/if}
-					{/each}
 
 					{#if studios.length}
 						<div class="flex flex-wrap items-center gap-1.5 pt-1">
@@ -151,18 +147,6 @@
 									href={`/studios/${s.id}`}
 									class="rounded-full border border-rule px-2.5 py-0.5 text-sm text-ink hover:text-accent"
 									>{s.name}</a
-								>
-							{/each}
-						</div>
-					{/if}
-					{#if cast.length}
-						<div class="flex flex-wrap items-center gap-1.5">
-							<span class="text-xs uppercase tracking-wide text-muted">Cast</span>
-							{#each cast as p (p.id)}
-								<a
-									href={`/people/${p.id}`}
-									class="rounded-full border border-rule px-2.5 py-0.5 text-sm text-ink hover:text-accent"
-									>{p.name}</a
 								>
 							{/each}
 						</div>
@@ -179,8 +163,35 @@
 							{/each}
 						</div>
 					{/if}
+
+					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
+						{#if f.values[0]?.trim()}
+							<p class="leading-relaxed text-ink">{f.values[0]}</p>
+						{/if}
+					{/each}
 				</div>
 			</div>
+
+			<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, rendered as
+			     the same PersonPoster grid as the Media detail page's People section (not inline
+			     pills) — derived display, not an editable/attachable relationship. -->
+			{#if cast.length}
+				<section class="space-y-1.5">
+					<h2 class="text-xs uppercase tracking-wide text-muted">Cast</h2>
+					<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+						{#each cast as p (p.id)}
+							<li>
+								<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
+									<div class="rounded-theme transition hover:opacity-90">
+										<PersonPoster personId={p.id} name={p.name} />
+									</div>
+									<span class="line-clamp-2 text-xs text-muted hover:text-accent">{p.name}</span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 
 			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern. -->
 			{#if hasDetails}
