@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { formatDuration, resolutionBucket } from '$lib/format';
 
-	let { video }: { video: Video } = $props();
+	let { video, sceneNumber }: { video: Video; sceneNumber?: number | null } = $props();
 
 	const bucket = $derived(resolutionBucket(video.width));
 
@@ -81,6 +81,19 @@
 				class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-xs ring-1 ring-black/20"
 			>
 				{bucket}
+			</span>
+		{/if}
+		{#if sceneNumber !== undefined}
+			<!-- Film scenes list (F56, design handoff §2c): numbered scenes get their
+			     number; unnumbered scenes get a muted em-dash rather than no badge, so
+			     the position in the (unnumbered-last) sort reads as intentional. -->
+			<span
+				class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {sceneNumber ===
+				null
+					? 'bg-black/70 text-muted'
+					: 'bg-accent text-accent-ink'}"
+			>
+				{sceneNumber === null ? '—' : `#${sceneNumber}`}
 			</span>
 		{/if}
 	</div>

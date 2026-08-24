@@ -231,6 +231,44 @@ describe('isPendingSelection', () => {
 	});
 });
 
+// F56 — films are the first provider source whose raw namespace ("film:42") differs from its
+// display name (the film's own title, e.g. "Scene Test Film"). Regression coverage for a bug
+// where sourceChips() put the display name into `sources` (used by resolveSelection to match a
+// standing decision's raw source key) instead of a dedicated `labels` array — a standing film
+// decision silently fell back to reading as the baseline chip.
+describe('film sources — namespace differs from display name (F56)', () => {
+	function collectionField(over: Partial<ResolvedField> = {}): ResolvedField {
+		return {
+			canonical: 'collection',
+			label: 'Film',
+			values: ['Scene Test Film'],
+			candidates: [
+				{ source: 'file', value: '' },
+				{ source: 'provider:film:42', provider: 'Scene Test Film', value: 'Scene Test Film' }
+			],
+			...over
+		};
+	}
+
+	it('a standing film decision resolves to the film chip, not the baseline', () => {
+		const f = collectionField({ decision: { source: 'provider:film:42', standing: true } });
+		expect(selectedChipKey(f, sourceChips(f))).toBe('provider:film:42');
+		expect(isPendingSelection(f, sourceChips(f))).toBe(false);
+	});
+
+	it('an undecided film candidate still selects the film chip as a pending RD6 winner', () => {
+		const f = collectionField();
+		expect(selectedChipKey(f, sourceChips(f))).toBe('provider:film:42');
+		expect(isPendingSelection(f, sourceChips(f))).toBe(true);
+	});
+
+	it('the chip carries the raw namespace (for matching) separately from the friendly label (for display)', () => {
+		const chips = sourceChips(collectionField());
+		const filmChip = chips.find((c) => c.key === 'provider:film:42');
+		expect(filmChip).toMatchObject({ sources: ['film:42'], labels: ['Scene Test Film'] });
+	});
+});
+
 // F37 — the entity-generic baseline (RD4): baselineKey='record' must anchor/fold/select
 // exactly like the 'file' default. Person fields carry `record` candidates and decisions.
 describe("baselineKey='record' (F37 person fields)", () => {

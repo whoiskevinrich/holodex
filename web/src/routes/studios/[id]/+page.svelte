@@ -22,6 +22,8 @@
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '$lib/filmsRow.svelte';
 	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
@@ -165,6 +167,9 @@
 				.catch(() => {});
 		}
 	});
+
+	// Films row (F56, design handoff §5) — see filmsRow.svelte.ts.
+	const filmsState = filmsRow(() => id, 'studioId');
 
 	async function reloadDetail() {
 		try {
@@ -524,6 +529,9 @@
 			{#if isOwner}
 				<CompletenessPanel {completeness} onchanged={reloadDetail} />
 			{/if}
+		{/snippet}
+		{#snippet footer()}
+			<FilmsRow films={filmsState.films} />
 		{/snippet}
 	</EntityVideos>
 </AsyncState>

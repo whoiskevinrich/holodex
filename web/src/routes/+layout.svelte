@@ -279,6 +279,9 @@
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/studios" class="hover:text-ink">Studios</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
+		{#if activity.caps?.films_enabled}
+			<a href="/films" class="hover:text-ink">Films</a>
+		{/if}
 
 		<!-- Owner chrome, separated from the content nav so the bar reads in tiers (F35):
 		     activity · Owner-view toggle · Owner hub · skin picker. Keys/Status/Trash

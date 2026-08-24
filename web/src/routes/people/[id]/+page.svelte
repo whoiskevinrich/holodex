@@ -23,6 +23,8 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '$lib/filmsRow.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
 	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
@@ -187,6 +189,9 @@
 				.catch(() => {});
 		}
 	});
+
+	// Films row (F56, design handoff §5) — see filmsRow.svelte.ts.
+	const filmsState = filmsRow(() => id, 'personId');
 
 	// Refetch-after-mutate (cf. the media page's applyMediaDetail idiom): re-read the
 	// person so resolved[] reflects a new decision/curation/enrichment without flashing
@@ -683,6 +688,9 @@
 					/>
 				</section>
 			{/if}
+		{/snippet}
+		{#snippet footer()}
+			<FilmsRow films={filmsState.films} />
 		{/snippet}
 	</EntityVideos>
 </AsyncState>

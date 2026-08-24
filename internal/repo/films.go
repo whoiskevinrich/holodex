@@ -24,16 +24,21 @@ import (
 // StudiosForVideos/PeopleForVideos, film_videos is an asserted owner link with no
 // reconciler, so this is a plain read with no relink semantics.
 type FilmAttachment struct {
-	FilmID     int64
-	FilmName   string
-	IsFullFilm bool
+	FilmID     int64  `json:"film_id"`
+	FilmName   string `json:"film_name"`
+	IsFullFilm bool   `json:"is_full_film"`
+	// SceneNumber is nil for an unnumbered scene (or a full-film attachment, which
+	// carries no scene number) -- added for the media detail page's Films section
+	// pill badge (design handoff §3a), which needs "#6" or "Full film", not just the
+	// is_full_film flag.
+	SceneNumber *int64 `json:"scene_number"`
 }
 
 // FilmsForVideo returns the films a single video is attached to (F56, ADR-085) -- a
 // video may belong to zero to many films. Ordered by film name for deterministic output.
 func (r *Repo) FilmsForVideo(ctx context.Context, videoID int64) ([]FilmAttachment, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT f.id, f.name, fv.is_full_film
+		SELECT f.id, f.name, fv.is_full_film, fv.scene_number
 		FROM film_videos fv JOIN films f ON f.id = fv.film_id
 		WHERE fv.video_id = ?
 		ORDER BY f.name COLLATE NOCASE`, videoID)
@@ -45,7 +50,7 @@ func (r *Repo) FilmsForVideo(ctx context.Context, videoID int64) ([]FilmAttachme
 	for rows.Next() {
 		var fa FilmAttachment
 		var isFull int
-		if err := rows.Scan(&fa.FilmID, &fa.FilmName, &isFull); err != nil {
+		if err := rows.Scan(&fa.FilmID, &fa.FilmName, &isFull, &fa.SceneNumber); err != nil {
 			return nil, err
 		}
 		fa.IsFullFilm = isFull != 0
@@ -62,7 +67,7 @@ func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]Fil
 	if len(ids) == 0 {
 		return map[int64][]FilmAttachment{}, nil
 	}
-	q := `SELECT fv.video_id, f.id, f.name, fv.is_full_film
+	q := `SELECT fv.video_id, f.id, f.name, fv.is_full_film, fv.scene_number
 	      FROM film_videos fv JOIN films f ON f.id = fv.film_id
 	      WHERE fv.video_id IN (` + placeholders(len(ids)) + `)
 	      ORDER BY fv.video_id, f.name COLLATE NOCASE`
@@ -76,7 +81,7 @@ func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]Fil
 		var vid int64
 		var fa FilmAttachment
 		var isFull int
-		if err := rows.Scan(&vid, &fa.FilmID, &fa.FilmName, &isFull); err != nil {
+		if err := rows.Scan(&vid, &fa.FilmID, &fa.FilmName, &isFull, &fa.SceneNumber); err != nil {
 			return nil, err
 		}
 		fa.IsFullFilm = isFull != 0

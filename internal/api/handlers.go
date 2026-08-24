@@ -687,6 +687,21 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	setThumbnailURL(v)
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
+	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
+	// the resolver-source injection below (mappings path only) and the response's
+	// "films" field (always) — avoiding two identical DB round-trips for the same
+	// video (same principle as the enrichment-rows fetch a few lines down). Non-nil so
+	// a video with no film link marshals "films": [], never null (HOLODEX-275
+	// precedent, same as studios below). Gated on filmsEnabled: reads are suppressed,
+	// never destructive, when the flag is off.
+	films := []repo.FilmAttachment{}
+	if h.filmsEnabled {
+		if fa, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
+			h.log.Warn("films for media detail", "id", id, "err", ferr)
+		} else {
+			films = fa
+		}
+	}
 	var fields []mapping.Resolved
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
@@ -704,15 +719,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			enr := enrichmentFromRows(enrichRows)
 			// Film resolver source (F56, ADR-085 §4/§5): injecting synthetic
 			// "film:<id>" candidates is the whole of films_enabled's read-suppression
-			// -- when off, this call is simply skipped and any standing per-field
-			// decision on a film source falls through to the existing
-			// decided-but-currently-unmatched-provider path (empty, not re-derived).
+			// -- when off, `films` above was never fetched and this is a no-op, and
+			// any standing per-field decision on a film source falls through to the
+			// existing decided-but-currently-unmatched-provider path (empty, not
+			// re-derived).
 			if h.filmsEnabled {
-				if films, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
-					h.log.Warn("films for detail", "id", id, "err", ferr)
-				} else {
-					enr = injectFilmSources(enr, films)
-				}
+				enr = injectFilmSources(enr, films)
 			}
 			// Value-level curation (F30): manual adds, suppressions, no-write flags.
 			var cur resolver.Curation
@@ -798,6 +810,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		"resolved":       resolved,
 		"enriched":       enriched,
 		"studios":        studios,
+		"films":          films,
 		"enrich_queries": enrichQueries,
 		"completeness":   completeness,
 	})

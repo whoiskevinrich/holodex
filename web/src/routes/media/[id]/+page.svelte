@@ -4,12 +4,13 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
 		formatDuration,
 		formatYear,
+		monogram,
 		personKey,
 		providerFromWinningSource,
 		resolutionBucket,
@@ -37,6 +38,7 @@
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
+	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -46,6 +48,10 @@
 	// Studio entities linked to this video (F38): the resolved studio value links to its
 	// /studios/{id} page; the link always matches the displayed value (RD1).
 	let studios = $state<Studio[]>([]);
+	// Films this video is attached to (F56, design handoff §3a) — read-only badge (scene
+	// number or "Full film") + owner-only detach; asserted links, so no relink/prune ever
+	// touches these regardless of films_enabled state (ADR-085).
+	let films = $state<FilmAttachment[]>([]);
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
@@ -139,6 +145,12 @@
 	let personCollisionError = $state('');
 	let personBusyKey = $state<string | null>(null);
 	let personRemoveError = $state('');
+
+	// Films (F56): detach busy-keyed by film_id (the other half of the film_videos PK
+	// alongside this video's id), same shape as personBusyKey.
+	let filmBusyKey = $state<number | null>(null);
+	let filmRemoveError = $state('');
+	let filmAttachOpen = $state(false);
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
@@ -292,6 +304,7 @@
 		resolved = res.resolved ?? [];
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
+		films = res.films ?? [];
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 	}
@@ -466,6 +479,20 @@
 			personRemoveError = toMessage(e);
 		} finally {
 			personBusyKey = null;
+		}
+	}
+
+	async function removeFilm(f: FilmAttachment) {
+		if (filmBusyKey || !video) return;
+		filmBusyKey = f.film_id;
+		filmRemoveError = '';
+		try {
+			await api.detachFilmVideo(f.film_id, video.id);
+			films = films.filter((fa) => fa.film_id !== f.film_id);
+		} catch (e) {
+			filmRemoveError = toMessage(e);
+		} finally {
+			filmBusyKey = null;
 		}
 	}
 
@@ -1034,6 +1061,61 @@
 			</section>
 		{/if}
 
+		<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid
+		     above, not Studio's read-only pills — film_videos is many-to-many like
+		     video_people. Server-side gated (films omitted/empty when films_enabled is
+		     off), so this whole section stays out of the DOM in that state. -->
+		{#if activity.caps?.films_enabled && (isOwner || films.length)}
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
+				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+					{#each films as f (f.film_id)}
+						<li class="curation-chip group relative">
+							<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+								<div
+									class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
+								>
+									<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+										>{monogram(f.film_name)}</span
+									>
+								</div>
+								<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+								<span class="block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink">
+									{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
+								</span>
+							</a>
+							{#if isOwner}
+								<button
+									type="button"
+									onclick={() => removeFilm(f)}
+									disabled={filmBusyKey === f.film_id}
+									aria-label={`Remove ${f.film_name}`}
+									class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
+								>
+									{filmBusyKey === f.film_id ? '…' : '×'}
+								</button>
+							{/if}
+						</li>
+					{/each}
+					{#if isOwner}
+						<li>
+							<button
+								type="button"
+								onclick={() => (filmAttachOpen = true)}
+								class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
+							>
+								<span class="text-2xl leading-none">+</span>
+								<span class="text-xs">Attach film</span>
+							</button>
+						</li>
+					{/if}
+				</ul>
+				{#if filmRemoveError}
+					<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
+				{/if}
+			</section>
+		{/if}
+
 		{#if personConflict}
 			{@const conflict = personConflict}
 			<CollisionOfferCard
@@ -1356,6 +1438,14 @@
 				thumbVersion += 1;
 				await reloadDetail();
 			}}
+		/>
+	{/if}
+
+	{#if filmAttachOpen && video}
+		<FilmAttachDialog
+			videoId={video.id}
+			onclose={() => (filmAttachOpen = false)}
+			onattached={reloadDetail}
 		/>
 	{/if}
 

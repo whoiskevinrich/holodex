@@ -20,13 +20,17 @@
 		onclose,
 		dialogEl = $bindable(null),
 		header,
-		children
+		children,
+		widthClass = 'max-w-lg',
+		paddingClass = 'py-[10vh]'
 	}: {
 		titleId: string;
 		onclose: () => void;
 		dialogEl?: HTMLElement | null;
 		header: Snippet;
 		children: Snippet;
+		widthClass?: string;
+		paddingClass?: string;
 	} = $props();
 
 	let trigger: HTMLElement | null = null;
@@ -55,7 +59,7 @@
 </script>
 
 <div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
+	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 {paddingClass}"
 	role="presentation"
 	onclick={(e) => {
 		if (e.target === e.currentTarget) onclose();
@@ -65,7 +69,7 @@
 		bind:this={dialogEl}
 		onkeydown={trapTab}
 		tabindex="-1"
-		class="merge-pop flex max-h-[80vh] w-full max-w-lg flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
+		class="merge-pop flex max-h-[80vh] w-full {widthClass} flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby={titleId}

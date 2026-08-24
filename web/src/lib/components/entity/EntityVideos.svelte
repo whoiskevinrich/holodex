@@ -31,7 +31,8 @@
 		empty,
 		scrollKey,
 		hero,
-		detail
+		detail,
+		footer
 	}: {
 		backHref: string;
 		backLabel: string;
@@ -40,6 +41,7 @@
 		scrollKey: string;
 		hero: Snippet;
 		detail?: Snippet;
+		footer?: Snippet;
 	} = $props();
 
 	// A single caller per scrollKey (one entity's own video grid, no sort control), so
@@ -77,4 +79,5 @@
 	{@render hero()}
 	{#if detail}{@render detail()}{/if}
 	<VideoGrid videos={displayedVideos} empty={emptyMessage} />
+	{#if footer}{@render footer()}{/if}
 </section>
