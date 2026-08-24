@@ -94,6 +94,59 @@ func filmDelete(t *testing.T, srv *httptest.Server, token, path string) *http.Re
 	return resp
 }
 
+// TestGetFilm_RedactsFileMetadataForVisitor guards against a regression found
+// in security review: GET /films/{id} is public (no requireOwner), so its
+// scenes/full_films arrays -- []repo.FilmVideo wrapping model.Video -- must
+// redact file_path the same way every other []model.Video-serializing handler
+// does (redactFileMetadataForVisitor(s), handlers.go), or an unauthenticated
+// caller learns the server's absolute on-disk file layout.
+func TestGetFilm_RedactsFileMetadataForVisitor(t *testing.T) {
+	srv, r, v1, _ := filmServer(t, "tok")
+	filmID, err := r.CreateFilm(t.Context(), "Redaction Test", 2024)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(t.Context(), filmID, v1, nil, false); err != nil {
+		t.Fatalf("attach video: %v", err)
+	}
+
+	type filmDetail struct {
+		Scenes []struct {
+			Video struct {
+				FilePath string `json:"file_path"`
+			} `json:"video"`
+		} `json:"scenes"`
+	}
+
+	visitorResp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(filmID))
+	if err != nil {
+		t.Fatalf("get film as visitor: %v", err)
+	}
+	defer visitorResp.Body.Close()
+	var visitorBody filmDetail
+	if err := json.NewDecoder(visitorResp.Body).Decode(&visitorBody); err != nil {
+		t.Fatalf("decode visitor film detail: %v", err)
+	}
+	if len(visitorBody.Scenes) != 1 || visitorBody.Scenes[0].Video.FilePath != "" {
+		t.Fatalf("visitor scenes: got %+v, want file_path redacted (empty)", visitorBody.Scenes)
+	}
+
+	ownerReq, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/films/"+itoa(filmID), nil)
+	ownerReq.Header.Set(api.AdminTokenHeader, "tok")
+	ownerResp, err := http.DefaultClient.Do(ownerReq)
+	if err != nil {
+		t.Fatalf("get film as owner: %v", err)
+	}
+	defer ownerResp.Body.Close()
+	var ownerBody filmDetail
+	if err := json.NewDecoder(ownerResp.Body).Decode(&ownerBody); err != nil {
+		t.Fatalf("decode owner film detail: %v", err)
+	}
+	if len(ownerBody.Scenes) != 1 || ownerBody.Scenes[0].Video.FilePath != "/m/scene1.mkv" {
+		t.Fatalf("owner scenes: got %+v, want unredacted file_path", ownerBody.Scenes)
+	}
+}
+
 // TestFilmsDisabled_RoutesUnregistered confirms films_enabled=false doesn't just
 // hide films -- the routes don't exist at all (404, not 403), per spec.
 func TestFilmsDisabled_RoutesUnregistered(t *testing.T) {

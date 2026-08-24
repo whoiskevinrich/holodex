@@ -54,6 +54,37 @@ func (r *Repo) FilmsForVideo(ctx context.Context, videoID int64) ([]FilmAttachme
 	return out, rows.Err()
 }
 
+// FilmsForVideos returns each of the given videos' film attachments, keyed by
+// video id -- a batched form of FilmsForVideo (avoids an N+1 when the film→video
+// candidates picker needs to flag "already attached elsewhere" across a page of
+// results). Videos with no film link are absent from the map.
+func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]FilmAttachment, error) {
+	if len(ids) == 0 {
+		return map[int64][]FilmAttachment{}, nil
+	}
+	q := `SELECT fv.video_id, f.id, f.name, fv.is_full_film
+	      FROM film_videos fv JOIN films f ON f.id = fv.film_id
+	      WHERE fv.video_id IN (` + placeholders(len(ids)) + `)
+	      ORDER BY fv.video_id, f.name COLLATE NOCASE`
+	rows, err := r.db.QueryContext(ctx, q, toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("films for videos: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int64][]FilmAttachment, len(ids))
+	for rows.Next() {
+		var vid int64
+		var fa FilmAttachment
+		var isFull int
+		if err := rows.Scan(&vid, &fa.FilmID, &fa.FilmName, &isFull); err != nil {
+			return nil, err
+		}
+		fa.IsFullFilm = isFull != 0
+		out[vid] = append(out[vid], fa)
+	}
+	return out, rows.Err()
+}
+
 // ErrFilmExists is returned by CreateFilm when name+year already names a film --
 // get-or-create, not a hard failure (the returned id is the existing film's), so the
 // video→film picker's "create new" action is idempotent against a duplicate submit.
@@ -163,6 +194,39 @@ func (r *Repo) ListFilms(ctx context.Context) ([]model.Film, error) {
 	return scanFilms(rows)
 }
 
+// ListFilmsForEntity returns every film whose video union (film_videos joined
+// through video_people/video_studios/video_tags) includes the given
+// person/studio/tag, name-sorted -- the films row on person/studio/tag detail
+// pages (F56). Zero-valued ids are ignored; a call with every id zero behaves
+// like ListFilms. Multiple non-zero ids AND together (mirrors VideoFilter).
+func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID int64) ([]model.Film, error) {
+	where := "1=1"
+	var args []any
+	for _, dim := range []struct {
+		id           int64
+		table, alias string
+	}{
+		{personID, "video_people", "vp.person_id"},
+		{studioID, "video_studios", "vs.studio_id"},
+		{tagID, "video_tags", "vt.tag_id"},
+	} {
+		if dim.id <= 0 {
+			continue
+		}
+		joinAlias := strings.SplitN(dim.alias, ".", 2)[0]
+		where += ` AND EXISTS (SELECT 1 FROM film_videos fv JOIN ` + dim.table + ` ` + joinAlias + ` ON ` + joinAlias + `.video_id = fv.video_id
+			WHERE fv.film_id = f.id AND ` + dim.alias + ` = ?)`
+		args = append(args, dim.id)
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT `+filmSelectCols+` FROM films f WHERE `+where+` ORDER BY f.name COLLATE NOCASE`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list films for entity: %w", err)
+	}
+	defer rows.Close()
+	return scanFilms(rows)
+}
+
 // GetFilm returns a film by id with its active-video count, or ErrNotFound.
 func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id = ?`, id)
@@ -201,9 +265,9 @@ func (r *Repo) SearchFilms(ctx context.Context, query string, limit int) ([]mode
 // FilmVideo is one scene/full-film row on a film's detail page: the video plus its
 // film_videos attachment attributes.
 type FilmVideo struct {
-	Video       model.Video
-	SceneNumber *int64
-	IsFullFilm  bool
+	Video       model.Video `json:"video"`
+	SceneNumber *int64      `json:"scene_number"`
+	IsFullFilm  bool        `json:"is_full_film"`
 }
 
 // FilmVideos returns every video attached to a film, scenes first (ordered by scene

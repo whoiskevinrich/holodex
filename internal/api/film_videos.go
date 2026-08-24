@@ -6,8 +6,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
+
+// filmVideoCandidate is one row in the film→video attach picker's result list
+// (design handoff §4): the video plus, when it's already linked to a film
+// other than the one being edited, which film(s) so the picker can show an
+// "Also in: X" badge (spec: "must also indicate if a candidate video is
+// already attached to another film").
+type filmVideoCandidate struct {
+	Video           model.Video           `json:"video"`
+	AlreadyAttached []repo.FilmAttachment `json:"already_attached"`
+}
 
 // Film↔video attach/detach (F56, ADR-085 §2/§6): film_videos is an owner
 // ASSERTION, never a value RelinkVideoEntity derives -- see
@@ -18,9 +29,55 @@ import (
 // mountFilmVideos registers the owner-gated attach/detach/bulk-attach routes,
 // called from mountFilms.
 func (h *Handlers) mountFilmVideos(r chi.Router) {
+	r.Get("/films/{filmId}/video-candidates", h.filmVideoCandidates)
 	r.Post("/films/{filmId}/videos", h.attachFilmVideo)
 	r.Post("/films/{filmId}/videos/bulk", h.bulkAttachFilmVideos)
 	r.Delete("/films/{filmId}/videos/{videoId}", h.detachFilmVideo)
+}
+
+// filmVideoCandidates handles GET /films/{filmId}/video-candidates (owner-gated):
+// the film→video picker's search (design handoff §4). Reuses repo.VideoFilter's
+// q/studio_id/person filtering (same struct GET /media uses) plus two new
+// dimensions: always excludes videos already attached to this film, and --
+// unless ?unattached=false -- excludes videos attached to ANY film (the
+// picker's default-unattached scope). Rows already attached to a different
+// film carry that film in already_attached so the picker can flag it.
+func (h *Handlers) filmVideoCandidates(w http.ResponseWriter, r *http.Request) {
+	filmID, ok := urlParamID(w, r, "filmId")
+	if !ok {
+		return
+	}
+	if _, err := h.repo.GetFilm(r.Context(), filmID); err != nil {
+		h.filmLookupError(w, err)
+		return
+	}
+
+	q := r.URL.Query()
+	f := h.videoFilterFromQuery(q)
+	f.ExcludeAttachedToFilmID = filmID
+	f.UnattachedToAnyFilm = q.Get("unattached") != "false"
+
+	videos, total, err := h.repo.ListVideos(r.Context(), f)
+	if err != nil {
+		h.fail(w, "film video candidates", err)
+		return
+	}
+	ids := make([]int64, len(videos))
+	for i, v := range videos {
+		ids[i] = v.ID
+	}
+	attachedByVideo, err := h.repo.FilmsForVideos(r.Context(), ids)
+	if err != nil {
+		h.fail(w, "film video candidates attachments", err)
+		return
+	}
+	items := make([]filmVideoCandidate, len(videos))
+	for i, v := range videos {
+		items[i] = filmVideoCandidate{Video: v, AlreadyAttached: attachedByVideo[v.ID]}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
+	})
 }
 
 // writeSceneCollisionConflict writes the 409 envelope for a scene-number collision

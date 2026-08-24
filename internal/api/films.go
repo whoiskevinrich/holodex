@@ -21,21 +21,33 @@ import (
 func (h *Handlers) mountFilms(r chi.Router) {
 	r.Post("/films", h.createFilm)
 	h.mountFilmVideos(r)
+	h.mountFilmDecisions(r)
 }
 
 // listFilms handles GET /films (F56): name-sorted films with active-video counts.
 // Public, mirroring listStudios' unfiltered posture. Unlike studios, empty films
 // are never excluded -- film_videos has no prune-on-empty (see films.go's package doc).
+// ?person_id=/?studio_id=/?tag_id= filter to films whose video union includes that
+// entity (the films row on person/studio/tag detail pages) -- mutually exclusive
+// with ?q in practice, but if both are given, ?q wins (name search, no entity join).
 func (h *Handlers) listFilms(w http.ResponseWriter, r *http.Request) {
 	var (
 		films []model.Film
 		err   error
 	)
+	q := r.URL.Query()
 	op := "list films"
-	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+	switch {
+	case strings.TrimSpace(q.Get("q")) != "":
 		op = "search films"
-		films, err = h.repo.SearchFilms(r.Context(), q, 25)
-	} else {
+		films, err = h.repo.SearchFilms(r.Context(), q.Get("q"), 25)
+	case q.Get("person_id") != "" || q.Get("studio_id") != "" || q.Get("tag_id") != "":
+		op = "list films for entity"
+		films, err = h.repo.ListFilmsForEntity(r.Context(),
+			int64(atoiDefault(q.Get("person_id"), 0)),
+			int64(atoiDefault(q.Get("studio_id"), 0)),
+			int64(atoiDefault(q.Get("tag_id"), 0)))
+	default:
 		films, err = h.repo.ListFilms(r.Context())
 	}
 	if err != nil {
@@ -65,9 +77,11 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "film videos", err)
 		return
 	}
+	authorized := h.auth.authorized(r)
 	scenes := []repo.FilmVideo{}
 	fullFilms := []repo.FilmVideo{}
 	for _, fv := range fvs {
+		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
 			fullFilms = append(fullFilms, fv)
 		} else {
