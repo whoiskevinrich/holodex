@@ -66,6 +66,12 @@ While making a change, route it through the right skill based on what it touches
 | **Anything significant** (any of the above, or a multi-file behavior change) | `/testing-strategy` | updated `docs/testing-strategy.md` + tests aligned to the spec/architecture/design |
 | **Authentication, access, or infrastructure** | `/security-review` | a security sign-off before merge |
 
+**`/design-handoff` must persist any rendered mockup as a committed asset** (SVG preferred —
+self-contained, renders inline on GitHub, no CDN/font dependency) in `docs/design/` next to the
+handoff doc, referenced from it with an image embed. A mockup that only exists as a chat/session
+artifact is lost the moment context is summarized or the session ends, which has caused approved
+designs to not make it into implementation — the committed doc is the only copy that survives.
+
 A functional change with no spec update — or an infra change with no ADR — is **incomplete**.
 On the Jira side, the same gates surface as the `needs-spec` / `needs-adr` / `needs-design` /
 `needs-security-review` labels (see "Task tracking") — apply one when the change enters the

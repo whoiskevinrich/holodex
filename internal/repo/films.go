@@ -532,3 +532,25 @@ func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, e
 		return model.Studio{ID: id, Name: name}
 	})
 }
+
+// VideoIDsForFilm returns the active/non-deleted video ids attached to a film via
+// film_videos — the Studio cascade's per-video scope (ADR-087 D2), mirroring
+// VideoIDsForTag's shape (tag_hierarchy.go).
+func (r *Repo) VideoIDsForFilm(ctx context.Context, filmID int64) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT v.id FROM film_videos fv JOIN videos v ON v.id = fv.video_id
+		WHERE fv.film_id = ? AND v.active = 1 AND v.deleted_at IS NULL`, filmID)
+	if err != nil {
+		return nil, fmt.Errorf("video ids for film: %w", err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var videoID int64
+		if err := rows.Scan(&videoID); err != nil {
+			return nil, err
+		}
+		out = append(out, videoID)
+	}
+	return out, rows.Err()
+}

@@ -19,7 +19,9 @@
 	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
+	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
+	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
@@ -61,6 +63,13 @@
 	);
 	const sceneNumberByVideoId = $derived(new Map(scenes.map((s) => [s.video.id, s.scene_number])));
 	const sceneNumberOf = (v: Video): number | null | undefined => sceneNumberByVideoId.get(v.id);
+
+	// FilmStudioCascadeDialog's Collision/Error rows only get a video_id back from the
+	// cascade response — this names them without a second fetch.
+	const videoTitles = $derived(
+		new Map([...scenes.map((s) => [s.video.id, s.video.title] as const), ...fullFilms.map((fv) => [fv.video.id, fv.video.title] as const)])
+	);
+	const attachedVideoCount = $derived(videoTitles.size);
 
 	function applyDetail(res: FilmDetailResponse) {
 		film = res.film;
@@ -122,6 +131,17 @@
 	}
 
 	let attachOpen = $state(false);
+
+	// Film-studio cascade (F57, HOLODEX-285, design handoff §3/§4): the dialog itself
+	// commits via api.cascadeFilmStudio; this page only holds what to do after — mount
+	// WritebackBatchDialog once the owner asks to view progress, and refresh the union
+	// once it settles.
+	let cascadeOpen = $state(false);
+	let cascadePending = $state<{ batch_id: string; enqueued: number } | null>(null);
+
+	function openCascade() {
+		cascadeOpen = true;
+	}
 </script>
 
 <AsyncState {loading} {error}>
@@ -142,15 +162,33 @@
 					<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
 					{#if film.year}<p class="text-sm text-muted">{film.year}</p>{/if}
 
-					{#if studios.length}
-						<div class="flex flex-wrap items-center gap-1.5 pt-1">
-							<span class="text-xs uppercase tracking-wide text-muted">Studios</span>
+					<div class="name-edit-row flex flex-wrap items-center gap-1.5 pt-1">
+						<span class="text-xs uppercase tracking-wide text-muted">Studios</span>
+						{#if studios.length}
 							{#each studios as s, i (s.id)}
 								{#if i > 0}<span class="text-muted">,</span>{/if}
 								<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
 							{/each}
-						</div>
-					{/if}
+						{:else}
+							<span class="text-sm text-muted">No studio set</span>
+						{/if}
+						{#if isOwner}
+							<button
+								type="button"
+								aria-label="Change the studio for every video in this film"
+								onclick={openCascade}
+								class="name-edit-pencil rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
+							>
+								<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+									/>
+								</svg>
+							</button>
+						{/if}
+					</div>
 
 					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
 						{#if f.values[0]?.trim()}
@@ -328,5 +366,31 @@
 		filmCast={cast}
 		onclose={() => (attachOpen = false)}
 		onattached={reloadDetail}
+	/>
+{/if}
+
+{#if cascadeOpen && film}
+	<FilmStudioCascadeDialog
+		filmId={id}
+		filmName={film.name}
+		{attachedVideoCount}
+		currentStudios={studios}
+		{videoTitles}
+		onclose={() => (cascadeOpen = false)}
+		onviewprogress={(batch_id, enqueued) => {
+			cascadeOpen = false;
+			cascadePending = { batch_id, enqueued };
+		}}
+	/>
+{/if}
+
+{#if cascadePending && film}
+	<WritebackBatchDialog
+		scopeLabel={film.name}
+		videoCountHint={cascadePending.enqueued}
+		initialBatch={cascadePending}
+		batchStatus={api.writebackBatchStatus}
+		onclose={() => (cascadePending = null)}
+		onapplied={reloadDetail}
 	/>
 {/if}

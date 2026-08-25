@@ -108,36 +108,11 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Studio composite-key collision gate (HOLODEX-271, reusing HOLODEX-270's
-	// mechanism): unlike Title, this isn't manual-only — a known-candidate chip
-	// pick changes the composite key exactly as much as a searched/created value
-	// does, so every non-override Studio source pick is checked, including one that
-	// resolves to no studio at all (two videos that both drop their studio, matching
-	// on every other axis, is still a real composite-key collision). The proposed
-	// names are resolved once, unlocked, and checked immediately so the common
-	// blocking case (and every override write) never touches the write lock at all;
-	// SetDecisionChecked then re-runs the same cheap FindStudioCollision query inside
-	// one writeMu-locked operation right before the write, closing the TOCTOU gap two
-	// concurrent Studio decisions could otherwise race through — without holding the
-	// lock across the earlier fetch+resolve pass the way a single locked closure
-	// would. (Title's own FindTitleCollision-then-SetDecision path has the same
-	// unlocked race and isn't fixed here — pre-existing, out of scope.)
+	// mechanism): see decideStudioForVideo's doc comment for the full TOCTOU
+	// rationale. This is a thin wrapper — override is honored from the request body,
+	// matching the single-video path's existing behavior (ADR-087 D1 extraction).
 	if field.Canonical == "studio" {
-		rc, names, err := h.resolveProposedStudioNames(r.Context(), id, field, body.Source, manualValue)
-		if err != nil {
-			h.fail(w, "resolve studio proposal", err)
-			return
-		}
-		check := func() (*repo.VideoCollision, error) { return h.repo.FindStudioCollision(r.Context(), id, names) }
-		if body.Override {
-			check = nil
-		} else if collision, err := check(); err != nil {
-			h.fail(w, "check studio collision", err)
-			return
-		} else if collision != nil {
-			writeCollisionConflict(w, collision)
-			return
-		}
-		collision, err := h.repo.SetDecisionChecked(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue, check)
+		_, collision, err := h.decideStudioForVideo(r.Context(), id, field, body.Source, manualValue, body.Override)
 		if err != nil {
 			h.fail(w, "set studio decision", err)
 			return
@@ -146,10 +121,6 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 			writeCollisionConflict(w, collision)
 			return
 		}
-		// Studio reuses the fetch+resolve the collision gate above already ran (same
-		// video, same pending decision) instead of paying for a second
-		// loadRelinkContext + resolver.Resolve pass here.
-		h.relinkStudiosWithContext(r.Context(), id, rc, names)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -191,6 +162,53 @@ func (h *Handlers) resolveProposedStudioNames(ctx context.Context, videoID int64
 	}
 	decisions["studio"] = resolver.Decision{Source: source, ManualValue: manualValue}
 	return rc, h.resolveStudioNames(rc, field, decisions), nil
+}
+
+// decideStudioForVideo runs the Studio composite-key collision gate (HOLODEX-271)
+// and SetDecisionChecked for one video, then relinks video_studios on success.
+// Shared by setFieldDecision's Studio branch (single video, override honored) and
+// the film-studio cascade (film_studio_cascade.go, override always false — RD4's
+// unconditional overwrite applies to a video's prior decision, not to this safety
+// gate). Extracted verbatim from setFieldDecision's former Studio branch (ADR-087
+// D1) — no behavior change for the single-video path.
+//
+// Unlike Title, this isn't manual-only — a known-candidate chip pick changes the
+// composite key exactly as much as a searched/created value does, so every
+// non-override Studio source pick is checked, including one that resolves to no
+// studio at all (two videos that both drop their studio, matching on every other
+// axis, is still a real composite-key collision). The proposed names are resolved
+// once, unlocked, and checked immediately so the common blocking case (and every
+// override write) never touches the write lock at all; SetDecisionChecked then
+// re-runs the same cheap FindStudioCollision query inside one writeMu-locked
+// operation right before the write, closing the TOCTOU gap two concurrent Studio
+// decisions could otherwise race through — without holding the lock across the
+// earlier fetch+resolve pass the way a single locked closure would. (Title's own
+// FindTitleCollision-then-SetDecision path has the same unlocked race and isn't
+// fixed here — pre-existing, out of scope.)
+func (h *Handlers) decideStudioForVideo(ctx context.Context, videoID int64, field mapping.Field, source, manualValue string, override bool) (names []string, collision *repo.VideoCollision, err error) {
+	rc, names, err := h.resolveProposedStudioNames(ctx, videoID, field, source, manualValue)
+	if err != nil {
+		return nil, nil, err
+	}
+	check := func() (*repo.VideoCollision, error) { return h.repo.FindStudioCollision(ctx, videoID, names) }
+	if override {
+		check = nil
+	} else if collision, err = check(); err != nil {
+		return nil, nil, err
+	} else if collision != nil {
+		return names, collision, nil
+	}
+	if collision, err = h.repo.SetDecisionChecked(ctx, model.EnrichEntityVideo, videoID, field.Canonical, source, manualValue, check); err != nil {
+		return nil, nil, err
+	}
+	if collision != nil {
+		return names, collision, nil
+	}
+	// Studio reuses the fetch+resolve the collision gate above already ran (same
+	// video, same pending decision) instead of paying for a second
+	// loadRelinkContext + resolver.Resolve pass here.
+	h.relinkStudiosWithContext(ctx, videoID, rc, names)
+	return names, nil, nil
 }
 
 // clearFieldDecision removes a field's standing decision, reverting it to the

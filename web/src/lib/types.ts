@@ -820,6 +820,16 @@ export interface FilmDetailResponse {
 	studios: Studio[];
 }
 
+// One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video
+// decide-then-enqueue (F57, HOLODEX-285, ADR-087 D2) -- a collision or error excludes
+// only that video, never the whole batch.
+export interface FilmStudioCascadeResult {
+	video_id: number;
+	status: 'enqueued' | 'collision' | 'error';
+	conflict?: VideoCollisionRef;
+	error?: string;
+}
+
 // FilmSceneCollision names the video already occupying a requested scene number
 // (409 payload from attach/bulk-attach) — no silent swap, no auto-bump renumbering.
 export interface FilmSceneCollision {
