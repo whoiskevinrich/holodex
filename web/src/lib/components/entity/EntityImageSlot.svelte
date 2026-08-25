@@ -1,33 +1,41 @@
-<script lang="ts">
-	// Film image role control (F56/HOLODEX-280, ADR-086): upload / replace / remove for
-	// one of a film's two roles (poster/thumb). No gallery, no promote, no viewer modal —
-	// mirrors StudioImageSlot (F51, ADR-079) exactly, substituting the film endpoints.
-	// Visitors see the frame read-only; owners get Replace/Remove. Poster has no prior
-	// placeholder, so its empty state is the upload affordance itself (owner-only) or a
-	// plain dashed box (visitor); thumb falls back to the film's monogram when empty.
-	import { api } from '$lib/api';
+<script lang="ts" generics="TRole extends string">
+	// Entity image role control (HOLODEX-286): upload / replace / remove for one of an
+	// entity's single-slot image roles. Generalized from the Studio (F51, ADR-079) and
+	// Film (F56/HOLODEX-280, ADR-086) versions, which were byte-for-byte identical
+	// apart from the entity id/name prop names and which api.ts calls to make — those
+	// now come in as `upload`/`remove` props instead. No gallery, no promote, no viewer
+	// modal — unlike Person's image system, which keeps its own dedicated components
+	// (PersonGallery et al.) since it has a capped gallery, dedup, and promote that
+	// this simple "one row per role" shape doesn't. Visitors see the frame read-only;
+	// owners get Replace/Remove. The `"poster"` role has no prior placeholder, so its
+	// empty state is the upload affordance itself (owner-only) or a plain dashed box
+	// (visitor); every other role falls back to the entity's monogram when empty.
 	import { toMessage, monogram } from '$lib/format';
-	import type { FilmImageRole } from '$lib/types';
 
 	let {
-		filmId,
-		filmName,
+		entityId,
+		entityName,
 		role,
 		label,
 		url,
 		isOwner,
+		upload,
+		remove: removeImage,
 		onchanged
 	}: {
-		filmId: number;
-		filmName: string;
-		role: FilmImageRole;
+		entityId: number;
+		entityName: string;
+		role: TRole;
 		label: string;
 		url?: string;
 		isOwner: boolean;
+		upload: (entityId: number, file: File, role: TRole) => Promise<unknown>;
+		remove: (entityId: number, role: TRole) => Promise<unknown>;
 		onchanged: () => void;
 	} = $props();
 
-	const frameClass = $derived(role === 'poster' ? 'h-24 w-16' : 'h-16 w-16');
+	const isPoster = $derived(role === 'poster');
+	const frameClass = $derived(isPoster ? 'h-24 w-16' : 'h-16 w-16');
 
 	let uploading = $state(false);
 	let confirmingRemove = $state(false);
@@ -46,7 +54,7 @@
 		uploading = true;
 		error = '';
 		try {
-			await api.uploadFilmImage(filmId, file, role);
+			await upload(entityId, file, role);
 			onchanged();
 		} catch (err) {
 			error = toMessage(err);
@@ -58,7 +66,7 @@
 	async function remove() {
 		error = '';
 		try {
-			await api.deleteFilmImage(filmId, role);
+			await removeImage(entityId, role);
 			confirmingRemove = false;
 			onchanged();
 		} catch (err) {
@@ -69,18 +77,18 @@
 
 <div class="flex items-center gap-4 rounded-theme border border-rule bg-surface p-3">
 	<span
-		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {role ===
-			'poster' && !url
-				? 'border border-dashed border-rule'
-				: 'bg-logo-plate'} {frameClass}"
+		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {isPoster &&
+		!url
+			? 'border border-dashed border-rule'
+			: 'bg-logo-plate'} {frameClass}"
 	>
 		{#if url}
 			<img
 				src={url}
-				alt={`${filmName} ${label.toLowerCase()}`}
+				alt={`${entityName} ${label.toLowerCase()}`}
 				class="h-full w-full object-contain p-1 {uploading ? 'opacity-60' : ''}"
 			/>
-		{:else if role === 'poster' && isOwner}
+		{:else if isPoster && isOwner}
 			<button
 				onclick={openPicker}
 				disabled={uploading}
@@ -89,9 +97,9 @@
 			>
 				{uploading ? '…' : '+'}
 			</button>
-		{:else if role !== 'poster'}
+		{:else if !isPoster}
 			<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true">
-				{monogram(filmName)}
+				{monogram(entityName)}
 			</span>
 		{/if}
 		{#if uploading && url}
@@ -106,7 +114,7 @@
 		{/if}
 		{#if isOwner}
 			<div class="flex items-center gap-2">
-				{#if role !== 'poster' || url}
+				{#if !isPoster || url}
 					<button
 						onclick={openPicker}
 						disabled={uploading}
