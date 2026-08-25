@@ -855,28 +855,6 @@
 		{/if}
 
 		<header class="space-y-2">
-			{#key id}
-				<NameEditControl
-					id="field-title"
-					name={displayTitle}
-					{isOwner}
-					onCommit={commitTitle}
-					label="video"
-					headingClass="skin-title text-2xl font-semibold text-ink"
-				>
-					{#snippet verdict(c, resolve)}
-						<CollisionOfferCard
-							video={c}
-							proposedTitle={pendingTitleValue}
-							busy={titleCollisionBusy}
-							error={titleCollisionError}
-							onviewexisting={() => goto(`/media/${c.id}`)}
-							onsaveanyway={() => saveTitleAnyway(resolve)}
-							oncancel={resolve}
-						/>
-					{/snippet}
-				</NameEditControl>
-			{/key}
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner && studioField}
@@ -893,12 +871,12 @@
 							{/snippet}
 						</StudioPicker>
 						{#each studios as s (s.id)}
-							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">→ {s.name}</a>
+							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
 						{/each}
 					{:else if studios.length}
 						<!-- Visitor view: the resolved studio value always matches its linked
-						     entity (RD1), so show the link alone instead of the text + arrow-link
-						     duplicate (owner view keeps both — the arrow-link there is a shortcut
+						     entity (RD1), so show the link alone instead of the text + link
+						     duplicate (owner view keeps both — the link there is a shortcut
 						     to the studio page distinct from the editable SourceSelect value). -->
 						{#each studios as s, i (s.id)}
 							{#if i > 0}<span class="text-muted">,</span>{/if}
@@ -909,6 +887,29 @@
 					{/if}
 				</div>
 			{/if}
+			{#key id}
+				<NameEditControl
+					id="field-title"
+					name={displayTitle}
+					{isOwner}
+					onCommit={commitTitle}
+					label="video"
+					headingClass="skin-title text-2xl font-semibold text-ink"
+					pencilAlwaysVisible
+				>
+					{#snippet verdict(c, resolve)}
+						<CollisionOfferCard
+							video={c}
+							proposedTitle={pendingTitleValue}
+							busy={titleCollisionBusy}
+							error={titleCollisionError}
+							onviewexisting={() => goto(`/media/${c.id}`)}
+							onsaveanyway={() => saveTitleAnyway(resolve)}
+							oncancel={resolve}
+						/>
+					{/snippet}
+				</NameEditControl>
+			{/key}
 			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
 				<span>{video.width}×{video.height}</span>
