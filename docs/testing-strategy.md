@@ -1944,6 +1944,52 @@ Then the attach is REJECTED with an error naming the CURRENT occupant by name/id
      sequential-numbering commit (a batch collision there is all-or-nothing, not partial)
 ```
 
+**Film poster/thumb self-hosted images — source-scoped image roles (F56, HOLODEX-280, ADR-085/ADR-079) — adversarial**
+```
+Given a film with no images
+When the owner POSTs a valid JPEG to /films/{id}/images/poster
+Then film_images gains exactly one row: role='poster', source='upload', and GET
+     /films/{id}/images/poster serves it as 200 image/jpeg + immutable cache; the film's
+     /api/v1/films and /api/v1/films/{id} payloads both carry the versioned poster_url
+
+Given a film with an existing uploaded poster (version N)
+When the owner POSTs a replacement image to the same role
+Then film_images still has exactly one role='poster'/source='upload' row (delete+insert scoped
+     by film_id+role+source, not an accumulating gallery), the served URL's ?v= advances past N,
+     and the prior on-disk file is removed — never left orphaned
+
+Given a film's poster and thumb roles are independent
+When the owner uploads only a poster
+Then GET /films/{id}/images/thumb still 404s (no cross-role fallback, no placeholder route) and
+     the film list/detail payload's thumb_url is omitted, not pointing at the poster
+
+Given the schema's UNIQUE(film_id, role, source) (the one genuine divergence from Studio's
+     UNIQUE(studio_id, role))
+When an owner-uploaded poster exists for a film
+Then every film-image function (GetFilmImage/ReplaceFilmImage/DeleteFilmImage/
+     filmImageVersions) is scoped by source, not just role — proven by filmImageVersions
+     filtering to source='upload' only, so a future provider-sourced row (HOLODEX-284, not yet
+     built) cannot silently collide with or shadow the uploaded one once that writer exists
+
+Given an unauthenticated request
+When POST or DELETE /films/{id}/images/{role} is attempted
+Then 401/403 (requireOwner), matching every other film mutation endpoint
+Given role="banner" (not one of poster|thumb)
+When POST /films/{id}/images/banner is attempted
+Then 400, and nothing is written to film_images or disk
+
+Given an uploaded file that is actually an SVG/polyglot/decompression bomb
+When POST /films/{id}/images/{role} processes it
+Then personimage.Normalize rejects it (the same guard every other image upload in the codebase
+     passes through) and the request fails without writing to disk — no new decode path
+
+Given no imagesink.Sink dispatch entry exists yet for entityType "film" (deliberately deferred
+     to HOLODEX-284, the future enrichment ticket — no provider writer exists in this ticket)
+When a film is enriched via any existing provider flow
+Then nothing writes to film_images — ReplaceFilmImageFile is reachable only from the owner
+     upload handler in this ticket, never from an enrichment code path
+```
+
 ---
 
 ## 11. Known Gaps & Open Questions
