@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { toMessage, monogram } from '$lib/format';
@@ -48,10 +48,10 @@
 			});
 	}
 
-	$effect(() => {
-		void sort;
-		reload();
-	});
+	// Sorting is entirely client-derived (`displayed` above) -- this only needs to run
+	// once on mount, not on every `sort` change (a $effect reading `sort` would refire
+	// reload() and refetch from the server on every A–Z/Random toggle for no reason).
+	onMount(reload);
 
 	beforeNavigate(() => {
 		listScroll.save('films', { key: sort, scrollY: window.scrollY });

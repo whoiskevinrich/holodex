@@ -568,7 +568,10 @@ export const api = {
 	// when filmsEnabled is false. Shared by the nav search box and the /search page,
 	// which otherwise each reimplemented this splice identically. filmsEnabled is
 	// passed in by the caller (already holding activity.caps) rather than read here,
-	// keeping this module free of app-state imports.
+	// keeping this module free of app-state imports. The films fetch is isolated with
+	// its own .catch: it's an additive group, so a films-only failure (network error,
+	// non-2xx) degrades to "no films group" rather than failing the whole search and
+	// discarding the People/Videos/Studios/Tags results api.search already fetched.
 	searchAll: async (
 		q: string,
 		filmsEnabled: boolean,
@@ -576,7 +579,12 @@ export const api = {
 	): Promise<SearchResponse> => {
 		const [res, films] = await Promise.all([
 			api.search(q, fetchFn),
-			filmsEnabled ? api.listFilms({ q }, fetchFn).then((r) => r.items) : Promise.resolve(null)
+			filmsEnabled
+				? api
+						.listFilms({ q }, fetchFn)
+						.then((r) => r.items)
+						.catch(() => null)
+				: Promise.resolve(null)
 		]);
 		return films ? { ...res, films } : res;
 	},

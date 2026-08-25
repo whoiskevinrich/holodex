@@ -129,7 +129,9 @@
 		if (!chosen) return;
 		// bind:value on type="number" coerces to a Number (or '' when cleared) — sceneNumber
 		// is not always a string despite the `$state('')` default, so don't call .trim() on it.
-		const n = sceneNumber === '' ? null : Number(sceneNumber);
+		// isFullFilm always wins: the input is disabled but not cleared when checked, so a
+		// scene number typed before toggling "entire film" must not be sent alongside it.
+		const n = isFullFilm || sceneNumber === '' ? null : Number(sceneNumber);
 		if (n !== null && (!Number.isInteger(n) || n <= 0)) {
 			attachError = 'Scene number must be a positive whole number, or left blank.';
 			return;

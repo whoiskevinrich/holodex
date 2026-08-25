@@ -54,8 +54,14 @@ func (h *Handlers) filmVideoCandidates(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 	f := h.videoFilterFromQuery(q)
-	f.ExcludeAttachedToFilmID = filmID
 	f.UnattachedToAnyFilm = q.Get("unattached") != "false"
+	// Only meaningful (and only applied) when the default unattached-only scope is
+	// widened -- when UnattachedToAnyFilm is set, its blanket "no film_videos row at
+	// all" check already excludes this film's own attachments, making a second,
+	// this-film-specific NOT EXISTS redundant on the common-case query.
+	if !f.UnattachedToAnyFilm {
+		f.ExcludeAttachedToFilmID = filmID
+	}
 
 	videos, total, err := h.repo.ListVideos(r.Context(), f)
 	if err != nil {
@@ -118,6 +124,12 @@ func (h *Handlers) requireLiveFilmAndVideo(w http.ResponseWriter, r *http.Reques
 		h.filmLookupError(w, err)
 		return false
 	}
+	return h.requireLiveVideo(w, r, videoID)
+}
+
+// requireLiveVideo validates that a video exists and is live (not soft-deleted),
+// writing 404/409 and returning false otherwise.
+func (h *Handlers) requireLiveVideo(w http.ResponseWriter, r *http.Request, videoID int64) bool {
 	switch _, err := h.repo.RefreshTarget(r.Context(), videoID); {
 	case errors.Is(err, repo.ErrNotFound):
 		writeError(w, http.StatusNotFound, "video not found")
@@ -128,6 +140,18 @@ func (h *Handlers) requireLiveFilmAndVideo(w http.ResponseWriter, r *http.Reques
 	case err != nil:
 		h.fail(w, "get video", err)
 		return false
+	}
+	return true
+}
+
+// requireLiveVideos applies requireLiveVideo to every id, stopping at the first
+// offender -- the bulk-attach counterpart to attach's single-video check, so a
+// trashed or nonexistent video can't be silently linked via the bulk path.
+func (h *Handlers) requireLiveVideos(w http.ResponseWriter, r *http.Request, ids []int64) bool {
+	for _, id := range ids {
+		if !h.requireLiveVideo(w, r, id) {
+			return false
+		}
 	}
 	return true
 }
@@ -190,6 +214,9 @@ func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) 
 	}
 	if _, err := h.repo.GetFilm(r.Context(), filmID); err != nil {
 		h.filmLookupError(w, err)
+		return
+	}
+	if !h.requireLiveVideos(w, r, body.VideoIDs) {
 		return
 	}
 	occupant, err := h.repo.BulkAttachFilmVideos(r.Context(), filmID, body.VideoIDs, body.StartingSceneNumber)

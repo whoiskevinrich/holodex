@@ -35,28 +35,14 @@ type FilmAttachment struct {
 }
 
 // FilmsForVideo returns the films a single video is attached to (F56, ADR-085) -- a
-// video may belong to zero to many films. Ordered by film name for deterministic output.
+// video may belong to zero to many films. Ordered by film name for deterministic
+// output. A thin wrapper over FilmsForVideos so the two share one scan.
 func (r *Repo) FilmsForVideo(ctx context.Context, videoID int64) ([]FilmAttachment, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT f.id, f.name, fv.is_full_film, fv.scene_number
-		FROM film_videos fv JOIN films f ON f.id = fv.film_id
-		WHERE fv.video_id = ?
-		ORDER BY f.name COLLATE NOCASE`, videoID)
+	byVideo, err := r.FilmsForVideos(ctx, []int64{videoID})
 	if err != nil {
-		return nil, fmt.Errorf("films for video: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-	var out []FilmAttachment
-	for rows.Next() {
-		var fa FilmAttachment
-		var isFull int
-		if err := rows.Scan(&fa.FilmID, &fa.FilmName, &isFull, &fa.SceneNumber); err != nil {
-			return nil, err
-		}
-		fa.IsFullFilm = isFull != 0
-		out = append(out, fa)
-	}
-	return out, rows.Err()
+	return byVideo[videoID], nil
 }
 
 // FilmsForVideos returns each of the given videos' film attachments, keyed by
@@ -150,9 +136,12 @@ func scanFilms(rows *sql.Rows) ([]model.Film, error) {
 	return out, rows.Err()
 }
 
+// video_count excludes full-film rows — it's rendered client-side as a scene count
+// (the films list's "N scenes" label), and a full-film-only release with no
+// separate scene rips would otherwise be mislabeled "1 scene".
 const filmSelectCols = `f.id, f.name, f.year,
 	(SELECT COUNT(*) FROM film_videos fv JOIN videos v ON v.id = fv.video_id
-	 WHERE fv.film_id = f.id AND v.active = 1 AND v.deleted_at IS NULL)`
+	 WHERE fv.film_id = f.id AND fv.is_full_film = 0 AND v.active = 1 AND v.deleted_at IS NULL)`
 
 // CreateFilm inserts a new film. A pre-existing (name, year COLLATE NOCASE) match
 // returns that film's id with ErrFilmExists rather than creating a duplicate --
@@ -447,6 +436,21 @@ func (r *Repo) BulkAttachFilmVideos(ctx context.Context, filmID int64, videoIDs 
 	return nil, nil
 }
 
+// scanFilmUnionRows drains a (id, name) result set from one of FilmCast/FilmTags/
+// FilmStudios' identical set-union queries into T, sharing their scan loop.
+func scanFilmUnionRows[T any](rows *sql.Rows, build func(id int64, name string) T) ([]T, error) {
+	out := []T{}
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out = append(out, build(id, name))
+	}
+	return out, rows.Err()
+}
+
 // FilmCast returns the read-only set union of people across every video attached to
 // a film (spec: "Films should inherit tags and people from its videos/scenes") --
 // NOT film_people_roles (film-only additive billing/role data, out of this
@@ -462,15 +466,9 @@ func (r *Repo) FilmCast(ctx context.Context, filmID int64) ([]model.Person, erro
 		return nil, fmt.Errorf("film cast: %w", err)
 	}
 	defer rows.Close()
-	out := []model.Person{}
-	for rows.Next() {
-		var p model.Person
-		if err := rows.Scan(&p.ID, &p.Name); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
+	return scanFilmUnionRows(rows, func(id int64, name string) model.Person {
+		return model.Person{ID: id, Name: name}
+	})
 }
 
 // FilmTags returns the read-only set union of tags across every video attached to a
@@ -486,15 +484,9 @@ func (r *Repo) FilmTags(ctx context.Context, filmID int64) ([]model.Tag, error) 
 		return nil, fmt.Errorf("film tags: %w", err)
 	}
 	defer rows.Close()
-	out := []model.Tag{}
-	for rows.Next() {
-		var t model.Tag
-		if err := rows.Scan(&t.ID, &t.Name); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
+	return scanFilmUnionRows(rows, func(id int64, name string) model.Tag {
+		return model.Tag{ID: id, Name: name}
+	})
 }
 
 // FilmStudios returns the read-only set union of studios across every video
@@ -510,13 +502,7 @@ func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, e
 		return nil, fmt.Errorf("film studios: %w", err)
 	}
 	defer rows.Close()
-	out := []model.Studio{}
-	for rows.Next() {
-		var s model.Studio
-		if err := rows.Scan(&s.ID, &s.Name); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
+	return scanFilmUnionRows(rows, func(id int64, name string) model.Studio {
+		return model.Studio{ID: id, Name: name}
+	})
 }

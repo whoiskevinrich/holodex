@@ -81,6 +81,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	scenes := []repo.FilmVideo{}
 	fullFilms := []repo.FilmVideo{}
 	for _, fv := range fvs {
+		setThumbnailURL(&fv.Video)
 		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
 			fullFilms = append(fullFilms, fv)

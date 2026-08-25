@@ -71,6 +71,11 @@
 			});
 			if (id !== searchId) return;
 			results = res.items ?? [];
+			// commit() only sends selected ids that are present in `results` (it numbers
+			// scenes by their order there), so a selection from a prior search/filter that
+			// fell out of the new results would otherwise silently be dropped from the
+			// batch while the "N selected" footer count kept counting it. Prune to match.
+			selected = new Set([...selected].filter((id) => results.some((c) => c.video.id === id)));
 			active = 0;
 		} catch (e) {
 			if (id !== searchId) return;
