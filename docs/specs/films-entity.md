@@ -428,10 +428,11 @@ Single-owner feature (no adoption funnel — success is architectural correctnes
   existing "decided source currently unmatched → empty" resolver path handles the rest with no
   new schema or state. See ADR-085 §4/§5 for the full mechanism and its one genuine
   `resolveDecided` core diff.
-- **Q3 (engineering, non-blocking):** provider selection for P1-1 film enrichment — reuse the
-  existing TMDB movie-metadata surface already integrated elsewhere in the codebase, or treat
-  film enrichment as provider-agnostic from day one. Either satisfies P1-1; pick at
-  implementation.
+- **Q3** is now **resolved by [ADR-086](../architecture/ADR-086-film-provider-enrichment.md)**:
+  film enrichment gets its own `entity_type: "film"` (not a reuse of `video`), the poster is an
+  asset (`film_images.role='poster'`, the existing `poster` kind — never a resolved field), and
+  TMDB is reused via an entity-type-aware field remap rather than a provider-agnostic abstraction.
+  See ADR-086 for the full decision and its downstream Action Items.
 - **Q4 (design, non-blocking):** exact visual treatment of the films row on person/studio/tag
   pages (P0-5) — inline chip row vs. a dedicated section with its own heading. Also new per
   ADR-085 §5: the visual treatment of a field whose decided film source is currently suspended
