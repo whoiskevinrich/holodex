@@ -248,6 +248,15 @@ async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
 	return res.json() as Promise<T>;
 }
 
+// uploadEntityImage builds the multipart body shared by every single-slot entity
+// image upload (Studio F51/Film F56 — HOLODEX-286); only the URL path segment and
+// role type differ per entity.
+function uploadEntityImage(kind: 'studios' | 'films', id: number, file: File, role: string) {
+	const form = new FormData();
+	form.append('image', file);
+	return uploadAuthed<{ id: number; version: number }>(`/${kind}/${id}/images/${role}`, form);
+}
+
 function buildQuery(f: MediaFilters): string {
 	const s = filtersToParams(f).toString();
 	return s ? `?${s}` : '';
@@ -469,11 +478,8 @@ export const api = {
 	// unlike Person). The served, cache-busted URL is already embedded in the Studio
 	// object (icon_url/logo_url/poster_url) — no client-side URL builder needed, mirrors
 	// how Studio.logo_url worked pre-F51.
-	uploadStudioImage: (id: number, file: File, role: StudioImageRole) => {
-		const form = new FormData();
-		form.append('image', file);
-		return uploadAuthed<{ id: number; version: number }>(`/studios/${id}/images/${role}`, form);
-	},
+	uploadStudioImage: (id: number, file: File, role: StudioImageRole) =>
+		uploadEntityImage('studios', id, file, role),
 
 	deleteStudioImage: (id: number, role: StudioImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
@@ -506,11 +512,8 @@ export const api = {
 
 	// Film images (F56/HOLODEX-280, ADR-086): poster/thumb, owner upload/replace/
 	// remove — mirrors uploadStudioImage/deleteStudioImage exactly.
-	uploadFilmImage: (id: number, file: File, role: FilmImageRole) => {
-		const form = new FormData();
-		form.append('image', file);
-		return uploadAuthed<{ id: number; version: number }>(`/films/${id}/images/${role}`, form);
-	},
+	uploadFilmImage: (id: number, file: File, role: FilmImageRole) =>
+		uploadEntityImage('films', id, file, role),
 
 	deleteFilmImage: (id: number, role: FilmImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/films/${id}/images/${role}`),

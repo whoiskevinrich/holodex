@@ -2,53 +2,40 @@ package filmimage_test
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
+	"holodex/internal/entityimage"
 	"holodex/internal/filmimage"
 )
 
-func TestImagePath_ServerAssignedIDsOnly(t *testing.T) {
+// ImagePath/Store/Remove delegate to internal/entityimage (HOLODEX-286), which owns
+// the actual disk layout and its round-trip/atomicity/traversal-safety coverage —
+// these just confirm the delegation is wired correctly, not that behavior a second
+// time.
+
+func TestImagePath_DelegatesToEntityImage(t *testing.T) {
 	got := filmimage.ImagePath("/data/film-images", 42, 7)
-	want := filepath.Join("/data/film-images", "42", "7.jpg")
+	want := entityimage.Path("/data/film-images", 42, 7)
 	if got != want {
-		t.Fatalf("ImagePath = %q, want %q", got, want)
-	}
-	// The path is built only from integer ids, so a traversal component can never
-	// appear (the ADR-038 rule carried to films).
-	if strings.Contains(got, "..") {
-		t.Fatalf("path contains traversal: %q", got)
+		t.Fatalf("ImagePath = %q, want %q (entityimage.Path)", got, want)
 	}
 }
 
-func TestStoreRemove_RoundTrip(t *testing.T) {
+func TestStoreRemove_Delegates(t *testing.T) {
 	dir := t.TempDir()
 	data := []byte("not-a-real-jpeg-but-bytes")
 
 	if err := filmimage.Store(dir, 3, 9, data); err != nil {
 		t.Fatalf("store: %v", err)
 	}
-	got, err := os.ReadFile(filmimage.ImagePath(dir, 3, 9))
-	if err != nil {
-		t.Fatalf("read back: %v", err)
-	}
-	if string(got) != string(data) {
-		t.Fatalf("round-trip mismatch")
-	}
-	// No temp file left behind after the atomic rename.
-	if _, err := os.Stat(filmimage.ImagePath(dir, 3, 9) + ".tmp"); !os.IsNotExist(err) {
-		t.Fatalf("temp file left behind: %v", err)
+	if _, err := os.Stat(entityimage.Path(dir, 3, 9)); err != nil {
+		t.Fatalf("stat after store: %v", err)
 	}
 
 	if err := filmimage.Remove(dir, 3, 9); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if _, err := os.Stat(filmimage.ImagePath(dir, 3, 9)); !os.IsNotExist(err) {
+	if _, err := os.Stat(entityimage.Path(dir, 3, 9)); !os.IsNotExist(err) {
 		t.Fatalf("file still present after remove")
-	}
-	// Removing an absent file is not an error.
-	if err := filmimage.Remove(dir, 3, 9); err != nil {
-		t.Fatalf("remove absent: %v", err)
 	}
 }
