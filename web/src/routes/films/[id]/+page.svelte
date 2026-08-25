@@ -22,6 +22,7 @@
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
+	import FilmImageSlot from '$lib/components/film/FilmImageSlot.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -29,7 +30,9 @@
 	// the film's videos (RD2/RD3), not editable chips, so they route through plain links,
 	// not SourceSelect. The Details section (description/release_date) mirrors Studio's
 	// SourceBadge/`baselineKey='record'` pattern exactly — films have no rename/aliases/
-	// enrichment providers wired yet (HOLODEX-280/281 deferred).
+	// enrichment providers wired yet (HOLODEX-281 deferred). Poster/thumb images
+	// (HOLODEX-280, ADR-086) mirror Studio's dedicated Images section below the
+	// header, not a hero-image swap — see FilmImageSlot/StudioImageSlot.
 	let film = $state<Film | null>(null);
 	let resolved = $state<ResolvedField[]>([]);
 	let scenes = $state<FilmVideo[]>([]);
@@ -207,6 +210,34 @@
 					{/if}
 				</div>
 			</div>
+
+			<!-- Images (F56/HOLODEX-280, ADR-086): poster (search results, future header
+			     use), thumb (no consumer yet) — mirrors Studio's dedicated Images section
+			     exactly (F51, ADR-079). Always shown — owners can seed a poster even
+			     before any enrichment; visitors see filled slots read-only. -->
+			<section class="space-y-2">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
+				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+					<FilmImageSlot
+						filmId={id}
+						filmName={film.name}
+						role="poster"
+						label="Poster"
+						url={film.poster_url}
+						{isOwner}
+						onchanged={reloadDetail}
+					/>
+					<FilmImageSlot
+						filmId={id}
+						filmName={film.name}
+						role="thumb"
+						label="Thumb"
+						url={film.thumb_url}
+						{isOwner}
+						onchanged={reloadDetail}
+					/>
+				</div>
+			</section>
 
 			<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, rendered as
 			     the same PersonPoster grid as the Media detail page's People section (not inline

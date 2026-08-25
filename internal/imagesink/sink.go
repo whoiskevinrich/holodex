@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
 	"holodex/internal/repo"
@@ -37,6 +38,20 @@ type StudioRepo interface {
 	GetStudioImage(ctx context.Context, studioID int64, role string) (repo.StudioImage, error)
 	DeleteStudioImage(ctx context.Context, studioID int64, role string) error
 	LockedStudioImageRoles(ctx context.Context, studioID int64) (map[string]struct{}, error)
+}
+
+// FilmRepo is the repo subset the film owner-upload path needs (F56/HOLODEX-280,
+// ADR-086). Unlike StudioRepo, every method is explicitly scoped by source — see
+// internal/repo/film_images.go's doc comment — because film_images' UNIQUE is
+// (film_id, role, source), not (film_id, role) alone. Not yet wired into Sink's
+// entityType dispatch: no enrichment caller writes film images today (that's
+// HOLODEX-284's scope), so ReplaceFilmImageFile below is called directly by the
+// owner-upload HTTP handler, the same way ReplaceStudioImageFile was before F51's
+// Sink dispatch existed.
+type FilmRepo interface {
+	ReplaceFilmImage(ctx context.Context, in repo.FilmImageInsert) (int64, error)
+	GetFilmImage(ctx context.Context, filmID int64, role, source string) (repo.FilmImage, error)
+	DeleteFilmImage(ctx context.Context, filmID int64, role, source string) error
 }
 
 // Sink implements enrich.ImageSink over both entity kinds. Constructed once in main
@@ -198,6 +213,28 @@ func ReplaceStudioImageFile(ctx context.Context, sr StudioRepo, dir string, in r
 	}
 	if existErr == nil && existing.ID != 0 {
 		_ = studioimage.Remove(dir, in.StudioID, existing.ID) // best-effort; a left-behind file is harmless
+	}
+	return id, nil
+}
+
+// ReplaceFilmImageFile replaces the film's row for `in.Role`+`in.Source` with
+// already-normalized bytes, writes the file, and removes the superseded file on
+// success — or rolls back the just-inserted row on a store failure. Mirrors
+// ReplaceStudioImageFile exactly; exported so the owner-upload endpoint
+// (internal/api) shares this sequence rather than reimplementing it.
+func ReplaceFilmImageFile(ctx context.Context, fr FilmRepo, dir string, in repo.FilmImageInsert, norm []byte, width, height int) (int64, error) {
+	in.Width, in.Height, in.ByteSize = width, height, len(norm)
+	existing, existErr := fr.GetFilmImage(ctx, in.FilmID, in.Role, in.Source)
+	id, err := fr.ReplaceFilmImage(ctx, in)
+	if err != nil {
+		return 0, fmt.Errorf("insert film image row: %w", err)
+	}
+	if err := filmimage.Store(dir, in.FilmID, id, norm); err != nil {
+		_ = fr.DeleteFilmImage(ctx, in.FilmID, in.Role, in.Source)
+		return 0, fmt.Errorf("store film image: %w", err)
+	}
+	if existErr == nil && existing.ID != 0 {
+		_ = filmimage.Remove(dir, in.FilmID, existing.ID) // best-effort; a left-behind file is harmless
 	}
 	return id, nil
 }

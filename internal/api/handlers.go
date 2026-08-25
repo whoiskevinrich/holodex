@@ -110,6 +110,14 @@ type Handlers struct {
 	studioImageMaxBytes int64
 	studioImageMaxDim   int
 
+	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). filmImageDir is the
+	// on-disk root; the bounds guard untrusted uploads like studioImage's. Zero
+	// filmImageDir leaves the image endpoints returning 404/503 (the SPA renders its
+	// own fallback).
+	filmImageDir      string
+	filmImageMaxBytes int64
+	filmImageMaxDim   int
+
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). providerIconDir is the
 	// on-disk root; providerIconMaxDim bounds the downscale. Zero providerIconDir leaves
 	// the icon serve route returning 404 (the SPA renders the monogram) and disables the
@@ -221,6 +229,16 @@ func (h *Handlers) SetStudioImages(dir string, maxBytes int64, maxDim int) {
 	h.studioImageMaxDim = maxDim
 }
 
+// SetFilmImages wires film image storage (F56/HOLODEX-280, ADR-086): the on-disk
+// root, the upload bounds, and the downscale bound — mirrors SetStudioImages. An
+// empty dir leaves the serve routes returning 404 (the SPA renders its own fallback)
+// and uploads failing closed. Called once at startup.
+func (h *Handlers) SetFilmImages(dir string, maxBytes int64, maxDim int) {
+	h.filmImageDir = dir
+	h.filmImageMaxBytes = maxBytes
+	h.filmImageMaxDim = maxDim
+}
+
 // SetProviderIcons wires the self-hosted provider brand-icon store (HOLODEX-134,
 // ADR-059): the on-disk root and the downscale bound. An empty dir leaves the icon
 // serve route returning 404 (the SPA renders the monogram) and disables the icon cache.
@@ -324,6 +342,11 @@ func (h *Handlers) Mount(r chi.Router) {
 	if h.filmsEnabled {
 		r.Get("/films", h.listFilms)
 		r.Get("/films/{id}", h.getFilm)
+		// Film images (F56/HOLODEX-280, ADR-086): the on-disk normalized JPEG for a
+		// filled role, or 404 (the SPA renders its own fallback). Public read, gated
+		// off with the rest of the films surface when films_enabled is off; mutations
+		// are gated below.
+		r.Get("/films/{id}/images/{role}", h.serveFilmImage)
 	}
 	// Studio images (F51, ADR-079): the on-disk normalized JPEG for a filled role, or
 	// 404 (the SPA renders its own fallback). Public read; mutations are gated below.
@@ -385,6 +408,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		// entirely when films_enabled is off, mirroring the public routes above.
 		if h.filmsEnabled {
 			h.mountFilms(r)
+			// Film images — owner-gated upload/delete for poster/thumb (F56/HOLODEX-280,
+			// ADR-086).
+			h.mountFilmImages(r)
 		}
 		// Video poster — owner-gated upload/remove, a new tier on the existing
 		// thumbnail pipeline (F52, HOLODEX-252).

@@ -303,18 +303,59 @@ type Studio struct {
 	ImageVersions map[string]int64 `json:"-"`
 }
 
+// Film image roles (F56/HOLODEX-280, ADR-086): poster is the self-hosted portrait
+// asset (~2:3, mirrors person/studio's `poster` asset kind); thumb is reserved for a
+// future landscape/list-card image. Unlike Studio, film_images' UNIQUE is (film_id,
+// role, source) — an uploaded and a provider-sourced image for the same role can
+// coexist as distinct rows (migration 0043) — so this ticket's upload path only ever
+// writes/reads the FilmImageSourceUpload row; a provider-sourced row is HOLODEX-284's
+// concern (enrichment, not built yet).
+const (
+	FilmImagePoster = "poster"
+	FilmImageThumb  = "thumb"
+)
+
+// FilmImageSourceUpload is the only source this ticket's owner-upload path writes.
+// A future enrichment writer (HOLODEX-284) would add a "provider:<name>" source
+// alongside it, per film_images' schema comment — not "enrichment" like Studio,
+// since film_images can hold more than one provider-sourced row per role.
+const FilmImageSourceUpload = "upload"
+
+// ValidFilmImageRole reports whether role is one of the two known roles — the enum
+// every request value is validated against (never a filesystem path).
+func ValidFilmImageRole(role string) bool {
+	switch role {
+	case FilmImagePoster, FilmImageThumb:
+		return true
+	default:
+		return false
+	}
+}
+
 // Film is a first-class entity (F56, ADR-085) whose video links (film_videos) are
 // an owner ASSERTION, not derived from resolved fields — structurally the opposite
 // of Studio/Person. Name+Year is the identity pair (UNIQUE(name, year), migration
 // 0043): film-name collisions across different releases/years are the common case,
-// unlike Studio names. Description/release date/poster are not struct fields, for
-// the same reason Studio/Person omit their resolver-only fields (they exist only
-// as resolver output, never persisted onto the entity struct) — see filmBaseline.
+// unlike Studio names. Description/release date are not struct fields, for the same
+// reason Studio/Person omit their resolver-only fields (they exist only as resolver
+// output, never persisted onto the entity struct) — see filmBaseline. Poster/thumb
+// ARE struct fields (ADR-086): unlike a resolved text field, a poster is a
+// self-hosted asset with its own upload/serve path, mirroring Studio's image roles.
 type Film struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	Year       int    `json:"year,omitempty"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// PosterURL/ThumbURL are serving URLs for the film's self-hosted image roles
+	// (F56/HOLODEX-280, ADR-086): /api/v1/films/{id}/images/{role}?v={id} when that
+	// role's slot is filled — pointing at Holodex's own origin, never a hotlinked
+	// provider CDN. Empty when a role has no image (the SPA renders its fallback).
+	PosterURL string `json:"poster_url,omitempty"`
+	ThumbURL  string `json:"thumb_url,omitempty"`
+	// ImageVersions holds the film_images row id per filled role (the ?v= cache
+	// buster) — internal; the API layer turns it into the URLs above via
+	// setFilmImageURLs. Absent role = no image. Mirrors Studio.ImageVersions.
+	ImageVersions map[string]int64 `json:"-"`
 }
 
 // ExtraMetadata is a captured raw container tag not mapped to a first-class
