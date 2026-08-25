@@ -44,9 +44,12 @@ primitive (deferred per P1-2 below); writeback progress reuses ADR-077's existin
 `GET /writeback/batches/{batchID}/status` unchanged. Touches **access** (new owner-gated
 bulk-mutation endpoint) → `/security-review` before merge.
 
-**Design handoff**: pending `/design-handoff` — the shared Studio affordance's visual contract on
-Media vs. Film (same docked pencil, same popover chrome, different trigger copy/placement), the
-Film-side cascade confirmation and progress UI (reusing `WritebackBatchDialog`), and 3-skin QA.
+**Design handoff**: [film-studio-cascade-writeback-handoff.md](../design/film-studio-cascade-writeback-handoff.md)
+— Media is unchanged; Film gets a new `FilmStudioCascadeDialog` component (visually mirrors
+`StudioPicker`'s chips/search/create, not a shared `decide`-contract reuse) with a two-step body:
+a picker step framed as "videos currently share this studio," then an in-place results step
+listing the synchronous per-video enqueued/collision/error outcomes. `WritebackBatchDialog` is
+reused for the writeback-progress hand-off with one small additive `autostart` prop.
 
 **Related**: [films-entity.md](films-entity.md) (defines the read-only derived-union this spec
 partially reverses), [../design/films-entity-handoff.md](../design/films-entity-handoff.md) RD2/RD3
@@ -207,12 +210,12 @@ just took to make it consistent.
   succeeds or fails independently and is reported independently). The new mechanism must decide
   where "setting the decision" sits relative to that boundary — this is exactly the open
   engineering question the pending ADR needs to resolve (see Open Questions).
-- The shared Studio affordance component's `decide` callback shape differs by caller: Media's is
-  `(source, manualValue) => Promise<{ok:true} | {conflict}>` for one video; Film's cascade has no
-  single conflict to resolve inline (conflicts land per-video in the batch result, not as a
-  blocking `verdict` snippet). The component needs a caller-selectable commit path — inline
-  single-decide vs. fire-cascade-and-show-batch-dialog — rather than forcing Film through the
-  single-video `decide` contract.
+- **Resolved by the [design handoff](../design/film-studio-cascade-writeback-handoff.md) §3**:
+  the shared Studio affordance is not one component with a caller-selectable commit strategy —
+  Film gets its own `FilmStudioCascadeDialog`, visually mirroring `StudioPicker`'s chips/search/
+  create body but with its own commit/result handling, the same split the Films folder already
+  applied to `FilmAttachDialog` vs. `FilmBulkAttachDialog`. Media's `decide` contract is
+  untouched.
 
 ## API
 
@@ -228,9 +231,13 @@ just took to make it consistent.
 
 ## UI
 
-Deferred to `/design-handoff` — placement/copy for the Film-side trigger, and the shared
-picker's `PickerShell` popover treatment on Film (candidate chips make less sense as
-"videos currently share this studio" vs. Media's simpler "known values for this field").
+See the [design handoff](../design/film-studio-cascade-writeback-handoff.md) for full detail.
+Summary: the Film-side trigger is the same `.name-edit-row`/`.name-edit-pencil` pattern as
+Media, labeled to state the fan-out up front (`aria-label="Change the studio for every video in
+this film"`). The picker's candidate chips are framed as "already used in this film" (sourced
+from the existing `FilmStudios` union), not Media's "known values for this field." Committing
+replaces the dialog body in place with a grouped enqueued/collision/error results list, which
+hands off to `WritebackBatchDialog` (`autostart`) for the writeback-progress phase.
 
 ## Success Metrics
 
@@ -246,13 +253,13 @@ for video K excludes only K's writeback while videos K+1..N proceed, since each 
 is already an independent commit by the time a later one might fail. Endpoint is Film-scoped for
 v1, `POST /films/{id}/studio/cascade`, not a general N-video primitive.)*
 
-- **[engineering]** Should the shared Studio affordance become a genuinely single component with
-  a caller-selectable commit strategy (single-decide vs. cascade-and-batch-dialog), or a shared
-  *presentational* shell (`StudioPicker`'s chips/search/create UI) wrapped by two thin
-  page-specific callers? Route through `/design-handoff` and initial implementation together —
-  affects the component seam more than the product behavior.
-- **[design]** Visual spec for the Film-side trigger and the cascade confirmation/progress UI —
-  pending `/design-handoff`.
+*(Resolved by the [design handoff](../design/film-studio-cascade-writeback-handoff.md): the
+component seam is a new sibling component, `FilmStudioCascadeDialog`, not a shared `decide`-
+contract reuse — see Behavior detail above. Visual spec for the trigger, picker, results list,
+and writeback hand-off is complete; `WritebackBatchDialog` needs one small additive `autostart`
+prop, flagged as an implementation action item.)*
+
+No open questions remain before `/testing-strategy`.
 
 ## Timeline / routing
 
