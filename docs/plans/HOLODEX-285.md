@@ -120,3 +120,23 @@ All six implementation items are done. Nothing left in this list — the epic is
   Review/Done transition (they're reviewed manually), so this epic's Jira status will only
   change when a human moves it. Nothing left to do here — PR #254 is open, not draft, and
   every gate is green; the epic's Jira status is a manual call outside this worklog's scope.
+
+### 2026-08-25 · resolved three rounds of merge conflicts against a fast-moving main
+- also: Autofix flagged PR #254 as having merge conflicts. `main` picked up three Films-related
+  PRs while this branch sat open (#253 film provider enrichment — an independent **ADR-086**;
+  #255 film poster/thumb images, HOLODEX-280; #256 generalized entity-image pipeline,
+  HOLODEX-286), each landing mid-resolution of the last, so this took three sequential
+  `git merge origin/main` passes rather than one:
+  1. **#253** collided on the ADR number itself — both branches independently claimed ADR-086.
+     Renumbered this branch's ADR to **ADR-087** (file rename + every in-branch cross-reference:
+     spec, design handoff, testing-strategy, worklog, backend/frontend code comments) rather than
+     contesting #253's claim, since #253 was already merged to main first.
+  2. **#255** added its own new row to `docs/testing-strategy.md`'s adversarial-block list and
+     `film/CLAUDE.md`'s table, plus its own import in the Film page — textual conflicts only
+     (both branches' additions were independent and both were kept).
+  3. **#256** renamed the very `FilmImageSlot.svelte` that #255 had just introduced to
+     `entity/EntityImageSlot.svelte` — resolved by keeping this branch's own
+     `FilmStudioCascadeDialog` addition and taking main's rename for everything else.
+  Re-ran build/vet/full Go test suite + frontend type-check after each of the three merges — all
+  green throughout, no regressions from any of the three incoming branches. `graphify update`
+  refreshed and committed after each merge. PR #254 now reports `mergeable: MERGEABLE`.
