@@ -1,0 +1,65 @@
+<svg width="900" height="820" viewBox="0 0 900 820" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Film Studio cascade affordance mockup</title>
+<desc>Three states: the Film page Studios row for a non-owner versus an owner hovering (showing the docked pencil), the cascade dialog's picker step, and the cascade dialog's results step listing enqueued, collision, and error outcomes.</desc>
+<rect width="900" height="820" fill="#1b1a17"/>
+
+<text x="24" y="34" font-size="11" letter-spacing="1" fill="#8a8478">1 · FILM PAGE — STUDIOS ROW</text>
+<rect x="24" y="46" width="852" height="112" rx="10" fill="#25231f" stroke="#3b372f"/>
+<text x="48" y="76" font-size="11" fill="#8a8478">NON-OWNER (UNCHANGED)</text>
+<text x="48" y="104" font-size="12" fill="#8a8478">STUDIOS</text>
+<text x="112" y="104" font-size="13" fill="#d9b98a">Kessler Films</text>
+<text x="196" y="104" font-size="13" fill="#8a8478">,</text>
+<text x="204" y="104" font-size="13" fill="#d9b98a">Anthology Group</text>
+
+<text x="470" y="76" font-size="11" fill="#8a8478">OWNER, HOVERING THE ROW</text>
+<text x="470" y="104" font-size="12" fill="#8a8478">STUDIOS</text>
+<text x="534" y="104" font-size="13" fill="#d9b98a">Kessler Films</text>
+<text x="618" y="104" font-size="13" fill="#8a8478">,</text>
+<text x="626" y="104" font-size="13" fill="#d9b98a">Anthology Group</text>
+<rect x="742" y="90" width="22" height="22" rx="6" fill="none" stroke="#3b372f"/>
+<g transform="translate(747,95) scale(0.6)" fill="none" stroke="#eee8dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+</g>
+
+<text x="24" y="188" font-size="11" letter-spacing="1" fill="#8a8478">2 · CASCADE DIALOG — STEP 1: PICKER</text>
+<rect x="24" y="200" width="852" height="228" rx="10" fill="#25231f" stroke="#3b372f"/>
+<text x="48" y="232" font-size="15" fill="#eee8dc">Change studio for this film</text>
+<text x="48" y="254" font-size="12" fill="#8a8478">Applies to all 12 videos attached to this film — any existing studio decision on those</text>
+<text x="48" y="270" font-size="12" fill="#8a8478">videos is overwritten.</text>
+<text x="48" y="298" font-size="11" fill="#8a8478">ALREADY USED IN THIS FILM</text>
+<rect x="48" y="308" width="112" height="26" rx="6" fill="#2e2b26" stroke="#3b372f"/>
+<text x="60" y="325" font-size="12" fill="#eee8dc">Kessler Films</text>
+<rect x="168" y="308" width="140" height="26" rx="6" fill="#2e2b26" stroke="#3b372f"/>
+<text x="180" y="325" font-size="12" fill="#eee8dc">Anthology Group</text>
+<text x="48" y="360" font-size="11" fill="#8a8478">SEARCH OR CREATE</text>
+<rect x="48" y="370" width="320" height="30" rx="6" fill="#1b1a17" stroke="#3b372f"/>
+<text x="60" y="390" font-size="12" fill="#8a8478">Silverline Pictures</text>
+<text x="48" y="416" font-size="11" fill="#8a8478">3 of these videos currently have a manually-set studio that will be replaced.</text>
+
+<text x="24" y="446" font-size="11" letter-spacing="1" fill="#8a8478">3 · CASCADE DIALOG — STEP 2: RESULTS (AFTER COMMIT)</text>
+<rect x="24" y="458" width="852" height="340" rx="10" fill="#25231f" stroke="#3b372f"/>
+<text x="48" y="490" font-size="15" fill="#eee8dc">Silverline Pictures</text>
+<text x="48" y="512" font-size="12" fill="#8a8478">9 queued for writeback, 2 skipped (collision), 1 failed.</text>
+<line x1="48" y1="528" x2="828" y2="528" stroke="#3b372f"/>
+
+<text x="48" y="552" font-size="11" fill="#8a8478">ENQUEUED (9) — collapsed</text>
+
+<text x="48" y="582" font-size="11" fill="#8a8478">COLLISION (2)</text>
+<text x="48" y="604" font-size="12" fill="#d9b98a">scene_07_interview.mkv</text>
+<text x="828" y="604" font-size="11" fill="#8a8478" text-anchor="end">matches Kessler Films · 2019</text>
+<line x1="48" y1="614" x2="828" y2="614" stroke="#3b372f"/>
+<text x="48" y="636" font-size="12" fill="#d9b98a">scene_11_bts.mkv</text>
+<text x="828" y="636" font-size="11" fill="#8a8478" text-anchor="end">matches Kessler Films · 2019</text>
+<line x1="48" y1="646" x2="828" y2="646" stroke="#3b372f"/>
+
+<text x="48" y="674" font-size="11" fill="#8a8478">ERROR (1)</text>
+<text x="48" y="696" font-size="12" fill="#d9b98a">full_feature.mkv</text>
+<text x="828" y="696" font-size="11" fill="#c95b3b" text-anchor="end">file is read-only</text>
+<line x1="48" y1="706" x2="828" y2="706" stroke="#3b372f"/>
+
+<rect x="48" y="726" width="230" height="32" rx="6" fill="none" stroke="#c98a3b"/>
+<text x="163" y="746" font-size="12" fill="#c98a3b" text-anchor="middle">View writeback progress →</text>
+<rect x="290" y="726" width="90" height="32" rx="6" fill="none" stroke="#3b372f"/>
+<text x="335" y="746" font-size="12" fill="#eee8dc" text-anchor="middle">Close</text>
+<text x="48" y="782" font-size="11" fill="#8a8478">Already running in the background — closing this won't stop it.</text>
+</svg>

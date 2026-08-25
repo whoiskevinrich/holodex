@@ -21,6 +21,8 @@ that action can produce (ADR-086 D2's best-effort posture).
 Nothing here touches Media's own Studio affordance, and nothing here touches Film's Cast/Tags
 (spec Non-Goals 1/2).
 
+![Mockup: Film page Studios row (non-owner vs. owner pencil), the cascade dialog's picker step, and its results step](film-studio-cascade-writeback-mockup.svg)
+
 ---
 
 ## 1. Media detail page — no visual change
