@@ -4,7 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-286                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
-depends-on: [HOLODEX-280]        # stacked on the still-open PR #255 branch, which is where Film's image code lives
+depends-on: [HOLODEX-280]        # PR #255 merged to main (squash) 2026-08-25; this branch was rebased onto main directly
 release_note: Internal refactor only — no user-facing behavior change.
 ---
 
@@ -94,6 +94,9 @@ blocks already prove the behavior this refactor must preserve, and they pass unc
   session — port 5173/7800 were contended by another concurrent Claude session (see PR
   description for the incident note); the change is markup/logic-identical to what was
   already live-verified under HOLODEX-280, so risk is low, but a human should eyeball the
-  three skins once before merge if that hasn't happened elsewhere. This branch is stacked on
-  the still-open PR #255 (`worktree-HOLODEX-280-film-poster-pipeline`) — its own PR must
-  target that branch, not `main`, until #255 merges.
+  three skins once before merge if that hasn't happened elsewhere. PR #255 squash-merged to
+  `main` shortly after this PR (#256) opened, retargeting #256 to `main` and producing a
+  merge conflict (old commit vs. its squashed equivalent, not a real content conflict —
+  confirmed via `git diff` between the two, zero output). Fixed with
+  `git rebase --onto origin/main <old-commit> HOLODEX-286-entity-image-generalization` +
+  force-push; rebase applied clean, build/tests re-verified, PR now shows `MERGEABLE`.
