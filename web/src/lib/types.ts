@@ -814,7 +814,7 @@ export interface FilmDetailResponse {
 }
 
 // One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video
-// decide-then-enqueue (F57, HOLODEX-285, ADR-086 D2) -- a collision or error excludes
+// decide-then-enqueue (F57, HOLODEX-285, ADR-087 D2) -- a collision or error excludes
 // only that video, never the whole batch.
 export interface FilmStudioCascadeResult {
 	video_id: number;

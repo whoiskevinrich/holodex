@@ -5,7 +5,7 @@
 **Owner:** Project owner
 **Date:** 2026-08-25
 **Spec:** [film-studio-cascade-writeback.md](../specs/film-studio-cascade-writeback.md)
-**ADR:** [ADR-086](../architecture/ADR-086-film-studio-cascade-decide-and-writeback.md)
+**ADR:** [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md)
 **Branch/PR:** `HOLODEX-285-film-studio-cascade-writeback`, Draft PR #254
 
 ## Overview
@@ -16,7 +16,7 @@ RD1 requires the Studio edit affordance to be gated purely on owner-view state, 
 HOLODEX-271) — this handoff brings Film's read-only Studio links up to the same docked-pencil
 standard, then designs the two things that don't exist yet anywhere in the codebase: a
 same-action decide-across-N-videos commit, and the mixed enqueued/collision/error outcome list
-that action can produce (ADR-086 D2's best-effort posture).
+that action can produce (ADR-087 D2's best-effort posture).
 
 Nothing here touches Media's own Studio affordance, and nothing here touches Film's Cast/Tags
 (spec Non-Goals 1/2).
@@ -127,7 +127,7 @@ Committing a chip/search/create pick calls `POST /films/{id}/studio/cascade` and
 synchronous `{batch_id, results: [...]}` response. This is new UI — no existing component
 renders a list of N per-video outcomes from one action, and `CollisionOfferCard`'s
 single-blocking-verdict shape (buttons: View existing / Save anyway / Cancel) doesn't apply
-here — nothing is blocking; the cascade already ran best-effort per ADR-086 D2, so this list is
+here — nothing is blocking; the cascade already ran best-effort per ADR-087 D2, so this list is
 **purely a report**, not a decision point.
 
 Structure:
@@ -150,7 +150,7 @@ Structure:
 - **Footer** (mirrors `StudioPicker`'s footer bar height/padding):
   - If `enqueued > 0`: `.btn-accent` **"View writeback progress →"**. Wired below (§4).
   - Always: `.btn-ghost` **"Close"**.
-  - If `enqueued === 0` (every video collided or errored — `batch_id` is empty per ADR-086
+  - If `enqueued === 0` (every video collided or errored — `batch_id` is empty per ADR-087
     D2): no writeback button at all — never a disabled/dead primary action, per the
     project's standing rule against an affordance with nothing behind it. Close is the only
     control.
@@ -160,7 +160,7 @@ Structure:
 ## 4. Writeback progress hand-off — `WritebackBatchDialog`, reused, one additive prop
 
 The cascade endpoint already calls `writequeue.EnqueueMany` **synchronously as part of the
-same POST** that produced the Results step (ADR-086 D2) — the batch is already running on the
+same POST** that produced the Results step (ADR-087 D2) — the batch is already running on the
 backend by the time the owner sees "View writeback progress →". `WritebackBatchDialog`'s
 existing `'confirm'` → (click Start) → `'starting'` → `trigger()` sequence assumes the click
 *initiates* the batch; here it would just be re-confirming work that already started, which

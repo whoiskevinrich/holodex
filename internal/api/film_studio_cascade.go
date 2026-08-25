@@ -14,7 +14,7 @@ import (
 	"holodex/internal/writequeue"
 )
 
-// Film-studio cascade (F57, HOLODEX-285, ADR-086): one owner action that sets a new
+// Film-studio cascade (F57, HOLODEX-285, ADR-087): one owner action that sets a new
 // manual Studio decision AND enqueues a file writeback across every video attached
 // to a film. Owner-gated (mounted alongside mountFilmDecisions).
 
@@ -73,7 +73,7 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 }
 
 // cascadeFilmStudio runs decideStudioForVideo once per video attached to the film
-// (best-effort — a collision or error excludes only that video, see ADR-086's
+// (best-effort — a collision or error excludes only that video, see ADR-087's
 // Forces/D2 for why this differs from syncTagWriteback's abort-on-read-failure
 // posture), then enqueues one shared-batch writeback job for every video whose
 // decision was set successfully. override is always false: RD4's unconditional

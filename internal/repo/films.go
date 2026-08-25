@@ -508,7 +508,7 @@ func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, e
 }
 
 // VideoIDsForFilm returns the active/non-deleted video ids attached to a film via
-// film_videos — the Studio cascade's per-video scope (ADR-086 D2), mirroring
+// film_videos — the Studio cascade's per-video scope (ADR-087 D2), mirroring
 // VideoIDsForTag's shape (tag_hierarchy.go).
 func (r *Repo) VideoIDsForFilm(ctx context.Context, filmID int64) ([]int64, error) {
 	rows, err := r.db.QueryContext(ctx, `

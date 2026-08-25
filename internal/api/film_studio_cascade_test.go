@@ -25,7 +25,7 @@ import (
 
 // cascadeServer wires a real repo with films_enabled on, a studio mapping field (for
 // the HOLODEX-270/271 collision gate), and a live writeQueue -- for exercising
-// cascadeFilmStudio/cascadeFilmStudioHandler end to end (F57, ADR-086).
+// cascadeFilmStudio/cascadeFilmStudioHandler end to end (F57, ADR-087).
 func cascadeServer(t *testing.T, token string) (*httptest.Server, *repo.Repo) {
 	t.Helper()
 	dir := t.TempDir()
@@ -106,7 +106,7 @@ func cascadePost(t *testing.T, srv *httptest.Server, token string, filmID int64,
 	return resp.StatusCode, decoded
 }
 
-// TestCascadeFilmStudio_PartialCollision_BestEffort covers ADR-086 D2's best-effort
+// TestCascadeFilmStudio_PartialCollision_BestEffort covers ADR-087 D2's best-effort
 // failure posture: a collision on one video must not abort the others, unlike
 // ADR-077's syncTagWriteback (which aborts on a read failure before anything is
 // committed -- this cascade's per-video decision-set IS the commit).
@@ -221,7 +221,7 @@ func TestCascadeFilmStudio_SameValueRedecide_NotACollision(t *testing.T) {
 	}
 }
 
-// TestCascadeFilmStudio_AllCollide_EmptyBatch covers ADR-086 D2's clean-no-op case:
+// TestCascadeFilmStudio_AllCollide_EmptyBatch covers ADR-087 D2's clean-no-op case:
 // when every video collides, batch_id must be "" and nothing gets enqueued, with no
 // error surfaced -- the frontend uses an empty batch_id to omit the progress link.
 func TestCascadeFilmStudio_AllCollide_EmptyBatch(t *testing.T) {

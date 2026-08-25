@@ -15,23 +15,23 @@ affordance as the Media page (RD1), and setting a studio there sets a new manual
 file writeback across every video attached to the film in one action (RD2-RD4), reusing the
 ADR-077 write-queue/batch-status mechanism for progress.
 
-**Design package:** [spec](../specs/film-studio-cascade-writeback.md) · [ADR-086](../architecture/ADR-086-film-studio-cascade-decide-and-writeback.md) · [handoff](../design/film-studio-cascade-writeback-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component)
+**Design package:** [spec](../specs/film-studio-cascade-writeback.md) · [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md) · [handoff](../design/film-studio-cascade-writeback-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/film-studio-cascade-writeback.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-086-film-studio-cascade-decide-and-writeback.md`
+- [x] architecture `architecture` → `docs/architecture/ADR-087-film-studio-cascade-decide-and-writeback.md`
 - [x] design `design-handoff` → `docs/design/film-studio-cascade-writeback-handoff.md`
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 two rows, §5 one row, §10 adversarial block, §11 gap entry)
-- [x] security `security-review` → no code in diff yet (docs-only); ADR-086 Action Item 7 checklist carried forward for the implementation PR
+- [x] security `security-review` → no code in diff yet (docs-only); ADR-087 Action Item 7 checklist carried forward for the implementation PR
 
 ## Up next — ordered (position = priority)
 
-1. [x] [backend] extract `decideStudioForVideo` (ADR-086 D1) — `internal/api/decisions.go`
-2. [x] [backend] `VideoIDsForFilm` repo func + `cascadeFilmStudio` (ADR-086 D2) — `internal/repo/films.go`, `internal/api/film_studio_cascade.go` (new)
-3. [x] [backend] mount `POST /films/{id}/studio/cascade` (ADR-086 D3)
+1. [x] [backend] extract `decideStudioForVideo` (ADR-087 D1) — `internal/api/decisions.go`
+2. [x] [backend] `VideoIDsForFilm` repo func + `cascadeFilmStudio` (ADR-087 D2) — `internal/repo/films.go`, `internal/api/film_studio_cascade.go` (new)
+3. [x] [backend] mount `POST /films/{id}/studio/cascade` (ADR-087 D3)
 4. [x] [frontend] `FilmStudioCascadeDialog.svelte` (handoff §3) — `web/src/lib/components/film/`
 5. [x] [frontend] `initialBatch` prop on `WritebackBatchDialog` (handoff §4) — `web/src/lib/components/writeback/WritebackBatchDialog.svelte` (shipped as `autostart` first, then reshaped into `initialBatch` per the `/simplify` altitude finding below — see session log)
 6. [x] [frontend] Film page Studios row pencil (handoff §2) — `web/src/routes/films/[id]/+page.svelte`
@@ -42,7 +42,7 @@ All six implementation items are done. Nothing left in this list — the epic is
 
 ### 2026-08-25 · spec, ADR, and design handoff landed
 - skills: write-spec, architecture, design-handoff, security-review, simplify
-- handoff: three of four pre-implementation gates are green (spec, ADR-086, design handoff all
+- handoff: three of four pre-implementation gates are green (spec, ADR-087, design handoff all
   merged into this session's docs). Next session should run `/testing-strategy`, then
   `/security-review` — no implementation code should be written until both land, per ADR-069.
 
@@ -59,7 +59,7 @@ All six implementation items are done. Nothing left in this list — the epic is
 ### 2026-08-25 · security-review landed — all five pre-implementation gates green
 - skills: security-review
 - also: reviewed the branch diff (docs-only — no backend/frontend code exists yet) and found no
-  findings in-diff; carried ADR-086 Action Item 7's checklist (owner-gating, parameterized query,
+  findings in-diff; carried ADR-087 Action Item 7's checklist (owner-gating, parameterized query,
   zero-video no-op, error-string exposure, hardcoded `override=false`, `batch_id` entropy) forward
   as the review checklist for whichever pass covers the implementation PR.
 - handoff: all five pre-implementation gates (spec, architecture, design, testing, security) are
@@ -69,7 +69,7 @@ All six implementation items are done. Nothing left in this list — the epic is
 
 ### 2026-08-25 · implementation landed — all seven gates green
 - skills: simplify
-- backend: extracted `decideStudioForVideo` out of `setFieldDecision`'s Studio branch (ADR-086
+- backend: extracted `decideStudioForVideo` out of `setFieldDecision`'s Studio branch (ADR-087
   D1, no single-video behavior change), added `VideoIDsForFilm` + `cascadeFilmStudio`'s
   best-effort per-video decide-then-enqueue loop (D2), mounted `POST
   /films/{id}/studio/cascade` (D3). Five new Go tests in `internal/api/film_studio_cascade_test.go`

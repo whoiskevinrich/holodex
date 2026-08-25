@@ -1,4 +1,4 @@
-# ADR-086: Film-studio cascade — decide-then-enqueue across N videos in one owner action
+# ADR-087: Film-studio cascade — decide-then-enqueue across N videos in one owner action
 
 **Status:** Proposed
 **Date:** 2026-08-25

@@ -110,7 +110,7 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	// Studio composite-key collision gate (HOLODEX-271, reusing HOLODEX-270's
 	// mechanism): see decideStudioForVideo's doc comment for the full TOCTOU
 	// rationale. This is a thin wrapper — override is honored from the request body,
-	// matching the single-video path's existing behavior (ADR-086 D1 extraction).
+	// matching the single-video path's existing behavior (ADR-087 D1 extraction).
 	if field.Canonical == "studio" {
 		_, collision, err := h.decideStudioForVideo(r.Context(), id, field, body.Source, manualValue, body.Override)
 		if err != nil {
@@ -169,7 +169,7 @@ func (h *Handlers) resolveProposedStudioNames(ctx context.Context, videoID int64
 // Shared by setFieldDecision's Studio branch (single video, override honored) and
 // the film-studio cascade (film_studio_cascade.go, override always false — RD4's
 // unconditional overwrite applies to a video's prior decision, not to this safety
-// gate). Extracted verbatim from setFieldDecision's former Studio branch (ADR-086
+// gate). Extracted verbatim from setFieldDecision's former Studio branch (ADR-087
 // D1) — no behavior change for the single-video path.
 //
 // Unlike Title, this isn't manual-only — a known-candidate chip pick changes the

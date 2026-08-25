@@ -561,7 +561,7 @@ export const api = {
 			`/films/${id}/fields/${encodeURIComponent(canonical)}/decision`
 		),
 
-	// Film-studio cascade (F57, HOLODEX-285, ADR-086): one owner action that sets a new
+	// Film-studio cascade (F57, HOLODEX-285, ADR-087): one owner action that sets a new
 	// manual Studio decision AND enqueues a file writeback across every video attached
 	// to the film. Owner-gated. results is best-effort per video (D2) -- a collision or
 	// error on one video never blocks the others. batch_id is "" when nothing enqueued

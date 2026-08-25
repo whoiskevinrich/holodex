@@ -33,7 +33,7 @@ writeback across N videos in one gesture.
   this spec's cascade target reads from) and `film_videos` (the attachment list the cascade walks)
 - the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
-**ADR**: **[ADR-086](../architecture/ADR-086-film-studio-cascade-decide-and-writeback.md) (Proposed)**
+**ADR**: **[ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md) (Proposed)**
 records the bulk-decide-then-writeback mechanism: a shared `decideStudioForVideo` helper
 (extracted from the existing single-video Studio-decide path) called once per video attached to
 the film, with a **best-effort, not all-or-nothing** failure posture — a per-video collision or
@@ -164,9 +164,9 @@ just took to make it consistent.
   (single-video `decide`) and Film (N-video cascade) call sites, without changing Media's current
   behavior. Acceptance: Media's Studio edit flow (collision check, chip candidates, search,
   create-fallback) is bit-for-bit unchanged after the extraction.
-- **P0-2**: `POST /films/{id}/studio/cascade` (ADR-086 D3), owner-gated: given a chosen studio
+- **P0-2**: `POST /films/{id}/studio/cascade` (ADR-087 D3), owner-gated: given a chosen studio
   (existing entity ID or new-studio name), sets a `manual` studio decision on every video in that
-  film's `film_videos` set (via ADR-086 D1's `decideStudioForVideo`, best-effort per D2 — see
+  film's `film_videos` set (via ADR-087 D1's `decideStudioForVideo`, best-effort per D2 — see
   P0-4) and enqueues a writeback job for each video whose decision succeeded, under one shared
   `batchID` compatible with the existing `writebackBatchStatus` polling. Acceptance: calling it
   against a film with N attached videos and no collisions results in N `field_source_decisions`
@@ -220,10 +220,10 @@ just took to make it consistent.
 ## API
 
 - **Existing, unchanged**: `PUT /media/{id}/fields/studio/decision` (Media's single-video path).
-- **New**: `POST /films/{id}/studio/cascade` (ADR-086 D3) — owner-gated, accepts a studio
+- **New**: `POST /films/{id}/studio/cascade` (ADR-087 D3) — owner-gated, accepts a studio
   selection (existing entity ID, or a name to create), sets a manual studio decision on every
-  video in `film_videos` for that film via ADR-086 D1's shared `decideStudioForVideo`, enqueues a
-  writeback job for each video whose decision succeeded under one batch ID (ADR-086 D2), and
+  video in `film_videos` for that film via ADR-087 D1's shared `decideStudioForVideo`, enqueues a
+  writeback job for each video whose decision succeeded under one batch ID (ADR-087 D2), and
   returns `{batch_id, results: [{video_id, status, conflict?, error?}]}` synchronously — the
   per-video `results` array covers the decision-set phase (fast, synchronous DB work); `batch_id`
   feeds the existing `api.writebackBatchStatus` polling for the writeback phase, following the
@@ -247,7 +247,7 @@ binary: an owner can correct a film's studio in one action instead of N, and the
 
 ## Open Questions
 
-*(Resolved by [ADR-086](../architecture/ADR-086-film-studio-cascade-decide-and-writeback.md):
+*(Resolved by [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md):
 failure-boundary semantics are best-effort-per-video, not all-or-nothing — a decision-set failure
 for video K excludes only K's writeback while videos K+1..N proceed, since each video's decision
 is already an independent commit by the time a later one might fail. Endpoint is Film-scoped for

@@ -36,7 +36,7 @@
 		// nothing to refresh.
 		onapplied?: () => void;
 		// Seeds the dialog directly into 'progress' for a batch a caller already
-		// started server-side by the time this dialog mounts (F57, ADR-086 D2 — the
+		// started server-side by the time this dialog mounts (F57, ADR-087 D2 — the
 		// Film-studio cascade) — skipping the confirm/starting interstitial AND
 		// trigger() itself, rather than wrapping the already-known {batch_id, enqueued}
 		// in a fake trigger() call. Additive: undefined for every existing caller, which

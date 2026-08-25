@@ -25,7 +25,8 @@
 		hint,
 		trailing,
 		verdict,
-		id
+		id,
+		pencilAlwaysVisible = false
 	}: {
 		name: string;
 		isOwner: boolean;
@@ -42,6 +43,10 @@
 		// Person's nationality flags) — kept out of the edit form, which takes over the row.
 		trailing?: Snippet;
 		verdict?: Snippet<[TConflict, () => void]>;
+		// Skip the default hover/focus-reveal and keep the pencil fully opaque at rest (Video
+		// Title, HOLODEX request: the title's edit affordance should never be hidden). Person/
+		// Studio/Tag headers omit this and keep the docked hover reveal.
+		pencilAlwaysVisible?: boolean;
 	} = $props();
 
 	let editing = $state(false);
@@ -156,7 +161,9 @@
 				type="button"
 				aria-label={`Rename this ${label}`}
 				onclick={startEdit}
-				class="name-edit-pencil rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
+				class="name-edit-pencil {pencilAlwaysVisible
+					? 'name-edit-pencil--visible'
+					: ''} rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
 			>
 				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 					<path

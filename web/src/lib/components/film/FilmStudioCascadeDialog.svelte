@@ -3,7 +3,7 @@
 	// StudioPicker step-for-step (same PickerShell chrome, same chip/search/create body,
 	// same tokens) but is its own component, not a reuse: StudioPicker's `decide` prop
 	// resolves one video's {ok}|{conflict}, while this resolves N videos' mixed outcomes
-	// at once via POST /films/{id}/studio/cascade (ADR-086 D2's best-effort posture). Same
+	// at once via POST /films/{id}/studio/cascade (ADR-087 D2's best-effort posture). Same
 	// "deliberately separate" reasoning the Films folder already applied to
 	// FilmAttachDialog vs. FilmBulkAttachDialog (film/CLAUDE.md). Commits by calling
 	// api.cascadeFilmStudio directly, matching FilmBulkAttachDialog's convention rather
