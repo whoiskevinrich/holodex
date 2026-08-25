@@ -1,16 +1,16 @@
 # Graph Report - laughing-wu-649060  (2026-08-25)
 
 ## Corpus Check
-- 859 files · ~1,210,924 words
+- 866 files · ~1,216,802 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6250 nodes · 13451 edges · 586 communities (355 shown, 231 thin omitted)
-- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 1560 edges (avg confidence: 0.85)
+- 6298 nodes · 13585 edges · 582 communities (351 shown, 231 thin omitted)
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 1581 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a0c26f3b`
+- Built from commit: `25382915`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,12 +19,12 @@
 - media/[id]/+page.svelte
 - session-start.mjs
 - Backfill
-- testMappings
+- NewPatternStore
 - NewService
 - Video
 - model.go
 - Holodex Project Working Agreements (CLAUDE.md)
-- net/http.ResponseWriter
+- writeJSON
 - devDependencies
 - JobRun
 - imagetools.mjs
@@ -35,8 +35,8 @@
 - format.ts
 - itoa
 - testing.T
-- time.Time
-- writeError
+- Scanner
+- net/http.ResponseWriter
 - Flightplan — portable session-state plugin
 - Load
 - architecture/README.md
@@ -45,7 +45,7 @@
 - tmdb.go
 - Auth
 - QA: Metadata Writeback (F28)
-- tmdb_test.go
+- .relinkVideoPeople
 - Configuration Reference (holodex.yaml layers)
 - Manual QA Checklist: Entity name-identity — merge, alias & duplicate review (F43)
 - mcp.go
@@ -62,7 +62,7 @@
 - Open
 - sendDecision
 - Queue
-- time.Duration
+- New
 - handler
 - generate.mjs
 - Manual QA Checklist: Per-field source-of-truth decisions (F36)
@@ -75,7 +75,7 @@
 - Handlers
 - Repo
 - getJSON
-- New
+- CurationFieldRow.svelte
 - resolveOrCreateByName
 - identity_ops_test.go
 - Decision
@@ -103,19 +103,19 @@
 - log/slog.Logger
 - thumbServer
 - postTok
-- Derive
+- time.Time
 - queue
 - Release promotes by retagging the canaried digest
 - QA Checklist: System Activity (F21)
 - metadata-mappings.yaml config file: source-key-to-canonical-field mapping with precedence
 - Decision
-- routes/+layout.svelte
+- Lookup
 - QA Checklist: Writeback dialog selection + undecided grouping (HOLODEX-213)
 - JaroWinkler
 - Design handoff: Films entity (F56)
 - seedTagTree
 - Repo
-- .filmDecisionTarget
+- SanitizeValue
 - .addEntityAlias
 - refreshServer
 - deleted_at soft-delete column (orthogonal to active)
@@ -128,7 +128,7 @@
 - repo/related_test.go
 - repo/studios_test.go
 - TestQueue_SnapshotsAndReverts
-- net/http.Request
+- parseEntityType
 - ADR-084: Locked curation-relink commit — extending `SetCurationChecked`'s `writeMu` to cover the People relink write
 - Decision
 - BatchRunner
@@ -138,14 +138,14 @@
 - Design Handoff — People Images (F25)
 - .mergePromotions
 - Fake
-- writeJSON
+- Handlers
 - Repo
 - query.go
 - NewService
 - Route
 - Store
 - .add
-- Spec: Tag Writeback Exclusion — per-tag Genre writeback control
+- testMappings
 - Spec: Entity Completeness Score (F55)
 - nationality.ts
 - ADR-002: SvelteKit chosen as frontend framework (SPA/static-adapter mode)
@@ -158,7 +158,7 @@
 - demo/package.json
 - Spec: Owner-authored person & studio ↔ media links, with file writeback (F40)
 - Design Handoff: Entity Completeness Score — Remediation Queue & Breakdown Panel (HOLODEX-260)
-- .restoreMedia
+- openAt
 - database/sql.DB
 - MergePersons(canonical, merged) transaction
 - Shared ingest normalization pipeline (decode → bound → re-encode → strip)
@@ -174,17 +174,17 @@
 - Repo
 - QA Checklist: Age-in-media badge on the cast poster card (HOLODEX-173)
 - Spec: Poster View for the People list page (F55)
-- Repo
+- api/person_images_test.go
 - Design handoff: Film Studio cascade edit affordance (F57)
-- ADR-012: Resolution Classification — Width-Based Buckets with 10% Tolerance
+- Spec: Tag Categories — grouping tags without merging them
 - toAnySlice
 - ImagePath
 - ADR-082: `external_provider_id` is a namespace-qualified value, not a plain rename
-- writebackJob.ts
+- Repo
 - stubThumbs
 - Tag
 - Session log — append-only (cap: last 8 sessions; older → archive/)
-- newTestServer
+- Handlers
 - ADR-081: Entity Completeness Score — Facet Criticality, Not-Applicable Status, and Score Computation
 - .index
 - fakeRepo
@@ -196,7 +196,7 @@
 - .RelinkProviderIcon
 - Test Fixtures
 - field_source_decisions table
-- Spec: Unified entity name-identity (F43)
+- Spec: Metadata Source Plugins (F22/F27/F28)
 - ResolvedField
 - Spec: Unified Studio edit affordance + Film-level cascade writeback (F57)
 - holoShuffle
@@ -215,14 +215,14 @@
 - gen-country-names.mjs
 - field_claims.go
 - duplicates/CLAUDE.md
-- syncWritebackServer
-- Spec: Tag Categories — grouping tags without merging them
-- ClassifyResolution
+- personDerivedServer
+- Spec: Tag Writeback Exclusion — per-tag Genre writeback control
+- auto_register_test.go
 - completeness.go
 - gen.sh
 - svelte.config.js
 - Design Handoff: Writeback hides the target file tag (HOLODEX-216)
-- Handlers
+- net/http.Request
 - Design Handoff: Two-Tier Field Editing Model (F56)
 - vite.config.ts
 - cmd/holodex/holodex.manifest — manifest source XML (requestedExecutionLevel=asInvoker)
@@ -230,7 +230,7 @@
 - people
 - enrichment/CLAUDE.md
 - Design Handoff: Tag categories — grouping tags without merging them (HOLODEX-240)
-- .uploadStudioImage
+- Health
 - entity/CLAUDE.md
 - app.d.ts
 - +layout.ts
@@ -259,7 +259,7 @@
 - Age-in-media derived field
 - chips render mode (read-only pill list)
 - Spec: System Activity — "Under the Hood" (F21)
-- identity_test.go
+- newTestService
 - F36: Per-field source-of-truth
 - ADR-055: Universal enrichment unique-key invariant — every source supplies a namespaced id, and it is the identity
 - F39: Provider render hints / auto-registered non-canonical fields
@@ -298,7 +298,7 @@
 - Spec: Quick Wins batch — Search history & "More with …" shelves
 - Spec: Sticky sort preferences + Random sort
 - ADR-001: Backend Language — Go
-- .sessionCookie
+- ImagePath
 - Unified field resolution — sources: [tmdb, file:Publisher, imdb] precedence list
 - ghcr GitHub Deployment environment (Release ↔ Deployments linkage)
 - git-cliff changelog generation (cliff.toml, orhun/git-cliff-action)
@@ -461,13 +461,13 @@
 - .runTagWritebackSync
 - 0001_init.up.sql
 - SanitizeLinkTemplates
-- Lookup
+- .setFieldDecision
 - cascadeServer
-- Holodex landing page (site/index.html)
-- Design handoff: video owner-mode editing (F52) — studio placement, commentary, poster upload, file-metadata gating
-- Manual QA Checklist: Person Aliases (F23)
+- Repo
 - Spec: Owner-mode video editing — Commentary, poster upload, studio placement, file-metadata gating (F52)
-- .providerInfos
+- Manual QA Checklist: Person Aliases (F23)
+- deleteServer
+- Manual QA Checklist: Owner tooling hub + nav split (F35)
 - HOLODEX-212 · Close the SSRF allowlist gap on image writeback + resolved image_url fields
 - QA Checklist: Quick Wins batch (overlay fix · search history · "More with…" · fluid Back)
 - Design Handoff: Poster View for the People list page (F55)
@@ -489,18 +489,17 @@
 - 0029_field_claims.up.sql
 - 0031_denied_tags.up.sql
 - Sink
-- density.svelte.ts
+- ActivityState
 - Issue 2 — a field the owner just enriched doesn't pre-check / doesn't land in "decided"
-- Sweeper
-- .dismissExtractionReview
+- .mountTagHierarchy
+- 0022_entity_name_identity.down.sql
 - coverArtManager
 - HOLODEX-102 · Video Credits → People + Headshots (F32)
 - HOLODEX-255 · <epic title>
 - ADR-079: Studio image roles — entity-generic asset orchestration, retiring the `logo` field
 - HOLODEX-114 · <epic title>
 - Manual QA Checklist: People Images (F25)
-- New
-- fakeStudioRepo
+- .Baseline
 - .uploadVideoPoster
 - HOLODEX-258 · Reject malformed `_studio_external_ids` sidecar values
 - HOLODEX-275 · GET /api/v1/facets marshals empty values as null, not []
@@ -508,9 +507,6 @@
 - downloadImageToTemp
 - HOLODEX-273 · Writeback dialog "Select all undecided" doesn't create a standing decision
 - 0043_films.up.sql
-- Placeholder
-- ActivityState
-- Spec: Job History — Digest, Pagination, Entity Search (F21.3b)
 - Manual QA Checklist: Two-Tier Field Editing Model (F56)
 - Interaction design
 - .ReplaceProviderLinkTemplates
@@ -527,15 +523,15 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `newRepo()` - 175 edges
-2. `Repo` - 131 edges
-3. `itoa()` - 118 edges
+2. `Repo` - 132 edges
+3. `itoa()` - 122 edges
 4. `sampleVideo()` - 113 edges
-5. `writeError()` - 109 edges
-6. `writeJSON()` - 82 edges
-7. `pathID()` - 78 edges
-8. `Open()` - 75 edges
-9. `New()` - 74 edges
-10. `Handlers` - 72 edges
+5. `writeError()` - 112 edges
+6. `writeJSON()` - 83 edges
+7. `pathID()` - 81 edges
+8. `Open()` - 76 edges
+9. `New()` - 75 edges
+10. `Handlers` - 73 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Holodex landing page (site/index.html)` --semantically_similar_to--> `SvelteKit app.html shell (default data-theme=cinematheque)`  [INFERRED] [semantically similar]
@@ -565,15 +561,15 @@
 - **Frontend token-discipline design + CI enforcement** — claude_rules_frontend_theming_md, github_workflows_ci_yml, concept_adr_021_frontend_theming_skins [INFERRED 0.85]
 - **Jira status-transition pipeline (ADR-058/069)** — claude_claude_md, claude_flightplan_yaml, github_workflows_jira_sync_yml, github_workflows_release_yml, concept_adr_058_jira_rest_transitions [INFERRED 0.85]
 
-## Communities (586 total, 231 thin omitted)
+## Communities (582 total, 231 thin omitted)
 
 ### Community 0 - "types.ts"
 Cohesion: 0.02
-Nodes (139): ADR-0006, ADR-0028, ADR-0036, ADR-0056, ADR-0073, ADR-0080, checkRedirect(), ENRICH_ENTITY_BASE (+131 more)
+Nodes (142): ADR-0006, ADR-0028, ADR-0036, ADR-0056, ADR-0073, ADR-0080, checkRedirect(), endSession() (+134 more)
 
 ### Community 1 - "media/[id]/+page.svelte"
-Cohesion: 0.04
-Nodes (29): resolve(), DismissableOptions, provider(), commitEdit(), draft, editing, isProvider, onEditKey() (+21 more)
+Cohesion: 0.05
+Nodes (16): resolve(), DismissableOptions, provider(), busy, error, orderDraft, scopeVerb, Shared components (+8 more)
 
 ### Community 2 - "session-start.mjs"
 Cohesion: 0.07
@@ -583,9 +579,9 @@ Nodes (63): bareSkill(), DEFAULTS, loadConfig(), ADR-0064, resolveKey(), emitJso
 Cohesion: 0.22
 Nodes (11): image.Image, Backfill(), discardLog(), TestBackfillHashesAndRemoves(), downscale(), Hash(), ImagePath(), personDir() (+3 more)
 
-### Community 4 - "testMappings"
-Cohesion: 0.07
-Nodes (39): compiledPatterns, fakeEnrichmentCall, fakeEnrichmentWriter, fakeVideoLister, Pattern, patternFile, recordingJobRecorder, recordingReviewStore (+31 more)
+### Community 4 - "NewPatternStore"
+Cohesion: 0.12
+Nodes (24): compiledPatterns, Pattern, patternFile, regexp.Regexp, sync/atomic.Pointer, PatternStore, loadPatterns(), NewPatternStore() (+16 more)
 
 ### Community 5 - "NewService"
 Cohesion: 0.12
@@ -593,7 +589,7 @@ Nodes (26): extraPairs(), fileLayerChanged(), Report, Service, SourceResult, New
 
 ### Community 6 - "Video"
 Cohesion: 0.09
-Nodes (20): fakeVideoLookup, Handlers, ExtraMetadata, Video, ftsPrefixQuery(), FacetValue, RelatedShelf, VideoFilter (+12 more)
+Nodes (19): fakeVideoLookup, Handlers, ExtraMetadata, Video, ftsPrefixQuery(), RelatedShelf, VideoFilter, replaceAssociations() (+11 more)
 
 ### Community 7 - "model.go"
 Cohesion: 0.08
@@ -603,57 +599,57 @@ Nodes (11): fakePersonRepo, CorePersonImageRole(), PersonImage, PersonImageSet, 
 Cohesion: 0.07
 Nodes (41): Holodex Project Working Agreements (CLAUDE.md), Branch↔Jira linkage, Core resolver model (baseline / enrichment / curation / decisions), Pre-commit checklist, Secrets & publishing rules, Jira task tracking (HOLODEX project), Flightplan Config (flightplan.yaml), Frontend Theming Rules (+33 more)
 
-### Community 9 - "net/http.ResponseWriter"
-Cohesion: 0.07
-Nodes (18): Health, rescanner, scanStatusSource, searchMetrics, thumbnailer, net/http.ResponseWriter, sync/atomic.Bool, wantsCompleteness() (+10 more)
+### Community 9 - "writeJSON"
+Cohesion: 0.06
+Nodes (22): purger, rescanner, scanStatusSource, searchMetrics, thumbnailer, Handlers, Handlers, chi.Router (+14 more)
 
 ### Community 10 - "devDependencies"
 Cohesion: 0.04
 Nodes (48): flag-icons, @fontsource/share-tech-mono, @fontsource-variable/archivo, @fontsource-variable/fraunces, @fontsource-variable/spline-sans-mono, @fontsource/vt323, svelte-check, @sveltejs/adapter-static (+40 more)
 
 ### Community 11 - "JobRun"
-Cohesion: 0.09
-Nodes (14): activityResponse, activitySystem, database/sql.Rows, JobRun, TrashItem, scanTrash(), LibraryCounts, Repo (+6 more)
+Cohesion: 0.10
+Nodes (13): recordingJobRecorder, database/sql.Rows, JobRun, TrashItem, scanTrash(), LibraryCounts, Repo, jobRunCutoff() (+5 more)
 
 ### Community 12 - "imagetools.mjs"
 Cohesion: 0.08
 Nodes (46): ADR-0035, ADVISORY_TYPES, classify(), COMMENT_MARKER, main(), ADR-0076, NON_DOC_GLOBS, parseCommitType() (+38 more)
 
 ### Community 13 - "newProviderIconEnv"
-Cohesion: 0.29
-Nodes (14): iconEnv, newProviderIconEnv(), providersDirectory(), TestProviderIcon_DownloadNormalizeServe(), TestProviderIcon_NoneAnd404(), TestProviderIcon_ReconcilePrunesOrphan(), TestProviderIcon_SSRFRefused(), studioImageServer() (+6 more)
+Cohesion: 0.21
+Nodes (20): iconEnv, filmImageServer(), TestFilmImage_InvalidRole(), TestFilmImage_MutationsRequireOwner(), TestFilmImage_ReplaceAdvancesVersion(), TestFilmImage_UploadServeDelete(), uploadFilmImage(), newProviderIconEnv() (+12 more)
 
 ### Community 14 - "EnrichmentRow"
-Cohesion: 0.10
-Nodes (11): relinkContext, Handlers, lookupHint(), Handlers, TestPersonExternalIDsFromRows(), personExternalIDsFromRows(), externalIDsFromRows(), Handlers (+3 more)
+Cohesion: 0.11
+Nodes (14): entityCompletenessBatch, relinkContext, Handlers, lookupHint(), TestPersonExternalIDsFromRows(), personExternalIDsFromRows(), externalIDsFromRows(), Handlers (+6 more)
 
 ### Community 15 - "Service"
-Cohesion: 0.09
-Nodes (12): refreshAllResult, IconRef, ImageSink, Manifest, ProviderClient, Service, Source, Store (+4 more)
+Cohesion: 0.08
+Nodes (14): refreshAllResult, IconRef, ImageSink, Manifest, ProviderClient, assetRoleFor(), Service, Source (+6 more)
 
 ### Community 16 - "resolver.go"
-Cohesion: 0.15
-Nodes (34): applyCasing(), baselineValue(), BrowseTitle(), decidedItem(), filmNamespaces(), filmSourceValue(), firstNonEmpty(), gateImageDisplay() (+26 more)
+Cohesion: 0.17
+Nodes (30): applyCasing(), baselineValue(), decidedItem(), filmNamespaces(), filmSourceValue(), firstNonEmpty(), gateImageDisplay(), BaselineSource (+22 more)
 
 ### Community 17 - "format.ts"
 Cohesion: 0.05
-Nodes (19): batchId(), revert(), calculatedFrom(), filterByTitle(), formatDuration(), formatYear(), isHttpUrl(), resolutionBucket() (+11 more)
+Nodes (21): batchId(), revert(), ensureDecision(), calculatedFrom(), filterByTitle(), formatDuration(), formatYear(), isHttpUrl() (+13 more)
 
 ### Community 18 - "itoa"
-Cohesion: 0.11
-Nodes (35): peopleDecisionServer(), TestCurationAPI_NonPersonFieldSkipsCollisionGate(), TestCurationAPI_PeopleCollision(), TestCurationAPI_PeopleCollision_Suppress(), TestCurationAPI_PersonFieldNotMapped(), actorsAndDirectorServer(), postCurationNoFatal(), TestCurationAPI_PeopleConcurrentDifferentFields_NoLostUpdate() (+27 more)
+Cohesion: 0.14
+Nodes (28): decisionServer(), resolvedField(), TestDecisionAPI_AdoptProviderThenClear(), TestDecisionAPI_ManualLiteral(), TestDecisionAPI_OverviewReplaceField(), TestDecisionAPI_OwnerGated(), TestDecisionAPI_Validation(), TestFacetNotApplicableAPI_OwnerGated() (+20 more)
 
 ### Community 19 - "testing.T"
 Cohesion: 0.05
-Nodes (48): bytes.Buffer, testing.T, TestRelinkVideoPeople_UnmappedFieldLeavesExistingLinksUntouched(), TestRelinkVideoStudios_UnmappedFieldLeavesExistingLinksUntouched(), TestMigration0031DeniedTagsUpAndDown(), TestMigration0029FieldClaimsProviderGrain(), count(), mustExec() (+40 more)
+Nodes (71): testing.T, TestRelinkVideoPeople_UnmappedFieldLeavesExistingLinksUntouched(), TestRelinkVideoStudios_UnmappedFieldLeavesExistingLinksUntouched(), TestSourceBuildQuery_EmptyTitleNeverBlank(), TestSourceBuildQuery_OptionalTokenOmittedNoArtifact(), TestSourceBuildQuery_PerformersCapAndOrder(), TestSourceBuildQuery_Precedence(), TestSourceBuildQuery_RequiredTokenFallsThroughTier() (+63 more)
 
-### Community 20 - "time.Time"
-Cohesion: 0.12
-Nodes (12): github.com/fsnotify/fsnotify.Watcher, time.Time, ScanStatus, ScanSummary, New(), Config, Extractor, JobRecorder (+4 more)
+### Community 20 - "Scanner"
+Cohesion: 0.13
+Nodes (11): github.com/fsnotify/fsnotify.Watcher, ScanStatus, ScanSummary, New(), Config, Extractor, JobRecorder, Metrics (+3 more)
 
-### Community 21 - "writeError"
-Cohesion: 0.09
-Nodes (16): curationBody, Handlers, chi.Router, validateCurationBody(), validCurationAction(), decodeJSON(), Handlers, chi.Router (+8 more)
+### Community 21 - "net/http.ResponseWriter"
+Cohesion: 0.06
+Nodes (23): net/http.ResponseWriter, validEntityType(), decodeJSON(), Handlers, chi.Router, Handlers, Handlers, chi.Router (+15 more)
 
 ### Community 22 - "Flightplan — portable session-state plugin"
 Cohesion: 0.13
@@ -664,20 +660,20 @@ Cohesion: 0.16
 Nodes (19): Config, applyEnv(), Defaults(), envBool(), envInt(), envInt64(), envStr(), Load() (+11 more)
 
 ### Community 24 - "architecture/README.md"
-Cohesion: 0.11
-Nodes (4): Architecture Decision Records, Cross-cutting, Phase specs, Person components
+Cohesion: 0.08
+Nodes (15): Architecture Decision Records, Cross-cutting, Phase specs, ADR-061 (unified entity name identity), Spec: Unified entity name-identity (F43), Duplicates review queue (/owner tab, near-miss pairs), entity_aliases polymorphic table (person/studio/tag), entity_keep_separate durable assertion store (+7 more)
 
 ### Community 25 - "enrich/enrich_test.go"
 Cohesion: 0.14
-Nodes (35): gateTestHandlers(), Handlers, TestGateImageURL_MergedField(), Load(), NewStore(), Service, newSvc(), TestDownloadAssetsFirstSuccessPerRole() (+27 more)
+Nodes (34): gateTestHandlers(), Handlers, TestGateImageURL_MergedField(), NewStore(), Service, newSvc(), TestDownloadAssetsFirstSuccessPerRole(), TestEnrichAssetFailureIsNonFatal() (+26 more)
 
 ### Community 26 - "Design Handoff: Unified name-edit mechanism (HOLODEX-269)"
 Cohesion: 0.05
 Nodes (35): Accessibility Notes, Animation / Motion, Component contract (resolves the spec's open question), Components, Cross-context notes, Design Handoff: Unified name-edit mechanism (HOLODEX-269), Design Tokens Used, Edge Cases (+27 more)
 
 ### Community 27 - "tmdb.go"
-Cohesion: 0.07
-Nodes (57): net/url.Values, buildCompanyEnrichResponse(), buildEnrichResponse(), buildMovieEnrichResponse(), buildPeopleCredits(), disambiguate(), headshotFor(), movieDisambiguate() (+49 more)
+Cohesion: 0.08
+Nodes (47): net/url.Values, buildCompanyEnrichResponse(), buildEnrichResponse(), buildMovieEnrichResponse(), buildPeopleCredits(), disambiguate(), headshotFor(), movieDisambiguate() (+39 more)
 
 ### Community 28 - "Auth"
 Cohesion: 0.18
@@ -687,9 +683,9 @@ Nodes (6): sessionClaims, POST /api/v1/session (token exchange) + DELETE /api/v1
 Cohesion: 0.11
 Nodes (15): §1 Setup, §2 Smoke (run in `make test` / `npm run test`), §3 Agent live QA (preview tools against §1 stack), §4 Human (3-skin eyeball — Cinémathèque, Broadcast, Brutalist), QA Checklist: People on the unified source-of-truth model (F37), 0. Setup, 1. Tag mapping — unit (no files, no exiftool), 2. API — auth & validation (no file writes) (+7 more)
 
-### Community 30 - "tmdb_test.go"
+### Community 30 - ".relinkVideoPeople"
 Cohesion: 0.14
-Nodes (32): newHandler(), main(), newTMDBClient(), clientWith(), fakeTMDB(), newDiscardLogger(), TestDescribe(), TestDescribeAdvertisesStudio() (+24 more)
+Nodes (8): Handlers, extIDFor(), foldedExtIDIndex(), foldNameKey(), PersonRoleName, Repo, personHasAuthoredIdentity(), personLinkKey
 
 ### Community 31 - "Configuration Reference (holodex.yaml layers)"
 Cohesion: 0.11
@@ -700,8 +696,8 @@ Cohesion: 0.33
 Nodes (5): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs your eyes (all three skins), Manual QA Checklist: Entity name-identity — merge, alias & duplicate review (F43)
 
 ### Community 33 - "mcp.go"
-Cohesion: 0.15
-Nodes (21): github.com/mark3labs/mcp-go/mcp.CallToolRequest, github.com/mark3labs/mcp-go/mcp.CallToolResult, github.com/mark3labs/mcp-go/server.MCPServer, filterNamed(), T, isOwner(), jsonResult(), mapSlice() (+13 more)
+Cohesion: 0.10
+Nodes (35): github.com/mark3labs/mcp-go/mcp.CallToolRequest, github.com/mark3labs/mcp-go/mcp.CallToolResult, github.com/mark3labs/mcp-go/server.MCPServer, filterNamed(), T, isOwner(), jsonResult(), mapSlice() (+27 more)
 
 ### Community 34 - "Spec: Tag governance & video enrichment (F50)"
 Cohesion: 0.15
@@ -712,52 +708,52 @@ Cohesion: 0.11
 Nodes (24): canonicalKey(), dedupe(), Extracted, isBinaryValue(), mapExiftool(), mapFfprobe(), NewExtractor(), newKeySet() (+16 more)
 
 ### Community 36 - "Resolve"
-Cohesion: 0.11
-Nodes (47): decide(), providerCandidate(), TestResolve_CandidatesListFileAndMatchedProviders(), TestResolve_DecisionAdoptProvider(), TestResolve_DecisionKeepFileOverridesMappingOrder(), TestResolve_DecisionManualLiteral(), TestResolve_EmptyProviderYieldsNoCandidate(), TestResolve_FileFirstDefault_ProviderNoLongerMasksFile() (+39 more)
+Cohesion: 0.10
+Nodes (50): decide(), providerCandidate(), TestResolve_CandidatesListFileAndMatchedProviders(), TestResolve_DecisionAdoptProvider(), TestResolve_DecisionKeepFileOverridesMappingOrder(), TestResolve_DecisionManualLiteral(), TestResolve_EmptyProviderYieldsNoCandidate(), TestResolve_FileFirstDefault_ProviderNoLongerMasksFile() (+42 more)
 
 ### Community 37 - "ResolveReviewAction"
 Cohesion: 0.26
 Nodes (12): ResolvedWrite, ReviewAction, ResolveReviewAction(), TestResolveReviewAction_Filename(), TestResolveReviewAction_FilenameRequiresValue(), TestResolveReviewAction_Manual(), TestResolveReviewAction_ManualMultiValue(), TestResolveReviewAction_ManualRequiresValue() (+4 more)
 
 ### Community 38 - "activity.svelte.ts"
-Cohesion: 0.05
-Nodes (25): web/src/lib/browse.svelte.ts — module-scoped browse-state cache, web/src/routes/+page.svelte — the browse grid, web/src/lib/theme.svelte.ts — established module-scoped singleton pattern, Client-side seeded shuffle for unpaged People/Tags lists (mulberry32 PRNG), activity, ADR-0030, ADR-0046, GOOD (+17 more)
+Cohesion: 0.04
+Nodes (41): web/src/lib/browse.svelte.ts — module-scoped browse-state cache, web/src/routes/+page.svelte — the browse grid, web/src/lib/theme.svelte.ts — established module-scoped singleton pattern, Client-side seeded shuffle for unpaged People/Tags lists (mulberry32 PRNG), activity, ADR-0030, ADR-0046, GOOD (+33 more)
 
 ### Community 39 - "people/+page.svelte"
 Cohesion: 0.04
-Nodes (34): onKey(), Sort components, segmentedToggleWrapperClass, Video components, firstLetter(), letterAnchors(), seededShuffle(), ADR-0045 (+26 more)
+Nodes (34): onKey(), Sort components, segmentedToggleWrapperClass, firstLetter(), letterAnchors(), seededShuffle(), ADR-0045, keyFor() (+26 more)
 
 ### Community 40 - "jira-sync.mjs"
 Cohesion: 0.12
 Nodes (23): log, main(), missing, ADR-0058, ADR-0069, bailSoft(), log, main() (+15 more)
 
 ### Community 41 - "Field"
-Cohesion: 0.06
-Nodes (38): filmField(), filmFieldByCanonical(), filmFields(), personField(), personFieldByCanonical(), personFields(), providerSources(), rawSources() (+30 more)
+Cohesion: 0.10
+Nodes (28): filmField(), filmFieldByCanonical(), filmFields(), personField(), personFieldByCanonical(), personFields(), providerSources(), rawSources() (+20 more)
 
 ### Community 42 - "service.go"
-Cohesion: 0.10
-Nodes (22): resolveCounter, assetFetcher, EnrichRepo, SourceInfo, Candidate, TestSingleStrongMatch(), SingleStrongMatch(), TestSanitizeCandidatesAutoApply() (+14 more)
+Cohesion: 0.13
+Nodes (14): assetFetcher, EnrichRepo, SourceInfo, TestSanitizeCandidatesAutoApply(), TestSanitizeFieldsCaps(), TestSanitizePeopleRejectsWhitespaceInExternalID(), TestSanitizeProfileURL(), TestSanitizeStudioExternalIDsRejectsMalformedID() (+6 more)
 
 ### Community 43 - "People attach/detach + relationship picker (F56.5, HOLODEX-272)"
 Cohesion: 0.06
 Nodes (34): Accessibility Notes, Animation / Motion, Components, Design Handoff: People attach/detach + relationship picker (HOLODEX-272), Design Tokens Used, Edge Cases, Layout, Overview (+26 more)
 
 ### Community 44 - "Open"
-Cohesion: 0.12
-Nodes (49): net/http.Handler, TestMergeEndpoint_PropagatesWritebackToAffectedVideos(), NewAuth(), facetMap(), TestGetMedia_Completeness(), TestGetPerson_Completeness(), TestGetStudio_Completeness(), peopleDecisionServerWithFields() (+41 more)
+Cohesion: 0.13
+Nodes (48): net/http.Handler, TestMergeEndpoint_PropagatesWritebackToAffectedVideos(), NewAuth(), facetMap(), TestGetMedia_Completeness(), TestGetPerson_Completeness(), TestGetStudio_Completeness(), peopleDecisionServerWithFields() (+40 more)
 
 ### Community 45 - "sendDecision"
-Cohesion: 0.18
-Nodes (30): sendDecision(), claimServer(), claimURL(), getJSONList(), TestClaim_ClearRestoresRow(), TestClaim_ClearsPromotionAndDoesNotRestoreIt(), TestClaim_DanglingTargetIsInert(), TestClaim_ListRoundTrips() (+22 more)
+Cohesion: 0.17
+Nodes (31): peopleDecisionServer(), TestCurationAPI_NonPersonFieldSkipsCollisionGate(), TestCurationAPI_PeopleCollision(), TestCurationAPI_PeopleCollision_Suppress(), TestCurationAPI_PersonFieldNotMapped(), putDecisionRaw(), rawRequest(), TestDecisionAPI_StudioCollision() (+23 more)
 
 ### Community 46 - "Queue"
-Cohesion: 0.15
+Cohesion: 0.16
 Nodes (8): fakeEnqueuer, WritebackJob, detailLine(), JobField, Queue, BatchJob, PostWriteFunc, WriteFunc
 
-### Community 47 - "time.Duration"
-Cohesion: 0.17
-Nodes (14): strings.Builder, time.Duration, formatFloat(), New(), newHistogram(), findLine(), scrape(), TestExposition() (+6 more)
+### Community 47 - "New"
+Cohesion: 0.09
+Nodes (27): strings.Builder, sync/atomic.Int64, time.Duration, formatFloat(), New(), newHistogram(), findLine(), scrape() (+19 more)
 
 ### Community 48 - "handler"
 Cohesion: 0.26
@@ -776,44 +772,44 @@ Cohesion: 0.06
 Nodes (32): A required precondition: generalize `NameEditControl`'s conflict type, Accessibility, `CollisionOfferCard.svelte`, Design Handoff: Video composite-key collision verdict (HOLODEX-270), Edge Cases, Layout, New type: `VideoCollisionRef`, Overview (+24 more)
 
 ### Community 52 - "WritebackFormDialog.svelte"
-Cohesion: 0.08
-Nodes (20): ADR-0021, save(), Writeback components, autoResize(), ensureDecision(), onKeydown(), submit(), trapTab() (+12 more)
+Cohesion: 0.06
+Nodes (29): ADR-0021, save(), Writeback components, autoResize(), onKeydown(), submit(), trapTab(), CORE_ROLE_ASPECT (+21 more)
 
 ### Community 53 - "newRepo"
-Cohesion: 0.06
-Nodes (85): countPeople(), hasVideoTitle(), personIDByName(), TestAliasesSurviveRescan(), TestMergePersons(), TestMergePersons_DedupesSameRoleLinkAtMergeTime(), TestMergePersons_RepointsExternalID(), TestMergePersonsValidation() (+77 more)
+Cohesion: 0.05
+Nodes (95): countPeople(), hasVideoTitle(), personIDByName(), TestAliasesSurviveRescan(), TestMergePersons(), TestMergePersons_DedupesSameRoleLinkAtMergeTime(), TestMergePersons_RepointsExternalID(), TestMergePersonsValidation() (+87 more)
 
 ### Community 54 - "AutoRegisterFields"
-Cohesion: 0.20
-Nodes (21): AutoRegisterFields(), ClaimedKeys(), ResolvedField, newAutoAcc(), claimField(), hintLookup(), TestAutoRegisterFields_ClaimedKeysSuppressed(), TestAutoRegisterFields_ClaimSuppressionIsProviderScoped() (+13 more)
+Cohesion: 0.23
+Nodes (13): AutoRegisterFields(), ResolvedField, newAutoAcc(), hintLookup(), TestAutoRegisterFields_EmitsImageURLAsHinted(), TestAutoRegisterFields_HintLabelRenderAndOrder(), TestAutoRegisterFields_MultiProviderMerge(), TestAutoRegisterFields_NoNonCanonical_Empty() (+5 more)
 
 ### Community 55 - "ResolveFields"
-Cohesion: 0.24
-Nodes (23): NewFilmBaseline(), filmTestFields(), TestFilmBaseline_NameResolvesFromRecord(), TestFilmBaseline_NilFilmIsEmptyBaseline(), TestFilmBaseline_RD6Additivity(), TestFilmBaseline_RecordBlankPinSuppressesProvider(), NewPersonBaseline(), personTestFields() (+15 more)
+Cohesion: 0.17
+Nodes (25): NewFilmBaseline(), filmTestFields(), TestFilmBaseline_NameResolvesFromRecord(), TestFilmBaseline_NilFilmIsEmptyBaseline(), TestFilmBaseline_RD6Additivity(), TestFilmBaseline_RecordBlankPinSuppressesProvider(), NewPersonBaseline(), personTestFields() (+17 more)
 
 ### Community 56 - "writeback/writeback.go"
 Cohesion: 0.18
 Nodes (23): encoding/xml.Name, buildFFmpegArgs(), copyFile(), existingTagsXML(), ffmpegMetadataKey(), FieldWrite, isNotFound(), mergeTagsXML() (+15 more)
 
 ### Community 57 - "Handlers"
-Cohesion: 0.15
-Nodes (7): net/http.HandlerFunc, Handlers, chi.Router, validEntityType(), Handlers, videoHint(), Hint
+Cohesion: 0.18
+Nodes (6): net/http.HandlerFunc, Handlers, chi.Router, Handlers, videoHint(), Hint
 
 ### Community 58 - "Repo"
-Cohesion: 0.07
-Nodes (21): EntityAlias, canonicalTable(), nameKeyExpr(), Repo, mergeEntityLookupErr(), orderPair(), selfRefAncestorIDs(), looseKeyExpr() (+13 more)
+Cohesion: 0.10
+Nodes (11): EntityAlias, curationNorm(), CurationRow, Repo, Repo, mergeEntityLookupErr(), orderPair(), selfRefAncestorIDs() (+3 more)
 
 ### Community 59 - "getJSON"
-Cohesion: 0.14
-Nodes (26): externalLinksEnv, fakeRescanner, deleteServer(), TestDeleteEndpointsGated(), TestDeleteNotFoundPaths(), TestPurgeNowEndpoint(), TestSoftDeleteRestoreFlow(), linksByProvider() (+18 more)
+Cohesion: 0.18
+Nodes (21): externalLinksEnv, fakeRescanner, linksByProvider(), newExternalLinksEnv(), TestExternalLinks_MalformedIDSkipped(), TestExternalLinks_MultiBadge(), TestExternalLinks_Studio(), TestExternalLinks_TemplateMismatch() (+13 more)
 
-### Community 60 - "New"
-Cohesion: 0.22
-Nodes (12): New(), tempFile(), TestPurgeNow(), TestPurgeNowNotFound(), TestSweepGraceZeroIsNoOp(), TestSweepMissingFileCountsAsSuccess(), TestSweepPurgesExpiredAndRemovesFile(), TestSweepRemovalFailureLeavesRow() (+4 more)
+### Community 60 - "CurationFieldRow.svelte"
+Cohesion: 0.12
+Nodes (14): commitEdit(), draft, editing, isProvider, onEditKey(), provenance, adding, busy (+6 more)
 
 ### Community 61 - "resolveOrCreateByName"
-Cohesion: 0.07
-Nodes (24): database/sql.Tx, resolveOrCreatePerson(), nameCollidesInTable(), extIDFor(), foldedExtIDIndex(), foldNameKey(), attachExternalID(), externalIDTable() (+16 more)
+Cohesion: 0.06
+Nodes (29): database/sql.Tx, resolveOrCreatePerson(), attachExternalID(), canonicalTable(), externalIDTable(), Repo, lookupByNameKey(), nameKeyExpr() (+21 more)
 
 ### Community 62 - "identity_ops_test.go"
 Cohesion: 0.14
@@ -856,8 +852,8 @@ Cohesion: 0.06
 Nodes (31): Accessibility Notes, Components, Design Handoff: Studio relationship-edit popover (HOLODEX-271), Design Tokens Used, Edge Cases, Layout, Overview, QA (+23 more)
 
 ### Community 75 - "Manager"
-Cohesion: 0.20
-Nodes (5): sync/atomic.Int64, Manager, New(), Config, Repository
+Cohesion: 0.22
+Nodes (4): Manager, New(), Config, Repository
 
 ### Community 76 - "ADR-087: Film-studio cascade — decide-then-enqueue across N videos in one owner action"
 Cohesion: 0.12
@@ -873,7 +869,7 @@ Nodes (14): TestReadCurrentValues_AbsentTagIsEmpty(), TestReadCurrentValues_Roun
 
 ### Community 79 - "enrich/enrich.go"
 Cohesion: 0.12
-Nodes (16): FieldHint, fileConfig, Registry, Store, sync/atomic.Pointer, Empty(), entityTypesSupport(), Source (+8 more)
+Nodes (21): FieldHint, fileConfig, Registry, Store, Empty(), entityTypesSupport(), Source, Load() (+13 more)
 
 ### Community 80 - "studios"
 Cohesion: 0.14
@@ -884,8 +880,8 @@ Cohesion: 0.29
 Nodes (9): Decision, Deps, Enqueuer, FieldExtraction, ManualSourceChecker, Resolver, ReviewStore, joinSorted() (+1 more)
 
 ### Community 82 - "authServer"
-Cohesion: 0.25
-Nodes (18): net/http.Response, authServer(), exchange(), findCookie(), getCookie(), getTok(), TestCapabilities(), TestControlsUnauthenticatedFlag() (+10 more)
+Cohesion: 0.24
+Nodes (19): net/http.Cookie, net/http.Response, authServer(), exchange(), findCookie(), getCookie(), getTok(), TestCapabilities() (+11 more)
 
 ### Community 83 - "Spec: Tag Detail — Hierarchy & Category Controls"
 Cohesion: 0.06
@@ -896,20 +892,20 @@ Cohesion: 0.51
 Nodes (13): TestQueue_RevertUnknownBatch(), New(), newRepo(), seedVideo(), testLogger(), TestQueue_EnqueueMany_EmptyIsNoop(), TestQueue_EnqueueMany_OneCallEnqueuesEveryJob(), TestQueue_FailureMarksFailedAndKeepsRow() (+5 more)
 
 ### Community 85 - "log/slog.Logger"
-Cohesion: 0.28
-Nodes (14): backfillPersonLinks(), backfillStudioLinks(), main(), newLogger(), run(), runHealthcheck(), runMCPStdio(), seedIdentityReviewQueue() (+6 more)
+Cohesion: 0.16
+Nodes (18): backfillPersonLinks(), backfillStudioLinks(), main(), newLogger(), run(), runHealthcheck(), runMCPStdio(), seedIdentityReviewQueue() (+10 more)
 
 ### Community 86 - "thumbServer"
 Cohesion: 0.26
 Nodes (15): seedThumbVideo(), TestAdminStatus(), TestListEnqueuesVisibleAndExposesURL(), TestRegenerateDisabled(), TestRegenerateThumbnail(), TestServeThumbnailNotReadyThenReady(), thumbServer(), postersPNG() (+7 more)
 
 ### Community 87 - "postTok"
-Cohesion: 0.10
-Nodes (40): aliasList(), aliasServer(), sendTok(), TestAddAliasConflict409(), TestAliasEndpointsGatedAndValidated(), TestGetPersonIncludesAliases(), TestMergeEndpoint(), reqTokBody() (+32 more)
+Cohesion: 0.09
+Nodes (44): aliasList(), aliasServer(), sendTok(), TestAddAliasConflict409(), TestAliasEndpointsGatedAndValidated(), TestGetPersonIncludesAliases(), TestMergeEndpoint(), reqTokBody() (+36 more)
 
-### Community 88 - "Derive"
-Cohesion: 0.15
-Nodes (22): fieldByKey(), ResolvedField, dependencyLabels(), Derive(), deriveAge(), deriveAgeAtDeath(), firstValues(), ResolvedField (+14 more)
+### Community 88 - "time.Time"
+Cohesion: 0.13
+Nodes (24): trashItem, time.Time, fieldByKey(), ResolvedField, dependencyLabels(), Derive(), deriveAge(), deriveAgeAtDeath() (+16 more)
 
 ### Community 89 - "queue"
 Cohesion: 0.21
@@ -920,12 +916,12 @@ Cohesion: 0.17
 Nodes (11): F21: System Activity — Under the Hood, Accessibility, Controls (owner), Gating (F21.7) — needs `ADMIN_TOKEN` to exercise, Header activity indicator, Job history, QA Checklist: System Activity (F21), Reachability & shell (+3 more)
 
 ### Community 93 - "Decision"
-Cohesion: 0.14
+Cohesion: 0.13
 Nodes (14): ADR-023: Image Distribution — Published GHCR Image + Pull-Based Compose, Consequences, Context, Decision, Tagging, ci.yml — PR/push gate (go vet, go test, svelte-check, Vitest, vite build, theming grep guard), image.yml — reusable multi-arch build/push + Trivy scan, release.yml — tag v* triggers image.yml then cuts a GitHub Release (+6 more)
 
-### Community 94 - "routes/+layout.svelte"
-Cohesion: 0.12
-Nodes (17): activeRowIndex, activeTabIndex, announcement, flatCount, focusRow(), onRowKey(), onTabKey(), rowAt() (+9 more)
+### Community 94 - "Lookup"
+Cohesion: 0.16
+Nodes (8): curationBody, Handlers, chi.Router, validateCurationBody(), validCurationAction(), setStudioImageURLs(), Lookup(), TestCriticality()
 
 ### Community 95 - "QA Checklist: Writeback dialog selection + undecided grouping (HOLODEX-213)"
 Cohesion: 0.40
@@ -947,13 +943,13 @@ Nodes (20): assertTagParent(), ptr(), seedTagTree(), TestAncestorNamesForTag(), 
 Cohesion: 0.13
 Nodes (13): filmVideoCandidate, Film, filmSceneOccupant(), FilmAttachment, FilmSceneCollision, Repo, T, insertFilmVideo() (+5 more)
 
-### Community 100 - ".filmDecisionTarget"
-Cohesion: 0.11
-Nodes (10): Handlers, chi.Router, Handlers, chi.Router, personDecisionSource(), recordDecisionSource(), Handlers, chi.Router (+2 more)
+### Community 100 - "SanitizeValue"
+Cohesion: 0.10
+Nodes (12): Handlers, chi.Router, Handlers, chi.Router, personDecisionSource(), recordDecisionSource(), Handlers, chi.Router (+4 more)
 
 ### Community 101 - ".addEntityAlias"
-Cohesion: 0.26
-Nodes (6): identityRoutes, Handlers, chi.Router, T, mergeBatchID(), namesByVideo()
+Cohesion: 0.19
+Nodes (8): identityRoutes, Handlers, chi.Router, Handlers, chi.Router, T, mergeBatchID(), namesByVideo()
 
 ### Community 102 - "refreshServer"
 Cohesion: 0.57
@@ -965,7 +961,7 @@ Nodes (5): §1 Setup, §2 Smoke, §3 Agent live QA (all 3 skins), §4 Human, QA 
 
 ### Community 105 - "Orchestrator"
 Cohesion: 0.23
-Nodes (8): cachingResolver, FieldOutcome, Outcome, Result, VideoLookup, fileTagValues(), Orchestrator, newCachingResolver()
+Nodes (7): cachingResolver, FieldOutcome, Outcome, Result, VideoLookup, Orchestrator, newCachingResolver()
 
 ### Community 106 - "ADR-077: Tag writeback exclusion — per-tag Genre writeback flag + manual sync batch seam"
 Cohesion: 0.13
@@ -995,9 +991,9 @@ Nodes (12): studioIDByName(), TestStudioMergeSurvivesRederivation(), studioByNam
 Cohesion: 0.38
 Nodes (10): currentTagValue(), ReadCurrentValues(), snapshotValueToString(), batchIDFromDetail(), newMinimalMKV(), requireExiftool(), requireFFmpeg(), TestQueue_EnqueueBatch_SharedBatchIDGroupsMultipleVideos() (+2 more)
 
-### Community 113 - "net/http.Request"
-Cohesion: 0.07
-Nodes (14): net/http.Request, Handlers, chi.Router, Handlers, chi.Router, Handlers, chi.Router, parseEntityType() (+6 more)
+### Community 113 - "parseEntityType"
+Cohesion: 0.17
+Nodes (6): Handlers, chi.Router, Handlers, chi.Router, parseEntityType(), IsKnown()
 
 ### Community 114 - "ADR-084: Locked curation-relink commit — extending `SetCurationChecked`'s `writeMu` to cover the People relink write"
 Cohesion: 0.08
@@ -1008,7 +1004,7 @@ Cohesion: 0.12
 Nodes (16): 1. Type source: PR title, not individual commits, 2. Scope signal: changed-file globs, with a threshold, 3. Advisory, not blocking, 4. New workflow, not a job in `jira-sync.yml`, 5. Script shape, 6. Allowlist, not the `docs/**`-denylist `jira-sync.yml` uses, Action Items, ADR-076: Advisory CI check — `docs`/`chore`-typed PRs that touch non-doc code (+8 more)
 
 ### Community 116 - "BatchRunner"
-Cohesion: 0.33
+Cohesion: 0.39
 Nodes (3): JobRecorder, VideoLister, BatchRunner
 
 ### Community 118 - "compilerOptions"
@@ -1028,24 +1024,24 @@ Cohesion: 0.22
 Nodes (9): promotionBody, promotionView, hasNonEmpty(), normalizeGroupOrEmpty(), FieldDef, GroupRank(), NormalizeDisplay(), NormalizeGroup() (+1 more)
 
 ### Community 122 - "Fake"
-Cohesion: 0.33
-Nodes (7): Asset, EnrichResult, FakePerson, ProviderPerson, Fake, idNamespace(), personExternalIDsField()
+Cohesion: 0.18
+Nodes (11): resolveCounter, Asset, EnrichResult, FakePerson, ProviderPerson, Candidate, TestSingleStrongMatch(), SingleStrongMatch() (+3 more)
 
-### Community 123 - "writeJSON"
-Cohesion: 0.07
-Nodes (13): categoryTagIDsBody, WriteBatchFunc, Handlers, Handlers, chi.Router, parseCategoryName(), Handlers, Handlers (+5 more)
+### Community 123 - "Handlers"
+Cohesion: 0.20
+Nodes (4): categoryTagIDsBody, Handlers, chi.Router, parseCategoryName()
 
 ### Community 124 - "Repo"
 Cohesion: 0.20
 Nodes (10): filmStudioCascadeResult, database/sql.NullString, Handlers, chi.Router, Repo, VideoCollision, idKeyOf(), nameKeyOf() (+2 more)
 
 ### Community 125 - "query.go"
-Cohesion: 0.28
-Nodes (11): QueryFields, queryToken, Source, parseQueryPattern(), renderPattern(), SanitizeTitle(), sanitizeTitle(), TestSanitizeTitle() (+3 more)
+Cohesion: 0.30
+Nodes (10): QueryFields, queryToken, Source, parseQueryPattern(), renderPattern(), SanitizeTitle(), sanitizeTitle(), TestSanitizeTitle() (+2 more)
 
 ### Community 126 - "NewService"
-Cohesion: 0.47
-Nodes (8): Store, newTestStore(), TestFetchAllowedImage_AllowedViaBaseHost(), TestFetchAllowedImage_AssetHostsExtendTheAllowlist(), TestFetchAllowedImage_IgnoresDisabledProvider(), TestFetchAllowedImage_RefusesUnlistedHost(), TestFetchAllowedImage_UnionAcrossMultipleProviders(), NewService()
+Cohesion: 0.20
+Nodes (13): Source, Source, newHTTPClient(), TestHTTPClientContract(), TestHTTPClientNoCrossHostRedirect(), Store, newTestStore(), TestFetchAllowedImage_AllowedViaBaseHost() (+5 more)
 
 ### Community 127 - "Route"
 Cohesion: 0.31
@@ -1059,9 +1055,9 @@ Nodes (6): EnrichmentWriter, Store(), newRepo(), TestFilenameSourceResolvesWithN
 Cohesion: 0.44
 Nodes (8): Manager, newFakeRepo(), TestDisabledManagerNoops(), TestExtractEmbedded(), testManager(), TestProcessGeneratesAndMarks(), TestProcessMarksFailed(), TestRunDrainsBackfill()
 
-### Community 130 - "Spec: Tag Writeback Exclusion — per-tag Genre writeback control"
-Cohesion: 0.17
-Nodes (12): Goals, Non-Goals, Open Questions, P0 — Must-Have, P1 — Nice-to-Have, P2 — Future Considerations, Problem Statement, Requirements (+4 more)
+### Community 130 - "testMappings"
+Cohesion: 0.25
+Nodes (13): fakeEnrichmentCall, fakeEnrichmentWriter, newRecordingJobRecorder(), TestBatchRunner_TriggerAll_DedupsConcurrentTriggers(), TestBatchRunner_TriggerAll_ProcessesEveryVideoAndRecords(), TestOrchestrator_WithCachedResolver_CachesEntityNames(), TestOrchestrator_WithCachedResolver_NotSharedAcrossCopies(), testMappings() (+5 more)
 
 ### Community 131 - "Spec: Entity Completeness Score (F55)"
 Cohesion: 0.08
@@ -1072,8 +1068,8 @@ Cohesion: 0.07
 Nodes (27): Derivation (see the spec for detail), Design Handoff: Nationality flag beside the person name (HOLODEX-139), Placement & measurements, States, Theming notes (what bites these surfaces), 1. Setup / smoke, 2. Agent-verified (this session), 3. Human eyeball — all three skins (+19 more)
 
 ### Community 134 - "newAssetClient"
-Cohesion: 0.17
-Nodes (11): AssetClient, passthroughFetcher, net/http.Client, net/url.URL, assetHostAllowed(), assetRoleFor(), Source, newAssetClient() (+3 more)
+Cohesion: 0.25
+Nodes (7): passthroughFetcher, assetHostAllowed(), Source, newAssetClient(), TestAssetClientAssetHosts(), TestAssetClientNonBaseHostRequiresHTTPS(), TestAssetClientSSRF()
 
 ### Community 135 - "newCompletenessHandlers"
 Cohesion: 0.18
@@ -1089,7 +1085,7 @@ Nodes (23): 1 — Data model (migration 0043), 2 — Asserted-link invariant: ze
 
 ### Community 138 - "context.Context"
 Cohesion: 0.03
-Nodes (29): Noop, recordingSink, storedAsset, countingResolver, context.Context, holodex/internal/model.PersonAlias, Handlers, Match (+21 more)
+Nodes (29): Noop, recordingSink, storedAsset, countingResolver, fakeVideoLister, recordingReviewStore, context.Context, holodex/internal/model.PersonAlias (+21 more)
 
 ### Community 139 - "ResolveForContainer"
 Cohesion: 0.29
@@ -1107,21 +1103,21 @@ Nodes (20): API, Before implementation, Behavior detail, Future considerations (
 Cohesion: 0.09
 Nodes (22): 10. QA gate, 1. The remediation queue, 2. The completeness breakdown panel, 3. Components, 4. Tokens, 5. States, 6. Accessibility, 7. Edge cases (+14 more)
 
-### Community 143 - ".restoreMedia"
-Cohesion: 0.22
-Nodes (4): purger, trashItem, Handlers, chi.Router
+### Community 143 - "openAt"
+Cohesion: 0.23
+Nodes (10): TestMigration0031DeniedTagsUpAndDown(), TestMigration0029FieldClaimsProviderGrain(), count(), mustExec(), openAt(), TestMigration0022FoldsCaseDuplicates(), TestMigration0028JobRunAttributionUpAndDown(), TestMigration0032TagHierarchyUpAndDown() (+2 more)
 
 ### Community 144 - "database/sql.DB"
 Cohesion: 0.19
-Nodes (17): filmVideoRow, database/sql.DB, database/sql.NullInt64, decodeFilmItems(), filmEntityServer(), seedPlainVideo(), seedStudio(), TestFilmVideoCandidates() (+9 more)
+Nodes (16): filmVideoRow, database/sql.DB, database/sql.NullInt64, decodeFilmItems(), seedPlainVideo(), seedStudio(), TestFilmVideoCandidates(), TestListFilmsForEntity() (+8 more)
 
 ### Community 145 - "MergePersons(canonical, merged) transaction"
 Cohesion: 0.67
 Nodes (3): MergePersons(canonical, merged) transaction, videos.deleted_at TEXT NULL column (migration 0010), person_image_suppressions table (person_id, source_url) + person_images.source_url (migration 0012)
 
 ### Community 147 - "httpClient"
-Cohesion: 0.23
-Nodes (6): httpClient, Source, Source, newHTTPClient(), TestHTTPClientContract(), TestHTTPClientNoCrossHostRedirect()
+Cohesion: 0.29
+Nodes (4): AssetClient, httpClient, net/http.Client, net/url.URL
 
 ### Community 148 - "QA Checklist: Derived / calculated person fields — Age & Age at death (F45)"
 Cohesion: 0.33
@@ -1136,7 +1132,7 @@ Cohesion: 0.20
 Nodes (17): Agreement, EntityMatch, Specificity, Tier, AutoApplyThreshold(), IsEntityField(), IsMultiValueField(), scoreAgreement() (+9 more)
 
 ### Community 151 - "net/http/httptest.Server"
-Cohesion: 0.22
+Cohesion: 0.20
 Nodes (17): net/http/httptest.Server, TestFilmFieldDecision(), filmDelete(), filmPost(), filmServer(), TestCreateFilm_GetOrCreate(), TestFilmVideoAttachDetach(), TestFilmVideoSceneCollision() (+9 more)
 
 ### Community 152 - "Repo"
@@ -1156,8 +1152,8 @@ Cohesion: 0.11
 Nodes (19): API, Asserted-link invariant (RD1/P0-2), Behavior detail, Future considerations (P2), Goals, Must-have (P0), Non-Goals, Open Questions (+11 more)
 
 ### Community 156 - "Repo"
-Cohesion: 0.16
-Nodes (29): sync.Mutex, studioIDFromList(), tagID(), deleteReq(), fillGallery(), getStatus(), personImageServer(), personImageServerCfg() (+21 more)
+Cohesion: 0.20
+Nodes (18): sync.Mutex, actorsAndDirectorServer(), postCurationNoFatal(), TestCurationAPI_PeopleConcurrentDifferentFields_NoLostUpdate(), doJSONRequest(), studioIDFromList(), tagID(), patchTok() (+10 more)
 
 ### Community 157 - "QA Checklist: Age-in-media badge on the cast poster card (HOLODEX-173)"
 Cohesion: 0.40
@@ -1167,21 +1163,21 @@ Nodes (4): 1. Setup / smoke, 2. Agent-verified (this session), 3. Human eyeball 
 Cohesion: 0.11
 Nodes (19): API, Behavior detail, Conditional border — exact rule, Density formula, Future Considerations (P2), Gate status, Goals, Must-Have (P0) (+11 more)
 
-### Community 159 - "Repo"
-Cohesion: 0.13
-Nodes (6): entityCompletenessBatch, curationNorm(), CurationRow, Repo, DecisionRow, Repo
+### Community 159 - "api/person_images_test.go"
+Cohesion: 0.37
+Nodes (14): deleteReq(), fillGallery(), getStatus(), personImageServer(), pngUpload(), TestGetPersonImages(), TestPersonDetailImageSet(), TestPersonImageEndpointsGated() (+6 more)
 
 ### Community 160 - "Design handoff: Film Studio cascade edit affordance (F57)"
 Cohesion: 0.11
 Nodes (18): 1. Media detail page — no visual change, §1 Setup, 2. Film detail page — trigger affordance, §2 Smoke, §3 Agent live QA (preview tools against §1 stack), 3. New component: `FilmStudioCascadeDialog.svelte`, 3a. Step 1 — Picker (open state), 3b. Step 2 — Results (post-commit, same dialog, same `PickerShell`) (+10 more)
 
-### Community 161 - "ADR-012: Resolution Classification — Width-Based Buckets with 10% Tolerance"
-Cohesion: 0.22
-Nodes (9): ADR-006: REST + OpenAPI 3.1 API design under /api/v1, ADR-012: Resolution Classification — Width-Based Buckets with 10% Tolerance, Consequences, Context, Decision, Effective cutoffs (nominal − 10%), Nominal tier widths, Rationale (+1 more)
+### Community 161 - "Spec: Tag Categories — grouping tags without merging them"
+Cohesion: 0.17
+Nodes (12): Goals, Non-Goals, Open Questions, P0 — Must-Have, P1 — Nice-to-Have, P2 — Future Considerations, Problem Statement, Requirements (+4 more)
 
 ### Community 162 - "toAnySlice"
-Cohesion: 0.08
-Nodes (13): EnrichQueueProviderState, Studio, Repo, T, namedCountQuery(), placeholders(), toAnySlice(), Repo (+5 more)
+Cohesion: 0.07
+Nodes (14): EnrichQueueProviderState, Person, Studio, ValidStudioImageRole(), Repo, FacetValue, T, namedCountQuery() (+6 more)
 
 ### Community 163 - "ImagePath"
 Cohesion: 0.46
@@ -1191,28 +1187,32 @@ Nodes (6): ImagePath(), Remove(), Store(), studioDir(), TestImagePath_ServerAssi
 Cohesion: 0.12
 Nodes (17): A — Namespace-qualified scalar value (chosen), Action Items, ADR-082: `external_provider_id` is a namespace-qualified value, not a plain rename, B — `(provider, external_id)`-keyed schema change across the nine tables, C — Leave `external_provider_id` a bare scalar, disambiguate providers elsewhere, Consequences, Context, Decision (+9 more)
 
-### Community 165 - "writebackJob.ts"
-Cohesion: 0.21
-Nodes (11): BatchStatus, JOB_POLL_TIMEOUT_MS, pollUntilSettled(), fast, ADR-0041, ADR-0048, ADR-0077, waitForWritebackBatch() (+3 more)
+### Community 165 - "Repo"
+Cohesion: 0.27
+Nodes (4): ValidFilmImageRole(), FilmImageInsert, Repo, FilmImage
+
+### Community 166 - "stubThumbs"
+Cohesion: 0.20
+Nodes (4): activityResponse, activitySystem, stubThumbs, QueueStats
 
 ### Community 167 - "Tag"
-Cohesion: 0.21
-Nodes (4): Category, EntityRef, Tag, Repo
+Cohesion: 0.12
+Nodes (8): Category, EntityRef, Tag, Repo, nameCollidesInTable(), Repo, isTagDescendant(), videoIDsForTagsQuery()
 
 ### Community 168 - "Session log — append-only (cap: last 8 sessions; older → archive/)"
 Cohesion: 0.11
 Nodes (19): 2026-08-17 · Brainstormed the Films entity end-to-end, opened epic, wrote spec, 2026-08-18 · Wrote ADR-085, resolving spec Q1/Q2, 2026-08-21 · session, 2026-08-21 · session (cont.), 2026-08-21 · session (cont. 2), 2026-08-21 · session (cont. 3), 2026-08-21 · session (cont. 4), 2026-08-23 · session (+11 more)
 
-### Community 169 - "newTestServer"
-Cohesion: 0.64
-Nodes (8): call(), newTestServer(), resultText(), seed(), TestGetVideo(), TestGetVideoRedactsForVisitor(), TestListPeopleAndTags(), TestSearchVideos()
+### Community 169 - "Handlers"
+Cohesion: 0.22
+Nodes (3): WriteBatchFunc, Handlers, chi.Router
 
 ### Community 170 - "ADR-081: Entity Completeness Score — Facet Criticality, Not-Applicable Status, and Score Computation"
 Cohesion: 0.12
 Nodes (16): Action Items, ADR-081: Entity Completeness Score — Facet Criticality, Not-Applicable Status, and Score Computation, Consequences, Context, D1: Facet criticality is static metadata on `registry.FieldDef`, D2: not-applicable persistence, D2: Not-applicable persists in a new, dedicated table — not a 4th decision `source`, D3/D4: score computation and list consumption (+8 more)
 
 ### Community 171 - ".index"
-Cohesion: 0.18
+Cohesion: 0.19
 Nodes (4): os.DirEntry, os.FileInfo, isMedia(), stats
 
 ### Community 174 - "Design handoff: Studio image roles — icon / logo / poster (F51)"
@@ -1232,8 +1232,8 @@ Cohesion: 0.09
 Nodes (21): ADR-018: Scanner Change Detection — Incremental Scan by (path, size, mtime), Consequences, Context, Decision, Mid-copy protection, Rationale, Scan algorithm, Stored fields (+13 more)
 
 ### Community 178 - ".RelinkProviderIcon"
-Cohesion: 0.40
-Nodes (5): Handlers, ImagePath(), Remove(), Store(), TestStoreRoundTrip()
+Cohesion: 0.25
+Nodes (7): providerInfo, Handlers, providerIconURL(), ImagePath(), Remove(), Store(), TestStoreRoundTrip()
 
 ### Community 179 - "Test Fixtures"
 Cohesion: 0.33
@@ -1243,13 +1243,13 @@ Nodes (5): Deterministic fixture corpus + golden-file pattern (testdata/gen.sh),
 Cohesion: 0.67
 Nodes (3): field_source_decisions table, four-tier label/render/group/order resolution ladder, settings KV table + typed Registry (validation/UI schema)
 
-### Community 181 - "Spec: Unified entity name-identity (F43)"
-Cohesion: 0.06
-Nodes (31): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs your eyes (all three skins), Manual QA Checklist: Owner tooling hub + nav split (F35), ADR-066 (enrichment auto-apply and dismissal), Auto-apply threshold (>=0.85 strong match, RD1), enrichment_dismissals table (durable not-matched verdict) (+23 more)
+### Community 181 - "Spec: Metadata Source Plugins (F22/F27/F28)"
+Cohesion: 0.11
+Nodes (20): ADR-066 (enrichment auto-apply and dismissal), Auto-apply threshold (>=0.85 strong match, RD1), enrichment_dismissals table (durable not-matched verdict), Spec: Enrichment review workflow (F47), GET /owner/enrich-queue review queue (zero-cost DB signal), Refresh/Refresh-all bypass using stored external_id (RD7/RD8), ADR-033 (metadata source plugins), Spec: Metadata Source Plugins (F22/F27/F28) (+12 more)
 
 ### Community 182 - "ResolvedField"
-Cohesion: 0.11
-Nodes (19): FieldCandidate, FieldDecision, Handlers, injectAssetFacet(), firstResolvedValue(), resolvedValues(), applyGenreWriteback(), genreWritebackFieldValues() (+11 more)
+Cohesion: 0.10
+Nodes (21): FieldCandidate, FieldDecision, Handlers, injectAssetFacet(), firstResolvedValue(), resolvedValues(), applyGenreWriteback(), genreWritebackFieldValues() (+13 more)
 
 ### Community 183 - "Spec: Unified Studio edit affordance + Film-level cascade writeback (F57)"
 Cohesion: 0.12
@@ -1280,8 +1280,8 @@ Cohesion: 0.13
 Nodes (15): Action Items, ADR-078: Tag Categories — a deliberately reduced entity, its junction shape, and cross-table name collision, Consequences, Context, Current state (survey, 2026-07-31), D1 — `categories` table: minimal, no identity-spine membership, tag-style fold for its own uniqueness, D1 — where Category's CRUD lives, D2 — `category_tags` junction: mirrors `video_tags` exactly, no provenance column (+7 more)
 
 ### Community 196 - "Complete"
-Cohesion: 0.26
-Nodes (14): actionableCandidate(), classifyTier(), Complete(), criticalityWeight(), ResolvedField, FacetScore, fld(), TestComplete_AllExcludedYieldsZeroScore() (+6 more)
+Cohesion: 0.29
+Nodes (13): actionableCandidate(), classifyTier(), Complete(), criticalityWeight(), ResolvedField, fld(), TestComplete_AllExcludedYieldsZeroScore(), TestComplete_ComputedFieldNeverScored() (+5 more)
 
 ### Community 197 - "gen-country-names.mjs"
 Cohesion: 0.40
@@ -1291,21 +1291,21 @@ Nodes (4): countries, entries, OVERRIDE, require
 Cohesion: 0.50
 Nodes (3): claimBody, claimView, targetView
 
-### Community 200 - "syncWritebackServer"
-Cohesion: 0.39
-Nodes (7): jobStatusURL(), syncWritebackServer(), TestGetMedia_WriteTarget(), TestWritebackEndpoint_MixedBatchReportsWrittenAndSkipped(), TestWritebackJobStatus(), TestWritebackJobStatus_OwnerGated(), TestWritebackJobStatus_RejectsBadID()
+### Community 200 - "personDerivedServer"
+Cohesion: 0.53
+Nodes (8): findField(), getResolved(), indexOf(), personDerivedServer(), TestPersonDerived_AgeAtDeathReplacesAge(), TestPersonDerived_AgeUnderBirthdate(), TestPersonDerived_ComputedDecisionRejected(), TestPersonDerived_MissingBirthdateNoRow()
 
-### Community 201 - "Spec: Tag Categories — grouping tags without merging them"
+### Community 201 - "Spec: Tag Writeback Exclusion — per-tag Genre writeback control"
 Cohesion: 0.08
 Nodes (20): 1. Setup / smoke, 2. Agent-verified (this session), 3. Human look, QA Checklist: Tag writeback exclusion frontend (HOLODEX-239), 2026-07-31 · session, Gates — definition of done, Session log   (append-only), Up next   (ordered — position is the priority; top line is the next action) (+12 more)
 
-### Community 202 - "ClassifyResolution"
-Cohesion: 0.39
-Nodes (6): ClassifyResolution(), ParseResolutionBucket(), ResolutionWidthRange(), TestClassifyResolution(), TestResolutionWidthRange(), ResolutionBucket
+### Community 202 - "auto_register_test.go"
+Cohesion: 0.53
+Nodes (8): ClaimedKeys(), claimField(), TestAutoRegisterFields_ClaimedKeysSuppressed(), TestAutoRegisterFields_ClaimSuppressionIsProviderScoped(), TestAutoRegisterFields_ClaimSuppressionIsUnconditional(), TestAutoRegisterFields_NoClaims_Unchanged(), TestClaimedKeys_LowercasedAndTrimmed(), TestClaimedKeys_OnlyNamespacedProviderSources()
 
 ### Community 203 - "completeness.go"
-Cohesion: 0.28
-Nodes (11): FacetSummary, PersonCompleteness, StudioCompleteness, VideoCompleteness, E, T, isMissingAll(), sortByScore() (+3 more)
+Cohesion: 0.22
+Nodes (13): FacetSummary, PersonCompleteness, StudioCompleteness, VideoCompleteness, E, T, isMissingAll(), sortByScore() (+5 more)
 
 ### Community 205 - "svelte.config.js"
 Cohesion: 0.40
@@ -1315,9 +1315,9 @@ Nodes (3): config, ADR-0002, ADR-0007
 Cohesion: 0.14
 Nodes (12): Design Handoff: Writeback hides the target file tag (HOLODEX-216), Design-system fit (the `/design-system` check), Non-goals (explicitly out of this change), Problem, QA checklist, Row states (unchanged rows omitted — only the new branch), The "no dimming" rule, applied, 2026-08-13 · session (+4 more)
 
-### Community 207 - "Handlers"
-Cohesion: 0.28
-Nodes (4): Handlers, chi.Router, writeSceneCollisionConflict(), urlParamID()
+### Community 207 - "net/http.Request"
+Cohesion: 0.11
+Nodes (12): net/http.Request, ttlForClass(), Handlers, chi.Router, Handlers, chi.Router, urlParamID(), baseSessionCookie() (+4 more)
 
 ### Community 208 - "Design Handoff: Two-Tier Field Editing Model (F56)"
 Cohesion: 0.15
@@ -1328,16 +1328,16 @@ Cohesion: 0.17
 Nodes (12): 2026-07-10 · what happened this session, 2026-08-09 · Architecture gate closed — ADR-083 written, 2026-08-09 · Backend gate closed — LinkTemplates + external_links projection, 2026-08-09 · Design gate closed — multi-badge handoff written, 2026-08-09 · Frontend gate closed — ProviderLinkBadge.svelte + person/studio wiring, 2026-08-09 · Post-review hardening — high-effort /code-review pass, 6 fixes applied, 2026-08-09 · Security gate closed — LinkTemplates injection review, no findings, 2026-08-09 · Testing gate closed — external_links projection + BuildProviderLink coverage (+4 more)
 
 ### Community 212 - "people"
-Cohesion: 0.15
-Nodes (8): people, video_people, person_images, person_image_suppressions, person_aliases, person_aliases_fts, video_people_new, person_external_ids
+Cohesion: 0.17
+Nodes (7): people, video_people, person_images, person_image_suppressions, video_people_old, video_people_new, person_external_ids
 
 ### Community 214 - "Design Handoff: Tag categories — grouping tags without merging them (HOLODEX-240)"
 Cohesion: 0.13
 Nodes (15): 1. `/tags` — unified type filter + search, 2. Category pill, 3. `/categories/{id}` detail page (new route), 4. Bulk "Add to category…" / "Remove from category…" (Manage-mode bar), 5. Browse-page "Categories" facet, Accessibility notes, Design Handoff: Tag categories — grouping tags without merging them (HOLODEX-240), Design-system-fit audit (+7 more)
 
-### Community 215 - ".uploadStudioImage"
-Cohesion: 0.38
-Nodes (3): Handlers, chi.Router, studioImageRole()
+### Community 215 - "Health"
+Cohesion: 0.32
+Nodes (3): Health, sync/atomic.Bool, writeStatus()
 
 ### Community 219 - "+layout.ts"
 Cohesion: 0.50
@@ -1363,9 +1363,9 @@ Nodes (13): extractReviewGET(), extractReviewPOST(), extractReviewServer(), Test
 Cohesion: 0.10
 Nodes (21): Cross-References, Data Model Extensions, F21.1 — Activity read-model API, F21.2 — Scanner status accessor, F21.3 — Persisted job history (30-day), F21.4 — Dedicated activity page (polled), F21.5 — Header activity indicator, F21.6 — In-UI controls (wires existing admin actions) (+13 more)
 
-### Community 264 - "identity_test.go"
-Cohesion: 0.43
-Nodes (6): contains(), peopleCount(), tagCount(), TestEntityNames(), TestNameKeyConvergencePerson(), TestNameKeyConvergenceTag()
+### Community 264 - "newTestService"
+Cohesion: 0.39
+Nodes (7): bytes.Buffer, Service, newTestService(), TestPersistPreferredPattern_CachesValidPattern(), TestPersistPreferredPattern_EmptyClearsPriorValue(), TestPersistPreferredPattern_InvalidPatternDroppedAndLogged(), TestPersistPreferredPattern_PerProviderIsolation()
 
 ### Community 266 - "ADR-055: Universal enrichment unique-key invariant — every source supplies a namespaced id, and it is the identity"
 Cohesion: 0.10
@@ -1376,8 +1376,8 @@ Cohesion: 0.10
 Nodes (20): API, Behavior detail, Future considerations (P2), Goals, Merge (RD5), Must-have (P0), Name materialization (RD1), Non-Goals (+12 more)
 
 ### Community 270 - "Normalize"
-Cohesion: 0.32
-Nodes (13): Normalize(), forgePNGDims(), jpegBytes(), pngBytes(), TestNormalizeAcceptsWebP(), TestNormalizeDownscales(), TestNormalizeReencodesToJPEG(), TestNormalizeRejectsDecompressionBomb() (+5 more)
+Cohesion: 0.17
+Nodes (22): Normalize(), forgePNGDims(), jpegBytes(), pngBytes(), TestGenderBucket(), TestNormalizeAcceptsWebP(), TestNormalizeDownscales(), TestNormalizeReencodesToJPEG() (+14 more)
 
 ### Community 272 - "Design Handoff: Owner tooling hub + nav split (F35)"
 Cohesion: 0.11
@@ -1423,9 +1423,9 @@ Nodes (16): Future Considerations (P2), Goals, Must-Have (P0), Nice-to-Have (P1)
 Cohesion: 0.15
 Nodes (12): .showcase.md Portfolio Self-Report, Incremental indexing (mtime/size change detection), Metadata writeback, Open enrichment protocol (provider sidecars), Unified field resolution, ADR-001: Backend Language — Go, Consequences, Context (+4 more)
 
-### Community 303 - ".sessionCookie"
-Cohesion: 0.33
-Nodes (5): net/http.Cookie, ttlForClass(), baseSessionCookie(), Handlers, secureCookie()
+### Community 303 - "ImagePath"
+Cohesion: 0.46
+Nodes (6): filmDir(), ImagePath(), Remove(), Store(), TestImagePath_ServerAssignedIDsOnly(), TestStoreRemove_RoundTrip()
 
 ### Community 307 - "Design Handoff: Media page — one sync verb, render-once fields (F36 / F39)"
 Cohesion: 0.13
@@ -1464,20 +1464,20 @@ Cohesion: 0.19
 Nodes (6): ExtractionCandidate, SplitJoined(), Repo, ExtractionCandidate, ExtractionQueueRow, ExtractionReviewRow
 
 ### Community 350 - "studio-entity.md"
-Cohesion: 0.16
-Nodes (7): 2026-07-10 · what happened this session, 2026-08-04 · Full epic delivered end-to-end and merged, Gates — definition of done, HOLODEX-247 · Studio image roles: icon, logo, poster (F51), Session log — append-only (cap: last 8 sessions; older → archive/), Up next — ordered (position = priority), Film components
+Cohesion: 0.12
+Nodes (13): 2026-07-10 · what happened this session, 2026-08-04 · Full epic delivered end-to-end and merged, Gates — definition of done, HOLODEX-247 · Studio image roles: icon, logo, poster (F51), Session log — append-only (cap: last 8 sessions; older → archive/), Up next — ordered (position = priority), 2026-07-10 · what happened this session, 2026-08-25 · full implementation + live verification (+5 more)
 
 ### Community 351 - "Spec — Showcase Demo Corpus"
-Cohesion: 0.20
-Nodes (10): Acceptance criteria, Approach, Content requirements, Follow-ups (tracked separately), Goal, Non-goals, Problem, Showcase surfaces built on this corpus (+2 more)
+Cohesion: 0.07
+Nodes (25): ADR-006: REST + OpenAPI 3.1 API design under /api/v1, ADR-012: Resolution Classification — Width-Based Buckets with 10% Tolerance, Consequences, Context, Decision, Effective cutoffs (nominal − 10%), Nominal tier widths, Rationale (+17 more)
 
 ### Community 353 - "Decision"
 Cohesion: 0.12
 Nodes (13): frontendFS(), frontendFS(), 1. Embed source lives in the `cmd/holodex` package, 2. SPA fallback handler, 3. BuildKit cache mounts, 4. `.dockerignore`, 5. Startup logs the URL, ADR-020: Frontend Embed Location, SPA Fallback Serving & BuildKit Caching (+5 more)
 
 ### Community 357 - "videos"
-Cohesion: 0.18
-Nodes (8): videos, file_writebacks, writeback_queue, video_people_old, file_writebacks_old, writeback_queue_old, file_writebacks_new, writeback_queue_new
+Cohesion: 0.22
+Nodes (7): videos, file_writebacks, writeback_queue, file_writebacks_old, writeback_queue_old, file_writebacks_new, writeback_queue_new
 
 ### Community 374 - "QA Checklist: Claimed provider keys — the Attach affordance and the Attached keys list (F49)"
 Cohesion: 0.29
@@ -1528,32 +1528,32 @@ Cohesion: 0.24
 Nodes (8): people_fts, tags, tags_fts, video_metadata, video_tags, videos_fts, categories, category_tags
 
 ### Community 466 - "SanitizeLinkTemplates"
-Cohesion: 0.23
+Cohesion: 0.29
 Nodes (8): BuildLink(), SanitizeLinkTemplates(), TestBuildLink(), TestManifest_LinkTemplatesDecodeBackwardCompat(), TestSanitizeLinkTemplates_DropsInvalidNormalizesKeys(), TestSanitizeLinkTemplates_EmptyAndNil(), TestValidateLinkTemplate(), ValidateLinkTemplate()
 
-### Community 467 - "Lookup"
-Cohesion: 0.13
-Nodes (8): decisionBody, Handlers, chi.Router, Handlers, chi.Router, writeCollisionConflict(), Lookup(), TestCriticality()
+### Community 467 - ".setFieldDecision"
+Cohesion: 0.23
+Nodes (4): decisionBody, Handlers, chi.Router, writeCollisionConflict()
 
 ### Community 468 - "cascadeServer"
 Cohesion: 0.58
 Nodes (8): cascadePost(), cascadeServer(), seedCascadeVideo(), TestCascadeFilmStudio_AllCollide_EmptyBatch(), TestCascadeFilmStudio_PartialCollision_BestEffort(), TestCascadeFilmStudio_SameValueRedecide_NotACollision(), TestCascadeFilmStudio_ZeroVideos_EmptyBatch(), TestCascadeFilmStudioHandler_OwnerGated()
 
-### Community 469 - "Holodex landing page (site/index.html)"
-Cohesion: 0.29
-Nodes (6): Holodex landing page (site/index.html), Landing page 'One library, three skins' section (Cinémathèque/Broadcast/Brutalist), Deploy, Holodex landing page, Preview locally, SvelteKit app.html shell (default data-theme=cinematheque)
-
-### Community 470 - "Design handoff: video owner-mode editing (F52) — studio placement, commentary, poster upload, file-metadata gating"
-Cohesion: 0.08
-Nodes (21): 1. Studio next to the title, 2. Commentary block, 3. Poster upload, 4. File metadata — owner only, Design handoff: video owner-mode editing (F52) — studio placement, commentary, poster upload, file-metadata gating, QA checklist, Responsive / motion / a11y, 2026-07-10 · what happened this session (+13 more)
+### Community 470 - "Spec: Owner-mode video editing — Commentary, poster upload, studio placement, file-metadata gating (F52)"
+Cohesion: 0.05
+Nodes (35): 1. Studio next to the title, 2. Commentary block, 3. Poster upload, 4. File metadata — owner only, Design handoff: video owner-mode editing (F52) — studio placement, commentary, poster upload, file-metadata gating, QA checklist, Responsive / motion / a11y, 2026-07-10 · what happened this session (+27 more)
 
 ### Community 471 - "Manual QA Checklist: Person Aliases (F23)"
 Cohesion: 0.33
 Nodes (5): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs your eyes (all three skins), Manual QA Checklist: Person Aliases (F23)
 
-### Community 473 - "Spec: Owner-mode video editing — Commentary, poster upload, studio placement, file-metadata gating (F52)"
-Cohesion: 0.14
-Nodes (14): API, Before implementation, Future considerations (P2), Goals, Must-have (P0), Non-Goals, Problem Statement, Requirements (+6 more)
+### Community 473 - "deleteServer"
+Cohesion: 0.60
+Nodes (5): deleteServer(), TestDeleteEndpointsGated(), TestDeleteNotFoundPaths(), TestPurgeNowEndpoint(), TestSoftDeleteRestoreFlow()
+
+### Community 474 - "Manual QA Checklist: Owner tooling hub + nav split (F35)"
+Cohesion: 0.40
+Nodes (5): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs your eyes (all three skins), Manual QA Checklist: Owner tooling hub + nav split (F35)
 
 ### Community 475 - "HOLODEX-212 · Close the SSRF allowlist gap on image writeback + resolved image_url fields"
 Cohesion: 0.25
@@ -1580,20 +1580,16 @@ Cohesion: 0.15
 Nodes (13): 10. Three-skin QA (required), 11. What is explicitly not in this handoff, 1. The Promote control (owner-only, on the auto row), 2. The inline editor (shared promote + edit — DD2), 3. After promotion — the partition move (shared by all treatments), 4. Edit / Remove promotion (owner-only, on the promoted row), 5. States, 6. Responsive behavior (+5 more)
 
 ### Community 539 - "Sink"
-Cohesion: 0.31
-Nodes (4): personRepo, Sink, StudioRepo, ReplaceStudioImageFile()
+Cohesion: 0.13
+Nodes (17): fakeStudioRepo, FilmRepo, personRepo, Sink, StudioRepo, New(), ReplaceFilmImageFile(), ReplaceStudioImageFile() (+9 more)
 
-### Community 540 - "density.svelte.ts"
-Cohesion: 0.16
-Nodes (8): capForWidth(), clamp(), DENSITY_MAX, DENSITY_MIN, load(), MediaDensity, TIERS, ViewportTierCap
+### Community 540 - "ActivityState"
+Cohesion: 0.09
+Nodes (10): ActivityState, Video components, capForWidth(), clamp(), DENSITY_MAX, DENSITY_MIN, load(), MediaDensity (+2 more)
 
 ### Community 541 - "Issue 2 — a field the owner just enriched doesn't pre-check / doesn't land in "decided""
 Cohesion: 0.17
 Nodes (11): Accessibility, Decided visual spec (Option 1), Design Handoff: Writeback dialog — poster comparison + enrichment/decision legibility gap, Fix options considered, Issue 1 — the dialog never shows the file's current poster next to the enriched candidate, Issue 2 — a field the owner just enriched doesn't pre-check / doesn't land in "decided", Layout, Overview (+3 more)
-
-### Community 542 - "Sweeper"
-Cohesion: 0.50
-Nodes (4): New(), Config, Repo, Sweeper
 
 ### Community 544 - "coverArtManager"
 Cohesion: 0.36
@@ -1618,14 +1614,6 @@ Nodes (6): 2026-07-10 · what happened this session, 2026-08-05 · session, Gate
 ### Community 549 - "Manual QA Checklist: People Images (F25)"
 Cohesion: 0.40
 Nodes (5): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs your eyes (all three skins), Manual QA Checklist: People Images (F25)
-
-### Community 550 - "New"
-Cohesion: 0.53
-Nodes (8): New(), jpegBytes(), TestSinkRollsBackOnStoreFailure_Person(), TestSinkRollsBackOnStoreFailure_Studio(), TestSinkSkipsDuplicate(), TestSinkStoreAsset_Person_Normalizes(), TestSinkStoreAsset_Studio_Normalizes(), TestSinkUnsupportedEntityType()
-
-### Community 551 - "fakeStudioRepo"
-Cohesion: 0.17
-Nodes (5): fakeStudioRepo, ValidStudioImageRole(), Repo, StudioImage, StudioImageInsert
 
 ### Community 552 - ".uploadVideoPoster"
 Cohesion: 0.39
@@ -1655,14 +1643,6 @@ Nodes (5): 2026-08-10 · Implemented, self-corrected, and live-verified the deci
 Cohesion: 0.53
 Nodes (5): film_images, film_people_roles, film_videos, films, films_fts
 
-### Community 559 - "Placeholder"
-Cohesion: 0.33
-Nodes (9): TestGenderBucket(), TestPlaceholderResolution(), GenderBucket(), minF(), paletteFor(), Placeholder(), placeholderDims(), shoulderWidth() (+1 more)
-
-### Community 561 - "Spec: Job History — Digest, Pagination, Entity Search (F21.3b)"
-Cohesion: 0.40
-Nodes (5): ADR-071 (job-run attribution and paginated history), entity_type/entity_id/batch_id attribution columns (P0-1/P0-2), Job-run digest (per-kind aggregate, P0-3), Spec: Job History — Digest, Pagination, Entity Search (F21.3b), P0-4/P0-6 (paginated log, adjacency rollup) dropped after Q1
-
 ### Community 563 - "Manual QA Checklist: Two-Tier Field Editing Model (F56)"
 Cohesion: 0.40
 Nodes (5): 1. Setup / preconditions, 2. Smoke — automated (green in CI), 3. Agent — drive the running app, 4. Human — needs an eye (run in **all three skins**: Cinémathèque · Broadcast · Brutalist), Manual QA Checklist: Two-Tier Field Editing Model (F56)
@@ -1680,7 +1660,7 @@ Cohesion: 0.50
 Nodes (4): Future considerations (P2), Must-have (P0), Nice-to-have (P1), Requirements
 
 ## Knowledge Gaps
-- **1916 isolated node(s):** `$schema`, `SessionStart`, `PostToolUse`, `Stop`, `PreToolUse` (+1911 more)
+- **1922 isolated node(s):** `$schema`, `SessionStart`, `PostToolUse`, `Stop`, `PreToolUse` (+1917 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **231 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1688,16 +1668,16 @@ Nodes (4): Future considerations (P2), Must-have (P0), Nice-to-have (P1), Requir
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Canonical Field Registry (operator reference)` connect `Configuration Reference (holodex.yaml layers)` to `.mergePromotions`, `Spec: Derived/calculated person fields (F45)`?**
-  _High betweenness centrality (0.314) - this node is a cross-community bridge._
+  _High betweenness centrality (0.333) - this node is a cross-community bridge._
 - **Why does `Spec: Derived/calculated person fields (F45)` connect `Spec: Derived/calculated person fields (F45)` to `QA: Metadata Writeback (F28)`, `Configuration Reference (holodex.yaml layers)`?**
-  _High betweenness centrality (0.305) - this node is a cross-community bridge._
-- **Why does `Lookup()` connect `Lookup` to `.filmDecisionTarget`, `Complete`, `net/http.ResponseWriter`, `Field`, `EnrichmentRow`, `Service`, `net/http.Request`, `ResolveFields`, `ResolvedField`, `AutoRegisterFields`, `Derive`, `.mergePromotions`?**
-  _High betweenness centrality (0.216) - this node is a cross-community bridge._
+  _High betweenness centrality (0.316) - this node is a cross-community bridge._
+- **Why does `Lookup()` connect `Lookup` to `SanitizeValue`, `Complete`, `Field`, `Service`, `parseEntityType`, `ResolveFields`, `ResolvedField`, `AutoRegisterFields`, `time.Time`, `.mergePromotions`, `.relinkVideoPeople`?**
+  _High betweenness centrality (0.222) - this node is a cross-community bridge._
 - **Are the 157 inferred relationships involving `newRepo()` (e.g. with `TestAliasesSurviveRescan()` and `TestMergePersons()`) actually correct?**
   _`newRepo()` has 157 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `$schema`, `SessionStart`, `PostToolUse` to the rest of the system?**
-  _1916 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1922 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `types.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.01908360888049126 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.01882396794334172 - nodes in this community are weakly interconnected._
 - **Should `media/[id]/+page.svelte` be split into smaller, more focused modules?**
-  _Cohesion score 0.04114071996259935 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.053998632946001365 - nodes in this community are weakly interconnected._
