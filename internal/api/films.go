@@ -22,6 +22,7 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	r.Post("/films", h.createFilm)
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
+	h.mountFilmStudioCascade(r)
 }
 
 // listFilms handles GET /films (F56): name-sorted films with active-video counts.

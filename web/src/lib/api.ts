@@ -23,6 +23,7 @@ import type {
 	Film,
 	FilmDetailResponse,
 	FilmSceneCollision,
+	FilmStudioCascadeResult,
 	FilmVideoCandidate,
 	JobRun,
 	JobDigest,
@@ -50,6 +51,7 @@ import type {
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
+	DecisionSource,
 	FieldClaim,
 	FieldPromotionRequest,
 	FieldPromotionView,
@@ -557,6 +559,18 @@ export const api = {
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/films/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
+	// Film-studio cascade (F57, HOLODEX-285, ADR-086): one owner action that sets a new
+	// manual Studio decision AND enqueues a file writeback across every video attached
+	// to the film. Owner-gated. results is best-effort per video (D2) -- a collision or
+	// error on one video never blocks the others. batch_id is "" when nothing enqueued
+	// (every video collided/errored, or the film has no attached videos).
+	cascadeFilmStudio: (id: number, req: { source: DecisionSource; manual_value?: string }) =>
+		sendAuthed<{ batch_id: string; results: FilmStudioCascadeResult[] }>(
+			'POST',
+			`/films/${id}/studio/cascade`,
+			req
 		),
 
 	search: (q: string, fetchFn?: typeof fetch) =>
