@@ -43,6 +43,7 @@ import type {
 	Studio,
 	StudioDetailResponse,
 	StudioImageRole,
+	FilmImageRole,
 	Tag,
 	TrashEntry,
 	Video,
@@ -502,6 +503,17 @@ export const api = {
 	// is idempotent.
 	createFilm: (name: string, year?: number) =>
 		sendAuthed<{ film: Film }>('POST', `/films`, { name, year: year ?? 0 }),
+
+	// Film images (F56/HOLODEX-280, ADR-086): poster/thumb, owner upload/replace/
+	// remove — mirrors uploadStudioImage/deleteStudioImage exactly.
+	uploadFilmImage: (id: number, file: File, role: FilmImageRole) => {
+		const form = new FormData();
+		form.append('image', file);
+		return uploadAuthed<{ id: number; version: number }>(`/films/${id}/images/${role}`, form);
+	},
+
+	deleteFilmImage: (id: number, role: FilmImageRole) =>
+		sendAuthed<Record<string, never>>('DELETE', `/films/${id}/images/${role}`),
 
 	// Film↔video attach/detach (owner-gated). scene_number null = unnumbered.
 	// attachFilmVideo/bulkAttachFilmVideos surface a scene-number collision as

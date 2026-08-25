@@ -241,6 +241,13 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if err := os.MkdirAll(cfg.StudioImagePath, 0o755); err != nil {
 		log.Warn("studio image dir create failed", "dir", cfg.StudioImagePath, "err", err)
 	}
+	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb): on-disk store under
+	// DATA_PATH/film-images. Not yet wired into imagesink.New's dispatch — no
+	// enrichment writer exists (HOLODEX-284) — the owner-upload handler stores
+	// directly via imagesink.ReplaceFilmImageFile.
+	if err := os.MkdirAll(cfg.FilmImagePath, 0o755); err != nil {
+		log.Warn("film image dir create failed", "dir", cfg.FilmImagePath, "err", err)
+	}
 	// One entity-generic sink (internal/imagesink) backs both: the enrichment asset
 	// path and the upload handlers share one normalize+store per entity kind, so a
 	// provider photo gets the same metadata strip as an upload, for person and studio
@@ -363,6 +370,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// 'logo') as part of the schema change itself, unlike ADR-057's original derived-
 	// cache backfill (which had to reconstruct state the old table never had).
 	handlers.SetStudioImages(cfg.StudioImagePath, cfg.StudioImageMaxBytes, cfg.StudioImageMaxDimension)
+	handlers.SetFilmImages(cfg.FilmImagePath, cfg.FilmImageMaxBytes, cfg.FilmImageMaxDimension)
 	handlers.SetProviderIcons(cfg.ProviderIconPath, cfg.ProviderIconMaxDimension)
 	// Provider brand-icon refresh (ADR-059): fetch/normalize each enabled provider's
 	// advertised brand_icon and prune orphans. Off the main path in a bounded goroutine

@@ -185,7 +185,14 @@ func (r *Repo) ListFilms(ctx context.Context) ([]model.Film, error) {
 		return nil, fmt.Errorf("list films: %w", err)
 	}
 	defer rows.Close()
-	return scanFilms(rows)
+	films, err := scanFilms(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.attachFilmImages(ctx, films); err != nil {
+		return nil, err
+	}
+	return films, nil
 }
 
 // ListFilmsForEntity returns every film whose video union (film_videos joined
@@ -218,7 +225,14 @@ func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID
 		return nil, fmt.Errorf("list films for entity: %w", err)
 	}
 	defer rows.Close()
-	return scanFilms(rows)
+	films, err := scanFilms(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.attachFilmImages(ctx, films); err != nil {
+		return nil, err
+	}
+	return films, nil
 }
 
 // GetFilm returns a film by id with its active-video count, or ErrNotFound.
@@ -231,6 +245,11 @@ func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
 	if err != nil {
 		return nil, err
 	}
+	versions, err := r.filmImageVersions(ctx, []int64{id})
+	if err != nil {
+		return nil, err
+	}
+	f.ImageVersions = versions[id]
 	return &f, nil
 }
 
@@ -253,7 +272,14 @@ func (r *Repo) SearchFilms(ctx context.Context, query string, limit int) ([]mode
 		return nil, fmt.Errorf("search films: %w", err)
 	}
 	defer rows.Close()
-	return scanFilms(rows)
+	films, err := scanFilms(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.attachFilmImages(ctx, films); err != nil {
+		return nil, err
+	}
+	return films, nil
 }
 
 // FilmVideo is one scene/full-film row on a film's detail page: the video plus its

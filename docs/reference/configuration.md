@@ -20,7 +20,7 @@ A value set by a higher-precedence layer always wins. `holodex.yaml` is the stan
 | `data_path` | `DATA_PATH` | `./data` | Read-write data directory: SQLite database, thumbnails, person images, and runtime config. |
 | `database_path` | `DATABASE_PATH` | `${data_path}/holodex.db` | Explicit database path. Defaults to `holodex.db` inside `data_path`. Override only if you need the database on a separate volume. |
 
-`thumbnail_path`, `person_image_path`, and `studio_image_path` are derived from `data_path` automatically and cannot be set directly.
+`thumbnail_path`, `person_image_path`, `studio_image_path`, and `film_image_path` are derived from `data_path` automatically and cannot be set directly.
 
 ---
 
@@ -125,6 +125,17 @@ Icon/logo/poster images for studios — sourced from enrichment providers by def
 |--------------------|---------|---------|-------------|
 | `studio_image_max_bytes` | `STUDIO_IMAGE_MAX_BYTES` | `10485760` (10 MiB) | Maximum allowed request-body size for a studio image upload. Larger uploads are rejected with `413`. |
 | `studio_image_max_dimension` | `STUDIO_IMAGE_MAX_DIMENSION` | `1000` | Maximum stored image dimension (longest side, in pixels). Images exceeding this are downscaled before storage. |
+
+---
+
+## Film images
+
+Poster/thumb images for films — owner-uploadable per role (only `poster` has a consuming UI today). Requires `films_enabled: true`. (F56/HOLODEX-280, ADR-086)
+
+| `holodex.yaml` key | Env var | Default | Description |
+|--------------------|---------|---------|-------------|
+| `film_image_max_bytes` | `FILM_IMAGE_MAX_BYTES` | `10485760` (10 MiB) | Maximum allowed request-body size for a film image upload. Larger uploads are rejected with `413`. |
+| `film_image_max_dimension` | `FILM_IMAGE_MAX_DIMENSION` | `1500` | Maximum stored image dimension (longest side, in pixels). Images exceeding this are downscaled before storage. |
 
 ---
 
