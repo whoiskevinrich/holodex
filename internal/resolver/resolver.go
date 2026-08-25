@@ -311,14 +311,23 @@ func ResolveFields(
 	opts Options,
 ) []ResolvedField {
 	out := make([]ResolvedField, 0, len(fields))
+	filmNS := filmNamespaces(enrichment)
 	for _, f := range fields {
 		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
 		if len(items) == 0 {
 			// A replace field with a *standing* decision stays in the output even
 			// when the decided value is empty (e.g. a blank-pin to an empty person
 			// baseline, F37 RD3) — dropping it would hide the pin and leave no
-			// control to change or clear it. Undecided empty fields drop as before.
-			if _, decided := opts.lookup(f.Canonical); !decided || f.Multi || f.Merge {
+			// control to change or clear it. Likewise, a field with an available
+			// but undecided film candidate (F56/ADR-085 §4) must stay: film sources
+			// are deliberately excluded from resolvePrecedence's default-winner walk
+			// (so attaching a film never silently overwrites Album/Title), but that
+			// means items is empty until the owner explicitly decides it — dropping
+			// the field here would hide the only chip that lets them do so. Other
+			// undecided empty fields (no file/provider/film value at all) still drop.
+			_, decided := opts.lookup(f.Canonical)
+			hasFilmCand := !f.Multi && !f.Merge && hasFilmCandidate(enrichment, filmNS, f.Canonical)
+			if !decided && !hasFilmCand {
 				continue
 			}
 		}
@@ -341,7 +350,7 @@ func ResolveFields(
 		// F36 markers are replace-only (RD1): merge fields keep F30 per-value
 		// curation and carry no source decision.
 		if !rf.Multi {
-			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items)
+			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items, filmNS)
 		}
 		out = append(out, rf)
 	}
@@ -465,6 +474,9 @@ func resolveField(
 		if vals, ok := baseline.Baseline(src); ok {
 			return vals
 		}
+		if vals, ok := filmSourceValue(enrichment, src.Namespace, f.Canonical); ok {
+			return vals
+		}
 		if pFields, ok := enrichment[src.Namespace]; ok {
 			return pFields[src.Key]
 		}
@@ -490,6 +502,20 @@ func resolveField(
 // item (the field drops), exactly as an undecided empty field would.
 func resolveDecided(baseline BaselineSource, enrichment Enrichment, fc FieldCuration, dec Decision, f mapping.Field) ([]ResolvedValue, string) {
 	if name := fieldsource.Provider(dec.Source); name != "" {
+		// A film source ("provider:film:<id>", F56/ADR-085 §4) has no
+		// YAML-declared ParsedSources entry, by design (a film attachment is
+		// asserted per-video at runtime, not statically configured) — skip the
+		// scan below and read the synthetic candidate directly, keyed by the
+		// field's own canonical name. films_enabled=false or a since-detached
+		// film simply omits this namespace from enrichment, so this falls
+		// through to nil exactly like a decided-but-currently-unmatched
+		// provider does (ADR-085 §5's suspend mechanism — no new state needed).
+		if vals, ok := filmSourceValue(enrichment, name, f.Canonical); ok {
+			if cand := firstNonEmpty(vals); cand != "" {
+				return decidedItem(cand, name, fc, f, false), name + ":" + f.Canonical
+			}
+			return nil, ""
+		}
 		pFields := enrichment[name]
 		for _, src := range f.ParsedSources {
 			if src.Namespace != name {
@@ -609,12 +635,53 @@ func resolvePrecedence(gather func(mapping.Source) []string, fc FieldCuration, f
 	return nil, ""
 }
 
+// filmSourceValue reads a film source's ("film:<id>", F56/ADR-085 §4) raw values for
+// canonical, keyed by the field's own canonical name since the synthetic per-video
+// namespace has no YAML-declared source key. ok is false when ns isn't a film
+// namespace, so callers fall through to their normal (non-film) handling. Shared by
+// gather and resolveDecided, the two places a field's value is resolved from a
+// specific source.
+func filmSourceValue(enrichment Enrichment, ns, canonical string) (vals []string, ok bool) {
+	if !strings.HasPrefix(ns, "film:") {
+		return nil, false
+	}
+	return enrichment[ns][canonical], true
+}
+
+// filmNamespaces collects and sorts every "film:<id>" namespace present in enrichment
+// (F56/ADR-085 §4). Computed once per video by ResolveFields and threaded into
+// replaceMarkers for each of the video's replace fields, rather than rescanning the
+// full enrichment map on every one of them.
+func filmNamespaces(enrichment Enrichment) []string {
+	var ns []string
+	for k := range enrichment {
+		if strings.HasPrefix(k, "film:") {
+			ns = append(ns, k)
+		}
+	}
+	slices.Sort(ns)
+	return ns
+}
+
+// hasFilmCandidate reports whether any of the video's "film:<id>" namespaces
+// (F56/ADR-085 §4) offers a non-empty value for canonical — used by ResolveFields
+// to keep an otherwise-empty replace field from being dropped, since a film
+// candidate needs a field row to attach its chip to (see call site comment).
+func hasFilmCandidate(enrichment Enrichment, filmNS []string, canonical string) bool {
+	for _, ns := range filmNS {
+		if firstNonEmpty(enrichment[ns][canonical]) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // replaceMarkers computes the F36 source-of-truth markers for a replace field: the
 // candidate list (file value + each matched provider's value), the decision marker
 // (standing or the implicit file-first default winner), and the in-sync flag. A
 // field is out of sync only when a *standing* decision's value differs from the
 // file-embedded value — an undecided (file-default) field is in sync by construction.
-func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue) (*FieldDecision, []FieldCandidate, *bool) {
+func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue, filmNS []string) (*FieldDecision, []FieldCandidate, *bool) {
 	// File baseline candidate (always present; Value may be "").
 	fileRaw, _, _ := baselineValue(baseline, f)
 	fileVal := applyCasing(fileRaw, f.Casing)
@@ -636,6 +703,28 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		}
 		seen[name] = true
 		candidates = append(candidates, FieldCandidate{Source: fieldsource.ForProvider(name), Provider: name, Value: pv})
+	}
+
+	// Film-source candidates (F56, ADR-085 §4): "film:<id>" namespaces are injected
+	// synthetically per-video (injectFilmSources) rather than declared in
+	// f.ParsedSources, so they need their own scan here — without it, a video
+	// attached to a film would resolve the film's value correctly (resolveField's
+	// gather already handles the "film:" namespace) but SourceBadge would have no
+	// chip to offer it through, since sourceChips is built entirely from this
+	// candidate list. Provider is the film's own name (the injected value, not the
+	// raw "film:<id>" key) so the chip/provenance label reads as the film's title.
+	// filmNS is collected once per video by the caller (ResolveFields), not
+	// rescanned here on every one of a video's replace fields.
+	for _, ns := range filmNS {
+		if seen[ns] {
+			continue
+		}
+		pv := applyCasing(firstNonEmpty(enrichment[ns][f.Canonical]), f.Casing)
+		if pv == "" {
+			continue
+		}
+		seen[ns] = true
+		candidates = append(candidates, FieldCandidate{Source: fieldsource.ForProvider(ns), Provider: pv, Value: pv})
 	}
 
 	// Decision marker: a standing decision, else the implicit default winner so the

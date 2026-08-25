@@ -157,8 +157,8 @@ fields:
     filterable: true
 
   - canonical: collection
-    label: Collection
-    sources: [Album, Collection]
+    label: Film
+    sources: [Album, Collection] # opinionated default (Album first) — remap to any file tag(s) your files use
     filterable: true
 
   # --- Series / episode ordering (file tags) ---

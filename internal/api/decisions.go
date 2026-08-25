@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -259,7 +261,15 @@ func (h *Handlers) replaceField(w http.ResponseWriter, canonical string) (mappin
 // providerMatched reports whether a provider currently has enrichment rows for the
 // entity — the "matched provider" precondition for a provider decision (ADR-051 §1).
 // Entity-generic: the video and person decision paths share it (F37).
+//
+// A film source (F56, ADR-085 §4) is a video-only exception: injectFilmSources
+// synthesizes its "film:<id>" candidates from film_videos at read time and never
+// persists them to entity_enrichment, so the row scan below can never match one —
+// a real attachment in film_videos is the equivalent "currently offered" check.
 func (h *Handlers) providerMatched(r *http.Request, entityType string, id int64, provider string) bool {
+	if entityType == model.EnrichEntityVideo && strings.HasPrefix(provider, "film:") {
+		return h.filmAttachedToVideo(r, id, provider)
+	}
 	rows, err := h.repo.EnrichmentForEntity(r.Context(), entityType, id)
 	if err != nil {
 		h.log.Warn("enrichment lookup for decision", "id", id, "err", err)
@@ -267,6 +277,26 @@ func (h *Handlers) providerMatched(r *http.Request, entityType string, id int64,
 	}
 	for _, row := range rows {
 		if row.Provider == provider {
+			return true
+		}
+	}
+	return false
+}
+
+// filmAttachedToVideo reports whether the video actually has a film_videos row for
+// the "film:<id>" provider namespace — see providerMatched.
+func (h *Handlers) filmAttachedToVideo(r *http.Request, videoID int64, provider string) bool {
+	filmID, err := strconv.ParseInt(strings.TrimPrefix(provider, "film:"), 10, 64)
+	if err != nil {
+		return false
+	}
+	films, err := h.repo.FilmsForVideo(r.Context(), videoID)
+	if err != nil {
+		h.log.Warn("films lookup for decision", "id", videoID, "err", err)
+		return false
+	}
+	for _, f := range films {
+		if f.FilmID == filmID {
 			return true
 		}
 	}

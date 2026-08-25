@@ -20,8 +20,15 @@
 	// calls `decide` directly. Entity-agnostic like SourceSelect (`baselineKey`: 'file' for
 	// videos, 'record' for persons/studios). Tokens only; QA 3 skins.
 	import { tick, untrack } from 'svelte';
-	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
-	import { isProviderSource, outOfSync, providerOf, resolveSelection, sourceChips, type SourceChip } from '$lib/f36';
+	import type { DecisionSource, ResolvedField } from '$lib/types';
+	import {
+		chipToResolvedValue,
+		isProviderSource,
+		outOfSync,
+		resolveSelection,
+		sourceChips,
+		type SourceChip
+	} from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import { dismissable } from '$lib/actions/dismissable';
 	import { expandedField } from '$lib/expandedField.svelte';
@@ -58,15 +65,16 @@
 	// invisible at rest (handoff: "renders exactly as ProvenanceBadge does today").
 	const selection = $derived(resolveSelection(field, chips, baselineKey));
 	const selectedChip = $derived(chips.find((c) => c.key === selection.key) ?? chips[0]);
+	// selectedChip.labels[0] carries the chip's own friendly name (FieldCandidate.Provider —
+	// the provider slug for a real provider, or the film's own name for a "film:<id>" source,
+	// per replaceMarkers), not the raw namespace in `sources` — re-deriving from
+	// providerOf(decisionSource) (or reading sources[0] directly) would show "film:1" instead
+	// of "Dune" for a film candidate.
 	const badgeProvider = $derived(
-		isProviderSource(selectedChip.decisionSource) ? providerOf(selectedChip.decisionSource) : ''
+		isProviderSource(selectedChip.decisionSource) ? (selectedChip.labels[0] ?? '') : ''
 	);
 
 	const expanded = $derived(expandedField.isOpen(field.canonical));
-
-	function itemFor(chip: SourceChip): ResolvedValue {
-		return { value: chip.value, sources: chip.sources, manual: chip.manual };
-	}
 
 	// stagedKey is the local, uncommitted selection while expanded — distinct from
 	// SourceSelect's `pendingKey` (an optimistic override for an in-flight commit). Nothing
@@ -267,7 +275,7 @@
 							<CurationChip
 								item={stagedKey === 'custom'
 									? { value: stagedCustomValue, sources: ['manual'], manual: true }
-									: itemFor(chip)}
+									: chipToResolvedValue(chip)}
 								isOwner={false}
 								radio={{
 									key: 'custom',
@@ -303,7 +311,7 @@
 						{/if}
 					{:else}
 						<CurationChip
-							item={itemFor(chip)}
+							item={chipToResolvedValue(chip)}
 							isOwner={false}
 							radio={{
 								key: chip.key,

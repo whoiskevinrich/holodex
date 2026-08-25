@@ -22,8 +22,8 @@
 	// written), letting the page open a confirm flow (rename). Selection stays at rest on the
 	// committed chip — nothing changes until the page's flow lands and the detail refetches.
 	import { tick } from 'svelte';
-	import type { DecisionSource, ResolvedField, ResolvedValue } from '$lib/types';
-	import { outOfSync, resolveSelection, sourceChips, type SourceChip } from '$lib/f36';
+	import type { DecisionSource, ResolvedField } from '$lib/types';
+	import { chipToResolvedValue, outOfSync, resolveSelection, sourceChips, type SourceChip } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import CurationChip from './CurationChip.svelte';
 
@@ -63,11 +63,6 @@
 	// meaningful while no optimistic override is in flight; a mid-selection pendingKey is never
 	// itself the RD6 case (arrowing/clicking always targets a real chip to decide).
 	const isPending = $derived(pendingKey === null && selection.pending);
-
-	// The value item CurationChip's radio mode renders (value + provenance from the chip's sources).
-	function itemFor(chip: SourceChip): ResolvedValue {
-		return { value: chip.value, sources: chip.sources, manual: chip.manual };
-	}
 
 	let busy = $state(false);
 	let error = $state('');
@@ -237,7 +232,7 @@
 				{:else if chip.value}
 					<!-- Decided manual literal: a value chip (·manual) that re-opens the editor on select. -->
 					<CurationChip
-						item={itemFor(chip)}
+						item={chipToResolvedValue(chip)}
 						isOwner={false}
 						radio={{
 							key: 'custom',
@@ -273,7 +268,7 @@
 				{/if}
 			{:else}
 				<CurationChip
-					item={itemFor(chip)}
+					item={chipToResolvedValue(chip)}
 					isOwner={false}
 					radio={{
 						key: chip.key,

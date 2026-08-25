@@ -7,7 +7,7 @@
 // `baselineKey` — 'file' for videos (the default, so every F36 call site is untouched),
 // 'record' for persons (RD4: `·file` is factually wrong for a person). Only the key is
 // parameterized; the anchor/fold/select behavior is identical across entities.
-import type { DecisionSource, FieldCandidate, ResolvedField } from './types';
+import type { DecisionSource, FieldCandidate, ResolvedField, ResolvedValue } from './types';
 
 const PROVIDER_PREFIX = 'provider:';
 
@@ -57,14 +57,24 @@ export function providerCandidates(field: ResolvedField): FieldCandidate[] {
 // SourceChip is one selectable value chip in the unified source-of-truth control (HOLODEX-112).
 // It collapses the old resolved-chip + segmented-control + candidates-line into a single row of
 // source-tagged value chips: one chip per *distinct* candidate value, tagged with every source
-// that supplies it. `decisionSource` is what selecting the chip pins; `sources` feeds
-// CurationChip's `·provenance` suffix (and its provider-vs-baseline colouring).
+// that supplies it. `decisionSource` is what selecting the chip pins; `sources` is what
+// resolveSelection matches a standing decision's raw source key against, so it must stay
+// namespace-only (e.g. "film:42", not the film's own name) — `labels` is the parallel,
+// display-friendly array (e.g. "Dune") that feeds CurationChip's `·provenance` suffix and
+// SourceBadge's collapsed-state label instead.
 export interface SourceChip {
 	key: string; // stable DOM/selection key: baselineKey | 'provider:<name>' | 'custom'
 	value: string; // display value ('' on the baseline chip ⇒ UI placeholder; '' on custom ⇒ opener)
 	sources: string[]; // provenance namespaces, e.g. ['file'], ['record'], ['tmdb'], ['file','tmdb']
+	labels: string[]; // display names parallel to `sources` — equal to `sources` except for a film source, whose namespace ("film:42") differs from its display name ("Dune")
 	decisionSource: DecisionSource; // the decision selecting this chip pins
 	manual?: boolean; // the trailing Custom chip
+}
+
+// CurationChip's provenance suffix wants display labels ("Dune"), not the raw namespaces
+// `sources` carries for decision-matching ("film:42") — see the SourceChip doc comment above.
+export function chipToResolvedValue(chip: SourceChip): ResolvedValue {
+	return { value: chip.value, sources: chip.labels, manual: chip.manual };
 }
 
 // sourceChips builds the one-row chip model for a replace field. The entity baseline is always
@@ -80,25 +90,34 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 		key: baselineKey,
 		value: baseVal,
 		sources: [baselineKey],
+		labels: [baselineKey],
 		decisionSource: baselineKey as DecisionSource
 	};
 	const chips: SourceChip[] = [base];
 
 	for (const c of providerCandidates(field)) {
-		const name = c.provider || providerOf(c.source);
+		const ns = providerOf(c.source);
+		const label = c.provider || ns;
 		const v = c.value.trim();
 		if (baseVal.trim() !== '' && v === baseVal.trim()) {
-			if (!base.sources.includes(name)) base.sources.push(name);
+			if (!base.sources.includes(ns)) {
+				base.sources.push(ns);
+				base.labels.push(label);
+			}
 			continue;
 		}
 		const twin = chips.find((ch) => ch.decisionSource !== baselineKey && ch.value.trim() === v);
 		if (twin) {
-			if (!twin.sources.includes(name)) twin.sources.push(name);
+			if (!twin.sources.includes(ns)) {
+				twin.sources.push(ns);
+				twin.labels.push(label);
+			}
 		} else {
 			chips.push({
 				key: c.source,
 				value: c.value,
-				sources: [name],
+				sources: [ns],
+				labels: [label],
 				decisionSource: c.source as DecisionSource
 			});
 		}
@@ -109,6 +128,7 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 		key: 'custom',
 		value: manual ? (field.decision?.manual_value ?? '') : '',
 		sources: ['manual'],
+		labels: ['manual'],
 		decisionSource: 'manual',
 		manual: true
 	});

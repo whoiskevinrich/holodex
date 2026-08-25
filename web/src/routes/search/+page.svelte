@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { activity } from '$lib/activity.svelte';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { toMessage } from '$lib/format';
 	import type { SearchResponse } from '$lib/types';
@@ -37,7 +38,7 @@
 		loading = true;
 		error = '';
 		api
-			.search(term)
+			.searchAll(term, !!activity.caps?.films_enabled)
 			.then((res) => {
 				results = res;
 			})

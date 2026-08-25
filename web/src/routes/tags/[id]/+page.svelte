@@ -7,6 +7,8 @@
 	import type { Category, EntityRef, Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '$lib/filmsRow.svelte';
 	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
@@ -38,6 +40,9 @@
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
 	});
+
+	// Films row (F56, design handoff §5) — see filmsRow.svelte.ts.
+	const filmsState = filmsRow(() => id, 'tagId');
 
 	async function reloadTag() {
 		if (!tag) return;
@@ -659,6 +664,9 @@
 					</dl>
 				</section>
 			{/if}
+		{/snippet}
+		{#snippet footer()}
+			<FilmsRow films={filmsState.films} />
 		{/snippet}
 	</EntityVideos>
 </AsyncState>

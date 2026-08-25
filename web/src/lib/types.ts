@@ -383,6 +383,10 @@ export interface MediaDetailResponse {
 	// links to its /studios/{id} page; the link target always matches the displayed
 	// value because video_studios is derived from that same resolution (RD1).
 	studios?: Studio[] | null;
+	// Films this video is attached to (F56, design handoff §3a) — non-nil (empty array,
+	// never null) when films_enabled is on; empty/omitted when off (server-side gate,
+	// same read-suppression as the resolver-source injection at getMedia).
+	films?: FilmAttachment[];
 	// enrich_queries maps provider name -> the rendered /resolve search query the
 	// Enrich picker should default to (F54, ADR-080): each enabled video-capable
 	// provider's own precedence chain (operator pattern -> provider-advertised
@@ -441,6 +445,10 @@ export interface SearchResponse {
 	people: Person[] | null;
 	tags: Tag[] | null;
 	studios: Studio[] | null;
+	// films is spliced in client-side (F56) — the backend Search() aggregation has no
+	// films branch, so callers fetch it separately via api.listFilms(q) and merge it
+	// onto the response themselves. Absent/undefined when films_enabled is off.
+	films?: Film[] | null;
 }
 
 // "More with …" related-media shelves (ADR-031, QW2/QW3). Either block is null when
@@ -564,6 +572,9 @@ export interface Capabilities {
 	// person_gallery_max is the per-person 'extra' gallery cap (F25), so the gallery
 	// can warn at the limit and offer the owner an explicit over-cap "add anyway".
 	person_gallery_max: number;
+	// films_enabled gates the Films entity (F56, ADR-085) — routes, nav, video-list
+	// hiding, and the resolver-source injection are all suspended when false.
+	films_enabled: boolean;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
@@ -754,6 +765,67 @@ export interface StudioDetailResponse {
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
 	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
+}
+
+// Film is a first-class entity (F56, ADR-085): unlike Studio/Tag, its video membership
+// (film_videos) is an owner ASSERTION, never derived from resolved fields — a film may
+// be created and hold zero videos indefinitely. Name+year is its identity key (year
+// collisions across different releases are the common case), not a bare unique name.
+// No poster_url yet — the poster pipeline (HOLODEX-280) is unbuilt; every film
+// renders the monogram fallback until that ships.
+export interface Film {
+	id: number;
+	name: string;
+	year?: number;
+	video_count?: number;
+}
+
+// FilmVideo is one scene/full-film row on a film's detail page (F56): the video plus
+// its film_videos attachment attributes. scene_number is null for an unnumbered scene
+// (legal, non-colliding); is_full_film splits the detail page's two regions.
+export interface FilmVideo {
+	video: Video;
+	scene_number: number | null;
+	is_full_film: boolean;
+}
+
+// FilmAttachment is one film a video is linked to — the "Also in: X" badge on the
+// film→video candidates picker, and the resolver-source injection's provenance.
+export interface FilmAttachment {
+	film_id: number;
+	film_name: string;
+	is_full_film: boolean;
+	// null for an unnumbered scene or a full-film attachment (which carries no scene
+	// number) — the media detail page's Films section badge shows "#N" or "Full film".
+	scene_number: number | null;
+}
+
+// FilmDetailResponse is GET /films/{id} (F56): the film, its resolved[] fields (record
+// vocabulary), the two detail-page regions (scenes vs. full_films), and the read-only
+// inherited cast/tags/studios (set union over its videos, no relink/prune semantics).
+export interface FilmDetailResponse {
+	film: Film;
+	resolved?: ResolvedField[] | null;
+	scenes: FilmVideo[];
+	full_films: FilmVideo[];
+	cast: Person[];
+	tags: Tag[];
+	studios: Studio[];
+}
+
+// FilmSceneCollision names the video already occupying a requested scene number
+// (409 payload from attach/bulk-attach) — no silent swap, no auto-bump renumbering.
+export interface FilmSceneCollision {
+	video_id: number;
+	video_title: string;
+}
+
+// FilmVideoCandidate is one row in the film→video attach picker's result list
+// (design handoff §4): the video plus, when it's already linked to a film other than
+// the one being edited, which film(s) — so the picker can show an "Also in: X" badge.
+export interface FilmVideoCandidate {
+	video: Video;
+	already_attached: FilmAttachment[];
 }
 
 // ExternalLink is one badge-ready outbound link (HOLODEX-266, ADR-083 D2/D3), mirroring

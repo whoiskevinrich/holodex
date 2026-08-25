@@ -4,7 +4,12 @@
 	import { activity } from '$lib/activity.svelte';
 	import { mediaDensity, viewportTierCap } from '$lib/density.svelte';
 
-	let { videos, empty = 'No videos.' }: { videos: Video[]; empty?: string } = $props();
+	let {
+		videos,
+		empty = 'No videos.',
+		sceneNumbers
+	}: { videos: Video[]; empty?: string; sceneNumbers?: (video: Video) => number | null | undefined } =
+		$props();
 
 	// Responsive reflow (F12.6) + user density preference: the viewport tier caps how many
 	// columns fit before cards get too small; the density slider picks how many of those
@@ -24,7 +29,7 @@
 		data-layout={activity.cardLayout}
 	>
 		{#each videos as video (video.id)}
-			<VideoCard {video} />
+			<VideoCard {video} sceneNumber={sceneNumbers?.(video)} />
 		{/each}
 	</div>
 {/if}

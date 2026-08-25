@@ -8,8 +8,9 @@
 	// Roving tabindex for both the tab row and result rows (NS5), matching the pattern
 	// established by EnrichPicker.svelte — not aria-activedescendant.
 	import type { Snippet } from 'svelte';
-	import type { Person, SearchResponse, Studio, Tag, Video } from '$lib/types';
+	import type { Film, Person, SearchResponse, Studio, Tag, Video } from '$lib/types';
 	import { SEARCH_TABS, type SearchTab } from '$lib/navSearch.svelte';
+	import { monogram } from '$lib/format';
 
 	let {
 		results,
@@ -36,21 +37,25 @@
 		onnavigate?: () => void;
 	} = $props();
 
-	type GroupKey = 'people' | 'videos' | 'studios' | 'tags';
-	type RowItem = { id: string; label: string; sub: string; href: string };
+	type GroupKey = 'people' | 'videos' | 'studios' | 'tags' | 'films';
+	// thumb: true renders a monogram poster chip before the label — films is the one
+	// group where a thumbnail matters (design handoff), the rest stay text-only rows.
+	type RowItem = { id: string; label: string; sub: string; href: string; thumb?: boolean };
 	type Group = { key: GroupKey; label: string; rows: RowItem[]; total: number; hasMore: boolean };
 
 	const GROUP_LABELS: Record<GroupKey, string> = {
 		people: 'People',
 		videos: 'Videos',
 		studios: 'Studios',
-		tags: 'Tags'
+		tags: 'Tags',
+		films: 'Films'
 	};
 	const VIEW_ALL_PATH: Record<GroupKey, string> = {
 		people: '/people',
 		videos: '/',
 		studios: '/studios',
-		tags: '/tags'
+		tags: '/tags',
+		films: '/films'
 	};
 
 	function personRow(p: Person): RowItem {
@@ -64,6 +69,9 @@
 	}
 	function videoRow(v: Video): RowItem {
 		return { id: `v${v.id}`, label: v.title, sub: '', href: `/media/${v.id}` };
+	}
+	function filmRow(f: Film): RowItem {
+		return { id: `f${f.id}`, label: f.name, sub: f.year ? String(f.year) : '', href: `/films/${f.id}`, thumb: true };
 	}
 
 	// Per-tab cap: tight (3) when "All" is sharing screen space across up to 4 groups,
@@ -87,11 +95,16 @@
 	}
 
 	const groups = $derived.by((): Group[] => {
-		const wantedKeys: GroupKey[] = activeTab === 'all' ? ['people', 'videos', 'studios', 'tags'] : [activeTab];
+		// films has no dedicated tab (results.films is only ever populated in the "all"
+		// merge — see navSearch.svelte.ts/search/+page.svelte) and is naturally omitted
+		// whenever films_enabled is off, since callers simply never populate it.
+		const wantedKeys: GroupKey[] =
+			activeTab === 'all' ? ['people', 'videos', 'studios', 'tags', 'films'] : [activeTab];
 		const built: Group[] = wantedKeys.map((key) => {
 			if (key === 'people') return buildGroup(key, results?.people ?? null, personRow);
 			if (key === 'studios') return buildGroup(key, results?.studios ?? null, studioRow);
 			if (key === 'tags') return buildGroup(key, results?.tags ?? null, tagRow);
+			if (key === 'films') return buildGroup(key, results?.films ?? null, filmRow);
 			return buildGroup(key, results?.videos ?? null, videoRow);
 		});
 		return built.filter((g) => g.total > 0);
@@ -272,7 +285,15 @@
 						{#each g.rows as row, ri (row.id)}
 							{@const flatIndex = groupOffsets[gi] + ri}
 							{#snippet rowBody()}
-								<span class="truncate">{row.label}</span>
+								<span class="flex min-w-0 flex-1 items-center gap-2">
+									{#if row.thumb}
+										<span
+											class="flex h-6 w-4 shrink-0 items-center justify-center rounded-theme bg-logo-plate text-[9px] font-semibold text-logo-plate-ink"
+											aria-hidden="true">{monogram(row.label)}</span
+										>
+									{/if}
+									<span class="truncate">{row.label}</span>
+								</span>
 								{#if row.sub}<span class="shrink-0 text-xs text-muted">{row.sub}</span>{/if}
 							{/snippet}
 							{@render resultRow(flatIndex, row.href, 'row', rowBody)}

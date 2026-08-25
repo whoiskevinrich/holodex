@@ -300,7 +300,14 @@ type VideoFilter struct {
 	// MappedFilters constrain by configurable mapped fields (F20.5); each must
 	// match (AND), like People/Tags.
 	MappedFilters []MappedFilter
-	Limit, Offset int
+	// UnattachedToAnyFilm excludes videos already attached to any film (F56) —
+	// the film→video picker's default scope (design handoff §4).
+	UnattachedToAnyFilm bool
+	// ExcludeAttachedToFilmID excludes videos already attached to this specific
+	// film (F56) — keeps a film's video-candidates picker from re-offering
+	// videos it already owns. Ignored when zero.
+	ExcludeAttachedToFilmID int64
+	Limit, Offset           int
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
@@ -517,6 +524,13 @@ func (f VideoFilter) build() (string, []any) {
 	if f.DateTo != "" {
 		clauses = append(clauses, "v.recorded_at <= ?")
 		args = append(args, f.DateTo+"T23:59:59Z")
+	}
+	if f.UnattachedToAnyFilm {
+		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id)")
+	}
+	if f.ExcludeAttachedToFilmID > 0 {
+		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id AND fv.film_id = ?)")
+		args = append(args, f.ExcludeAttachedToFilmID)
 	}
 	for _, mf := range f.MappedFilters {
 		if mf.Value == "" || len(mf.SourceKeys) == 0 {

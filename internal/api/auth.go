@@ -235,11 +235,15 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		// PersonGalleryMax is the per-person 'extra' gallery cap (F25), so the SPA can
 		// warn at the limit and offer the owner an explicit over-cap "add anyway".
 		PersonGalleryMax int `json:"person_gallery_max"`
+		// FilmsEnabled gates the Films entity (F56, ADR-085); the SPA renders no
+		// films routes/nav when false.
+		FilmsEnabled bool `json:"films_enabled"`
 	}{
 		Owner:                    h.auth.authorized(r),
 		AuthRequired:             h.auth.Required(),
 		DeleteGracePeriodSeconds: int(h.deleteGrace.Seconds()),
 		CardLayout:               h.cardLayout,
 		PersonGalleryMax:         h.repo.GalleryCapValue(),
+		FilmsEnabled:             h.filmsEnabled,
 	})
 }

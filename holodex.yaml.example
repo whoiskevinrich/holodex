@@ -90,6 +90,12 @@ metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 #   "poster"           — 2:3 poster cards; suited to film libraries with cover art.
 # card_layout: "wide"              # CARD_LAYOUT
 
+# films_enabled turns on the Films entity (F56, ADR-085): browsable films with
+# owner-asserted video/scene attachments, resolver-source Album/Title writeback,
+# and inherited cast/tags. Off by default. Film-library operators typically pair
+# this with card_layout: "poster" above.
+# films_enabled: false             # FILMS_ENABLED
+
 # --- Metadata source of truth (F36, ADR-051) ---
 # default_source governs which source wins a REPLACE (scalar) field when the owner
 # has made no per-field decision. It does not affect merge/set fields.

@@ -127,6 +127,10 @@ type Handlers struct {
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
 
+	// filmsEnabled gates the Films entity (F56, ADR-085); default false. Surfaced
+	// via /capabilities so the SPA knows whether to render films routes/nav at all.
+	filmsEnabled bool
+
 	// defaultSource is the F36 undecided source-of-truth mode ("file" | "mapping",
 	// ADR-051/RD4). It feeds resolver.Options so an undecided field resolves
 	// file-first by default; empty means file-first.
@@ -254,6 +258,14 @@ func (h *Handlers) SetCardLayout(layout string) {
 	h.cardLayout = layout
 }
 
+// SetFilmsEnabled wires the Films entity flag (F56, ADR-085). Called once at
+// startup before serving; route registration, search/MCP exclusion, and the film
+// resolver source injection point all read this via capabilities()/direct field
+// access rather than re-deriving it from config.
+func (h *Handlers) SetFilmsEnabled(enabled bool) {
+	h.filmsEnabled = enabled
+}
+
 // SetDefaultSource wires the F36 undecided source-of-truth mode ("file" | "mapping",
 // ADR-051/RD4). Config validates the value before this is called. Empty means
 // file-first (the default). Called once at startup before serving.
@@ -307,6 +319,12 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/poster", h.servePoster)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
+	// Films (F56, ADR-085) — unregistered entirely when films_enabled is off,
+	// per spec: not merely hidden, the routes don't exist. Mutations gated below.
+	if h.filmsEnabled {
+		r.Get("/films", h.listFilms)
+		r.Get("/films/{id}", h.getFilm)
+	}
 	// Studio images (F51, ADR-079): the on-disk normalized JPEG for a filled role, or
 	// 404 (the SPA renders its own fallback). Public read; mutations are gated below.
 	r.Get("/studios/{id}/images/{role}", h.serveStudioImage)
@@ -363,6 +381,11 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
 		h.mountStudioImages(r)
+		// Films — create + attach/detach/bulk-attach (F56, ADR-085); unregistered
+		// entirely when films_enabled is off, mirroring the public routes above.
+		if h.filmsEnabled {
+			h.mountFilms(r)
+		}
 		// Video poster — owner-gated upload/remove, a new tier on the existing
 		// thumbnail pipeline (F52, HOLODEX-252).
 		h.mountVideoPoster(r)
@@ -664,6 +687,21 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	setThumbnailURL(v)
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
+	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
+	// the resolver-source injection below (mappings path only) and the response's
+	// "films" field (always) — avoiding two identical DB round-trips for the same
+	// video (same principle as the enrichment-rows fetch a few lines down). Non-nil so
+	// a video with no film link marshals "films": [], never null (HOLODEX-275
+	// precedent, same as studios below). Gated on filmsEnabled: reads are suppressed,
+	// never destructive, when the flag is off.
+	films := []repo.FilmAttachment{}
+	if h.filmsEnabled {
+		if fa, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
+			h.log.Warn("films for media detail", "id", id, "err", ferr)
+		} else {
+			films = fa
+		}
+	}
 	var fields []mapping.Resolved
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
@@ -679,6 +717,15 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			h.log.Warn("enrichment for detail", "id", id, "err", err2)
 		} else {
 			enr := enrichmentFromRows(enrichRows)
+			// Film resolver source (F56, ADR-085 §4/§5): injecting synthetic
+			// "film:<id>" candidates is the whole of films_enabled's read-suppression
+			// -- when off, `films` above was never fetched and this is a no-op, and
+			// any standing per-field decision on a film source falls through to the
+			// existing decided-but-currently-unmatched-provider path (empty, not
+			// re-derived).
+			if h.filmsEnabled {
+				enr = injectFilmSources(enr, films)
+			}
 			// Value-level curation (F30): manual adds, suppressions, no-write flags.
 			var cur resolver.Curation
 			if curRows, curErr := h.repo.CurationForEntity(r.Context(), model.EnrichEntityVideo, id); curErr != nil {
@@ -763,6 +810,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		"resolved":       resolved,
 		"enriched":       enriched,
 		"studios":        studios,
+		"films":          films,
 		"enrich_queries": enrichQueries,
 		"completeness":   completeness,
 	})
@@ -1203,10 +1251,18 @@ func (h *Handlers) fail(w http.ResponseWriter, op string, err error) {
 	writeError(w, http.StatusInternalServerError, "internal error")
 }
 
+// pathID parses the conventional single-{id} path param.
 func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	return urlParamID(w, r, "id")
+}
+
+// urlParamID parses a named chi path param as a positive int64, writing 400 and
+// returning false otherwise. Routes that nest two ids (e.g. film_videos.go's
+// {filmId}/{videoId}) name them explicitly; pathID is the single-{id} shorthand.
+func urlParamID(w http.ResponseWriter, r *http.Request, param string) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, param), 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid id")
+		writeError(w, http.StatusBadRequest, "invalid "+param)
 		return 0, false
 	}
 	return id, true
@@ -1260,6 +1316,29 @@ func enrichmentFromRows(rows []repo.EnrichmentRow) resolver.Enrichment {
 		out[r.Provider][r.FieldKey] = r.Values
 	}
 	return out
+}
+
+// injectFilmSources adds synthetic "film:<id>" resolver-source candidates for a video's
+// film attachments (F56, ADR-085 §4): the film name as a "collection" (Album) candidate
+// for every attachment, plus a "title" candidate when the file represents the entire
+// film. Mirrors enrichmentFromRows' shape so resolveDecided/gather's "film:"-prefixed
+// branches (internal/resolver/resolver.go) read it the same way they read a provider's
+// enrichment row.
+func injectFilmSources(enr resolver.Enrichment, films []repo.FilmAttachment) resolver.Enrichment {
+	if len(films) == 0 {
+		return enr
+	}
+	if enr == nil {
+		enr = make(resolver.Enrichment, len(films))
+	}
+	for _, f := range films {
+		fields := map[string][]string{"collection": {f.FilmName}}
+		if f.IsFullFilm {
+			fields["title"] = []string{f.FilmName}
+		}
+		enr["film:"+strconv.FormatInt(f.FilmID, 10)] = fields
+	}
+	return enr
 }
 
 // curationFromRows converts repo curation rows to the resolver.Curation map

@@ -20,6 +20,10 @@ import type {
 	Facet,
 	FacetSummary,
 	CompletenessFacetGroup,
+	Film,
+	FilmDetailResponse,
+	FilmSceneCollision,
+	FilmVideoCandidate,
 	JobRun,
 	JobDigest,
 	MediaDetailResponse,
@@ -195,16 +199,17 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
 
-// sendConflictable is sendAuthed's sibling for the two owner mutations that can
-// resolve a composite-key collision (HOLODEX-270/272) as `{conflict}` instead of
-// throwing: curateMedia and setFieldDecision. Any other 409 (e.g. "item deleted")
-// still throws, or a caller checking only `if (res.conflict)` would fall through
-// to its success path.
-async function sendConflictable<TReq>(
+// sendConflictable is sendAuthed's sibling for owner mutations that can resolve a
+// composite-key collision as `{conflict}` instead of throwing: curateMedia and
+// setFieldDecision (HOLODEX-270/272, VideoCollisionRef), and the film attach
+// endpoints (F56, FilmSceneCollision naming the scene-number occupant). Any other
+// 409 (e.g. "item deleted") still throws, or a caller checking only
+// `if (res.conflict)` would fall through to its success path.
+async function sendConflictable<TReq, TConflict = VideoCollisionRef>(
 	method: 'POST' | 'PUT',
 	path: string,
 	body: TReq
-): Promise<{ conflict?: VideoCollisionRef }> {
+): Promise<{ conflict?: TConflict }> {
 	const res = await fetch(`${BASE}${path}`, {
 		method,
 		credentials: CREDS,
@@ -214,7 +219,7 @@ async function sendConflictable<TReq>(
 	});
 	checkRedirect(res);
 	if (res.status === 409) {
-		const conflictBody = (await res.json().catch(() => ({}))) as { conflict?: VideoCollisionRef };
+		const conflictBody = (await res.json().catch(() => ({}))) as { conflict?: TConflict };
 		if (conflictBody.conflict) return { conflict: conflictBody.conflict };
 		throw new ApiError(res.status, path);
 	}
@@ -472,8 +477,117 @@ export const api = {
 	deleteStudioImage: (id: number, role: StudioImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
 
+	// Film entities (F56, ADR-085): the first entity whose video membership is an owner
+	// assertion, not a derived link — see docs/architecture/ADR-085-films-entity.md.
+	// Reads are public (gated on films_enabled server-side at Mount); mutations are
+	// owner-gated. ?q= name-searches (FTS); ?person_id=/?studio_id=/?tag_id= filter to
+	// films whose video union includes that entity (mutually exclusive with ?q).
+	listFilms: (
+		opts: { q?: string; personId?: number; studioId?: number; tagId?: number } = {},
+		fetchFn?: typeof fetch
+	) => {
+		const p = new URLSearchParams();
+		if (opts.q) p.set('q', opts.q);
+		if (opts.personId) p.set('person_id', String(opts.personId));
+		if (opts.studioId) p.set('studio_id', String(opts.studioId));
+		if (opts.tagId) p.set('tag_id', String(opts.tagId));
+		const qs = p.toString();
+		return get<{ items: Film[] }>(`/films${qs ? `?${qs}` : ''}`, fetchFn);
+	},
+
+	getFilm: (id: number, fetchFn?: typeof fetch) => get<FilmDetailResponse>(`/films/${id}`, fetchFn),
+
+	// createFilm is get-or-create on (name, year): a duplicate submit returns the
+	// existing film rather than a 409, so the video→film picker's "create new" action
+	// is idempotent.
+	createFilm: (name: string, year?: number) =>
+		sendAuthed<{ film: Film }>('POST', `/films`, { name, year: year ?? 0 }),
+
+	// Film↔video attach/detach (owner-gated). scene_number null = unnumbered.
+	// attachFilmVideo/bulkAttachFilmVideos surface a scene-number collision as
+	// `{conflict}` (naming the occupant) instead of throwing, mirroring curateMedia's
+	// composite-key-collision contract.
+	attachFilmVideo: (filmId: number, videoId: number, sceneNumber: number | null, isFullFilm: boolean) =>
+		sendConflictable<
+			{ video_id: number; scene_number: number | null; is_full_film: boolean },
+			FilmSceneCollision
+		>('POST', `/films/${filmId}/videos`, {
+			video_id: videoId,
+			scene_number: sceneNumber,
+			is_full_film: isFullFilm
+		}),
+
+	bulkAttachFilmVideos: (filmId: number, videoIds: number[], startingSceneNumber: number) =>
+		sendConflictable<{ video_ids: number[]; starting_scene_number: number }, FilmSceneCollision>(
+			'POST',
+			`/films/${filmId}/videos/bulk`,
+			{ video_ids: videoIds, starting_scene_number: startingSceneNumber }
+		),
+
+	detachFilmVideo: (filmId: number, videoId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/videos/${videoId}`),
+
+	// filmVideoCandidates is the film→video picker's search (owner-gated): default
+	// scope excludes videos attached to ANY film; unattached:false widens to the whole
+	// library and flags already-attached-elsewhere via each row's already_attached.
+	filmVideoCandidates: (
+		filmId: number,
+		opts: { q?: string; studioId?: number; personId?: number; unattached?: boolean } = {}
+	) => {
+		const p = new URLSearchParams();
+		if (opts.q) p.set('q', opts.q);
+		if (opts.studioId) p.set('studio_id', String(opts.studioId));
+		if (opts.personId) p.set('person', String(opts.personId));
+		if (opts.unattached === false) p.set('unattached', 'false');
+		const qs = p.toString();
+		return getAuthed<{ items: FilmVideoCandidate[]; total: number }>(
+			`/films/${filmId}/video-candidates${qs ? `?${qs}` : ''}`
+		);
+	},
+
+	// Film per-field source decisions (F56, mirrors the studio pair) — DB-only, no
+	// writeback/rename (name is baseline-backed and read-only in v1).
+	setFilmFieldDecision: (id: number, canonical: string, req: DecisionRequest) =>
+		sendAuthed<Record<string, never>>(
+			'PUT',
+			`/films/${id}/fields/${encodeURIComponent(canonical)}/decision`,
+			req
+		),
+	clearFilmFieldDecision: (id: number, canonical: string) =>
+		sendAuthed<Record<string, never>>(
+			'DELETE',
+			`/films/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
 	search: (q: string, fetchFn?: typeof fetch) =>
 		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
+
+	// searchAll composes the base search aggregation with a parallel films fetch (F56):
+	// GET /search has no films branch by design (frontend-merge decision) — films is
+	// fetched separately via listFilms and spliced onto the response, omitted entirely
+	// when filmsEnabled is false. Shared by the nav search box and the /search page,
+	// which otherwise each reimplemented this splice identically. filmsEnabled is
+	// passed in by the caller (already holding activity.caps) rather than read here,
+	// keeping this module free of app-state imports. The films fetch is isolated with
+	// its own .catch: it's an additive group, so a films-only failure (network error,
+	// non-2xx) degrades to "no films group" rather than failing the whole search and
+	// discarding the People/Videos/Studios/Tags results api.search already fetched.
+	searchAll: async (
+		q: string,
+		filmsEnabled: boolean,
+		fetchFn?: typeof fetch
+	): Promise<SearchResponse> => {
+		const [res, films] = await Promise.all([
+			api.search(q, fetchFn),
+			filmsEnabled
+				? api
+						.listFilms({ q }, fetchFn)
+						.then((r) => r.items)
+						.catch(() => null)
+				: Promise.resolve(null)
+		]);
+		return films ? { ...res, films } : res;
+	},
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),
