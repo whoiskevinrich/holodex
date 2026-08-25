@@ -112,3 +112,11 @@ All six implementation items are done. Nothing left in this list — the epic is
   spot-check if a reviewer wants to see it rendered, not considered blocking since the same
   component code renders both branches from the same `results` array already exercised for the
   Enqueued branch.
+- also: confirmed Draft PR #254 is already marked ready for review (`ready_for_review` fired
+  2026-08-25T21:14:23Z) and `jira-sync.yml` ran successfully against it. Jira still shows
+  HOLODEX-285 as **In Progress**, not In Review — this is expected, not a stall:
+  `scripts/jira-branch-sync.mjs` logged `"HOLODEX-285: is an Epic — status is reviewed
+  manually, skipping"`. The script deliberately excludes Epics from the automated In
+  Review/Done transition (they're reviewed manually), so this epic's Jira status will only
+  change when a human moves it. Nothing left to do here — PR #254 is open, not draft, and
+  every gate is green; the epic's Jira status is a manual call outside this worklog's scope.
