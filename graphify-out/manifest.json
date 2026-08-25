@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "internal/api/decisions.go": {
-    "mtime": 1787692739.2253072,
-    "seen": 1787694920.2988505,
-    "ast_hash": "8c0fb99013c36e8af58074c93c7657b6",
+    "mtime": 1787695338.552446,
+    "seen": 1787695507.6059382,
+    "ast_hash": "62d4937ff0c5fe9fc3eabec272fe3abf",
     "semantic_hash": ""
   },
   "internal/api/decisions_test.go": {
@@ -1836,9 +1836,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/api.ts": {
-    "mtime": 1787693491.3925169,
-    "seen": 1787694920.299262,
-    "ast_hash": "c2af3bf5a6121d0a337736c70d7a3cd3",
+    "mtime": 1787695338.601749,
+    "seen": 1787695507.6064582,
+    "ast_hash": "6a3c26279b9f3700f92fc82e1a6e02e4",
     "semantic_hash": ""
   },
   "web/src/lib/browse.svelte.ts": {
@@ -2286,9 +2286,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/types.ts": {
-    "mtime": 1787693472.2629356,
-    "seen": 1787694920.2993734,
-    "ast_hash": "ad67519ac63aa394dc6368892ba408bf",
+    "mtime": 1787695338.2635891,
+    "seen": 1787695507.606595,
+    "ast_hash": "9cfc19cc1808d22840fa247033bc751b",
     "semantic_hash": ""
   },
   "web/src/lib/writebackJob.test.ts": {
@@ -2328,9 +2328,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/media/[id]/+page.svelte": {
-    "mtime": 1787682057.3611996,
-    "seen": 1787694920.2993844,
-    "ast_hash": "67f90091783a3f572c8d1deb83c22a94",
+    "mtime": 1787695301.6930432,
+    "seen": 1787695507.6066089,
+    "ast_hash": "c1e0b9a52fe3c27dfcc6796cd7370f40",
     "semantic_hash": ""
   },
   "web/src/routes/owner/+layout.svelte": {
@@ -3018,9 +3018,9 @@
     "semantic_hash": "9678b4a7fbc2f32265dc3b7b957274b2"
   },
   "docs/architecture/README.md": {
-    "mtime": 1787681961.7489185,
-    "seen": 1787694920.2995586,
-    "ast_hash": "7945d666768f3b596368a5a09fb76a19",
+    "mtime": 1787695354.6429484,
+    "seen": 1787695507.606776,
+    "ast_hash": "ecf54985829b8dda28e1aa21e8eec2e2",
     "semantic_hash": ""
   },
   "docs/design/admin-mode-handoff.md": {
@@ -3474,9 +3474,9 @@
     "semantic_hash": ""
   },
   "docs/specs/metadata-provider-contract.md": {
-    "mtime": 1786645528.0291913,
-    "seen": 1787694920.2996962,
-    "ast_hash": "3b7c92437969d43177085135f0272b00",
+    "mtime": 1787695301.6895275,
+    "seen": 1787695507.606944,
+    "ast_hash": "dd2da2d479ce2c8c65dc6cfd77a3de89",
     "semantic_hash": ""
   },
   "docs/specs/metadata-refresh.md": {
@@ -3630,9 +3630,9 @@
     "semantic_hash": ""
   },
   "docs/testing-strategy.md": {
-    "mtime": 1787684232.314478,
-    "seen": 1787694920.2997413,
-    "ast_hash": "d09bdcc0ba896a07ed991ae2dc7d43c5",
+    "mtime": 1787695338.1196117,
+    "seen": 1787695507.6069994,
+    "ast_hash": "526755a9576702220f5c9a7897d4f042",
     "semantic_hash": ""
   },
   "flightplan/README.md": {
@@ -3720,9 +3720,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/CLAUDE.md": {
-    "mtime": 1787682057.3601902,
-    "seen": 1787694920.2997599,
-    "ast_hash": "9cf518ecc4e467809cbdaf5da45e8512",
+    "mtime": 1787695301.6910377,
+    "seen": 1787695507.6070201,
+    "ast_hash": "fd0a8b7b6bd4bc82405ee11b0e73b3b6",
     "semantic_hash": ""
   },
   "web/src/lib/components/extraction/CLAUDE.md": {
@@ -4164,9 +4164,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/writeback/WritebackBatchDialog.svelte": {
-    "mtime": 1787694629.7466652,
-    "seen": 1787694920.2993386,
-    "ast_hash": "b04433af67504d0da76d5c733701f8ad",
+    "mtime": 1787695338.8362288,
+    "seen": 1787695507.606554,
+    "ast_hash": "36dbe71bd4933ac4ecfdc852c5ce7ab1",
     "semantic_hash": ""
   },
   "web/src/routes/categories/[id]/+page.svelte": {
@@ -4626,15 +4626,15 @@
     "semantic_hash": ""
   },
   "internal/api/film_studio_cascade.go": {
-    "mtime": 1787692795.384801,
-    "seen": 1787694920.2988899,
-    "ast_hash": "6ca602784869c5931a40efca70feae9d",
+    "mtime": 1787695338.45663,
+    "seen": 1787695507.605988,
+    "ast_hash": "a7ebf5cf37ec69de927185efb6622aa0",
     "semantic_hash": ""
   },
   "internal/api/film_studio_cascade_test.go": {
-    "mtime": 1787693221.0144846,
-    "seen": 1787694920.298891,
-    "ast_hash": "3a4b1799a3b55a56cd4cf0db48f4b3da",
+    "mtime": 1787695338.5039139,
+    "seen": 1787695507.6059897,
+    "ast_hash": "b7ed70f6c0374dab42da65c0c3c19223",
     "semantic_hash": ""
   },
   "internal/api/film_videos.go": {
@@ -4788,9 +4788,9 @@
     "semantic_hash": ""
   },
   "internal/repo/films.go": {
-    "mtime": 1787692745.003071,
-    "seen": 1787694920.2991354,
-    "ast_hash": "00e582082c1d2279537c8408c9a2010f",
+    "mtime": 1787695338.658736,
+    "seen": 1787695507.6062899,
+    "ast_hash": "58810d764f4a884dc847be6b3d4dd73a",
     "semantic_hash": ""
   },
   "internal/repo/films_test.go": {
@@ -4920,9 +4920,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/NameEditControl.svelte": {
-    "mtime": 1787682057.3611996,
-    "seen": 1787694920.2993035,
-    "ast_hash": "75700dec0c15c1f1a48d8441577a2da4",
+    "mtime": 1787695301.6920445,
+    "seen": 1787695507.6065106,
+    "ast_hash": "235cb6d516c1676bdf4255e98febf8fa",
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/PersonPicker.svelte": {
@@ -4950,9 +4950,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/film/FilmStudioCascadeDialog.svelte": {
-    "mtime": 1787693714.2441308,
-    "seen": 1787694920.2993126,
-    "ast_hash": "dc1805f27c38b69949551d93310de949",
+    "mtime": 1787695338.7564838,
+    "seen": 1787695507.606522,
+    "ast_hash": "c3f04cc2a92d74b619e538326545b64d",
     "semantic_hash": ""
   },
   "web/src/lib/components/person/PersonPosterCard.svelte": {
@@ -5057,12 +5057,6 @@
     "ast_hash": "d760f0a04f479eaa3a1d341fa353b912",
     "semantic_hash": ""
   },
-  "docs/architecture/ADR-086-film-studio-cascade-decide-and-writeback.md": {
-    "mtime": 1787681942.7485125,
-    "seen": 1787694920.2995574,
-    "ast_hash": "43d5edbbaf1cbd5baa45e33730915dbb",
-    "semantic_hash": ""
-  },
   "docs/design/entity-completeness-handoff.md": {
     "mtime": 1786645528.0176811,
     "seen": 1787694920.2995734,
@@ -5070,9 +5064,9 @@
     "semantic_hash": ""
   },
   "docs/design/film-studio-cascade-writeback-handoff.md": {
-    "mtime": 1787683770.7663386,
-    "seen": 1787694920.2995787,
-    "ast_hash": "d1f2312fa231c68911b48c9afd3a8242",
+    "mtime": 1787695338.3173084,
+    "seen": 1787695507.6067996,
+    "ast_hash": "3b9855b1db726ef90f4a9dc7c239738f",
     "semantic_hash": ""
   },
   "docs/design/films-entity-handoff.md": {
@@ -5250,15 +5244,15 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-279.md": {
-    "mtime": 1787634236.2298107,
-    "seen": 1787694920.2996676,
-    "ast_hash": "b2a243c013a0992e19df5cf0aa5203aa",
+    "mtime": 1787695301.6880229,
+    "seen": 1787695507.6069102,
+    "ast_hash": "4ada0a151450143f356466f7c6de142c",
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-285.md": {
-    "mtime": 1787694817.2223644,
-    "seen": 1787694920.2996688,
-    "ast_hash": "8c6b0c2686204a37b78578b348305b2d",
+    "mtime": 1787695338.3601851,
+    "seen": 1787695507.6069112,
+    "ast_hash": "6c66b9ac55ad0d37550284ea305c09cf",
     "semantic_hash": ""
   },
   "docs/specs/entity-completeness-score.md": {
@@ -5268,15 +5262,15 @@
     "semantic_hash": ""
   },
   "docs/specs/film-studio-cascade-writeback.md": {
-    "mtime": 1787682635.5781248,
-    "seen": 1787694920.299689,
-    "ast_hash": "6962330857c9a9d9e378fb48f6b6efe1",
+    "mtime": 1787695338.4164634,
+    "seen": 1787695507.6069355,
+    "ast_hash": "5641916f2a3b21c4c980ef636c3ffd75",
     "semantic_hash": ""
   },
   "docs/specs/films-entity.md": {
-    "mtime": 1787333623.9394932,
-    "seen": 1787694920.29969,
-    "ast_hash": "63d7d5bf3ad2da41c7697f03b3fac52d",
+    "mtime": 1787695301.6880229,
+    "seen": 1787695507.6069367,
+    "ast_hash": "1c3f20765a4ae93ee63f23d0f1a00c5f",
     "semantic_hash": ""
   },
   "docs/specs/people-poster-view.md": {
@@ -5328,15 +5322,27 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/film/CLAUDE.md": {
-    "mtime": 1787694868.4480972,
-    "seen": 1787694920.2997622,
-    "ast_hash": "1eac942682d3dd2f5dd2b42aff1c950d",
+    "mtime": 1787695338.7045958,
+    "seen": 1787695507.6070225,
+    "ast_hash": "64a8914453e98bbbc94a2b3ffb572842",
     "semantic_hash": ""
   },
   "docs/design/film-studio-cascade-writeback-mockup.svg": {
     "mtime": 1787683765.9252746,
     "seen": 1787694920.2997756,
     "ast_hash": "6e868471a304648f77d600380a3bbb9d",
+    "semantic_hash": ""
+  },
+  "docs/architecture/ADR-086-film-provider-enrichment.md": {
+    "mtime": 1787695301.6867151,
+    "seen": 1787695507.6067739,
+    "ast_hash": "4a51338b9bee61c2730e93f1d765be84",
+    "semantic_hash": ""
+  },
+  "docs/architecture/ADR-087-film-studio-cascade-decide-and-writeback.md": {
+    "mtime": 1787695338.0748353,
+    "seen": 1787695507.606775,
+    "ast_hash": "bb7e3dc225d13ffe3abc04c5b2301f02",
     "semantic_hash": ""
   }
 }
