@@ -22,9 +22,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"os"
-	"path/filepath"
-	"strconv"
 
 	// Register the decoders Normalize sniffs for — jpeg/png/gif from the stdlib, all
 	// re-encoded to jpeg on the way in. webp (F42) comes from golang.org/x/image/webp,
@@ -34,6 +31,8 @@ import (
 	_ "image/png"
 
 	_ "golang.org/x/image/webp"
+
+	"holodex/internal/entityimage"
 )
 
 // Hash is the content identity of a stored image (F34/ADR-050): the hex sha256 of
@@ -58,14 +57,10 @@ const (
 // ImagePath is the on-disk location for a person's image (ADR-038/ADR-014):
 // {dir}/{personID}/{imageID}.jpg. The id is server-assigned (an integer), never a
 // request value, so traversal is structurally impossible. The per-person subdir is
-// NOT created here — callers that write use Store, which creates it.
+// NOT created here — callers that write use Store, which creates it. Delegates to
+// internal/entityimage (HOLODEX-286), shared with studioimage/filmimage.
 func ImagePath(dir string, personID, imageID int64) string {
-	return filepath.Join(dir, strconv.FormatInt(personID, 10), strconv.FormatInt(imageID, 10)+".jpg")
-}
-
-// personDir is the per-person subdir under the image root.
-func personDir(dir string, personID int64) string {
-	return filepath.Join(dir, strconv.FormatInt(personID, 10))
+	return entityimage.Path(dir, personID, imageID)
 }
 
 // Normalize sniffs, decodes, and re-encodes untrusted image bytes to a clean JPEG
@@ -153,28 +148,12 @@ func downscale(img image.Image, maxSide int) image.Image {
 // torn file (mirrors the thumbnail manager's atomic write). The caller has already
 // inserted the DB row, so imageID is the authoritative, server-assigned name.
 func Store(dir string, personID, imageID int64, data []byte) error {
-	if err := os.MkdirAll(personDir(dir, personID), 0o755); err != nil {
-		return fmt.Errorf("create person image dir: %w", err)
-	}
-	dst := ImagePath(dir, personID, imageID)
-	tmp := dst + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("write person image: %w", err)
-	}
-	if err := os.Rename(tmp, dst); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("rename person image: %w", err)
-	}
-	return nil
+	return entityimage.Store(dir, personID, imageID, data)
 }
 
 // Remove deletes a stored image file. A missing file is not an error (the row may
 // have outlived its bytes, or a prior delete was interrupted) — the DB row is the
 // source of truth and is removed separately.
 func Remove(dir string, personID, imageID int64) error {
-	err := os.Remove(ImagePath(dir, personID, imageID))
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove person image: %w", err)
-	}
-	return nil
+	return entityimage.Remove(dir, personID, imageID)
 }

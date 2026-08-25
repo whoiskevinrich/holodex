@@ -97,21 +97,7 @@ func (h *Handlers) servePersonImageFile(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusNotFound, "image not available")
 		return
 	}
-	f, err := os.Open(personimage.ImagePath(h.personImageDir, personID, imageID))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "image not available")
-		return
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || info.IsDir() {
-		writeError(w, http.StatusNotFound, "image not available")
-		return
-	}
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "image/jpeg")
-	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+	serveEntityImageFile(w, r, personimage.ImagePath(h.personImageDir, personID, imageID))
 }
 
 // servePlaceholder writes the themed placeholder SVG for an empty role. The skin

@@ -20,7 +20,7 @@
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
-	import FilmImageSlot from '$lib/components/film/FilmImageSlot.svelte';
+	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -30,7 +30,7 @@
 	// SourceBadge/`baselineKey='record'` pattern exactly — films have no rename/aliases/
 	// enrichment providers wired yet (HOLODEX-281 deferred). Poster/thumb images
 	// (HOLODEX-280, ADR-086) mirror Studio's dedicated Images section below the
-	// header, not a hero-image swap — see FilmImageSlot/StudioImageSlot.
+	// header, not a hero-image swap — see EntityImageSlot.
 	let film = $state<Film | null>(null);
 	let resolved = $state<ResolvedField[]>([]);
 	let scenes = $state<FilmVideo[]>([]);
@@ -180,22 +180,26 @@
 			<section class="space-y-2">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-					<FilmImageSlot
-						filmId={id}
-						filmName={film.name}
+					<EntityImageSlot
+						entityId={id}
+						entityName={film.name}
 						role="poster"
 						label="Poster"
 						url={film.poster_url}
 						{isOwner}
+						upload={api.uploadFilmImage}
+						remove={api.deleteFilmImage}
 						onchanged={reloadDetail}
 					/>
-					<FilmImageSlot
-						filmId={id}
-						filmName={film.name}
+					<EntityImageSlot
+						entityId={id}
+						entityName={film.name}
 						role="thumb"
 						label="Thumb"
 						url={film.thumb_url}
 						{isOwner}
+						upload={api.uploadFilmImage}
+						remove={api.deleteFilmImage}
 						onchanged={reloadDetail}
 					/>
 				</div>
