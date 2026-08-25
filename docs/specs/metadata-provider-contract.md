@@ -278,6 +278,18 @@ ones. Advertise whichever you support in `/describe.entity_types` (e.g.
 `["person", "video", "studio"]`); Holodex sends only the `entity_type` strings you advertised.
 `"series"`/`"media"` beyond the file-per-video model remain designed-in but unexercised.
 
+**Films are not (yet) a provider entity type.** Holodex F56/[ADR-085](../architecture/ADR-085-films-entity.md)
+added a fourth entity, **Film** — a durable, owner-asserted grouping of videos (e.g. scenes of the
+same production) with its own detail page. In v1 a film's membership is created entirely in the
+Holodex UI; there is no `entity_type: "film"` a provider can send or receive, and no
+`/resolve`/`/enrich` traffic for films exists today. A film's name does, however, compete as a
+**synthetic, non-provider** decision source for a linked video's `collection` (the "Film" field,
+[§4.2a](#42a-canonical-fields--videomedia)) and `title` fields, through the ordinary
+field-decision/precedence UI — see the reserved-namespace note in
+[§4.1](#41-external-ids-and-namespaces). Provider-driven film enrichment (matching a Film to an
+upstream source) is a deferred, not-yet-built roadmap item — see
+[Open items](#open-items-flagged-for-holodex-maintainers).
+
 **Video and studio each have their own canonical field vocabulary** — see [§4.2a](#42a-canonical-fields--videomedia)
 (video) and [§4.2b](#42b-canonical-fields--studio) (studio). Critically, **a video's poster and
 a studio's logo are `fields` entries (`poster_url`/`logo`), never `assets[]` entries** — v1 has
@@ -316,6 +328,13 @@ decide how your data maps onto stable namespaces and canonical keys.
   (Holodex validates this). If you can also resolve foreign ids (e.g. you accept an `imdb:` id and map
   it internally), advertise those namespaces too — a **namespace is a shared identity space**: two
   providers that both emit `imdb:tt1160419` refer to the **same** entity and Holodex converges them to one.
+- **`film:` is a reserved namespace prefix — do not use it.** Holodex's internal Films entity
+  (F56/[ADR-085](../architecture/ADR-085-films-entity.md)) injects synthetic per-video decision
+  sources named `film:<film-id>` so an owner-asserted film can compete for a video's
+  `collection`/`title` fields exactly like a real provider ([§3](#3-entity-types-and-matching)). A
+  provider whose own `name`/`id_namespaces` began with `film:` would collide with that reserved
+  prefix and risk being misread internally as a film source. Real provider namespaces never need a
+  `:`-suffixed numeric id, so this should never come up in practice — but avoid it regardless.
 - The `external_id` is the durable link Holodex stores to re-fetch the same record later, so
   it must be **stable and reversible**: the same input must resolve to the same id, and
   `/enrich` must accept any id your `/resolve` emitted.
@@ -1078,3 +1097,8 @@ truth if a clarification is needed:
   `studio` are all live and exercised today (this section previously said only `person` was
   supported; that was stale). A `series` entity type beyond the file-per-video model remains
   designed-in but unexercised; coordinate its canonical field vocabulary before shipping one.
+- **Film provider enrichment** — the Films entity (F56/[ADR-085](../architecture/ADR-085-films-entity.md))
+  is owner-asserted only in v1; matching a Film to an upstream metadata source is a deferred
+  roadmap item (films spec P1-1), with the provider and whether it gets its own `entity_type:
+  "film"` (vs. reusing `video`) not yet decided. No provider exercises this today — flagged here
+  so a provider author isn't surprised film support is absent from `entity_types`.
