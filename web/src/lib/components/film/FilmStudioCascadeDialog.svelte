@@ -276,9 +276,18 @@
 		</p>
 
 		<div class="mt-3 space-y-2">
-			<details open={collisions.length === 0 && errors.length === 0}>
-				<summary class="cursor-pointer text-sm text-ink">Enqueued ({enqueued.length})</summary>
-			</details>
+			{#if enqueued.length}
+				<details open={collisions.length === 0 && errors.length === 0}>
+					<summary class="cursor-pointer text-sm text-ink">Enqueued ({enqueued.length})</summary>
+					<ul class="mt-1.5 space-y-1.5 pl-3">
+						{#each enqueued as r (r.video_id)}
+							<li>
+								<a href={`/media/${r.video_id}`} class="text-sm text-ink hover:text-accent">{titleOf(r.video_id)}</a>
+							</li>
+						{/each}
+					</ul>
+				</details>
+			{/if}
 
 			{#if collisions.length}
 				<details open>

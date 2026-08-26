@@ -539,7 +539,8 @@ func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, e
 func (r *Repo) VideoIDsForFilm(ctx context.Context, filmID int64) ([]int64, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT v.id FROM film_videos fv JOIN videos v ON v.id = fv.video_id
-		WHERE fv.film_id = ? AND v.active = 1 AND v.deleted_at IS NULL`, filmID)
+		WHERE fv.film_id = ? AND v.active = 1 AND v.deleted_at IS NULL
+		ORDER BY v.id`, filmID)
 	if err != nil {
 		return nil, fmt.Errorf("video ids for film: %w", err)
 	}
