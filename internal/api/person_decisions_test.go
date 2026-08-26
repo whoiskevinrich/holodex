@@ -315,7 +315,7 @@ func TestPersonRename_HappyPath(t *testing.T) {
 		t.Errorf("old name should be an alias: %v", person["aliases"])
 	}
 	// …and stays searchable (alias FTS routing).
-	res, err := r.Search(context.Background(), "Alice", 10)
+	res, err := r.Search(context.Background(), "Alice", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}

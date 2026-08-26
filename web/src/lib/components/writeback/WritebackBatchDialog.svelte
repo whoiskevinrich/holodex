@@ -15,7 +15,8 @@
 		trigger,
 		batchStatus,
 		onclose,
-		onapplied
+		onapplied,
+		initialBatch
 	}: {
 		scopeLabel: string;
 		// Exact affected-video count when known up front (single tag: tag.video_count
@@ -24,7 +25,9 @@
 		// tag-writeback-exclusion-handoff.md) — the real figure appears from
 		// trigger()'s own `enqueued` once the sync actually starts.
 		videoCountHint: number | null;
-		trigger: () => Promise<{ batch_id: string; enqueued: number }>;
+		// Absent when `initialBatch` is set — that caller's batch is already enqueued,
+		// so there's nothing left to trigger.
+		trigger?: () => Promise<{ batch_id: string; enqueued: number }>;
 		batchStatus: (batchId: string) => Promise<BatchStatus>;
 		onclose: () => void;
 		// Fired once the batch settles (pending+running reach 0) or turns out to have
@@ -32,14 +35,21 @@
 		// a sync never changes tag.writeback_enabled/video_count, so most callers have
 		// nothing to refresh.
 		onapplied?: () => void;
+		// Seeds the dialog directly into 'progress' for a batch a caller already
+		// started server-side by the time this dialog mounts (F57, ADR-087 D2 — the
+		// Film-studio cascade) — skipping the confirm/starting interstitial AND
+		// trigger() itself, rather than wrapping the already-known {batch_id, enqueued}
+		// in a fake trigger() call. Additive: undefined for every existing caller, which
+		// keeps today's confirm → starting → progress sequence unchanged.
+		initialBatch?: { batch_id: string; enqueued: number };
 	} = $props();
 
 	// 'timeout' is its own phase (not a flag layered on 'progress') so every
 	// terminal outcome — settled or not — reads as one explicit state instead of
 	// forcing the template to re-derive "still running" from a side boolean.
 	type Phase = 'confirm' | 'starting' | 'progress' | 'done' | 'partial' | 'zero' | 'timeout' | 'error';
-	let phase = $state<Phase>('confirm');
-	let enqueued = $state(0);
+	let phase = $state<Phase>(initialBatch ? 'progress' : 'confirm');
+	let enqueued = $state(initialBatch?.enqueued ?? 0);
 	let status = $state<BatchStatus>({ pending: 0, running: 0, done: 0, failed: 0 });
 	let errorMsg = $state('');
 
@@ -49,6 +59,16 @@
 
 	onMount(() => {
 		dialogTrigger = document.activeElement as HTMLElement | null;
+		if (initialBatch) {
+			if (!initialBatch.batch_id) {
+				// Defensive: a caller-side bug producing an empty batch_id would
+				// otherwise poll forever against no batch. Mirrors start()'s own
+				// enqueued === 0 -> 'zero' fallback.
+				phase = 'zero';
+			} else {
+				void watch(initialBatch.batch_id);
+			}
+		}
 		const first = [
 			...(dialogEl?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [])
 		].find((el) => el.offsetParent !== null);
@@ -85,6 +105,14 @@
 		phase = 'starting';
 		errorMsg = '';
 		try {
+			if (!trigger) {
+				// Defensive: 'confirm'/'starting' are only reachable without
+				// initialBatch, whose caller contract implies trigger is set — but
+				// a violated contract must not permanently lock the dialog closed.
+				errorMsg = 'Nothing to start.';
+				phase = 'error';
+				return;
+			}
 			const res = await trigger();
 			enqueued = res.enqueued;
 			if (enqueued === 0) {
@@ -93,7 +121,19 @@
 				return;
 			}
 			phase = 'progress';
-			const final = await waitForWritebackBatch(res.batch_id, batchStatus, {
+			await watch(res.batch_id);
+		} catch (e) {
+			errorMsg = toMessage(e);
+			phase = 'error';
+		}
+	}
+
+	// Polls an already-enqueued batch to settlement — shared by start() (a batch this
+	// dialog just triggered) and initialBatch's onMount (a batch triggered before this
+	// dialog even mounted).
+	async function watch(batchId: string) {
+		try {
+			const final = await waitForWritebackBatch(batchId, batchStatus, {
 				cancelled: () => unmounted
 			});
 			status = final;

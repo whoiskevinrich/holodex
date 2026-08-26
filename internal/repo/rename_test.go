@@ -29,7 +29,7 @@ func TestRenamePerson(t *testing.T) {
 	if len(p.Aliases) != 1 || p.Aliases[0].Alias != "Alice" {
 		t.Fatalf("old name should be an alias: %+v", p.Aliases)
 	}
-	res, err := r.Search(ctx, "Alice", 10)
+	res, err := r.Search(ctx, "Alice", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}

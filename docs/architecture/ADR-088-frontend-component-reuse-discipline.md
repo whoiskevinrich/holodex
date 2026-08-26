@@ -1,4 +1,4 @@
-# ADR-086: Frontend component-reuse discipline
+# ADR-088: Frontend component-reuse discipline
 
 **Status:** Proposed
 **Date:** 2026-08-25

@@ -55,7 +55,7 @@ func (h *Handlers) setPersonFieldDecision(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
-	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r, model.EnrichEntityPerson, id, p) {
+	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityPerson, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this person")
 		return
 	}

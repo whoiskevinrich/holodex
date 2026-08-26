@@ -272,6 +272,12 @@ func (r *Repo) Reactivate(ctx context.Context, id int64) error {
 // Read path (API)
 // ---------------------------------------------------------------------------
 
+// hideFullFilmVideosClause excludes videos marked as representing their film's
+// entire runtime (RD6/HOLODEX-282). Shared between VideoFilter.build() and
+// randomSiblings, which can't use VideoFilter directly (see its own doc comment)
+// but must apply the identical predicate — a single definition keeps them in sync.
+const hideFullFilmVideosClause = "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id AND fv.is_full_film = 1)"
+
 // VideoFilter expresses the browse/search query (F4). Zero-valued fields are
 // ignored. People/Tags use AND semantics: a video must match every selected id.
 type VideoFilter struct {
@@ -307,7 +313,13 @@ type VideoFilter struct {
 	// film (F56) — keeps a film's video-candidates picker from re-offering
 	// videos it already owns. Ignored when zero.
 	ExcludeAttachedToFilmID int64
-	Limit, Offset           int
+	// HideFullFilmVideos excludes videos marked as representing their film's
+	// entire runtime (film_videos.is_full_film) — the RD6 subtractive hide
+	// (HOLODEX-282): set from h.filmsEnabled by every list surface (browse,
+	// search, EntityVideos-backing person/studio/tag reads). The video's own
+	// detail page (GetVideo) is unaffected — it stays reachable by direct URL.
+	HideFullFilmVideos bool
+	Limit, Offset      int
 	// Sort is a canonical sort key (F12.1); empty/unknown falls back to
 	// newest-indexed-first. See orderBy for the allowed set.
 	Sort string
@@ -531,6 +543,9 @@ func (f VideoFilter) build() (string, []any) {
 	if f.ExcludeAttachedToFilmID > 0 {
 		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id AND fv.film_id = ?)")
 		args = append(args, f.ExcludeAttachedToFilmID)
+	}
+	if f.HideFullFilmVideos {
+		clauses = append(clauses, hideFullFilmVideosClause)
 	}
 	for _, mf := range f.MappedFilters {
 		if mf.Value == "" || len(mf.SourceKeys) == 0 {
@@ -1238,8 +1253,9 @@ type RelatedMedia struct {
 // Related builds the two "More with …" shelves for a media item (ADR-031): one keyed
 // to its most-connected person, one to its most distinctive tag, each filled with up
 // to `limit` random sibling videos (excluding the item). Returns ErrNotFound if the
-// item is missing or inactive.
-func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedMedia, error) {
+// item is missing or inactive. hideFullFilmVideos excludes full-film videos from the
+// sibling shelves (RD6/HOLODEX-282) — pass h.filmsEnabled.
+func (r *Repo) Related(ctx context.Context, videoID int64, limit int, hideFullFilmVideos bool) (*RelatedMedia, error) {
 	if limit <= 0 {
 		limit = 5
 	}
@@ -1261,7 +1277,7 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 
 	// Person shelf — the item's person with the highest global active-video count
 	// (most-connected → most likely to populate the shelf); tie-break lowest id.
-	if out.Person, err = r.relatedShelf(ctx, videoID, limit, "person", "video_people", "person_id", `
+	if out.Person, err = r.relatedShelf(ctx, videoID, limit, hideFullFilmVideos, "person", "video_people", "person_id", `
 		SELECT p.id, p.name
 		FROM people p
 		JOIN video_people vp ON vp.person_id = p.id
@@ -1276,7 +1292,7 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 	// Tag shelf — the item's most *distinctive* tag: maximize c·(1 − c/N), where c is
 	// the tag's global active-video count and N is the total active videos. Rewards
 	// shared tags but demotes near-universal ones (ADR-031); tie-break higher c, lowest id.
-	if out.Tag, err = r.relatedShelf(ctx, videoID, limit, "tag", "video_tags", "tag_id", `
+	if out.Tag, err = r.relatedShelf(ctx, videoID, limit, hideFullFilmVideos, "tag", "video_tags", "tag_id", `
 		SELECT id, name FROM (
 			SELECT t.id AS id, t.name AS name,
 			       (SELECT COUNT(*) FROM video_tags vt2 JOIN videos v ON v.id = vt2.video_id
@@ -1298,7 +1314,7 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int) (*RelatedM
 // id, name and takes the video id as its only arg), then fills the shelf with random
 // siblings sharing that entity through junction/fk. Returns (nil, nil) when the item
 // has no such entity — a present-but-empty shelf still comes back with id/name.
-func (r *Repo) relatedShelf(ctx context.Context, videoID int64, limit int, label, junction, fk, pickQuery string) (*RelatedShelf, error) {
+func (r *Repo) relatedShelf(ctx context.Context, videoID int64, limit int, hideFullFilmVideos bool, label, junction, fk, pickQuery string) (*RelatedShelf, error) {
 	var id int64
 	var name string
 	switch err := r.db.QueryRowContext(ctx, pickQuery, videoID).Scan(&id, &name); {
@@ -1307,7 +1323,7 @@ func (r *Repo) relatedShelf(ctx context.Context, videoID int64, limit int, label
 	case err != nil:
 		return nil, fmt.Errorf("related: pick %s: %w", label, err)
 	}
-	items, err := r.randomSiblings(ctx, junction, fk, id, videoID, limit)
+	items, err := r.randomSiblings(ctx, junction, fk, id, videoID, limit, hideFullFilmVideos)
 	if err != nil {
 		return nil, err
 	}
@@ -1319,14 +1335,19 @@ func (r *Repo) relatedShelf(ctx context.Context, videoID int64, limit int, label
 // in random order. junction and fk are caller-controlled constants, never user input.
 // This is the project's only ORDER BY RANDOM() (ADR-031) — kept here rather than in
 // VideoFilter so the general list path stays deterministically ordered.
-func (r *Repo) randomSiblings(ctx context.Context, junction, fk string, keyID, excludeID int64, limit int) ([]model.Video, error) {
+// hideFullFilmVideos additionally excludes videos marked full_film for their linked
+// film (RD6/HOLODEX-282), matching VideoFilter.HideFullFilmVideos elsewhere.
+func (r *Repo) randomSiblings(ctx context.Context, junction, fk string, keyID, excludeID int64, limit int, hideFullFilmVideos bool) ([]model.Video, error) {
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width, v.height,
 	             v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
 	             v.recorded_at, v.indexed_at, v.file_mtime, v.thumbnail_state
 	      FROM videos v
 	      WHERE v.active = 1 AND v.deleted_at IS NULL AND v.id != ?
-	        AND EXISTS (SELECT 1 FROM ` + junction + ` j WHERE j.video_id = v.id AND j.` + fk + ` = ?)
-	      ORDER BY RANDOM() LIMIT ?`
+	        AND EXISTS (SELECT 1 FROM ` + junction + ` j WHERE j.video_id = v.id AND j.` + fk + ` = ?)`
+	if hideFullFilmVideos {
+		q += ` AND ` + hideFullFilmVideosClause
+	}
+	q += ` ORDER BY RANDOM() LIMIT ?`
 	rows, err := r.db.QueryContext(ctx, q, excludeID, keyID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("related siblings: %w", err)
@@ -1362,8 +1383,9 @@ type SearchResult struct {
 }
 
 // Search runs a prefix FTS query across videos, people, and tags (limit per
-// group).
-func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResult, error) {
+// group). hideFullFilmVideos excludes full-film videos from the video results
+// (RD6/HOLODEX-282) — pass h.filmsEnabled.
+func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilmVideos bool) (SearchResult, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1433,7 +1455,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 	// Videos: title matches first, then the media of any matched person (incl. alias
 	// matches) so searching a person's name OR alias returns their library — the merge
 	// promise (F23, ADR-036). Deduped by id, capped at limit.
-	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit})
+	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit, HideFullFilmVideos: hideFullFilmVideos})
 	if err != nil {
 		return res, err
 	}
@@ -1443,7 +1465,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int) (SearchResul
 		for i, p := range res.People {
 			peopleIDs[i] = p.ID
 		}
-		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit})
+		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit, HideFullFilmVideos: hideFullFilmVideos})
 		if err != nil {
 			return res, err
 		}

@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/imagesink"
 	"holodex/internal/model"
-	"holodex/internal/personimage"
 	"holodex/internal/repo"
 	"holodex/internal/studioimage"
 )
@@ -87,21 +85,7 @@ func (h *Handlers) serveStudioImage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get studio image", err)
 		return
 	}
-	f, err := os.Open(studioimage.ImagePath(h.studioImageDir, id, img.ID))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "image not available")
-		return
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || info.IsDir() {
-		writeError(w, http.StatusNotFound, "image not available")
-		return
-	}
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "image/jpeg")
-	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+	serveEntityImageFile(w, r, studioimage.ImagePath(h.studioImageDir, id, img.ID))
 }
 
 // uploadStudioImage ingests a multipart upload (`image` file) for one role, normalizes
@@ -127,29 +111,8 @@ func (h *Handlers) uploadStudioImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cap the whole request body before parsing so a hostile upload can't exhaust
-	// memory/disk (mirrors uploadPersonImage).
-	r.Body = http.MaxBytesReader(w, r.Body, h.studioImageMaxBytes)
-	if err := r.ParseMultipartForm(h.studioImageMaxBytes); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid or oversized upload")
-		return
-	}
-	file, _, err := r.FormFile("image")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "image file is required")
-		return
-	}
-	defer file.Close()
-	raw, err := readAllLimited(file, h.studioImageMaxBytes)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "could not read image")
-		return
-	}
-
-	norm, iw, ih, err := personimage.Normalize(raw, h.studioImageMaxDim)
-	if err != nil {
-		h.log.Warn("studio image normalize failed", "studio", id, "role", role, "err", err)
-		writeError(w, http.StatusBadRequest, "unsupported or invalid image")
+	norm, iw, ih, ok := h.parseImageUpload(w, r, h.studioImageMaxBytes, h.studioImageMaxDim, "studio", id, role)
+	if !ok {
 		return
 	}
 	// The replace/store/cleanup sequence is shared with the enrichment asset path

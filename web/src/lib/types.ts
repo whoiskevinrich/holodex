@@ -771,14 +771,21 @@ export interface StudioDetailResponse {
 // (film_videos) is an owner ASSERTION, never derived from resolved fields — a film may
 // be created and hold zero videos indefinitely. Name+year is its identity key (year
 // collisions across different releases are the common case), not a bare unique name.
-// No poster_url yet — the poster pipeline (HOLODEX-280) is unbuilt; every film
-// renders the monogram fallback until that ships.
 export interface Film {
 	id: number;
 	name: string;
 	year?: number;
 	video_count?: number;
+	// Self-hosted image roles (F56/HOLODEX-280, ADR-086): poster (detail page header,
+	// search results), thumb (no consumer yet). Owner-editable (upload/replace/
+	// remove); present only when that role's slot is filled. Always populated on
+	// both list and detail reads. Mirrors Studio's icon/logo/poster_url fields.
+	poster_url?: string;
+	thumb_url?: string;
 }
+
+// FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
+export type FilmImageRole = "poster" | "thumb";
 
 // FilmVideo is one scene/full-film row on a film's detail page (F56): the video plus
 // its film_videos attachment attributes. scene_number is null for an unnumbered scene
@@ -811,6 +818,16 @@ export interface FilmDetailResponse {
 	cast: Person[];
 	tags: Tag[];
 	studios: Studio[];
+}
+
+// One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video
+// decide-then-enqueue (F57, HOLODEX-285, ADR-087 D2) -- a collision or error excludes
+// only that video, never the whole batch.
+export interface FilmStudioCascadeResult {
+	video_id: number;
+	status: 'enqueued' | 'collision' | 'error';
+	conflict?: VideoCollisionRef;
+	error?: string;
 }
 
 // FilmSceneCollision names the video already occupying a requested scene number

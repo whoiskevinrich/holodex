@@ -22,6 +22,7 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	r.Post("/films", h.createFilm)
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
+	h.mountFilmStudioCascade(r)
 }
 
 // listFilms handles GET /films (F56): name-sorted films with active-video counts.
@@ -54,6 +55,9 @@ func (h *Handlers) listFilms(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, op, err)
 		return
 	}
+	for i := range films {
+		setFilmImageURLs(&films[i])
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": films})
 }
 
@@ -70,6 +74,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		h.filmLookupError(w, err)
 		return
 	}
+	setFilmImageURLs(f)
 	resolved := h.resolveFilm(r.Context(), id, f)
 
 	fvs, err := h.repo.FilmVideos(r.Context(), id)
@@ -149,5 +154,6 @@ func (h *Handlers) createFilm(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get created film", err)
 		return
 	}
+	setFilmImageURLs(f)
 	writeJSON(w, status, map[string]any{"film": f})
 }

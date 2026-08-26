@@ -278,6 +278,23 @@ ones. Advertise whichever you support in `/describe.entity_types` (e.g.
 `["person", "video", "studio"]`); Holodex sends only the `entity_type` strings you advertised.
 `"series"`/`"media"` beyond the file-per-video model remain designed-in but unexercised.
 
+**Films are not yet a provider entity type — but the design is decided.** Holodex
+F56/[ADR-085](../architecture/ADR-085-films-entity.md) added a fourth entity, **Film** — a
+durable, owner-asserted grouping of videos (e.g. scenes of the same production) with its own
+detail page. In v1 a film's membership is created entirely in the Holodex UI; there is no
+`entity_type: "film"` a provider can send or receive yet, and no `/resolve`/`/enrich` traffic for
+films exists today. A film's name does, however, compete as a **synthetic, non-provider** decision
+source for a linked video's `collection` (the "Film" field,
+[§4.2a](#42a-canonical-fields--videomedia)) and `title` fields, through the ordinary
+field-decision/precedence UI — see the reserved-namespace note in
+[§4.1](#41-external-ids-and-namespaces). Provider-driven film enrichment (matching a Film to an
+upstream source) is a deferred, not-yet-built roadmap item (films spec P1-1), but
+[ADR-086](../architecture/ADR-086-film-provider-enrichment.md) has settled the shape it will take:
+a film gets its **own `entity_type: "film"`** (never a reuse of `video`) with its own canonical
+field vocabulary ([§4.2c](#42c-canonical-fields--film)), and its poster is an **asset** (the
+existing `poster` kind, [§4.3](#43-assets)), not a `fields` entry. None of this is live yet — see
+[Open items](#open-items-flagged-for-holodex-maintainers).
+
 **Video and studio each have their own canonical field vocabulary** — see [§4.2a](#42a-canonical-fields--videomedia)
 (video) and [§4.2b](#42b-canonical-fields--studio) (studio). Critically, **a video's poster and
 a studio's logo are `fields` entries (`poster_url`/`logo`), never `assets[]` entries** — v1 has
@@ -316,6 +333,13 @@ decide how your data maps onto stable namespaces and canonical keys.
   (Holodex validates this). If you can also resolve foreign ids (e.g. you accept an `imdb:` id and map
   it internally), advertise those namespaces too — a **namespace is a shared identity space**: two
   providers that both emit `imdb:tt1160419` refer to the **same** entity and Holodex converges them to one.
+- **`film:` is a reserved namespace prefix — do not use it.** Holodex's internal Films entity
+  (F56/[ADR-085](../architecture/ADR-085-films-entity.md)) injects synthetic per-video decision
+  sources named `film:<film-id>` so an owner-asserted film can compete for a video's
+  `collection`/`title` fields exactly like a real provider ([§3](#3-entity-types-and-matching)). A
+  provider whose own `name`/`id_namespaces` began with `film:` would collide with that reserved
+  prefix and risk being misread internally as a film source. Real provider namespaces never need a
+  `:`-suffixed numeric id, so this should never come up in practice — but avoid it regardless.
 - The `external_id` is the durable link Holodex stores to re-fetch the same record later, so
   it must be **stable and reversible**: the same input must resolve to the same id, and
   `/enrich` must accept any id your `/resolve` emitted.
@@ -403,10 +427,26 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 > `fields["logo"]` has that value silently dropped (Holodex's studio registry no longer has a
 > `logo` field to resolve it into).
 
+### 4.2c Canonical fields — film
+
+> **Status: decided ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)), not yet
+> exercised** — no provider sends `entity_type: "film"` today (see [§3](#3-entity-types-and-matching));
+> this vocabulary is the target shape for when film enrichment ships.
+
+| Canonical key | Meaning | Cardinality | Format guidance |
+|---|---|---|---|
+| `description` | Film synopsis | single | Plain text — same canonical key as the studio `description` field, different entity |
+| `release_date` | Release date | single | `YYYY-MM-DD` preferred — same canonical key as the video `release_date` field, different entity |
+
+A film's poster is **not** a `fields` key — it is an `assets[]` entry (`kind: "poster"`), exactly
+like Person and Studio. See [§4.3](#43-assets).
+
 ### 4.3 Assets
 
 > **`assets[]` is consumed for `entity_type: "person"` and `entity_type: "studio"` (F51,
-> ADR-079).** There is still **no** `video`/`media` image sink: a video's own poster/cover art
+> ADR-079).** `entity_type: "film"` is decided to work the same way
+> ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) but is not yet live — see the
+> Film kind table below. There is still **no** `video`/`media` image sink: a video's own poster/cover art
 > stays a **`fields` entry** — `fields["poster_url"]` (video, `render: image_url`), exactly like
 > `bio`/`website`/any other canonical text field, just holding an image URL as the value. See
 > [§4.2a](#42a-canonical-fields--videomedia). **If your `/enrich` response for a `video` entity
@@ -451,6 +491,13 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `logo` | Studio logo | any | The studios-list/detail-page image. Omitted/empty `kind` also maps to `logo` |
 | `icon` | Small list icon | ~1:1 | No provider emits this yet — reserved |
 | `poster` | Tall poster | ~2:3 | No provider emits this yet — reserved |
+
+**Film** (`entity_type: "film"`, decided by [ADR-086](../architecture/ADR-086-film-provider-enrichment.md),
+not yet live — see [§3](#3-entity-types-and-matching)):
+
+| `kind` | Meaning | Target aspect | Notes |
+|---|---|---|---|
+| `poster` | Portrait movie poster | ~2:3 | The films-list/detail-page image. Same `poster` kind as Person/Studio — a film's portrait poster is the primary and, in v1, only planned film asset kind |
 
 Each entity type has its own kind namespace — a studio's `logo` kind is unrelated to a
 person's `poster` kind, even though the string differs. Holodex maps each kind to one image
@@ -1078,3 +1125,12 @@ truth if a clarification is needed:
   `studio` are all live and exercised today (this section previously said only `person` was
   supported; that was stale). A `series` entity type beyond the file-per-video model remains
   designed-in but unexercised; coordinate its canonical field vocabulary before shipping one.
+- **Film provider enrichment** — the Films entity (F56/[ADR-085](../architecture/ADR-085-films-entity.md))
+  is owner-asserted only in v1; matching a Film to an upstream metadata source is still a deferred
+  roadmap item (films spec P1-1), but the design question is **resolved by
+  [ADR-086](../architecture/ADR-086-film-provider-enrichment.md)**: film gets its own
+  `entity_type: "film"` (never a reuse of `video`), its own canonical fields
+  ([§4.2c](#42c-canonical-fields--film): `description`, `release_date`), and a portrait poster as
+  an `assets[]` entry (the existing `poster` kind, [§4.3](#43-assets)) — never a `fields` entry.
+  No provider exercises any of this today — flagged here so a provider author isn't surprised film
+  support is absent from `entity_types` yet, and knows the target shape to build toward.

@@ -20,7 +20,7 @@
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
-	import StudioImageSlot from '$lib/components/person/StudioImageSlot.svelte';
+	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
 	import { filmsRow } from '$lib/filmsRow.svelte';
@@ -372,31 +372,37 @@
 				<section class="space-y-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
 					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3" id="field-branding_image-upload">
-						<StudioImageSlot
-							studioId={id}
-							studioName={studio.name}
+						<EntityImageSlot
+							entityId={id}
+							entityName={studio.name}
 							role="logo"
 							label="Logo"
 							url={studio.logo_url}
 							{isOwner}
+							upload={api.uploadStudioImage}
+							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
 						/>
-						<StudioImageSlot
-							studioId={id}
-							studioName={studio.name}
+						<EntityImageSlot
+							entityId={id}
+							entityName={studio.name}
 							role="icon"
 							label="Icon"
 							url={studio.icon_url}
 							{isOwner}
+							upload={api.uploadStudioImage}
+							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
 						/>
-						<StudioImageSlot
-							studioId={id}
-							studioName={studio.name}
+						<EntityImageSlot
+							entityId={id}
+							entityName={studio.name}
 							role="poster"
 							label="Poster"
 							url={studio.poster_url}
 							{isOwner}
+							upload={api.uploadStudioImage}
+							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
 						/>
 					</div>

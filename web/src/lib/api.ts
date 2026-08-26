@@ -23,6 +23,7 @@ import type {
 	Film,
 	FilmDetailResponse,
 	FilmSceneCollision,
+	FilmStudioCascadeResult,
 	FilmVideoCandidate,
 	JobRun,
 	JobDigest,
@@ -43,6 +44,7 @@ import type {
 	Studio,
 	StudioDetailResponse,
 	StudioImageRole,
+	FilmImageRole,
 	Tag,
 	TrashEntry,
 	Video,
@@ -50,6 +52,7 @@ import type {
 	WritebackRequest,
 	CurationRequest,
 	DecisionRequest,
+	DecisionSource,
 	FieldClaim,
 	FieldPromotionRequest,
 	FieldPromotionView,
@@ -245,6 +248,15 @@ async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
 		throw new ApiError(res.status, path, body.error);
 	}
 	return res.json() as Promise<T>;
+}
+
+// uploadEntityImage builds the multipart body shared by every single-slot entity
+// image upload (Studio F51/Film F56 — HOLODEX-286); only the URL path segment and
+// role type differ per entity.
+function uploadEntityImage(kind: 'studios' | 'films', id: number, file: File, role: string) {
+	const form = new FormData();
+	form.append('image', file);
+	return uploadAuthed<{ id: number; version: number }>(`/${kind}/${id}/images/${role}`, form);
 }
 
 function buildQuery(f: MediaFilters): string {
@@ -468,11 +480,8 @@ export const api = {
 	// unlike Person). The served, cache-busted URL is already embedded in the Studio
 	// object (icon_url/logo_url/poster_url) — no client-side URL builder needed, mirrors
 	// how Studio.logo_url worked pre-F51.
-	uploadStudioImage: (id: number, file: File, role: StudioImageRole) => {
-		const form = new FormData();
-		form.append('image', file);
-		return uploadAuthed<{ id: number; version: number }>(`/studios/${id}/images/${role}`, form);
-	},
+	uploadStudioImage: (id: number, file: File, role: StudioImageRole) =>
+		uploadEntityImage('studios', id, file, role),
 
 	deleteStudioImage: (id: number, role: StudioImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
@@ -502,6 +511,14 @@ export const api = {
 	// is idempotent.
 	createFilm: (name: string, year?: number) =>
 		sendAuthed<{ film: Film }>('POST', `/films`, { name, year: year ?? 0 }),
+
+	// Film images (F56/HOLODEX-280, ADR-086): poster/thumb, owner upload/replace/
+	// remove — mirrors uploadStudioImage/deleteStudioImage exactly.
+	uploadFilmImage: (id: number, file: File, role: FilmImageRole) =>
+		uploadEntityImage('films', id, file, role),
+
+	deleteFilmImage: (id: number, role: FilmImageRole) =>
+		sendAuthed<Record<string, never>>('DELETE', `/films/${id}/images/${role}`),
 
 	// Film↔video attach/detach (owner-gated). scene_number null = unnumbered.
 	// attachFilmVideo/bulkAttachFilmVideos surface a scene-number collision as
@@ -557,6 +574,18 @@ export const api = {
 		sendAuthed<Record<string, never>>(
 			'DELETE',
 			`/films/${id}/fields/${encodeURIComponent(canonical)}/decision`
+		),
+
+	// Film-studio cascade (F57, HOLODEX-285, ADR-087): one owner action that sets a new
+	// manual Studio decision AND enqueues a file writeback across every video attached
+	// to the film. Owner-gated. results is best-effort per video (D2) -- a collision or
+	// error on one video never blocks the others. batch_id is "" when nothing enqueued
+	// (every video collided/errored, or the film has no attached videos).
+	cascadeFilmStudio: (id: number, req: { source: DecisionSource; manual_value?: string }) =>
+		sendAuthed<{ batch_id: string; results: FilmStudioCascadeResult[] }>(
+			'POST',
+			`/films/${id}/studio/cascade`,
+			req
 		),
 
 	search: (q: string, fetchFn?: typeof fetch) =>

@@ -244,7 +244,7 @@ func TestSearchMatchesAlias(t *testing.T) {
 	}
 
 	// Alias-only match.
-	res, err := r.Search(ctx, "zig", 10)
+	res, err := r.Search(ctx, "zig", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestSearchMatchesAlias(t *testing.T) {
 	}
 
 	// Name + alias both match → person appears exactly once (dedup).
-	res, err = r.Search(ctx, "bowie", 10)
+	res, err = r.Search(ctx, "bowie", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestSearchMatchesAlias(t *testing.T) {
 	if _, err := r.AddPersonAlias(ctx, singer, "Beyoncé"); err != nil {
 		t.Fatalf("add accented alias: %v", err)
 	}
-	res, err = r.Search(ctx, "beyonce", 10)
+	res, err = r.Search(ctx, "beyonce", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestAliasesSurviveRescan(t *testing.T) {
 	if got, _ := r.AliasesForPerson(ctx, alice); len(got) != 1 || got[0].Alias != "Ziggy" {
 		t.Errorf("alias did not survive re-scan: %+v", got)
 	}
-	res, err := r.Search(ctx, "zig", 10)
+	res, err := r.Search(ctx, "zig", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestMergePersons(t *testing.T) {
 	if len(p.Aliases) != 1 || p.Aliases[0].Alias != "J Law" {
 		t.Errorf("aliases after merge = %+v, want [J Law]", p.Aliases)
 	}
-	if res, _ := r.Search(ctx, "j law", 10); countPeople(res.People, jen) != 1 {
+	if res, _ := r.Search(ctx, "j law", 10, false); countPeople(res.People, jen) != 1 {
 		t.Error("merged alias not search-matchable")
 	}
 	// And re-scanning the alias-tagged file keeps it merged.
@@ -409,7 +409,7 @@ func TestMergePersons(t *testing.T) {
 // (video_id, person_id, role) key (F40, ADR-072) — not just the post-merge relink
 // pass a real scan/curation change would trigger afterward. Without carrying the
 // loser's role across, the loser's 'actor' link would land as a second row with
-// role='' instead of colliding with the survivor's own 'actor' link on the same video.
+// an empty role instead of colliding with the survivor's own 'actor' link on the same video.
 func TestMergePersons_DedupesSameRoleLinkAtMergeTime(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
@@ -527,7 +527,7 @@ func TestSearchReturnsPersonMedia(t *testing.T) {
 	linkPeople(t, r, idA, "Zeta Person")
 	zeta := personIDByName(t, r, "Zeta Person")
 
-	res, err := r.Search(ctx, "zeta", 10)
+	res, err := r.Search(ctx, "zeta", 10, false)
 	if err != nil {
 		t.Fatalf("search by name: %v", err)
 	}
@@ -538,7 +538,7 @@ func TestSearchReturnsPersonMedia(t *testing.T) {
 	if _, err := r.AddPersonAlias(ctx, zeta, "Zed"); err != nil {
 		t.Fatalf("add alias: %v", err)
 	}
-	res, err = r.Search(ctx, "zed", 10)
+	res, err = r.Search(ctx, "zed", 10, false)
 	if err != nil {
 		t.Fatalf("search by alias: %v", err)
 	}

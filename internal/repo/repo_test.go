@@ -261,7 +261,7 @@ func TestListFilterByPersonAndSearch(t *testing.T) {
 	}
 
 	// Prefix FTS: "sun" should match "Sunrise".
-	res, err := r.Search(ctx, "sun", 10)
+	res, err := r.Search(ctx, "sun", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -638,12 +638,12 @@ func TestNilSliceRegressions(t *testing.T) {
 		t.Errorf("list studios = %#v, want empty non-nil slice", studios)
 	}
 
-	if res, err := r.Search(ctx, "", 10); err != nil {
+	if res, err := r.Search(ctx, "", 10, false); err != nil {
 		t.Fatalf("search (empty query): %v", err)
 	} else if res.Videos == nil || res.People == nil || res.Tags == nil || res.Studios == nil {
 		t.Errorf("search (empty query) = %#v, want every field non-nil", res)
 	}
-	if res, err := r.Search(ctx, "no-such-thing-anywhere", 10); err != nil {
+	if res, err := r.Search(ctx, "no-such-thing-anywhere", 10, false); err != nil {
 		t.Fatalf("search (no matches): %v", err)
 	} else if res.Videos == nil || res.People == nil || res.Tags == nil || res.Studios == nil {
 		t.Errorf("search (no matches) = %#v, want every field non-nil", res)

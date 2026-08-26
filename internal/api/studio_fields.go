@@ -50,7 +50,7 @@ func (h *Handlers) setStudioFieldDecision(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
-	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r, model.EnrichEntityStudio, id, p) {
+	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityStudio, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this studio")
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"holodex/internal/db"
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -294,4 +295,107 @@ func TestBulkAttachFilmVideos(t *testing.T) {
 	if len(stillAttached) != 0 {
 		t.Errorf("vid4 attachments after failed bulk attach = %+v, want none", stillAttached)
 	}
+}
+
+// TestHideFullFilmVideos covers RD6/HOLODEX-282: VideoFilter.HideFullFilmVideos
+// (browse/search) and Search/Related's hideFullFilmVideos param (RelatedShelf)
+// must exclude a video marked is_full_film, while leaving it visible when the
+// caller passes false (e.g. films_enabled=false, or the film-video-candidates
+// picker's videoFilterFromQuery reuse — see handlers.go doc comment) and never
+// affecting GetVideo (the detail page, always reachable by direct URL).
+func TestHideFullFilmVideos(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { sqlDB.Close() })
+	r := repo.New(sqlDB)
+	ctx := context.Background()
+
+	filmID, err := r.CreateFilm(ctx, "Hidden Film", 2024)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	full, err := r.UpsertVideo(ctx, sampleVideo("/m/full.mkv", "Full Film", nil, []string{"shared-tag"}), nil)
+	if err != nil {
+		t.Fatalf("seed full-film video: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, filmID, full, nil, true); err != nil {
+		t.Fatalf("attach full-film video: %v", err)
+	}
+	scene, err := r.UpsertVideo(ctx, sampleVideo("/m/scene.mkv", "A Scene", nil, []string{"shared-tag"}), nil)
+	if err != nil {
+		t.Fatalf("seed scene video: %v", err)
+	}
+	one := int64(1)
+	if _, err := r.AttachFilmVideo(ctx, filmID, scene, &one, false); err != nil {
+		t.Fatalf("attach scene video: %v", err)
+	}
+
+	// ListVideos: hidden only when the flag is set.
+	shown, _, err := r.ListVideos(ctx, repo.VideoFilter{})
+	if err != nil {
+		t.Fatalf("list videos (flag off): %v", err)
+	}
+	if !containsVideoID(shown, full) {
+		t.Errorf("HideFullFilmVideos=false: full-film video missing from list, want present")
+	}
+	hidden, _, err := r.ListVideos(ctx, repo.VideoFilter{HideFullFilmVideos: true})
+	if err != nil {
+		t.Fatalf("list videos (flag on): %v", err)
+	}
+	if containsVideoID(hidden, full) {
+		t.Errorf("HideFullFilmVideos=true: full-film video present in list, want hidden")
+	}
+	if !containsVideoID(hidden, scene) {
+		t.Errorf("HideFullFilmVideos=true: non-full-film scene video missing, want present")
+	}
+
+	// GetVideo (detail page): always reachable regardless of the flag.
+	if _, _, err := r.GetVideo(ctx, full); err != nil {
+		t.Errorf("GetVideo(full-film video) = %v, want reachable by direct id", err)
+	}
+
+	// Search: hidden from video results only when hideFullFilmVideos=true.
+	res, err := r.Search(ctx, "Full Film", 10, false)
+	if err != nil {
+		t.Fatalf("search (flag off): %v", err)
+	}
+	if !containsVideoID(res.Videos, full) {
+		t.Errorf("search flag off: full-film video missing from results, want present")
+	}
+	res, err = r.Search(ctx, "Full Film", 10, true)
+	if err != nil {
+		t.Fatalf("search (flag on): %v", err)
+	}
+	if containsVideoID(res.Videos, full) {
+		t.Errorf("search flag on: full-film video present in results, want hidden")
+	}
+
+	// Related/randomSiblings (RelatedShelf): both videos share "shared-tag", making
+	// `full` a sibling candidate for `scene`'s tag shelf; it must drop out only
+	// when hideFullFilmVideos is true.
+	related, err := r.Related(ctx, scene, 5, false)
+	if err != nil {
+		t.Fatalf("related (flag off): %v", err)
+	}
+	if related.Tag == nil || !containsVideoID(related.Tag.Items, full) {
+		t.Errorf("related flag off: full-film video missing from tag shelf, want present: %+v", related.Tag)
+	}
+	related, err = r.Related(ctx, scene, 5, true)
+	if err != nil {
+		t.Fatalf("related (flag on): %v", err)
+	}
+	if related.Tag != nil && containsVideoID(related.Tag.Items, full) {
+		t.Errorf("related flag on: full-film video present in tag shelf, want hidden: %+v", related.Tag)
+	}
+}
+
+func containsVideoID(vids []model.Video, id int64) bool {
+	for _, v := range vids {
+		if v.ID == id {
+			return true
+		}
+	}
+	return false
 }

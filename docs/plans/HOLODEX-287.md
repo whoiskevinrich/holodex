@@ -8,22 +8,22 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix inconsistent entity-linking UI across pages by giving Tags a proper picker component, matching the pattern already used for People and Studios.
 ---
 
-# HOLODEX-287 · Frontend component-reuse discipline (ADR-086)
+# HOLODEX-287 · Frontend component-reuse discipline (ADR-088)
 
 Formalize a narrow, frontend-only fix for two concrete gaps found while investigating
 UX drift between entity-linking UI on Video and Film detail pages: the auto-loading
 `.claude/rules/frontend-theming.md` rule never pointed at the existing
 `web/src/lib/components/CLAUDE.md` classification/inventory system, and Tags never got
 a sibling picker component (still a hand-rolled inline form on the Video detail page).
-Done means: ADR-086 accepted, the rule-file cross-link added, and `TagPicker.svelte`
+Done means: ADR-088 accepted, the rule-file cross-link added, and `TagPicker.svelte`
 built and wired in with parity to `PersonPicker`/`StudioPicker`.
 
-**Design package:** no spec (discipline/tooling change, not product behavior) · [ADR-086](../architecture/ADR-086-frontend-component-reuse-discipline.md) · design-handoff pending (TagPicker interaction spec) · testing-strategy pending
+**Design package:** no spec (discipline/tooling change, not product behavior) · [ADR-088](../architecture/ADR-088-frontend-component-reuse-discipline.md) · design-handoff pending (TagPicker interaction spec) · testing-strategy pending
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` → `docs/specs/**` — N/A, no spec needed (see ADR-086 header)
-- [x] architecture `architecture` → `docs/architecture/ADR-086-frontend-component-reuse-discipline.md`
+- [ ] spec `write-spec` → `docs/specs/**` — N/A, no spec needed (see ADR-088 header)
+- [x] architecture `architecture` → `docs/architecture/ADR-088-frontend-component-reuse-discipline.md`
 - [ ] design `design-handoff` → `docs/design/**` — TagPicker interaction spec
 - [ ] backend — N/A, frontend-only
 - [ ] frontend — TagPicker.svelte build + wiring
@@ -40,6 +40,10 @@ built and wired in with parity to `PersonPicker`/`StudioPicker`.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-08-25 · ADR-086 written and committed; Draft PR #257 opened
+### 2026-08-26 · Merged main; renumbered ADR-086 → ADR-088
+- skills: (none — mechanical merge)
+- handoff: Pulled main, which had since taken ADR-086 (film provider enrichment) and ADR-087 (film-studio cascade) for HOLODEX-279/285. Renamed our ADR to ADR-088 (file + README index + this worklog) to resolve the numbering collision — no content changes. Next available ADR number is 089.
+
+### 2026-08-25 · ADR-088 written and committed; Draft PR #257 opened
 - skills: product-brainstorming, architecture
-- handoff: ADR-086 is Proposed and merged into this branch; corrected mid-brainstorm from an initial (wrong) premise that StudioPicker/PersonPicker needed consolidating — they're documented-intentional siblings and are NOT being touched. Next session should start with Action Item 1 (the rule-file bullet) or Action Item 2 (`/design-handoff` for TagPicker), not re-open the consolidation question.
+- handoff: ADR-088 is Proposed and merged into this branch; corrected mid-brainstorm from an initial (wrong) premise that StudioPicker/PersonPicker needed consolidating — they're documented-intentional siblings and are NOT being touched. Next session should start with Action Item 1 (the rule-file bullet) or Action Item 2 (`/design-handoff` for TagPicker), not re-open the consolidation question.

@@ -30,19 +30,22 @@ const serverVersion = "0.2.0"
 
 // Server wraps the MCP server and the repository its tools read from.
 type Server struct {
-	repo     *repo.Repo
-	log      *slog.Logger
-	mappings *mapping.Store // configurable mapped fields (F20.6); nil disables them
-	auth     *api.Auth      // owner gate for file-metadata redaction (HOLODEX-114 follow-up)
-	mcp      *mcpserver.MCPServer
+	repo         *repo.Repo
+	log          *slog.Logger
+	mappings     *mapping.Store // configurable mapped fields (F20.6); nil disables them
+	auth         *api.Auth      // owner gate for file-metadata redaction (HOLODEX-114 follow-up)
+	filmsEnabled bool           // gates RD6 full-film hiding on search_videos (HOLODEX-282)
+	mcp          *mcpserver.MCPServer
 }
 
 // New builds the MCP server and registers the four Phase 2 tools. mappings may be
 // nil (no configurable filterable fields on search_videos). auth is the same owner
 // gate the REST API uses; a nil/empty-token Auth leaves the gate open, matching the
-// zero-config single-user default.
-func New(r *repo.Repo, log *slog.Logger, mappings *mapping.Store, auth *api.Auth) *Server {
-	s := &Server{repo: r, log: log, mappings: mappings, auth: auth}
+// zero-config single-user default. filmsEnabled mirrors the REST API's Films entity
+// flag (F56, ADR-085) so search_videos hides full-film videos consistently with the
+// browse/search/RelatedShelf/entity-page surfaces (RD6, HOLODEX-282).
+func New(r *repo.Repo, log *slog.Logger, mappings *mapping.Store, auth *api.Auth, filmsEnabled bool) *Server {
+	s := &Server{repo: r, log: log, mappings: mappings, auth: auth, filmsEnabled: filmsEnabled}
 	m := mcpserver.NewMCPServer("holodex", serverVersion)
 	s.register(m)
 	s.mcp = m
@@ -158,13 +161,14 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 	}
 
 	f := repo.VideoFilter{
-		Query:          req.GetString("query", ""),
-		DurationMinSec: req.GetInt("duration_min", 0),
-		DurationMaxSec: req.GetInt("duration_max", 0),
-		DateFrom:       req.GetString("date_from", ""),
-		DateTo:         req.GetString("date_to", ""),
-		Limit:          pageSize,
-		Offset:         (page - 1) * pageSize,
+		Query:              req.GetString("query", ""),
+		DurationMinSec:     req.GetInt("duration_min", 0),
+		DurationMaxSec:     req.GetInt("duration_max", 0),
+		DateFrom:           req.GetString("date_from", ""),
+		DateTo:             req.GetString("date_to", ""),
+		Limit:              pageSize,
+		Offset:             (page - 1) * pageSize,
+		HideFullFilmVideos: s.filmsEnabled,
 	}
 	if b, ok := metadata.ParseResolutionBucket(req.GetString("resolution", "")); ok {
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)

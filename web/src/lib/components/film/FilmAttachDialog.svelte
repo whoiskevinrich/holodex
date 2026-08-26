@@ -262,9 +262,9 @@
 				</label>
 				{#if isFullFilm}
 					<p class="text-xs text-muted">
-						This file will be marked as the film's full-file source. Once full-film hiding ships,
-						it will no longer appear in Browse, search, or entity pages while Films is enabled —
-						its own page will stay reachable.
+						This file will be marked as the film's full-file source. While Films is enabled, it
+						will no longer appear in Browse, search, or entity pages — its own page stays
+						reachable.
 					</p>
 				{/if}
 

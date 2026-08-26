@@ -84,6 +84,13 @@ type Config struct {
 	StudioImageMaxBytes     int64  `yaml:"studio_image_max_bytes"`
 	StudioImageMaxDimension int    `yaml:"studio_image_max_dimension"`
 
+	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). Bytes live at
+	// DataPath/film-images/{filmID}/{id}.jpg, derived like StudioImagePath. The
+	// bounds mirror the studio ones.
+	FilmImagePath         string `yaml:"-"` // derived: DataPath/film-images
+	FilmImageMaxBytes     int64  `yaml:"film_image_max_bytes"`
+	FilmImageMaxDimension int    `yaml:"film_image_max_dimension"`
+
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). One normalized icon per
 	// provider at DataPath/provider-icons/{id}.jpg, derived like StudioImagePath.
 	// ProviderIconMaxDimension bounds the stored (downscaled) longest side — icons are
@@ -196,6 +203,9 @@ func Defaults() Config {
 		StudioImageMaxDimension:  1000,     // studio images are small; downscale to ≤1000px longest side
 		ProviderIconMaxDimension: 256,      // brand icons are tiny glyphs; downscale to ≤256px (ADR-059)
 
+		FilmImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
+		FilmImageMaxDimension: 1500,     // posters are portrait; downscale to ≤1500px longest side
+
 		CacheBackend:         "memory",
 		CacheMaxMemoryMB:     128,
 		MCPTransport:         "http",
@@ -267,6 +277,9 @@ func (c *Config) derive() {
 	if c.StudioImagePath == "" {
 		c.StudioImagePath = filepath.Join(c.DataPath, "studio-images")
 	}
+	if c.FilmImagePath == "" {
+		c.FilmImagePath = filepath.Join(c.DataPath, "film-images")
+	}
 	if c.ProviderIconPath == "" {
 		c.ProviderIconPath = filepath.Join(c.DataPath, "provider-icons")
 	}
@@ -301,6 +314,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.ThumbnailPath = ""
 		c.PersonImagePath = ""
 		c.StudioImagePath = ""
+		c.FilmImagePath = ""
 		c.ProviderIconPath = ""
 	}
 	if o.LogLevel != "" {
@@ -345,6 +359,8 @@ func applyEnv(c *Config) {
 	}
 	c.StudioImageMaxBytes = envInt64("STUDIO_IMAGE_MAX_BYTES", c.StudioImageMaxBytes)
 	c.StudioImageMaxDimension = envInt("STUDIO_IMAGE_MAX_DIMENSION", c.StudioImageMaxDimension)
+	c.FilmImageMaxBytes = envInt64("FILM_IMAGE_MAX_BYTES", c.FilmImageMaxBytes)
+	c.FilmImageMaxDimension = envInt("FILM_IMAGE_MAX_DIMENSION", c.FilmImageMaxDimension)
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
 	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
