@@ -85,7 +85,7 @@ func TestRelatedSelectionAndExclusion(t *testing.T) {
 	up(t, r, "/m/e1.mkv", "E1", nil, []string{"Tuniv"})
 	up(t, r, "/m/e2.mkv", "E2", nil, []string{"Tuniv"})
 
-	related, err := r.Related(ctx, v, 5)
+	related, err := r.Related(ctx, v, 5, false)
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestRelatedEmptyAndNullBlocks(t *testing.T) {
 
 	// Item whose only person is unique to it, and which has no tags.
 	solo := up(t, r, "/m/solo.mkv", "Solo", []string{"Loner"}, nil)
-	related, err := r.Related(ctx, solo, 5)
+	related, err := r.Related(ctx, solo, 5, false)
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestRelatedEmptyAndNullBlocks(t *testing.T) {
 
 	// Item with no people but a tag → person nil, tag block present.
 	noPeople := up(t, r, "/m/np.mkv", "NoPeople", nil, []string{"OnlyTag"})
-	related2, err := r.Related(ctx, noPeople, 5)
+	related2, err := r.Related(ctx, noPeople, 5, false)
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestRelatedActiveOnly(t *testing.T) {
 		t.Fatalf("deactivate: %v", err)
 	}
 
-	related, err := r.Related(ctx, v, 5)
+	related, err := r.Related(ctx, v, 5, false)
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestRelatedNotFound(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
-	if _, err := r.Related(ctx, 99999, 5); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := r.Related(ctx, 99999, 5, false); !errors.Is(err, repo.ErrNotFound) {
 		t.Errorf("missing id err = %v, want ErrNotFound", err)
 	}
 
@@ -206,7 +206,7 @@ func TestRelatedNotFound(t *testing.T) {
 	if _, err := r.DeactivateExcept(ctx, nil); err != nil { // deactivate all
 		t.Fatalf("deactivate: %v", err)
 	}
-	if _, err := r.Related(ctx, v, 5); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := r.Related(ctx, v, 5, false); !errors.Is(err, repo.ErrNotFound) {
 		t.Errorf("inactive id err = %v, want ErrNotFound", err)
 	}
 }
@@ -220,7 +220,7 @@ func TestRelatedLimit(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		up(t, r, "/m/a"+string(rune('a'+i))+".mkv", "Sib", []string{"A"}, nil)
 	}
-	related, err := r.Related(ctx, v, 5)
+	related, err := r.Related(ctx, v, 5, false)
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}

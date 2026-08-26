@@ -476,6 +476,7 @@ func (h *Handlers) Mount(r chi.Router) {
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := h.videoFilterFromQuery(q)
+	f.HideFullFilmVideos = h.filmsEnabled
 
 	missingFacets := q["missing_facet"]
 	if wantsCompleteness(f.Sort, missingFacets) {
@@ -507,6 +508,10 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // Factored out of listMedia so /completeness/facets (F55.6) can compute its
 // missing-facet counts against the exact same filtered subset a completeness
 // sort/filter request on /media would score — the two must never disagree.
+// Also reused by the film→video-candidates picker (film_videos.go), which
+// must still surface full-film videos (e.g. to flag "already attached"
+// conflicts) — so it deliberately leaves HideFullFilmVideos unset; callers
+// that want RD6 hiding (browse, completeness facets) set it themselves.
 func (h *Handlers) videoFilterFromQuery(q url.Values) repo.VideoFilter {
 	f := repo.VideoFilter{
 		Query:          q.Get("q"),
@@ -598,7 +603,9 @@ func (h *Handlers) listMediaByCompleteness(w http.ResponseWriter, r *http.Reques
 func (h *Handlers) completenessFacets(w http.ResponseWriter, r *http.Request) {
 	switch entityType := r.URL.Query().Get("entity_type"); entityType {
 	case "video":
-		scored, err := h.completenessForVideos(r.Context(), h.videoFilterFromQuery(r.URL.Query()))
+		vf := h.videoFilterFromQuery(r.URL.Query())
+		vf.HideFullFilmVideos = h.filmsEnabled
+		scored, err := h.completenessForVideos(r.Context(), vf)
 		if err != nil {
 			h.fail(w, "completeness facets", err)
 			return
@@ -850,7 +857,7 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	related, err := h.repo.Related(r.Context(), id, 5)
+	related, err := h.repo.Related(r.Context(), id, 5, h.filmsEnabled)
 	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "media not found")
 		return
@@ -1183,7 +1190,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.personLookupError(w, err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{PersonIDs: []int64{id}, Limit: 500})
+	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{PersonIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
 	if err != nil {
 		h.fail(w, "person videos", err)
 		return
@@ -1247,7 +1254,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get tag", err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{TagIDs: []int64{id}, Limit: 500})
+	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{TagIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
 	if err != nil {
 		h.fail(w, "tag videos", err)
 		return
@@ -1258,7 +1265,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	res, err := h.repo.Search(r.Context(), r.URL.Query().Get("q"), atoiDefault(r.URL.Query().Get("limit"), 10))
+	res, err := h.repo.Search(r.Context(), r.URL.Query().Get("q"), atoiDefault(r.URL.Query().Get("limit"), 10), h.filmsEnabled)
 	if err != nil {
 		h.fail(w, "search", err)
 		return
