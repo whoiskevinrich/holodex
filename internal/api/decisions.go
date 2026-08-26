@@ -36,6 +36,27 @@ type decisionBody struct {
 	Override    bool   `json:"override"`
 }
 
+// decodeDecisionBody decodes and validates a decisionBody request: JSON shape,
+// source validity, and (for a manual pick) a non-empty sanitized value. Shared by
+// setFieldDecision and the film-studio cascade handler, whose request/validation
+// shapes are otherwise byte-for-byte duplicates.
+func decodeDecisionBody(w http.ResponseWriter, r *http.Request) (body decisionBody, manualValue string, ok bool) {
+	if !decodeJSON(w, r, &body) {
+		return body, "", false
+	}
+	if !fieldsource.Valid(body.Source) {
+		writeError(w, http.StatusBadRequest, "source must be 'file', 'manual', or 'provider:<name>'")
+		return body, "", false
+	}
+	if body.Source == fieldsource.Manual {
+		if manualValue = enrich.SanitizeValue(body.ManualValue); manualValue == "" {
+			writeError(w, http.StatusBadRequest, "manual_value required for a manual decision")
+			return body, "", false
+		}
+	}
+	return body, manualValue, true
+}
+
 // setFieldDecision records a standing decision pinning a replace field to a source
 // (F36). It validates the source shape, the item's live status (404/409), that the
 // canonical names a known replace field (404/400), and — for a provider pick — that
@@ -49,20 +70,9 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	canonical := chi.URLParam(r, "canonical")
 
-	var body decisionBody
-	if !decodeJSON(w, r, &body) {
+	body, manualValue, ok := decodeDecisionBody(w, r)
+	if !ok {
 		return
-	}
-	if !fieldsource.Valid(body.Source) {
-		writeError(w, http.StatusBadRequest, "source must be 'file', 'manual', or 'provider:<name>'")
-		return
-	}
-	manualValue := ""
-	if body.Source == fieldsource.Manual {
-		if manualValue = enrich.SanitizeValue(body.ManualValue); manualValue == "" {
-			writeError(w, http.StatusBadRequest, "manual_value required for a manual decision")
-			return
-		}
 	}
 
 	// Live-status gate: 404 unknown vs 409 soft-deleted (a decision must not
@@ -74,7 +84,7 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r, model.EnrichEntityVideo, id, p) {
+	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityVideo, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this item")
 		return
 	}
@@ -284,11 +294,11 @@ func (h *Handlers) replaceField(w http.ResponseWriter, canonical string) (mappin
 // synthesizes its "film:<id>" candidates from film_videos at read time and never
 // persists them to entity_enrichment, so the row scan below can never match one —
 // a real attachment in film_videos is the equivalent "currently offered" check.
-func (h *Handlers) providerMatched(r *http.Request, entityType string, id int64, provider string) bool {
+func (h *Handlers) providerMatched(ctx context.Context, entityType string, id int64, provider string) bool {
 	if entityType == model.EnrichEntityVideo && strings.HasPrefix(provider, "film:") {
-		return h.filmAttachedToVideo(r, id, provider)
+		return h.filmAttachedToVideo(ctx, id, provider)
 	}
-	rows, err := h.repo.EnrichmentForEntity(r.Context(), entityType, id)
+	rows, err := h.repo.EnrichmentForEntity(ctx, entityType, id)
 	if err != nil {
 		h.log.Warn("enrichment lookup for decision", "id", id, "err", err)
 		return false
@@ -303,12 +313,12 @@ func (h *Handlers) providerMatched(r *http.Request, entityType string, id int64,
 
 // filmAttachedToVideo reports whether the video actually has a film_videos row for
 // the "film:<id>" provider namespace — see providerMatched.
-func (h *Handlers) filmAttachedToVideo(r *http.Request, videoID int64, provider string) bool {
+func (h *Handlers) filmAttachedToVideo(ctx context.Context, videoID int64, provider string) bool {
 	filmID, err := strconv.ParseInt(strings.TrimPrefix(provider, "film:"), 10, 64)
 	if err != nil {
 		return false
 	}
-	films, err := h.repo.FilmsForVideo(r.Context(), videoID)
+	films, err := h.repo.FilmsForVideo(ctx, videoID)
 	if err != nil {
 		h.log.Warn("films lookup for decision", "id", videoID, "err", err)
 		return false

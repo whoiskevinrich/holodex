@@ -2,14 +2,16 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"holodex/internal/enrich"
 	"holodex/internal/fieldsource"
+	"holodex/internal/mapping"
+	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/writequeue"
 )
@@ -32,9 +34,11 @@ type filmStudioCascadeResult struct {
 }
 
 // cascadeFilmStudioHandler handles POST /films/{id}/studio/cascade. Reuses
-// decisionBody's {source, manual_value} shape — no Override field meaning here,
-// since cascadeFilmStudio always runs the collision gate (RD4's unconditional
-// overwrite applies to a video's prior decision, never to the safety gate).
+// decisionBody's {source, manual_value} shape — Override is rejected rather than
+// silently ignored: cascadeFilmStudio always runs the per-video collision gate
+// (RD4's unconditional overwrite applies to a video's prior decision, never to the
+// safety gate), so a caller that sends override=true would be misled into thinking
+// it bypassed a check that in fact still ran.
 func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -44,30 +48,32 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 		h.filmLookupError(w, err)
 		return
 	}
-	var body decisionBody
-	if !decodeJSON(w, r, &body) {
+	body, manualValue, ok := decodeDecisionBody(w, r)
+	if !ok {
 		return
 	}
-	if !fieldsource.Valid(body.Source) {
-		writeError(w, http.StatusBadRequest, "source must be 'file', 'manual', or 'provider:<name>'")
+	if body.Override {
+		writeError(w, http.StatusBadRequest, "override is not supported for the film-studio cascade")
 		return
 	}
-	manualValue := ""
-	if body.Source == fieldsource.Manual {
-		if manualValue = enrich.SanitizeValue(body.ManualValue); manualValue == "" {
-			writeError(w, http.StatusBadRequest, "manual_value required for a manual decision")
-			return
-		}
+	field, ok := h.replaceField(w, "studio")
+	if !ok {
+		return
 	}
 	if h.writeQueue == nil {
 		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
 		return
 	}
 
-	batchID, results, err := h.cascadeFilmStudio(r.Context(), id, body.Source, manualValue)
+	batchID, results, err := h.cascadeFilmStudio(r.Context(), id, field, body.Source, manualValue)
 	if err != nil {
-		h.fail(w, "cascade film studio", err)
-		return
+		if results == nil {
+			h.fail(w, "cascade film studio", err)
+			return
+		}
+		// Decisions were already committed per-video before EnqueueMany failed —
+		// surface the partial results instead of hiding them behind a 5xx (D3).
+		h.log.Warn("cascade film studio: writeback enqueue failed after decisions committed", "film_id", id, "err", err)
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"batch_id": batchID, "results": results})
 }
@@ -82,28 +88,48 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 //
 // A film with zero attached videos, or one where every video collides/errors, is a
 // clean no-op: batchID is "" and results may be empty or all non-"enqueued" — never
-// an error.
-func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, source, manualValue string) (batchID string, results []filmStudioCascadeResult, err error) {
-	field, _ := h.mappings.Current().ByCanonical("studio") // always present — replaceField already guards this shape elsewhere
+// an error. field is the caller's already-resolved+guarded "studio" mapping.Field
+// (cascadeFilmStudioHandler resolves it via replaceField, mirroring setFieldDecision).
+func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, field mapping.Field, source, manualValue string) (batchID string, results []filmStudioCascadeResult, err error) {
 	videoIDs, err := h.repo.VideoIDsForFilm(ctx, filmID)
 	if err != nil {
 		return "", nil, err
 	}
 
+	provider := fieldsource.Provider(source)
 	jobs := make([]writequeue.BatchJob, 0, len(videoIDs))
 	results = make([]filmStudioCascadeResult, 0, len(videoIDs))
 	for _, videoID := range videoIDs {
+		errResult := func(msg string) filmStudioCascadeResult {
+			return filmStudioCascadeResult{VideoID: videoID, Status: "error", Error: msg}
+		}
+		// Liveness re-check: VideoIDsForFilm's snapshot can race a concurrent
+		// soft-delete/removal between that fetch and this video's turn in the
+		// loop — skip it as a clean per-video error rather than letting
+		// decideStudioForVideo accumulate a decision against a trashed item.
+		if _, err := h.repo.RefreshTarget(ctx, videoID); err != nil {
+			msg := "video no longer exists"
+			if errors.Is(err, repo.ErrDeleted) {
+				msg = "video is deleted"
+			}
+			results = append(results, errResult(msg))
+			continue
+		}
+		if provider != "" && !h.providerMatched(ctx, model.EnrichEntityVideo, videoID, provider) {
+			results = append(results, errResult("provider is not matched to this item"))
+			continue
+		}
 		names, collision, decErr := h.decideStudioForVideo(ctx, videoID, field, source, manualValue, false)
 		switch {
 		case decErr != nil:
-			results = append(results, filmStudioCascadeResult{VideoID: videoID, Status: "error", Error: decErr.Error()})
+			results = append(results, errResult(decErr.Error()))
 		case collision != nil:
 			results = append(results, filmStudioCascadeResult{VideoID: videoID, Status: "collision", Conflict: collision})
 		default:
 			results = append(results, filmStudioCascadeResult{VideoID: videoID, Status: "enqueued"})
 			jobs = append(jobs, writequeue.BatchJob{
 				VideoID: videoID,
-				Fields:  []writequeue.JobField{{Field: "studio", Values: names, Source: fieldsource.Manual}},
+				Fields:  []writequeue.JobField{{Field: "studio", Values: names, Source: source}},
 			})
 		}
 	}
@@ -113,7 +139,10 @@ func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, source, 
 	}
 	batchID = fmt.Sprintf("film-studio-cascade-%d", time.Now().UnixNano())
 	if _, err := h.writeQueue.EnqueueMany(ctx, jobs, batchID); err != nil {
-		return "", nil, err
+		// Decisions above are already committed per-video (SetDecisionChecked
+		// writes as each video is processed) — only the batch enqueue failed, so
+		// results must survive this error for the caller to see what landed (D3).
+		return "", results, err
 	}
 	return batchID, results, nil
 }

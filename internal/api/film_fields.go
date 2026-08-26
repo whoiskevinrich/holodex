@@ -162,7 +162,7 @@ func (h *Handlers) setFilmFieldDecision(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r, model.EnrichEntityFilm, id, p) {
+	if p := fieldsource.Provider(source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityFilm, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this film")
 		return
 	}

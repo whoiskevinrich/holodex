@@ -60,13 +60,19 @@
 	onMount(() => {
 		dialogTrigger = document.activeElement as HTMLElement | null;
 		if (initialBatch) {
-			void watch(initialBatch.batch_id);
-		} else {
-			const first = [
-				...(dialogEl?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [])
-			].find((el) => el.offsetParent !== null);
-			first?.focus();
+			if (!initialBatch.batch_id) {
+				// Defensive: a caller-side bug producing an empty batch_id would
+				// otherwise poll forever against no batch. Mirrors start()'s own
+				// enqueued === 0 -> 'zero' fallback.
+				phase = 'zero';
+			} else {
+				void watch(initialBatch.batch_id);
+			}
 		}
+		const first = [
+			...(dialogEl?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [])
+		].find((el) => el.offsetParent !== null);
+		first?.focus();
 		return () => {
 			unmounted = true;
 			dialogTrigger?.focus?.();
@@ -99,8 +105,15 @@
 		phase = 'starting';
 		errorMsg = '';
 		try {
-			const res = await trigger?.();
-			if (!res) return;
+			if (!trigger) {
+				// Defensive: 'confirm'/'starting' are only reachable without
+				// initialBatch, whose caller contract implies trigger is set — but
+				// a violated contract must not permanently lock the dialog closed.
+				errorMsg = 'Nothing to start.';
+				phase = 'error';
+				return;
+			}
+			const res = await trigger();
 			enqueued = res.enqueued;
 			if (enqueued === 0) {
 				phase = 'zero';

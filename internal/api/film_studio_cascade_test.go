@@ -292,3 +292,69 @@ func TestCascadeFilmStudioHandler_OwnerGated(t *testing.T) {
 		t.Errorf("unauthenticated cascade status = %d, want 401 or 403", code)
 	}
 }
+
+// TestCascadeFilmStudioHandler_OverrideRejected covers the fix rejecting a non-default
+// Override rather than silently ignoring it: the per-video collision gate always runs
+// in the cascade (RD4's unconditional overwrite is about a video's prior decision, not
+// this safety check), so a caller sending override=true must be told, not misled.
+func TestCascadeFilmStudioHandler_OverrideRejected(t *testing.T) {
+	srv, r := cascadeServer(t, "tok")
+	filmID, err := r.CreateFilm(t.Context(), "Override", 2025)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+
+	body := map[string]any{"source": "manual", "manual_value": "Acme", "override": true}
+	raw, _ := json.Marshal(body)
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/films/"+itoa(filmID)+"/studio/cascade", bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(api.AdminTokenHeader, "tok")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("post cascade: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("override=true status = %d, want 400", resp.StatusCode)
+	}
+}
+
+// TestCascadeFilmStudio_UnmatchedProvider_PerVideoError covers the fix adding the
+// providerMatched precondition (ADR-051 §1) to the cascade: every other decision path
+// enforces "the provider must currently be offered for this item" before accepting a
+// provider-sourced pick, but the cascade previously skipped it entirely. An unmatched
+// provider must fail per-video (best-effort, like a collision), not be silently applied.
+func TestCascadeFilmStudio_UnmatchedProvider_PerVideoError(t *testing.T) {
+	srv, r := cascadeServer(t, "tok")
+	when := time.Date(2025, 6, 7, 0, 0, 0, 0, time.UTC)
+
+	filmID, err := r.CreateFilm(t.Context(), "Unmatched Provider", 2025)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	v1 := seedCascadeVideo(t, r, "/m/up1.mkv", "Unmatched One", []string{"Alice"}, when)
+	if _, err := r.AttachFilmVideo(t.Context(), filmID, v1, nil, false); err != nil {
+		t.Fatalf("attach v1: %v", err)
+	}
+
+	// No entity_enrichment row exists for v1 from "tmdb" -- the provider is never
+	// matched, so the per-video precondition must reject it.
+	code, body := cascadePost(t, srv, "tok", filmID, "provider:tmdb", "")
+	if code != http.StatusAccepted {
+		t.Fatalf("cascade status = %d, body = %v", code, body)
+	}
+	if v, ok := body["batch_id"].(string); !ok || v != "" {
+		t.Errorf("batch_id = %v, want empty string (nothing enqueued)", body["batch_id"])
+	}
+	results, ok := body["results"].([]any)
+	if !ok || len(results) != 1 {
+		t.Fatalf("results = %v, want 1 entry", body["results"])
+	}
+	row := results[0].(map[string]any)
+	if row["status"] != "error" {
+		t.Errorf("status = %v, want error (unmatched provider)", row["status"])
+	}
+}
