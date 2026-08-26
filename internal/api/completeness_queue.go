@@ -65,7 +65,7 @@ func (h *Handlers) remediationQueue(ctx context.Context) ([]FacetGroup, error) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		videos, errVideos = h.completenessForVideos(ctx, repo.VideoFilter{})
+		videos, errVideos = h.completenessForVideos(ctx, repo.VideoFilter{HideFullFilmVideos: h.filmsEnabled})
 	}()
 	go func() {
 		defer wg.Done()

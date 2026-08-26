@@ -58,7 +58,7 @@ func TestSoftDeleteHidesFromEverySurface(t *testing.T) {
 		t.Errorf("ListVideos total=%d ids include soft-deleted? got %d rows", total, len(vids))
 	}
 	// Search → excludes it (title "Vanishing" must not surface)
-	res, err := r.Search(ctx, "Vanishing", 10)
+	res, err := r.Search(ctx, "Vanishing", 10, false)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestSoftDeleteHidesFromEverySurface(t *testing.T) {
 		}
 	}
 	// Related (as subject) → ErrNotFound
-	if _, err := r.Related(ctx, id, 5); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := r.Related(ctx, id, 5, false); !errors.Is(err, repo.ErrNotFound) {
 		t.Errorf("Related(subject) = %v, want ErrNotFound", err)
 	}
 	// Person/Tag counts → only the live item counts

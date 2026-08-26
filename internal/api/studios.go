@@ -186,7 +186,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setStudioImageURLs(s)
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{StudioIDs: []int64{id}, Limit: 500})
+	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{StudioIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
 	if err != nil {
 		h.fail(w, "studio videos", err)
 		return

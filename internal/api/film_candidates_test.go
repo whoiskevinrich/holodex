@@ -67,6 +67,19 @@ func seedStudio(t *testing.T, sqlDB *sql.DB, videoID int64, name string) int64 {
 	return sid
 }
 
+func seedTag(t *testing.T, sqlDB *sql.DB, videoID int64, name string) int64 {
+	t.Helper()
+	res, err := sqlDB.Exec(`INSERT INTO tags (name) VALUES (?)`, name)
+	if err != nil {
+		t.Fatalf("seed tag: %v", err)
+	}
+	tid, _ := res.LastInsertId()
+	if _, err := sqlDB.Exec(`INSERT INTO video_tags (video_id, tag_id) VALUES (?, ?)`, videoID, tid); err != nil {
+		t.Fatalf("link video tag: %v", err)
+	}
+	return tid
+}
+
 func decodeFilmItems(t *testing.T, resp *http.Response) []model.Film {
 	t.Helper()
 	defer resp.Body.Close()
@@ -118,7 +131,12 @@ func TestListFilmsForEntity(t *testing.T) {
 // TestFilmVideoCandidates covers GET /films/{id}/video-candidates (F56, design
 // handoff §4): default scope excludes videos already attached to ANY film;
 // ?unattached=false includes them and flags already_attached; a video already
-// attached to the film being edited is excluded in both scopes.
+// attached to the film being edited is excluded in both scopes. elsewhere is
+// attached as a full-film video specifically to prove the RD6/HOLODEX-282
+// hiding filter (films_enabled=true, set by filmEntityServer) does not leak
+// into this owner picker -- it must still surface an is_full_film video so a
+// conflicting attachment stays visible/resolvable, unlike the public list
+// surfaces (browse/search/RelatedShelf/EntityVideos) that hide it.
 func TestFilmVideoCandidates(t *testing.T) {
 	srv, r, _ := filmEntityServer(t)
 	ctx := context.Background()
@@ -135,7 +153,7 @@ func TestFilmVideoCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create other film: %v", err)
 	}
-	if _, err := r.AttachFilmVideo(ctx, otherFilmID, elsewhere, nil, false); err != nil {
+	if _, err := r.AttachFilmVideo(ctx, otherFilmID, elsewhere, nil, true); err != nil {
 		t.Fatalf("attach elsewhere: %v", err)
 	}
 	if _, err := r.AttachFilmVideo(ctx, filmID, ownScene, nil, false); err != nil {
@@ -192,5 +210,159 @@ func TestFilmVideoCandidates(t *testing.T) {
 	attached, ok := byID[elsewhere]
 	if !ok || len(attached) != 1 || attached[0].FilmID != otherFilmID {
 		t.Fatalf("already_attached for elsewhere video: got %+v", attached)
+	}
+}
+
+// TestFullFilmVideoHiddenFromListSurfaces covers RD6/HOLODEX-282 end-to-end
+// through the HTTP layer (films_enabled=true, set by filmEntityServer): a
+// video attached as is_full_film must be excluded from browse (GET /media),
+// global search (GET /search), the "More with ..." shelves (GET /media/{id}
+// /related), and the person/tag/studio detail video lists, while the video's
+// own detail page (GET /media/{id}) stays reachable.
+func TestFullFilmVideoHiddenFromListSurfaces(t *testing.T) {
+	srv, r, sqlDB := filmEntityServer(t)
+	ctx := context.Background()
+
+	full := seedPlainVideo(t, r, "FullFilmVideo")
+	scene := seedPlainVideo(t, r, "SceneVideo")
+
+	filmID, err := r.CreateFilm(ctx, "Hidden Surfaces Test", 2025)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, filmID, full, nil, true); err != nil {
+		t.Fatalf("attach full-film video: %v", err)
+	}
+	one := int64(1)
+	if _, err := r.AttachFilmVideo(ctx, filmID, scene, &one, false); err != nil {
+		t.Fatalf("attach scene video: %v", err)
+	}
+
+	// Both videos share a tag, a studio, and a person -- so full-film would
+	// otherwise appear in scene's tag shelf and in every entity's video list.
+	tagID := seedTag(t, sqlDB, full, "shared-tag")
+	if _, err := sqlDB.Exec(`INSERT INTO video_tags (video_id, tag_id) VALUES (?, ?)`, scene, tagID); err != nil {
+		t.Fatalf("tag scene video: %v", err)
+	}
+	studioID := seedStudio(t, sqlDB, full, "Shared Studio")
+	if _, err := sqlDB.Exec(`INSERT INTO video_studios (video_id, studio_id) VALUES (?, ?)`, scene, studioID); err != nil {
+		t.Fatalf("studio-link scene video: %v", err)
+	}
+	linkPeople(t, r, full, "Shared Person")
+	linkPeople(t, r, scene, "Shared Person")
+	peopleByVideo, err := r.PeopleForVideos(ctx, []int64{full})
+	if err != nil || len(peopleByVideo[full]) == 0 {
+		t.Fatalf("lookup shared person: %v", err)
+	}
+	personID := peopleByVideo[full][0].ID
+
+	decodeVideoIDs := func(t *testing.T, resp *http.Response) []int64 {
+		t.Helper()
+		defer resp.Body.Close()
+		var body struct {
+			Items []model.Video `json:"items"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("decode items: %v", err)
+		}
+		ids := make([]int64, len(body.Items))
+		for i, v := range body.Items {
+			ids[i] = v.ID
+		}
+		return ids
+	}
+	hasID := func(ids []int64, want int64) bool {
+		for _, id := range ids {
+			if id == want {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Browse.
+	mediaResp, err := http.Get(srv.URL + "/api/v1/media")
+	if err != nil {
+		t.Fatalf("get media: %v", err)
+	}
+	ids := decodeVideoIDs(t, mediaResp)
+	if hasID(ids, full) {
+		t.Errorf("GET /media: full-film video present, want hidden: %v", ids)
+	}
+	if !hasID(ids, scene) {
+		t.Errorf("GET /media: scene video missing, want present: %v", ids)
+	}
+
+	// Global search: title-prefix match on the full-film video's own title.
+	searchResp, err := http.Get(srv.URL + "/api/v1/search?q=FullFilmVideo")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	defer searchResp.Body.Close()
+	var searchBody struct {
+		Videos []model.Video `json:"videos"`
+	}
+	if err := json.NewDecoder(searchResp.Body).Decode(&searchBody); err != nil {
+		t.Fatalf("decode search: %v", err)
+	}
+	for _, v := range searchBody.Videos {
+		if v.ID == full {
+			t.Errorf("GET /search: full-film video present, want hidden: %+v", searchBody.Videos)
+		}
+	}
+
+	// Related shelf: scene's tag shelf must not surface the full-film sibling.
+	relatedResp, err := http.Get(srv.URL + "/api/v1/media/" + itoa(scene) + "/related")
+	if err != nil {
+		t.Fatalf("get related: %v", err)
+	}
+	defer relatedResp.Body.Close()
+	var relatedBody struct {
+		Tag *struct {
+			Items []model.Video `json:"items"`
+		} `json:"tag"`
+	}
+	if err := json.NewDecoder(relatedResp.Body).Decode(&relatedBody); err != nil {
+		t.Fatalf("decode related: %v", err)
+	}
+	if relatedBody.Tag != nil {
+		for _, v := range relatedBody.Tag.Items {
+			if v.ID == full {
+				t.Errorf("GET /media/%d/related: full-film video present in tag shelf, want hidden: %+v", scene, relatedBody.Tag.Items)
+			}
+		}
+	}
+
+	// Entity detail pages: person, tag, studio.
+	personResp, err := http.Get(srv.URL + "/api/v1/people/" + itoa(personID))
+	if err != nil {
+		t.Fatalf("get person: %v", err)
+	}
+	if ids := decodeVideoIDs(t, personResp); hasID(ids, full) {
+		t.Errorf("GET /people/%d: full-film video present, want hidden: %v", personID, ids)
+	}
+	tagResp, err := http.Get(srv.URL + "/api/v1/tags/" + itoa(tagID))
+	if err != nil {
+		t.Fatalf("get tag: %v", err)
+	}
+	if ids := decodeVideoIDs(t, tagResp); hasID(ids, full) {
+		t.Errorf("GET /tags/%d: full-film video present, want hidden: %v", tagID, ids)
+	}
+	studioResp, err := http.Get(srv.URL + "/api/v1/studios/" + itoa(studioID))
+	if err != nil {
+		t.Fatalf("get studio: %v", err)
+	}
+	if ids := decodeVideoIDs(t, studioResp); hasID(ids, full) {
+		t.Errorf("GET /studios/%d: full-film video present, want hidden: %v", studioID, ids)
+	}
+
+	// The full-film video's own detail page always stays reachable.
+	detailResp, err := http.Get(srv.URL + "/api/v1/media/" + itoa(full))
+	if err != nil {
+		t.Fatalf("get media detail: %v", err)
+	}
+	defer detailResp.Body.Close()
+	if detailResp.StatusCode != http.StatusOK {
+		t.Errorf("GET /media/%d: got %d, want 200 (detail page always reachable)", full, detailResp.StatusCode)
 	}
 }
