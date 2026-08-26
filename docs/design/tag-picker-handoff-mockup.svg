@@ -1,0 +1,153 @@
+<svg width="1160" height="1230" viewBox="0 0 1160 1230" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>TagPicker mockup — trigger options, popover states, cross-skin token check</title>
+<desc>Four panels: trigger-affordance options (tile vs pencil vs quiet-button, quiet-button recommended), the popover's search/create-fallback state, the new post-commit near-miss advisory state, and a cross-skin swatch check of the same chip/button/advisory treatment in Broadcast and Brutalist.</desc>
+<rect width="1160" height="1230" fill="#0c0a09"/>
+
+<!-- ============ PANEL 1: trigger affordance options ============ -->
+<text x="24" y="34" font-size="11" letter-spacing="1" fill="#9b9082">1 · TRIGGER AFFORDANCE — THREE OPTIONS CONSIDERED</text>
+<rect x="24" y="46" width="1112" height="220" rx="10" fill="#15110e" stroke="#2a2622"/>
+
+<!-- Option A: dashed tile (PersonPicker's pattern) -->
+<text x="56" y="80" font-size="11" fill="#9b9082">A · DASHED TILE (PersonPicker's pattern)</text>
+<rect x="56" y="96" width="150" height="120" rx="8" fill="#0c0a09" stroke="#2a2622" stroke-dasharray="4 4"/>
+<text x="131" y="150" font-size="22" fill="#9b9082" text-anchor="middle">+</text>
+<text x="131" y="172" font-size="11" fill="#9b9082" text-anchor="middle">Add tag</text>
+<text x="56" y="238" font-size="11" fill="#e2603f">Rejected — tags render as an inline chip row, not a portrait grid; a grid-shaped tile has no home here</text>
+
+<!-- Option B: docked pencil (StudioPicker's pattern) -->
+<text x="446" y="80" font-size="11" fill="#9b9082">B · DOCKED PENCIL (StudioPicker's pattern)</text>
+<rect x="446" y="130" width="220" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+<text x="462" y="150" font-size="12" fill="#f3ece1">Yakuza</text>
+<rect x="522" y="130" width="90" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+<text x="538" y="150" font-size="12" fill="#f3ece1">Noir</text>
+<rect x="628" y="135" width="22" height="22" rx="6" fill="none" stroke="#2a2622"/>
+<g transform="translate(633,140) scale(0.55)" fill="none" stroke="#9b9082" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+</g>
+<text x="446" y="238" font-size="11" fill="#e2603f">Rejected — implies exactly one editable value like Studio's single field; Tags is an open-ended set, closer to People</text>
+
+<!-- Option C: quiet button (current page pattern) — recommended -->
+<text x="836" y="80" font-size="11" fill="#e8a33d">C · QUIET BUTTON (today's "+ Add tag") — RECOMMENDED</text>
+<rect x="836" y="96" width="150" height="120" rx="8" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="856" y="140" width="110" height="30" rx="15" fill="none" stroke="#2a2622"/>
+<text x="911" y="160" font-size="12" fill="#9b9082" text-anchor="middle">+ Add tag</text>
+<text x="836" y="238" font-size="11" fill="#e8a33d">Kept — matches the affordance already on this page today; only the form behind it changes (search+create+near-miss, not a bare text input)</text>
+
+<!-- ============ PANEL 2: popover — search & create-fallback ============ -->
+<text x="24" y="292" font-size="11" letter-spacing="1" fill="#9b9082">2 · POPOVER — SEARCH, EXACT-MATCH SUPPRESSION, CREATE-FALLBACK (Cinémathèque)</text>
+<rect x="24" y="304" width="540" height="480" rx="10" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="52" y="332" width="484" height="424" rx="10" fill="#15110e" stroke="#2a2622"/>
+<text x="76" y="364" font-size="15" fill="#f3ece1">Add tags</text>
+<rect x="500" y="348" width="24" height="24" rx="6" fill="none"/>
+<text x="512" y="366" font-size="13" fill="#9b9082" text-anchor="middle">✕</text>
+
+<!-- attached chips -->
+<rect x="76" y="386" width="90" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="90" y="404" font-size="12" fill="#f3ece1">Yakuza</text>
+<text x="146" y="404" font-size="12" fill="#9b9082">×</text>
+<rect x="174" y="386" width="70" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="188" y="404" font-size="12" fill="#f3ece1">Noir</text>
+<text x="224" y="404" font-size="12" fill="#9b9082">×</text>
+
+<!-- search input -->
+<rect x="76" y="428" width="460" height="34" rx="6" fill="#0c0a09" stroke="#e8a33d" stroke-width="1.5"/>
+<text x="90" y="450" font-size="13" fill="#f3ece1">fox</text>
+<!-- status line -->
+<text x="76" y="480" font-size="11" fill="#9b9082">No matches for "fox".</text>
+
+<!-- results listbox: empty state + create row -->
+<rect x="76" y="496" width="460" height="44" rx="6" fill="#181310" stroke="#e8a33d"/>
+<text x="92" y="524" font-size="12" fill="#e8a33d">Create tag "fox"</text>
+
+<text x="76" y="576" font-size="11" fill="#9b9082" width="460">Note: the local candidate list has no exact-or-near match for "fox" (search</text>
+<text x="76" y="594" font-size="11" fill="#9b9082">returned nothing) — this is the showCreateRow path PersonPicker/StudioPicker</text>
+<text x="76" y="612" font-size="11" fill="#9b9082">already use. It does NOT yet know an entity named "Fox" exists elsewhere in</text>
+<text x="76" y="630" font-size="11" fill="#9b9082">the library — that check happens server-side, after commit (panel 3).</text>
+
+<rect x="76" y="656" width="460" height="1" fill="#2a2622"/>
+<text x="76" y="682" font-size="11" fill="#9b9082">Attach commits via `attach("fox")` → POST, reloads the video, resolves the</text>
+<text x="76" y="700" font-size="11" fill="#9b9082">created/matched tag. Picker stays open (multi-select, like PersonPicker —</text>
+<text x="76" y="718" font-size="11" fill="#9b9082">unlike StudioPicker, which closes on a single-value commit).</text>
+
+<!-- ============ PANEL 3: near-miss advisory (new) ============ -->
+<text x="596" y="292" font-size="11" letter-spacing="1" fill="#9b9082">3 · POST-COMMIT NEAR-MISS ADVISORY (new — migrated from the page's inline flow)</text>
+<rect x="596" y="304" width="540" height="480" rx="10" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="624" y="332" width="484" height="424" rx="10" fill="#15110e" stroke="#2a2622"/>
+<text x="648" y="364" font-size="15" fill="#f3ece1">Add tags</text>
+<rect x="1072" y="348" width="24" height="24" rx="6" fill="none"/>
+<text x="1084" y="366" font-size="13" fill="#9b9082" text-anchor="middle">✕</text>
+
+<!-- attached chips incl newly-added "fox" -->
+<rect x="648" y="386" width="90" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="662" y="404" font-size="12" fill="#f3ece1">Yakuza</text>
+<text x="718" y="404" font-size="12" fill="#9b9082">×</text>
+<rect x="746" y="386" width="70" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="760" y="404" font-size="12" fill="#f3ece1">Noir</text>
+<text x="796" y="404" font-size="12" fill="#9b9082">×</text>
+<rect x="824" y="386" width="64" height="26" rx="13" fill="#181310" stroke="#e8a33d"/>
+<text x="838" y="404" font-size="12" fill="#f3ece1">fox</text>
+<text x="866" y="404" font-size="12" fill="#9b9082">×</text>
+<text x="900" y="404" font-size="10" fill="#e8a33d">← just added</text>
+
+<!-- advisory card -->
+<rect x="648" y="428" width="436" height="120" rx="8" fill="#181310" stroke="#2a2622"/>
+<text x="668" y="456" font-size="12" fill="#f3ece1">Looks a lot like</text>
+<text x="668" y="474" font-size="13" fill="#f3ece1" font-weight="bold">Fox</text>
+<text x="694" y="474" font-size="12" fill="#f3ece1"> (12 videos) — use that instead?</text>
+<rect x="668" y="492" width="104" height="30" rx="6" fill="#e8a33d"/>
+<text x="720" y="512" font-size="12" fill="#1a1206" text-anchor="middle">Use existing</text>
+<rect x="784" y="492" width="140" height="30" rx="6" fill="none" stroke="#2a2622"/>
+<text x="854" y="512" font-size="12" fill="#f3ece1" text-anchor="middle">Add as new anyway</text>
+
+<text x="648" y="586" font-size="11" fill="#9b9082">Sequencing (unchanged from today's page logic): attach("fox") already</text>
+<text x="648" y="604" font-size="11" fill="#9b9082">succeeded before this card renders. "Use existing" is sequential, not</text>
+<text x="648" y="622" font-size="11" fill="#9b9082">concurrent — attach("Fox") first, then detach(fox.id) only after that</text>
+<text x="648" y="640" font-size="11" fill="#9b9082">succeeds, so a failed swap leaves both tags attached, never neither.</text>
+<text x="648" y="658" font-size="11" fill="#9b9082">"Add as new anyway" just dismisses the card — the "fox" chip stays.</text>
+
+<rect x="648" y="682" width="436" height="1" fill="#2a2622"/>
+<text x="648" y="708" font-size="11" fill="#9b9082">Deny-list error (422 on attach) reuses the page's existing message</text>
+<text x="648" y="726" font-size="11" fill="#9b9082">verbatim: '{name}' is on the deny-list. — rendered in the same commit-error</text>
+<text x="648" y="744" font-size="11" fill="#9b9082">slot as PersonPicker/StudioPicker use, text-warn colored.</text>
+
+<!-- ============ PANEL 4: cross-skin token check ============ -->
+<text x="24" y="820" font-size="11" letter-spacing="1" fill="#9b9082">4 · CROSS-SKIN TOKEN CHECK — same chip + advisory-button treatment, other two skins</text>
+
+<!-- Broadcast swatch -->
+<rect x="24" y="836" width="548" height="300" rx="10" fill="#060814" stroke="#1a2240"/>
+<text x="48" y="866" font-size="12" fill="#dfe9ff">Broadcast</text>
+<rect x="48" y="884" width="90" height="26" rx="13" fill="#0a0e1f" stroke="#1a2240"/>
+<text x="62" y="902" font-size="12" fill="#dfe9ff">Yakuza</text>
+<text x="118" y="902" font-size="12" fill="#6f7da6">×</text>
+<rect x="146" y="884" width="64" height="26" rx="13" fill="#0a0e1f" stroke="#36e0d0"/>
+<text x="160" y="902" font-size="12" fill="#dfe9ff">fox</text>
+<text x="188" y="902" font-size="12" fill="#6f7da6">×</text>
+<rect x="48" y="926" width="470" height="110" rx="8" fill="#0a0e1f" stroke="#1a2240"/>
+<text x="68" y="954" font-size="12" fill="#dfe9ff">Looks a lot like <tspan font-weight="bold">Fox</tspan> (12 videos) — use that instead?</text>
+<rect x="68" y="972" width="104" height="30" rx="6" fill="#36e0d0"/>
+<text x="120" y="992" font-size="12" fill="#04121a" text-anchor="middle">Use existing</text>
+<rect x="184" y="972" width="140" height="30" rx="6" fill="none" stroke="#1a2240"/>
+<text x="254" y="992" font-size="12" fill="#dfe9ff" text-anchor="middle">Add as new anyway</text>
+<text x="68" y="1016" font-size="10" fill="#6f7da6">accent #36e0d0 / accent-ink #04121a / warn #ff6f61 (deny-list &amp; error text)</text>
+
+<!-- Brutalist swatch -->
+<rect x="588" y="836" width="548" height="300" rx="10" fill="#0a0a0a" stroke="#333333"/>
+<text x="612" y="866" font-size="12" fill="#fafafa">Brutalist</text>
+<rect x="612" y="884" width="90" height="26" rx="13" fill="#111111" stroke="#333333"/>
+<text x="626" y="902" font-size="12" fill="#fafafa">Yakuza</text>
+<text x="682" y="902" font-size="12" fill="#8a8a8a">×</text>
+<rect x="710" y="884" width="64" height="26" rx="13" fill="#111111" stroke="#d6ff3f"/>
+<text x="724" y="902" font-size="12" fill="#fafafa">fox</text>
+<text x="752" y="902" font-size="12" fill="#8a8a8a">×</text>
+<rect x="612" y="926" width="470" height="110" rx="8" fill="#111111" stroke="#333333"/>
+<text x="632" y="954" font-size="12" fill="#fafafa">Looks a lot like <tspan font-weight="bold">Fox</tspan> (12 videos) — use that instead?</text>
+<rect x="632" y="972" width="104" height="30" rx="6" fill="#d6ff3f"/>
+<text x="684" y="992" font-size="12" fill="#0a0a0a" text-anchor="middle">Use existing</text>
+<rect x="748" y="972" width="140" height="30" rx="6" fill="none" stroke="#333333"/>
+<text x="818" y="992" font-size="12" fill="#fafafa" text-anchor="middle">Add as new anyway</text>
+<text x="632" y="1016" font-size="10" fill="#8a8a8a">accent #d6ff3f / accent-ink #0a0a0a / warn #ff5e3a (deny-list &amp; error text)</text>
+
+<text x="24" y="1170" font-size="11" fill="#9b9082">No new tokens introduced — same set PersonPicker/StudioPicker already use (bg, surface, surface-2, ink, muted,</text>
+<text x="24" y="1188" font-size="11" fill="#9b9082">rule, accent, accent-ink, warn, rounded-theme). This mockup is schematic (Segoe UI stand-in) — implementation</text>
+<text x="24" y="1206" font-size="11" fill="#9b9082">renders with the app's real font-display/font-ui faces; verify all three skins live in-browser before this gate closes.</text>
+</svg>

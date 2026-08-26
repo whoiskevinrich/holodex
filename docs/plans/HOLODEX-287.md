@@ -18,27 +18,33 @@ a sibling picker component (still a hand-rolled inline form on the Video detail 
 Done means: ADR-088 accepted, the rule-file cross-link added, and `TagPicker.svelte`
 built and wired in with parity to `PersonPicker`/`StudioPicker`.
 
-**Design package:** no spec (discipline/tooling change, not product behavior) · [ADR-088](../architecture/ADR-088-frontend-component-reuse-discipline.md) · design-handoff pending (TagPicker interaction spec) · testing-strategy pending
+**Design package:** no spec (discipline/tooling change, not product behavior) ·
+[ADR-088](../architecture/ADR-088-frontend-component-reuse-discipline.md) ·
+[design-handoff](../design/tag-picker-handoff.md) done · testing-strategy pending
 
 ## Gates — definition of done
 
 - [ ] spec `write-spec` → `docs/specs/**` — N/A, no spec needed (see ADR-088 header)
 - [x] architecture `architecture` → `docs/architecture/ADR-088-frontend-component-reuse-discipline.md`
-- [ ] design `design-handoff` → `docs/design/**` — TagPicker interaction spec
+- [x] design `design-handoff` → [`docs/design/tag-picker-handoff.md`](../design/tag-picker-handoff.md) + [mockup](../design/tag-picker-handoff-mockup.svg)
 - [ ] backend — N/A, frontend-only
-- [ ] frontend — TagPicker.svelte build + wiring
+- [ ] frontend — TagPicker.svelte build + wiring; cross-link bullet still open too
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — likely N/A (no new mutation surface; confirm at implementation time)
 
 ## Up next — ordered (position = priority)
 
 1. [ ] [frontend] Add "reuse before you create" cross-link bullet to `.claude/rules/frontend-theming.md` pointing at `components/CLAUDE.md`
-2. [ ] [design] `/design-handoff` for TagPicker's concrete interaction spec
-3. [ ] [frontend] Build `TagPicker.svelte` in `web/src/lib/components/entity/`, shaped after `PersonPicker` (multi-valued, no per-row role); preserve existing near-miss-suggestion logic; add its row to `entity/CLAUDE.md`  ⛔ blocked on #2
-4. [ ] [frontend] Wire `TagPicker` into `web/src/routes/media/[id]/+page.svelte`, replacing the hand-rolled inline form  ⛔ blocked on #3
-5. [ ] [—] `testing-strategy` pass for TagPicker parity + near-miss suggestion coverage
+2. [ ] [frontend] Build `TagPicker.svelte` in `web/src/lib/components/entity/` per the handoff spec: `PersonPicker`-shaped (multi-valued, no per-row role, stays open across commits), absorb the page's near-miss advisory (`tagNearMiss`/`useTagNearMiss`), quiet-button trigger (not a tile or pencil); add its row to `entity/CLAUDE.md`
+3. [ ] [frontend] Wire `TagPicker` into `web/src/routes/media/[id]/+page.svelte`, replacing the hand-rolled inline form (`:106-116`, `:599-687`, `:924-1011`); page keeps only thin `attach`/`detach` wrappers  ⛔ blocked on #2
+4. [ ] [—] `testing-strategy` pass for TagPicker parity + near-miss suggestion coverage
+5. [ ] [—] Resolve the two "Open questions for implementation" in the handoff (`AliasPanel` near-miss call ownership; confirm `addVideoTag` never conflicts) before or during #2
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-26 · Design-handoff for TagPicker written
+- skills: design-handoff
+- handoff: Wrote `docs/design/tag-picker-handoff.md` + committed SVG mockup. Resolved trigger-affordance choice (quiet-button, matching today's page — not PersonPicker's tile or StudioPicker's pencil) and specified the near-miss advisory migration in detail (sequencing, prop ownership). Two implementation-time open questions flagged in the doc, not blocking. Next session: item 1 (rule cross-link, trivial) then item 2 (build TagPicker.svelte).
 
 ### 2026-08-26 · Merged main; renumbered ADR-086 → ADR-088
 - skills: (none — mechanical merge)

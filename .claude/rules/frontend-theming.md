@@ -11,6 +11,13 @@ The UI is built on semantic design tokens with three switchable skins (see
 [ADR-021](../../docs/architecture/ADR-021-frontend-theming-and-skins.md) and
 [`docs/design/theming.md`](../../docs/design/theming.md)). Two rules are load-bearing:
 
+- **Reuse before you create.** Before adding a new component, check
+  [`web/src/lib/components/CLAUDE.md`](../../web/src/lib/components/CLAUDE.md) — it indexes
+  every folder's existing components by purpose and gives the classification rule for where a
+  new one belongs. A near-duplicate of an existing component (e.g. another entity picker) should
+  extend or sit alongside the existing one, not fork a fresh one-off. See
+  [ADR-088](../../docs/architecture/ADR-088-frontend-component-reuse-discipline.md).
+
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
   utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
   `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
