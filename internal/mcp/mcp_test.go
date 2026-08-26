@@ -28,7 +28,7 @@ func newTestServer(t *testing.T) (*Server, *repo.Repo) {
 	t.Cleanup(func() { database.Close() })
 	r := repo.New(database)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(r, log, nil, api.NewAuth("")), r
+	return New(r, log, nil, api.NewAuth(""), false), r
 }
 
 func seed(t *testing.T, r *repo.Repo, path, title string, dur, w int, people, tags []string) {
@@ -206,7 +206,7 @@ func TestSearchMappedFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store: %v", err)
 	}
-	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), store, api.NewAuth(""))
+	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), store, api.NewAuth(""), false)
 
 	var resp searchResponse
 	json.Unmarshal([]byte(resultText(t, call(t, s.searchVideos, map[string]any{"fields": map[string]any{"studio": "Acme"}}))), &resp)

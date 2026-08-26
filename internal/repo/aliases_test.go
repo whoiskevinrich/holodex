@@ -409,7 +409,7 @@ func TestMergePersons(t *testing.T) {
 // (video_id, person_id, role) key (F40, ADR-072) — not just the post-merge relink
 // pass a real scan/curation change would trigger afterward. Without carrying the
 // loser's role across, the loser's 'actor' link would land as a second row with
-// role=” instead of colliding with the survivor's own 'actor' link on the same video.
+// an empty role instead of colliding with the survivor's own 'actor' link on the same video.
 func TestMergePersons_DedupesSameRoleLinkAtMergeTime(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
