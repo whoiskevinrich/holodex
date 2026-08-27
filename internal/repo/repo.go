@@ -1531,7 +1531,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 	if filmsEnabled {
 		films, err := r.SearchFilms(ctx, q, limit)
 		if err != nil {
-			return res, fmt.Errorf("search films: %w", err)
+			return res, err // SearchFilms already wraps with its own "search films: " context
 		}
 		res.Films = films
 	}
