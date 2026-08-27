@@ -1,0 +1,70 @@
+---
+# Flightplan worklog — one epic, one worklog, one definition of done.
+# Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
+# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+key: HOLODEX-289                 # the tracker key; must match the branch key regex
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+depends-on: []               # [KEY-…] cross-epic deps that must land first
+release_note: Fixed a bug where the video detail page hid the Studio section entirely (with no way to add one) when no studio was linked yet.
+---
+
+# HOLODEX-289 · Studio add-affordance on the media detail page
+
+Owners can always add a studio to a video from the Media detail page, even when the video currently has zero studio candidates — the Studio pencil/add affordance renders regardless of whether the resolver produced a `studio` entry in `resolved[]`.
+
+**Design package:** N/A for the original fix (one-line bug restoring an existing affordance's availability, no UX change). Sessions (3)-(4) added a genuinely new trigger element (the "+ Add studio" CTA) and changed the pencil's position/visibility/dialog-title wording — small enough in scope (polish to one existing control, no new screen or flow) that `/design-critique` against the real source was judged proportionate instead of a full `/design-handoff` package. The resolved decisions (trailing pencil position, always-visible modifier, empty-state CTA) are now documented as an addendum in [`docs/design/studio-picker-handoff.md`](../design/studio-picker-handoff.md#addendum-holodex-289-trigger-position-visibility-and-empty-state-cta).
+
+## Gates — definition of done
+
+<!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
+     PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
+
+- [~] spec `write-spec` → `docs/specs/**` — not applicable: bug fix, no requirement change
+- [~] architecture `architecture` → `docs/architecture/ADR-*` — not applicable: no architectural decision changed
+- [x] design — decisions (trailing pencil, always-visible modifier, empty-state CTA) documented as an addendum in `docs/design/studio-picker-handoff.md` (proportionate to scope; full `/design-handoff` judged unnecessary for polish to one existing control)
+- [x] frontend — `web/src/lib/components/entity/StudioPicker.svelte`, `web/src/routes/media/[id]/+page.svelte`
+- [x] testing — verified live against local dev servers (repro, fix, search/create, persistence, visitor-view no-regression, all 3 skins); `npm run check` clean (0 errors, only pre-existing unrelated warnings)
+- [~] security `security-review` — not applicable: no auth/access/infrastructure change
+
+## Up next — ordered (position = priority)
+
+<!-- Numbered queue. Position is the priority — no P1/P2 tags. Each item: [gate] one-liner — file path.
+     ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
+     The top item is surfaced verbatim in the SessionStart banner. -->
+
+1. [x] [—] Push branch, open PR (ready — all applicable gates green) — [PR #260](https://github.com/whoiskevinrich/holodex/pull/260)
+2. [ ] [—] Sync Jira HOLODEX-289 status once PR is open (CI fires In Review on the PR-ready webhook, ADR-058)
+
+## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+<!-- One entry per session, newest at the top. PostToolUse(Skill) creates the entry + appends the
+     `- skills:` line mechanically; /handoff writes the `- handoff:` sentence the next SessionStart
+     banner echoes. Shape:
+### 2026-07-10 · what happened this session
+- skills: write-spec, architecture
+- handoff: the sentence the next session should wake up to
+-->
+
+### 2026-08-26 · session (6)
+- skills: design-system
+- handoff: Closed the design gate the code-review pass flagged. Ran `/design-system document` to record the resolved decisions from sessions (3)-(4) as a committed addendum in `docs/design/studio-picker-handoff.md`: pencil position (trailing the studio name, matching `NameEditControl`'s name-then-pencil order), visibility (always-visible via the existing `pencilAlwaysVisible` mechanism, with the rationale — matching the always-visible "+ Add studio" sibling), and the empty-state CTA (`+ Add studio` text button + conditional dialog title, chosen from the 3-option mockup). Flagged the original handoff's now-stale Layout section as superseded, pointing to the addendum. Updated this worklog's design gate to `[x]` accordingly. Next: nothing — awaiting review/merge.
+
+### 2026-08-26 · session (5)
+- skills: code-review
+- handoff: Ran `/code-review high --fix` over the full PR #260 diff (main...HEAD, since the branch was already in sync with origin). 8 finder agents + 1-vote verify surfaced 5 candidates; 1 refuted (a "no default for `hasStudio`" concern — `npm run check`/svelte-check already enforces required-prop typing at compile time, so a caller omitting it fails the type check, not a silent `undefined`). Fixed: narrowed `StudioPicker.svelte`'s stale `field: ResolvedField | undefined` prop type to `field?: ResolvedField` (the destructuring default already guarantees non-undefined); added a comment explaining the hardcoded always-visible pencil exception; corrected this worklog's Design-package line/gate row, which still claimed "no new UI/UX" after sessions (3)-(4) added a real new CTA. Skipped: a film detail page ([id]/+page.svelte:180) studio-picker parity gap (same bare-pencil discoverability issue this PR fixed for videos) — a different route/feature, out of scope for this diff; flagged as a follow-up candidate rather than fixed here. `npm run check` clean (0 errors) after all fixes. Next: nothing further planned for this PR — awaiting review/merge; the film-page parity gap is a candidate for a separate ticket if wanted.
+
+### 2026-08-26 · session (4)
+- skills: design-critique, simplify
+- handoff: User proposed moving the pencil to the right of the studio name and making it always-visible in owner mode. Ran `/design-critique` grounded in the actual source (`NameEditControl.svelte`, `app.css`, `PickerShell.svelte`) rather than assumption — confirmed both were right calls (the codebase already has this exact always-visible mechanism via `NameEditControl`'s `pencilAlwaysVisible` prop, reserved for Video Title; StudioPicker's bare-pencil layout was the outlier, not the norm) and surfaced a third, adjacent issue: the dialog title stayed "Change studio" even in the empty-state ("Add studio") case. User approved all 3. Implemented: reordered `+page.svelte` so the linked studio name(s) render before `<StudioPicker>` (trailing pencil, matching `NameEditControl`'s name-then-pencil convention); added the existing `name-edit-pencil--visible` modifier class to StudioPicker's pencil so it no longer hides on hover-out; made the dialog header conditional on `hasStudio`. `npm run check` clean; `/simplify` (4 parallel agents) came back clean, no fixes needed. Verified live across all three skins on a studio-linked video (pencil renders right of the name, stays visible with the mouse held away, dialog titled "Change studio") and a studio-less video (dialog titled "Add studio"); visitor view re-confirmed unaffected. Pushed as an additional commit on the existing PR #260/branch. Next: nothing — awaiting review/merge.
+
+### 2026-08-26 · session (3)
+- skills: (none — user-reported live-testing finding, direct fix), simplify
+- handoff: Live-testing surfaced that the shipped fix, while technically clickable, wasn't discoverable — the pencil rendered with no studio name, no label, and no descriptive text to anchor it, floating alone above the video title. Rendered a 3-option visual mockup (bare pencil / "Studio" section label / "+ Add studio" text CTA) and the user picked the text CTA. Added a `hasStudio: boolean` prop to `StudioPicker.svelte` (computed by the caller as `studios.length > 0`, since that's the actual linked-entity count, distinct from the resolved `field` candidate) so the component branches its own trigger: the existing docked pencil when a studio is linked, a new `+ Add studio` button (styled identically to Tags' `+ Add tag`) when none is. `npm run check` clean; verified live for both branches (created then reviewed a test studio to exercise the pencil path) and across all three skins. Pushed as an additional commit on the existing PR #260/branch. Next: nothing — awaiting review/merge.
+
+### 2026-08-26 · session (2)
+- skills: simplify
+- handoff: Ran a second `/simplify` pass (4 parallel agents) over the already-pushed diff. Reuse, efficiency, and altitude all came back clean (altitude explicitly confirmed PersonPicker doesn't share this problem today, so no shared helper is warranted, and the frontend-only fix is the right depth vs. touching the resolver). Simplification flagged one real finding: the `resolvedField` derived was unnecessary — Svelte 5 destructured props default directly, so `field` now defaults to `{ canonical: 'studio', label: 'Studio', values: [] }` in the prop destructure itself, dropping the extra identifier and two unused `ResolvedField` members (`multi`, `entity_kind`) nothing downstream read. Re-verified live (pencil renders, picker opens, zero chips as expected with no candidates) and `npm run check` stayed clean. Pushed. Next: nothing — awaiting review/merge on [PR #260](https://github.com/whoiskevinrich/holodex/pull/260).
+
+### 2026-08-26 · session (1)
+- skills: simplify, graphify
+- handoff: Root-caused to `internal/resolver/resolver.go` dropping a valueless replace field with no standing decision from `resolved[]`; fixed by widening `StudioPicker.svelte`'s `field` prop to `ResolvedField | undefined` with an internal placeholder fallback (relocated here from the page component per `/simplify`'s altitude review, since the component-level fix generalizes to any future caller). Verified end-to-end in-browser. Pushed `HOLODEX-289-studio-add-affordance`, opened [PR #260](https://github.com/whoiskevinrich/holodex/pull/260) ready-for-review (all applicable gates green), Jira HOLODEX-289 transitioned to In Progress at start of work.
