@@ -17,16 +17,16 @@
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {
-		field,
+		// The resolver drops a replace field with no value from any source and no standing
+		// decision (internal/resolver/resolver.go) — so a video with no studio candidate at
+		// all has no 'studio' entry in `resolved`. Callers pass that lookup straight through
+		// (possibly undefined); the default below keeps the "add studio" affordance available
+		// regardless.
+		field = { canonical: 'studio', label: 'Studio', values: [] },
 		isOwner,
 		decide,
 		verdict
 	}: {
-		// The resolver drops a replace field with no value from any source and no standing
-		// decision (internal/resolver/resolver.go) — so a video with no studio candidate at
-		// all has no 'studio' entry in `resolved`. Callers pass that lookup straight through
-		// (possibly undefined); the empty placeholder below keeps the "add studio" affordance
-		// available regardless.
 		field: ResolvedField | undefined;
 		isOwner: boolean;
 		// Persist a studio decision, mirroring SourceSelect's `decide` shape — a known
@@ -40,13 +40,9 @@
 		verdict?: Snippet<[VideoCollisionRef, () => void]>;
 	} = $props();
 
-	const resolvedField = $derived(
-		field ?? { canonical: 'studio', label: 'Studio', values: [], multi: false, entity_kind: 'studio' as const }
-	);
-
 	// Known-candidate chips (today's SourceSelect set): the baseline + one per distinct
 	// provider value, minus the trailing Custom chip — search/create replace Custom here.
-	const candidateChips = $derived(sourceChips(resolvedField, 'file').filter((c) => !c.manual));
+	const candidateChips = $derived(sourceChips(field, 'file').filter((c) => !c.manual));
 
 	let open = $state(false);
 	let busyKey = $state<string | null>(null);
