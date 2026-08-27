@@ -23,11 +23,18 @@
 		// (possibly undefined); the default below keeps the "add studio" affordance available
 		// regardless.
 		field = { canonical: 'studio', label: 'Studio', values: [] },
+		hasStudio,
 		isOwner,
 		decide,
 		verdict
 	}: {
 		field: ResolvedField | undefined;
+		// Whether a studio is actually linked (the caller's own entity data, e.g. `studios.length`
+		// on the video detail page) — distinct from `field`, which is the resolved candidate value
+		// and can be present even with nothing linked yet. Swaps the trigger between "change" (a
+		// value exists to replace) and "add" (nothing does, matching the page's other empty-state
+		// affordances like "+ Add tag").
+		hasStudio: boolean;
 		isOwner: boolean;
 		// Persist a studio decision, mirroring SourceSelect's `decide` shape — a known
 		// candidate passes its source with no value; search/create pass 'manual' + the
@@ -177,23 +184,29 @@
 </script>
 
 {#if isOwner}
-	<div class="name-edit-row inline-flex items-center">
-		<button
-			bind:this={pencil}
-			type="button"
-			aria-label="Change this video's studio"
-			onclick={openPicker}
-			class="name-edit-pencil rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
-		>
-			<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-				/>
-			</svg>
+	{#if hasStudio}
+		<div class="name-edit-row inline-flex items-center">
+			<button
+				bind:this={pencil}
+				type="button"
+				aria-label="Change this video's studio"
+				onclick={openPicker}
+				class="name-edit-pencil rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+					/>
+				</svg>
+			</button>
+		</div>
+	{:else}
+		<button bind:this={pencil} type="button" onclick={openPicker} class="btn-quiet px-3 py-1.5 text-sm">
+			+ Add studio
 		</button>
-	</div>
+	{/if}
 {/if}
 
 {#if open}
