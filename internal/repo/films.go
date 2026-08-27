@@ -479,8 +479,8 @@ func scanFilmUnionRows[T any](rows *sql.Rows, build func(id int64, name string) 
 
 // FilmCast returns the read-only set union of people across every video attached to
 // a film (spec: "Films should inherit tags and people from its videos/scenes") --
-// NOT film_people_roles (film-only additive billing/role data, out of this
-// session's scope). Name-sorted, deduped by person.
+// NOT film_people_roles (film-only additive billing/role data, see
+// FilmPeopleRoles in film_people_roles.go). Name-sorted, deduped by person.
 func (r *Repo) FilmCast(ctx context.Context, filmID int64) ([]model.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT DISTINCT p.id, p.name
