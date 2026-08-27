@@ -191,7 +191,7 @@
 				type="button"
 				aria-label="Change this video's studio"
 				onclick={openPicker}
-				class="name-edit-pencil rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
+				class="name-edit-pencil name-edit-pencil--visible rounded-theme border border-rule p-1.5 text-muted hover:border-accent hover:text-ink"
 			>
 				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 					<path
@@ -212,7 +212,9 @@
 {#if open}
 	<PickerShell titleId="studio-picker-title" onclose={closePicker} bind:dialogEl>
 		{#snippet header()}
-			<h2 id="studio-picker-title" class="skin-title text-lg font-semibold text-ink">Change studio</h2>
+			<h2 id="studio-picker-title" class="skin-title text-lg font-semibold text-ink">
+				{hasStudio ? 'Change studio' : 'Add studio'}
+			</h2>
 		{/snippet}
 
 		{#if candidateChips.length > 1}

@@ -858,6 +858,9 @@
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
 					{#if isOwner}
+						{#each studios as s (s.id)}
+							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
+						{/each}
 						<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
 							{#snippet verdict(c, resolve)}
 								<CollisionOfferCard
@@ -870,9 +873,6 @@
 								/>
 							{/snippet}
 						</StudioPicker>
-						{#each studios as s (s.id)}
-							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
-						{/each}
 					{:else if studios.length}
 						<!-- Visitor view: the resolved studio value always matches its linked
 						     entity (RD1), so show the link alone instead of the text + link
