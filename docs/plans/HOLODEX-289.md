@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-289                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fixed a bug where the video detail page hid the Studio section entirely (with no way to add one) when no studio was linked yet.
 ---
@@ -32,8 +32,8 @@ Owners can always add a studio to a video from the Media detail page, even when 
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [—] Push branch, open PR (ready — all applicable gates green)
-2. [ ] [—] Sync Jira HOLODEX-289 status once PR is open
+1. [x] [—] Push branch, open PR (ready — all applicable gates green) — [PR #260](https://github.com/whoiskevinrich/holodex/pull/260)
+2. [ ] [—] Sync Jira HOLODEX-289 status once PR is open (CI fires In Review on the PR-ready webhook, ADR-058)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -47,4 +47,4 @@ Owners can always add a studio to a video from the Media detail page, even when 
 
 ### 2026-08-26 · session
 - skills: simplify
-- handoff: Root-caused to `internal/resolver/resolver.go` dropping a valueless replace field with no standing decision from `resolved[]`; fixed by widening `StudioPicker.svelte`'s `field` prop to `ResolvedField | undefined` with an internal placeholder fallback (relocated here from the page component per `/simplify`'s altitude review, since the component-level fix generalizes to any future caller). Verified end-to-end in-browser. Next: push branch `HOLODEX-289-studio-add-affordance`, open PR, sync Jira.
+- handoff: Root-caused to `internal/resolver/resolver.go` dropping a valueless replace field with no standing decision from `resolved[]`; fixed by widening `StudioPicker.svelte`'s `field` prop to `ResolvedField | undefined` with an internal placeholder fallback (relocated here from the page component per `/simplify`'s altitude review, since the component-level fix generalizes to any future caller). Verified end-to-end in-browser. Pushed `HOLODEX-289-studio-add-affordance`, opened [PR #260](https://github.com/whoiskevinrich/holodex/pull/260) ready-for-review (all applicable gates green), Jira HOLODEX-289 transitioned to In Progress at start of work. Next: nothing — CI will fire In Review/Done/Released on PR/merge/deploy per ADR-058; only remaining step is Kevin's own review/merge.
