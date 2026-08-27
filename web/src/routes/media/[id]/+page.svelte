@@ -857,7 +857,7 @@
 		<header class="space-y-2">
 			{#if isOwner || studioField?.values?.length}
 				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
-					{#if isOwner && studioField}
+					{#if isOwner}
 						<StudioPicker field={studioField} {isOwner} decide={decideStudio}>
 							{#snippet verdict(c, resolve)}
 								<CollisionOfferCard
