@@ -118,6 +118,32 @@ func (r *Repo) DeleteFilmImage(ctx context.Context, filmID int64, role, source s
 	return nil
 }
 
+// LockedFilmImageRoles returns the set of roles whose current image the owner set by
+// hand (source=FilmImageSourceUpload), which enrichment must never overwrite (ADR-049
+// provenance-lock pattern, generalized to Film per ADR-086). Unlike Studio, a
+// provider-sourced row never locks its role — film_images' UNIQUE(film_id, role,
+// source) lets an uploaded and a provider-sourced image coexist per role, so only the
+// upload row's presence gates writability. An empty or provider-only slot is absent
+// from the set and stays refreshable. Always non-nil on success.
+func (r *Repo) LockedFilmImageRoles(ctx context.Context, filmID int64) (map[string]struct{}, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT role FROM film_images WHERE film_id = ? AND source = ?`,
+		filmID, model.FilmImageSourceUpload)
+	if err != nil {
+		return nil, fmt.Errorf("locked film image roles: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		out[role] = struct{}{}
+	}
+	return out, rows.Err()
+}
+
 // filmImageVersions returns filmID -> {role: rowID} for every film in ids, in ONE
 // batch query — the list/detail read path's way of filling Film.ImageVersions
 // without an N-way per-film lookup (mirrors studioImageVersions). Scoped to

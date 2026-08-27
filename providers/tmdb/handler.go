@@ -34,7 +34,7 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 		Provider:        "tmdb",
 		Version:         providerVersion,
 		ProtocolVersion: 1,
-		EntityTypes:     []string{"person", "video", "studio"},
+		EntityTypes:     []string{"person", "video", "studio", "film"},
 		IDNamespaces:    []string{"tmdb", "imdb"},
 		Fields: []string{
 			// person fields
@@ -45,12 +45,14 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 			"actors", "director", "studio",
 			// studio-entity fields (F38 S3). website is shared with person/video. logo
 			// moved to AssetKinds (F51, ADR-079) — it is now a downloaded image asset,
-			// mirroring a person's photo, not a resolved image_url field.
+			// mirroring a person's photo, not a resolved image_url field. description is
+			// also film's canonical synopsis key (ADR-086 §3) — overview remaps to it for
+			// entity_type "film"; poster likewise moves to AssetKinds' "poster" kind there.
 			"description", "country",
 			// non-canonical person field, rendered first-class via a field hint (F39).
 			"known_for_department",
 		},
-		AssetKinds: []string{"photo", "logo"},
+		AssetKinds: []string{"photo", "logo", "poster"},
 		// video enrich responses include structured people[] credits (§4.5, F32)
 		// alongside the flat actors/director fields above.
 		Credits: true,
@@ -148,7 +150,7 @@ func (h *handler) enrich(w http.ResponseWriter, r *http.Request) {
 // sync with describe's EntityTypes and tmdbClient.resolve/enrich dispatch.
 func isSupportedEntity(entityType string) bool {
 	switch entityType {
-	case "person", "video", "studio":
+	case "person", "video", "studio", "film":
 		return true
 	}
 	return false

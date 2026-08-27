@@ -11,13 +11,14 @@ import (
 // Fake is an in-process ProviderClient implementing the contract with canned data
 // (ADR-033 F22.10). It lets the enrichment flow run end-to-end with no network or
 // API keys — the basis of the CI test path and a local dev stand-in. It models a
-// tiny "person" source and a tiny "studio" source (F38 S3): name-search returns
-// candidates, enrich returns fields.
+// tiny "person" source, a tiny "studio" source (F38 S3), and a tiny "film" source
+// (F56/ADR-086): name-search returns candidates, enrich returns fields.
 type Fake struct {
 	Name     string
 	Protocol int                   // 0 => use the supported ProtocolVersion
 	People   map[string]FakePerson // keyed by external id (e.g. "tmdb:608")
 	Studios  map[string]FakePerson // keyed by external id (e.g. "tmdb:10342")
+	Films    map[string]FakePerson // keyed by external id (e.g. "tmdb:129")
 	Calls    int                   // number of network-equivalent calls made
 }
 
@@ -63,15 +64,35 @@ func NewFake(name string) *Fake {
 				Assets: []Asset{{Kind: "logo", URL: "https://image.tmdb.org/t/p/original/ghibli.png"}},
 			},
 		},
+		Films: map[string]FakePerson{
+			"tmdb:129": {
+				Label:          "Spirited Away",
+				Disambiguation: "2001",
+				Fields: map[string][]string{
+					// description is film's canonical synopsis key (ADR-086 §3), not
+					// overview — the real tmdb provider remaps overview -> description
+					// for entity_type "film"; the fake just cans the post-remap shape.
+					"description": {"A girl wanders into a world ruled by gods and witches."},
+				},
+				// poster arrives as an image asset (F56/ADR-086 §3), never a resolved
+				// field, mirroring how a studio's logo arrives.
+				Assets: []Asset{{Kind: "poster", URL: "https://image.tmdb.org/t/p/original/spirited-away.png"}},
+			},
+		},
 	}
 }
 
-// records returns the canned map for an entity type (studio → Studios, else People).
+// records returns the canned map for an entity type (studio → Studios, film → Films,
+// else People).
 func (f *Fake) records(entityType string) map[string]FakePerson {
-	if entityType == model.EnrichEntityStudio {
+	switch entityType {
+	case model.EnrichEntityStudio:
 		return f.Studios
+	case model.EnrichEntityFilm:
+		return f.Films
+	default:
+		return f.People
 	}
-	return f.People
 }
 
 func (f *Fake) Describe(_ context.Context) (Manifest, error) {
@@ -84,10 +105,10 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		Provider:        f.Name,
 		Version:         "fake-0.1.0",
 		ProtocolVersion: p,
-		EntityTypes:     []string{model.EnrichEntityPerson, model.EnrichEntityStudio},
+		EntityTypes:     []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityFilm},
 		IDNamespaces:    []string{"tmdb", "imdb"},
 		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"},
-		AssetKinds:      []string{"photo", "logo"},
+		AssetKinds:      []string{"photo", "logo", "poster"},
 	}, nil
 }
 

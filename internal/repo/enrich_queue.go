@@ -7,8 +7,9 @@ import (
 	"holodex/internal/model"
 )
 
-// Owner review-queue listing (F47, ADR-066 RD2/RD9/P0-1): every Person/Studio/Media
-// entity missing at least one supporting provider's data. The direct structural
+// Owner review-queue listing (F47, ADR-066 RD2/RD9/P0-1; widened to Film by
+// F56/ADR-086): every Person/Studio/Media/Film entity missing at least one
+// supporting provider's data. The direct structural
 // precedent is review_queue.go's Duplicates listing — grouped-by-type, one query per
 // group, no N+1. Unlike Duplicates, membership here is a pure "is a row present in
 // entity_enrichment" check, so building the list never calls a provider (RD2's
@@ -37,8 +38,10 @@ type EnrichQueueProviderState struct {
 // enrichQueueEntityOrder is the design handoff's resolved grouping (spec Q3): People →
 // Studios → Media, nav order — not Duplicates' frequency-driven tags-first ordering,
 // since no entity type dominates the enrichment backlog the way tags dominate
-// near-miss duplicates.
-var enrichQueueEntityOrder = []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityVideo}
+// near-miss duplicates. Film (F56/ADR-086) is appended after Media rather than
+// reordering the original three — it is the newest entity to gain enrichment, not a
+// re-priced part of the original grouping decision.
+var enrichQueueEntityOrder = []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityVideo, model.EnrichEntityFilm}
 
 // EnrichQueue builds the owner's review-queue listing. providersByType maps each
 // entity type to the provider names that support it (the caller derives this from the
@@ -119,6 +122,8 @@ func (r *Repo) enrichQueueEntities(ctx context.Context, entityType string) ([]mo
 		q = `SELECT id, name FROM studios ORDER BY name COLLATE NOCASE`
 	case model.EnrichEntityVideo:
 		q = `SELECT id, title FROM videos WHERE active = 1 AND deleted_at IS NULL ORDER BY title COLLATE NOCASE`
+	case model.EnrichEntityFilm:
+		q = `SELECT id, name FROM films ORDER BY name COLLATE NOCASE`
 	default:
 		return nil, fmt.Errorf("enrich queue: unknown entity type %q", entityType)
 	}

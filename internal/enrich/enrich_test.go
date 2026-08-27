@@ -186,7 +186,7 @@ func newSvc(t *testing.T, fake *Fake) (*Service, *repo.Repo) {
 sources:
   - name: fake
     base_url: http://fake:9100
-    entity_types: [person, studio]
+    entity_types: [person, studio, film]
     enabled: true
 `), nil)
 	if err != nil {
@@ -312,6 +312,49 @@ func TestServiceStudioEnrich(t *testing.T) {
 		t.Fatalf("clear: %v", err)
 	}
 	if after, _ := svc.Fields(ctx, model.EnrichEntityStudio, 7); len(after) != 0 {
+		t.Errorf("fields after clear = %d, want 0", len(after))
+	}
+}
+
+// Film entity end-to-end (F56/ADR-086): resolve → enrich → provenance → clear against
+// the in-process fake film. Proves the entity-generic Enrich service works for a
+// third real entity type with no core diffs, and that the poster arrives as an image
+// asset (not a resolved field) under the film's canonical synopsis key "description".
+func TestServiceFilmEnrich(t *testing.T) {
+	svc, _ := newSvc(t, NewFake("fake"))
+	ctx := context.Background()
+
+	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityFilm, Hint{Query: "spirited"})
+	if err != nil {
+		t.Fatalf("resolve film: %v", err)
+	}
+	if len(cands) != 1 || cands[0].ExternalID != "tmdb:129" {
+		t.Fatalf("candidates = %+v", cands)
+	}
+
+	fields, err := svc.Enrich(ctx, model.EnrichEntityFilm, 9, "fake", "tmdb:129", false)
+	if err != nil {
+		t.Fatalf("enrich film: %v", err)
+	}
+	got := map[string]model.EnrichedField{}
+	for _, f := range fields {
+		got[f.Canonical] = f
+	}
+	if got["description"].Provider != "fake" {
+		t.Errorf("description provenance = %q, want fake", got["description"].Provider)
+	}
+	// poster is NOT among the resolved fields (F56, ADR-086 §3): it arrives as an
+	// image asset and is stored via the image sink (see TestEnrichDownloadsFilmAssets),
+	// not as a plain field value. No sink is wired here, so the asset is silently
+	// ignored — the field-only path this test otherwise exercises.
+	if _, ok := got["poster"]; ok {
+		t.Errorf("poster should not appear among resolved fields: %+v", got["poster"])
+	}
+
+	if err := svc.Clear(ctx, model.EnrichEntityFilm, 9, "fake"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if after, _ := svc.Fields(ctx, model.EnrichEntityFilm, 9); len(after) != 0 {
 		t.Errorf("fields after clear = %d, want 0", len(after))
 	}
 }
@@ -509,6 +552,48 @@ func TestEnrichDownloadsStudioAssets(t *testing.T) {
 	}
 	if len(sink2.stored) != 0 {
 		t.Errorf("stored %d assets for a locked logo, want 0", len(sink2.stored))
+	}
+}
+
+// A film enrich run with an image asset fetches it and stores it via the sink, under
+// entityType="film" (F56/ADR-086 — the third real use of downloadAssets). A locked
+// (owner-uploaded) poster is skipped entirely, mirroring the person/studio
+// provenance-lock (ADR-049) generalized to a third entity.
+func TestEnrichDownloadsFilmAssets(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.Films["tmdb:129"]
+	rec.Assets = []Asset{{Kind: "poster", URL: origin.URL + "/poster.jpg"}}
+	fake.Films["tmdb:129"] = rec
+
+	svc, _ := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityFilm, 4, "fake", "tmdb:129", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 {
+		t.Fatalf("stored %d assets, want 1 (poster; no poster-seed logic for films): %+v", len(sink.stored), sink.stored)
+	}
+	a := sink.stored[0]
+	if a.entityType != model.EnrichEntityFilm || a.role != model.FilmImagePoster || a.provider != "fake" || a.externalID != "tmdb:129" {
+		t.Errorf("stored asset = %+v, want film/poster/fake/tmdb:129", a)
+	}
+
+	// A locked (owner-uploaded) poster is never overwritten by enrichment.
+	sink2 := &recordingSink{locked: map[string]struct{}{model.FilmImagePoster: {}}}
+	svc.SetImageSink(sink2)
+	if _, err := svc.Enrich(context.Background(), model.EnrichEntityFilm, 4, "fake", "tmdb:129", false); err != nil {
+		t.Fatalf("enrich (locked): %v", err)
+	}
+	if len(sink2.stored) != 0 {
+		t.Errorf("stored %d assets for a locked poster, want 0", len(sink2.stored))
 	}
 }
 

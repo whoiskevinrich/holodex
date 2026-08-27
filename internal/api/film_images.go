@@ -19,10 +19,13 @@ import (
 // placeholder route, unlike Person). Owner-gated mutations upload/replace/delete. A
 // role from a request is always validated against the enum (model.ValidFilmImageRole)
 // — a filesystem path is only ever built from the server-assigned integer id, never a
-// request value. Every repo call is scoped to model.FilmImageSourceUpload: unlike
+// request value. Every repo call here is scoped to model.FilmImageSourceUpload: unlike
 // Studio, film_images can hold a provider-sourced row alongside an uploaded one for
-// the same role (film_images' UNIQUE is (film_id, role, source), migration 0043) — a
-// provider-sourced writer/reader is HOLODEX-284's scope, not this ticket's.
+// the same role (film_images' UNIQUE is (film_id, role, source), migration 0043) — the
+// owner's uploaded image always wins display priority over a provider's (setFilmImageURLs
+// below only ever reads ImageVersions, which repo.filmImageVersions scopes to the
+// upload source). The provider-sourced writer lives in internal/imagesink.storeFilmAsset
+// (HOLODEX-284/ADR-086), reached only through enrichment — never through this file.
 
 // mountFilmImages registers the owner-gated image mutations. The public serve read is
 // mounted ungated (but films-enabled-gated) in Mount; only the controls are gated.

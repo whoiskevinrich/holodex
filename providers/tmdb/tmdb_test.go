@@ -411,7 +411,7 @@ func TestTMDBEnrichMovieNoPoster(t *testing.T) {
 		ReleaseDate: "1920-01-01",
 		PosterPath:  "",
 	}
-	res := buildMovieEnrichResponse(det, movieCredits{})
+	res := buildMovieEnrichResponse(det, movieCredits{}, "video")
 	if _, ok := res.Fields["poster_url"]; ok {
 		t.Error("poster_url should not be set when PosterPath is empty")
 	}

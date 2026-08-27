@@ -170,6 +170,123 @@ func TestStudioEnrichGated(t *testing.T) {
 	}
 }
 
+// filmEnrichServer wires the owner-gated film enrichment surface over the fake
+// provider (film-capable) with films_enabled on, and seeds one film. Returns the
+// film id. Mirrors studioEnrichServer (F56/ADR-086).
+func filmEnrichServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64) {
+	t.Helper()
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	ctx := context.Background()
+
+	sp := filepath.Join(dir, "sources.yaml")
+	if err := os.WriteFile(sp, []byte("sources:\n  - name: fake\n    base_url: http://fake:9100\n    entity_types: [person, film]\n    enabled: true\n"), 0o644); err != nil {
+		t.Fatalf("write sources: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	store, err := enrich.NewStore(sp, log)
+	if err != nil {
+		t.Fatalf("sources store: %v", err)
+	}
+	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient { return enrich.NewFake("fake") })
+
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetEnrichment(svc)
+	h.SetAuth(api.NewAuth(token), false)
+	h.SetFilmsEnabled(true)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	fid, err := r.CreateFilm(ctx, "Spirited Away", 2001)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	return srv, r, fid
+}
+
+// Full owner film flow (open gate): resolve → apply → film detail shows the enriched
+// fields with record-vocabulary provenance, and the poster arrives as an image asset
+// (F56/ADR-086).
+func TestFilmEnrichFlow(t *testing.T) {
+	srv, _, fid := filmEnrichServer(t, "")
+	base := srv.URL + "/api/v1/films/" + itoa(fid)
+
+	code, body := postTok(t, base+"/enrich/resolve", "", map[string]string{"provider": "fake", "query": "spirited"})
+	if code != http.StatusOK {
+		t.Fatalf("resolve code = %d", code)
+	}
+	if cands, _ := body["candidates"].([]any); len(cands) != 1 {
+		t.Fatalf("candidates = %v", body["candidates"])
+	}
+
+	code, body = postTok(t, base+"/enrich", "", map[string]string{"provider": "fake", "external_id": "tmdb:129"})
+	if code != http.StatusOK {
+		t.Fatalf("apply code = %d", code)
+	}
+	if enriched, _ := body["enriched"].([]any); len(enriched) == 0 {
+		t.Fatalf("enriched empty: %v", body["enriched"])
+	}
+
+	// Film detail carries the resolved fields with provenance (record vocabulary).
+	code, fbody := getJSON(t, base)
+	if code != http.StatusOK {
+		t.Fatalf("film code = %d", code)
+	}
+	resolved, _ := fbody["resolved"].([]any)
+	var desc map[string]any
+	for _, f := range resolved {
+		if m, _ := f.(map[string]any); m["canonical"] == "description" {
+			desc = m
+		}
+	}
+	if desc == nil {
+		t.Fatalf("resolved description missing: %v", fbody["resolved"])
+	}
+	if desc["winning_source"] != "fake:description" {
+		t.Errorf("provenance = %v, want fake:description", desc["winning_source"])
+	}
+}
+
+// Owner gate (F56/ADR-086): with a token set, film enrichment controls require it.
+func TestFilmEnrichGated(t *testing.T) {
+	srv, _, fid := filmEnrichServer(t, "s3cret")
+	url := srv.URL + "/api/v1/films/" + itoa(fid) + "/enrich/resolve"
+	if code, _ := postTok(t, url, "", map[string]string{"provider": "fake", "query": "x"}); code != http.StatusUnauthorized {
+		t.Errorf("no-token film resolve = %d, want 401", code)
+	}
+	if code, _ := postTok(t, url, "s3cret", map[string]string{"provider": "fake", "query": "spirited"}); code != http.StatusOK {
+		t.Errorf("token film resolve = %d, want 200", code)
+	}
+}
+
+// When films_enabled is off, the film enrich routes are unregistered entirely (404),
+// mirroring every other film route (F56/ADR-085/086) — not just gated by owner-token.
+func TestFilmEnrichUnregisteredWhenFilmsDisabled(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetAuth(api.NewAuth(""), false)
+	// h.SetFilmsEnabled is deliberately not called — default false.
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	code, _ := postTok(t, srv.URL+"/api/v1/films/1/enrich/resolve", "", map[string]string{"provider": "fake", "query": "x"})
+	if code != http.StatusNotFound {
+		t.Errorf("film enrich resolve with films disabled = %d, want 404", code)
+	}
+}
+
 func postTok(t *testing.T, url, token string, body any) (int, map[string]any) {
 	t.Helper()
 	buf, _ := json.Marshal(body)

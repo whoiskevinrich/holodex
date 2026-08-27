@@ -143,6 +143,84 @@ func TestEnrichQueue_Listing(t *testing.T) {
 	}
 }
 
+// The queue surfaces a film row too (F56/ADR-086), widening F47/ADR-066 to a fourth
+// entity type — proving both the api-layer providersByType loop and the repo-layer
+// enrichQueueEntityOrder/enrichQueueEntities switch (internal/repo/enrich_queue.go)
+// were actually widened, not just one of the two.
+func TestEnrichQueue_IncludesFilms(t *testing.T) {
+	srv, _, fid := filmEnrichServer(t, "")
+	url := srv.URL + "/api/v1/owner/enrich-queue"
+
+	code, body := getJSON(t, url)
+	if code != http.StatusOK {
+		t.Fatalf("queue = %d, want 200", code)
+	}
+	rows, _ := body["rows"].([]any)
+	var filmRow map[string]any
+	for _, raw := range rows {
+		row, _ := raw.(map[string]any)
+		if row["entity_type"] == model.EnrichEntityFilm && int64(row["entity_id"].(float64)) == fid {
+			filmRow = row
+		}
+	}
+	if filmRow == nil {
+		t.Fatalf("seeded film missing from queue: %v", rows)
+	}
+	providers, _ := filmRow["providers"].([]any)
+	if len(providers) != 1 {
+		t.Fatalf("film providers = %v, want one", providers)
+	}
+	p, _ := providers[0].(map[string]any)
+	if p["provider"] != "fake" || p["state"] != "unreviewed" {
+		t.Errorf("film provider state = %v, want fake/unreviewed", p)
+	}
+}
+
+// Dismiss/undismiss and refresh/refresh-all are entity-generic handlers (RD4/RD7/RD8)
+// parameterized by entityType; each dispatches to enrichEntityLookup/enrichQueryHint,
+// which needed a film case (F56/ADR-086) alongside person/studio/video. This proves
+// both switches actually work for film, not just that they compile.
+func TestFilmEnrichDismissAndRefreshRoundTrip(t *testing.T) {
+	srv, _, fid := filmEnrichServer(t, "")
+	base := srv.URL + "/api/v1/films/" + itoa(fid)
+	dismiss := base + "/enrich/fake/dismiss"
+	resolve := base + "/enrich/resolve"
+
+	if code := sendTok(t, http.MethodPost, dismiss, ""); code != http.StatusNoContent {
+		t.Fatalf("dismiss = %d, want 204", code)
+	}
+	if code, _ := postTok(t, resolve, "", map[string]string{"provider": "fake", "query": "spirited"}); code != http.StatusConflict {
+		t.Errorf("resolve while dismissed = %d, want 409", code)
+	}
+	if code := sendTok(t, http.MethodDelete, dismiss, ""); code != http.StatusNoContent {
+		t.Fatalf("undismiss = %d, want 204", code)
+	}
+
+	if code, _ := postTok(t, base+"/enrich", "", map[string]string{"provider": "fake", "external_id": "tmdb:129"}); code != http.StatusOK {
+		t.Fatalf("apply = %d, want 200", code)
+	}
+	code, body := postTok(t, base+"/enrich/fake/refresh", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("refresh = %d, want 200", code)
+	}
+	if enriched, _ := body["enriched"].([]any); len(enriched) == 0 {
+		t.Fatalf("refresh enriched empty: %v", body["enriched"])
+	}
+
+	code, body = postTok(t, base+"/enrich/refresh-all", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("refresh-all = %d, want 200", code)
+	}
+	results, _ := body["results"].([]any)
+	if len(results) != 1 {
+		t.Fatalf("refresh-all results = %v, want one (fake)", results)
+	}
+	res, _ := results[0].(map[string]any)
+	if res["provider"] != "fake" || res["status"] != "refreshed" {
+		t.Fatalf("refresh-all result = %v, want fake/refreshed", res)
+	}
+}
+
 // Dismissing removes an entity from the queue and blocks /resolve (409) until an
 // explicit undismiss clears it (RD4).
 func TestEnrichDismissUndismiss(t *testing.T) {

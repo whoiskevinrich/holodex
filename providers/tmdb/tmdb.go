@@ -244,7 +244,7 @@ type movieCrewEntry struct {
 
 func (c *tmdbClient) resolve(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
 	switch entityType {
-	case "video":
+	case "video", "film":
 		return c.resolveMovie(ctx, h)
 	case "studio":
 		return c.resolveStudio(ctx, h)
@@ -494,13 +494,23 @@ func (c *tmdbClient) fetchTaggedImages(ctx context.Context, id int) (taggedImage
 	return res, err
 }
 
-func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResponse {
+// buildMovieEnrichResponse shapes a TMDB movie response for either video's or film's
+// canonical vocabulary (ADR-086 §3). Every field is shared between the two except
+// synopsis and poster: video's `overview`/`poster_url` fields become film's
+// `description` field / `poster` asset — the only two keys whose canonical shape
+// actually differs, per the entity-type remap the ADR decided rather than a second,
+// duplicated response builder.
+func buildMovieEnrichResponse(det movieDetails, credits movieCredits, entityType string) enrichResponse {
 	fields := make(map[string][]string)
 	if v := strings.TrimSpace(det.Title); v != "" {
 		fields["title"] = []string{v}
 	}
 	if v := strings.TrimSpace(det.Overview); v != "" {
-		fields["overview"] = []string{trimAtSentence(v, 4000)}
+		synopsisKey := "overview"
+		if entityType == "film" {
+			synopsisKey = "description"
+		}
+		fields[synopsisKey] = []string{trimAtSentence(v, 4000)}
 	}
 	if det.ReleaseDate != "" {
 		fields["release_date"] = []string{det.ReleaseDate}
@@ -540,8 +550,13 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 		// self-describing since more than one provider can populate it.
 		fields["external_provider_id"] = []string{"imdb:" + det.IMDbID}
 	}
+	var assets []assetEntry
 	if det.PosterPath != "" {
-		fields["poster_url"] = []string{tmdbImageURL(det.PosterPath)}
+		if entityType == "film" {
+			assets = append(assets, assetEntry{Kind: "poster", URL: tmdbImageURL(det.PosterPath)})
+		} else {
+			fields["poster_url"] = []string{tmdbImageURL(det.PosterPath)}
+		}
 	}
 	// production_companies → studio (multi-valued), plus a self-describing sidecar
 	// carrying each company's TMDB id for studio-entity de-dup (HOLODEX-122, ADR-054).
@@ -596,7 +611,7 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits) enrichResp
 	if len(directors) > 0 {
 		fields["director"] = directors
 	}
-	return enrichResponse{Fields: fields, People: buildPeopleCredits(credits)}
+	return enrichResponse{Fields: fields, Assets: assets, People: buildPeopleCredits(credits)}
 }
 
 // maxCastCredits caps the top-billed cast entries emitted in people[] (contract §4.5
@@ -736,8 +751,8 @@ func movieDisambiguate(det movieDetails) string {
 
 func (c *tmdbClient) enrich(ctx context.Context, externalID, entityType string) (enrichResponse, error) {
 	switch entityType {
-	case "video":
-		return c.enrichMovie(ctx, externalID)
+	case "video", "film":
+		return c.enrichMovie(ctx, externalID, entityType)
 	case "studio":
 		return c.enrichStudio(ctx, externalID)
 	default:
@@ -794,7 +809,7 @@ func (c *tmdbClient) enrichPerson(ctx context.Context, externalID string) (enric
 	return buildEnrichResponse(dr.det, ir.imgs, tr.tags), nil
 }
 
-func (c *tmdbClient) enrichMovie(ctx context.Context, externalID string) (enrichResponse, error) {
+func (c *tmdbClient) enrichMovie(ctx context.Context, externalID, entityType string) (enrichResponse, error) {
 	ns, val, ok := splitID(externalID)
 	if !ok || ns != "tmdb" {
 		return enrichResponse{}, fmt.Errorf("%w: %q", errNotFound, externalID)
@@ -830,7 +845,7 @@ func (c *tmdbClient) enrichMovie(ctx context.Context, externalID string) (enrich
 	if cr.err != nil {
 		return enrichResponse{}, cr.err
 	}
-	return buildMovieEnrichResponse(dr.det, cr.cred), nil
+	return buildMovieEnrichResponse(dr.det, cr.cred, entityType), nil
 }
 
 func (c *tmdbClient) fetchDetails(ctx context.Context, id int) (personDetails, error) {
