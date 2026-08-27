@@ -588,35 +588,11 @@ export const api = {
 			req
 		),
 
+	// GET /search returns films alongside people/videos/tags/studios natively
+	// (HOLODEX-283) — the backend gates the films group on films_enabled itself, so
+	// callers don't need a separate films fetch or a films_enabled check.
 	search: (q: string, fetchFn?: typeof fetch) =>
 		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
-
-	// searchAll composes the base search aggregation with a parallel films fetch (F56):
-	// GET /search has no films branch by design (frontend-merge decision) — films is
-	// fetched separately via listFilms and spliced onto the response, omitted entirely
-	// when filmsEnabled is false. Shared by the nav search box and the /search page,
-	// which otherwise each reimplemented this splice identically. filmsEnabled is
-	// passed in by the caller (already holding activity.caps) rather than read here,
-	// keeping this module free of app-state imports. The films fetch is isolated with
-	// its own .catch: it's an additive group, so a films-only failure (network error,
-	// non-2xx) degrades to "no films group" rather than failing the whole search and
-	// discarding the People/Videos/Studios/Tags results api.search already fetched.
-	searchAll: async (
-		q: string,
-		filmsEnabled: boolean,
-		fetchFn?: typeof fetch
-	): Promise<SearchResponse> => {
-		const [res, films] = await Promise.all([
-			api.search(q, fetchFn),
-			filmsEnabled
-				? api
-						.listFilms({ q }, fetchFn)
-						.then((r) => r.items)
-						.catch(() => null)
-				: Promise.resolve(null)
-		]);
-		return films ? { ...res, films } : res;
-	},
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),

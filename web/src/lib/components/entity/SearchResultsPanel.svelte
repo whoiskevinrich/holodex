@@ -95,9 +95,9 @@
 	}
 
 	const groups = $derived.by((): Group[] => {
-		// films has no dedicated tab (results.films is only ever populated in the "all"
-		// merge — see navSearch.svelte.ts/search/+page.svelte) and is naturally omitted
-		// whenever films_enabled is off, since callers simply never populate it.
+		// films has no dedicated tab (SEARCH_TABS in navSearch.svelte.ts) — it only
+		// appears under "All". The backend (HOLODEX-283) already returns an empty
+		// films array when films_enabled is off, so no client-side gating is needed.
 		const wantedKeys: GroupKey[] =
 			activeTab === 'all' ? ['people', 'videos', 'studios', 'tags', 'films'] : [activeTab];
 		const built: Group[] = wantedKeys.map((key) => {

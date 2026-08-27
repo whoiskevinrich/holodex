@@ -2,7 +2,6 @@
 // existing GET /search aggregation endpoint, shared by the nav dropdown's
 // SearchResultsPanel instance. A singleton — there is exactly one nav search box.
 import { api } from './api';
-import { activity } from './activity.svelte';
 import { toMessage } from './format';
 import type { SearchResponse } from './types';
 
@@ -109,7 +108,7 @@ class NavSearch {
 		this.loading = true;
 		this.error = '';
 		try {
-			const res = await api.searchAll(term, !!activity.caps?.films_enabled);
+			const res = await api.search(term);
 			if (id !== this.reqId) return; // superseded by a newer keystroke
 			this.results = res;
 		} catch (e) {
