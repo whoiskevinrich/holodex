@@ -33,6 +33,10 @@ rest to a non-owner or a not-yet-interacting owner, revealed on owner hover/focu
 currently renders for the Studio field (`media/[id]/+page.svelte:690`), replacing it outright for
 this field only — other resolved fields keep `SourceSelect` unchanged.
 
+> **Superseded by HOLODEX-289** — position, hover-reveal, and the bare-pencil empty state described
+> above were revised after ship; see the addendum at the bottom of this doc for the current,
+> resolved decisions.
+
 Popover: `PickerShell`'s standard dialog frame (`max-w-lg`, `rounded-theme border border-rule
 bg-surface p-4 shadow-xl`, centered top-anchored at `py-[10vh]`), containing, top to bottom:
 
@@ -132,3 +136,71 @@ today). No new responsive work needed.
 Tokens-only, three-skin QA (Cinémathèque, Broadcast, Brutalist) per
 `.claude/rules/frontend-theming.md` — candidate chips and search/create rows are new markup and
 need the same contrast/hover-state check `SourceSelect` and `EntityPickerDialog` already pass.
+
+---
+
+## Addendum (HOLODEX-289): trigger position, visibility, and empty-state CTA
+
+Live use surfaced three problems with the original trigger design above: the bare pencil, floating
+with no adjacent studio name for visual anchor, was undiscoverable; its position (leading, above
+the linked value) didn't match where owners look first; and a video with zero studios hid the
+Studio section entirely, with no way to add one. Resolved across three sessions — the first two
+via a rendered mockup + `/design-critique` against the actual source (`NameEditControl.svelte`,
+`app.css`, `PickerShell.svelte`), the third from a direct live-testing finding — rather than
+assumption. This addendum documents the resolved state; treat it as authoritative over the
+"Layout" section above wherever the two disagree.
+
+### Decision: pencil position — trailing, not leading
+
+The pencil renders **after** the linked studio name(s), not before. `media/[id]/+page.svelte`
+renders the `{#each studios}` name list first, then `<StudioPicker>` — matching
+`NameEditControl`'s own name-then-pencil order (Person/Studio/Tag headers, Video Title), which
+StudioPicker's original bare-pencil-only layout didn't have an equivalent value to follow. No new
+component or prop: this is purely a markup reorder in the calling page, since `StudioPicker` (like
+`PersonPicker`) owns only its own trigger/popover — the calling page owns the surrounding list-then-
+trigger layout, the same division of responsibility `PersonPicker`'s caller already follows.
+
+### Decision: visibility — always-visible, not hover-revealed
+
+The pencil is **always visible in owner mode**, not hidden until hover/focus. It carries the
+existing `name-edit-pencil--visible` modifier class (`app.css`) — the same mechanism
+`NameEditControl` exposes as its `pencilAlwaysVisible` prop, until now reserved for Video Title
+only. Person/Studio/Tag *name* headers keep the default hover-reveal; this is a deliberate,
+scoped exception for the Studio *field-edit* trigger, not a system-wide change to the hover-reveal
+norm.
+
+**Rationale**: the sibling "+ Add studio" trigger (empty-state branch, below) is inherently
+always-visible — there's no name to hover over yet. If "change" hid behind hover while "add" didn't,
+the two states of the same control would carry inconsistent affordance strength for no reason.
+`StudioPicker.svelte` carries an inline comment at the hardcoded class recording this rationale, so
+a future reader doesn't mistake it for a leftover/accidental override of the hover-reveal norm.
+
+### Decision: empty-state CTA — "+ Add studio" text button, not a bare pencil
+
+When `hasStudio` is `false` (the caller's own linked-entity count, e.g. `studios.length === 0` —
+distinct from whether the resolver produced a `studio` candidate in `resolved[]`), `StudioPicker`
+renders a **`+ Add studio` text button** (`btn-quiet px-3 py-1.5 text-sm`) instead of the pencil —
+styled identically to Tags' existing `+ Add tag` CTA (reuse, not a new visual pattern). Chosen from
+three rendered mockup options: a bare pencil (the original, undiscoverable), a static "Studio"
+section label, and the text CTA — the CTA won because it names the action directly rather than
+relying on an icon or a label to imply one.
+
+The dialog title is a direct consequence of the same `hasStudio` branch: **"Add studio"** when
+empty, **"Change studio"** when a value already exists — previously hardcoded to "Change studio"
+regardless of state, which read wrong for a video with nothing linked yet.
+
+### States (trigger, superseding "States and Interactions" above)
+
+| `hasStudio` | Trigger | Visibility | Dialog title |
+|---|---|---|---|
+| `true` | Pencil, trailing the studio name(s) | Always visible in owner mode | "Change studio" |
+| `false` | `+ Add studio` text button | Always visible in owner mode (nothing to hover) | "Add studio" |
+| — (non-owner) | Nothing rendered | — | — |
+
+### Do / Don't
+
+| ✅ Do | ❌ Don't |
+|---|---|
+| Keep the pencil trailing the linked value, matching `NameEditControl`'s name-then-pencil order | Reintroduce a leading/bare pencil with no adjacent name to anchor it |
+| Comment any hardcoded `name-edit-pencil--visible` use explaining which sibling affordance it's matching | Add the always-visible modifier silently — it reads as accidental next to `NameEditControl`'s documented, opt-in `pencilAlwaysVisible` prop |
+| Reuse `btn-quiet` for empty-state CTAs (matches Tags' `+ Add tag`) | Invent a new empty-state visual treatment per entity type |
