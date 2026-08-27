@@ -28,19 +28,33 @@ built and wired in with parity to `PersonPicker`/`StudioPicker`.
 - [x] architecture `architecture` → `docs/architecture/ADR-088-frontend-component-reuse-discipline.md`
 - [x] design `design-handoff` → [`docs/design/tag-picker-handoff.md`](../design/tag-picker-handoff.md) + [mockup](../design/tag-picker-handoff-mockup.svg)
 - [ ] backend — N/A, frontend-only
-- [ ] frontend — TagPicker.svelte build + wiring; cross-link bullet still open too
+- [x] frontend — `TagPicker.svelte` built + wired in; cross-link bullet added
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — likely N/A (no new mutation surface; confirm at implementation time)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Add "reuse before you create" cross-link bullet to `.claude/rules/frontend-theming.md` pointing at `components/CLAUDE.md`
-2. [ ] [frontend] Build `TagPicker.svelte` in `web/src/lib/components/entity/` per the handoff spec: `PersonPicker`-shaped (multi-valued, no per-row role, stays open across commits), absorb the page's near-miss advisory (`tagNearMiss`/`useTagNearMiss`), quiet-button trigger (not a tile or pencil); add its row to `entity/CLAUDE.md`
-3. [ ] [frontend] Wire `TagPicker` into `web/src/routes/media/[id]/+page.svelte`, replacing the hand-rolled inline form (`:106-116`, `:599-687`, `:924-1011`); page keeps only thin `attach`/`detach` wrappers  ⛔ blocked on #2
-4. [ ] [—] `testing-strategy` pass for TagPicker parity + near-miss suggestion coverage
-5. [ ] [—] Resolve the two "Open questions for implementation" in the handoff (`AliasPanel` near-miss call ownership; confirm `addVideoTag` never conflicts) before or during #2
+1. [ ] [—] `testing-strategy` pass for TagPicker parity + near-miss suggestion coverage
+2. [ ] [—] Mark PR #257 ready for review once the testing gate closes (fires `In Review`)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-26 · TagPicker.svelte built and wired in
+- skills: (none — direct implementation per handoff spec + PersonPicker precedent)
+- handoff: Built `TagPicker.svelte` (`web/src/lib/components/entity/`) per the handoff spec —
+  `PersonPicker`-shaped (multi-valued, no role machinery), quiet-button trigger, absorbs the
+  near-miss advisory via a direct `api.nearMiss('tag', ...)` call (resolved open question 1:
+  matches `AliasPanel.flagNearMiss`'s direct-call pattern, not a prop). Added a `busyKey`
+  bindable prop beyond the literal spec text, mirroring `PersonPicker`'s shared-busy-gate
+  precedent, since the page's own persistent tag chip row and the popover's echo list both
+  detach the same video's tags. Wired into `media/[id]/+page.svelte`: replaced the seven old
+  tag-form functions + state with three thin wrappers (`attachTag`/`detachTag`/`removeTag`)
+  mirroring `attachPerson`/`detachPerson`/`removeGridPerson`; added the `entity/CLAUDE.md` row.
+  Verified end-to-end in the browser against `backend-amv` (open/close, debounced search,
+  create-fallback, exact-name dedup, attach, detach, shared busy-key between the page's chip
+  row and the popover, Escape-close) and confirmed token-driven contrast across all three
+  skins. `npm run check` clean (0 errors). Next session: `/testing-strategy` pass, then mark
+  PR #257 ready for review.
 
 ### 2026-08-26 · Design-handoff for TagPicker written
 - skills: design-handoff

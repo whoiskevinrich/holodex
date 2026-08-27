@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { afterNavigate, goto } from '$app/navigation';
-	import { api, ApiError } from '$lib/api';
+	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, FilmAttachment, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -14,8 +13,7 @@
 		personKey,
 		providerFromWinningSource,
 		resolutionBucket,
-		toMessage,
-		videoCount
+		toMessage
 	} from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
@@ -38,6 +36,7 @@
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
+	import TagPicker from '$lib/components/entity/TagPicker.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
 	let video = $state<Video | null>(null);
@@ -103,17 +102,11 @@
 	let refreshing = $state(false);
 	let refreshStatus = $state<{ tone: 'muted' | 'warn'; text: string } | null>(null);
 
-	// Video↔tag attach/detach (F50, ADR-075 P0-8) — the owner-only add/remove chips.
-	// tagAddOpen reveals the add-tag input (a UI-only toggle, not a mutation).
-	// tagJustAdded remembers the tag the last successful add resolved to, so "Use
-	// existing" (below) knows which link to drop when swapping onto the near-miss.
-	let tagAddOpen = $state(false);
-	let tagAddValue = $state('');
-	let tagInput = $state<HTMLInputElement | null>(null);
-	let tagBusy = $state(false);
-	let tagError = $state('');
-	let tagNearMiss = $state<EntityRef | null>(null);
-	let tagJustAdded = $state<EntityRef | null>(null);
+	// Video↔tag attach/detach (F50, ADR-075 P0-8) — TagPicker owns the add popover
+	// (including the near-miss advisory); the page keeps only the shared busy gate
+	// (mirrors personBusyKey/filmBusyKey) for its own always-visible chip row.
+	let tagBusyKey = $state<number | 'create' | null>(null);
+	let tagRemoveError = $state('');
 
 	// Title composite-key collision verdict (HOLODEX-270). pendingTitleValue remembers the
 	// value that collided so "Save anyway" can resubmit it with override — NameEditControl
@@ -596,94 +589,32 @@
 		if (personConflict) resolvePersonConflict();
 	}
 
-	// Video↔tag attach/detach (F50, ADR-075 P0-8/P0-7).
-
-	function resetTagForm() {
-		tagAddValue = '';
-		tagError = '';
-		tagNearMiss = null;
-		tagJustAdded = null;
+	// Video↔tag attach/detach (F50, ADR-075 P0-8/P0-7) — thin mutation wrappers for
+	// TagPicker's attach/detach props (same division of labor attachPerson/detachPerson
+	// give PersonPicker: each does the mutation + reloadDetail(), TagPicker owns the
+	// rest of the interaction including the near-miss advisory).
+	async function attachTag(name: string) {
+		const res = await api.addVideoTag(id, name);
+		await reloadDetail();
+		return res;
 	}
 
-	async function openTagAdd() {
-		resetTagForm();
-		tagAddOpen = true;
-		await tick();
-		tagInput?.focus();
+	async function detachTag(tagId: number) {
+		await api.removeVideoTag(id, tagId);
+		await reloadDetail();
 	}
 
-	function closeTagAdd() {
-		resetTagForm();
-		tagAddOpen = false;
-	}
-
-	// Shared busy/error/finally scaffolding for the three tag mutations below.
-	// formatError lets a caller (submitTagAdd) turn a specific status into its own
-	// copy; everything else falls back to the page's usual toMessage(err).
-	async function runTagAction(fn: () => Promise<void>, formatError?: (err: unknown) => string) {
-		if (tagBusy) return;
-		tagBusy = true;
-		tagError = '';
+	async function removeTag(tagId: number) {
+		if (tagBusyKey !== null) return;
+		tagBusyKey = tagId;
+		tagRemoveError = '';
 		try {
-			await fn();
-		} catch (err) {
-			tagError = formatError ? formatError(err) : toMessage(err);
+			await detachTag(tagId);
+		} catch (e) {
+			tagRemoveError = toMessage(e);
 		} finally {
-			tagBusy = false;
+			tagBusyKey = null;
 		}
-	}
-
-	function submitTagAdd(e: SubmitEvent) {
-		e.preventDefault();
-		const name = tagAddValue.trim();
-		if (!name) return;
-		runTagAction(
-			async () => {
-				const { tag } = await api.addVideoTag(id, name);
-				tagJustAdded = { id: tag.id, name: tag.name };
-				// Fire-and-forget: the detail refetch and the near-miss check are
-				// independent, so don't serialize them (mirrors /tags' reload()-then-
-				// nearMiss() concurrency).
-				void reloadDetail();
-				// Non-blocking near-miss (mirrors /tags' actionNearMiss, F43 P1-5): advisory,
-				// shown after the attach already succeeded.
-				const nm = await api.nearMiss('tag', tag.id, name).then((r) => r.near_miss);
-				if (nm) {
-					tagNearMiss = nm;
-				} else {
-					closeTagAdd();
-				}
-			},
-			(err) =>
-				err instanceof ApiError && err.status === 422
-					? `'${name}' is on the deny-list.`
-					: toMessage(err)
-		);
-	}
-
-	// "Use existing": swap this video's just-added tag for the near-miss it looks
-	// like — attach-by-name resolves the near-miss's exact name to its existing id
-	// (no new row), then detach the tag the add just created/resolved. Sequenced,
-	// not concurrent: if the add fails, the just-added tag is left alone (no
-	// data loss); only once the add has actually succeeded does the swap remove
-	// it, so a failure here leaves both tags attached instead of neither.
-	async function useTagNearMiss() {
-		if (!tagNearMiss || !tagJustAdded) return;
-		const nearMissName = tagNearMiss.name;
-		const justAddedId = tagJustAdded.id;
-		await runTagAction(async () => {
-			await api.addVideoTag(id, nearMissName);
-			await api.removeVideoTag(id, justAddedId);
-			await reloadDetail();
-			closeTagAdd();
-		});
-	}
-
-	function removeTag(tagId: number) {
-		runTagAction(async () => {
-			await api.removeVideoTag(id, tagId);
-			await reloadDetail();
-		});
 	}
 
 	async function onApplied(f: EnrichedField[]) {
@@ -943,14 +874,14 @@
 									<button
 										type="button"
 										onclick={() => removeTag(t.id)}
-										disabled={tagBusy}
+										disabled={tagBusyKey === t.id}
 										aria-label={`Remove tag ${t.name}`}
 										title={t.source === 'file'
 											? 'Removing a file-sourced tag may reappear on the next rescan'
 											: undefined}
 										class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
 									>
-										×
+										{tagBusyKey === t.id ? '…' : '×'}
 									</button>
 								</span>
 							</span>
@@ -962,51 +893,18 @@
 					{/each}
 
 					{#if isOwner}
-						{#if tagAddOpen}
-							<form onsubmit={submitTagAdd} class="inline-flex items-center gap-2">
-								<input
-									bind:this={tagInput}
-									bind:value={tagAddValue}
-									type="text"
-									placeholder="Add a tag"
-									aria-label="Add a tag"
-									class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
-								/>
-								<button type="submit" disabled={tagBusy} class="btn-accent px-3 py-1.5 text-sm">Add</button>
-								<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-quiet px-3 py-1.5 text-sm">
-									Cancel
-								</button>
-							</form>
-						{:else}
-							<button type="button" onclick={openTagAdd} class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button>
-						{/if}
+						<TagPicker
+							tags={video.tags ?? []}
+							{isOwner}
+							attach={attachTag}
+							detach={detachTag}
+							bind:busyKey={tagBusyKey}
+						/>
 					{/if}
 				</div>
 
-				{#if tagNearMiss}
-					<!-- Non-blocking near-miss nudge (F43 P1-5, verbatim copy from /tags'
-					     actionNearMiss card) — the attach already succeeded; this only offers
-					     to consolidate onto the look-alike instead. -->
-					<div class="flex flex-wrap items-center gap-2 rounded-theme border border-rule bg-surface-2 px-3 py-2">
-						<p class="text-sm text-ink">
-							Looks a lot like <span class="font-semibold">{tagNearMiss.name}</span>
-							({videoCount(tagNearMiss.video_count ?? 0)}) — use that instead?
-						</p>
-						<button
-							type="button"
-							onclick={useTagNearMiss}
-							disabled={tagBusy}
-							class="btn-accent px-3 py-1.5 text-sm"
-						>
-							Use existing
-						</button>
-						<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
-							Add as new anyway
-						</button>
-					</div>
-				{/if}
-				{#if tagError}
-					<p class="text-sm text-warn">{tagError}</p>
+				{#if tagRemoveError}
+					<p class="text-sm text-warn" aria-live="polite">{tagRemoveError}</p>
 				{/if}
 			</section>
 		{/if}
