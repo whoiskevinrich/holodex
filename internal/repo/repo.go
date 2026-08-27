@@ -1380,12 +1380,14 @@ type SearchResult struct {
 	People  []model.Person `json:"people"`
 	Tags    []model.Tag    `json:"tags"`
 	Studios []model.Studio `json:"studios"`
+	Films   []model.Film   `json:"films"`
 }
 
-// Search runs a prefix FTS query across videos, people, and tags (limit per
-// group). hideFullFilmVideos excludes full-film videos from the video results
-// (RD6/HOLODEX-282) — pass h.filmsEnabled.
-func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilmVideos bool) (SearchResult, error) {
+// Search runs a prefix FTS query across videos, people, tags, studios, and (when
+// filmsEnabled) films (limit per group). filmsEnabled also excludes full-film
+// videos from the video results, same as every other list surface (RD6/
+// HOLODEX-282, F56/HOLODEX-283) — the one caller passes h.filmsEnabled.
+func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled bool) (SearchResult, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1399,6 +1401,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilm
 			People:  []model.Person{},
 			Tags:    []model.Tag{},
 			Studios: []model.Studio{},
+			Films:   []model.Film{},
 		}, nil
 	}
 	// Non-nil so a zero-hit category marshals as `[]`, never `null` (HOLODEX-275). Not
@@ -1410,6 +1413,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilm
 		People:  []model.Person{},
 		Tags:    []model.Tag{},
 		Studios: []model.Studio{},
+		Films:   []model.Film{},
 	}
 	match := ftsPrefixQuery(q)
 
@@ -1455,7 +1459,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilm
 	// Videos: title matches first, then the media of any matched person (incl. alias
 	// matches) so searching a person's name OR alias returns their library — the merge
 	// promise (F23, ADR-036). Deduped by id, capped at limit.
-	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit, HideFullFilmVideos: hideFullFilmVideos})
+	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit, HideFullFilmVideos: filmsEnabled})
 	if err != nil {
 		return res, err
 	}
@@ -1465,7 +1469,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilm
 		for i, p := range res.People {
 			peopleIDs[i] = p.ID
 		}
-		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit, HideFullFilmVideos: hideFullFilmVideos})
+		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit, HideFullFilmVideos: filmsEnabled})
 		if err != nil {
 			return res, err
 		}
@@ -1517,7 +1521,21 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, hideFullFilm
 		}
 		res.Studios = append(res.Studios, s)
 	}
-	return res, sr.Err()
+	if err := sr.Err(); err != nil {
+		return res, err
+	}
+
+	// Films: FTS name matches, a new entity group gated on filmsEnabled (F56/
+	// HOLODEX-283) — reuses SearchFilms rather than a hand-rolled query so poster/
+	// video_count stay in sync with the dedicated /films?q= endpoint.
+	if filmsEnabled {
+		films, err := r.SearchFilms(ctx, q, limit)
+		if err != nil {
+			return res, fmt.Errorf("search films: %w", err)
+		}
+		res.Films = films
+	}
+	return res, nil
 }
 
 // ---------------------------------------------------------------------------

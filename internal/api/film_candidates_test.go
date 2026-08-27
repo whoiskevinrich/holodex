@@ -366,3 +366,54 @@ func TestFullFilmVideoHiddenFromListSurfaces(t *testing.T) {
 		t.Errorf("GET /media/%d: got %d, want 200 (detail page always reachable)", full, detailResp.StatusCode)
 	}
 }
+
+// TestSearchIncludesFilms covers HOLODEX-283: GET /search returns a films group
+// natively (FTS over films_fts), gated on films_enabled the same as every other
+// films surface, replacing the old frontend-only merge.
+func TestSearchIncludesFilms(t *testing.T) {
+	srv, r, _ := filmEntityServer(t)
+	ctx := context.Background()
+
+	if _, err := r.CreateFilm(ctx, "Neon Skyline", 2019); err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if _, err := r.CreateFilm(ctx, "Unrelated Title", 2020); err != nil {
+		t.Fatalf("create other film: %v", err)
+	}
+
+	code, body := getJSON(t, srv.URL+"/api/v1/search?q=Neon")
+	if code != http.StatusOK {
+		t.Fatalf("search code=%d", code)
+	}
+	films, _ := body["films"].([]any)
+	if len(films) != 1 {
+		t.Fatalf("search films = %v, want 1 match", body["films"])
+	}
+	if name, _ := films[0].(map[string]any)["name"].(string); name != "Neon Skyline" {
+		t.Errorf("search films[0].name = %q, want %q", name, "Neon Skyline")
+	}
+}
+
+// TestSearchFilmsDisabled covers HOLODEX-283's films_enabled gate: with the flag
+// off, GET /search never surfaces films (route itself is not films-gated, so it
+// must return an empty films group rather than 404 or omitting the key).
+func TestSearchFilmsDisabled(t *testing.T) {
+	srv, r, _ := newServer(t)
+	ctx := context.Background()
+
+	if _, err := r.CreateFilm(ctx, "Neon Skyline", 2019); err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+
+	code, body := getJSON(t, srv.URL+"/api/v1/search?q=Neon")
+	if code != http.StatusOK {
+		t.Fatalf("search code=%d", code)
+	}
+	films, ok := body["films"].([]any)
+	if !ok {
+		t.Fatalf("search films field missing or wrong type: %v", body["films"])
+	}
+	if len(films) != 0 {
+		t.Errorf("search films = %v, want empty (films_enabled=false)", body["films"])
+	}
+}

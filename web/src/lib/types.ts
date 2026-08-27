@@ -445,10 +445,8 @@ export interface SearchResponse {
 	people: Person[] | null;
 	tags: Tag[] | null;
 	studios: Studio[] | null;
-	// films is spliced in client-side (F56) — the backend Search() aggregation has no
-	// films branch, so callers fetch it separately via api.listFilms(q) and merge it
-	// onto the response themselves. Absent/undefined when films_enabled is off.
-	films?: Film[] | null;
+	// Backend-populated (HOLODEX-283) — always present, empty when films_enabled is off.
+	films: Film[] | null;
 }
 
 // "More with …" related-media shelves (ADR-031, QW2/QW3). Either block is null when

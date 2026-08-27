@@ -126,7 +126,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Scanner — reactivation & empty-walk guard** (ADR-018, [issue #26](https://github.com/whoiskevinrich/holodex/issues/26)) | Integration | A deactivated row whose file reappears **unchanged** is reactivated via the fast-path with **no re-extract** (counts as `updated`, not `skipped`); a walk that sees **zero media files** skips `DeactivateExcept` entirely so a transiently empty/unreadable media root never mass-hides the library; `StatByPath` surfaces `active`; repo `Reactivate(id)` flips one row | behavior |
 | **Scanner — symlinks** (ADR-011) | Integration | Follow + canonical dedup (one card for 2 symlinks); loop doesn't hang; target outside MEDIA_PATH indexed; FOLLOW_SYMLINKS=false skips | behavior |
 | **Repository / SQLite** | Integration | Real DB w/ migrations; junction integrity; WAL concurrent read during write; pagination envelope | ~85% |
-| **Search / FTS5** (ADR-017) | Integration | Title FTS; diacritic fold ("amelie"→"Amélie"); global mixed-entity grouping; bm25 ordering sanity | ~85% |
+| **Search / FTS5** (ADR-017) | Integration | Title FTS; diacritic fold ("amelie"→"Amélie"); global mixed-entity grouping incl. films gated on `films_enabled` (HOLODEX-283); bm25 ordering sanity | ~85% |
 | **Filter→SQL builder** (ADR-006) | Unit | Each param; combinations; tag order-independence (`tags=1,2`==`2,1`); injection-safe params | ~90% |
 | **Cache** (ADR-008) | Unit + Integration | Hit/miss; key normalization; **invalidation on reindex** (no stale list/detail); prefix invalidation; NoopCache passthrough | ~90% |
 | **Metadata mapping** (ADR-013) | Unit + Integration | Many-to-one normalize; source precedence order; `multi:true` split; facet distinct values; reload endpoint | ~90% |

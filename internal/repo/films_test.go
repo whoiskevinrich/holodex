@@ -179,6 +179,23 @@ func TestListAndSearchFilms(t *testing.T) {
 	if len(noMatch) != 0 {
 		t.Fatalf("search no-match = %+v, want empty", noMatch)
 	}
+
+	// Global Search() (HOLODEX-283): films appear as their own group when
+	// filmsEnabled, and are omitted (empty, non-nil) when it's off.
+	all2, err := r.Search(ctx, "zoo", 10, true)
+	if err != nil {
+		t.Fatalf("global search (filmsEnabled=true): %v", err)
+	}
+	if len(all2.Films) != 1 || all2.Films[0].ID != zoo {
+		t.Fatalf("global search films = %+v, want [zoo]", all2.Films)
+	}
+	disabled, err := r.Search(ctx, "zoo", 10, false)
+	if err != nil {
+		t.Fatalf("global search (filmsEnabled=false): %v", err)
+	}
+	if disabled.Films == nil || len(disabled.Films) != 0 {
+		t.Fatalf("global search films (disabled) = %+v, want non-nil empty", disabled.Films)
+	}
 }
 
 func TestAttachFilmVideoCollisions(t *testing.T) {
@@ -356,7 +373,7 @@ func TestHideFullFilmVideos(t *testing.T) {
 		t.Errorf("GetVideo(full-film video) = %v, want reachable by direct id", err)
 	}
 
-	// Search: hidden from video results only when hideFullFilmVideos=true.
+	// Search: hidden from video results only when filmsEnabled=true.
 	res, err := r.Search(ctx, "Full Film", 10, false)
 	if err != nil {
 		t.Fatalf("search (flag off): %v", err)
