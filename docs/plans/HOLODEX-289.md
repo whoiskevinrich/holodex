@@ -12,7 +12,7 @@ release_note: Fixed a bug where the video detail page hid the Studio section ent
 
 Owners can always add a studio to a video from the Media detail page, even when the video currently has zero studio candidates — the Studio pencil/add affordance renders regardless of whether the resolver produced a `studio` entry in `resolved[]`.
 
-**Design package:** N/A for the original fix (one-line bug restoring an existing affordance's availability, no UX change). Sessions (3)-(4) added a genuinely new trigger element (the "+ Add studio" CTA) and changed the pencil's position/visibility/dialog-title wording — small enough in scope (polish to one existing control, no new screen or flow) that `/design-critique` against the real source was judged proportionate instead of a full `/design-handoff` package; no mockup was persisted as a committed asset.
+**Design package:** N/A for the original fix (one-line bug restoring an existing affordance's availability, no UX change). Sessions (3)-(4) added a genuinely new trigger element (the "+ Add studio" CTA) and changed the pencil's position/visibility/dialog-title wording — small enough in scope (polish to one existing control, no new screen or flow) that `/design-critique` against the real source was judged proportionate instead of a full `/design-handoff` package. The resolved decisions (trailing pencil position, always-visible modifier, empty-state CTA) are now documented as an addendum in [`docs/design/studio-picker-handoff.md`](../design/studio-picker-handoff.md#addendum-holodex-289-trigger-position-visibility-and-empty-state-cta).
 
 ## Gates — definition of done
 
@@ -21,7 +21,7 @@ Owners can always add a studio to a video from the Media detail page, even when 
 
 - [~] spec `write-spec` → `docs/specs/**` — not applicable: bug fix, no requirement change
 - [~] architecture `architecture` → `docs/architecture/ADR-*` — not applicable: no architectural decision changed
-- [~] design `design-handoff` → `docs/design/**` — deferred, not skipped: sessions (3)-(4) added a small new CTA/repositioned an existing control via `/design-critique` (lighter-weight than a full handoff, judged proportionate to the scope — no new screen/flow); no mockup persisted as a committed asset
+- [x] design — decisions (trailing pencil, always-visible modifier, empty-state CTA) documented as an addendum in `docs/design/studio-picker-handoff.md` (proportionate to scope; full `/design-handoff` judged unnecessary for polish to one existing control)
 - [x] frontend — `web/src/lib/components/entity/StudioPicker.svelte`, `web/src/routes/media/[id]/+page.svelte`
 - [x] testing — verified live against local dev servers (repro, fix, search/create, persistence, visitor-view no-regression, all 3 skins); `npm run check` clean (0 errors, only pre-existing unrelated warnings)
 - [~] security `security-review` — not applicable: no auth/access/infrastructure change
@@ -44,6 +44,10 @@ Owners can always add a studio to a video from the Media detail page, even when 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-26 · session (6)
+- skills: design-system
+- handoff: Closed the design gate the code-review pass flagged. Ran `/design-system document` to record the resolved decisions from sessions (3)-(4) as a committed addendum in `docs/design/studio-picker-handoff.md`: pencil position (trailing the studio name, matching `NameEditControl`'s name-then-pencil order), visibility (always-visible via the existing `pencilAlwaysVisible` mechanism, with the rationale — matching the always-visible "+ Add studio" sibling), and the empty-state CTA (`+ Add studio` text button + conditional dialog title, chosen from the 3-option mockup). Flagged the original handoff's now-stale Layout section as superseded, pointing to the addendum. Updated this worklog's design gate to `[x]` accordingly. Next: nothing — awaiting review/merge.
 
 ### 2026-08-26 · session (5)
 - skills: code-review
