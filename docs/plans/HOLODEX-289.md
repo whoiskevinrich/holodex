@@ -12,7 +12,7 @@ release_note: Fixed a bug where the video detail page hid the Studio section ent
 
 Owners can always add a studio to a video from the Media detail page, even when the video currently has zero studio candidates — the Studio pencil/add affordance renders regardless of whether the resolver produced a `studio` entry in `resolved[]`.
 
-**Design package:** N/A — one-line bug fix restoring an existing affordance's availability; no requirement, architecture, or UX change (`StudioPicker.svelte`'s picker/search/create UI is unchanged, only when it's offered).
+**Design package:** N/A for the original fix (one-line bug restoring an existing affordance's availability, no UX change). Sessions (3)-(4) added a genuinely new trigger element (the "+ Add studio" CTA) and changed the pencil's position/visibility/dialog-title wording — small enough in scope (polish to one existing control, no new screen or flow) that `/design-critique` against the real source was judged proportionate instead of a full `/design-handoff` package; no mockup was persisted as a committed asset.
 
 ## Gates — definition of done
 
@@ -21,7 +21,7 @@ Owners can always add a studio to a video from the Media detail page, even when 
 
 - [~] spec `write-spec` → `docs/specs/**` — not applicable: bug fix, no requirement change
 - [~] architecture `architecture` → `docs/architecture/ADR-*` — not applicable: no architectural decision changed
-- [~] design `design-handoff` → `docs/design/**` — not applicable: no new UI/UX, restores existing StudioPicker affordance
+- [~] design `design-handoff` → `docs/design/**` — deferred, not skipped: sessions (3)-(4) added a small new CTA/repositioned an existing control via `/design-critique` (lighter-weight than a full handoff, judged proportionate to the scope — no new screen/flow); no mockup persisted as a committed asset
 - [x] frontend — `web/src/lib/components/entity/StudioPicker.svelte`, `web/src/routes/media/[id]/+page.svelte`
 - [x] testing — verified live against local dev servers (repro, fix, search/create, persistence, visitor-view no-regression, all 3 skins); `npm run check` clean (0 errors, only pre-existing unrelated warnings)
 - [~] security `security-review` — not applicable: no auth/access/infrastructure change
@@ -44,6 +44,10 @@ Owners can always add a studio to a video from the Media detail page, even when 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-26 · session (5)
+- skills: code-review
+- handoff: Ran `/code-review high --fix` over the full PR #260 diff (main...HEAD, since the branch was already in sync with origin). 8 finder agents + 1-vote verify surfaced 5 candidates; 1 refuted (a "no default for `hasStudio`" concern — `npm run check`/svelte-check already enforces required-prop typing at compile time, so a caller omitting it fails the type check, not a silent `undefined`). Fixed: narrowed `StudioPicker.svelte`'s stale `field: ResolvedField | undefined` prop type to `field?: ResolvedField` (the destructuring default already guarantees non-undefined); added a comment explaining the hardcoded always-visible pencil exception; corrected this worklog's Design-package line/gate row, which still claimed "no new UI/UX" after sessions (3)-(4) added a real new CTA. Skipped: a film detail page ([id]/+page.svelte:180) studio-picker parity gap (same bare-pencil discoverability issue this PR fixed for videos) — a different route/feature, out of scope for this diff; flagged as a follow-up candidate rather than fixed here. `npm run check` clean (0 errors) after all fixes. Next: nothing further planned for this PR — awaiting review/merge; the film-page parity gap is a candidate for a separate ticket if wanted.
 
 ### 2026-08-26 · session (4)
 - skills: design-critique, simplify

@@ -28,7 +28,7 @@
 		decide,
 		verdict
 	}: {
-		field: ResolvedField | undefined;
+		field?: ResolvedField;
 		// Whether a studio is actually linked (the caller's own entity data, e.g. `studios.length`
 		// on the video detail page) — distinct from `field`, which is the resolved candidate value
 		// and can be present even with nothing linked yet. Swaps the trigger between "change" (a
@@ -186,6 +186,10 @@
 {#if isOwner}
 	{#if hasStudio}
 		<div class="name-edit-row inline-flex items-center">
+			<!-- Always visible, not hover-revealed (unlike Person/Studio/Tag name headers, which use
+			     the default name-edit-pencil hover reveal): the sibling "+ Add studio" branch below is
+			     already always-visible, so hiding this one until hover would make "change" harder to
+			     discover than "add" for no reason. -->
 			<button
 				bind:this={pencil}
 				type="button"
