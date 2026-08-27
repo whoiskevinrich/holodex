@@ -23,6 +23,7 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)
+	h.mountFilmPeopleRoles(r)
 }
 
 // listFilms handles GET /films (F56): name-sorted films with active-video counts.
@@ -63,7 +64,10 @@ func (h *Handlers) listFilms(w http.ResponseWriter, r *http.Request) {
 
 // getFilm handles GET /films/{id} (F56): the film, its resolved[] fields (record
 // vocabulary), its scenes and full-film files (the two-region detail page, spec),
-// and the read-only inherited cast/tags/studios (set union over its videos). Public.
+// the read-only inherited cast/tags/studios (set union over its videos), and the
+// owner-entered credited_roles (HOLODEX-281, film_people_roles) -- kept as a
+// separate field from cast so the response clearly distinguishes "appears in a
+// scene" from "credited on the film itself". Public.
 func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -110,15 +114,21 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "film studios", err)
 		return
 	}
+	credited, err := h.repo.FilmPeopleRoles(r.Context(), id)
+	if err != nil {
+		h.fail(w, "film people roles", err)
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"film":       f,
-		"resolved":   resolved,
-		"scenes":     scenes,
-		"full_films": fullFilms,
-		"cast":       cast,
-		"tags":       tags,
-		"studios":    studios,
+		"film":           f,
+		"resolved":       resolved,
+		"scenes":         scenes,
+		"full_films":     fullFilms,
+		"cast":           cast,
+		"tags":           tags,
+		"studios":        studios,
+		"credited_roles": credited,
 	})
 }
 
