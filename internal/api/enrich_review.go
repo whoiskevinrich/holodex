@@ -27,7 +27,14 @@ func (h *Handlers) enrichQueue(w http.ResponseWriter, r *http.Request) {
 	}
 	srcs := h.enrich.Sources()
 	providersByType := map[string][]string{}
-	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityVideo} {
+	entityTypes := []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityVideo}
+	// Film rows are suppressed entirely when films_enabled is off (F56, ADR-085),
+	// mirroring every other film surface — even if a provider is misconfigured with
+	// entity_types including "film" while this instance has films disabled.
+	if h.filmsEnabled {
+		entityTypes = append(entityTypes, model.EnrichEntityFilm)
+	}
+	for _, et := range entityTypes {
 		for _, src := range srcs {
 			if src.Supports(et) {
 				providersByType[et] = append(providersByType[et], src.Name)
@@ -285,7 +292,10 @@ func (h *Handlers) enrichDismissedCheck(w http.ResponseWriter, r *http.Request, 
 // before a dismiss/undismiss/refresh action proceeds — repo.EntityExists' cheap
 // existence-only check for person/studio (no need for the full get-with-aliases
 // enrichQueryHint does for refresh-all); video has no canonicalTable entry (F43's
-// name-identity spine doesn't cover it), so it goes through GetVideo as before.
+// name-identity spine doesn't cover it), so it goes through GetVideo as before. Film
+// (F56/ADR-086) has no canonicalTable entry either — films are purely owner-asserted,
+// deliberately outside the alias/merge name-identity spine (ADR-085) — so it goes
+// through GetFilm the same way video goes through GetVideo.
 func (h *Handlers) enrichEntityLookup(w http.ResponseWriter, r *http.Request, entityType string, id int64) bool {
 	switch entityType {
 	case model.EnrichEntityPerson:
@@ -303,6 +313,12 @@ func (h *Handlers) enrichEntityLookup(w http.ResponseWriter, r *http.Request, en
 	case model.EnrichEntityVideo:
 		if _, _, err := h.repo.GetVideo(r.Context(), id); err != nil {
 			h.videoLookupError(w, err)
+			return false
+		}
+		return true
+	case model.EnrichEntityFilm:
+		if _, err := h.repo.GetFilm(r.Context(), id); err != nil {
+			h.filmLookupError(w, err)
 			return false
 		}
 		return true
@@ -345,6 +361,13 @@ func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entit
 			return enrich.Hint{}, false
 		}
 		return videoHint(v, enrich.SanitizeTitle(v.Title)), true
+	case model.EnrichEntityFilm:
+		f, err := h.repo.GetFilm(r.Context(), id)
+		if err != nil {
+			h.filmLookupError(w, err)
+			return enrich.Hint{}, false
+		}
+		return enrich.Hint{Query: f.Name}, true
 	default:
 		writeError(w, http.StatusBadRequest, "unknown entity type")
 		return enrich.Hint{}, false

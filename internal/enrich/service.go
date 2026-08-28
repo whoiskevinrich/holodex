@@ -62,13 +62,15 @@ type EnrichRepo interface {
 }
 
 // ImageSink stores a downloaded, normalized provider asset as an image for an
-// entity (F25, ADR-038; entity-generic since F51, ADR-079). It is satisfied by an
-// adapter over personimage/studioimage + the repo, wired in main; nil disables asset
+// entity (F25, ADR-038; entity-generic since F51/ADR-079, widened to Film by
+// F56/ADR-086). It is satisfied by an adapter over
+// personimage/studioimage/filmimage + the repo, wired in main; nil disables asset
 // download (the v1-without-images path). Kept an interface so the enrich package
-// needn't import personimage/studioimage/repo for the image write and so tests can
-// assert what would be stored with no disk. entityType is one of
-// model.EnrichEntityPerson / model.EnrichEntityStudio — the adapter dispatches on it
-// to the right table/disk root; Person's behavior is unchanged by this widening.
+// needn't import personimage/studioimage/filmimage/repo for the image write and so
+// tests can assert what would be stored with no disk. entityType is one of
+// model.EnrichEntityPerson / model.EnrichEntityStudio / model.EnrichEntityFilm — the
+// adapter dispatches on it to the right table/disk root; Person's behavior is
+// unchanged by this widening.
 type ImageSink interface {
 	// StoreAsset normalizes raw image bytes (metadata strip) and stores them under the
 	// given role for an entity, recording provenance (provider + externalID) and the
@@ -699,10 +701,10 @@ func (s *Service) resolvePeopleCredits(ctx context.Context, provider string, peo
 }
 
 // imageBackedEntityType reports whether entityType has an image sink table backing
-// it (F51, ADR-079). Video and any future non-image entity type are not — their
-// asset-worthy values stay plain fields.
+// it (F51/ADR-079, widened to Film by F56/ADR-086). Video and any future non-image
+// entity type are not — their asset-worthy values stay plain fields.
 func imageBackedEntityType(entityType string) bool {
-	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio
+	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio || entityType == model.EnrichEntityFilm
 }
 
 // downloadAssets fetches provider image assets through the SSRF-guarded asset client
@@ -790,8 +792,9 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 		if entityType == model.EnrichEntityPerson && role == model.PersonImageHeadshot {
 			headshotRaw, headshotURL = raw, a.URL
 		}
-		// Every studio role is core; for person, only the three named core roles are.
-		isCoreRole := entityType == model.EnrichEntityStudio ||
+		// Every studio and film role is core; for person, only the three named core
+		// roles are.
+		isCoreRole := entityType == model.EnrichEntityStudio || entityType == model.EnrichEntityFilm ||
 			(entityType == model.EnrichEntityPerson && model.CorePersonImageRole(role))
 		if isCoreRole {
 			done[role] = true // core slots are single-occupancy; first success wins

@@ -1,11 +1,12 @@
-// Package imagesink is the entity-generic enrich.ImageSink adapter (F51, ADR-079):
-// it dispatches by entity type to the right storage engine — person_images (with its
-// gallery/suppression/content-hash-dedup machinery) or studio_images (three core
-// roles, no gallery) — behind one interface, so enrich.Service.downloadAssets stays
-// entity-agnostic. This is the second real use of the person image-asset pipeline
-// (Person was the first), the bar this codebase uses elsewhere to generalize a
-// subsystem rather than duplicate it (BaselineSource/ADR-052, resolveOrCreateByName/
-// ADR-061).
+// Package imagesink is the entity-generic enrich.ImageSink adapter (F51/ADR-079,
+// widened to Film by F56/ADR-086): it dispatches by entity type to the right storage
+// engine — person_images (with its gallery/suppression/content-hash-dedup machinery),
+// studio_images (three core roles, no gallery), or film_images (poster/thumb, source-
+// scoped so an upload and a provider row can coexist per role) — behind one
+// interface, so enrich.Service.downloadAssets stays entity-agnostic. This is the
+// third real use of the person image-asset pipeline (Person was the first, Studio the
+// second), the bar this codebase uses elsewhere to generalize a subsystem rather than
+// duplicate it (BaselineSource/ADR-052, resolveOrCreateByName/ADR-061).
 package imagesink
 
 import (
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
@@ -40,22 +42,19 @@ type StudioRepo interface {
 	LockedStudioImageRoles(ctx context.Context, studioID int64) (map[string]struct{}, error)
 }
 
-// FilmRepo is the repo subset the film owner-upload path needs (F56/HOLODEX-280,
+// FilmRepo is the repo subset the film side of the sink needs (F56/HOLODEX-280,
 // ADR-086). Unlike StudioRepo, every method is explicitly scoped by source — see
 // internal/repo/film_images.go's doc comment — because film_images' UNIQUE is
-// (film_id, role, source), not (film_id, role) alone. Not yet wired into Sink's
-// entityType dispatch: no enrichment caller writes film images today (that's
-// HOLODEX-284's scope), so ReplaceFilmImageFile below is called directly by the
-// owner-upload HTTP handler, the same way ReplaceStudioImageFile was before F51's
-// Sink dispatch existed.
+// (film_id, role, source), not (film_id, role) alone.
 type FilmRepo interface {
 	ReplaceFilmImage(ctx context.Context, in repo.FilmImageInsert) (int64, error)
 	GetFilmImage(ctx context.Context, filmID int64, role, source string) (repo.FilmImage, error)
 	DeleteFilmImage(ctx context.Context, filmID int64, role, source string) error
+	LockedFilmImageRoles(ctx context.Context, filmID int64) (map[string]struct{}, error)
 }
 
-// Sink implements enrich.ImageSink over both entity kinds. Constructed once in main
-// and wired via enrich.Service.SetImageSink.
+// Sink implements enrich.ImageSink over all three entity kinds. Constructed once in
+// main and wired via enrich.Service.SetImageSink.
 type Sink struct {
 	personRepo   personRepo
 	personDir    string
@@ -64,14 +63,19 @@ type Sink struct {
 	studioRepo   StudioRepo
 	studioDir    string
 	studioMaxDim int
+
+	filmRepo   FilmRepo
+	filmDir    string
+	filmMaxDim int
 }
 
-// New builds the combined sink over both storage engines' on-disk roots and
+// New builds the combined sink over all three storage engines' on-disk roots and
 // downscale bounds.
-func New(pr personRepo, personDir string, personMaxDim int, sr StudioRepo, studioDir string, studioMaxDim int) *Sink {
+func New(pr personRepo, personDir string, personMaxDim int, sr StudioRepo, studioDir string, studioMaxDim int, fr FilmRepo, filmDir string, filmMaxDim int) *Sink {
 	return &Sink{
 		personRepo: pr, personDir: personDir, personMaxDim: personMaxDim,
 		studioRepo: sr, studioDir: studioDir, studioMaxDim: studioMaxDim,
+		filmRepo: fr, filmDir: filmDir, filmMaxDim: filmMaxDim,
 	}
 }
 
@@ -83,6 +87,8 @@ func (s *Sink) StoreAsset(ctx context.Context, entityType string, entityID int64
 		return s.storePersonAsset(ctx, entityID, role, provider, externalID, url, raw, overCap)
 	case model.EnrichEntityStudio:
 		return s.storeStudioAsset(ctx, entityID, role, provider, externalID, raw)
+	case model.EnrichEntityFilm:
+		return s.storeFilmAsset(ctx, entityID, role, provider, externalID, raw)
 	default:
 		return fmt.Errorf("imagesink: unsupported entity type %q", entityType)
 	}
@@ -127,6 +133,8 @@ func (s *Sink) LockedCoreRoles(ctx context.Context, entityType string, entityID 
 		return s.personRepo.LockedCoreRoles(ctx, entityID)
 	case model.EnrichEntityStudio:
 		return s.studioRepo.LockedStudioImageRoles(ctx, entityID)
+	case model.EnrichEntityFilm:
+		return s.filmRepo.LockedFilmImageRoles(ctx, entityID)
 	default:
 		return map[string]struct{}{}, nil
 	}
@@ -187,6 +195,35 @@ func (s *Sink) storeStudioAsset(ctx context.Context, studioID int64, role, provi
 	}
 	_, err = ReplaceStudioImageFile(ctx, s.studioRepo, s.studioDir, repo.StudioImageInsert{
 		StudioID: studioID, Role: role, Source: model.StudioImageSourceEnrichment,
+		Provider: provider, ExternalID: externalID,
+	}, norm, w, h)
+	return err
+}
+
+// filmImageSourceProvider formats a provider-sourced film image's Source column
+// value. Unlike Person/Studio there is no flat *ImageSourceEnrichment constant (see
+// internal/repo/film_images.go's and FilmRepo's doc comments): film_images'
+// UNIQUE(film_id, role, source) lets an owner-uploaded and a provider-sourced image
+// coexist per role, and lets more than one provider's own poster coexist too, so the
+// source string must be per-provider rather than a shared literal. Reuses
+// fieldsource.ForProvider's "provider:<name>" grammar (ADR-051) rather than
+// re-encoding the same format independently.
+func filmImageSourceProvider(provider string) string {
+	return fieldsource.ForProvider(provider)
+}
+
+// storeFilmAsset normalizes and replaces the film's image for one (role, provider)
+// slot (ADR-086). Always a replace — no cap/dedup to consider, mirroring
+// storeStudioAsset — but keyed by the provider's own source string rather than a
+// shared 'enrichment' literal, so a locked owner-uploaded row is never touched and a
+// second provider's poster doesn't clobber the first's.
+func (s *Sink) storeFilmAsset(ctx context.Context, filmID int64, role, provider, externalID string, raw []byte) error {
+	norm, w, h, err := personimage.Normalize(raw, s.filmMaxDim)
+	if err != nil {
+		return fmt.Errorf("normalize asset: %w", err)
+	}
+	_, err = ReplaceFilmImageFile(ctx, s.filmRepo, s.filmDir, repo.FilmImageInsert{
+		FilmID: filmID, Role: role, Source: filmImageSourceProvider(provider),
 		Provider: provider, ExternalID: externalID,
 	}, norm, w, h)
 	return err

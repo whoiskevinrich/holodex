@@ -137,12 +137,15 @@ func (c *AssetClient) Fetch(ctx context.Context, rawURL string) ([]byte, error) 
 const personHeadshotKind = "photo"
 
 // assetRoleFor maps a provider asset kind to an image role, entity-generic since F51
-// (ADR-079). For person: photo → headshot is the default; banner/poster map through
-// when a provider supplies them. For studio: "logo" (or the empty kind, the only kind
-// TMDB emits today) maps to the logo role; "icon"/"poster" kinds are reserved for a
-// future provider — the pipeline accepts them with no further schema change once one
-// exists. An unknown kind, or an entity type with no image roles, returns ok=false so
-// the asset is skipped (never stored under a guessed role).
+// (ADR-079, widened to Film by ADR-086). For person: photo → headshot is the default;
+// banner/poster map through when a provider supplies them. For studio: "logo" (or the
+// empty kind, the only kind TMDB emits today) maps to the logo role; "icon"/"poster"
+// kinds are reserved for a future provider — the pipeline accepts them with no
+// further schema change once one exists. For film: "poster" (or the empty kind) maps
+// to the poster role — the film's primary and, in v1, only planned asset kind
+// (metadata-provider-contract.md §4.3); "thumb" is reserved the same way studio's
+// icon/poster are. An unknown kind, or an entity type with no image roles, returns
+// ok=false so the asset is skipped (never stored under a guessed role).
 func assetRoleFor(entityType, kind string) (string, bool) {
 	switch entityType {
 	case model.EnrichEntityPerson:
@@ -164,6 +167,13 @@ func assetRoleFor(entityType, kind string) (string, bool) {
 			return model.StudioImageIcon, true
 		case "poster":
 			return model.StudioImagePoster, true
+		}
+	case model.EnrichEntityFilm:
+		switch kind {
+		case "poster", "":
+			return model.FilmImagePoster, true
+		case "thumb":
+			return model.FilmImageThumb, true
 		}
 	}
 	return "", false

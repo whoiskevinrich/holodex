@@ -16,13 +16,17 @@ import (
 // Film images (F56/HOLODEX-280, ADR-086): owner-editable poster/thumb roles, mirroring
 // studio_images.go (F51, ADR-079). Public reads serve the on-disk JPEG for a filled
 // role, or 404 for an empty one (the SPA renders its own monogram/empty state — no
-// placeholder route, unlike Person). Owner-gated mutations upload/replace/delete. A
-// role from a request is always validated against the enum (model.ValidFilmImageRole)
-// — a filesystem path is only ever built from the server-assigned integer id, never a
-// request value. Every repo call is scoped to model.FilmImageSourceUpload: unlike
-// Studio, film_images can hold a provider-sourced row alongside an uploaded one for
-// the same role (film_images' UNIQUE is (film_id, role, source), migration 0043) — a
-// provider-sourced writer/reader is HOLODEX-284's scope, not this ticket's.
+// placeholder route, unlike Person). Owner-gated mutations upload/replace/delete and
+// are always scoped to model.FilmImageSourceUpload — a provider-sourced row is never
+// written or removed through this file. Public reads (setFilmImageURLs, serveFilmImage)
+// resolve the owner's uploaded image if one exists, else the provider's, via
+// repo.GetFilmImageDisplayed/filmImageVersions (unlike Studio, film_images can hold a
+// provider-sourced row alongside an uploaded one per role — film_images' UNIQUE is
+// (film_id, role, source), migration 0043). A role from a request is always validated
+// against the enum (model.ValidFilmImageRole) — a filesystem path is only ever built
+// from the server-assigned integer id, never a request value. The provider-sourced
+// writer lives in internal/imagesink.storeFilmAsset (HOLODEX-284/ADR-086), reached only
+// through enrichment — never through this file.
 
 // mountFilmImages registers the owner-gated image mutations. The public serve read is
 // mounted ungated (but films-enabled-gated) in Mount; only the controls are gated.
@@ -60,7 +64,8 @@ func filmImageRole(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return role, true
 }
 
-// serveFilmImage streams a film's on-disk upload image JPEG for a role with a long
+// serveFilmImage streams a film's on-disk displayed image JPEG for a role (the
+// owner's upload if set, else a provider's — see GetFilmImageDisplayed) with a long
 // immutable cache. The ?v={id} the model emits changes when the image is replaced, so
 // a stale image is never pinned. No placeholder: an absent role is 404 and the SPA
 // falls back to its own empty state.
@@ -77,7 +82,7 @@ func (h *Handlers) serveFilmImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "image not available")
 		return
 	}
-	img, err := h.repo.GetFilmImage(r.Context(), id, role, model.FilmImageSourceUpload)
+	img, err := h.repo.GetFilmImageDisplayed(r.Context(), id, role)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "no image")

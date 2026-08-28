@@ -105,10 +105,41 @@ func (f *fakeStudioRepo) LockedStudioImageRoles(_ context.Context, _ int64) (map
 	return nil, nil
 }
 
+// fakeFilmRepo mirrors fakeStudioRepo for the film side.
+type fakeFilmRepo struct {
+	inserts   []repo.FilmImageInsert
+	deletes   []string // roles deleted
+	existing  map[string]repo.FilmImage
+	insertErr error
+	nextID    int64
+}
+
+func (f *fakeFilmRepo) ReplaceFilmImage(_ context.Context, in repo.FilmImageInsert) (int64, error) {
+	if f.insertErr != nil {
+		return 0, f.insertErr
+	}
+	f.inserts = append(f.inserts, in)
+	f.nextID++
+	return f.nextID, nil
+}
+func (f *fakeFilmRepo) GetFilmImage(_ context.Context, _ int64, role, _ string) (repo.FilmImage, error) {
+	if img, ok := f.existing[role]; ok {
+		return img, nil
+	}
+	return repo.FilmImage{}, repo.ErrNotFound
+}
+func (f *fakeFilmRepo) DeleteFilmImage(_ context.Context, _ int64, role, _ string) error {
+	f.deletes = append(f.deletes, role)
+	return nil
+}
+func (f *fakeFilmRepo) LockedFilmImageRoles(_ context.Context, _ int64) (map[string]struct{}, error) {
+	return nil, nil
+}
+
 func TestSinkStoreAsset_Person_Normalizes(t *testing.T) {
 	dir := t.TempDir()
 	fr := &fakePersonRepo{}
-	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0)
+	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
 
 	// A provider photo with a planted trailing "EXIF" marker: the enrichment path must
 	// run the same metadata strip as an upload.
@@ -149,7 +180,7 @@ func TestSinkStoreAsset_Person_Normalizes(t *testing.T) {
 func TestSinkSkipsDuplicate(t *testing.T) {
 	dir := t.TempDir()
 	fr := &fakePersonRepo{insertErr: repo.ErrDuplicateImage}
-	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0)
+	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
 
 	if err := sink.StoreAsset(context.Background(), model.EnrichEntityPerson, 5, model.PersonImageExtra, "tmdb", "x", "https://cdn/dup.jpg", jpegBytes(t, 30, 30), false); err != nil {
 		t.Fatalf("duplicate StoreAsset should be a silent skip, got %v", err)
@@ -167,7 +198,7 @@ func TestSinkRollsBackOnStoreFailure_Person(t *testing.T) {
 		t.Fatal(err)
 	}
 	fr := &fakePersonRepo{}
-	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0)
+	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
 
 	if err := sink.StoreAsset(context.Background(), model.EnrichEntityPerson, 9, model.PersonImageHeadshot, "p", "x", "", jpegBytes(t, 40, 40), false); err == nil {
 		t.Fatal("expected a store failure")
@@ -186,7 +217,7 @@ func TestSinkRollsBackOnStoreFailure_Person(t *testing.T) {
 func TestSinkStoreAsset_Studio_Normalizes(t *testing.T) {
 	dir := t.TempDir()
 	sr := &fakeStudioRepo{}
-	sink := New(&fakePersonRepo{}, t.TempDir(), 0, sr, dir, 0)
+	sink := New(&fakePersonRepo{}, t.TempDir(), 0, sr, dir, 0, &fakeFilmRepo{}, t.TempDir(), 0)
 
 	if err := sink.StoreAsset(context.Background(), model.EnrichEntityStudio, 3, model.StudioImageLogo, "tmdb", "tmdb:10342", "https://cdn/logo.jpg", jpegBytes(t, 100, 40), false); err != nil {
 		t.Fatalf("StoreAsset: %v", err)
@@ -216,7 +247,7 @@ func TestSinkRollsBackOnStoreFailure_Studio(t *testing.T) {
 		t.Fatal(err)
 	}
 	sr := &fakeStudioRepo{}
-	sink := New(&fakePersonRepo{}, t.TempDir(), 0, sr, dir, 0)
+	sink := New(&fakePersonRepo{}, t.TempDir(), 0, sr, dir, 0, &fakeFilmRepo{}, t.TempDir(), 0)
 
 	if err := sink.StoreAsset(context.Background(), model.EnrichEntityStudio, 4, model.StudioImageLogo, "p", "x", "", jpegBytes(t, 40, 40), false); err == nil {
 		t.Fatal("expected a store failure")
@@ -232,7 +263,7 @@ func TestSinkRollsBackOnStoreFailure_Studio(t *testing.T) {
 // TestSinkUnsupportedEntityType: StoreAsset errors for an entity type neither engine
 // backs, rather than silently doing nothing.
 func TestSinkUnsupportedEntityType(t *testing.T) {
-	sink := New(&fakePersonRepo{}, t.TempDir(), 0, &fakeStudioRepo{}, t.TempDir(), 0)
+	sink := New(&fakePersonRepo{}, t.TempDir(), 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
 	if err := sink.StoreAsset(context.Background(), "video", 1, "poster", "p", "x", "", jpegBytes(t, 10, 10), false); err == nil {
 		t.Fatal("expected an error for an unsupported entity type")
 	}

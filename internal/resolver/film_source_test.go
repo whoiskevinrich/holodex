@@ -117,6 +117,32 @@ func TestResolveUndecided_TrulyEmptyFieldStillDrops(t *testing.T) {
 	}
 }
 
+// --- Namespace collision: a real provider literally named "film" is not misread --
+//
+// filmSourceValue matches on the exact prefix "film:" (with the colon). A real
+// metadata provider named "film" (ADR-086 Action Item 7/10) decides as
+// "provider:film" — fieldsource.Provider strips the "provider:" prefix and leaves
+// the bare namespace "film", which must NOT match strings.HasPrefix(ns, "film:")
+// (4 chars vs. the 5-char literal prefix). If it ever did, a real "film" provider's
+// value would be silently swallowed by the synthetic per-video film-attachment path
+// instead of resolving through the normal provider scan below.
+
+func TestResolveDecided_RealProviderNamedFilmIsNotMisreadAsFilmNamespace(t *testing.T) {
+	field := stubField("collection", false, "film:Title")
+	enrichment := resolver.Enrichment{
+		"film":    {"Title": {"Real Provider Value"}},
+		"film:42": {"collection": {"Scene Test Film"}}, // must not leak into this decision
+	}
+	got := resolver.Resolve(&model.Video{}, nil, enrichment, nil, []mapping.Field{field}, decide("collection", "provider:film", ""))
+	f, ok := resolvedByCanonical(got, "collection")
+	if !ok || len(f.Values) != 1 || f.Values[0] != "Real Provider Value" {
+		t.Fatalf("a real provider named 'film' must resolve normally, not as a film-attachment namespace: %+v", f)
+	}
+	if f.WinningSource != "film:Title" {
+		t.Errorf("want winning_source film:Title, got %q", f.WinningSource)
+	}
+}
+
 // --- Multi-film: the decided namespace disambiguates which film wins -------------
 
 func TestResolveDecided_MultiFilmDisambiguatesByNamespace(t *testing.T) {

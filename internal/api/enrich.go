@@ -84,6 +84,13 @@ func resolvedValues(fields []resolver.ResolvedField, canonical string) []string 
 	return rf.Values
 }
 
+// enrichRoute pairs a route path prefix with the entity type it enriches — the F47
+// dismiss/undismiss/refresh/refresh-all route loop below iterates a slice of these.
+type enrichRoute struct {
+	path       string
+	entityType string
+}
+
 // mountEnrich registers the owner-gated enrichment endpoints (F22.5/F22.9a). They
 // are mounted inside the requireOwner group set up in Mount.
 func (h *Handlers) mountEnrich(r chi.Router) {
@@ -97,18 +104,24 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 	r.Post("/studios/{id}/enrich/resolve", h.enrichStudioResolve)
 	r.Post("/studios/{id}/enrich", h.enrichStudioApply)
 	r.Delete("/studios/{id}/enrich/{provider}", h.enrichStudioClear)
-
-	// F47 (ADR-066): the review queue, and the dismiss/undismiss/refresh/refresh-all
-	// mutations — entity-generic across all three, mirroring the route shape above.
-	r.Get("/owner/enrich-queue", h.enrichQueue)
-	for _, et := range []struct {
-		path       string
-		entityType string
-	}{
+	// Film enrichment routes (F56/ADR-086) are unregistered entirely when
+	// films_enabled is off, mirroring every other film route in Mount.
+	entityTypes := []enrichRoute{
 		{"/people", model.EnrichEntityPerson},
 		{"/studios", model.EnrichEntityStudio},
 		{"/media", model.EnrichEntityVideo},
-	} {
+	}
+	if h.filmsEnabled {
+		r.Post("/films/{id}/enrich/resolve", h.filmEnrichResolve)
+		r.Post("/films/{id}/enrich", h.filmEnrichApply)
+		r.Delete("/films/{id}/enrich/{provider}", h.filmEnrichClear)
+		entityTypes = append(entityTypes, enrichRoute{"/films", model.EnrichEntityFilm})
+	}
+
+	// F47 (ADR-066): the review queue, and the dismiss/undismiss/refresh/refresh-all
+	// mutations — entity-generic across all four, mirroring the route shape above.
+	r.Get("/owner/enrich-queue", h.enrichQueue)
+	for _, et := range entityTypes {
 		r.Post(et.path+"/{id}/enrich/{provider}/dismiss", h.enrichDismiss(et.entityType))
 		r.Delete(et.path+"/{id}/enrich/{provider}/dismiss", h.enrichUndismiss(et.entityType))
 		r.Post(et.path+"/{id}/enrich/{provider}/refresh", h.enrichRefresh(et.entityType))

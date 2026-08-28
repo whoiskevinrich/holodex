@@ -242,19 +242,19 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Warn("studio image dir create failed", "dir", cfg.StudioImagePath, "err", err)
 	}
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb): on-disk store under
-	// DATA_PATH/film-images. Not yet wired into imagesink.New's dispatch — no
-	// enrichment writer exists (HOLODEX-284) — the owner-upload handler stores
-	// directly via imagesink.ReplaceFilmImageFile.
+	// DATA_PATH/film-images.
 	if err := os.MkdirAll(cfg.FilmImagePath, 0o755); err != nil {
 		log.Warn("film image dir create failed", "dir", cfg.FilmImagePath, "err", err)
 	}
-	// One entity-generic sink (internal/imagesink) backs both: the enrichment asset
-	// path and the upload handlers share one normalize+store per entity kind, so a
-	// provider photo gets the same metadata strip as an upload, for person and studio
-	// alike (F51, ADR-079 — the second real use of this pipeline).
+	// One entity-generic sink (internal/imagesink) backs all three: the enrichment
+	// asset path and the upload handlers share one normalize+store per entity kind, so
+	// a provider photo gets the same metadata strip as an upload, for person, studio,
+	// and film alike (F51/ADR-079, widened to Film by F56/ADR-086 — the third real use
+	// of this pipeline).
 	enrichSvc.SetImageSink(imagesink.New(
 		repository, cfg.PersonImagePath, cfg.PersonImageMaxDimension,
 		repository, cfg.StudioImagePath, cfg.StudioImageMaxDimension,
+		repository, cfg.FilmImagePath, cfg.FilmImageMaxDimension,
 	))
 
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059): on-disk store under
