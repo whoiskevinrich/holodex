@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
@@ -204,9 +205,11 @@ func (s *Sink) storeStudioAsset(ctx context.Context, studioID int64, role, provi
 // internal/repo/film_images.go's and FilmRepo's doc comments): film_images'
 // UNIQUE(film_id, role, source) lets an owner-uploaded and a provider-sourced image
 // coexist per role, and lets more than one provider's own poster coexist too, so the
-// source string must be per-provider rather than a shared literal.
+// source string must be per-provider rather than a shared literal. Reuses
+// fieldsource.ForProvider's "provider:<name>" grammar (ADR-051) rather than
+// re-encoding the same format independently.
 func filmImageSourceProvider(provider string) string {
-	return "provider:" + provider
+	return fieldsource.ForProvider(provider)
 }
 
 // storeFilmAsset normalizes and replaces the film's image for one (role, provider)

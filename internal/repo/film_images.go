@@ -42,6 +42,37 @@ type FilmImageInsert struct {
 	Width, Height, ByteSize int
 }
 
+// GetFilmImageDisplayed returns the film's currently-displayed image row for one
+// role — the uploaded row if present, else the most recently stored provider row —
+// or ErrNotFound when neither exists. film_images' UNIQUE(film_id, role, source)
+// lets an upload and a provider row coexist per role (ADR-086 §2); this is the single
+// place that resolves which one wins, so filmImageVersions (the batch list/detail
+// path) and serveFilmImage (the single-image serve path) apply the same priority.
+func (r *Repo) GetFilmImageDisplayed(ctx context.Context, filmID int64, role string) (FilmImage, error) {
+	if fi, err := r.GetFilmImage(ctx, filmID, role, model.FilmImageSourceUpload); err == nil {
+		return fi, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return FilmImage{}, err
+	}
+	var (
+		fi      FilmImage
+		created string
+	)
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, film_id, role, source, provider, external_id, width, height, byte_size, created_at
+		FROM film_images WHERE film_id = ? AND role = ? AND source != ?
+		ORDER BY created_at DESC LIMIT 1`, filmID, role, model.FilmImageSourceUpload).
+		Scan(&fi.ID, &fi.FilmID, &fi.Role, &fi.Source, &fi.Provider, &fi.ExternalID, &fi.Width, &fi.Height, &fi.ByteSize, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return FilmImage{}, ErrNotFound
+	}
+	if err != nil {
+		return FilmImage{}, fmt.Errorf("get film image: %w", err)
+	}
+	fi.CreatedAt, _ = time.Parse(timeLayout, created)
+	return fi, nil
+}
+
 // GetFilmImage returns the film's image row for one (role, source) slot, or
 // ErrNotFound when that slot is empty.
 func (r *Repo) GetFilmImage(ctx context.Context, filmID int64, role, source string) (FilmImage, error) {
@@ -146,10 +177,11 @@ func (r *Repo) LockedFilmImageRoles(ctx context.Context, filmID int64) (map[stri
 
 // filmImageVersions returns filmID -> {role: rowID} for every film in ids, in ONE
 // batch query — the list/detail read path's way of filling Film.ImageVersions
-// without an N-way per-film lookup (mirrors studioImageVersions). Scoped to
-// FilmImageSourceUpload: this ticket's owner-upload path is the only writer today,
-// and a future provider-sourced row's display priority is HOLODEX-284's decision to
-// make, not this function's to guess at.
+// without an N-way per-film lookup (mirrors studioImageVersions). Unlike Studio,
+// film_images can hold both an uploaded and a provider-sourced row per role
+// (UNIQUE(film_id, role, source)); the ORDER BY puts the upload row first per
+// (film_id, role), so the first row seen per role wins — same upload-over-provider
+// priority as GetFilmImageDisplayed.
 func (r *Repo) filmImageVersions(ctx context.Context, ids []int64) (map[int64]map[string]int64, error) {
 	out := make(map[int64]map[string]int64, len(ids))
 	if len(ids) == 0 {
@@ -157,8 +189,9 @@ func (r *Repo) filmImageVersions(ctx context.Context, ids []int64) (map[int64]ma
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT film_id, role, id FROM film_images
-		WHERE source = ? AND film_id IN (`+placeholders(len(ids))+`)`,
-		append([]any{model.FilmImageSourceUpload}, toAnySlice(ids)...)...)
+		WHERE film_id IN (`+placeholders(len(ids))+`)
+		ORDER BY CASE WHEN source = ? THEN 0 ELSE 1 END, created_at DESC`,
+		append(toAnySlice(ids), model.FilmImageSourceUpload)...)
 	if err != nil {
 		return nil, fmt.Errorf("film image versions: %w", err)
 	}
@@ -172,7 +205,9 @@ func (r *Repo) filmImageVersions(ctx context.Context, ids []int64) (map[int64]ma
 		if out[filmID] == nil {
 			out[filmID] = map[string]int64{}
 		}
-		out[filmID][role] = rowID
+		if _, ok := out[filmID][role]; !ok {
+			out[filmID][role] = rowID
+		}
 	}
 	return out, rows.Err()
 }
