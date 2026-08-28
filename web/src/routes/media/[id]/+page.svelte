@@ -759,7 +759,72 @@
 	</p>
 {:else}
 	<article class="mx-auto max-w-4xl space-y-6">
-		<a href="/" class="text-sm text-muted hover:text-ink">← Back to library</a>
+		<header class="space-y-2">
+			{#if isOwner || studioField?.values?.length}
+				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
+					{#if isOwner}
+						{#each studios as s (s.id)}
+							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
+						{/each}
+						<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
+							{#snippet verdict(c, resolve)}
+								<CollisionOfferCard
+									video={c}
+									busy={studioCollisionBusy}
+									error={studioCollisionError}
+									onviewexisting={() => goto(`/studios/${c.id}`)}
+									onsaveanyway={() => saveStudioAnyway(resolve)}
+									oncancel={resolve}
+								/>
+							{/snippet}
+						</StudioPicker>
+					{:else if studios.length}
+						<!-- Visitor view: the resolved studio value always matches its linked
+						     entity (RD1), so show the link alone instead of the text + link
+						     duplicate (owner view keeps both — the link there is a shortcut
+						     to the studio page distinct from the editable SourceSelect value). -->
+						{#each studios as s, i (s.id)}
+							{#if i > 0}<span class="text-muted">,</span>{/if}
+							<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
+						{/each}
+					{:else if studioField?.values?.length}
+						<span class="text-ink">{studioField.values[0]}</span>
+					{/if}
+				</div>
+			{/if}
+			{#key id}
+				<NameEditControl
+					id="field-title"
+					name={displayTitle}
+					{isOwner}
+					onCommit={commitTitle}
+					label="video"
+					headingClass="skin-title text-2xl font-semibold text-ink"
+					pencilAlwaysVisible
+				>
+					{#snippet verdict(c, resolve)}
+						<CollisionOfferCard
+							video={c}
+							proposedTitle={pendingTitleValue}
+							busy={titleCollisionBusy}
+							error={titleCollisionError}
+							onviewexisting={() => goto(`/media/${c.id}`)}
+							onsaveanyway={() => saveTitleAnyway(resolve)}
+							oncancel={resolve}
+						/>
+					{/snippet}
+				</NameEditControl>
+			{/key}
+			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
+				<span>{video.width}×{video.height}</span>
+				<span>·</span>
+				<span>{formatDuration(video.duration_sec)}</span>
+				{#if formatYear(video.recorded_at)}
+					<span>·</span><span>{formatYear(video.recorded_at)}</span>
+				{/if}
+			</div>
+		</header>
 
 		<div
 			class="group relative overflow-hidden rounded-theme border border-rule bg-black"
@@ -853,73 +918,6 @@
 		{#if posterError}
 			<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
 		{/if}
-
-		<header class="space-y-2">
-			{#if isOwner || studioField?.values?.length}
-				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
-					{#if isOwner}
-						{#each studios as s (s.id)}
-							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
-						{/each}
-						<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
-							{#snippet verdict(c, resolve)}
-								<CollisionOfferCard
-									video={c}
-									busy={studioCollisionBusy}
-									error={studioCollisionError}
-									onviewexisting={() => goto(`/media/${c.id}`)}
-									onsaveanyway={() => saveStudioAnyway(resolve)}
-									oncancel={resolve}
-								/>
-							{/snippet}
-						</StudioPicker>
-					{:else if studios.length}
-						<!-- Visitor view: the resolved studio value always matches its linked
-						     entity (RD1), so show the link alone instead of the text + link
-						     duplicate (owner view keeps both — the link there is a shortcut
-						     to the studio page distinct from the editable SourceSelect value). -->
-						{#each studios as s, i (s.id)}
-							{#if i > 0}<span class="text-muted">,</span>{/if}
-							<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
-						{/each}
-					{:else if studioField?.values?.length}
-						<span class="text-ink">{studioField.values[0]}</span>
-					{/if}
-				</div>
-			{/if}
-			{#key id}
-				<NameEditControl
-					id="field-title"
-					name={displayTitle}
-					{isOwner}
-					onCommit={commitTitle}
-					label="video"
-					headingClass="skin-title text-2xl font-semibold text-ink"
-					pencilAlwaysVisible
-				>
-					{#snippet verdict(c, resolve)}
-						<CollisionOfferCard
-							video={c}
-							proposedTitle={pendingTitleValue}
-							busy={titleCollisionBusy}
-							error={titleCollisionError}
-							onviewexisting={() => goto(`/media/${c.id}`)}
-							onsaveanyway={() => saveTitleAnyway(resolve)}
-							oncancel={resolve}
-						/>
-					{/snippet}
-				</NameEditControl>
-			{/key}
-			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
-				<span>{video.width}×{video.height}</span>
-				<span>·</span>
-				<span>{formatDuration(video.duration_sec)}</span>
-				{#if formatYear(video.recorded_at)}
-					<span>·</span><span>{formatYear(video.recorded_at)}</span>
-				{/if}
-			</div>
-		</header>
 
 		{#if isOwner || video.tags?.length}
 			<section class="space-y-1.5">
