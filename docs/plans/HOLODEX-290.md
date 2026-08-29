@@ -38,7 +38,7 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 1. [ ] [backend] Extend `StudiosForVideos`/`FilmStudios` to select `icon_url` + video-count — `internal/repo/studios.go`, `internal/repo/films.go`
 2. [ ] [frontend] Build `StudioLinkCard.svelte` and swap both call sites per the handoff §2/§3
 3. [ ] [testing] Run `/testing-strategy` for this change
-4. [ ] [—] Push branch, open Draft PR
+4. [x] [—] Push branch, open Draft PR — [PR #269](https://github.com/whoiskevinrich/holodex/pull/269)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

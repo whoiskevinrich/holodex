@@ -6,7 +6,7 @@
 **Date:** 2026-08-29
 **Spec:** none — presentational-only change, no new user capability (see "Why no spec/ADR" below)
 **ADR:** none — extends an existing query's `SELECT` list, no schema/architecture change
-**Branch/PR:** `HOLODEX-290-studio-link-card`, PR not yet opened
+**Branch/PR:** `HOLODEX-290-studio-link-card`, Draft [PR #269](https://github.com/whoiskevinrich/holodex/pull/269)
 
 ## Overview
 
