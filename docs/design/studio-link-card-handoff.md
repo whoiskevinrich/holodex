@@ -142,10 +142,17 @@ selected `id, name`:
 
 `model.Studio` already declares `IconURL`/`LogoURL`/`VideoCount` (used by the top-level
 `/studios` list/detail reads) — this is a `SELECT`/`Scan` extension on the two queries above,
-not a new field or migration. Add `s.icon_url` to both `SELECT` clauses, and a video-count
-aggregate — `(SELECT COUNT(*) FROM video_studios vs2 WHERE vs2.studio_id = s.id)` (or an
-equivalent join+`GROUP BY`) — scanned into `Studio.VideoCount`. `logo_url`/`poster_url` are
-not needed by this component and can stay unselected here.
+not a new field or migration.
+
+**Implementation note (as-built):** `IconURL` is not a stored column — per F51/ADR-079 it's a
+computed serving URL, populated only by calling `setStudioImageURLs()` on a `Studio` whose
+`ImageVersions map[string]int64` field is set. So instead of `SELECT`ing `s.icon_url` directly,
+both queries were extended to populate `VideoCount` (a correlated active-video-count subquery,
+matching `GetStudio`'s existing pattern) and `ImageVersions` (via the existing
+`studioImageVersions`/`attachStudioImages` batch helpers), and their two API call sites
+(`internal/api/handlers.go`, `internal/api/films.go`) each call `setStudioImageURLs()` on the
+result before serializing — the same convention every other Studio-serializing response already
+follows. Net effect on this component is identical: `studio.icon_url` arrives populated when set.
 
 ## 5. Design tokens used
 

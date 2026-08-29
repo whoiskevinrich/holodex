@@ -462,8 +462,9 @@ func (r *Repo) BulkAttachFilmVideos(ctx context.Context, filmID int64, videoIDs 
 	return nil, nil
 }
 
-// scanFilmUnionRows drains a (id, name) result set from one of FilmCast/FilmTags/
-// FilmStudios' identical set-union queries into T, sharing their scan loop.
+// scanFilmUnionRows drains a (id, name) result set from one of FilmCast/FilmTags'
+// identical set-union queries into T, sharing their scan loop. FilmStudios needs
+// extra columns (video count, image versions) and scans separately below.
 func scanFilmUnionRows[T any](rows *sql.Rows, build func(id int64, name string) T) ([]T, error) {
 	out := []T{}
 	for rows.Next() {
@@ -516,10 +517,13 @@ func (r *Repo) FilmTags(ctx context.Context, filmID int64) ([]model.Tag, error) 
 }
 
 // FilmStudios returns the read-only set union of studios across every video
-// attached to a film. Name-sorted, deduped by studio.
+// attached to a film. Name-sorted, deduped by studio. Each Studio carries its
+// (library-wide) active-video count and ImageVersions, mirroring
+// StudiosForVideos/GetStudio/ListStudios, so StudioLinkCard (HOLODEX-290) has what it
+// needs without a second lookup.
 func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT s.id, s.name
+		SELECT DISTINCT s.id, s.name, `+studioActiveVideoCountSubquery+`
 		FROM film_videos fv JOIN video_studios vs ON vs.video_id = fv.video_id
 		JOIN studios s ON s.id = vs.studio_id
 		WHERE fv.film_id = ?
@@ -528,9 +532,21 @@ func (r *Repo) FilmStudios(ctx context.Context, filmID int64) ([]model.Studio, e
 		return nil, fmt.Errorf("film studios: %w", err)
 	}
 	defer rows.Close()
-	return scanFilmUnionRows(rows, func(id int64, name string) model.Studio {
-		return model.Studio{ID: id, Name: name}
-	})
+	out := []model.Studio{}
+	for rows.Next() {
+		var s model.Studio
+		if err := rows.Scan(&s.ID, &s.Name, &s.VideoCount); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.attachStudioImages(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // VideoIDsForFilm returns the active/non-deleted video ids attached to a film via

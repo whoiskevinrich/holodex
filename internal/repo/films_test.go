@@ -123,6 +123,60 @@ func TestCreateFilm(t *testing.T) {
 	}
 }
 
+// TestFilmStudios_IncludesIconAndCount pins HOLODEX-290's backend extension:
+// FilmStudios must carry each Studio's active-video count and ImageVersions, not just
+// id+name, mirroring StudiosForVideos' equivalent test.
+func TestFilmStudios_IncludesIconAndCount(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	filmID, err := r.CreateFilm(ctx, "Studio Film", 2020)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	v1, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	v2, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	if _, err := r.AttachFilmVideo(ctx, filmID, v1, nil, false); err != nil {
+		t.Fatalf("attach v1: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, filmID, v2, nil, false); err != nil {
+		t.Fatalf("attach v2: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, v1, []string{"Acme"}, nil); err != nil {
+		t.Fatalf("reconcile v1: %v", err)
+	}
+	// A third, unattached-to-the-film video also links Acme, so Acme's video-count
+	// (library-wide, per StudiosForVideos/GetStudio semantics) exceeds the film's own
+	// 2 attached videos — proving the count isn't scoped to just this film's videos.
+	v3, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
+	if err := r.ReconcileVideoStudios(ctx, v3, []string{"Acme"}, nil); err != nil {
+		t.Fatalf("reconcile v3: %v", err)
+	}
+
+	acmeID := studioByName(t, r, "Acme").ID
+	iconID, err := r.ReplaceStudioImage(ctx, repo.StudioImageInsert{
+		StudioID: acmeID, Role: model.StudioImageIcon, Source: model.StudioImageSourceUpload,
+		Width: 64, Height: 64, ByteSize: 111,
+	})
+	if err != nil {
+		t.Fatalf("replace icon: %v", err)
+	}
+
+	studios, err := r.FilmStudios(ctx, filmID)
+	if err != nil {
+		t.Fatalf("film studios: %v", err)
+	}
+	if len(studios) != 1 || studios[0].Name != "Acme" {
+		t.Fatalf("film studios = %+v, want one Acme", studios)
+	}
+	if studios[0].VideoCount != 2 {
+		t.Errorf("Acme.VideoCount = %d, want 2 (library-wide, v1+v3)", studios[0].VideoCount)
+	}
+	if got := studios[0].ImageVersions[model.StudioImageIcon]; got != iconID {
+		t.Errorf("Acme.ImageVersions[icon] = %d, want %d", got, iconID)
+	}
+}
+
 func TestListAndSearchFilms(t *testing.T) {
 	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

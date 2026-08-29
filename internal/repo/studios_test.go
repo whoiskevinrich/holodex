@@ -252,6 +252,69 @@ func TestListStudios_AttachesImageVersions(t *testing.T) {
 	}
 }
 
+// TestStudiosForVideos_IncludesIconAndCount pins HOLODEX-290's backend extension:
+// StudiosForVideos must carry each Studio's active-video count and ImageVersions
+// (StudioLinkCard's icon/count fields), not just id+name, and a NULL-icon studio must
+// scan to the Go zero value rather than erroring.
+func TestStudiosForVideos_IncludesIconAndCount(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	if err := r.ReconcileVideoStudios(ctx, a, []string{"Acme"}, nil); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, b, []string{"Acme", "Beta"}, nil); err != nil {
+		t.Fatalf("reconcile b: %v", err)
+	}
+
+	acmeID := studioByName(t, r, "Acme").ID
+	iconID, err := r.ReplaceStudioImage(ctx, repo.StudioImageInsert{
+		StudioID: acmeID, Role: model.StudioImageIcon, Source: model.StudioImageSourceUpload,
+		Width: 64, Height: 64, ByteSize: 111,
+	})
+	if err != nil {
+		t.Fatalf("replace icon: %v", err)
+	}
+
+	byVideo, err := r.StudiosForVideos(ctx, []int64{a, b})
+	if err != nil {
+		t.Fatalf("studios for videos: %v", err)
+	}
+
+	if len(byVideo[a]) != 1 || byVideo[a][0].Name != "Acme" {
+		t.Fatalf("studios for a = %+v, want one Acme", byVideo[a])
+	}
+	acme := byVideo[a][0]
+	if acme.VideoCount != 2 {
+		t.Errorf("Acme.VideoCount = %d, want 2 (linked to both a and b)", acme.VideoCount)
+	}
+	if got := acme.ImageVersions[model.StudioImageIcon]; got != iconID {
+		t.Errorf("Acme.ImageVersions[icon] = %d, want %d", got, iconID)
+	}
+
+	if len(byVideo[b]) != 2 {
+		t.Fatalf("studios for b = %+v, want Acme+Beta", byVideo[b])
+	}
+	var beta *model.Studio
+	for i := range byVideo[b] {
+		if byVideo[b][i].Name == "Beta" {
+			beta = &byVideo[b][i]
+		}
+	}
+	if beta == nil {
+		t.Fatalf("Beta not in studios for b: %+v", byVideo[b])
+	}
+	if beta.VideoCount != 1 {
+		t.Errorf("Beta.VideoCount = %d, want 1", beta.VideoCount)
+	}
+	// Beta has no image row (NULL-shaped absence) — must scan to the zero value, not error.
+	if got := beta.ImageVersions[model.StudioImageIcon]; got != 0 {
+		t.Errorf("Beta.ImageVersions[icon] = %d, want 0 (no image set)", got)
+	}
+}
+
 func TestGetStudio_NotFound(t *testing.T) {
 	r := newRepo(t)
 	if _, err := r.GetStudio(context.Background(), 9999); err != repo.ErrNotFound {
