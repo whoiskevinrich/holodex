@@ -37,6 +37,7 @@
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
+	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
@@ -888,39 +889,27 @@
 		{/if}
 
 		{#if isOwner || studioField?.values?.length}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Studio</h2>
-				<div class="flex flex-wrap items-center gap-2 text-sm" id="field-studio">
-					{#if isOwner}
-						{#each studios as s (s.id)}
-							<a href={`/studios/${s.id}`} class="text-muted hover:text-accent">{s.name}</a>
-						{/each}
-						<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
-							{#snippet verdict(c, resolve)}
-								<CollisionOfferCard
-									video={c}
-									busy={studioCollisionBusy}
-									error={studioCollisionError}
-									onviewexisting={() => goto(`/media/${c.id}`)}
-									onsaveanyway={() => saveStudioAnyway(resolve)}
-									oncancel={resolve}
-								/>
-							{/snippet}
-						</StudioPicker>
-					{:else if studios.length}
-						<!-- Visitor view: the resolved studio value always matches its linked
-						     entity (RD1), so show the link alone instead of the text + link
-						     duplicate (owner view keeps both — the link there is a shortcut
-						     to the studio page distinct from the editable SourceSelect value). -->
-						{#each studios as s, i (s.id)}
-							{#if i > 0}<span class="text-muted">,</span>{/if}
-							<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
-						{/each}
-					{:else if studioField?.values?.length}
-						<span class="text-ink">{studioField.values[0]}</span>
-					{/if}
-				</div>
-			</section>
+			<div class="flex flex-wrap items-center gap-3" id="field-studio">
+				{#each studios as s (s.id)}
+					<StudioLinkCard studio={s} />
+				{/each}
+				{#if isOwner}
+					<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
+						{#snippet verdict(c, resolve)}
+							<CollisionOfferCard
+								video={c}
+								busy={studioCollisionBusy}
+								error={studioCollisionError}
+								onviewexisting={() => goto(`/media/${c.id}`)}
+								onsaveanyway={() => saveStudioAnyway(resolve)}
+								oncancel={resolve}
+							/>
+						{/snippet}
+					</StudioPicker>
+				{:else if !studios.length && studioField?.values?.length}
+					<span class="text-ink">{studioField.values[0]}</span>
+				{/if}
+			</div>
 		{/if}
 
 		{#if isOwner || video.tags?.length}

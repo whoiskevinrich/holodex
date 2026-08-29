@@ -819,6 +819,9 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	} else if s := byVideo[id]; s != nil {
 		studios = s
 	}
+	for i := range studios {
+		setStudioImageURLs(&studios[i])
+	}
 	// enrich_queries only ever feeds the owner-only Enrich picker (EnrichPicker.svelte
 	// is gated behind isOwner client-side) — skip rendering it for a visitor request,
 	// who would only ever discard it.

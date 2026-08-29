@@ -145,14 +145,18 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 	return out, nil
 }
 
+// studioActiveVideoCountSubquery is the correlated count-of-active-videos-linked-
+// to-this-studio expression shared by GetStudio, StudiosForVideos, and FilmStudios
+// — the enclosing query must expose the studio row as `s`.
+const studioActiveVideoCountSubquery = `(SELECT COUNT(*) FROM video_studios vs2 JOIN videos v2 ON v2.id = vs2.video_id
+	        WHERE vs2.studio_id = s.id AND v2.active = 1 AND v2.deleted_at IS NULL)`
+
 // GetStudio returns a studio by id with active-video count and its image versions
 // (F51, ADR-079), or ErrNotFound.
 func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
 	var s model.Studio
 	err := r.db.QueryRowContext(ctx, `
-		SELECT s.id, s.name,
-		       (SELECT COUNT(*) FROM video_studios vs JOIN videos v ON v.id = vs.video_id
-		        WHERE vs.studio_id = s.id AND v.active = 1 AND v.deleted_at IS NULL)
+		SELECT s.id, s.name, `+studioActiveVideoCountSubquery+`
 		FROM studios s WHERE s.id = ?`, id).Scan(&s.ID, &s.Name, &s.VideoCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -206,12 +210,16 @@ func (r *Repo) AllActiveVideoIDs(ctx context.Context) ([]int64, error) {
 // StudiosForVideos returns the studios linked to each of the given videos, keyed by
 // video id (F38) — used to attach studios[] to media reads so the resolved studio
 // value can link to its entity (ADR-053 RD1: the link always matches the displayed
-// value). Videos with no studio link are absent from the map.
+// value). Videos with no studio link are absent from the map. Each Studio carries its
+// (library-wide, not scoped to `ids`) active-video count and ImageVersions — mirroring
+// GetStudio/ListStudios — so StudioLinkCard (HOLODEX-290) has what it needs without a
+// second lookup; callers that only need `.Name` (e.g. mergeEntity's writeback
+// propagation) are unaffected, just carrying fields they don't read.
 func (r *Repo) StudiosForVideos(ctx context.Context, ids []int64) (map[int64][]model.Studio, error) {
 	if len(ids) == 0 {
 		return map[int64][]model.Studio{}, nil
 	}
-	q := `SELECT vs.video_id, s.id, s.name
+	q := `SELECT vs.video_id, s.id, s.name, ` + studioActiveVideoCountSubquery + `
 	      FROM video_studios vs JOIN studios s ON s.id = vs.studio_id
 	      WHERE vs.video_id IN (` + placeholders(len(ids)) + `)
 	      ORDER BY s.name COLLATE NOCASE`
@@ -221,13 +229,31 @@ func (r *Repo) StudiosForVideos(ctx context.Context, ids []int64) (map[int64][]m
 	}
 	defer rows.Close()
 	out := make(map[int64][]model.Studio, len(ids))
+	var studioIDs []int64
+	seen := map[int64]bool{}
 	for rows.Next() {
 		var vid int64
 		var s model.Studio
-		if err := rows.Scan(&vid, &s.ID, &s.Name); err != nil {
+		if err := rows.Scan(&vid, &s.ID, &s.Name, &s.VideoCount); err != nil {
 			return nil, err
 		}
 		out[vid] = append(out[vid], s)
+		if !seen[s.ID] {
+			seen[s.ID] = true
+			studioIDs = append(studioIDs, s.ID)
+		}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	versions, err := r.studioImageVersions(ctx, studioIDs)
+	if err != nil {
+		return nil, err
+	}
+	for vid := range out {
+		for i := range out[vid] {
+			out[vid][i].ImageVersions = versions[out[vid][i].ID]
+		}
+	}
+	return out, nil
 }

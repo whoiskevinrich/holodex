@@ -114,6 +114,9 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "film studios", err)
 		return
 	}
+	for i := range studios {
+		setStudioImageURLs(&studios[i])
+	}
 	credited, err := h.repo.FilmPeopleRoles(r.Context(), id)
 	if err != nil {
 		h.fail(w, "film people roles", err)

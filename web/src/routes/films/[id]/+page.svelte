@@ -23,6 +23,7 @@
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
+	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -162,12 +163,10 @@
 					<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
 					{#if film.year}<p class="text-sm text-muted">{film.year}</p>{/if}
 
-					<div class="name-edit-row flex flex-wrap items-center gap-1.5 pt-1">
-						<span class="text-xs uppercase tracking-wide text-muted">Studios</span>
+					<div class="name-edit-row flex flex-wrap items-center gap-3 pt-1">
 						{#if studios.length}
-							{#each studios as s, i (s.id)}
-								{#if i > 0}<span class="text-muted">,</span>{/if}
-								<a href={`/studios/${s.id}`} class="text-ink hover:text-accent">{s.name}</a>
+							{#each studios as s (s.id)}
+								<StudioLinkCard studio={s} />
 							{/each}
 						{:else}
 							<span class="text-sm text-muted">No studio set</span>
