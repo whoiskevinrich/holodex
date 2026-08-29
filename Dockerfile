@@ -10,7 +10,7 @@ COPY web/ ./
 RUN npm run build        # outputs to web/dist
 
 # --- Stage 2: Go build ---
-FROM golang:1.26-bookworm AS backend
+FROM golang:1.27-bookworm AS backend
 WORKDIR /app
 COPY go.mod go.sum* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
