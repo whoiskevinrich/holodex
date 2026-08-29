@@ -24,7 +24,7 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 - [~] spec `write-spec` → `docs/specs/**` — not applicable: no new capability, purely a display-component change (see handoff §"Why no spec/ADR")
 - [~] architecture `architecture` → `docs/architecture/ADR-*` — not applicable: extends an existing query's `SELECT` list into fields `model.Studio` already declares, no schema/architecture change
 - [x] design — [`docs/design/studio-link-card-handoff.md`](../design/studio-link-card-handoff.md) + [mockup](../design/studio-link-card-mockup.svg)
-- [ ] testing `testing-strategy` → `docs/testing-strategy.md`
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` (backend query-extension row §4, `StudioLinkCard` target-coverage row §5, shared-query + icon-fallback adversarial block §10)
 - [ ] backend — `internal/repo/studios.go` (`StudiosForVideos`), `internal/repo/films.go` (`FilmStudios`): add `icon_url` + a video-count aggregate to both queries
 - [ ] frontend — new `web/src/lib/components/entity/StudioLinkCard.svelte`; call-site swaps in `web/src/routes/media/[id]/+page.svelte` and `web/src/routes/films/[id]/+page.svelte`
 - [~] security `security-review` — not expected to be needed (no auth/access/infra surface); confirm at implementation time
@@ -37,8 +37,7 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 
 1. [ ] [backend] Extend `StudiosForVideos`/`FilmStudios` to select `icon_url` + video-count — `internal/repo/studios.go`, `internal/repo/films.go`
 2. [ ] [frontend] Build `StudioLinkCard.svelte` and swap both call sites per the handoff §2/§3
-3. [ ] [testing] Run `/testing-strategy` for this change
-4. [x] [—] Push branch, open Draft PR — [PR #269](https://github.com/whoiskevinrich/holodex/pull/269)
+3. [x] [—] Push branch, open Draft PR — [PR #269](https://github.com/whoiskevinrich/holodex/pull/269)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -49,6 +48,10 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-29 · session (2)
+- skills: testing-strategy
+- handoff: Added the testing-strategy coverage for this change: a backend row (§4) for the `StudiosForVideos`/`FilmStudios` icon+count extension — including the non-obvious shared-query regression guard (`mergeEntity`'s writeback propagation in `entity_identity.go:185` also calls `StudiosForVideos` and must be unaffected by the widened `SELECT`) — a frontend target-coverage row (§5) for `StudioLinkCard.svelte`, and a Given/When/Then adversarial block (§10) covering the NULL-icon scan, the shared-query regression, and per-card icon/no-icon independence. Testing gate is now green. Next: extend the two backend queries (`internal/repo/studios.go`, `internal/repo/films.go`), then build `StudioLinkCard.svelte` and swap both call sites.
 
 ### 2026-08-29 · session (1)
 - skills: design-handoff
