@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-290                 # the tracker key; must match the branch key regex
-status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Studio links on the Media and Film pages now show the studio's icon and video count, not just a plain text link.
 ---
@@ -38,7 +38,7 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 1. [x] [backend] Extend `StudiosForVideos`/`FilmStudios` to carry `VideoCount` + `ImageVersions` — `internal/repo/studios.go`, `internal/repo/films.go`
 2. [x] [frontend] Build `StudioLinkCard.svelte` and swap both call sites per the handoff §2/§3
 3. [x] [—] Push branch, open Draft PR — [PR #269](https://github.com/whoiskevinrich/holodex/pull/269)
-4. [ ] [—] Push this implementation commit and mark the PR ready for review (all gates now green)
+4. [x] [—] Push this implementation commit and mark the PR ready for review (all gates now green)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -49,6 +49,10 @@ studio. Presentational only — the existing owner edit affordances (`StudioPick
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-08-29 · session (4)
+- skills: (none — commit/push/Jira-sync closeout)
+- handoff: Committed the session-(3) implementation as two commits (feature + a separate `chore(graphify)` index-rebuild commit, kept apart per Surgical Changes), updated `docs/testing-strategy.md`'s StudioLinkCard row status from "pre-implementation, target coverage" to "done", synced HOLODEX-290's Jira gate-status checklist to all-`[x]`, pushed the branch, updated PR #269's description gate-status/test-plan to match, and marked it ready for review — this fires Jira's `In Review` transition via CI (ADR-069). HOLODEX-290 is now fully implemented and out for review; no further work expected on this branch absent review feedback.
 
 ### 2026-08-29 · session (3)
 - skills: simplify
