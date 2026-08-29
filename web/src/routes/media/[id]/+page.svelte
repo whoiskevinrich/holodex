@@ -901,7 +901,7 @@
 									video={c}
 									busy={studioCollisionBusy}
 									error={studioCollisionError}
-									onviewexisting={() => goto(`/studios/${c.id}`)}
+									onviewexisting={() => goto(`/media/${c.id}`)}
 									onsaveanyway={() => saveStudioAnyway(resolve)}
 									oncancel={resolve}
 								/>
