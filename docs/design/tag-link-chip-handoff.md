@@ -50,7 +50,7 @@ in the backlog (HOLODEX-39) if/when that feature is built.
 | Which shape wins? | `rounded-full border border-rule bg-surface-2` (Media-owner's shape) for **every** variant, including read-only | It's the fullest treatment already in production (border + fill), and unifying on it fixes both inconsistencies at once — Media's owner/visitor mismatch, and Film's missing fill. |
 | How do owner vs. read-only differ? | Presence of an `onremove` callback prop, not a separate `isOwner` boolean | Simplest shape for the two known call sites (Media, Film) — one prop that's both the affordance switch and the action, no redundant boolean to keep in sync with it. Note this is *not* `EntityImageSlot`'s pattern (that component takes an explicit, required `isOwner: boolean` alongside always-required `upload`/`remove` props) — if a future caller needs "owner-styled but remove unavailable" distinct from the existing `busy` (transient-disable) state, revisit with an explicit `isOwner` prop then rather than pre-building it now. |
 | Provenance suffix visibility | Gated on `onremove` (owner-only), same as the remove button | Matches current behavior exactly — Media's pre-existing visitor branch never showed provenance either. Gating both on the same prop avoids a visitor seeing a `·file`/`·provider` badge with no corresponding remove affordance to act on it, and keeps read-only chips (Film always, Media visitors) visually identical to what they render today. Film's tags additionally have no meaningful single `source` at all (resolver-level union query across the film's videos), so this would be moot there regardless. |
-| Busy state | Caller-supplied `busy` boolean (defaults `false`) | Media's existing `tagBusy` is a single page-level flag shared by add and remove (not per-tag) — the component just mirrors that same flag onto every chip's remove button, unchanged from current behavior. |
+| Busy state | Caller-supplied `busy` boolean (defaults `false`) disables the remove button; the glyph stays a static `×` | Media's existing `tagBusy` is a single page-level flag shared by add/remove/near-miss (not per-tag), so every chip's remove button disables together during any tag mutation — that's unchanged from current behavior, but the glyph must stay static: swapping it to a busy indicator (e.g. `…`) would read as "this tag is being removed" on every chip at once, not just the one actually being acted on. A per-tag busy indicator would need a per-tag key the page doesn't track today. |
 
 ## 2. New component: `TagLinkChip.svelte`
 
@@ -76,11 +76,11 @@ let sourceLabel = $derived(sourceIsProvider ? providerOf(tag.source!) : tag.sour
 ```
 
 ```svelte
-<span
-	class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
->
-	<a href={`/tags/${tag.id}`} class="hover:text-accent focus-visible:text-accent">{tag.name}</a>
-	{#if onremove}
+{#if onremove}
+	<span
+		class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
+	>
+		<a href={`/tags/${tag.id}`} class="hover:text-accent focus-visible:text-accent">{tag.name}</a>
 		{#if tag.source && tag.source !== 'manual'}
 			<span class="{sourceIsProvider ? 'text-accent' : 'text-muted'} text-[0.65rem]">
 				·{sourceLabel}
@@ -95,17 +95,29 @@ let sourceLabel = $derived(sourceIsProvider ? providerOf(tag.source!) : tag.sour
 				title={tag.source === 'file' ? 'Removing a file-sourced tag may reappear on the next rescan' : undefined}
 				class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
 			>
-				{busy ? '…' : '×'}
+				×
 			</button>
 		</span>
-	{/if}
-</span>
+	</span>
+{:else}
+	<a
+		href={`/tags/${tag.id}`}
+		class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent focus-visible:text-accent"
+	>
+		{tag.name}
+	</a>
+{/if}
 ```
 
 Notes:
 
-- Body is a verbatim lift of Media's existing owner-chip markup (`curation-chip`/`curation-actions`
-  idiom from `app.css`) — no new CSS, no new classes.
+- Two branches, not one shape with conditional children: the read-only branch (`onremove`
+  absent) makes the whole pill the `<a>` itself, matching Film's and Media-visitor's prior
+  markup exactly (the pill's padding lived on the anchor there, so the full pill was the
+  click/tap target). Folding both into one `<span>` wrapper with an unpadded inner `<a>` would
+  shrink the read-only hit area to the text box alone — caught in this session's own review.
+- Owner-branch body is a verbatim lift of Media's existing owner-chip markup (`curation-chip`/
+  `curation-actions` idiom from `app.css`) — no new CSS, no new classes.
 - Provider-prefix parsing (`isProviderSource`/`providerOf`) reuses `$lib/f36.ts` — the same
   helper `SourceBadge.svelte` and the Studio/Person detail pages already use for the identical
   `provider:<name>` source-key shape, rather than re-parsing the prefix inline.
@@ -124,7 +136,7 @@ currently lines 919–953): the owner/visitor branch collapses into one loop —
 
 ```svelte
 {#each video.tags ?? [] as t (t.id)}
-	<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? () => removeTag(t.id) : undefined} />
+	<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
 {/each}
 ```
 
@@ -174,7 +186,7 @@ No new tokens. `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)'` over the new file must st
 | `source === 'manual'` or unset (owner) | No provenance suffix shown |
 | `source === 'file'` (owner) | `·file` suffix, `text-muted`; remove button gets a title warning it may reappear on rescan |
 | `source` starts with `provider:` (owner) | `·{provider}` suffix (prefix stripped), `text-accent` |
-| `busy` | Remove button disabled, `×` swaps to `…` |
+| `busy` | Remove button disabled; glyph stays a static `×` (page-level flag, not per-tag) |
 | Hover / focus | Name turns `text-accent` independently of the remove button, which has its own hover/focus treatment |
 
 ## 7. Responsive behavior

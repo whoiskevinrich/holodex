@@ -46,3 +46,21 @@ change — see the handoff's own "Why no spec/ADR" section) · [tag-link-chip-ha
   uses an explicit `isOwner` boolean). Design + testing gates now green; spec/architecture/backend/
   security are all correctly not-applicable for this pure frontend consolidation. Next session: sync
   Jira, commit, push, open the Draft PR.
+
+### 2026-08-29 · session
+- skills: code-review (xhigh --fix)
+- handoff: PR #270 opened ready-for-review, then ran a 10-angle `/code-review xhigh --fix` pass on it.
+  Fixed two real correctness regressions: the busy-remove-button glyph (`× → …`) was driven by
+  Media's page-global `tagBusy` flag, so mutating any one tag made every chip look like it was being
+  removed — reverted to a static `×`. Read-only chips (Film, Media visitors) had lost their full-pill
+  click/tap target when the extraction moved padding off the `<a>` onto a non-interactive wrapper —
+  restructured to two branches so the read-only path's `<a>` is the whole padded pill again, matching
+  prior behavior exactly. Also simplified `onremove={isOwner ? () => removeTag(t.id) : undefined}` to
+  `onremove={isOwner ? removeTag : undefined}` (removeTag's signature already matches). Handoff doc and
+  `npm run check` (0 errors) kept in sync; both fixes re-verified live in-browser (owner + visitor).
+  Skipped four findings as deliberate/out-of-scope: provenance hidden from visitors (matches an
+  explicit Resolved Decision, already reaffirmed in QA), `entity/` folder placement (mirrors
+  StudioLinkCard's identical precedent — the CLAUDE.md rule text is what's stale, not this file), a
+  pre-existing unrelated near-miss error-misattribution bug in `submitTagAdd`, and `categories/[id]`
+  still having its own unmigrated duplicate tag-chip markup (spun off as a follow-up task instead).
+  Next session: sync Jira, push the fix commit (PR already open).

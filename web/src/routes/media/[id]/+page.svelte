@@ -918,7 +918,7 @@
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
 				<div class="flex flex-wrap items-center gap-2">
 					{#each video.tags ?? [] as t (t.id)}
-						<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? () => removeTag(t.id) : undefined} />
+						<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
 					{/each}
 
 					{#if isOwner}

@@ -21,11 +21,11 @@
 	let sourceLabel = $derived(sourceIsProvider ? providerOf(tag.source!) : tag.source);
 </script>
 
-<span
-	class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
->
-	<a href={`/tags/${tag.id}`} class="hover:text-accent focus-visible:text-accent">{tag.name}</a>
-	{#if onremove}
+{#if onremove}
+	<span
+		class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
+	>
+		<a href={`/tags/${tag.id}`} class="hover:text-accent focus-visible:text-accent">{tag.name}</a>
 		{#if tag.source && tag.source !== 'manual'}
 			<span class="{sourceIsProvider ? 'text-accent' : 'text-muted'} text-[0.65rem]">
 				·{sourceLabel}
@@ -42,8 +42,15 @@
 					: undefined}
 				class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
 			>
-				{busy ? '…' : '×'}
+				×
 			</button>
 		</span>
-	{/if}
-</span>
+	</span>
+{:else}
+	<a
+		href={`/tags/${tag.id}`}
+		class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent focus-visible:text-accent"
+	>
+		{tag.name}
+	</a>
+{/if}
