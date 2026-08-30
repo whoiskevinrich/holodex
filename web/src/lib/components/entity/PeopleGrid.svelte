@@ -71,10 +71,11 @@
 			     back to id alone. -->
 			<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
 				{#each people as p (personKey(p))}
+					{@const key = personKey(p)}
 					<PosterTile
 						href={`/people/${p.id}`}
 						label={p.name}
-						busy={busyKey === personKey(p)}
+						busy={busyKey === key}
 						onRemove={editable ? () => onRemove?.(p) : undefined}
 					>
 						{#snippet image()}
