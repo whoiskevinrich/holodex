@@ -2328,9 +2328,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/media/[id]/+page.svelte": {
-    "mtime": 1788106431.5928714,
-    "seen": 1788106586.0851145,
-    "ast_hash": "1bbf087c720f66790d06fb0f14b460a5",
+    "mtime": 1788116507.9956808,
+    "seen": 1788116657.1321423,
+    "ast_hash": "fd8d7d387f192e25b23efcaa6ad18773",
     "semantic_hash": ""
   },
   "web/src/routes/owner/+layout.svelte": {
@@ -3720,9 +3720,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/CLAUDE.md": {
-    "mtime": 1788058252.8003109,
-    "seen": 1788106586.0855503,
-    "ast_hash": "6c2033a1c9282d30c6ac2a6b31a8ef99",
+    "mtime": 1788116607.5457418,
+    "seen": 1788116657.1326015,
+    "ast_hash": "1a654ec367a508eeaf5ebf191877d396",
     "semantic_hash": ""
   },
   "web/src/lib/components/extraction/CLAUDE.md": {
@@ -5520,14 +5520,14 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/PeopleGrid.svelte": {
-    "mtime": 1788062945.3424945,
-    "seen": 1788106586.0850098,
-    "ast_hash": "a63eafc5cf9d9efca6f99ec9a998390c",
+    "mtime": 1788116504.2304716,
+    "seen": 1788116657.1320338,
+    "ast_hash": "3224f051babcdce588f5ce0cf18de359",
     "semantic_hash": ""
   },
   "docs/design/media-detail-reorder-handoff.md": {
-    "mtime": 1788106234.9147522,
-    "seen": 1788106586.0853105,
+    "mtime": 1788115583.0990512,
+    "seen": 1788116412.7750103,
     "ast_hash": "b1b5e5bb98dbe7f0168e0c6e67325a73",
     "semantic_hash": ""
   },
@@ -5550,8 +5550,8 @@
     "semantic_hash": ""
   },
   "docs/design/media-detail-reorder-mockup.svg": {
-    "mtime": 1788106030.5524511,
-    "seen": 1788106586.085571,
+    "mtime": 1788115583.100052,
+    "seen": 1788116412.7752817,
     "ast_hash": "413b5a8ea3cbdfa4ce07d716814040a6",
     "semantic_hash": ""
   },
@@ -5559,6 +5559,18 @@
     "mtime": 1788059544.6433654,
     "seen": 1788106586.0855722,
     "ast_hash": "74b4c43d8cfac957dd76909aece27d04",
+    "semantic_hash": ""
+  },
+  "web/src/lib/components/entity/PosterTile.svelte": {
+    "mtime": 1788116500.4599576,
+    "seen": 1788116657.1320393,
+    "ast_hash": "6876cceb9cb0d5e4cedc10cb7dc5f20b",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-296.md": {
+    "mtime": 1788116380.7796388,
+    "seen": 1788116412.7751477,
+    "ast_hash": "bd623f31e9a8a7d468bcad76a1102bfe",
     "semantic_hash": ""
   }
 }
