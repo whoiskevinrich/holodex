@@ -12,6 +12,7 @@
 	import { toMessage, tagCount, videoCount } from '$lib/format';
 	import type { Category, EntityRef } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 
 	let category = $state<Category | null>(null);
 	let loading = $state(true);
@@ -218,29 +219,7 @@
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
 				<div class="flex flex-wrap items-center gap-2">
 					{#each category.tags ?? [] as t (t.id)}
-						{#if isOwner}
-							<!-- Editable chip: the exact curation-chip idiom from media/[id]'s Tags section. -->
-							<span
-								class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
-							>
-								<a href={`/tags/${t.id}`} class="hover:text-accent focus-visible:text-accent">{t.name}</a>
-								<span class="curation-actions ml-0.5 inline-flex items-center">
-									<button
-										type="button"
-										onclick={() => removeTag(t.id)}
-										disabled={tagBusy}
-										aria-label={`Remove tag ${t.name}`}
-										class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
-									>
-										×
-									</button>
-								</span>
-							</span>
-						{:else}
-							<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
-								{t.name}
-							</a>
-						{/if}
+						<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
 					{/each}
 
 					{#if isOwner}
