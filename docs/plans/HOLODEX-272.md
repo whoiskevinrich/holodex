@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-272
-status: ready-for-review
+status: done                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: [HOLODEX-270]
 release_note: Adding or removing a person on a video now goes through a picker on the video detail page — known candidates, full-library search, or an inline create-fallback — protected by the same duplicate-video safeguard as a title or studio change.
 ---
@@ -50,10 +50,17 @@ already do. This is the last open story under epic HOLODEX-267.
 3. [x] [testing] `docs/testing-strategy.md` §5 row
 4. [x] [security] `/security-review` — new mutation surface, required before Draft → ready
 
-All gates green — mark [PR #235](https://github.com/whoiskevinrich/holodex/pull/235) ready for
-review (out of Draft) in the same push as this update.
+[PR #235](https://github.com/whoiskevinrich/holodex/pull/235) merged 2026-08-13; Jira is `Done`.
+This was the last open child of epic HOLODEX-267.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-08-30 · Worklog closeout
+- handoff: Found via `/commit-commands:clean_gone` that this worklog's `status` and "Up next"
+  note were never updated after PR #235 merged (2026-08-13) and Jira moved to `Done` — both still
+  read as if the PR were pending review. Jira itself was correct throughout. Also cleared
+  HOLODEX-267's stale `needs-design`/`needs-spec` labels, flagged as bookkeeping debt in the
+  2026-08-11 session below once this, its last open child, landed.
 
 ### 2026-08-12 · PR #235 code-review findings applied
 - skills: code-review (xhigh), simplify
