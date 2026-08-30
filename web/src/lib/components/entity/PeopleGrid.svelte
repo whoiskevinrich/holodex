@@ -14,6 +14,7 @@
 	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
 	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import PersonPicker from './PersonPicker.svelte';
+	import PosterTile from './PosterTile.svelte';
 
 	let {
 		title,
@@ -41,6 +42,11 @@
 	// Editable people always carry a role (attach/detach require one) — cast once here
 	// rather than at each PersonPicker call site.
 	const editablePeople = $derived(people as ResolvedPerson[]);
+	// Computed once per people-array change rather than per each-block pass — an
+	// {#each} key expression can't reference a {@const} declared inside the block,
+	// so hoisting here (not just to a {@const}) is what actually avoids the double
+	// personKey(p) call per row.
+	const keyedPeople = $derived(people.map((p) => ({ p, key: personKey(p) })));
 	// Owned here (not inside PersonPicker) so it survives the empty↔populated branch
 	// swap below: the two PersonPicker mounts are different template positions, so
 	// committing the first attach unmounts one instance and mounts the other — without
@@ -69,28 +75,19 @@
 			     sharing the same id (ADR-072); Cast's people carry no role, so it falls
 			     back to id alone. -->
 			<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-				{#each people as p (personKey(p))}
-					<li class="curation-chip group relative">
-						<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
+				{#each keyedPeople as { p, key } (key)}
+					<PosterTile
+						href={`/people/${p.id}`}
+						label={p.name}
+						busy={busyKey === key}
+						onRemove={editable ? () => onRemove?.(p) : undefined}
+					>
+						{#snippet image()}
 							<div class="rounded-theme transition group-hover:opacity-90">
 								<PersonPoster personId={p.id} name={p.name} />
 							</div>
-							<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
-						</a>
-						{#if editable}
-							<!-- Hover-reveal remove badge (HOLODEX-272), a sibling of <a> rather than
-							     nested inside it (a nested interactive control inside an anchor is invalid). -->
-							<button
-								type="button"
-								onclick={() => onRemove?.(p)}
-								disabled={busyKey === personKey(p)}
-								aria-label={`Remove ${p.name}`}
-								class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-							>
-								{busyKey === personKey(p) ? '…' : '×'}
-							</button>
-						{/if}
-					</li>
+						{/snippet}
+					</PosterTile>
 				{/each}
 				{#if editable}
 					<li>

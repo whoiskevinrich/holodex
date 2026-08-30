@@ -37,6 +37,7 @@
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
+	import PosterTile from '$lib/components/entity/PosterTile.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
@@ -970,8 +971,14 @@
 						<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
 						<ul class="flex flex-wrap gap-3">
 							{#each films as f (f.film_id)}
-								<li class="curation-chip group relative w-20 shrink-0">
-									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+								<PosterTile
+									href={`/films/${f.film_id}`}
+									label={f.film_name}
+									busy={filmBusyKey === f.film_id}
+									onRemove={isOwner ? () => removeFilm(f) : undefined}
+									class="w-20 shrink-0"
+								>
+									{#snippet image()}
 										<div
 											class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
 										>
@@ -979,23 +986,13 @@
 												>{monogram(f.film_name)}</span
 											>
 										</div>
-										<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+									{/snippet}
+									{#snippet badge()}
 										<span class="block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink">
 											{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
 										</span>
-									</a>
-									{#if isOwner}
-										<button
-											type="button"
-											onclick={() => removeFilm(f)}
-											disabled={filmBusyKey === f.film_id}
-											aria-label={`Remove ${f.film_name}`}
-											class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-										>
-											{filmBusyKey === f.film_id ? '…' : '×'}
-										</button>
-									{/if}
-								</li>
+									{/snippet}
+								</PosterTile>
 							{/each}
 							{#if isOwner}
 								<li class="w-20 shrink-0">
