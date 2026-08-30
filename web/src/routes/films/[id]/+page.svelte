@@ -24,6 +24,7 @@
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
+	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -197,13 +198,8 @@
 
 					{#if tags.length}
 						<div class="flex flex-wrap items-center gap-1.5">
-							<span class="text-xs uppercase tracking-wide text-muted">Tags</span>
 							{#each tags as t (t.id)}
-								<a
-									href={`/tags/${t.id}`}
-									class="rounded-full border border-rule px-2.5 py-0.5 text-sm text-ink hover:text-accent"
-									>{t.name}</a
-								>
+								<TagLinkChip tag={t} />
 							{/each}
 						</div>
 					{/if}

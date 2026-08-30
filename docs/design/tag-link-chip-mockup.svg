@@ -1,0 +1,102 @@
+<svg width="900" height="620" viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>TagLinkChip mockup</title>
+<desc>Before: three inconsistent tag chip styles (Media owner pill with remove+provenance, Media visitor filled-no-border pill, Film bordered-no-fill pill). After: one unified TagLinkChip rendered across all three skins, in both owner and read-only variants, plus its interaction states.</desc>
+<rect width="900" height="620" fill="#f4f2ee"/>
+
+<text x="24" y="30" font-size="11" letter-spacing="1" fill="#8a8478">1 · BEFORE — THREE DIFFERENT TAG CHIPS TODAY</text>
+<rect x="24" y="42" width="852" height="96" rx="6" fill="#15110e" stroke="#2a2622"/>
+
+<text x="48" y="64" font-size="10" fill="#9b9082">Media (owner) — rounded-full, border, filled, remove ×, provenance suffix</text>
+<rect x="48" y="72" width="118" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="62" y="89" font-size="12" fill="#f3ece1" text-decoration="underline">Kaiju</text>
+<text x="104" y="89" font-size="9" fill="#6f6a5f">·file</text>
+<text x="140" y="89" font-size="12" fill="#9b9082">×</text>
+
+<text x="220" y="64" font-size="10" fill="#9b9082">Media (visitor) — rounded-theme, filled, NO border</text>
+<rect x="220" y="72" width="76" height="26" rx="4" fill="#181310"/>
+<text x="234" y="89" font-size="12" fill="#f3ece1">Kaiju</text>
+
+<text x="360" y="64" font-size="10" fill="#9b9082">Film (always read-only) — rounded-full, border, NOT filled</text>
+<rect x="360" y="72" width="76" height="24" rx="12" fill="none" stroke="#2a2622"/>
+<text x="374" y="88" font-size="12" fill="#f3ece1">Kaiju</text>
+
+<text x="48" y="120" font-size="10" fill="#8a8478">Same tag, three shapes/fills/borders depending on which page renders it — no shared</text>
+<text x="48" y="134" font-size="10" fill="#8a8478">component, so Film never gained the remove/provenance affordance Media has.</text>
+
+<text x="24" y="166" font-size="11" letter-spacing="1" fill="#8a8478">2 · TAGLINKCHIP — AFTER (one shape: rounded-full, border-rule, bg-surface-2)</text>
+
+<rect x="24" y="178" width="272" height="150" rx="6" fill="#15110e" stroke="#2a2622"/>
+<text x="40" y="198" font-size="10" letter-spacing="1" fill="#9b9082">CINÉMATHÈQUE</text>
+<text x="40" y="220" font-size="10" fill="#6f6a5f">Owner (onremove set)</text>
+<rect x="40" y="228" width="120" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="54" y="245" font-size="12" fill="#f3ece1">Kaiju</text>
+<text x="96" y="245" font-size="9" fill="#e8a33d">·tmdb</text>
+<text x="140" y="245" font-size="12" fill="#9b9082">×</text>
+<text x="40" y="278" font-size="10" fill="#6f6a5f">Read-only (no onremove)</text>
+<rect x="40" y="286" width="76" height="26" rx="13" fill="#181310" stroke="#2a2622"/>
+<text x="54" y="303" font-size="12" fill="#f3ece1">Kaiju</text>
+
+<rect x="314" y="178" width="272" height="150" fill="#060814" stroke="#1a2240"/>
+<text x="330" y="198" font-size="10" letter-spacing="1" fill="#6f7da6">BROADCAST</text>
+<text x="330" y="220" font-size="10" fill="#4d5a80">Owner (onremove set)</text>
+<rect x="330" y="228" width="120" height="26" rx="13" fill="#0a0e1f" stroke="#1a2240"/>
+<text x="344" y="245" font-size="12" fill="#dfe9ff">Kaiju</text>
+<text x="386" y="245" font-size="9" fill="#36e0d0">·tmdb</text>
+<text x="430" y="245" font-size="12" fill="#6f7da6">×</text>
+<text x="330" y="278" font-size="10" fill="#4d5a80">Read-only (no onremove)</text>
+<rect x="330" y="286" width="76" height="26" rx="13" fill="#0a0e1f" stroke="#1a2240"/>
+<text x="344" y="303" font-size="12" fill="#dfe9ff">Kaiju</text>
+
+<rect x="604" y="178" width="272" height="150" fill="#0a0a0a" stroke="#333333"/>
+<text x="620" y="198" font-size="10" letter-spacing="1" fill="#8a8a8a">BRUTALIST</text>
+<text x="620" y="220" font-size="10" fill="#5c5c5c">Owner (onremove set)</text>
+<rect x="620" y="228" width="120" height="26" rx="13" fill="#111111" stroke="#333333"/>
+<text x="634" y="245" font-size="12" fill="#fafafa">Kaiju</text>
+<text x="676" y="245" font-size="9" fill="#d6ff3f">·tmdb</text>
+<text x="720" y="245" font-size="12" fill="#8a8a8a">×</text>
+<text x="620" y="278" font-size="10" fill="#5c5c5c">Read-only (no onremove)</text>
+<rect x="620" y="286" width="76" height="26" rx="13" fill="#111111" stroke="#333333"/>
+<text x="634" y="303" font-size="12" fill="#fafafa">Kaiju</text>
+
+<text x="24" y="360" font-size="11" letter-spacing="1" fill="#8a8478">3 · PROVENANCE SUFFIX + STATES (owner variant only)</text>
+<rect x="24" y="372" width="852" height="130" rx="6" fill="#ffffff" stroke="#d8d4cc"/>
+
+<text x="48" y="396" font-size="11" font-weight="bold" fill="#5f5e5a">·file / ·manual</text>
+<rect x="180" y="382" width="96" height="24" rx="12" fill="#f4f0e8" stroke="#d8d4cc"/>
+<text x="192" y="398" font-size="11" fill="#2a2018">Kaiju</text>
+<text x="228" y="398" font-size="9" fill="#8a8478">·file</text>
+<text x="300" y="398" font-size="10" fill="#8a8478">— text-muted, hairline gray (no provenance shown at all when source === 'manual')</text>
+
+<text x="48" y="424" font-size="11" font-weight="bold" fill="#5f5e5a">·provider:tmdb</text>
+<rect x="180" y="410" width="104" height="24" rx="12" fill="#f4f0e8" stroke="#d8d4cc"/>
+<text x="192" y="426" font-size="11" fill="#2a2018">Kaiju</text>
+<text x="228" y="426" font-size="9" fill="#c9861f">·tmdb</text>
+<text x="300" y="426" font-size="10" fill="#8a8478">— text-accent, provider prefix stripped ("provider:tmdb" → "tmdb")</text>
+
+<text x="48" y="452" font-size="11" font-weight="bold" fill="#5f5e5a">Busy (removing)</text>
+<rect x="180" y="438" width="96" height="24" rx="12" fill="#f4f0e8" stroke="#d8d4cc" opacity="0.7"/>
+<text x="192" y="454" font-size="11" fill="#2a2018" opacity="0.7">Kaiju</text>
+<text x="248" y="454" font-size="12" fill="#8a8478">…</text>
+<text x="300" y="454" font-size="10" fill="#8a8478">— × swaps to …, remove button disabled (busy prop, page owns which tag id is busy)</text>
+
+<text x="48" y="480" font-size="11" font-weight="bold" fill="#5f5e5a">Hover / focus</text>
+<text x="180" y="480" font-size="12" fill="#2a2018" text-decoration="underline">Kaiju</text>
+<text x="300" y="480" font-size="10" fill="#8a8478">— name turns text-accent; × turns text-accent independently on its own hover</text>
+
+<text x="24" y="530" font-size="11" letter-spacing="1" fill="#8a8478">4 · CALL SITES — UNCHANGED SURROUNDINGS</text>
+<rect x="24" y="542" width="410" height="60" rx="6" fill="#15110e" stroke="#2a2622"/>
+<text x="40" y="560" font-size="10" fill="#9b9082">MEDIA — chip row + existing +Add tag form, unchanged</text>
+<rect x="40" y="568" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+<text x="52" y="583" font-size="10" fill="#f3ece1">Kaiju</text>
+<rect x="132" y="568" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+<text x="144" y="583" font-size="10" fill="#f3ece1">Sequel</text>
+<rect x="224" y="568" width="80" height="22" rx="2" fill="none" stroke="#2a2622"/>
+<text x="236" y="583" font-size="10" fill="#9b9082">+ Add tag</text>
+
+<rect x="466" y="542" width="410" height="60" rx="6" fill="#15110e" stroke="#2a2622"/>
+<text x="482" y="560" font-size="10" fill="#9b9082">FILM — no eyebrow label, no edit affordance (RD4/RD6 stays)</text>
+<rect x="482" y="568" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+<text x="494" y="583" font-size="10" fill="#f3ece1">Kaiju</text>
+<rect x="574" y="568" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+<text x="586" y="583" font-size="10" fill="#f3ece1">Sequel</text>
+</svg>
