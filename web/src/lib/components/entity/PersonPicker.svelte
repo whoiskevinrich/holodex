@@ -19,12 +19,20 @@
 
 	let {
 		people,
+		hasPeople,
 		isOwner,
 		attach,
 		detach,
-		busyKey = $bindable(null)
+		busyKey = $bindable(null),
+		open = $bindable(false)
 	}: {
 		people: ResolvedPerson[];
+		// Whether the grid already has at least one person (the caller's own people.length)
+		// — swaps the trigger between the dashed poster-tile (a peer of the real poster
+		// tiles it sits beside) and a bare "+ Add person" text CTA when the grid is empty,
+		// matching StudioPicker's `hasStudio` branch (HOLODEX-289): a lone poster-tile box
+		// floating with nothing beside it read as less fluid than Tags'/Studio's text CTA.
+		hasPeople: boolean;
 		isOwner: boolean;
 		attach: (name: string, role: 'actor' | 'director') => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
 		detach: (name: string, role: 'actor' | 'director') => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
@@ -32,11 +40,15 @@
 		// both surfaces mutate the same video's people, so they must share one busy
 		// gate or a grid remove and a picker commit can race on the same video.
 		busyKey?: string | null;
+		// Bindable so PeopleGrid can own it across the hasPeople=false→true remount: the
+		// grid's own-add tile and the empty-grid text CTA are different template branches,
+		// so committing the first attach unmounts this instance and mounts a fresh one in
+		// the other branch — an unbound local `open` would reset to false there, silently
+		// closing the popover the user just had open (code-review finding, HOLODEX-294).
+		open?: boolean;
 	} = $props();
 
 	const ROLES: ('actor' | 'director')[] = ['actor', 'director'];
-
-	let open = $state(false);
 	let commitError = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
 	let input = $state<HTMLInputElement | null>(null);
@@ -204,17 +216,23 @@
 </script>
 
 {#if isOwner}
-	<button
-		type="button"
-		aria-haspopup="dialog"
-		onclick={openPicker}
-		class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
-	>
-		<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
-		</svg>
-		<span class="text-xs">Add person</span>
-	</button>
+	{#if hasPeople}
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			onclick={openPicker}
+			class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+			</svg>
+			<span class="text-xs">Add person</span>
+		</button>
+	{:else}
+		<button type="button" aria-haspopup="dialog" onclick={openPicker} class="btn-quiet px-3 py-1.5 text-sm">
+			+ Add person
+		</button>
+	{/if}
 {/if}
 
 {#snippet roleToggle(key: string, avail: ('actor' | 'director')[], ariaLabel: string)}
