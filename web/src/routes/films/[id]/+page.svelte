@@ -16,7 +16,6 @@
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
-	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
@@ -24,6 +23,7 @@
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
+	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
@@ -238,26 +238,11 @@
 				</div>
 			</section>
 
-			<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, rendered as
-			     the same PersonPoster grid as the Media detail page's People section (not inline
-			     pills) — derived display, not an editable/attachable relationship. -->
-			{#if cast.length}
-				<section class="space-y-1.5">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Cast</h2>
-					<ul class="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-8">
-						{#each cast as p (p.id)}
-							<li>
-								<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
-									<div class="rounded-theme transition hover:opacity-90">
-										<PersonPoster personId={p.id} name={p.name} />
-									</div>
-									<span class="line-clamp-2 text-xs text-muted hover:text-accent">{p.name}</span>
-								</a>
-							</li>
-						{/each}
-					</ul>
-				</section>
-			{/if}
+			<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, shared
+			     PeopleGrid component with the Media detail page's People section (not inline
+			     pills) — no attach/detach passed, since this is derived display, not an
+			     editable/attachable relationship. -->
+			<PeopleGrid title="Cast" people={cast} />
 
 			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern. -->
 			{#if hasDetails}

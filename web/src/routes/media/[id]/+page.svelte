@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, RefreshReport, RelatedResponse, ResolvedField, ResolvedPerson, Studio, Video, VideoCollisionRef } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -24,7 +24,6 @@
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
-	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
@@ -38,7 +37,7 @@
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
-	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
+	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
@@ -464,7 +463,7 @@
 		personCollisionError = '';
 	}
 
-	async function removeGridPerson(p: ResolvedPerson) {
+	async function removeGridPerson(p: Person) {
 		if (personBusyKey) return;
 		// A legacy pre-migration-0037 link can still carry the unset-role sentinel
 		// ('') — roleField('') would silently fall through to 'director', suppressing
@@ -971,56 +970,16 @@
 			</section>
 		{/if}
 
-		{#if isOwner || video.people?.length}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">People</h2>
-				<!-- F25: 2:3 poster cards (placeholder when a person has no poster). Composite
-				     each-key (id + role): video_people's PK is (video_id, person_id, role)
-				     (ADR-072), so a dual-role attachment is two rows sharing the same id. -->
-				<ul class="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-8">
-					{#each (video.people ?? []) as ResolvedPerson[] as p (p.id + ':' + p.role)}
-						<li class="curation-chip group relative">
-							<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
-								<div class="rounded-theme transition group-hover:opacity-90">
-									<PersonPoster personId={p.id} name={p.name} />
-								</div>
-								<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
-							</a>
-							{#if isOwner}
-								<!-- Hover-reveal remove badge (HOLODEX-272), same opacity mechanism as
-								     Tags' curation-chip/curation-actions (:912-913 above), adapted from a
-								     chip shape to an absolutely-positioned corner badge on the poster
-								     frame; a sibling of <a> rather than nested inside it (a nested
-								     interactive control inside an anchor is invalid). -->
-								<button
-									type="button"
-									onclick={() => removeGridPerson(p)}
-									disabled={personBusyKey === personKey(p)}
-									aria-label={`Remove ${p.name}`}
-									class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-								>
-									{personBusyKey === personKey(p) ? '…' : '×'}
-								</button>
-							{/if}
-						</li>
-					{/each}
-					{#if isOwner}
-						<li>
-							<PersonPicker
-								people={(video.people ?? []) as ResolvedPerson[]}
-								{isOwner}
-								attach={attachPerson}
-								detach={detachPerson}
-								bind:busyKey={personBusyKey}
-							/>
-						</li>
-					{/if}
-				</ul>
-				{#if personRemoveError}
-					<p class="text-sm text-warn" aria-live="polite">{personRemoveError}</p>
-				{/if}
-			</section>
-		{/if}
+		<PeopleGrid
+			title="People"
+			people={video.people ?? []}
+			{isOwner}
+			attach={attachPerson}
+			detach={detachPerson}
+			bind:busyKey={personBusyKey}
+			onRemove={removeGridPerson}
+			removeError={personRemoveError}
+		/>
 
 		<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid
 		     above, not Studio's read-only pills — film_videos is many-to-many like
