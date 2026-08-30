@@ -148,7 +148,7 @@
 
 <AsyncState {loading} {error}>
 	{#if film}
-		<section class="space-y-6">
+		<section class="mx-auto max-w-4xl space-y-6">
 			<a href="/films" class="text-sm text-muted hover:text-ink">← All films</a>
 
 			<!-- 2a. Header -->
