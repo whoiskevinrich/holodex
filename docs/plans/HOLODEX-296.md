@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-296                 # the tracker key; must match the branch key regex
-status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note:                # internal refactor, no user-facing behavior change — no release note
 ---
@@ -40,3 +40,7 @@ Gates below for why each pre-implementation gate is marked n/a.
 ### 2026-08-30 · Extraction implemented and verified
 - skills: (none — pure refactor scoped out of spec/ADR/design/security per Gates above)
 - handoff: PosterTile.svelte extraction is code-complete and verified (check clean, live 3-skin QA, interaction parity); next session should finish commit/push/PR for HOLODEX-296, based on `claude/media-detail-reorder-c2d1ab` since it depends on the not-yet-merged Films/People row reorder (PR #275).
+
+### 2026-08-30 · Two `/code-review high --fix` passes
+- skills: `/code-review high --fix` (×2)
+- handoff: PR #276 opened (draft, base `claude/media-detail-reorder-c2d1ab`); first pass hoisted a duplicate `personKey(p)` call in `PeopleGrid.svelte`, second pass fixed a second lingering duplicate call (each-key expression vs. `{@const}` — hoisted into a `keyedPeople` derived array instead) and corrected this file's `status` (was `in-review` while the PR is still Draft — now `in-progress`). `depends-on` stays `[]`: PR #275 (the reorder work) has no HOLODEX ticket of its own — spawned a follow-up task to create one and backfill the key. Remaining review findings (pre-existing busy-key race on rapid multi-item remove, monogram-plate/remove-button markup duplicated elsewhere in the codebase, no component test harness) are real but outside this ticket's scope — left as-is.

@@ -5520,9 +5520,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/PeopleGrid.svelte": {
-    "mtime": 1788116504.2304716,
-    "seen": 1788116657.1320338,
-    "ast_hash": "3224f051babcdce588f5ce0cf18de359",
+    "mtime": 1788122438.147128,
+    "seen": 1788122516.631685,
+    "ast_hash": "9f9c6d35c8ae3214e0856b72824c1cac",
     "semantic_hash": ""
   },
   "docs/design/media-detail-reorder-handoff.md": {
@@ -5568,9 +5568,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-296.md": {
-    "mtime": 1788116380.7796388,
-    "seen": 1788116412.7751477,
-    "ast_hash": "bd623f31e9a8a7d468bcad76a1102bfe",
+    "mtime": 1788122480.7354271,
+    "seen": 1788122516.632217,
+    "ast_hash": "98d43a3ccae5d30dcef7d8f01c7c6c47",
     "semantic_hash": ""
   }
 }

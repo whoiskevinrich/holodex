@@ -42,6 +42,11 @@
 	// Editable people always carry a role (attach/detach require one) — cast once here
 	// rather than at each PersonPicker call site.
 	const editablePeople = $derived(people as ResolvedPerson[]);
+	// Computed once per people-array change rather than per each-block pass — an
+	// {#each} key expression can't reference a {@const} declared inside the block,
+	// so hoisting here (not just to a {@const}) is what actually avoids the double
+	// personKey(p) call per row.
+	const keyedPeople = $derived(people.map((p) => ({ p, key: personKey(p) })));
 	// Owned here (not inside PersonPicker) so it survives the empty↔populated branch
 	// swap below: the two PersonPicker mounts are different template positions, so
 	// committing the first attach unmounts one instance and mounts the other — without
@@ -70,8 +75,7 @@
 			     sharing the same id (ADR-072); Cast's people carry no role, so it falls
 			     back to id alone. -->
 			<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-				{#each people as p (personKey(p))}
-					{@const key = personKey(p)}
+				{#each keyedPeople as { p, key } (key)}
 					<PosterTile
 						href={`/people/${p.id}`}
 						label={p.name}
