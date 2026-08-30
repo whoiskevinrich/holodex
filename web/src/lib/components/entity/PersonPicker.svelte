@@ -23,7 +23,8 @@
 		isOwner,
 		attach,
 		detach,
-		busyKey = $bindable(null)
+		busyKey = $bindable(null),
+		open = $bindable(false)
 	}: {
 		people: ResolvedPerson[];
 		// Whether the grid already has at least one person (the caller's own people.length)
@@ -39,11 +40,15 @@
 		// both surfaces mutate the same video's people, so they must share one busy
 		// gate or a grid remove and a picker commit can race on the same video.
 		busyKey?: string | null;
+		// Bindable so PeopleGrid can own it across the hasPeople=false→true remount: the
+		// grid's own-add tile and the empty-grid text CTA are different template branches,
+		// so committing the first attach unmounts this instance and mounts a fresh one in
+		// the other branch — an unbound local `open` would reset to false there, silently
+		// closing the popover the user just had open (code-review finding, HOLODEX-294).
+		open?: boolean;
 	} = $props();
 
 	const ROLES: ('actor' | 'director')[] = ['actor', 'director'];
-
-	let open = $state(false);
 	let commitError = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
 	let input = $state<HTMLInputElement | null>(null);

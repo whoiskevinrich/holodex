@@ -41,7 +41,24 @@
 	// Editable people always carry a role (attach/detach require one) — cast once here
 	// rather than at each PersonPicker call site.
 	const editablePeople = $derived(people as ResolvedPerson[]);
+	// Owned here (not inside PersonPicker) so it survives the empty↔populated branch
+	// swap below: the two PersonPicker mounts are different template positions, so
+	// committing the first attach unmounts one instance and mounts the other — without
+	// a shared bindable, the popover would reset to closed right after the first add.
+	let personPickerOpen = $state(false);
 </script>
+
+{#snippet personPicker(hasPeople: boolean)}
+	<PersonPicker
+		people={editablePeople}
+		{hasPeople}
+		{isOwner}
+		attach={attach!}
+		detach={detach!}
+		bind:busyKey
+		bind:open={personPickerOpen}
+	/>
+{/snippet}
 
 {#if editable || people.length}
 	<section class="space-y-1.5">
@@ -84,6 +101,7 @@
 							attach={attach!}
 							detach={detach!}
 							bind:busyKey
+							bind:open={personPickerOpen}
 						/>
 					</li>
 				{/if}
@@ -99,6 +117,7 @@
 				attach={attach!}
 				detach={detach!}
 				bind:busyKey
+				bind:open={personPickerOpen}
 			/>
 		{/if}
 		{#if removeError}
