@@ -39,6 +39,7 @@
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PersonPicker from '$lib/components/entity/PersonPicker.svelte';
+	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 
 	let video = $state<Video | null>(null);
@@ -917,39 +918,7 @@
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
 				<div class="flex flex-wrap items-center gap-2">
 					{#each video.tags ?? [] as t (t.id)}
-						{#if isOwner}
-							<!-- Editable chip (P0-8): reuses CurationChip's pill + hover-reveal
-							     remove + ·provenance suffix idiom (curation-chip/curation-actions
-							     from app.css), adapted for a Tag rather than a ResolvedValue. -->
-							<span
-								class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
-							>
-								<a href={`/tags/${t.id}`} class="hover:text-accent focus-visible:text-accent">{t.name}</a>
-								{#if t.source && t.source !== 'manual'}
-									<span class="{t.source.startsWith('provider:') ? 'text-accent' : 'text-muted'} text-[0.65rem]">
-										·{t.source.startsWith('provider:') ? t.source.slice('provider:'.length) : t.source}
-									</span>
-								{/if}
-								<span class="curation-actions ml-0.5 inline-flex items-center">
-									<button
-										type="button"
-										onclick={() => removeTag(t.id)}
-										disabled={tagBusy}
-										aria-label={`Remove tag ${t.name}`}
-										title={t.source === 'file'
-											? 'Removing a file-sourced tag may reappear on the next rescan'
-											: undefined}
-										class="rounded p-0.5 -m-0.5 text-muted hover:text-accent focus-visible:text-accent"
-									>
-										×
-									</button>
-								</span>
-							</span>
-						{:else}
-							<a href={`/tags/${t.id}`} class="rounded-theme bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent">
-								{t.name}
-							</a>
-						{/if}
+						<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? () => removeTag(t.id) : undefined} />
 					{/each}
 
 					{#if isOwner}
