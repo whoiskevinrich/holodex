@@ -12,7 +12,6 @@
 		formatYear,
 		monogram,
 		personKey,
-		providerFromWinningSource,
 		resolutionBucket,
 		toMessage,
 		videoCount
@@ -169,25 +168,13 @@
 	const canonicalResolved = $derived(
 		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'title')
 	);
-	// Visitor view only: a field whose winner is the file/tag baseline just restates
-	// what's already visible elsewhere on the page (title in the header, genres — a
-	// tag-materialized field, ADR-013 — in the Tags section) — hide it there and keep
-	// the Metadata section for genuine enrichment/manual content. providerFromWinningSource
-	// already excludes file/record/manual/computed; "tag" is the video's own Tag rows,
-	// excluded here rather than there since it still needs a provenance badge elsewhere.
-	// Owner view keeps everything (it's what they curate).
-	const visibleResolved = $derived(
-		isOwner
-			? canonicalResolved
-			: canonicalResolved.filter(
-					(f) => (f.winning_source ?? '').split(':')[0] !== 'tag' && providerFromWinningSource(f.winning_source)
-				)
-	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
-	// Gates the whole Metadata section for visitors: nothing to show there once
-	// title/genres-style baseline duplicates are filtered out of visibleResolved.
-	const hasVisibleMetadata = $derived(isOwner || visibleResolved.length > 0 || extraFields.length > 0);
+	// Films + People are co-located in one row (design handoff, media-detail-reorder) —
+	// each keeps its own pre-existing gate, but the row itself must contribute nothing
+	// to the page when both sides are hidden.
+	const filmsVisible = $derived(!!activity.caps?.films_enabled && (isOwner || films.length > 0));
+	const peopleVisible = $derived(isOwner || (video?.people?.length ?? 0) > 0);
 	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider — entity_enrichment keyed by
 	// provider). Was collapsed to the first capable provider, so a second matched
@@ -760,41 +747,6 @@
 	</p>
 {:else}
 	<article class="mx-auto max-w-4xl space-y-6">
-		<header class="space-y-2">
-			{#key id}
-				<NameEditControl
-					id="field-title"
-					name={displayTitle}
-					{isOwner}
-					onCommit={commitTitle}
-					label="video"
-					headingClass="skin-title text-2xl font-semibold text-ink"
-					pencilAlwaysVisible
-				>
-					{#snippet verdict(c, resolve)}
-						<CollisionOfferCard
-							video={c}
-							proposedTitle={pendingTitleValue}
-							busy={titleCollisionBusy}
-							error={titleCollisionError}
-							onviewexisting={() => goto(`/media/${c.id}`)}
-							onsaveanyway={() => saveTitleAnyway(resolve)}
-							oncancel={resolve}
-						/>
-					{/snippet}
-				</NameEditControl>
-			{/key}
-			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
-				<span>{video.width}×{video.height}</span>
-				<span>·</span>
-				<span>{formatDuration(video.duration_sec)}</span>
-				{#if formatYear(video.recorded_at)}
-					<span>·</span><span>{formatYear(video.recorded_at)}</span>
-				{/if}
-			</div>
-		</header>
-
 		<div
 			class="group relative overflow-hidden rounded-theme border border-rule bg-black"
 			id="field-poster_url-upload"
@@ -888,6 +840,41 @@
 			<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
 		{/if}
 
+		<header class="space-y-2">
+			{#key id}
+				<NameEditControl
+					id="field-title"
+					name={displayTitle}
+					{isOwner}
+					onCommit={commitTitle}
+					label="video"
+					headingClass="skin-title text-2xl font-semibold text-ink"
+					pencilAlwaysVisible
+				>
+					{#snippet verdict(c, resolve)}
+						<CollisionOfferCard
+							video={c}
+							proposedTitle={pendingTitleValue}
+							busy={titleCollisionBusy}
+							error={titleCollisionError}
+							onviewexisting={() => goto(`/media/${c.id}`)}
+							onsaveanyway={() => saveTitleAnyway(resolve)}
+							oncancel={resolve}
+						/>
+					{/snippet}
+				</NameEditControl>
+			{/key}
+			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
+				<span>{video.width}×{video.height}</span>
+				<span>·</span>
+				<span>{formatDuration(video.duration_sec)}</span>
+				{#if formatYear(video.recorded_at)}
+					<span>·</span><span>{formatYear(video.recorded_at)}</span>
+				{/if}
+			</div>
+		</header>
+
 		{#if isOwner || studioField?.values?.length}
 			<div class="flex flex-wrap items-center gap-3" id="field-studio">
 				{#each studios as s (s.id)}
@@ -970,70 +957,78 @@
 			</section>
 		{/if}
 
-		<PeopleGrid
-			title="People"
-			people={video.people ?? []}
-			{isOwner}
-			attach={attachPerson}
-			detach={detachPerson}
-			bind:busyKey={personBusyKey}
-			onRemove={removeGridPerson}
-			removeError={personRemoveError}
-		/>
-
-		<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid
-		     above, not Studio's read-only pills — film_videos is many-to-many like
-		     video_people. Server-side gated (films omitted/empty when films_enabled is
-		     off), so this whole section stays out of the DOM in that state. -->
-		{#if activity.caps?.films_enabled && (isOwner || films.length)}
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
-				<ul class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-					{#each films as f (f.film_id)}
-						<li class="curation-chip group relative">
-							<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-								<div
-									class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
-								>
-									<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
-										>{monogram(f.film_name)}</span
-									>
-								</div>
-								<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
-								<span class="block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink">
-									{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
-								</span>
-							</a>
+		<!-- Films + People (media-detail-reorder): co-located in one row so Films can
+		     shrink-wrap beside People instead of stacking as its own full-width section.
+		     Each side keeps its own pre-existing gate; the row contributes nothing when
+		     both are hidden (filmsVisible/peopleVisible above). -->
+		{#if filmsVisible || peopleVisible}
+			<div class="flex items-start gap-6">
+				{#if filmsVisible}
+					<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid,
+					     not Studio's read-only pills — film_videos is many-to-many like video_people. -->
+					<section class="max-w-[50%] flex-none space-y-1.5">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
+						<ul class="flex flex-wrap gap-3">
+							{#each films as f (f.film_id)}
+								<li class="curation-chip group relative w-20 shrink-0">
+									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+										<div
+											class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
+										>
+											<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+												>{monogram(f.film_name)}</span
+											>
+										</div>
+										<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+										<span class="block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink">
+											{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
+										</span>
+									</a>
+									{#if isOwner}
+										<button
+											type="button"
+											onclick={() => removeFilm(f)}
+											disabled={filmBusyKey === f.film_id}
+											aria-label={`Remove ${f.film_name}`}
+											class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
+										>
+											{filmBusyKey === f.film_id ? '…' : '×'}
+										</button>
+									{/if}
+								</li>
+							{/each}
 							{#if isOwner}
-								<button
-									type="button"
-									onclick={() => removeFilm(f)}
-									disabled={filmBusyKey === f.film_id}
-									aria-label={`Remove ${f.film_name}`}
-									class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-								>
-									{filmBusyKey === f.film_id ? '…' : '×'}
-								</button>
+								<li class="w-20 shrink-0">
+									<button
+										type="button"
+										onclick={() => (filmAttachOpen = true)}
+										class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
+									>
+										<span class="text-2xl leading-none">+</span>
+										<span class="text-xs">Attach film</span>
+									</button>
+								</li>
 							{/if}
-						</li>
-					{/each}
-					{#if isOwner}
-						<li>
-							<button
-								type="button"
-								onclick={() => (filmAttachOpen = true)}
-								class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
-							>
-								<span class="text-2xl leading-none">+</span>
-								<span class="text-xs">Attach film</span>
-							</button>
-						</li>
-					{/if}
-				</ul>
-				{#if filmRemoveError}
-					<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
+						</ul>
+						{#if filmRemoveError}
+							<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
+						{/if}
+					</section>
 				{/if}
-			</section>
+
+				<div class="min-w-0 flex-1">
+					<PeopleGrid
+						title="People"
+						people={video.people ?? []}
+						{isOwner}
+						attach={attachPerson}
+						detach={detachPerson}
+						bind:busyKey={personBusyKey}
+						onRemove={removeGridPerson}
+						removeError={personRemoveError}
+					/>
+				</div>
+			</div>
 		{/if}
 
 		{#if personConflict}
@@ -1048,10 +1043,47 @@
 			/>
 		{/if}
 
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+		     its block is null or empty, so an item with no siblings shows no rail. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{/if}
+
+		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+		     content and the Back link so a delete is never adjacent to navigation.
+		     Effective gate (F29) so visitor view hides it. -->
+		{#if isOwner}
+			<section class="space-y-2 border-t border-rule pt-4">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={() => openConfirm('soft')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Move to Trash
+					</button>
+					<button
+						onclick={() => openConfirm('purge')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Delete permanently
+					</button>
+				</div>
+			</section>
+		{/if}
+
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 		     enrichment controls and writeback inline in the header. Falls back to
-		     file-only fields when no resolver output is present. -->
-		{#if hasVisibleMetadata}
+		     file-only fields when no resolver output is present. Owner-only
+		     (media-detail-reorder) — visitors previously saw a filtered subset. -->
+		{#if isOwner}
 			<section class="space-y-1.5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
@@ -1115,9 +1147,9 @@
 						{refreshStatus.text}
 					</p>
 				{/if}
-				{#if visibleResolved.length || extraFields.length}
+				{#if canonicalResolved.length || extraFields.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each visibleResolved as f (f.canonical)}
+					{#each canonicalResolved as f (f.canonical)}
 						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 						{#if f.display === 'image_url'}
 							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
@@ -1203,18 +1235,6 @@
 			</section>
 		{/if}
 
-		{#if isOwner && completeness}
-			{#each completeness.facets as cf (cf.canonical)}
-				{#if cf.tier === 'missing' && !visibleResolved.some((f) => f.canonical === cf.canonical) && cf.canonical !== 'studio'}
-					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
-				{/if}
-			{/each}
-		{/if}
-
-		{#if isOwner}
-			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
-		{/if}
-
 		{#if isOwner}
 		<section class="space-y-1.5">
 			<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
@@ -1233,46 +1253,22 @@
 		</section>
 		{/if}
 
-		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-		     its block is null or empty, so an item with no siblings shows no rail. -->
-		{#if related?.person}
-			<RelatedShelf
-				title={related.person.name}
-				href={`/people/${related.person.id}`}
-				items={related.person.items}
-			/>
-		{/if}
-		{#if related?.tag}
-			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{#if isOwner && completeness}
+			{#each completeness.facets as cf (cf.canonical)}
+				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && cf.canonical !== 'studio'}
+					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
+				{/if}
+			{/each}
 		{/if}
 
-		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
-		     content and the Back link so a delete is never adjacent to navigation.
-		     Effective gate (F29) so visitor view hides it. -->
 		{#if isOwner}
-			<section class="space-y-2 border-t border-rule pt-4">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-				<div class="flex flex-wrap gap-2">
-					<button
-						onclick={() => openConfirm('soft')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Move to Trash
-					</button>
-					<button
-						onclick={() => openConfirm('purge')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Delete permanently
-					</button>
-				</div>
-			</section>
+			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 		{/if}
 
 		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
 		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
-		     the page (below Manage). Owner + Admin mode only (effectiveOwner); each
-		     self-omits when empty. Headings aligned to "Enrichment data: {source}". -->
+		     the page. Owner + Admin mode only (effectiveOwner); each self-omits when
+		     empty. Headings aligned to "Enrichment data: {source}". -->
 		{#if isOwner && extra.length}
 			<section>
 				<button onclick={() => (showRaw = !showRaw)} class="text-sm text-muted hover:text-ink">

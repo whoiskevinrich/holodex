@@ -1,0 +1,137 @@
+<svg viewBox="0 0 960 1180" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentInk { fill: #1a1206; }
+      .logoPlate { fill: #e9e0d0; }
+      .logoPlateInk { fill: #2a2018; }
+      .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .gateData { stroke: #e8a33d; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+      .gateOwner { stroke: #9b9082; stroke-width: 1.5; stroke-dasharray: 2 2; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="1180" />
+
+  <text x="24" y="30" class="ink title" font-size="20" font-weight="600">Media detail — reordered page (final, approved)</text>
+  <text x="24" y="50" class="muted" font-size="12">Cinémathèque tokens · left: full-page order · right: Films+People row detail</text>
+
+  <!-- ===== LEFT COLUMN: full page order ===== -->
+  <g transform="translate(24,72)">
+    <!-- Player -->
+    <rect x="0" y="0" width="430" height="120" rx="2" fill="#000" />
+    <text x="215" y="64" text-anchor="middle" class="muted" font-size="12">▶ Video player</text>
+
+    <!-- Header/title -->
+    <text x="0" y="150" class="ink title" font-size="18" font-weight="600">Dune</text>
+    <text x="0" y="168" class="muted" font-size="11">4K · 3840×2160 · 2:35:25 · 2026</text>
+
+    <!-- Studio -->
+    <rect x="0" y="184" width="24" height="24" class="logoPlate" rx="2" />
+    <text x="12" y="200" text-anchor="middle" class="logoPlateInk" font-size="11" font-weight="700">L</text>
+    <text x="34" y="200" class="ink" font-size="12">Legendary Pictures</text>
+
+    <!-- Tags -->
+    <text x="0" y="230" class="muted label">Tags</text>
+    <rect x="0" y="238" width="76" height="22" rx="11" class="surface2" />
+    <text x="38" y="253" text-anchor="middle" class="ink" font-size="11">adventure</text>
+    <rect x="84" y="238" width="102" height="22" rx="11" class="surface2" />
+    <text x="135" y="253" text-anchor="middle" class="ink" font-size="11">sci-fi</text>
+
+    <!-- Films+People row (summary) -->
+    <rect x="0" y="272" width="430" height="80" rx="2" class="gateData" />
+    <text x="8" y="288" class="accent label">Films + People (data-gated, own gates)</text>
+    <text x="8" y="308" class="muted" font-size="11">see detail panel →</text>
+
+    <!-- More with... -->
+    <rect x="0" y="364" width="430" height="46" rx="2" class="gateData" />
+    <text x="8" y="380" class="accent label">More with Person</text>
+    <text x="8" y="398" class="muted" font-size="11">self-omits when empty</text>
+
+    <rect x="0" y="418" width="430" height="30" rx="2" class="gateData" />
+    <text x="8" y="437" class="accent label">More with Tag</text>
+
+    <!-- Manage -->
+    <rect x="0" y="460" width="430" height="46" rx="2" class="gateOwner" />
+    <text x="8" y="476" class="muted label">Manage — owner only</text>
+    <text x="8" y="494" class="muted" font-size="11">Move to Trash · Delete permanently</text>
+
+    <!-- Metadata -->
+    <rect x="0" y="518" width="430" height="140" rx="2" class="gateOwner" />
+    <text x="8" y="534" class="muted label">Metadata — owner only (was: visible to visitors too)</text>
+    <text x="8" y="552" class="muted" font-size="11">resolved fields, enrichment controls, writeback</text>
+
+    <!-- File -->
+    <rect x="0" y="670" width="430" height="60" rx="2" class="gateOwner" />
+    <text x="8" y="686" class="muted label">File — owner only</text>
+    <text x="8" y="704" class="muted" font-size="11">size · container · codecs · path</text>
+
+    <!-- Completeness -->
+    <rect x="0" y="742" width="430" height="46" rx="2" class="gateOwner" />
+    <text x="8" y="758" class="muted label">Completeness — owner only</text>
+    <text x="8" y="776" class="muted" font-size="11">now follows File (was: preceded it)</text>
+
+    <!-- Enrichment -->
+    <rect x="0" y="800" width="430" height="46" rx="2" class="gateOwner" />
+    <text x="8" y="816" class="muted label">Enrichment raw disclosures — owner only</text>
+    <text x="8" y="834" class="muted" font-size="11">File Extraction + per-provider, moved to the end</text>
+  </g>
+
+  <!-- ===== RIGHT COLUMN: Films+People row detail ===== -->
+  <g transform="translate(500,72)">
+    <text x="0" y="0" class="ink" font-size="13" font-weight="600">Films + People row — spacing detail</text>
+
+    <!-- outer row -->
+    <rect x="0" y="16" width="436" height="150" rx="2" class="rule" fill="none" />
+
+    <!-- Films column (flex: 0 0 auto, shrink-wraps) -->
+    <rect x="12" y="28" width="150" height="126" rx="2" class="surface" />
+    <text x="20" y="44" class="muted label">Films</text>
+    <text x="20" y="60" class="muted" font-size="10">flex: 0 0 auto</text>
+    <text x="20" y="72" class="muted" font-size="10">max-w-[50%] safety cap</text>
+    <rect x="20" y="82" width="56" height="60" rx="2" class="logoPlate" />
+    <text x="48" y="118" text-anchor="middle" class="logoPlateInk" font-size="20" font-weight="700">D</text>
+    <!-- 12px gap tick between tiles -->
+    <line x1="76" y1="82" x2="88" y2="82" stroke="#e8a33d" stroke-width="1" />
+    <text x="82" y="76" text-anchor="middle" class="accent" font-size="9">12px</text>
+    <rect x="88" y="82" width="56" height="60" rx="2" fill="none" class="rule" stroke-dasharray="3 3" />
+    <text x="116" y="116" text-anchor="middle" class="muted" font-size="18">+</text>
+
+    <!-- 24px gap tick between columns (2x tile gap) -->
+    <line x1="162" y1="90" x2="186" y2="90" stroke="#e8a33d" stroke-width="1.5" />
+    <text x="174" y="82" text-anchor="middle" class="accent" font-size="10" font-weight="600">24px (2×)</text>
+
+    <!-- People column (flex: 1 1 auto, min-w-0, fills remainder) -->
+    <rect x="186" y="28" width="238" height="126" rx="2" class="surface" />
+    <text x="196" y="44" class="muted label">People</text>
+    <text x="196" y="60" class="muted" font-size="10">flex: 1 1 auto; min-width: 0</text>
+    <rect x="196" y="82" width="56" height="60" rx="2" fill="#2a2622" />
+    <circle cx="224" cy="106" r="10" fill="#4a4238" />
+    <rect x="260" y="82" width="56" height="60" rx="2" fill="#2a2622" />
+    <circle cx="288" cy="106" r="10" fill="#4a4238" />
+    <rect x="324" y="82" width="56" height="60" rx="2" fill="#2a2622" />
+    <circle cx="352" cy="106" r="10" fill="#4a4238" />
+    <text x="196" y="160" class="muted" font-size="10">tiles wrap at their own grid-cols-3/4/6</text>
+
+    <text x="0" y="190" class="ink" font-size="12" font-weight="600">Both-empty state</text>
+    <rect x="0" y="200" width="436" height="0" />
+    <text x="0" y="216" class="muted" font-size="11">Row contributes nothing to the DOM — no empty div, no stray gap.</text>
+    <text x="0" y="232" class="muted" font-size="11">Each side keeps its pre-existing gate:</text>
+    <text x="12" y="250" class="muted" font-size="11">Films: films_enabled &amp;&amp; (isOwner || films.length)</text>
+    <text x="12" y="266" class="muted" font-size="11">People: isOwner || people.length</text>
+
+    <text x="0" y="300" class="ink" font-size="12" font-weight="600">Visibility legend</text>
+    <rect x="0" y="312" width="16" height="12" class="gateData" />
+    <text x="22" y="322" class="muted" font-size="11">data-only (Films* / More with Person / More with Tag)</text>
+    <rect x="0" y="332" width="16" height="12" class="gateOwner" />
+    <text x="22" y="342" class="muted" font-size="11">owner-only (Manage / Metadata / File / Completeness / Enrichment)</text>
+    <text x="0" y="362" class="muted" font-size="10">*Films is also owner-gated on empty (shows "+Attach film"), same pattern as People.</text>
+  </g>
+</svg>
