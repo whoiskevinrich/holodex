@@ -413,6 +413,30 @@
 		);
 	}
 
+	/* ---- Person hero image bring-to-front on hover (F25 hero) ----
+	   The banner, poster, and headshot overlap by design (the headshot badge sits on the
+	   poster's corner; the row overlaps the banner above it), which can hide part of
+	   whichever image is underneath. Hovering (or focusing an Edit button inside) any one
+	   raises it above its overlapping neighbors and nudges it slightly larger, without
+	   disturbing layout (transform doesn't affect flow). */
+	.person-hero-media {
+		position: relative;
+		z-index: 0;
+	}
+	.person-hero-media:hover,
+	.person-hero-media:focus-within {
+		z-index: 5;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.person-hero-media {
+			transition: transform 0.15s ease-out;
+		}
+		.person-hero-media:hover,
+		.person-hero-media:focus-within {
+			transform: scale(1.06);
+		}
+	}
+
 	/* ---- People poster-grid card hover-lift (F55) ----
 	   Border color and the focus ring are plain Tailwind utilities on the component
 	   (border-rule/border-transparent, group-focus-visible:ring-*) — this is the one bit

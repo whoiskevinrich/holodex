@@ -56,6 +56,6 @@
 	});
 </script>
 
-<div bind:this={wrap}>
+<div bind:this={wrap} class="person-hero-media">
 	<PersonImageFrame {personId} role="banner" {name} {version} {eager} frameClass="portrait-frame--banner w-full" />
 </div>
