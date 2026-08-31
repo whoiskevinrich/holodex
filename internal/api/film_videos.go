@@ -79,7 +79,11 @@ func (h *Handlers) filmVideoCandidates(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]filmVideoCandidate, len(videos))
 	for i, v := range videos {
-		items[i] = filmVideoCandidate{Video: v, AlreadyAttached: attachedByVideo[v.ID]}
+		attached := attachedByVideo[v.ID]
+		if attached == nil {
+			attached = []repo.FilmAttachment{}
+		}
+		items[i] = filmVideoCandidate{Video: v, AlreadyAttached: attached}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
