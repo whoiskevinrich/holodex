@@ -36,7 +36,7 @@ new logic.
 2. [x] [frontend] seed search from `filmName`; blank starting-scene-number attaches unnumbered — `web/src/lib/components/film/FilmBulkAttachDialog.svelte`, `web/src/lib/api.ts`
 3. [x] [testing] repo + API test coverage for the unnumbered path — `internal/repo/films_test.go`, `internal/api/films_test.go`
 4. [x] [—] `/simplify` (reuse/simplification/efficiency/altitude, all clean save one non-blocking reuse note vs. `FilmAttachDialog.svelte`, skipped as premature abstraction) + live 3-skin QA
-5. [ ] [—] push, open PR, sync Jira
+5. [x] [—] push, open PR (#280), sync Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
