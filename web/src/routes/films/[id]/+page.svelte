@@ -190,6 +190,20 @@
 						{/if}
 					</div>
 
+					<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
+					     section markup (heading + TagLinkChip wrap) as the Media detail page's
+					     Tags section for visual parity; only the owner add/remove controls differ. -->
+					{#if tags.length}
+						<section class="space-y-1.5">
+							<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
+							<div class="flex flex-wrap items-center gap-2">
+								{#each tags as t (t.id)}
+									<TagLinkChip tag={t} />
+								{/each}
+							</div>
+						</section>
+					{/if}
+
 					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
 						{#if f.values[0]?.trim()}
 							<p class="leading-relaxed text-ink">{f.values[0]}</p>
@@ -197,20 +211,6 @@
 					{/each}
 				</div>
 			</div>
-
-			<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
-			     section markup (heading + TagLinkChip wrap) as the Media detail page's
-			     Tags section for visual parity; only the owner add/remove controls differ. -->
-			{#if tags.length}
-				<section class="space-y-1.5">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
-					<div class="flex flex-wrap items-center gap-2">
-						{#each tags as t (t.id)}
-							<TagLinkChip tag={t} />
-						{/each}
-					</div>
-				</section>
-			{/if}
 
 			<!-- Images (F56/HOLODEX-280, ADR-086): poster (search results, future header
 			     use), thumb (no consumer yet) — mirrors Studio's dedicated Images section

@@ -38,6 +38,16 @@ unchanged) · verified live against `backend-films`/`web` dev servers, all 3 ski
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-08-30 · Repositioned Tags back into the header column, underneath Studio
+- handoff: after the first pass moved Tags into its own full-width `<section>` below the whole
+  header, the user asked to move it back inside the header's `flex-1` column instead — directly
+  underneath the Studio row (`name-edit-row`) and before the description, i.e. to the right of
+  the poster rather than a separate section beneath the header. Same section markup (heading +
+  `gap-2` chip wrap) unchanged, only its position moved. Live-verified: re-attached the test
+  video/tags to film id=1, screenshotted `/films/1` — Tags now render under Studio inside the
+  header column as requested. `npm run check`: 0 errors, 8 pre-existing warnings (unrelated
+  files). Next: push, open PR, sync Jira.
+
 ### 2026-08-30 · Matched film detail Tags section to the media page's styling
 - skills: simplify (diff too small for the 4-agent fan-out; skipped as overkill)
 - handoff: moved `web/src/routes/films/[id]/+page.svelte`'s tags block out of the header column
