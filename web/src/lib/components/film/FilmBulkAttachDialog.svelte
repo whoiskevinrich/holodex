@@ -149,8 +149,11 @@
 	// An empty starting scene number attaches the whole selection unnumbered
 	// (design handoff §4c) rather than blocking the commit.
 	async function commit() {
+		// bind:value on type="number" coerces to a Number (or '' when cleared) --
+		// startingSceneNumber is not always a string despite the $state('') default,
+		// so don't call .trim() on it (see FilmAttachDialog.svelte's confirm()).
 		let n: number | null = null;
-		if (startingSceneNumber.trim() !== '') {
+		if (startingSceneNumber !== '') {
 			n = Number(startingSceneNumber);
 			if (!Number.isInteger(n) || n <= 0) {
 				commitError = 'Starting scene number must be positive, or left blank for unnumbered.';
