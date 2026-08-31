@@ -193,9 +193,10 @@ func (h *Handlers) attachFilmVideo(w http.ResponseWriter, r *http.Request) {
 
 // bulkAttachFilmVideos handles POST /films/{filmId}/videos/bulk (owner-gated):
 // {video_ids, starting_scene_number} -- the film→video picker's multi-select
-// attach, sequentially auto-numbered from starting_scene_number. All-or-nothing:
-// see BulkAttachFilmVideos. Always scene files, never is_full_film (a full-film
-// attach is always the single-video attachFilmVideo path).
+// attach, sequentially auto-numbered from starting_scene_number. A nil/omitted
+// starting_scene_number attaches every video unnumbered instead (design handoff
+// §4c). All-or-nothing: see BulkAttachFilmVideos. Always scene files, never
+// is_full_film (a full-film attach is always the single-video attachFilmVideo path).
 func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := urlParamID(w, r, "filmId")
 	if !ok {
@@ -203,7 +204,7 @@ func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) 
 	}
 	var body struct {
 		VideoIDs            []int64 `json:"video_ids"`
-		StartingSceneNumber int64   `json:"starting_scene_number"`
+		StartingSceneNumber *int64  `json:"starting_scene_number"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -212,7 +213,7 @@ func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "video_ids is required")
 		return
 	}
-	if body.StartingSceneNumber <= 0 {
+	if body.StartingSceneNumber != nil && *body.StartingSceneNumber <= 0 {
 		writeError(w, http.StatusBadRequest, "starting_scene_number must be positive")
 		return
 	}

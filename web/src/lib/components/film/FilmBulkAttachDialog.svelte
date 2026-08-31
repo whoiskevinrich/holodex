@@ -31,7 +31,7 @@
 		onattached: () => void;
 	} = $props();
 
-	let query = $state('');
+	let query = $state(filmName);
 	let studioFilter = $state<number | null>(null);
 	let castFilter = $state<number | null>(null);
 	let allVideos = $state(false); // default scope: unattached-only
@@ -146,11 +146,19 @@
 
 	// All-or-nothing (P0-9/RD9): a scene-number collision anywhere in the batch
 	// rejects the whole commit; naming the first occupant, selection stays intact.
+	// An empty starting scene number attaches the whole selection unnumbered
+	// (design handoff §4c) rather than blocking the commit.
 	async function commit() {
-		const n = Number(startingSceneNumber);
-		if (!Number.isInteger(n) || n <= 0) {
-			commitError = 'Enter a positive starting scene number.';
-			return;
+		// bind:value on type="number" coerces to a Number (or '' when cleared) --
+		// startingSceneNumber is not always a string despite the $state('') default,
+		// so don't call .trim() on it (see FilmAttachDialog.svelte's confirm()).
+		let n: number | null = null;
+		if (startingSceneNumber !== '') {
+			n = Number(startingSceneNumber);
+			if (!Number.isInteger(n) || n <= 0) {
+				commitError = 'Starting scene number must be positive, or left blank for unnumbered.';
+				return;
+			}
 		}
 		// Numbered sequentially in the order shown below, not selection order.
 		const orderedIds = results.filter((c) => selected.has(c.video.id)).map((c) => c.video.id);
@@ -277,7 +285,10 @@
 					class="w-20 rounded-theme border border-rule bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-accent"
 				/>
 			</label>
-			<span class="text-xs text-muted">Numbered sequentially from that value in the order shown above.</span>
+			<span class="text-xs text-muted"
+				>Numbered sequentially from that value in the order shown above, or attached unnumbered if left
+				blank.</span
+			>
 			<button
 				onclick={commit}
 				disabled={committing || selected.size === 0}

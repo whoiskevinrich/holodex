@@ -427,7 +427,10 @@ func (r *Repo) DetachFilmVideo(ctx context.Context, filmID, videoID int64) error
 
 // BulkAttachFilmVideos attaches many videos to a film in one call, auto-numbering
 // them sequentially from startScene (the film→video picker's multi-select attach,
-// spec: "sequential auto-numbering from a user-supplied starting scene number").
+// spec: "sequential auto-numbering from a user-supplied starting scene number"). A
+// nil startScene attaches every video unnumbered instead (design handoff §4c: "omitted
+// means every selected video attaches unnumbered") -- unnumbered videos never collide,
+// so that path skips the per-video occupant check entirely.
 // All-or-nothing: every number is checked for a collision before any row is
 // inserted, so a mid-batch collision never leaves a partial attach behind -- keeping
 // the same "no silent swap/auto-bump" invariant AttachFilmVideo enforces for a
@@ -435,7 +438,7 @@ func (r *Repo) DetachFilmVideo(ctx context.Context, filmID, videoID int64) error
 // ErrFilmVideoAlreadyAttached AttachFilmVideo returns), not a silent skip, so the
 // caller sees exactly which video is the problem rather than a batch that quietly
 // attached fewer videos than requested.
-func (r *Repo) BulkAttachFilmVideos(ctx context.Context, filmID int64, videoIDs []int64, startScene int64) (*FilmSceneCollision, error) {
+func (r *Repo) BulkAttachFilmVideos(ctx context.Context, filmID int64, videoIDs []int64, startScene *int64) (*FilmSceneCollision, error) {
 	if len(videoIDs) == 0 {
 		return nil, nil
 	}
@@ -450,8 +453,12 @@ func (r *Repo) BulkAttachFilmVideos(ctx context.Context, filmID int64, videoIDs 
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	for i, videoID := range videoIDs {
-		scene := startScene + int64(i)
-		occ, err := insertFilmVideo(ctx, tx, filmID, videoID, &scene, false, now)
+		var scenePtr *int64
+		if startScene != nil {
+			scene := *startScene + int64(i)
+			scenePtr = &scene
+		}
+		occ, err := insertFilmVideo(ctx, tx, filmID, videoID, scenePtr, false, now)
 		if err != nil {
 			return occ, fmt.Errorf("video %d: %w", videoID, err)
 		}
