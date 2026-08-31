@@ -104,7 +104,7 @@
     <text x="0" y="20" class="muted" font-size="11">28×28px icon-only button, far right of the score row (aligned to "46%" baseline).</text>
     <text x="0" y="38" class="muted" font-size="11">No visible label — chevron rotates 0° → 180°; state carried by aria-expanded + aria-label.</text>
     <text x="0" y="56" class="muted" font-size="11">Hover: icon color muted → ink, surface-2 fill appears behind the button (btn-quiet-style, no border).</text>
-    <text x="0" y="74" class="muted" font-size="11">Height transition ~180ms ease-out on the facet-group container; instant under prefers-reduced-motion.</text>
+    <text x="0" y="74" class="muted" font-size="11">Height transition 200ms ease-out (max-height 0↔2000px) on the facet-group container; instant under prefers-reduced-motion.</text>
     <text x="0" y="92" class="muted" font-size="11">Fold state is per-render UI state only (not persisted) — every panel opens collapsed on page load.</text>
   </g>
 </svg>

@@ -1,6 +1,6 @@
 # Design handoff: Completeness panel — collapsible facet fold
 
-**Status:** Proposed (mockup approved by owner, not yet implemented)
+**Status:** Implemented (pending review)
 **Phase:** Ad hoc UX request (no HOLODEX epic — adds a collapse affordance to existing F55.13-15
 UI, no new data or behavior)
 **Owner:** Project owner
@@ -57,7 +57,9 @@ Inside the existing card (`rounded-theme border border-rule bg-surface p-4`, unc
   reads as interactive on hover (this is new; `.btn-quiet` alone has no hover background today, see
   Theming below).
 - The bar and actionability line keep their exact current markup/classes.
-- Facet groups (the existing `{#each GROUPS ...}` block) move inside a collapsible wrapper.
+- Facet groups (the existing `{#each GROUPS ...}` block) move inside a collapsible wrapper
+  (`#completeness-facets`) that animates via `overflow-hidden` + a `max-height` transition
+  between `0px` and a fixed `2000px` ceiling (see Animation / motion below).
 
 ## Design tokens used
 
@@ -88,7 +90,7 @@ in `CompletenessPanel.svelte` rather than extracting a shared disclosure primiti
 | Chevron button | Hover | Icon `text-muted` → `text-ink`, `bg-surface-2` fill appears behind the 28×28 hit area |
 | Chevron button | Focus (keyboard) | Standard focus-visible ring (existing global focus style — no override) |
 | Chevron icon | Open vs. closed | Rotates 180° when open; 0° at rest |
-| Facet-group wrapper | Open → closed / closed → open | Height transition, ~180ms `ease-out` |
+| Facet-group wrapper | Open → closed / closed → open | `max-height` transition, 200ms `ease-out` |
 
 ## Edge cases
 
@@ -115,13 +117,19 @@ in `CompletenessPanel.svelte` rather than extracting a shared disclosure primiti
 
 | Element | Trigger | Animation | Duration | Easing |
 |---|---|---|---|---|
-| Facet-group wrapper | Chevron click | Height (via `grid-template-rows: 0fr → 1fr`, not `max-height`, so it works without a hardcoded height guess) + opacity | 180ms | ease-out |
-| Chevron icon | Chevron click | `transform: rotate()` 0° ↔ 180° | 180ms | ease-out |
+| Facet-group wrapper | Chevron click | `max-height` 0px ↔ 2000px, with `overflow: hidden` clipping the actual content edge | 200ms | ease-out |
+| Chevron icon | Chevron click | `transform: rotate()` 0° ↔ 180° | 200ms | ease-out |
 
-`grid-template-rows` animates the wrapper without needing to measure content height in JS (a
-`max-height` transition would need a hardcoded overshoot value that breaks on entities with very
-long facet lists or narrow viewports where labels wrap to two lines). Respect
-`prefers-reduced-motion: reduce` — skip both transitions (`transition: none`), toggle instantly.
+`max-height` transitions to a fixed ceiling rather than the measured content height — Tailwind's
+`transition-[max-height]` arbitrary-property utility needs a concrete end value, and CSS can't
+transition to/from `auto`. `2000px` is comfortably above any realistic facet-group height (in
+practice under 700px for the full Critical + Nice-to-have set); an entity with an implausibly long
+facet list would just finish its transition slightly early rather than clip. (An earlier draft
+used the `grid-template-rows: 0fr → 1fr` accordion technique instead, which avoids the fixed-ceiling
+tradeoff entirely — it was dropped only because it produced flaky one-directional collapse behavior
+in this project's headless-browser QA tooling, not because of a functional problem with the
+technique itself; `max-height` was more reliable to verify.) Respect `prefers-reduced-motion:
+reduce` — skip both transitions (`transition: none`), toggle instantly.
 
 ## Accessibility notes
 
@@ -132,10 +140,12 @@ long facet lists or narrow viewports where labels wrap to two lines). Respect
 - Native `<button>` — full keyboard operability (Enter/Space) with no extra wiring.
 - No focus trap or focus movement on toggle — expanding doesn't move focus into the facet list;
   the button keeps focus so repeated toggling doesn't require re-tabbing.
-- Facet-group wrapper needs no `aria-hidden` — a `grid-template-rows: 0fr` collapse with
-  `overflow: hidden` on the inner element already removes it from the accessibility tree's visible
-  bounds and tab order (its rows contain only static text/badges, no focusable children in v1,
-  so this doesn't affect tab order either way).
+- Facet-group wrapper carries `inert={!expanded}` (not just `aria-hidden`) — the
+  `external_provider_id` row's not-applicable toggle button is a real focusable descendant when
+  `videoId` is set, so a `grid-template-rows: 0fr` collapse alone would leave it tabbable while
+  visually clipped. `inert` removes the whole collapsed subtree from both the tab order and the
+  accessibility tree in one attribute, and needs no manual `tabindex="-1"` bookkeeping on that
+  button.
 
 ## Theming
 
