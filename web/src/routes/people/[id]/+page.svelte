@@ -408,18 +408,20 @@
 						     identity badge on its lower-left corner (the bg-bg padding stands in for a
 						     separating ring so the badge reads as its own layer over the poster art). -->
 						<div class="relative shrink-0">
-							<PersonImageFrame
-								personId={id}
-								role="poster"
-								name={person?.name ?? ''}
-								alt={`${person?.name ?? ''}'s poster`}
-								version={roleVersion('poster')}
-								frameClass="portrait-frame--2x3 h-36 w-auto sm:h-44"
-								eager
-							/>
-							{@render editBtn('poster', 'right-1 top-1')}
+							<div class="person-hero-media">
+								<PersonImageFrame
+									personId={id}
+									role="poster"
+									name={person?.name ?? ''}
+									alt={`${person?.name ?? ''}'s poster`}
+									version={roleVersion('poster')}
+									frameClass="portrait-frame--2x3 h-36 w-auto sm:h-44"
+									eager
+								/>
+								{@render editBtn('poster', 'right-1 top-1')}
+							</div>
 							<div class="absolute -bottom-2 -left-2 rounded-theme bg-bg p-0.5">
-								<div class="relative" id="field-photo-upload">
+								<div class="person-hero-media" id="field-photo-upload">
 									<PersonImageFrame
 										personId={id}
 										role="headshot"
@@ -433,7 +435,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="relative shrink-0" id="field-photo-upload">
+						<div class="person-hero-media shrink-0" id="field-photo-upload">
 							<PersonImageFrame
 								personId={id}
 								role="headshot"
