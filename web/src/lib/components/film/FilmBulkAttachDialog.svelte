@@ -248,6 +248,11 @@
 						: 'border-transparent'}"
 				>
 					<input type="checkbox" checked={selected.has(c.video.id)} tabindex="-1" class="pointer-events-none" />
+					<img
+						src={c.video.thumbnail_url || api.thumbnailURL(c.video.id)}
+						alt=""
+						class="h-10 w-16 shrink-0 rounded-theme border border-rule object-cover"
+					/>
 					<span class="min-w-0 flex-1 truncate text-sm text-ink">{c.video.title}</span>
 					{#if c.video.width > 0}
 						<span class="shrink-0 rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"

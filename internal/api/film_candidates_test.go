@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -167,13 +168,24 @@ func TestFilmVideoCandidates(t *testing.T) {
 		t.Fatalf("get video candidates: %v", err)
 	}
 	defer defaultResp.Body.Close()
+	defaultBytes, err := io.ReadAll(defaultResp.Body)
+	if err != nil {
+		t.Fatalf("read default candidates: %v", err)
+	}
+	// The frontend picker calls .filter() on every row's already_attached
+	// unconditionally (FilmBulkAttachDialog.svelte) -- a bare `null` (Go's zero
+	// value for a missing map entry) throws there and silently blanks the whole
+	// candidate list, so the wire contract must always be `[]`, never `null`.
+	if bytes.Contains(defaultBytes, []byte(`"already_attached":null`)) {
+		t.Fatalf("already_attached must serialize as [] not null: %s", defaultBytes)
+	}
 	var defaultBody struct {
 		Items []struct {
 			Video           model.Video           `json:"video"`
 			AlreadyAttached []repo.FilmAttachment `json:"already_attached"`
 		} `json:"items"`
 	}
-	if err := json.NewDecoder(defaultResp.Body).Decode(&defaultBody); err != nil {
+	if err := json.Unmarshal(defaultBytes, &defaultBody); err != nil {
 		t.Fatalf("decode default candidates: %v", err)
 	}
 	if len(defaultBody.Items) != 1 || defaultBody.Items[0].Video.ID != unattached {
