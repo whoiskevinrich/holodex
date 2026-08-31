@@ -39,7 +39,7 @@ HOLODEX-298 · verified live against `backend-films`/`web` dev servers + `npm ru
 1. [x] [backend] normalize `AlreadyAttached` to `[]repo.FilmAttachment{}` instead of `nil` — `internal/api/film_videos.go`
 2. [x] [frontend] add poster thumbnail to candidate rows — `web/src/lib/components/film/FilmBulkAttachDialog.svelte`
 3. [x] [testing] regression assertion against a `null` wire value — `internal/api/film_candidates_test.go`
-4. [ ] [—] push, open PR, sync Jira
+4. [x] [—] push, open PR, sync Jira — [PR #279](https://github.com/whoiskevinrich/holodex/pull/279)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
