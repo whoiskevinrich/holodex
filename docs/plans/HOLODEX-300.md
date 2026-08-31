@@ -56,3 +56,18 @@ new logic.
   (Cinémathèque/Broadcast/Brutalist) render the changed elements with correct token contrast.
   `go test ./internal/repo/... ./internal/api/...` and `npm run check` both pass. Next: push,
   open PR, sync Jira.
+
+### 2026-08-30 · `/code-review high --fix` caught and fixed a numbered-attach crash
+- skills: code-review
+- handoff: 8-angle review surfaced a real correctness bug the earlier `/simplify` pass and
+  manual QA both missed (QA that session only exercised the blank/unnumbered path):
+  `commit()`'s `startingSceneNumber.trim() !== ''` guard threw a `TypeError` as soon as a user
+  typed a positive scene number, because Svelte's `bind:value` on the `type="number"` input
+  coerces the bound value to a `Number`, not a string — `FilmAttachDialog.svelte`'s sibling
+  `confirm()` already documents this exact gotcha and avoids `.trim()`. Fixed to check
+  `startingSceneNumber !== ''` directly. Live re-verified against `backend-films`/Dune: typed
+  scene `5`, attach succeeded (204), scene card rendered `#5` — no console error. Also added
+  the `testing-strategy.md` update the conventions angle flagged as missing (the change-routing
+  table's multi-file-change gate). One reuse finding (scene-number parsing duplicated with
+  `FilmAttachDialog.svelte`) reconfirmed and again skipped as premature abstraction. All gates
+  still green; pushed as a follow-up commit on the same PR (#280).
