@@ -534,12 +534,14 @@ export const api = {
 			is_full_film: isFullFilm
 		}),
 
-	bulkAttachFilmVideos: (filmId: number, videoIds: number[], startingSceneNumber: number) =>
-		sendConflictable<{ video_ids: number[]; starting_scene_number: number }, FilmSceneCollision>(
-			'POST',
-			`/films/${filmId}/videos/bulk`,
-			{ video_ids: videoIds, starting_scene_number: startingSceneNumber }
-		),
+	bulkAttachFilmVideos: (filmId: number, videoIds: number[], startingSceneNumber: number | null) =>
+		sendConflictable<
+			{ video_ids: number[]; starting_scene_number: number | null },
+			FilmSceneCollision
+		>('POST', `/films/${filmId}/videos/bulk`, {
+			video_ids: videoIds,
+			starting_scene_number: startingSceneNumber
+		}),
 
 	detachFilmVideo: (filmId: number, videoId: number) =>
 		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/videos/${videoId}`),

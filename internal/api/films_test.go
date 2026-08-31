@@ -342,3 +342,34 @@ func TestFilmVideoSceneCollision(t *testing.T) {
 		t.Fatalf("bulk attach should have rolled back entirely: got %d attachments, want 1", len(fvs))
 	}
 }
+
+// TestBulkAttachFilmVideosUnnumbered covers the omitted-starting_scene_number case
+// (design handoff §4c): the whole selection attaches unnumbered instead of a 400.
+func TestBulkAttachFilmVideosUnnumbered(t *testing.T) {
+	srv, r, v1, v2 := filmServer(t, "tok")
+	ctx := context.Background()
+
+	id, err := r.CreateFilm(ctx, "Unnumbered Bulk Test", 2022)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+
+	resp := filmPost(t, srv, "tok", "/films/"+itoa(id)+"/videos/bulk", map[string]any{
+		"video_ids": []int64{v1, v2},
+	})
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("bulk attach without starting_scene_number: got %d, want 204", resp.StatusCode)
+	}
+	fvs, err := r.FilmVideos(ctx, id)
+	if err != nil {
+		t.Fatalf("film videos: %v", err)
+	}
+	if len(fvs) != 2 {
+		t.Fatalf("film videos = %+v, want 2", fvs)
+	}
+	for _, fv := range fvs {
+		if fv.SceneNumber != nil {
+			t.Errorf("scene number = %v, want nil (unnumbered)", *fv.SceneNumber)
+		}
+	}
+}

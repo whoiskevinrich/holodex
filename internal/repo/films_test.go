@@ -329,7 +329,7 @@ func TestBulkAttachFilmVideos(t *testing.T) {
 		vids = append(vids, vid)
 	}
 
-	if _, err := r.BulkAttachFilmVideos(ctx, filmID, vids, 10); err != nil {
+	if _, err := r.BulkAttachFilmVideos(ctx, filmID, vids, ptr(10)); err != nil {
 		t.Fatalf("bulk attach: %v", err)
 	}
 	fvs, err := r.FilmVideos(ctx, filmID)
@@ -352,7 +352,7 @@ func TestBulkAttachFilmVideos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed video 3: %v", err)
 	}
-	occ, err := r.BulkAttachFilmVideos(ctx, filmID, []int64{vid4}, 11)
+	occ, err := r.BulkAttachFilmVideos(ctx, filmID, []int64{vid4}, ptr(11))
 	if !errors.Is(err, repo.ErrSceneNumberTaken) {
 		t.Fatalf("bulk attach onto taken scene: err=%v, want ErrSceneNumberTaken", err)
 	}
@@ -365,6 +365,48 @@ func TestBulkAttachFilmVideos(t *testing.T) {
 	}
 	if len(stillAttached) != 0 {
 		t.Errorf("vid4 attachments after failed bulk attach = %+v, want none", stillAttached)
+	}
+}
+
+// A nil starting scene attaches every video unnumbered (design handoff §4c:
+// "omitted means every selected video attaches unnumbered") rather than
+// sequentially numbered -- and unnumbered attaches never collide with each other.
+func TestBulkAttachFilmVideosUnnumbered(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { sqlDB.Close() })
+	r := repo.New(sqlDB)
+	ctx := context.Background()
+
+	filmID, err := r.CreateFilm(ctx, "Unnumbered Film", 2023)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	var vids []int64
+	for i := 0; i < 2; i++ {
+		vid, err := r.UpsertVideo(ctx, sampleVideo(fmt.Sprintf("/m/unnum%d.mkv", i), fmt.Sprintf("Unnum %d", i), nil, nil), nil)
+		if err != nil {
+			t.Fatalf("seed video %d: %v", i, err)
+		}
+		vids = append(vids, vid)
+	}
+
+	if _, err := r.BulkAttachFilmVideos(ctx, filmID, vids, nil); err != nil {
+		t.Fatalf("bulk attach unnumbered: %v", err)
+	}
+	fvs, err := r.FilmVideos(ctx, filmID)
+	if err != nil {
+		t.Fatalf("film videos: %v", err)
+	}
+	if len(fvs) != 2 {
+		t.Fatalf("film videos = %+v, want 2", fvs)
+	}
+	for _, fv := range fvs {
+		if fv.SceneNumber != nil {
+			t.Errorf("scene number = %v, want nil (unnumbered)", *fv.SceneNumber)
+		}
 	}
 }
 
