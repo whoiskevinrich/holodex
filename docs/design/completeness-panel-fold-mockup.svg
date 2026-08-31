@@ -1,0 +1,110 @@
+<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentStroke { stroke: #e8a33d; }
+      .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .mono { font-size: 9px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="900" height="620" />
+  <text x="24" y="30" class="ink title" font-size="18" font-weight="600">Completeness panel — fold below the score row</text>
+  <text x="24" y="50" class="muted" font-size="12">Cinémathèque tokens · left: collapsed (default) · right: expanded</text>
+
+  <!-- ===== LEFT: collapsed (default) ===== -->
+  <g transform="translate(24,80)">
+    <text x="0" y="0" class="muted label">Collapsed — default on load</text>
+    <rect x="0" y="14" width="380" height="128" rx="2" class="surface" stroke="#2a2622" stroke-width="1" />
+    <g transform="translate(16,30)">
+      <!-- score row -->
+      <text x="0" y="24" class="ink title" font-size="30">46%</text>
+      <!-- chevron button, far right of score row -->
+      <rect x="320" y="0" width="28" height="28" rx="2" fill="none" />
+      <path d="M 328 9 L 334 15 L 340 9" fill="none" stroke="#9b9082" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="334" y="46" text-anchor="middle" class="muted" font-size="9">chevron-down</text>
+
+      <!-- bar -->
+      <rect x="0" y="40" width="348" height="6" rx="2" class="surface2" />
+      <rect x="0" y="40" width="160" height="6" rx="2" class="accent" />
+
+      <!-- actionability -->
+      <text x="0" y="66" class="muted" font-size="11">0% of missing facets have a cached candidate ready</text>
+    </g>
+    <text x="0" y="160" class="muted" font-size="11">Facet groups (Critical / Nice to have) are not in the DOM tree —</text>
+    <text x="0" y="176" class="muted" font-size="11">panel height stays fixed regardless of facet count.</text>
+  </g>
+
+  <!-- ===== RIGHT: expanded ===== -->
+  <g transform="translate(480,80)">
+    <text x="0" y="0" class="muted label">Expanded — after clicking the chevron</text>
+    <rect x="0" y="14" width="396" height="520" rx="2" class="surface" stroke="#2a2622" stroke-width="1" />
+    <g transform="translate(16,30)">
+      <text x="0" y="24" class="ink title" font-size="30">46%</text>
+      <rect x="336" y="0" width="28" height="28" rx="2" fill="#181310" />
+      <path d="M 344 15 L 350 9 L 356 15" fill="none" stroke="#f3ece1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="350" y="46" text-anchor="middle" class="muted" font-size="9">rotated 180°</text>
+
+      <rect x="0" y="40" width="364" height="6" rx="2" class="surface2" />
+      <rect x="0" y="40" width="168" height="6" rx="2" class="accent" />
+      <text x="0" y="66" class="muted" font-size="11">0% of missing facets have a cached candidate ready</text>
+
+      <!-- Critical group -->
+      <text x="0" y="96" class="muted label">Critical</text>
+      <text x="0" y="118" class="ink" font-size="13">Studio</text>
+      <rect x="300" y="106" width="60" height="18" rx="9" fill="none" class="accentStroke" stroke-width="1" />
+      <text x="330" y="119" text-anchor="middle" class="accent" font-size="10">Curated</text>
+
+      <text x="0" y="144" class="ink" font-size="13">Actors</text>
+      <rect x="336" y="132" width="16" height="16" rx="2" class="surface2" stroke="#2a2622" stroke-width="1" />
+      <text x="344" y="143" text-anchor="middle" class="muted mono">F</text>
+
+      <text x="0" y="170" class="ink" font-size="13">Title</text>
+      <rect x="336" y="158" width="16" height="16" rx="2" class="surface2" stroke="#2a2622" stroke-width="1" />
+      <text x="344" y="169" text-anchor="middle" class="muted mono">F</text>
+
+      <text x="0" y="196" class="ink" font-size="13">Poster</text>
+      <rect x="308" y="184" width="56" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 3" />
+      <text x="336" y="197" text-anchor="middle" class="muted" font-size="10">Missing</text>
+
+      <!-- Nice to have group -->
+      <text x="0" y="230" class="muted label">Nice to have</text>
+      <text x="0" y="252" class="ink" font-size="13">Film</text>
+      <rect x="308" y="240" width="56" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 3" />
+      <text x="336" y="253" text-anchor="middle" class="muted" font-size="10">Missing</text>
+
+      <text x="0" y="278" class="ink" font-size="13">Director</text>
+      <rect x="308" y="266" width="56" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 3" />
+      <text x="336" y="279" text-anchor="middle" class="muted" font-size="10">Missing</text>
+
+      <text x="0" y="304" class="ink" font-size="13">Overview</text>
+      <rect x="308" y="292" width="56" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 3" />
+      <text x="336" y="305" text-anchor="middle" class="muted" font-size="10">Missing</text>
+
+      <text x="0" y="330" class="ink" font-size="13">Genres</text>
+      <rect x="336" y="318" width="16" height="16" rx="2" class="surface2" stroke="#2a2622" stroke-width="1" />
+      <text x="344" y="329" text-anchor="middle" class="muted mono">T</text>
+
+      <text x="0" y="356" class="ink" font-size="13">Released</text>
+      <rect x="308" y="344" width="56" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 3" />
+      <text x="336" y="357" text-anchor="middle" class="muted" font-size="10">Missing</text>
+    </g>
+  </g>
+
+  <!-- ===== Interaction notes ===== -->
+  <g transform="translate(24,470)">
+    <text x="0" y="0" class="ink" font-size="13" font-weight="600">Toggle affordance</text>
+    <text x="0" y="20" class="muted" font-size="11">28×28px icon-only button, far right of the score row (aligned to "46%" baseline).</text>
+    <text x="0" y="38" class="muted" font-size="11">No visible label — chevron rotates 0° → 180°; state carried by aria-expanded + aria-label.</text>
+    <text x="0" y="56" class="muted" font-size="11">Hover: icon color muted → ink, surface-2 fill appears behind the button (btn-quiet-style, no border).</text>
+    <text x="0" y="74" class="muted" font-size="11">Height transition ~180ms ease-out on the facet-group container; instant under prefers-reduced-motion.</text>
+    <text x="0" y="92" class="muted" font-size="11">Fold state is per-render UI state only (not persisted) — every panel opens collapsed on page load.</text>
+  </g>
+</svg>
