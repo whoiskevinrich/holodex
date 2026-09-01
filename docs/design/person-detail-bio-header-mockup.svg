@@ -1,0 +1,102 @@
+<svg width="920" height="1220" viewBox="0 0 920 1220" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Person detail — bio moved into the header row (HOLODEX-303)</title>
+<desc>Before/after of the Person detail page hero row: bio moves out of the Details card into a new header column beside the photo and name, truncated by line-clamp instead of growing the row. Shows short-bio vs long-bio truncation, the owner pencil affordance and its "Edit bio" modal (radio source list + inline Custom textarea), and the mobile stacked layout across all three skins.</desc>
+<rect width="920" height="1220" fill="#f4f2ee"/>
+
+<text x="24" y="30" font-size="11" letter-spacing="1" fill="#8a8478">1 · BEFORE — bio is the last row of the Details card</text>
+<rect x="24" y="42" width="872" height="230" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="48" y="66" width="88" height="88" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="144" y="140" font-size="22" font-weight="600" fill="#f3ece1">Naomi Sato</text>
+<text x="144" y="160" font-size="11" fill="#9b9082">42 videos</text>
+<rect x="48" y="178" width="824" height="78" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="64" y="196" font-size="10" letter-spacing="1" fill="#9b9082">DETAILS</text>
+<text x="64" y="216" font-size="11" fill="#9b9082">Bio:</text>
+<text x="64" y="232" font-size="11" fill="#f3ece1">Naomi Sato began her career on stage before moving to screen work, known for a</text>
+<text x="64" y="246" font-size="11" fill="#f3ece1">distinctive low register and a run of festival-circuit roles through the late 2010s.</text>
+<text x="48" y="286" font-size="10" fill="#8a8478">A long bio pushes the whole Details card taller; the header row above never changes.</text>
+
+<text x="24" y="330" font-size="11" letter-spacing="1" fill="#8a8478">2 · AFTER — bio joins the header row; "Bio" label matches "Details" label</text>
+<rect x="24" y="342" width="872" height="150" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="48" y="366" width="88" height="88" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="144" y="426" font-size="22" font-weight="600" fill="#f3ece1">Naomi Sato</text>
+<text x="144" y="446" font-size="11" fill="#9b9082">42 videos</text>
+<line x1="470" y1="366" x2="470" y2="454" stroke="#2a2622"/>
+<text x="490" y="382" font-size="10" letter-spacing="1" fill="#9b9082">BIO</text>
+<text x="490" y="400" font-size="11" fill="#f3ece1">Naomi Sato began her career on stage before</text>
+<text x="490" y="415" font-size="11" fill="#f3ece1">moving to screen work, known for a distinctive</text>
+<text x="490" y="430" font-size="11" fill="#f3ece1">low register and a run of festival-circuit&#8230;</text>
+<g transform="translate(490,438)">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9b9082" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+</g>
+<text x="506" y="447" font-size="10" fill="#9b9082">Edit (owner only)</text>
+<text x="48" y="478" font-size="10" fill="#8a8478">"DETAILS" (section 1) and "BIO" here render at the same 10px/uppercase/letter-spaced/muted style — Details card below no longer has a Bio row.</text>
+
+<text x="24" y="518" font-size="11" letter-spacing="1" fill="#8a8478">3 · TRUNCATION — bio never grows the row past its current height</text>
+
+<rect x="24" y="530" width="424" height="130" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<text x="40" y="548" font-size="10" fill="#8a8478">Short bio — fits, no clipping</text>
+<rect x="40" y="558" width="64" height="64" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="116" y="590" font-size="15" font-weight="600" fill="#f3ece1">Kenji Ito</text>
+<text x="116" y="605" font-size="10" fill="#9b9082">8 videos</text>
+<line x1="260" y1="558" x2="260" y2="622" stroke="#2a2622"/>
+<text x="276" y="572" font-size="9" letter-spacing="1" fill="#9b9082">BIO</text>
+<text x="276" y="588" font-size="10" fill="#f3ece1">Voice actor, mostly</text>
+<text x="276" y="600" font-size="10" fill="#f3ece1">supporting roles.</text>
+
+<rect x="472" y="530" width="424" height="130" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<text x="488" y="548" font-size="10" fill="#8a8478">Long bio — clipped with an ellipsis</text>
+<rect x="488" y="558" width="64" height="64" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="564" y="590" font-size="15" font-weight="600" fill="#f3ece1">Reina Kobayashi</text>
+<text x="564" y="605" font-size="10" fill="#9b9082">116 videos</text>
+<line x1="708" y1="558" x2="708" y2="622" stroke="#2a2622"/>
+<text x="724" y="572" font-size="9" letter-spacing="1" fill="#9b9082">BIO</text>
+<text x="724" y="588" font-size="10" fill="#f3ece1">Prolific voice and screen</text>
+<text x="724" y="600" font-size="10" fill="#f3ece1">performer whose career spans</text>
+<text x="724" y="612" font-size="10" fill="#f3ece1">more than two decades&#8230;</text>
+
+<text x="24" y="694" font-size="11" letter-spacing="1" fill="#8a8478">4 · OWNER — pencil opens "Edit bio" modal (ConfirmDialog chrome: rounded-theme, border-rule, bg-surface)</text>
+<rect x="24" y="706" width="872" height="330" rx="2" fill="#1a1714"/>
+<rect x="272" y="730" width="376" height="290" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<text x="296" y="758" font-size="16" font-weight="600" fill="#f3ece1">Edit bio</text>
+
+<rect x="296" y="774" width="328" height="64" rx="2" fill="#241c11" stroke="#e8a33d"/>
+<circle cx="312" cy="792" r="5" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+<circle cx="312" cy="792" r="2.2" fill="#e8a33d"/>
+<text x="326" y="789" font-size="9" letter-spacing="1" fill="#e8a33d">TMDB</text>
+<text x="326" y="803" font-size="9.5" fill="#f3ece1">Naomi Sato began her career on stage before</text>
+<text x="326" y="815" font-size="9.5" fill="#f3ece1">moving to screen work, known for a distinctive&#8230;</text>
+
+<rect x="296" y="844" width="328" height="34" rx="2" fill="none" stroke="#2a2622"/>
+<circle cx="312" cy="861" r="5" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text x="326" y="858" font-size="9" letter-spacing="1" fill="#9b9082">RECORD</text>
+<text x="326" y="870" font-size="9.5" fill="#6a655c">&#8212; (no value on file)</text>
+
+<rect x="296" y="884" width="328" height="86" rx="2" fill="none" stroke="#2a2622"/>
+<circle cx="312" cy="901" r="5" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text x="326" y="898" font-size="9" letter-spacing="1" fill="#9b9082">CUSTOM</text>
+<rect x="326" y="908" width="282" height="50" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="336" y="924" font-size="9.5" fill="#6a655c">Write a custom bio&#8230;</text>
+
+<rect x="512" y="984" width="52" height="26" rx="2" fill="none" stroke="#2a2622"/>
+<text x="524" y="1001" font-size="10" fill="#f3ece1">Cancel</text>
+<rect x="572" y="984" width="52" height="26" rx="2" fill="#e8a33d"/>
+<text x="586" y="1001" font-size="10" font-weight="600" fill="#1a1206">Save</text>
+
+<text x="48" y="1054" font-size="10" fill="#8a8478">Radio list (not chips) — one row per available source + a Custom row with its own inline textarea. This modal is adopted as the new pattern for long_text tier-2 fields (Bio today, Overview a candidate follow-up) — SourceBadge's inline chip-expand is kept for compact fields.</text>
+
+<text x="24" y="1094" font-size="11" letter-spacing="1" fill="#8a8478">5 · MOBILE — bio stacks full-width below the name, every screen size (accepted height growth)</text>
+<rect x="24" y="1106" width="270" height="104" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="40" y="1122" width="56" height="56" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="104" y="1148" font-size="15" font-weight="600" fill="#f3ece1">Naomi Sato</text>
+<text x="104" y="1163" font-size="9" fill="#9b9082">42 videos</text>
+<text x="40" y="1194" font-size="9" letter-spacing="1" fill="#9b9082">BIO</text>
+<text x="40" y="1206" font-size="9.5" fill="#f3ece1">Naomi Sato began her career on stage&#8230;</text>
+
+<text x="324" y="1130" font-size="10" letter-spacing="1" fill="#8a8478">CINÉMATHÈQUE</text>
+<text x="324" y="1146" font-size="9" fill="#8a8478">warm/#0c0a09, Fraunces title</text>
+<text x="580" y="1130" font-size="10" letter-spacing="1" fill="#8a8478">BROADCAST</text>
+<text x="580" y="1146" font-size="9" fill="#8a8478">cyan/#060814, VT323 title</text>
+<text x="324" y="1170" font-size="10" letter-spacing="1" fill="#8a8478">BRUTALIST</text>
+<text x="324" y="1186" font-size="9" fill="#8a8478">lime/#0a0a0a, Spline Mono title</text>
+<text x="324" y="1206" font-size="9" fill="#8a8478">— all three: BIO label same size as DETAILS label; verify line-clamp + pencil hit target in each skin.</text>
+</svg>
