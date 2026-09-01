@@ -146,22 +146,26 @@
 	// instead (HOLODEX-303) — never in both places.
 	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
-	// The header's long-text field (HOLODEX-303) — today the only `long_text` field on a
-	// person is bio, so this is generic over "whichever long_text field exists" rather than
-	// hardcoding the canonical name, matching how compactFields/longFields already partition
-	// by `display` instead of by field name.
+	// The header's long-text field is always bio specifically (HOLODEX-303), never
+	// "whichever long_text field is first" — an owner-promoted long_text field (see
+	// PromoteFieldEditor's "Long text" render option) must not be able to displace bio
+	// from the header just because it happened to resolve first. Any long_text field
+	// OTHER than bio still needs a home; see extraLongFields below.
 	//
 	// The resolver omits a replace field entirely once it has zero candidates and no standing
 	// decision (internal/resolver/resolver.go) — so a person with no bio anywhere (no record
 	// value, no provider match) never gets a `bio` entry in `resolved` at all. Falling through
 	// to `undefined` there would silently drop the "Bio" label + pencil for the owner (the
 	// handoff's edge case: "owner still gets the pencil, to set one"), so synthesize a minimal
-	// placeholder — 'bio' specifically, since it's the only long_text canonical a person has
-	// today — when nothing resolved and there's an owner around to use the pencil.
+	// placeholder when nothing resolved and there's an owner around to use the pencil.
 	const bioField = $derived(
-		longFields[0] ??
-			(isOwner ? { canonical: 'bio', label: 'Bio', display: 'long_text', values: [] } : undefined)
+		longFields.find((f) => f.canonical === 'bio') ??
+			(isOwner ? { canonical: 'bio', label: 'Bio', display: 'long_text' as const, values: [] } : undefined)
 	);
+	// A long_text field other than bio (e.g. an owner-promoted field) doesn't move to the
+	// header — only bio does — but still needs to render somewhere, or it silently
+	// disappears from the page (value, provenance, AND the promotion edit/demote control).
+	const extraLongFields = $derived(longFields.filter((f) => f.canonical !== 'bio'));
 	const mergeFields = $derived(
 		resolved.filter((f) => !!f.multi && !f.auto_registered && (isOwner || f.values.length > 0))
 	);
@@ -526,16 +530,19 @@
 					{#if bioField}
 						<div class="hidden w-px shrink-0 bg-rule sm:block" aria-hidden="true"></div>
 						<div class="flex min-w-0 flex-1 flex-col overflow-hidden" id={`field-${bioField.canonical}`}>
-							<h3 class="text-xs uppercase tracking-wide text-muted">{bioField.label}</h3>
-							<div class="mt-1 flex-1 overflow-hidden text-sm leading-relaxed sm:line-clamp-4">
-								{#if bioField.values[0]?.trim()}
-									<span class="text-ink">{bioField.values[0]}</span>
-									{#if !isOwner && winnerProvider(bioField)}
-										<ProvenanceBadge provider={winnerProvider(bioField)} label={winnerProvider(bioField)} />
-									{/if}
-								{/if}
+							<h3 class="flex items-center gap-1 text-xs uppercase tracking-wide text-muted">
+								{bioField.label}
 								{#if isOwner}
 									{@render bioEditBtn()}
+								{/if}
+							</h3>
+							<div class="mt-1 flex-1 overflow-hidden text-sm leading-relaxed sm:line-clamp-4">
+								{#if bioField.values[0]?.trim()}
+									{@const provider = !isOwner ? winnerProvider(bioField) : ''}
+									<span class="text-ink">{bioField.values[0]}</span>
+									{#if provider}
+										<ProvenanceBadge {provider} label={provider} />
+									{/if}
 								{/if}
 							</div>
 						</div>
@@ -664,8 +671,31 @@
 								{@render promotedEdit(f)}
 							{/each}
 
-							<!-- Long-text fields (bio) render in the hero header instead, never here
-							     (HOLODEX-303) — see bioField/hero() above. -->
+							{#each extraLongFields as f (f.canonical)}
+								<!-- A long_text field other than bio (e.g. an owner-promoted field) —
+								     bio itself renders in the hero header instead (HOLODEX-303), but any
+								     other long_text field still needs a row here or it vanishes from
+								     the page entirely. -->
+								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
+									{#if isOwner}
+										<dt class="mb-1 text-muted">{f.label}:</dt>
+										<dd>
+											<SourceBadge
+												field={f}
+												baselineKey="record"
+												decide={(s, mv) => decideField(f.canonical, s, mv)}
+											/>
+										</dd>
+									{:else}
+										<dt class="inline text-muted">{f.label}:</dt>
+										<dd class="inline text-ink">{f.values.join(', ')}</dd>
+										{#if winnerProvider(f)}
+											<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+										{/if}
+									{/if}
+								</div>
+								{@render promotedEdit(f)}
+							{/each}
 
 							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields —
 							     read-only rows under an "Additional details" divider (shared component). -->

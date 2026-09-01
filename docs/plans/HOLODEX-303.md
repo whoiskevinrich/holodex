@@ -41,6 +41,36 @@ documented as the standard for `long_text` tier-2 fields going forward.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-01 · code-review high --fix
+- skills: code-review
+- 8-angle review (5 agents) + 1-vote verification found 3 confirmed correctness bugs the
+  implementation session missed, all fixed:
+  - `bioField` picked `longFields[0]` unconditionally — an owner-promoted second `long_text`
+    field vanished from the whole page (value, provenance, promotion edit/demote control all
+    gone), and could even displace `bio` itself under the "Bio" label if `bio` had no
+    resolvable value. Fixed: `bioField` now matches `canonical === 'bio'` specifically; a new
+    `extraLongFields` derivation restores Details-section rendering (SourceBadge/visitor row +
+    `promotedEdit`) for any other `long_text` field — `web/src/routes/people/[id]/+page.svelte`.
+  - The owner's edit pencil was a trailing inline child of the `sm:line-clamp-4` div, so
+    WebKit/Chromium clipped it off-screen for any bio whose text alone filled all 4 lines —
+    removing the only entry point to `SourceEditModal` for exactly the long bios it exists to
+    handle. Fixed: pencil moved next to the "BIO" eyebrow label (matching the approved mockup's
+    layout), outside the clamped container entirely.
+  - `SourceEditModal`'s `stagedKey` is seeded once at mount, but the modal doesn't remount when
+    `bioField` changes reference underneath it (only `bioEditOpen` toggling mounts/unmounts) —
+    an unrelated `reloadDetail()` elsewhere on the page while the modal stays open could leave
+    `stagedKey` pointing at a chip no longer in `chips`, and `save()` silently no-op'd. Fixed:
+    `save()` now surfaces a visible error instead of returning silently; comment corrected (the
+    "mounted fresh" assumption was wrong).
+  - Also fixed: redundant triple `winnerProvider(bioField)` call collapsed to one `{@const}`.
+  - Skipped (documented, not blocking): hardcoded `'bio'`/`'Bio'` placeholder literal (real fix
+    is the resolver-level change tracked as HOLODEX-304); `SourceEditModal`'s hand-rolled radio
+    row vs. `CurationChip` (verified structurally unfit — `CurationChip`'s radio mode truncates,
+    doesn't support full-width paragraph rows; matches `MergeCanonicalDialog`'s own precedent).
+- verified: `npm run check` clean (0 errors) after fixes (one new type error surfaced by the
+  `bioField` fix — placeholder's `display` field needed `as const` — caught and fixed same pass).
+- next: push, update PR #284 with the fix commit.
+
 ### 2026-08-31 · session
 - skills: testing-strategy
 

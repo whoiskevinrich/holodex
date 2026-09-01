@@ -28,9 +28,13 @@
 
 	const chips = $derived(sourceChips(field, baselineKey));
 
-	// Seeded once from the field's current decision — this component is mounted fresh each
-	// time the modal opens (the caller gates it with an {#if}), so a plain initializer is
-	// enough; no reactive re-seeding, which would otherwise clobber an in-progress edit.
+	// Seeded once from the field's current decision — reactive re-seeding would clobber an
+	// in-progress edit (same reasoning as SourceBadge's own staged state). This does NOT
+	// guarantee `stagedKey` always matches a live entry in `chips`: the caller gates mount
+	// with `{#if bioEditOpen && field}`, which does not remount on a `field` reference change
+	// alone, so an unrelated reloadDetail() elsewhere on the page (e.g. another field's own
+	// decide, or a promotion edit) can recompute `chips` while this modal stays open. `save()`
+	// below treats a stagedKey that's fallen out of `chips` as an error, not a silent no-op.
 	let stagedKey = $state<string | null>(resolveSelection(field, chips, baselineKey).key);
 	let stagedCustomValue = $state(
 		field.decision?.source === 'manual' ? (field.decision.manual_value ?? '') : ''
@@ -39,8 +43,12 @@
 	let error = $state('');
 
 	async function save() {
+		if (busy) return;
 		const chip = chips.find((c) => c.key === stagedKey);
-		if (!chip || busy) return;
+		if (!chip) {
+			error = 'This field changed while the dialog was open — close it and try again.';
+			return;
+		}
 		if (chip.key === 'custom' && !stagedCustomValue.trim()) {
 			error = 'Enter a custom value, or choose another source.';
 			return;
