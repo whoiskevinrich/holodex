@@ -34,8 +34,8 @@
 		detail,
 		footer
 	}: {
-		backHref: string;
-		backLabel: string;
+		backHref?: string;
+		backLabel?: string;
 		videos: Video[];
 		empty: string;
 		scrollKey: string;
@@ -75,7 +75,9 @@
 </script>
 
 <section class="space-y-4">
-	<a href={backHref} class="text-sm text-muted hover:text-ink">← {backLabel}</a>
+	{#if backHref && backLabel}
+		<a href={backHref} class="text-sm text-muted hover:text-ink">← {backLabel}</a>
+	{/if}
 	{@render hero()}
 	{#if detail}{@render detail()}{/if}
 	<VideoGrid videos={displayedVideos} empty={emptyMessage} />
