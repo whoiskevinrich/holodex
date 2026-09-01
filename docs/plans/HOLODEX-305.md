@@ -63,6 +63,30 @@ with a banner set.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-01 · session (code-review)
+- skills: code-review (high, --fix)
+- handoff: `/code-review high --fix` against the full PR #285 diff (8 finder angles, verified
+  against source directly). Caught a real bug in the legibility fade shipped this session: the
+  gradient was fully opaque only at the banner's bottom edge and tapered to transparent going up,
+  but the bio column top-aligns at the row's *top* edge — the deepest overhung point and the
+  weakest point of the fade — so its label/first line could render as low as ~12% opaque against
+  a light banner photo, undermining the exact bug this PR exists to fix. Replaced the single-stop
+  `linear-gradient(to top, var(--bg) 0%, transparent 100%)` / `max(64px, 32%)` height with a
+  two-stop gradient solid through 64px (a safety margin over `heroMarginClass`'s largest overhang,
+  56px) then tapering over the next 64px, and dropped the `%`-scaling (the overhang it protects is
+  a fixed px value, not viewport-proportional). Also compounded the `--static` hover-opt-out
+  selector (`.person-hero-media.person-hero-media--static:hover`) so it wins on specificity
+  instead of depending on staying textually after the base rule. Verified with a live-DOM
+  gradient-math sample (canvas-replicated CSS gradient, sampled at 40/48/56px — all 100% opaque
+  post-fix, vs. as low as 12% before) and a three-skin `--bg` resolution check via
+  `getComputedStyle`; `npm run check` clean (0 errors). Two findings left as documented judgment
+  calls, not code changes: the fade-height/overhang coupling is still two literals in two files
+  (now with an explicit safety margin + comment, but no shared source of truth — a fuller fix
+  would mean threading a CSS custom property through `heroMarginClass`, out of scope for a
+  regression fix); and whether the three mocked treatments should have triggered a committed
+  `/design-handoff` doc rather than an inline `/design-critique` pass (defensible either way, no
+  hard CLAUDE.md rule broken).
+
 ### 2026-09-01 · session
 - skills: simplify, design-critique
 - handoff: HOLODEX-305 implemented and verified (row-level `position:relative` for the bio
