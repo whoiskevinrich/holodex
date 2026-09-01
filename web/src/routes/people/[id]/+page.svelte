@@ -35,6 +35,7 @@
 	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
 	import PersonGallery from '$lib/components/person/PersonGallery.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
@@ -87,6 +88,10 @@
 	let renameMergeBusy = $state(false);
 	let renameMergeError = $state('');
 
+	// Bio edit modal (HOLODEX-303) — owner-only pencil next to the header bio opens this;
+	// SourceEditModal owns its own staged-selection/Confirm state, this just tracks open/closed.
+	let bioEditOpen = $state(false);
+
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Banner renders only when a real one is set — for everyone, including the owner
@@ -137,10 +142,26 @@
 		)
 	);
 	// Split the compact single-line vitals from the long-text prose (bio): the vitals
-	// tile the two-column grid up top, and the full-width prose reads last, so a long
-	// bio no longer buries the scannable facts (design-critique 2026-07-01).
+	// tile the two-column grid, and the long-text field renders in the hero header
+	// instead (HOLODEX-303) — never in both places.
 	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
 	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
+	// The header's long-text field (HOLODEX-303) — today the only `long_text` field on a
+	// person is bio, so this is generic over "whichever long_text field exists" rather than
+	// hardcoding the canonical name, matching how compactFields/longFields already partition
+	// by `display` instead of by field name.
+	//
+	// The resolver omits a replace field entirely once it has zero candidates and no standing
+	// decision (internal/resolver/resolver.go) — so a person with no bio anywhere (no record
+	// value, no provider match) never gets a `bio` entry in `resolved` at all. Falling through
+	// to `undefined` there would silently drop the "Bio" label + pencil for the owner (the
+	// handoff's edge case: "owner still gets the pencil, to set one"), so synthesize a minimal
+	// placeholder — 'bio' specifically, since it's the only long_text canonical a person has
+	// today — when nothing resolved and there's an owner around to use the pencil.
+	const bioField = $derived(
+		longFields[0] ??
+			(isOwner ? { canonical: 'bio', label: 'Bio', display: 'long_text', values: [] } : undefined)
+	);
 	const mergeFields = $derived(
 		resolved.filter((f) => !!f.multi && !f.auto_registered && (isOwner || f.values.length > 0))
 	);
@@ -336,6 +357,16 @@
      swaps the text pill for an icon-only square — the headshot identity badge (64-80px)
      is too small for the full "Edit" pill without the button covering a big chunk of the
      image itself. -->
+{#snippet pencilIcon(sizeClass = 'h-3 w-3')}
+	<svg class={sizeClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+		<path
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+		/>
+	</svg>
+{/snippet}
+
 {#snippet editBtn(role: PersonImageRole, position: string, compact = false)}
 	{#if isOwner}
 		<button
@@ -348,18 +379,26 @@
 				: 'px-2.5 py-1.5 text-xs font-semibold'}"
 		>
 			{#if compact}
-				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-					/>
-				</svg>
+				{@render pencilIcon()}
 			{:else}
 				{uploadBusy === role ? '…' : 'Edit'}
 			{/if}
 		</button>
 	{/if}
+{/snippet}
+
+<!-- Owner-only pencil after the header bio text (HOLODEX-303) — opens SourceEditModal, the
+     modal variant of the tier-2 source control (replaces SourceBadge's inline chip row for
+     this long_text field; see the design handoff for why). -->
+{#snippet bioEditBtn()}
+	<button
+		type="button"
+		onclick={() => (bioEditOpen = true)}
+		aria-label={`Edit ${bioField?.label}`}
+		class="ml-1 inline-flex rounded-theme align-middle text-muted hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+	>
+		{@render pencilIcon()}
+	</button>
 {/snippet}
 
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
@@ -401,8 +440,13 @@
 					</button>
 				{/if}
 				<!-- The headshot+name row overhangs the banner only when there is one; with no band it
-				     sits flush (a small gap below the owner's add-banner control). (F25.30) -->
-				<div class="flex items-end gap-4 pl-3 {heroMarginClass}">
+				     sits flush (a small gap below the owner's add-banner control). (F25.30)
+				     HOLODEX-303: bio joins this row as a third column on sm+ (divider, clamped to
+				     the row's height so a long bio never grows it); below sm it drops out and stacks
+				     full-width beneath the name/meta block instead (unclamped — allowed to grow the
+				     header there, a deliberate mobile tradeoff). -->
+				<div class="flex flex-col gap-4 pl-3 sm:flex-row sm:items-stretch {heroMarginClass}">
+					<div class="flex items-end gap-4">
 					{#if posterLed}
 						<!-- Poster-led: the poster is the primary avatar; the headshot rides as a small
 						     identity badge on its lower-left corner (the bg-bg padding stands in for a
@@ -478,6 +522,24 @@
 							entityName={person?.name ?? ''}
 						/>
 					</div>
+					</div>
+					{#if bioField}
+						<div class="hidden w-px shrink-0 bg-rule sm:block" aria-hidden="true"></div>
+						<div class="flex min-w-0 flex-1 flex-col overflow-hidden" id={`field-${bioField.canonical}`}>
+							<h3 class="text-xs uppercase tracking-wide text-muted">{bioField.label}</h3>
+							<div class="mt-1 flex-1 overflow-hidden text-sm leading-relaxed sm:line-clamp-4">
+								{#if bioField.values[0]?.trim()}
+									<span class="text-ink">{bioField.values[0]}</span>
+									{#if !isOwner && winnerProvider(bioField)}
+										<ProvenanceBadge provider={winnerProvider(bioField)} label={winnerProvider(bioField)} />
+									{/if}
+								{/if}
+								{#if isOwner}
+									{@render bioEditBtn()}
+								{/if}
+							</div>
+						</div>
+					{/if}
 				</div>
 				{#if isOwner}
 					<input
@@ -602,39 +664,8 @@
 								{@render promotedEdit(f)}
 							{/each}
 
-							{#each longFields as f (f.canonical)}
-								<!-- Long-text (bio) reads last as a full-width prose block, so it
-								     doesn't bury the compact vitals above (design-critique 2026-07-01).
-								     Long-text fit (P1-1): the resolved value is the reading surface;
-								     the chip row beneath is the source selector (chips stay clamped). -->
-								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-									<dt class="inline text-muted">{f.label}:</dt>
-									{#if isOwner}
-										<!-- Tier-2 long-text field, owner (F56): SourceBadge owns both the
-										     resolved value and the source control — no separate value dd, so
-										     nothing renders twice. -->
-										<dd class="mt-1 block leading-relaxed">
-											<SourceBadge
-												field={f}
-												baselineKey="record"
-												decide={(s, mv) => decideField(f.canonical, s, mv)}
-											/>
-										</dd>
-									{:else if f.values[0]?.trim()}
-										<!-- ProvenanceBadge sits inside the same block dd as the text — this dd
-										     is `block` (full-width prose), unlike the `inline` dd used elsewhere,
-										     so a sibling badge outside it would drop to its own line instead of
-										     reading next to the value. -->
-										<dd class="mt-1 block leading-relaxed text-ink">
-											{f.values[0]}
-											{#if winnerProvider(f)}
-												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
-											{/if}
-										</dd>
-									{/if}
-								</div>
-								{@render promotedEdit(f)}
-							{/each}
+							<!-- Long-text fields (bio) render in the hero header instead, never here
+							     (HOLODEX-303) — see bioField/hero() above. -->
 
 							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields —
 							     read-only rows under an "Additional details" divider (shared component). -->
@@ -694,6 +725,15 @@
 		{/snippet}
 	</EntityVideos>
 </AsyncState>
+
+{#if bioEditOpen && bioField}
+	<SourceEditModal
+		field={bioField}
+		baselineKey="record"
+		decide={(s, mv) => decideField(bioField.canonical, s, mv)}
+		onclose={() => (bioEditOpen = false)}
+	/>
+{/if}
 
 {#if pickerProvider}
 	<EnrichPicker
