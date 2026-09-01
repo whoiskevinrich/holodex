@@ -448,8 +448,13 @@
 				     HOLODEX-303: bio joins this row as a third column on sm+ (divider, clamped to
 				     the row's height so a long bio never grows it); below sm it drops out and stacks
 				     full-width beneath the name/meta block instead (unclamped — allowed to grow the
-				     header there, a deliberate mobile tradeoff). -->
-				<div class="flex flex-col gap-4 pl-3 sm:flex-row sm:items-stretch {heroMarginClass}">
+				     header there, a deliberate mobile tradeoff). The row itself carries `relative`
+				     so it (and every child, including the bio column) paints above the banner
+				     (a positioned z-index:0 element) in the overhang band — the same stacking trick
+				     `.person-hero-media` already gives the avatar. Without it, the bio's top lines
+				     were unreadable: an unpositioned element paints under a positioned z-index:0
+				     sibling regardless of DOM order. -->
+				<div class="relative flex flex-col gap-4 pl-3 sm:flex-row sm:items-stretch {heroMarginClass}">
 					<div class="flex items-end gap-4">
 					{#if posterLed}
 						<!-- Poster-led: the poster is the primary avatar; the headshot rides as a small

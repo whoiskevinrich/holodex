@@ -416,9 +416,9 @@
 	/* ---- Person hero image bring-to-front on hover (F25 hero) ----
 	   The banner, poster, and headshot overlap by design (the headshot badge sits on the
 	   poster's corner; the row overlaps the banner above it), which can hide part of
-	   whichever image is underneath. Hovering (or focusing an Edit button inside) any one
-	   raises it above its overlapping neighbors and nudges it slightly larger, without
-	   disturbing layout (transform doesn't affect flow). */
+	   whichever image is underneath. Hovering (or focusing an Edit button inside) the
+	   poster/headshot raises it above its overlapping neighbors and nudges it slightly
+	   larger, without disturbing layout (transform doesn't affect flow). */
 	.person-hero-media {
 		position: relative;
 		z-index: 0;
@@ -435,6 +435,16 @@
 		.person-hero-media:focus-within {
 			transform: scale(1.06);
 		}
+	}
+	/* The banner opts out of the raise (PR #283 raised all three; the full-width banner
+	   scaling up above the name/bio row on hover reads worse than it helps) but keeps the
+	   shared position:relative/z-index:0 base above, which is what lets the overhanging row
+	   paint above it in the first place. Same specificity as the rules above, so source
+	   order wins. */
+	.person-hero-media--static:hover,
+	.person-hero-media--static:focus-within {
+		z-index: 0;
+		transform: none;
 	}
 
 	/* ---- People poster-grid card hover-lift (F55) ----
