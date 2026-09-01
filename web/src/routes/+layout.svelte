@@ -299,8 +299,7 @@
 		     Active (on an /owner route) = text-accent + aria-current; never a fill, so
 		     the one solid accent stays the Owner-view ON state / a page's primary action.
 		     Label hides below `sm`, like the toggle and skin picker. Placed before the
-		     Owner-view toggle so the frequent on/off switch isn't adjacent to a
-		     navigating link (avoids mis-clicking into /owner while toggling). -->
+		     toggle to avoid mis-clicks between the two. -->
 		{#if activity.effectiveOwner || activity.needToken}
 			{@const ownerActive = page.url.pathname.startsWith('/owner')}
 			<a
