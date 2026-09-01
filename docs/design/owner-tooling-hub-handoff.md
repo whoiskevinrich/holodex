@@ -56,7 +56,7 @@ Current bar (owner): `Holodex · search · [Media People Tags | Keys Status Tras
 Target bar (owner): the **Keys/Status/Trash group is removed**; a **gear** joins the chrome cluster.
 
 ```
-Holodex   [ search…………… ]   Media  People  Tags  | (Activity)  [👁 Owner view]  [⚙ Owner]  [ ◐ skins ]
+Holodex   [ search…………… ]   Media  People  Tags  | (Activity)  [⚙ Owner]  [👁 Owner view]  [ ◐ skins ]
                                 └─ content nav ─┘  └──────────────── owner chrome ────────────────┘
                                                      ↑ all gated on effectiveOwner
 ```
@@ -65,9 +65,10 @@ Holodex   [ search…………… ]   Media  People  Tags  | (Activity)  [👁 O
 - The owner-chrome cluster keeps the existing `border-l border-rule pl-3` separator that today wraps the
   "library tools" span — **reuse that separator** to divide content nav from chrome (it no longer wraps
   Keys/Status/Trash; it now opens the Activity/Preview/Owner/skins group).
-- Order within chrome: `ActivityIndicator` → **Preview/Owner-view toggle** → **Owner gear** → skin picker.
-  Rationale: the two *view-state* controls (Preview, then the owner-tools gear) sit together, with the skin
-  picker (the other "view" control) at the far right as today.
+- Order within chrome: `ActivityIndicator` → **Owner gear** → **Preview/Owner-view toggle** → skin picker.
+  Rationale: the gear (a navigating link) sits away from the toggle (a frequent on/off switch) so flipping
+  Owner view isn't adjacent to a click that leaves the page — the toggle sits next to the skin picker
+  instead, both "view" controls at the far right.
 
 ### The gear entry — anatomy & states
 
@@ -243,7 +244,7 @@ Honor `prefers-reduced-motion` for any optional fade.
 ## Accessibility
 
 - **Gear**: an `<a>` with `aria-label="Owner tools"`, `aria-current="page"` when on an `/owner` route.
-  Keyboard-reachable in the nav focus order: `ActivityIndicator` → Preview toggle → **Owner gear** →
+  Keyboard-reachable in the nav focus order: `ActivityIndicator` → **Owner gear** → Preview toggle →
   skin-picker buttons.
 - **Tabs**: links with `aria-current="page"` on the active tab. If implemented as an ARIA tablist, use
   `role="tablist"`/`role="tab"`/`aria-selected` + **roving tabindex** (arrow-key nav, single tab-stop) per
