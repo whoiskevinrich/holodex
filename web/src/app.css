@@ -371,6 +371,29 @@
 		aspect-ratio: 8 / 3;
 		max-height: 540px;
 	}
+	/* Legibility fade (HOLODEX-305): the hero row overhangs the banner and paints above it
+	   (see `.person-hero-media` below + the row's own `relative` in +page.svelte), but the
+	   photo underneath is arbitrary, owner-uploaded content — nothing guarantees the name/bio
+	   text has contrast against it. A `--bg`-to-transparent fade anchored to the bottom edge
+	   gives every overlapping row child a dark pad regardless of the photo's brightness or how
+	   many lines the bio clamps to. (Named "fade", not "scrim" — that word is already taken by
+	   the unrelated edit-button backdrop treatment in +page.svelte.) Sized as a fraction of the
+	   rendered height (not the row's fixed overhang margin, which only exists in +page.svelte)
+	   so it scales with viewport width; the 64px floor covers the largest current overhang
+	   (`-mt-14`, 56px) with margin — re-check it if `heroMarginClass` in +page.svelte ever grows
+	   past that. No upper bound needed: `.portrait-frame--banner`'s own `max-height: 540px`
+	   above already caps how tall 32% can get. `::before` so it doesn't collide with the
+	   broadcast scanline `::after` below — painting order still puts it above the `<img>`
+	   (a positioned pseudo-element always paints after a non-positioned in-flow one) and below
+	   that scanline wash. */
+	.portrait-frame--banner::before {
+		content: '';
+		position: absolute;
+		inset: auto 0 0 0;
+		height: max(64px, 32%);
+		background: linear-gradient(to top, var(--bg) 0%, transparent 100%);
+		pointer-events: none;
+	}
 	/* Cross-fade the real image in once it decodes (placeholder shows first). */
 	@media (prefers-reduced-motion: no-preference) {
 		.portrait-frame > img.is-loaded {
