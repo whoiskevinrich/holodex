@@ -407,8 +407,6 @@
 
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
 	<EntityVideos
-		backHref="/people"
-		backLabel="All people"
 		{videos}
 		empty="No videos for this person."
 		scrollKey={`person:${id}`}
