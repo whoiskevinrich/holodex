@@ -371,6 +371,31 @@
 		aspect-ratio: 8 / 3;
 		max-height: 540px;
 	}
+	/* Legibility fade (HOLODEX-305): the hero row overhangs the banner and paints above it
+	   (see `.person-hero-media` below + the row's own `relative` in +page.svelte), but the
+	   photo underneath is arbitrary, owner-uploaded content — nothing guarantees the name/bio
+	   text has contrast against it. A pure top-to-bottom fade is weakest exactly where the bio
+	   column's label/first line land: that column top-aligns within the row (unlike the
+	   avatar/name column, which bottom-aligns via `items-end`), so it sits at the row's top
+	   edge — the deepest, most-overhung point, and the shallowest point of a plain linear
+	   fade. Solid for the first 64px (a safety margin over `heroMarginClass`'s largest overhang
+	   in +page.svelte, `-mt-14` = 56px — re-check this if that value ever grows) so every row
+	   child gets full contrast through the entire overhung band, then tapers over the next 64px
+	   for a soft edge into the rest of the photo. Flat, not `%`-scaled: the overhang it protects
+	   is a fixed px value regardless of viewport width, so nothing here needs to grow with the
+	   frame. (Named "fade", not "scrim" — that word is already taken by the unrelated
+	   edit-button backdrop treatment in +page.svelte.) `::before` so it doesn't collide with the
+	   broadcast scanline `::after` below — painting order still puts it above the `<img>`
+	   (a positioned pseudo-element always paints after a non-positioned in-flow one) and below
+	   that scanline wash. */
+	.portrait-frame--banner::before {
+		content: '';
+		position: absolute;
+		inset: auto 0 0 0;
+		height: 128px;
+		background: linear-gradient(to top, var(--bg) 0%, var(--bg) 64px, transparent 100%);
+		pointer-events: none;
+	}
 	/* Cross-fade the real image in once it decodes (placeholder shows first). */
 	@media (prefers-reduced-motion: no-preference) {
 		.portrait-frame > img.is-loaded {
@@ -416,9 +441,9 @@
 	/* ---- Person hero image bring-to-front on hover (F25 hero) ----
 	   The banner, poster, and headshot overlap by design (the headshot badge sits on the
 	   poster's corner; the row overlaps the banner above it), which can hide part of
-	   whichever image is underneath. Hovering (or focusing an Edit button inside) any one
-	   raises it above its overlapping neighbors and nudges it slightly larger, without
-	   disturbing layout (transform doesn't affect flow). */
+	   whichever image is underneath. Hovering (or focusing an Edit button inside) the
+	   poster/headshot raises it above its overlapping neighbors and nudges it slightly
+	   larger, without disturbing layout (transform doesn't affect flow). */
 	.person-hero-media {
 		position: relative;
 		z-index: 0;
@@ -435,6 +460,16 @@
 		.person-hero-media:focus-within {
 			transform: scale(1.06);
 		}
+	}
+	/* The banner opts out of the raise (PR #283 raised all three; the full-width banner
+	   scaling up above the name/bio row on hover reads worse than it helps) but keeps the
+	   shared position:relative/z-index:0 base above, which is what lets the overhanging row
+	   paint above it in the first place. Compounded with the base class so this wins on
+	   specificity, not source order — safe against the base rule being reordered later. */
+	.person-hero-media.person-hero-media--static:hover,
+	.person-hero-media.person-hero-media--static:focus-within {
+		z-index: 0;
+		transform: none;
 	}
 
 	/* ---- People poster-grid card hover-lift (F55) ----
