@@ -59,17 +59,17 @@
   <text x="62" y="323" fill="#f3ece1" font-size="12.5">Miyazaki-san</text>
   <text x="152" y="324" fill="#9b9082" font-size="13">×</text>
 
-  <rect x="178" y="306" width="136" height="26" rx="13" fill="#181310"/>
+  <rect x="178" y="306" width="150" height="26" rx="13" fill="#181310"/>
   <text x="190" y="323" fill="#f3ece1" font-size="12.5">宮崎駿</text>
-  <rect x="234" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
-  <text x="240" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
-  <text x="295" y="324" fill="#9b9082" font-size="13">×</text>
+  <rect x="240" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="246" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
+  <text x="309" y="324" fill="#9b9082" font-size="13">×</text>
 
-  <rect x="322" y="306" width="184" height="26" rx="13" fill="#181310"/>
-  <text x="334" y="323" fill="#f3ece1" font-size="12.5">Miyazaki Hayao</text>
-  <rect x="426" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
-  <text x="432" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
-  <text x="487" y="324" fill="#9b9082" font-size="13">×</text>
+  <rect x="336" y="306" width="188" height="26" rx="13" fill="#181310"/>
+  <text x="348" y="323" fill="#f3ece1" font-size="12.5">Miyazaki Hayao</text>
+  <rect x="442" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="448" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
+  <text x="505" y="324" fill="#9b9082" font-size="13">×</text>
 
   <!-- chips row 2 -->
   <rect x="50" y="340" width="162" height="26" rx="13" fill="#181310"/>
@@ -83,7 +83,7 @@
   <rect x="50" y="382" width="3" height="42" fill="#e8a33d"/>
   <text x="66" y="400" fill="#f3ece1" font-size="12.5">1 name from TMDB was skipped — Hayao M. already belongs to</text>
   <text x="66" y="416" fill="#f3ece1" font-size="12.5">another person.</text>
-  <text x="145" y="416" fill="#e8a33d" font-size="12.5">Review</text>
+  <text x="167" y="416" fill="#e8a33d" font-size="12.5">Review</text>
 
   <!-- add form -->
   <rect x="50" y="440" width="386" height="30" rx="6" fill="#15110e" stroke="#2a2622"/>
