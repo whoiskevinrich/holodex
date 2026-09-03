@@ -205,9 +205,26 @@ identical either way. Not tag (Non-Goal 1).
   enrichment completes (RD4). Acceptance: the entity's other enriched fields all land in the same
   run; the alias is absent; no merge occurred. A candidate colliding with the *same* entity's
   existing alias is a plain no-op with no queue row.
-- **P0-6**: The `aliases` `FieldDef` is removed from `internal/registry/registry.go` and its block
-  from `metadata-mappings.yaml.example` (ADR-088 D1). Acceptance: a person's `resolved[]` contains
-  no `aliases` entry.
+- **P0-6**: `aliases` stops being a resolved field anywhere (ADR-088 D1). Acceptance: a person's
+  `resolved[]` contains no `aliases` entry. **Amended during implementation** — the registry was
+  one of four places that had to change, and deleting it alone does not satisfy the acceptance
+  criterion, it only changes how the row arrives:
+  - the `aliases` `FieldDef` leaves `internal/registry/registry.go`;
+  - the hardcoded `personFields` synthesis stops emitting it (it never read the registry, so the
+    field survived the FieldDef's removal — and it was the person's only merge field, see
+    Behavior detail);
+  - the block leaves `metadata-mappings.yaml.example`;
+  - **the enrich path stops storing the key in `entity_enrichment`.** This is the load-bearing
+    one. A stored row does not disappear when its canonical is retired — it is *demoted*, and F39
+    auto-registration then renders the now non-canonical key as a display-only "Aliases" row. The
+    second list would have survived the collapse, arriving through a different door.
+- **P0-6b**: A one-time backfill promotes alternate names already sitting in `entity_enrichment`
+  into the spine and deletes those rows, so the acceptance criterion holds for an existing library
+  and not only a fresh one. Runs at boot beside the other one-time backfills, gated on a job-run
+  marker, and promotes through the same guards as P0-2 (RD6, suppressions, collisions) so old data
+  is treated exactly like new. Acceptance: after upgrading a library whose people carry stored
+  provider aliases, those names are in `entity_aliases`, the shadow rows are gone, and no
+  `aliases` row renders.
 - **P0-7**: Completeness gains a synthetic alias facet resolved by querying `entity_aliases`
   directly, replacing the scored facet P0-6 removes (ADR-088 D7, mirroring the studio
   `branding_image` injection). Acceptance: an entity with ≥1 alias of any source scores the facet
@@ -250,9 +267,22 @@ identical either way. Not tag (Non-Goal 1).
   `decisions.go`). Its curation lived in `metadata_curation`, which is why RD7 is a
   `metadata_curation` migration and not a `field_source_decisions` one.
 - **The `mergeFields` loop stays but goes dead in the default configuration.** `aliases` was the
-  person entity's only mapped merge field. Removing it leaves the loop rendering nothing unless an
-  operator maps another one, which they can. Deleting the loop would be a wider change than this
-  spec needs and would have to be undone the moment someone does.
+  person entity's only merge field. Removing it leaves the loop rendering nothing unless an
+  operator creates one, which they can: promoting a provider key with the `chips` renderer makes a
+  merge field (`field_promotions.go`, "chips ⇒ merge field"). Deleting the loop would be a wider
+  change than this spec needs and would have to be undone the moment someone does.
+- **Two person-side guards become unreachable in the default configuration, and both stay.**
+  `personReplaceField`'s "source decisions apply to replace fields only" branch can no longer fire
+  for a person, because `personFields` now yields no `Multi` entry and a promoted field is rejected
+  as out-of-schema before that check. The identical branch on the video and studio handlers is
+  unaffected and still covered. The guards are structural — the field set could gain a merge entry
+  again — so they are kept and the person-side test asserts the reachable behaviour (the 404)
+  instead of faking a merge field to reach a branch no request can.
+- **Upgrade note for operators.** A live `metadata-mappings.yaml` is gitignored and untouched by
+  this change. An operator whose file still carries the `aliases` block will keep seeing a
+  display-only "Aliases" row, now non-canonical and unscored, until they delete it. The committed
+  `.example` carries this warning in place of the block. The one place we *can* clean up
+  automatically — stored shadow rows — is handled by P0-6b.
 - **A merge still wins over everything here.** Merging B into A registers B's name as an alias on A
   (F43 RD6). Nothing in this spec changes that, and a provider alias is subject to it like any
   other row — the merge path is not made source-aware.

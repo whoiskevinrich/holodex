@@ -45,10 +45,13 @@ type StudioCompleteness struct {
 	Completeness resolver.Completeness `json:"completeness"`
 }
 
-// injectAssetFacet appends a synthetic field/resolved-row pair for a scored facet
-// that is delivered as an image asset rather than a field value (person `photo`,
-// studio `branding_image` — both registry.go doc comments say so explicitly) and
-// therefore has no row from the normal resolve pipeline by construction. Mirrors
+// injectSyntheticFacet appends a synthetic field/resolved-row pair for a scored facet
+// that has no row from the normal resolve pipeline by construction — either because it
+// is delivered as an image asset rather than a field value (person `photo`, studio
+// `branding_image`) or because it lives in the identity spine rather than in the field
+// model at all (`alternate_names`, F58/ADR-088 D7). Every registry.go doc comment for
+// these says so explicitly. Named for the shape rather than for assets, since the
+// asset-ness was always incidental to what this does. Mirrors
 // Derive's computed-row shape (the pattern the D3 flightplan entry calls for
 // branding_image specifically). present is stamped as a "manual:" winning source
 // so classifyTier scores it at the curated tier: an asset is a binary present/
@@ -56,7 +59,7 @@ type StudioCompleteness struct {
 // to target, unlike a text field's provider/curated split — curated is the only
 // tier that makes sense once the asset exists. Absent stays unrepresented in
 // resolved (Complete's own missing-row convention), not a placeholder row.
-func injectAssetFacet(fields []mapping.Field, resolved []resolver.ResolvedField, canonical, label string, present bool) ([]mapping.Field, []resolver.ResolvedField) {
+func injectSyntheticFacet(fields []mapping.Field, resolved []resolver.ResolvedField, canonical, label string, present bool) ([]mapping.Field, []resolver.ResolvedField) {
 	fields = append(fields, mapping.Field{Canonical: canonical, Label: label})
 	if present {
 		resolved = append(resolved, resolver.ResolvedField{
@@ -151,14 +154,15 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 	return out, nil
 }
 
-// entityCompletenessBatch bundles the four per-entity-type batch loads
+// entityCompletenessBatch bundles the per-entity-type batch loads
 // completenessForPeople and completenessForStudios both need (D4) — factored
-// out so the two functions don't repeat the same four-call fetch prologue.
+// out so the two functions do not repeat the same fetch prologue.
 type entityCompletenessBatch struct {
 	enrichment    map[int64][]repo.EnrichmentRow
 	curation      map[int64][]repo.CurationRow
 	decisions     map[int64][]repo.DecisionRow
 	notApplicable map[int64]map[string]bool
+	aliases       map[int64][]model.EntityAlias
 }
 
 func (h *Handlers) loadEntityCompletenessBatch(ctx context.Context, entityType string, ids []int64) (entityCompletenessBatch, error) {
@@ -175,6 +179,12 @@ func (h *Handlers) loadEntityCompletenessBatch(ctx context.Context, entityType s
 	}
 	if b.notApplicable, err = h.repo.FacetsNotApplicableForEntities(ctx, entityType, ids); err != nil {
 		return b, fmt.Errorf("facets not applicable for %s: %w", entityType, err)
+	}
+	// alternate_names scores off the identity spine, which no resolve pass reads
+	// (F58/ADR-088 D7). AliasesForEntities is the existing batch read, so this stays
+	// one query for the whole page rather than a per-entity N+1.
+	if b.aliases, err = h.repo.AliasesForEntities(ctx, entityType, ids); err != nil {
+		return b, fmt.Errorf("aliases for %s: %w", entityType, err)
 	}
 	return b, nil
 }
@@ -201,6 +211,7 @@ func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleten
 	}
 
 	photoLabel := registry.Lookup("photo").Label
+	aliasLabel := registry.Lookup("alternate_names").Label
 	out := make([]PersonCompleteness, len(people))
 	for i, p := range people {
 		rows := batch.enrichment[p.ID]
@@ -217,7 +228,11 @@ func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleten
 		// photo is delivered as an asset (person_images), never a field value
 		// (personFields deliberately excludes it) — score it off HeadshotVersion,
 		// the default-avatar role the singular "Portrait image" facet maps to.
-		fields, resolved = injectAssetFacet(fields, resolved, "photo", photoLabel, p.HeadshotVersion != 0)
+		fields, resolved = injectSyntheticFacet(fields, resolved, "photo", photoLabel, p.HeadshotVersion != 0)
+		// alternate_names replaces the retired `aliases` field facet (F58/ADR-088 D1/D7):
+		// scored off entity_aliases directly, and blind to `source` — a name the owner
+		// typed and one a provider supplied count exactly the same.
+		fields, resolved = injectSyntheticFacet(fields, resolved, "alternate_names", aliasLabel, len(batch.aliases[p.ID]) > 0)
 
 		out[i] = PersonCompleteness{
 			Person:       p,
@@ -249,6 +264,7 @@ func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioComplete
 	}
 
 	brandingLabel := registry.Lookup("branding_image").Label
+	aliasLabel := registry.Lookup("alternate_names").Label
 	out := make([]StudioCompleteness, len(studios))
 	for i, s := range studios {
 		rows := batch.enrichment[s.ID]
@@ -264,7 +280,8 @@ func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioComplete
 		// branding_image is delivered as an asset (studio_images), never a field
 		// value — resolved if any of the icon/logo/poster roles is set (spec
 		// F55.13), which ListStudios already batches onto s.ImageVersions.
-		fields, resolved = injectAssetFacet(fields, resolved, "branding_image", brandingLabel, len(s.ImageVersions) > 0)
+		fields, resolved = injectSyntheticFacet(fields, resolved, "branding_image", brandingLabel, len(s.ImageVersions) > 0)
+		fields, resolved = injectSyntheticFacet(fields, resolved, "alternate_names", aliasLabel, len(batch.aliases[s.ID]) > 0)
 		// Every other studio-serializing path (listStudios, listStudiosByCompleteness,
 		// getStudio) populates the derived IconURL/LogoURL/PosterURL before returning
 		// the Studio; do the same here so queue/browse consumers don't always see it empty.

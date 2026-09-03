@@ -185,3 +185,87 @@ func queueProviderAliasPair(ctx context.Context, tx *sql.Tx, entityType string, 
 	}
 	return nil
 }
+
+// PromoteEnrichmentAliases is the one-time upgrade pass for HOLODEX-306 (spec F58 P0-6):
+// it moves alternate names already sitting in the entity_enrichment shadow store into the
+// identity spine, then deletes those rows.
+//
+// It exists because deleting the `aliases` FieldDef does not remove a stored row, it
+// demotes it: with `aliases` no longer canonical, F39 auto-registration would render the
+// leftover row as a display-only "Aliases" field — the very second list this feature
+// removes, arriving through a different door. Enrichment written from now on never stores
+// the key at all (see enrich.Service.runEnrich), so this pass only has to catch what
+// earlier versions wrote.
+//
+// Promotion goes through ApplyProviderAliases, so every guard applies to old data exactly
+// as it does to new: RD6 near-duplicates, the entity's own name, suppressions, and
+// collisions (which queue for review rather than merging). Rows are deleted whether or not
+// their values produced aliases — a value the guards rejected must not be left behind to
+// render.
+//
+// Idempotent by construction: once the rows are gone a second run finds nothing.
+func (r *Repo) PromoteEnrichmentAliases(ctx context.Context) (promoted int64, err error) {
+	type pending struct {
+		entityType string
+		entityID   int64
+		provider   string
+		names      []string
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT entity_type, entity_id, provider, value
+		  FROM entity_enrichment
+		 WHERE field_key = ? AND entity_type IN (?, ?)
+		 ORDER BY entity_type, entity_id, provider`,
+		model.ProviderAliasesField, model.EnrichEntityPerson, model.EnrichEntityStudio)
+	if err != nil {
+		return 0, fmt.Errorf("promote enrichment aliases: %w", err)
+	}
+	var work []pending
+	for rows.Next() {
+		var p pending
+		var joined string
+		if err := rows.Scan(&p.entityType, &p.entityID, &p.provider, &joined); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("promote enrichment aliases: %w", err)
+		}
+		p.names = strings.Split(joined, enrichMultiSep)
+		work = append(work, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("promote enrichment aliases: %w", err)
+	}
+
+	for _, p := range work {
+		// ApplyProviderAliases takes the write lock itself, so this cannot run inside a
+		// transaction spanning the whole pass. That is fine: each entity's promotion is
+		// independent, and the delete below is keyed the same way, so a crash mid-pass
+		// leaves the remaining rows to be promoted on the next boot.
+		if _, err := r.ApplyProviderAliases(ctx, p.entityType, p.entityID, p.provider, p.names); err != nil {
+			// A missing entity (the enrichment outlived it) is not worth failing the
+			// upgrade over; the row is deleted below either way.
+			if !errors.Is(err, ErrNotFound) {
+				return promoted, fmt.Errorf("promote enrichment aliases (%s %d): %w", p.entityType, p.entityID, err)
+			}
+		} else {
+			promoted++
+		}
+	}
+
+	if _, err := r.deleteEnrichmentAliasRows(ctx); err != nil {
+		return promoted, err
+	}
+	return promoted, nil
+}
+
+func (r *Repo) deleteEnrichmentAliasRows(ctx context.Context) (int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	res, err := r.db.ExecContext(ctx,
+		`DELETE FROM entity_enrichment WHERE field_key = ?`, model.ProviderAliasesField)
+	if err != nil {
+		return 0, fmt.Errorf("clear enrichment aliases: %w", err)
+	}
+	return res.RowsAffected()
+}

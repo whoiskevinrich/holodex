@@ -387,6 +387,7 @@ const (
 	JobKindExtraction        = "extraction"          // library-wide filename extraction pass (F48.5b, ADR-067)
 	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
 	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
+	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
 	JobStatusOK              = "success"
 	JobStatusErr             = "error"
 )

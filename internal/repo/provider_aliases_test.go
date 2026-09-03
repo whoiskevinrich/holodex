@@ -398,3 +398,73 @@ func TestApplyProviderAliases_UnknownEntity(t *testing.T) {
 		t.Error("want an error for a missing entity")
 	}
 }
+
+// TestPromoteEnrichmentAliases covers the one-time upgrade pass (F58 P0-6). It matters
+// because deleting the `aliases` FieldDef does not remove a stored shadow row, it demotes
+// it: with the key no longer canonical, F39 auto-registration would render the leftover as
+// a display-only "Aliases" field — the second list this feature removes, arriving through
+// a different door. The pass moves those values into the spine and deletes the rows.
+func TestPromoteEnrichmentAliases(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+	hayao := seedPerson(t, r, "Hayao Miyazaki")
+	jen := seedPerson(t, r, "Jennifer Lawrence")
+
+	// Shadow rows exactly as a pre-F58 enrich wrote them, including one value that
+	// collides with another person's alias and one that is the entity's own name.
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityPerson, jen, "J Law"); err != nil {
+		t.Fatalf("seed alias: %v", err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityPerson, hayao, tmdb, "tmdb:608",
+		map[string][]string{
+			"bio":     {"A biography."},
+			"aliases": {"宮崎駿", "Hayao Miyazaki", "J Law"},
+		}); err != nil {
+		t.Fatalf("seed enrichment: %v", err)
+	}
+
+	promoted, err := r.PromoteEnrichmentAliases(ctx)
+	if err != nil {
+		t.Fatalf("promote: %v", err)
+	}
+	if promoted != 1 {
+		t.Errorf("promoted = %d, want 1 (one entity/provider row)", promoted)
+	}
+
+	// The real alias landed; the guards applied to old data exactly as to new — the
+	// entity's own name and the name another person holds are both absent.
+	got := aliasStrings(t, r, model.EnrichEntityPerson, hayao)
+	if len(got) != 1 || got[0] != "宮崎駿" {
+		t.Errorf("promoted aliases = %v, want just [宮崎駿]", got)
+	}
+	if v := reviewVariations(t, db); len(v) != 1 || v[0] != "provider-alias" {
+		t.Errorf("the colliding value should have queued for review, got %v", v)
+	}
+
+	// The shadow rows are gone, so nothing auto-registers; unrelated keys are untouched.
+	var aliasRows, bioRows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM entity_enrichment WHERE field_key='aliases'`).Scan(&aliasRows); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM entity_enrichment WHERE field_key='bio'`).Scan(&bioRows); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if aliasRows != 0 {
+		t.Errorf("shadow alias rows survived: %d", aliasRows)
+	}
+	if bioRows != 1 {
+		t.Errorf("the pass deleted an unrelated enrichment key (bio rows = %d)", bioRows)
+	}
+
+	// Idempotent: a second run finds nothing and changes nothing.
+	again, err := r.PromoteEnrichmentAliases(ctx)
+	if err != nil {
+		t.Fatalf("second promote: %v", err)
+	}
+	if again != 0 {
+		t.Errorf("second run promoted %d, want 0", again)
+	}
+	if got := aliasStrings(t, r, model.EnrichEntityPerson, hayao); len(got) != 1 {
+		t.Errorf("second run changed the spine: %v", got)
+	}
+}

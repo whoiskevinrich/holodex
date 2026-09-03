@@ -138,7 +138,7 @@ func TestCompletenessForVideos_NotApplicableExcluded(t *testing.T) {
 	}
 }
 
-// TestCompletenessForPeople_PhotoInjection covers the injectAssetFacet gap this
+// TestCompletenessForPeople_PhotoInjection covers the injectSyntheticFacet gap this
 // session found: photo is delivered as an asset (person_images), never a field
 // value, so personFields() never produces a row for it — completenessForPeople
 // must inject a synthetic facet keyed on HeadshotVersion or every person's photo
@@ -162,7 +162,7 @@ func TestCompletenessForPeople_PhotoInjection(t *testing.T) {
 		t.Fatalf("people = %d, want 1", len(out))
 	}
 	// No headshot yet: photo scores missing, so score is 0 (bio/birthdate/
-	// nationality/aliases/photo all unresolved).
+	// nationality/alternate_names/photo all unresolved).
 	if out[0].Completeness.Score != 0 {
 		t.Errorf("score before headshot = %d, want 0", out[0].Completeness.Score)
 	}
@@ -237,9 +237,15 @@ func TestCompletenessForStudios_BrandingImageInjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("completenessForStudios after image: %v", err)
 	}
-	// branding_image now curated: (0+0+1)/(1+1+1) = 1/3 → round(33.33) = 33.
-	if out[0].Completeness.Score != 33 {
-		t.Errorf("score after image = %d, want 33", out[0].Completeness.Score)
+	// branding_image now curated: (0+0+1+0)/(1+1+1+1) = 1/4 → 25.
+	//
+	// The denominator went 3→4 in F58 (ADR-088 D7): retiring the `aliases` field
+	// removed one scored facet and added the synthetic `alternate_names` one, and the
+	// studio (which never had `aliases` mapped) simply gains a facet. Re-derived
+	// deliberately here rather than nudged until green — the arithmetic is the point of
+	// the assertion.
+	if out[0].Completeness.Score != 25 {
+		t.Errorf("score after image = %d, want 25", out[0].Completeness.Score)
 	}
 	if f, ok := facetByCanonical(out[0].Completeness.Facets, "branding_image"); !ok || f.Tier != resolver.TierCurated {
 		t.Errorf("branding_image facet after image = %+v, want curated", f)
@@ -256,5 +262,83 @@ func linkPeopleT(t *testing.T, r *repo.Repo, videoID int64, names ...string) {
 	}
 	if err := r.ReconcileVideoPeople(context.Background(), videoID, links, nil); err != nil {
 		t.Fatalf("link people: %v", err)
+	}
+}
+
+// TestCompleteness_AlternateNamesFacet covers the F58/ADR-088 D7 replacement for the
+// scored facet retiring `aliases` removed. It is synthetic in the same sense
+// branding_image is — the resolver never produces it, entity_aliases is read directly —
+// and it is deliberately blind to `source`: a name the owner typed and one a provider
+// supplied are the same evidence that this entity's alternate names are recorded.
+func TestCompleteness_AlternateNamesFacet(t *testing.T) {
+	h, r := newCompletenessHandlers(t)
+	ctx := context.Background()
+
+	vid := seedVideo(t, r)
+	linkPeopleT(t, r, vid, "Hayao Miyazaki")
+	pid, ok, err := r.PersonIDByName(ctx, "Hayao Miyazaki")
+	if err != nil || !ok {
+		t.Fatalf("person id: ok=%v err=%v", ok, err)
+	}
+
+	out, err := h.completenessForPeople(ctx)
+	if err != nil {
+		t.Fatalf("completenessForPeople: %v", err)
+	}
+	if f, ok := facetByCanonical(out[0].Completeness.Facets, "alternate_names"); !ok || f.Tier != resolver.TierMissing {
+		t.Errorf("facet with no aliases = %+v, want missing", f)
+	}
+	// The retired field must not also be scored — two facets for one concept would
+	// double-count exactly the duplication this feature removed.
+	if f, ok := facetByCanonical(out[0].Completeness.Facets, "aliases"); ok {
+		t.Errorf("retired `aliases` is still a scored facet: %+v", f)
+	}
+
+	// A provider-sourced alias resolves the facet, with no owner action at all.
+	if _, err := r.ApplyProviderAliases(ctx, model.EnrichEntityPerson, pid, "tmdb",
+		[]string{"Miyazaki Hayao"}); err != nil {
+		t.Fatalf("apply provider aliases: %v", err)
+	}
+	out, err = h.completenessForPeople(ctx)
+	if err != nil {
+		t.Fatalf("completenessForPeople after alias: %v", err)
+	}
+	if f, ok := facetByCanonical(out[0].Completeness.Facets, "alternate_names"); !ok || f.Tier != resolver.TierCurated {
+		t.Errorf("facet after a provider alias = %+v, want curated — source is provenance, not privilege", f)
+	}
+}
+
+// TestCompletenessForStudios_AlternateNamesFacet is the studio half: the facet is
+// entity-generic, so a studio-only regression would otherwise hide behind the person test.
+func TestCompletenessForStudios_AlternateNamesFacet(t *testing.T) {
+	h, r := newCompletenessHandlers(t)
+	ctx := context.Background()
+
+	vid := seedVideo(t, r, model.ExtraMetadata{SourceKey: "Publisher", Value: "Ghibli Co"})
+	if err := r.ReconcileVideoStudios(ctx, vid, []string{"Ghibli Co"}, nil); err != nil {
+		t.Fatalf("link studio: %v", err)
+	}
+	studios, err := r.ListStudios(ctx, false)
+	if err != nil || len(studios) != 1 {
+		t.Fatalf("studios = %v err=%v", studios, err)
+	}
+
+	out, err := h.completenessForStudios(ctx)
+	if err != nil {
+		t.Fatalf("completenessForStudios: %v", err)
+	}
+	if f, ok := facetByCanonical(out[0].Completeness.Facets, "alternate_names"); !ok || f.Tier != resolver.TierMissing {
+		t.Errorf("studio facet with no aliases = %+v, want missing", f)
+	}
+
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityStudio, studios[0].ID, "Ghibli"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	out, err = h.completenessForStudios(ctx)
+	if err != nil {
+		t.Fatalf("completenessForStudios after alias: %v", err)
+	}
+	if f, ok := facetByCanonical(out[0].Completeness.Facets, "alternate_names"); !ok || f.Tier != resolver.TierCurated {
+		t.Errorf("studio facet after an owner alias = %+v, want curated", f)
 	}
 }

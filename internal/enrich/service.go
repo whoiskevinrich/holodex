@@ -530,28 +530,31 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 			fields[model.PersonExternalIDsField] = sidecar
 		}
 	}
+	// Alternate names arrive through the shadow store like any other provider value but
+	// do not live in it (HOLODEX-306, ADR-088 D1) — they belong to the identity spine,
+	// where they are searchable and route scans. Take them out of the map before the
+	// upsert: leaving them in would store a row that, now that `aliases` is no longer a
+	// canonical key, F39 auto-registration renders as a display-only "Aliases" field —
+	// the exact second list this feature exists to remove, arriving through a different
+	// door. Pre-existing rows are cleared once by repo.PromoteEnrichmentAliases at boot.
+	aliasNames := fields[model.ProviderAliasesField]
+	delete(fields, model.ProviderAliasesField)
+
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
-	// Alternate names go on into the identity spine, where they become searchable and
-	// scan-routing (HOLODEX-306, ADR-088 D1/D3). They still land in the shadow store
-	// above — a provider value arrives through it like any other — but entity_aliases is
-	// where they live and what search and the scanner read.
-	//
 	// Best-effort on purpose, alongside the asset download below: one awkward alternate
 	// name must never cost the entity the bio, birthdate, and photo this pass already
 	// stored. Collisions are not errors at all — ApplyProviderAliases queues those for
 	// the owner and reports them; only an actual write failure reaches this log.
-	if aliasEntityType(entityType) {
-		if names := fields[model.ProviderAliasesField]; len(names) > 0 {
-			if skipped, err := s.repo.ApplyProviderAliases(ctx, entityType, entityID, provider, names); err != nil {
-				slog.Warn("apply provider aliases", "entity_type", entityType, "entity_id", entityID,
-					"provider", provider, "err", err)
-			} else if len(skipped) > 0 {
-				slog.Info("provider aliases skipped: already held by another entity",
-					"entity_type", entityType, "entity_id", entityID, "provider", provider,
-					"count", len(skipped))
-			}
+	if aliasEntityType(entityType) && len(aliasNames) > 0 {
+		if skipped, err := s.repo.ApplyProviderAliases(ctx, entityType, entityID, provider, aliasNames); err != nil {
+			slog.Warn("apply provider aliases", "entity_type", entityType, "entity_id", entityID,
+				"provider", provider, "err", err)
+		} else if len(skipped) > 0 {
+			slog.Info("provider aliases skipped: already held by another entity",
+				"entity_type", entityType, "entity_id", entityID, "provider", provider,
+				"count", len(skipped))
 		}
 	}
 	// Download any image assets the provider returned (F25/ADR-038, entity-generic

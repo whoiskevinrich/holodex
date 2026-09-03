@@ -31,17 +31,14 @@ person page.
 ## Up next — ordered (position = priority)
 
 All four pre-implementation gates are green; implementation is underway. Slice order follows the
-spec's own Timeline section. **Next: #4, the enrich write path** — its two guards (suppression,
-collision) ship in the same commit as the writer, since reviewing a writer with no brakes is how
-one gets approved.
+spec's own Timeline section. **Next: #6, the model/API surface** — the last backend slice before
+the frontend.
 
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
 3. [x] [backend] migration 0044 — done 2026-09-02 (P0-1; ADR-088 D2/D4/D6)
 4. [x] [backend] enrich write path + both guards — done 2026-09-03 (P0-2/P0-4/P0-5)
-5. [ ] [backend] delete `aliases` FieldDef + `metadata-mappings.yaml.example` block; synthetic
-       completeness facet mirroring studio `branding_image` (P0-6/P0-7 — together, so the
-       completeness denominator never shifts mid-branch)
+5. [x] [backend] registry removal + `alternate_names` facet — done 2026-09-03 (P0-6/P0-6b/P0-7)
 6. [ ] [backend] `EntityAlias.Source` on the model + detail read; `skipped_aliases` on the person
        and studio detail payloads (P0-8)
 7. [ ] [frontend] remove the "Also known as" `mergeFields` block from the person page
@@ -155,3 +152,35 @@ one gets approved.
   facet, together, so the completeness denominator never shifts mid-branch. That slice is where
   `TestEnrichmentShadowStore` and `TestPersonFields_Synthesis` get rewritten (and
   `TestServiceResolveEnrichClear`'s `got["aliases"]` assertion, which still passes today).
+
+### 2026-09-03 · P0-6/P0-6b/P0-7 registry removal + completeness facet landed
+- skills: simplify
+- **Deleting the FieldDef does not remove the row — it demotes it.** With `aliases` no longer
+  canonical, F39 auto-registration renders the stored `entity_enrichment` row as a display-only
+  "Aliases" field: the second list surviving the collapse through a different door. Caught because
+  `TestServiceResolveEnrichClear` still found `aliases` after the registry deletion. The spec's
+  P0-6 was amended in place; this is the single most important thing to carry forward.
+- So the field had **four** homes, not one: the registry FieldDef, the hardcoded `personFields`
+  synthesis (which never read the registry), `metadata-mappings.yaml.example`, and the enrich
+  path's storage of the key. Plus P0-6b, a new one-time backfill (`PromoteEnrichmentAliases`,
+  wired at boot beside `seedIdentityReviewQueue`) that promotes-and-clears rows written before the
+  upgrade — without it the acceptance criterion held only on a fresh library.
+- Facet named `alternate_names`, **not** `aliases`, deliberately: reusing the retired key would
+  collide with an upgrading operator's stale mapping entry and inject the facet twice.
+- `injectAssetFacet` → `injectSyntheticFacet`. The asset-ness was always incidental; the mechanism
+  is "a scored facet the resolve pipeline cannot produce", which now includes a spine-backed one.
+- Seven tests asserted the old truth. Four used `aliases` as *the* person merge field to exercise
+  merge-field machinery, exactly the consequence ADR-088 recorded ("loses its only person-entity
+  multi-value user"). They now build one the way an operator still can — promoting a provider key
+  with the `chips` renderer — which keeps them honest: a hand-built `Multi` fixture would pass
+  even if that path broke.
+- Two person-side guards are now unreachable and were kept, with the test asserting the reachable
+  behaviour (a 404) rather than faking a merge field to reach a branch no request can. The
+  identical video/studio branches are still covered.
+- Known upgrade wrinkle, documented rather than worked around: a live `metadata-mappings.yaml` is
+  gitignored, so an operator who keeps the `aliases` block will still see an unscored "Aliases"
+  row until they delete it. The committed `.example` now carries that warning in place of the
+  block. Same posture F51 took when it retired `logo`.
+- handoff: next is Up-next #6 — `EntityAlias.Source` on the model and detail reads, plus
+  `skipped_aliases` on the person/studio payloads (P0-8). That is the last backend slice before
+  the frontend.

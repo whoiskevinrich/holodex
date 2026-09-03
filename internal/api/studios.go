@@ -204,8 +204,12 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		// branding_image is delivered as an asset (studio_images), never a field
 		// value — resolved if any of the icon/logo/poster roles is set (F55.13),
 		// same signal completenessForStudios uses.
-		cFields, cResolved := injectAssetFacet(fields, resolved, "branding_image", registry.Lookup("branding_image").Label,
+		cFields, cResolved := injectSyntheticFacet(fields, resolved, "branding_image", registry.Lookup("branding_image").Label,
 			len(s.ImageVersions) > 0)
+		// Same spine-backed facet the person path injects (F58/ADR-088 D7); GetStudio
+		// already loaded s.Aliases for the panel.
+		cFields, cResolved = injectSyntheticFacet(cFields, cResolved, "alternate_names",
+			registry.Lookup("alternate_names").Label, len(s.Aliases) > 0)
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
 	}

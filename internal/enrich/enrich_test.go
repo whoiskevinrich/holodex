@@ -228,8 +228,12 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 	if got["birthdate"].Label != "Born" {
 		t.Errorf("label = %q, want Born", got["birthdate"].Label)
 	}
-	if len(got["aliases"].Values) != 2 {
-		t.Errorf("aliases = %v", got["aliases"].Values)
+	// `aliases` is NOT a resolved field (F58, ADR-088 D1). The provider still returns
+	// alternate names and they still matter — they are written into the identity spine
+	// instead, which TestEnrichWritesProviderAliasesToSpine covers. Asserting the absence
+	// here is what keeps the shadow store from quietly becoming an alias store again.
+	if _, ok := got["aliases"]; ok {
+		t.Errorf("aliases resolved as a field; it belongs to the identity spine: %+v", got["aliases"])
 	}
 
 	if id, ok, _ := svc.ExistingMatch(ctx, model.EnrichEntityPerson, 1, "fake"); !ok || id != "tmdb:608" {

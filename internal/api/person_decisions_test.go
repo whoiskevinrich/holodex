@@ -48,7 +48,7 @@ func personDecisionServer(t *testing.T, token string) (*httptest.Server, *repo.R
 		"name":        {"Alicia Example"},
 		"bio":         {"A biography."},
 		"nationality": {"Utopia"},
-		"aliases":     {"Ally", "Al"},
+		"nicknames":   {"Ally", "Al"},
 	}); err != nil {
 		t.Fatalf("seed enrichment: %v", err)
 	}
@@ -57,6 +57,16 @@ func personDecisionServer(t *testing.T, token string) (*httptest.Server, *repo.R
 	h.SetAuth(api.NewAuth(token), false)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
+
+	// A person has no merge field of its own since F58 retired `aliases` (ADR-088 D1),
+	// so the tests that exercise merge-field behaviour make one the way an operator now
+	// would: promote a provider key with the chips renderer (field_promotions.go, "chips
+	// ⇒ merge field"). Using a real remaining path keeps these tests honest — a fixture
+	// that hand-built a Multi field would still pass if that path broke.
+	if code := sendDecision(t, http.MethodPut, promoteURL(srv, "person", "nicknames"), token,
+		map[string]any{"label": "Nicknames", "render": "chips"}); code != 204 {
+		t.Fatalf("promote nicknames to a merge field: got %d", code)
+	}
 	return srv, r, pid
 }
 
@@ -125,9 +135,14 @@ func TestPersonResolvedPayloadShape(t *testing.T) {
 	if bio["values"].([]any)[0] != "A biography." || bio["winning_source"] != "tmdb:bio" {
 		t.Errorf("undecided bio must show the provider value: %v", bio)
 	}
-	aliases, _ := personResolvedField(t, srv, pid, "aliases")
-	if vals := aliases["values"].([]any); len(vals) != 2 || aliases["multi"] != true {
-		t.Errorf("aliases should be the provider union merge field: %v", aliases)
+	nicknames, _ := personResolvedField(t, srv, pid, "nicknames")
+	if vals := nicknames["values"].([]any); len(vals) != 2 || nicknames["multi"] != true {
+		t.Errorf("the promoted chips field should be the provider union merge field: %v", nicknames)
+	}
+	// And `aliases` is not a resolved field at all any more (F58, ADR-088 D1) — the
+	// person page must show exactly one list of alternate names, the Aliases panel.
+	if f, ok := personResolvedField(t, srv, pid, "aliases"); ok {
+		t.Errorf("aliases resolved as a person field: %v", f)
 	}
 }
 
@@ -208,9 +223,17 @@ func TestPersonDecisionAPI_Validation(t *testing.T) {
 	if code := sendDecision(t, http.MethodDelete, fields+"name/decision", "", nil); code != 400 {
 		t.Errorf("name decision clear: want 400, got %d", code)
 	}
-	// aliases is merge-only.
-	if code := sendDecision(t, http.MethodPut, fields+"aliases/decision", "", map[string]string{"source": "provider:tmdb"}); code != 400 {
-		t.Errorf("merge field: want 400, got %d", code)
+	// A field outside the synthesized person schema 404s before any other check — which
+	// now includes a promoted merge field like `nicknames`, since personFieldByCanonical
+	// only knows the hardcoded set.
+	//
+	// personReplaceField's own "merge fields take no source decision" branch
+	// (person_decisions.go) is consequently unreachable for a person as of F58: retiring
+	// `aliases` (ADR-088 D1) left personFields with no Multi entry at all. The guard stays
+	// — it is structural, and the schema could gain one — and the identical branch is
+	// still exercised on the video side (decisions_test.go, "merge field: want 400").
+	if code := sendDecision(t, http.MethodPut, fields+"nicknames/decision", "", map[string]string{"source": "provider:tmdb"}); code != 404 {
+		t.Errorf("promoted field is outside the person schema: want 404, got %d", code)
 	}
 	// Bad source shape / manual without a value.
 	if code := sendDecision(t, http.MethodPut, fields+"bio/decision", "", map[string]string{"source": "bogus"}); code != 400 {
@@ -257,33 +280,33 @@ func TestPersonDecisionAPI_OwnerGated(t *testing.T) {
 
 // --- Curation (P0-4 / RD2) -----------------------------------------------------------
 
-func TestPersonCurationAPI_AliasesMergeField(t *testing.T) {
+func TestPersonCurationAPI_MergeField(t *testing.T) {
 	srv, _, pid := personDecisionServer(t, "")
 	base := srv.URL + "/api/v1/people/" + itoa(pid)
 
-	// Suppress a provider alias, add a manual one.
-	if code, _ := postTok(t, base+"/curation", "", map[string]string{"field": "aliases", "value": "Al", "action": "suppress"}); code != 204 {
+	// Suppress a provider value, add a manual one.
+	if code, _ := postTok(t, base+"/curation", "", map[string]string{"field": "nicknames", "value": "Al", "action": "suppress"}); code != 204 {
 		t.Fatalf("suppress: want 204, got %d", code)
 	}
-	if code, _ := postTok(t, base+"/curation", "", map[string]string{"field": "aliases", "value": "Ace", "action": "add"}); code != 204 {
+	if code, _ := postTok(t, base+"/curation", "", map[string]string{"field": "nicknames", "value": "Ace", "action": "add"}); code != 204 {
 		t.Fatalf("add: want 204, got %d", code)
 	}
-	f, _ := personResolvedField(t, srv, pid, "aliases")
+	f, _ := personResolvedField(t, srv, pid, "nicknames")
 	var vals []string
 	for _, v := range f["values"].([]any) {
 		vals = append(vals, v.(string))
 	}
 	if len(vals) != 2 || vals[0] != "Ally" || vals[1] != "Ace" {
-		t.Errorf("curated aliases = %v, want [Ally Ace]", vals)
+		t.Errorf("curated values = %v, want [Ally Ace]", vals)
 	}
 
 	// Clear restores the suppressed value.
-	if code, _ := postTok(t, base+"/curation/clear", "", map[string]string{"field": "aliases", "value": "Al", "action": "suppress"}); code != 204 {
+	if code, _ := postTok(t, base+"/curation/clear", "", map[string]string{"field": "nicknames", "value": "Al", "action": "suppress"}); code != 204 {
 		t.Fatalf("clear: want 204, got %d", code)
 	}
-	f, _ = personResolvedField(t, srv, pid, "aliases")
+	f, _ = personResolvedField(t, srv, pid, "nicknames")
 	if got := f["values"].([]any); len(got) != 3 {
-		t.Errorf("after clear aliases = %v, want 3 values", got)
+		t.Errorf("after clear = %v, want 3 values", got)
 	}
 
 	// Validation mirrors the media handler; unknown person 404s.

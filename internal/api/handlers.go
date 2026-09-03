@@ -1212,8 +1212,14 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		// photo is delivered as an asset (person_images), never a field value —
 		// score it off the headshot role's presence, same signal
 		// completenessForPeople uses (F55.13).
-		cFields, cResolved := injectAssetFacet(fields, resolved, "photo", registry.Lookup("photo").Label,
+		cFields, cResolved := injectSyntheticFacet(fields, resolved, "photo", registry.Lookup("photo").Label,
 			images.Roles[model.PersonImageHeadshot].Present)
+		// alternate_names lives in the identity spine, not the field model (F58/ADR-088
+		// D7). GetPerson already loaded them for the Aliases panel, so this reuses that
+		// read rather than adding one. Blind to `source`: an owner-typed name and a
+		// provider-supplied one count the same.
+		cFields, cResolved = injectSyntheticFacet(cFields, cResolved, "alternate_names",
+			registry.Lookup("alternate_names").Label, len(p.Aliases) > 0)
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
 	}

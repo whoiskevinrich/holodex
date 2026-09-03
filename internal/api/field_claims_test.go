@@ -188,8 +188,10 @@ func TestClaim_ProviderScoped(t *testing.T) {
 			t.Fatalf("seed %s: %v", p.provider, err)
 		}
 	}
+	// Claimed into `bio`: any known person canonical will do, and `aliases` is no longer
+	// one (F58, ADR-088 D1). The grain under test is the provider scoping, not the target.
 	if code := sendDecision(t, http.MethodPut, claimURL(srv, "person", "tmdb", "alias_note"), "",
-		map[string]any{"canonical": "aliases"}); code != 204 {
+		map[string]any{"canonical": "bio"}); code != 204 {
 		t.Fatalf("claim: got %d", code)
 	}
 
@@ -342,13 +344,13 @@ func TestFieldTargets_ListsWholeEffectiveSet(t *testing.T) {
 	if bio["label"] == "" || bio["merge"] != false {
 		t.Errorf("bio is a labelled replace field, got %v", bio)
 	}
-	if aliases := byCanonical["aliases"]; aliases == nil || aliases["merge"] != true {
-		t.Errorf("aliases is a merge field — the outcome preview depends on it, got %v", aliases)
-	}
-
-	// A promoted key becomes a legal claim target (D5: claims merge after promotions).
+	// A promoted key becomes a legal claim target (D5: claims merge after promotions),
+	// and promoting with the chips renderer is now the only way a person gets a merge
+	// field at all — F58 retired `aliases`, which used to be the one this asserted on
+	// (ADR-088 D1). The `merge` flag still has to reach the target list, since the
+	// outcome preview depends on it.
 	if code := sendDecision(t, http.MethodPut, promoteURL(srv, "person", "life_story"), "",
-		map[string]any{"label": "Life story"}); code != 204 {
+		map[string]any{"label": "Life story", "render": "chips"}); code != 204 {
 		t.Fatalf("promote: got %d", code)
 	}
 	_, targets = getJSONList(t, srv.URL+"/api/v1/admin/field-targets/person")
@@ -360,6 +362,13 @@ func TestFieldTargets_ListsWholeEffectiveSet(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("the effective set must include promoted fields, got %v", targets)
+	}
+	byCanonical = map[string]map[string]any{}
+	for _, tgt := range targets {
+		byCanonical[tgt["canonical"].(string)] = tgt
+	}
+	if life := byCanonical["life_story"]; life == nil || life["merge"] != true {
+		t.Errorf("a chips-rendered promotion is a merge target — the outcome preview depends on it, got %v", life)
 	}
 	if code := sendDecision(t, http.MethodPut, claimURL(srv, "person", "tmdb", "biography"), "",
 		map[string]any{"canonical": "life_story"}); code != 204 {
