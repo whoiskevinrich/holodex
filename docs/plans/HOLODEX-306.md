@@ -27,13 +27,11 @@ person page.
       special-case removed; 3-skin computed-contrast QA on a live page
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 five backend rows, §5 two frontend
       rows, three Critical invariants, one Known Gaps bullet)
-- [/] security `security-review` → docs-only so far; required once the enrich write path lands
+- [x] security `security-review` → clean; no HIGH/MEDIUM findings (sign-off in the session log)
 
 ## Up next — ordered (position = priority)
 
-All four pre-implementation gates are green; implementation is underway. Slice order follows the
-spec's own Timeline section. **Implementation is complete. Only `/security-review` (#9) remains
-before the PR can leave Draft.**
+**All gates are green.** PR #288 is ready for review.
 
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
@@ -43,12 +41,36 @@ before the PR can leave Draft.**
 6. [x] [backend] model + API surface — done 2026-09-03 (P0-8)
 7. [x] [frontend] person page `aliases` special-case removed — done 2026-09-03 (P0-9)
 8. [x] [frontend] `AliasPanel` badge, subcopy, review line + 3-skin QA — done 2026-09-03 (P0-10)
-9. [ ] [gate] `/security-review` — **the last open gate**; the enrich write path has landed
+9. [x] [gate] `/security-review` — done 2026-09-03, clean
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-03 · session
+### 2026-09-03 · security review — clean, gate closed
 - skills: security-review
+- Scoped to what this epic actually adds: a provider-data write path that creates scan-routing
+  identity rows, migrations 0044/0045, a boot-time backfill, and two new payload fields.
+- **SQL construction.** Every new statement binds user- and provider-supplied values as
+  parameters. The only string-interpolated fragments are the table name — from
+  `canonicalTable`'s whitelist switch, which returns `""` for anything unknown — and
+  `nameKeyExpr(entityType, col)`, which formats a *column or placeholder token*, never a value.
+  `entityType` reaches these only as a package constant from the handlers, or, in the backfill,
+  from a query already filtered to `('person','studio')`.
+- **Authorization.** `skippedAliases` returns nil before touching the DB when `!authorized`, and
+  both call sites pass the handler's own `h.auth.authorized(r)`. Verified live during P0-10 QA:
+  the key is absent (not null) from a visitor payload. `ApplyProviderAliases` has no
+  unauthenticated caller — the enrich routes mount inside the `requireOwner` group, and the only
+  other caller is the boot backfill.
+- **XSS.** No `{@html}`, no dynamic `href`/`src` in the changed Svelte; the Review link is a
+  static path. Provider-controlled strings (`a.source`, the skipped alias, `detail`) all render
+  through Svelte's auto-escaping.
+- Two items considered and deliberately **not** filed. (1) `source` is visitor-visible on alias
+  chips — but `/api/v1/providers` is already unauthenticated, so the provider set is public and
+  per-alias attribution adds nothing material. (2) Provider data now creates scan-routing rows, a
+  real trust-boundary widening — but the provider is operator-declared in the
+  `metadata-sources.yaml` allowlist, enrichment is owner-initiated behind `requireOwner`, values
+  are length-capped at `MaxNameLen`, and ADR-061's global unique key means a provider can never
+  take a name another entity already holds. That is the documented, bounded D3 risk, not a defect.
+- handoff: **all gates green.** PR #288 marked ready for review.
 
 ### 2026-09-02 · ADR-088 + design handoff landed; direction set to a full collapse
 - skills: architecture, design-handoff, simplify
