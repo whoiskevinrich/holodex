@@ -231,7 +231,13 @@ identical either way. Not tag (Non-Goal 1).
   as present; an entity with none scores it missing; a person whose aliases are all
   provider-sourced scores identically to one who typed them.
 - **P0-8**: `EntityAlias` carries `Source` on the model and detail reads, and the person and studio
-  detail payloads carry `skipped_aliases` for the collision review line.
+  detail payloads carry `skipped_aliases` for the collision review line. Both owner-gated — the
+  key is absent for a visitor, not null or empty, so a visitor never learns a collision exists.
+  **Needed one more migration than planned**: the skipped name lives nowhere after the enrich pass
+  ends (P0-6 stopped storing provider aliases in the shadow layer) and `identity_review_queue`
+  recorded only the pair, so it gained a free-text `detail` column. `skipped_aliases` is then
+  derived from the queue rather than stored per-entity, which means resolving the pair — by merge,
+  keep-separate, or any other queue action — clears the review line with no extra bookkeeping.
 - **P0-9**: The "Also known as" `mergeFields` block is removed from the person detail page.
   Acceptance: no `aliases` row renders; the `mergeFields` loop itself remains (Non-Goal 6).
 - **P0-10**: `AliasPanel` renders a source badge on provider-sourced chips, the widened subcopy,

@@ -468,3 +468,113 @@ func TestPromoteEnrichmentAliases(t *testing.T) {
 		t.Errorf("second run changed the spine: %v", got)
 	}
 }
+
+// TestSkippedAliasesForEntity covers the read behind the panel's collision review line
+// (F58 P0-8). The skipped name exists nowhere but identity_review_queue.detail once the
+// enrich pass ends — F58 stopped storing provider aliases in the shadow layer — so
+// migration 0045's column is what makes the line able to say *which* name was dropped.
+func TestSkippedAliasesForEntity(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+	jen := seedPerson(t, r, "Jennifer Lawrence")
+	imposter := seedPerson(t, r, "J. Lawrence")
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityPerson, jen, "J Law"); err != nil {
+		t.Fatalf("seed alias: %v", err)
+	}
+	if _, err := r.ApplyProviderAliases(ctx, model.EnrichEntityPerson, imposter, tmdb,
+		[]string{"J Law"}); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	// Readable from BOTH sides of the pair: the owner may open either person's page, and
+	// the question ("these two may be the same") belongs to both.
+	for _, id := range []int64{imposter, jen} {
+		got, err := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, id)
+		if err != nil {
+			t.Fatalf("skipped for %d: %v", id, err)
+		}
+		if len(got) != 1 || got[0].Alias != "J Law" {
+			t.Fatalf("skipped for %d = %+v, want the 'J Law' collision", id, got)
+		}
+		if got[0].ConflictID == id {
+			t.Errorf("conflict id should be the OTHER entity, got self (%d)", id)
+		}
+	}
+
+	// An unrelated person has nothing to report.
+	bystander := seedPerson(t, r, "Someone Else")
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, bystander); len(got) != 0 {
+		t.Errorf("uninvolved person = %+v, want none", got)
+	}
+
+	// A near-miss pair carries no detail and must not leak into this read — only
+	// 'provider-alias' rows describe a skipped name.
+	if _, err := db.Exec(`INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+		VALUES ('person', ?, ?, 'punctuation')`, bystander, jen); err != nil {
+		t.Fatalf("seed near-miss: %v", err)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, bystander); len(got) != 0 {
+		t.Errorf("a near-miss pair leaked into skipped aliases: %+v", got)
+	}
+
+	// Resolving the pair clears the line with no extra bookkeeping — the queue row IS
+	// the outstanding question, which is why this read derives from it.
+	if err := r.AddKeepSeparate(ctx, model.EnrichEntityPerson, jen, imposter); err != nil {
+		t.Fatalf("keep separate: %v", err)
+	}
+	if err := r.DismissReviewPair(ctx, model.EnrichEntityPerson, jen, imposter); err != nil {
+		t.Fatalf("dismiss: %v", err)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter); len(got) != 0 {
+		t.Errorf("resolving the pair left the review line standing: %+v", got)
+	}
+}
+
+// TestAliasSourceRoundTrips pins the provenance column on the read path (F58 P0-8): the
+// chip badge is the only consumer, but a Scan that silently dropped it would make every
+// provider alias look owner-typed and the badge would just never render.
+func TestAliasSourceRoundTrips(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	id := seedPerson(t, r, "Hayao Miyazaki")
+
+	if _, err := r.ApplyProviderAliases(ctx, model.EnrichEntityPerson, id, tmdb,
+		[]string{"宮崎駿"}); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityPerson, id, "Miyazaki-san"); err != nil {
+		t.Fatalf("add owner alias: %v", err)
+	}
+
+	bySource := map[string]string{}
+	for _, a := range mustAliases(t, r, model.EnrichEntityPerson, id) {
+		bySource[a.Alias] = a.Source
+	}
+	if bySource["宮崎駿"] != tmdb {
+		t.Errorf("provider alias source = %q, want %q", bySource["宮崎駿"], tmdb)
+	}
+	if bySource["Miyazaki-san"] != "" {
+		t.Errorf("owner alias source = %q, want empty", bySource["Miyazaki-san"])
+	}
+
+	// The batch read (used by completeness and list surfaces) must agree with the
+	// per-entity one — they are separate SELECTs and could drift.
+	batch, err := r.AliasesForEntities(ctx, model.EnrichEntityPerson, []int64{id})
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	for _, a := range batch[id] {
+		if a.Source != bySource[a.Alias] {
+			t.Errorf("batch read disagrees for %q: %q vs %q", a.Alias, a.Source, bySource[a.Alias])
+		}
+	}
+}
+
+func mustAliases(t *testing.T, r *repo.Repo, entityType string, id int64) []model.EntityAlias {
+	t.Helper()
+	got, err := r.AliasesForEntity(context.Background(), entityType, id)
+	if err != nil {
+		t.Fatalf("aliases: %v", err)
+	}
+	return got
+}

@@ -169,3 +169,40 @@ func TestMigration0044Down(t *testing.T) {
 		t.Fatalf("down migration disturbed a pre-existing alias")
 	}
 }
+
+// TestMigration0045ReviewQueueDetail covers the column the Aliases panel's review line
+// depends on (F58 P0-8): a provider-alias collision's skipped name exists nowhere else
+// once the enrich pass ends, since F58 stopped storing provider aliases in the shadow
+// layer. The DEFAULT has to backfill every existing near-miss row without an UPDATE.
+func TestMigration0045ReviewQueueDetail(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Migrate(44); err != nil { // one before the detail column
+		t.Fatalf("migrate to 44: %v", err)
+	}
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES (1,'Fox'),(2,'Foxx')`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+		VALUES ('person', 1, 2, 'punctuation')`)
+
+	if err := m.Migrate(45); err != nil {
+		t.Fatalf("migrate to 45: %v", err)
+	}
+	// The pre-existing near-miss survives with an empty detail — it has no name to
+	// carry, and nothing should have rewritten it.
+	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE detail = ''`); n != 1 {
+		t.Fatalf("existing near-miss did not take the column default")
+	}
+	// And a provider-alias row can now carry one.
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES (3,'Foxy')`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
+		VALUES ('person', 1, 3, 'provider-alias', 'The Fox')`)
+	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE detail = 'The Fox'`); n != 1 {
+		t.Fatalf("provider-alias detail did not round-trip")
+	}
+
+	if err := m.Migrate(44); err != nil {
+		t.Fatalf("migrate down to 44: %v", err)
+	}
+	if _, err := db.Exec(`SELECT detail FROM identity_review_queue`); err == nil {
+		t.Fatalf("detail column survived the down migration")
+	}
+}

@@ -31,16 +31,14 @@ person page.
 ## Up next — ordered (position = priority)
 
 All four pre-implementation gates are green; implementation is underway. Slice order follows the
-spec's own Timeline section. **Next: #6, the model/API surface** — the last backend slice before
-the frontend.
+spec's own Timeline section. **Backend is complete; next is the frontend (#7, #8).**
 
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
 3. [x] [backend] migration 0044 — done 2026-09-02 (P0-1; ADR-088 D2/D4/D6)
 4. [x] [backend] enrich write path + both guards — done 2026-09-03 (P0-2/P0-4/P0-5)
 5. [x] [backend] registry removal + `alternate_names` facet — done 2026-09-03 (P0-6/P0-6b/P0-7)
-6. [ ] [backend] `EntityAlias.Source` on the model + detail read; `skipped_aliases` on the person
-       and studio detail payloads (P0-8)
+6. [x] [backend] model + API surface — done 2026-09-03 (P0-8)
 7. [ ] [frontend] remove the "Also known as" `mergeFields` block from the person page
        (`+page.svelte:656-677`) — keep the loop itself (P0-9, Non-Goal 6)
 8. [ ] [frontend] `AliasPanel` source badge, widened subcopy, collision review line — then QA all
@@ -184,3 +182,23 @@ the frontend.
 - handoff: next is Up-next #6 — `EntityAlias.Source` on the model and detail reads, plus
   `skipped_aliases` on the person/studio payloads (P0-8). That is the last backend slice before
   the frontend.
+
+### 2026-09-03 · P0-8 model + API surface landed — backend complete
+- skills: simplify
+- `EntityAlias.Source` on the model, three alias SELECTs widened, `skipped_aliases` owner-gated on
+  both detail payloads, migration 0045. Full `go test ./...` green.
+- **`skipped_aliases` needed a migration the plan did not anticipate.** The skipped name exists
+  nowhere once the enrich pass ends — P0-6 stopped storing provider aliases in the shadow layer,
+  and `identity_review_queue` recorded only the pair — so the panel could have said "a name was
+  skipped" but never which one. 0045 adds a free-text `detail` column, deliberately generic rather
+  than alias-specific so the next variation with something to say needs no migration.
+- Deriving `skipped_aliases` from the queue rather than storing it per-entity is the good part:
+  the pair *is* the outstanding question, so resolving it by any route clears the review line with
+  no extra bookkeeping. The test asserts that, and that it reads from both sides of the pair.
+- Gotcha that `go build` will not catch: widening a `SELECT` without widening its `Scan` compiles
+  fine and fails at runtime. Three call sites needed it; the batch read and the per-entity read
+  are separate SELECTs, and `TestAliasSourceRoundTrips` now asserts they agree.
+- handoff: **backend is done** (P0-1 through P0-8). Next is the frontend: remove the
+  "Also known as" `mergeFields` block (#7), then `AliasPanel`'s badge, subcopy, and review line
+  (#8) with three-skin computed-contrast QA. `/security-review` (#9) is owed before ready-for-review
+  now that the enrich write path exists.

@@ -126,7 +126,7 @@ func (r *Repo) EntityExists(ctx context.Context, entityType string, id int64) er
 // Always returns a non-nil slice on success so the JSON serializes as [] not null.
 func (r *Repo) AliasesForEntity(ctx context.Context, entityType string, id int64) ([]model.EntityAlias, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, alias FROM entity_aliases WHERE entity_type = ? AND entity_id = ?
+		`SELECT id, alias, source FROM entity_aliases WHERE entity_type = ? AND entity_id = ?
 		 ORDER BY alias COLLATE NOCASE`, entityType, id)
 	if err != nil {
 		return nil, fmt.Errorf("aliases for %s: %w", entityType, err)
@@ -135,7 +135,7 @@ func (r *Repo) AliasesForEntity(ctx context.Context, entityType string, id int64
 	out := []model.EntityAlias{}
 	for rows.Next() {
 		var a model.EntityAlias
-		if err := rows.Scan(&a.ID, &a.Alias); err != nil {
+		if err := rows.Scan(&a.ID, &a.Alias, &a.Source); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -152,7 +152,7 @@ func (r *Repo) AliasesForEntities(ctx context.Context, entityType string, ids []
 		return out, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT entity_id, id, alias FROM entity_aliases
+		SELECT entity_id, id, alias, source FROM entity_aliases
 		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
 		ORDER BY alias COLLATE NOCASE`, append([]any{entityType}, toAnySlice(ids)...)...)
 	if err != nil {
@@ -162,7 +162,7 @@ func (r *Repo) AliasesForEntities(ctx context.Context, entityType string, ids []
 	for rows.Next() {
 		var entityID int64
 		var a model.EntityAlias
-		if err := rows.Scan(&entityID, &a.ID, &a.Alias); err != nil {
+		if err := rows.Scan(&entityID, &a.ID, &a.Alias, &a.Source); err != nil {
 			return nil, err
 		}
 		out[entityID] = append(out[entityID], a)
@@ -192,8 +192,8 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 	// means "rob" returns this entity's existing "Rob".
 	var a model.EntityAlias
 	if err := r.db.QueryRowContext(ctx,
-		`SELECT id, alias FROM entity_aliases WHERE entity_id = ? AND `+entityAliasKeyByType[entityType],
-		id, entityType, alias).Scan(&a.ID, &a.Alias); err != nil {
+		`SELECT id, alias, source FROM entity_aliases WHERE entity_id = ? AND `+entityAliasKeyByType[entityType],
+		id, entityType, alias).Scan(&a.ID, &a.Alias, &a.Source); err != nil {
 		return model.EntityAlias{}, fmt.Errorf("resolve %s alias: %w", entityType, err)
 	}
 	return a, nil

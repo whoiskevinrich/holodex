@@ -306,3 +306,67 @@ func aliasList(t *testing.T, body map[string]any) []map[string]any {
 	}
 	return out
 }
+
+// TestPersonDetail_AliasSourceAndSkipped covers the F58 P0-8 payload additions: the chip
+// badge reads `source` off each alias, and the panel's collision review line reads
+// `skipped_aliases`. Both are owner-only, like every other control on that panel.
+func TestPersonDetail_AliasSourceAndSkipped(t *testing.T) {
+	srv, r, alice := aliasServer(t, "s3cret")
+	ctx := context.Background()
+
+	// A second person holds "Ally", so the provider's attempt to give it to Alice
+	// collides and is queued instead of added.
+	other, err := r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/y.mkv", Title: "Other", Duration: 60, Width: 1920, Height: 1080,
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+		People:    []model.Person{{Name: "Bob"}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	linkPeople(t, r, other, "Bob")
+	bob, _, err := r.PersonIDByName(ctx, "Bob")
+	if err != nil {
+		t.Fatalf("bob id: %v", err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityPerson, bob, "Ally"); err != nil {
+		t.Fatalf("seed bob alias: %v", err)
+	}
+	if _, err := r.ApplyProviderAliases(ctx, model.EnrichEntityPerson, alice, "tmdb",
+		[]string{"Alicia", "Ally"}); err != nil {
+		t.Fatalf("apply provider aliases: %v", err)
+	}
+
+	base := srv.URL + "/api/v1/people/" + itoa(alice)
+
+	// Owner: the badge has provenance to render, and the review line has a name to show.
+	code, body := getJSONTok(t, base, "s3cret")
+	if code != http.StatusOK {
+		t.Fatalf("owner get person = %d", code)
+	}
+	person, _ := body["person"].(map[string]any)
+	aliases, _ := person["aliases"].([]any)
+	if len(aliases) != 1 {
+		t.Fatalf("person.aliases = %v, want just the non-colliding one", person["aliases"])
+	}
+	if a := aliases[0].(map[string]any); a["alias"] != "Alicia" || a["source"] != "tmdb" {
+		t.Errorf("alias = %v, want Alicia sourced tmdb", a)
+	}
+	skipped, _ := body["skipped_aliases"].([]any)
+	if len(skipped) != 1 {
+		t.Fatalf("skipped_aliases = %v, want the one collision", body["skipped_aliases"])
+	}
+	if s := skipped[0].(map[string]any); s["alias"] != "Ally" || int64(s["conflict_id"].(float64)) != bob {
+		t.Errorf("skipped = %v, want 'Ally' conflicting with Bob (%d)", s, bob)
+	}
+
+	// Visitor: the key is absent entirely, not null or empty — the review line is an
+	// owner control and a visitor should not learn that a collision exists at all.
+	code, body = getJSON(t, base)
+	if code != http.StatusOK {
+		t.Fatalf("visitor get person = %d", code)
+	}
+	if _, present := body["skipped_aliases"]; present {
+		t.Errorf("skipped_aliases leaked to a visitor: %v", body["skipped_aliases"])
+	}
+}

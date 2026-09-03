@@ -129,7 +129,7 @@ func (r *Repo) ApplyProviderAliases(ctx context.Context, entityType string, enti
 			return nil, err
 		}
 		if conflict {
-			if err := queueProviderAliasPair(ctx, tx, entityType, entityID, otherID); err != nil {
+			if err := queueProviderAliasPair(ctx, tx, entityType, entityID, otherID, alias); err != nil {
 				return nil, err
 			}
 			skipped = append(skipped, SkippedAlias{Alias: alias, ConflictID: otherID})
@@ -171,15 +171,20 @@ func aliasSuppressed(ctx context.Context, tx *sql.Tx, entityType string, entityI
 // entity_keep_separate so a pair the owner has already dismissed is never re-proposed
 // (F43 RD5 — a kept-separate pair never nags, and a re-enrich would otherwise nag on
 // every run).
-func queueProviderAliasPair(ctx context.Context, tx *sql.Tx, entityType string, a, b int64) error {
+func queueProviderAliasPair(ctx context.Context, tx *sql.Tx, entityType string, a, b int64, alias string) error {
 	lo, hi := orderPair(a, b)
+	// detail carries the skipped name (migration 0045): once this pass ends it exists
+	// nowhere else, since F58 stopped storing provider aliases in the shadow layer, and
+	// the panel needs to tell the owner *which* name was dropped. OR IGNORE means a
+	// second collision on the same pair keeps the first name — one example is enough to
+	// explain the pair, and the review surface shows both entities anyway.
 	_, err := tx.ExecContext(ctx, `
-		INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
-		SELECT ?, ?, ?, 'provider-alias'
+		INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
+		SELECT ?, ?, ?, 'provider-alias', ?
 		WHERE NOT EXISTS (
 			SELECT 1 FROM entity_keep_separate ks
 			 WHERE ks.entity_type = ? AND ks.id_lo = ? AND ks.id_hi = ?)`,
-		entityType, lo, hi, entityType, lo, hi)
+		entityType, lo, hi, alias, entityType, lo, hi)
 	if err != nil {
 		return fmt.Errorf("queue provider-alias pair (%s): %w", entityType, err)
 	}
@@ -268,4 +273,37 @@ func (r *Repo) deleteEnrichmentAliasRows(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("clear enrichment aliases: %w", err)
 	}
 	return res.RowsAffected()
+}
+
+// SkippedAliasesForEntity returns the provider-supplied names that were not added to this
+// entity because another entity of the same type already holds them (ADR-088 D5) — what
+// the Aliases panel renders as its collision review line.
+//
+// Derived from identity_review_queue rather than stored per-entity: the pair *is* the
+// outstanding question, so resolving it (merge, keep-separate, or any other queue action)
+// makes the line disappear with no extra bookkeeping. Only 'provider-alias' rows carry a
+// name in detail, and only those are returned.
+//
+// Owner-facing: the caller gates it, like every other control on that panel.
+func (r *Repo) SkippedAliasesForEntity(ctx context.Context, entityType string, entityID int64) ([]SkippedAlias, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT detail, CASE WHEN id_lo = ? THEN id_hi ELSE id_lo END AS other_id
+		  FROM identity_review_queue
+		 WHERE entity_type = ? AND variation = 'provider-alias'
+		   AND (id_lo = ? OR id_hi = ?) AND detail <> ''
+		 ORDER BY detail COLLATE NOCASE`,
+		entityID, entityType, entityID, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("skipped aliases for %s: %w", entityType, err)
+	}
+	defer rows.Close()
+	var out []SkippedAlias
+	for rows.Next() {
+		var s SkippedAlias
+		if err := rows.Scan(&s.Alias, &s.ConflictID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }

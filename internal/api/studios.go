@@ -219,12 +219,18 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 	if linksErr != nil {
 		h.log.Warn("external links for studio detail", "id", id, "err", linksErr)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	body := map[string]any{
 		"studio": s, "items": items, "total": total,
 		"resolved":       resolved,
 		"completeness":   completeness,
 		"external_links": links,
-	})
+	}
+	// Same owner-gated review line the person panel gets — AliasPanel is reused verbatim
+	// on studio, so the payload has to be too (spec F58 RD8).
+	if skipped := h.skippedAliases(r, model.EnrichEntityStudio, id, authorized); len(skipped) > 0 {
+		body["skipped_aliases"] = skipped
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 func (h *Handlers) studioLookupError(w http.ResponseWriter, err error) {

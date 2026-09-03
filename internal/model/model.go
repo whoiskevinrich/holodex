@@ -97,12 +97,17 @@ type Person struct {
 	Role string `json:"role,omitempty"`
 }
 
-// EntityAlias is one owner-curated alternate name for a named entity — person,
-// studio, or tag — stored in the shared entity_aliases spine (F43, ADR-061). The id
-// gives the UI and the delete endpoint a stable handle.
+// EntityAlias is one alternate name for a named entity — person, studio, or tag —
+// stored in the shared entity_aliases spine (F43, ADR-061). The id gives the UI and the
+// delete endpoint a stable handle.
 type EntityAlias struct {
 	ID    int64  `json:"id"`
 	Alias string `json:"alias"`
+	// Source is the provider namespace that supplied this name, empty for one the owner
+	// typed (F58, ADR-088 D2). It is provenance, not privilege: nothing filters on it,
+	// search and scan routing are blind to it, and the UI uses it only to badge the chip.
+	// A name from a provider is as real an alias as one the owner typed.
+	Source string `json:"source,omitempty"`
 }
 
 // PersonAlias is the person-entity alias (F23, ADR-036): the shared EntityAlias
