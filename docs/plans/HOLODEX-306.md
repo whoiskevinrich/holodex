@@ -102,6 +102,7 @@ start.** Slice order below follows the spec's own Timeline section.
   half (`H. Miyazaki`, `Miyazaki, Hayao`, `宮崎駿` all kept) harder than the true-positive half.
 - ADR-088's `Spec:` line now points at the file and names RD5/RD6 as refinements of D3, since both
   post-date the ADR. The ADR itself is unchanged otherwise — it stays Proposed, not rewritten.
-- handoff: **all four gates green.** PR #288 can be marked ready for review and implementation can
-  start at Up-next #3 (the migration). `/security-review` is still owed once the enrich write path
-  exists — it is gate #9, not a pre-implementation blocker.
+- handoff: **all four pre-implementation gates green** — implementation can start at Up-next #3
+  (the migration). The PR **stays Draft**: ADR-069 gates ready-for-review on the whole routing
+  table, and backend, frontend, and `/security-review` are still open. Marking it ready now would
+  fire the Jira `In Review` transition against a docs-only branch.
