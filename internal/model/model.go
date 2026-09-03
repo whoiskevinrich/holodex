@@ -458,6 +458,16 @@ const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 // already does. Same self-describing "<namespace>:<id> <name>" value shape.
 const PersonExternalIDsField = InternalFieldPrefix + "person_external_ids"
 
+// ProviderAliasesField is the wire field-key a provider returns alternate names under
+// (TMDB maps `also_known_as` onto it). Deliberately not internal-prefixed: it is a
+// plain provider field that arrives through the ADR-033 shadow store like any other.
+//
+// It is no longer a registry canonical, though (HOLODEX-306, ADR-088 D1) — the resolver
+// emits no `aliases` row, because these values are written onward into entity_aliases
+// and belong to the identity spine, not to per-field resolution. This constant exists
+// so the one place that still reads the key names it rather than spelling it inline.
+const ProviderAliasesField = "aliases"
+
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the
 // file-extracted fields; Provider carries the provenance the UI labels

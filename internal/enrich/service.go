@@ -59,6 +59,10 @@ type EnrichRepo interface {
 	// RelinkVideoPeople's later name-based reconcile runs. Returns person id keyed
 	// by external_id.
 	ResolveOrCreatePeopleByExternalID(ctx context.Context, credits []repo.PersonCredit) (map[string]int64, error)
+	// ApplyProviderAliases writes a provider's alternate names into the identity spine
+	// (HOLODEX-306, ADR-088 D3/D5), returning the ones another entity already holds.
+	// Best effort — a name conflict must never fail the enrichment around it.
+	ApplyProviderAliases(ctx context.Context, entityType string, entityID int64, source string, names []string) ([]repo.SkippedAlias, error)
 }
 
 // ImageSink stores a downloaded, normalized provider asset as an image for an
@@ -529,6 +533,27 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
+	// Alternate names go on into the identity spine, where they become searchable and
+	// scan-routing (HOLODEX-306, ADR-088 D1/D3). They still land in the shadow store
+	// above — a provider value arrives through it like any other — but entity_aliases is
+	// where they live and what search and the scanner read.
+	//
+	// Best-effort on purpose, alongside the asset download below: one awkward alternate
+	// name must never cost the entity the bio, birthdate, and photo this pass already
+	// stored. Collisions are not errors at all — ApplyProviderAliases queues those for
+	// the owner and reports them; only an actual write failure reaches this log.
+	if aliasEntityType(entityType) {
+		if names := fields[model.ProviderAliasesField]; len(names) > 0 {
+			if skipped, err := s.repo.ApplyProviderAliases(ctx, entityType, entityID, provider, names); err != nil {
+				slog.Warn("apply provider aliases", "entity_type", entityType, "entity_id", entityID,
+					"provider", provider, "err", err)
+			} else if len(skipped) > 0 {
+				slog.Info("provider aliases skipped: already held by another entity",
+					"entity_type", entityType, "entity_id", entityID, "provider", provider,
+					"count", len(skipped))
+			}
+		}
+	}
 	// Download any image assets the provider returned (F25/ADR-038, entity-generic
 	// since F51/ADR-079: person and studio). Best-effort — a failed fetch/normalize is
 	// logged and skipped, never failing the field enrichment that already succeeded.
@@ -705,6 +730,14 @@ func (s *Service) resolvePeopleCredits(ctx context.Context, provider string, peo
 // entity type are not — their asset-worthy values stay plain fields.
 func imageBackedEntityType(entityType string) bool {
 	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio || entityType == model.EnrichEntityFilm
+}
+
+// aliasEntityType reports whether entityType rides the entity_aliases identity spine
+// with an owner-facing Aliases panel, and so can receive a provider's alternate names
+// (HOLODEX-306, spec F58 RD8). Tag is on the spine but has no panel and no provider
+// alias source (F43 RD7); video and film are not name-identity entities at all.
+func aliasEntityType(entityType string) bool {
+	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio
 }
 
 // downloadAssets fetches provider image assets through the SSRF-guarded asset client

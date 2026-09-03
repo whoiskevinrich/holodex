@@ -205,18 +205,45 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, aliasID int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
-	res, err := r.db.ExecContext(ctx,
-		`DELETE FROM entity_aliases WHERE id = ? AND entity_type = ? AND entity_id = ?`,
-		aliasID, entityType, id)
+
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("delete %s alias: %w", entityType, err)
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	defer tx.Rollback()
+
+	// Read the row first: whether it was provider-sourced decides if the delete also
+	// records a suppression, and the scoped SELECT doubles as the ErrNotFound check.
+	var alias, source string
+	switch err := tx.QueryRowContext(ctx,
+		`SELECT alias, source FROM entity_aliases WHERE id = ? AND entity_type = ? AND entity_id = ?`,
+		aliasID, entityType, id).Scan(&alias, &source); {
+	case errors.Is(err, sql.ErrNoRows):
 		return ErrNotFound
+	case err != nil:
+		return fmt.Errorf("delete %s alias: %w", entityType, err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM entity_aliases WHERE id = ? AND entity_type = ? AND entity_id = ?`,
+		aliasID, entityType, id); err != nil {
+		return fmt.Errorf("delete %s alias: %w", entityType, err)
+	}
+
+	// A provider-sourced alias would come straight back on the next enrich, so removing
+	// it has to be durable to mean anything (ADR-088 D4). An owner-authored one records
+	// nothing — no path would re-add it, and a suppression there would only get in the
+	// owner's way later.
+	if source != "" {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO entity_alias_suppressions (entity_type, entity_id, alias_key)
+			VALUES (?, ?, `+nameKeyExpr(entityType, "?")+`)`,
+			entityType, id, alias); err != nil {
+			return fmt.Errorf("suppress %s alias: %w", entityType, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("delete %s alias: %w", entityType, err)
 	}
 	return nil
 }
@@ -227,12 +254,20 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 // same-named entities (the homonym rule, F23/RD4): the caller surfaces it for the owner
 // to confirm. selfID is the entity the name is being attached to (excluded).
 func (r *Repo) EntityConflict(ctx context.Context, entityType string, selfID int64, name string) (int64, bool, error) {
+	return entityConflict(ctx, r.db, entityType, selfID, name)
+}
+
+// entityConflict is EntityConflict's query over the queryRower read slice, so the
+// provider-alias apply path can ask the same question inside its own transaction
+// (HOLODEX-306) instead of re-implementing the UNION. Both routes a name can already be
+// taken — another entity's canonical nameKey, or another entity's alias — in one read.
+func entityConflict(ctx context.Context, qr queryRower, entityType string, selfID int64, name string) (int64, bool, error) {
 	table := canonicalTable(entityType)
 	if table == "" {
 		return 0, false, fmt.Errorf("entity conflict: unknown entity type %q", entityType)
 	}
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := qr.QueryRowContext(ctx, `
 		SELECT id FROM `+table+` WHERE `+nameKeyExpr(entityType, "name")+` = `+nameKeyExpr(entityType, "?")+` AND id <> ?
 		UNION
 		SELECT entity_id FROM entity_aliases WHERE `+entityAliasKeyByType[entityType]+` AND entity_id <> ?

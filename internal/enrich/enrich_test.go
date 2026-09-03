@@ -1453,3 +1453,58 @@ func TestFieldsFromRowsHidesInternal(t *testing.T) {
 		}
 	}
 }
+
+// TestEnrichWritesProviderAliasesToSpine proves the wiring HOLODEX-306 exists for: a
+// provider's alternate names must not stop at the ADR-033 shadow store, they must reach
+// entity_aliases where search and the scanner actually read (spec F58 P0-2, ADR-088 D1/D3).
+// The repo-level behaviour is covered in internal/repo/provider_aliases_test.go; what this
+// test adds is that runEnrich calls it at all, with the right provider as `source`.
+func TestEnrichWritesProviderAliasesToSpine(t *testing.T) {
+	svc, r := newSvc(t, NewFake("fake"))
+	ctx := context.Background()
+
+	ids, err := r.ResolveOrCreatePeopleByExternalID(ctx, []repo.PersonCredit{
+		{Name: "Hayao Miyazaki", ExternalID: "fake:608"},
+	})
+	if err != nil {
+		t.Fatalf("seed person: %v", err)
+	}
+	personID := ids["fake:608"]
+
+	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, personID, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+
+	aliases, err := r.AliasesForEntity(ctx, model.EnrichEntityPerson, personID)
+	if err != nil {
+		t.Fatalf("aliases: %v", err)
+	}
+	if len(aliases) != 2 {
+		t.Fatalf("provider aliases did not reach the spine: %+v", aliases)
+	}
+	// The Fake's canonical-name echo would be filtered by RD6; these two are real AKAs.
+	got := map[string]bool{}
+	for _, a := range aliases {
+		got[a.Alias] = true
+	}
+	if !got["宮崎駿"] || !got["Miyazaki Hayao"] {
+		t.Errorf("aliases = %+v, want both of the Fake's also-known-as values", aliases)
+	}
+}
+
+// TestEnrichSurvivesAliasWriteFailure pins the best-effort posture (ADR-088 D5, spec F58
+// goal 4): enriching an entity id that does not exist makes the alias write fail, and the
+// enrichment around it must still succeed. One awkward alternate name -- or here, a
+// missing row -- must never cost the entity its bio, birthdate, and photo.
+func TestEnrichSurvivesAliasWriteFailure(t *testing.T) {
+	svc, _ := newSvc(t, NewFake("fake"))
+	ctx := context.Background()
+
+	fields, err := svc.Enrich(ctx, model.EnrichEntityPerson, 4242, "fake", "tmdb:608", false)
+	if err != nil {
+		t.Fatalf("alias write failure must not fail the enrichment: %v", err)
+	}
+	if len(fields) == 0 {
+		t.Fatal("enrichment returned no fields; the alias step swallowed the pass")
+	}
+}

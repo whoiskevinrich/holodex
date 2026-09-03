@@ -38,9 +38,7 @@ one gets approved.
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
 3. [x] [backend] migration 0044 — done 2026-09-02 (P0-1; ADR-088 D2/D4/D6)
-4. [ ] [backend] enrich apply writes provider aliases; skip own nameKey, RD6 near-duplicates, and
-       suppressed keys; collision → `identity_review_queue` `variation='provider-alias'`
-       (P0-2/P0-4/P0-5 — one slice, the guards are meaningless without the writer)
+4. [x] [backend] enrich write path + both guards — done 2026-09-03 (P0-2/P0-4/P0-5)
 5. [ ] [backend] delete `aliases` FieldDef + `metadata-mappings.yaml.example` block; synthetic
        completeness facet mirroring studio `branding_image` (P0-6/P0-7 — together, so the
        completeness denominator never shifts mid-branch)
@@ -130,3 +128,30 @@ one gets approved.
   Corrected in `docs/testing-strategy.md` rather than left to mislead the next slice.
 - handoff: next is Up-next #4, the enrich write path. Its two guards (suppression skip, collision →
   review queue) belong in the same commit as the writer.
+
+### 2026-09-03 · P0-2/P0-4/P0-5 enrich write path landed
+- skills: simplify
+- `repo.ApplyProviderAliases` (`internal/repo/provider_aliases.go`) + the suppression write inside
+  `DeleteEntityAlias`, wired into `runEnrich` next to the asset download and sharing its
+  best-effort posture. 8 repo tests + 2 enrich tests; full `go test ./...` green.
+- **The payoff test is a pair and must stay one**: `TestApplyProviderAliases_LiveOnArrival` asserts
+  a provider name both finds the person in search *and* routes a new file to them on scan. Either
+  half alone is the original bug in a new table.
+- **A guard the spec did not name, found while reading `review_queue.go`**: `FlagNearMiss` checks
+  `entity_keep_separate` before queueing. A provider-alias collision must too, or every re-enrich
+  re-proposes a pair the owner already dismissed — F43 RD5's "a kept-separate pair never nags"
+  applied to a source that repeats on a schedule. `TestProviderAliasCollisionRespectsKeepSeparate`.
+- `/simplify` reuse pass: my `aliasHolder` had re-implemented `EntityConflict`'s UNION just to run
+  it on a `*sql.Tx`. `identity.go` already defines `queryRower` for exactly that ("the read slice
+  both `*sql.Tx` and `*sql.DB` satisfy"), so the query is now one shared `entityConflict` and the
+  public method is a wrapper.
+- Test-quality fix worth noting: the suppression test's "owner can re-add a suppressed name"
+  assertion originally contradicted its own comment — it asserted a *failure*, caused by an earlier
+  step having given the name to another person. Rewritten so each asymmetry owns its own name.
+- Gotcha for future sessions: a Python round-trip over a source file writes CRLF on Windows, which
+  `gofmt -l` then flags in a repo whose `.gitattributes` sets `eol=lf`. Normalize with a binary
+  read/write. (Three other files in `internal/` carry the same pre-existing drift; not touched.)
+- handoff: next is Up-next #5 — delete the `aliases` FieldDef and add the synthetic completeness
+  facet, together, so the completeness denominator never shifts mid-branch. That slice is where
+  `TestEnrichmentShadowStore` and `TestPersonFields_Synthesis` get rewritten (and
+  `TestServiceResolveEnrichClear`'s `got["aliases"]` assertion, which still passes today).
