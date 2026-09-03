@@ -30,13 +30,14 @@ person page.
 
 ## Up next — ordered (position = priority)
 
-**All four pre-implementation gates are green — the PR can leave Draft and implementation can
-start.** Slice order below follows the spec's own Timeline section.
+All four pre-implementation gates are green; implementation is underway. Slice order follows the
+spec's own Timeline section. **Next: #4, the enrich write path** — its two guards (suppression,
+collision) ship in the same commit as the writer, since reviewing a writer with no brakes is how
+one gets approved.
 
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
-3. [ ] [backend] migration: `entity_aliases.source`, `entity_alias_suppressions`, promote
-       `metadata_curation` `field_key='aliases'` rows (P0-1; ADR-088 D2/D4/D6)
+3. [x] [backend] migration 0044 — done 2026-09-02 (P0-1; ADR-088 D2/D4/D6)
 4. [ ] [backend] enrich apply writes provider aliases; skip own nameKey, RD6 near-duplicates, and
        suppressed keys; collision → `identity_review_queue` `variation='provider-alias'`
        (P0-2/P0-4/P0-5 — one slice, the guards are meaningless without the writer)
@@ -54,7 +55,7 @@ start.** Slice order below follows the spec's own Timeline section.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-02 · ADR-088 + design handoff landed; direction set to a full collapse
-- skills: architecture, design-handoff
+- skills: architecture, design-handoff, simplify
 - The owner rejected a two-tier "suggested chips → promote" design mid-session and asked for a
   genuine collapse across backend and frontend, then chose **fully live on arrival** over a
   confirm-before-routing variant. Both rejected alternatives are recorded in ADR-088 so they are
@@ -106,3 +107,26 @@ start.** Slice order below follows the spec's own Timeline section.
   (the migration). The PR **stays Draft**: ADR-069 gates ready-for-review on the whole routing
   table, and backend, frontend, and `/security-review` are still open. Marking it ready now would
   fire the Jira `In Review` transition against a docs-only branch.
+
+### 2026-09-02 · P0-1 migration 0044 landed
+- skills: simplify
+- `0044_alias_source_and_suppressions.{up,down}.sql` + `internal/db/alias_collapse_test.go`
+  (3 tests). Full `go test ./...` green; `openAt`/`mustExec`/`count` reused from `fold_test.go`
+  exactly as the test plan predicted, so no new harness.
+- **`/simplify`'s altitude pass earned its keep.** 0022 states the invariant *"an alias never
+  outlives its entity"* and — because `entity_aliases` is polymorphic, so no FK can express it —
+  enforces it with three `AFTER DELETE` triggers on `people`/`studios`/`tags`.
+  `entity_alias_suppressions` has the identical shape and I had skipped them, leaving rows that
+  nothing would ever prune. Added the three matching triggers.
+- That fix carried a second, sharper one: the triggers live on `people`/`studios`/`tags`, **not**
+  on the dropped table, so `DROP TABLE` does not remove them — without an explicit `DROP TRIGGER`
+  the down migration leaves them pointing at a missing table and the next `DELETE FROM people`
+  fails. The down test now deletes a person after migrating down; I verified that assertion is
+  non-vacuous by removing the `DROP TRIGGER` lines and watching it fail.
+- Not overstated: all three entity tables use `AUTOINCREMENT`, so a deleted id is never reissued
+  and an orphaned suppression could not have been inherited by a later entity. The fix is about
+  unreachable rows accumulating and about the invariant holding uniformly, not a live data bug.
+- Two `created_at` assertions in the test plan were wrong — `entity_aliases` has no such column.
+  Corrected in `docs/testing-strategy.md` rather than left to mislead the next slice.
+- handoff: next is Up-next #4, the enrich write path. Its two guards (suppression skip, collision →
+  review queue) belong in the same commit as the writer.
