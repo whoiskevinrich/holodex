@@ -24,15 +24,15 @@ person page.
 - [x] design `design-handoff` → `docs/design/alias-collapse-handoff.md` + committed SVG
 - [ ] backend
 - [ ] frontend
-- [ ] testing `testing-strategy` → `docs/testing-strategy.md`
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 five backend rows, §5 two frontend
+      rows, three Critical invariants, one Known Gaps bullet)
 - [ ] security `security-review` → docs-only so far; required once the enrich write path lands
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [gate] spec entry for the collapse (or amend the F43 identity spec) — the one open
-       pre-implementation gate
-2. [ ] [gate] `/testing-strategy` — cover the enrich→alias write path, the collision→review-queue
-       branch, suppression durability across re-enrich, and the curation-promotion migration
+1. [ ] [gate] spec entry for the collapse (or amend the F43 identity spec) — **the last open
+       pre-implementation gate**; nothing else may start until it lands (ADR-069)
+2. [x] [gate] `/testing-strategy` — done 2026-09-02
 3. [ ] [backend] migration: `entity_aliases.source`, `entity_alias_suppressions`, promote
        `metadata_curation` `field_key='aliases'` rows (ADR-088 D2/D4/D6)
 4. [ ] [backend] enrich apply writes provider aliases; skip own nameKey + suppressed; collision →
@@ -59,3 +59,22 @@ person page.
   the reason D4 (suppression) and D5 (collision → review queue) are not optional.
 - handoff: two of four pre-implementation gates are green (ADR, design). Next session should close
   the spec gate and run `/testing-strategy` before any code, per ADR-069.
+
+### 2026-09-02 · testing gate closed
+- skills: testing-strategy
+- Surveyed existing coverage first, which changed two rows materially. The collapse has **no
+  existing test pulling against it** — `TestEnrichmentShadowStore` already stores provider
+  `aliases` in `entity_enrichment` and asserts the multi-value split — so the new tests are the
+  specification, not regression cover. Two existing tests must be *rewritten*, and those edits are
+  the D1 guard: `TestEnrichmentShadowStore` and `TestPersonFields_Synthesis` (which asserts
+  `aliases` is the person merge field, false after D1).
+- Two reusable precedents found, so no new machinery is needed: `openAt` +
+  `TestMigration0022FoldsCaseDuplicates` (`internal/db/fold_test.go`) is the only other migration
+  test asserting on transformed *data* and is a direct template for D6; the
+  `injectAssetFacet`/`branding_image` quartet is the template for D7.
+- The frontend row was written down rather than up: `web/package.json` has no
+  `@testing-library/svelte`/`jsdom`, so **no Svelte component can be mounted at all** today. What
+  is actually automatable is `addPersonAlias`/`deletePersonAlias` in `api.test.ts` plus Go API
+  tests; the rest is a manual QA checklist, recorded as such instead of promised.
+- handoff: three of four pre-implementation gates green. Only the spec entry remains — write it
+  next, then the PR can leave Draft and implementation can start at Up-next #3.
