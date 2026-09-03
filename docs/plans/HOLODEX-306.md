@@ -27,7 +27,7 @@ person page.
       special-case removed; 3-skin computed-contrast QA on a live page
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 five backend rows, §5 two frontend
       rows, three Critical invariants, one Known Gaps bullet)
-- [ ] security `security-review` → docs-only so far; required once the enrich write path lands
+- [/] security `security-review` → docs-only so far; required once the enrich write path lands
 
 ## Up next — ordered (position = priority)
 
@@ -46,6 +46,9 @@ before the PR can leave Draft.**
 9. [ ] [gate] `/security-review` — **the last open gate**; the enrich write path has landed
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-03 · session
+- skills: security-review
 
 ### 2026-09-02 · ADR-088 + design handoff landed; direction set to a full collapse
 - skills: architecture, design-handoff, simplify
