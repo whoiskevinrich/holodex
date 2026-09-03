@@ -23,7 +23,8 @@ person page.
 - [x] architecture `architecture` → `docs/architecture/ADR-088-provider-alias-collapse.md`
 - [x] design `design-handoff` → `docs/design/alias-collapse-handoff.md` + committed SVG
 - [ ] backend
-- [ ] frontend
+- [x] frontend — `AliasPanel` badge + subcopy + review line; person page's `aliases`
+      special-case removed; 3-skin computed-contrast QA on a live page
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 five backend rows, §5 two frontend
       rows, three Critical invariants, one Known Gaps bullet)
 - [ ] security `security-review` → docs-only so far; required once the enrich write path lands
@@ -31,7 +32,8 @@ person page.
 ## Up next — ordered (position = priority)
 
 All four pre-implementation gates are green; implementation is underway. Slice order follows the
-spec's own Timeline section. **Backend is complete; next is the frontend (#7, #8).**
+spec's own Timeline section. **Implementation is complete. Only `/security-review` (#9) remains
+before the PR can leave Draft.**
 
 1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
@@ -39,11 +41,9 @@ spec's own Timeline section. **Backend is complete; next is the frontend (#7, #8
 4. [x] [backend] enrich write path + both guards — done 2026-09-03 (P0-2/P0-4/P0-5)
 5. [x] [backend] registry removal + `alternate_names` facet — done 2026-09-03 (P0-6/P0-6b/P0-7)
 6. [x] [backend] model + API surface — done 2026-09-03 (P0-8)
-7. [ ] [frontend] remove the "Also known as" `mergeFields` block from the person page
-       (`+page.svelte:656-677`) — keep the loop itself (P0-9, Non-Goal 6)
-8. [ ] [frontend] `AliasPanel` source badge, widened subcopy, collision review line — then QA all
-       three skins with computed-contrast checks on the badge (P0-10)
-9. [ ] [gate] `/security-review` once the enrich write path exists
+7. [x] [frontend] person page `aliases` special-case removed — done 2026-09-03 (P0-9)
+8. [x] [frontend] `AliasPanel` badge, subcopy, review line + 3-skin QA — done 2026-09-03 (P0-10)
+9. [ ] [gate] `/security-review` — **the last open gate**; the enrich write path has landed
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -209,3 +209,31 @@ spec's own Timeline section. **Backend is complete; next is the frontend (#7, #8
   "Also known as" `mergeFields` block (#7), then `AliasPanel`'s badge, subcopy, and review line
   (#8) with three-skin computed-contrast QA. `/security-review` (#9) is owed before ready-for-review
   now that the enrich write path exists.
+
+
+### 2026-09-03 · P0-9/P0-10 frontend landed — implementation complete
+- skills: simplify
+- `AliasPanel` gains the source badge, the widened subcopy, and the collision review line; the
+  person page's `f.canonical === 'aliases' ? 'Also known as' : f.label` special-case is gone (the
+  `mergeFields` loop stays, per Non-Goal 6). Studio wired identically — the panel is reused there.
+- **QA'd against a live page, not a mock.** Seeded a provider alias, an owner alias, and a real
+  collision into the local preview DB, then measured computed contrast across all three skins.
+  Badge text on the chip: **5.88 / 4.71 / 5.47** (Cinémathèque / Broadcast / Brutalist) — all above
+  AA 4.5:1 for 10px text, Broadcast tightest.
+- The badge's `border-rule` measures **1.23–1.49:1** against the chip — nearly invisible. Checked
+  the alternative before accepting it: `bg-surface` on `bg-surface-2` is **1.01:1**, so a fill
+  would read even less. The surface tiers are that close in all three dark skins. The badge is
+  distinguished by size, casing, and muted color; the border is a faint edge, not the signal.
+- Live-verified the owner gate end to end: `skipped_aliases` is **absent** from a visitor's
+  payload, and the review line, remove buttons, and add form are all gone for a visitor while the
+  badged chips stay visible (aliases are public; only the controls are gated).
+- Two process notes worth keeping. Python's `str.replace` silently no-ops on an indentation
+  mismatch — one edit "succeeded" and changed nothing, caught only by reading the served DOM;
+  assert on the pattern before writing. And `requestAnimationFrame` never fires while the Browser
+  pane is hidden, so a rAF-based style probe hangs until timeout — force layout with
+  `void document.body.offsetHeight` instead.
+- Prettier is **not** wired into this project (no config, no script, no CI job); `npm run check`
+  (svelte-check) is the real gate and is clean. Don't chase `npx prettier` warnings here.
+- handoff: implementation is complete (P0-1 through P0-10). `/security-review` is the last open
+  gate — the enrich write path creates identity rows that route scans, so it is genuinely owed
+  before the PR leaves Draft.

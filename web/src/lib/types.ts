@@ -1,11 +1,23 @@
 // Shape of the REST payloads (mirrors internal/model + handlers, ADR-006).
 
-// PersonAlias is one owner-curated alternate name (F23, ADR-036). The id is the
-// stable handle the delete control uses. Shared verbatim by studio + tag aliases
-// (F43, ADR-061) — the server's EntityAlias has the same `{ id, alias }` shape.
+// PersonAlias is one alternate name (F23, ADR-036). The id is the stable handle the
+// delete control uses. Shared verbatim by studio + tag aliases (F43, ADR-061) — the
+// server's EntityAlias has the same shape.
 export interface PersonAlias {
 	id: number;
 	alias: string;
+	// source is the provider namespace that supplied this name, absent/empty for one the
+	// owner typed (F58, ADR-088 D2). Provenance only — search and scan routing are blind
+	// to it, and the panel uses it purely to badge the chip.
+	source?: string;
+}
+
+// SkippedAlias is a provider-supplied name that was NOT added because another entity of
+// the same type already holds it (F58, ADR-088 D5). The pair is queued for review;
+// conflict_id is the other entity. Owner-only — absent from a visitor's payload.
+export interface SkippedAlias {
+	alias: string;
+	conflict_id: number;
 }
 
 // EntityKind names the three identity entities that share the alias/merge/rename
@@ -747,6 +759,9 @@ export interface PersonDetailResponse {
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
 	// entry per stored person_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
+	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
+	// Owner-gated: the key is absent entirely for a visitor, not null.
+	skipped_aliases?: SkippedAlias[];
 }
 
 // StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
@@ -763,6 +778,10 @@ export interface StudioDetailResponse {
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
 	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
+	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
+	// Owner-gated: the key is absent entirely for a visitor, not null. AliasPanel is
+	// reused verbatim on studio, so the payload carries it here too (spec F58 RD8).
+	skipped_aliases?: SkippedAlias[];
 }
 
 // Film is a first-class entity (F56, ADR-085): unlike Studio/Tag, its video membership
