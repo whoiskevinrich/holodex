@@ -12,7 +12,11 @@ ADR-036 explicitly reserved, and makes it the only path) · [ADR-061](ADR-061-un
 alias now leaves on its way to a real row). **Relates to:** [ADR-051](ADR-051-per-field-source-of-truth-decisions.md)
 (per-field decisions — `aliases` was never eligible, being a merge field) ·
 [ADR-081](ADR-081-entity-completeness-score.md) (the scored facet this ADR re-homes).
-**Spec:** HOLODEX-306. **Design:** [alias-collapse-handoff.md](../design/alias-collapse-handoff.md).
+**Spec:** [provider-alias-collapse.md](../specs/provider-alias-collapse.md) (F58, HOLODEX-306) —
+which refines D3 with two decisions taken after this ADR was drafted: provider input is additive,
+so a name the provider later drops is kept (spec RD5), and every AKA is imported except
+punctuation/spacing near-duplicates of the canonical name (spec RD6).
+**Design:** [alias-collapse-handoff.md](../design/alias-collapse-handoff.md).
 
 ---
 

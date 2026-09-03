@@ -18,8 +18,8 @@ person page.
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` → behaviour is fully described in ADR-088 + handoff; a spec entry still
-      owed under `docs/specs/` (or an amendment to the F43 identity spec) before ready-for-review
+- [x] spec `write-spec` → `docs/specs/provider-alias-collapse.md` (F58) — 8 resolved decisions,
+      10 P0 requirements, sliced build order
 - [x] architecture `architecture` → `docs/architecture/ADR-088-provider-alias-collapse.md`
 - [x] design `design-handoff` → `docs/design/alias-collapse-handoff.md` + committed SVG
 - [ ] backend
@@ -30,21 +30,26 @@ person page.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [gate] spec entry for the collapse (or amend the F43 identity spec) — **the last open
-       pre-implementation gate**; nothing else may start until it lands (ADR-069)
+**All four pre-implementation gates are green — the PR can leave Draft and implementation can
+start.** Slice order below follows the spec's own Timeline section.
+
+1. [x] [gate] spec — done 2026-09-02, `docs/specs/provider-alias-collapse.md`
 2. [x] [gate] `/testing-strategy` — done 2026-09-02
 3. [ ] [backend] migration: `entity_aliases.source`, `entity_alias_suppressions`, promote
-       `metadata_curation` `field_key='aliases'` rows (ADR-088 D2/D4/D6)
-4. [ ] [backend] enrich apply writes provider aliases; skip own nameKey + suppressed; collision →
-       `identity_review_queue` `variation='provider-alias'` (D3/D5)
+       `metadata_curation` `field_key='aliases'` rows (P0-1; ADR-088 D2/D4/D6)
+4. [ ] [backend] enrich apply writes provider aliases; skip own nameKey, RD6 near-duplicates, and
+       suppressed keys; collision → `identity_review_queue` `variation='provider-alias'`
+       (P0-2/P0-4/P0-5 — one slice, the guards are meaningless without the writer)
 5. [ ] [backend] delete `aliases` FieldDef + `metadata-mappings.yaml.example` block; synthetic
-       completeness facet mirroring studio `branding_image` (D1/D7)
+       completeness facet mirroring studio `branding_image` (P0-6/P0-7 — together, so the
+       completeness denominator never shifts mid-branch)
 6. [ ] [backend] `EntityAlias.Source` on the model + detail read; `skipped_aliases` on the person
-       and studio detail payloads
+       and studio detail payloads (P0-8)
 7. [ ] [frontend] remove the "Also known as" `mergeFields` block from the person page
-       (`+page.svelte:656-677`)
+       (`+page.svelte:656-677`) — keep the loop itself (P0-9, Non-Goal 6)
 8. [ ] [frontend] `AliasPanel` source badge, widened subcopy, collision review line — then QA all
-       three skins with computed-contrast checks on the badge
+       three skins with computed-contrast checks on the badge (P0-10)
+9. [ ] [gate] `/security-review` once the enrich write path exists
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -78,3 +83,25 @@ person page.
   tests; the rest is a manual QA checklist, recorded as such instead of promised.
 - handoff: three of four pre-implementation gates green. Only the spec entry remains — write it
   next, then the PR can leave Draft and implementation can start at Up-next #3.
+
+### 2026-09-02 · spec landed — all four pre-implementation gates green
+- skills: write-spec
+- `docs/specs/provider-alias-collapse.md` (F58), a new spec rather than an amendment to the F43
+  identity spec — this has its own ADR, epic, and gates, and folding it into a shipped spec would
+  blur what F43 actually delivered.
+- Two genuinely open questions went to the owner as cards, and both are now RDs the ADR did not
+  cover. **RD5**: on re-enrich, a name the provider has *dropped* is **kept** — provider input is
+  additive, and the rejected alternative (mirror the provider's current list) would let a routine
+  re-enrich silently stop routing files with no owner action and no record. **RD6**: import every
+  AKA **except** punctuation/spacing near-duplicates of the canonical name — a hard cap was
+  rejected because the provider's ordering is not meaningful, so which names survived would be
+  arbitrary.
+- RD6's trap, now pinned in the test plan: its fold is an **import-time Go filter only** and must
+  never touch the stored `alias_key` generated column. Conflating them would change what collides,
+  reopening an F43 decision this epic explicitly does not touch. The test asserts the false-positive
+  half (`H. Miyazaki`, `Miyazaki, Hayao`, `宮崎駿` all kept) harder than the true-positive half.
+- ADR-088's `Spec:` line now points at the file and names RD5/RD6 as refinements of D3, since both
+  post-date the ADR. The ADR itself is unchanged otherwise — it stays Proposed, not rewritten.
+- handoff: **all four gates green.** PR #288 can be marked ready for review and implementation can
+  start at Up-next #3 (the migration). `/security-review` is still owed once the enrich write path
+  exists — it is gate #9, not a pre-implementation blocker.
