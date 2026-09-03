@@ -198,6 +198,13 @@ spec's own Timeline section. **Backend is complete; next is the frontend (#7, #8
 - Gotcha that `go build` will not catch: widening a `SELECT` without widening its `Scan` compiles
   fine and fails at runtime. Three call sites needed it; the batch read and the per-entity read
   are separate SELECTs, and `TestAliasSourceRoundTrips` now asserts they agree.
+- Followed up by adopting the house pattern for it: `entityAliasCols` + `scanEntityAlias`, the same
+  guard `jobRunColumns` and `filmSelectCols` already give their reads (`jobRunColumns`' own doc
+  comment names this exact failure). Verified load-bearing by mutation — adding a column to the
+  const alone fails all three reads at once, where before it would have failed one. Worth being
+  precise about what it buys: arity drift was always **loud** (`database/sql` errors on it), so
+  this is a locality win. The genuinely silent failure is *order* drift between two same-typed
+  columns, and only `TestAliasSourceRoundTrips`' value assertions catch that.
 - handoff: **backend is done** (P0-1 through P0-8). Next is the frontend: remove the
   "Also known as" `mergeFields` block (#7), then `AliasPanel`'s badge, subcopy, and review line
   (#8) with three-skin computed-contrast QA. `/security-review` (#9) is owed before ready-for-review

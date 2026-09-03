@@ -122,11 +122,26 @@ func (r *Repo) EntityExists(ctx context.Context, entityType string, id int64) er
 	return err
 }
 
+// entityAliasCols is the one select list every alias read shares, so a new column
+// can't be added to the scan order in one query and forgotten in another — the same
+// guard jobRunColumns and filmSelectCols give their reads. Pair it with
+// scanEntityAlias; the two are adjacent so a change to either is visibly a change to
+// both.
+const entityAliasCols = `id, alias, source`
+
+// scanEntityAlias reads one entityAliasCols row from a *sql.Row- or *sql.Rows-shaped
+// scanner, so the single-row resolve and the two list reads share one scan order.
+func scanEntityAlias(scan func(...any) error) (model.EntityAlias, error) {
+	var a model.EntityAlias
+	err := scan(&a.ID, &a.Alias, &a.Source)
+	return a, err
+}
+
 // AliasesForEntity returns an entity's aliases ordered case-insensitively by name.
 // Always returns a non-nil slice on success so the JSON serializes as [] not null.
 func (r *Repo) AliasesForEntity(ctx context.Context, entityType string, id int64) ([]model.EntityAlias, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, alias, source FROM entity_aliases WHERE entity_type = ? AND entity_id = ?
+		`SELECT `+entityAliasCols+` FROM entity_aliases WHERE entity_type = ? AND entity_id = ?
 		 ORDER BY alias COLLATE NOCASE`, entityType, id)
 	if err != nil {
 		return nil, fmt.Errorf("aliases for %s: %w", entityType, err)
@@ -134,8 +149,8 @@ func (r *Repo) AliasesForEntity(ctx context.Context, entityType string, id int64
 	defer rows.Close()
 	out := []model.EntityAlias{}
 	for rows.Next() {
-		var a model.EntityAlias
-		if err := rows.Scan(&a.ID, &a.Alias, &a.Source); err != nil {
+		a, err := scanEntityAlias(rows.Scan)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -152,7 +167,7 @@ func (r *Repo) AliasesForEntities(ctx context.Context, entityType string, ids []
 		return out, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT entity_id, id, alias, source FROM entity_aliases
+		SELECT entity_id, `+entityAliasCols+` FROM entity_aliases
 		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
 		ORDER BY alias COLLATE NOCASE`, append([]any{entityType}, toAnySlice(ids)...)...)
 	if err != nil {
@@ -160,9 +175,13 @@ func (r *Repo) AliasesForEntities(ctx context.Context, entityType string, ids []
 	}
 	defer rows.Close()
 	for rows.Next() {
+		// This read prefixes one grouping column onto the shared list; the closure keeps
+		// the alias columns themselves on scanEntityAlias's single scan order.
 		var entityID int64
-		var a model.EntityAlias
-		if err := rows.Scan(&entityID, &a.ID, &a.Alias, &a.Source); err != nil {
+		a, err := scanEntityAlias(func(dest ...any) error {
+			return rows.Scan(append([]any{&entityID}, dest...)...)
+		})
+		if err != nil {
 			return nil, err
 		}
 		out[entityID] = append(out[entityID], a)
@@ -190,10 +209,10 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 	}
 	// Resolve the row (inserted or pre-existing) by the normalized key — folding
 	// means "rob" returns this entity's existing "Rob".
-	var a model.EntityAlias
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT id, alias, source FROM entity_aliases WHERE entity_id = ? AND `+entityAliasKeyByType[entityType],
-		id, entityType, alias).Scan(&a.ID, &a.Alias, &a.Source); err != nil {
+	a, err := scanEntityAlias(r.db.QueryRowContext(ctx,
+		`SELECT `+entityAliasCols+` FROM entity_aliases WHERE entity_id = ? AND `+entityAliasKeyByType[entityType],
+		id, entityType, alias).Scan)
+	if err != nil {
 		return model.EntityAlias{}, fmt.Errorf("resolve %s alias: %w", entityType, err)
 	}
 	return a, nil
