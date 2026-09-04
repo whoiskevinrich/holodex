@@ -634,9 +634,15 @@ export interface EnrichedField {
 }
 
 // Enrichment review queue (F47 S2, ADR-066). EnrichEntityKind is the enrichment
-// entity spine — person | studio | video — distinct from EntityKind (F43's
-// alias/merge/rename spine), which has no `video`.
-export type EnrichEntityKind = 'person' | 'studio' | 'video';
+// entity spine — person | studio | video | film — distinct from EntityKind (F43's
+// alias/merge/rename spine), which has no `video` or `film`.
+//
+// `film` (F59/ADR-089 D5) is the one hardcoded chokepoint that kept films out of the
+// SPA's enrichment surface: the backend has had `entity_type: "film"` since ADR-086
+// and every enrichment *component* is entity-agnostic, so widening this union (and
+// ENRICH_ENTITY_BASE) is what makes films reachable. Film enrich routes are
+// registered server-side only when `films_enabled`.
+export type EnrichEntityKind = 'person' | 'studio' | 'video' | 'film';
 
 // EnrichQueueProviderState is one row's per-provider status (RD9 — never a single
 // collapsed flag). 'unreviewed' | 'not_matched' come from the server (GET

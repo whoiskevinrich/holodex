@@ -22,8 +22,17 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	const groupLabel: Record<EnrichEntityKind, string> = { person: 'People', studio: 'Studios', video: 'Media' };
-	const groupOrder: EnrichEntityKind[] = ['person', 'studio', 'video'];
+	const groupLabel: Record<EnrichEntityKind, string> = {
+		person: 'People',
+		studio: 'Studios',
+		video: 'Media',
+		film: 'Films'
+	};
+	// Films sort last: internal/repo/enrich_queue.go has ranked EnrichEntityFilm rows
+	// since ADR-086, but nothing could action them until F59/HOLODEX-309 added the ops
+	// entry below. With films_enabled off the server emits no film rows, so the group
+	// simply never appears — no client-side gate needed.
+	const groupOrder: EnrichEntityKind[] = ['person', 'studio', 'video', 'film'];
 
 	// Per-kind REST dispatch (resolve/apply already exist as one client trio per
 	// entity kind; the queue just routes to the right one) plus the detail-page href.
@@ -37,7 +46,8 @@
 	> = {
 		person: { resolve: api.enrichResolve, apply: api.enrichApply, href: (id) => `/people/${id}` },
 		studio: { resolve: api.enrichStudioResolve, apply: api.enrichStudioApply, href: (id) => `/studios/${id}` },
-		video: { resolve: api.enrichVideoResolve, apply: api.enrichVideoApply, href: (id) => `/media/${id}` }
+		video: { resolve: api.enrichVideoResolve, apply: api.enrichVideoApply, href: (id) => `/media/${id}` },
+		film: { resolve: api.enrichFilmResolve, apply: api.enrichFilmApply, href: (id) => `/films/${id}` }
 	};
 
 	// A row is actionable when it still has an unreviewed provider — a row whose

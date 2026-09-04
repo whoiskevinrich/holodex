@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { api } from './api';
+import { api, ENRICH_ENTITY_BASE } from './api';
+import { runEnrichRefresh, runEnrichRefreshAll } from './enrichRefresh';
 
 // Person image serving URLs (F25, ADR-038). The frontend always appends the active
 // skin (so the backend's empty-slot placeholder matches the current skin) and the
@@ -250,5 +251,133 @@ describe('entity alias clients', () => {
 			'/api/v1/studios/4/aliases',
 			expect.objectContaining({ method: 'POST' })
 		);
+	});
+});
+
+// Film enrichment clients (F59/ADR-089 D5, HOLODEX-309). The routes have existed since
+// ADR-086 but nothing in the SPA called them, so these pin the paths and verbs the film
+// detail page and the owner enrich queue now depend on. The `runEnrichRefresh` cases are
+// the load-bearing ones: they prove films ride the *generic* helper, so a future
+// film-specific branch in enrichRefresh.ts would be a regression, not a fix.
+describe('film enrichment clients (F59)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	function stub(status: number, body?: unknown) {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(body === undefined ? null : JSON.stringify(body), { status })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+		return fetchMock;
+	}
+
+	it('ENRICH_ENTITY_BASE maps film to /films, alongside the three older kinds', () => {
+		expect(ENRICH_ENTITY_BASE.film).toBe('films');
+		// Pinned as a set: this record is exhaustive over EnrichEntityKind, so a new kind
+		// that forgets its base segment silently 404s every refresh for that entity.
+		expect(Object.keys(ENRICH_ENTITY_BASE).sort()).toEqual(['film', 'person', 'studio', 'video']);
+	});
+
+	it('enrichFilmResolve POSTs the film resolve path with provider and query', async () => {
+		const fetchMock = stub(200, { candidates: [] });
+		await api.enrichFilmResolve(12, 'tmdb', 'The Matrix');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/resolve',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ provider: 'tmdb', query: 'The Matrix' })
+			})
+		);
+	});
+
+	it('enrichFilmApply POSTs the external id under the snake_case key the API expects', async () => {
+		const fetchMock = stub(200, { enriched: [] });
+		await api.enrichFilmApply(12, 'tmdb', '603');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ provider: 'tmdb', external_id: '603' })
+			})
+		);
+	});
+
+	it('enrichFilmClear DELETEs the provider-scoped path, encoding the provider name', async () => {
+		const fetchMock = stub(204);
+		await api.enrichFilmClear(12, 'my provider');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/my%20provider',
+			expect.objectContaining({ method: 'DELETE' })
+		);
+	});
+
+	it('enrichDismiss/enrichRefresh route films through the generic kind dispatch', async () => {
+		let fetchMock = stub(204);
+		await api.enrichDismiss('film', 12, 'tmdb');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/tmdb/dismiss',
+			expect.objectContaining({ method: 'POST' })
+		);
+
+		fetchMock = stub(200, { results: [] });
+		await api.enrichRefresh('film', 12, 'tmdb');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/tmdb/refresh',
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
+
+	it('runEnrichRefresh drives the film path with no film-specific branch of its own', async () => {
+		const fetchMock = stub(200, { results: [] });
+		const reload = vi.fn().mockResolvedValue(undefined);
+		const busy: string[] = [];
+		const errors: string[] = [];
+
+		await runEnrichRefresh('film', 12, 'tmdb', (v) => busy.push(v), (v) => errors.push(v), reload);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/tmdb/refresh',
+			expect.objectContaining({ method: 'POST' })
+		);
+		// Busy is set to the provider then cleared, and the detail reload runs once — the
+		// same contract the person/studio/video pages already rely on.
+		expect(busy).toEqual(['tmdb', '']);
+		expect(errors).toEqual(['']);
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('runEnrichRefreshAll opens the picker on a needs_review film result', async () => {
+		const fetchMock = stub(200, { results: [{ provider: 'tmdb', status: 'needs_review' }] });
+		const opened: string[] = [];
+
+		await runEnrichRefreshAll(
+			'film',
+			12,
+			() => {},
+			() => {},
+			async () => {},
+			(p) => opened.push(p)
+		);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/refresh-all',
+			expect.objectContaining({ method: 'POST' })
+		);
+		// An ambiguous provider must never be silently dropped for films either.
+		expect(opened).toEqual(['tmdb']);
+	});
+
+	it('surfaces a films-disabled 404 as an error instead of a silent no-op', async () => {
+		// Film enrich routes are unregistered when films_enabled is off, so the only honest
+		// client behaviour is to report the failure — the page renders it inline.
+		stub(404);
+		const errors: string[] = [];
+		const reload = vi.fn().mockResolvedValue(undefined);
+
+		await runEnrichRefresh('film', 12, 'tmdb', () => {}, (v) => errors.push(v), reload);
+
+		expect(errors.at(-1)).toBeTruthy();
+		expect(reload).not.toHaveBeenCalled();
 	});
 });

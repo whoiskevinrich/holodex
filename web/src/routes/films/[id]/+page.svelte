@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket } from '$lib/format';
+	import { toMessage, resolutionBucket, providerFromWinningSource } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
+	import { providerOf } from '$lib/f36';
 	import type {
 		DecisionSource,
+		EnrichSource,
 		Film,
 		FilmDetailResponse,
 		FilmVideo,
@@ -25,14 +28,17 @@
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
+	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
 	// scenes list (§2c) — never merged (RD4). Cast/tags/studios are the read-only union of
 	// the film's videos (RD2/RD3), not editable chips, so they route through plain links,
 	// not SourceSelect. The Details section (description/release_date) mirrors Studio's
-	// SourceBadge/`baselineKey='record'` pattern exactly — films have no rename/aliases/
-	// enrichment providers wired yet (HOLODEX-281 deferred). The poster (HOLODEX-280,
+	// SourceBadge/`baselineKey='record'` pattern exactly, and since F59/HOLODEX-309 so does
+	// its enrichment header row — films still have no rename/aliases (HOLODEX-281 deferred).
+	// The poster (HOLODEX-280,
 	// ADR-086) is the header's own image now (HOLODEX-307) — EntityImageSlot in its
 	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
 	// dedicated Images section; the `thumb` role had no consumer, so it was dropped.
@@ -46,13 +52,50 @@
 	let loading = $state(true);
 	let error = $state('');
 
+	// Enrichment controls (owner-only, F59/HOLODEX-309) — the same five pieces of state
+	// the studio page carries. pickerProvider holds the provider whose EnrichPicker is
+	// open ('' = closed); busy holds the provider being cleared or refreshed (F47 RD7);
+	// refreshingAll is Refresh-all's own flag (F47 RD8). Action errors render inline in
+	// the Details section, never via the page-level `error`.
+	let sources = $state<EnrichSource[]>([]);
+	let pickerProvider = $state('');
+	let busy = $state('');
+	let refreshingAll = $state(false);
+	let actionError = $state('');
+
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
 
-	// A studio has no `name` beyond baseline, so only fields beyond `name` gate the
-	// Details section — same "hide the whole section, don't show an empty box" rule.
+	// A film has no `name` beyond baseline (no rename in v1 — ADR-089 D3 keeps it that
+	// way), so only fields beyond `name` gate the Details section — same "hide the whole
+	// section, don't show an empty box" rule. The owner also gets the section when a
+	// film-capable provider exists but nothing has resolved yet, or there would be no
+	// way to reach the Enrich control on an unenriched film.
 	const replaceFields = $derived(resolved.filter((f) => f.canonical !== 'name'));
 	const hasDetails = $derived(replaceFields.length > 0);
+
+	// Film-capable providers offered as Enrich actions, mirroring studioProviders. No
+	// films_enabled check is needed: film enrich routes are unregistered when the flag is
+	// off, so getFilm 404s and this whole page renders its error state instead.
+	const filmProviders = $derived(
+		sources.filter((s) => s.entity_types.includes('film')).map((s) => s.name)
+	);
+
+	// A provider is "linked" (Clear offered) when a resolved field carries one of its
+	// candidates — the same signal the person and studio pages use.
+	function providerLinked(p: string): boolean {
+		return resolved.some((f) => (f.candidates ?? []).some((c) => providerOf(c.source) === p));
+	}
+
+	// Visitor view: when every shown field resolves from the SAME single provider, hoist
+	// one "Enriched from …" note to the section header instead of repeating an identical
+	// badge per row. Empty when providers differ (or none). Mirrors the studio page.
+	const soleProvider = $derived.by(() => {
+		const set = new Set(
+			replaceFields.map((f) => providerFromWinningSource(f.winning_source)).filter(Boolean)
+		);
+		return set.size === 1 ? [...set][0] : '';
+	});
 
 	// Unnumbered scenes sort after all numbered ones, in whatever order the API returns
 	// them (RD5 — no ordering guarantee among unnumbered scenes, so no secondary sort key).
@@ -98,12 +141,61 @@
 		load(id);
 	});
 
+	// Load providers once the client is confirmed owner (the layout polls caps).
+	$effect(() => {
+		if (isOwner && sources.length === 0) {
+			api
+				.enrichSources()
+				.then((res) => (sources = res.sources ?? []))
+				.catch(() => {});
+		}
+	});
+
 	async function reloadDetail() {
 		try {
 			applyDetail(await api.getFilm(id));
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
+	}
+
+	async function clearProvider(p: string) {
+		busy = p;
+		actionError = '';
+		try {
+			await api.enrichFilmClear(id, p);
+			await reloadDetail();
+		} catch (e) {
+			actionError = toMessage(e);
+		} finally {
+			busy = '';
+		}
+	}
+
+	// "Refresh" (F47 RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the
+	// video/person/studio detail pages via $lib/enrichRefresh, which is already generic
+	// over EnrichEntityKind; only the busy/error state and reload differ. Films needed no
+	// change there at all once the kind union widened (ADR-089 D5).
+	async function refreshProvider(p: string) {
+		await runEnrichRefresh(
+			'film',
+			id,
+			p,
+			(v) => (busy = v),
+			(v) => (actionError = v),
+			reloadDetail
+		);
+	}
+
+	async function refreshAll() {
+		await runEnrichRefreshAll(
+			'film',
+			id,
+			(v) => (refreshingAll = v),
+			(v) => (actionError = v),
+			reloadDetail,
+			(p) => (pickerProvider = p)
+		);
 	}
 
 	async function decideField(canonical: string, source: DecisionSource, manualValue?: string) {
@@ -227,10 +319,41 @@
 			     editable/attachable relationship. -->
 			<PeopleGrid title="Cast" people={cast} />
 
-			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern. -->
-			{#if hasDetails}
+			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern, and
+			     since F59/HOLODEX-309 its enrichment header row too. The owner keeps the
+			     section when a film-capable provider exists but nothing has resolved yet,
+			     or an unenriched film would offer no way to reach Enrich. -->
+			{#if hasDetails || (isOwner && filmProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Details</h2>
+					<div class="flex flex-wrap items-start justify-between gap-2">
+						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
+						{#if isOwner && filmProviders.length}
+							<!-- One compact chip per film-capable provider (icon + name + Enrich),
+							     Clear in a ⋯ overflow once linked (HOLODEX-136). Reused verbatim —
+							     it takes no entity id and no entity kind (ADR-089 D5). -->
+							<EnrichProviderChips
+								providers={filmProviders}
+								linked={providerLinked}
+								{busy}
+								{refreshingAll}
+								onenrich={(p) => (pickerProvider = p)}
+								onrefresh={refreshProvider}
+								onclear={clearProvider}
+								onrefreshall={refreshAll}
+							/>
+						{:else if !isOwner && soleProvider}
+							<!-- Visitor: one section-level provenance note when every field shares a
+							     single provider, instead of an identical badge per row. -->
+							<span class="text-xs text-muted"
+								>Enriched from <span class="text-accent">{soleProvider}</span></span
+							>
+						{/if}
+					</div>
+
+					{#if actionError}
+						<p class="text-sm text-warn">{actionError}</p>
+					{/if}
+
 					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
 						{#each replaceFields as f (f.canonical)}
 							<div id={`field-${f.canonical}`}>
@@ -354,6 +477,21 @@
 		initialBatch={cascadePending}
 		batchStatus={api.writebackBatchStatus}
 		onclose={() => (cascadePending = null)}
+		onapplied={reloadDetail}
+	/>
+{/if}
+
+<!-- Provider candidate picker (F59/HOLODEX-309). Reused unchanged from person/studio/
+     media — it takes no entity id and no entity kind; the three closures below are the
+     entire film-specific surface (ADR-089 D5). -->
+{#if pickerProvider}
+	<EnrichPicker
+		entityName={film?.name ?? ''}
+		provider={pickerProvider}
+		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}
+		apply={(prov, extId) => api.enrichFilmApply(id, prov, extId)}
+		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
+		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>
 {/if}

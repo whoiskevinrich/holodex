@@ -1,7 +1,12 @@
 // Shared "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) actions for the video/
-// person/studio detail pages (F47). Each page keeps its own busy/error/picker state
+// person/studio/film detail pages (F47). Each page keeps its own busy/error/picker state
 // and reload routine — these just run the fetch→reload→error sequence identically for
-// all three, taking that state as setter callbacks instead of owning it.
+// all four, taking that state as setter callbacks instead of owning it.
+//
+// Films (F59/ADR-089 D5) needed no change here: these are generic over EnrichEntityKind
+// and the path comes from ENRICH_ENTITY_BASE, so widening the union was enough. A
+// film-specific branch in this file would be a regression, not a fix — api.test.ts pins
+// that films drive the generic path.
 import { api } from './api';
 import { toMessage } from './format';
 import type { EnrichEntityKind } from './types';

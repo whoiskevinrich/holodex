@@ -77,7 +77,8 @@ const ENTITY_BASE: Record<EntityKind, string> = {
 export const ENRICH_ENTITY_BASE: Record<EnrichEntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
-	video: 'media'
+	video: 'media',
+	film: 'films'
 };
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. a 401 owner
@@ -698,6 +699,27 @@ export const api = {
 
 	enrichStudioClear: (studioId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${studioId}/enrich/${encodeURIComponent(provider)}`),
+
+	// Film enrichment (F59/ADR-089 D5). The routes have existed since ADR-086
+	// (internal/api/film_enrich.go) but nothing in the SPA ever called them. Shaped
+	// exactly like the studio trio — a film has no file either, so an enrich changes
+	// the film's own fields and its poster asset, never an attached video (ADR-089 D1).
+	// Registered server-side only when films_enabled, so these 404 with films off; the
+	// film detail page cannot render without a film, so no separate client gate exists.
+	enrichFilmResolve: (filmId: number, provider: string, query: string) =>
+		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/films/${filmId}/enrich/resolve`, {
+			provider,
+			query
+		}),
+
+	enrichFilmApply: (filmId: number, provider: string, externalId: string) =>
+		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/films/${filmId}/enrich`, {
+			provider,
+			external_id: externalId
+		}),
+
+	enrichFilmClear: (filmId: number, provider: string) =>
+		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/enrich/${encodeURIComponent(provider)}`),
 
 	// Per-item metadata refresh (F31, ADR-047) — forced file re-extract + re-enrich
 	// of the item's linked providers. Owner-gated; returns the combined report.
