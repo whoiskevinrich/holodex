@@ -220,13 +220,21 @@ backend already shipped.)*
   `EntityImageSlot` owning upload/replace/remove for **both** roles. Acceptance: three-skin QA with
   banner-only, poster-only, both, and neither.
 
-- **P0-11 — Correct the provider-facing docs.** `metadata-provider-contract.md` §3 currently asserts
-  film enrichment is not live (false since ADR-086); §4.3's film table calls `poster` the only planned
-  film asset kind (false after P0-8); the contract names the synthetic decision source `film:<film-id>`
-  while ADR-085 and films-entity call it `provider:film:<id>` — one is wrong, and it is the string a
-  provider must avoid colliding with. `tmdb-provider.md` still lists three entity types and states
-  there is no film poster sink. ADR-086 is still marked Proposed although its work merged. Acceptance:
-  a provider author can implement film enrichment from the contract alone, without reading Go.
+- **P0-11 — Correct the provider-facing docs.** `metadata-provider-contract.md` §3 asserts film
+  enrichment is not live (false since ADR-086); §4.3's film table calls `poster` the only planned
+  film asset kind (to be revisited under P0-8). `tmdb-provider.md` lists three entity types, says a
+  studio's logo is an `image_url` field (it became an asset in F51/ADR-079), and states there is no
+  film poster sink — true of `entity_type: "video"`, false of `"film"`, and the document uses "film"
+  for both. ADR-086 is still marked Proposed although its work merged. Acceptance: a provider author
+  can implement film enrichment from the contract alone, without reading Go.
+
+  > **Not a defect, recorded so it is not "fixed" later:** the contract's `film:<film-id>` and
+  > ADR-085's `provider:film:<id>` are *both correct and describe different layers*. `film:<id>` is
+  > the resolver **namespace** (the `Enrichment` map key, and the prefix a provider must not
+  > collide with — the contract's concern); `provider:film:<id>` is the **decision-source** string
+  > persisted in `field_source_decisions.source`, built by `fieldsource.ForProvider` from the
+  > standard `provider:<name>` grammar (ADR-051). Changing either to match the other would break
+  > the layer it belongs to.
 
 ### Should-have (P1)
 

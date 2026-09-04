@@ -34,7 +34,7 @@ vocabulary decisions that surface forces.
 1. [x] [frontend] Widen `EnrichEntityKind` + `ENRICH_ENTITY_BASE`, add the three film enrich methods — `web/src/lib/types.ts`, `web/src/lib/api.ts` → HOLODEX-309
 2. [x] [frontend] Mount `EnrichProviderChips` + `EnrichPicker` on the film Details section; update the stale header comment — `web/src/routes/films/[id]/+page.svelte` → HOLODEX-309
 3. [x] [frontend] Add the `film` entry to the owner enrich-queue kind map — `web/src/routes/owner/enrichment/+page.svelte` → HOLODEX-309
-4. [ ] [—] Correct the stale provider docs; flip ADR-086 to Accepted — `docs/specs/metadata-provider-contract.md`, `docs/specs/tmdb-provider.md` → HOLODEX-313
+4. [x] [—] Correct the stale provider docs; flip ADR-086 to Accepted — `docs/specs/metadata-provider-contract.md`, `docs/specs/tmdb-provider.md` → HOLODEX-313
 5. [ ] [backend] `(name, year)`-gated year write inside the decision commit — `internal/api/film_fields.go` → HOLODEX-311
 6. [ ] [backend] Provider-written `film_people_roles` + the union-minus-credits difference in the film payload — `internal/repo/film_people_roles.go`, `internal/api/film_videos.go` → HOLODEX-310
 7. [ ] [frontend] Cast difference group + coverage counts line — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #6 → HOLODEX-310
@@ -42,6 +42,35 @@ vocabulary decisions that surface forces.
 9. [ ] [frontend] Two-image header — banner band, scrim, overlap row, both `EntityImageSlot` instances — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #8 → HOLODEX-312
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-04 · HOLODEX-313 provider docs corrected — and one of my own claims retracted
+
+- skills: (none — docs)
+- **Retraction, and the most important thing in this entry.** The spec, ADR-089, PR #293 and the
+  Jira issue all claimed the contract's `film:<film-id>` contradicted ADR-085's
+  `provider:film:<id>`. **It does not.** `film:<id>` is the resolver *namespace* (the `Enrichment`
+  map key, `handlers.go:1401`, and the prefix a provider must not collide with — which is exactly
+  what a provider contract should document); `provider:film:<id>` is the *decision-source* string
+  in `field_source_decisions.source`, built by `fieldsource.ForProvider` from the standard
+  `provider:<name>` grammar. Both correct, different layers. All four artifacts corrected, and
+  ADR-089 Action Item 9 now carries an explicit "do not reconcile these" note so the next reader
+  does not 'fix' a correct document.
+- Genuinely stale and now fixed: contract §3 and §4.3 said film enrichment was not live (false
+  since ADR-086); the film asset table called `poster` the only *planned* kind; `tmdb-provider.md`
+  listed three entity types, and — a defect I had not flagged — still described a studio's `logo`
+  as an `image_url` **field**, which stopped being true at F51/ADR-079. That doc also uses "film"
+  to mean *movie file* throughout, so it now opens with an explicit disambiguation note rather
+  than being rewritten wholesale.
+- ADR-086 flipped to Accepted, in the file and the index row.
+- **Two new issues filed rather than fixed inline:** HOLODEX-315 (TMDB's `/describe` declares
+  `asset_kinds: [photo, logo, poster]` but the person builder emits `banner` too — latent only
+  because core dispatches on the response kind, not the manifest) and HOLODEX-316 (17 of 18
+  ADRs in the 070–089 range still say "Proposed" despite shipping, so flipping 086 alone is
+  correct-but-lonely; the status field currently carries no signal).
+- handoff: the epic's remaining work is all implementation — HOLODEX-311 (year + collision),
+  310 (cast layer + difference), 312 (banner). 312 now has its contract prerequisite in place:
+  §4.3 documents the film `banner` kind as decided-but-not-built, so that story only has to make
+  it true.
 
 ### 2026-09-04 · HOLODEX-309 wiring built and verified live end to end
 - skills: (none — implementation)

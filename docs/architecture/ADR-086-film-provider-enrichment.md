@@ -1,6 +1,7 @@
 # ADR-086: Film provider enrichment — own `entity_type`, poster as an asset
 
-**Status:** Proposed
+**Status:** Accepted — implemented and merged (HOLODEX-284); the SPA surface for it landed with
+F59/HOLODEX-309
 **Date:** 2026-08-25
 **Deciders:** Project owner
 

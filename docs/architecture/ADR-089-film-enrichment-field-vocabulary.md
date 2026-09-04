@@ -263,7 +263,11 @@ being promoted speculatively.
 7. `providers/tmdb/tmdb.go` — emit `backdrop_path` as a `banner` asset for `entity_type == "film"` (D4).
 8. `internal/filmimage` + `internal/repo/film_images.go` — banner role sink and serving URL.
 9. `docs/specs/metadata-provider-contract.md`, `docs/specs/tmdb-provider.md` — correct §3, the film
-   asset table, and the `film:` vs `provider:film:` naming split; flip ADR-086 to Accepted (F59 P0-11).
+   asset table, the stale entity-type lists, and the studio-logo-is-a-field claim; flip ADR-086 to
+   Accepted (F59 P0-11). **Do not "reconcile" `film:<id>` with `provider:film:<id>`** — they are
+   different layers (resolver namespace vs. `field_source_decisions.source`, built by
+   `fieldsource.ForProvider`), both correct, and an earlier draft of this ADR wrongly called them
+   an inconsistency.
 10. `/testing-strategy` — the D1 no-video-mutation invariant, the D2 no-duplicate-chip invariant, and
     the D3 collision-rejects-atomically invariant.
 11. `/security-review` before the PR is marked ready — enrichment write path plus a second per-film
