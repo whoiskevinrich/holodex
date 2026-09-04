@@ -793,16 +793,16 @@ export interface Film {
 	name: string;
 	year?: number;
 	video_count?: number;
-	// Self-hosted image roles (F56/HOLODEX-280, ADR-086): poster (detail page header,
-	// search results), thumb (no consumer yet). Owner-editable (upload/replace/
-	// remove); present only when that role's slot is filled. Always populated on
-	// both list and detail reads. Mirrors Studio's icon/logo/poster_url fields.
+	// Self-hosted poster image (F56/HOLODEX-280, ADR-086; edited in the header,
+	// HOLODEX-307): owner-editable (upload/replace/remove); present only when the
+	// slot is filled. Always populated on both list and detail reads. Mirrors
+	// Studio's icon/logo/poster_url fields. The `thumb` role was dropped
+	// (HOLODEX-307) — it had no UI consumer.
 	poster_url?: string;
-	thumb_url?: string;
 }
 
 // FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
-export type FilmImageRole = "poster" | "thumb";
+export type FilmImageRole = "poster";
 
 // FilmVideo is one scene/full-film row on a film's detail page (F56): the video plus
 // its film_videos attachment attributes. scene_number is null for an unnumbered scene

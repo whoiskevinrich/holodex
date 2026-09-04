@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, monogram, resolutionBucket } from '$lib/format';
+	import { toMessage, resolutionBucket } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import type {
 		DecisionSource,
@@ -32,9 +32,10 @@
 	// the film's videos (RD2/RD3), not editable chips, so they route through plain links,
 	// not SourceSelect. The Details section (description/release_date) mirrors Studio's
 	// SourceBadge/`baselineKey='record'` pattern exactly — films have no rename/aliases/
-	// enrichment providers wired yet (HOLODEX-281 deferred). Poster/thumb images
-	// (HOLODEX-280, ADR-086) mirror Studio's dedicated Images section below the
-	// header, not a hero-image swap — see EntityImageSlot.
+	// enrichment providers wired yet (HOLODEX-281 deferred). The poster (HOLODEX-280,
+	// ADR-086) is the header's own image now (HOLODEX-307) — EntityImageSlot in its
+	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
+	// dedicated Images section; the `thumb` role had no consumer, so it was dropped.
 	let film = $state<Film | null>(null);
 	let resolved = $state<ResolvedField[]>([]);
 	let scenes = $state<FilmVideo[]>([]);
@@ -153,12 +154,20 @@
 
 			<!-- 2a. Header -->
 			<div class="flex flex-col gap-4 sm:flex-row">
-				<div
-					class="flex aspect-[2/3] w-40 shrink-0 items-center justify-center overflow-hidden rounded-theme border border-rule bg-logo-plate"
-				>
-					<span class="font-display text-4xl font-semibold text-logo-plate-ink" aria-hidden="true"
-						>{monogram(film.name)}</span
-					>
+				<div class="w-40 shrink-0">
+					<EntityImageSlot
+						entityId={id}
+						entityName={film.name}
+						role="poster"
+						label="Poster"
+						url={film.poster_url}
+						{isOwner}
+						variant="frame"
+						frameClass="aspect-[2/3] w-40"
+						upload={api.uploadFilmImage}
+						remove={api.deleteFilmImage}
+						onchanged={reloadDetail}
+					/>
 				</div>
 				<div class="flex-1 space-y-2">
 					<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
@@ -211,38 +220,6 @@
 					{/each}
 				</div>
 			</div>
-
-			<!-- Images (F56/HOLODEX-280, ADR-086): poster (search results, future header
-			     use), thumb (no consumer yet) — mirrors Studio's dedicated Images section
-			     exactly (F51, ADR-079). Always shown — owners can seed a poster even
-			     before any enrichment; visitors see filled slots read-only. -->
-			<section class="space-y-2">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Images</h2>
-				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-					<EntityImageSlot
-						entityId={id}
-						entityName={film.name}
-						role="poster"
-						label="Poster"
-						url={film.poster_url}
-						{isOwner}
-						upload={api.uploadFilmImage}
-						remove={api.deleteFilmImage}
-						onchanged={reloadDetail}
-					/>
-					<EntityImageSlot
-						entityId={id}
-						entityName={film.name}
-						role="thumb"
-						label="Thumb"
-						url={film.thumb_url}
-						{isOwner}
-						upload={api.uploadFilmImage}
-						remove={api.deleteFilmImage}
-						onchanged={reloadDetail}
-					/>
-				</div>
-			</section>
 
 			<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, shared
 			     PeopleGrid component with the Media detail page's People section (not inline
