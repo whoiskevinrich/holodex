@@ -279,6 +279,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// variants) for the owner to confirm — never merging any. Needs only the repo, so it
 	// runs here with the other startup backfills, after migrations have landed the spine.
 	seedIdentityReviewQueue(ctx, repository, log)
+	promoteEnrichmentAliases(ctx, repository, log)
 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
@@ -689,4 +690,51 @@ func runHealthcheck() int {
 		return 0
 	}
 	return 1
+}
+
+// promoteEnrichmentAliases runs the one-time HOLODEX-306 upgrade pass (F58 P0-6,
+// ADR-088 D1): alternate names an earlier version stored in the entity_enrichment shadow
+// layer move into entity_aliases, and the shadow rows are deleted.
+//
+// Without it, an upgraded library keeps rendering a display-only "Aliases" row — not from
+// the retired registry field, but from F39 auto-registration picking up the now
+// non-canonical leftover key. That is the second list this release removes, so the pass is
+// part of the release, not an optimization.
+//
+// Gated on a prior successful run like every other one-time backfill, though correctness
+// does not depend on the gate: the pass deletes the rows it reads, so a re-run finds
+// nothing. Best-effort — a failure logs (status=error, so the gate lets the next boot
+// retry) and never blocks startup.
+func promoteEnrichmentAliases(ctx context.Context, r *repo.Repo, log *slog.Logger) {
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindAliasBackfill); err != nil {
+		log.Warn("alias backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	started := time.Now()
+	promoted, err := r.PromoteEnrichmentAliases(ctx)
+	finished := time.Now()
+	status := model.JobStatusOK
+	var errs int
+	detail := fmt.Sprintf("alias promotion: moved %d provider alias sets into the identity spine", promoted)
+	if err != nil {
+		status, errs, detail = model.JobStatusErr, 1, "alias promotion: failed"
+		log.Warn("alias backfill: promotion failed", "err", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindAliasBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Added:      int(promoted),
+		Errors:     errs,
+		Detail:     detail,
+	}); err != nil {
+		log.Warn("alias backfill: record job run failed", "err", err)
+	}
+	if err == nil && promoted > 0 {
+		log.Info("alias promotion complete", "promoted", promoted)
+	}
 }

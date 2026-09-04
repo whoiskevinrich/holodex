@@ -1,0 +1,17 @@
+-- HOLODEX-306 (spec F58 P0-8): identity_review_queue carries a per-variation detail.
+--
+-- The queue has always stored a pair and a reason -- (entity_type, id_lo, id_hi,
+-- variation) -- which is everything a near-miss needs, because for those the reason IS
+-- the relationship between the two names and both are readable from the entities.
+--
+-- A 'provider-alias' pair (ADR-088 D5) is different: the skipped name belongs to neither
+-- entity's canonical name and, since F58 stops storing provider aliases in the shadow
+-- layer, exists nowhere else once the enrich pass ends. Without recording it here the
+-- Aliases panel could say "a name was skipped" but never which one, and the owner would
+-- have to guess what to look for.
+--
+-- Empty for every existing row and for every near-miss written from now on; only the
+-- variations that need a payload set it. Deliberately a free-text detail rather than an
+-- alias-specific column, so the next variation with something to say does not need
+-- another migration.
+ALTER TABLE identity_review_queue ADD COLUMN detail TEXT NOT NULL DEFAULT '';

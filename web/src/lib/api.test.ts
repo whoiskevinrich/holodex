@@ -187,3 +187,68 @@ describe('ForwardAuth re-auth handling (HOLODEX-127)', () => {
 		await expect(api.capabilities()).resolves.toEqual({ owner: true });
 	});
 });
+
+// Alias clients (F23/F43, extended by F58/ADR-088). Untested until now, unlike their
+// curatePerson/renameEntity neighbours above — and the collapse makes them the only
+// remaining write path for alternate names, so the 409-conflict contract and the
+// entity-generic path mapping are worth pinning.
+describe('entity alias clients', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	function stub(status: number, body?: unknown) {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(body === undefined ? null : JSON.stringify(body), { status })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+		return fetchMock;
+	}
+
+	it('addEntityAlias POSTs the alias and returns the updated list', async () => {
+		const fetchMock = stub(200, { aliases: [{ id: 1, alias: 'J Law' }] });
+		const res = await api.addEntityAlias('person', 7, 'J Law');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/people/7/aliases',
+			expect.objectContaining({ method: 'POST', body: JSON.stringify({ alias: 'J Law' }) })
+		);
+		expect(res.aliases).toEqual([{ id: 1, alias: 'J Law' }]);
+		expect(res.conflict).toBeUndefined();
+	});
+
+	it('carries source through, so the chip badge has provenance to render', async () => {
+		stub(200, { aliases: [{ id: 2, alias: '宮崎駿', source: 'tmdb' }] });
+		const res = await api.addEntityAlias('person', 7, '宮崎駿');
+		expect(res.aliases?.[0].source).toBe('tmdb');
+	});
+
+	it('surfaces a 409 as a conflict rather than throwing — never a silent merge', async () => {
+		stub(409, { conflict: { id: 42, name: 'Jennifer Lawrence' } });
+		const res = await api.addEntityAlias('person', 7, 'J Law');
+		expect(res.conflict).toEqual({ id: 42, name: 'Jennifer Lawrence' });
+		expect(res.aliases).toBeUndefined();
+	});
+
+	it('throws on a non-409 error instead of reporting a phantom conflict', async () => {
+		stub(500);
+		await expect(api.addEntityAlias('person', 7, 'J Law')).rejects.toThrow();
+	});
+
+	it('deleteEntityAlias DELETEs the scoped alias path', async () => {
+		const fetchMock = stub(204);
+		await api.deleteEntityAlias('person', 7, 3);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/people/7/aliases/3',
+			expect.objectContaining({ method: 'DELETE' })
+		);
+	});
+
+	it('maps studio to its own base — AliasPanel is reused verbatim there', async () => {
+		const fetchMock = stub(200, { aliases: [] });
+		await api.addEntityAlias('studio', 4, 'Ghibli');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/studios/4/aliases',
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
+});

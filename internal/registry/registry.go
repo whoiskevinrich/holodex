@@ -203,11 +203,22 @@ var KnownFields = []FieldDef{
 		Display:     "url",
 		Description: "Personal or professional website URL. Rendered as a link (opens in a new tab).",
 	},
+	// "aliases" was a multi-valued merge field through F22 (ADR-033); retired in F58
+	// (ADR-088 D1) — a provider's alternate names are written into entity_aliases
+	// instead, where they are searchable and route scans, rather than resolving to a
+	// display-only row that could do neither. The scored facet it carried lives on as
+	// alternate_names below.
 	{
-		Canonical:   "aliases",
-		Label:       "Aliases",
+		// Synthetic completeness facet (F58, ADR-088 D7), structurally identical to
+		// branding_image below: resolved when the entity has at least one row in
+		// entity_aliases, of any source. Never produced by a provider, file, or the
+		// resolver — entity_aliases is queried directly for its status. Deliberately
+		// NOT named "aliases": that key is retired, and reusing it would collide with
+		// an upgrading operator's stale mapping entry, injecting this facet twice.
+		Canonical:   "alternate_names",
+		Label:       "Alternate names",
 		Display:     "",
-		Description: "Alternate names or pseudonyms. Multi-valued.",
+		Description: "Whether the entity has at least one alternate name in the identity spine (F58, ADR-088).",
 		Criticality: CriticalityNiceToHave,
 	},
 	{

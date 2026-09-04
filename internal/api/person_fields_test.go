@@ -16,7 +16,10 @@ func TestPersonFields_Synthesis(t *testing.T) {
 	for _, f := range fields {
 		canonicals = append(canonicals, f.Canonical)
 	}
-	want := []string{"name", "bio", "birthdate", "deathdate", "nationality", "website", "aliases"}
+	// No `aliases`: retired in F58 (ADR-088 D1). A person has no merge field in the
+	// default configuration now — an operator can create one by promoting a chips-rendered
+	// provider key, which is what the merge-field tests elsewhere in this package do.
+	want := []string{"name", "bio", "birthdate", "deathdate", "nationality", "website"}
 	if !slices.Equal(canonicals, want) {
 		t.Fatalf("canonicals = %v, want %v", canonicals, want)
 	}
@@ -30,9 +33,12 @@ func TestPersonFields_Synthesis(t *testing.T) {
 	if !slices.Equal(fields[1].Sources, []string{"tmdb:bio", "fake:bio"}) || fields[1].Multi {
 		t.Errorf("bio field wrong: %+v", fields[1])
 	}
-	// aliases is the merge field (RD2).
-	if last := fields[len(fields)-1]; !last.Multi || !slices.Equal(last.Sources, []string{"tmdb:aliases", "fake:aliases"}) {
-		t.Errorf("aliases field wrong: %+v", last)
+	// Nothing synthesized is a merge field any more. Asserted rather than dropped: a
+	// stray Multi here would put an empty second list of names back on the person page.
+	for _, f := range fields {
+		if f.Multi {
+			t.Errorf("person has no synthesized merge field after F58, got %+v", f)
+		}
 	}
 	// Labels come from the registry ("photo" must not be synthesized — asset only).
 	if fields[2].Label != "Born" || fields[1].Label != "Bio" {

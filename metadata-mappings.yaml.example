@@ -191,10 +191,13 @@ fields:
     sources:
       - tmdb:nationality
 
-  - canonical: aliases
-    multi: true
-    sources:
-      - tmdb:aliases
+  # `aliases` was mapped here through F22; retired in F58 (ADR-088). A provider's
+  # alternate names are no longer a resolved field — they are written straight into
+  # the identity spine (entity_aliases), where they are searchable and match on scan.
+  # If you are upgrading and your own metadata-mappings.yaml still carries this
+  # block, delete it: `aliases` is no longer a canonical key, so the mapping would
+  # render a second, unscored "Aliases" row next to the Aliases panel — exactly the
+  # duplication this release removes.
 
   # website is shared by the person and studio entities — tmdb emits it on both
   # enrich responses under the same canonical key (a person's TMDB page, or a

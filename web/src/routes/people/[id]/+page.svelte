@@ -12,6 +12,7 @@
 		ExternalLink,
 		Person,
 		PersonAlias,
+		SkippedAlias,
 		PersonDetailResponse,
 		PersonImageRole,
 		PersonImageSet,
@@ -61,12 +62,17 @@
 	let uploadBusy = $state('');
 	let imageError = $state('');
 
-	// Owner-curated routing aliases (F23, ADR-036) — search & scan routing, deliberately a
-	// separate system from the display-only "Also known as" merge row in Details (F37 RD2).
+	// Alternate names (F23, ADR-036) — search & scan routing. Since F58 (ADR-088) this is
+	// the ONLY set of alternate names on the page: provider `also_known_as` values are
+	// written into the same store and arrive here carrying `source`, rather than rendering
+	// as a second, display-only "Also known as" row that could neither search nor route.
 	// Read from the person payload and bound into AliasPanel (F43), which owns add/delete/
 	// merge. `conflict` is the collision offer AliasPanel renders — set either by an added
 	// alias (inside the panel) or by a rename collision (F37 RD1, routed in from below).
 	let aliases = $state<PersonAlias[]>([]);
+	// Provider names a collision kept off this person (ADR-088 D5) — the panel's review
+	// line. Owner-gated server-side: the key is absent from a visitor's payload.
+	let skippedAliases = $state<SkippedAlias[]>([]);
 	let conflict = $state<EntityRef | null>(null);
 
 	// Enrichment controls (owner-only, F22). sources is loaded once when the client
@@ -184,6 +190,7 @@
 		resolved = res.resolved ?? [];
 		images = res.images ?? { roles: {}, gallery: [] };
 		aliases = res.person.aliases ?? [];
+		skippedAliases = res.skipped_aliases ?? [];
 		completeness = res.completeness ?? null;
 		externalLinks = res.external_links ?? [];
 	}
@@ -572,7 +579,8 @@
 
 		{#snippet detail()}
 			<!-- Details (F37): every replace field on the F36 source-chip radiogroup with the
-			     `record` baseline; `aliases` as the display-only "Also known as" merge row.
+			     `record` baseline. Alternate names are NOT here — they are the Aliases panel
+		     below, one list, since F58 (ADR-088).
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
 			{#if resolved.length || (isOwner && personProviders.length)}
@@ -654,14 +662,13 @@
 							{/each}
 
 							{#each mergeFields as f (f.canonical)}
-								<!-- "Also known as" (RD2): provider aliases as an F30 merge row —
-								     display-only curation (✕ suppress / + Add); kept chips never route
-								     scans or search (that is the separate Aliases card below). No
+								<!-- Merge-field curation (✕ suppress / + Add). Empty in the default
+								     configuration since F58 retired `aliases`, which was the person's
+								     only merge field — the loop stays because an operator can create
+								     one by promoting a provider key with the chips renderer. No
 								     nowrite toggle: persons have no writeback. -->
 								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-									<dt class="mb-1 text-muted">
-										{f.canonical === 'aliases' ? 'Also known as' : f.label}:
-									</dt>
+									<dt class="mb-1 text-muted">{f.label}:</dt>
 									<dd>
 										<CurationFieldRow
 											field={f}
@@ -726,11 +733,10 @@
 				<CompletenessPanel {completeness} onchanged={reloadDetail} />
 			{/if}
 
-			<!-- The F23 routing-alias card, now the shared AliasPanel (F43) — deliberately its
-			     own system below Details (RD2): these names drive search + scan routing, unlike
-			     the display-only "Also known as" chips above. Rename stays on the Name chip row
-			     (RD1), so the panel's own rename is off; the rename collision is routed in via
-			     `conflict`. -->
+			<!-- The one Aliases card (F43, collapsed onto by F58/ADR-088): every alternate
+			     name lives here, owner-typed and provider-supplied alike, and all of them
+			     drive search + scan routing. Rename stays on the Name chip row (RD1), so the
+			     panel's own rename is off; the rename collision is routed in via `conflict`. -->
 			{#if person}
 				<AliasPanel
 					entityType="person"
@@ -739,6 +745,7 @@
 					bind:aliases
 					{isOwner}
 					bind:conflict
+					{skippedAliases}
 					onmerged={onMerged}
 				/>
 			{/if}

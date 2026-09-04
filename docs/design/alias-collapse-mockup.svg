@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Alias collapse — one store, provider names live on arrival</title>
+  <desc>Before/after of the two alias stores collapsing into entity_aliases, and a mockup of the resulting single Aliases panel with provider-sourced chips badged TMDB and a skipped-collision review line.</desc>
+
+  <rect width="900" height="640" fill="#0c0a09"/>
+
+  <!-- ─────────── Before / after flow ─────────── -->
+  <text x="30" y="34" fill="#9b9082" font-size="12" letter-spacing="1.2">TODAY — TWO STORES</text>
+  <text x="470" y="34" fill="#e8a33d" font-size="12" letter-spacing="1.2">COLLAPSED — ONE STORE</text>
+
+  <!-- Before -->
+  <rect x="30" y="48" width="400" height="128" rx="10" fill="#15110e" stroke="#2a2622"/>
+
+  <text x="48" y="72" fill="#9b9082" font-size="11">TMDB also_known_as</text>
+  <rect x="48" y="80" width="170" height="34" rx="5" fill="#181310" stroke="#2a2622"/>
+  <text x="60" y="94" fill="#f3ece1" font-size="12">entity_enrichment</text>
+  <text x="60" y="108" fill="#9b9082" font-size="10.5">resolved field · display only</text>
+  <text x="228" y="101" fill="#9b9082" font-size="12">→</text>
+  <text x="244" y="101" fill="#9b9082" font-size="11">"Also known as" row</text>
+
+  <text x="48" y="140" fill="#9b9082" font-size="11">Owner typing</text>
+  <rect x="48" y="148" width="170" height="18" rx="5" fill="#181310" stroke="#2a2622"/>
+  <text x="60" y="161" fill="#f3ece1" font-size="12">entity_aliases</text>
+  <text x="228" y="161" fill="#9b9082" font-size="12">→</text>
+  <text x="244" y="161" fill="#9b9082" font-size="11">Aliases panel · searchable</text>
+
+  <!-- After -->
+  <rect x="470" y="48" width="400" height="128" rx="10" fill="#15110e" stroke="#2a2622"/>
+  <text x="488" y="72" fill="#9b9082" font-size="11">TMDB also_known_as</text>
+  <text x="700" y="72" fill="#9b9082" font-size="11">Owner typing</text>
+  <text x="536" y="90" fill="#9b9082" font-size="12">↓</text>
+  <text x="726" y="90" fill="#9b9082" font-size="12">↓</text>
+
+  <rect x="488" y="96" width="364" height="34" rx="5" fill="#181310" stroke="#e8a33d" stroke-width="1.5"/>
+  <text x="502" y="110" fill="#f3ece1" font-size="12">entity_aliases</text>
+  <text x="502" y="124" fill="#9b9082" font-size="10.5">+ source column</text>
+
+  <text x="664" y="146" fill="#9b9082" font-size="12">↓</text>
+  <rect x="488" y="152" width="96" height="20" rx="10" fill="#181310" stroke="#2a2622"/>
+  <text x="500" y="166" fill="#e8a33d" font-size="10.5">FTS search</text>
+  <rect x="592" y="152" width="104" height="20" rx="10" fill="#181310" stroke="#2a2622"/>
+  <text x="604" y="166" fill="#e8a33d" font-size="10.5">scan routing</text>
+  <rect x="704" y="152" width="122" height="20" rx="10" fill="#181310" stroke="#2a2622"/>
+  <text x="716" y="166" fill="#e8a33d" font-size="10.5">merge / conflict</text>
+
+  <!-- ─────────── Panel mockup ─────────── -->
+  <text x="30" y="222" fill="#9b9082" font-size="12" letter-spacing="1.2">RESULTING PANEL — PERSON AND STUDIO DETAIL</text>
+
+  <rect x="30" y="238" width="540" height="286" rx="10" fill="#15110e" stroke="#2a2622"/>
+
+  <text x="50" y="266" fill="#9b9082" font-size="11" letter-spacing="1">ALIASES</text>
+  <rect x="404" y="252" width="146" height="26" rx="6" fill="none" stroke="#2a2622"/>
+  <text x="419" y="269" fill="#f3ece1" font-size="12">Merge a person in…</text>
+
+  <text x="50" y="292" fill="#9b9082" font-size="12">Searching any of these finds this person, and future scans match them too.</text>
+
+  <!-- chips row 1 -->
+  <rect x="50" y="306" width="120" height="26" rx="13" fill="#181310"/>
+  <text x="62" y="323" fill="#f3ece1" font-size="12.5">Miyazaki-san</text>
+  <text x="152" y="324" fill="#9b9082" font-size="13">×</text>
+
+  <rect x="178" y="306" width="150" height="26" rx="13" fill="#181310"/>
+  <text x="190" y="323" fill="#f3ece1" font-size="12.5">宮崎駿</text>
+  <rect x="240" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="246" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
+  <text x="309" y="324" fill="#9b9082" font-size="13">×</text>
+
+  <rect x="336" y="306" width="188" height="26" rx="13" fill="#181310"/>
+  <text x="348" y="323" fill="#f3ece1" font-size="12.5">Miyazaki Hayao</text>
+  <rect x="442" y="312" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="448" y="323" fill="#9b9082" font-size="9.5">TMDB</text>
+  <text x="505" y="324" fill="#9b9082" font-size="13">×</text>
+
+  <!-- chips row 2 -->
+  <rect x="50" y="340" width="162" height="26" rx="13" fill="#181310"/>
+  <text x="62" y="357" fill="#f3ece1" font-size="12.5">H. Miyazaki</text>
+  <rect x="132" y="346" width="45" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="138" y="357" fill="#9b9082" font-size="9.5">TMDB</text>
+  <text x="193" y="358" fill="#9b9082" font-size="13">×</text>
+
+  <!-- collision review line -->
+  <rect x="50" y="382" width="500" height="42" fill="#181310"/>
+  <rect x="50" y="382" width="3" height="42" fill="#e8a33d"/>
+  <text x="66" y="400" fill="#f3ece1" font-size="12.5">1 name from TMDB was skipped — Hayao M. already belongs to</text>
+  <text x="66" y="416" fill="#f3ece1" font-size="12.5">another person.</text>
+  <text x="167" y="416" fill="#e8a33d" font-size="12.5">Review</text>
+
+  <!-- add form -->
+  <rect x="50" y="440" width="386" height="30" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <text x="63" y="459" fill="#9b9082" font-size="12.5">Add an alias</text>
+  <rect x="444" y="440" width="66" height="30" rx="6" fill="#e8a33d"/>
+  <text x="466" y="459" fill="#1a1206" font-size="12.5" font-weight="500">Add</text>
+
+  <!-- ─────────── Callouts ─────────── -->
+  <circle cx="596" cy="319" r="10" fill="#181310" stroke="#e8a33d"/>
+  <text x="592" y="323" fill="#e8a33d" font-size="11">1</text>
+  <text x="614" y="316" fill="#f3ece1" font-size="12">Owner-typed and provider names</text>
+  <text x="614" y="331" fill="#f3ece1" font-size="12">are the same kind of row.</text>
+
+  <circle cx="596" cy="353" r="10" fill="#181310" stroke="#e8a33d"/>
+  <text x="592" y="357" fill="#e8a33d" font-size="11">2</text>
+  <text x="614" y="350" fill="#f3ece1" font-size="12">Badge reads `source`; it is</text>
+  <text x="614" y="365" fill="#f3ece1" font-size="12">provenance, not a lesser tier.</text>
+
+  <circle cx="596" cy="399" r="10" fill="#181310" stroke="#e8a33d"/>
+  <text x="592" y="403" fill="#e8a33d" font-size="11">3</text>
+  <text x="614" y="396" fill="#f3ece1" font-size="12">Global alias_key uniqueness</text>
+  <text x="614" y="411" fill="#f3ece1" font-size="12">blocked it → review queue.</text>
+
+  <circle cx="596" cy="455" r="10" fill="#181310" stroke="#e8a33d"/>
+  <text x="592" y="459" fill="#e8a33d" font-size="11">4</text>
+  <text x="614" y="452" fill="#f3ece1" font-size="12">× on a provider chip writes a</text>
+  <text x="614" y="467" fill="#f3ece1" font-size="12">suppression; re-enrich respects it.</text>
+
+  <!-- footnote -->
+  <text x="30" y="560" fill="#9b9082" font-size="11">Skin shown: Cinémathèque. Chips, panel chrome, and the Add form are unchanged from today's AliasPanel — the badge, the</text>
+  <text x="30" y="576" fill="#9b9082" font-size="11">review line, and the widened subcopy are the only new elements. The "Also known as" curation row is removed entirely.</text>
+  <text x="30" y="604" fill="#9b9082" font-size="11">HOLODEX-306 · ADR-088 · docs/design/alias-collapse-handoff.md</text>
+</svg>

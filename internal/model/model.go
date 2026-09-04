@@ -97,12 +97,17 @@ type Person struct {
 	Role string `json:"role,omitempty"`
 }
 
-// EntityAlias is one owner-curated alternate name for a named entity — person,
-// studio, or tag — stored in the shared entity_aliases spine (F43, ADR-061). The id
-// gives the UI and the delete endpoint a stable handle.
+// EntityAlias is one alternate name for a named entity — person, studio, or tag —
+// stored in the shared entity_aliases spine (F43, ADR-061). The id gives the UI and the
+// delete endpoint a stable handle.
 type EntityAlias struct {
 	ID    int64  `json:"id"`
 	Alias string `json:"alias"`
+	// Source is the provider namespace that supplied this name, empty for one the owner
+	// typed (F58, ADR-088 D2). It is provenance, not privilege: nothing filters on it,
+	// search and scan routing are blind to it, and the UI uses it only to badge the chip.
+	// A name from a provider is as real an alias as one the owner typed.
+	Source string `json:"source,omitempty"`
 }
 
 // PersonAlias is the person-entity alias (F23, ADR-036): the shared EntityAlias
@@ -387,6 +392,7 @@ const (
 	JobKindExtraction        = "extraction"          // library-wide filename extraction pass (F48.5b, ADR-067)
 	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
 	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
+	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
 	JobStatusOK              = "success"
 	JobStatusErr             = "error"
 )
@@ -457,6 +463,16 @@ const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 // RelinkVideoPeople's caller can recover a name→external_id map the same way studio
 // already does. Same self-describing "<namespace>:<id> <name>" value shape.
 const PersonExternalIDsField = InternalFieldPrefix + "person_external_ids"
+
+// ProviderAliasesField is the wire field-key a provider returns alternate names under
+// (TMDB maps `also_known_as` onto it). Deliberately not internal-prefixed: it is a
+// plain provider field that arrives through the ADR-033 shadow store like any other.
+//
+// It is no longer a registry canonical, though (HOLODEX-306, ADR-088 D1) — the resolver
+// emits no `aliases` row, because these values are written onward into entity_aliases
+// and belong to the identity spine, not to per-field resolution. This constant exists
+// so the one place that still reads the key names it rather than spelling it inline.
+const ProviderAliasesField = "aliases"
 
 // EnrichedField is a canonical field resolved for one entity from a metadata
 // source plugin (F22, ADR-033). It is shadow data kept distinct from the

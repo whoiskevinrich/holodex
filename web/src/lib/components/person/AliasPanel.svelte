@@ -7,7 +7,7 @@
 	// detail (not tag — RD7). Tokens only.
 	import { api } from '$lib/api';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { EntityKind, EntityRef, PersonAlias } from '$lib/types';
+	import type { EntityKind, EntityRef, PersonAlias, SkippedAlias } from '$lib/types';
 	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 
@@ -18,6 +18,7 @@
 		aliases = $bindable([]),
 		isOwner,
 		conflict = $bindable(null),
+		skippedAliases = [],
 		onmerged
 	}: {
 		entityType: EntityKind;
@@ -26,11 +27,26 @@
 		aliases: PersonAlias[];
 		isOwner: boolean;
 		conflict?: EntityRef | null;
+		// Provider names a collision kept off this entity (F58, ADR-088 D5). Owner-only —
+		// the detail payload omits the key entirely for a visitor, so this stays empty.
+		skippedAliases?: SkippedAlias[];
 		onmerged: () => void;
 	} = $props();
 
 	// The EntityKind values ('person' | 'studio' | 'tag') are themselves the singular noun.
 	const noun = $derived(entityType);
+	// ...but only two of the three pluralize by suffix, and `person` is the one this panel
+	// is used on most.
+	const nounPlural = $derived(entityType === 'person' ? 'people' : `${entityType}s`);
+
+	// A skipped name carries no provenance of its own — identity_review_queue records the
+	// pair and the name, not which provider proposed it — so the line attributes it to the
+	// provider on this entity's own chips, and only when there is exactly one. With zero or
+	// several, it falls back to wording that names no provider rather than guessing.
+	const skippedProvider = $derived.by(() => {
+		const sources = [...new Set(aliases.map((a) => a.source).filter(Boolean))];
+		return sources.length === 1 ? (sources[0] as string) : '';
+	});
 
 	let newAlias = $state('');
 	let aliasBusy = $state(false);
@@ -157,7 +173,7 @@
 			{/if}
 		</div>
 		<p class="text-sm text-muted">
-			Searching either name finds this {noun}, and future scans match it too.
+			Searching any of these finds this {noun}, and future scans match them too.
 		</p>
 
 		<div class="flex flex-wrap gap-2" aria-live="polite">
@@ -166,6 +182,16 @@
 					class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-sm text-ink"
 				>
 					{a.alias}
+					{#if a.source}
+						<!-- Provenance, not a lesser tier: a provider-supplied name is as real an
+						     alias as a typed one, and this chip behaves identically. Deliberately a
+						     plain span and NOT ProvenanceBadge — that renders a brand icon standing
+						     for "which source won this field", which has no meaning for a value with
+						     exactly one origin and no competing candidates. -->
+						<span class="rounded-full border border-rule px-1.5 py-px text-[10px] uppercase text-muted">
+							{a.source}
+						</span>
+					{/if}
 					{#if isOwner}
 						<button
 							onclick={() => removeAlias(a)}
@@ -182,6 +208,26 @@
 				<p class="text-sm text-muted">No aliases yet.</p>
 			{/if}
 		</div>
+
+		{#if isOwner && skippedAliases.length}
+			<!-- Collision review line (F58, ADR-088 D5): a provider name that already belongs
+			     to another entity is skipped, never merged in silently. Square corners — the
+			     theming rule forbids rounding a single-sided border. -->
+			<div class="border-l-[3px] border-accent bg-surface-2 p-3" aria-live="polite">
+				<p class="text-sm text-ink">
+					{#if skippedAliases.length === 1}
+						1 name{#if skippedProvider}&nbsp;from <span class="uppercase">{skippedProvider}</span
+							>{/if} was skipped — <span class="font-semibold">{skippedAliases[0].alias}</span>
+						already belongs to another {noun}.
+					{:else}
+						{skippedAliases.length} names{#if skippedProvider}&nbsp;from <span class="uppercase"
+								>{skippedProvider}</span
+							>{/if} were skipped because they belong to other {nounPlural}.
+					{/if}
+					<a href="/owner/duplicates" class="ml-1 text-accent hover:underline">Review</a>
+				</p>
+			</div>
+		{/if}
 
 		{#if isOwner}
 			<form onsubmit={addAlias} class="flex flex-wrap items-center gap-2">

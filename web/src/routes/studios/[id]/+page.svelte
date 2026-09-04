@@ -13,6 +13,7 @@
 		EntityRef,
 		ExternalLink,
 		PersonAlias,
+		SkippedAlias,
 		ResolvedField,
 		Studio,
 		StudioDetailResponse,
@@ -53,6 +54,9 @@
 	// merge/rename register the loser/old name as an alias so RelinkVideoStudios won't
 	// resurrect it (RD6).
 	let aliases = $state<PersonAlias[]>([]);
+	// Provider names a collision kept off this studio (F58, ADR-088 D5) — the panel's
+	// review line. Owner-gated server-side: absent from a visitor's payload.
+	let skippedAliases = $state<SkippedAlias[]>([]);
 	// Rename-collision verdict state (HOLODEX-269) — mirrors the person page's inline
 	// merge offer; NameEditControl owns the rest of the rename flow itself.
 	let renameMergeBusy = $state(false);
@@ -139,6 +143,7 @@
 		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
 		aliases = res.studio.aliases ?? [];
+		skippedAliases = res.skipped_aliases ?? [];
 		completeness = res.completeness ?? null;
 		externalLinks = res.external_links ?? [];
 	}
@@ -361,6 +366,7 @@
 					entityName={studio.name}
 					bind:aliases
 					{isOwner}
+					{skippedAliases}
 					onmerged={() => load(id)}
 				/>
 			{/if}

@@ -1212,8 +1212,14 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		// photo is delivered as an asset (person_images), never a field value —
 		// score it off the headshot role's presence, same signal
 		// completenessForPeople uses (F55.13).
-		cFields, cResolved := injectAssetFacet(fields, resolved, "photo", registry.Lookup("photo").Label,
+		cFields, cResolved := injectSyntheticFacet(fields, resolved, "photo", registry.Lookup("photo").Label,
 			images.Roles[model.PersonImageHeadshot].Present)
+		// alternate_names lives in the identity spine, not the field model (F58/ADR-088
+		// D7). GetPerson already loaded them for the Aliases panel, so this reuses that
+		// read rather than adding one. Blind to `source`: an owner-typed name and a
+		// provider-supplied one count the same.
+		cFields, cResolved = injectSyntheticFacet(cFields, cResolved, "alternate_names",
+			registry.Lookup("alternate_names").Label, len(p.Aliases) > 0)
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
 	}
@@ -1223,7 +1229,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	if linksErr != nil {
 		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	body := map[string]any{
 		"person": p, "items": items, "total": total,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
 		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
@@ -1231,7 +1237,27 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		"images":         images,
 		"completeness":   completeness,
 		"external_links": links,
-	})
+	}
+	if skipped := h.skippedAliases(r, model.EnrichEntityPerson, id, authorized); len(skipped) > 0 {
+		body["skipped_aliases"] = skipped
+	}
+	writeJSON(w, http.StatusOK, body)
+}
+
+// skippedAliases fetches the provider names a collision kept off this entity (ADR-088 D5)
+// for the Aliases panel's review line. Owner-only, like every other control on that panel,
+// and best-effort: the panel losing one advisory line is not worth failing the detail page
+// that otherwise rendered fine.
+func (h *Handlers) skippedAliases(r *http.Request, entityType string, id int64, authorized bool) []repo.SkippedAlias {
+	if !authorized {
+		return nil
+	}
+	skipped, err := h.repo.SkippedAliasesForEntity(r.Context(), entityType, id)
+	if err != nil {
+		h.log.Warn("skipped aliases for detail", "entity_type", entityType, "id", id, "err", err)
+		return nil
+	}
+	return skipped
 }
 
 func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {

@@ -28,17 +28,21 @@ import (
 var personScalarFields = []string{"bio", "birthdate", "deathdate", "nationality", "website"}
 
 // personFields synthesizes the []mapping.Field for person resolution: name
-// (record baseline + one candidate per provider), the scalar registry fields,
-// then aliases as a merge field. providers is the person-capable provider
-// name list; labels come from the registry.
+// (record baseline + one candidate per provider) followed by the scalar registry
+// fields. providers is the person-capable provider name list; labels come from the
+// registry.
+//
+// A person has no merge field. `aliases` was one through F22 and was retired in F58
+// (ADR-088 D1): a provider's alternate names are written into entity_aliases, not
+// resolved. Synthesizing it here anyway would put an empty, unscored "Aliases" row back
+// on the person page next to the Aliases panel — the duplication this feature removes.
 func personFields(providers []string) []mapping.Field {
-	fields := make([]mapping.Field, 0, len(personScalarFields)+2)
+	fields := make([]mapping.Field, 0, len(personScalarFields)+1)
 	fields = append(fields, personField("name", false,
 		append([]mapping.Source{{Namespace: "file", Key: "name"}}, providerSources(providers, "name")...)))
 	for _, canonical := range personScalarFields {
 		fields = append(fields, personField(canonical, false, providerSources(providers, canonical)))
 	}
-	fields = append(fields, personField("aliases", true, providerSources(providers, "aliases")))
 	return fields
 }
 
