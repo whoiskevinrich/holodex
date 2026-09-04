@@ -486,19 +486,54 @@ func TestSkippedAliasesForEntity(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 
-	// Readable from BOTH sides of the pair: the owner may open either person's page, and
-	// the question ("these two may be the same") belongs to both.
-	for _, id := range []int64{imposter, jen} {
-		got, err := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, id)
-		if err != nil {
-			t.Fatalf("skipped for %d: %v", id, err)
+	// Returned to the DENIED side only. The queue row is a pair and reads from both ends,
+	// but the panel's sentence ("<name> already belongs to another person") is only true
+	// for the entity that was refused the name. On the entity that *owns* "J Law" the same
+	// line would assert the opposite of the truth, so it must not appear there.
+	got, err := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter)
+	if err != nil {
+		t.Fatalf("skipped for the denied entity: %v", err)
+	}
+	if len(got) != 1 || got[0].Alias != "J Law" {
+		t.Fatalf("denied side = %+v, want the 'J Law' collision", got)
+	}
+	if got[0].ConflictID != jen {
+		t.Errorf("conflict id = %d, want the holder (%d)", got[0].ConflictID, jen)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, jen); len(got) != 0 {
+		t.Errorf("the holder's own page reported its own name as skipped: %+v", got)
+	}
+
+	// The holder can own the name as its CANONICAL name rather than as an alias — the
+	// other route entityConflict walks when it refuses the insert, and one the derivation
+	// has to cover too.
+	byName := seedPerson(t, r, "Katniss")
+	if _, err := r.ApplyProviderAliases(ctx, model.EnrichEntityPerson, imposter, tmdb,
+		[]string{"Katniss"}); err != nil {
+		t.Fatalf("apply canonical-name collision: %v", err)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter); len(got) != 2 {
+		t.Errorf("denied side should now report both collisions, got %+v", got)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, byName); len(got) != 0 {
+		t.Errorf("the canonical-name holder reported its own name as skipped: %+v", got)
+	}
+
+	// A stale pair goes quiet on both pages: once the holder drops the alias the name is
+	// free, nothing is being refused, and there is nothing left to report.
+	held, _ := r.AliasesForEntity(ctx, model.EnrichEntityPerson, jen)
+	for _, a := range held {
+		if a.Alias == "J Law" {
+			if err := r.DeleteEntityAlias(ctx, model.EnrichEntityPerson, jen, a.ID); err != nil {
+				t.Fatalf("delete: %v", err)
+			}
 		}
-		if len(got) != 1 || got[0].Alias != "J Law" {
-			t.Fatalf("skipped for %d = %+v, want the 'J Law' collision", id, got)
-		}
-		if got[0].ConflictID == id {
-			t.Errorf("conflict id should be the OTHER entity, got self (%d)", id)
-		}
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter); len(got) != 1 || got[0].Alias != "Katniss" {
+		t.Errorf("denied side after the holder freed 'J Law' = %+v, want only the Katniss pair", got)
+	}
+	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, jen); len(got) != 0 {
+		t.Errorf("the former holder still reports a collision: %+v", got)
 	}
 
 	// An unrelated person has nothing to report.
@@ -525,8 +560,16 @@ func TestSkippedAliasesForEntity(t *testing.T) {
 	if err := r.DismissReviewPair(ctx, model.EnrichEntityPerson, jen, imposter); err != nil {
 		t.Fatalf("dismiss: %v", err)
 	}
-	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter); len(got) != 0 {
-		t.Errorf("resolving the pair left the review line standing: %+v", got)
+	// Only that pair clears; the unrelated Katniss collision is untouched, which is what
+	// makes this a resolution rather than a blanket mute.
+	after, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter)
+	for _, a := range after {
+		if a.Alias == "J Law" {
+			t.Errorf("resolving the pair left its review line standing: %+v", after)
+		}
+	}
+	if len(after) != 1 {
+		t.Errorf("resolving one pair disturbed the other: %+v, want just Katniss", after)
 	}
 }
 

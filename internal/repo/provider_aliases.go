@@ -284,15 +284,39 @@ func (r *Repo) deleteEnrichmentAliasRows(ctx context.Context) (int64, error) {
 // makes the line disappear with no extra bookkeeping. Only 'provider-alias' rows carry a
 // name in detail, and only those are returned.
 //
+// **Returned to the denied side only.** A queue row is a pair and reads from both ends,
+// but the panel's sentence — "<name> already belongs to another <noun>" — is only true on
+// the entity that was refused the name; on the entity that *owns* it the same line asserts
+// the opposite of the truth. The side is not stored, so it is derived: this row belongs to
+// the caller when the OTHER entity holds `detail`, by canonical name or as an alias, which
+// are the same two routes entityConflict walks when it refuses the insert.
+//
+// Phrasing it as "the other side holds it" rather than "this side does not" also makes a
+// stale pair silent on both pages: if the holder later deletes that alias the name is free
+// again, nothing is being refused, and there is no longer anything to report.
+//
 // Owner-facing: the caller gates it, like every other control on that panel.
 func (r *Repo) SkippedAliasesForEntity(ctx context.Context, entityType string, entityID int64) ([]SkippedAlias, error) {
+	table := canonicalTable(entityType)
+	if table == "" {
+		return nil, fmt.Errorf("skipped aliases: unknown entity type %q", entityType)
+	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT detail, CASE WHEN id_lo = ? THEN id_hi ELSE id_lo END AS other_id
-		  FROM identity_review_queue
-		 WHERE entity_type = ? AND variation = 'provider-alias'
-		   AND (id_lo = ? OR id_hi = ?) AND detail <> ''
+		WITH pairs AS (
+			SELECT detail, CASE WHEN id_lo = ? THEN id_hi ELSE id_lo END AS other_id
+			  FROM identity_review_queue
+			 WHERE entity_type = ? AND variation = 'provider-alias'
+			   AND (id_lo = ? OR id_hi = ?) AND detail <> ''
+		)
+		SELECT detail, other_id FROM pairs p
+		 WHERE EXISTS (SELECT 1 FROM `+table+` c
+		                WHERE c.id = p.other_id
+		                  AND `+nameKeyExpr(entityType, "c.name")+` = `+nameKeyExpr(entityType, "p.detail")+`)
+		    OR EXISTS (SELECT 1 FROM entity_aliases a
+		                WHERE a.entity_type = ? AND a.entity_id = p.other_id
+		                  AND a.alias_key = `+nameKeyExpr(entityType, "p.detail")+`)
 		 ORDER BY detail COLLATE NOCASE`,
-		entityID, entityType, entityID, entityID)
+		entityID, entityType, entityID, entityID, entityType)
 	if err != nil {
 		return nil, fmt.Errorf("skipped aliases for %s: %w", entityType, err)
 	}

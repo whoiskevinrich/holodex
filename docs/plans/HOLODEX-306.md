@@ -72,6 +72,26 @@ person page.
   take a name another entity already holds. That is the documented, bounded D3 risk, not a defect.
 - handoff: **all gates green.** PR #288 marked ready for review.
 
+### 2026-09-03 · alias-state seed generator + a bug it immediately found
+- skills: (none)
+- `testdata/aliasseed/` stages the six alias states through the **real repo write path**,
+  not SQL — a seed built from INSERTs encodes what someone believed those states look like and
+  drifts when a guard changes. Matches the `testdata/` convention: generator committed, output
+  not. Note for later: Go ignores `testdata/` for `./...`, so CI never builds it — run
+  `go build ./testdata/aliasseed` after touching the repo alias API.
+- **The seed found a real bug in code already marked ready for review**, which is the whole
+  argument for building it. `SkippedAliasesForEntity` returned the queue pair from *both* ends,
+  so the review line also rendered on the page of the entity that **owns** the contested name —
+  where "already belongs to another person" is the opposite of the truth. `TestSkippedAliasesForEntity`
+  had asserted the both-sides read as a *feature*, so the test encoded the bug and nothing caught it.
+- Fixed by deriving the denied side: the row belongs to the caller when the **other** entity
+  holds `detail`, by canonical name or alias — the two routes `entityConflict` already walks.
+  Phrasing it as "the other side holds it" rather than "this side does not" also makes a stale
+  pair silent on both pages once the holder frees the name, which the weaker predicate would not.
+- Both test failures during the fix were my own bad assertions, not the code; production
+  behaved correctly at every step. Worth recording, since the temptation on a red test is to
+  assume the change broke something.
+
 ### 2026-09-02 · ADR-088 + design handoff landed; direction set to a full collapse
 - skills: architecture, design-handoff, simplify
 - The owner rejected a two-tier "suggested chips → promote" design mid-session and asked for a
