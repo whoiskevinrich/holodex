@@ -229,7 +229,7 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 	if err != nil {
 		return fmt.Errorf("delete %s alias: %w", entityType, err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
 	// Read the row first: whether it was provider-sourced decides if the delete also
 	// records a suppression, and the scoped SELECT doubles as the ErrNotFound check.

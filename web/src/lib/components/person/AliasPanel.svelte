@@ -35,6 +35,9 @@
 
 	// The EntityKind values ('person' | 'studio' | 'tag') are themselves the singular noun.
 	const noun = $derived(entityType);
+	// ...but only two of the three pluralize by suffix, and `person` is the one this panel
+	// is used on most.
+	const nounPlural = $derived(entityType === 'person' ? 'people' : `${entityType}s`);
 
 	// A skipped name carries no provenance of its own — identity_review_queue records the
 	// pair and the name, not which provider proposed it — so the line attributes it to the
@@ -210,7 +213,7 @@
 			<!-- Collision review line (F58, ADR-088 D5): a provider name that already belongs
 			     to another entity is skipped, never merged in silently. Square corners — the
 			     theming rule forbids rounding a single-sided border. -->
-			<div class="border-l-[3px] border-accent bg-surface-2 p-3">
+			<div class="border-l-[3px] border-accent bg-surface-2 p-3" aria-live="polite">
 				<p class="text-sm text-ink">
 					{#if skippedAliases.length === 1}
 						1 name{#if skippedProvider}&nbsp;from <span class="uppercase">{skippedProvider}</span
@@ -219,7 +222,7 @@
 					{:else}
 						{skippedAliases.length} names{#if skippedProvider}&nbsp;from <span class="uppercase"
 								>{skippedProvider}</span
-							>{/if} were skipped because they belong to other {noun}s.
+							>{/if} were skipped because they belong to other {nounPlural}.
 					{/if}
 					<a href="/owner/duplicates" class="ml-1 text-accent hover:underline">Review</a>
 				</p>

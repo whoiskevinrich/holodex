@@ -84,7 +84,7 @@ func (r *Repo) ApplyProviderAliases(ctx context.Context, entityType string, enti
 	if err != nil {
 		return nil, fmt.Errorf("apply provider aliases: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
 	var canonical string
 	switch err := tx.QueryRowContext(ctx,

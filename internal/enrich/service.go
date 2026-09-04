@@ -537,6 +537,12 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// canonical key, F39 auto-registration renders as a display-only "Aliases" field —
 	// the exact second list this feature exists to remove, arriving through a different
 	// door. Pre-existing rows are cleared once by repo.PromoteEnrichmentAliases at boot.
+	//
+	// Known gap: the provider match id is stamped onto entity_enrichment ROWS, so a
+	// payload whose only field was `aliases` now stores nothing and MatchExternalID
+	// reports the entity unmatched. No provider does that today (TMDB always sends at
+	// least `website`), and closing it needs a match record independent of field rows —
+	// a change well outside this one.
 	aliasNames := fields[model.ProviderAliasesField]
 	delete(fields, model.ProviderAliasesField)
 
