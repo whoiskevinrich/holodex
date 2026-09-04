@@ -541,7 +541,12 @@
 					</div>
 					{#if bioField}
 						<div class="hidden w-px shrink-0 bg-rule sm:block" aria-hidden="true"></div>
-						<div class="flex min-w-0 flex-1 flex-col overflow-hidden" id={`field-${bioField.canonical}`}>
+						<div
+							class="flex min-w-0 flex-1 flex-col overflow-hidden {hasBanner
+								? 'sm:rounded-theme sm:bg-black/35 sm:px-2 sm:py-1.5'
+								: ''}"
+							id={`field-${bioField.canonical}`}
+						>
 							<h3 class="flex items-center gap-1 text-xs uppercase tracking-wide text-muted">
 								{bioField.label}
 								{#if isOwner}
