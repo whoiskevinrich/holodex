@@ -459,7 +459,11 @@
 				     `.person-hero-media` already gives the avatar. Without it, the bio's top lines
 				     were unreadable: an unpositioned element paints under a positioned z-index:0
 				     sibling regardless of DOM order. -->
-				<div class="relative flex flex-col gap-4 pl-3 sm:flex-row sm:items-stretch {heroMarginClass}">
+				<div
+					class="relative flex flex-col gap-4 pl-3 sm:flex-row sm:items-stretch {heroMarginClass} {hasBanner
+						? 'sm:rounded-theme sm:bg-black/55 sm:py-1.5 sm:pr-2'
+						: ''}"
+				>
 					<div class="flex items-end gap-4">
 					{#if posterLed}
 						<!-- Poster-led: the poster is the primary avatar; the headshot rides as a small
@@ -541,12 +545,7 @@
 					</div>
 					{#if bioField}
 						<div class="hidden w-px shrink-0 bg-rule sm:block" aria-hidden="true"></div>
-						<div
-							class="flex min-w-0 flex-1 flex-col overflow-hidden {hasBanner
-								? 'sm:rounded-theme sm:bg-black/35 sm:px-2 sm:py-1.5'
-								: ''}"
-							id={`field-${bioField.canonical}`}
-						>
+						<div class="flex min-w-0 flex-1 flex-col overflow-hidden" id={`field-${bioField.canonical}`}>
 							<h3 class="flex items-center gap-1 text-xs uppercase tracking-wide text-muted">
 								{bioField.label}
 								{#if isOwner}
@@ -583,9 +582,38 @@
 		{/snippet}
 
 		{#snippet detail()}
+			<!-- The one Aliases card (F43, collapsed onto by F58/ADR-088): every alternate
+			     name lives here, owner-typed and provider-supplied alike, and all of them
+			     drive search + scan routing. Rename stays on the Name chip row (RD1), so the
+			     panel's own rename is off; the rename collision is routed in via `conflict`. -->
+			{#if person}
+				<AliasPanel
+					entityType="person"
+					entityId={id}
+					entityName={person.name}
+					bind:aliases
+					{isOwner}
+					bind:conflict
+					{skippedAliases}
+					onmerged={onMerged}
+				/>
+			{/if}
+
+			{#if images.gallery.length || isOwner}
+				<section class="rounded-theme border border-rule bg-surface p-4">
+					<PersonGallery
+						personId={id}
+						name={person?.name ?? ''}
+						items={images.gallery}
+						owner={isOwner}
+						onchanged={reloadImages}
+					/>
+				</section>
+			{/if}
+
 			<!-- Details (F37): every replace field on the F36 source-chip radiogroup with the
 			     `record` baseline. Alternate names are NOT here — they are the Aliases panel
-		     below, one list, since F58 (ADR-088).
+		     above, one list, since F58 (ADR-088).
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
 			{#if resolved.length || (isOwner && personProviders.length)}
@@ -736,35 +764,6 @@
 
 			{#if isOwner}
 				<CompletenessPanel {completeness} onchanged={reloadDetail} />
-			{/if}
-
-			<!-- The one Aliases card (F43, collapsed onto by F58/ADR-088): every alternate
-			     name lives here, owner-typed and provider-supplied alike, and all of them
-			     drive search + scan routing. Rename stays on the Name chip row (RD1), so the
-			     panel's own rename is off; the rename collision is routed in via `conflict`. -->
-			{#if person}
-				<AliasPanel
-					entityType="person"
-					entityId={id}
-					entityName={person.name}
-					bind:aliases
-					{isOwner}
-					bind:conflict
-					{skippedAliases}
-					onmerged={onMerged}
-				/>
-			{/if}
-
-			{#if images.gallery.length || isOwner}
-				<section class="rounded-theme border border-rule bg-surface p-4">
-					<PersonGallery
-						personId={id}
-						name={person?.name ?? ''}
-						items={images.gallery}
-						owner={isOwner}
-						onchanged={reloadImages}
-					/>
-				</section>
 			{/if}
 		{/snippet}
 		{#snippet footer()}
