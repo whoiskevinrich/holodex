@@ -171,6 +171,12 @@ func (h *Handlers) setFilmFieldDecision(w http.ResponseWriter, r *http.Request) 
 		h.fail(w, "set film decision", err)
 		return
 	}
+	// Pinning release_date to a different source can change the year the film should
+	// carry (F59/ADR-089 D3) — the fill follows the resolved value, so it belongs on
+	// every path that changes resolution, not just enrich apply.
+	if field.Canonical == "release_date" {
+		h.syncFilmYear(r.Context(), id)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -184,6 +190,9 @@ func (h *Handlers) clearFilmFieldDecision(w http.ResponseWriter, r *http.Request
 	if _, err := h.repo.ClearDecision(r.Context(), model.EnrichEntityFilm, id, field.Canonical); err != nil {
 		h.fail(w, "clear film decision", err)
 		return
+	}
+	if field.Canonical == "release_date" {
+		h.syncFilmYear(r.Context(), id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

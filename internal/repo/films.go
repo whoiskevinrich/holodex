@@ -99,6 +99,16 @@ type FilmSceneCollision struct {
 	VideoTitle string `json:"video_title"`
 }
 
+// FilmYearCollision names the film already holding (name, year), so a rejected
+// year fill can say *which* film it clashed with rather than failing blind --
+// deliberately the same posture as FilmSceneCollision above (F59/ADR-089 D3; no
+// silent swap, no auto-bump).
+type FilmYearCollision struct {
+	FilmID   int64  `json:"film_id"`
+	FilmName string `json:"film_name"`
+	Year     int    `json:"year"`
+}
+
 // nullableYear turns a zero-or-negative "no year" sentinel into SQL NULL --
 // films.year is nullable (migration 0043); 0 is not a valid release year.
 func nullableYear(year int) any {
@@ -172,6 +182,68 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 		return 0, fmt.Errorf("create film: %w", err)
 	}
 	return res.LastInsertId()
+}
+
+// FillFilmYear sets films.year from a provider-derived release year, but ONLY when
+// the film currently has no year (F59/ADR-089 D3). It is deliberately fill-only,
+// never overwrite:
+//
+//   - films.year is half the (name, year) identity key and is owner-asserted at
+//     CreateFilm. Silently rewriting it from a provider would change an entity's
+//     identity behind the owner's back.
+//   - There is no "previous year" to restore, so an overwrite would be a one-way
+//     door: clearing the provider afterwards could not put the owner's value back.
+//     Fill-only makes clear-restores-the-prior-year true by construction, because
+//     an enrich never took a prior year away in the first place.
+//
+// Returns (nil, nil) when there is nothing to do: the film already has a year, or
+// year <= 0. Returns a non-nil collision -- and writes nothing -- when another film
+// already holds (name, year); the caller reports the occupant rather than swapping
+// or auto-bumping, matching AttachFilmVideo's scene-number posture.
+func (r *Repo) FillFilmYear(ctx context.Context, filmID int64, year int) (*FilmYearCollision, error) {
+	if year <= 0 {
+		return nil, nil
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	var name string
+	var current sql.NullInt64
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT name, year FROM films WHERE id = ?`, filmID).Scan(&name, &current); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("read film for year fill: %w", err)
+	}
+	if current.Valid {
+		return nil, nil // already has a year -- fill-only, see above.
+	}
+
+	// The uniqueness probe must exclude this film, or a future overwrite variant of
+	// this method would report the film colliding with itself. Excluding it now keeps
+	// that trap from being introduced later.
+	var occupantID int64
+	var occupantName string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, name FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
+		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName)
+	switch {
+	case err == nil:
+		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year}, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return nil, fmt.Errorf("check film year collision: %w", err)
+	}
+
+	// UPDATE is still guarded by `year IS NULL` so a concurrent writer that filled the
+	// year between the read above and here loses this write rather than overwriting --
+	// the single-writer mutex makes that unreachable today, but the guard costs nothing
+	// and keeps the fill-only invariant true in the SQL itself, not just in Go.
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE films SET year = ? WHERE id = ? AND year IS NULL`, year, filmID); err != nil {
+		return nil, fmt.Errorf("fill film year: %w", err)
+	}
+	return nil, nil
 }
 
 // ListFilms returns every film, name-sorted, with its active-video count. Unlike

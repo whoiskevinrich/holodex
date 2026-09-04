@@ -135,15 +135,24 @@ section.
 | Union is empty, credits exist | Cast section shows the empty-union state; the second group renders in full — this is a film whose scenes are all unattached or uncredited |
 | One difference name | Same group, singular counts copy |
 
-## 4. Year — the collision error
+## 4. Year — the withheld-fill advisory
 
-The apply is atomic: a colliding year changes nothing at all (ADR-089 D3).
+*(Amended during implementation — ADR-089 D3.)* The identity write is gated, not the enrich: the
+provider's other fields land normally and only the year is withheld. So this reads as an **advisory
+about one skipped write**, not a failed request.
 
-- Copy, on collision: `Can't set 1999 — "The Matrix" (1999) already uses that name and year.` The
-  occupying film's name links to it.
-- Placement: the Details section's `actionError` slot, `text-sm text-warn`.
-- The picker stays open so the owner can choose a different candidate.
-- **No auto-bump, no silent swap** — the same posture as scene-number collisions on attach.
+- Copy, as built: `Kept this film's year unset — Dune (2021) already uses that name and year.
+  Everything else from the provider was applied.` The occupying film's name+year links to it.
+- The closing sentence is load-bearing: without it the line reads as a failure, and the owner would
+  reasonably retry an apply that already succeeded.
+- Placement: in the Details section directly under the `actionError` slot, `text-sm text-warn` —
+  but held in its own `yearCollision` state, *not* in `actionError`, because the request succeeded.
+- Cleared when the owner opens the picker again, so it never outlives the apply it describes.
+- **No auto-bump, no silent swap** — the same posture as scene-number collisions on attach. And no
+  overwrite: the fill only ever fills a blank year.
+
+Contrast measured on the built line: 5.35 / 6.96 / 6.36 across Cinémathèque, Broadcast and
+Brutalist — AA clear in all three.
 
 ## 5. Out of scope
 

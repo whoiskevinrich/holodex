@@ -187,11 +187,20 @@ backend already shipped.)*
   and currently cannot be acted on. Acceptance: a queued film row resolves, applies and dismisses from
   the queue without navigating to the film.
 
-- **P0-5 — `films.year` is set from the provider's `release_date`, behind a uniqueness check.**
-  Derive the year component on apply; before writing, check `(name, year)`. On collision, reject the
-  whole apply, change nothing, and surface an inline error naming and linking the occupying film.
-  Acceptance: two tests — a clean apply sets the year and the header shows it; a colliding apply
-  leaves both films byte-identical and returns the occupant's name.
+- **P0-5 — `films.year` is filled from the provider's `release_date`, behind a uniqueness check.**
+  *(Amended during implementation — see ADR-089 D3.)* Derive the year component from the **resolved**
+  `release_date` on every path that can change it; before writing, check `(name, year)`.
+
+  Two narrowings, both deliberate: the fill **only fills a blank year, never overwrites** one (an
+  overwrite silently rewrites owner-asserted identity and, with no stored prior value, cannot be
+  undone on clear); and a collision **withholds the identity write, not the enrich** (the shadow
+  store is additive and ungated by ADR-033, so the rows already exist by the time `release_date`
+  is readable). The response carries a `year_collision` naming and linking the occupying film, and
+  the page renders it as an advisory, not a failure.
+
+  Acceptance: a clean apply fills the year and the header shows it; an apply against a film that
+  already has a year leaves it untouched; a colliding apply leaves **both** films' identity columns
+  unchanged, returns the occupant, **and** still resolves the provider's other fields.
 
 - **P0-6 — Provider cast is stored as film-level credits.** A film's applied provider cast writes
   `film_people_roles` rows; **no `video_people` row, no video decision, and no writeback is produced.**

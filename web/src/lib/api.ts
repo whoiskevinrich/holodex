@@ -21,6 +21,7 @@ import type {
 	FacetSummary,
 	CompletenessFacetGroup,
 	Film,
+	FilmYearCollision,
 	FilmDetailResponse,
 	FilmSceneCollision,
 	FilmStudioCascadeResult,
@@ -712,11 +713,14 @@ export const api = {
 			query
 		}),
 
+	// year_collision is present when the provider's release year was withheld because
+	// another film already holds (name, year) — the apply still succeeded (F59/ADR-089 D3).
 	enrichFilmApply: (filmId: number, provider: string, externalId: string) =>
-		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/films/${filmId}/enrich`, {
-			provider,
-			external_id: externalId
-		}),
+		sendAuthed<{ enriched: EnrichedField[]; year_collision?: FilmYearCollision }>(
+			'POST',
+			`/films/${filmId}/enrich`,
+			{ provider, external_id: externalId }
+		),
 
 	enrichFilmClear: (filmId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/enrich/${encodeURIComponent(provider)}`),

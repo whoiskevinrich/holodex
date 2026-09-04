@@ -35,13 +35,45 @@ vocabulary decisions that surface forces.
 2. [x] [frontend] Mount `EnrichProviderChips` + `EnrichPicker` on the film Details section; update the stale header comment — `web/src/routes/films/[id]/+page.svelte` → HOLODEX-309
 3. [x] [frontend] Add the `film` entry to the owner enrich-queue kind map — `web/src/routes/owner/enrichment/+page.svelte` → HOLODEX-309
 4. [x] [—] Correct the stale provider docs; flip ADR-086 to Accepted — `docs/specs/metadata-provider-contract.md`, `docs/specs/tmdb-provider.md` → HOLODEX-313
-5. [ ] [backend] `(name, year)`-gated year write inside the decision commit — `internal/api/film_fields.go` → HOLODEX-311
+5. [x] [backend] `(name, year)`-gated year fill — `internal/repo/films.go`, `internal/api/film_year.go` → HOLODEX-311
 6. [ ] [backend] Provider-written `film_people_roles` + the union-minus-credits difference in the film payload — `internal/repo/film_people_roles.go`, `internal/api/film_videos.go` → HOLODEX-310
 7. [ ] [frontend] Cast difference group + coverage counts line — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #6 → HOLODEX-310
 8. [ ] [backend] `banner` role in, `thumb` out; TMDB emits `backdrop_path` as a banner asset — `internal/enrich/assets.go`, `internal/model/model.go`, `providers/tmdb/tmdb.go` → HOLODEX-312
 9. [ ] [frontend] Two-image header — banner band, scrim, overlap row, both `EntityImageSlot` instances — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #8 → HOLODEX-312
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-04 · HOLODEX-311 year fill shipped; ADR-089 D3 amended twice by building it
+
+- skills: (none — implementation)
+- **D3 was wrong in two ways that only writing it exposed, and both are now amended in the ADR with
+  the original reasoning preserved in Options Considered.**
+  1. *"Overwrite the year"* → **fill-only**. `films.year` is owner-asserted and no prior value is
+     stored anywhere, so an overwrite is a one-way door: clearing the provider afterwards could not
+     put the owner's value back. Fill-only makes the spec's "clearing restores the prior year" true
+     by construction instead of by a column that would have to be invented to support it.
+  2. *"A collision rejects the entire apply, including the enrichment rows"* → **the identity write
+     is gated, not the enrich**. That reading fought ADR-033, which makes the shadow store
+     deliberately additive and ungated — by the time `release_date` is readable those rows exist,
+     and rolling them back would mean threading a pre-commit guard through `Service.Enrich`, shared
+     by all four entity kinds. Owner chose the narrow gate via a question card.
+- Shipped: `repo.FillFilmYear` (fill-only, collision-reporting, guarded in SQL as well as in Go),
+  `api.syncFilmYear` called from enrich apply/clear and the release_date decision set/clear, a
+  `year_collision` on the apply response, and the SPA advisory line.
+- Tests: 6 new, and **non-vacuity was verified rather than assumed** — deleting the collision guard
+  makes `TestFilmEnrichApply_YearCollisionWithheldAndNamed` and `TestFillFilmYear` both fail. Full Go
+  suite green; `npm run check` 0 errors; 160 frontend tests pass.
+- Verified live on the films testbed against the real TMDB sidecar, using the best fixture available:
+  the testbed already had `Dune (2021)`, so a second yearless `Dune` collides for real. Result:
+  HTTP 200, 13 fields applied, `year_collision {film_id: 1, "Dune", 2021}`, both films' years
+  untouched, and the advisory renders at 5.35/6.96/6.36 contrast across the three skins.
+- **A verification-method lesson worth keeping:** my first collision check reported "no collision"
+  when the real answer was a 502 — the sidecar was down and the curl only parsed the body without
+  checking the status. Always assert the HTTP status before reading the payload.
+- Left in the testbed DB deliberately: film 2 (`Dune`, no year) is now a standing collision fixture,
+  and film 3 (`Blade Runner 2049`, 2017) a clean-fill one.
+- handoff: 310 (cast layer + difference render) and 312 (banner) remain. 312's contract prerequisite
+  already landed under 313, so it only has to make the documented `banner` kind true.
 
 ### 2026-09-04 · HOLODEX-313 provider docs corrected — and one of my own claims retracted
 

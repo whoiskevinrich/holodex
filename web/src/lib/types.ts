@@ -807,6 +807,17 @@ export interface Film {
 	poster_url?: string;
 }
 
+// A withheld films.year fill (F59/ADR-089 D3). Returned on the film enrich-apply
+// response when the provider's release year is already held by another film under
+// the same name — (name, year) is the film identity key, so the fill is skipped and
+// the occupant named rather than swapped or auto-bumped. The enrich itself still
+// succeeded; only the identity column was left alone.
+export interface FilmYearCollision {
+	film_id: number;
+	film_name: string;
+	year: number;
+}
+
 // FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
 export type FilmImageRole = "poster";
 

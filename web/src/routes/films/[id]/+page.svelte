@@ -9,6 +9,7 @@
 		DecisionSource,
 		EnrichSource,
 		Film,
+		FilmYearCollision,
 		FilmDetailResponse,
 		FilmVideo,
 		Person,
@@ -62,6 +63,10 @@
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
+	// A withheld films.year fill (F59/ADR-089 D3). Deliberately separate from
+	// actionError: the apply *succeeded*, so this is an advisory about one skipped
+	// identity write, not a failed request.
+	let yearCollision = $state<FilmYearCollision | null>(null);
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
@@ -336,7 +341,10 @@
 								linked={providerLinked}
 								{busy}
 								{refreshingAll}
-								onenrich={(p) => (pickerProvider = p)}
+								onenrich={(p) => {
+									yearCollision = null;
+									pickerProvider = p;
+								}}
 								onrefresh={refreshProvider}
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
@@ -352,6 +360,17 @@
 
 					{#if actionError}
 						<p class="text-sm text-warn">{actionError}</p>
+					{/if}
+
+					<!-- Withheld year fill (F59/ADR-089 D3): the enrich succeeded, so this names
+					     the occupying film and links to it rather than reading as a failure. -->
+					{#if yearCollision}
+						<p class="text-sm text-warn">
+							Kept this film's year unset — <a
+								href={`/films/${yearCollision.film_id}`}
+								class="underline hover:text-ink">{yearCollision.film_name} ({yearCollision.year})</a
+							> already uses that name and year. Everything else from the provider was applied.
+						</p>
 					{/if}
 
 					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -489,7 +508,12 @@
 		entityName={film?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}
-		apply={(prov, extId) => api.enrichFilmApply(id, prov, extId)}
+		apply={async (prov, extId) => {
+			const res = await api.enrichFilmApply(id, prov, extId);
+			// Captured here rather than in onapplied, which only receives the fields.
+			yearCollision = res.year_collision ?? null;
+			return res;
+		}}
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}

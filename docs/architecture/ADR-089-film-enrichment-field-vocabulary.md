@@ -127,21 +127,41 @@ union against TMDB's 20-name `maxCastCredits` window). The difference is the onl
 second list carries information the first does not — and that information is exactly ADR-085's
 deferred P1-3 scene-coverage signal, obtained without modelling phantom scenes.
 
-### D3 — `films.year` is written as a consequence of the resolved `release_date`, inside the same commit, gated on `(name, year)`; `name` stays baseline-only
+### D3 — `films.year` is filled from the resolved `release_date` when it is blank, gated on `(name, year)`; `name` stays baseline-only
+
+> **Amended 2026-09-04, during implementation (HOLODEX-311).** The original text said the fill
+> overwrote and that a collision rejected "the entire apply … no enrichment row". Both halves were
+> wrong in ways only building it exposed; the corrected decision is below, with the original reasoning
+> preserved in *Options Considered* so the change is auditable.
 
 `release_date` remains an ordinary film scalar resolving through ADR-051. `films.year` is not a
-resolved field — it is an identity column updated as a **consequence** of that resolution, in the same
-transaction, after a `(name, year)` uniqueness check.
+resolved field — it is an identity column updated as a **consequence** of that resolution, after a
+`(name, year)` uniqueness check, on every path that can change what `release_date` resolves to
+(enrich apply, enrich clear, and the per-field decision set/clear).
 
-On collision the entire apply is rejected: no decision row, no year change, no enrichment row. The
-error names and links the occupying film. This mirrors films-entity's scene-number collision posture
-("no silent swap, no auto-bump") rather than inventing a second convention for the same class of
-problem.
+**The fill is fill-only: it fills a blank year and never overwrites one.** Two reasons, either
+sufficient:
+
+1. `films.year` is owner-asserted at `CreateFilm` and is half the identity key. Silently rewriting it
+   from a provider changes an entity's identity behind the owner's back.
+2. No prior year is stored anywhere, so an overwrite would be a **one-way door** — clearing the
+   provider afterwards could not restore the owner's value. Fill-only makes the spec's
+   "clearing restores the prior year" true by construction, because an enrich never took one away.
+
+**A collision withholds the identity write, not the enrich.** The original "reject the entire apply"
+over-reached into the shadow store, which [ADR-033](ADR-033-metadata-source-plugins.md) makes
+deliberately **additive and ungated** — by the time `release_date` is readable, those rows already
+exist, and rolling them back would mean threading a pre-commit guard through the `Service.Enrich`
+path shared by person, studio and video. So the enrich lands normally and only `films.year` is left
+alone, with the occupying film named and linked. The invariant that actually matters is unchanged and
+is asserted adversarially: **`(name, year)` never duplicates, and the year either moves completely or
+not at all.** This still mirrors films-entity's scene-number posture — no silent swap, no auto-bump.
 
 `name` is explicitly **not** made enrichable. Film title enrichment, if ever wanted, is an ADR-061
 unified name-edit integration — collision detection, merge offer, alias handling — and is a separate
 decision, not a field-list edit. Recorded here so a future session does not "fix" the read-only name
-by appending a provider source to `filmFields`.
+by appending a provider source to `filmFields`; `TestFilmFields_NameHasNoProviderSource` fails loudly
+if one does.
 
 ### D4 — `banner` becomes the film's second image role, replacing `thumb`; no migration
 
@@ -200,6 +220,14 @@ mistaken for a component-generalization task before; it is not one, and a PR tha
 | Both, via ADR-061 name-edit machinery | Rejected *for now* — correct destination, but a separate block; would hold the whole epic behind an identity integration |
 | Neither; show provider title/year as an inert hint | Rejected — the owner would retype data the provider already supplied, for no safety gain over a collision check |
 | Year with silent rename-on-collision | Rejected — contradicts films-entity's explicit no-silent-swap posture for the same class of conflict |
+
+**D3, re-decided during implementation (2026-09-04).** Two sub-questions the original text answered
+wrongly, kept here because both look like missing features rather than deliberate limits:
+
+| Sub-question | Options | Verdict |
+|---|---|---|
+| Fill vs. overwrite | **Fill a blank year only** · Overwrite whenever the provider disagrees · Overwrite but remember the prior value | **Fill-only chosen.** Overwriting silently changes owner-asserted identity, and — with no stored prior value — cannot be undone on clear, making it a one-way door. "Remember the prior value" means a new column purely to support an overwrite nobody asked for |
+| What a collision rejects | **The identity write only** · The whole apply, via a pre-commit guard in `Service.Enrich` · Apply then compensate with `Clear` | **Identity-write-only chosen.** The whole-apply reading fights ADR-033's deliberately ungated shadow store and would change the enrich write path for all four entity kinds; the compensating-`Clear` variant is a fake rollback that also discards the provider's other fields and leaves worse state if the `Clear` itself fails |
 
 ### D4 — the landscape image
 

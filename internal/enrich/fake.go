@@ -73,6 +73,9 @@ func NewFake(name string) *Fake {
 					// overview — the real tmdb provider remaps overview -> description
 					// for entity_type "film"; the fake just cans the post-remap shape.
 					"description": {"A girl wanders into a world ruled by gods and witches."},
+					// release_date drives the films.year identity fill (F59/ADR-089 D3),
+					// so the fake has to carry one for that path to be exercisable.
+					"release_date": {"2001-07-20"},
 				},
 				// poster arrives as an image asset (F56/ADR-086 §3), never a resolved
 				// field, mirroring how a studio's logo arrives.
