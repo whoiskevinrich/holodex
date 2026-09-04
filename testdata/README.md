@@ -3,6 +3,11 @@
 Deterministic media corpus for Holodex's extraction/classification tests
 (see [`docs/testing-strategy.md`](../docs/testing-strategy.md) §3).
 
+Two generators live here. `gen.sh` (below) builds the **media** corpus; `aliasseed/`
+builds **database state** — the F58/ADR-088 alias states (provider badge, collision
+review line, suppression) that are tedious to stage by hand. See
+[`aliasseed/README.md`](aliasseed/README.md).
+
 ## Regenerate
 
 ```bash
