@@ -172,10 +172,6 @@
 				</div>
 			{/if}
 		</div>
-		<p class="text-sm text-muted">
-			Searching any of these finds this {noun}, and future scans match them too.
-		</p>
-
 		<div class="flex flex-wrap gap-2" aria-live="polite">
 			{#each aliases as a (a.id)}
 				<span
