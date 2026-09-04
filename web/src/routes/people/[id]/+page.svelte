@@ -583,9 +583,26 @@
 		{/snippet}
 
 		{#snippet detail()}
+			<!-- The one Aliases card (F43, collapsed onto by F58/ADR-088): every alternate
+			     name lives here, owner-typed and provider-supplied alike, and all of them
+			     drive search + scan routing. Rename stays on the Name chip row (RD1), so the
+			     panel's own rename is off; the rename collision is routed in via `conflict`. -->
+			{#if person}
+				<AliasPanel
+					entityType="person"
+					entityId={id}
+					entityName={person.name}
+					bind:aliases
+					{isOwner}
+					bind:conflict
+					{skippedAliases}
+					onmerged={onMerged}
+				/>
+			{/if}
+
 			<!-- Details (F37): every replace field on the F36 source-chip radiogroup with the
 			     `record` baseline. Alternate names are NOT here — they are the Aliases panel
-		     below, one list, since F58 (ADR-088).
+		     above, one list, since F58 (ADR-088).
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
 			{#if resolved.length || (isOwner && personProviders.length)}
@@ -736,23 +753,6 @@
 
 			{#if isOwner}
 				<CompletenessPanel {completeness} onchanged={reloadDetail} />
-			{/if}
-
-			<!-- The one Aliases card (F43, collapsed onto by F58/ADR-088): every alternate
-			     name lives here, owner-typed and provider-supplied alike, and all of them
-			     drive search + scan routing. Rename stays on the Name chip row (RD1), so the
-			     panel's own rename is off; the rename collision is routed in via `conflict`. -->
-			{#if person}
-				<AliasPanel
-					entityType="person"
-					entityId={id}
-					entityName={person.name}
-					bind:aliases
-					{isOwner}
-					bind:conflict
-					{skippedAliases}
-					onmerged={onMerged}
-				/>
 			{/if}
 
 			{#if images.gallery.length || isOwner}
