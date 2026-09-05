@@ -29,12 +29,29 @@ var reviewJunction = map[string][2]string{
 var reviewEntityOrder = []string{model.EntityTag, model.EnrichEntityStudio, model.EnrichEntityPerson}
 
 // ReviewPair is one flagged possible-duplicate pair (F43 S5): the two entities (id +
-// name + active-video count) and the variation kind that made them a near-miss.
+// name + active-video count), the variation kind that made them a near-miss, and the
+// match kind — the strongest live evidence still connecting them (see MatchKind below).
 type ReviewPair struct {
 	EntityType string          `json:"entity_type"`
 	A          model.EntityRef `json:"a"`
 	B          model.EntityRef `json:"b"`
 	Variation  string          `json:"variation"`
+	MatchKind  string          `json:"match_kind"`
+}
+
+// entityNamesUnion returns the (eid, kind, nm) subquery over one entity type's full
+// live name pool — canonical name ∪ every current alias. Two uses: (1) re-validating
+// that a stored identity_review_queue row still collides under the CURRENT name set,
+// not just whatever it was at flag-time — a rename or alias edit can otherwise leave a
+// stale row behind forever, since today only merge/dismiss ever remove one; (2)
+// classifying which side of the match is canonical vs. alias, so a pair backed by two
+// coincidentally-similar aliases (weak evidence — aliases on unrelated entities collide
+// far more than canonical names do) can be told apart from a canonical-name collision
+// (strong evidence). entityType is a trusted internal literal, never user input.
+func entityNamesUnion(table, entityType string) string {
+	return fmt.Sprintf(`(SELECT id AS eid, 'canonical' AS kind, name AS nm FROM %s
+		UNION ALL SELECT entity_id, 'alias', alias FROM entity_aliases WHERE entity_type = %s)`,
+		table, sqlStringLit(entityType))
 }
 
 // variationCase classifies a near-miss pair's difference as internal-whitespace (the
@@ -73,30 +90,61 @@ func FlagNearMiss(ctx context.Context, tx *sql.Tx, entityType string, id int64) 
 	return nil
 }
 
-// ListReviewPairs returns every flagged pair, grouped tags-first, each carrying both
-// entities' names + active-video counts + variation (F43 P1-3). An INNER JOIN to the
-// canonical table drops stale rows whose entity was merged/deleted elsewhere, so the
-// queue self-heals (a resolved pair simply stops appearing).
+// ListReviewPairs returns every flagged pair still live, grouped tags-first (then
+// strongest-evidence-first within a group), each carrying both entities' names +
+// active-video counts + variation + match kind (F43 P1-3).
+//
+// Two INNER JOINs keep the queue self-healing instead of trusting a stored row
+// forever: the join to the canonical table drops a pair whose entity was
+// merged/deleted elsewhere, and the join to the live match-kind subquery drops a pair
+// whose current names/aliases no longer collide AT ALL — which a rename or alias edit
+// can cause silently, since (unlike merge) neither one ever touched
+// identity_review_queue. Confirmed on the private-media instance: of 207 stored person
+// pairs, only 4 still collided under the live name set — the other 203 were exactly
+// this kind of orphan, most from renames done long after the pair was flagged.
+//
+// match_kind is the strongest live evidence connecting the pair: "canonical" (both
+// sides' canonical names collide — the strong, "same entity typo'd twice" case),
+// "mixed" (one side needs an alias), or "alias" (only an alias on EACH side collides —
+// the weakest signal, since aliases on genuinely distinct entities coincide far more
+// often than canonical names do, especially after a few rounds of merging). Rows sort
+// strongest-first so the weak alias-alias matches sink to the bottom of each group
+// instead of mixing in indistinguishably with real duplicates.
 func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 	var out []ReviewPair
 	for _, et := range reviewEntityOrder {
 		table := canonicalTable(et)
 		jn := reviewJunction[et]
+		names := entityNamesUnion(table, et)
 		q := fmt.Sprintf(`
-			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation
+			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation, m.match_kind
 			FROM identity_review_queue q
 			JOIN %[1]s la ON la.id = q.id_lo
 			JOIN %[1]s lb ON lb.id = q.id_hi
+			JOIN (
+				SELECT iq.id_lo, iq.id_hi,
+					CASE min(CASE WHEN x.kind = 'canonical' AND y.kind = 'canonical' THEN 0
+					              WHEN x.kind = 'alias'     AND y.kind = 'alias'     THEN 2
+					              ELSE 1 END)
+						WHEN 0 THEN 'canonical' WHEN 2 THEN 'alias' ELSE 'mixed' END AS match_kind
+				FROM identity_review_queue iq
+				JOIN %[5]s x ON x.eid = iq.id_lo
+				JOIN %[5]s y ON y.eid = iq.id_hi AND %[6]s = %[7]s
+				WHERE iq.entity_type = ?
+				GROUP BY iq.id_lo, iq.id_hi
+			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
 			WHERE q.entity_type = ?
-			ORDER BY la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
-			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"))
-		rows, err := r.db.QueryContext(ctx, q, et)
+			ORDER BY CASE m.match_kind WHEN 'canonical' THEN 0 WHEN 'mixed' THEN 1 ELSE 2 END,
+			         la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
+			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"),
+			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"))
+		rows, err := r.db.QueryContext(ctx, q, et, et)
 		if err != nil {
 			return nil, fmt.Errorf("list review pairs (%s): %w", et, err)
 		}
 		for rows.Next() {
 			p := ReviewPair{EntityType: et}
-			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation); err != nil {
+			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind); err != nil {
 				rows.Close()
 				return nil, err
 			}
