@@ -39,6 +39,19 @@
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
+	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
+	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
+	import {
+		buildPreviewItems,
+		isEntityField,
+		makeFieldLabel,
+		sortRows,
+		stagePick,
+		unstagePick,
+		type StagedPicks
+	} from '$lib/extraction';
+	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
+	import { waitForWritebackJob } from '$lib/writebackJob';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -198,6 +211,46 @@
 	// of out-of-sync fields rides alongside it (RD2).
 	const canWriteback = $derived(isOwner && resolved.length > 0);
 	const outOfSyncN = $derived(outOfSyncCount(resolved));
+
+	// Filename extraction on this video (F48.5a/F48.6i, ADR-090 layer 1 at entity
+	// scope). The trigger alone would look inert — extraction auto-apply defaults
+	// off, so nearly every candidate lands as logged_only/queued and its whole
+	// outcome would otherwise be on /owner/extraction. The panel below is what makes
+	// the button honest.
+	//
+	// Deliberately NOT fetched on mount: an always-on panel for any video with
+	// pending rows is the deferred option D (see the handoff's Non-goals), so the
+	// panel appears only once the owner runs extraction here.
+	let extracting = $state(false);
+	let extractRows = $state<QueueRow[]>([]);
+	// null until a run completes here; `.matched` then distinguishes "no pattern
+	// matched" from "matched, nothing to review" (F48.6l). One nullable beats two
+	// booleans, whose fourth state (not run, but matched) is unrepresentable anyway.
+	let extractRun = $state<{ matched: boolean } | null>(null);
+	let extractError = $state('');
+	let extractLabels = $state<Record<string, string>>({});
+	let extractStaged = $state<StagedPicks>({});
+	let extractPreviewOpen = $state(false);
+	let extractApplying = $state(false); // waiting on the queued write + its re-extract
+	// Set on unmount so an in-flight wait stops touching state after the owner
+	// navigates to another video (the id is reactive; the poll must not outlive it).
+	let unmounted = false;
+	$effect(() => () => {
+		unmounted = true;
+	});
+
+	// Labels, ordering, staging and preview-item construction all come from
+	// $lib/extraction — the same module the owner tab uses, so the two surfaces
+	// cannot drift (ADR-090 D2).
+	const extractLabel = $derived(makeFieldLabel(extractLabels));
+	const extractSorted = $derived(sortRows(extractRows));
+	const extractStagedCount = $derived(Object.keys(extractStaged).length);
+	// Indexed once per rows change, not per staged click.
+	const extractRowsById = $derived(new Map(extractRows.map((r) => [r.id, r])));
+	const extractPreviewItems = $derived(buildPreviewItems(extractStaged, extractRowsById, extractLabel));
+	// Rows are only ever assigned by a run, so a run having happened is the whole
+	// condition — `extractRows.length > 0` would be an unreachable second disjunct.
+	const extractPanelVisible = $derived(isOwner && extractRun !== null);
 
 	const graceDays = $derived(
 		activity.caps?.delete_grace_period_seconds
@@ -499,6 +552,75 @@
 			refreshStatus = { tone: 'warn', text: toMessage(e) };
 		} finally {
 			refreshing = false;
+		}
+	}
+
+	// Run extraction for this video only (F48.5a). Synchronous: the endpoint applies
+	// or queues per field and returns the outcome, so refetching the scoped queue
+	// straight after gives the panel its rows.
+	async function runExtract() {
+		if (!video || extracting) return;
+		extracting = true;
+		extractError = '';
+		try {
+			const res = await api.extractVideo(id);
+			await loadExtractionRows();
+			extractRun = { matched: res.matched };
+		} catch (e) {
+			extractError = toMessage(e);
+		} finally {
+			extracting = false;
+		}
+	}
+
+	// Facets are fetched once, and only when the panel is actually used — the media
+	// page has no other need for the registry, so an unused video never pays for it.
+	async function loadExtractionRows() {
+		const needLabels = Object.keys(extractLabels).length === 0;
+		const [queue, facets] = await Promise.all([
+			api.extractionQueue(id),
+			needLabels ? api.facets() : Promise.resolve(null)
+		]);
+		extractRows = queue.rows ?? [];
+		if (facets) extractLabels = Object.fromEntries(facets.facets.map((f) => [f.canonical, f.label]));
+	}
+
+	function dropExtractRow(reviewId: number) {
+		extractRows = extractRows.filter((r) => r.id !== reviewId);
+		extractStaged = unstagePick(extractStaged, reviewId);
+	}
+
+	// ADR-090 D3: an adopted value has to visibly land in the field list below,
+	// otherwise the panel just empties and the owner is left to infer that something
+	// happened somewhere.
+	//
+	// Getting there is indirect. Resolving a row enqueues a *file* write, and only the
+	// queue's post-write re-extract (ADR-073) puts the new value back into the `file`
+	// baseline the resolver reads. Both steps are off-request, so refetching straight
+	// away shows the old value. But the queue already exposes exactly this: it runs the
+	// re-extract *before* marking the job done (`writequeue.go:275`), so waiting on the
+	// job is waiting on the value being readable. `resolveExtractionReview` now returns
+	// that job id, and `waitForWritebackJob` is the same tested waiter
+	// `WritebackFormDialog` uses — backoff, unmount cancellation, and a real error
+	// channel, so a *failed* write surfaces as an error instead of reading "written".
+	//
+	// The value lands as `file`, not `filename`: adoption writes the file tag, and
+	// `filename` stays the candidate namespace.
+	async function onExtractSubmitted(resolvedIds: number[], jobIds: number[]) {
+		resolvedIds.forEach(dropExtractRow);
+		extractApplying = true;
+		try {
+			await Promise.all(
+				jobIds.map((jobId) =>
+					waitForWritebackJob(jobId, api.writebackJobStatus, { cancelled: () => unmounted })
+				)
+			);
+			if (unmounted) return;
+			applyMediaDetail(await api.getMedia(id));
+		} catch (e) {
+			extractError = toMessage(e);
+		} finally {
+			extractApplying = false;
 		}
 	}
 
@@ -1110,6 +1232,20 @@
 							</button>
 						{/if}
 						{#if isOwner}
+							<!-- F48.5a: the single-video extraction trigger. Ghost text, no border, no chip —
+							     the identical treatment Refresh uses beside it. It is a one-shot action, not a
+							     stateful provider link, so it must never grow chip chrome that would read as a
+							     sibling of the provider chips (ADR-090 D2). -->
+							<button
+								onclick={runExtract}
+								disabled={extracting}
+								title="Read this file's name for metadata (title, studio, people, year)"
+								aria-label="Extract metadata from the filename"
+								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+							>
+								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg>
+								{extracting ? 'Extracting…' : 'Extract from filename'}
+							</button>
 							<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
 							     Enrich), Clear in a ⋯ overflow once matched. -->
 							<EnrichProviderChips
@@ -1136,6 +1272,67 @@
 						{/if}
 					</div>
 				</div>
+				{#if extractPanelVisible}
+					<!-- ADR-090 layer 1 at entity scope: adoption only — the filename value against the
+					     file's own tag. A provider's competing value never appears here; that is layer
+					     2's question and the SourceBadge chip row below already owns it. -->
+					<section class="rounded-theme border border-rule bg-surface" aria-labelledby="extract-panel-heading">
+						<div class="flex flex-wrap items-baseline justify-between gap-2 px-3 pb-1.5 pt-2.5">
+							<h3 id="extract-panel-heading" class="text-xs font-medium text-ink">
+								From filename{#if extractSorted.length}<span class="text-muted"> · {extractSorted.length} to review</span>{/if}
+							</h3>
+							<button onclick={runExtract} disabled={extracting} class="btn-quiet px-2 py-0.5 text-xs">
+								{extracting ? 'Extracting…' : 'Re-extract'}
+							</button>
+						</div>
+						{#if video}
+							<p class="truncate px-3 pb-2 text-xs text-muted" title={video.file_path}>{video.file_path}</p>
+						{/if}
+
+						{#if extractError}
+							<p class="border-t border-rule px-3 py-2 text-xs text-warn" role="alert">{extractError}</p>
+						{:else if extractApplying}
+							<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
+								Written to the file — waiting for it to be read back…
+							</p>
+						{:else if extractSorted.length === 0}
+							<!-- F48.6l: "no pattern matched" and "matched, nothing to review" are different
+							     outcomes and must read differently. Never an empty panel, never a zero count. -->
+							<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
+								{#if !extractRun?.matched}
+									No filename pattern matched this file.
+								{:else}
+									Nothing needs review — matched values are in the list below.
+								{/if}
+							</p>
+						{:else}
+							{#each extractSorted as row (row.id)}
+								<ExtractionQueueRow
+									{row}
+									fieldLabel={extractLabel(row.field_key)}
+									isEntityField={isEntityField(row.field_key)}
+									staged={extractStaged[row.id]}
+									onstage={(action, value) => (extractStaged = stagePick(extractStaged, row.id, action, value))}
+									onunstage={() => (extractStaged = unstagePick(extractStaged, row.id))}
+									resolveTag={() => api.resolveExtractionReview(row.id, 'tag')}
+									dismiss={() => api.dismissExtractionReview(row.id)}
+									onhandled={() => dropExtractRow(row.id)}
+								/>
+							{/each}
+							<div class="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-3 py-2">
+								<p class="text-xs text-muted" aria-live="polite">{extractStagedCount} staged · nothing written yet</p>
+								<div class="flex items-center gap-2">
+									<button onclick={() => (extractStaged = {})} disabled={extractStagedCount === 0} class="btn-quiet px-2 py-0.5 text-xs">
+										Clear
+									</button>
+									<button onclick={() => (extractPreviewOpen = true)} disabled={extractStagedCount === 0} class="btn-accent px-2.5 py-1 text-xs">
+										Review &amp; write {extractStagedCount}
+									</button>
+								</div>
+							</div>
+						{/if}
+					</section>
+				{/if}
 				{#if enrichError}
 					<p class="text-xs text-warn">{enrichError}</p>
 				{/if}
@@ -1325,6 +1522,14 @@
 		{/if}
 	</article>
 
+	{#if extractPreviewOpen}
+		<ExtractionPreviewDialog
+			items={extractPreviewItems}
+			onclose={() => (extractPreviewOpen = false)}
+			onsubmitted={onExtractSubmitted}
+			resolve={(reviewId, action, value) => api.resolveExtractionReview(reviewId, action, value)}
+		/>
+	{/if}
 	{#if writebackOpen && video}
 		<WritebackFormDialog
 			fields={resolved}

@@ -11,7 +11,16 @@
 	import { toMessage } from '$lib/format';
 	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
 	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
-	import type { ExtractionPreviewItem, ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
+	import {
+		buildPreviewItems,
+		groupByVideo,
+		isEntityField,
+		makeFieldLabel,
+		stagePick,
+		unstagePick,
+		type StagedPicks
+	} from '$lib/extraction';
+	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
 
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);
@@ -29,91 +38,31 @@
 	});
 
 	// canonical field key -> label, from the shared facet registry (the same
-	// labels every other field surface in the app uses) — falls back to a
-	// titleized key for anything not present as a facet.
+	// labels every other field surface in the app uses). The lookup, the
+	// people→actors alias, the field ordering, the grouping and the preview-item
+	// construction all live in $lib/extraction so the media page's inline panel
+	// (F48.6i) runs the exact same logic — ADR-090 D2's "one code path" rule.
 	let labelByField = $state<Record<string, string>>({});
+	const fieldLabel = $derived(makeFieldLabel(labelByField));
 
-	// The extraction package's field key ("people", from the {people} filename
-	// token — internal/extract/pattern.go) differs from the app's canonical field
-	// key for the same data ("actors": metadata-mappings.yaml.example declares
-	// filename:people as one of "actors"'s *sources*, not a canonical field of its
-	// own — see media/[id]/+page.svelte's `f.canonical === 'actors'`). Mirrors
-	// internal/extract.WritebackField on the backend: without this alias, the
-	// facet-registry lookup below misses and falls back to a titleized "People"
-	// instead of the app's actual configured label ("Actors"), showing a
-	// different name for the same field than every other surface in the app.
-	const FIELD_LABEL_ALIASES: Record<string, string> = { people: 'actors' };
-	function fieldLabel(key: string): string {
-		const canonical = FIELD_LABEL_ALIASES[key] ?? key;
-		return labelByField[canonical] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-	}
-
-	const FIELD_ORDER: Record<string, number> = { people: 0, studio: 1, title: 2, release_date: 3 };
-	function fieldRank(key: string): number {
-		return FIELD_ORDER[key] ?? 99;
-	}
-	function isEntityField(key: string): boolean {
-		return key === 'people' || key === 'studio';
-	}
-
-	interface VideoGroup {
-		videoId: number;
-		videoTitle: string;
-		filePath: string;
-		rows: QueueRow[];
-	}
-
-	const groups = $derived.by((): VideoGroup[] => {
-		const byVideo = new Map<number, QueueRow[]>();
-		for (const row of rows) {
-			const list = byVideo.get(row.video_id);
-			if (list) list.push(row);
-			else byVideo.set(row.video_id, [row]);
-		}
-		const out: VideoGroup[] = [...byVideo.entries()].map(([videoId, items]) => {
-			const sorted = [...items].sort(
-				(a, b) => fieldRank(a.field_key) - fieldRank(b.field_key) || a.field_key.localeCompare(b.field_key)
-			);
-			return { videoId, videoTitle: sorted[0].video_title, filePath: sorted[0].file_path, rows: sorted };
-		});
-		out.sort((a, b) => b.rows.length - a.rows.length || a.videoTitle.localeCompare(b.videoTitle));
-		return out;
-	});
+	const groups = $derived(groupByVideo(rows));
 
 	// reviewId -> the owner's staged-but-unwritten pick (F48.7a). Cleared once the
 	// row is dropped (submitted, or the row itself disappears from the queue).
-	let staged = $state<Record<number, { action: ExtractionResolveAction; value: string }>>({});
+	let staged = $state<StagedPicks>({});
 	const stagedCount = $derived(Object.keys(staged).length);
 	let showPreview = $state(false);
 
+	// Indexed once per rows change, not per staged click — this queue is the whole
+	// library, so rebuilding the Map on every stage/unstage would be O(rows) per click.
 	const rowsById = $derived(new Map(rows.map((r) => [r.id, r])));
-
-	const previewItems = $derived.by((): ExtractionPreviewItem[] => {
-		const items: ExtractionPreviewItem[] = [];
-		for (const [idStr, pick] of Object.entries(staged)) {
-			const id = Number(idStr);
-			const row = rowsById.get(id);
-			if (!row) continue;
-			items.push({
-				reviewId: id,
-				videoTitle: row.video_title,
-				fieldLabel: fieldLabel(row.field_key),
-				oldValue: row.tag_value,
-				newValue: pick.value,
-				action: pick.action
-			});
-		}
-		return items;
-	});
+	const previewItems = $derived(buildPreviewItems(staged, rowsById, fieldLabel));
 
 	function stage(row: QueueRow, action: ExtractionResolveAction, value: string) {
-		staged = { ...staged, [row.id]: { action, value } };
+		staged = stagePick(staged, row.id, action, value);
 	}
 	function unstage(reviewId: number) {
-		if (!(reviewId in staged)) return;
-		const next = { ...staged };
-		delete next[reviewId];
-		staged = next;
+		staged = unstagePick(staged, reviewId);
 	}
 	function dropRow(reviewId: number) {
 		rows = rows.filter((r) => r.id !== reviewId);

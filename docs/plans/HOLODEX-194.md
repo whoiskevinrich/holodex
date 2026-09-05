@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-194                 # the tracker key; must match the branch key regex
-status: in-progress               # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+status: in-review                  # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Added an Extract from filename action to the media detail page, with an inline panel for reviewing and applying what it finds — no trip to the owner tools required.
 ---
@@ -45,16 +45,18 @@ handoff's Non-goals.
       metadata management (adoption vs precedence), with this ticket as its first instance
 - [x] design `design-handoff` → `docs/design/media-page-extraction-handoff.md` with a committed
       SVG mockup (4 states + implementer notes) and a numbered, verifier-tagged QA checklist
-- [ ] backend → optional `?video_id=` filter on `GET /owner/extraction-queue`
-      (`internal/api/extract_review.go:27`), owner-gated as today
-- [ ] frontend → "Extract from filename" button in the Metadata actions row
-      (`web/src/routes/media/[id]/+page.svelte:1090`) + inline panel reusing
-      `ExtractionQueueRow` / `ExtractionPreviewDialog` unchanged; staging helper lifted out of
-      `routes/owner/extraction/+page.svelte` and shared
-- [ ] testing `testing-strategy` → handler test for the `video_id` filter (including the
-      non-owner rejection), and a regression guard that media-page and owner-tab resolve are one
-      code path
-- [ ] security `security-review` → new query parameter on an owner-gated route + a new owner-only
+- [x] backend → optional `?video_id=` filter on `GET /owner/extraction-queue`
+      (`internal/api/extract_review.go:27`) + `repo.ExtractionQueue(ctx, videoID)`; owner-gated as
+      today, and a malformed/non-positive id is a 400 rather than a silent whole-library fetch
+- [x] frontend → ghost-text "Extract from filename" button in the Metadata actions row + inline
+      panel reusing `ExtractionQueueRow` / `ExtractionPreviewDialog` **unchanged**; labels, field
+      ordering, grouping, staging and preview-item construction lifted into `$lib/extraction.ts`
+      and shared with the owner tab (ADR-090 D2's one-code-path rule)
+- [x] testing `testing-strategy` → 3 API tests (filter, malformed-id 400 incl. injection-shaped
+      input, owner gate on both scoped and unscoped) + 1 repo test (scoping, join intact, unknown
+      id empty-not-error) + 15 vitest cases on the shared `$lib/extraction` helper. Suites green:
+      Go all packages, 167 frontend, 118 scripts
+- [/] security `security-review` → new query parameter on an owner-gated route + a new owner-only
       surface; needs a pass before ready-for-review
 
 ## Up next — ordered (position = priority)
@@ -67,8 +69,40 @@ handoff's Non-goals.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · implementation + live QA + simplify
+- skills: security-review, simplify
+- handoff: Implemented option B. Backend: `?video_id=` on `GET /owner/extraction-queue`
+  (`repo.ExtractionQueue(ctx, videoID)`, 0 = whole library), rejecting a malformed id with 400
+  rather than silently returning everything. Frontend: ghost-text trigger + inline panel on the
+  media page, with labels/ordering/staging/preview-item construction lifted into
+  `$lib/extraction.ts` and shared with the owner tab (which shed 94 lines).
+
+  **Two things running it corrected in the design docs.** (1) An adopted value lands badged `file`,
+  not `filename` — adoption writes the file tag and it is re-read from there; `filename` stays the
+  candidate namespace. (2) `filename` is only offered as a layer-2 chip where the operator has
+  mapped `filename:<field>`; the testbed mapping declares none, and the chip row showed only
+  `file`. ADR-090, the handoff, the mockup's state 3 and the QA checklist were all corrected.
+
+  **`/simplify` found the altitude was wrong** and it was right: the first cut polled `getMedia`
+  20×1s and diffed resolved values to guess when the write had landed. But the write queue runs its
+  post-write re-extract *before* marking a job done (`writequeue.go:275`), so `GET /writeback/jobs/{id}`
+  is a true completion signal — and `resolveExtractionReview` was throwing away the job id it had
+  just enqueued. It now returns `{job_id}` (200; 204 unchanged where nothing is written), the
+  preview dialog hands the ids back, and the page waits on `waitForWritebackJob`, the same tested
+  waiter `WritebackFormDialog` uses. That deleted the heuristic and fixed two real defects it hid:
+  a value identical to the displayed one never "changed" so a successful write reported uncertainty,
+  and a *failed* write was indistinguishable from a slow one and read as "written". Also restored
+  the `rowsById` memo the refactor had dropped (the owner tab was rebuilding a whole-library Map on
+  every stage click) and collapsed four redundant state flags.
+
+  Verified live against the films testbed: job done at t+22.5s, value readable immediately after;
+  UI landed at t+23.0s with the waiting state shown. Owner tab regression-checked. Three-skin QA via
+  computed styles (screenshots time out on this app): the trigger is identical to Refresh in colour,
+  size and border in all three skins; contrast 4.67-6.0 (file path) and 15.6-18.5 (heading).
+  **Next session:** open for review — all gates green.
+
 ### 2026-09-04 · ADR-090 — generalize the two-layer model
-- skills: architecture
+- skills: architecture, security-review, simplify
 - handoff: Owner opted into this design's two-layer model as the standard for entity metadata
   management across all entities, explicitly choosing documentation over a tracking ticket ("the
   ticket would get lost"). Wrote

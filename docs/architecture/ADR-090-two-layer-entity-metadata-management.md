@@ -71,8 +71,17 @@ Layer 2's core is genuinely entity-agnostic. `BaselineSource` is a one-method in
 `Resolve` (`:289`) is merely the video wrapper. Four baselines implement it — video → `file`
 (`resolver.go:261`), person → `record` (`person_baseline.go:26`), studio → `record`
 (`studio_baseline.go:27`), film → `record` (`film_baseline.go:33`). `resolvePrecedence` (`:612`)
-returns the winning value tagged with its namespace, so a new source is a new namespace and nothing
-else.
+returns the winning value tagged with its namespace, so the *resolver* needs no change to carry a new
+source.
+
+**But a namespace is not automatically a layer-2 chip.** A source appears in `SourceBadge`'s chip row
+for a field only where the operator has declared it in `metadata-mappings.yaml`
+(`sources: - filename:title`, ADR-013). The committed example declares `filename:release_date`,
+`filename:people` and `filename:studio`, and leaves `filename:title` commented out — so on a library
+whose mapping omits it, an extracted title never becomes a selectable source however full the shadow
+store is. Verified 2026-09-04 against a testbed mapping declaring no `filename:` sources: the resolved
+title's candidate list contained only `file`. D4 below therefore means "no new *UI code*", not
+"automatically offered" — offering it is an operator mapping decision.
 
 Layer 1 is generic **only where the question is**. `enrichment_dismissals`
 (`migrations/0024_enrichment_dismissals.up.sql:14`) is keyed `(entity_type, entity_id, provider)`
@@ -135,20 +144,45 @@ This is a direction for new and touched surfaces, not a mandate to retrofit ever
 
 ### D3 — Adoption must visibly land in layer 2
 
-When a layer-1 verdict adopts a value, the entity page must refetch its resolved fields so the value
-appears carrying its source's `ProvenanceBadge`, alongside its `tmdb`- and baseline-sourced
-neighbours.
+When a layer-1 verdict adopts a value, the entity page must end up showing that value in its
+resolved-field list **without the owner taking a further action**. Without this the panel merely
+empties and the owner infers that something happened somewhere; the feature reads as a side quest
+rather than as a source.
 
-This is the load-bearing half. Without it the panel merely empties and the owner infers that
-something happened somewhere; the feature reads as a side quest rather than as a source. With it, the
-fact that `filename` is a peer of `tmdb` becomes visible rather than merely true in the resolver.
+**Two corrections, both found by running the F48 case rather than reasoning about it** (2026-09-04):
+
+1. **The badge reads `file`, not the adopting source.** An extraction adoption does not write a
+   layer-2 decision — it enqueues a *file tag write*, and the write queue's post-write hook then
+   re-extracts the file ([ADR-073](ADR-073-post-write-baseline-resync.md)), which is what actually
+   moves the value into the `file` baseline the resolver reads. So the resolved field ends up
+   sourced `file`. `filename` stays the **candidate** namespace, visible in the entity's enrichment
+   disclosure, not the winning provenance.
+2. **It is asynchronous, and not fast — so wait on the real signal, never a heuristic.** Both the
+   tag write and the re-extract happen off the request; measured on the films testbed, a 3 GB mkv
+   took ~23s end to end. A single refetch on submit reliably races it and shows the owner the old
+   value — the exact failure this decision exists to prevent.
+
+   The fix is *not* to poll the entity and guess when its values look different. The write queue
+   runs the post-write re-extract **before** marking a job done
+   (`internal/writequeue/writequeue.go:275`), so a job reaching `done` already means the value is
+   readable — `GET /writeback/jobs/{id}` is a true completion signal, and `waitForWritebackJob`
+   (`web/src/lib/writebackJob.ts`) is the tested waiter for it. **A layer-1 endpoint that enqueues a
+   write must therefore return the job id it enqueued**, so the caller can wait on completion
+   instead of inferring it. Two things a value-diffing heuristic gets wrong that this does not: an
+   adopted value identical to the one already displayed never "changes", so the heuristic waits out
+   its whole window and then reports uncertainty about a write that succeeded; and a *failed* write
+   is indistinguishable from a slow one, so the owner is told it was written when it was not.
+
+A source that writes a *decision* rather than a file tag would land synchronously and carry its own
+badge. This decision does not assume either shape — only that the outcome becomes visible on its own.
 
 ### D4 — A new source is a namespace, not a subsystem
 
 Anything producing field values for an entity — a provider, filename extraction, a future sidecar or
-import — enters through `entity_enrichment` under its own namespace and is thereby a layer-2 chip
-with no new UI. If a proposed source appears to need its own conflict-resolution surface, that is the
-signal it has been modelled wrong.
+import — enters through `entity_enrichment` under its own namespace, and is thereby eligible to be a
+layer-2 chip **with no new UI code**; whether it actually appears for a given field is the operator's
+mapping decision (see Context). If a proposed source appears to need its own conflict-resolution
+surface, that is the signal it has been modelled wrong.
 
 ### D5 — Layer 1 storage is generic only where the question is
 

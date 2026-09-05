@@ -70,11 +70,12 @@ Five states, all inside the existing Metadata section
    `From filename · N to review`, with the source filename in mono beneath it, one
    `ExtractionQueueRow` per pending field, and the same staged-count + "Review and write N"
    commit bar the owner tab uses. A Stage pill reads *filled* once staged and *outlined* before.
-3. **After writing — where the value lands.** The panel is gone and the resolved-fields list below
-   now carries a `filename` `ProvenanceBadge` on the affected fields, sitting alongside `tmdb`- and
-   `file`-sourced neighbours; clicking one expands `SourceBadge`'s existing chip row with `filename`
-   as a third selectable source. **This state is the point of the whole design** — see "How this
-   fits with provider enrichment" below.
+3. **After writing — where the value lands.** The panel is gone and the written value now shows in
+   the resolved-fields list below, badged **`file`** (adoption writes the file tag and it is re-read
+   from there). Where the operator has mapped `filename:<field>` as a source, it also joins
+   `SourceBadge`'s existing chip row as a selectable candidate; where they have not, only `file` and
+   the providers appear. **This state is the point of the whole design** — see "How this fits with
+   provider enrichment" below.
 4. **No pattern match** — a single line, plus a pointer to where patterns are edited. Not an error.
 5. **Nothing needs review** — the run matched fields but produced no pending rows. Say so and
    point at the Metadata list; never render an empty panel with a zero count.
@@ -100,8 +101,12 @@ third parallel system. It is **a third source feeding the one that already exist
 returns the winning value tagged with its source namespace, and extraction stores its output in
 `entity_enrichment` under the `filename` namespace
 ([`internal/extract/store.go:12`](../../internal/extract/store.go)) — the same shadow store
-`tmdb` writes into. So `filename` is a peer of `file` and `tmdb` all the way through the resolver,
-and `SourceBadge`'s chip row renders it as one more selectable source with no change.
+`tmdb` writes into. So `filename` is a peer namespace through the resolver with no code change.
+
+Whether it is *offered* as a chip for a given field is a separate, operator-controlled question: a
+source only appears in the chip row where `metadata-mappings.yaml` declares it
+(`sources: - filename:title`, ADR-013). The committed example declares `filename:release_date`,
+`filename:people` and `filename:studio` but leaves `filename:title` commented out.
 
 That gives two distinct questions, each answered by exactly one surface:
 
@@ -116,11 +121,23 @@ Two consequences the implementer must honour:
    `filename_value` against `tag_value` and nothing else. Putting `tmdb` in there would duplicate
    layer 2's decision UI in a second place with different semantics — the exact incoherence this
    design is trying to avoid.
-2. **After a successful write, refetch the page's resolved fields** so the value visibly lands in
-   the Metadata list below, carrying a `filename` `ProvenanceBadge` next to its `tmdb`- and
-   `file`-sourced neighbours. Without this the panel empties and the owner never sees where the
-   value went — extraction reads as a side quest instead of a source. This is the single most
-   important interaction in the design.
+2. **After a successful write, the value must become visible in the Metadata list on its own.**
+   Without this the panel empties and the owner never sees where the value went — extraction reads
+   as a side quest instead of a source. This is the single most important interaction in the design.
+
+   **Corrected 2026-09-04 after building it.** Two things an earlier draft of this handoff got
+   wrong, both found by running the flow rather than reasoning about it:
+
+   - **The badge reads `file`, not `filename`.** Resolving a row enqueues a *file tag write*; the
+     write queue's post-write hook then re-extracts the file (ADR-073), and that is what moves the
+     value into the `file` baseline the resolver reads. `filename` stays the candidate namespace.
+   - **A single refetch is not enough, and value-diffing is the wrong fix.** Both steps are
+     asynchronous — measured at ~23s for a 3 GB mkv — so an immediate refetch shows the old value.
+     `resolveExtractionReview` therefore returns `{ job_id }`, and the page waits on
+     `waitForWritebackJob` (the same tested waiter `WritebackFormDialog` uses: backoff, unmount
+     cancellation, real error channel). The queue re-extracts *before* marking a job done, so
+     `done` means readable. Diffing resolved values instead would mis-handle two cases: an adopted
+     value identical to the displayed one never "changes", and a failed write looks like a slow one.
 
 ---
 
@@ -129,7 +146,7 @@ Two consequences the implementer must honour:
 | Need | Reuse from | Notes |
 |---|---|---|
 | Per-field review row | `components/extraction/ExtractionQueueRow.svelte` | **Unchanged.** Fully prop-driven (`row`, `fieldLabel`, `isEntityField`, `staged`, `onstage`, `onunstage`, `resolveTag`, `dismiss`, `onhandled`). Typed against a persisted row, which is what we have. |
-| Preview before write | `components/extraction/ExtractionPreviewDialog.svelte` | **Unchanged.** Zero owner-page coupling — no `api` import, no store access; the write call arrives as the `resolve` prop. |
+| Preview before write | `components/extraction/ExtractionPreviewDialog.svelte` | Zero owner-page coupling — no `api` import, no store access; the write call arrives as the `resolve` prop. One additive change: `onsubmitted` now also hands back the writeback job ids, so a caller rendering the affected video can wait for the value to become readable. The owner tab ignores the new argument. |
 | Entity chip swap | `components/entity/EntityPickerDialog.svelte` | Reached through `ExtractionQueueRow`; nothing new to wire. |
 | Staging state, grouping, commit bar | `routes/owner/extraction/+page.svelte:66-89` | Lift the `staged` map + `ExtractionPreviewItem` construction into a small shared module rather than copying it; the owner tab keeps using it too. |
 | Field-key → label map | `routes/owner/extraction/+page.svelte:45` | Same `people`/`actors` bridge applies here. Move it alongside the staging helper. |

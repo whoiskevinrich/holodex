@@ -117,11 +117,11 @@
 
   <!-- ============ STATE 3: provenance carries through (NEW) ============ -->
   <g transform="translate(24,522)">
-    <text x="0" y="0" class="accent label">State 3 — after writing · where the value actually lands (the cohesion point)</text>
+    <text x="0" y="0" class="accent label">State 3 — after writing · where the value actually lands (verified against a running instance)</text>
     <rect x="0" y="12" width="912" height="252" rx="2" class="surface" />
     <line x1="0" y1="12" x2="912" y2="12" class="rule" />
     <text x="16" y="36" class="muted label">Metadata</text>
-    <text x="16" y="56" class="muted" font-size="11">The panel is gone. The resolved-fields list below is where extraction shows up from now on — <tspan class="ink">filename is a source badge exactly like tmdb and file.</tspan></text>
+    <text x="16" y="56" class="muted" font-size="11">The panel is gone and the value is in the list below — badged <tspan class="ink">file</tspan>, because adoption writes the file tag and it is re-read from there. Takes ~20s.</text>
 
     <!-- resolved field list -->
     <rect x="16" y="68" width="424" height="176" rx="2" class="surface2" />
@@ -129,13 +129,15 @@
 
     <text x="32" y="116" class="muted" font-size="11">Title</text>
     <text x="128" y="116" class="ink" font-size="11">Night Drive</text>
-    <rect x="228" y="104" width="62" height="16" rx="8" class="accentStroke" />
-    <text x="259" y="116" text-anchor="middle" class="accent" font-size="10">filename</text>
+    <rect x="234" y="104" width="40" height="16" rx="8" class="accentStroke" />
+    <text x="254" y="116" text-anchor="middle" class="accent" font-size="10">file</text>
+    <text x="282" y="116" class="dim" font-size="9">just written</text>
 
     <text x="32" y="142" class="muted" font-size="11">Studio</text>
     <text x="128" y="142" class="ink" font-size="11">Neon</text>
-    <rect x="228" y="130" width="62" height="16" rx="8" class="accentStroke" />
-    <text x="259" y="142" text-anchor="middle" class="accent" font-size="10">filename</text>
+    <rect x="234" y="130" width="40" height="16" rx="8" class="accentStroke" />
+    <text x="254" y="142" text-anchor="middle" class="accent" font-size="10">file</text>
+    <text x="282" y="142" class="dim" font-size="9">just written</text>
 
     <text x="32" y="168" class="muted" font-size="11">Overview</text>
     <text x="128" y="168" class="ink" font-size="11">A courier races the dawn…</text>
@@ -147,13 +149,13 @@
     <rect x="190" y="182" width="40" height="16" rx="8" class="dimStroke" />
     <text x="210" y="194" text-anchor="middle" class="muted" font-size="10">file</text>
 
-    <text x="32" y="224" class="dim" font-size="10">ProvenanceBadge, unchanged. No new component.</text>
+    <text x="32" y="224" class="dim" font-size="10">ProvenanceBadge, unchanged. `filename` stays the candidate namespace, not the winner.</text>
 
     <!-- expanded SourceBadge -->
     <rect x="456" y="68" width="440" height="176" rx="2" class="surface2" />
     <text x="472" y="90" class="dim label">Title — badge clicked, expanded</text>
-    <text x="472" y="110" class="muted" font-size="11">Three sources now offer a Title. The owner picks the winner here,</text>
-    <text x="472" y="126" class="muted" font-size="11">in the F36/ADR-051 chip row that already exists.</text>
+    <text x="472" y="110" class="muted" font-size="11">IF the operator mapped filename:title as a source, it joins the chip</text>
+    <text x="472" y="126" class="muted" font-size="11">row (ADR-013). Unmapped, only file and tmdb appear — verified.</text>
 
     <rect x="472" y="138" width="128" height="22" rx="2" class="dimStroke" />
     <text x="484" y="153" class="dim" font-size="10">file</text>
@@ -172,8 +174,8 @@
     <text x="502" y="186" text-anchor="middle" class="accentInk" font-size="10" font-weight="600">Confirm</text>
     <text x="546" y="186" class="muted" font-size="10">Cancel</text>
 
-    <text x="472" y="216" class="dim" font-size="10">SourceBadge + CurationChip, unchanged. Extraction did not</text>
-    <text x="472" y="230" class="dim" font-size="10">invent a conflict UI — it added a chip to the one that exists.</text>
+    <text x="472" y="216" class="dim" font-size="10">SourceBadge + CurationChip, unchanged. Extraction did not invent a</text>
+    <text x="472" y="230" class="dim" font-size="10">conflict UI — at most it adds a chip to the one that already exists.</text>
   </g>
 
   <!-- ============ the two-layer model ============ -->
