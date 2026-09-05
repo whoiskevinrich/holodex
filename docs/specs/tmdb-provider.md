@@ -261,7 +261,7 @@ codes beyond "2xx vs not" are for the container's own clarity/observability.
 ## 3. Provenance & source naming
 
 - The provider's **registry name** in Holodex config is `tmdb` (the `name` field in
-  `metadata-sources.yaml` — see [§8](#8-deliverable--operator-wiring)). It MUST match the
+  `metadata-sources.yaml` — see [§10](#10-deliverable--operator-wiring)). It MUST match the
   `provider` field returned by `/healthz` and `/describe`.
 - Holodex labels every enriched value "from **tmdb**" using this name. Keep it lowercase
   and stable.
@@ -318,7 +318,7 @@ Map TMDB person fields → canonical `fields` (each value an array of strings):
 | `deathdate` | `deathday` | `YYYY-MM-DD` string as TMDB returns it. Omit if null. Canonical key is `deathdate` |
 | `website` | `homepage` | TMDB person details rarely include `homepage`; include only when present and non-empty |
 | `aliases` | `also_known_as` | Array → array of strings directly. Include the native-script name (e.g. `宮崎駿`) as TMDB provides it. Feeds Holodex's Person aliases store |
-| `photo` | `profile_path` | **Not a `fields` entry.** Emit as an `assets[]` entry with `kind: "photo"` (see [§4.3](#43-photo--profile_path--asset-url)) |
+| `photo` | `profile_path` | **Not a `fields` entry.** Emit as an `assets[]` entry with `kind: "photo"` (see [§4.3](#43-person-photos--asset-urls)) |
 | `known_for_department` | `known_for_department` | Use inside `disambiguation` string, not as a standalone field |
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.

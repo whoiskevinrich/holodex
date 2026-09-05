@@ -339,7 +339,7 @@ decide how your data maps onto stable namespaces and canonical keys.
   id that is stable in your source (e.g. `acme:998211`, `wikidata:Q7259`).
 - **The id is mandatory and is the identity** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)).
   Every record you resolve or enrich — a `/resolve` candidate, an `/enrich` target, and **every**
-  `people[]` credit ([§4.5](#45-video-credits-people)) — MUST carry a well-formed `<namespace>:<id>`.
+  `people[]` credit ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) — MUST carry a well-formed `<namespace>:<id>`.
   Holodex uses it as the **sole identity/de-dup key** for the entity; there is **no name fallback**. A
   record with an empty or malformed id is **refused**, not matched by name. If your source has no stable
   id, synthesize a deterministic one (e.g. a stable hash of a canonical key) and advertise its namespace —
