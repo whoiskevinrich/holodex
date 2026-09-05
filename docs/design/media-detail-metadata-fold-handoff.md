@@ -2,13 +2,14 @@
 
 **Status:** Implemented (pending review)
 **Phase:** Ad hoc UX request (no HOLODEX epic — reorder + de-duplication of existing elements)
+**Jira:** HOLODEX-320
 **Owner:** Project owner
 **Date:** 2026-09-05
 **Spec:** none — no new functionality; every affordance already existed somewhere on the page
 **ADR:** none — no architectural change. Rides ADR-051 (per-field precedence) and ADR-090
 (adoption vs. precedence layers) unchanged; nothing about the resolver, the shadow store, or the
 decision model moves.
-**Branch/PR:** `claude/media-detail-layout-metadata-4329e4` (not yet pushed)
+**Branch/PR:** `HOLODEX-320-media-detail-metadata-fold` · PR #300
 
 ## Overview
 
@@ -74,7 +75,23 @@ control changes:
 
 **Deliberate behavior change:** the synopsis is now visible to visitors. It previously sat inside
 the owner-only section (the re-gate from the earlier reorder), so visitors saw no synopsis at all.
-Accepted — a plot summary is page content, not owner tooling.
+Accepted and confirmed by the owner — a plot summary is page content, not owner tooling.
+
+### The gating rule this follows
+
+Confirmed by the owner as the convention for entity data points generally, not a one-off for
+Overview: **visible to visitors when a value exists; editable for the owner.** The outer gate is
+`isOwner || <field has a value>` — the same shape Tags (`isOwner || video.tags?.length`) and Studio
+(`isOwner || studioField?.values?.length`) already use. Resolved for Overview as:
+
+| | Visitor | Owner |
+|---|---|---|
+| Has a value | read-only paragraph | `SourceBadge` (editable) |
+| No value | nothing renders | `SourceBadge` showing `—`, still editable |
+
+The owner-with-no-value cell is the one worth stating: the control still renders, so a field can be
+*given* a value rather than only corrected. Apply the same rule to any field that moves out of the
+Metadata list in future.
 
 ### What was checked and left alone
 
