@@ -65,8 +65,27 @@ handoff's Non-goals.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · design critique → mockup rev 2
+- skills: design-critique
+- handoff: Critiqued the mockup against the question "how does this cohere with provider
+  enrichment?" and found one critical gap: the design showed extraction dead-ending in its own
+  panel, with nothing tying it to the resolved-fields list where `SourceBadge`/`ProvenanceBadge`
+  already record provenance. Verified against `resolvePrecedence`
+  (`internal/resolver/resolver.go:612`) and `internal/extract/store.go:12` that `filename` is a
+  resolver namespace peer of `file`/`tmdb`, so the cross-source conflict is *already* handled by
+  the shipped F36/ADR-051 chip row — nothing new needed, it just was not drawn. Mockup rev 2 adds
+  **state 3** (provenance carrying through to the Metadata list + the expanded chip row with
+  `filename` as a third source) and a **two-layer diagram** separating layer 1 (filename vs file
+  tag, transient, this panel) from layer 2 (file vs filename vs tmdb, standing, SourceBadge). Also
+  fixed the toolbar button, which the rev-1 mockup drew as a bordered pill — the real markup at
+  `+page.svelte:1090` is borderless ghost text, and the boxed version would have shipped a control
+  heavier than its neighbours. Handoff gained a "How this fits with provider enrichment" section
+  with the two implementer rules that fall out of it; QA checklist gained 5 cases (2.5a, 3.6a,
+  3.6b, 4.7a, 4.7b). **Next session:** unchanged — design review on the Draft PR, then the backend
+  `?video_id=` filter.
+
 ### 2026-09-04 · gap analysis → option chosen → gate artifacts
-- skills: design-handoff, write-spec
+- skills: design-handoff, write-spec, design-critique
 - handoff: Investigated the reported gap ("no way to extract metadata from the filename on the
   media page"). Root cause is narrower than it looked: the per-video endpoint and its `api.ts`
   wrapper already exist and are owner-gated; only the surface is missing, and HOLODEX-194 was

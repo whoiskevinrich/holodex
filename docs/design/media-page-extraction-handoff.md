@@ -54,19 +54,26 @@ have to be made on a different page, because the review rows only render there.
 
 ![Media page extraction mockup](media-page-extraction-mockup.svg)
 
-Four states, all inside the existing Metadata section
+Five states, all inside the existing Metadata section
 ([`web/src/routes/media/[id]/+page.svelte:1086`](../../web/src/routes/media/[id]/+page.svelte)):
 
 1. **Resting** — one new ghost button, "Extract from filename", in the actions row at
-   `+page.svelte:1090`, between Refresh and `EnrichProviderChips`. Same treatment as its
-   neighbours (`text-xs text-muted hover:text-accent focus-visible:text-accent`); it is not a
-   primary action and must not read as one.
+   `+page.svelte:1090`, between Refresh and `EnrichProviderChips`. **Ghost text, no border, no
+   chip** — byte-for-byte the treatment Refresh already uses
+   (`text-xs text-muted hover:text-accent focus-visible:text-accent`). It is a one-shot action, not
+   a stateful provider link, so it must never grow a "linked" state or chip chrome that would make
+   it read as a sibling of `EnrichProviderChips`.
 2. **After extract, rows to review** — an inline panel below the actions row, headed
    `From filename · N to review`, with the source filename in mono beneath it, one
    `ExtractionQueueRow` per pending field, and the same staged-count + "Review and write N"
-   commit bar the owner tab uses.
-3. **No pattern match** — a single line, plus a pointer to where patterns are edited. Not an error.
-4. **Nothing needs review** — the run matched fields but produced no pending rows. Say so and
+   commit bar the owner tab uses. A Stage pill reads *filled* once staged and *outlined* before.
+3. **After writing — where the value lands.** The panel is gone and the resolved-fields list below
+   now carries a `filename` `ProvenanceBadge` on the affected fields, sitting alongside `tmdb`- and
+   `file`-sourced neighbours; clicking one expands `SourceBadge`'s existing chip row with `filename`
+   as a third selectable source. **This state is the point of the whole design** — see "How this
+   fits with provider enrichment" below.
+4. **No pattern match** — a single line, plus a pointer to where patterns are edited. Not an error.
+5. **Nothing needs review** — the run matched fields but produced no pending rows. Say so and
    point at the Metadata list; never render an empty panel with a zero count.
 
 ### Why the panel is not optional
@@ -77,6 +84,40 @@ button *without* the inline panel would therefore present the owner with a contr
 they are standing, does nothing at all: they click, the page does not change, and the outcome is on
 a page they were not looking at. State 2 is what makes the button honest. If this ships in pieces,
 the button and the panel go in the same piece.
+
+---
+
+## How this fits with provider enrichment
+
+The Metadata actions row already hosts two other metadata mechanisms — `EnrichProviderChips`
+(provider enrichment) and "Write decisions to file" (`WritebackFormDialog`). Extraction is not a
+third parallel system. It is **a third source feeding the one that already exists**.
+
+`resolvePrecedence` ([`internal/resolver/resolver.go:612`](../../internal/resolver/resolver.go))
+returns the winning value tagged with its source namespace, and extraction stores its output in
+`entity_enrichment` under the `filename` namespace
+([`internal/extract/store.go:12`](../../internal/extract/store.go)) — the same shadow store
+`tmdb` writes into. So `filename` is a peer of `file` and `tmdb` all the way through the resolver,
+and `SourceBadge`'s chip row renders it as one more selectable source with no change.
+
+That gives two distinct questions, each answered by exactly one surface:
+
+| | Question | Surface | Lifetime |
+|---|---|---|---|
+| **Layer 1** | Is the filename value better than the file's own tag? | The extraction review panel (this handoff) | Transient — the row resolves and drops out |
+| **Layer 2** | Which stored source wins for this field: `file`, `filename`, or `tmdb`? | `SourceBadge` chip row (F36/ADR-051, shipped) | Standing — a durable per-field decision |
+
+Two consequences the implementer must honour:
+
+1. **Never surface a provider value inside the extraction panel.** A review row shows
+   `filename_value` against `tag_value` and nothing else. Putting `tmdb` in there would duplicate
+   layer 2's decision UI in a second place with different semantics — the exact incoherence this
+   design is trying to avoid.
+2. **After a successful write, refetch the page's resolved fields** so the value visibly lands in
+   the Metadata list below, carrying a `filename` `ProvenanceBadge` next to its `tmdb`- and
+   `file`-sourced neighbours. Without this the panel empties and the owner never sees where the
+   value went — extraction reads as a side quest instead of a source. This is the single most
+   important interaction in the design.
 
 ---
 
