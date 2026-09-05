@@ -37,8 +37,12 @@ func (h *Handlers) mountExtractionReview(r chi.Router) {
 // worked.
 func (h *Handlers) extractionQueue(w http.ResponseWriter, r *http.Request) {
 	var videoID int64
-	if raw := strings.TrimSpace(r.URL.Query().Get("video_id")); raw != "" {
-		id, err := strconv.ParseInt(raw, 10, 64)
+	// Keyed off the parameter being *present*, not off its trimmed value being
+	// non-empty: `?video_id=` or `?video_id=%20` is a caller that meant to scope and
+	// got it wrong, so it must 400 like any other malformed value rather than trim to
+	// "" and quietly return the whole library.
+	if q := r.URL.Query(); q.Has("video_id") {
+		id, err := strconv.ParseInt(strings.TrimSpace(q.Get("video_id")), 10, 64)
 		if err != nil || id <= 0 {
 			writeError(w, http.StatusBadRequest, "invalid video_id")
 			return

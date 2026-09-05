@@ -232,11 +232,15 @@
 	let extractStaged = $state<StagedPicks>({});
 	let extractPreviewOpen = $state(false);
 	let extractApplying = $state(false); // waiting on the queued write + its re-extract
-	// Set on unmount so an in-flight wait stops touching state after the owner
-	// navigates to another video (the id is reactive; the poll must not outlive it).
+	// Bumped by resetExtraction on every video change, and on unmount. An async run or
+	// job wait captures it and bails if it no longer matches, so work started on one
+	// video never writes state back onto another (the component is reused across
+	// /media/A -> /media/B, so unmount alone is not the boundary that matters).
+	let extractGeneration = 0;
 	let unmounted = false;
 	$effect(() => () => {
 		unmounted = true;
+		extractGeneration += 1;
 	});
 
 	// Labels, ordering, staging and preview-item construction all come from
@@ -244,10 +248,14 @@
 	// cannot drift (ADR-090 D2).
 	const extractLabel = $derived(makeFieldLabel(extractLabels));
 	const extractSorted = $derived(sortRows(extractRows));
-	const extractStagedCount = $derived(Object.keys(extractStaged).length);
+	// Counted off the preview items, not the raw staged map: a pick whose row has left
+	// the queue (resolved or dismissed elsewhere, then Re-extract) is dropped by
+	// buildPreviewItems, and a commit bar promising more writes than the dialog performs
+	// is a lie about what the button will do.
 	// Indexed once per rows change, not per staged click.
 	const extractRowsById = $derived(new Map(extractRows.map((r) => [r.id, r])));
 	const extractPreviewItems = $derived(buildPreviewItems(extractStaged, extractRowsById, extractLabel));
+	const extractStagedCount = $derived(extractPreviewItems.length);
 	// Rows are only ever assigned by a run, so a run having happened is the whole
 	// condition — `extractRows.length > 0` would be an unreachable second disjunct.
 	const extractPanelVisible = $derived(isOwner && extractRun !== null);
@@ -560,34 +568,54 @@
 	// straight after gives the panel its rows.
 	async function runExtract() {
 		if (!video || extracting) return;
+		const gen = extractGeneration;
 		extracting = true;
 		extractError = '';
 		try {
 			const res = await api.extractVideo(id);
-			await loadExtractionRows();
+			const rows = await fetchExtractionRows();
+			if (gen !== extractGeneration) return; // navigated away mid-run
+			extractRows = rows;
 			extractRun = { matched: res.matched };
 		} catch (e) {
-			extractError = toMessage(e);
+			if (gen === extractGeneration) extractError = toMessage(e);
 		} finally {
-			extracting = false;
+			if (gen === extractGeneration) extracting = false;
 		}
 	}
 
 	// Facets are fetched once, and only when the panel is actually used — the media
 	// page has no other need for the registry, so an unused video never pays for it.
-	async function loadExtractionRows() {
+	async function fetchExtractionRows(): Promise<QueueRow[]> {
 		const needLabels = Object.keys(extractLabels).length === 0;
 		const [queue, facets] = await Promise.all([
 			api.extractionQueue(id),
 			needLabels ? api.facets() : Promise.resolve(null)
 		]);
-		extractRows = queue.rows ?? [];
+		// Labels are video-independent, so they survive navigation and are still worth
+		// caching across it.
 		if (facets) extractLabels = Object.fromEntries(facets.facets.map((f) => [f.canonical, f.label]));
+		return queue.rows ?? [];
 	}
 
 	function dropExtractRow(reviewId: number) {
 		extractRows = extractRows.filter((r) => r.id !== reviewId);
 		extractStaged = unstagePick(extractStaged, reviewId);
+	}
+
+	// Clears everything scoped to one video. Bumping the generation also strands any
+	// in-flight run or job wait: those check it before writing state back, so a wait
+	// started on the previous video can neither resurrect its panel nor overwrite the
+	// new one's detail.
+	function resetExtraction() {
+		extractGeneration += 1;
+		extracting = false;
+		extractApplying = false;
+		extractRows = [];
+		extractRun = null;
+		extractStaged = {};
+		extractPreviewOpen = false;
+		extractError = '';
 	}
 
 	// ADR-090 D3: an adopted value has to visibly land in the field list below,
@@ -607,20 +635,23 @@
 	// The value lands as `file`, not `filename`: adoption writes the file tag, and
 	// `filename` stays the candidate namespace.
 	async function onExtractSubmitted(resolvedIds: number[], jobIds: number[]) {
+		const gen = extractGeneration;
 		resolvedIds.forEach(dropExtractRow);
 		extractApplying = true;
 		try {
 			await Promise.all(
 				jobIds.map((jobId) =>
-					waitForWritebackJob(jobId, api.writebackJobStatus, { cancelled: () => unmounted })
+					waitForWritebackJob(jobId, api.writebackJobStatus, {
+						cancelled: () => unmounted || gen !== extractGeneration
+					})
 				)
 			);
-			if (unmounted) return;
+			if (gen !== extractGeneration) return; // this video is no longer on screen
 			applyMediaDetail(await api.getMedia(id));
 		} catch (e) {
-			extractError = toMessage(e);
+			if (gen === extractGeneration) extractError = toMessage(e);
 		} finally {
-			extractApplying = false;
+			if (gen === extractGeneration) extractApplying = false;
 		}
 	}
 
@@ -665,6 +696,12 @@
 		pendingTitleValue = '';
 		titleCollisionBusy = false;
 		titleCollisionError = '';
+		// Same reasoning as the collision verdict above, and the same consequence if
+		// skipped: SvelteKit reuses this component across /media/A -> /media/B, so an
+		// extraction panel left open would keep A's review rows and staged picks while
+		// the header renders B's file path — and "Review & write" would resolve A's
+		// review ids, writing to A's file, from B's page. Extraction is per-video state.
+		resetExtraction();
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -1289,9 +1326,13 @@
 							<p class="truncate px-3 pb-2 text-xs text-muted" title={video.file_path}>{video.file_path}</p>
 						{/if}
 
+						<!-- A failed write must not take the rest of the panel with it: the remaining rows
+						     are still pending and actionable, so the error sits above them rather than
+						     replacing the chain (which stranded them until a full Re-extract). -->
 						{#if extractError}
 							<p class="border-t border-rule px-3 py-2 text-xs text-warn" role="alert">{extractError}</p>
-						{:else if extractApplying}
+						{/if}
+						{#if extractApplying}
 							<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
 								Written to the file — waiting for it to be read back…
 							</p>

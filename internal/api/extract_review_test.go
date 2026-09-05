@@ -421,7 +421,10 @@ func TestExtractionQueue_RejectsMalformedVideoID(t *testing.T) {
 		t.Fatalf("upsert: %v", err)
 	}
 
-	for _, bad := range []string{"abc", "-1", "0", "1;DROP TABLE videos", "1 OR 1=1"} {
+	// "" and " " are present-but-empty: a caller that meant to scope and got it wrong.
+	// They must 400 like any other malformed value, not trim to nothing and quietly
+	// return the whole library.
+	for _, bad := range []string{"abc", "-1", "0", "1;DROP TABLE videos", "1 OR 1=1", "", " "} {
 		code, body := extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue?video_id="+url.QueryEscape(bad))
 		if code != http.StatusBadRequest {
 			t.Fatalf("video_id=%q: want 400, got %d (%v) — must not fall back to the whole library", bad, code, body)
