@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -880,4 +882,101 @@ func TestSlugifyConcurrent(t *testing.T) {
 
 func newDiscardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+// TestDescribeAssetKindsCoverEveryEmittedKind is the drift guard HOLODEX-315 asked for:
+// /describe advertises `asset_kinds` as "the binary asset kinds you can supply", so every
+// kind the enrich builders actually produce must appear in it.
+//
+// Nothing breaks today when it does not — internal/enrich's assetRoleFor dispatches on the
+// kind string in the response, not on the declared manifest, so an undeclared kind still
+// lands. That is what let `banner` go undeclared from F25 until HOLODEX-315, and `headshot`
+// until this test. It stops being latent the moment core filters incoming assets by the
+// declared set, a reasonable hardening of the ADR-039 perimeter, at which point those assets
+// would vanish with no error anywhere. It is also actively misleading to a provider author
+// reading TMDB as the reference implementation.
+//
+// The fixtures below deliberately populate EVERY asset-producing field on every builder, so
+// the collected set is the full set a builder can emit rather than whatever a happy-path
+// fixture happens to trigger. The `want` assertion is the other half of the guard: a new kind
+// that these fixtures do reach, or a retired one, fails here even if someone remembered to
+// update the manifest — which keeps this test honest about what it has actually seen.
+func TestDescribeAssetKindsCoverEveryEmittedKind(t *testing.T) {
+	emitted := map[string]bool{}
+	note := map[string]string{} // kind -> which builder produced it, for the failure message
+	add := func(builder string, assets []assetEntry) {
+		for _, a := range assets {
+			if a.Kind == "" {
+				continue // an omitted kind is a documented default, not a declarable kind
+			}
+			emitted[a.Kind] = true
+			if note[a.Kind] == "" {
+				note[a.Kind] = builder
+			}
+		}
+	}
+
+	// Person: first profile -> headshot, subsequent -> gallery, landscape tagged image -> banner.
+	add("buildEnrichResponse", buildEnrichResponse(
+		personDetails{ID: 608, Name: "Hayao Miyazaki", ProfilePath: "/fallback.jpg"},
+		personImagesResult{Profiles: []personProfile{
+			{FilePath: "/primary.jpg", VoteAverage: 9},
+			{FilePath: "/second.jpg", VoteAverage: 8},
+		}},
+		taggedImagesResult{Results: []taggedImageEntry{{FilePath: "/wide.jpg", AspectRatio: 1.78}}},
+	).Assets)
+
+	// Movie/film: poster for both entity types; banner is film-only (ADR-089 D4), so both
+	// arms are exercised rather than assuming the film arm is a superset.
+	credits := movieCredits{
+		Cast: []movieCastEntry{{ID: 1190668, Name: "Timothée Chalamet", ProfilePath: "/cast.jpg"}},
+		Crew: []movieCrewEntry{{ID: 137427, Name: "Denis Villeneuve", Job: "Director", ProfilePath: "/crew.jpg"}},
+	}
+	det := movieDetails{
+		ID: 438631, Title: "Dune", PosterPath: "/poster.jpg", BackdropPath: "/backdrop.jpg",
+		ProductionCompanies: []productionCompany{{ID: 923, Name: "Legendary Pictures"}},
+	}
+	for _, entityType := range []string{"video", "film"} {
+		res := buildMovieEnrichResponse(det, credits, entityType)
+		add("buildMovieEnrichResponse("+entityType+")", res.Assets)
+		// people[] headshots are assets on the same wire, subject to the same rules (§4.5).
+		for _, p := range res.People {
+			if p.Headshot != nil {
+				add("buildPeopleCredits", []assetEntry{*p.Headshot})
+			}
+		}
+	}
+
+	// Studio: logo.
+	add("buildCompanyEnrichResponse", buildCompanyEnrichResponse(
+		companyDetails{ID: 923, Name: "Legendary Pictures", LogoPath: "/logo.png"},
+	).Assets)
+
+	want := []string{"banner", "gallery", "headshot", "logo", "photo", "poster"}
+	got := make([]string, 0, len(emitted))
+	for k := range emitted {
+		got = append(got, k)
+	}
+	sort.Strings(got)
+	if !slices.Equal(got, want) {
+		t.Errorf("builders emit %v, expected %v — a builder gained or lost an asset kind; "+
+			"update this list AND the declared asset_kinds together", got, want)
+	}
+
+	h := newHandler(nil, newDiscardLogger())
+	w := httptest.NewRecorder()
+	h.describe(w, httptest.NewRequest("GET", "/describe", nil))
+	var body describeResponse
+	json.NewDecoder(w.Body).Decode(&body) //nolint:errcheck
+
+	declared := map[string]bool{}
+	for _, k := range body.AssetKinds {
+		declared[k] = true
+	}
+	for _, k := range got {
+		if !declared[k] {
+			t.Errorf("%s emits asset kind %q but /describe.asset_kinds = %v does not declare it",
+				note[k], k, body.AssetKinds)
+		}
+	}
 }

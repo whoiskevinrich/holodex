@@ -56,7 +56,18 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 		// filters incoming assets by the declared set would silently drop them
 		// (HOLODEX-315). `banner` was missing despite buildPersonEnrichResponse having
 		// emitted it since F25; `gallery` likewise. Film adds its own banner (ADR-089 D4).
-		AssetKinds: []string{"photo", "gallery", "banner", "logo", "poster"},
+		//
+		// `photo` and `headshot` are BOTH here because both are genuinely emitted, by
+		// different builders: buildEnrichResponse labels a person's primary portrait
+		// `headshot`, while headshotFor labels a people[] credit's portrait `photo`.
+		// The contract (§4.3) makes `photo` the canonical person kind and `headshot` an
+		// accepted synonym, so core resolves both to the same image role and the split is
+		// invisible downstream — but the manifest has to describe what is sent, not what
+		// ought to be sent. Converging the two on `photo` is a separate call (HOLODEX-322);
+		// until then, dropping either one from this list makes it a lie again.
+		//
+		// TestDescribeAssetKindsCoverEveryEmittedKind holds this list against the builders.
+		AssetKinds: []string{"photo", "headshot", "gallery", "banner", "logo", "poster"},
 		// video enrich responses include structured people[] credits (§4.5, F32)
 		// alongside the flat actors/director fields above.
 		Credits: true,

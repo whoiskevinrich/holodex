@@ -124,7 +124,7 @@ provider loudly.
     "actors", "director", "studio",
     "description", "country", "logo"
   ],
-  "asset_kinds": ["photo", "gallery", "banner", "logo", "poster"],
+  "asset_kinds": ["photo", "headshot", "gallery", "banner", "logo", "poster"],
   "credits": true
 }
 ```
@@ -137,7 +137,7 @@ provider loudly.
 | `entity_types` | string[] | yes | `["person", "video", "studio", "film"]` — person for People enrichment, video for movie-file enrichment, studio for production-company enrichment, film for the Film entity (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
-| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`, across every entity type it advertises: `["photo", "gallery", "banner", "logo", "poster"]` — person `photo`/`gallery`/`banner`, studio `logo` (F51/ADR-079), film `poster`/`banner` (ADR-086/ADR-089 D4). A `video` contributes none: its poster is a text `fields` entry (`poster_url`) |
+| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`, across every entity type it advertises: `["photo", "headshot", "gallery", "banner", "logo", "poster"]` — person `headshot`/`gallery`/`banner` ([§4.3](#43-person-photos--asset-urls)), `people[]` credit portraits `photo` ([§4.4b](#44b-enrich-movie-details--credits)), studio `logo` (F51/ADR-079), film `poster`/`banner` (ADR-086/ADR-089 D4). A `video` contributes none: its poster is a text `fields` entry (`poster_url`). **`photo` and `headshot` are the same person role** — the contract makes `photo` canonical and `headshot` an accepted synonym ([contract §4.3](metadata-provider-contract.md#43-assets)), and this sidecar currently emits both from different builders; converging them is [HOLODEX-322](https://whoiskevinrich.atlassian.net/browse/HOLODEX-322). The list describes what is sent, not what ought to be |
 | `credits` | boolean | optional | `true` — video enrich responses include the structured `people[]` array ([contract §4.5](metadata-provider-contract.md#45-video-credits--per-person-castcrew-with-headshots), F32) alongside the flat `actors`/`director` text fields below |
 
 ### 2.3 Entity type and matching fields
