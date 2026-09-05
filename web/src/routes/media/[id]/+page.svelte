@@ -197,6 +197,18 @@
 	const metadataFieldCount = $derived(
 		canonicalResolved.length + extraFields.length || fields.length
 	);
+	// Canonicals whose `#field-<canonical>` anchor is rendered elsewhere on an owner's page,
+	// so the hidden completeness fallback below must not emit a second element with the same
+	// id. studio/title/genres/actors are unconditional for an owner (their containers gate on
+	// `isOwner || …`). overview is not: its header block keys off `overviewField`, and a field
+	// existing is NOT the same as it having a value — a decided-or-film-candidate field with
+	// zero values is deliberately retained so its pin stays changeable
+	// (internal/resolver/resolver.go), and that field reports tier `missing`. So it is tested,
+	// not listed.
+	function hasPageAnchor(canonical: string): boolean {
+		if (canonical === 'overview') return !!overviewField;
+		return canonical === 'studio' || canonical === 'title' || canonical === 'genres' || canonical === 'actors';
+	}
 	// Films + People are co-located in one row (design handoff, media-detail-reorder) —
 	// each keeps its own pre-existing gate, but the row itself must contribute nothing
 	// to the page when both sides are hidden.
@@ -1559,7 +1571,7 @@
 
 		{#if isOwner && completeness}
 			{#each completeness.facets as cf (cf.canonical)}
-				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !['studio', 'genres', 'actors'].includes(cf.canonical)}
+				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
 					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
 				{/if}
 			{/each}
