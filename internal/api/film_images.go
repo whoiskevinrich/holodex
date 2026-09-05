@@ -13,7 +13,7 @@ import (
 	"holodex/internal/repo"
 )
 
-// Film images (F56/HOLODEX-280, ADR-086): owner-editable poster/thumb roles, mirroring
+// Film images (F56/HOLODEX-280, ADR-086): owner-editable poster/banner roles, mirroring
 // studio_images.go (F51, ADR-079). Public reads serve the on-disk JPEG for a filled
 // role, or 404 for an empty one (the SPA renders its own monogram/empty state — no
 // placeholder route, unlike Person). Owner-gated mutations upload/replace/delete and

@@ -408,8 +408,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		// entirely when films_enabled is off, mirroring the public routes above.
 		if h.filmsEnabled {
 			h.mountFilms(r)
-			// Film images — owner-gated upload/delete for poster/thumb (F56/HOLODEX-280,
-			// ADR-086).
+			// Film images — owner-gated upload/delete for poster/banner (F56/HOLODEX-280,
+			// ADR-086; banner replaced thumb in F59/ADR-089 D4).
 			h.mountFilmImages(r)
 		}
 		// Video poster — owner-gated upload/remove, a new tier on the existing

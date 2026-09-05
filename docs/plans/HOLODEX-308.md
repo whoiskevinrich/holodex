@@ -27,7 +27,7 @@ vocabulary decisions that surface forces.
 - [/] backend — 311/312/310 shipped; nothing outstanding
 - [/] frontend — 309/311/312/317/310 shipped and verified live
 - [/] testing `testing-strategy` → §4 (4 rows), §5 (2 rows), 3 Critical invariants written; §5's wiring row is now covered by real tests (`api.test.ts`, 8 cases)
-- [ ] security `security-review` — until: the enrichment write path and the second per-film asset download are implemented
+- [/] security `security-review` — run 2026-09-04 against the full branch: **no HIGH or MEDIUM findings.** Evidence recorded in the session log below
 
 ## Up next — ordered (position = priority)
 
@@ -36,16 +36,47 @@ vocabulary decisions that surface forces.
 3. [x] [frontend] Add the `film` entry to the owner enrich-queue kind map — `web/src/routes/owner/enrichment/+page.svelte` → HOLODEX-309
 4. [x] [—] Correct the stale provider docs; flip ADR-086 to Accepted — `docs/specs/metadata-provider-contract.md`, `docs/specs/tmdb-provider.md` → HOLODEX-313
 5. [x] [backend] `(name, year)`-gated year fill — `internal/repo/films.go`, `internal/api/film_year.go` → HOLODEX-311
-6. [ ] [backend] Provider-written `film_people_roles` + the union-minus-credits difference in the film payload — `internal/repo/film_people_roles.go`, `internal/api/film_videos.go` → HOLODEX-310
-7. [ ] [frontend] Cast difference group + coverage counts line — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #6 → HOLODEX-310
-8. [ ] [backend] `banner` role in, `thumb` out; TMDB emits `backdrop_path` as a banner asset — `internal/enrich/assets.go`, `internal/model/model.go`, `providers/tmdb/tmdb.go` → HOLODEX-312
-9. [ ] [frontend] Two-image header — banner band, scrim, overlap row, both `EntityImageSlot` instances — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #8 → HOLODEX-312
+6. [x] [backend] Billed-cast complement in the film payload, read from the enrichment shadow — `internal/api/film_cast.go`, `internal/repo/identity.go` → HOLODEX-310 *(planned as a `film_people_roles` write; amended to write nothing — ADR-089 D1)*
+7. [x] [frontend] Cast difference group + coverage counts line — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #6 → HOLODEX-310
+8. [x] [backend] `banner` role in, `thumb` out; TMDB emits `backdrop_path` as a banner asset — `internal/enrich/assets.go`, `internal/model/model.go`, `providers/tmdb/tmdb.go` → HOLODEX-312
+9. [x] [frontend] Two-image header — banner band, scrim, overlap row, both `EntityImageSlot` instances — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #8 → HOLODEX-312
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · security review — clean, with the evidence written down
+
+- skills: security-review
+- **No HIGH or MEDIUM findings** across the branch. Recording *what was verified*, not just the
+  verdict, so the next reviewer does not redo it:
+  - `PUT /films/{id}/year` is inside the `requireOwner` group (`handlers.go:385` `r.Use`, →`:410`
+    `mountFilms`) **and** behind `filmsEnabled`. `year` is a typed int rejected at `<= 0` in both
+    the handler and the repo.
+  - `FillFilmYear`/`SetFilmYear` are fully parameterized, hold `writeMu`, and take the `name` used
+    in the uniqueness probe **from the DB row, not the request** — so the probe cannot be subverted
+    by input.
+  - `LookupEntityIDByName` uses the prebuilt `identityQueryByType` SQL; unknown entity types error
+    rather than falling through, and `name` is bound as `?` in both selects.
+  - **The provider `actors` strings are untrusted and now reach the SPA.** They render as Svelte text
+    interpolation; the only URL built is from the server-assigned numeric `person_id`. No `{@html}`
+    anywhere under `routes/films/`, `routes/owner/enrichment/`, or `components/entity/`.
+  - The new **banner download does not bypass the ADR-039 perimeter** — it goes through
+    `AssetClient.Fetch` → `checkHost` exactly as the poster does, and `tmdbImageURL` prefixes a fixed
+    `https://image.tmdb.org/t/p/original`, whose trailing path separator means a hostile
+    `backdrop_path` lands in the path, never the authority.
+  - The `banner` **role never reaches a filesystem path**: `filmimage` builds `{dir}/{filmID}/{imageID}.jpg`
+    from server-assigned integers only, and `{role}` is exact-match validated (400) before any lookup.
+  - `billed_absent`/`billed_total` are served unauthenticated, but `getFilm` was already public and
+    already returned `resolved[]` from the same enrichment shadow — same data class, not a new
+    exposure. `redactFileMetadataForVisitor` still runs on every film video.
+- **A mistake of mine, caught by the review's own tooling:** three Python comment-edits rewrote
+  `model.go`, `assets.go` and `film_images.go` with **CRLF**, which made `gofmt` report the entire
+  files as unformatted. Normalized back to LF. The committed content was never affected —
+  `.gitattributes` (`* text=auto eol=lf`) means the index was LF throughout — but `gofmt` reads the
+  working tree, so it surfaced there. Use `newline=''` when rewriting a file from Python on Windows.
+
 ### 2026-09-04 · HOLODEX-310 cast coverage — ADR-089 D1's storage amended by one lookup
 
-- skills: (none — implementation)
+- skills: (none — implementation), security-review
 - **The design changed because of one fact found before writing any code:** the provider's billed
   cast is *already persisted* in the enrichment shadow as `actors` (film 1 held all 20 Dune names).
   D1 had it being copied into `film_people_roles` — which is keyed by `person_id`, so it would have

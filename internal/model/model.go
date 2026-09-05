@@ -309,8 +309,8 @@ type Studio struct {
 }
 
 // Film image roles (F56/HOLODEX-280, ADR-086): poster is the self-hosted portrait
-// asset (~2:3, mirrors person/studio's `poster` asset kind); thumb is reserved for a
-// future landscape/list-card image. Unlike Studio, film_images' UNIQUE is (film_id,
+// asset (~2:3, mirrors person/studio's `poster` asset kind); banner is the ~16:9
+// landscape hero behind the film header (F59/ADR-089 D4, replacing the former thumb). Unlike Studio, film_images' UNIQUE is (film_id,
 // role, source) — an uploaded and a provider-sourced image for the same role can
 // coexist as distinct rows (migration 0043) — so this ticket's upload path only ever
 // writes/reads the FilmImageSourceUpload row; a provider-sourced row is HOLODEX-284's
@@ -349,7 +349,7 @@ func ValidFilmImageRole(role string) bool {
 // 0043): film-name collisions across different releases/years are the common case,
 // unlike Studio names. Description/release date are not struct fields, for the same
 // reason Studio/Person omit their resolver-only fields (they exist only as resolver
-// output, never persisted onto the entity struct) — see filmBaseline. Poster/thumb
+// output, never persisted onto the entity struct) — see filmBaseline. Poster/banner
 // ARE struct fields (ADR-086): unlike a resolved text field, a poster is a
 // self-hosted asset with its own upload/serve path, mirroring Studio's image roles.
 type Film struct {

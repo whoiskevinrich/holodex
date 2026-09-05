@@ -142,10 +142,10 @@ const personHeadshotKind = "photo"
 // empty kind, the only kind TMDB emits today) maps to the logo role; "icon"/"poster"
 // kinds are reserved for a future provider — the pipeline accepts them with no
 // further schema change once one exists. For film: "poster" (or the empty kind) maps
-// to the poster role — the film's primary and, in v1, only planned asset kind
-// (metadata-provider-contract.md §4.3); "thumb" is reserved the same way studio's
-// icon/poster are. An unknown kind, or an entity type with no image roles, returns
-// ok=false so the asset is skipped (never stored under a guessed role).
+// to the poster role, and "banner"/"backdrop" to the landscape hero role
+// (metadata-provider-contract.md §4.3, F59/ADR-089 D4). An unknown kind, or an entity
+// type with no image roles, returns ok=false so the asset is skipped (never stored
+// under a guessed role).
 func assetRoleFor(entityType, kind string) (string, bool) {
 	switch entityType {
 	case model.EnrichEntityPerson:
