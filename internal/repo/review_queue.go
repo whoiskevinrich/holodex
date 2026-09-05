@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"holodex/internal/model"
 )
@@ -90,38 +91,54 @@ func FlagNearMiss(ctx context.Context, tx *sql.Tx, entityType string, id int64) 
 	return nil
 }
 
+// fuzzyVariations lists the variation values the near-miss detector itself produces
+// (identity_queue.go's seed + review_queue.go's scan-time flag) — the only rows
+// ListReviewPairs' live-revalidation applies to. Any OTHER variation (today just
+// F58/ADR-088's "provider-alias": an EXACT alias conflict between two entities whose
+// actual names are NOT required to resemble each other at all — see ListReviewPairs)
+// is passed through untouched, on purpose: re-validating "do these two entities'
+// names/aliases loosely collide" would silently drop a live, resolvable conflict that
+// was never about name similarity in the first place. New variations default to this
+// pass-through side unless explicitly added here.
+var fuzzyVariations = []string{"internal-whitespace", "punctuation"}
+
 // ListReviewPairs returns every flagged pair still live, grouped tags-first (then
 // strongest-evidence-first within a group), each carrying both entities' names +
 // active-video counts + variation + match kind (F43 P1-3).
 //
-// Two INNER JOINs keep the queue self-healing instead of trusting a stored row
-// forever: the join to the canonical table drops a pair whose entity was
-// merged/deleted elsewhere, and the join to the live match-kind subquery drops a pair
-// whose current names/aliases no longer collide AT ALL — which a rename or alias edit
-// can cause silently, since (unlike merge) neither one ever touched
-// identity_review_queue. Confirmed on the private-media instance: of 207 stored person
-// pairs, only 4 still collided under the live name set — the other 203 were exactly
-// this kind of orphan, most from renames done long after the pair was flagged.
+// Two INNER JOINs keep the queue self-healing for near-miss rows instead of trusting a
+// stored row forever: the join to the canonical table drops a pair whose entity was
+// merged/deleted elsewhere, and (fuzzyVariations rows only) the join to the live
+// match-kind subquery drops a pair whose current names/aliases no longer collide AT
+// ALL — which a rename or alias edit can cause silently, since (unlike merge) neither
+// one ever touched identity_review_queue. Confirmed on the private-media instance: of
+// 207 stored person pairs, only 4 still collided under the live name set — the other
+// 203 were exactly this kind of orphan, most from renames done long after the pair was
+// flagged. A non-fuzzy row (provider-alias) always passes through with match_kind ”.
 //
-// match_kind is the strongest live evidence connecting the pair: "canonical" (both
-// sides' canonical names collide — the strong, "same entity typo'd twice" case),
-// "mixed" (one side needs an alias), or "alias" (only an alias on EACH side collides —
-// the weakest signal, since aliases on genuinely distinct entities coincide far more
-// often than canonical names do, especially after a few rounds of merging). Rows sort
-// strongest-first so the weak alias-alias matches sink to the bottom of each group
-// instead of mixing in indistinguishably with real duplicates.
+// For a fuzzy row, match_kind is the strongest live evidence connecting the pair:
+// "canonical" (both sides' canonical names collide — the strong, "same entity typo'd
+// twice" case), "mixed" (one side needs an alias), or "alias" (only an alias on EACH
+// side collides — the weakest signal, since aliases on genuinely distinct entities
+// coincide far more often than canonical names do, especially after a few rounds of
+// merging). Rows sort strongest-first (provider-alias, being about a concrete,
+// resolvable conflict rather than a fuzziness tier, sorts first of all) so the weak
+// alias-alias matches sink to the bottom of each group instead of mixing in
+// indistinguishably with real duplicates.
 func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
+	fuzzyList := "'" + strings.Join(fuzzyVariations, "','") + "'"
 	var out []ReviewPair
 	for _, et := range reviewEntityOrder {
 		table := canonicalTable(et)
 		jn := reviewJunction[et]
 		names := entityNamesUnion(table, et)
 		q := fmt.Sprintf(`
-			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation, m.match_kind
+			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation,
+			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END
 			FROM identity_review_queue q
 			JOIN %[1]s la ON la.id = q.id_lo
 			JOIN %[1]s lb ON lb.id = q.id_hi
-			JOIN (
+			LEFT JOIN (
 				SELECT iq.id_lo, iq.id_hi,
 					CASE min(CASE WHEN x.kind = 'canonical' AND y.kind = 'canonical' THEN 0
 					              WHEN x.kind = 'alias'     AND y.kind = 'alias'     THEN 2
@@ -130,14 +147,18 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 				FROM identity_review_queue iq
 				JOIN %[5]s x ON x.eid = iq.id_lo
 				JOIN %[5]s y ON y.eid = iq.id_hi AND %[6]s = %[7]s
-				WHERE iq.entity_type = ?
+				WHERE iq.entity_type = ? AND iq.variation IN (%[8]s)
 				GROUP BY iq.id_lo, iq.id_hi
 			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
 			WHERE q.entity_type = ?
-			ORDER BY CASE m.match_kind WHEN 'canonical' THEN 0 WHEN 'mixed' THEN 1 ELSE 2 END,
+			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)
+			ORDER BY CASE WHEN q.variation NOT IN (%[8]s) THEN -1
+			              WHEN m.match_kind = 'canonical' THEN 0
+			              WHEN m.match_kind = 'mixed' THEN 1
+			              ELSE 2 END,
 			         la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
 			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"),
-			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"))
+			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList)
 		rows, err := r.db.QueryContext(ctx, q, et, et)
 		if err != nil {
 			return nil, fmt.Errorf("list review pairs (%s): %w", et, err)

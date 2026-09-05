@@ -302,3 +302,51 @@ func TestReviewQueue_StaleRowDropped(t *testing.T) {
 		t.Fatalf("after alias delete: %+v, want empty (stale row should self-heal)", pairs)
 	}
 }
+
+// TestReviewQueue_ProviderAliasRowsAlwaysSurface proves a non-fuzzy queue row (F58/
+// ADR-088's 'provider-alias' variation: an EXACT alias conflict between two entities
+// whose actual names/aliases are NOT required to resemble each other at all — the
+// collision is about one specific candidate string, not name similarity) is never
+// dropped by the live-revalidation added for near-miss staleness. That join only
+// makes sense for the fuzzy variations it understands (internal-whitespace/
+// punctuation); this regression-tests that anything else always passes through, since
+// the two entities here would never survive a loose-key recheck on their own names.
+func TestReviewQueue_ProviderAliasRowsAlwaysSurface(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"John Smith"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	linkPeople(t, r, idA, "John Smith")
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Robert Jones"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+	linkPeople(t, r, idB, "Robert Jones")
+	a := personIDByName(t, r, "John Smith")
+	b := personIDByName(t, r, "Robert Jones")
+	lo, hi := a, b
+	if b < a {
+		lo, hi = b, a
+	}
+
+	// Queued the way ApplyProviderAliases does (queueProviderAliasPair): the two
+	// canonical names are nothing alike, and the skipped candidate ("Bob") belongs to
+	// neither of them -- the row itself, not a live loose-key match, is what says
+	// there's still something to resolve.
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
+		 VALUES ('person', ?, ?, 'provider-alias', 'Bob')`, lo, hi); err != nil {
+		t.Fatalf("seed provider-alias row: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(pairs) != 1 || pairs[0].Variation != "provider-alias" || pairs[0].MatchKind != "" {
+		t.Fatalf("pairs = %+v, want one provider-alias row with empty match_kind", pairs)
+	}
+}
