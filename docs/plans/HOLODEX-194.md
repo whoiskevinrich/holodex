@@ -37,10 +37,12 @@ handoff's Non-goals.
 - [x] spec `write-spec` → amended `docs/specs/metadata-extraction.md`: F48.5a's acceptance criteria
       now names the media-page surface, and a new §F48.6b adds F48.6i–F48.6l (panel, shared resolve
       path, `?video_id=` filter, explicit empty states)
-- [~] architecture `architecture` — not required: no new seam. Reuses the existing extraction
-      pipeline, the existing resolve endpoint, and the existing write queue; the one backend change
-      is an optional query parameter on an existing owner-gated route. ADR-067/068 unchanged.
-      (The dry-run variant *would* have needed an ADR — it was deferred partly for that reason.)
+- [x] architecture `architecture` — **not required for the implementation** (no new seam: reuses the
+      existing extraction pipeline, resolve endpoint and write queue; the one backend change is an
+      optional query parameter on an existing owner-gated route; ADR-067/068 unchanged). But the
+      *design pattern* this work arrived at was generalized on the owner's instruction into
+      [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) — two-layer entity
+      metadata management (adoption vs precedence), with this ticket as its first instance
 - [x] design `design-handoff` → `docs/design/media-page-extraction-handoff.md` with a committed
       SVG mockup (4 states + implementer notes) and a numbered, verifier-tagged QA checklist
 - [ ] backend → optional `?video_id=` filter on `GET /owner/extraction-queue`
@@ -64,6 +66,26 @@ handoff's Non-goals.
 4. [ ] [—] QA all three skins against the checklist, `/security-review`, mark PR ready for review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-04 · ADR-090 — generalize the two-layer model
+- skills: architecture
+- handoff: Owner opted into this design's two-layer model as the standard for entity metadata
+  management across all entities, explicitly choosing documentation over a tracking ticket ("the
+  ticket would get lost"). Wrote
+  [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md): layer 1 = adoption
+  (transient, judged against the entity's own baseline), layer 2 = precedence (standing, ADR-051's
+  chip row), with D1 forbidding a provider value inside an adoption row, D2 putting layer 1 on the
+  entity page, D3 requiring the adopted value to visibly land with a `ProvenanceBadge`, D4 "a new
+  source is a namespace not a subsystem", and D5 keeping layer-1 tables scoped where the question
+  is. **A survey corrected the draft's central claim**: enrichment and duplicates already have
+  inline entity-page entry points (`EnrichProviderChips`/`EnrichPicker`, `MergeOfferCard`) —
+  extraction is the only queue without one, so D2 completes an existing pattern rather than
+  introducing one. Scoped honestly: does not cover tags/categories (no layer 2 at all), merge/multi
+  fields (no winner), entity-link fields, or identity fields; film is a half-instance. Indexed in
+  `docs/architecture/README.md` and pointed at from the auto-loaded `.claude/CLAUDE.md` core-model
+  section so it is found at the seam. Also noted in passing: PR #257 carries `ADR-088` which now
+  collides with main's shipped ADR-088 (third collision on that branch) — needs renumbering to 091+.
+  **Next session:** unchanged — design review on the Draft PR, then the backend `?video_id=` filter.
 
 ### 2026-09-04 · design critique → mockup rev 2
 - skills: design-critique

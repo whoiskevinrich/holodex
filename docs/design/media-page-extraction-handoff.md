@@ -3,7 +3,10 @@
 **Status**: Design decided (developer handoff)
 **Date**: 2026-09-04
 **Spec**: [metadata-extraction.md](../specs/metadata-extraction.md) §F48.5a / §F48.6i — §F48.6l
-**ADR**: [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md) (unchanged — no new decision)
+**ADR**: [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md) (unchanged) ·
+[ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) — generalizes this design's
+two-layer model (adoption vs precedence) to entity metadata management as a whole. This handoff is its
+first instance; read the ADR's Scope section before applying the pattern elsewhere.
 **Jira**: [HOLODEX-194](https://whoiskevinrich.atlassian.net/browse/HOLODEX-194)
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).

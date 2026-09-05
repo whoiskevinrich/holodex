@@ -54,6 +54,15 @@ the sole merge point; standing **per-field source decisions** + **curation** ove
 resolve time. Person and Studio are **entities** riding that same decision model over a
 `BaselineSource`. Read the relevant ADR before changing any of these seams.
 
+**Metadata UX rides two layers** ([ADR-090](../docs/architecture/ADR-090-two-layer-entity-metadata-management.md)):
+*adoption* (should this candidate enter the shadow store? transient, judged against the entity's own
+baseline — review queues) and *precedence* (which stored namespace wins for this field? standing —
+ADR-051's `SourceBadge` chip row). Building metadata UI? Pick one layer. **Never put a competing
+provider value in an adoption row** — that comparison is layer 2's and already has a UI. A new
+source is a namespace, never a new subsystem, and an adoption must visibly land in the field list
+carrying its `ProvenanceBadge`. Read ADR-090's Scope section first — the model deliberately does
+**not** cover tags, merge/multi fields, entity-link fields, or identity fields.
+
 ## Change-routing rules
 
 While making a change, route it through the right skill based on what it touches:
