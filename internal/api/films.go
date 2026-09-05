@@ -126,6 +126,15 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Billed-but-absent cast (F59/ADR-089 D2) — computed from the enrichment shadow
+	// against the scene union, storing nothing. See film_cast.go.
+	enrichRows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityFilm, id)
+	if err != nil {
+		h.log.Warn("film billed cast: enrichment read", "id", id, "err", err)
+		enrichRows = nil
+	}
+	billedAbsent, billedTotal := h.filmBilledCast(r.Context(), enrichRows, cast)
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"film":           f,
 		"resolved":       resolved,
@@ -135,6 +144,8 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		"tags":           tags,
 		"studios":        studios,
 		"credited_roles": credited,
+		"billed_absent":  billedAbsent,
+		"billed_total":   billedTotal,
 	})
 }
 

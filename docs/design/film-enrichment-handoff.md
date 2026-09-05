@@ -114,8 +114,14 @@ The single most important rule in this handoff. See the mockup's panel 3.
 
 | Group | Source | Rendering |
 |---|---|---|
+| Coverage line | counts implied by the two below | `text-xs text-muted`, above the group: *"Your scenes cover 17 of 20 billed cast."* — or *"all 20"* when nothing is missing |
 | **Cast** | Scene union over `film_videos` — unchanged | Existing `PeopleGrid`, unchanged |
-| **Billed on the release — in no scene you own** | `film_people_roles` **minus** the union | Second `PeopleGrid` instance, visually distinguished |
+| **Billed on the release — in no scene you own** | the provider's `actors` (read from the enrichment shadow) **minus** the union | **Chips, not a second `PeopleGrid`** |
+
+**Why chips and not a second grid** *(as built — the earlier draft said `PeopleGrid`)*: most of these
+names have **no Person row at all**, which is exactly what the group means. A people grid renders
+portrait tiles keyed by person id, and there is neither. A name that *does* resolve to somebody in the
+library links to them; one that resolves to nobody is inert text and creates nothing.
 
 ### 3b. What must not happen
 

@@ -822,6 +822,18 @@ export interface FilmYearCollision {
 	year: number;
 }
 
+// FilmBilledCredit is one cast member the provider billed on the release who appears in
+// NO scene the owner holds (F59/ADR-089 D2). It is the *complement* of the film's Cast
+// union, never the whole billed list — rendering both in full would be roughly half
+// duplicates. Stored nowhere: computed at read time from the enrichment shadow, so
+// clearing the provider makes it vanish. `person_id` is set only when the name already
+// resolves to somebody in the library (present elsewhere, just not in this film's
+// scenes); a name resolving to nobody stays inert text and creates no Person.
+export interface FilmBilledCredit {
+	name: string;
+	person_id?: number;
+}
+
 // FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
 // `banner` (F59/ADR-089 D4) is the landscape hero behind the film header; it replaced
 // the former `thumb`, which had no consumer and no producer. Mirrors
@@ -859,6 +871,11 @@ export interface FilmDetailResponse {
 	cast: Person[];
 	tags: Tag[];
 	studios: Studio[];
+	// billed_absent is `cast`'s complement against the provider's billed list, and
+	// billed_total the number of distinct names billed (F59/ADR-089 D2). Both are
+	// empty/0 with no provider cast, so an unenriched film renders as it always did.
+	billed_absent?: FilmBilledCredit[] | null;
+	billed_total?: number;
 }
 
 // One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video

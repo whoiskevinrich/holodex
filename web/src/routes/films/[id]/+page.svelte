@@ -9,6 +9,7 @@
 		DecisionSource,
 		EnrichSource,
 		Film,
+		FilmBilledCredit,
 		FilmYearCollision,
 		FilmDetailResponse,
 		FilmVideo,
@@ -49,6 +50,11 @@
 	let scenes = $state<FilmVideo[]>([]);
 	let fullFilms = $state<FilmVideo[]>([]);
 	let cast = $state<Person[]>([]);
+	// The scene union's complement against the provider's billed list (F59/ADR-089 D2),
+	// and how many names were billed in total. Computed server-side from the enrichment
+	// shadow — nothing is stored, so clearing the provider empties both.
+	let billedAbsent = $state<FilmBilledCredit[]>([]);
+	let billedTotal = $state(0);
 	let tags = $state<Tag[]>([]);
 	let studios = $state<Studio[]>([]);
 	let loading = $state(true);
@@ -132,6 +138,8 @@
 		cast = res.cast ?? [];
 		tags = res.tags ?? [];
 		studios = res.studios ?? [];
+		billedAbsent = res.billed_absent ?? [];
+		billedTotal = res.billed_total ?? 0;
 	}
 
 	function load(current: number) {
@@ -418,6 +426,47 @@
 			     pills) — no attach/detach passed, since this is derived display, not an
 			     editable/attachable relationship. -->
 			<PeopleGrid title="Cast" people={cast} />
+
+			<!-- Scene coverage (F59/ADR-089 D2, closing ADR-085's deferred P1-3). The whole
+			     block is hidden when no provider has billed a cast, so an unenriched film's
+			     Cast section renders exactly as it always did.
+			     The chips are the scene union's COMPLEMENT, never the whole billed list:
+			     rendering both in full would be roughly half duplicates at realistic scale,
+			     and the difference is the only version that says something Cast does not.
+			     Chips rather than a second PeopleGrid because most of these have no Person
+			     row at all — that is precisely what they mean — so there is no portrait to
+			     tile. Dashed reads as provisional/absent; deliberately NOT `text-warn`, since
+			     incomplete coverage is information, not an error. -->
+			{#if billedTotal}
+				<section class="space-y-1.5">
+					<p class="text-xs text-muted">
+						{billedAbsent.length === 0
+							? `Your scenes cover all ${billedTotal} billed cast.`
+							: `Your scenes cover ${billedTotal - billedAbsent.length} of ${billedTotal} billed cast.`}
+					</p>
+					{#if billedAbsent.length}
+						<h2 class="text-xs uppercase tracking-wide text-muted">
+							Billed on the release — in no scene you own
+						</h2>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each billedAbsent as c (c.name)}
+								{#if c.person_id}
+									<a
+										href={`/people/${c.person_id}`}
+										class="rounded-full border border-dashed border-accent px-2.5 py-0.5 text-sm text-accent hover:border-solid"
+										title="In your library, but not in this film's scenes">{c.name}</a
+									>
+								{:else}
+									<span
+										class="rounded-full border border-dashed border-rule px-2.5 py-0.5 text-sm text-muted"
+										title="Not in your library">{c.name}</span
+									>
+								{/if}
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
 
 			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern, and
 			     since F59/HOLODEX-309 its enrichment header row too.

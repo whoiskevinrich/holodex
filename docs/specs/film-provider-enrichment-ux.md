@@ -108,8 +108,11 @@ not a field write. So this block cannot be a list of new field keys; each gap ne
 *(Locked with the owner 2026-09-04 via question cards, after a codebase survey established that the
 backend already shipped.)*
 
-- **RD1 — Provider cast lands in `film_people_roles`, not in the attached videos.** A film's billed
-  cast is film-owned, additive data; applying it mutates no video. This is **deliberately asymmetric
+- **RD1 — Provider cast is film-level, never written onto the attached videos.** A film's billed
+  cast is film-owned, additive data; applying it mutates no video. *(Amended during implementation —
+  it is read from the enrichment shadow rather than copied into `film_people_roles`, which would have
+  forced creating a Person row per billed performer. See ADR-089 D1; the principle below is
+  unchanged.)* This is **deliberately asymmetric
   with Studio**, which cascades a decision to every attached video under
   [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md). The asymmetry is the
   point, not drift: a studio is effectively single-valued and genuinely is a property every scene of
@@ -202,10 +205,13 @@ backend already shipped.)*
   already has a year leaves it untouched; a colliding apply leaves **both** films' identity columns
   unchanged, returns the occupant, **and** still resolves the provider's other fields.
 
-- **P0-6 — Provider cast is stored as film-level credits.** A film's applied provider cast writes
-  `film_people_roles` rows; **no `video_people` row, no video decision, and no writeback is produced.**
-  Acceptance: an adversarial test applies cast to a film with N attached videos and asserts every
-  attached video's `video_people` and `field_source_decisions` are unchanged.
+- **P0-6 — Provider cast is film-level and writes nothing.** *(Amended during implementation — see
+  ADR-089 D1.)* The billed list is already persisted in the enrichment shadow, so the page reads it
+  there rather than copying it into `film_people_roles` — which, being keyed by `person_id`, would
+  force creating a Person row for every billed performer, including ones with no footage. **No
+  `video_people` row, no video decision, no writeback, and no Person row is produced.** Acceptance:
+  an adversarial test asserts rendering a film's billed cast leaves the people count unchanged, and
+  that every attached video's `video_people`/`field_source_decisions` are untouched.
 
 - **P0-7 — The cast section shows the union, then only the difference.** Billed names that already
   appear in the scene union are not rendered a second time; the remainder render in a visually

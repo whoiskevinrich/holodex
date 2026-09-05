@@ -24,8 +24,8 @@ vocabulary decisions that surface forces.
 - [x] spec `write-spec` → `docs/specs/film-provider-enrichment-ux.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-089-film-enrichment-field-vocabulary.md`
 - [x] design `design-handoff` → `docs/design/film-enrichment-handoff.md` + committed SVG mockup
-- [ ] backend
-- [/] frontend — HOLODEX-309 (wiring) done and verified live; 310/312's UI still to come
+- [/] backend — 311/312/310 shipped; nothing outstanding
+- [/] frontend — 309/311/312/317/310 shipped and verified live
 - [/] testing `testing-strategy` → §4 (4 rows), §5 (2 rows), 3 Critical invariants written; §5's wiring row is now covered by real tests (`api.test.ts`, 8 cases)
 - [ ] security `security-review` — until: the enrichment write path and the second per-film asset download are implemented
 
@@ -42,6 +42,36 @@ vocabulary decisions that surface forces.
 9. [ ] [frontend] Two-image header — banner band, scrim, overlap row, both `EntityImageSlot` instances — `web/src/routes/films/[id]/+page.svelte`  ⛔ blocked on #8 → HOLODEX-312
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-04 · HOLODEX-310 cast coverage — ADR-089 D1's storage amended by one lookup
+
+- skills: (none — implementation)
+- **The design changed because of one fact found before writing any code:** the provider's billed
+  cast is *already persisted* in the enrichment shadow as `actors` (film 1 held all 20 Dune names).
+  D1 had it being copied into `film_people_roles` — which is keyed by `person_id`, so it would have
+  forced **creating a Person row for every billed performer**, including ones with no footage, who
+  would then sit in `/people` with empty pages. Owner chose the read-time alternative via a card.
+  So the billed-but-absent group writes **nothing at all**: it is the shadow minus the scene union,
+  computed on read. Clearing the provider empties it by construction. `film_people_roles` stays a
+  purely owner-asserted table with no provider writer.
+- Needed one new repo primitive: **`LookupEntityIDByName`** — the canonical-nameKey-then-alias prefix
+  of `resolveOrCreateByName` with the create step deliberately absent. `PersonIDByName` was not
+  enough; it is a bare `COLLATE NOCASE` match that never consults `entity_aliases`, so an aliased or
+  merged-away name would have read as missing. That is D2's whole point.
+- Rendering: chips, **not** a second `PeopleGrid` as the handoff first said — most of these names
+  have no Person row, which is precisely their meaning, so there is no portrait or id to tile. Names
+  that do resolve get a link.
+- Tests: 4 new, **non-vacuity verified** by disabling the coverage check — three of the four fail with
+  their intended diagnostics. One of my own tests was wrong and got fixed rather than the code: it
+  expected a case variant and an alias of the same person to count as two billed credits, which
+  contradicts the identity dedupe another test in the same file pins.
+- Verified live with a genuinely partial case rather than a happy path: enriched a scene video, then
+  suppressed three actors from it, giving **"Your scenes cover 17 of 20 billed cast"** and exactly
+  Josh Brolin / Javier Bardem / Zendaya as absent chips, all linked, none duplicated into Cast.
+  Contrast across the three skins — coverage line 6.31/4.90/5.73, chips 9.16/12.09/17.19.
+- handoff: **all seven epic stories are shipped.** What remains before this PR can leave Draft is
+  `/security-review` (the one gate never run) and a decision on the open item carried from 317 —
+  where `release_date` lives now that the year is directly editable.
 
 ### 2026-09-04 · owner review round 2 — banner shipped (312), index poster bug fixed (318), owner-only gating
 

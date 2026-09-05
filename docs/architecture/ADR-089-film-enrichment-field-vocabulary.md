@@ -97,11 +97,32 @@ divergence between two adjacent film features reads as drift six months from now
 
 ## Decision
 
-### D1 — Provider film cast lands in `film_people_roles`; it never cascades to attached videos
+### D1 — Provider film cast is film-level and never cascades to attached videos; it is read from the shadow, not copied into `film_people_roles`
 
-An applied provider cast writes film-level credit rows keyed to the **film**. No `video_people` row,
-no `field_source_decisions` row on any attached video, and no `file_writebacks` entry is produced by a
-film enrichment.
+> **Amended 2026-09-04 during implementation (HOLODEX-310).** The principle is unchanged — cast is
+> film-level and never touches a video. The *storage* is: the original text had it written into
+> `film_people_roles`, which building it showed to be both unnecessary and harmful. Original
+> reasoning preserved in *Options Considered*.
+
+A provider's billed cast produces **no writes at all**. No `video_people` row, no
+`field_source_decisions` row on any attached video, no `file_writebacks` entry — and no
+`film_people_roles` row either.
+
+`film_people_roles` is keyed by `person_id`, so writing there would require **creating a Person row
+for every billed performer**, including ones the library holds no footage of. Those people would then
+appear in `/people` with empty pages: entities manufactured from provider data the owner never
+asserted, in an index that is otherwise a record of what is actually on disk. It would also duplicate
+data already stored, since the provider's `actors` value is **already persisted in the enrichment
+shadow** (ADR-033's additive store) by the ordinary enrich path.
+
+So the "billed but absent" set is computed **at read time**: the shadow's `actors` minus the scene
+union. Nothing to migrate, nothing to keep in sync, and clearing the provider removes the shadow rows
+so the group disappears by construction rather than by a cleanup path someone has to remember to
+write. `film_people_roles` stays what it was: a purely owner-asserted table with no provider writer.
+
+The one thing this forgoes is film-level *roles* (billing order, character names), which the flat
+`actors` field cannot express. Nothing asks for that today; when something does, creating Person rows
+will have a justification beyond storage.
 
 This is a deliberate, documented asymmetry with ADR-087's Studio cascade, for the four reasons in
 *Why this isn't just ADR-087 again*. The invariant is testable and is specified adversarially in F59
@@ -213,6 +234,14 @@ mistaken for a component-generalization task before; it is not one, and a PR tha
 | Cascade to every attached video (ADR-087 shape) | Rejected — writes performers onto scenes they are not in, makes the union circular, N × M writebacks on unasserted data |
 | Coverage signal only, nothing stored | Rejected — cannot render a stable difference list across reloads without storing the billed set, and gives the owner no cast field at all |
 | Omit cast from film enrichment | Rejected — the union answers "who is in my footage" but never "who is missing", which is the question a film-level entity exists to answer |
+
+**D1, re-decided during implementation (2026-09-04)** — where the billed set actually lives:
+
+| Option | Verdict |
+|---|---|
+| **Read it from the enrichment shadow at render time** | **Chosen.** The data is already there; no writes, no migration, no Person rows for performers with no footage, and clearing the provider empties the group by construction |
+| Copy it into `film_people_roles` (the original D1 text) | Rejected — keyed by `person_id`, so it forces creating a Person per billed name; `/people` fills with manufactured entities holding no video, and the same list lives in two places |
+| Store billed names as free text in a new film-level table | Rejected — a third store for something the shadow already holds, to avoid a Person-row problem the shadow does not have |
 
 ### D2 — how the two cast sources render
 
