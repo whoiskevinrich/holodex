@@ -13,7 +13,7 @@ import (
 	"holodex/internal/repo"
 )
 
-// Film images (F56/HOLODEX-280, ADR-086): owner-editable poster/thumb roles, mirroring
+// Film images (F56/HOLODEX-280, ADR-086): owner-editable poster/banner roles, mirroring
 // studio_images.go (F51, ADR-079). Public reads serve the on-disk JPEG for a filled
 // role, or 404 for an empty one (the SPA renders its own monogram/empty state — no
 // placeholder route, unlike Person). Owner-gated mutations upload/replace/delete and
@@ -35,7 +35,7 @@ func (h *Handlers) mountFilmImages(r chi.Router) {
 	r.Delete("/films/{id}/images/{role}", h.deleteFilmImage)
 }
 
-// setFilmImageURLs fills PosterURL/ThumbURL from ImageVersions, pointing at the served
+// setFilmImageURLs fills PosterURL/BannerURL from ImageVersions, pointing at the served
 // route on our own origin. A role absent from ImageVersions stays empty (the SPA
 // renders its fallback). Mirrors setStudioImageURLs.
 func setFilmImageURLs(f *model.Film) {
@@ -47,8 +47,8 @@ func setFilmImageURLs(f *model.Film) {
 		switch role {
 		case model.FilmImagePoster:
 			f.PosterURL = url
-		case model.FilmImageThumb:
-			f.ThumbURL = url
+		case model.FilmImageBanner:
+			f.BannerURL = url
 		}
 	}
 }

@@ -640,9 +640,15 @@ export interface EnrichedField {
 }
 
 // Enrichment review queue (F47 S2, ADR-066). EnrichEntityKind is the enrichment
-// entity spine — person | studio | video — distinct from EntityKind (F43's
-// alias/merge/rename spine), which has no `video`.
-export type EnrichEntityKind = 'person' | 'studio' | 'video';
+// entity spine — person | studio | video | film — distinct from EntityKind (F43's
+// alias/merge/rename spine), which has no `video` or `film`.
+//
+// `film` (F59/ADR-089 D5) is the one hardcoded chokepoint that kept films out of the
+// SPA's enrichment surface: the backend has had `entity_type: "film"` since ADR-086
+// and every enrichment *component* is entity-agnostic, so widening this union (and
+// ENRICH_ENTITY_BASE) is what makes films reachable. Film enrich routes are
+// registered server-side only when `films_enabled`.
+export type EnrichEntityKind = 'person' | 'studio' | 'video' | 'film';
 
 // EnrichQueueProviderState is one row's per-provider status (RD9 — never a single
 // collapsed flag). 'unreviewed' | 'not_matched' come from the server (GET
@@ -802,13 +808,43 @@ export interface Film {
 	// Self-hosted poster image (F56/HOLODEX-280, ADR-086; edited in the header,
 	// HOLODEX-307): owner-editable (upload/replace/remove); present only when the
 	// slot is filled. Always populated on both list and detail reads. Mirrors
-	// Studio's icon/logo/poster_url fields. The `thumb` role was dropped
-	// (HOLODEX-307) — it had no UI consumer.
+	// Studio's icon/logo/poster_url fields.
 	poster_url?: string;
+	// banner_url is the landscape hero behind the film detail header (F59/ADR-089 D4),
+	// reusing the provider contract's existing ~16:9 `banner` kind. It took the slot
+	// the consumer-less `thumb` role vacated in HOLODEX-307. Detail read only — the
+	// films index shows posters, not banners.
+	banner_url?: string;
+}
+
+// A withheld films.year fill (F59/ADR-089 D3). Returned on the film enrich-apply
+// response when the provider's release year is already held by another film under
+// the same name — (name, year) is the film identity key, so the fill is skipped and
+// the occupant named rather than swapped or auto-bumped. The enrich itself still
+// succeeded; only the identity column was left alone.
+export interface FilmYearCollision {
+	film_id: number;
+	film_name: string;
+	year: number;
+}
+
+// FilmBilledCredit is one cast member the provider billed on the release who appears in
+// NO scene the owner holds (F59/ADR-089 D2). It is the *complement* of the film's Cast
+// union, never the whole billed list — rendering both in full would be roughly half
+// duplicates. Stored nowhere: computed at read time from the enrichment shadow, so
+// clearing the provider makes it vanish. `person_id` is set only when the name already
+// resolves to somebody in the library (present elsewhere, just not in this film's
+// scenes); a name resolving to nobody stays inert text and creates no Person.
+export interface FilmBilledCredit {
+	name: string;
+	person_id?: number;
 }
 
 // FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
-export type FilmImageRole = "poster";
+// `banner` (F59/ADR-089 D4) is the landscape hero behind the film header; it replaced
+// the former `thumb`, which had no consumer and no producer. Mirrors
+// model.ValidFilmImageRole — keep the two in step or an upload 400s.
+export type FilmImageRole = "poster" | "banner";
 
 // FilmVideo is one scene/full-film row on a film's detail page (F56): the video plus
 // its film_videos attachment attributes. scene_number is null for an unnumbered scene
@@ -841,6 +877,11 @@ export interface FilmDetailResponse {
 	cast: Person[];
 	tags: Tag[];
 	studios: Studio[];
+	// billed_absent is `cast`'s complement against the provider's billed list, and
+	// billed_total the number of distinct names billed (F59/ADR-089 D2). Both are
+	// empty/0 with no provider cast, so an unenriched film renders as it always did.
+	billed_absent?: FilmBilledCredit[] | null;
+	billed_total?: number;
 }
 
 // One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video

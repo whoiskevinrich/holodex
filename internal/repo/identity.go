@@ -96,6 +96,45 @@ var identityQueryByType = func() map[string]identityQueries {
 	return m
 }()
 
+// LookupEntityIDByName resolves a name to an EXISTING entity id, creating nothing.
+// It is the read-only prefix of resolveOrCreateByName's order: canonical nameKey, then
+// the alias key. The external-id step is skipped (it needs an id the caller does not
+// have) and the create step is deliberately absent.
+//
+// This exists because "does this provider-supplied name already name someone in my
+// library?" is a genuine read-only question (F59/ADR-089 D2: the film cast difference
+// must be computed by resolved identity, not by display string — otherwise an alias or
+// a case variant reads as a missing person). PersonIDByName is not enough: it is a bare
+// `name = ? COLLATE NOCASE` match that never consults entity_aliases, so a merged-away
+// or aliased name would look absent.
+//
+// Runs outside a transaction — callers are read paths. Keep the resolution order in
+// step with resolveOrCreateByName below.
+func (r *Repo) LookupEntityIDByName(ctx context.Context, entityType, name string) (int64, bool, error) {
+	q, ok := identityQueryByType[entityType]
+	if !ok {
+		return 0, false, fmt.Errorf("lookup entity id: unsupported entity type %q", entityType)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return 0, false, nil
+	}
+	var id int64
+	switch err := r.db.QueryRowContext(ctx, q.canonicalSelect, name).Scan(&id); {
+	case err == nil:
+		return id, true, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return 0, false, fmt.Errorf("lookup %s canonical name: %w", entityType, err)
+	}
+	switch err := r.db.QueryRowContext(ctx, q.aliasSelect, entityType, name).Scan(&id); {
+	case err == nil:
+		return id, true, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return 0, false, fmt.Errorf("lookup %s alias: %w", entityType, err)
+	}
+	return 0, false, nil
+}
+
 // resolveOrCreateByName resolves a name to an entity id for person / studio / tag,
 // creating the entity if absent (F43, ADR-061). Resolution order (RD3): external-id
 // (studio ADR-054, person ADR-055/F32) → canonical nameKey → alias key → create.

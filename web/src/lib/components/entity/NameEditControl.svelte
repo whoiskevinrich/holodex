@@ -26,13 +26,31 @@
 		trailing,
 		verdict,
 		id,
-		pencilAlwaysVisible = false
+		pencilAlwaysVisible = false,
+		as = 'h1',
+		editLabel,
+		placeholder
 	}: {
 		name: string;
 		isOwner: boolean;
 		onCommit: (value: string) => Promise<{ ok: true } | { conflict: TConflict }>;
 		label: string;
 		headingClass: string;
+		// The element the resting value renders as. Defaults to `h1` — every original caller
+		// (Person/Studio/Tag name, Video Title) IS the page heading. Film's year (F59/HOLODEX-317)
+		// is the first caller that is not: it sits beside a title that already owns the page's
+		// single h1, and "1999" is a field value, not a heading. Passing 'p'/'span' keeps the
+		// control's behaviour while dropping the false heading semantics.
+		as?: 'h1' | 'h2' | 'p' | 'span';
+		// Full override for the pencil's accessible name. Defaults to `Rename this {label}`,
+		// which is right for a name and wrong for anything else — "Rename this year" describes
+		// no action a user would recognise.
+		editLabel?: string;
+		// Resting text when `name` is empty, e.g. "No year set". The edit input still opens
+		// empty (it binds `name`, not this), so the placeholder never becomes a value the owner
+		// has to delete before typing. Callers whose value cannot be empty omit it and are
+		// unaffected.
+		placeholder?: string;
 		// Optional anchor id for deep links (e.g. the completeness queue's #field-title) —
 		// applied to the root wrapper since the rendered element differs by editing state.
 		id?: string;
@@ -123,6 +141,9 @@
 		conflict = null;
 		focusPencil();
 	}
+
+	// `Rename this {label}` stays the default so no existing caller changes.
+	const pencilLabel = $derived(editLabel ?? `Rename this ${label}`);
 </script>
 
 {#if editing}
@@ -131,7 +152,7 @@
 			bind:this={input}
 			bind:value
 			type="text"
-			aria-label={`Rename this ${label}`}
+			aria-label={pencilLabel}
 			aria-describedby={error ? 'name-edit-error' : undefined}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') cancelEdit();
@@ -153,13 +174,13 @@
 	</form>
 {:else}
 	<div {id} class="name-edit-row flex items-center gap-2">
-		<h1 class={headingClass}>{name}</h1>
+		<svelte:element this={as} class={headingClass}>{name || placeholder || ''}</svelte:element>
 		{#if trailing}{@render trailing()}{/if}
 		{#if isOwner}
 			<button
 				bind:this={pencil}
 				type="button"
-				aria-label={`Rename this ${label}`}
+				aria-label={pencilLabel}
 				onclick={startEdit}
 				class="name-edit-pencil {pencilAlwaysVisible
 					? 'name-edit-pencil--visible'

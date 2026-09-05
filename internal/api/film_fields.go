@@ -81,12 +81,23 @@ func (h *Handlers) filmProviders(rows []repo.EnrichmentRow) []string {
 // record vocabulary. Mirrors resolveStudio, trimmed of the promotion/claims/
 // completeness machinery studio accumulated across F44/F55 -- not required by the
 // films spec.
-func (h *Handlers) resolveFilm(ctx context.Context, id int64, f *model.Film) []resolver.ResolvedField {
+// filmEnrichmentRows reads a film's shadow enrichment, logging and degrading to nil on
+// error. Split out so getFilm can fetch once and share the result with both consumers
+// (resolveFilm and filmBilledCast) — they previously issued the same query twice per
+// detail read, which was wasted work and let the two be computed from different
+// snapshots if a write landed between them.
+func (h *Handlers) filmEnrichmentRows(ctx context.Context, id int64) []repo.EnrichmentRow {
 	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityFilm, id)
 	if err != nil {
 		h.log.Warn("enrichment for film detail", "id", id, "err", err)
-		rows = nil
+		return nil
 	}
+	return rows
+}
+
+// resolveFilm resolves a film's fields from already-fetched enrichment rows. Callers
+// that need the rows for anything else pass the same slice, so one read serves both.
+func (h *Handlers) resolveFilm(ctx context.Context, id int64, f *model.Film, rows []repo.EnrichmentRow) []resolver.ResolvedField {
 	var cur resolver.Curation
 	if curRows, curErr := h.repo.CurationForEntity(ctx, model.EnrichEntityFilm, id); curErr != nil {
 		h.log.Warn("curation for film detail", "id", id, "err", curErr)
@@ -171,6 +182,12 @@ func (h *Handlers) setFilmFieldDecision(w http.ResponseWriter, r *http.Request) 
 		h.fail(w, "set film decision", err)
 		return
 	}
+	// Pinning release_date to a different source can change the year the film should
+	// carry (F59/ADR-089 D3) — the fill follows the resolved value, so it belongs on
+	// every path that changes resolution, not just enrich apply.
+	if field.Canonical == "release_date" {
+		h.syncFilmYear(r.Context(), id)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -184,6 +201,9 @@ func (h *Handlers) clearFilmFieldDecision(w http.ResponseWriter, r *http.Request
 	if _, err := h.repo.ClearDecision(r.Context(), model.EnrichEntityFilm, id, field.Canonical); err != nil {
 		h.fail(w, "clear film decision", err)
 		return
+	}
+	if field.Canonical == "release_date" {
+		h.syncFilmYear(r.Context(), id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

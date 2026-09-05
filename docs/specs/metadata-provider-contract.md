@@ -288,12 +288,21 @@ source for a linked video's `collection` (the "Film" field,
 [§4.2a](#42a-canonical-fields--videomedia)) and `title` fields, through the ordinary
 field-decision/precedence UI — see the reserved-namespace note in
 [§4.1](#41-external-ids-and-namespaces). Provider-driven film enrichment (matching a Film to an
-upstream source) is a deferred, not-yet-built roadmap item (films spec P1-1), but
-[ADR-086](../architecture/ADR-086-film-provider-enrichment.md) has settled the shape it will take:
+upstream source) is **live** as of [ADR-086](../architecture/ADR-086-film-provider-enrichment.md):
 a film gets its **own `entity_type: "film"`** (never a reuse of `video`) with its own canonical
 field vocabulary ([§4.2c](#42c-canonical-fields--film)), and its poster is an **asset** (the
-existing `poster` kind, [§4.3](#43-assets)), not a `fields` entry. None of this is live yet — see
-[Open items](#open-items-flagged-for-holodex-maintainers).
+existing `poster` kind, [§4.3](#43-assets)), not a `fields` entry. The shipped TMDB provider
+advertises `film` and serves `/resolve` + `/enrich` for it.
+
+> **A film's canonical vocabulary is narrower than what a movie-shaped provider will naturally
+> send.** Holodex consumes only `description` and `release_date` from a film `/enrich` response
+> today ([§4.2c](#42c-canonical-fields--film)), plus the `poster` asset. Keys such as `title`,
+> `studio`, `actors` and `director` are accepted and stored, but a film's title is owner-asserted
+> identity (not provider-writable) and its cast/studio are derived from the videos attached to it
+> — so those keys are **not** applied to the film. Sending them is harmless; expecting them to
+> land is not. Widening this is tracked as F59
+> ([film-provider-enrichment-ux.md](film-provider-enrichment-ux.md),
+> [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md)).
 
 **Video and studio each have their own canonical field vocabulary** — see [§4.2a](#42a-canonical-fields--videomedia)
 (video) and [§4.2b](#42b-canonical-fields--studio) (studio). Critically, **a video's poster and
@@ -443,9 +452,8 @@ like Person and Studio. See [§4.3](#43-assets).
 
 ### 4.3 Assets
 
-> **`assets[]` is consumed for `entity_type: "person"` and `entity_type: "studio"` (F51,
-> ADR-079).** `entity_type: "film"` is decided to work the same way
-> ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) but is not yet live — see the
+> **`assets[]` is consumed for `entity_type: "person"`, `"studio"` (F51, ADR-079) and `"film"`
+> ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — all three are live.** See the
 > Film kind table below. There is still **no** `video`/`media` image sink: a video's own poster/cover art
 > stays a **`fields` entry** — `fields["poster_url"]` (video, `render: image_url`), exactly like
 > `bio`/`website`/any other canonical text field, just holding an image URL as the value. See
@@ -492,12 +500,18 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `icon` | Small list icon | ~1:1 | No provider emits this yet — reserved |
 | `poster` | Tall poster | ~2:3 | No provider emits this yet — reserved |
 
-**Film** (`entity_type: "film"`, decided by [ADR-086](../architecture/ADR-086-film-provider-enrichment.md),
-not yet live — see [§3](#3-entity-types-and-matching)):
+**Film** (`entity_type: "film"`, [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) —
+live, see [§3](#3-entity-types-and-matching)):
 
 | `kind` | Meaning | Target aspect | Notes |
 |---|---|---|---|
-| `poster` | Portrait movie poster | ~2:3 | The films-list/detail-page image. Same `poster` kind as Person/Studio — a film's portrait poster is the primary and, in v1, only planned film asset kind |
+| `poster` | Portrait movie poster | ~2:3 | The films-list/detail-page image. Same `poster` kind as Person/Studio. Currently the only film kind Holodex stores |
+
+> A landscape film image — the existing `banner` kind (~16:9, `backdrop` accepted as a synonym),
+> reusing Person's, replacing the consumer-less `thumb` role — is **decided but not yet built**
+> ([ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4). A `banner` sent for
+> a film today is dropped as an unknown kind, per the rule below. Emitting it early is safe and
+> costs nothing; it starts landing when D4 ships.
 
 Each entity type has its own kind namespace — a studio's `logo` kind is unrelated to a
 person's `poster` kind, even though the string differs. Holodex maps each kind to one image
@@ -1125,12 +1139,14 @@ truth if a clarification is needed:
   `studio` are all live and exercised today (this section previously said only `person` was
   supported; that was stale). A `series` entity type beyond the file-per-video model remains
   designed-in but unexercised; coordinate its canonical field vocabulary before shipping one.
-- **Film provider enrichment** — the Films entity (F56/[ADR-085](../architecture/ADR-085-films-entity.md))
-  is owner-asserted only in v1; matching a Film to an upstream metadata source is still a deferred
-  roadmap item (films spec P1-1), but the design question is **resolved by
-  [ADR-086](../architecture/ADR-086-film-provider-enrichment.md)**: film gets its own
+- **Film provider enrichment** — **resolved and shipped**
+  ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)). Film has its own
   `entity_type: "film"` (never a reuse of `video`), its own canonical fields
   ([§4.2c](#42c-canonical-fields--film): `description`, `release_date`), and a portrait poster as
   an `assets[]` entry (the existing `poster` kind, [§4.3](#43-assets)) — never a `fields` entry.
-  No provider exercises any of this today — flagged here so a provider author isn't surprised film
-  support is absent from `entity_types` yet, and knows the target shape to build toward.
+  The TMDB provider advertises `film` and serves it. What remains open is the **breadth** of the
+  film field vocabulary, not its existence: a film's title is owner-asserted identity and its
+  cast/studio are derived from its attached videos, so a provider's `title`/`studio`/`actors` are
+  stored but not applied. See F59 ([film-provider-enrichment-ux.md](film-provider-enrichment-ux.md),
+  [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md)) for the decided
+  landing zone of each, and the §4.3 note on the not-yet-built film `banner` kind.

@@ -27,7 +27,8 @@
 		remove: removeImage,
 		onchanged,
 		variant = 'row',
-		frameClass: frameClassProp
+		frameClass: frameClassProp,
+		fit = 'contain'
 	}: {
 		entityId: number;
 		entityName: string;
@@ -40,6 +41,12 @@
 		onchanged: () => void;
 		variant?: 'row' | 'frame';
 		frameClass?: string;
+		// How the image fills its slot. `contain` (default) suits every role whose art
+		// already matches the slot's aspect — a 2:3 poster in a 2:3 frame fills it exactly.
+		// `cover` is for a slot whose ratio deliberately differs from the source: the film
+		// banner shows a ~16:9 backdrop in an 8:3 band, which `contain` pillarboxes against
+		// the light plate. The design handoff calls for a crop, not letterboxing.
+		fit?: 'contain' | 'cover';
 	} = $props();
 
 	const isPoster = $derived(role === 'poster');
@@ -97,10 +104,19 @@
 			: 'bg-logo-plate'} {frameClass}"
 	>
 		{#if url}
+			<!-- The padding is what shows as a "frame": `object-contain` letterboxes the image
+			     against `bg-logo-plate`, so the inset reads as a light border. The row variant
+			     keeps `p-1` (a small thumbnail needs the breathing room); the hero frame drops to
+			     `p-0.5`, where the same 4px was visually heavy against a 160px poster. -->
 			<img
 				src={url}
 				alt={`${entityName} ${label.toLowerCase()}`}
-				class="h-full w-full object-contain p-1 {uploading ? 'opacity-60' : ''}"
+				class="h-full w-full {fit === 'cover' ? 'object-cover' : 'object-contain'} {fit ===
+				'cover'
+					? ''
+					: isFrame
+						? 'p-0.5'
+						: 'p-1'} {uploading ? 'opacity-60' : ''}"
 			/>
 		{:else if isPoster && isOwner}
 			<button
@@ -185,12 +201,15 @@
 			{#if isOwner}
 				<div class="flex items-center gap-2">
 					{#if !isPoster || url}
+						<!-- "Replace" only describes the action when something is there to
+						     replace. A non-poster role with an empty slot (e.g. a film's
+						     banner) reaches this branch too, where the verb is an upload. -->
 						<button
 							onclick={openPicker}
 							disabled={uploading}
 							class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-50"
 						>
-							Replace
+							{url ? 'Replace' : 'Upload'}
 						</button>
 					{/if}
 					{#if url}

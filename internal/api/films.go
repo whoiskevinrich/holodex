@@ -20,6 +20,9 @@ import (
 // mounted ungated, alongside listStudios/getStudio.
 func (h *Handlers) mountFilms(r chi.Router) {
 	r.Post("/films", h.createFilm)
+	// The owner's direct year edit (F59/HOLODEX-317). Separate from the field-decision
+	// surface below because films.year is an identity column, not a resolved field.
+	r.Put("/films/{id}/year", h.setFilmYear)
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)
@@ -79,7 +82,9 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setFilmImageURLs(f)
-	resolved := h.resolveFilm(r.Context(), id, f)
+	// One read of the shadow serves both the resolver and the billed-cast complement.
+	enrichRows := h.filmEnrichmentRows(r.Context(), id)
+	resolved := h.resolveFilm(r.Context(), id, f, enrichRows)
 
 	fvs, err := h.repo.FilmVideos(r.Context(), id)
 	if err != nil {
@@ -123,6 +128,10 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Billed-but-absent cast (F59/ADR-089 D2) — computed from the enrichment shadow
+	// fetched above against the scene union, storing nothing. See film_cast.go.
+	billedAbsent, billedTotal := h.filmBilledCast(r.Context(), enrichRows, cast)
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"film":           f,
 		"resolved":       resolved,
@@ -132,6 +141,8 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		"tags":           tags,
 		"studios":        studios,
 		"credited_roles": credited,
+		"billed_absent":  billedAbsent,
+		"billed_total":   billedTotal,
 	})
 }
 
