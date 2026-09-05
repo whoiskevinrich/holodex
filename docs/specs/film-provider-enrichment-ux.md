@@ -245,6 +245,19 @@ backend already shipped.)*
   > standard `provider:<name>` grammar (ADR-051). Changing either to match the other would break
   > the layer it belongs to.
 
+- **P0-12 — The year is an owner-editable field, and a collision is its inline verdict.**
+  *(Added 2026-09-04 after owner review of P0-5's first cut — see ADR-089 D3.)* The year renders in
+  the header via `NameEditControl` (the Media page's Title/Studio affordance), with `No year set` as
+  its resting empty state, mirroring the `No studio set` line below it. A `(name, year)` clash renders
+  as that control's `verdict`, naming and linking the occupant.
+
+  Two defects this fixes, both worth stating because both were shipped first: a collision message
+  styled `text-warn` reads as a *failure* for a request that succeeded; and a message about "this
+  film's year" has **no referent** when the header renders nothing where the year belongs — while
+  sitting beside a visible `Released` value it appears to contradict. Acceptance: exactly one `h1` on
+  the page (the year is not a heading); an owner set may overwrite where the provider fill may not;
+  a collision returns `200 {conflict}` so the control shows a verdict, not an error.
+
 ### Should-have (P1)
 
 - **P1-1**: **Scene-coverage summary line.** Render the counts the difference list implies — *"your

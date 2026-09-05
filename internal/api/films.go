@@ -20,6 +20,9 @@ import (
 // mounted ungated, alongside listStudios/getStudio.
 func (h *Handlers) mountFilms(r chi.Router) {
 	r.Post("/films", h.createFilm)
+	// The owner's direct year edit (F59/HOLODEX-317). Separate from the field-decision
+	// surface below because films.year is an identity column, not a resolved field.
+	r.Put("/films/{id}/year", h.setFilmYear)
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)

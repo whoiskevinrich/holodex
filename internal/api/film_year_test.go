@@ -1,7 +1,9 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -258,5 +260,167 @@ func TestFillFilmYear(t *testing.T) {
 
 	if _, err := r.FillFilmYear(ctx, 999999, 2001); err == nil {
 		t.Error("FillFilmYear on a missing film returned no error")
+	}
+}
+
+// putJSON issues a PUT and returns code + decoded body — sendDecision (decisions_test.go)
+// returns only the code, and the year endpoint's whole point is the {conflict} payload.
+func putJSON(t *testing.T, url string, body any) (int, map[string]any) {
+	t.Helper()
+	buf, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(buf))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PUT %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	var out map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
+// The owner's direct year edit (F59/HOLODEX-317). The asymmetry with the provider fill
+// is the point of this test: an owner MAY overwrite, because the owner is the party
+// asserting the identity in the first place.
+func TestSetFilmYearEndpoint(t *testing.T) {
+	srv, r, fid := filmYearServer(t, "Spirited Away")
+	base := srv.URL + "/api/v1/films/" + itoa(fid) + "/year"
+
+	code, body := putJSON(t, base, map[string]any{"year": 2001})
+	if code != http.StatusOK {
+		t.Fatalf("set year code = %d", code)
+	}
+	if got, _ := body["year"].(float64); int(got) != 2001 {
+		t.Fatalf("response year = %v, want 2001", body["year"])
+	}
+	if got := filmYear(t, r, fid); got != 2001 {
+		t.Fatalf("films.year = %d, want 2001", got)
+	}
+
+	// Overwrite: allowed here, unlike repo.FillFilmYear's provider-driven path.
+	if code, _ = putJSON(t, base, map[string]any{"year": 2002}); code != http.StatusOK {
+		t.Fatalf("overwrite code = %d", code)
+	}
+	if got := filmYear(t, r, fid); got != 2002 {
+		t.Fatalf("films.year after overwrite = %d, want 2002 — an owner edit must not be fill-only", got)
+	}
+
+	// A non-positive year is a request error, not a silent no-op: the owner typed it.
+	for _, bad := range []int{0, -5} {
+		if code, _ = putJSON(t, base, map[string]any{"year": bad}); code != http.StatusBadRequest {
+			t.Errorf("year=%d code = %d, want 400", bad, code)
+		}
+	}
+	if got := filmYear(t, r, fid); got != 2002 {
+		t.Fatalf("films.year after rejected input = %d, want an unchanged 2002", got)
+	}
+
+	if code, _ = putJSON(t, srv.URL+"/api/v1/films/999999/year", map[string]any{"year": 2001}); code != http.StatusNotFound {
+		t.Errorf("missing film code = %d, want 404", code)
+	}
+}
+
+// A clash returns 200 + {conflict}, NOT a 4xx. That is deliberate and load-bearing:
+// NameEditControl's onCommit contract treats a rejected promise as a *failure* and
+// renders it as a red inline error, while a resolved {conflict} routes to the verdict
+// card the owner can act on. Returning 409 here would resurrect the exact red-error
+// presentation HOLODEX-317 exists to remove.
+func TestSetFilmYearEndpoint_CollisionIsAConflictNotAnError(t *testing.T) {
+	srv, r, fid := filmYearServer(t, "Spirited Away")
+	ctx := context.Background()
+
+	occupantID, err := r.CreateFilm(ctx, "Spirited Away", 2001)
+	if err != nil {
+		t.Fatalf("create occupant: %v", err)
+	}
+
+	code, body := putJSON(t, srv.URL+"/api/v1/films/"+itoa(fid)+"/year", map[string]any{"year": 2001})
+	if code != http.StatusOK {
+		t.Fatalf("collision code = %d, want 200 — a conflict is an answer, not a failure", code)
+	}
+	if _, ok := body["year"]; ok {
+		t.Error("collision response carried a `year`; the caller could mistake it for a successful set")
+	}
+	conflict, _ := body["conflict"].(map[string]any)
+	if conflict == nil {
+		t.Fatal("no conflict payload; NameEditControl would report success and show a stale year")
+	}
+	if got, _ := conflict["film_id"].(float64); int64(got) != occupantID {
+		t.Errorf("conflict film_id = %v, want %d", conflict["film_id"], occupantID)
+	}
+	if conflict["film_name"] != "Spirited Away" {
+		t.Errorf("conflict film_name = %v", conflict["film_name"])
+	}
+
+	if got := filmYear(t, r, fid); got != 0 {
+		t.Errorf("target year = %d, want it left unset", got)
+	}
+	if got := filmYear(t, r, occupantID); got != 2001 {
+		t.Errorf("occupant year = %d, want an untouched 2001", got)
+	}
+}
+
+// SetFilmYear and FillFilmYear differ on exactly one axis — overwrite — and share the
+// collision guard. Pinning both here stops a later "consolidation" from collapsing them
+// into one function and silently giving providers overwrite rights.
+func TestSetFilmYear_OverwritesWhereFillDoesNot(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+	r := repo.New(database)
+	ctx := context.Background()
+
+	fid, err := r.CreateFilm(ctx, "Akira", 1988)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// The provider path leaves an existing year alone...
+	if c, err := r.FillFilmYear(ctx, fid, 2016); err != nil || c != nil {
+		t.Fatalf("FillFilmYear = (%v, %v)", c, err)
+	}
+	if got := filmYear(t, r, fid); got != 1988 {
+		t.Fatalf("fill overwrote an existing year: %d", got)
+	}
+
+	// ...the owner path replaces it.
+	if c, err := r.SetFilmYear(ctx, fid, 2016); err != nil || c != nil {
+		t.Fatalf("SetFilmYear = (%v, %v)", c, err)
+	}
+	if got := filmYear(t, r, fid); got != 2016 {
+		t.Fatalf("owner set did not overwrite: %d", got)
+	}
+
+	// Both still refuse to duplicate (name, year).
+	other, err := r.CreateFilm(ctx, "Akira", 0)
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	c, err := r.SetFilmYear(ctx, other, 2016)
+	if err != nil {
+		t.Fatalf("collision errored: %v", err)
+	}
+	if c == nil || c.FilmID != fid {
+		t.Fatalf("collision = %+v, want the 2016 Akira (%d)", c, fid)
+	}
+	if got := filmYear(t, r, other); got != 0 {
+		t.Fatalf("year after collision = %d, want unset", got)
+	}
+
+	if _, err := r.SetFilmYear(ctx, fid, 0); err == nil {
+		t.Error("SetFilmYear(0) returned no error")
+	}
+	if _, err := r.SetFilmYear(ctx, 999999, 2001); err == nil {
+		t.Error("SetFilmYear on a missing film returned no error")
 	}
 }

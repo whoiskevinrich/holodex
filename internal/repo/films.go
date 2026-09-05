@@ -246,6 +246,49 @@ func (r *Repo) FillFilmYear(ctx context.Context, filmID int64, year int) (*FilmY
 	return nil, nil
 }
 
+// SetFilmYear sets a film's year on an explicit owner action (F59/HOLODEX-317).
+//
+// Unlike FillFilmYear above this MAY overwrite an existing year. The one-way rule
+// there exists because a *provider* must not silently rewrite owner-asserted
+// identity; an owner editing the field is the asserting party, so the same guard
+// would just be an obstruction. Both still share the one invariant that matters:
+// (name, year) never duplicates.
+//
+// Returns a non-nil collision -- and writes nothing -- when another film already
+// holds (name, year).
+func (r *Repo) SetFilmYear(ctx context.Context, filmID int64, year int) (*FilmYearCollision, error) {
+	if year <= 0 {
+		return nil, fmt.Errorf("set film year: year must be positive")
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	var name string
+	if err := r.db.QueryRowContext(ctx, `SELECT name FROM films WHERE id = ?`, filmID).Scan(&name); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("read film for year set: %w", err)
+	}
+
+	var occupantID int64
+	var occupantName string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, name FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
+		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName)
+	switch {
+	case err == nil:
+		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year}, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return nil, fmt.Errorf("check film year collision: %w", err)
+	}
+
+	if _, err := r.db.ExecContext(ctx, `UPDATE films SET year = ? WHERE id = ?`, year, filmID); err != nil {
+		return nil, fmt.Errorf("set film year: %w", err)
+	}
+	return nil, nil
+}
+
 // ListFilms returns every film, name-sorted, with its active-video count. Unlike
 // ListStudios, a zero-count film is NOT excluded: film_videos has no prune-on-empty
 // reconciler (it's an assertion, not a derived index), so an empty film is a

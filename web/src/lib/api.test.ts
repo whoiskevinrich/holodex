@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { api, ENRICH_ENTITY_BASE } from './api';
+import { api, ApiError, ENRICH_ENTITY_BASE } from './api';
 import { runEnrichRefresh, runEnrichRefreshAll } from './enrichRefresh';
 
 // Person image serving URLs (F25, ADR-038). The frontend always appends the active
@@ -379,5 +379,48 @@ describe('film enrichment clients (F59)', () => {
 
 		expect(errors.at(-1)).toBeTruthy();
 		expect(reload).not.toHaveBeenCalled();
+	});
+});
+
+// The film year edit (F59/HOLODEX-317). The contract that matters here is that a
+// (name, year) clash arrives as a 200 carrying {conflict} — NameEditControl routes a
+// resolved conflict to its inline verdict card, and a *rejected* promise to a red
+// error string. Mapping this to a 4xx would resurrect the error presentation the story
+// exists to remove, so the shape is pinned on the client side too.
+describe('film year edit (F59)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	function stub(status: number, body?: unknown) {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(body === undefined ? null : JSON.stringify(body), { status })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+		return fetchMock;
+	}
+
+	it('PUTs the year to the film year path', async () => {
+		const fetchMock = stub(200, { year: 1999 });
+		const res = await api.setFilmYear(12, 1999);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/year',
+			expect.objectContaining({ method: 'PUT', body: JSON.stringify({ year: 1999 }) })
+		);
+		expect(res.year).toBe(1999);
+		expect(res.conflict).toBeUndefined();
+	});
+
+	it('surfaces a collision as a resolved conflict, never a throw', async () => {
+		stub(200, { conflict: { film_id: 4, film_name: 'Dune', year: 2021 } });
+		const res = await api.setFilmYear(12, 2021);
+		// A throw here would render red inline-error text instead of the verdict card.
+		expect(res.conflict).toEqual({ film_id: 4, film_name: 'Dune', year: 2021 });
+		expect(res.year).toBeUndefined();
+	});
+
+	it('still throws on a real failure, so the control can show an error', async () => {
+		stub(400, { error: 'year must be a positive number' });
+		await expect(api.setFilmYear(12, 0)).rejects.toBeInstanceOf(ApiError);
 	});
 });

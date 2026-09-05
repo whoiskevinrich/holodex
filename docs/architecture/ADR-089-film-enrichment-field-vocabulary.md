@@ -157,6 +157,17 @@ alone, with the occupying film named and linked. The invariant that actually mat
 is asserted adversarially: **`(name, year)` never duplicates, and the year either moves completely or
 not at all.** This still mirrors films-entity's scene-number posture — no silent swap, no auto-bump.
 
+**An owner's direct edit is a third path, and it may overwrite** (HOLODEX-317). `repo.SetFilmYear`
+sits beside `FillFilmYear` and differs on exactly one axis: the fill-only rule above exists so a
+*provider* cannot silently rewrite owner-asserted identity, and the owner is the asserting party, so
+the same guard would only obstruct them. Both share the `(name, year)` collision probe, and a test
+pins the pair so a later "consolidation" cannot quietly hand providers overwrite rights.
+
+That edit surfaces through `NameEditControl` in the film header, and its endpoint returns
+**`200 {conflict}` rather than a 4xx** — the control routes a resolved conflict to its inline verdict
+card and a rejected promise to a red error string, so mapping a collision to an error status would
+re-create the very presentation this decision rejects. A conflict is an answer, not a failure.
+
 `name` is explicitly **not** made enrichable. Film title enrichment, if ever wanted, is an ADR-061
 unified name-edit integration — collision detection, merge offer, alias handling — and is a separate
 decision, not a field-list edit. Recorded here so a future session does not "fix" the read-only name

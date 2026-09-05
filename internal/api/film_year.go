@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -86,4 +88,49 @@ func (h *Handlers) syncFilmYear(ctx context.Context, id int64) *repo.FilmYearCol
 			"film_id", id, "year", year, "occupant_id", collision.FilmID)
 	}
 	return collision
+}
+
+// setFilmYear handles PUT /films/{id}/year (owner-gated) — the explicit owner edit
+// behind the header's NameEditControl (F59/HOLODEX-317). Unlike syncFilmYear's
+// provider-driven fill this may overwrite, because the owner is the asserting party
+// (repo.SetFilmYear documents the asymmetry).
+//
+// A collision returns 200 with {conflict}, not 4xx: NameEditControl's onCommit
+// contract distinguishes a *conflict* — a real answer the owner acts on via the
+// verdict card — from a *failure*, which it renders as an inline error. Returning
+// 409 here would surface "Kept this film's year unset…" as a red error string again,
+// which is the exact defect this story exists to remove.
+func (h *Handlers) setFilmYear(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if _, err := h.repo.GetFilm(r.Context(), id); err != nil {
+		h.filmLookupError(w, err)
+		return
+	}
+	var body struct {
+		Year int `json:"year"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.Year <= 0 {
+		writeError(w, http.StatusBadRequest, "year must be a positive number")
+		return
+	}
+	collision, err := h.repo.SetFilmYear(r.Context(), id, body.Year)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "film not found")
+			return
+		}
+		h.fail(w, "set film year", err)
+		return
+	}
+	if collision != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"conflict": collision})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"year": body.Year})
 }

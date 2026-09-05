@@ -26,6 +26,9 @@
 
   <text x="148" y="206" fill="#f3ece1" font-size="18" font-weight="600" font-family="'Fraunces Variable', serif">The Matrix</text>
   <text x="148" y="226" fill="#9b9082" font-size="11">1999</text>
+  <rect x="182" y="215" width="15" height="15" rx="4" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="189" y="226" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+  <text x="205" y="226" fill="#9b9082" font-size="9">editable · "No year set" when empty</text>
 
   <rect x="148" y="240" width="118" height="26" rx="13" fill="#181310" stroke="#2a2622" stroke-width="1"/>
   <text x="207" y="257" fill="#f3ece1" font-size="11" text-anchor="middle">Warner Bros.</text>
@@ -53,12 +56,12 @@
   <text x="594" y="176" fill="#f3ece1" font-size="12">1999-03-31</text>
   <text x="594" y="190" fill="#e8a33d" font-size="9">TMDB</text>
 
-  <text x="594" y="216" fill="#9b9082" font-size="10.5">Year — identity, collision-checked</text>
-  <text x="594" y="234" fill="#f3ece1" font-size="12">1999</text>
-
-  <line x1="594" y1="252" x2="856" y2="252" stroke="#2a2622" stroke-width="1"/>
-  <text x="594" y="270" fill="#9b9082" font-size="10">Title stays read-only — the other half of</text>
-  <text x="594" y="284" fill="#9b9082" font-size="10">UNIQUE(name, year). See D3.</text>
+  <line x1="594" y1="212" x2="856" y2="212" stroke="#2a2622" stroke-width="1"/>
+  <text x="594" y="232" fill="#9b9082" font-size="10">Year is NOT a row here — it is identity,</text>
+  <text x="594" y="246" fill="#9b9082" font-size="10">not a resolved field, and lives in the</text>
+  <text x="594" y="260" fill="#9b9082" font-size="10">header (D3). A Year row beside Released</text>
+  <text x="594" y="274" fill="#9b9082" font-size="10">read as a contradiction.</text>
+  <text x="594" y="292" fill="#9b9082" font-size="10">Title stays read-only.</text>
 
   <circle cx="722" cy="68" r="10" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
   <text x="722" y="72" fill="#e8a33d" font-size="11" text-anchor="middle">2</text>

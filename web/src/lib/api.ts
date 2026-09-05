@@ -725,6 +725,15 @@ export const api = {
 	enrichFilmClear: (filmId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/enrich/${encodeURIComponent(provider)}`),
 
+	// The owner's direct year edit (F59/HOLODEX-317), behind the header's NameEditControl.
+	// A `(name, year)` clash comes back as 200 + {conflict} rather than a 4xx, matching
+	// NameEditControl's onCommit contract: a conflict is an answer the owner acts on in the
+	// verdict card, not a failure to render as an error string.
+	setFilmYear: (filmId: number, year: number) =>
+		sendAuthed<{ year?: number; conflict?: FilmYearCollision }>('PUT', `/films/${filmId}/year`, {
+			year
+		}),
+
 	// Per-item metadata refresh (F31, ADR-047) — forced file re-extract + re-enrich
 	// of the item's linked providers. Owner-gated; returns the combined report.
 	refreshMedia: (videoId: number) =>

@@ -43,6 +43,41 @@ vocabulary decisions that surface forces.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · HOLODEX-317 — the year became a field instead of a message; backlink removed
+
+- skills: (none — implementation)
+- Built the owner's direction: the film year is now an **editable field in the header** via
+  `NameEditControl` — the Media page's Title/Studio affordance — and a `(name, year)` clash renders
+  as that control's inline **verdict**, in the control the owner just used. The Details-section
+  advisory and its state are deleted outright.
+- **The drop-in did not work as-is, and the reason was worth the detour.** `NameEditControl`
+  hardcoded `<h1>`; mounting it for the year would have put a second `h1` on the page and declared
+  "1999" a page heading. It also had no empty-state text, and prefilled the edit input from the
+  displayed string — so a "No year set" placeholder would have become a value to delete. Widened it
+  with three optional, defaulted props (`as`, `editLabel`, `placeholder`); every existing call site
+  is untouched. Recorded in `entity/CLAUDE.md`, including a pointer for the next person tempted to
+  copy `name-edit-row` by hand instead of mounting the component.
+- Backend: `repo.SetFilmYear` beside `FillFilmYear`, differing on exactly one axis — **an owner may
+  overwrite, a provider may not** — with a test pinning both halves so a later consolidation cannot
+  quietly grant providers that right. `PUT /films/{id}/year` returns **`200 {conflict}`, not a 4xx**:
+  `NameEditControl` routes a resolved conflict to the verdict card and a rejected promise to a red
+  error string, so a 409 would have silently restored the exact presentation this story deletes.
+  That status code is asserted directly.
+- Removed the "← All films" backlink in the same change (owner request) — the nav's Films link
+  already goes there, matching the person page's #286.
+- Verified live end to end: empty state → pencil → collision verdict (linked occupant + rationale +
+  View/Cancel) → cancel → clean save renders `1984`. **Exactly one `h1`** confirmed in the DOM, and
+  the "All films" anchor confirmed gone while the nav link remains. Contrast: `No year set`
+  6.31/4.90/5.73, verdict claim 16.00/15.59/18.50, rationale 6.00/4.67/5.59 across the three skins.
+- Tests: 3 new Go (7 in the film-year files now), 3 new client. Full Go suite green, `npm run check`
+  0 errors, 163 frontend tests pass. The committed mockup was corrected too — its Details panel still
+  showed a Year row, which is now precisely the arrangement the story removed.
+- **Known limitation, called out rather than left to be discovered:** `NameEditControl` rejects an
+  empty commit (right for a name), so a year cannot be *un*-set from the UI once given. Setting a
+  wrong year is recoverable; returning to "no year" is not.
+- handoff: 310 (cast) and 312 (banner) remain. 312 touches the same header, so rebase on this.
+  Studio still wants the same treatment via `StudioPicker` — commented on HOLODEX-285, not done here.
+
 ### 2026-09-04 · owner review of the 311 message → interim fix + a better direction (HOLODEX-317)
 
 - skills: (none — review response)

@@ -31,6 +31,7 @@
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
+	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -63,10 +64,21 @@
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
-	// A withheld films.year fill (F59/ADR-089 D3). Deliberately separate from
-	// actionError: the apply *succeeded*, so this is an advisory about one skipped
-	// identity write, not a failed request.
-	let yearCollision = $state<FilmYearCollision | null>(null);
+
+	// The owner's year edit (F59/HOLODEX-317). A (name, year) clash surfaces as
+	// NameEditControl's inline `verdict` beside the year itself — the control the owner
+	// just used — rather than as a message in another section about a field with no
+	// visible slot, which is what this replaced.
+	async function commitYear(value: string): Promise<{ ok: true } | { conflict: FilmYearCollision }> {
+		const year = Number(value.trim());
+		if (!Number.isInteger(year) || year <= 0) {
+			throw new Error('Enter a year, e.g. 1999.');
+		}
+		const res = await api.setFilmYear(id, year);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadDetail();
+		return { ok: true };
+	}
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
@@ -247,7 +259,8 @@
 <AsyncState {loading} {error}>
 	{#if film}
 		<section class="mx-auto max-w-4xl space-y-6">
-			<a href="/films" class="text-sm text-muted hover:text-ink">← All films</a>
+			<!-- No "All films" backlink: the nav's Films link already goes there, and the person
+			     page dropped its equivalent for the same reason (#286). -->
 
 			<!-- 2a. Header -->
 			<div class="flex flex-col gap-4 sm:flex-row">
@@ -268,7 +281,46 @@
 				</div>
 				<div class="flex-1 space-y-2">
 					<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
-					{#if film.year}<p class="text-sm text-muted">{film.year}</p>{/if}
+
+					<!-- Year (F59/HOLODEX-317). Reuses the Media page's edit affordance rather than
+					     imitating it — this page previously hand-rolled `name-edit-row`/
+					     `name-edit-pencil` for the studio row below without the component.
+					     `as="p"` because the title above already owns the page's only h1 and a
+					     year is a field value, not a heading. The empty state mirrors "No studio
+					     set" one row down, so the year finally has a visible slot to be absent
+					     from. -->
+					<NameEditControl
+						name={film.year ? String(film.year) : ''}
+						placeholder="No year set"
+						as="p"
+						headingClass="text-sm text-muted"
+						label="film"
+						editLabel={film.year ? 'Change the year for this film' : 'Set a year for this film'}
+						{isOwner}
+						onCommit={commitYear}
+						id="field-year"
+					>
+						{#snippet verdict(c: FilmYearCollision, resolve: () => void)}
+							<div class="mt-2 space-y-2 rounded-theme border border-rule bg-surface p-3">
+								<p class="text-sm text-ink">
+									<a href={`/films/${c.film_id}`} class="underline hover:text-accent"
+										>{c.film_name} ({c.year})</a
+									> already uses that name and year.
+								</p>
+								<p class="text-xs text-muted">
+									A film is identified by its name and year together, so the two can't match.
+								</p>
+								<div class="flex flex-wrap gap-2">
+									<a href={`/films/${c.film_id}`} class="btn-ghost px-3 py-1.5 text-sm"
+										>View that film</a
+									>
+									<button type="button" onclick={resolve} class="btn-quiet px-3 py-1.5 text-sm">
+										Cancel
+									</button>
+								</div>
+							</div>
+						{/snippet}
+					</NameEditControl>
 
 					<div class="name-edit-row flex flex-wrap items-center gap-3 pt-1">
 						{#if studios.length}
@@ -341,10 +393,7 @@
 								linked={providerLinked}
 								{busy}
 								{refreshingAll}
-								onenrich={(p) => {
-									yearCollision = null;
-									pickerProvider = p;
-								}}
+								onenrich={(p) => (pickerProvider = p)}
 								onrefresh={refreshProvider}
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
@@ -362,24 +411,6 @@
 						<p class="text-sm text-warn">{actionError}</p>
 					{/if}
 
-					<!-- Withheld year fill (F59/ADR-089 D3). Deliberately `text-muted`, NOT
-					     `text-warn`: nothing failed, so a red line here reads as an error the
-					     owner should act on and mis-sorts alongside actionError above. It also
-					     names Released explicitly, because that field IS on screen just below
-					     and otherwise looks like it contradicts this sentence — the film's year
-					     (beside the title) and its release date are two different things.
-					     INTERIM: HOLODEX-317 replaces this line with a NameEditControl verdict
-					     on an editable year, which is where a conflict belongs. -->
-					{#if yearCollision}
-						<p class="text-sm text-muted">
-							Released was applied. The film's year — shown beside the title — stayed empty,
-							because <a
-								href={`/films/${yearCollision.film_id}`}
-								class="text-ink underline hover:text-accent"
-								>{yearCollision.film_name} ({yearCollision.year})</a
-							> already uses that name and year.
-						</p>
-					{/if}
 
 					<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
 						{#each replaceFields as f (f.canonical)}
@@ -516,12 +547,7 @@
 		entityName={film?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}
-		apply={async (prov, extId) => {
-			const res = await api.enrichFilmApply(id, prov, extId);
-			// Captured here rather than in onapplied, which only receives the fields.
-			yearCollision = res.year_collision ?? null;
-			return res;
-		}}
+		apply={(prov, extId) => api.enrichFilmApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}

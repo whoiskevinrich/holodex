@@ -8,7 +8,8 @@
 **ADR:** [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) — D1 cast landing,
 D2 merge rule, D3 year identity write, D4 banner-replaces-thumb, D5 SPA widening
 **Supersedes:** [films-entity-handoff.md](films-entity-handoff.md) §2a (header) — the poster is no
-longer the header's only image
+longer the header's only image, the year is now an editable field, and the "All films" backlink is
+gone (the nav's Films link already goes there; the person page dropped its equivalent in #286)
 **Theming contract:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
 **tokens only, QA all three skins.**
 
@@ -42,8 +43,10 @@ chip row to its heading line and the picker at page level.
 **Gate:** the whole chip row is hidden when `films_enabled` is off. The film enrich routes are not
 registered in that state, so a rendered chip would 404 (F59 P0-3).
 
-**Field rows.** `Description` and `Release date` render as they do today. `Year` joins them as a
-read-only-looking row whose value changes only via the collision-checked apply (§4).
+**Field rows.** `Description` and `Release date` render as they do today. **`Year` is not a Details
+row** — it is the film's identity, not a resolved field, and lives as an editable control in the
+header (§4). Keeping it out of here is deliberate: a `Year` row sitting beside `Released` was the
+exact confusion that made the first attempt unreadable.
 
 ## 2. Header — banner behind the poster row
 
@@ -135,37 +138,64 @@ section.
 | Union is empty, credits exist | Cast section shows the empty-union state; the second group renders in full — this is a film whose scenes are all unattached or uncredited |
 | One difference name | Same group, singular counts copy |
 
-## 4. Year — the withheld-fill advisory
+## 4. Year — an editable field, not a message
 
-*(Amended during implementation — ADR-089 D3.)* The identity write is gated, not the enrich: the
-provider's other fields land normally and only the year is withheld. So this reads as an **advisory
-about one skipped write**, not a failed request.
+The year is an **editable field in the header** using the same docked-pencil affordance the Media
+page uses for Title and Studio, and a `(name, year)` clash renders as that control's inline
+**verdict** — in the control the owner just used.
 
-- Copy, as built: `Kept this film's year unset — Dune (2021) already uses that name and year.
-  Everything else from the provider was applied.` The occupying film's name+year links to it.
-- The closing sentence is load-bearing: without it the line reads as a failure, and the owner would
-  reasonably retry an apply that already succeeded.
-- Placement: in the Details section directly under the `actionError` slot, `text-sm text-muted` —
-  and held in its own `yearCollision` state, *not* in `actionError`, because the request succeeded.
-- Cleared when the owner opens the picker again, so it never outlives the apply it describes.
-- **No auto-bump, no silent swap** — the same posture as scene-number collisions on attach. And no
-  overwrite: the fill only ever fills a blank year.
+### 4a. At rest
 
-> **Corrected after owner review (2026-09-04), and the reason is worth keeping.** This first shipped
-> as `text-warn`. Red reads as *failure* for something that succeeded — and the spec had already said
-> to treat it as an advisory, so the distinction existed in the code and not on screen. Worse, the
-> copy referred to "this film's year" while `Released: 2021-09-15` sat visibly below it: two different
-> things that read as one contradiction. **A message must name things the reader can actually see.**
->
-> The deeper problem is structural and this section does not fix it: when a film has no year, the
-> header renders *nothing* where the year would go, so the sentence explains an invisible absence.
-> **[HOLODEX-317](https://whoiskevinrich.atlassian.net/browse/HOLODEX-317) replaces this line
-> entirely** — the year becomes an editable `NameEditControl` field and the collision becomes its
-> inline `verdict`, landing in the control the owner just used. Treat everything in this §4 as
-> interim.
+| State | Rendering |
+|---|---|
+| Year set | `1999` in `text-sm text-muted`, directly under the title, pencil on hover/focus |
+| Year unset | `No year set`, same treatment — deliberately matching the `No studio set` line one row below |
+| Visitor | Identical resting text, no pencil (`NameEditControl` already handles this) |
 
-Contrast measured on the built line: 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and
-Brutalist (link 16.00 / 15.59 / 18.50) — AA clear in all three.
+The permanent empty state is the point, not decoration. Previously a film with no year rendered
+**nothing** where the year belongs, so any message about it referred to something invisible. Giving
+the year a slot is what makes it addressable at all.
+
+### 4b. The collision verdict
+
+Rendered by `NameEditControl`'s `verdict` snippet, inline, replacing the edit form:
+
+- Claim, linked: `Dune (2021) already uses that name and year.`
+- Why, muted: `A film is identified by its name and year together, so the two can't match.`
+- Actions: `View that film` (`btn-ghost`) · `Cancel` (`btn-quiet`, restores focus to the pencil).
+
+**Never `text-warn`.** A conflict is an answer the owner acts on, not a failure — and the API
+returns `200 {conflict}` precisely so the control routes it here instead of to its red inline-error
+slot. Genuine failures (a non-numeric entry, a dead server) still use that error slot, which is what
+the red is for.
+
+### 4c. Component reuse
+
+`NameEditControl` gained three optional, defaulted props to serve this mount, leaving every existing
+call site untouched — `as` (resting element; the year passes `p` because the film title already owns
+the page's only `h1`), `editLabel` (an accessible name; `Rename this year` describes no real action),
+and `placeholder`. See `web/src/lib/components/entity/CLAUDE.md`.
+
+This replaces the hand-rolled `name-edit-row`/`name-edit-pencil` markup the page was already using
+for its studio row **without** importing the component. Studio should follow via `StudioPicker` —
+tracked on HOLODEX-285, not done here.
+
+### 4d. Known limitation
+
+`NameEditControl` rejects an empty commit (correct for a name), so **a year cannot be un-set from the
+UI** once given. Setting a wrong year is recoverable by setting the right one; returning to "no year"
+is not. Acceptable for now, and called out rather than discovered.
+
+### 4e. Provider fills stay silent
+
+An enrich that withholds the year no longer prints anything. It does not need to: the header simply
+still reads `No year set`, and clicking the pencil gives the precise reason. The API still returns
+`year_collision` on the apply response (backend-tested); the SPA no longer renders a separate line
+for it.
+
+Measured on the built control — `No year set` 6.31 / 4.90 / 5.73, verdict claim 16.00 / 15.59 /
+18.50, verdict rationale 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and Brutalist. One `h1`
+on the page, confirmed in the DOM.
 
 ## 5. Out of scope
 
