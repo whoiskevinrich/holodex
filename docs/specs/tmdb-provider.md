@@ -29,7 +29,7 @@ calls to enrich local entities with data the media files do not carry. This spec
 
 - **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
 - **Movies / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the movie's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)** — as flat text fields, plus the same cast/crew as a structured **`people[]`** array with provider ids and headshots (F32, `credits: true`). The poster is a **`fields`** entry (`poster_url`) here — there is no video image sink.
-- **Films** (`entity_type: "film"`, F56/[ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — the same TMDB movie lookup as `video`, re-shaped for the Film entity by an entity-type-aware remap rather than a second response builder: `overview` becomes **`description`**, and the poster is routed to an **`assets[]`** entry (`kind: "poster"`) instead of `poster_url`. Every other key is shared with `video`. Holodex applies only `description` and `release_date` today; see [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) for why title/studio/cast are stored but not applied.
+- **Films** (`entity_type: "film"`, F56/[ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — the same TMDB movie lookup as `video`, re-shaped for the Film entity by an entity-type-aware remap rather than a second response builder: `overview` becomes **`description`**, and the poster is routed to an **`assets[]`** entry (`kind: "poster"`) instead of `poster_url`. A film additionally gets the movie's `backdrop_path` as a **`banner`** asset (F59/[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4) — the one key `video` does not receive, since a video has no image sink. Every other key is shared with `video`. Holodex resolves only `description` and `release_date`, and reads `actors` back at display time to show the cast billed on the release but absent from the owner's scenes; see [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) for why title/studio/director are stored but not applied.
 - **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, and `website` (the company homepage, TMDB page as fallback). Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a downloaded **`assets[]`** entry (`kind: "logo"`) as of F51/[ADR-079](../architecture/ADR-079-studio-image-roles.md) — **not** a `fields` image URL; a `fields["logo"]` value is silently dropped.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
@@ -124,7 +124,7 @@ provider loudly.
     "actors", "director", "studio",
     "description", "country", "logo"
   ],
-  "asset_kinds": ["headshot", "gallery", "banner"],
+  "asset_kinds": ["photo", "gallery", "banner", "logo", "poster"],
   "credits": true
 }
 ```
@@ -137,7 +137,7 @@ provider loudly.
 | `entity_types` | string[] | yes | `["person", "video", "studio", "film"]` — person for People enrichment, video for movie-file enrichment, studio for production-company enrichment, film for the Film entity (see [§2.3](#23-entity-type-and-matching-fields)) |
 | `id_namespaces` | string[] | yes | The external-ID namespaces understood — `["tmdb", "imdb"]` (TMDB exposes both) |
 | `fields` | string[] | yes | The canonical fields the provider can supply — see [§4](#4-tmdb-specific-field-mapping). Do **not** include `photo` here; advertise it in `asset_kinds` instead |
-| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`. TMDB supplies person images: `["headshot", "gallery", "banner"]` (person only; video poster is a text `fields` entry) |
+| `asset_kinds` | string[] | yes (ADR-039) | Asset kinds this provider returns in `assets[]`, across every entity type it advertises: `["photo", "gallery", "banner", "logo", "poster"]` — person `photo`/`gallery`/`banner`, studio `logo` (F51/ADR-079), film `poster`/`banner` (ADR-086/ADR-089 D4). A `video` contributes none: its poster is a text `fields` entry (`poster_url`) |
 | `credits` | boolean | optional | `true` — video enrich responses include the structured `people[]` array ([contract §4.5](metadata-provider-contract.md#45-video-credits--per-person-castcrew-with-headshots), F32) alongside the flat `actors`/`director` text fields below |
 
 ### 2.3 Entity type and matching fields
@@ -438,7 +438,7 @@ that) — tighter than the contract's ≈50 ceiling, per this feature's own spec
 
 **No `assets[]` for `entity_type: "video"`.** A video's poster is a text `fields` entry (`poster_url`), not an asset download — there is no *video* image sink that maps to a stored image slot (unlike person photos, which map to the headshot role). Holodex renders the URL directly as an image in the UI.
 
-**`entity_type: "film"` is the exception, and it is live.** The same movie response, requested for a film, emits the poster as an `assets[]` entry (`kind: "poster"`) which Holodex downloads into `film_images` — see [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) and §2.3. So "no asset sink for movies" is true of the *video* entity only; it has not been true of films since ADR-086.
+**`entity_type: "film"` is the exception, and it is live.** The same movie response, requested for a film, emits the poster as an `assets[]` entry (`kind: "poster"`) and the backdrop as a second one (`kind: "banner"`, F59/[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4), both of which Holodex downloads into `film_images` — see [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) and §2.3. So "no asset sink for movies" is true of the *video* entity only; it has not been true of films since ADR-086.
 
 ### 4.5 Studio / Company enrichment (F38 S3)
 
