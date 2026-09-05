@@ -174,15 +174,41 @@
 	);
 	// F39 (ADR-056): split the curatable canonical/mapped fields from the display-only
 	// auto-registered non-canonical fields, which render read-only after them.
-	// Studio (F52) renders in its own header-adjacent spot instead of the generic
-	// metadata dl — excluded here so it doesn't also render there. Title
-	// (HOLODEX-269) is now edited in place via NameEditControl on the header <h1> —
-	// excluded here so it doesn't also render as a SourceSelect row below.
+	// Canonical fields the Metadata list must NOT render, because the page already
+	// surfaces each one somewhere richer. Kept as one list rather than a condition per
+	// render site so "every field is shown exactly once" stays auditable in one place:
+	//   studio      → StudioLinkCard/StudioPicker under the header (F52)
+	//   title       → edited in place on the header <h1> (HOLODEX-269)
+	//   overview    → the synopsis under the header meta line (see overviewField)
+	//   poster_url  → the player's own poster + upload/remove/regenerate controls
+	//   genres      → materialized into real Tag rows, curated in the Tags section
+	//   actors      → the People grid (video_people), attach/detach per person
+	const METADATA_ELSEWHERE = ['studio', 'title', 'overview', 'poster_url', 'genres', 'actors'];
 	const canonicalResolved = $derived(
-		resolved.filter((f) => !f.auto_registered && f.canonical !== 'studio' && f.canonical !== 'title')
+		resolved.filter((f) => !f.auto_registered && !METADATA_ELSEWHERE.includes(f.canonical))
 	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
+	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
+	// Metadata fold (media-detail-entity-ux): the field list collapses the same way the
+	// Completeness panel does. Collapsed is the resting state, and — as there the score
+	// stays visible — the field count is the summary that keeps the fold honest.
+	let metadataExpanded = $state(false);
+	const metadataFieldCount = $derived(
+		canonicalResolved.length + extraFields.length || fields.length
+	);
+	// Canonicals whose `#field-<canonical>` anchor is rendered elsewhere on an owner's page,
+	// so the hidden completeness fallback below must not emit a second element with the same
+	// id. studio/title/genres/actors are unconditional for an owner (their containers gate on
+	// `isOwner || …`). overview is not: its header block keys off `overviewField`, and a field
+	// existing is NOT the same as it having a value — a decided-or-film-candidate field with
+	// zero values is deliberately retained so its pin stays changeable
+	// (internal/resolver/resolver.go), and that field reports tier `missing`. So it is tested,
+	// not listed.
+	function hasPageAnchor(canonical: string): boolean {
+		if (canonical === 'overview') return !!overviewField;
+		return canonical === 'studio' || canonical === 'title' || canonical === 'genres' || canonical === 'actors';
+	}
 	// Films + People are co-located in one row (design handoff, media-detail-reorder) —
 	// each keeps its own pre-existing gate, but the row itself must contribute nothing
 	// to the page when both sides are hidden.
@@ -1032,6 +1058,20 @@
 					<span>·</span><span>{formatYear(video.recorded_at)}</span>
 				{/if}
 			</div>
+
+			<!-- Overview (media-detail-entity-ux): the synopsis reads as page content, not
+			     as a data-management row, so it sits under the header meta line instead of
+			     in the Metadata list. Owners keep exactly the control the Metadata
+			     long_text branch gave it — the ADR-051 SourceBadge precedence chip row. -->
+			{#if overviewField && (isOwner || overviewField.values[0]?.trim())}
+				<div id="field-overview" class="max-w-prose text-sm leading-relaxed">
+					{#if isReplaceField(overviewField) && isOwner}
+						<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
+					{:else if overviewField.values[0]?.trim()}
+						<p class="text-ink">{overviewField.values[0]}</p>
+					{/if}
+				</div>
+			{/if}
 		</header>
 
 		{#if isOwner || studioField?.values?.length}
@@ -1059,7 +1099,10 @@
 		{/if}
 
 		{#if isOwner || video.tags?.length}
-			<section class="space-y-1.5">
+			<!-- id="field-genres": resolved genres materialize into Tag rows, so the
+			     completeness queue's #field-genres deep link lands here now that the
+			     Metadata list no longer carries a Genres row. -->
+			<section id="field-genres" class="space-y-1.5">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
 				<div class="flex flex-wrap items-center gap-2">
 					{#each video.tags ?? [] as t (t.id)}
@@ -1175,7 +1218,8 @@
 					</section>
 				{/if}
 
-				<div class="min-w-0 flex-1">
+				<!-- id="field-actors": the actors facet's deep link, for the same reason. -->
+				<div id="field-actors" class="min-w-0 flex-1">
 					<PeopleGrid
 						title="People"
 						people={video.people ?? []}
@@ -1202,42 +1246,6 @@
 			/>
 		{/if}
 
-		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-		     its block is null or empty, so an item with no siblings shows no rail. -->
-		{#if related?.person}
-			<RelatedShelf
-				title={related.person.name}
-				href={`/people/${related.person.id}`}
-				items={related.person.items}
-			/>
-		{/if}
-		{#if related?.tag}
-			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-		{/if}
-
-		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
-		     content and the Back link so a delete is never adjacent to navigation.
-		     Effective gate (F29) so visitor view hides it. -->
-		{#if isOwner}
-			<section class="space-y-2 border-t border-rule pt-4">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-				<div class="flex flex-wrap gap-2">
-					<button
-						onclick={() => openConfirm('soft')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Move to Trash
-					</button>
-					<button
-						onclick={() => openConfirm('purge')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Delete permanently
-					</button>
-				</div>
-			</section>
-		{/if}
-
 		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 		     enrichment controls and writeback inline in the header. Falls back to
 		     file-only fields when no resolver output is present. Owner-only
@@ -1245,7 +1253,10 @@
 		{#if isOwner}
 			<section class="space-y-1.5">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
+					<div class="flex items-baseline gap-2">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
+						<span class="text-xs text-muted">{metadataFieldCount} field{metadataFieldCount === 1 ? '' : 's'}</span>
+					</div>
 					<div class="flex flex-wrap items-center gap-2">
 						{#if isOwner}
 							<button
@@ -1307,6 +1318,27 @@
 								Write decisions to file{#if outOfSyncN > 0}<span class="text-warn"> · {outOfSyncN} out of sync</span>{/if}
 							</button>
 						{/if}
+						<button
+							type="button"
+							onclick={() => (metadataExpanded = !metadataExpanded)}
+							aria-expanded={metadataExpanded}
+							aria-controls="metadata-fields"
+							aria-label={metadataExpanded ? 'Hide metadata fields' : 'Show metadata fields'}
+							title={metadataExpanded ? 'Hide fields' : 'Show fields'}
+							class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
+						>
+							<svg
+								class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
+								class:rotate-180={metadataExpanded}
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								aria-hidden="true"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+							</svg>
+						</button>
 					</div>
 				</div>
 				{#if extractPanelVisible}
@@ -1385,6 +1417,15 @@
 						{refreshStatus.text}
 					</p>
 				{/if}
+				<!-- The fold covers the field list only: Refresh / Extract / provider chips /
+				     writeback stay reachable while collapsed, and the extraction review panel
+				     above stays visible because it is transient work waiting on the owner. -->
+				<div
+					id="metadata-fields"
+					class="overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+					style="max-height: {metadataExpanded ? '6000px' : '0px'}"
+					inert={!metadataExpanded}
+				>
 				{#if canonicalResolved.length || extraFields.length}
 				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
 					{#each canonicalResolved as f (f.canonical)}
@@ -1470,6 +1511,43 @@
 					No metadata extracted yet.
 				</p>
 				{/if}
+				</div>
+			</section>
+		{/if}
+
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+		     its block is null or empty, so an item with no siblings shows no rail. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{/if}
+
+		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+		     content and the Back link so a delete is never adjacent to navigation.
+		     Effective gate (F29) so visitor view hides it. -->
+		{#if isOwner}
+			<section class="space-y-2 border-t border-rule pt-4">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={() => openConfirm('soft')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Move to Trash
+					</button>
+					<button
+						onclick={() => openConfirm('purge')}
+						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+					>
+						Delete permanently
+					</button>
+				</div>
 			</section>
 		{/if}
 
@@ -1493,7 +1571,7 @@
 
 		{#if isOwner && completeness}
 			{#each completeness.facets as cf (cf.canonical)}
-				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && cf.canonical !== 'studio'}
+				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
 					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
 				{/if}
 			{/each}
