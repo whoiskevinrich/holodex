@@ -6,6 +6,10 @@
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 **QA checklist**: [metadata-extraction-qa-checklist.md](metadata-extraction-qa-checklist.md)
+**Extended by**: [media-page-extraction-handoff.md](media-page-extraction-handoff.md) (2026-09-04,
+[HOLODEX-194](https://whoiskevinrich.atlassian.net/browse/HOLODEX-194)) — this handoff scoped the F48
+UI to the `/owner` hub, which left F48.5a's single-video trigger without a surface. That handoff adds
+the media-detail-page trigger and its inline review panel.
 
 This handoff adds one new surface — an **Extraction tab** in the `/owner` hub (F35), the third
 sibling of Duplicates (F43) and Enrichment (F47), whose dense-row idiom it deliberately reuses —

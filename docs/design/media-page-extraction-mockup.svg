@@ -1,0 +1,142 @@
+<svg viewBox="0 0 960 900" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; }
+      .ruleStrong { stroke: #3d3833; stroke-width: 1; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentInk { fill: #1a1206; }
+      .ok { fill: #6fae67; }
+      .okStroke { stroke: #6fae67; stroke-width: 1; fill: none; }
+      .accentStroke { stroke: #e8a33d; stroke-width: 1; fill: none; }
+      .mutedStroke { stroke: #6b6258; stroke-width: 1; fill: none; }
+      .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="900" />
+
+  <text x="24" y="30" class="ink title" font-size="20" font-weight="600">Media detail — extract from filename (HOLODEX-194, option B)</text>
+  <text x="24" y="50" class="muted" font-size="12">Cinémathèque tokens · owner-only · reuses ExtractionQueueRow + ExtractionPreviewDialog unchanged</text>
+
+  <!-- ============ STATE 1: resting toolbar ============ -->
+  <g transform="translate(24,76)">
+    <text x="0" y="0" class="accent label">State 1 — resting</text>
+    <rect x="0" y="12" width="912" height="86" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+
+    <text x="16" y="40" class="muted label">Metadata</text>
+
+    <text x="470" y="43" class="muted" font-size="12">Refresh</text>
+    <rect x="552" y="28" width="152" height="22" rx="2" class="accentStroke" />
+    <text x="628" y="43" text-anchor="middle" class="accent" font-size="12">Extract from filename</text>
+    <text x="722" y="43" class="muted" font-size="12">TMDB</text>
+    <text x="772" y="43" class="muted" font-size="12">Write decisions</text>
+
+    <line x1="16" y1="62" x2="896" y2="62" class="rule" />
+    <text x="16" y="82" class="muted" font-size="11">New control sits between Refresh and the provider chips — same ghost-button treatment, accent only on hover/focus.</text>
+  </g>
+
+  <!-- ============ STATE 2: after extract, inline review ============ -->
+  <g transform="translate(24,206)">
+    <text x="0" y="0" class="accent label">State 2 — after extract · 3 fields to review</text>
+    <rect x="0" y="12" width="912" height="278" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+
+    <text x="16" y="40" class="muted label">Metadata</text>
+    <text x="470" y="43" class="muted" font-size="12">Refresh</text>
+    <rect x="552" y="28" width="152" height="22" rx="2" class="accentStroke" />
+    <text x="628" y="43" text-anchor="middle" class="accent" font-size="12">Extract from filename</text>
+    <text x="722" y="43" class="muted" font-size="12">TMDB</text>
+    <text x="772" y="43" class="muted" font-size="12">Write decisions</text>
+
+    <rect x="16" y="60" width="880" height="204" rx="2" class="surface2" />
+    <line x1="16" y1="60" x2="896" y2="60" class="ruleStrong" />
+
+    <text x="32" y="82" class="ink" font-size="12" font-weight="600">From filename</text>
+    <text x="122" y="82" class="muted" font-size="12">· 3 to review</text>
+    <text x="820" y="82" class="muted" font-size="11">Re-extract</text>
+    <text x="32" y="99" class="muted mono" font-size="10">[Neon] Night Drive (Rin Hoshino, Kai Mori, 2019) 1080p.mp4</text>
+
+    <line x1="32" y1="110" x2="880" y2="110" class="rule" />
+    <text x="32" y="131" class="muted" font-size="11">People</text>
+    <rect x="96" y="118" width="118" height="20" rx="10" class="okStroke" />
+    <circle cx="108" cy="128" r="3" class="ok" />
+    <text x="117" y="132" class="ink" font-size="11">Rin Hoshino</text>
+    <rect x="220" y="118" width="96" height="20" rx="10" class="accentStroke" />
+    <circle cx="232" cy="128" r="3" class="accent" />
+    <text x="241" y="132" class="ink" font-size="11">Kai Mori</text>
+    <rect x="324" y="118" width="54" height="20" rx="10" class="accent" />
+    <text x="351" y="132" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Stage</text>
+    <text x="762" y="132" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="132" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="150" x2="880" y2="150" class="rule" />
+    <text x="32" y="171" class="muted" font-size="11">Title</text>
+    <text x="96" y="171" class="ink" font-size="11">Night Drive</text>
+    <text x="176" y="171" class="muted" font-size="11">vs tag night_drive_final2</text>
+    <rect x="324" y="158" width="54" height="20" rx="10" class="mutedStroke" />
+    <text x="351" y="172" text-anchor="middle" class="muted" font-size="11">Stage</text>
+    <text x="392" y="171" class="muted" font-size="11">Edit</text>
+    <text x="762" y="171" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="171" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="190" x2="880" y2="190" class="rule" />
+    <text x="32" y="211" class="muted" font-size="11">Studio</text>
+    <rect x="96" y="198" width="70" height="20" rx="10" class="okStroke" />
+    <circle cx="108" cy="208" r="3" class="ok" />
+    <text x="117" y="212" class="ink" font-size="11">Neon</text>
+    <rect x="324" y="198" width="54" height="20" rx="10" class="accent" />
+    <text x="351" y="212" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Stage</text>
+    <text x="762" y="211" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="211" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="230" x2="880" y2="230" class="ruleStrong" />
+    <text x="32" y="251" class="muted" font-size="11">2 staged</text>
+    <text x="90" y="251" class="muted" font-size="11">Clear</text>
+    <rect x="748" y="238" width="132" height="22" rx="2" class="accent" />
+    <text x="814" y="253" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Review and write 2</text>
+  </g>
+
+  <text x="24" y="522" class="muted" font-size="11">Legend — chip outline: green = entity exists on the identity spine · amber = would be created new. Stage pill fills once staged.</text>
+
+  <!-- ============ STATE 3: no match ============ -->
+  <g transform="translate(24,548)">
+    <text x="0" y="0" class="accent label">State 3 — no pattern match</text>
+    <rect x="0" y="12" width="444" height="92" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="444" y2="12" class="rule" />
+    <rect x="16" y="28" width="412" height="60" rx="2" class="surface2" />
+    <text x="32" y="52" class="ink" font-size="12">No filename pattern matched this file.</text>
+    <text x="32" y="72" class="muted" font-size="11">Edit patterns in Settings, Extraction</text>
+  </g>
+
+  <!-- ============ STATE 4: nothing to review ============ -->
+  <g transform="translate(492,548)">
+    <text x="0" y="0" class="accent label">State 4 — nothing needs review</text>
+    <rect x="0" y="12" width="444" height="92" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="444" y2="12" class="rule" />
+    <rect x="16" y="28" width="412" height="60" rx="2" class="surface2" />
+    <text x="32" y="52" class="ink" font-size="12">4 fields matched · nothing needs review.</text>
+    <text x="32" y="72" class="muted" font-size="11">Values are live in the Metadata list below.</text>
+  </g>
+
+  <!-- ============ implementer notes ============ -->
+  <g transform="translate(24,672)">
+    <rect x="0" y="0" width="912" height="196" rx="2" class="surface" />
+    <line x1="0" y1="0" x2="912" y2="0" class="rule" />
+    <text x="16" y="26" class="accent label">Behaviour notes for the implementer</text>
+    <text x="16" y="52" class="muted" font-size="11">1 · The panel renders only when this video has pending rows, or immediately after an extract run. It is never present for a visitor.</text>
+    <text x="16" y="74" class="muted" font-size="11">2 · Auto-apply defaults OFF, so most candidates arrive as logged_only or queued. The panel is what makes that visible — without it the</text>
+    <text x="30" y="92" class="muted" font-size="11">button looks inert. If a run produces zero review rows, show State 4, never an empty panel.</text>
+    <text x="16" y="114" class="muted" font-size="11">3 · Staging is client-only state, exactly as on the owner tab. Nothing is written until Review and write N opens ExtractionPreviewDialog.</text>
+    <text x="16" y="136" class="muted" font-size="11">4 · Rows are the persisted metadata_extraction_review rows, so Keep tag and Dismiss resolve server-side and the row drops out in place.</text>
+    <text x="16" y="158" class="muted" font-size="11">5 · Resolving here and resolving on /owner/extraction are the same call — a row handled on this page disappears from the owner tab.</text>
+    <text x="16" y="180" class="muted" font-size="11">6 · Tokens only. QA in Cinémathèque, Broadcast, Brutalist.</text>
+  </g>
+</svg>
