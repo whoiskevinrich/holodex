@@ -19,9 +19,16 @@
 		items: ExtractionPreviewItem[];
 		onclose: () => void;
 		/** Called once with every reviewId that was successfully written+resolved —
-		 *  the parent drops them from the queue and clears their staged pick. */
-		onsubmitted: (resolvedReviewIds: number[]) => void;
-		resolve: (reviewId: number, action: ExtractionResolveAction, value: string) => Promise<unknown>;
+		 *  the parent drops them from the queue and clears their staged pick — plus the
+		 *  writeback job ids those resolutions enqueued. A caller that renders the
+		 *  affected video waits on those jobs to know when the value is readable again
+		 *  (ADR-090 D3); the owner tab shows no resolved values and ignores them. */
+		onsubmitted: (resolvedReviewIds: number[], jobIds: number[]) => void;
+		resolve: (
+			reviewId: number,
+			action: ExtractionResolveAction,
+			value: string
+		) => Promise<{ job_id?: number } | unknown>;
 	} = $props();
 
 	type RowStatus = 'idle' | 'writing' | 'done' | 'error';
@@ -74,12 +81,16 @@
 		busy = true;
 
 		const resolvedIds: number[] = [];
+		const jobIds: number[] = [];
 		for (const row of rows) {
 			if (!row.checked) continue;
 			row.status = 'writing';
 			row.error = '';
 			try {
-				await resolve(row.reviewId, row.action, row.newValue);
+				const res = await resolve(row.reviewId, row.action, row.newValue);
+				// Absent for a resolution that writes nothing (action 'tag') — not an error.
+				const jobId = (res as { job_id?: number } | null)?.job_id;
+				if (jobId) jobIds.push(jobId);
 				row.status = 'done';
 				resolvedIds.push(row.reviewId);
 			} catch (e) {
@@ -89,7 +100,7 @@
 		}
 
 		busy = false;
-		if (resolvedIds.length > 0) onsubmitted(resolvedIds);
+		if (resolvedIds.length > 0) onsubmitted(resolvedIds, jobIds);
 		if (!hasErrors) onclose();
 	}
 </script>

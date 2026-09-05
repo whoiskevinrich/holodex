@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -128,8 +129,14 @@ func TestResolveExtractionReview_AcceptFilenameEnqueuesWrite(t *testing.T) {
 
 	url := srv.URL + "/api/v1/owner/extraction-review/" + itoa(pending[0].ID) + "/resolve"
 	code, body := extractReviewPOST(t, url, map[string]any{"action": "filename"})
-	if code != http.StatusNoContent {
-		t.Fatalf("want 204, got %d: %v", code, body)
+	// 200 + job_id, not 204: a resolution that enqueues a write hands the job id back so
+	// the caller can wait on the real completion signal (the queue re-extracts before
+	// marking a job done, ADR-073) instead of guessing when the value is readable again.
+	if code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %v", code, body)
+	}
+	if jobID, _ := body["job_id"].(float64); jobID <= 0 {
+		t.Fatalf("response carried no usable job_id: %v", body)
 	}
 
 	depth, err := q.Depth(ctx)
@@ -159,6 +166,10 @@ func TestResolveExtractionReview_AcceptTagWritesNothing(t *testing.T) {
 	if code != http.StatusNoContent {
 		t.Fatalf("want 204, got %d: %v", code, body)
 	}
+	// No write, so no job to wait on — a caller must not be told to poll for one.
+	if _, ok := body["job_id"]; ok {
+		t.Fatalf("tag resolve reported a job id: %v", body)
+	}
 	if depth, err := q.Depth(ctx); err != nil || depth != 0 {
 		t.Fatalf("queue depth = %d err=%v, want 0 (tag needs no write)", depth, err)
 	}
@@ -178,8 +189,11 @@ func TestResolveExtractionReview_ManualEditsWritesGivenValue(t *testing.T) {
 
 	url := srv.URL + "/api/v1/owner/extraction-review/" + itoa(pending[0].ID) + "/resolve"
 	code, body := extractReviewPOST(t, url, map[string]any{"action": "manual", "value": "  Custom Title  "})
-	if code != http.StatusNoContent {
-		t.Fatalf("want 204, got %d: %v", code, body)
+	if code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %v", code, body)
+	}
+	if jobID, _ := body["job_id"].(float64); jobID <= 0 {
+		t.Fatalf("response carried no usable job_id: %v", body)
 	}
 	if depth, err := q.Depth(ctx); err != nil || depth != 1 {
 		t.Fatalf("queue depth = %d err=%v, want 1", depth, err)
@@ -242,11 +256,17 @@ func TestResolveExtractionReview_StaleRowIsNoop(t *testing.T) {
 	reviewID := pending[0].ID
 
 	url := srv.URL + "/api/v1/owner/extraction-review/" + itoa(reviewID) + "/resolve"
-	if code, _ := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusNoContent {
-		t.Fatalf("first resolve: want 204, got %d", code)
+	if code, _ := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusOK {
+		t.Fatalf("first resolve: want 200, got %d", code)
 	}
-	if code, _ := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusNoContent {
+	// The stale repeat enqueues nothing, so it has no job to report and stays 204 — a
+	// caller must not be handed a job id for work that never happened.
+	code, body := extractReviewPOST(t, url, map[string]any{"action": "filename"})
+	if code != http.StatusNoContent {
 		t.Fatalf("second (stale) resolve: want 204, got %d", code)
+	}
+	if _, ok := body["job_id"]; ok {
+		t.Fatalf("stale resolve reported a job id: %v", body)
 	}
 	if depth, err := q.Depth(ctx); err != nil || depth != 1 {
 		t.Fatalf("queue depth = %d err=%v, want 1 (the stale resolve must not enqueue a second write)", depth, err)
@@ -309,8 +329,8 @@ func TestResolveExtractionReview_PeopleFieldWritesToActorsTag(t *testing.T) {
 	}
 
 	url := srv.URL + "/api/v1/owner/extraction-review/" + itoa(pending[0].ID) + "/resolve"
-	if code, body := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusNoContent {
-		t.Fatalf("want 204, got %d: %v", code, body)
+	if code, body := extractReviewPOST(t, url, map[string]any{"action": "filename"}); code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %v", code, body)
 	}
 
 	deadline := time.Now().Add(3 * time.Second)
@@ -341,5 +361,127 @@ func TestDismissExtractionReview(t *testing.T) {
 	dismissed, err := r.ListExtractionReviews(ctx, repo.ExtractionReviewDismissed)
 	if err != nil || len(dismissed) != 1 {
 		t.Fatalf("want 1 dismissed row, got %d err=%v", len(dismissed), err)
+	}
+}
+
+// TestExtractionQueue_VideoIDFilter covers F48.6k: ?video_id= scopes the queue to
+// one video for the media detail page's inline panel, while the unfiltered call
+// still serves the owner tab. Same rows, same endpoint, same gate — just a
+// narrower WHERE (ADR-090 D2).
+func TestExtractionQueue_VideoIDFilter(t *testing.T) {
+	srv, r, _ := extractReviewServer(t, false)
+	ctx := context.Background()
+	a := seedVideo(t, r, "/m/A.mkv", "Film A")
+	b := seedVideo(t, r, "/m/B.mkv", "Film B")
+	if err := r.UpsertExtractionReview(ctx, a, "title", "A New", "A Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert a: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, b, "title", "B New", "B Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert b: %v", err)
+	}
+
+	code, body := extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue")
+	rows, _ := body["rows"].([]any)
+	if code != http.StatusOK || len(rows) != 2 {
+		t.Fatalf("unfiltered: code=%d rows=%d, want 200/2", code, len(rows))
+	}
+
+	code, body = extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue?video_id="+itoa(a))
+	if code != http.StatusOK {
+		t.Fatalf("filtered: want 200, got %d: %v", code, body)
+	}
+	rows, _ = body["rows"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("filtered rows = %d, want 1: %v", len(rows), rows)
+	}
+	row, _ := rows[0].(map[string]any)
+	if row["video_title"] != "Film A" {
+		t.Fatalf("filter returned the wrong video: %v", row)
+	}
+
+	// A video with nothing pending is an empty list, not a 404 — the panel's
+	// "nothing needs review" state (F48.6l) reads this, and must not treat it as
+	// an error.
+	c := seedVideo(t, r, "/m/C.mkv", "Film C")
+	code, body = extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue?video_id="+itoa(c))
+	rows, _ = body["rows"].([]any)
+	if code != http.StatusOK || len(rows) != 0 {
+		t.Fatalf("empty scope: code=%d rows=%d, want 200/0", code, len(rows))
+	}
+}
+
+// TestExtractionQueue_RejectsMalformedVideoID pins the deliberate choice that a bad
+// video_id is a 400 rather than a silent fall-through to the whole library: a caller
+// that meant to scope and got everything back would leak far more than it asked for
+// while looking like it worked.
+func TestExtractionQueue_RejectsMalformedVideoID(t *testing.T) {
+	srv, r, _ := extractReviewServer(t, false)
+	id := seedVideo(t, r, "/m/A.mkv", "Film A")
+	if err := r.UpsertExtractionReview(context.Background(), id, "title", "New", "Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	// "" and " " are present-but-empty: a caller that meant to scope and got it wrong.
+	// They must 400 like any other malformed value, not trim to nothing and quietly
+	// return the whole library.
+	for _, bad := range []string{"abc", "-1", "0", "1;DROP TABLE videos", "1 OR 1=1", "", " "} {
+		code, body := extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue?video_id="+url.QueryEscape(bad))
+		if code != http.StatusBadRequest {
+			t.Fatalf("video_id=%q: want 400, got %d (%v) — must not fall back to the whole library", bad, code, body)
+		}
+		if rows, ok := body["rows"].([]any); ok && len(rows) > 0 {
+			t.Fatalf("video_id=%q returned %d rows on a rejected request", bad, len(rows))
+		}
+	}
+}
+
+// TestExtractionQueue_FilteredStillRequiresOwner proves the new query parameter did
+// not open a side door: the scoped read sits behind the same requireOwner gate as
+// the unfiltered one (ADR-030).
+func TestExtractionQueue_FilteredStillRequiresOwner(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetAuth(api.NewAuth("secret"), false) // a token IS required here
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	id := seedVideo(t, r, "/m/A.mkv", "Film A")
+	if err := r.UpsertExtractionReview(context.Background(), id, "title", "New", "Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	for _, u := range []string{
+		srv.URL + "/api/v1/owner/extraction-queue",
+		srv.URL + "/api/v1/owner/extraction-queue?video_id=" + itoa(id),
+	} {
+		code, _ := extractReviewGET(t, u)
+		if code != http.StatusUnauthorized {
+			t.Fatalf("GET %s without a token: want 401, got %d", u, code)
+		}
+	}
+
+	// With the token, the scoped read works — proving the 401s above were the gate,
+	// not the filter.
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/owner/extraction-queue?video_id="+itoa(id), nil)
+	req.Header.Set(api.AdminTokenHeader, "secret")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("authorized GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("authorized scoped GET: want 200, got %d", resp.StatusCode)
+	}
+	var out map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if rows, _ := out["rows"].([]any); len(rows) != 1 {
+		t.Fatalf("authorized scoped GET returned %d rows, want 1", len(rows))
 	}
 }

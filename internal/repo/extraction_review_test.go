@@ -183,7 +183,7 @@ func TestExtractionQueue_JoinsVideoAndSuggestedEntityName(t *testing.T) {
 		t.Fatalf("upsert title: %v", err)
 	}
 
-	rows, err := r.ExtractionQueue(ctx)
+	rows, err := r.ExtractionQueue(ctx, 0)
 	if err != nil {
 		t.Fatalf("extraction queue: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestExtractionQueue_JoinsVideoAndSuggestedEntityName(t *testing.T) {
 	if err := r.ResolveExtractionReview(ctx, byField["people"].ID); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	rows, err = r.ExtractionQueue(ctx)
+	rows, err = r.ExtractionQueue(ctx, 0)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("want 1 row after resolve, got %d err=%v", len(rows), err)
 	}
@@ -243,7 +243,7 @@ func TestExtractionQueue_PerPersonCandidates(t *testing.T) {
 		t.Fatalf("upsert title: %v", err)
 	}
 
-	rows, err := r.ExtractionQueue(ctx)
+	rows, err := r.ExtractionQueue(ctx, 0)
 	if err != nil {
 		t.Fatalf("extraction queue: %v", err)
 	}
@@ -266,5 +266,65 @@ func TestExtractionQueue_PerPersonCandidates(t *testing.T) {
 	// A non-entity field is not split into candidates even though it contains ", ".
 	if byField["title"].Candidates != nil {
 		t.Fatalf("title candidates = %+v, want none (scalar field)", byField["title"].Candidates)
+	}
+}
+
+// TestExtractionQueue_ScopedByVideo covers F48.6k: a non-zero videoID returns only
+// that video's pending rows, so the media detail page's inline panel (ADR-090 D2's
+// entity-scoped view of the same queue) does not pull the whole library down to
+// show its own handful. videoID 0 keeps the owner tab's whole-library behaviour.
+func TestExtractionQueue_ScopedByVideo(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "Film A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	b, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "Film B", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, a, "title", "A New", "A Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert a/title: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, a, "studio", "Neon", "", 0.5, 0); err != nil {
+		t.Fatalf("upsert a/studio: %v", err)
+	}
+	if err := r.UpsertExtractionReview(ctx, b, "title", "B New", "B Old", 0.4, 0); err != nil {
+		t.Fatalf("upsert b/title: %v", err)
+	}
+
+	all, err := r.ExtractionQueue(ctx, 0)
+	if err != nil || len(all) != 3 {
+		t.Fatalf("unfiltered = %d rows err=%v, want 3", len(all), err)
+	}
+
+	scoped, err := r.ExtractionQueue(ctx, a)
+	if err != nil {
+		t.Fatalf("scoped: %v", err)
+	}
+	if len(scoped) != 2 {
+		t.Fatalf("scoped to A = %d rows, want 2: %+v", len(scoped), scoped)
+	}
+	for _, row := range scoped {
+		if row.VideoID != a {
+			t.Fatalf("scoped query leaked video %d into A's rows: %+v", row.VideoID, row)
+		}
+	}
+
+	// The join still populates, so the scoped rows are usable without a second read.
+	if scoped[0].VideoTitle != "Film A" || scoped[0].FilePath != "/m/a.mkv" {
+		t.Fatalf("scoped row lost its video join: %+v", scoped[0])
+	}
+
+	// A video with no pending rows is empty, not an error — the panel's "nothing
+	// needs review" state (F48.6l) depends on this, not on a 404.
+	none, err := r.ExtractionQueue(ctx, b+9999)
+	if err != nil {
+		t.Fatalf("unknown video id should not error: %v", err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("unknown video id = %d rows, want 0", len(none))
 	}
 }

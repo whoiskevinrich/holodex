@@ -67,6 +67,12 @@
 /CLAUDE.md
 /memory/
 
+# Claimed ADR numbers, derived from git by scripts/adr-claims.mjs. Local-only and
+# gitignored on purpose: a committed registry would be a merge-conflict magnet, since
+# every branch claiming a number would edit the same lines. Lives at the MAIN worktree
+# root so every worktree shares one copy.
+/.adr-claims
+
 # Browser-automation scratch (Playwright MCP snapshots/console logs)
 .playwright-mcp/
 

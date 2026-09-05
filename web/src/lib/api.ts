@@ -828,15 +828,34 @@ export const api = {
 	// Filename metadata extraction (F48, ADR-067). All owner-gated.
 
 	// Extraction review queue (F48.6). Zero-cost load, same contract as
-	// enrichQueue: opening the tab performs no writes.
-	extractionQueue: () => getAuthed<{ rows: ExtractionQueueRow[] }>(`/owner/extraction-queue`),
+	// enrichQueue: opening the tab performs no writes. Pass videoId to scope the
+	// read to one video (F48.6k) for the media page's inline panel — same rows,
+	// same owner gate, just a narrower WHERE (ADR-090 D2).
+	extractionQueue: (videoId?: number) => {
+		// Omitting the argument is the deliberate whole-library read. Passing a bad one
+		// (NaN from Number() of a non-numeric route param, 0, a fraction) is a caller
+		// bug, and must not degrade into that same whole-library read — that would pull
+		// every video's rows into one video's panel while looking like it worked.
+		if (videoId !== undefined && !(Number.isInteger(videoId) && videoId > 0)) {
+			throw new Error(`extractionQueue: invalid videoId ${videoId}`);
+		}
+		return getAuthed<{ rows: ExtractionQueueRow[] }>(
+			videoId === undefined
+				? `/owner/extraction-queue`
+				: `/owner/extraction-queue?video_id=${videoId}`
+		);
+	},
 
 	// Resolve one pending field (F48.6c): action='filename'|'tag' keeps that side's
 	// existing value; action='manual' writes the given value (freeform edit, or an
 	// entity name picked from search). Enqueues a write except for 'tag' (the file
 	// already holds that value).
+	// Returns `{ job_id }` when the resolution enqueued a file write, so the caller can
+	// wait on the real completion signal via writebackJobStatus (the queue re-extracts
+	// before marking a job done, ADR-073). Answers 204 with no body when nothing was
+	// written — action 'tag', or an already-handled row.
 	resolveExtractionReview: (id: number, action: ExtractionResolveAction, value?: string) =>
-		sendAuthed<Record<string, never>>('POST', `/owner/extraction-review/${id}/resolve`, {
+		sendAuthed<{ job_id?: number }>('POST', `/owner/extraction-review/${id}/resolve`, {
 			action,
 			value
 		}),
