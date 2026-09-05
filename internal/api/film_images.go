@@ -35,7 +35,7 @@ func (h *Handlers) mountFilmImages(r chi.Router) {
 	r.Delete("/films/{id}/images/{role}", h.deleteFilmImage)
 }
 
-// setFilmImageURLs fills PosterURL/ThumbURL from ImageVersions, pointing at the served
+// setFilmImageURLs fills PosterURL/BannerURL from ImageVersions, pointing at the served
 // route on our own origin. A role absent from ImageVersions stays empty (the SPA
 // renders its fallback). Mirrors setStudioImageURLs.
 func setFilmImageURLs(f *model.Film) {
@@ -47,8 +47,8 @@ func setFilmImageURLs(f *model.Film) {
 		switch role {
 		case model.FilmImagePoster:
 			f.PosterURL = url
-		case model.FilmImageThumb:
-			f.ThumbURL = url
+		case model.FilmImageBanner:
+			f.BannerURL = url
 		}
 	}
 }

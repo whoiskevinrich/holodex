@@ -802,9 +802,13 @@ export interface Film {
 	// Self-hosted poster image (F56/HOLODEX-280, ADR-086; edited in the header,
 	// HOLODEX-307): owner-editable (upload/replace/remove); present only when the
 	// slot is filled. Always populated on both list and detail reads. Mirrors
-	// Studio's icon/logo/poster_url fields. The `thumb` role was dropped
-	// (HOLODEX-307) — it had no UI consumer.
+	// Studio's icon/logo/poster_url fields.
 	poster_url?: string;
+	// banner_url is the landscape hero behind the film detail header (F59/ADR-089 D4),
+	// reusing the provider contract's existing ~16:9 `banner` kind. It took the slot
+	// the consumer-less `thumb` role vacated in HOLODEX-307. Detail read only — the
+	// films index shows posters, not banners.
+	banner_url?: string;
 }
 
 // A withheld films.year fill (F59/ADR-089 D3). Returned on the film enrich-apply
@@ -819,7 +823,10 @@ export interface FilmYearCollision {
 }
 
 // FilmImageRole is the enum of editable film image slots (F56/HOLODEX-280, ADR-086).
-export type FilmImageRole = "poster";
+// `banner` (F59/ADR-089 D4) is the landscape hero behind the film header; it replaced
+// the former `thumb`, which had no consumer and no producer. Mirrors
+// model.ValidFilmImageRole — keep the two in step or an upload 400s.
+export type FilmImageRole = "poster" | "banner";
 
 // FilmVideo is one scene/full-film row on a film's detail page (F56): the video plus
 // its film_videos attachment attributes. scene_number is null for an unnumbered scene

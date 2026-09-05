@@ -193,6 +193,7 @@ type movieDetails struct {
 	Status              string              `json:"status"`
 	IMDbID              string              `json:"imdb_id"`
 	PosterPath          string              `json:"poster_path"`
+	BackdropPath        string              `json:"backdrop_path"`
 	ProductionCompanies []productionCompany `json:"production_companies"`
 }
 
@@ -557,6 +558,12 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits, entityType
 		} else {
 			fields["poster_url"] = []string{tmdbImageURL(det.PosterPath)}
 		}
+	}
+	// The landscape backdrop is film-only (F59/ADR-089 D4). A `video` has no image sink
+	// at all — its poster is a fields entry — so emitting an asset for it would be
+	// silently dropped and would muddy ADR-086's fields-vs-assets split for videos.
+	if entityType == "film" && det.BackdropPath != "" {
+		assets = append(assets, assetEntry{Kind: "banner", URL: tmdbImageURL(det.BackdropPath)})
 	}
 	// production_companies → studio (multi-valued), plus a self-describing sidecar
 	// carrying each company's TMDB id for studio-entity de-dup (HOLODEX-122, ADR-054).

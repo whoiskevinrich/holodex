@@ -43,6 +43,40 @@ vocabulary decisions that surface forces.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · owner review round 2 — banner shipped (312), index poster bug fixed (318), owner-only gating
+
+- skills: (none — implementation)
+- Five owner requests, all done and verified live on the films testbed:
+  1. **Poster border thinner.** The "border" was never a border — `object-contain` + `p-1` let the
+     light `bg-logo-plate` show through as an inset. The hero frame now uses `p-0.5`; the row
+     variant keeps `p-1`, where 4px on a small thumbnail is right.
+  2. **Studio row gated** `{#if isOwner || studios.length}`, copied verbatim from `media/[id]`.
+     Films were the last page showing a visitor "No studio set". Description already complied —
+     it only ever rendered when set — so it needed no change rather than a no-op condition.
+  3. **Details section is owner-only.** It is provenance/curation machinery, not reader content.
+     That retired the visitor's "Enriched from X" note, so the `soleProvider` derived went with it
+     rather than lingering as unreachable code.
+  4. **HOLODEX-312 banner shipped** end to end: `FilmImageBanner` replaces `FilmImageThumb`
+     (no migration — `film_images.role` is a comment, not a CHECK), `assetRoleFor` maps
+     `banner`/`backdrop`, TMDB emits `backdrop_path` **for films only** (a video has no image sink,
+     so emitting one there would muddy ADR-086's fields-vs-assets split), and the header renders
+     an 8:3 band with a scrim under the overlapping poster.
+  5. **HOLODEX-318 fixed** — the films index rendered a monogram unconditionally and never read
+     `poster_url`, so every film browsed as a lettered plate while its detail page showed art.
+- **`EntityImageSlot` needed one prop, `fit`.** It only did `object-contain`, which pillarboxed a
+  16:9 backdrop inside the 8:3 band against the light plate — bright bars down both sides, caught
+  only by looking at the render. `fit="cover"` crops per the handoff and drops the inset.
+- Verified against the real provider, not a fixture: re-enriching film 4 pulled TMDB movie 329865's
+  actual Arrival backdrop into `film_images` and it renders as the hero.
+- **A measurement error worth remembering:** the first three-skin contrast run reported 17.83/NaN/20.12
+  because the helper only parsed `rgb()` and the skin `--bg` tokens are hex — it silently scored
+  `#0c0a09` as rgb(0,0,9). Re-run with a hex parser: title 16.84/16.38/18.97, year 6.31/4.90/5.73.
+  Those are a **floor** (text vs the scrim's end colour), not a guarantee over bright artwork.
+- One existing test failed correctly and was rewritten rather than patched: `TestFilmImage_InvalidRole`
+  used `"banner"` as its example invalid role. It now uses `"thumb"` (pinning the retirement) plus a
+  never-valid value so it does not depend on thumb staying dead.
+- handoff: only HOLODEX-310 (cast layer + difference render) is left in the epic.
+
 ### 2026-09-04 · HOLODEX-317 — the year became a field instead of a message; backlink removed
 
 - skills: (none — implementation)

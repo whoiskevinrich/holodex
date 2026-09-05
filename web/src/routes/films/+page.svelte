@@ -95,10 +95,24 @@
 						href={`/films/${f.id}`}
 						class="block overflow-hidden rounded-theme border border-rule bg-surface hover:border-accent"
 					>
-						<span class="flex aspect-[2/3] items-center justify-center bg-logo-plate">
-							<span class="font-display text-3xl font-semibold text-logo-plate-ink" aria-hidden="true"
-								>{monogram(f.name)}</span
-							>
+						<!-- HOLODEX-318: this rendered the monogram unconditionally, so every film
+						     browsed as a lettered plate even with a poster downloaded — the same
+						     film showed art on its detail page and a letter here. `poster_url` is
+						     populated on the list read too (types.ts), so the monogram is the
+						     empty state, not the default. -->
+						<span class="flex aspect-[2/3] items-center justify-center overflow-hidden bg-logo-plate">
+							{#if f.poster_url}
+								<img
+									src={f.poster_url}
+									alt=""
+									loading="lazy"
+									class="h-full w-full object-cover"
+								/>
+							{:else}
+								<span class="font-display text-3xl font-semibold text-logo-plate-ink" aria-hidden="true"
+									>{monogram(f.name)}</span
+								>
+							{/if}
 						</span>
 						<div class="p-2">
 							<p class="truncate text-sm text-ink">{f.name}</p>

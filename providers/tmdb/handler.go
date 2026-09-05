@@ -52,7 +52,11 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 			// non-canonical person field, rendered first-class via a field hint (F39).
 			"known_for_department",
 		},
-		AssetKinds: []string{"photo", "logo", "poster"},
+		// Must list every kind the enrich builders actually emit, or a core that ever
+		// filters incoming assets by the declared set would silently drop them
+		// (HOLODEX-315). `banner` was missing despite buildPersonEnrichResponse having
+		// emitted it since F25; `gallery` likewise. Film adds its own banner (ADR-089 D4).
+		AssetKinds: []string{"photo", "gallery", "banner", "logo", "poster"},
 		// video enrich responses include structured people[] credits (§4.5, F32)
 		// alongside the flat actors/director fields above.
 		Credits: true,

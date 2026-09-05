@@ -172,8 +172,12 @@ func assetRoleFor(entityType, kind string) (string, bool) {
 		switch kind {
 		case "poster", "":
 			return model.FilmImagePoster, true
-		case "thumb":
-			return model.FilmImageThumb, true
+		// `backdrop` is the contract's accepted synonym for `banner`, same as Person
+		// above (F59/ADR-089 D4). `thumb` is deliberately gone, not merely unmapped:
+		// it had no consumer and no producer, so it is now an unknown kind and is
+		// dropped like any other.
+		case "banner", "backdrop":
+			return model.FilmImageBanner, true
 		}
 	}
 	return "", false

@@ -36,7 +36,7 @@ chip row to its heading line and the picker at page level.
 | Heading row | Becomes `flex flex-wrap items-start justify-between gap-2`, matching studio |
 | Heading | Unchanged — `text-xs uppercase tracking-wide text-muted`, "Details" |
 | Owner control | `EnrichProviderChips` — one chip per film-capable provider (icon + name + Enrich), Clear/Refresh in the `⋯` overflow once linked |
-| Visitor | Section-level note only: `Enriched from {provider}` in `text-xs text-muted`, accent on the provider name. **No per-row badge** when a single provider covers every field — same restraint as studio |
+| Visitor | **Sees nothing — the whole section is owner-only** (§4f). An earlier cut gave visitors a section-level `Enriched from {provider}` note; that was removed with the section, along with its now-unreachable `soleProvider` derived |
 | Picker | `EnrichPicker`, page-level, `entityName={film.name}` |
 | Error | `actionError` renders as `text-sm text-warn` above the field grid |
 
@@ -72,21 +72,33 @@ the overlapping.
 | Scrim | Bottom-anchored gradient over the band's lower ~45% | Reuses the person-bio scrim from PR #290 |
 | Stacking | The overlap row and every child paint above the band | Same fix as PR #283 — the row must not sit behind |
 
-### 2c. Empty states (spec Q2)
+Measured as built — title over the scrim 16.84 / 16.38 / 18.97 and the year 6.31 / 4.90 / 5.73 across
+Cinémathèque, Broadcast and Brutalist. **Read that as a floor, not a guarantee:** it compares the text
+against the scrim's end colour (`--bg`). Higher up the gradient the text sits over partially visible
+artwork, so an unusually bright backdrop can still read worse than these numbers. If that shows up in
+practice, deepen the scrim rather than darkening the text.
 
-`EntityImageSlot` falls back to the entity monogram for every non-poster role. **A monogram stretched
-across an 8:3 band is the wrong empty state** — this is the one behavioural change the component
-needs, and it should be expressed as a prop, not a film special case.
+### 2c. Empty states (spec Q2) — as built
+
+**No new prop was needed for the empty state.** A monogram stretched across an 8:3 band would be the
+wrong empty state, so the page simply does not mount the band when there is no banner: the owner gets
+`EntityImageSlot`'s compact **row** variant instead (same upload affordance, no large empty plate),
+and a visitor gets nothing at all.
 
 | Film has | Owner sees | Visitor sees |
 |---|---|---|
-| Banner + poster | Both, scrim active | Both, scrim active |
-| Poster only | No band; an `+ Add banner` control where the band would be | **No band at all** — header renders exactly as today |
-| Banner only | Band + poster slot's existing owner upload affordance | Band + the poster role's dashed empty box |
-| Neither | Today's header, plus `+ Add banner` | Today's header, unchanged |
+| Banner + poster | Band + scrim, poster overlapping | Band + scrim, poster overlapping |
+| Poster only | Compact "Banner" upload row above the header | **No band at all** — header renders exactly as before this feature |
+| Banner only | Band + the poster slot's own upload affordance | Band + the poster role's empty state |
+| Neither | Today's header, plus the compact Banner row | Today's header, unchanged |
 
-The "poster only, visitor" row is the important one: a film with no banner must render byte-identically
-to today. This mirrors F25.30's decision for Person — no placeholder band for visitors.
+The "poster only, visitor" row is the important one: a film with no banner renders exactly as it did
+before. This mirrors F25.30's decision for Person — no placeholder band for visitors.
+
+**The one prop the component did need was `fit`.** `EntityImageSlot` only did `object-contain`, which
+pillarboxed a ~16:9 backdrop against the light plate inside the 8:3 band — visible as bright bars down
+both sides. `fit="cover"` crops instead, per §2b. Same prop retires the inset (`p-*`) that produces the
+"frame" look, which is wanted on a poster and wrong on a full-bleed band.
 
 ### 2d. Owner controls
 
@@ -196,6 +208,19 @@ for it.
 Measured on the built control — `No year set` 6.31 / 4.90 / 5.73, verdict claim 16.00 / 15.59 /
 18.50, verdict rationale 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and Brutalist. One `h1`
 on the page, confirmed in the DOM.
+
+## 4f. Owner-only surfaces (owner request, 2026-09-04)
+
+Three visibility rules, all matching what the Media detail page already does:
+
+| Surface | Rule | Why |
+|---|---|---|
+| Studio row | `{#if isOwner || studios.length}` | Copied verbatim from `media/[id]`. A visitor never sees "No studio set" — an empty row is an owner affordance, not information. Films were the last page still showing it |
+| Description under the studio row | Renders only when a value exists | Already satisfied the rule; a visitor never saw an empty one, and an owner has no add-affordance there to reveal |
+| **Details section** | `{#if isOwner && …}` — owner-only outright | It is provenance and curation machinery, not reader content: source badges, provider chips, and Released all exist to serve editing decisions, and the description a visitor wants already renders in the header |
+
+Gating Details also retired the visitor's section-level "Enriched from X" note, which could no longer
+render — the `soleProvider` derived was removed rather than left as dead code.
 
 ## 5. Out of scope
 

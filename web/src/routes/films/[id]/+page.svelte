@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket, providerFromWinningSource } from '$lib/format';
+	import { toMessage, resolutionBucket } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { providerOf } from '$lib/f36';
@@ -103,16 +103,6 @@
 	function providerLinked(p: string): boolean {
 		return resolved.some((f) => (f.candidates ?? []).some((c) => providerOf(c.source) === p));
 	}
-
-	// Visitor view: when every shown field resolves from the SAME single provider, hoist
-	// one "Enriched from …" note to the section header instead of repeating an identical
-	// badge per row. Empty when providers differ (or none). Mirrors the studio page.
-	const soleProvider = $derived.by(() => {
-		const set = new Set(
-			replaceFields.map((f) => providerFromWinningSource(f.winning_source)).filter(Boolean)
-		);
-		return set.size === 1 ? [...set][0] : '';
-	});
 
 	// Unnumbered scenes sort after all numbered ones, in whatever order the API returns
 	// them (RD5 — no ordering guarantee among unnumbered scenes, so no secondary sort key).
@@ -262,8 +252,55 @@
 			<!-- No "All films" backlink: the nav's Films link already goes there, and the person
 			     page dropped its equivalent for the same reason (#286). -->
 
+			<!-- Banner (F59/ADR-089 D4, design handoff §2). The landscape provider image sits
+			     BEHIND an otherwise-unchanged header: PR #292 made the portrait poster this
+			     page's identity image, and a film's poster carries more recognition weight
+			     than the backdrop. The band is atmosphere; the poster stays the subject.
+			     Visitor with no banner sees no band at all (F25.30's rule for Person) — the
+			     header then renders exactly as it did before this feature. -->
+			{#if film.banner_url}
+				<div class="relative -mb-14 overflow-hidden rounded-theme">
+					<EntityImageSlot
+						entityId={id}
+						entityName={film.name}
+						role="banner"
+						label="Banner"
+						url={film.banner_url}
+						{isOwner}
+						variant="frame"
+						frameClass="aspect-[8/3] w-full"
+						fit="cover"
+						upload={api.uploadFilmImage}
+						remove={api.deleteFilmImage}
+						onchanged={reloadDetail}
+					/>
+					<!-- Legibility scrim: the header row overlaps the band's lower third, so the
+					     title/year/studio must stay readable over arbitrary artwork. Presentational
+					     only — pointer-events-none so it never swallows the owner's overlay
+					     controls sitting above it. -->
+					<div
+						class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-bg to-transparent"
+						aria-hidden="true"
+					></div>
+				</div>
+			{:else if isOwner}
+				<!-- No band when empty: an 8:3 monogram plate would be a large, meaningless
+				     block. The compact row variant carries the same upload affordance. -->
+				<EntityImageSlot
+					entityId={id}
+					entityName={film.name}
+					role="banner"
+					label="Banner"
+					url={undefined}
+					{isOwner}
+					upload={api.uploadFilmImage}
+					remove={api.deleteFilmImage}
+					onchanged={reloadDetail}
+				/>
+			{/if}
+
 			<!-- 2a. Header -->
-			<div class="flex flex-col gap-4 sm:flex-row">
+			<div class="relative flex flex-col gap-4 sm:flex-row">
 				<div class="w-40 shrink-0">
 					<EntityImageSlot
 						entityId={id}
@@ -322,6 +359,11 @@
 						{/snippet}
 					</NameEditControl>
 
+				<!-- Studio — gated exactly like the Media page's studio row
+				     (`media/[id]/+page.svelte`: `{#if isOwner || studioField?.values?.length}`).
+				     A visitor never sees "No studio set": an empty row is an owner affordance,
+				     not information, and films were the only page still showing it. -->
+				{#if isOwner || studios.length}
 					<div class="name-edit-row flex flex-wrap items-center gap-3 pt-1">
 						{#if studios.length}
 							{#each studios as s (s.id)}
@@ -347,6 +389,7 @@
 							</button>
 						{/if}
 					</div>
+				{/if}
 
 					<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
 					     section markup (heading + TagLinkChip wrap) as the Media detail page's
@@ -377,10 +420,15 @@
 			<PeopleGrid title="Cast" people={cast} />
 
 			<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern, and
-			     since F59/HOLODEX-309 its enrichment header row too. The owner keeps the
-			     section when a film-capable provider exists but nothing has resolved yet,
-			     or an unenriched film would offer no way to reach Enrich. -->
-			{#if hasDetails || (isOwner && filmProviders.length)}
+			     since F59/HOLODEX-309 its enrichment header row too.
+			     **Owner-only.** This section is provenance and curation machinery, not reader
+			     content: the description a visitor wants already renders in the header above,
+			     and everything else here (source badges, provider chips, Released) exists to
+			     serve editing decisions. Gating the whole section also retired the visitor's
+			     section-level "Enriched from X" note, which could no longer render. The owner
+			     still gets it when a provider exists but nothing has resolved yet, or an
+			     unenriched film would offer no way to reach Enrich. -->
+			{#if isOwner && (hasDetails || filmProviders.length)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
@@ -398,12 +446,6 @@
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
 							/>
-						{:else if !isOwner && soleProvider}
-							<!-- Visitor: one section-level provenance note when every field shares a
-							     single provider, instead of an identical badge per row. -->
-							<span class="text-xs text-muted"
-								>Enriched from <span class="text-accent">{soleProvider}</span></span
-							>
 						{/if}
 					</div>
 

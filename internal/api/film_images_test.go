@@ -86,7 +86,7 @@ func TestFilmImage_UploadServeDelete(t *testing.T) {
 	srv, _, fid := filmImageServer(t, "tok")
 	jpg := tinyJPEG(t)
 
-	for _, role := range []string{model.FilmImagePoster, model.FilmImageThumb} {
+	for _, role := range []string{model.FilmImagePoster, model.FilmImageBanner} {
 		// No image yet → 404.
 		resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(fid) + "/images/" + role)
 		if err != nil {
@@ -203,17 +203,25 @@ func TestFilmImage_MutationsRequireOwner(t *testing.T) {
 }
 
 // TestFilmImage_InvalidRole — an unknown role is 400 on every verb.
+//
+// This used "banner" as its unknown role until F59/ADR-089 D4 made banner a real film
+// role, at which point it correctly started failing. "thumb" replaces it, which is the
+// stronger case anyway: thumb was a *former* role, retired in the same decision, so this
+// now pins the retirement rather than just exercising the validator. "sidecar" keeps a
+// never-valid value in the table so the test does not depend on thumb staying dead.
 func TestFilmImage_InvalidRole(t *testing.T) {
 	srv, _, fid := filmImageServer(t, "tok")
-	if code := uploadFilmImage(t, srv, "tok", fid, "banner", tinyJPEG(t)); code != http.StatusBadRequest {
-		t.Fatalf("upload invalid role = %d, want 400", code)
-	}
-	resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(fid) + "/images/banner")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("get invalid role = %d, want 400", resp.StatusCode)
+	for _, role := range []string{"thumb", "sidecar"} {
+		if code := uploadFilmImage(t, srv, "tok", fid, role, tinyJPEG(t)); code != http.StatusBadRequest {
+			t.Fatalf("upload role %q = %d, want 400", role, code)
+		}
+		resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(fid) + "/images/" + role)
+		if err != nil {
+			t.Fatalf("get %q: %v", role, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("get role %q = %d, want 400", role, resp.StatusCode)
+		}
 	}
 }
