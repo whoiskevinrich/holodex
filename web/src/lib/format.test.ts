@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	releaseYear,
 	formatYear,
 	formatDuration,
 	resolutionBucket,
@@ -134,4 +135,34 @@ describe('isHttpUrl', () => {
 		expect(isHttpUrl('not a url')).toBe(false);
 		expect(isHttpUrl('')).toBe(false);
 	});
+});
+
+// releaseYear must stay in step with filmReleaseYear (internal/api/film_year.go) — the
+// server parses release_date to FILL films.year, the client parses it to decide whether
+// the year and the release date DISAGREE. If the two ever diverge, the page would report
+// a disagreement the server does not see, or stay silent about one it does. The cases
+// below mirror TestFilmReleaseYear one for one.
+describe('releaseYear', () => {
+	const cases: Array<[string, string | null | undefined, number]> = [
+		['contract-preferred full date', '2001-07-20', 2001],
+		['bare year', '2001', 2001],
+		['leading and trailing space', '  1999-01-01  ', 1999],
+		['slash-separated date still leads with the year', '2001/07/20', 2001],
+
+		// Everything below must yield 0, not a plausible-looking number.
+		['empty', '', 0],
+		['undefined', undefined, 0],
+		['null', null, 0],
+		['too short to hold a year', '201', 0],
+		['day-first date would otherwise parse the day as a year', '20-07-2001', 0],
+		['non-numeric', 'soon', 0],
+		['partially numeric', '20x1-07-20', 0],
+		['explicit zero is not a release year', '0000-01-01', 0]
+	];
+
+	for (const [name, input, want] of cases) {
+		it(name, () => {
+			expect(releaseYear(input)).toBe(want);
+		});
+	}
 });

@@ -185,3 +185,19 @@ export function formatUptime(sec?: number): string {
 	if (h > 0) return `${h}h ${m}m`;
 	return `${m}m`;
 }
+
+// releaseYear extracts a 4-digit year from a resolved `release_date` value, mirroring
+// filmReleaseYear in internal/api/film_year.go. The two must agree: the server uses it
+// to fill films.year, the client uses it to decide whether the film's year and its
+// release date disagree. Both fail closed — anything unparseable yields 0 rather than a
+// plausible-looking number — because on the server a bad parse would claim
+// (name, <nonsense>) as a film's identity, and here it would invent a disagreement.
+export function releaseYear(value?: string | null): number {
+	const v = (value ?? '').trim();
+	if (v.length < 4) return 0;
+	// Deliberately NOT parseInt: parseInt('20-0') is 20. Only an all-digit prefix counts,
+	// so a day-first date like "20-07-2001" yields 0 instead of the year 20.
+	if (!/^\d{4}/.test(v)) return 0;
+	const year = Number(v.slice(0, 4));
+	return Number.isInteger(year) && year > 0 ? year : 0;
+}

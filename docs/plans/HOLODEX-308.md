@@ -43,6 +43,32 @@ vocabulary decisions that surface forces.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · year vs. release_date — stated, deliberately not reconciled
+
+- skills: (none — implementation)
+- Closes the open item carried from HOLODEX-317. Reproduced it live first: setting film 4's
+  year to 1982 while its resolved `release_date` stayed 2016-11-10 produced a silent
+  disagreement with nothing on the page acknowledging it.
+- **The framing decided the fix.** Year and release date are not the same claim — year is half
+  the `(name, year)` identity key ("which Dune is this"), release_date is provider metadata.
+  They diverge *legitimately*: a festival year vs a wide release, a re-release, a director's cut
+  dated a decade after the film anyone means. So anything that forces agreement is wrong; the
+  page's only job is to stop the divergence being silent.
+- Shipped: a muted `Release date says 2016.` on the year row, owner-only, rendered only when both
+  exist and actually differ. **No verb** — an action like "use that" would imply the year is wrong
+  and nag the owner to "fix" a correct value. Contrast 6.31 / 4.90 / 5.73.
+- Rejected, with reasons recorded in the ADR: an actionable "use that" (premature — cheap to add
+  later if the provider's value turns out to be wanted often); a `year_source` column making an
+  owner-set year sticky and a provider-filled one follow (architecturally the ADR-051 answer, but
+  schema for a conflict that is usually legitimate, and it re-opens D3's one-way simplification);
+  and deriving year from release_date outright (a regression — a film with no provider would have
+  no year and no way to set one, and it would undo 317).
+- The parse lives in a **tested helper**, `releaseYear` in `$lib/format`, mirroring
+  `filmReleaseYear` in `internal/api/film_year.go` case for case. The two must not drift: the
+  server parses release_date to *fill* the year, the client parses it to detect *disagreement*, so
+  a divergence would make the page report a conflict the server cannot see, or stay silent about
+  one it does. Both fail closed — `20-07-2001` yields 0, not the year 20.
+
 ### 2026-09-04 · security review — clean, with the evidence written down
 
 - skills: security-review

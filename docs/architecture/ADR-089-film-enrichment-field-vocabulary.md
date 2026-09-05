@@ -224,6 +224,28 @@ Recorded as a decision rather than left implicit because "add enrichment to enti
 mistaken for a component-generalization task before; it is not one, and a PR that touches
 `components/enrichment/**` has gone wrong.
 
+### D6 — A film's year and its resolved `release_date` may disagree; the page states it and reconciles nothing
+
+Once D3 made the year owner-editable, the two could diverge: an owner sets 1982 while the resolved
+`release_date` says 2016-11-10, and nothing reconciles them.
+
+**That is not a bug to fix, because they are not the same claim.** `films.year` is *identity* — half
+of `UNIQUE(name, year)`, the thing that distinguishes one *Dune* from another. `release_date` is
+provider metadata resolving through ADR-051. They diverge legitimately and often: a festival year
+against a wide release, a re-release, a director's cut dated a decade after the film anyone means.
+Forcing agreement would overwrite a correct owner assertion with a differently-correct provider fact.
+
+So the page **states the divergence and stops there**: a muted `Release date says 2016.` on the year
+row, owner-only (it is curation context, like the rest of the Details surface), rendered only when
+both values exist and actually differ. Deliberately **no verb** — an action such as "use that" reads
+as *the year is wrong*, which would nag the owner to "fix" a value that is right.
+
+The parse is duplicated by necessity (`releaseYear` in `$lib/format`, `filmReleaseYear` in
+`internal/api/film_year.go`) because the server parses `release_date` to *fill* the year while the
+client parses it to detect *disagreement*. Both fail closed on an unparseable value and are pinned by
+mirrored test tables; if they drift, the page reports a conflict the server cannot see, or stays
+silent about one it does.
+
 ## Options Considered
 
 ### D1 — where a provider's film cast lands
@@ -277,6 +299,16 @@ wrongly, kept here because both look like missing features rather than deliberat
 | New `landscape`/`backdrop` film-only kind | Rejected — the contract already defines `banner` with `backdrop` as an accepted synonym |
 | Repurpose `thumb` to mean 16:9 | Rejected — silently changes the meaning of an existing (if unused) role string; a stray row would be reinterpreted |
 | Defer the horizontal image | Rejected by the owner — the header is the named consumer and the reason to build it |
+
+### D6 — year vs. resolved release_date
+
+| Option | Verdict |
+|---|---|
+| **State the divergence, reconcile nothing** | **Chosen.** They are different claims and often legitimately differ; the page's job is to be legible, not opinionated. A few lines, no schema |
+| Say nothing | Rejected — leaves a value on screen that looks like it contradicts another, the exact ambiguity that made this feature's first message unreadable |
+| Offer "use the provider's year" | Rejected *for now* — cheap (it reuses `SetFilmYear`, so the collision check is free), but a verb implies one side is wrong and nags the owner about correct values. Revisit if the provider's year turns out to be wanted often |
+| A `year_source` column: owner-set is sticky, provider-filled follows | Rejected — architecturally the ADR-051 answer, but it is schema for a conflict that is usually legitimate, and it re-opens D3's deliberate one-way simplification |
+| Derive the year from `release_date` and drop the separate field | Rejected outright — a regression. A film with no provider would have no year and no way to set one, and the year is identity, so it must be settable without a provider. It would also undo HOLODEX-317 |
 
 ## Trade-off Analysis
 

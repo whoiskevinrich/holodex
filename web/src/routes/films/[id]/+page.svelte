@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket } from '$lib/format';
+	import { toMessage, resolutionBucket, releaseYear } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { providerOf } from '$lib/f36';
@@ -109,6 +109,22 @@
 	function providerLinked(p: string): boolean {
 		return resolved.some((f) => (f.candidates ?? []).some((c) => providerOf(c.source) === p));
 	}
+
+	// The film's year and its resolved release date are DIFFERENT claims: year is half the
+	// (name, year) identity key — which Dune this is — while release_date is provider
+	// metadata. They diverge legitimately (a festival year vs a wide release, a re-release,
+	// a director's cut dated years later), so nothing reconciles them and nothing should.
+	// The page's job is only to stop the divergence being silent, which is what made the
+	// first version of this information unreadable.
+	//
+	// Owner-only, matching the Details section: the provider's date is curation context,
+	// not something a visitor needs.
+	const releaseDateYear = $derived(
+		releaseYear(resolved.find((f) => f.canonical === 'release_date')?.values?.[0])
+	);
+	const yearDiffersFromRelease = $derived(
+		!!film?.year && releaseDateYear > 0 && film.year !== releaseDateYear
+	);
 
 	// Unnumbered scenes sort after all numbered ones, in whatever order the API returns
 	// them (RD5 — no ordering guarantee among unnumbered scenes, so no secondary sort key).
@@ -366,6 +382,14 @@
 							</div>
 						{/snippet}
 					</NameEditControl>
+
+					<!-- Year vs. release date (F59). Stated, never reconciled — see the derivation
+					     above for why they legitimately differ. Muted and factual: no verb, so it
+					     does not imply the year is wrong and nag the owner to "fix" a correct
+					     value. Only rendered when both exist and actually disagree. -->
+					{#if isOwner && yearDiffersFromRelease}
+						<p class="text-xs text-muted">Release date says {releaseDateYear}.</p>
+					{/if}
 
 				<!-- Studio — gated exactly like the Media page's studio row
 				     (`media/[id]/+page.svelte`: `{#if isOwner || studioField?.values?.length}`).

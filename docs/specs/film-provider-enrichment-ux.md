@@ -33,7 +33,7 @@ deferred **P1-3** scene-coverage badge · [film-studio-cascade-writeback.md](fil
 tables this block corrects and extends.
 
 **ADR**: **[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) (Proposed)** records
-the field-vocabulary decisions as D1–D5: the cast landing zone and its deliberate asymmetry with
+the field-vocabulary decisions as D1–D6: the cast landing zone and its deliberate asymmetry with
 ADR-087's Studio cascade, the non-overlap merge rule, the `year` identity write, the `banner` role
 replacing the consumer-less `thumb`, and the SPA entity-kind widening. Touches the **enrichment write
 path** and adds a second **asset download** per film → `/security-review` before merge.
@@ -364,6 +364,11 @@ Single-owner instance — adoption metrics do not apply. Verification is behavio
    suspension behaviour; asserted here because this block adds new film-owned rows).
 
 ## Open Questions
+
+**Q0 (resolved 2026-09-04, ADR-089 D6):** now that the year is directly editable (P0-12), it can
+disagree with the resolved `release_date`. Resolved as: they are different claims — identity vs
+provider metadata — that diverge legitimately, so the page states the divergence in a muted,
+owner-only note on the year row and reconciles nothing.
 
 **Q1 (design, blocking the handoff):** does the banner become the header's hero with the poster
 demoted to an overlapping slot (Person-style), or sit behind an otherwise-unchanged header? PR #292
