@@ -55,11 +55,16 @@ type FilmBilledCredit struct {
 // false-negative one here: wrongly telling an owner their complete rip is incomplete is
 // worse than quietly omitting one genuinely missing performer.
 func (h *Handlers) filmBilledCast(ctx context.Context, rows []repo.EnrichmentRow, union []model.Person) ([]FilmBilledCredit, int) {
+	// Keyed by id AND by name: the id set answers "did the alias-aware lookup land on a
+	// union member", while the name map answers the same question without a query AND
+	// still yields the id, which the dedupe below needs. Storing only a bool here was a
+	// bug — the no-query path could not register the person, so two spellings of one
+	// union member counted as two billed credits.
 	inUnion := make(map[int64]bool, len(union))
-	unionNames := make(map[string]bool, len(union))
+	unionIDByName := make(map[string]int64, len(union))
 	for _, p := range union {
 		inUnion[p.ID] = true
-		unionNames[normalizedName(p.Name)] = true
+		unionIDByName[normalizedName(p.Name)] = p.ID
 	}
 
 	absent := []FilmBilledCredit{}
@@ -79,6 +84,22 @@ func (h *Handlers) filmBilledCast(ctx context.Context, rows []repo.EnrichmentRow
 			}
 			seen[key] = true
 
+			// Fast path, and the common one: a billed name matching a union member's name
+			// outright is covered, so skip the lookup entirely. Without this every billed
+			// name costs a query (up to two — canonical then alias) on a public, uncached
+			// endpoint, and a fully-covered film pays ~20 of them per page load to learn
+			// what this map already knows. It must still register the id, or a second
+			// spelling of the same person would be counted again. A name that misses falls
+			// through to the alias-aware lookup, so the result is unchanged either way.
+			if uid, ok := unionIDByName[key]; ok {
+				if seenID[uid] {
+					continue
+				}
+				seenID[uid] = true
+				total++
+				continue
+			}
+
 			id, found, err := h.repo.LookupEntityIDByName(ctx, model.EnrichEntityPerson, name)
 			if err != nil {
 				// A lookup failure must not cost the page its cast section; treat the
@@ -96,11 +117,10 @@ func (h *Handlers) filmBilledCast(ctx context.Context, rows []repo.EnrichmentRow
 			}
 			total++
 
-			// Covered when the billed name resolves to someone in the union, or (for a
-			// name that resolves to nobody) matches a union member's name outright —
-			// the union can legitimately hold a person the identity spine cannot reach
-			// by this exact string.
-			if (found && inUnion[id]) || (!found && unionNames[key]) {
+			// Covered when the billed name resolves, through the alias spine, to someone
+			// already in the union — a name matching a union member's name outright was
+			// handled by the fast path above and never reaches here.
+			if found && inUnion[id] {
 				continue
 			}
 			absent = append(absent, FilmBilledCredit{Name: name, PersonID: idOrZero(found, id)})

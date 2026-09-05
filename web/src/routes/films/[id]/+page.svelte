@@ -451,9 +451,12 @@
 			     editable/attachable relationship. -->
 			<PeopleGrid title="Cast" people={cast} />
 
-			<!-- Scene coverage (F59/ADR-089 D2, closing ADR-085's deferred P1-3). The whole
-			     block is hidden when no provider has billed a cast, so an unenriched film's
-			     Cast section renders exactly as it always did.
+			<!-- Scene coverage (F59/ADR-089 D2, closing ADR-085's deferred P1-3).
+			     **Owner-only**, for the same reason the Details section is: it is curation
+			     data about the library's completeness, and the copy is written in the
+			     owner's voice — telling a visitor "Your scenes cover 0 of 20" names scenes
+			     that are not theirs. Also hidden when no provider has billed a cast, so an
+			     unenriched film's Cast section renders exactly as it always did.
 			     The chips are the scene union's COMPLEMENT, never the whole billed list:
 			     rendering both in full would be roughly half duplicates at realistic scale,
 			     and the difference is the only version that says something Cast does not.
@@ -461,7 +464,7 @@
 			     row at all — that is precisely what they mean — so there is no portrait to
 			     tile. Dashed reads as provisional/absent; deliberately NOT `text-warn`, since
 			     incomplete coverage is information, not an error. -->
-			{#if billedTotal}
+			{#if isOwner && billedTotal}
 				<section class="space-y-1.5">
 					<p class="text-xs text-muted">
 						{billedAbsent.length === 0

@@ -174,7 +174,6 @@
 	</form>
 {:else}
 	<div {id} class="name-edit-row flex items-center gap-2">
-		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<svelte:element this={as} class={headingClass}>{name || placeholder || ''}</svelte:element>
 		{#if trailing}{@render trailing()}{/if}
 		{#if isOwner}

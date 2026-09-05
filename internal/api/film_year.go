@@ -65,7 +65,7 @@ func (h *Handlers) syncFilmYear(ctx context.Context, id int64) *repo.FilmYearCol
 	}
 
 	var year int
-	for _, f := range h.resolveFilm(ctx, id, film) {
+	for _, f := range h.resolveFilm(ctx, id, film, h.filmEnrichmentRows(ctx, id)) {
 		if f.Canonical != "release_date" {
 			continue
 		}

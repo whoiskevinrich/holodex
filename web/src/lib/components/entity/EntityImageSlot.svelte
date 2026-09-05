@@ -201,12 +201,15 @@
 			{#if isOwner}
 				<div class="flex items-center gap-2">
 					{#if !isPoster || url}
+						<!-- "Replace" only describes the action when something is there to
+						     replace. A non-poster role with an empty slot (e.g. a film's
+						     banner) reaches this branch too, where the verb is an upload. -->
 						<button
 							onclick={openPicker}
 							disabled={uploading}
 							class="rounded-theme border border-rule bg-surface px-2 py-0.5 text-xs text-ink hover:border-accent hover:text-accent disabled:opacity-50"
 						>
-							Replace
+							{url ? 'Replace' : 'Upload'}
 						</button>
 					{/if}
 					{#if url}
