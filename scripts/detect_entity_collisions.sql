@@ -25,9 +25,11 @@ SELECT
     '&',''), '(',''), ')',''), ':',''), '!',''), '?',''), '/',''), '’','') AS lkey
 FROM (
   SELECT 'person' AS entity, id        AS id, name  AS name, 'canonical' AS kind FROM people
-  UNION ALL SELECT 'person', person_id, alias, 'alias'     FROM person_aliases
+  UNION ALL SELECT 'person', entity_id, alias, 'alias' FROM entity_aliases WHERE entity_type = 'person'
   UNION ALL SELECT 'studio', id,        name,  'canonical' FROM studios
+  UNION ALL SELECT 'studio', entity_id, alias, 'alias' FROM entity_aliases WHERE entity_type = 'studio'
   UNION ALL SELECT 'tag',    id,        name,  'canonical' FROM tags
+  UNION ALL SELECT 'tag',    entity_id, alias, 'alias' FROM entity_aliases WHERE entity_type = 'tag'
 );
 
 -- ── SUMMARY: the counts ─────────────────────────────────────────────────────

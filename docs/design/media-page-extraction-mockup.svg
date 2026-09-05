@@ -1,0 +1,240 @@
+<svg viewBox="0 0 960 1330" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .surface3 { fill: #1e1814; }
+      .rule { stroke: #2a2622; stroke-width: 1; }
+      .ruleStrong { stroke: #3d3833; stroke-width: 1; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .dim { fill: #6b6258; }
+      .accent { fill: #e8a33d; }
+      .accentInk { fill: #1a1206; }
+      .ok { fill: #6fae67; }
+      .okStroke { stroke: #6fae67; stroke-width: 1; fill: none; }
+      .accentStroke { stroke: #e8a33d; stroke-width: 1; fill: none; }
+      .accentStroke2 { stroke: #e8a33d; stroke-width: 2; fill: none; }
+      .mutedStroke { stroke: #6b6258; stroke-width: 1; fill: none; }
+      .dimStroke { stroke: #3d3833; stroke-width: 1; fill: none; }
+      .arrow { stroke: #e8a33d; stroke-width: 1.5; fill: none; }
+      .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,1 L7,4 L0,7 z" fill="#e8a33d" />
+    </marker>
+  </defs>
+
+  <rect class="bg" width="960" height="1330" />
+
+  <text x="24" y="30" class="ink title" font-size="20" font-weight="600">Media detail — extract from filename (HOLODEX-194, option B)</text>
+  <text x="24" y="50" class="muted" font-size="12">Cinémathèque tokens · owner-only · reuses ExtractionQueueRow + ExtractionPreviewDialog unchanged · rev 2, addresses design critique</text>
+
+  <!-- ============ STATE 1: resting toolbar ============ -->
+  <g transform="translate(24,76)">
+    <text x="0" y="0" class="accent label">State 1 — resting</text>
+    <rect x="0" y="12" width="912" height="82" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+
+    <text x="16" y="40" class="muted label">Metadata</text>
+
+    <text x="505" y="43" class="muted" font-size="12">Refresh</text>
+    <text x="560" y="43" class="muted" font-size="12">Extract from filename</text>
+    <rect x="688" y="30" width="52" height="18" rx="9" class="dimStroke" />
+    <text x="714" y="43" text-anchor="middle" class="muted" font-size="11">TMDB</text>
+    <text x="756" y="43" class="muted" font-size="12">Write decisions to file</text>
+
+    <line x1="16" y1="60" x2="896" y2="60" class="rule" />
+    <text x="16" y="80" class="muted" font-size="11">Ghost text, no border — the identical treatment Refresh already uses (+page.svelte:1090). Deliberately NOT a chip: it is a one-shot action, not a stateful provider link like TMDB.</text>
+  </g>
+
+  <!-- ============ STATE 2: after extract, inline review ============ -->
+  <g transform="translate(24,194)">
+    <text x="0" y="0" class="accent label">State 2 — after extract · 3 fields to review</text>
+    <rect x="0" y="12" width="912" height="296" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+
+    <text x="16" y="40" class="muted label">Metadata</text>
+    <text x="505" y="43" class="muted" font-size="12">Refresh</text>
+    <text x="560" y="43" class="accent" font-size="12">Extract from filename</text>
+    <rect x="688" y="30" width="52" height="18" rx="9" class="dimStroke" />
+    <text x="714" y="43" text-anchor="middle" class="muted" font-size="11">TMDB</text>
+    <text x="756" y="43" class="muted" font-size="12">Write decisions to file</text>
+
+    <rect x="16" y="58" width="880" height="234" rx="2" class="surface2" />
+    <line x1="16" y1="58" x2="896" y2="58" class="ruleStrong" />
+
+    <text x="32" y="80" class="ink" font-size="12" font-weight="600">From filename</text>
+    <text x="122" y="80" class="muted" font-size="12">· 3 to review</text>
+    <text x="826" y="80" class="muted" font-size="11">Re-extract</text>
+    <text x="32" y="97" class="dim mono" font-size="10">[Neon] Night Drive (Rin Hoshino, Kai Mori, 2019) 1080p.mp4</text>
+    <text x="32" y="113" class="muted" font-size="11">This panel settles one question only: <tspan class="ink">the filename value, or the file's own tag?</tspan> Disagreement with a provider is settled below — state 3.</text>
+
+    <line x1="32" y1="124" x2="880" y2="124" class="rule" />
+    <text x="32" y="145" class="muted" font-size="11">People</text>
+    <rect x="96" y="132" width="112" height="20" rx="10" class="okStroke" />
+    <circle cx="108" cy="142" r="3" class="ok" />
+    <text x="117" y="146" class="ink" font-size="11">Rin Hoshino</text>
+    <rect x="214" y="132" width="90" height="20" rx="10" class="accentStroke" />
+    <circle cx="226" cy="142" r="3" class="accent" />
+    <text x="235" y="146" class="ink" font-size="11">Kai Mori</text>
+    <rect x="316" y="132" width="58" height="20" rx="10" class="accent" />
+    <text x="345" y="146" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Staged</text>
+    <text x="762" y="146" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="146" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="164" x2="880" y2="164" class="rule" />
+    <text x="32" y="185" class="muted" font-size="11">Title</text>
+    <text x="96" y="185" class="ink" font-size="11">Night Drive</text>
+    <text x="180" y="185" class="dim" font-size="11">vs tag: night_drive_final2</text>
+    <rect x="316" y="172" width="58" height="20" rx="10" class="mutedStroke" />
+    <text x="345" y="186" text-anchor="middle" class="muted" font-size="11">Stage</text>
+    <text x="388" y="185" class="muted" font-size="11">Edit</text>
+    <text x="762" y="185" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="185" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="204" x2="880" y2="204" class="rule" />
+    <text x="32" y="225" class="muted" font-size="11">Studio</text>
+    <rect x="96" y="212" width="66" height="20" rx="10" class="okStroke" />
+    <circle cx="108" cy="222" r="3" class="ok" />
+    <text x="117" y="226" class="ink" font-size="11">Neon</text>
+    <rect x="316" y="212" width="58" height="20" rx="10" class="accent" />
+    <text x="345" y="226" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Staged</text>
+    <text x="762" y="226" class="muted" font-size="11">Keep tag</text>
+    <text x="826" y="226" class="muted" font-size="11">Dismiss</text>
+
+    <line x1="32" y1="244" x2="880" y2="244" class="ruleStrong" />
+    <text x="32" y="265" class="muted" font-size="11">2 staged</text>
+    <text x="90" y="265" class="muted" font-size="11">Clear</text>
+    <rect x="748" y="252" width="132" height="22" rx="2" class="accent" />
+    <text x="814" y="267" text-anchor="middle" class="accentInk" font-size="11" font-weight="600">Review and write 2</text>
+
+    <text x="32" y="286" class="dim" font-size="10">Stage pill: filled = staged (People, Studio) · outlined = not yet staged (Title). Chip outline: green = entity already exists · amber = would be created new.</text>
+  </g>
+
+  <!-- ============ STATE 3: provenance carries through (NEW) ============ -->
+  <g transform="translate(24,522)">
+    <text x="0" y="0" class="accent label">State 3 — after writing · where the value actually lands (verified against a running instance)</text>
+    <rect x="0" y="12" width="912" height="252" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+    <text x="16" y="36" class="muted label">Metadata</text>
+    <text x="16" y="56" class="muted" font-size="11">The panel is gone and the value is in the list below — badged <tspan class="ink">file</tspan>, because adoption writes the file tag and it is re-read from there. Takes ~20s.</text>
+
+    <!-- resolved field list -->
+    <rect x="16" y="68" width="424" height="176" rx="2" class="surface2" />
+    <text x="32" y="90" class="dim label">Resolved fields</text>
+
+    <text x="32" y="116" class="muted" font-size="11">Title</text>
+    <text x="128" y="116" class="ink" font-size="11">Night Drive</text>
+    <rect x="234" y="104" width="40" height="16" rx="8" class="accentStroke" />
+    <text x="254" y="116" text-anchor="middle" class="accent" font-size="10">file</text>
+    <text x="282" y="116" class="dim" font-size="9">just written</text>
+
+    <text x="32" y="142" class="muted" font-size="11">Studio</text>
+    <text x="128" y="142" class="ink" font-size="11">Neon</text>
+    <rect x="234" y="130" width="40" height="16" rx="8" class="accentStroke" />
+    <text x="254" y="142" text-anchor="middle" class="accent" font-size="10">file</text>
+    <text x="282" y="142" class="dim" font-size="9">just written</text>
+
+    <text x="32" y="168" class="muted" font-size="11">Overview</text>
+    <text x="128" y="168" class="ink" font-size="11">A courier races the dawn…</text>
+    <rect x="290" y="156" width="46" height="16" rx="8" class="dimStroke" />
+    <text x="313" y="168" text-anchor="middle" class="muted" font-size="10">tmdb</text>
+
+    <text x="32" y="194" class="muted" font-size="11">Runtime</text>
+    <text x="128" y="194" class="ink" font-size="11">104 min</text>
+    <rect x="190" y="182" width="40" height="16" rx="8" class="dimStroke" />
+    <text x="210" y="194" text-anchor="middle" class="muted" font-size="10">file</text>
+
+    <text x="32" y="224" class="dim" font-size="10">ProvenanceBadge, unchanged. `filename` stays the candidate namespace, not the winner.</text>
+
+    <!-- expanded SourceBadge -->
+    <rect x="456" y="68" width="440" height="176" rx="2" class="surface2" />
+    <text x="472" y="90" class="dim label">Title — badge clicked, expanded</text>
+    <text x="472" y="110" class="muted" font-size="11">IF the operator mapped filename:title as a source, it joins the chip</text>
+    <text x="472" y="126" class="muted" font-size="11">row (ADR-013). Unmapped, only file and tmdb appear — verified.</text>
+
+    <rect x="472" y="138" width="128" height="22" rx="2" class="dimStroke" />
+    <text x="484" y="153" class="dim" font-size="10">file</text>
+    <text x="508" y="153" class="muted" font-size="10">night_drive_final2</text>
+
+    <rect x="608" y="138" width="118" height="22" rx="2" class="accentStroke2" />
+    <circle cx="620" cy="149" r="3" class="accent" />
+    <text x="630" y="153" class="accent" font-size="10">filename</text>
+    <text x="672" y="153" class="ink" font-size="10">Night Drive</text>
+
+    <rect x="734" y="138" width="146" height="22" rx="2" class="dimStroke" />
+    <text x="746" y="153" class="dim" font-size="10">tmdb</text>
+    <text x="774" y="153" class="muted" font-size="10">Night Drive (2019)</text>
+
+    <rect x="472" y="172" width="60" height="20" rx="2" class="accent" />
+    <text x="502" y="186" text-anchor="middle" class="accentInk" font-size="10" font-weight="600">Confirm</text>
+    <text x="546" y="186" class="muted" font-size="10">Cancel</text>
+
+    <text x="472" y="216" class="dim" font-size="10">SourceBadge + CurationChip, unchanged. Extraction did not invent a</text>
+    <text x="472" y="230" class="dim" font-size="10">conflict UI — at most it adds a chip to the one that already exists.</text>
+  </g>
+
+  <!-- ============ the two-layer model ============ -->
+  <g transform="translate(24,800)">
+    <text x="0" y="0" class="accent label">Why two surfaces, and which question each one answers</text>
+    <rect x="0" y="12" width="912" height="146" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="912" y2="12" class="rule" />
+
+    <rect x="24" y="32" width="360" height="108" rx="2" class="surface3" />
+    <text x="40" y="54" class="ink" font-size="12" font-weight="600">Layer 1 · extraction review panel</text>
+    <text x="40" y="74" class="muted" font-size="11">filename value  vs  the file's own tag</text>
+    <text x="40" y="94" class="dim" font-size="10">Decides whether the filename value is stored at all.</text>
+    <text x="40" y="110" class="dim" font-size="10">Transient — the row resolves and disappears.</text>
+    <text x="40" y="128" class="dim mono" font-size="10">metadata_extraction_review</text>
+
+    <line x1="396" y1="86" x2="512" y2="86" class="arrow" marker-end="url(#ah)" />
+    <text x="454" y="76" text-anchor="middle" class="accent" font-size="10">resolve writes</text>
+    <text x="454" y="102" text-anchor="middle" class="accent mono" font-size="10">filename:</text>
+
+    <rect x="528" y="32" width="360" height="108" rx="2" class="surface3" />
+    <text x="544" y="54" class="ink" font-size="12" font-weight="600">Layer 2 · per-field source decision</text>
+    <text x="544" y="74" class="muted" font-size="11">file  vs  filename  vs  tmdb</text>
+    <text x="544" y="94" class="dim" font-size="10">Decides which stored source wins for the field.</text>
+    <text x="544" y="110" class="dim" font-size="10">Standing — ADR-051, already shipped, untouched here.</text>
+    <text x="544" y="128" class="dim mono" font-size="10">entity_enrichment + field_source_decisions</text>
+  </g>
+
+  <!-- ============ STATE 4: no match ============ -->
+  <g transform="translate(24,980)">
+    <text x="0" y="0" class="accent label">State 4 — no pattern match</text>
+    <rect x="0" y="12" width="444" height="92" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="444" y2="12" class="rule" />
+    <rect x="16" y="28" width="412" height="60" rx="2" class="surface2" />
+    <text x="32" y="52" class="ink" font-size="12">No filename pattern matched this file.</text>
+    <text x="32" y="72" class="muted" font-size="11">Edit patterns in Settings, Extraction</text>
+  </g>
+
+  <!-- ============ STATE 5: nothing to review ============ -->
+  <g transform="translate(492,980)">
+    <text x="0" y="0" class="accent label">State 5 — nothing needs review</text>
+    <rect x="0" y="12" width="444" height="92" rx="2" class="surface" />
+    <line x1="0" y1="12" x2="444" y2="12" class="rule" />
+    <rect x="16" y="28" width="412" height="60" rx="2" class="surface2" />
+    <text x="32" y="52" class="ink" font-size="12">4 fields matched · nothing needs review.</text>
+    <text x="32" y="72" class="muted" font-size="11">Values are live in the Metadata list below.</text>
+  </g>
+
+  <!-- ============ implementer notes ============ -->
+  <g transform="translate(24,1108)">
+    <rect x="0" y="0" width="912" height="200" rx="2" class="surface" />
+    <line x1="0" y1="0" x2="912" y2="0" class="rule" />
+    <text x="16" y="26" class="accent label">Behaviour notes for the implementer</text>
+    <text x="16" y="50" class="muted" font-size="11">1 · The trigger is ghost text matching Refresh exactly. No border, no chip, no filled button — it must not outweigh its neighbours.</text>
+    <text x="16" y="70" class="muted" font-size="11">2 · The panel renders only when this video has pending rows, or immediately after an extract run. Never present for a visitor.</text>
+    <text x="16" y="90" class="muted" font-size="11">3 · Auto-apply defaults OFF, so most candidates arrive as logged_only or queued. The panel is what makes that visible — without it the button</text>
+    <text x="30" y="106" class="muted" font-size="11">looks inert. If a run produces zero review rows, show state 5, never an empty panel.</text>
+    <text x="16" y="126" class="muted" font-size="11">4 · Never surface a provider value inside the panel. Layer 1 is filename-vs-tag only; adding tmdb there would duplicate layer 2's decision UI.</text>
+    <text x="16" y="146" class="muted" font-size="11">5 · After a successful write, refetch resolved fields so the value visibly lands in the list below, carrying a `filename` ProvenanceBadge.</text>
+    <text x="16" y="166" class="muted" font-size="11">6 · Rows are persisted metadata_extraction_review rows — Keep tag and Dismiss resolve server-side and the row drops out in place. Resolving</text>
+    <text x="30" y="182" class="muted" font-size="11">here and on /owner/extraction are the same call. Tokens only; QA in Cinémathèque, Broadcast, Brutalist.</text>
+  </g>
+</svg>

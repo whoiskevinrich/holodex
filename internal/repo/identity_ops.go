@@ -215,6 +215,12 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 	if err != nil {
 		return model.EntityAlias{}, fmt.Errorf("resolve %s alias: %w", entityType, err)
 	}
+	// Check the new alias against the fleet immediately (real-time near-miss
+	// flagging, the fast-follow to the staleness/match-kind fix): otherwise this alias
+	// only ever gets checked at the next full boot-time SeedIdentityReviewQueue pass.
+	if err := flagNearMissForName(ctx, r.db, entityType, id, a.Alias); err != nil {
+		return model.EntityAlias{}, err
+	}
 	return a, nil
 }
 
@@ -447,6 +453,13 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	if err := dropReviewPairsFor(ctx, tx, entityType, mergedID); err != nil {
 		return nil, err
 	}
+	// Check the merged-away name (now an alias of the survivor, step 3 above) against
+	// the fleet immediately, rather than leaving it for the next boot-time
+	// SeedIdentityReviewQueue pass — real-time near-miss flagging, the fast-follow to
+	// the staleness/match-kind fix.
+	if err := flagNearMissForName(ctx, tx, entityType, canonicalID, mergedName); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit merge: %w", err)
@@ -515,6 +528,17 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
 			return 0, fmt.Errorf("rename (%s): %w", step.desc, err)
 		}
+	}
+	// Check both the new canonical name and the old name (now an alias, step 2 above)
+	// against the fleet immediately — real-time near-miss flagging, the fast-follow to
+	// the staleness/match-kind fix. Without this, a rename's new name sits unchecked
+	// until the next boot-time SeedIdentityReviewQueue pass, same gap as a fresh
+	// AddEntityAlias.
+	if err := flagNearMissForName(ctx, tx, entityType, id, newName); err != nil {
+		return 0, err
+	}
+	if err := flagNearMissForName(ctx, tx, entityType, id, oldName); err != nil {
+		return 0, err
 	}
 
 	if err := tx.Commit(); err != nil {

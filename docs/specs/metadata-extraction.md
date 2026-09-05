@@ -7,6 +7,13 @@ design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-h
 invariants) all landed; F48.10 security requirements (owner-gated endpoints, sanitized filename
 input, no new egress, bounded write concurrency) shipped with the code
 **Feature block**: F48
+
+> **Amended 2026-09-04 ([HOLODEX-194](https://whoiskevinrich.atlassian.net/browse/HOLODEX-194))**:
+> F48.5a's single-video trigger shipped as a backend endpoint and an `api.ts` wrapper but never
+> received a UI — the F48 design handoff scoped the frontend to the `/owner` hub only. §F48.6b
+> (F48.6i–F48.6l) adds the media-detail-page surface, including the inline review panel that makes
+> the trigger meaningful while extraction auto-apply defaults off.
+
 **Phase**: 3 (Enrichment)
 **Date**: 2026-07-14
 **Depends on**:
@@ -298,7 +305,7 @@ treated as the owner having already made the call.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F48.5a | On-demand: a single-video "Extract from filename" action runs F48.1–F48.4 for that video only | Result reflected immediately in the video's resolved fields / review queue |
+| F48.5a | On-demand: a single-video "Extract from filename" action runs F48.1–F48.4 for that video only, **triggered from the media detail page** ([media-page-extraction-handoff.md](../design/media-page-extraction-handoff.md)) | Result reflected immediately in the video's resolved fields / review queue — in the page's own inline panel (F48.6i), not only on the owner tab |
 | F48.5b | Batch: an "Extract all" action runs the same pipeline across a folder or the whole library | Progress observable via the existing System Activity surface (ADR-028), `kind=extraction` |
 | F48.5c | Import-time: scanning a new file runs extraction automatically as part of ingest | A freshly scanned file with a matching filename pattern has its high-confidence fields populated with no owner action |
 | F48.5d | All three triggers share one extraction code path | No behavior drift between on-demand/batch/import-time (regression guard: same fixture produces the same result via all three entry points) |
@@ -315,6 +322,22 @@ treated as the owner having already made the call.
 | F48.6f | An entity field renders one **chip per parsed name** (a multi-person cast = N chips; a studio = 1), each marked *exists* or *new* against the identity spine; clicking a chip opens the picker to swap it to an existing entity or a corrected new name, and × removes it, without disturbing the other names (HOLODEX-196 #1/#5, ADR-068 D2) | Editing or swapping one person in a 3-person cast writes the full edited cast, never collapses it to one; a mistyped studio is fixed in one click |
 | F48.6g | Resolving a row that introduces a not-yet-existing Person/Studio actually creates and links that entity (HOLODEX-196 #4, ADR-068 D1) | After resolve, the new entity appears in the DB / People/Studio list (via the post-write re-extract), not only on a later scan |
 | F48.6h | "Extract all" gives visible progress feedback and the queue can be refreshed in place (HOLODEX-196 #2) | After clicking, a running notice shows and rows appear as files are processed (bounded auto-refresh + a manual Refresh); the tab stays usable |
+
+### F48.6b — Media-page extraction panel (F48.5a's surface)
+
+Added 2026-09-04 ([HOLODEX-194](https://whoiskevinrich.atlassian.net/browse/HOLODEX-194)). F48.5a
+always specified a single-video trigger, but the original design handoff scoped the F48 UI to the
+`/owner` hub, so extraction had a backend entry point (`POST /media/{id}/extract`) and an `api.ts`
+wrapper with no caller. These requirements give it its surface, and — because extraction auto-apply
+defaults **off** — give the owner somewhere to resolve what the run produced without leaving the
+video. Design: [media-page-extraction-handoff.md](../design/media-page-extraction-handoff.md).
+
+| ID | Requirement | Acceptance Criteria |
+|----|-------------|---------------------|
+| F48.6i | The media detail page carries an owner-gated **Extract from filename** control in the Metadata actions row, and renders the resulting pending review rows in an inline panel on that page | Owner-only (`activity.effectiveOwner`, ADR-030) — absent from the DOM for a visitor; the panel reuses `ExtractionQueueRow` unchanged |
+| F48.6j | Staging, preview-before-write, and resolve on that panel are the same code path as the owner tab | A row resolved on the media page disappears from `/owner/extraction`, and vice versa; no second resolve endpoint, no duplicated staging logic |
+| F48.6k | `GET /owner/extraction-queue` accepts an optional `?video_id=` filter | The media page fetches only its own video's pending rows; the parameter is owner-gated exactly as the unfiltered route |
+| F48.6l | A run that yields no pending rows says so explicitly, distinguishing "no pattern matched" from "matched, nothing needs review" | Neither case renders an empty panel or a zero count; with auto-apply off the trigger never appears inert |
 
 ### F48.7 — Preview before sync
 

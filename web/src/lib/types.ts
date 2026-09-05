@@ -46,13 +46,19 @@ export interface VideoCollisionRef {
 }
 
 // DuplicatePair is one flagged possible-duplicate (F43 S5, ADR-061): two entities that
-// are a loose-key near-miss (not an exact-nameKey match) and the variation kind. Served
-// by GET /owner/duplicates, grouped tags-first.
+// are a loose-key near-miss (not an exact-nameKey match), the variation kind, and the
+// match kind — the strongest live evidence still connecting them. Served by GET
+// /owner/duplicates, grouped tags-first then strongest-match-first.
 export interface DuplicatePair {
 	entity_type: EntityKind;
 	a: EntityRef;
 	b: EntityRef;
 	variation: string; // 'internal-whitespace' | 'punctuation'
+	// 'canonical': both names collide directly (strong — likely the same entity typed
+	// twice). 'mixed': one side needs an alias. 'alias': ONLY an alias on each side
+	// collides — the weakest signal, since aliases on distinct entities coincide far
+	// more often than canonical names do (especially after a few merges).
+	match_kind: 'canonical' | 'mixed' | 'alias';
 }
 
 export interface Person {
