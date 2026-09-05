@@ -145,14 +145,27 @@ about one skipped write**, not a failed request.
   Everything else from the provider was applied.` The occupying film's name+year links to it.
 - The closing sentence is load-bearing: without it the line reads as a failure, and the owner would
   reasonably retry an apply that already succeeded.
-- Placement: in the Details section directly under the `actionError` slot, `text-sm text-warn` —
-  but held in its own `yearCollision` state, *not* in `actionError`, because the request succeeded.
+- Placement: in the Details section directly under the `actionError` slot, `text-sm text-muted` —
+  and held in its own `yearCollision` state, *not* in `actionError`, because the request succeeded.
 - Cleared when the owner opens the picker again, so it never outlives the apply it describes.
 - **No auto-bump, no silent swap** — the same posture as scene-number collisions on attach. And no
   overwrite: the fill only ever fills a blank year.
 
-Contrast measured on the built line: 5.35 / 6.96 / 6.36 across Cinémathèque, Broadcast and
-Brutalist — AA clear in all three.
+> **Corrected after owner review (2026-09-04), and the reason is worth keeping.** This first shipped
+> as `text-warn`. Red reads as *failure* for something that succeeded — and the spec had already said
+> to treat it as an advisory, so the distinction existed in the code and not on screen. Worse, the
+> copy referred to "this film's year" while `Released: 2021-09-15` sat visibly below it: two different
+> things that read as one contradiction. **A message must name things the reader can actually see.**
+>
+> The deeper problem is structural and this section does not fix it: when a film has no year, the
+> header renders *nothing* where the year would go, so the sentence explains an invisible absence.
+> **[HOLODEX-317](https://whoiskevinrich.atlassian.net/browse/HOLODEX-317) replaces this line
+> entirely** — the year becomes an editable `NameEditControl` field and the collision becomes its
+> inline `verdict`, landing in the control the owner just used. Treat everything in this §4 as
+> interim.
+
+Contrast measured on the built line: 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and
+Brutalist (link 16.00 / 15.59 / 18.50) — AA clear in all three.
 
 ## 5. Out of scope
 

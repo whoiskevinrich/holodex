@@ -43,6 +43,35 @@ vocabulary decisions that surface forces.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-04 · owner review of the 311 message → interim fix + a better direction (HOLODEX-317)
+
+- skills: (none — review response)
+- Owner, looking at the live page: *"The red text feels out of place. I see the released date below,
+  so it's unclear what the error is trying to convey."* Both halves correct.
+  1. **Red said failure for something that succeeded.** The spec and handoff had already argued this
+     should read as an advisory — then it shipped with `text-warn`, identical to real failures. The
+     distinction existed in the code and nowhere on screen. Now `text-muted`.
+  2. **The message had no referent.** A film with no year renders *nothing* in the header where the
+     year goes, so the sentence explained an invisible absence — directly above a visible
+     `Released: 2021-09-15` that read as a contradiction. Reworded to name both fields explicitly.
+- **The owner's counter-proposal is better than either option I mocked up**: use the Media detail
+  page's Studio approach on the Films page for Studio *and* release date — reusable components, one
+  affordance across pages, the docked-pencil edit already expected elsewhere. Assessed as highly
+  viable: `NameEditControl` is already generic over its conflict payload (`TConflict`) and renders a
+  `verdict` snippet inline *in place of the edit form*, which is exactly where a year collision
+  belongs. Filed as HOLODEX-317.
+- **The strongest evidence came from the page itself:** `films/[id]/+page.svelte` already hand-rolls
+  `name-edit-row` / `name-edit-pencil` — CSS hooks belonging to `NameEditControl` — without importing
+  it. The page was imitating the pattern rather than reusing it, which is the exact drift PR #257's
+  ADR was written about. Adopting the component is a simplification, not an addition.
+- Studio's half of that belongs to HOLODEX-285 (In Progress, currently building a bespoke
+  `FilmStudioCascadeDialog`) — commented there rather than changed unilaterally.
+- **Lesson worth carrying:** I wrote "this is an advisory, not a failure" in three artifacts and then
+  styled it as a failure. Prose intent in a handoff does not survive unless the token choice encodes
+  it — check the built pixels against the sentence that specified them.
+- handoff: §4 of the design handoff is now marked interim in full. 310 (cast) and 312 (banner) still
+  open; 317 should land before or with 312, since both touch the film header.
+
 ### 2026-09-04 · HOLODEX-311 year fill shipped; ADR-089 D3 amended twice by building it
 
 - skills: (none — implementation)

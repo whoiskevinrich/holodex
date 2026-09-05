@@ -362,14 +362,22 @@
 						<p class="text-sm text-warn">{actionError}</p>
 					{/if}
 
-					<!-- Withheld year fill (F59/ADR-089 D3): the enrich succeeded, so this names
-					     the occupying film and links to it rather than reading as a failure. -->
+					<!-- Withheld year fill (F59/ADR-089 D3). Deliberately `text-muted`, NOT
+					     `text-warn`: nothing failed, so a red line here reads as an error the
+					     owner should act on and mis-sorts alongside actionError above. It also
+					     names Released explicitly, because that field IS on screen just below
+					     and otherwise looks like it contradicts this sentence — the film's year
+					     (beside the title) and its release date are two different things.
+					     INTERIM: HOLODEX-317 replaces this line with a NameEditControl verdict
+					     on an editable year, which is where a conflict belongs. -->
 					{#if yearCollision}
-						<p class="text-sm text-warn">
-							Kept this film's year unset — <a
+						<p class="text-sm text-muted">
+							Released was applied. The film's year — shown beside the title — stayed empty,
+							because <a
 								href={`/films/${yearCollision.film_id}`}
-								class="underline hover:text-ink">{yearCollision.film_name} ({yearCollision.year})</a
-							> already uses that name and year. Everything else from the provider was applied.
+								class="text-ink underline hover:text-accent"
+								>{yearCollision.film_name} ({yearCollision.year})</a
+							> already uses that name and year.
 						</p>
 					{/if}
 
