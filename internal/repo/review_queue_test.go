@@ -350,3 +350,198 @@ func TestReviewQueue_ProviderAliasRowsAlwaysSurface(t *testing.T) {
 		t.Fatalf("pairs = %+v, want one provider-alias row with empty match_kind", pairs)
 	}
 }
+
+// tagPairsOnly filters pairs down to entity_type=tag, for tests that only seed tags.
+func tagPairsOnly(pairs []repo.ReviewPair) []repo.ReviewPair {
+	var out []repo.ReviewPair
+	for _, p := range pairs {
+		if p.EntityType == model.EntityTag {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// TestFlagNearMiss_CatchesExistingAlias proves scan-time flagging (FlagNearMiss, fired
+// when a new entity is created) now checks a new entity's name against the WHOLE live
+// pool — canonical names AND every alias — not just canonical names. Before this fix,
+// FlagNearMiss compared only against the canonical table, so a new entity whose name
+// only near-missed an EXISTING ALIAS (never a canonical name) was silently never
+// flagged; that gap is exactly what real-time alias flagging closes it into.
+func TestFlagNearMiss_CatchesExistingAlias(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"drama"}), nil); err != nil {
+		t.Fatalf("seed drama: %v", err)
+	}
+	dramaID := tagIDByName(t, r, "drama")
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, dramaID, "sci-fi"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+
+	// A brand-new tag whose CANONICAL name near-misses drama's ALIAS, not any
+	// canonical tag name in the system.
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, []string{"scifi"}), nil); err != nil {
+		t.Fatalf("seed scifi: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	tagPairs := tagPairsOnly(pairs)
+	if len(tagPairs) != 1 || tagPairs[0].MatchKind != "mixed" {
+		t.Fatalf("tag pairs = %+v, want one mixed-kind pair (new tag's canonical vs drama's alias)", tagPairs)
+	}
+}
+
+// TestAddEntityAlias_FlagsNearMissImmediately proves adding an alias checks it against
+// the fleet right away — no SeedIdentityReviewQueue call in this test — instead of the
+// pair sitting undetected until the next boot-time reseed (which, per cmd/holodex,
+// only ever runs once per instance).
+func TestAddEntityAlias_FlagsNearMissImmediately(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	idA, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", []string{"Existing Person"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	linkPeople(t, r, idA, "Existing Person")
+	idB, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", []string{"Someone Else"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+	linkPeople(t, r, idB, "Someone Else")
+	bID := personIDByName(t, r, "Someone Else")
+
+	if _, err := r.AddPersonAlias(ctx, bID, "Existing-Person"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var personPairs []repo.ReviewPair
+	for _, p := range pairs {
+		if p.EntityType == model.EnrichEntityPerson {
+			personPairs = append(personPairs, p)
+		}
+	}
+	if len(personPairs) != 1 || personPairs[0].MatchKind != "mixed" {
+		t.Fatalf("person pairs = %+v, want one mixed-kind pair", personPairs)
+	}
+}
+
+// TestMergeEntities_FlagsNearMissImmediately proves a merge's "name → alias" step
+// (the survivor gaining the merged-away entity's old name as an alias) is checked
+// against the fleet right away. X near-misses Z at X's own creation (flagged then);
+// merging X into Y drops that stale pair (X no longer exists) and the survivor's new
+// alias must be re-flagged against Z immediately, with no explicit reseed call.
+func TestMergeEntities_FlagsNearMissImmediately(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/z.mkv", "Z", nil, []string{"sci-fi"}), nil); err != nil {
+		t.Fatalf("seed z: %v", err)
+	}
+	zID := tagIDByName(t, r, "sci-fi")
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/x.mkv", "X", nil, []string{"scifi"}), nil); err != nil {
+		t.Fatalf("seed x: %v", err)
+	}
+	xID := tagIDByName(t, r, "scifi")
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/y.mkv", "Y", nil, []string{"comedy"}), nil); err != nil {
+		t.Fatalf("seed y: %v", err)
+	}
+	yID := tagIDByName(t, r, "comedy")
+
+	if err := r.MergeEntities(ctx, model.EntityTag, yID, xID); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	tagPairs := tagPairsOnly(pairs)
+	if len(tagPairs) != 1 {
+		t.Fatalf("tag pairs = %+v, want exactly one (survivor's merge-derived alias vs z, not the dropped pre-merge x/z pair)", tagPairs)
+	}
+	p := tagPairs[0]
+	if (p.A.ID != yID && p.A.ID != zID) || (p.B.ID != yID && p.B.ID != zID) {
+		t.Fatalf("pair = %+v, want (survivor, z)", p)
+	}
+	if p.MatchKind != "mixed" {
+		t.Fatalf("match kind = %q, want mixed (survivor's alias vs z's canonical)", p.MatchKind)
+	}
+}
+
+// TestRenameEntity_FlagsNewNameImmediately proves a rename's NEW canonical name is
+// checked against the fleet right away — the same real-time coverage a brand-new
+// entity gets from FlagNearMiss, extended to an existing entity adopting a new name.
+func TestRenameEntity_FlagsNewNameImmediately(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"sci-fi"}), nil); err != nil {
+		t.Fatalf("seed sci-fi: %v", err)
+	}
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, []string{"documentary"}), nil); err != nil {
+		t.Fatalf("seed documentary: %v", err)
+	}
+	docID := tagIDByName(t, r, "documentary")
+
+	if _, err := r.RenameEntity(ctx, model.EntityTag, docID, "scifi"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	tagPairs := tagPairsOnly(pairs)
+	if len(tagPairs) != 1 || tagPairs[0].MatchKind != "canonical" {
+		t.Fatalf("tag pairs = %+v, want one canonical-kind pair (renamed entity's new name vs sci-fi)", tagPairs)
+	}
+}
+
+// TestRenameEntity_FlagsOldNameAliasImmediately proves a rename's OLD name (kept as an
+// alias) is ALSO checked against the fleet right away — the only mechanism that can
+// ever surface this, since SeedIdentityReviewQueue only runs once per instance
+// (cmd/holodex), and neither of these two rows was ever created through a hook that
+// would ordinarily flag it. Both rows are inserted directly (bypassing every
+// create/rename/merge path) to simulate exactly that: legacy data whose collision was
+// never seeded and never touched by any real-time hook until this rename.
+func TestRenameEntity_FlagsOldNameAliasImmediately(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	res, err := db.ExecContext(ctx, `INSERT INTO tags (name) VALUES ('sci-fi')`)
+	if err != nil {
+		t.Fatalf("seed w: %v", err)
+	}
+	wID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("w id: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO tags (name) VALUES ('scifi')`); err != nil {
+		t.Fatalf("seed z: %v", err)
+	}
+
+	if _, err := r.RenameEntity(ctx, model.EntityTag, wID, "action"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	tagPairs := tagPairsOnly(pairs)
+	if len(tagPairs) != 1 || tagPairs[0].MatchKind != "mixed" {
+		t.Fatalf("tag pairs = %+v, want one mixed-kind pair (renamed entity's old-name alias vs the other tag)", tagPairs)
+	}
+}
