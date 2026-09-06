@@ -53,7 +53,7 @@
 	--accent: #e8a33d;
 	--accent-ink: #1a1206;
 	--warn: #e2603f; /* distinct from the gold accent — error/attention only */
-	--warn-ink: #fdf1ee; /* readable ink on a solid --warn fill (destructive CTA) */
+	--warn-ink: #170e08; /* warm near-black ink on a solid --warn fill (destructive CTA) — a light ink cannot pass AA here: even pure white only reaches 3.51:1 against this warn's luminance, so this goes dark like --logo-plate-ink below rather than light like the other two skins' warn-ink. 5.42:1 (HOLODEX-324, was #fdf1ee at 3.18:1) */
 	--logo-plate: #e9e0d0; /* light neutral plate for arbitrary brand logos (F38) — most are drawn for light bg; keeps black/white PNGs legible on the dark skin */
 	--logo-plate-ink: #2a2018; /* warm near-black for the monogram fallback on the plate (HOLODEX-126) */
 	--font-display: 'Fraunces Variable', serif;
