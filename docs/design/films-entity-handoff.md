@@ -115,6 +115,10 @@ ever populate this page on its own, unlike Studio's "before the backfill has run
   sufficient; don't invent a secondary sort).
 - Empty state: `<p class="py-8 text-center text-sm text-muted">No scenes attached yet.</p>` plus
   the attach affordance (§4) — never a dead end with no picker in sight.
+- **Edit in place (HOLODEX-326)**: owner-only, the scene-number badge itself becomes the edit
+  trigger — a real `<button>`, not nested inside the card's link (a sibling overlay in the same
+  corner, so clicking it never also navigates). Opens §8's shared dialog. A visitor, and the
+  full-film section (§2b, which never shows a scene-number badge), see no change.
 
 ### 2d. Film → video attach entry point
 The bulk picker (§4) opens from a persistent "Attach videos…" action in this region — not
@@ -137,6 +141,9 @@ New section on the video detail page, positioned alongside the existing Studio/P
   `.btn-quiet`-style neutral treatment, never a raw color) — this is the one place the owner is
   reminded, every time they look at this video, that it's the reason the file doesn't show up in
   browse. Don't bury this as a tooltip; render it inline.
+- **Edit in place (HOLODEX-326)**: the scene-number badge itself is the edit trigger for a
+  non-full-film row (owner-only) — opens §8's shared dialog. The `Full film` badge never becomes
+  a button; a full-film attachment has no scene number to edit.
 
 ### 3b. Attach picker (P0-8, RD9 "video → film")
 **New component**, `FilmAttachDialog.svelte`, modeled on `EntityPickerDialog.svelte`'s dialog
@@ -276,6 +283,33 @@ closes on. This closes ADR-085 §5's action item.
 
 ---
 
+## 8. Scene number edit (HOLODEX-326) — shared by §2c and §3a
+
+Attach (§3b, §4) and detach (§3a) already covered the film↔video link's lifecycle; this closes
+the gap in between — correcting an already-attached video's scene number without a
+detach+reattach round trip.
+
+- **Trigger**: the scene-number badge itself, wherever it already renders (§2c's scenes grid,
+  §3a's Films chip row) — owner-only, no separate pencil icon. Clicking it opens the same small
+  dialog, `EditSceneNumberDialog`, regardless of which page it was opened from.
+- **Dialog**: a single numeric field (empty = unnumbered, matching §3b's attach-step field
+  exactly — same placeholder, same validation message), labeled with whichever name the calling
+  page *isn't* already showing on screen (the video's title from §2c, since the film name is the
+  page header; the film's name from §3a, since the video's title is the page header). Chrome is
+  the shared `ConfirmDialog` (focus trap, Esc/backdrop cancel, focus-restore-on-close) rather than
+  a new modal shell — this is a one-field form, not a search-then-confirm flow like §3b/§4.
+- **Collision** (RD5, same rule as attach): a 409 renders inline as a plain error string naming
+  the occupant — *"Scene {n} is already {title}."* — no silent swap, no auto-bump, dialog stays
+  open with the value intact so the owner can pick a different number without restarting.
+  Re-submitting the video's own current number is a no-op success, not a collision, since nothing
+  actually changed.
+- **On success**: both pages patch the one affected item in their already-loaded local list
+  (mirroring how detach already updates §3a's list without a reload) — §2c's `scenes` array is
+  itself the sort input (`$derived` sort), so patching it in place re-sorts automatically with no
+  stale-order risk and no extra round trip.
+
+---
+
 ## Design tokens used
 
 All inherited — no new tokens (unlike Studio's `logo-plate-ink`, which films reuse as-is for the
@@ -388,6 +422,9 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
   occupant-naming 409; bulk attach is all-or-nothing (no partial rows committed on collision).
 - **2.4** `[smoke]` Toggling `films_enabled` off does not delete any `films`/`film_videos` row
   and does not revert a previously-written Album/Title file value.
+- **2.5** `[smoke]` (HOLODEX-326) `PATCH /films/{id}/videos/{videoId}` re-numbering a scene to a
+  number ANOTHER scene already holds 409s naming that occupant; re-numbering it to its OWN
+  current number succeeds (not a collision); 404 on a video not attached to that film.
 
 ### §3 Agent live QA (preview tools against §1 stack)
 - **3.1** `[agent]` `/films` renders the poster grid; no-poster films show the monogram
@@ -426,6 +463,12 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
 - **3.10** `[agent]` Global search for a film name (with `films_enabled` true) returns a Films
   group with poster thumb + name + year; searching the same term with the flag off returns no
   Films group at all (not an empty one).
+- **3.11** `[agent]` (HOLODEX-326, §8) On the scenes-only film, click a scene's number badge:
+  `EditSceneNumberDialog` opens pre-filled with its current number, labeled with that scene's
+  video title. Save a new number — the card re-sorts into position with no page reload. Repeat
+  from `/media/{id}`'s Films chip row on that same video: the dialog now labels with the film's
+  name instead. Trigger a collision from each entry point and confirm the inline "Scene {n} is
+  already {title}" error (same string §3.6's attach-time collision already uses). **All 3 skins.**
 
 ### §4 Human
 - **4.1** `[human]` Visit `/films` in each skin. It should read as a movie-library grid — denser

@@ -519,6 +519,51 @@ func (r *Repo) AttachFilmVideo(ctx context.Context, filmID, videoID int64, scene
 	return nil, nil
 }
 
+// UpdateFilmVideoScene corrects an already-attached video's scene number (nil =
+// unnumbered) without a detach+reattach round trip. Shares insertFilmVideo's
+// collision rule via filmSceneOccupant: 409 naming the occupant, no auto-bump --
+// except re-setting the video's own current number is a no-op, not a collision.
+// ErrNotFound if the pair isn't attached.
+func (r *Repo) UpdateFilmVideoScene(ctx context.Context, filmID, videoID int64, sceneNumber *int64) (*FilmSceneCollision, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	var already int
+	switch err := tx.QueryRowContext(ctx,
+		`SELECT 1 FROM film_videos WHERE film_id = ? AND video_id = ?`, filmID, videoID).Scan(&already); {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, ErrNotFound
+	case err != nil:
+		return nil, fmt.Errorf("check existing attachment: %w", err)
+	}
+
+	if sceneNumber != nil {
+		occ, err := filmSceneOccupant(ctx, tx, filmID, *sceneNumber)
+		if err != nil {
+			return nil, fmt.Errorf("check scene collision: %w", err)
+		}
+		if occ != nil && occ.VideoID != videoID {
+			return occ, ErrSceneNumberTaken
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE film_videos SET scene_number = ? WHERE film_id = ? AND video_id = ?`,
+		sceneNumber, filmID, videoID); err != nil {
+		return nil, fmt.Errorf("update film video scene: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit update scene: %w", err)
+	}
+	return nil, nil
+}
+
 // DetachFilmVideo removes a video's link to a film. ErrNotFound if the pair wasn't
 // attached (idempotent-detach is the caller's choice, not this method's -- mirrors
 // DeleteStudioImage's non-idempotent counterpart DeleteFilmVideo would otherwise

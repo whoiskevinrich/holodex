@@ -26,6 +26,7 @@
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
+	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
@@ -258,6 +259,23 @@
 	}
 
 	let attachOpen = $state(false);
+
+	// Edit scene number (HOLODEX-326): the scenes grid's per-card badge opens this
+	// dialog instead of detach+reattach. editingSceneVideo holds the scene being
+	// renumbered (null = none open).
+	let editingSceneVideo = $state<Video | null>(null);
+
+	async function saveSceneNumber(value: number | null) {
+		if (!editingSceneVideo) throw new Error('no scene selected');
+		const videoId = editingSceneVideo.id;
+		const res = await api.updateFilmVideoScene(id, videoId, value);
+		if (res.conflict) return { conflict: res.conflict };
+		// scenes drives sortedScenes/sceneNumberOf ($derived), so patching it in place
+		// re-sorts automatically -- no reload needed, mirroring the media page's
+		// equivalent local patch for the same edit.
+		scenes = scenes.map((s) => (s.video.id === videoId ? { ...s, scene_number: value } : s));
+		return { ok: true as const };
+	}
 
 	// Film-studio cascade (F57, HOLODEX-285, design handoff §3/§4): the dialog itself
 	// commits via api.cascadeFilmStudio; this page only holds what to do after — mount
@@ -592,7 +610,11 @@
 				{#if scenes.length === 0}
 					<p class="py-8 text-center text-sm text-muted">No scenes attached yet.</p>
 				{:else}
-					<VideoGrid videos={sortedScenes.map((s) => s.video)} sceneNumbers={sceneNumberOf} />
+					<VideoGrid
+						videos={sortedScenes.map((s) => s.video)}
+						sceneNumbers={sceneNumberOf}
+						onEditScene={isOwner ? (v) => (editingSceneVideo = v) : undefined}
+					/>
 				{/if}
 			</section>
 		</section>
@@ -617,6 +639,15 @@
 			writebackVideoId = null;
 			reloadDetail();
 		}}
+	/>
+{/if}
+
+{#if editingSceneVideo}
+	<EditSceneNumberDialog
+		contextLabel={editingSceneVideo.title}
+		currentScene={sceneNumberOf(editingSceneVideo) ?? null}
+		onsave={saveSceneNumber}
+		onclose={() => (editingSceneVideo = null)}
 	/>
 {/if}
 
