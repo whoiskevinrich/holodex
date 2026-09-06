@@ -211,7 +211,7 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 // 409 (e.g. "item deleted") still throws, or a caller checking only
 // `if (res.conflict)` would fall through to its success path.
 async function sendConflictable<TReq, TConflict = VideoCollisionRef>(
-	method: 'POST' | 'PUT',
+	method: 'POST' | 'PUT' | 'PATCH',
 	path: string,
 	body: TReq
 ): Promise<{ conflict?: TConflict }> {
@@ -544,6 +544,16 @@ export const api = {
 			video_ids: videoIds,
 			starting_scene_number: startingSceneNumber
 		}),
+
+	// updateFilmVideoScene corrects an already-attached video's scene number in
+	// place (HOLODEX-326) — same collision contract as attachFilmVideo, so a
+	// renumber that collides surfaces as `{conflict}` too.
+	updateFilmVideoScene: (filmId: number, videoId: number, sceneNumber: number | null) =>
+		sendConflictable<{ scene_number: number | null }, FilmSceneCollision>(
+			'PATCH',
+			`/films/${filmId}/videos/${videoId}`,
+			{ scene_number: sceneNumber }
+		),
 
 	detachFilmVideo: (filmId: number, videoId: number) =>
 		sendAuthed<Record<string, never>>('DELETE', `/films/${filmId}/videos/${videoId}`),

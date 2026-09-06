@@ -32,6 +32,7 @@ func (h *Handlers) mountFilmVideos(r chi.Router) {
 	r.Get("/films/{filmId}/video-candidates", h.filmVideoCandidates)
 	r.Post("/films/{filmId}/videos", h.attachFilmVideo)
 	r.Post("/films/{filmId}/videos/bulk", h.bulkAttachFilmVideos)
+	r.Patch("/films/{filmId}/videos/{videoId}", h.updateFilmVideoScene)
 	r.Delete("/films/{filmId}/videos/{videoId}", h.detachFilmVideo)
 }
 
@@ -226,6 +227,34 @@ func (h *Handlers) bulkAttachFilmVideos(w http.ResponseWriter, r *http.Request) 
 	}
 	occupant, err := h.repo.BulkAttachFilmVideos(r.Context(), filmID, body.VideoIDs, body.StartingSceneNumber)
 	if h.filmVideoMutationError(w, "bulk attach film videos", err, occupant) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// updateFilmVideoScene handles PATCH /films/{filmId}/videos/{videoId} (owner-gated):
+// {scene_number} (optional, nil = unnumbered) -- corrects an already-attached
+// video's scene number in place, without a detach+reattach round trip. Same 409
+// collision semantics as attachFilmVideo (naming the occupant, no auto-bump);
+// re-setting the video's own current number is a no-op. 404 if the pair isn't
+// attached.
+func (h *Handlers) updateFilmVideoScene(w http.ResponseWriter, r *http.Request) {
+	filmID, ok := urlParamID(w, r, "filmId")
+	if !ok {
+		return
+	}
+	videoID, ok := urlParamID(w, r, "videoId")
+	if !ok {
+		return
+	}
+	var body struct {
+		SceneNumber *int64 `json:"scene_number"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	occupant, err := h.repo.UpdateFilmVideoScene(r.Context(), filmID, videoID, body.SceneNumber)
+	if h.filmVideoMutationError(w, "update film video scene", err, occupant) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

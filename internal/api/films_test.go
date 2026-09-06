@@ -77,6 +77,28 @@ func filmPost(t *testing.T, srv *httptest.Server, token, path string, body any) 
 	return resp
 }
 
+func filmPatch(t *testing.T, srv *httptest.Server, token, path string, body any) *http.Response {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1"+path, bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set(api.AdminTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("do patch %s: %v", path, err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	return resp
+}
+
 func filmDelete(t *testing.T, srv *httptest.Server, token, path string) *http.Response {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1"+path, nil)
@@ -340,6 +362,83 @@ func TestFilmVideoSceneCollision(t *testing.T) {
 	}
 	if len(fvs) != 1 {
 		t.Fatalf("bulk attach should have rolled back entirely: got %d attachments, want 1", len(fvs))
+	}
+}
+
+// TestUpdateFilmVideoScene covers the PATCH edit path (HOLODEX-326): changing an
+// already-attached video's scene number in place, the no-op re-set-to-own-number
+// case, the 409 collision with another occupant, and 404 on an unattached pair.
+func TestUpdateFilmVideoScene(t *testing.T) {
+	srv, r, v1, v2 := filmServer(t, "tok")
+	ctx := context.Background()
+
+	id, err := r.CreateFilm(ctx, "Update Scene Test", 2023)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	one, five := int64(1), int64(5)
+	if _, err := r.AttachFilmVideo(ctx, id, v1, &one, false); err != nil {
+		t.Fatalf("attach v1: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, id, v2, &five, false); err != nil {
+		t.Fatalf("attach v2: %v", err)
+	}
+
+	// Happy path: renumber v1 from 1 to 2.
+	two := int64(2)
+	resp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v1), map[string]any{"scene_number": two})
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("update scene: got %d, want 204", resp.StatusCode)
+	}
+	fvs, err := r.FilmVideos(ctx, id)
+	if err != nil {
+		t.Fatalf("film videos: %v", err)
+	}
+	byVideo := map[int64]*int64{}
+	for _, fv := range fvs {
+		byVideo[fv.Video.ID] = fv.SceneNumber
+	}
+	if byVideo[v1] == nil || *byVideo[v1] != 2 {
+		t.Fatalf("v1 scene after update: got %v, want 2", byVideo[v1])
+	}
+
+	// Re-setting v2 to its own current number (5) is a no-op, not a collision.
+	noopResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v2), map[string]any{"scene_number": five})
+	if noopResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("no-op re-set: got %d, want 204", noopResp.StatusCode)
+	}
+
+	// Colliding with the other occupant (v2 holds 5) is a 409 naming it.
+	collideResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v1), map[string]any{"scene_number": five})
+	if collideResp.StatusCode != http.StatusConflict {
+		t.Fatalf("colliding update: got %d, want 409", collideResp.StatusCode)
+	}
+	var conflict struct {
+		Conflict repo.FilmSceneCollision `json:"conflict"`
+	}
+	if err := json.NewDecoder(collideResp.Body).Decode(&conflict); err != nil {
+		t.Fatalf("decode conflict: %v", err)
+	}
+	if conflict.Conflict.VideoID != v2 {
+		t.Fatalf("collision occupant: got video %d, want %d", conflict.Conflict.VideoID, v2)
+	}
+
+	// Clearing to unnumbered is allowed.
+	clearResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v1), map[string]any{"scene_number": nil})
+	if clearResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("clear scene: got %d, want 204", clearResp.StatusCode)
+	}
+
+	// Updating an unattached pair is a 404.
+	notAttachedResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/999999", map[string]any{"scene_number": one})
+	if notAttachedResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("update unattached pair: got %d, want 404", notAttachedResp.StatusCode)
+	}
+
+	// Unauthenticated update is rejected.
+	unauthResp := filmPatch(t, srv, "", "/films/"+itoa(id)+"/videos/"+itoa(v2), map[string]any{"scene_number": one})
+	if unauthResp.StatusCode != http.StatusUnauthorized && unauthResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("unauthenticated update: got %d, want 401/403", unauthResp.StatusCode)
 	}
 }
 
