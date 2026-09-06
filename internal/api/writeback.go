@@ -48,6 +48,49 @@ func (h *Handlers) mountWriteback(r chi.Router) {
 	// job sharing a batchID, so an N-video tag-sync's dialog polls one
 	// endpoint instead of fanning out to N individual job-status calls.
 	r.Get("/writeback/batches/{batchID}/status", h.writebackBatchStatus)
+	// Retry / Dismiss (ADR-091, HOLODEX-323, spec R3): act on THIS video's failed
+	// writeback row(s). Scoped by the {id} path param alone (never a body-supplied
+	// id), so one owner session can't retry/dismiss another video's failure.
+	r.Post("/media/{id}/writeback/retry", h.retryWriteback)
+	r.Post("/media/{id}/writeback/dismiss", h.dismissWriteback)
+}
+
+// retryWriteback resets this video's failed writeback job(s) back to pending and
+// wakes the queue (spec R3.3). A safe no-op (200, retried:false) when there is
+// nothing failed to retry — mirroring GetWritebackJobStatus's "absent row" posture
+// rather than 404ing on a state that just means "nothing to do."
+func (h *Handlers) retryWriteback(w http.ResponseWriter, r *http.Request) {
+	if h.writeQueue == nil {
+		writeError(w, http.StatusServiceUnavailable, "writeback unavailable")
+		return
+	}
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	n, err := h.writeQueue.RetryFailed(r.Context(), id)
+	if err != nil {
+		h.fail(w, "retry writeback", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"retried": n > 0})
+}
+
+// dismissWriteback deletes this video's failed writeback row(s) without retrying
+// (spec R3.4/RD2). job_runs already holds the permanent audit record for the
+// failure, so this only clears the work-queue row — a safe no-op when nothing is
+// failed.
+func (h *Handlers) dismissWriteback(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	n, err := h.repo.DismissFailedWriteback(r.Context(), id)
+	if err != nil {
+		h.fail(w, "dismiss writeback", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dismissed": n > 0})
 }
 
 // markWriteTargets stamps each field's destination file tag for the video's
@@ -207,6 +250,15 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		if len(jobFields) == 0 {
 			writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
 			return
+		}
+		// Spec R3.5: submitting a new write is an implicit acknowledgment of any
+		// prior failure for this video, so the Metadata header shows one job's
+		// worth of truth rather than a stale "couldn't write" beside a fresh
+		// "writing to file". Scoped to this video only — a second video's failed
+		// row is untouched. Best-effort: a failure here must not block the actual
+		// write the owner is trying to make.
+		if _, clearErr := h.repo.DismissFailedWriteback(r.Context(), id); clearErr != nil {
+			h.log.Warn("clear prior failed writeback before enqueue", "id", id, "err", clearErr)
 		}
 		jobID, enqErr := h.writeQueue.Enqueue(r.Context(), id, jobFields)
 		if enqErr != nil {

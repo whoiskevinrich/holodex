@@ -415,6 +415,19 @@ export interface MediaDetailResponse {
 	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
 	// like enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
+	// writeback_status is this video's writeback queue state (ADR-091, HOLODEX-323):
+	// whether a job is pending/running, and whether one has failed. Sourced from
+	// writeback_queue by video_id, not a client-held job id, so it survives reload,
+	// another tab, and a restart. `error` is omitted for a visitor (spec R2.1a) —
+	// every writeback.WriteBatch failure embeds absolute filesystem paths, the same
+	// class of exposure FilePath/codecs are already redacted for on this response.
+	writeback_status?: VideoWritebackStatus;
+}
+
+export interface VideoWritebackStatus {
+	pending: boolean;
+	failed: boolean;
+	error?: string;
 }
 
 // WritebackRequest asks the server to embed a batch of resolved field values

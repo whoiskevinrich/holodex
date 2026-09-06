@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-323
-status: in-progress
+status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 depends-on: []
 release_note: Writing metadata to a file no longer holds you in a dialog — submit and walk away; the Metadata section tells you only if a write is still running or failed.
 ---
@@ -23,22 +23,23 @@ renders at all — silence is the success signal.
 - [x] spec `write-spec` → `docs/specs/fire-and-forget-writeback.md` (RD1–RD6, 12 acceptance criteria)
 - [x] architecture `architecture` → `docs/architecture/ADR-091-fire-and-forget-writeback-status.md` (Proposed; supersedes ADR-073 **D4 only**)
 - [x] design `design-handoff` → `docs/design/fire-and-forget-writeback-handoff.md` + committed SVG mockup
-- [ ] backend
-- [ ] frontend
+- [x] backend → `internal/repo/writequeue.go` (`GetVideoWritebackStatus`/`RetryFailedWriteback`/`DismissFailedWriteback`), `internal/writequeue/writequeue.go` (`Queue.RetryFailed`), `internal/api/writeback.go` (Retry/Dismiss routes, RD5 clear-on-enqueue), `internal/api/handlers.go` (R2.1a redaction on `getMedia`) — all Go-test-covered
+- [x] frontend → `WritebackFormDialog.svelte` (closes on ack, `=`/circle-minus/checkbox gutter, row-tier order), `writebackJob.ts` (`waitForVideoWriteback`), `media/[id]/+page.svelte` (badges, poll effect, Retry/Dismiss), `films/[id]/+page.svelte` (contract parity) — `writebackJob.ts` Vitest-covered; dialog/page verified live against real media (see session log), no new Playwright/component coverage (§0's standing gap)
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 row, §5 row, §10 adversarial block, 3 Critical invariants, §11 gap)
 - [x] security `security-review` — **one MEDIUM finding, closed in the spec before code** (R2.1a: the failure message must be visitor-redacted server-side); re-run against the real diff before merge
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] per-video queue status repo query (`writeback_queue` by `video_id`, pending + failed + carried fields) — `internal/repo/writequeue.go`
-2. [ ] [backend] surface it on `GET /media/{id}` — `internal/api/handlers.go`
-3. [ ] [backend] `failed` → `pending` reset + `kick()` for Retry (nothing resets `failed` today; `RecoverRunningWritebacks` only handles `running`) — `internal/repo/writequeue.go`, `internal/writequeue/writequeue.go`
-4. [ ] [backend] owner-gated Retry / Dismiss routes
-5. [ ] [frontend] close `WritebackFormDialog` on the 202 ack; keep it open on a failed enqueue — `web/src/lib/components/writeback/WritebackFormDialog.svelte`
-6. [ ] [frontend] delete the transient status gutter (`isWriting` / `isError`), collapse `row.status`; row content unchanged
-7. [ ] [frontend] pending + failed chips in the Metadata header, reusing `pollUntilSettled` from `$lib/writebackJob.ts` — `web/src/routes/media/[id]/+page.svelte`
-8. [ ] [frontend] three-skin QA per `.claude/rules/frontend-theming.md`
+1. [x] [backend] per-video queue status repo query (`writeback_queue` by `video_id`, pending + failed) — `internal/repo/writequeue.go`
+2. [x] [backend] surface it on `GET /media/{id}` — `internal/api/handlers.go`
+3. [x] [backend] `failed` → `pending` reset + `kick()` for Retry — `internal/repo/writequeue.go`, `internal/writequeue/writequeue.go`
+4. [x] [backend] owner-gated Retry / Dismiss routes — `internal/api/writeback.go`
+5. [x] [frontend] close `WritebackFormDialog` on the 202 ack; keep it open on a failed enqueue
+6. [x] [frontend] delete the transient status gutter (`isWriting` / `isError`), collapse `row.status`; row content unchanged; fixed the check-glyph collision with a distinct `=`/circle-minus/checkbox gutter and a tier-based row order (R4.3/R4.4)
+7. [x] [frontend] pending + failed badges in the Metadata header, reusing the `pollUntilSettled` backoff loop (new `waitForVideoWriteback` wrapper) — `web/src/routes/media/[id]/+page.svelte`
+8. [x] [frontend] three-skin contrast check per `.claude/rules/frontend-theming.md`'s sanctioned computed-style method — found and spun off a **pre-existing** gap (see session log), not introduced by this feature
 9. [ ] [followup] re-evaluate HOLODEX-276 — per-field written/skipped is not a distinction an atomic job can honestly report; ADR-091 argues that ticket may no longer be wanted
+10. [ ] [followup] mark PR #303 ready for review once this session's push lands (all 5 gates + implementation are green)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -133,3 +134,50 @@ renders at all — silence is the success signal.
   exploitable one. It is on the implementation checklist, not the findings list.
 - handoff: **all five gates green.** Re-run `/security-review` against the real diff before
   marking the PR ready — this pass reviewed a design, not code.
+
+### 2026-09-06 · implementation landed, verified live against real media
+- Backend: `GetVideoWritebackStatus`/`RetryFailedWriteback`/`DismissFailedWriteback` on the repo,
+  `Queue.RetryFailed` wrapping the reset with the existing `kick()`, owner-gated
+  `POST /media/{id}/writeback/retry` and `.../dismiss`, and `writebackMedia` clearing a video's own
+  prior failed row before enqueuing (RD5). `getMedia` carries `writeback_status`, with the R2.1a
+  redaction applied inline — omitted for `!authorized`, present for the owner — rather than a
+  second parallel redaction site.
+- Frontend: `WritebackFormDialog` closes on the 202 ack (`onenqueued`, no more `jobStatus`/
+  `waitForWritebackJob`), shows an inline `enqueueError` on a failed enqueue instead, and the
+  gutter is now three mutually-exclusive glyphs (checkbox/`=`/circle-minus) with a tier-sorted row
+  order inside the existing decided/undecided groups. `writebackJob.ts` gained
+  `waitForVideoWriteback`, reusing the same `pollUntilSettled` backoff rather than a new loop. The
+  media detail page polls via `api.getMedia` (extracting only `writeback_status` per tick, applying
+  the full detail once on settlement — avoids reassigning `resolved`/`video` on every tick), guarded
+  by a `writebackGeneration` counter so a poll from `/media/A` can never resolve into `/media/B`
+  after in-place navigation (same idiom as `extractGeneration`). The film page's per-scene
+  `WritebackFormDialog` instantiation was updated for prop-contract parity, since it shares the
+  component — no badges added there, out of this spec's scope.
+- Added Go tests (`TestGetVideoWritebackStatus`, `TestRetryFailedWriteback`,
+  `TestDismissFailedWriteback`, `TestGetMedia_WritebackStatusRedactedForVisitor`,
+  `TestRetryDismissWriteback_OwnerGated`, `TestRetryWriteback_ResetsFailedToPending`,
+  `TestDismissWriteback_DeletesRow`, `TestEnqueueWriteback_ClearsPriorFailedForVideo`) and a Vitest
+  suite for `waitForVideoWriteback` — matching the names/behaviors the testing-strategy doc
+  committed to before any code existed. Full `go test ./...` and `npm run test`/`npm run check`
+  green throughout.
+- **Live-verified against `backend-amv`'s real library**, not just unit tests: authenticated as
+  owner, forced a genuine out-of-sync field via a manual title decision, submitted a write — the
+  dialog closed immediately, the page showed `writing to file` beside `out of sync` (RD6 confirmed:
+  neither hides the other), and both cleared within 3s once exiftool actually wrote the real MP4's
+  `QuickTime:Title` tag. Forced a real failure by flipping the file read-only: the header showed
+  `couldn't write` + `out of sync` + Retry/Dismiss, with the raw path-bearing exiftool error visible
+  to the owner. **Confirmed via a cookie-less `curl` request** that the same endpoint, unauthenticated,
+  returns `{"pending":false,"failed":true}` with no `error` key at all — the R2.1a fix holds under a
+  real failure, not just the synthetic one in the Go test. Retry re-enqueued and reprocessed
+  correctly (hit an unrelated exiftool-internal temp-file leftover from the synthetic read-only
+  test, not a real bug); Dismiss cleared the failure while correctly leaving the still-genuine
+  out-of-sync badge alone.
+- **Found and spun off a pre-existing gap, not introduced here**: a computed-contrast pass (the
+  theming rule's own sanctioned method, no screenshots) across all three skins found
+  `--warn-ink` on `--warn` in Cinémathèque measures 3.18:1 — below AA for small text. Broadcast
+  (7.36:1) and Brutalist (6.52:1) pass. This exact pairing already ships in
+  `ConfirmDialog.svelte`'s destructive button and `EntityImageSlot.svelte`'s badge, so it predates
+  this feature; flagged as a separate follow-up task rather than touched here.
+- handoff: **implementation complete, all runtime and static checks green, live-verified against
+  real media for both the success and failure paths.** Only HOLODEX-276's re-evaluation remains as
+  a deliberate followup. Next action is marking PR #303 ready for review (dropping Draft).

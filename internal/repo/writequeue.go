@@ -243,3 +243,95 @@ func (r *Repo) PendingWritebackCount(ctx context.Context) (int, error) {
 	}
 	return n, nil
 }
+
+// VideoWritebackStatus is one video's writeback queue state (ADR-091, HOLODEX-323, spec
+// R2.1): whether a job is pending/running, and whether one has failed. Derived from
+// writeback_queue by video_id rather than a job id held client-side, so it survives
+// reload, another tab, and a server restart. The zero value ({false, false, ""}) is
+// exactly "nothing to report" (R2.2/ADR-091 D3) — FinishWriteback deletes the row on
+// success, so a video with no row here reads identically whether the write succeeded,
+// was swept, or never happened.
+//
+// Error is the raw message from writeback.WriteBatch, and every failure path in
+// internal/writeback/writeback.go embeds absolute filesystem paths (copy/rename errors
+// wrap os errors carrying both paths; the exiftool/mkvpropedit/ffmpeg branches append
+// raw tool stderr containing the .holodex-tmp path). Spec R2.1a: callers MUST NOT
+// serialize this field to an unauthenticated/non-owner request — GetMedia is the one
+// call site and redacts it inline for that reason, mirroring
+// redactFileMetadataForVisitor's existing posture on the same response.
+type VideoWritebackStatus struct {
+	Pending bool   `json:"pending"`
+	Failed  bool   `json:"failed"`
+	Error   string `json:"error,omitempty"`
+}
+
+// GetVideoWritebackStatus reports a video's writeback status (spec R2.1). Enqueuing a
+// new write for the video (writebackMedia) clears any prior failed row first (spec
+// R3.5), so pending and failed should not normally coexist for one video in practice —
+// but this aggregates defensively over every row rather than assuming that invariant,
+// taking the most recently updated failure's message if more than one somehow exists.
+func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (VideoWritebackStatus, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT status, error FROM writeback_queue
+		WHERE video_id = ? ORDER BY updated_at DESC`, videoID)
+	if err != nil {
+		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+	}
+	defer rows.Close()
+
+	var out VideoWritebackStatus
+	for rows.Next() {
+		var status, errMsg string
+		if err := rows.Scan(&status, &errMsg); err != nil {
+			return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+		}
+		switch status {
+		case WritebackPending, WritebackRunning:
+			out.Pending = true
+		case WritebackFailed:
+			if !out.Failed {
+				out.Failed = true
+				out.Error = errMsg
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+	}
+	return out, nil
+}
+
+// RetryFailedWriteback resets a video's failed writeback row(s) back to pending (spec
+// R3.3) so the worker's normal ClaimNextWriteback picks them up again — nothing else
+// does this today: ClaimNextWriteback only ever claims 'pending' rows, and
+// RecoverRunningWritebacks resets only 'running' ones left by a crash. Returns the
+// number of rows reset; 0 is a safe no-op (nothing was failed for this video), not an
+// error, mirroring GetWritebackJobStatus's "absent row" posture.
+func (r *Repo) RetryFailedWriteback(ctx context.Context, videoID int64) (int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE writeback_queue SET status = 'pending', error = '', updated_at = ?
+		WHERE video_id = ? AND status = 'failed'`,
+		time.Now().UTC().Format(timeLayout), videoID)
+	if err != nil {
+		return 0, fmt.Errorf("retry writeback: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// DismissFailedWriteback deletes a video's failed writeback row(s) without retrying
+// (spec R3.4/RD2). job_runs already holds the permanent audit record for the failure
+// (kind=writeback, status=err), so writeback_queue stays a work queue rather than a
+// log — this mirrors FinishWriteback's own delete-on-success. Returns the number of
+// rows removed; 0 is a safe no-op.
+func (r *Repo) DismissFailedWriteback(ctx context.Context, videoID int64) (int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	res, err := r.db.ExecContext(ctx, `
+		DELETE FROM writeback_queue WHERE video_id = ? AND status = 'failed'`, videoID)
+	if err != nil {
+		return 0, fmt.Errorf("dismiss writeback: %w", err)
+	}
+	return res.RowsAffected()
+}

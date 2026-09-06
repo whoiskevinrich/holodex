@@ -1,13 +1,16 @@
 <script lang="ts">
-	// Batch writeback form (F28 UX revision). Opens as a modal showing all
-	// writable resolved fields pre-filled with their winning values. The operator
-	// can edit any value and uncheck fields to skip them before submitting.
-	// Writes are sequential (one exiftool pass per field) with per-row progress.
-	// Focus is trapped + returned; Escape closes when idle. Tokens only; QA 3 skins.
+	// Batch writeback form (F28 UX revision; ADR-091/HOLODEX-323 confirm-step
+	// revision). Opens as a modal showing all writable resolved fields pre-filled
+	// with their winning values. The operator can edit any value and uncheck
+	// fields to skip them before submitting. The write itself is fire-and-forget
+	// (ADR-091): this dialog is a pre-flight confirm step that closes the instant
+	// the write is *enqueued*, not once it lands — outcome (pending/failed) is a
+	// page-level signal near the Metadata section, not this dialog's job to poll
+	// or display. Focus is trapped + returned; Escape closes when idle (or once
+	// the single enqueue round trip finishes). Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import { fileCandidateValue, isReplaceField, isWritable, needsWriteback } from '$lib/f36';
-	import { waitForWritebackJob, type WritebackJobState } from '$lib/writebackJob';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 
 	let {
@@ -15,24 +18,24 @@
 		videoId,
 		filePath,
 		onclose,
-		onapplied,
+		onenqueued,
 		writeback,
-		jobStatus,
 		decide
 	}: {
 		fields: ResolvedField[];
 		videoId: number;
 		filePath: string;
 		onclose: () => void;
-		onapplied: (written: string[]) => void;
+		// Fires once the write is accepted (the 202 ack) — before anything has
+		// actually been written (ADR-091). The caller reloads to pick up the new
+		// pending writeback_status row and any decisions ensureDecision() created;
+		// it does not learn which fields ultimately wrote, since the job is
+		// atomic and its outcome is reported on the page, not here.
+		onenqueued: () => void;
 		writeback: (id: number, req: WritebackRequest) => Promise<unknown>;
-		// Reads one queued job's state, for polling it to completion.
-		jobStatus: (jobId: number) => Promise<WritebackJobState>;
 		// Creates a standing decision for one field (HOLODEX-273) — DB-only, no reload.
 		decide: (canonical: string, source: DecisionSource, manualValue?: string) => Promise<unknown>;
 	} = $props();
-
-	type RowStatus = 'idle' | 'writing' | 'done' | 'error';
 
 	interface Row {
 		field: ResolvedField;
@@ -41,8 +44,6 @@
 		// override (HOLODEX-273) — same expression `value` was seeded with below.
 		originalValue: string;
 		checked: boolean;
-		status: RowStatus;
-		error: string;
 	}
 
 	// Only out-of-sync fields start checked, via the same needsWriteback() the header counts
@@ -55,27 +56,45 @@
 	const rows = $state<Row[]>(
 		fields.map((f) => {
 			const seed = f.display === 'image_url' ? (f.values[0] ?? '') : f.values.join(', ');
-			return {
-				field: f,
-				value: seed,
-				originalValue: seed,
-				checked: needsWriteback(f),
-				status: 'idle' as RowStatus,
-				error: ''
-			};
+			return { field: f, value: seed, originalValue: seed, checked: needsWriteback(f) };
 		})
 	);
 
-	const checkedCount = $derived(rows.filter((r) => r.checked).length);
-	const hasErrors = $derived(rows.some((r) => r.status === 'error'));
+	// True when the row's LIVE (editable) value already matches the file's own tag value —
+	// "already matches the file, nothing to write" (the non-checkable gutter tier, R4.3).
+	// Shared between the gutter render and submit()'s filter so they can't disagree — same
+	// reasoning as isWritable being "defense in depth, not the primary guard" below.
+	function rowMatchesFile(row: Row): boolean {
+		return row.field.candidates !== undefined && row.value.trim() === fileCandidateValue(row.field).trim();
+	}
+
+	// checkedCount excludes a row that now matches the file (e.g. edited back to its
+	// original value) even if still toggled on internally, so the footer button's count
+	// never promises to write a field submit() will actually skip.
+	const checkedCount = $derived(rows.filter((r) => r.checked && !rowMatchesFile(r)).length);
 
 	// The decided rows lead; the undecided provider values collapse behind one disclosure line
 	// (HOLODEX-213 option A), so the dialog's default state reads as "your decisions" without
 	// hiding anything — expanding or Select all brings them back at full contrast. Splitting on
 	// the same needsWriteback() that seeded `checked` means the two groups are exactly the
 	// checked and unchecked sets on open.
+	//
+	// Row order within undecided (R4.4): writable-and-differing first, then a field that
+	// already matches the file, then a field with no tag mapping at all — sorted on the
+	// row's ORIGINAL (open-time) value rather than the live one, so a row never jumps
+	// position while the owner is mid-edit. decided is always uniformly tier 0 (needsWriteback
+	// already implies writable-and-differing), so sorting it would be a no-op.
+	function rowTier(row: Row): number {
+		if (!isWritable(row.field)) return 2;
+		if (row.field.candidates !== undefined && row.originalValue.trim() === fileCandidateValue(row.field).trim()) {
+			return 1;
+		}
+		return 0;
+	}
 	const decided = $derived(rows.filter((r) => needsWriteback(r.field)));
-	const undecided = $derived(rows.filter((r) => !needsWriteback(r.field)));
+	const undecided = $derived(
+		rows.filter((r) => !needsWriteback(r.field)).sort((a, b) => rowTier(a) - rowTier(b))
+	);
 	let showUndecided = $state(false);
 
 	function selectAllUndecided() {
@@ -92,9 +111,11 @@
 	}
 
 	let busy = $state(false);
+	// Set on a failed enqueue (R1.3) — the write is fire-and-forget, the enqueue is not, so
+	// this is the one failure mode the dialog itself must still surface. Cleared on retry.
+	let enqueueError = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
 	let trigger: HTMLElement | null = null;
-	let unmounted = false; // stops an in-flight job poll if the dialog goes away
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
@@ -110,7 +131,6 @@
 			].find((el) => el.offsetParent !== null) ?? dialogEl;
 		first?.focus();
 		return () => {
-			unmounted = true;
 			trigger?.focus?.();
 		};
 	});
@@ -180,15 +200,12 @@
 	async function submit() {
 		if (busy || checkedCount === 0) return;
 		busy = true;
+		enqueueError = '';
 
-		// Mark all checked rows as in-progress, build the batch payload. isWritable is
-		// a defense-in-depth filter, not the primary guard — the checkbox for an
-		// unwritable row is disabled below, so `checked` should never be true for one.
-		const checkedRows = rows.filter((r) => r.checked && isWritable(r.field));
-		for (const row of checkedRows) {
-			row.status = 'writing';
-			row.error = '';
-		}
+		// isWritable/rowMatchesFile are defense-in-depth filters, not the primary guard —
+		// an unwritable row never renders a checkbox and a matching row's checkbox is
+		// replaced by the "=" gutter glyph, so `checked` should already exclude both.
+		const checkedRows = rows.filter((r) => r.checked && isWritable(r.field) && !rowMatchesFile(r));
 
 		const fields = checkedRows.map((r) => ({
 			field: r.field.canonical,
@@ -205,50 +222,27 @@
 
 		try {
 			await Promise.all(checkedRows.map(ensureDecision));
-			const res = await writeback(videoId, { fields });
-			// The durable queue (F30, ADR-048) answers 202 + job_id the moment the job is
-			// enqueued — nothing has been written yet, so wait for it to land before
-			// reporting applied (ADR-073). Every submitted field passed isWritable above,
-			// so once the job succeeds it wrote all of them — the worker's own re-resolve
-			// against the container can only diverge in the rare case the file's container
-			// changed since this dialog opened.
-			const jobId = (res as { job_id?: number } | null)?.job_id;
-			if (jobId) {
-				await waitForWritebackJob(jobId, jobStatus, { cancelled: () => unmounted });
-				for (const row of checkedRows) row.status = 'done';
-			} else {
-				// Legacy synchronous path (HOLODEX-216): the response names exactly which
-				// submitted fields were written vs. skipped, so a row's status reflects
-				// what actually happened rather than assuming success for everything sent.
-				const written = new Set((res as { written?: string[] } | null)?.written ?? []);
-				for (const row of checkedRows) {
-					if (written.has(row.field.canonical)) {
-						row.status = 'done';
-					} else {
-						row.status = 'error';
-						row.error = 'No tag mapping for this file — not written.';
-					}
-				}
-			}
-			onapplied(checkedRows.filter((r) => r.status === 'done').map((r) => r.field.canonical));
-			if (checkedRows.every((r) => r.status === 'done')) onclose();
+			await writeback(videoId, { fields });
+			// Fire-and-forget (ADR-091): the 202 means the job is durably queued, not that
+			// anything has been written yet. Close immediately — the caller reloads to pick
+			// up the new pending writeback_status row, and the write's outcome (landed or
+			// failed) is a page-level signal near Metadata, not something this dialog waits
+			// on or reports. Every submitted field passed isWritable above, so the worker's
+			// own re-resolve against the container can only diverge in the rare case the
+			// file's container changed since this dialog opened — that shows up as a failed
+			// badge on the page, not an error here.
+			onenqueued();
+			onclose();
 		} catch (e) {
-			const msg = toMessage(e);
-			for (const row of checkedRows) {
-				row.status = 'error';
-				row.error = msg;
-			}
+			// The write is fire-and-forget; the ENQUEUE is not (R1.3) — a rejected request
+			// (expired owner session, network drop, a decide() collision) keeps the dialog
+			// open with the error inline rather than vanishing silently.
+			enqueueError = toMessage(e);
 		} finally {
 			busy = false;
 		}
 	}
 </script>
-
-{#snippet checkIcon(cls: string)}
-	<svg class={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-		<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-	</svg>
-{/snippet}
 
 <!-- Backdrop + centering wrapper. aria-hidden must NOT be here — the dialog
      inside is focusable. aria-modal="true" on the dialog signals to screen
@@ -331,11 +325,12 @@
 	<!-- Footer -->
 	<div class="flex flex-col gap-2 border-t border-rule px-4 py-3">
 		{#if busy}
-			<p class="text-xs text-muted" aria-live="polite">Writing {checkedCount} field{checkedCount === 1 ? '' : 's'} to file…</p>
-		{:else if hasErrors}
-			<p class="text-xs text-warn" aria-live="polite">
-				Write failed — uncheck any fields you want to skip and try again.
-			</p>
+			<p class="text-xs text-muted" aria-live="polite">Submitting {checkedCount} field{checkedCount === 1 ? '' : 's'}…</p>
+		{:else if enqueueError}
+			<!-- R1.3: the write is fire-and-forget, the enqueue is not — this is the one
+			     failure mode the dialog itself still surfaces (not the queued write's own
+			     eventual success/failure, which renders on the page instead). -->
+			<p class="text-xs text-warn" aria-live="polite">{enqueueError}</p>
 		{/if}
 
 		<div class="flex justify-end gap-2">
@@ -357,36 +352,30 @@
 </div>
 
 {#snippet fieldRow(row: Row)}
-				{@const isDone = row.status === 'done'}
-				{@const isWriting = row.status === 'writing'}
-				{@const isError = row.status === 'error'}
 				{@const writable = isWritable(row.field)}
 				{@const tag = sourceTag(row.field.winning_source)}
 				{@const hasFileValue = row.field.candidates !== undefined}
 				{@const fileVal = fileCandidateValue(row.field)}
-				<!-- matchesFile drives the "already in file, nothing to write" line. It compares
-				     the row's LIVE (editable) value against the file baseline, so it re-derives
-				     from fileVal — already fetched for the "was:" line — rather than reading the
-				     frozen in_sync snapshot that needsWriteback() seeds `checked` from. -->
+				<!-- matchesFile drives both the "already in file, nothing to write" line and the
+				     gutter's non-checkable "=" tier (R4.3). It compares the row's LIVE (editable)
+				     value against the file baseline, so it re-derives from fileVal — already
+				     fetched for the "was:" line — rather than reading the frozen in_sync snapshot
+				     that needsWriteback() seeds `checked` from. rowMatchesFile() below mirrors this
+				     exact expression for submit()'s filter — the two must never disagree. -->
 				{@const matchesFile = hasFileValue && row.value.trim() === fileVal.trim()}
 				<!-- No dimming for an unchecked row: the group heading above already says these are
 				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
 				     The checkbox carries the state; the label stays legible. -->
 				<div class="flex items-start gap-3">
-					<!-- Checkbox / status icon -->
+					<!-- Checkbox / static glyph. Three tiers (R4.3), each with its own glyph — no two
+					     ever mean the same thing: a checkbox means "will be written," an equals sign
+					     means "already matches, nothing to write" (not checkable), a circle-minus
+					     means "no file tag for this container" (not checkable). Removing a value's
+					     ability to be checked, rather than showing a disabled checkbox, is deliberate:
+					     a checkbox that can never be checked reads as broken, a static glyph reads as
+					     informational. -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-						{#if isDone}
-							{@render checkIcon('h-4 w-4 text-accent')}
-						{:else if isWriting}
-							<svg class="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-							</svg>
-						{:else if isError}
-							<svg class="h-4 w-4 text-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						{:else if !writable}
+						{#if !writable}
 							<!-- No file-tag mapping for this container (HOLODEX-216): shown, not checkable —
 							     never a bare checkbox that would only silently drop the value on write. -->
 							<svg
@@ -397,6 +386,15 @@
 								<title>No file tag for this container — can't be written</title>
 								<circle cx="12" cy="12" r="9" />
 								<path stroke-linecap="round" d="M7 12h10" />
+							</svg>
+						{:else if matchesFile}
+							<svg
+								class="h-4 w-4 text-muted"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>Already matches the file — nothing to write</title>
+								<path stroke-linecap="round" d="M6 9h12M6 15h12" />
 							</svg>
 						{:else}
 							<input
@@ -412,7 +410,9 @@
 					<!-- Label + input -->
 					<div class="min-w-0 flex-1">
 						<div class="mb-1 flex items-center gap-1.5">
-							{#if writable}
+							{#if writable && !matchesFile}
+								<!-- for= only when the gutter actually renders the checkbox this labels —
+								     a matching row's gutter is the static "=" glyph, not an input. -->
 								<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
 									>{row.field.label}</label
 								>
@@ -435,10 +435,11 @@
 								<span class="block">No file tag for this container — can't be written.</span>
 							</p>
 						{:else if matchesFile}
-							<p class="flex items-center gap-1.5 text-xs text-muted">
-								{@render checkIcon('h-3.5 w-3.5 shrink-0')}
+							<!-- The gutter's own "=" glyph already signals this row's tier — no
+							     second icon here, or the two would say the same thing twice. -->
+							<p class="text-xs text-muted">
 								<span class="text-ink">{row.value || '—'}</span>
-								<span>— already in file, nothing to write</span>
+								<span>— already matches the file, nothing to write</span>
 							</p>
 						{:else if row.field.display === 'image_url'}
 							<!-- Read-only file-vs-enriched comparison (HOLODEX-245): mirrors the "was:"
@@ -488,7 +489,7 @@
 							{#if row.field.display === 'long_text'}
 								<textarea
 									bind:value={row.value}
-									disabled={busy || isDone || isWriting}
+									disabled={busy}
 									rows="1"
 									use:autoResize
 									class="block w-full resize-none overflow-hidden rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
@@ -498,14 +499,10 @@
 								<input
 									type="text"
 									bind:value={row.value}
-									disabled={busy || isDone || isWriting}
+									disabled={busy}
 									class="block w-full rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
 								/>
 							{/if}
-						{/if}
-
-						{#if isError}
-							<p class="mt-1 text-xs text-warn" aria-live="polite">{row.error}</p>
 						{/if}
 					</div>
 				</div>

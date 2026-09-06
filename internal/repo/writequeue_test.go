@@ -150,3 +150,161 @@ func TestGetWritebackBatchStatus(t *testing.T) {
 	}
 	assertStatus("one done, one failed, one still pending", 1, 0, 1, 1)
 }
+
+// TestGetVideoWritebackStatus covers the four states that matter for the
+// Metadata header badge (ADR-091, HOLODEX-323, spec R2.1): pending only,
+// failed only, both at once (a retry queued while an older failure is
+// undismissed), and neither — the last of which is the zero value, deliberately
+// indistinguishable from "never had a writeback job" (D3: succeeded, swept, and
+// never-existed all correctly render as nothing).
+func TestGetVideoWritebackStatus(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	videoID, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	// Neither: a video with no writeback activity at all reads as the zero value.
+	status, err := r.GetVideoWritebackStatus(ctx, videoID)
+	if err != nil {
+		t.Fatalf("status of a clean video: %v", err)
+	}
+	if status.Pending || status.Failed || status.Error != "" {
+		t.Errorf("clean video = %+v, want the zero value", status)
+	}
+
+	// Pending only.
+	pendingJob, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"title","values":["X"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	status, err = r.GetVideoWritebackStatus(ctx, videoID)
+	if err != nil {
+		t.Fatalf("status while pending: %v", err)
+	}
+	if !status.Pending || status.Failed {
+		t.Errorf("pending video = %+v, want Pending=true Failed=false", status)
+	}
+
+	// Both at once: a second job for the same video has already failed, while the
+	// first is still pending. The aggregation must not let one status hide the
+	// other — the header renders both a pending and a failed badge if this occurs.
+	failedJob, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"genres","values":["Y"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue second job: %v", err)
+	}
+	if err := r.FinishWriteback(ctx, failedJob, false, "writeback rename: permission denied"); err != nil {
+		t.Fatalf("fail second job: %v", err)
+	}
+	status, err = r.GetVideoWritebackStatus(ctx, videoID)
+	if err != nil {
+		t.Fatalf("status with one pending, one failed: %v", err)
+	}
+	if !status.Pending || !status.Failed || status.Error != "writeback rename: permission denied" {
+		t.Errorf("mixed video = %+v, want both true carrying the failure's message", status)
+	}
+
+	// Failed only: finish the pending job successfully (deletes its row).
+	if err := r.FinishWriteback(ctx, pendingJob, true, ""); err != nil {
+		t.Fatalf("finish pending job: %v", err)
+	}
+	status, err = r.GetVideoWritebackStatus(ctx, videoID)
+	if err != nil {
+		t.Fatalf("status with only a failure: %v", err)
+	}
+	if status.Pending || !status.Failed || status.Error != "writeback rename: permission denied" {
+		t.Errorf("failed-only video = %+v, want Pending=false Failed=true carrying the message", status)
+	}
+}
+
+// TestRetryFailedWriteback covers spec R3.3: retry is a reset plus a kick, not a
+// distinct mechanism. Nothing else moves a 'failed' row back to 'pending' —
+// ClaimNextWriteback only ever claims 'pending', and RecoverRunningWritebacks
+// resets only 'running' rows left by a crash — so this is the one path that does.
+func TestRetryFailedWriteback(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	videoID, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	// A safe no-op when nothing is failed for this video — never an error, mirroring
+	// GetWritebackJobStatus's "absent row" posture rather than surfacing "nothing to
+	// retry" as a failure the caller has to special-case.
+	n, err := r.RetryFailedWriteback(ctx, videoID)
+	if err != nil || n != 0 {
+		t.Fatalf("retry with nothing failed = %d/%v, want 0/nil", n, err)
+	}
+
+	jobID, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"title","values":["X"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := r.FinishWriteback(ctx, jobID, false, "exiftool exploded"); err != nil {
+		t.Fatalf("fail job: %v", err)
+	}
+
+	n, err = r.RetryFailedWriteback(ctx, videoID)
+	if err != nil || n != 1 {
+		t.Fatalf("retry the failed job = %d/%v, want 1/nil", n, err)
+	}
+	status, errMsg, err := r.GetWritebackJobStatus(ctx, jobID)
+	if err != nil {
+		t.Fatalf("status after retry: %v", err)
+	}
+	if status != repo.WritebackPending || errMsg != "" {
+		t.Errorf("retried job = %q/%q, want %q with the error cleared", status, errMsg, repo.WritebackPending)
+	}
+	// ClaimNextWriteback must be able to pick the retried row straight back up —
+	// the whole point of resetting to 'pending' rather than some other state.
+	claimed, err := r.ClaimNextWriteback(ctx)
+	if err != nil || claimed == nil || claimed.ID != jobID {
+		t.Fatalf("claim after retry = %v/%v, want the retried job", claimed, err)
+	}
+}
+
+// TestDismissFailedWriteback covers spec R3.4/RD2: dismiss deletes the queue row
+// without retrying — job_runs (not exercised here; it is a separate write in the
+// real queue worker) holds the permanent audit record, so this only has to prove
+// the work-queue side clears and nothing gets re-enqueued.
+func TestDismissFailedWriteback(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	videoID, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	// A safe no-op when nothing is failed.
+	n, err := r.DismissFailedWriteback(ctx, videoID)
+	if err != nil || n != 0 {
+		t.Fatalf("dismiss with nothing failed = %d/%v, want 0/nil", n, err)
+	}
+
+	jobID, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"title","values":["X"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := r.FinishWriteback(ctx, jobID, false, "exiftool exploded"); err != nil {
+		t.Fatalf("fail job: %v", err)
+	}
+
+	n, err = r.DismissFailedWriteback(ctx, videoID)
+	if err != nil || n != 1 {
+		t.Fatalf("dismiss the failed job = %d/%v, want 1/nil", n, err)
+	}
+	status, err := r.GetVideoWritebackStatus(ctx, videoID)
+	if err != nil {
+		t.Fatalf("status after dismiss: %v", err)
+	}
+	if status.Pending || status.Failed {
+		t.Errorf("dismissed video = %+v, want the zero value — dismissing must not re-enqueue", status)
+	}
+	// Claiming must find nothing: dismiss removed the row rather than resetting it.
+	claimed, err := r.ClaimNextWriteback(ctx)
+	if err != nil || claimed != nil {
+		t.Fatalf("claim after dismiss = %v/%v, want nil/nil", claimed, err)
+	}
+}

@@ -839,16 +839,32 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			completeness = &c
 		}
 	}
+	// Writeback status (ADR-091, HOLODEX-323, spec R2.1): per-video pending/failed
+	// state read from the queue rather than a client-held job id, so it survives
+	// reload, another tab, and a restart. R2.1a: the raw error embeds absolute
+	// filesystem paths on every writeback.WriteBatch failure path, so it is
+	// redacted for a non-owner exactly like the file metadata just above — this
+	// is the one call site that ever computes this value, so there is nothing
+	// else to redact.
+	wbStatus, wbErr := h.repo.GetVideoWritebackStatus(r.Context(), id)
+	if wbErr != nil {
+		h.log.Warn("writeback status for detail", "id", id, "err", wbErr)
+	}
+	if !authorized {
+		wbStatus.Error = ""
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"video":          v,
-		"metadata":       extra,
-		"fields":         fields,
-		"resolved":       resolved,
-		"enriched":       enriched,
-		"studios":        studios,
-		"films":          films,
-		"enrich_queries": enrichQueries,
-		"completeness":   completeness,
+		"video":            v,
+		"metadata":         extra,
+		"fields":           fields,
+		"resolved":         resolved,
+		"enriched":         enriched,
+		"studios":          studios,
+		"films":            films,
+		"enrich_queries":   enrichQueries,
+		"completeness":     completeness,
+		"writeback_status": wbStatus,
 	})
 }
 
