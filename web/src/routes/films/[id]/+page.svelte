@@ -20,6 +20,7 @@
 		Video
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
@@ -439,7 +440,7 @@
 
 					{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
 						{#if f.values[0]?.trim()}
-							<p class="leading-relaxed text-ink">{f.values[0]}</p>
+							<ExpandableText text={f.values[0]} chevronLabel="description" />
 						{/if}
 					{/each}
 				</div>

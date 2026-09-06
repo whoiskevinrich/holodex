@@ -24,6 +24,7 @@
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
@@ -1064,11 +1065,11 @@
 			     in the Metadata list. Owners keep exactly the control the Metadata
 			     long_text branch gave it — the ADR-051 SourceBadge precedence chip row. -->
 			{#if overviewField && (isOwner || overviewField.values[0]?.trim())}
-				<div id="field-overview" class="max-w-prose text-sm leading-relaxed">
+				<div id="field-overview">
 					{#if isReplaceField(overviewField) && isOwner}
 						<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
 					{:else if overviewField.values[0]?.trim()}
-						<p class="text-ink">{overviewField.values[0]}</p>
+						<ExpandableText text={overviewField.values[0]} chevronLabel="overview" />
 					{/if}
 				</div>
 			{/if}

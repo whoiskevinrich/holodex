@@ -1,0 +1,47 @@
+<svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">ExpandableText component — collapsed and expanded states</title>
+  <desc id="desc">Two panels showing the shared ExpandableText component: collapsed at 5 lines with a down chevron, and expanded to full text with an up chevron, both in the Cinémathèque skin's muted grey body text.</desc>
+  <rect width="900" height="460" fill="#0c0a09"/>
+
+  <text x="30" y="30" fill="#9b9082" font-size="12" letter-spacing="1">COLLAPSED (default state)</text>
+  <rect x="30" y="45" width="400" height="220" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="50" y="75" fill="#f3ece1" font-size="14" font-weight="bold">Overview</text>
+  <text x="50" y="100" fill="#9b9082" font-size="13">
+    <tspan x="50" dy="0">This late-night session opens on a stripped-</tspan>
+    <tspan x="50" dy="19">down soundstage where the crew reassembles</tspan>
+    <tspan x="50" dy="19">after a six-month hiatus, picking up threads</tspan>
+    <tspan x="50" dy="19">from the archive's earlier volumes without</tspan>
+    <tspan x="50" dy="19">pausing to explain them to newcomers...</tspan>
+  </text>
+  <rect x="50" y="216" width="28" height="28" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <path d="M 58 226 L 64 233 L 70 226" stroke="#9b9082" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="90" y="235" fill="#6f6a5e" font-size="11">aria-expanded="false" · Show full overview</text>
+
+  <text x="470" y="30" fill="#9b9082" font-size="12" letter-spacing="1">EXPANDED (after chevron click)</text>
+  <rect x="470" y="45" width="400" height="380" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="490" y="75" fill="#f3ece1" font-size="14" font-weight="bold">Overview</text>
+  <text x="490" y="100" fill="#9b9082" font-size="13">
+    <tspan x="490" dy="0">This late-night session opens on a stripped-</tspan>
+    <tspan x="490" dy="19">down soundstage where the crew reassembles</tspan>
+    <tspan x="490" dy="19">after a six-month hiatus, picking up threads</tspan>
+    <tspan x="490" dy="19">from the archive's earlier volumes without</tspan>
+    <tspan x="490" dy="19">pausing to explain them to newcomers. The</tspan>
+    <tspan x="490" dy="19">first act follows a slow build through</tspan>
+    <tspan x="490" dy="19">equipment checks and warm-up banter before</tspan>
+    <tspan x="490" dy="19">the tone shifts into something more</tspan>
+    <tspan x="490" dy="19">deliberate: a series of extended takes shot</tspan>
+    <tspan x="490" dy="19">in near-total silence, broken only by</tspan>
+    <tspan x="490" dy="19">ambient room tone and the occasional creak</tspan>
+    <tspan x="490" dy="19">of the rig...</tspan>
+  </text>
+  <rect x="490" y="376" width="28" height="28" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <path d="M 498 231 L 504 224 L 510 231" transform="translate(0,155)" stroke="#e8a33d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="530" y="395" fill="#6f6a5e" font-size="11">aria-expanded="true" · Collapse overview</text>
+
+  <line x1="30" y1="300" x2="430" y2="300" stroke="#2a2622"/>
+  <text x="30" y="325" fill="#9b9082" font-size="11">
+    <tspan x="30" dy="0">Props: text (string), lines (4 | 5, default 5),</tspan>
+    <tspan x="30" dy="16">chevronLabel (string, for aria-label). Fixed</tspan>
+    <tspan x="30" dy="16">text-muted color, full container width.</tspan>
+  </text>
+</svg>
