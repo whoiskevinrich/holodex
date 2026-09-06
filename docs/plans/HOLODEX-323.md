@@ -25,7 +25,7 @@ renders at all — silence is the success signal.
 - [x] design `design-handoff` → `docs/design/fire-and-forget-writeback-handoff.md` + committed SVG mockup
 - [ ] backend
 - [ ] frontend
-- [ ] testing `testing-strategy` → `docs/testing-strategy.md`
+- [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 row, §5 row, §10 adversarial block, 3 Critical invariants, §11 gap)
 - [ ] security `security-review` — likely N/A (no new auth surface; the writeback route is already owner-gated), confirm against the real diff before merge
 
 ## Up next — ordered (position = priority)
@@ -86,3 +86,22 @@ renders at all — silence is the success signal.
 - handoff: **spec, ADR and design are all green.** Remaining gates are testing-strategy and
   security (likely N/A — no new auth surface, but the two new owner-gated routes want a look).
   Implementation is unblocked; start with the per-video status repo query.
+
+### 2026-09-06 · testing strategy landed
+- skills: testing-strategy
+- Added a §4 backend row, a §5 frontend row, a §10 adversarial block, three Critical invariants
+  and a §11 gap entry. The §4 row explicitly scopes itself as superseding the *SPA-poll half* of
+  the ADR-073 row (D4), leaving D1/D2/D3's existing coverage in place — and reframes D1's
+  post-write read-back test as a load-bearing regression guard, since this design depends on it.
+- Two coverage traps named rather than discovered later. First, `pollUntilSettled`'s six existing
+  tests stay green through this change and therefore prove nothing about it — the real assertion
+  is that `WritebackFormDialog` no longer calls `waitForWritebackJob` at all, which needs a
+  call-count-zero guard, because the plausible wrong implementation leaves the poll in and just
+  unlocks the close button. Second, **nothing currently pins `FinishWriteback`'s delete-on-success**,
+  which is the single behaviour "silence means success" rests on.
+- Wrote the invariants so the tempting wrong test is called out in each: asserting out-of-sync
+  *disappears* while pending pins the bug rather than the behaviour, and asserting auto-retry
+  would assert a behaviour that does not exist (nothing moves `failed` → `pending` today).
+- handoff: **four of five gates green.** Only `/security-review` remains, and it is not a
+  formality — Retry and Dismiss are two new owner-gated mutation routes and Dismiss deletes a
+  row, so it wants real scrutiny rather than inheriting "the writeback route was already gated".

@@ -211,7 +211,9 @@ it was hidden — a quiet pill beside a filled one is not noise.
 
 ## Testing
 
-Per `docs/testing-strategy.md`; this spec adds:
+Recorded in [`docs/testing-strategy.md`](../testing-strategy.md) — §4 backend row, §5 frontend row,
+§10 adversarial block, three Critical invariants, and a §11 gap entry noting that none of it is
+automated yet. Summary:
 
 - **Repo**: the per-video status query (pending only, failed only, both, neither); the
   `failed` → `pending` reset; delete-on-dismiss; clear-failed-on-enqueue (R3.5).
