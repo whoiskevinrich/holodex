@@ -114,3 +114,28 @@ export async function waitForWritebackBatch(
 	);
 	return state ?? { pending: 0, running: 0, done: 0, failed: 0 };
 }
+
+// VideoWritebackState is GET /media/{id}'s writeback_status shape (ADR-091,
+// HOLODEX-323, spec R2.1) — per-video pending/failed state, not a single job's.
+export interface VideoWritebackState {
+	pending: boolean;
+	failed: boolean;
+	error?: string;
+}
+
+// Waits for a video's writeback status to leave pending (spec R2.5) — the media
+// detail page's replacement for the dialog's old per-job wait (waitForWritebackJob
+// above), now that status is a property of the video rather than a job id a
+// component holds (ADR-091 D2). Reuses the same pollUntilSettled backoff loop.
+//
+// Never throws: a failure is a settled *state* the page renders as a badge, not an
+// error to propagate — unlike waitForWritebackJob, whose only caller needed the
+// throw to flip a dialog row to "error". On cancel/timeout, resolves with the
+// last-known state (or the not-pending zero value) rather than hanging.
+export async function waitForVideoWriteback(
+	fetchStatus: () => Promise<VideoWritebackState>,
+	opts: WaitOptions = {}
+): Promise<VideoWritebackState> {
+	const state = await pollUntilSettled(fetchStatus, (s) => !s.pending, opts);
+	return state ?? { pending: false, failed: false };
+}

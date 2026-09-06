@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { waitForWritebackJob, waitForWritebackBatch } from './writebackJob';
+import { waitForWritebackJob, waitForWritebackBatch, waitForVideoWriteback } from './writebackJob';
 
 // Tiny timings keep these on real timers without slowing the suite.
 const fast = { startMs: 1, timeoutMs: 500 };
@@ -145,5 +145,81 @@ describe('waitForWritebackBatch', () => {
 
 		await waitForWritebackBatch('b1', batchStatus, { ...fast, cancelled: () => cancelled });
 		expect(batchStatus).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('waitForVideoWriteback', () => {
+	it('polls until pending goes false, then resolves with the settled state', async () => {
+		const answers = [
+			{ pending: true, failed: false },
+			{ pending: true, failed: false },
+			{ pending: false, failed: false }
+		];
+		const fetchStatus = vi.fn(async () => answers.shift()!);
+
+		const result = await waitForVideoWriteback(fetchStatus, fast);
+
+		expect(fetchStatus).toHaveBeenCalledTimes(3);
+		expect(result).toEqual({ pending: false, failed: false });
+	});
+
+	it('resolves (does not throw) once the write has failed', async () => {
+		// Unlike waitForWritebackJob, a failure is a settled *state* for the page to
+		// render as a badge, not an error to propagate — there is no dialog row left
+		// to flip to "error" on this path (ADR-091).
+		const fetchStatus = vi.fn(async () => ({
+			pending: false,
+			failed: true,
+			error: "writeback rename: permission denied"
+		}));
+
+		await expect(waitForVideoWriteback(fetchStatus, fast)).resolves.toEqual({
+			pending: false,
+			failed: true,
+			error: "writeback rename: permission denied"
+		});
+	});
+
+	it('keeps polling through a failed status fetch', async () => {
+		let calls = 0;
+		const fetchStatus = vi.fn(async () => {
+			calls++;
+			if (calls < 3) throw new Error('network');
+			return { pending: false, failed: false };
+		});
+
+		await expect(waitForVideoWriteback(fetchStatus, fast)).resolves.toEqual({
+			pending: false,
+			failed: false
+		});
+		expect(calls).toBe(3);
+	});
+
+	it('surfaces a refusal that carries an HTTP status', async () => {
+		const fetchStatus = vi.fn(async () => {
+			throw Object.assign(new Error('API failed: 401'), { status: 401 });
+		});
+		await expect(waitForVideoWriteback(fetchStatus, fast)).rejects.toThrow('401');
+		expect(fetchStatus).toHaveBeenCalledTimes(1);
+	});
+
+	it('gives up at the timeout and resolves with the last-known state', async () => {
+		const fetchStatus = vi.fn(async () => ({ pending: true, failed: false }));
+		await expect(
+			waitForVideoWriteback(fetchStatus, { startMs: 1, timeoutMs: 25 })
+		).resolves.toEqual({ pending: true, failed: false });
+		expect(fetchStatus).toHaveBeenCalled();
+	});
+
+	it('stops polling once cancelled, resolving with the last-known state', async () => {
+		let cancelled = false;
+		const fetchStatus = vi.fn(async () => {
+			cancelled = true;
+			return { pending: true, failed: false };
+		});
+
+		const result = await waitForVideoWriteback(fetchStatus, { ...fast, cancelled: () => cancelled });
+		expect(fetchStatus).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({ pending: true, failed: false });
 	});
 });

@@ -672,6 +672,21 @@ func redactFileMetadataForVisitors(items []model.Video, isOwner bool) {
 	}
 }
 
+// redactWritebackStatusForVisitor blanks a video's writeback failure message for a
+// non-owner (ADR-091/HOLODEX-323 spec R2.1a) — the same "hide it at the API response,
+// not just the SPA render" posture as redactFileMetadataForVisitor just above, for the
+// same reason: every failure path in internal/writeback/writeback.go embeds absolute
+// filesystem paths in this message. Pending/Failed stay untouched; the booleans
+// disclose nothing. GetMedia is the one call site that computes a
+// repo.VideoWritebackStatus today, so this is a named, greppable guard rather than an
+// inline conditional a future second call site could add without noticing.
+func redactWritebackStatusForVisitor(status *repo.VideoWritebackStatus, isOwner bool) {
+	if isOwner {
+		return
+	}
+	status.Error = ""
+}
+
 func setThumbnailURL(v *model.Video) {
 	v.PosterUploaded = v.ThumbnailState == model.ThumbnailUploaded
 	if !model.HasThumbnailImage(v.ThumbnailState) {
@@ -839,16 +854,29 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			completeness = &c
 		}
 	}
+	// Writeback status (ADR-091, HOLODEX-323, spec R2.1): per-video pending/failed
+	// state read from the queue rather than a client-held job id, so it survives
+	// reload, another tab, and a restart. redactWritebackStatusForVisitor (R2.1a)
+	// strips the raw error for a non-owner — every writeback.WriteBatch failure
+	// path embeds absolute filesystem paths, the same class of exposure
+	// redactFileMetadataForVisitor guards against just above.
+	wbStatus, wbErr := h.repo.GetVideoWritebackStatus(r.Context(), id)
+	if wbErr != nil {
+		h.log.Warn("writeback status for detail", "id", id, "err", wbErr)
+	}
+	redactWritebackStatusForVisitor(&wbStatus, authorized)
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"video":          v,
-		"metadata":       extra,
-		"fields":         fields,
-		"resolved":       resolved,
-		"enriched":       enriched,
-		"studios":        studios,
-		"films":          films,
-		"enrich_queries": enrichQueries,
-		"completeness":   completeness,
+		"video":            v,
+		"metadata":         extra,
+		"fields":           fields,
+		"resolved":         resolved,
+		"enriched":         enriched,
+		"studios":          studios,
+		"films":            films,
+		"enrich_queries":   enrichQueries,
+		"completeness":     completeness,
+		"writeback_status": wbStatus,
 	})
 }
 

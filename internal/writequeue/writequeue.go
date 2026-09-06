@@ -155,6 +155,20 @@ func (q *Queue) EnqueueMany(ctx context.Context, jobs []BatchJob, batchID string
 // Depth returns the number of queued + in-flight jobs (for the SPA's position hint).
 func (q *Queue) Depth(ctx context.Context) (int, error) { return q.repo.PendingWritebackCount(ctx) }
 
+// RetryFailed resets a video's failed writeback job(s) back to pending and wakes a
+// worker (spec R3.3) — the reset plus the same kick() Enqueue uses. A safe no-op
+// (0, nil) when the video has nothing failed.
+func (q *Queue) RetryFailed(ctx context.Context, videoID int64) (int64, error) {
+	n, err := q.repo.RetryFailedWriteback(ctx, videoID)
+	if err != nil {
+		return 0, err
+	}
+	if n > 0 {
+		q.kick()
+	}
+	return n, nil
+}
+
 // Start performs boot recovery, then runs the worker pool until ctx is cancelled.
 // Non-blocking: spawns goroutines and returns.
 func (q *Queue) Start(ctx context.Context) {

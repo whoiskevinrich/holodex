@@ -604,7 +604,6 @@
 		videoId={writebackVideoId}
 		filePath={writebackFilePath}
 		writeback={api.writebackMedia}
-		jobStatus={api.writebackJobStatus}
 		decide={async (canonical, source, manualValue) => {
 			const res = await api.setFieldDecision(writebackVideoId as number, canonical, {
 				source,
@@ -613,7 +612,7 @@
 			if (res.conflict) throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
 		}}
 		onclose={() => (writebackVideoId = null)}
-		onapplied={() => {
+		onenqueued={() => {
 			writebackVideoId = null;
 			reloadDetail();
 		}}

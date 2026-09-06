@@ -21,6 +21,7 @@ import (
 	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // syncWritebackServer wires the legacy synchronous writeback path (no queue) over
@@ -160,6 +161,16 @@ func jobStatusURL(base string, jobID int64) string {
 	return base + "/api/v1/writeback/jobs/" + strconv.FormatInt(jobID, 10)
 }
 
+// mediaWritebackURL builds a /media/{id}/writeback[/suffix] URL — suffix is "",
+// "retry", or "dismiss". Mirrors jobStatusURL's shape for the video-scoped routes.
+func mediaWritebackURL(base string, videoID int64, suffix string) string {
+	url := base + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback"
+	if suffix != "" {
+		url += "/" + suffix
+	}
+	return url
+}
+
 // The job-status endpoint is what lets the SPA wait for a queued write before
 // refetching (HOLODEX-214) — the writeback POST's 202 only means "accepted", and
 // refetching on that answer is what produced the stale "N out of sync" header.
@@ -233,5 +244,223 @@ func TestWritebackJobStatus_OwnerGated(t *testing.T) {
 	}
 	if code, _ := getJSONTok(t, jobStatusURL(srv.URL, jobID), "secret"); code != http.StatusOK {
 		t.Errorf("owner = %d, want 200", code)
+	}
+}
+
+// writebackStatusServer wires GET /media/{id} plus the Retry/Dismiss endpoints
+// (ADR-091, HOLODEX-323) over a real repo and a real write queue whose WriteFunc
+// is a no-op — this suite drives job state directly via r.EnqueueWriteback /
+// r.FinishWriteback, the same minimal-mocking approach TestWritebackJobStatus
+// above uses, rather than running the queue's own worker loop (which has its own
+// coverage in internal/writequeue). No mapping store is wired: these tests only
+// assert on the writeback_status field, which getMedia computes independently of
+// h.mappings being set.
+func writebackStatusServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64) {
+	t.Helper()
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	videoID, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: filepath.Join(dir, "v.mp4"), FileSize: 1, Title: "T", Container: "MP4",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	q := writequeue.New(r, func(context.Context, string, []writeback.FieldWrite) error { return nil }, log, 1, "")
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(token), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+	return srv, r, videoID
+}
+
+// getMediaWritebackStatus decodes just the field this suite cares about out of
+// GET /media/{id}, tolerating its absence (a video with no writeback activity, or
+// the redacted-for-visitor case) as the zero value rather than a decode error.
+func getMediaWritebackStatus(t *testing.T, base string, videoID int64, token string) (int, struct {
+	Pending bool   `json:"pending"`
+	Failed  bool   `json:"failed"`
+	Error   string `json:"error"`
+}) {
+	t.Helper()
+	var out struct {
+		WritebackStatus struct {
+			Pending bool   `json:"pending"`
+			Failed  bool   `json:"failed"`
+			Error   string `json:"error"`
+		} `json:"writeback_status"`
+	}
+	req, _ := http.NewRequest(http.MethodGet, base+"/api/v1/media/"+strconv.FormatInt(videoID, 10), nil)
+	if token != "" {
+		req.Header.Set(api.AdminTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET media: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatalf("decode media: %v", err)
+		}
+	}
+	return resp.StatusCode, out.WritebackStatus
+}
+
+// seedFailedWriteback enqueues one job for videoID and immediately fails it with
+// errMsg, leaving a 'failed' writeback_queue row behind — the starting state every
+// Retry/Dismiss/redaction test below needs. Mirrors the same two repo calls
+// TestGetVideoWritebackStatus and friends already drive directly, factored out once
+// enough tests here repeated it verbatim.
+func seedFailedWriteback(t *testing.T, r *repo.Repo, videoID int64, errMsg string) int64 {
+	t.Helper()
+	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := r.FinishWriteback(context.Background(), jobID, false, errMsg); err != nil {
+		t.Fatalf("fail job: %v", err)
+	}
+	return jobID
+}
+
+// TestGetMedia_WritebackStatusRedactedForVisitor is the security-review finding
+// closed in the spec (R2.1a) before this code existed: every failure path in
+// internal/writeback/writeback.go embeds absolute filesystem paths, and
+// GET /media/{id} is not owner-gated — a visitor's browser reaches this response
+// regardless of what the SPA chooses to render. redactFileMetadataForVisitor
+// already strips FilePath/codecs/container from this exact payload for the same
+// reason; the writeback error must get the same treatment, or a new field would
+// reopen the leak that redaction exists to close. Booleans carry no such risk and
+// must remain for both — R2.1a only redacts the message.
+func TestGetMedia_WritebackStatusRedactedForVisitor(t *testing.T) {
+	srv, r, videoID := writebackStatusServer(t, "secret")
+	const pathBearingError = `writeback rename: rename /media/library/2019/file.mkv.holodex-tmp /media/library/2019/file.mkv: permission denied`
+	seedFailedWriteback(t, r, videoID, pathBearingError)
+
+	code, owner := getMediaWritebackStatus(t, srv.URL, videoID, "secret")
+	if code != http.StatusOK {
+		t.Fatalf("owner GET media = %d, want 200", code)
+	}
+	if !owner.Failed || owner.Error != pathBearingError {
+		t.Errorf("owner writeback_status = %+v, want Failed=true carrying the full message", owner)
+	}
+
+	code, visitor := getMediaWritebackStatus(t, srv.URL, videoID, "")
+	if code != http.StatusOK {
+		t.Fatalf("visitor GET media = %d, want 200 (the route itself is not owner-gated)", code)
+	}
+	if !visitor.Failed {
+		t.Errorf("visitor writeback_status.failed = %v, want true — the boolean discloses nothing and must survive redaction", visitor.Failed)
+	}
+	if visitor.Error != "" {
+		t.Errorf("visitor writeback_status.error = %q, want empty — this is the exact leak R2.1a exists to close", visitor.Error)
+	}
+}
+
+// TestRetryDismissWriteback_OwnerGated: both are new mutation routes and Dismiss
+// deletes a row, so they get the same requireOwner scrutiny as every other
+// writeback endpoint (spec R3.6).
+func TestRetryDismissWriteback_OwnerGated(t *testing.T) {
+	srv, r, videoID := writebackStatusServer(t, "secret")
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
+
+	retryURL := mediaWritebackURL(srv.URL, videoID, "retry")
+	dismissURL := mediaWritebackURL(srv.URL, videoID, "dismiss")
+
+	if code, _ := postTok(t, retryURL, "", nil); code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated retry = %d, want 401", code)
+	}
+	if code, _ := postTok(t, dismissURL, "", nil); code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated dismiss = %d, want 401", code)
+	}
+	if code, body := postTok(t, retryURL, "secret", nil); code != http.StatusOK || body["retried"] != true {
+		t.Errorf("owner retry = %d/%v, want 200 with retried:true", code, body)
+	}
+}
+
+// TestRetryWriteback_ResetsFailedToPending covers spec R3.3 end to end through
+// the HTTP layer: the failed row goes back to pending and the poll-facing
+// GET /media/{id} reflects it — Retry is a status reset plus a queue kick, not a
+// re-submission of the original write.
+func TestRetryWriteback_ResetsFailedToPending(t *testing.T) {
+	srv, r, videoID := writebackStatusServer(t, "")
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
+
+	retryURL := mediaWritebackURL(srv.URL, videoID, "retry")
+	if code, body := postTok(t, retryURL, "", nil); code != http.StatusOK || body["retried"] != true {
+		t.Fatalf("retry = %d/%v, want 200 with retried:true", code, body)
+	}
+
+	_, status := getMediaWritebackStatus(t, srv.URL, videoID, "")
+	if !status.Pending || status.Failed {
+		t.Errorf("status after retry = %+v, want Pending=true Failed=false", status)
+	}
+
+	// A safe no-op — never a 404 — when there is nothing left to retry.
+	if code, body := postTok(t, retryURL, "", nil); code != http.StatusOK || body["retried"] != false {
+		t.Errorf("second retry (nothing failed) = %d/%v, want 200 with retried:false", code, body)
+	}
+}
+
+// TestDismissWriteback_DeletesRow covers spec R3.4/RD2: Dismiss clears the badge
+// without retrying — the job_runs audit trail (recorded by the real queue worker,
+// not exercised by this repo-level drive) is what's meant to survive, not this row.
+func TestDismissWriteback_DeletesRow(t *testing.T) {
+	srv, r, videoID := writebackStatusServer(t, "")
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
+
+	dismissURL := mediaWritebackURL(srv.URL, videoID, "dismiss")
+	if code, body := postTok(t, dismissURL, "", nil); code != http.StatusOK || body["dismissed"] != true {
+		t.Fatalf("dismiss = %d/%v, want 200 with dismissed:true", code, body)
+	}
+
+	_, status := getMediaWritebackStatus(t, srv.URL, videoID, "")
+	if status.Pending || status.Failed {
+		t.Errorf("status after dismiss = %+v, want the zero value", status)
+	}
+}
+
+// TestEnqueueWriteback_ClearsPriorFailedForVideo covers spec R3.5/RD5: submitting
+// a new write for a video is an implicit acknowledgment of that video's own prior
+// failure, scoped to it alone — a second video's failed row must survive
+// untouched, or one owner action would silently erase an unrelated warning.
+func TestEnqueueWriteback_ClearsPriorFailedForVideo(t *testing.T) {
+	srv, r, videoID := writebackStatusServer(t, "")
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
+
+	otherID, err := r.UpsertVideo(context.Background(), &model.Video{
+		FilePath: "/m/other.mp4", FileSize: 1, Title: "Other", Container: "MP4",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed second video: %v", err)
+	}
+	seedFailedWriteback(t, r, otherID, "exiftool exploded")
+
+	body := map[string]any{"fields": []map[string]any{
+		{"field": "title", "values": []string{"New Title"}, "source": "file:title"},
+	}}
+	writebackURL := mediaWritebackURL(srv.URL, videoID, "")
+	if code, respBody := postTok(t, writebackURL, "", body); code != http.StatusAccepted {
+		t.Fatalf("writeback enqueue = %d/%v, want 202", code, respBody)
+	}
+
+	_, status := getMediaWritebackStatus(t, srv.URL, videoID, "")
+	if !status.Pending || status.Failed {
+		t.Errorf("this video's status = %+v, want Pending=true Failed=false (the old failure cleared)", status)
+	}
+	_, otherStatus := getMediaWritebackStatus(t, srv.URL, otherID, "")
+	if !otherStatus.Failed {
+		t.Errorf("other video's status = %+v, want Failed=true — untouched by this video's enqueue", otherStatus)
 	}
 }

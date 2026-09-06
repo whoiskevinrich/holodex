@@ -993,6 +993,14 @@ export const api = {
 			`/writeback/batches/${batchId}/status`
 		),
 
+	// Retry / Dismiss a video's failed writeback (ADR-091, HOLODEX-323, spec R3).
+	// Both are safe no-ops (retried/dismissed: false) when nothing is failed —
+	// neither ever 404s, mirroring writebackJobStatus's "absent row" posture.
+	retryWriteback: (id: number) =>
+		sendAuthed<{ retried: boolean }>('POST', `/media/${id}/writeback/retry`),
+	dismissWriteback: (id: number) =>
+		sendAuthed<{ dismissed: boolean }>('POST', `/media/${id}/writeback/dismiss`),
+
 	// Tag writeback exclusion (HOLODEX-239, ADR-077 D1/D2). Toggling the flag alone
 	// never enqueues a write; the sync endpoints batch-enqueue via the durable
 	// queue and return 202 the moment the batch is enqueued (nothing written yet).
