@@ -1,4 +1,4 @@
-<svg viewBox="0 0 960 1340" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+<svg viewBox="0 0 960 1290" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
   <defs>
     <style>
       .bg { fill: #0c0a09; }
@@ -11,201 +11,210 @@
       .accentChip { fill: #181310; stroke: #e8a33d; stroke-width: 1.5; }
       .warnChip { fill: #1a100d; stroke: #e2603f; stroke-width: 1.5; }
       .accentMark { stroke: #e8a33d; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+      .guide { stroke: #e8a33d; stroke-width: 1; stroke-dasharray: 3 3; }
       .field { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
       .label { font-size: 11px; letter-spacing: 0.06em; }
       .title { font-family: 'Fraunces Variable', serif; }
     </style>
   </defs>
 
-  <rect class="bg" width="960" height="1340" />
+  <rect class="bg" width="960" height="1290" />
 
-  <text x="24" y="34" class="title ink" font-size="17">Fire-and-forget writeback &#8212; page signals + confirm-only dialog</text>
+  <text x="24" y="34" class="title ink" font-size="17">Fire-and-forget writeback &#8212; aligned badges + confirm-only dialog</text>
   <text x="24" y="54" class="muted" font-size="12">Skin 1 (default). Gold outline marks what this change adds. HOLODEX-323 / ADR-091.</text>
 
   <text x="24" y="92" class="label muted">1 &#183; METADATA SECTION &#8212; SIGNAL STATES</text>
-  <text x="24" y="110" class="muted" font-size="12">Two different layers. &#8220;Out of sync&#8221; is ADR-051 baseline divergence; pending/failed are ADR-091 job lifecycle. They co-occur.</text>
+  <text x="24" y="110" class="muted" font-size="12">No counts. The write is atomic over the fields you submit, so the unit is the job, not the field.</text>
 
   <rect x="24" y="126" width="620" height="58" rx="8" class="panel" />
-  <text x="44" y="158" class="ink" font-size="13">Metadata</text>
-  <text x="452" y="158" class="muted" font-size="11">&#8595; Write decisions to file</text>
-  <text x="574" y="158" class="warn" font-size="11">&#183; 3 out of sync</text>
-  <text x="664" y="148" class="warn" font-size="12">Out of sync &#8212; unchanged</text>
-  <text x="664" y="165" class="muted" font-size="11">Existing ADR-051 pill. Decided value differs</text>
-  <text x="664" y="180" class="muted" font-size="11">from the file. Not a job state.</text>
+  <text x="44" y="160" class="ink" font-size="13">Metadata</text>
+  <rect x="116" y="144" width="88" height="22" rx="11" class="warnChip" />
+  <text x="128" y="159" class="warn" font-size="11">out of sync</text>
+  <text x="452" y="160" class="muted" font-size="11">&#8595; Write decisions to file</text>
+  <text x="664" y="150" class="warn" font-size="12">Out of sync</text>
+  <text x="664" y="167" class="muted" font-size="11">ADR-051 baseline divergence. Now a pill,</text>
+  <text x="664" y="182" class="muted" font-size="11">not &#8220;&#183; N out of sync&#8221; text.</text>
 
   <rect x="24" y="200" width="620" height="58" rx="8" class="panel" />
-  <text x="44" y="232" class="ink" font-size="13">Metadata</text>
-  <rect x="112" y="219" width="126" height="22" rx="11" class="accentChip" />
-  <circle cx="126" cy="230" r="4" class="accent" />
-  <text x="136" y="234" class="accent" font-size="11">writing to file&#8230;</text>
+  <text x="44" y="234" class="ink" font-size="13">Metadata</text>
+  <rect x="116" y="218" width="118" height="22" rx="11" class="accentChip" />
+  <circle cx="130" cy="229" r="4" class="accent" />
+  <text x="140" y="233" class="accent" font-size="11">writing to file</text>
   <text x="452" y="234" class="muted" font-size="11">&#8595; Write decisions to file</text>
-  <rect x="106" y="213" width="138" height="34" rx="14" class="accentMark" />
-  <text x="664" y="226" class="accent" font-size="12">Pending &#8212; new</text>
-  <text x="664" y="243" class="muted" font-size="11">While pending &gt; 0. The out-of-sync count</text>
-  <text x="664" y="258" class="muted" font-size="11">is suppressed &#8212; a write is answering it.</text>
+  <text x="664" y="224" class="accent" font-size="12">Pending</text>
+  <text x="664" y="241" class="muted" font-size="11">Replaces out of sync while in flight &#8212;</text>
+  <text x="664" y="256" class="muted" font-size="11">one job, one state, nothing to add up.</text>
 
-  <rect x="24" y="274" width="620" height="88" rx="8" class="panel" />
-  <text x="44" y="306" class="ink" font-size="13">Metadata</text>
-  <rect x="112" y="293" width="98" height="22" rx="11" class="warnChip" />
-  <path d="M124 300 l5 9 h-10 z" class="warn" />
-  <text x="134" y="308" class="warn" font-size="11">write failed</text>
+  <rect x="24" y="274" width="620" height="92" rx="8" class="panel" />
+  <text x="44" y="308" class="ink" font-size="13">Metadata</text>
+  <rect x="116" y="292" width="92" height="22" rx="11" class="warnChip" />
+  <path d="M128 299 l5 9 h-10 z" class="warn" />
+  <text x="138" y="307" class="warn" font-size="11">write failed</text>
+  <rect x="216" y="292" width="88" height="22" rx="11" class="warnChip" />
+  <text x="228" y="307" class="warn" font-size="11">out of sync</text>
   <text x="452" y="308" class="muted" font-size="11">&#8595; Write decisions to file</text>
-  <text x="574" y="308" class="warn" font-size="11">&#183; 3 out of sync</text>
-  <text x="44" y="336" class="warn" font-size="11">Couldn&#8217;t write title, genres, studio. The file may be locked or read-only.</text>
-  <text x="404" y="336" class="accent" font-size="11">Retry</text>
-  <line x1="404" y1="339" x2="430" y2="339" stroke="#e8a33d" stroke-width="1" />
-  <text x="446" y="336" class="muted" font-size="11">Dismiss</text>
-  <rect x="106" y="287" width="110" height="34" rx="14" class="accentMark" />
-  <text x="664" y="296" class="warn" font-size="12">Failed &#8212; new, persists</text>
-  <text x="664" y="313" class="muted" font-size="11">Out of sync returns alongside it: the</text>
-  <text x="664" y="328" class="muted" font-size="11">write didn&#8217;t land, so the file still differs.</text>
-  <text x="664" y="348" class="muted" font-size="11">Survives reload &#8212; read from the queue.</text>
+  <text x="44" y="340" class="warn" font-size="11">Couldn&#8217;t write to the file &#8212; it may be locked or read-only.</text>
+  <text x="366" y="340" class="accent" font-size="11">Retry</text>
+  <line x1="366" y1="343" x2="392" y2="343" stroke="#e8a33d" stroke-width="1" />
+  <text x="408" y="340" class="muted" font-size="11">Dismiss</text>
+  <text x="664" y="298" class="warn" font-size="12">Failed &#8212; persists</text>
+  <text x="664" y="315" class="muted" font-size="11">Out of sync returns beside it: the write</text>
+  <text x="664" y="330" class="muted" font-size="11">didn&#8217;t land, so the file still differs.</text>
+  <text x="664" y="350" class="muted" font-size="11">Survives reload &#8212; read from the queue.</text>
 
-  <rect x="24" y="378" width="620" height="58" rx="8" class="panel" />
-  <text x="44" y="410" class="ink" font-size="13">Metadata</text>
-  <text x="452" y="410" class="muted" font-size="11">&#8595; Write decisions to file</text>
-  <text x="664" y="400" class="ink" font-size="12">Clean</text>
-  <text x="664" y="417" class="muted" font-size="11">No chip, no count. Silence is the only</text>
-  <text x="664" y="432" class="muted" font-size="11">success signal &#8212; there is no toast.</text>
+  <rect x="24" y="382" width="620" height="58" rx="8" class="panel" />
+  <text x="44" y="416" class="ink" font-size="13">Metadata</text>
+  <text x="452" y="416" class="muted" font-size="11">&#8595; Write decisions to file</text>
+  <text x="664" y="406" class="ink" font-size="12">Clean</text>
+  <text x="664" y="423" class="muted" font-size="11">No badge at all. Silence is the only</text>
+  <text x="664" y="438" class="muted" font-size="11">success signal &#8212; there is no toast.</text>
 
-  <text x="24" y="474" class="label muted">LIFECYCLE</text>
-  <rect x="24" y="486" width="118" height="30" rx="15" class="field" />
-  <text x="44" y="506" class="warn" font-size="11">3 out of sync</text>
-  <text x="152" y="506" class="muted" font-size="12">&#8594;</text>
-  <rect x="172" y="486" width="126" height="30" rx="15" class="accentChip" />
-  <text x="188" y="506" class="accent" font-size="11">writing to file&#8230;</text>
-  <text x="308" y="506" class="muted" font-size="12">&#8594;</text>
-  <rect x="328" y="486" width="96" height="30" rx="15" class="field" />
-  <text x="352" y="506" class="muted" font-size="11">(nothing)</text>
-  <text x="440" y="506" class="muted" font-size="11">on success</text>
-  <text x="308" y="536" class="muted" font-size="12">&#8627;</text>
-  <rect x="328" y="522" width="216" height="30" rx="15" class="warnChip" />
-  <text x="344" y="542" class="warn" font-size="11">write failed &#183; 3 out of sync</text>
-  <text x="560" y="542" class="muted" font-size="11">on failure &#8212; both return</text>
+  <line x1="116" y1="120" x2="116" y2="446" class="guide" />
+  <text x="24" y="472" class="label muted">BADGE ALIGNMENT</text>
+  <text x="24" y="490" class="muted" font-size="12">One pill geometry for all three. Same x, same 22px height, same full radius, same 11px label. Only hue and text differ.</text>
 
-  <line x1="24" y1="580" x2="936" y2="580" class="rule" />
+  <rect x="24" y="504" width="88" height="22" rx="11" class="warnChip" />
+  <text x="36" y="519" class="warn" font-size="11">out of sync</text>
+  <rect x="124" y="504" width="118" height="22" rx="11" class="accentChip" />
+  <circle cx="138" cy="515" r="4" class="accent" />
+  <text x="148" y="519" class="accent" font-size="11">writing to file</text>
+  <rect x="254" y="504" width="92" height="22" rx="11" class="warnChip" />
+  <path d="M266 511 l5 9 h-10 z" class="warn" />
+  <text x="276" y="519" class="warn" font-size="11">write failed</text>
+  <line x1="24" y1="500" x2="346" y2="500" class="guide" />
+  <line x1="24" y1="530" x2="346" y2="530" class="guide" />
+  <text x="366" y="512" class="muted" font-size="11">Leading glyph only where it carries meaning: a</text>
+  <text x="366" y="527" class="muted" font-size="11">spinner for motion, a triangle for alarm.</text>
 
-  <text x="24" y="612" class="label muted">2 &#183; WRITEBACK DIALOG &#8212; EVERY WRITABLE FIELD (MATROSKA)</text>
-  <text x="24" y="630" class="muted" font-size="12">Matroska is the fullest container. MP4 / WebM / mp3 / flac map a subset; original_title is Matroska-only.</text>
+  <line x1="24" y1="560" x2="936" y2="560" class="rule" />
 
-  <rect x="24" y="646" width="620" height="666" rx="8" class="panel" />
-  <text x="44" y="674" class="ink" font-size="13">Write metadata to file</text>
-  <text x="44" y="691" class="muted" font-size="11">Review what lands in the file, then confirm.</text>
-  <rect x="38" y="680" width="266" height="18" rx="6" class="accentMark" />
+  <text x="24" y="590" class="label muted">2 &#183; WRITEBACK DIALOG &#8212; EVERY WRITABLE FIELD (MATROSKA)</text>
+  <text x="24" y="608" class="muted" font-size="12">Matroska is the fullest container. MP4 / WebM / mp3 / flac map a subset; original_title is Matroska-only.</text>
 
-  <line x1="44" y1="706" x2="624" y2="706" class="rule" />
-  <rect x="46" y="716" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 723 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="722" class="muted" font-size="11">Title</text>
-  <text x="104" y="722" class="accent" font-size="10">&#183;tmdb</text>
-  <text x="264" y="722" class="muted" font-size="10">&#8594; Title</text>
-  <text x="72" y="738" class="muted" font-size="10">was: Ghost.in.the.Shell.1995.1080p.BluRay</text>
-  <text x="72" y="756" class="ink" font-size="11">Ghost in the Shell</text>
+  <rect x="24" y="624" width="620" height="600" rx="8" class="panel" />
+  <text x="44" y="652" class="ink" font-size="13">Write metadata to file</text>
+  <text x="44" y="669" class="muted" font-size="11">Review what lands in the file, then confirm.</text>
 
-  <line x1="44" y1="768" x2="624" y2="768" class="rule" />
-  <rect x="46" y="778" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 785 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="784" class="muted" font-size="11">Original title</text>
-  <text x="264" y="784" class="muted" font-size="10">&#8594; OriginalMediaType</text>
-  <text x="440" y="784" class="accent" font-size="10">Matroska only</text>
-  <text x="72" y="802" class="ink" font-size="11">Kokaku Kidotai</text>
+  <line x1="44" y1="684" x2="624" y2="684" class="rule" />
+  <rect x="46" y="694" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 701 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="700" class="muted" font-size="11">Title</text>
+  <text x="104" y="700" class="accent" font-size="10">&#183;tmdb</text>
+  <text x="264" y="700" class="muted" font-size="10">&#8594; Title</text>
+  <text x="72" y="716" class="muted" font-size="10">was: Ghost.in.the.Shell.1995.1080p.BluRay</text>
+  <text x="72" y="734" class="ink" font-size="11">Ghost in the Shell</text>
 
-  <line x1="44" y1="814" x2="624" y2="814" class="rule" />
-  <rect x="46" y="824" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 831 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="830" class="muted" font-size="11">Overview</text>
-  <text x="264" y="830" class="muted" font-size="10">&#8594; Comment</text>
-  <text x="72" y="848" class="ink" font-size="11">In 2029, a cyborg counter-terrorism agent pursues a hacker&#8230;</text>
+  <line x1="44" y1="746" x2="624" y2="746" class="rule" />
+  <rect x="46" y="756" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 763 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="762" class="muted" font-size="11">Original title</text>
+  <text x="264" y="762" class="muted" font-size="10">&#8594; OriginalMediaType</text>
+  <text x="440" y="762" class="accent" font-size="10">Matroska only</text>
+  <text x="72" y="780" class="ink" font-size="11">Kokaku Kidotai</text>
 
-  <line x1="44" y1="860" x2="624" y2="860" class="rule" />
-  <rect x="46" y="870" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 877 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="876" class="muted" font-size="11">Tagline</text>
-  <text x="264" y="876" class="muted" font-size="10">&#8594; Subtitle</text>
-  <text x="356" y="876" class="muted" font-size="10">(avoids the Comment collision)</text>
-  <text x="72" y="894" class="ink" font-size="11">It found a voice. Now it needs a body.</text>
+  <line x1="44" y1="792" x2="624" y2="792" class="rule" />
+  <rect x="46" y="802" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 809 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="808" class="muted" font-size="11">Overview</text>
+  <text x="264" y="808" class="muted" font-size="10">&#8594; Comment</text>
+  <text x="72" y="826" class="ink" font-size="11">In 2029, a cyborg counter-terrorism agent pursues a hacker known&#8230;</text>
+  <rect x="66" y="814" width="490" height="18" rx="4" class="accentMark" />
+  <text x="566" y="826" class="accent" font-size="10">1 line</text>
 
-  <line x1="44" y1="906" x2="624" y2="906" class="rule" />
-  <path d="M48 922 l4 4 l7 -8" stroke="#9b9082" stroke-width="1.5" fill="none" />
-  <text x="72" y="922" class="muted" font-size="11">Release date</text>
-  <text x="264" y="922" class="muted" font-size="10">&#8594; Year</text>
-  <text x="72" y="940" class="ink" font-size="11">1995</text>
-  <text x="106" y="940" class="muted" font-size="11">&#8212; already in file, nothing to write</text>
+  <line x1="44" y1="840" x2="624" y2="840" class="rule" />
+  <rect x="46" y="850" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 857 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="856" class="muted" font-size="11">Tagline</text>
+  <text x="264" y="856" class="muted" font-size="10">&#8594; Subtitle</text>
+  <text x="356" y="856" class="muted" font-size="10">(avoids the Comment collision)</text>
+  <text x="72" y="874" class="ink" font-size="11">It found a voice. Now it needs a body.</text>
 
-  <line x1="44" y1="952" x2="624" y2="952" class="rule" />
-  <rect x="46" y="962" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 969 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="968" class="muted" font-size="11">Genres</text>
-  <text x="264" y="968" class="muted" font-size="10">&#8594; Genre</text>
-  <text x="356" y="968" class="muted" font-size="10">(one -TAG= per value)</text>
-  <text x="72" y="986" class="ink" font-size="11">Animation, Science Fiction, Action</text>
+  <line x1="44" y1="886" x2="624" y2="886" class="rule" />
+  <path d="M48 902 l4 4 l7 -8" stroke="#9b9082" stroke-width="1.5" fill="none" />
+  <text x="72" y="902" class="muted" font-size="11">Release date</text>
+  <text x="264" y="902" class="muted" font-size="10">&#8594; Year</text>
+  <text x="72" y="920" class="ink" font-size="11">1995</text>
+  <text x="106" y="920" class="muted" font-size="11">&#8212; already in file, nothing to write</text>
 
-  <line x1="44" y1="998" x2="624" y2="998" class="rule" />
-  <rect x="46" y="1008" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 1015 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="1014" class="muted" font-size="11">Original language</text>
-  <text x="264" y="1014" class="muted" font-size="10">&#8594; Language</text>
-  <text x="72" y="1032" class="ink" font-size="11">ja</text>
+  <line x1="44" y1="932" x2="624" y2="932" class="rule" />
+  <rect x="46" y="942" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 949 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="948" class="muted" font-size="11">Genres</text>
+  <text x="264" y="948" class="muted" font-size="10">&#8594; Genre</text>
+  <text x="356" y="948" class="muted" font-size="10">(one -TAG= per value)</text>
+  <text x="72" y="966" class="ink" font-size="11">Animation, Science Fiction, Action</text>
 
-  <line x1="44" y1="1044" x2="624" y2="1044" class="rule" />
-  <rect x="46" y="1054" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 1061 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="1060" class="muted" font-size="11">Actors</text>
-  <text x="264" y="1060" class="muted" font-size="10">&#8594; Artist</text>
-  <text x="356" y="1060" class="muted" font-size="10">(comma-delimited)</text>
-  <text x="72" y="1078" class="ink" font-size="11">Atsuko Tanaka, Akio Otsuka, Koichi Yamadera</text>
+  <line x1="44" y1="978" x2="624" y2="978" class="rule" />
+  <rect x="46" y="988" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 995 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="994" class="muted" font-size="11">Original language</text>
+  <text x="264" y="994" class="muted" font-size="10">&#8594; Language</text>
+  <text x="72" y="1012" class="ink" font-size="11">ja</text>
 
-  <line x1="44" y1="1090" x2="624" y2="1090" class="rule" />
-  <rect x="46" y="1100" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 1107 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="1106" class="muted" font-size="11">Studio</text>
-  <text x="264" y="1106" class="muted" font-size="10">&#8594; Publisher</text>
-  <text x="72" y="1124" class="ink" font-size="11">Production I.G</text>
+  <line x1="44" y1="1024" x2="624" y2="1024" class="rule" />
+  <rect x="46" y="1034" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 1041 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="1040" class="muted" font-size="11">Actors</text>
+  <text x="264" y="1040" class="muted" font-size="10">&#8594; Artist</text>
+  <text x="356" y="1040" class="muted" font-size="10">(comma-delimited)</text>
+  <text x="72" y="1058" class="ink" font-size="11">Atsuko Tanaka, Akio Otsuka, Koichi Yamadera</text>
 
-  <line x1="44" y1="1136" x2="624" y2="1136" class="rule" />
-  <rect x="46" y="1146" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M49 1153 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="72" y="1152" class="muted" font-size="11">Poster</text>
-  <text x="264" y="1152" class="muted" font-size="10">&#8594; cover.jpg (attachment)</text>
-  <text x="440" y="1152" class="accent" font-size="10">binary embed</text>
-  <rect x="72" y="1160" width="26" height="38" rx="3" class="field" />
-  <text x="76" y="1183" class="muted" font-size="8">file</text>
-  <text x="106" y="1183" class="muted" font-size="12">&#8594;</text>
-  <rect x="124" y="1160" width="26" height="38" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <text x="128" y="1183" class="accent" font-size="8">new</text>
-  <text x="162" y="1183" class="muted" font-size="10">Read-only compare &#8212; picking a candidate is a SourceSelect decision.</text>
+  <line x1="44" y1="1070" x2="624" y2="1070" class="rule" />
+  <rect x="46" y="1080" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 1087 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="1086" class="muted" font-size="11">Studio</text>
+  <text x="264" y="1086" class="muted" font-size="10">&#8594; Publisher</text>
+  <text x="72" y="1104" class="ink" font-size="11">Production I.G</text>
 
-  <line x1="44" y1="1210" x2="624" y2="1210" class="rule" />
-  <circle cx="53" cy="1226" r="7" class="rule" />
-  <line x1="49" y1="1226" x2="57" y2="1226" stroke="#9b9082" stroke-width="1.5" />
-  <text x="72" y="1224" class="muted" font-size="11">Director</text>
-  <text x="72" y="1242" class="muted" font-size="10">No file tag for this container &#8212; can&#8217;t be written. (HOLODEX-217)</text>
+  <line x1="44" y1="1116" x2="624" y2="1116" class="rule" />
+  <rect x="46" y="1126" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M49 1133 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="72" y="1132" class="muted" font-size="11">Poster</text>
+  <text x="264" y="1132" class="muted" font-size="10">&#8594; cover.jpg (attachment)</text>
+  <text x="440" y="1132" class="accent" font-size="10">binary embed</text>
+  <text x="72" y="1150" class="ink" font-size="11">Replacing embedded cover art</text>
+  <rect x="244" y="1138" width="118" height="18" rx="9" class="accentChip" />
+  <text x="254" y="1151" class="accent" font-size="10">compare on hover</text>
 
-  <text x="664" y="722" class="accent" font-size="12">Confirm view</text>
-  <text x="664" y="739" class="muted" font-size="11">Every row already shows its destination</text>
-  <text x="664" y="754" class="muted" font-size="11">tag and the value that will land. This</text>
-  <text x="664" y="769" class="muted" font-size="11">preview is not new &#8212; only the transient</text>
-  <text x="664" y="784" class="muted" font-size="11">status icons are removed from the gutter.</text>
+  <line x1="44" y1="1164" x2="624" y2="1164" class="rule" />
+  <circle cx="53" cy="1180" r="7" class="rule" />
+  <line x1="49" y1="1180" x2="57" y2="1180" stroke="#9b9082" stroke-width="1.5" />
+  <text x="72" y="1178" class="muted" font-size="11">Director</text>
+  <text x="72" y="1196" class="muted" font-size="10">No file tag for this container &#8212; can&#8217;t be written. (HOLODEX-217)</text>
 
-  <text x="664" y="822" class="ink" font-size="12">Gutter states</text>
-  <rect x="664" y="834" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <path d="M667 841 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
-  <text x="688" y="846" class="muted" font-size="11">will be written</text>
-  <path d="M666 869 l4 4 l7 -8" stroke="#9b9082" stroke-width="1.5" fill="none" />
-  <text x="688" y="872" class="muted" font-size="11">no-op, already matches</text>
-  <circle cx="671" cy="893" r="7" class="rule" />
-  <line x1="667" y1="893" x2="675" y2="893" stroke="#9b9082" stroke-width="1.5" />
-  <text x="688" y="897" class="muted" font-size="11">unwritable, shown not hidden</text>
+  <line x1="44" y1="1206" x2="624" y2="1206" class="rule" />
 
-  <text x="664" y="936" class="warn" font-size="12">Removed</text>
-  <text x="664" y="953" class="muted" font-size="11">Spinner, check and error icons. The write</text>
-  <text x="664" y="968" class="muted" font-size="11">is one invocation &#8212; per-row outcome was</text>
-  <text x="664" y="983" class="muted" font-size="11">never a real distinction on this path.</text>
+  <rect x="664" y="790" width="272" height="94" rx="8" class="panel" />
+  <path d="M566 826 L664 826" class="accentMark" />
+  <text x="680" y="812" class="accent" font-size="11">Overview on hover / focus</text>
+  <text x="680" y="830" class="muted" font-size="10">In 2029, a cyborg counter-terrorism agent</text>
+  <text x="680" y="845" class="muted" font-size="10">pursues a hacker known as the Puppet Master,</text>
+  <text x="680" y="860" class="muted" font-size="10">who is hijacking the ghosts of the cyberised.</text>
+  <text x="680" y="876" class="muted" font-size="10">Full value. Keeps the row one line tall.</text>
 
-  <rect x="44" y="1266" width="90" height="28" rx="4" class="field" />
-  <text x="66" y="1285" class="muted" font-size="11">Cancel</text>
-  <rect x="146" y="1266" width="132" height="28" rx="4" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
-  <text x="162" y="1285" class="accent" font-size="11">Write 9 fields</text>
-  <text x="296" y="1285" class="muted" font-size="11">Closes on the 202 ack.</text>
-  <text x="664" y="1285" class="accent" font-size="11">Status moves to the page.</text>
+  <rect x="664" y="1060" width="272" height="140" rx="8" class="panel" />
+  <path d="M362 1147 L664 1130" class="accentMark" />
+  <text x="680" y="1082" class="accent" font-size="11">Poster on hover / focus</text>
+  <rect x="680" y="1094" width="58" height="82" rx="4" class="field" />
+  <text x="694" y="1139" class="muted" font-size="9">file</text>
+  <text x="752" y="1139" class="muted" font-size="13">&#8594;</text>
+  <rect x="782" y="1094" width="58" height="82" rx="4" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <text x="798" y="1139" class="accent" font-size="9">new</text>
+  <text x="856" y="1120" class="muted" font-size="10">Read-only</text>
+  <text x="856" y="1134" class="muted" font-size="10">compare.</text>
+  <text x="680" y="1194" class="muted" font-size="10">Never hover-only: focus and tap open it too.</text>
+
+  <rect x="44" y="1228" width="90" height="28" rx="4" class="field" />
+  <text x="66" y="1247" class="muted" font-size="11">Cancel</text>
+  <rect x="146" y="1228" width="132" height="28" rx="4" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <text x="162" y="1247" class="accent" font-size="11">Write 9 fields</text>
+  <text x="292" y="1247" class="muted" font-size="11">Closes on the 202 ack &#8212; status moves to the page.</text>
+
+  <text x="664" y="668" class="accent" font-size="12">Confirm view</text>
+  <text x="664" y="685" class="muted" font-size="11">Every row shows its destination tag and</text>
+  <text x="664" y="700" class="muted" font-size="11">the value that will land. This preview is</text>
+  <text x="664" y="715" class="muted" font-size="11">not new &#8212; only the transient status icons</text>
+  <text x="664" y="730" class="muted" font-size="11">are removed from the gutter.</text>
+  <text x="664" y="752" class="muted" font-size="11">Long values never grow the modal: they</text>
+  <text x="664" y="767" class="muted" font-size="11">clamp to one line and disclose on demand.</text>
 </svg>
