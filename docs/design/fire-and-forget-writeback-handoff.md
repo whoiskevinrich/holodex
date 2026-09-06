@@ -63,6 +63,7 @@ The pending chip deliberately reuses the geometry of the existing `file out of s
 
 | Element | State | Behavior |
 |---|---|---|
+| Metadata header | Out of sync | Existing ADR-051 treatment, unchanged: `· N out of sync` on the write action. **Not** a job state — it means the decided value differs from the stored baseline. |
 | Metadata header | Clean | No chip. Nothing renders. |
 | Metadata header | Pending | Accent chip, "writing to file…", with the spinner idiom already used in the dialog. Rendered while `pending > 0` for this video. |
 | Metadata header | Failed | Warn chip, "write failed". Persists until retried or dismissed. |
@@ -88,6 +89,35 @@ needed to catch a bad value before committing:
 Only the **transient status icons** leave the left gutter: the `isWriting` spinner and the
 `isError` cross. The gutter reverts to the checkbox, the no-op check, and the unwritable
 marker. `row.status` collapses accordingly.
+
+## Two layers in one header row
+
+`out of sync` and the writeback chips answer different questions and must not be conflated:
+
+| | Question | Layer | Lifetime |
+|---|---|---|---|
+| `· N out of sync` | Does the decided value differ from the file? | ADR-051 baseline divergence | Until a write lands |
+| `writing to file…` | Is a write in flight? | ADR-091 job lifecycle | Until the job is terminal |
+| `write failed` | Did the last write fail? | ADR-091 job lifecycle | Until retried or dismissed |
+
+They co-occur. The normal path is `out of sync` → `writing to file…` → nothing. The failure path is
+`out of sync` → `writing to file…` → `write failed` **plus** `out of sync` again, because a write
+that didn't land leaves the file still differing. Showing both on failure is correct and load
+bearing — it is what tells the owner the work is still outstanding.
+
+**Open question — suppression while pending.** The mockup suppresses the `N out of sync` count while
+a write is pending, on the reasoning that a write is already answering it and showing both is noise.
+That is only strictly true when the job covers every out-of-sync field. A partial write (the owner
+unchecked some rows) would hide genuinely outstanding work behind a pending chip. Two options, to be
+settled in the spec rather than in implementation:
+
+1. **Suppress while pending** (as drawn) — simplest, slightly lies about partial writes.
+2. **Show the residual count** — `writing to file… · 1 still out of sync`, counting only fields the
+   in-flight job does *not* carry. Honest, and needs the job's field list on the payload, which the
+   failed state already requires for its error sentence.
+
+Option 2 is probably right for the same reason the failed state shows both, but it is a real
+decision and is not made here.
 
 ## Job-level, not per-field
 
