@@ -34,8 +34,9 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [ ] [backend] `/handoff` skill → batch 2 (own slice) — **do this one first**, see retro verdict below
-9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice) — unblocked, retro completed 2026-07-29
+8. [/] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md) drafted (Proposed); repo creation + directory port still open → [HOLODEX-327](HOLODEX-327.md)
+9. [ ] [backend] `/handoff` skill → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — see retro verdict below
+10. [ ] [backend] `INBOX.md` + `/triage` → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — unblocked, retro completed 2026-07-29
 
 ## Batch-1 retro checkpoint (unblocks item 9) — ✅ completed 2026-07-29
 
@@ -55,6 +56,20 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-06 · Product-brainstorming session → ADR-092 (extraction) drafted
+- skills: product-brainstorming, architecture
+- handoff: A brainstorm on gate-selector UX (a profile-driven pre-implementation gate picker +
+  `/code-review high --fix` gate) pivoted mid-session into a bigger question — does that design work
+  even belong in Holodex, given Flightplan was always meant to be portable and ADR numbering has
+  already collided twice with flightplan-adjacent tooling work (#257)? Converged: extract
+  `flightplan/` to its own standalone repo (own ADR trail, still hand-copied per consumer — no
+  packaged plugin yet, no second real consumer exists to design that interface against). Filed
+  [HOLODEX-327](HOLODEX-327.md) and drafted [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md)
+  (Proposed; narrowly supersedes only ADR-064's in-repo packaging clause — worklog/hook/skill design
+  stands). Batch 2 (`/handoff`, `/triage`) reprioritized to execute in the new repo post-extraction,
+  not here. Next: get the extraction ADR reviewed (ships as a Draft PR per ADR-069), then confirm the
+  new repo's name/visibility before creating it — that confirmation is explicitly not done yet.
 
 ### 2026-07-29 · Batch-1 retro — completed, answered from evidence + Kevin
 - handoff: Trigger fired on the hard-stop date alone (2026-07-25, four days past); answered the
