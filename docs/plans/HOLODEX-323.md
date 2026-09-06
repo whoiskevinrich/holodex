@@ -26,7 +26,7 @@ renders at all — silence is the success signal.
 - [ ] backend
 - [ ] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (§4 row, §5 row, §10 adversarial block, 3 Critical invariants, §11 gap)
-- [ ] security `security-review` — likely N/A (no new auth surface; the writeback route is already owner-gated), confirm against the real diff before merge
+- [x] security `security-review` — **one MEDIUM finding, closed in the spec before code** (R2.1a: the failure message must be visitor-redacted server-side); re-run against the real diff before merge
 
 ## Up next — ordered (position = priority)
 
@@ -105,3 +105,31 @@ renders at all — silence is the success signal.
 - handoff: **four of five gates green.** Only `/security-review` remains, and it is not a
   formality — Retry and Dismiss are two new owner-gated mutation routes and Dismiss deletes a
   row, so it wants real scrutiny rather than inheriting "the writeback route was already gated".
+
+### 2026-09-06 · security review — one MEDIUM finding, closed before code
+- skills: security-review
+- The diff is docs-only, so there were **no in-diff findings**. The value was in threat-modelling
+  the surface the spec *specifies*, which turned up a real one that would otherwise have been
+  written straight into the implementation.
+- **Finding (MEDIUM, information disclosure):** R2.1 said the media payload carries "the failed
+  job's error message". That error is `err.Error()` off `writeback.WriteBatch`, and **every**
+  failure path in `internal/writeback/writeback.go` embeds absolute paths — `writeback copy: %w`
+  and `writeback rename: %w` wrap `os` errors carrying both paths, and the
+  exiftool/mkvpropedit/ffmpeg branches append raw tool stderr containing the `.holodex-tmp` path.
+  `GET /media/{id}` is **not** owner-gated, and `redactFileMetadataForVisitor`
+  (`internal/api/handlers.go:651`) already strips `FilePath`/codecs/container from exactly that
+  payload — its doc comment states outright that the SPA gating its own display is insufficient.
+  Attaching the raw error would have reintroduced path disclosure through a *new* field and
+  defeated that control: the same shape as the `get_video` MCP leak fixed in HOLODEX-114.
+- Closed in the spec as **R2.1a** rather than left as a review note: the error is omitted
+  server-side for non-owners, redacted inside `redactFileMetadataForVisitor` (not a second
+  parallel site a future serializer could miss), and the owner-facing message should be a stable
+  summary with raw tool output confined to `job_runs`/Activity.
+- Acceptance criteria 9 and 10 added, and a Critical invariant in the testing strategy — with the
+  assertion pinned **at the API**, because a test that only checks the badge doesn't render passes
+  against a payload that still carries the path.
+- Retry/Dismiss route scoping was reviewed and **not** raised as a finding: both are owner-gated
+  in a single-owner app, so a job-id-scoped Retry is a correctness/robustness concern, not an
+  exploitable one. It is on the implementation checklist, not the findings list.
+- handoff: **all five gates green.** Re-run `/security-review` against the real diff before
+  marking the PR ready — this pass reviewed a design, not code.

@@ -91,8 +91,27 @@ consumer; `pollUntilSettled` is reused by R2.5.
 ### R2 — Writeback status is a property of the video
 
 **R2.1** `GET /media/{id}` carries this video's writeback status, derived from `writeback_queue`
-by `video_id`: whether a job is pending (`pending` or `running`) and whether one has failed,
-with the failed job's error message.
+by `video_id`: whether a job is pending (`pending` or `running`) and whether one has failed.
+
+**R2.1a — the failure message is owner-only, server-side (security).** The stored error is
+`err.Error()` from `writeback.WriteBatch` (`writequeue.go` `finish(false, err.Error(), …)`), and
+every failure path in `internal/writeback/writeback.go` embeds absolute filesystem paths — `writeback
+copy: %w` and `writeback rename: %w` wrap `os` errors carrying both paths, and the
+exiftool/mkvpropedit/ffmpeg branches append raw stderr containing the `.holodex-tmp` path.
+
+`GET /media/{id}` is **not** owner-gated, and `redactFileMetadataForVisitor`
+(`internal/api/handlers.go:651`) already strips `FilePath`/codecs/container from the payload for
+non-owners precisely because — in its own words — the SPA gating its display is not sufficient.
+Attaching a raw writeback error to that payload would reintroduce absolute-path disclosure through a
+new field and defeat that control.
+
+Therefore: the **error string is omitted from the payload entirely for non-owners**, alongside the
+existing redaction, not merely hidden by the client. The pending/failed booleans may remain (they
+disclose nothing). Redacting inside `redactFileMetadataForVisitor` is preferred over a second
+parallel redaction site, so a future serializer cannot pick up one and miss the other. Additionally,
+the owner-facing message **should be a stable summary** ("Couldn't write to the file — it may be
+locked or read-only") with the raw tool output confined to `job_runs` and the Activity page, so the
+media payload never becomes a transport for tool stderr.
 
 **R2.2** Absence means nothing to report. `FinishWriteback` deletes the row on success, so no row
 covers succeeded, swept, and never-existed alike — all three correctly render nothing (ADR-091 D3).
@@ -204,10 +223,15 @@ it was hidden — a quiet pill beside a filled one is not noise.
 7. Submitting a new write for a video with an undismissed failure clears the failure.
 8. With neither pending nor failed work and no field out of sync, the Metadata header renders no
    badge at all.
-9. A visitor sees no writeback badges and no Retry/Dismiss.
-10. Gutter glyphs are distinct; the no-op row does not use a check.
-11. Overview and poster disclose on hover, on keyboard focus, and on tap, and dismiss on `Escape`.
-12. Three-skin QA passes per `.claude/rules/frontend-theming.md`.
+9. A visitor sees no writeback badges and no Retry/Dismiss — and, asserted **at the API**, the
+   `GET /media/{id}` payload for a non-owner contains no writeback error string at all, on a video
+   whose write genuinely failed with a path-bearing error. Asserting only that the badge does not
+   render would pass against a payload that still carries the path.
+10. Retry and Dismiss reject a non-owner (401/403), and Dismiss is scoped to the addressed video —
+    it cannot clear another video's failed row.
+11. Gutter glyphs are distinct; the no-op row does not use a check.
+12. Overview and poster disclose on hover, on keyboard focus, and on tap, and dismiss on `Escape`.
+13. Three-skin QA passes per `.claude/rules/frontend-theming.md`.
 
 ## Testing
 
