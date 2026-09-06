@@ -8,6 +8,7 @@
 	// the film detail page's scenes grid and the media detail page's Films chip row --
 	// the only difference between the two call sites is which name `contextLabel` shows.
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import { toMessage } from '$lib/format';
 	import type { FilmSceneCollision } from '$lib/types';
 	import { parseSceneNumberInput } from './sceneNumber';
 
@@ -48,6 +49,8 @@
 				return;
 			}
 			onclose();
+		} catch (e) {
+			error = toMessage(e);
 		} finally {
 			busy = false;
 		}

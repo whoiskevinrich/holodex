@@ -38,12 +38,13 @@ existing scene-number badge into a real `<button>`.
 2. [x] [frontend] `EditSceneNumberDialog` + `sceneNumber.ts` shared validator, wired into both detail pages, `VideoCard`/`VideoGrid`'s `onEditScene` threading — `web/src/lib/components/film/`, `web/src/lib/components/video/`, both `+page.svelte` routes
 3. [x] [testing] `TestUpdateFilmVideoScene` (happy path, self-number no-op, collision, clear-to-unnumbered, 404, 401/403) — `internal/api/films_test.go`
 4. [x] [—] `/simplify` (extracted shared `parseSceneNumberInput`, switched films/[id]'s save handler from a full reload to a local array patch, consolidated the button/span badge markup via `svelte:element`, fixed a stale comment) + `/security-review` (clean) + live 3-skin QA
-5. [ ] [—] push, open PR, sync Jira
+5. [x] [—] push, open PR (#306), sync Jira
+6. [x] [—] `/code-review high --fix` (8-angle, 6 verified): fixed 2 click-to-navigate regressions the badge/button restructuring introduced, a missing `catch` in `EditSceneNumberDialog`, a missing backend `scene_number > 0` check, and a collision-message inconsistency in `FilmAttachDialog`; skipped one efficiency finding (safe fix isn't a drop-in)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-06 · Implemented, tested, and live-verified both edit surfaces
-- skills: simplify, security-review
+- skills: simplify, security-review, graphify
 - handoff: filed HOLODEX-326 against epic HOLODEX-279 (F56), renamed branch, fired In Progress.
   Backend: `PATCH /films/{filmId}/videos/{videoId}` reuses `filmSceneOccupant` (already shared by
   `insertFilmVideo`), with the occupant-is-self case treated as a no-op success rather than a
@@ -71,4 +72,38 @@ existing scene-number badge into a real `<button>`.
   parameterized. Live-verified against `backend-films` (real "Dune" scenes): renumber from both
   pages, self-number no-op, 409 collision naming the correct occupant, badge/button rendering
   correct across Cinémathèque/Broadcast/Brutalist. `go build`/`go test ./...` and
-  `npm run check`/`npm run test` all pass. Next: push, open PR, sync Jira status.
+  `npm run check`/`npm run test` all pass. Pushed, opened PR #306 (ready, not draft — all gates
+  green), Jira auto-transitioned to In Review.
+
+### 2026-09-06 · `/code-review high --fix` caught two real interaction regressions
+- skills: code-review
+- handoff: 8-angle review (3 correctness + reuse/simplification/efficiency/altitude/conventions)
+  against PR #306's diff, 6 candidates verified. Two independent angles (removed-behavior, cross-
+  file tracer) both caught the same real bug the earlier `/simplify` pass and manual QA missed:
+  moving the scene-number badge to a sibling of the card's `<a>` (done to avoid nesting a
+  `<button>` inside an anchor) silently broke click-to-navigate for every case where the badge
+  *isn't* a button — a non-owner viewing the film detail page's scenes grid, and (worse) the
+  media page's Films chip badge for a **full-film** attachment, which is never editable by
+  anyone. Design doc §2c/§3a's own claim ("a visitor sees no change") was literally false for
+  that badge's screen position. Fixed differently per site: `VideoCard.svelte`'s badge is
+  absolutely-positioned over the `<a>`, so `pointer-events-none` on the non-button case lets the
+  click fall through to the anchor beneath it; the media page's badge is normal block flow below
+  the `<a>` (nothing to click through to), so it needed a real structural fix — a local
+  `{#snippet filmPoster()}` for the shared poster+name markup, rendered inside two different `<a>`
+  branches (badge nested inside for the non-editable case, restoring pre-diff behavior; pulled
+  out as a sibling `<button>` only for the editable case). Also fixed: `EditSceneNumberDialog`'s
+  `save()` had no `catch` (found by 4 of 8 angles independently) — a non-conflict failure (expired
+  session, 404 from a concurrent detach) silently did nothing; added `catch (e) { error =
+  toMessage(e); }` matching `FilmAttachDialog`'s pattern. `updateFilmVideoScene` accepted any
+  `scene_number` with no positivity check, unlike sibling `bulkAttachFilmVideos` — added the same
+  `<= 0` → 400 guard (new test cases in `TestUpdateFilmVideoScene`). `FilmAttachDialog`'s collision
+  message still interpolated the raw `sceneNumber` state instead of the parsed `n` — one-line fix.
+  Skipped one efficiency finding (`UpdateFilmVideoScene`'s existence-check SELECT could in
+  principle be replaced by the `UPDATE`'s own `RowsAffected()`, matching `DetachFilmVideo`) — the
+  verifier found the naive swap would change error precedence (a request against an unattached
+  pair with a colliding number would wrongly report a collision instead of not-found), and a
+  correct fix is a bigger restructuring than this pass warrants. Live re-verified all four fixes
+  against `backend-films`: visitor click on a scene badge now navigates; visitor/owner click on a
+  "Full film" chip badge now navigates; owner's edit-button path on both pages still opens the
+  dialog correctly. `go build`/`go test ./...` and `npm run check`/`npm run test` all pass. Next:
+  push this follow-up commit.

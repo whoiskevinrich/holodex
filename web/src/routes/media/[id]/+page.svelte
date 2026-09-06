@@ -1294,31 +1294,45 @@
 						<ul class="flex flex-wrap gap-3">
 							{#each films as f (f.film_id)}
 								<!-- Edit in place (HOLODEX-326): owner-only, and only for a scene attachment --
-								     a full-film row has no scene number to edit. -->
+								     a full-film row has no scene number to edit. When not editable, the badge
+								     stays INSIDE the <a> (as it was pre-HOLODEX-326) so clicking it still
+								     navigates to the film -- pulling it out to a sibling <button> only happens
+								     for the editable case, which needs it out to avoid nesting an interactive
+								     element inside the anchor. -->
 								{@const editable = isOwner && !f.is_full_film}
-								<li class="curation-chip group relative w-20 shrink-0">
-									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-										<div
-											class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
-										>
-											<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
-												>{monogram(f.film_name)}</span
-											>
-										</div>
-										<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
-									</a>
-									<svelte:element
-										this={editable ? 'button' : 'span'}
-										type={editable ? 'button' : undefined}
-										role={editable ? 'button' : undefined}
-										onclick={editable ? () => (editingSceneFilm = f) : undefined}
-										aria-label={editable ? `Edit scene number in ${f.film_name}` : undefined}
-										class="mt-1.5 block w-full rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink {editable
-											? 'hover:ring-1 hover:ring-inset hover:ring-accent-ink/50'
-											: ''}"
+								{#snippet filmPoster()}
+									<div
+										class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
 									>
-										{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
-									</svelte:element>
+										<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+											>{monogram(f.film_name)}</span
+										>
+									</div>
+									<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+								{/snippet}
+								<li class="curation-chip group relative w-20 shrink-0">
+									{#if editable}
+										<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+											{@render filmPoster()}
+										</a>
+										<button
+											type="button"
+											onclick={() => (editingSceneFilm = f)}
+											aria-label={`Edit scene number in ${f.film_name}`}
+											class="mt-1.5 block w-full rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink hover:ring-1 hover:ring-inset hover:ring-accent-ink/50"
+										>
+											{f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
+										</button>
+									{:else}
+										<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+											{@render filmPoster()}
+											<span
+												class="mt-1.5 block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink"
+											>
+												{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
+											</span>
+										</a>
+									{/if}
 									{#if isOwner}
 										<button
 											type="button"

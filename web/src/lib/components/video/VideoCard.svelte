@@ -101,7 +101,12 @@
 		     unnumbered scenes get a muted em-dash rather than no badge, so the position in
 		     the (unnumbered-last) sort reads as intentional. A sibling of the anchor, not
 		     nested inside it, so the owner-only edit affordance (HOLODEX-326) renders as a
-		     real <button> (via svelte:element) without nesting interactive elements. -->
+		     real <button> (via svelte:element) without nesting interactive elements. When
+		     there's no onEditScene (visitor, or a non-owner viewing the scenes grid), the
+		     badge stays a plain, non-interactive label -- `pointer-events-none` lets a click
+		     on it fall through to the <a> beneath, preserving the pre-HOLODEX-326 behavior
+		     where the badge was part of the anchor and clicking it navigated like the rest
+		     of the card. -->
 		<svelte:element
 			this={onEditScene ? 'button' : 'span'}
 			type={onEditScene ? 'button' : undefined}
@@ -110,7 +115,7 @@
 			aria-label={onEditScene ? `Edit scene number for ${video.title}` : undefined}
 			class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {onEditScene
 				? 'hover:ring-accent focus-visible:ring-accent'
-				: ''} {sceneNumber === null ? 'bg-black/70 text-muted' : 'bg-accent text-accent-ink'}"
+				: 'pointer-events-none'} {sceneNumber === null ? 'bg-black/70 text-muted' : 'bg-accent text-accent-ink'}"
 		>
 			{sceneNumber === null ? '—' : `#${sceneNumber}`}
 		</svelte:element>

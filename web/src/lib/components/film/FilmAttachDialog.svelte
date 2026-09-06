@@ -142,7 +142,7 @@
 			const res = await api.attachFilmVideo(chosen.id, videoId, n, isFullFilm);
 			if (res.conflict) {
 				const occ: FilmSceneCollision = res.conflict;
-				attachError = `Scene ${sceneNumber} is already "${occ.video_title}".`;
+				attachError = `Scene ${n} is already "${occ.video_title}".`;
 				return;
 			}
 			onattached();

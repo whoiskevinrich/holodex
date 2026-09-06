@@ -429,6 +429,18 @@ func TestUpdateFilmVideoScene(t *testing.T) {
 		t.Fatalf("clear scene: got %d, want 204", clearResp.StatusCode)
 	}
 
+	// A non-positive scene number is a 400, not a silently-accepted invalid value.
+	zero := int64(0)
+	zeroResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v2), map[string]any{"scene_number": zero})
+	if zeroResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("update to scene 0: got %d, want 400", zeroResp.StatusCode)
+	}
+	negative := int64(-1)
+	negativeResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/"+itoa(v2), map[string]any{"scene_number": negative})
+	if negativeResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("update to negative scene: got %d, want 400", negativeResp.StatusCode)
+	}
+
 	// Updating an unattached pair is a 404.
 	notAttachedResp := filmPatch(t, srv, "tok", "/films/"+itoa(id)+"/videos/999999", map[string]any{"scene_number": one})
 	if notAttachedResp.StatusCode != http.StatusNotFound {

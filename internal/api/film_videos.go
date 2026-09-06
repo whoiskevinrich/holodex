@@ -253,6 +253,10 @@ func (h *Handlers) updateFilmVideoScene(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &body) {
 		return
 	}
+	if body.SceneNumber != nil && *body.SceneNumber <= 0 {
+		writeError(w, http.StatusBadRequest, "scene_number must be positive")
+		return
+	}
 	occupant, err := h.repo.UpdateFilmVideoScene(r.Context(), filmID, videoID, body.SceneNumber)
 	if h.filmVideoMutationError(w, "update film video scene", err, occupant) {
 		return
