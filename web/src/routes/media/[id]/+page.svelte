@@ -1069,7 +1069,7 @@
 					{#if isReplaceField(overviewField) && isOwner}
 						<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
 					{:else if overviewField.values[0]?.trim()}
-						<ExpandableText text={overviewField.values[0]} chevronLabel="overview" />
+						<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
 					{/if}
 				</div>
 			{/if}

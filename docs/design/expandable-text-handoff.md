@@ -34,12 +34,27 @@ instead of a facet breakdown.
 |---|---|---|---|
 | `text` | `string` | — | The value to render |
 | `lines` | `4 \| 5` | `5` | Clamp line count. Narrowed to the two values actually used (Person's bio at 4, Media/Film's default 5) rather than an open `number` — Tailwind v4's JIT needs literal class names, so an unenumerated value would silently render unclamped |
-| `chevronLabel` | `string` | `'text'` | Feeds the toggle button's `aria-label`/`title` (e.g. "Show full overview") |
+| `tone` | `'ink' \| 'muted'` | `'ink'` | Text color. Defaults to `text-ink` (matches what Person bio and Film description had before this change); Media Overview passes `tone="muted"` — the one call site that explicitly asked for dimmed body copy. Added after `/code-review` caught the first version hardcoding `text-muted` for all three sites, silently dimming Person/Film's previously full-contrast text |
+| `chevronLabel` | `string` | — (required) | Feeds the toggle button's `aria-label`/`title` (e.g. "Show full overview"). No default on purpose — a caller that forgets it gets a compile error, not a silently wrong "Show full text" label |
 
-**Visual treatment:** `text-muted` (not `text-ink`) and full container width (no `max-w-prose`) —
-both explicit, deliberate choices for this pass: dimmed body copy reads as secondary/expandable
-content rather than primary page text, and full width matches the video player's width above it
-rather than a narrower reading column.
+**Visual treatment:** full container width (no `max-w-prose`) on Media specifically — Overview's
+video-matching-width request only applies there; Person/Film never had `max-w-prose` and are
+unaffected.
+
+**Known, accepted deltas from the pre-diff markup** (surfaced by `/code-review`, deliberately not
+"fixed" — see rationale):
+- **Film description now renders at `text-sm`** (14px) instead of its previous ambient/base size
+  (16px) — the only one of the three call sites that didn't already use `text-sm`. Accepted as a
+  minor consistency normalization (now matches Media/Person); no accessibility impact.
+- **Person bio now clamps on mobile too.** The old markup was `sm:line-clamp-4` — unclamped below
+  the `sm:` breakpoint, clamped at `sm:` and up. `ExpandableText` has no responsive variant, so
+  mobile now gets the same clamp+chevron as every other viewport. Accepted rather than reverted:
+  this reads as an incidental artifact of the old markup rather than a deliberate mobile-UX
+  decision, and consistent clamping everywhere is exactly this change's goal.
+- **`ProvenanceBadge` next to Person bio now sits on its own row**, not inline after the text —
+  `ExpandableText` renders a block-level wrapper (`<p>` + toggle button), so a sibling badge starts
+  on a new line instead of trailing the previously-inline `<span>`. Minor visual delta, flagged for
+  QA, not fixed (would need a trailing-content slot for one caller).
 
 ## Call sites (v1 — plain-text only)
 

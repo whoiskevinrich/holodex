@@ -3,19 +3,21 @@
 	// rest — the same expand/collapse idiom as CompletenessPanel's facet list,
 	// applied to prose instead of a facet breakdown.
 	const CLAMP = { 4: 'line-clamp-4', 5: 'line-clamp-5' } as const;
+	const TONE = { ink: 'text-ink', muted: 'text-muted' } as const;
 
 	let {
 		text,
 		lines = 5,
-		chevronLabel = 'text'
-	}: { text: string; lines?: 4 | 5; chevronLabel?: string } = $props();
+		tone = 'ink',
+		chevronLabel
+	}: { text: string; lines?: 4 | 5; tone?: 'ink' | 'muted'; chevronLabel: string } = $props();
 
 	let expanded = $state(false);
 	const textId = $props.id();
 </script>
 
 <div>
-	<p id={textId} class="text-sm leading-relaxed text-muted {expanded ? '' : CLAMP[lines]}">
+	<p id={textId} class="text-sm leading-relaxed {TONE[tone]} {expanded ? '' : CLAMP[lines]}">
 		{text}
 	</p>
 	<button
