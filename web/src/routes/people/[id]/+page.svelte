@@ -22,6 +22,7 @@
 	import { providerOf } from '$lib/f36';
 	import { expandedField } from '$lib/expandedField.svelte';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
@@ -552,10 +553,10 @@
 									{@render bioEditBtn()}
 								{/if}
 							</h3>
-							<div class="mt-1 flex-1 overflow-hidden text-sm leading-relaxed sm:line-clamp-4">
+							<div class="mt-1 flex-1 overflow-hidden">
 								{#if bioField.values[0]?.trim()}
 									{@const provider = !isOwner ? winnerProvider(bioField) : ''}
-									<span class="text-ink">{bioField.values[0]}</span>
+									<ExpandableText text={bioField.values[0]} lines={4} chevronLabel="bio" />
 									{#if provider}
 										<ProvenanceBadge {provider} label={provider} />
 									{/if}
