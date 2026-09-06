@@ -1,0 +1,131 @@
+<svg viewBox="0 0 960 880" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .panel { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .warn { fill: #e2603f; }
+      .accentChip { fill: #181310; stroke: #e8a33d; stroke-width: 1.5; }
+      .warnChip { fill: #1a100d; stroke: #e2603f; stroke-width: 1.5; }
+      .accentMark { stroke: #e8a33d; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+      .gone { stroke: #e2603f; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+      .field { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .label { font-size: 11px; letter-spacing: 0.06em; }
+      .title { font-family: 'Fraunces Variable', serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="880" />
+
+  <text x="24" y="34" class="title ink" font-size="17">Fire-and-forget writeback &#8212; page signals + confirm-only dialog</text>
+  <text x="24" y="54" class="muted" font-size="12">Skin 1 (default). Gold outline marks what this change adds; red dashes mark what it removes. HOLODEX-323.</text>
+
+  <text x="24" y="92" class="label muted">1 &#183; METADATA SECTION &#8212; THREE SIGNAL STATES</text>
+  <text x="24" y="110" class="muted" font-size="12">Silence means success. Only pending and failed ever render a chip.</text>
+
+  <rect x="24" y="126" width="600" height="58" rx="8" class="panel" />
+  <text x="44" y="152" class="ink" font-size="13">Metadata</text>
+  <rect x="112" y="139" width="126" height="22" rx="11" class="accentChip" />
+  <circle cx="126" cy="150" r="4" class="accent" />
+  <text x="136" y="154" class="accent" font-size="11">writing to file&#8230;</text>
+  <text x="452" y="154" class="muted" font-size="11">&#8595; Write decisions to file</text>
+  <rect x="106" y="133" width="138" height="34" rx="14" class="accentMark" />
+  <text x="648" y="146" class="accent" font-size="12">Pending</text>
+  <text x="648" y="163" class="muted" font-size="11">While pending &gt; 0 for this video.</text>
+
+  <rect x="24" y="200" width="600" height="82" rx="8" class="panel" />
+  <text x="44" y="226" class="ink" font-size="13">Metadata</text>
+  <rect x="112" y="213" width="98" height="22" rx="11" class="warnChip" />
+  <path d="M124 220 l5 9 h-10 z" class="warn" />
+  <text x="134" y="228" class="warn" font-size="11">write failed</text>
+  <text x="452" y="228" class="muted" font-size="11">&#8595; Write decisions to file</text>
+  <text x="44" y="256" class="warn" font-size="11">Couldn&#8217;t write title, genres. The file may be locked or read-only.</text>
+  <text x="366" y="256" class="accent" font-size="11">Retry</text>
+  <line x1="366" y1="259" x2="392" y2="259" stroke="#e8a33d" stroke-width="1" />
+  <rect x="106" y="207" width="110" height="34" rx="14" class="accentMark" />
+  <text x="648" y="220" class="warn" font-size="12">Failed &#8212; persists</text>
+  <text x="648" y="237" class="muted" font-size="11">Stays until retried or</text>
+  <text x="648" y="252" class="muted" font-size="11">explicitly dismissed.</text>
+
+  <rect x="24" y="298" width="600" height="58" rx="8" class="panel" />
+  <text x="44" y="330" class="ink" font-size="13">Metadata</text>
+  <text x="452" y="330" class="muted" font-size="11">&#8595; Write decisions to file</text>
+  <text x="648" y="322" class="ink" font-size="12">Clean</text>
+  <text x="648" y="339" class="muted" font-size="11">No chip. No warn pills.</text>
+
+  <line x1="24" y1="392" x2="936" y2="392" class="rule" />
+
+  <text x="24" y="424" class="label muted">2 &#183; WRITEBACK DIALOG &#8212; STATUS GUTTER BECOMES CONFIRM-ONLY</text>
+  <text x="24" y="442" class="muted" font-size="12">Row content is unchanged. Only the transient status icons come out.</text>
+
+  <text x="24" y="474" class="label muted">BEFORE</text>
+  <rect x="24" y="486" width="430" height="358" rx="8" class="panel" />
+  <text x="44" y="512" class="ink" font-size="13">Write metadata to file</text>
+
+  <line x1="44" y1="528" x2="434" y2="528" class="rule" />
+  <circle cx="58" cy="552" r="7" class="rule" />
+  <path d="M55 552 l3 3 l5 -6" stroke="#9b9082" stroke-width="1.5" fill="none" />
+  <text x="78" y="548" class="muted" font-size="11">Title</text>
+  <text x="110" y="548" class="accent" font-size="10">&#183;tmdb</text>
+  <text x="150" y="548" class="muted" font-size="10">&#8594; Title</text>
+  <text x="78" y="564" class="muted" font-size="10">was: Ghost.in.the.Shell.1995.1080p</text>
+  <rect x="78" y="572" width="342" height="22" rx="4" class="field" />
+  <text x="86" y="587" class="ink" font-size="11">Ghost in the Shell</text>
+
+  <line x1="44" y1="608" x2="434" y2="608" class="rule" />
+  <circle cx="58" cy="632" r="7" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-dasharray="3 2" />
+  <text x="78" y="628" class="muted" font-size="11">Genres</text>
+  <text x="78" y="644" class="muted" font-size="10">was: &#8212;</text>
+  <rect x="78" y="652" width="342" height="22" rx="4" class="field" />
+  <text x="86" y="667" class="ink" font-size="11">Animation, Science Fiction</text>
+  <text x="78" y="690" class="accent" font-size="10">spinner &#8594; check &#8594; error, per row</text>
+  <rect x="44" y="536" width="30" height="164" rx="6" class="gone" />
+  <text x="44" y="722" class="warn" font-size="11">Status gutter: transient, and job-level</text>
+  <text x="44" y="738" class="warn" font-size="11">anyway &#8212; the write is one invocation.</text>
+
+  <rect x="44" y="782" width="90" height="26" rx="4" class="field" />
+  <text x="64" y="799" class="muted" font-size="11">Cancel</text>
+  <rect x="146" y="782" width="120" height="26" rx="4" class="field" />
+  <text x="160" y="799" class="muted" font-size="11">Writing&#8230; (locked)</text>
+  <rect x="140" y="776" width="132" height="38" rx="8" class="gone" />
+  <text x="44" y="832" class="warn" font-size="11">Modal held open for up to 120s.</text>
+
+  <text x="490" y="474" class="label muted">AFTER</text>
+  <rect x="490" y="486" width="430" height="358" rx="8" class="panel" />
+  <text x="510" y="512" class="ink" font-size="13">Write metadata to file</text>
+  <text x="510" y="529" class="muted" font-size="11">Review what lands in the file, then confirm.</text>
+  <rect x="504" y="518" width="266" height="18" rx="6" class="accentMark" />
+
+  <line x1="510" y1="548" x2="900" y2="548" class="rule" />
+  <rect x="516" y="565" width="14" height="14" rx="3" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <path d="M519 572 l3 3 l6 -7" stroke="#e8a33d" stroke-width="1.5" fill="none" />
+  <text x="544" y="566" class="muted" font-size="11">Title</text>
+  <text x="576" y="566" class="accent" font-size="10">&#183;tmdb</text>
+  <text x="616" y="566" class="muted" font-size="10">&#8594; Title</text>
+  <text x="544" y="582" class="muted" font-size="10">was: Ghost.in.the.Shell.1995.1080p</text>
+  <rect x="544" y="590" width="342" height="22" rx="4" class="field" />
+  <text x="552" y="605" class="ink" font-size="11">Ghost in the Shell</text>
+
+  <line x1="510" y1="626" x2="900" y2="626" class="rule" />
+  <path d="M519 648 l4 4 l7 -8" stroke="#9b9082" stroke-width="1.5" fill="none" />
+  <text x="544" y="646" class="muted" font-size="11">Year</text>
+  <text x="576" y="646" class="muted" font-size="10">&#8594; Date</text>
+  <text x="544" y="664" class="ink" font-size="11">1995</text>
+  <text x="578" y="664" class="muted" font-size="11">&#8212; already in file, nothing to write</text>
+
+  <line x1="510" y1="682" x2="900" y2="682" class="rule" />
+  <circle cx="523" cy="704" r="7" class="rule" />
+  <line x1="519" y1="704" x2="527" y2="704" stroke="#9b9082" stroke-width="1.5" />
+  <text x="544" y="702" class="muted" font-size="11">Studio</text>
+  <text x="544" y="720" class="muted" font-size="11">Production I.G</text>
+  <text x="544" y="736" class="muted" font-size="10">No file tag for this container &#8212; can&#8217;t be written.</text>
+
+  <rect x="510" y="782" width="90" height="26" rx="4" class="field" />
+  <text x="530" y="799" class="muted" font-size="11">Cancel</text>
+  <rect x="612" y="782" width="118" height="26" rx="4" fill="#181310" stroke="#e8a33d" stroke-width="1.5" />
+  <text x="628" y="799" class="accent" font-size="11">Write 1 field</text>
+  <text x="510" y="832" class="accent" font-size="11">Closes on the 202 ack. Status moves to the page.</text>
+</svg>
