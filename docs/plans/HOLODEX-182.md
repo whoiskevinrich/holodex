@@ -34,7 +34,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [/] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md) drafted (Proposed); repo creation + directory port still open → [HOLODEX-327](HOLODEX-327.md)
+8. [/] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md) drafted; repo created at `G:\source\flightplan`, `flightplan/` ported verbatim (verified byte-identical + tests pass unmodified), ADR-001 seeded there. Open: push to a GitHub remote (visibility unconfirmed), then file the gate-selector design as new work there → [HOLODEX-327](HOLODEX-327.md)
 9. [ ] [backend] `/handoff` skill → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — see retro verdict below
 10. [ ] [backend] `INBOX.md` + `/triage` → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — unblocked, retro completed 2026-07-29
 
@@ -56,6 +56,19 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-06 · Extraction executed — new repo seeded, ADR-092 action items closed
+- skills: (none — direct execution against ADR-092's action items)
+- handoff: Kevin created the new repo locally at `G:\source\flightplan`. Ported `flightplan/`
+  verbatim (`diff -rq` against Holodex's copy is empty) and confirmed its 13-test suite passes
+  unmodified from the new location — the first real evidence for ADR-064/ADR-001's "copy-out, not a
+  rewrite" claim. Seeded the new repo's own scaffolding (`package.json`, root `README.md`,
+  `docs/architecture/README.md` + ADR-001 ported from ADR-064, Accepted). Closed out ADR-092 action
+  items 1/3/4/5/7; item 2 (repo exists locally, GitHub remote/visibility still unconfirmed) partial;
+  item 6 (file the gate-selector design in the new repo) not started. Holodex's own `flightplan/` is
+  untouched and currently identical to the new repo — no divergence to reconcile yet. Next: decide
+  whether/when to push the new repo to GitHub (and its visibility), then pick up the profile-driven
+  gate-selector + `/code-review` gate design as new work there.
 
 ### 2026-09-06 · Product-brainstorming session → ADR-092 (extraction) drafted
 - skills: product-brainstorming, architecture

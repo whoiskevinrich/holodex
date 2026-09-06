@@ -151,17 +151,19 @@ Option B's distribution mechanism ahead of real demand.
 
 ## Action Items
 
-1. [ ] ADR-092 recorded; add to `docs/architecture/README.md` (ADR-064's own row/content unchanged —
-   narrow supersession, not a rewrite).
-2. [ ] **Confirm target repo name/visibility with the project owner before creating anything** —
-   proposed `flightplan`, exact ownership/visibility pending explicit confirmation (repo creation is
-   an outward-facing action, out of scope for this ADR alone).
-3. [ ] Create the new repo; port `flightplan/` unchanged (already portable by construction).
-4. [ ] Port ADR-064's content into the new repo as its own first ADR — batches 1–3 marked
-   Accepted/shipped, batch 2 (`/handoff`, `/triage`, `INBOX.md`) marked Proposed/pending there.
-5. [ ] Re-sync `flightplan/` into Holodex from the new repo; verify `SessionStart`/
-   `PostToolUse(Skill)`/`Stop` hooks still fire correctly via the unchanged `.claude/flightplan.yaml`
-   seam.
+1. [x] ADR-092 recorded; added to `docs/architecture/README.md` (ADR-064's own row/content unchanged
+   — narrow supersession, not a rewrite).
+2. [x] Target repo name/local creation confirmed by the project owner — `flightplan`, created at
+   `G:\source\flightplan`. **GitHub remote/visibility still unconfirmed** — the repo exists locally
+   only; pushing it to a GitHub remote is a separate outward-facing step, not yet taken.
+3. [x] New repo created; `flightplan/` ported unchanged (verbatim `diff -rq` against Holodex's copy
+   is empty — the "copy-out, not a rewrite" claim held). Its test suite (13/13) passes unmodified
+   from the new location.
+4. [x] ADR-064's content ported into the new repo as its own ADR-001 (`Accepted`; batches 1–3 marked
+   shipped/live, batch 2 — `/handoff`/`/triage`/`INBOX.md` — marked pending there).
+5. [x] Re-sync verified — Holodex's `flightplan/` and the new repo's are currently byte-identical
+   (nothing has diverged yet, so there was nothing to pull back); hooks are unchanged and untouched
+   by this migration.
 6. [ ] File the profile-driven gate-selector + `/code-review` gate design as new work in the new
-   repo's own ADR trail — out of scope here.
-7. [ ] Clear the `needs-adr` label on HOLODEX-327 once this ADR merges.
+   repo's own ADR trail — out of scope here, not started.
+7. [x] Cleared the `needs-adr` label on HOLODEX-327.
