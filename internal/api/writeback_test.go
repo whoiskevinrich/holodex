@@ -306,6 +306,23 @@ func getMediaWritebackStatus(t *testing.T, base string, videoID int64, token str
 	return resp.StatusCode, out.WritebackStatus
 }
 
+// seedFailedWriteback enqueues one job for videoID and immediately fails it with
+// errMsg, leaving a 'failed' writeback_queue row behind — the starting state every
+// Retry/Dismiss/redaction test below needs. Mirrors the same two repo calls
+// TestGetVideoWritebackStatus and friends already drive directly, factored out once
+// enough tests here repeated it verbatim.
+func seedFailedWriteback(t *testing.T, r *repo.Repo, videoID int64, errMsg string) int64 {
+	t.Helper()
+	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := r.FinishWriteback(context.Background(), jobID, false, errMsg); err != nil {
+		t.Fatalf("fail job: %v", err)
+	}
+	return jobID
+}
+
 // TestGetMedia_WritebackStatusRedactedForVisitor is the security-review finding
 // closed in the spec (R2.1a) before this code existed: every failure path in
 // internal/writeback/writeback.go embeds absolute filesystem paths, and
@@ -317,14 +334,8 @@ func getMediaWritebackStatus(t *testing.T, base string, videoID int64, token str
 // must remain for both — R2.1a only redacts the message.
 func TestGetMedia_WritebackStatusRedactedForVisitor(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "secret")
-	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
 	const pathBearingError = `writeback rename: rename /media/library/2019/file.mkv.holodex-tmp /media/library/2019/file.mkv: permission denied`
-	if err := r.FinishWriteback(context.Background(), jobID, false, pathBearingError); err != nil {
-		t.Fatalf("fail job: %v", err)
-	}
+	seedFailedWriteback(t, r, videoID, pathBearingError)
 
 	code, owner := getMediaWritebackStatus(t, srv.URL, videoID, "secret")
 	if code != http.StatusOK {
@@ -351,13 +362,7 @@ func TestGetMedia_WritebackStatusRedactedForVisitor(t *testing.T) {
 // writeback endpoint (spec R3.6).
 func TestRetryDismissWriteback_OwnerGated(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "secret")
-	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
-	if err := r.FinishWriteback(context.Background(), jobID, false, "exiftool exploded"); err != nil {
-		t.Fatalf("fail job: %v", err)
-	}
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
 	retryURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/retry"
 	dismissURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/dismiss"
@@ -379,13 +384,7 @@ func TestRetryDismissWriteback_OwnerGated(t *testing.T) {
 // re-submission of the original write.
 func TestRetryWriteback_ResetsFailedToPending(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "")
-	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
-	if err := r.FinishWriteback(context.Background(), jobID, false, "exiftool exploded"); err != nil {
-		t.Fatalf("fail job: %v", err)
-	}
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
 	retryURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/retry"
 	if code, body := postTok(t, retryURL, "", nil); code != http.StatusOK || body["retried"] != true {
@@ -408,13 +407,7 @@ func TestRetryWriteback_ResetsFailedToPending(t *testing.T) {
 // not exercised by this repo-level drive) is what's meant to survive, not this row.
 func TestDismissWriteback_DeletesRow(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "")
-	jobID, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
-	if err := r.FinishWriteback(context.Background(), jobID, false, "exiftool exploded"); err != nil {
-		t.Fatalf("fail job: %v", err)
-	}
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
 	dismissURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/dismiss"
 	if code, body := postTok(t, dismissURL, "", nil); code != http.StatusOK || body["dismissed"] != true {
@@ -433,13 +426,7 @@ func TestDismissWriteback_DeletesRow(t *testing.T) {
 // untouched, or one owner action would silently erase an unrelated warning.
 func TestEnqueueWriteback_ClearsPriorFailedForVideo(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "")
-	failedJob, err := r.EnqueueWriteback(context.Background(), videoID, `[{"field":"title","values":["X"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
-	if err := r.FinishWriteback(context.Background(), failedJob, false, "exiftool exploded"); err != nil {
-		t.Fatalf("fail job: %v", err)
-	}
+	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
 	otherID, err := r.UpsertVideo(context.Background(), &model.Video{
 		FilePath: "/m/other.mp4", FileSize: 1, Title: "Other", Container: "MP4",
@@ -448,13 +435,7 @@ func TestEnqueueWriteback_ClearsPriorFailedForVideo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed second video: %v", err)
 	}
-	otherJob, err := r.EnqueueWriteback(context.Background(), otherID, `[{"field":"title","values":["Y"]}]`, "")
-	if err != nil {
-		t.Fatalf("enqueue for second video: %v", err)
-	}
-	if err := r.FinishWriteback(context.Background(), otherJob, false, "exiftool exploded"); err != nil {
-		t.Fatalf("fail job for second video: %v", err)
-	}
+	seedFailedWriteback(t, r, otherID, "exiftool exploded")
 
 	body := map[string]any{"fields": []map[string]any{
 		{"field": "title", "values": []string{"New Title"}, "source": "file:title"},

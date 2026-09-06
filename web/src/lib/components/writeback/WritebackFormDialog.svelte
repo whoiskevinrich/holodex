@@ -357,12 +357,12 @@
 				{@const hasFileValue = row.field.candidates !== undefined}
 				{@const fileVal = fileCandidateValue(row.field)}
 				<!-- matchesFile drives both the "already in file, nothing to write" line and the
-				     gutter's non-checkable "=" tier (R4.3). It compares the row's LIVE (editable)
-				     value against the file baseline, so it re-derives from fileVal — already
-				     fetched for the "was:" line — rather than reading the frozen in_sync snapshot
-				     that needsWriteback() seeds `checked` from. rowMatchesFile() below mirrors this
-				     exact expression for submit()'s filter — the two must never disagree. -->
-				{@const matchesFile = hasFileValue && row.value.trim() === fileVal.trim()}
+				     gutter's non-checkable "=" tier (R4.3). Calls the same rowMatchesFile() used
+				     by submit()'s filter, rather than re-deriving the comparison here, so the two
+				     can't drift apart — it compares the row's LIVE (editable) value against the
+				     file baseline, which is why it's recomputed per render rather than reading the
+				     frozen in_sync snapshot that needsWriteback() seeds `checked` from. -->
+				{@const matchesFile = rowMatchesFile(row)}
 				<!-- No dimming for an unchecked row: the group heading above already says these are
 				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
 				     The checkbox carries the state; the label stays legible. -->

@@ -273,7 +273,7 @@ type VideoWritebackStatus struct {
 func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (VideoWritebackStatus, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT status, error FROM writeback_queue
-		WHERE video_id = ? ORDER BY updated_at DESC`, videoID)
+		WHERE video_id = ? ORDER BY updated_at ASC`, videoID)
 	if err != nil {
 		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
 	}
@@ -289,10 +289,10 @@ func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (Vide
 		case WritebackPending, WritebackRunning:
 			out.Pending = true
 		case WritebackFailed:
-			if !out.Failed {
-				out.Failed = true
-				out.Error = errMsg
-			}
+			// Ascending order means the last failed row scanned is the most recent —
+			// unconditional overwrite is simplest way to keep only that one's message.
+			out.Failed = true
+			out.Error = errMsg
 		}
 	}
 	if err := rows.Err(); err != nil {

@@ -257,6 +257,17 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		// "writing to file". Scoped to this video only — a second video's failed
 		// row is untouched. Best-effort: a failure here must not block the actual
 		// write the owner is trying to make.
+		//
+		// Deliberately placed here rather than inside Queue.Enqueue/EnqueueBatch: R3.5's
+		// "implicit acknowledgment" reasoning is about the owner explicitly clicking
+		// "Write decisions to file" in this dialog, not about every path that happens to
+		// call Enqueue — extraction auto-apply (internal/extract/process.go) and the
+		// owner-resolved review flow (extract_review.go) are automated/background writes
+		// the owner may not have even seen the failure notice for yet, and Revert
+		// (writequeue.go) is itself a corrective action, not a fresh decision. Widening
+		// this to every Enqueue caller would silently clear a failure notice the owner
+		// never acknowledged — a product decision this spec didn't make, not an
+		// oversight, so don't "fix" it into Queue.Enqueue.
 		if _, clearErr := h.repo.DismissFailedWriteback(r.Context(), id); clearErr != nil {
 			h.log.Warn("clear prior failed writeback before enqueue", "id", id, "err", clearErr)
 		}

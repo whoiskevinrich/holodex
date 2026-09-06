@@ -43,6 +43,42 @@ renders at all — silence is the success signal.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-06 · /simplify pass on the implementation
+- skills: simplify
+- Ran the 4-angle parallel review (reuse/simplification/efficiency/altitude) against the
+  implementation-only diff. Applied five fixes, skipped two, one turned out to already be clean:
+  - **Merged `writebackRetrying`/`writebackDismissing`** into a single `writebackAction: 'retry' |
+    'dismiss' | null` — the two were always read together and are mutually exclusive by
+    construction.
+  - **Consolidated `writebackGeneration` into the page's existing `extractGeneration`**, renamed to
+    `pageGeneration` — both counters existed only to answer "did we navigate away," at the exact
+    same two moments (video change, unmount), so one shared counter replaces two copies of the
+    same idiom.
+  - **`WritebackFormDialog`'s gutter now calls the existing `rowMatchesFile()`** instead of
+    re-deriving the same comparison inline — the two could have silently drifted apart.
+  - **`GetVideoWritebackStatus` simplified** to `ORDER BY updated_at ASC` + unconditional overwrite,
+    dropping the `if !out.Failed` guard the DESC-order version needed.
+  - **Added `seedFailedWriteback` test helper**, removing 5 repeats of the same
+    enqueue-then-fail boilerplate across the new API tests.
+  - **Promoted the R2.1a redaction to a named `redactWritebackStatusForVisitor` function**
+    beside the existing `redactFileMetadataForVisitor` — an altitude finding: a bare inline `if`
+    130 lines from that guard, protected only by a comment, was exactly the "a future serializer
+    could add a field and miss the redaction" risk the security review existed to close.
+  - **Skipped**: a `writeback_queue(video_id)` index (real, but a schema migration is its own gate,
+    not a simplify-pass side effect — table stays small since `FinishWriteback` deletes on
+    success) and folding `DismissFailedWriteback` + `Enqueue` into one transaction (marginal at
+    this project's request volume; would touch the Queue's locking boundaries for little gain).
+  - **Considered and deliberately left alone**: widening RD5's clear-on-enqueue to every
+    `Queue.Enqueue` caller (extraction auto-apply, the review-resolve flow, Revert) so it lives at
+    the queue layer instead of the HTTP handler. The reviewer's structural point is correct, but
+    whether those *other* callers should also silently clear an unacknowledged failure is a
+    product decision the spec never made — R3.5's "implicit acknowledgment" reasoning is specific
+    to the owner explicitly clicking "Write decisions to file," not to background/automated writes.
+    Left narrow, and added a comment naming the other three callers so a future pass doesn't "fix"
+    it into the queue layer without that conversation happening first.
+- Full `go test ./...`, `npm run check`, `npm run test` all green after every fix; re-ran the two
+  frontend theming regex guards (hardcoded palette/radius, `text-muted`+`disabled:opacity`) — clean.
+
 ### 2026-09-05 · pre-implementation gates: ADR + design handoff
 - skills: product-brainstorming, design-handoff, architecture
 - Started from a narrower question — "does closing the modal break the write?" Traced the path

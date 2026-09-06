@@ -112,16 +112,17 @@
 	// writebackOpen drives the confirm dialog. writebackStatus is the page-level
 	// pending/failed signal near Metadata — sourced from the server (writeback_queue
 	// by video_id, spec R2.1) rather than a job id this component holds, so it
-	// survives reload, another tab, and a restart. writebackGeneration is bumped per
-	// video load and on unmount, same idiom as extractGeneration below: the poll's
-	// cancelled() check uses it so a poll started for one video can never resolve
-	// into a different one's badge after in-place /media/A -> /media/B navigation.
+	// survives reload, another tab, and a restart. The poll effect below shares
+	// pageGeneration (declared further down) with the extraction feature's own
+	// poll/wait — a poll started for one video must never resolve into a different
+	// one's badge after in-place /media/A -> /media/B navigation, and that
+	// invalidation moment is identical for every async feature on this page.
 	let writebackOpen = $state(false);
 	let writebackStatus = $state<VideoWritebackStatus>({ pending: false, failed: false });
-	let writebackRetrying = $state(false);
-	let writebackDismissing = $state(false);
+	// retrying/dismissing are mutually exclusive by construction (each guards against
+	// re-entry and both disable the same two buttons), so one variable suffices.
+	let writebackAction = $state<'retry' | 'dismiss' | null>(null);
 	let writebackActionError = $state('');
-	let writebackGeneration = 0;
 
 	// Per-item metadata refresh (F31, ADR-047). refreshing drives the spinner/disable;
 	// refreshStatus is the inline aria-live outcome line (no toast system).
@@ -270,16 +271,18 @@
 	let extractStaged = $state<StagedPicks>({});
 	let extractPreviewOpen = $state(false);
 	let extractApplying = $state(false); // waiting on the queued write + its re-extract
-	// Bumped by resetExtraction on every video change, and on unmount. An async run or
-	// job wait captures it and bails if it no longer matches, so work started on one
-	// video never writes state back onto another (the component is reused across
-	// /media/A -> /media/B, so unmount alone is not the boundary that matters).
-	let extractGeneration = 0;
+	// Bumped by resetExtraction on every video change, and on unmount. Shared by every
+	// feature on this page that runs an async poll or wait (extraction below, writeback
+	// above) — each captures it and bails if it no longer matches, so work started on
+	// one video never writes state back onto another (the component is reused across
+	// /media/A -> /media/B, so unmount alone is not the boundary that matters). One
+	// counter for the whole page rather than one per feature, since every feature needs
+	// to invalidate at exactly the same two moments (video change, unmount).
+	let pageGeneration = 0;
 	let unmounted = false;
 	$effect(() => () => {
 		unmounted = true;
-		extractGeneration += 1;
-		writebackGeneration += 1;
+		pageGeneration += 1;
 	});
 
 	// Labels, ordering, staging and preview-item construction all come from
@@ -409,13 +412,13 @@
 	// mid-poll), applying the full detail only once, on settlement.
 	$effect(() => {
 		if (!writebackStatus.pending) return;
-		const gen = writebackGeneration;
+		const gen = pageGeneration;
 		const videoId = id;
 		waitForVideoWriteback(
 			async () => (await api.getMedia(videoId)).writeback_status ?? { pending: false, failed: false },
-			{ cancelled: () => unmounted || gen !== writebackGeneration }
+			{ cancelled: () => unmounted || gen !== pageGeneration }
 		).then((settled) => {
-			if (unmounted || gen !== writebackGeneration || settled.pending) return;
+			if (unmounted || gen !== pageGeneration || settled.pending) return;
 			// The job landed or failed — re-resolve the full detail so in_sync
 			// recomputes against the post-write baseline (ADR-073 D1) and the
 			// out-of-sync pills clear alongside the badge.
@@ -426,8 +429,8 @@
 	// Retry (spec R3.3): resets the failed job back to pending and lets the poll
 	// effect above pick it up. A safe no-op server-side when nothing is failed.
 	async function retryWriteback() {
-		if (writebackRetrying) return;
-		writebackRetrying = true;
+		if (writebackAction) return;
+		writebackAction = 'retry';
 		writebackActionError = '';
 		try {
 			await api.retryWriteback(id);
@@ -435,15 +438,15 @@
 		} catch (e) {
 			writebackActionError = toMessage(e);
 		} finally {
-			writebackRetrying = false;
+			writebackAction = null;
 		}
 	}
 
 	// Dismiss (spec R3.4/RD2): deletes the failed row without retrying. job_runs
 	// keeps the permanent audit record — this only clears the page-level badge.
 	async function dismissWriteback() {
-		if (writebackDismissing) return;
-		writebackDismissing = true;
+		if (writebackAction) return;
+		writebackAction = 'dismiss';
 		writebackActionError = '';
 		try {
 			await api.dismissWriteback(id);
@@ -451,7 +454,7 @@
 		} catch (e) {
 			writebackActionError = toMessage(e);
 		} finally {
-			writebackDismissing = false;
+			writebackAction = null;
 		}
 	}
 
@@ -665,19 +668,19 @@
 	// straight after gives the panel its rows.
 	async function runExtract() {
 		if (!video || extracting) return;
-		const gen = extractGeneration;
+		const gen = pageGeneration;
 		extracting = true;
 		extractError = '';
 		try {
 			const res = await api.extractVideo(id);
 			const rows = await fetchExtractionRows();
-			if (gen !== extractGeneration) return; // navigated away mid-run
+			if (gen !== pageGeneration) return; // navigated away mid-run
 			extractRows = rows;
 			extractRun = { matched: res.matched };
 		} catch (e) {
-			if (gen === extractGeneration) extractError = toMessage(e);
+			if (gen === pageGeneration) extractError = toMessage(e);
 		} finally {
-			if (gen === extractGeneration) extracting = false;
+			if (gen === pageGeneration) extracting = false;
 		}
 	}
 
@@ -705,7 +708,7 @@
 	// started on the previous video can neither resurrect its panel nor overwrite the
 	// new one's detail.
 	function resetExtraction() {
-		extractGeneration += 1;
+		pageGeneration += 1;
 		extracting = false;
 		extractApplying = false;
 		extractRows = [];
@@ -732,23 +735,23 @@
 	// The value lands as `file`, not `filename`: adoption writes the file tag, and
 	// `filename` stays the candidate namespace.
 	async function onExtractSubmitted(resolvedIds: number[], jobIds: number[]) {
-		const gen = extractGeneration;
+		const gen = pageGeneration;
 		resolvedIds.forEach(dropExtractRow);
 		extractApplying = true;
 		try {
 			await Promise.all(
 				jobIds.map((jobId) =>
 					waitForWritebackJob(jobId, api.writebackJobStatus, {
-						cancelled: () => unmounted || gen !== extractGeneration
+						cancelled: () => unmounted || gen !== pageGeneration
 					})
 				)
 			);
-			if (gen !== extractGeneration) return; // this video is no longer on screen
+			if (gen !== pageGeneration) return; // this video is no longer on screen
 			applyMediaDetail(await api.getMedia(id));
 		} catch (e) {
-			if (gen === extractGeneration) extractError = toMessage(e);
+			if (gen === pageGeneration) extractError = toMessage(e);
 		} finally {
-			if (gen === extractGeneration) extractApplying = false;
+			if (gen === pageGeneration) extractApplying = false;
 		}
 	}
 
@@ -799,15 +802,13 @@
 		// the header renders B's file path — and "Review & write" would resolve A's
 		// review ids, writing to A's file, from B's page. Extraction is per-video state.
 		resetExtraction();
-		// A poll from the previous video must never resolve into this one's badge —
-		// same reasoning as resetExtraction just above (component reused across
-		// /media/A -> /media/B). writebackOpen/Retrying/Dismissing are per-action
-		// transient UI state, not per-video data, so they reset like the extraction
-		// panel does rather than needing to survive navigation.
-		writebackGeneration += 1;
+		// resetExtraction already bumped the shared pageGeneration above, which is what
+		// stops a poll from the previous video resolving into this one's badge.
+		// writebackOpen/Action are per-action transient UI state, not per-video data,
+		// so they reset like the extraction panel does rather than needing to survive
+		// navigation.
 		writebackOpen = false;
-		writebackRetrying = false;
-		writebackDismissing = false;
+		writebackAction = null;
 		writebackActionError = '';
 		api
 			.getMedia(current)
@@ -1470,17 +1471,17 @@
 						>
 						<button
 							onclick={retryWriteback}
-							disabled={writebackRetrying || writebackDismissing}
+							disabled={writebackAction !== null}
 							class="text-accent underline hover:no-underline disabled:cursor-not-allowed"
 						>
-							{writebackRetrying ? 'Retrying…' : 'Retry'}
+							{writebackAction === 'retry' ? 'Retrying…' : 'Retry'}
 						</button>
 						<button
 							onclick={dismissWriteback}
-							disabled={writebackRetrying || writebackDismissing}
+							disabled={writebackAction !== null}
 							class="text-muted underline hover:no-underline disabled:cursor-not-allowed"
 						>
-							{writebackDismissing ? 'Dismissing…' : 'Dismiss'}
+							{writebackAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
 						</button>
 					</p>
 					{#if writebackActionError}
