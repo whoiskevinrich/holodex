@@ -16,6 +16,8 @@ page could not re-resolve to a correct baseline when a job lands.
 [ADR-052](ADR-052-baseline-source-contract.md) (the baseline `in_sync` is computed against) ·
 [ADR-090](ADR-090-two-layer-entity-metadata-management.md) (this is neither adoption nor precedence —
 see *Scope* below).
+**Spec:** [fire-and-forget-writeback.md](../specs/fire-and-forget-writeback.md) (RD1–RD6 record the
+behavioural decisions this ADR's transport model enables).
 **Issue:** [HOLODEX-323](https://whoiskevinrich.atlassian.net/browse/HOLODEX-323).
 
 ---
