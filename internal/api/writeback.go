@@ -251,12 +251,20 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "no writable fields after sanitization")
 			return
 		}
+		jobID, enqErr := h.writeQueue.Enqueue(r.Context(), id, jobFields)
+		if enqErr != nil {
+			h.fail(w, "enqueue writeback", enqErr)
+			return
+		}
 		// Spec R3.5: submitting a new write is an implicit acknowledgment of any
 		// prior failure for this video, so the Metadata header shows one job's
 		// worth of truth rather than a stale "couldn't write" beside a fresh
 		// "writing to file". Scoped to this video only — a second video's failed
-		// row is untouched. Best-effort: a failure here must not block the actual
-		// write the owner is trying to make.
+		// row is untouched. Runs AFTER Enqueue succeeds, not before: dismissing the
+		// old failure first and then having Enqueue itself fail would leave neither
+		// record behind — the owner would see a clean Metadata section even though
+		// nothing actually wrote. Best-effort either way — a failure here must not
+		// block the response for the write that already landed in the queue.
 		//
 		// Deliberately placed here rather than inside Queue.Enqueue/EnqueueBatch: R3.5's
 		// "implicit acknowledgment" reasoning is about the owner explicitly clicking
@@ -269,12 +277,7 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		// never acknowledged — a product decision this spec didn't make, not an
 		// oversight, so don't "fix" it into Queue.Enqueue.
 		if _, clearErr := h.repo.DismissFailedWriteback(r.Context(), id); clearErr != nil {
-			h.log.Warn("clear prior failed writeback before enqueue", "id", id, "err", clearErr)
-		}
-		jobID, enqErr := h.writeQueue.Enqueue(r.Context(), id, jobFields)
-		if enqErr != nil {
-			h.fail(w, "enqueue writeback", enqErr)
-			return
+			h.log.Warn("clear prior failed writeback after enqueue", "id", id, "err", clearErr)
 		}
 		depth, _ := h.writeQueue.Depth(r.Context())
 		writeJSON(w, http.StatusAccepted, map[string]any{"job_id": jobID, "queued": depth})

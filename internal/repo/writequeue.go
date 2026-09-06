@@ -265,15 +265,20 @@ type VideoWritebackStatus struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// GetVideoWritebackStatus reports a video's writeback status (spec R2.1). Enqueuing a
-// new write for the video (writebackMedia) clears any prior failed row first (spec
-// R3.5), so pending and failed should not normally coexist for one video in practice —
-// but this aggregates defensively over every row rather than assuming that invariant,
-// taking the most recently updated failure's message if more than one somehow exists.
+// GetVideoWritebackStatus reports a video's writeback status (spec R2.1). writebackMedia
+// clears a prior failed row before enqueuing through it (spec R3.5), but that clear is
+// scoped to that one HTTP handler by design — merge propagation, tag sync, and
+// film-studio cascade enqueue via Queue.Enqueue/EnqueueMany directly and never clear an
+// old failure, so pending and failed CAN genuinely coexist for one video (see
+// TestGetVideoWritebackStatus). This aggregates over every row rather than assuming a
+// single row, taking the most recently updated failure's message if more than one
+// exists. `id ASC` breaks ties within updated_at's one-second (RFC3339) resolution —
+// two failures landing in the same second would otherwise sort in whatever order SQLite
+// happens to return equal keys in, which is not something this code should rely on.
 func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (VideoWritebackStatus, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT status, error FROM writeback_queue
-		WHERE video_id = ? ORDER BY updated_at ASC`, videoID)
+		WHERE video_id = ? ORDER BY updated_at ASC, id ASC`, videoID)
 	if err != nil {
 		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
 	}

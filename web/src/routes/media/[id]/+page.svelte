@@ -410,14 +410,25 @@
 	// just writeback_status from each tick's getMedia response rather than calling
 	// applyMediaDetail on every poll (which would repeatedly reassign resolved/video
 	// mid-poll), applying the full detail only once, on settlement.
+	//
+	// pollingWriteback guards against a real re-entrancy bug: applyMediaDetail
+	// reassigns writebackStatus to a NEW object on every reloadDetail() call, and this
+	// page has ~20 unrelated call sites for reloadDetail() (decisions, tags, enrich,
+	// poster upload, completeness, ...). Since this $effect depends on writebackStatus
+	// by reference, any one of those unrelated reloads re-runs the effect while a write
+	// is still pending — without this guard, each re-run would start a brand-new,
+	// fully independent poll loop with nothing to cancel the ones already in flight.
+	let pollingWriteback = false;
 	$effect(() => {
-		if (!writebackStatus.pending) return;
+		if (!writebackStatus.pending || pollingWriteback) return;
+		pollingWriteback = true;
 		const gen = pageGeneration;
 		const videoId = id;
 		waitForVideoWriteback(
 			async () => (await api.getMedia(videoId)).writeback_status ?? { pending: false, failed: false },
 			{ cancelled: () => unmounted || gen !== pageGeneration }
 		).then((settled) => {
+			pollingWriteback = false;
 			if (unmounted || gen !== pageGeneration || settled.pending) return;
 			// The job landed or failed — re-resolve the full detail so in_sync
 			// recomputes against the post-write baseline (ADR-073 D1) and the
@@ -426,14 +437,25 @@
 		});
 	});
 
-	// Retry (spec R3.3): resets the failed job back to pending and lets the poll
-	// effect above pick it up. A safe no-op server-side when nothing is failed.
-	async function retryWriteback() {
+	// Shared by retryWriteback/dismissWriteback below — both are guard/set-action/
+	// clear-error/call/reload/catch/finally with only the action name and the API call
+	// differing. optimisticStatus applies the known outcome to writebackStatus BEFORE
+	// reloadDetail() runs: reloadDetail() swallows its own fetch errors by design
+	// ("non-fatal, caller's optimistic state stands" — see its own comment), so without
+	// this, a successful retry/dismiss whose follow-up reload hits a transient network
+	// blip would leave the stale failed badge and buttons rendering as if the action
+	// never happened, even though the server-side state already changed.
+	async function runWritebackAction(
+		action: 'retry' | 'dismiss',
+		call: () => Promise<unknown>,
+		optimisticStatus: VideoWritebackStatus
+	) {
 		if (writebackAction) return;
-		writebackAction = 'retry';
+		writebackAction = action;
 		writebackActionError = '';
 		try {
-			await api.retryWriteback(id);
+			await call();
+			writebackStatus = optimisticStatus;
 			await reloadDetail();
 		} catch (e) {
 			writebackActionError = toMessage(e);
@@ -442,20 +464,21 @@
 		}
 	}
 
+	// Retry (spec R3.3): resets the failed job back to pending and lets the poll
+	// effect above pick it up. A safe no-op server-side when nothing is failed.
+	function retryWriteback() {
+		return runWritebackAction('retry', () => api.retryWriteback(id), { pending: true, failed: false });
+	}
+
 	// Dismiss (spec R3.4/RD2): deletes the failed row without retrying. job_runs
 	// keeps the permanent audit record — this only clears the page-level badge.
-	async function dismissWriteback() {
-		if (writebackAction) return;
-		writebackAction = 'dismiss';
-		writebackActionError = '';
-		try {
-			await api.dismissWriteback(id);
-			await reloadDetail();
-		} catch (e) {
-			writebackActionError = toMessage(e);
-		} finally {
-			writebackAction = null;
-		}
+	// Preserves `pending` rather than assuming false: a dismiss only ever touches the
+	// failed row, and an unrelated write could already be in flight for this video.
+	function dismissWriteback() {
+		return runWritebackAction('dismiss', () => api.dismissWriteback(id), {
+			pending: writebackStatus.pending,
+			failed: false
+		});
 	}
 
 	// F36: persist a per-field source decision then refetch so resolved[] reflects it. DB-only
@@ -1398,10 +1421,17 @@
 							     sync" pill treatment so the two read as one family) and is never
 							     hidden by pending/failed (R2.4/RD6) — the file genuinely still
 							     differs until a queued write lands, and a write can sit behind a
-							     large batch. Pending/failed are events (filled) and are mutually
-							     exclusive by construction (RD5 clears a failure the moment a new
-							     write is enqueued, so both should not coexist for one video). No
-							     counts anywhere here — the write is atomic per job (RD1/RD4). -->
+							     large batch. Pending/failed are events (filled). RD5 clears a
+							     video's failed row only when a NEW write is submitted through this
+							     dialog — merge propagation, tag sync, and film-studio cascade
+							     enqueue via Queue.Enqueue/EnqueueMany directly and don't clear a
+							     prior failure first, so pending and failed CAN coexist for one video
+							     (TestGetVideoWritebackStatus asserts exactly this). The badge favors
+							     pending here since a write is actively in flight; the failed-detail
+							     line below is gated on `!pending` too, so a stale failure's Retry/
+							     Dismiss never renders next to an unrelated write that's already
+							     running. No counts anywhere here — the write is atomic per job
+							     (RD1/RD4). -->
 							{#if writebackStatus.pending}
 								<span
 									class="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[0.65rem] text-accent-ink"
@@ -1458,12 +1488,17 @@
 						</button>
 					</div>
 				</div>
-				{#if canWriteback && writebackStatus.failed}
+				{#if canWriteback && writebackStatus.failed && !writebackStatus.pending}
 					<!-- Failed-writeback detail line (spec R3.2): job-level, not per-field — the
 					     write is one exiftool/mkvpropedit invocation, so it lands whole or not at
 					     all (RD4). Persists until retried or dismissed (R3.1) — a failure that
 					     cleared itself would break "absence means nothing to report" everywhere
-					     else on this page. -->
+					     else on this page. The extra `!pending` guard matters because pending and
+					     failed CAN coexist for one video (see the badge block's comment above) —
+					     without it, a stale failure's Retry/Dismiss controls would render right
+					     next to an unrelated write that's already in flight, inviting the owner to
+					     "retry" a write that isn't the one failing. -->
+
 					<p class="flex flex-wrap items-center gap-2 text-xs text-warn" aria-live="polite">
 						<span
 							>{writebackStatus.error ||

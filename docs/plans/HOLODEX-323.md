@@ -216,4 +216,50 @@ renders at all — silence is the success signal.
   this feature; flagged as a separate follow-up task rather than touched here.
 - handoff: **implementation complete, all runtime and static checks green, live-verified against
   real media for both the success and failure paths.** Only HOLODEX-276's re-evaluation remains as
-  a deliberate followup. Next action is marking PR #303 ready for review (dropping Draft).
+  a deliberate followup. PR #303 marked ready for review; Jira auto-transitioned to In Review.
+
+### 2026-09-06 · /code-review high --fix on PR #303
+- skills: code-review
+- Ran a high-effort review (8 finder angles, 1-vote recall-biased verify) against the full
+  implementation diff. One candidate (the legacy synchronous writeback path silently reporting a
+  partial batch as success) was REFUTED — `main.go` always wires `SetWriteQueue`, so that branch
+  is unreachable in the deployed app, only in tests that construct `Handlers` with a nil queue
+  directly. The other 8 survived verification and 6 were fixed:
+  - **Poll re-entrancy** — the writeback `$effect` had no guard against starting a second,
+    independent poll loop whenever any unrelated `reloadDetail()` call (of which the page has
+    ~20) fired while a write was still pending, since `applyMediaDetail` reassigns
+    `writebackStatus` to a new object every time. Added a `pollingWriteback` flag.
+  - **Pending/failed coexistence** — `TestGetVideoWritebackStatus` already proves a video can be
+    both pending and failed at once (merge propagation, tag sync, and film-studio cascade enqueue
+    directly without clearing an old failure), but the failed-detail Retry/Dismiss block rendered
+    on `failed` alone, next to an unrelated in-flight write. Added `&& !writebackStatus.pending`
+    and corrected a comment that incorrectly claimed the two states were "mutually exclusive by
+    construction."
+  - **Dismiss-before-enqueue data loss** — `writebackMedia` cleared a video's prior failed row
+    BEFORE calling `Enqueue`; if `Enqueue` then failed, neither the old nor a new failure record
+    survived. Reordered to enqueue first, dismiss only on success.
+  - **Stale badge after a swallowed reload error** — `retryWriteback`/`dismissWriteback` relied
+    entirely on `reloadDetail()` (which deliberately swallows its own fetch errors) to update the
+    UI; a successful action followed by a flaky reload left the old failed badge rendering
+    indefinitely. Added an optimistic `writebackStatus` update applied right after the API call
+    succeeds, before `reloadDetail()` runs.
+  - **Same-second failure tiebreak** — `GetVideoWritebackStatus`'s `ORDER BY updated_at ASC` has
+    only RFC3339 (1-second) resolution and no tiebreaker for two failures in the same second.
+    Added `, id ASC`.
+  - **Two cleanup fixes**: merged `retryWriteback`/`dismissWriteback`'s identical control flow
+    into one `runWritebackAction` helper; added a `mediaWritebackURL` test helper removing 6
+    hand-concatenated URL strings across the new API tests.
+  - **Skipped, both with a stated reason**: the films page's writeback dialog still has zero
+    outcome feedback after the fire-and-forget rewrite (real regression, but the proper fix is a
+    shared status/poll component and a second call site — genuine feature scope, not a review-fix,
+    tracked as a fast-follow rather than built mid-review) and the poll's final tick discarding its
+    response before `reloadDetail()` re-fetches the same data (real but debatable — the existing
+    code comment already documents this exact tradeoff as deliberate, and reusing the poll's raw
+    response would couple a documented-pure module to the page's full detail shape for one saved
+    GET at settlement).
+- Full `go test ./...`, `npm run check`, `npm run test` green after every fix. Re-verified live
+  against `backend-amv`: the failed-only state still renders correctly under the new `!pending`
+  guard, and a full Retry cycle (reset → repoll → settle → clean) still works end to end.
+- handoff: **6 of 8 confirmed findings fixed and verified; 2 explicitly skipped with reasons
+  recorded above, not silently dropped.** The films-page feedback gap is worth its own ticket if
+  it's still felt as a real gap in practice.

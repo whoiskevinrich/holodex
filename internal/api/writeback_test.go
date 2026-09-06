@@ -161,6 +161,16 @@ func jobStatusURL(base string, jobID int64) string {
 	return base + "/api/v1/writeback/jobs/" + strconv.FormatInt(jobID, 10)
 }
 
+// mediaWritebackURL builds a /media/{id}/writeback[/suffix] URL — suffix is "",
+// "retry", or "dismiss". Mirrors jobStatusURL's shape for the video-scoped routes.
+func mediaWritebackURL(base string, videoID int64, suffix string) string {
+	url := base + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback"
+	if suffix != "" {
+		url += "/" + suffix
+	}
+	return url
+}
+
 // The job-status endpoint is what lets the SPA wait for a queued write before
 // refetching (HOLODEX-214) — the writeback POST's 202 only means "accepted", and
 // refetching on that answer is what produced the stale "N out of sync" header.
@@ -364,8 +374,8 @@ func TestRetryDismissWriteback_OwnerGated(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "secret")
 	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
-	retryURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/retry"
-	dismissURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/dismiss"
+	retryURL := mediaWritebackURL(srv.URL, videoID, "retry")
+	dismissURL := mediaWritebackURL(srv.URL, videoID, "dismiss")
 
 	if code, _ := postTok(t, retryURL, "", nil); code != http.StatusUnauthorized {
 		t.Errorf("unauthenticated retry = %d, want 401", code)
@@ -386,7 +396,7 @@ func TestRetryWriteback_ResetsFailedToPending(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "")
 	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
-	retryURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/retry"
+	retryURL := mediaWritebackURL(srv.URL, videoID, "retry")
 	if code, body := postTok(t, retryURL, "", nil); code != http.StatusOK || body["retried"] != true {
 		t.Fatalf("retry = %d/%v, want 200 with retried:true", code, body)
 	}
@@ -409,7 +419,7 @@ func TestDismissWriteback_DeletesRow(t *testing.T) {
 	srv, r, videoID := writebackStatusServer(t, "")
 	seedFailedWriteback(t, r, videoID, "exiftool exploded")
 
-	dismissURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback/dismiss"
+	dismissURL := mediaWritebackURL(srv.URL, videoID, "dismiss")
 	if code, body := postTok(t, dismissURL, "", nil); code != http.StatusOK || body["dismissed"] != true {
 		t.Fatalf("dismiss = %d/%v, want 200 with dismissed:true", code, body)
 	}
@@ -440,7 +450,7 @@ func TestEnqueueWriteback_ClearsPriorFailedForVideo(t *testing.T) {
 	body := map[string]any{"fields": []map[string]any{
 		{"field": "title", "values": []string{"New Title"}, "source": "file:title"},
 	}}
-	writebackURL := srv.URL + "/api/v1/media/" + strconv.FormatInt(videoID, 10) + "/writeback"
+	writebackURL := mediaWritebackURL(srv.URL, videoID, "")
 	if code, respBody := postTok(t, writebackURL, "", body); code != http.StatusAccepted {
 		t.Fatalf("writeback enqueue = %d/%v, want 202", code, respBody)
 	}
