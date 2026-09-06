@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="985" viewBox="0 0 1000 985" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="mockup-title mockup-desc">
+<title id="mockup-title">Media detail — Films + People, four link states across owner and visitor</title>
+<desc id="mockup-desc">Proposed layout for the Holodex media detail page's Films and People sections. Four rows show the neither-linked, people-only, film-only and both-linked states; the left column is the owner view and the right column the visitor view. Empty sections collapse to a text CTA with no heading; the film scene number renders as a corner pill overlaid on the poster.</desc>
+<rect width="1000" height="985" fill="#0c0a09"/>
+
+<text x="40" y="30" fill="#f3ece1" font-size="15">Media detail — Films + People (Cinémathèque skin)</text>
+<text x="40" y="52" fill="#9b9082" font-size="11" letter-spacing="1.2">OWNER</text>
+<text x="530" y="52" fill="#9b9082" font-size="11" letter-spacing="1.2">VISITOR</text>
+
+<text x="40" y="80" fill="#f3ece1" font-size="12">1 · Neither linked</text>
+<rect x="40" y="90" width="430" height="64" fill="none" stroke="#2a2622"/>
+<rect x="530" y="90" width="430" height="64" fill="none" stroke="#2a2622"/>
+<text x="58" y="128" fill="#e8a33d" font-size="12">+ Add film</text>
+<text x="152" y="128" fill="#e8a33d" font-size="12">+ Add person</text>
+<text x="548" y="128" fill="#9b9082" font-size="11" font-style="italic">Both sections absent — nothing renders</text>
+
+<text x="40" y="190" fill="#f3ece1" font-size="12">2 · People only</text>
+<rect x="40" y="200" width="430" height="216" fill="none" stroke="#2a2622"/>
+<rect x="530" y="200" width="430" height="216" fill="none" stroke="#2a2622"/>
+<text x="58" y="228" fill="#e8a33d" font-size="12">+ Add film</text>
+<text x="58" y="256" fill="#9b9082" font-size="10" letter-spacing="1.2">PEOPLE</text>
+<rect x="58" y="268" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="98" y="336" fill="#2a2018" font-size="20" text-anchor="middle">AK</text>
+<circle cx="70" cy="280" r="8" fill="#181310" stroke="#2a2622"/>
+<text x="70" y="284" fill="#9b9082" font-size="11" text-anchor="middle">×</text>
+<text x="58" y="402" fill="#9b9082" font-size="10">Ana Kessler</text>
+<rect x="150" y="268" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="190" y="336" fill="#2a2018" font-size="20" text-anchor="middle">RM</text>
+<text x="150" y="402" fill="#9b9082" font-size="10">Rui Marques</text>
+<rect x="242" y="268" width="80" height="120" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+<text x="282" y="334" fill="#9b9082" font-size="20" text-anchor="middle">+</text>
+<text x="548" y="228" fill="#9b9082" font-size="10" letter-spacing="1.2">PEOPLE</text>
+<rect x="548" y="240" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="588" y="308" fill="#2a2018" font-size="20" text-anchor="middle">AK</text>
+<text x="548" y="374" fill="#9b9082" font-size="10">Ana Kessler</text>
+<rect x="640" y="240" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="680" y="308" fill="#2a2018" font-size="20" text-anchor="middle">RM</text>
+<text x="640" y="374" fill="#9b9082" font-size="10">Rui Marques</text>
+
+<text x="40" y="452" fill="#f3ece1" font-size="12">3 · Film only</text>
+<rect x="40" y="462" width="430" height="224" fill="none" stroke="#2a2622"/>
+<rect x="530" y="462" width="430" height="224" fill="none" stroke="#2a2622"/>
+<text x="58" y="490" fill="#9b9082" font-size="10" letter-spacing="1.2">FILM</text>
+<rect x="58" y="502" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="98" y="570" fill="#2a2018" font-size="20" text-anchor="middle">NR</text>
+<rect x="106" y="506" width="28" height="15" rx="2" fill="#e8a33d" stroke="#1a1206"/>
+<text x="120" y="517" fill="#1a1206" font-size="10" text-anchor="middle">#4</text>
+<circle cx="70" cy="514" r="8" fill="#181310" stroke="#2a2622"/>
+<text x="70" y="518" fill="#9b9082" font-size="11" text-anchor="middle">×</text>
+<text x="58" y="636" fill="#9b9082" font-size="10">Night run</text>
+<rect x="150" y="502" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="190" y="570" fill="#2a2018" font-size="20" text-anchor="middle">DA</text>
+<rect x="202" y="506" width="24" height="15" rx="2" fill="#0c0a09" fill-opacity="0.7" stroke="#1a1206"/>
+<text x="214" y="517" fill="#9b9082" font-size="10" text-anchor="middle">—</text>
+<text x="150" y="636" fill="#9b9082" font-size="10">Dawn air</text>
+<rect x="242" y="502" width="80" height="120" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+<text x="282" y="568" fill="#9b9082" font-size="20" text-anchor="middle">+</text>
+<text x="58" y="670" fill="#e8a33d" font-size="12">+ Add person</text>
+<text x="548" y="490" fill="#9b9082" font-size="10" letter-spacing="1.2">FILM</text>
+<rect x="548" y="502" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="588" y="570" fill="#2a2018" font-size="20" text-anchor="middle">NR</text>
+<rect x="596" y="506" width="28" height="15" rx="2" fill="#e8a33d"/>
+<text x="610" y="517" fill="#1a1206" font-size="10" text-anchor="middle">#4</text>
+<text x="548" y="636" fill="#9b9082" font-size="10">Night run</text>
+<rect x="640" y="502" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="680" y="570" fill="#2a2018" font-size="20" text-anchor="middle">DA</text>
+<rect x="686" y="506" width="30" height="15" rx="2" fill="#0c0a09" fill-opacity="0.7"/>
+<text x="701" y="517" fill="#9b9082" font-size="10" text-anchor="middle">Full</text>
+<text x="640" y="636" fill="#9b9082" font-size="10">Dawn air</text>
+
+<text x="40" y="722" fill="#f3ece1" font-size="12">4 · Both linked</text>
+<rect x="40" y="732" width="430" height="200" fill="none" stroke="#2a2622"/>
+<rect x="530" y="732" width="430" height="200" fill="none" stroke="#2a2622"/>
+<text x="58" y="760" fill="#9b9082" font-size="10" letter-spacing="1.2">FILM</text>
+<rect x="58" y="772" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="98" y="840" fill="#2a2018" font-size="20" text-anchor="middle">NR</text>
+<rect x="106" y="776" width="28" height="15" rx="2" fill="#e8a33d" stroke="#1a1206"/>
+<text x="120" y="787" fill="#1a1206" font-size="10" text-anchor="middle">#4</text>
+<text x="58" y="906" fill="#9b9082" font-size="10">Night run</text>
+<rect x="150" y="772" width="80" height="120" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+<text x="190" y="838" fill="#9b9082" font-size="20" text-anchor="middle">+</text>
+<text x="258" y="760" fill="#9b9082" font-size="10" letter-spacing="1.2">PEOPLE</text>
+<rect x="258" y="772" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="298" y="840" fill="#2a2018" font-size="20" text-anchor="middle">AK</text>
+<text x="258" y="906" fill="#9b9082" font-size="10">Ana Kessler</text>
+<rect x="350" y="772" width="80" height="120" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+<text x="390" y="838" fill="#9b9082" font-size="20" text-anchor="middle">+</text>
+<text x="548" y="760" fill="#9b9082" font-size="10" letter-spacing="1.2">FILM</text>
+<rect x="548" y="772" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="588" y="840" fill="#2a2018" font-size="20" text-anchor="middle">NR</text>
+<rect x="596" y="776" width="28" height="15" rx="2" fill="#e8a33d"/>
+<text x="610" y="787" fill="#1a1206" font-size="10" text-anchor="middle">#4</text>
+<text x="548" y="906" fill="#9b9082" font-size="10">Night run</text>
+<text x="748" y="760" fill="#9b9082" font-size="10" letter-spacing="1.2">PEOPLE</text>
+<rect x="748" y="772" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="788" y="840" fill="#2a2018" font-size="20" text-anchor="middle">AK</text>
+<text x="748" y="906" fill="#9b9082" font-size="10">Ana Kessler</text>
+
+<text x="40" y="962" fill="#9b9082" font-size="10">Owner scene pills carry a hover/focus ring and open the edit dialog; visitor pills are inert. The remove × is drawn pinned open — in the build it stays hover- and focus-revealed.</text>
+</svg>
