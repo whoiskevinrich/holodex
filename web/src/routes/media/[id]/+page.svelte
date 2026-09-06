@@ -40,6 +40,7 @@
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
+	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
 	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
 	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
 	import {
@@ -669,6 +670,20 @@
 		}
 	}
 
+	// Edit scene number (HOLODEX-326): the Films chip row's badge opens this dialog
+	// instead of detach+reattach. editingSceneFilm holds the attachment being
+	// renumbered (null = none open).
+	let editingSceneFilm = $state<FilmAttachment | null>(null);
+
+	async function saveFilmSceneNumber(value: number | null) {
+		if (!editingSceneFilm || !video) throw new Error('no film selected');
+		const filmId = editingSceneFilm.film_id;
+		const res = await api.updateFilmVideoScene(filmId, video.id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		films = films.map((fa) => (fa.film_id === filmId ? { ...fa, scene_number: value } : fa));
+		return { ok: true as const };
+	}
+
 	// Refresh metadata (F31): force re-extract the file + re-enrich linked providers,
 	// then refetch the detail so resolved[] reflects the new data and bust the cover.
 	async function refreshMetadata() {
@@ -1278,6 +1293,9 @@
 						<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
 						<ul class="flex flex-wrap gap-3">
 							{#each films as f (f.film_id)}
+								<!-- Edit in place (HOLODEX-326): owner-only, and only for a scene attachment --
+								     a full-film row has no scene number to edit. -->
+								{@const editable = isOwner && !f.is_full_film}
 								<li class="curation-chip group relative w-20 shrink-0">
 									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
 										<div
@@ -1288,10 +1306,19 @@
 											>
 										</div>
 										<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
-										<span class="block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink">
-											{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
-										</span>
 									</a>
+									<svelte:element
+										this={editable ? 'button' : 'span'}
+										type={editable ? 'button' : undefined}
+										role={editable ? 'button' : undefined}
+										onclick={editable ? () => (editingSceneFilm = f) : undefined}
+										aria-label={editable ? `Edit scene number in ${f.film_name}` : undefined}
+										class="mt-1.5 block w-full rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink {editable
+											? 'hover:ring-1 hover:ring-inset hover:ring-accent-ink/50'
+											: ''}"
+									>
+										{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
+									</svelte:element>
 									{#if isOwner}
 										<button
 											type="button"
@@ -1870,6 +1897,15 @@
 			videoId={video.id}
 			onclose={() => (filmAttachOpen = false)}
 			onattached={reloadDetail}
+		/>
+	{/if}
+
+	{#if editingSceneFilm}
+		<EditSceneNumberDialog
+			contextLabel={editingSceneFilm.film_name}
+			currentScene={editingSceneFilm.scene_number}
+			onsave={saveFilmSceneNumber}
+			onclose={() => (editingSceneFilm = null)}
 		/>
 	{/if}
 

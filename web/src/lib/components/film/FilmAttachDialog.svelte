@@ -9,6 +9,7 @@
 	import { toMessage, monogram } from '$lib/format';
 	import type { Film, FilmSceneCollision } from '$lib/types';
 	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
+	import { parseSceneNumberInput } from './sceneNumber';
 
 	let {
 		videoId,
@@ -127,15 +128,14 @@
 
 	async function confirm() {
 		if (!chosen) return;
-		// bind:value on type="number" coerces to a Number (or '' when cleared) — sceneNumber
-		// is not always a string despite the `$state('')` default, so don't call .trim() on it.
 		// isFullFilm always wins: the input is disabled but not cleared when checked, so a
 		// scene number typed before toggling "entire film" must not be sent alongside it.
-		const n = isFullFilm || sceneNumber === '' ? null : Number(sceneNumber);
-		if (n !== null && (!Number.isInteger(n) || n <= 0)) {
-			attachError = 'Scene number must be a positive whole number, or left blank.';
+		const parsed = parseSceneNumberInput(isFullFilm ? '' : sceneNumber);
+		if ('error' in parsed) {
+			attachError = parsed.error;
 			return;
 		}
+		const n = parsed.value;
 		attaching = true;
 		attachError = '';
 		try {
