@@ -83,16 +83,15 @@ field-grid change is what makes the width change worth anything.
    `sm:col-span-2` → `grid-column: 1 / -1` on long-text and image fields
 7. [ ] [frontend] Same two-zone treatment on `films/[id]/+page.svelte` — confirm the banner's
    aspect ratio wants the same 1.4:1 split as the video player (handoff §9.3)
-8. [ ] [frontend] **Extend the density ladder upward** (decision taken — handoff §2e). Keep the
-   column-count model; add rungs `{2560: 12}` and `{3840: 16}` above the existing `{1536: 8}`, and
-   move `DENSITY_MAX` to derive from the **top** rung rather than the 1536 one. Keeps card width in
-   a ~170–320px band from 1536 to 5120 instead of ballooning to 1252px. **Not a two-line change:**
-   raising `DENSITY_MAX` to 16 makes stops 9–16 inert at 1920, so the slider's `max` must track
-   `viewportTierCap`, which in turn forces `invertDensity` to invert against the current cap and
-   `clamp()` to store the raw preference (else density ratchets down when you move from the
-   ultrawide to a laptop). Spec'd in §2e's warning box; QA §4.4–4.7
-9. [ ] [testing] Unit tests for the density remap incl. the garbage-value fallback; geometry
-   assertions per QA §3
+8. [x] [frontend] **Density ladder extended.** Rungs `{2560:12}` and `{3840:16}` above
+   `{1536:8}`; `DENSITY_MAX` now `Math.max(...TIERS.map(cap))` so it survives reordering. Slider
+   range tracks `viewportTierCap` (no inert stops), `invertDensity(n, max)` inverts against the
+   current cap, and the control hides where no choice exists. Markup extracted to
+   `components/sort/DensitySlider.svelte`; `effectiveDensity()`/`posterColumns()` centralise the
+   narrowing rule and the People 2:1 ratio. Card width 172–302px from 1536 to 5120; a 5120 poster
+   row is 453px tall, was 1878px
+9. [~] [testing] Ladder covered by `density.test.ts` (tier boundaries, card-width bands for both
+   grids, inversion against a dynamic cap). Layout geometry assertions per QA §3 still needed
 10. [ ] [—] live three-skin QA on the real 5120x1440 and the real Pixel 7 Pro (QA §5 is written for
     a human on hardware, not an emulator), push, sync Jira
 11. [ ] [—] `/simplify` then `/code-review` on the implementation diff, mark the PR ready
@@ -189,3 +188,34 @@ field-grid change is what makes the width change worth anything.
 - Kevin also confirmed keeping People poster at the derived 2:1 ratio (16 columns at max) rather
   than giving it a separate ceiling.
 - **Next session:** item 4 (stage token) or item 8 (ladder) — both are unblocked and independent.
+
+### 2026-09-06 (later still) · Ladder extended, slider range made viewport-aware
+- skills: design-handoff, simplify
+- **Implemented item 8.** Rungs `{2560:12}` and `{3840:16}`; card width now holds 172–302px from
+  1536 to 5120 instead of ballooning to 1252px, and a 5120 poster row is 453px tall rather than
+  1878px — three visible rows where there was not one.
+- **Solved the dead-stop trap rather than scaling it up.** Slider range is
+  `DENSITY_MIN..capForWidth(viewport)`, `invertDensity` takes the cap, and the control hides at
+  caps 1–2 (where it would be a one-position slider or an invalid `min > max`). Verified: 1024
+  spans 2–3 with both positions live; 800 and 412 render no slider.
+- **No ratcheting on reload**, verified: stored `16` renders 8 columns at 1920 and comes back
+  intact. Corrected a comment that overclaimed this — dragging the slider on a small screen *does*
+  lower the stored value, because the range spans only that viewport. That is intended (moving a
+  control is an explicit choice) but the code previously asserted the opposite.
+- **`/simplify` (2 agents) again earned its keep.** Both converged on the narrowing rule being
+  triplicated → extracted `effectiveDensity()`; both flagged `DENSITY_MAX = TIERS[0].cap` as
+  depending on an undeclared caps-descending invariant → now `Math.max(...)`, leaving only the
+  `min`-descending invariant the boundary tests already guard. Also moved `DensitySlider` from
+  `video/` to `sort/` per the folder rule (its scope line is index-page controls shared across
+  browse/people/tags; `video/` is card/grid primitives), inlined a single-use predicate, and
+  collapsed tests that restated one another.
+- **The review caught a real defect in the People band.** Adding the suggested poster-band test
+  failed at 78px — the 1536 rung is the tightest point on the ladder for People, well below the
+  ~85px the reviewer assumed. Recorded as a bounded test plus human QA 5.10 rather than silently
+  widening the band. If 78px reads as too small, the fix is a People-specific rung.
+- **Also caught my own slip:** restructuring `density.svelte.ts` dropped `invertDensity` entirely;
+  the type-check caught it before commit.
+- Deferred: the ladder is tuned only to 5120 — above 3840 the cap holds at 16, so a 7680px panel
+  would grow cards to ~462px. Documented in the TIERS comment and pinned by a test so it is a
+  known boundary rather than a rediscovered bug.
+- **Next session:** item 4 (stage token) — the remaining layout work is untouched.

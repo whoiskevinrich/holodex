@@ -186,7 +186,7 @@ wrong the moment there are three columns.
 Column count is now emergent, so **nothing may assume two columns**. The 320px minimum is the
 floor at which a label plus its value plus its `SourceBadge` chip row still fits on one line.
 
-### 2e. Grid density — RESOLVED: keep column counts, extend the ladder upward
+### 2e. Grid density — IMPLEMENTED: column counts kept, ladder extended
 
 The target-card-width model originally proposed here was **rejected**. It cannot satisfy the
 stated requirement: under it, column count is emergent, and no single target width serves both
@@ -195,46 +195,53 @@ of <=174px gives 2 at 412px but **10** at 1920. "8 videos per row at max density
 videos-per-row, which is evidence that columns-per-row is the unit to model.
 
 So `density.svelte.ts` keeps `TIERS` and `capForWidth`, and `VideoGrid` keeps
-`repeat(<cols>, minmax(0, 1fr))`. The dead-end is fixed by **extending the ladder upward** rather
-than replacing the mechanism:
+`repeat(<cols>, minmax(0, 1fr))`. The dead-end was fixed by **extending the ladder upward**:
 
-| Tier `min` | `cap` | Card width at that width | at the next tier's edge |
-|---|---|---|---|
-| 3840 | 16 | 222px | 238px @ 5119 |
-| 2560 | 12 | 195px | 300px @ 3839 |
-| 1536 | 8 | 172px | 315px @ 2559 |
-| 1280 | 4 | 292px | — |
-| 1024 | 3 | 310px | — |
-| 480 | 2 | — | — |
-| (below 480) | 1 | — | — |
+| Tier `min` | `cap` | Measured card width at that width |
+|---|---|---|
+| 3840 | 16 | 222px |
+| 2560 | 12 | 195px |
+| 1536 | 8 | 172px (220px @ 1920, 302px @ 5119) |
+| 1280 | 4 | 292px |
+| 1024 | 3 | 310px |
+| 480 | 2 | — |
+| (below 480) | 1 | 364px @ 412 |
 
-Card width at max density then stays in a 172–315px band from 1536px all the way to 5120px,
-instead of ballooning to 1252px. The 1536 rung is unchanged, so the shipped "8 at max" behavior
-(§1b-i) is preserved exactly.
+Card width at max density now stays in a **172–302px** band from 1536 all the way to 5120,
+instead of ballooning to 1252px. At 5120 a poster row is **453px** tall rather than 1878px — you
+can see three complete rows on a 1440px screen where before you could not see one.
 
-`DENSITY_MAX` must become the **top** rung's cap (16), not the 1536 rung's — invert the derivation
-added in §1b-i so the slider can reach what the widest tier allows.
+`DENSITY_MAX` derives from the **top** rung (`TIERS[0].cap`), inverting the §1b-i derivation so
+the slider can reach whatever the widest tier allows.
 
-> **⚠ Extending the ladder creates dead slider stops, and that must be solved in the same change.**
->
-> `VideoGrid` renders `min(density, capForWidth(width))`. With `DENSITY_MAX` at 16, a user at
-> 1920px finds stops 9–16 all produce identical output — eight positions that do nothing. That is
-> the same class of defect §1b-i just fixed, at a larger scale. It already exists in miniature
-> today (at 1024px, stops 4–8 are inert), which is why it must not be scaled up unexamined.
->
-> **Resolution: the slider's range must track the viewport**, i.e. `max={viewportTierCap.value}`
-> rather than `max={DENSITY_MAX}` in both `routes/+page.svelte` and `routes/people/+page.svelte`.
-> Two consequences to handle deliberately:
->
-> 1. `invertDensity` is built on `DENSITY_MIN + DENSITY_MAX - n`. With a dynamic maximum it must
->    invert against the *current* cap, or dragging right stops meaning "bigger cards".
-> 2. `clamp()` currently clamps the stored value to `DENSITY_MAX` on write. If the slider's max is
->    the viewport cap, a user who sets max density on a laptop would overwrite a higher preference
->    set on the ultrawide. Store the raw preference and clamp only at render, so moving between
->    displays restores the intended density rather than ratcheting it down.
->
-> This is why the ladder extension is **not** a two-line change and was not tacked onto the
-> shipped §1b-i work.
+**The slider's range tracks the viewport.** `VideoGrid` renders `min(density, capForWidth(width))`,
+so with a fixed `max={DENSITY_MAX}` a 1920px window would have shown eight inert stops at the
+dense end — the same dead-stop defect §1b-i fixed, at eight times the scale. Instead:
+
+- `max={viewportTierCap.value}`, so every reachable stop changes the column count.
+- `invertDensity(n, max)` takes the current cap. Inverting against a fixed `DENSITY_MAX` would
+  flip the direction on every viewport below the widest tier — at a 3-column cap it would return
+  15, far outside the slider's own range.
+- `clamp()` still clamps to the **global** range, so the stored value is the raw preference and
+  each grid narrows it at render. Verified: a stored `16` renders as 8 columns at 1920 and
+  survives untouched, so returning to the ultrawide restores 16 rather than ratcheting down.
+- `densityChoiceAvailable(cap)` hides the control where there is no choice — at a cap of 2 it
+  would be a one-position slider, and at 1 (below 480px) `min > max` is an invalid range.
+
+The markup now lives in one place, `components/sort/DensitySlider.svelte` (filed with the other
+index-page display controls, beside `SortToggle`/`PersonViewToggle`), because the media list
+and the People index previously carried byte-identical copies and the cap-aware inversion above is
+too easy to get subtly wrong in a duplicate.
+
+**People poster grid.** The 2:1 ratio now lives in `density.svelte.ts` as `posterColumns()`, next
+to the rungs it doubles, rather than as a bare `* 2` in the component — so it is tuned and tested
+against the same ladder. It reaches 16 columns at 1536+ and 32 at 3840+.
+
+Measured: 102px cards at 1920 and 103px at 3840, so the doubling scales consistently as the ladder
+climbs. **The tightest point on the whole ladder is 1536, where posters land at 78x169px** — that
+is the cost of keeping the ratio derived instead of giving People its own rungs, and it is now
+bounded by a test rather than left to be discovered. If 78px reads as too small in use, the fix is
+a People-specific rung, not a change to the video ladder.
 
 **No preference migration is needed.** Keeping the column-count model means the stored
 `holodex:media-density` value keeps its existing meaning — a column count. An existing `6` still

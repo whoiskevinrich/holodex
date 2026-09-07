@@ -73,9 +73,15 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   stores the highest density (most columns); setting it to `max` stores `DENSITY_MIN` (fewest).
   The inversion is deliberate — dragging right means bigger cards.
 - **3.15** `[agent]` **People poster grid tracks the ceiling at 2:1.** `PersonPosterGrid` uses
-  `min(density, cap) * 2`, so max density gives 16 columns at 1536+ — measured at 1920:
-  102x205px cards, names at 14px, no clipping with short names, no horizontal overflow. Confirm the
-  count is exactly double the video grid's at the same density and width.
+  `posterColumns()` (the 2:1 ratio, now in `density.svelte.ts`) — 16 columns at 1536+ and 32 at
+  3840+. Measured: **78x169px at 1536 (the tightest point on the ladder)**, 102x205px at 1920,
+  103x207px at 3840. Names at 14px, no clipping with short names, no horizontal overflow. Confirm
+  the count is exactly double the video grid's at the same density and width.
+- **5.10** `[human]` **Is 78px too small?** At 1536 wide and max density the People poster grid
+  renders 16 columns of 78x169px cards — the smallest cards anywhere on the ladder. Open the
+  People index in poster mode at roughly that window width and judge whether a face is still
+  recognisable and the name still useful. If not, the fix is a People-specific rung, not a change
+  to the video ladder.
 - **3.16** `[agent]` **First row eager-loads on the People poster grid.** `PersonPosterGrid` passes
   `eager={i < cols}`. With more people than one row holds, exactly the first `cols` images carry
   `loading="eager"` and the rest `lazy`. Guards the regression where the old literal `12` stopped
@@ -92,15 +98,20 @@ ladder and the viewport-tracking slider range.
   it — the meaning of existing preferences is unchanged.
 - **4.3** `[agent]` Seed a garbage value (`"abc"`), reload: falls back to the default without
   throwing. Console clean.
-- **4.4** `[agent]` **Ladder steps at each new rung**, at max density and a fresh load:
-  8 columns at 1536 and 1920, 12 at 2560, 16 at 3840 and 5120. Card width stays within roughly
-  170–320px at every one — assert it never exceeds ~350px, which is the ballooning this fixes.
-- **4.5** `[agent]` **No dead slider stops.** At each of 1024 / 1280 / 1920 / 2560 / 5120, the range
-  input's `max` equals `capForWidth(innerWidth)`, so every reachable position changes the column
-  count. Moving the slider one stop must always change `gridTemplateColumns`.
+- **4.4** `[agent]` **Ladder steps at each new rung**, at max density and a fresh load. Verified:
+  8 columns at 1536 (172px) and 1920 (220px), 12 at 2560 (195px), 16 at 3840 (222px) and 5120
+  (302px). Card width must stay under ~350px at every rung — that ceiling is the ballooning this
+  fixes. At 5120 a poster row is 453px tall, not 1878px.
+- **4.5** `[agent]` **No dead slider stops.** At each of 1024 / 1280 / 1920 / 2560 / 3840 / 5120,
+  the range input's `max` equals `capForWidth(innerWidth)`, so every reachable position changes the
+  column count. Moving the slider one stop must always change `gridTemplateColumns`.
+- **4.5a** `[agent]` **The slider hides where there is no choice.** No range input renders at 800px
+  (cap 2, a single position) or 412px (cap 1, which would be an invalid `min > max` range). The
+  grid still renders — 2 and 1 columns respectively.
 - **4.6** `[agent]` **Inverted direction survives a dynamic max.** At each width above, dragging
   right yields *fewer* columns and dragging left yields *more* — `invertDensity` must invert
-  against the current cap, not a fixed `DENSITY_MAX`.
+  against the current cap, not a fixed `DENSITY_MAX`. Test the smallest cap explicitly: at 1024
+  (cap 3) the slider spans 2–3, position 2 gives 3 columns and position 3 gives 2.
 - **4.7** `[agent]` **Preference does not ratchet down across displays.** Set max density at 5120
   (16 columns), reload at 1920 (clamped to 8), then reload at 5120 again: it must return to 16, not
   stay at 8. The raw preference is stored; clamping happens at render.

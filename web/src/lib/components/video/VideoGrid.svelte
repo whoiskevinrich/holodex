@@ -2,7 +2,7 @@
 	import type { Video } from '$lib/types';
 	import VideoCard from './VideoCard.svelte';
 	import { activity } from '$lib/activity.svelte';
-	import { mediaDensity, viewportTierCap } from '$lib/density.svelte';
+	import { effectiveDensity } from '$lib/density.svelte';
 
 	let {
 		videos,
@@ -21,7 +21,7 @@
 	// columns to actually use, up to the tier's cap. Column count is computed in JS (not
 	// Tailwind grid-cols-N utilities) because the target column count is a runtime value the
 	// Tailwind scanner can't see at build time.
-	const cols = $derived(Math.min(mediaDensity.value, viewportTierCap.value));
+	const cols = $derived(effectiveDensity());
 </script>
 
 {#if videos.length === 0}
