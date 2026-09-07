@@ -76,3 +76,28 @@ and affordance only; no field, namespace, or decision-model seam is touched.
   should satisfy but does not require it to land first. Mockup verified rendering in the browser
   pane (dim pills read dark against the light monogram plate; accent pills read `#4`). Next: the
   three frontend steps above, in order.
+
+### 2026-09-06 · HOLODEX-329: film chips never showed the film's poster
+- skills: graphify
+- handoff: Kevin reported the media detail Films chips always drawing the monogram. Not the
+  frontend oversight it looks like — `repo.FilmAttachment`, the struct the `/media/{id}` response
+  serializes, carried no image field at all, so the chip had nothing to render. (Deliberately
+  different from HOLODEX-318, the films *index* bug, where `Film.poster_url` is in the payload and
+  simply goes unread — that one is frontend-only.) Fixed across four files: `FilmAttachment` gains
+  `PosterVersion` (`json:"-"`) + `PosterURL`; `FilmsForVideos` fills the version through a new
+  `attachFilmAttachmentPosters` helper doing ONE batched `filmImageVersions` query over the
+  distinct film ids — the same read the film list/detail paths use, so a chip and the film's own
+  page can never disagree about which image wins when a film holds both an uploaded and a
+  provider-sourced poster; `setFilmAttachmentPosterURLs` builds the URL in `api/film_images.go`
+  beside the existing `setFilmImageURLs`, keeping URL shapes out of the repo. Had to close the
+  `FilmsForVideos` rows cursor explicitly before the second query rather than lean on the deferred
+  Close. Frontend renders an `<img>` when `poster_url` is set, monogram otherwise, `object-cover`
+  to match the People chips beside it. New `TestFilmsForVideoPosterVersion` covers no-image,
+  provider-only, and upload-beats-provider, and pins that the repo leaves `PosterURL` empty.
+  Live-verified on `backend-films` (which needed `FILMS_ENABLED=true` adding to this worktree's
+  gitignored `.claude/launch.json` — the films API was 404ing): uploaded a poster, confirmed
+  `poster_url` in `/api/v1/media/8`, confirmed the chip draws the real 1000×1500 image at 80×120
+  `object-fit: cover` in all three skins with radius following each skin's token. Filed as
+  HOLODEX-329 and shipped on this branch rather than its own, since it edits the same chip markup
+  the redesign rewrites. `go build`, `go test ./internal/repo ./internal/api`, and
+  `npm run check` (0 errors) all pass.

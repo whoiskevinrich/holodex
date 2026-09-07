@@ -53,6 +53,20 @@ func setFilmImageURLs(f *model.Film) {
 	}
 }
 
+// setFilmAttachmentPosterURLs fills PosterURL on each attachment from the poster row
+// id the repo resolved, pointing at the same served route setFilmImageURLs uses. A
+// film with no poster keeps an empty URL and the SPA draws its monogram plate. Kept
+// here beside setFilmImageURLs so both film image URL shapes live in one place.
+func setFilmAttachmentPosterURLs(films []repo.FilmAttachment) {
+	for i := range films {
+		if films[i].PosterVersion == 0 {
+			continue
+		}
+		films[i].PosterURL = fmt.Sprintf("/api/v1/films/%d/images/%s?v=%d",
+			films[i].FilmID, model.FilmImagePoster, films[i].PosterVersion)
+	}
+}
+
 // filmImageRole validates the {role} path param against the enum, writing 400 and
 // returning ok=false on an unknown value.
 func filmImageRole(w http.ResponseWriter, r *http.Request) (string, bool) {

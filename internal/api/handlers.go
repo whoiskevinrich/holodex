@@ -747,6 +747,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		if fa, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
 			h.log.Warn("films for media detail", "id", id, "err", ferr)
 		} else {
+			setFilmAttachmentPosterURLs(fa)
 			films = fa
 		}
 	}

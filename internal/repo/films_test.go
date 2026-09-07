@@ -76,6 +76,69 @@ func TestFilmsForVideo(t *testing.T) {
 	}
 }
 
+// A film attachment carries its film's poster row id so the media detail page's Films
+// chips can render the real poster instead of always falling back to the monogram
+// plate. Precedence must match the film detail page's own read (an uploaded row beats a
+// provider-sourced one for the same role), or a chip and the film's page would show
+// different images for the same film.
+func TestFilmsForVideoPosterVersion(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { sqlDB.Close() })
+	r := repo.New(sqlDB)
+	ctx := context.Background()
+
+	id, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := sqlDB.ExecContext(ctx, q, args...); err != nil {
+			t.Fatalf("exec %q: %v", q, err)
+		}
+	}
+	// Film 1 has no image at all; film 2 has a provider poster only; film 3 has both a
+	// provider and an uploaded poster, plus a banner that must never be mistaken for one.
+	exec(`INSERT INTO films (id, name, year) VALUES (1, 'Aaa Film', 2020)`)
+	exec(`INSERT INTO films (id, name, year) VALUES (2, 'Bbb Film', 2021)`)
+	exec(`INSERT INTO films (id, name, year) VALUES (3, 'Ccc Film', 2022)`)
+	img := func(rowID, filmID int64, role, source string) {
+		exec(`INSERT INTO film_images (id, film_id, role, source, width, height, byte_size, created_at)
+		      VALUES (?, ?, ?, ?, 1, 1, 1, '2026-01-01T00:00:00Z')`, rowID, filmID, role, source)
+	}
+	img(10, 2, "poster", "provider:tmdb")
+	img(20, 3, "poster", "provider:tmdb")
+	img(21, 3, "poster", "upload")
+	img(22, 3, "banner", "upload")
+	for _, fid := range []int64{1, 2, 3} {
+		exec(`INSERT INTO film_videos (film_id, video_id, scene_number, is_full_film, created_at)
+		      VALUES (?, ?, NULL, 0, '2026-01-01T00:00:00Z')`, fid, id)
+	}
+
+	got, err := r.FilmsForVideo(ctx, id)
+	if err != nil {
+		t.Fatalf("films for video: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d attachments, want 3: %+v", len(got), got)
+	}
+	// Ordered by film name: Aaa, Bbb, Ccc.
+	want := []int64{0, 10, 21}
+	for i, w := range want {
+		if got[i].PosterVersion != w {
+			t.Errorf("attachment[%d] (%s) PosterVersion = %d, want %d",
+				i, got[i].FilmName, got[i].PosterVersion, w)
+		}
+		// The repo never builds URLs — that is the API layer's job.
+		if got[i].PosterURL != "" {
+			t.Errorf("attachment[%d] PosterURL = %q, want empty from the repo", i, got[i].PosterURL)
+		}
+	}
+}
+
 func TestCreateFilm(t *testing.T) {
 	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

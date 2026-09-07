@@ -1301,12 +1301,22 @@
 								     element inside the anchor. -->
 								{@const editable = isOwner && !f.is_full_film}
 								{#snippet filmPoster()}
+									<!-- The film's own poster when it has one, monogram plate otherwise —
+									     same served URL the film detail page uses, so the two agree on
+									     which image wins for a film carrying both an upload and a
+									     provider poster. `cover` (not the film header's `contain`) matches
+									     the People chips this row sits beside: at chip size, letterboxing
+									     an almost-2:3 source against the plate reads as a bug. -->
 									<div
 										class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
 									>
-										<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
-											>{monogram(f.film_name)}</span
-										>
+										{#if f.poster_url}
+											<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
+										{:else}
+											<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+												>{monogram(f.film_name)}</span
+											>
+										{/if}
 									</div>
 									<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
 								{/snippet}

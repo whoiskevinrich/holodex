@@ -877,6 +877,10 @@ export interface FilmAttachment {
 	// null for an unnumbered scene or a full-film attachment (which carries no scene
 	// number) — the media detail page's Films section badge shows "#N" or "Full film".
 	scene_number: number | null;
+	// The film's poster, when it has one — absent otherwise, and the chip falls back to
+	// the monogram plate. Same served URL and same upload-over-provider precedence as
+	// the film detail page's own poster, so the two never disagree.
+	poster_url?: string;
 }
 
 // FilmDetailResponse is GET /films/{id} (F56): the film, its resolved[] fields (record
