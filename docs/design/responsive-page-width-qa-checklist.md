@@ -6,7 +6,7 @@
 Verifier tags: `[smoke]` runs in CI or a single command · `[agent]` an agent can verify via
 `javascript_tool` computed styles and geometry · `[human]` needs eyes on a real display.
 
-Widths under test: **412, 768, 1024, 1280, 1920, 5120**.
+Widths under test: **412, 768, 1024, 1280, 1536, 1920, 2560, 3840, 5120**.
 Skins under test: **Cinémathèque, Broadcast, Brutalist**.
 
 > **Reload at each width — do not resize.** `viewportTierCap` reads `window.innerWidth` at
@@ -22,8 +22,7 @@ Skins under test: **Cinémathèque, Broadcast, Brutalist**.
 - **1.2** Start the frontend: `preview_start` with `web`. Confirm it is on :5173.
 - **1.3** Confirm the worktree is serving its own code, not the main worktree's: `.claude/launch.json`
   must exist in this worktree. Load a page and confirm a change from this branch is present.
-- **1.4** Clear `holodex:media-density` and `holodex:media-card-width` from localStorage before
-  the migration tests in section 4.
+- **1.4** Clear `holodex:media-density` from localStorage before the density tests in section 4.
 
 ## 2. Smoke
 
@@ -52,10 +51,9 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   1 at 1280, 2 at 1920, 3 at 5120.
 - **3.6** `[agent]` A long-text field (Overview) reports `gridColumn` resolving to full width at
   every column count — not `span 2`.
-- **3.7** `[agent]` Browse grid column count at default density, **after** the §2e remodel lands:
-  the count must rise monotonically with viewport and must not plateau above 1536px. Exact values
-  depend on which option resolves the §2e conflict, so assert "strictly increasing across
-  412 → 768 → 1920 → 5120", not fixed numbers.
+- **3.7** `[agent]` Browse grid column count at **default** density (4) is unchanged by the ladder
+  extension: 1 at 412, 2 at 768, 3 at 1024, 4 at 1280 and above. The ladder only raises the
+  *ceiling*, so a default-density user sees no difference at any width.
 - **3.8** `[agent]` At 5120 the browse grid is **not** capped by the stage — its width should be
   ≈5072px, not 2600px.
 - **3.9** `[agent]` At 320px width, `document.documentElement.scrollWidth <= 320` on `/media/{id}` —
@@ -67,41 +65,45 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   on either zone.
 - **3.12** `[agent]` Contrast: `--color-muted` on `--color-surface` (field labels on rail cards)
   meets AA in all three skins. Read computed colors and compute the ratio.
-- **3.13** `[agent]` **Max density reaches 8 columns** (shipped ahead of the remodel; handoff
-  §1b-i). With `holodex:media-density` = `8`: 8 columns at 1920 (~220px cards) **and** at 1536
-  (~172px cards — the rung where 8 columns begins). Check both `wide` and `poster` layouts and all
-  three skins; assert no horizontal overflow. Also confirm 1280 still gives 4 and 1024 still gives
-  3 — the tier change touched only the ≥1536 entry.
+- **3.13** `[agent]` **Max density reaches 8 columns** (shipped; handoff §1b-i). With
+  `holodex:media-density` = `8`: 8 columns at 1920 (~220px cards) **and** at 1536 (~172px cards —
+  the rung where 8 columns begins). Check both `wide` and `poster` layouts and all three skins;
+  assert no horizontal overflow. Confirm 1280 still gives 4 and 1024 still gives 3.
+- **3.14** `[agent]` **Slider ends map correctly.** Setting the range input to its `min` position
+  stores the highest density (most columns); setting it to `max` stores `DENSITY_MIN` (fewest).
+  The inversion is deliberate — dragging right means bigger cards.
+- **3.15** `[agent]` **People poster grid tracks the ceiling at 2:1.** `PersonPosterGrid` uses
+  `min(density, cap) * 2`, so max density gives 16 columns at 1536+ — measured at 1920:
+  102x205px cards, names at 14px, no clipping with short names, no horizontal overflow. Confirm the
+  count is exactly double the video grid's at the same density and width.
 - **3.16** `[agent]` **First row eager-loads on the People poster grid.** `PersonPosterGrid` passes
-  `eager={i < cols}`. With more than 16 people at max density, exactly the first `cols` images
-  carry `loading="eager"` and the rest `lazy`. Guards the regression where the old literal `12`
-  stopped matching one row once the ceiling moved.
-- **3.14** `[agent]` **Slider ends map correctly.** The range input's `max` attribute is 8. Setting
-  it to its `min` position stores density 8 (most columns); setting it to `max` stores density 2
-  (fewest). The inversion is deliberate — dragging right means bigger cards.
-- **3.15** `[agent]` **People poster grid at the new ceiling.** `PersonPosterGrid` uses
-  `min(density, cap) * 2`, so max density gives 16 columns — measured at 1920: 102x205px cards,
-  names at 14px, no clipping with short names, no horizontal overflow. Confirm the count is
-  exactly double the video grid's at the same density.
-- **5.9** `[human]` **Long person names at max density.** `PersonPosterCard`'s name is
-  `-webkit-line-clamp: 1` with `overflow: hidden`, so at 102px a long name is cut to one line
-  (verified: card height stays 205px, nothing overflows — the layout does not break). What is
-  *not* verified is whether the cut renders with a trailing ellipsis or as a hard mid-word chop.
-  Look at a person with a genuinely long name at max density and judge whether it reads as
-  deliberate truncation. This truncation is pre-existing, but the 16-column ceiling makes it bite
-  at roughly 70% of the previous card width, so it is newly noticeable.
+  `eager={i < cols}`. With more people than one row holds, exactly the first `cols` images carry
+  `loading="eager"` and the rest `lazy`. Guards the regression where the old literal `12` stopped
+  matching one row once the ceiling moved.
 
-## 4. Density migration
+## 4. Density ladder
 
-- **4.1** `[agent]` With no stored preference, the grid renders at the default stop (260px target).
-- **4.2** `[agent]` Seed `holodex:media-density` = `6` (old "most columns"), reload: the grid renders
-  at the smallest target width (150px), and `holodex:media-card-width` is written.
-- **4.3** `[agent]` Seed `holodex:media-density` = `2` (old "fewest columns"), reload: the grid
-  renders at the largest target (440px).
-- **4.4** `[agent]` After migration, `holodex:media-density` is left intact (not deleted), so a
-  rollback still finds its old value.
-- **4.5** `[agent]` Seed a garbage value (`"abc"`), reload: falls back to the default without
-  throwing. Check the console is clean.
+The column-count model is retained (handoff §2e), so there is **no** preference migration to test —
+a stored `holodex:media-density` keeps its existing meaning. What needs testing is the extended
+ladder and the viewport-tracking slider range.
+
+- **4.1** `[agent]` With no stored preference, the grid renders at the default density (4).
+- **4.2** `[agent]` A stored value of `6` still yields six columns at a viewport whose cap allows
+  it — the meaning of existing preferences is unchanged.
+- **4.3** `[agent]` Seed a garbage value (`"abc"`), reload: falls back to the default without
+  throwing. Console clean.
+- **4.4** `[agent]` **Ladder steps at each new rung**, at max density and a fresh load:
+  8 columns at 1536 and 1920, 12 at 2560, 16 at 3840 and 5120. Card width stays within roughly
+  170–320px at every one — assert it never exceeds ~350px, which is the ballooning this fixes.
+- **4.5** `[agent]` **No dead slider stops.** At each of 1024 / 1280 / 1920 / 2560 / 5120, the range
+  input's `max` equals `capForWidth(innerWidth)`, so every reachable position changes the column
+  count. Moving the slider one stop must always change `gridTemplateColumns`.
+- **4.6** `[agent]` **Inverted direction survives a dynamic max.** At each width above, dragging
+  right yields *fewer* columns and dragging left yields *more* — `invertDensity` must invert
+  against the current cap, not a fixed `DENSITY_MAX`.
+- **4.7** `[agent]` **Preference does not ratchet down across displays.** Set max density at 5120
+  (16 columns), reload at 1920 (clamped to 8), then reload at 5120 again: it must return to 16, not
+  stay at 8. The raw preference is stored; clamping happens at render.
 
 ## 5. Human review
 
@@ -133,6 +135,14 @@ list.
 - **5.8** `[human]` **Follow a deep link to a field.** Open a link ending in `#field-title` on the
   phone; the page should scroll to that field and highlight it, with the field visible rather than
   hidden.
+
+- **5.9** `[human]` **Long person names at max density.** `PersonPosterCard`'s name is
+  `-webkit-line-clamp: 1` with `overflow: hidden`, so at 102px a long name is cut to one line
+  (verified: card height stays 205px, nothing overflows — the layout does not break). What is
+  *not* verified is whether the cut renders with a trailing ellipsis or as a hard mid-word chop.
+  Look at a person with a genuinely long name at max density and judge whether it reads as
+  deliberate truncation. Pre-existing, but the 16-column ceiling makes it bite at roughly 70% of
+  the previous card width, so it is newly noticeable.
 
 ## 6. Regression
 

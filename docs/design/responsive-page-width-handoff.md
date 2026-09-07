@@ -186,56 +186,64 @@ wrong the moment there are three columns.
 Column count is now emergent, so **nothing may assume two columns**. The 320px minimum is the
 floor at which a label plus its value plus its `SourceBadge` chip row still fits on one line.
 
-### 2e. Grid density
+### 2e. Grid density — RESOLVED: keep column counts, extend the ladder upward
 
-`density.svelte.ts` stops storing a column count and stores a **target card width** instead.
-`TIERS` and `capForWidth` are deleted; `VideoGrid` uses:
+The target-card-width model originally proposed here was **rejected**. It cannot satisfy the
+stated requirement: under it, column count is emergent, and no single target width serves both
+ends of the gamut — 220px gives exactly 8 columns at 1920 but only **1** at 412px, while a target
+of <=174px gives 2 at 412px but **10** at 1920. "8 videos per row at max density" is expressed in
+videos-per-row, which is evidence that columns-per-row is the unit to model.
 
-```
-grid-template-columns: repeat(auto-fill, minmax(<target>px, 1fr))
-```
+So `density.svelte.ts` keeps `TIERS` and `capForWidth`, and `VideoGrid` keeps
+`repeat(<cols>, minmax(0, 1fr))`. The dead-end is fixed by **extending the ladder upward** rather
+than replacing the mechanism:
 
-`auto-fill` here, not `auto-fit`: a partially-filled last row should keep its column rhythm rather
-than stretching two cards across the whole width.
+| Tier `min` | `cap` | Card width at that width | at the next tier's edge |
+|---|---|---|---|
+| 3840 | 16 | 222px | 238px @ 5119 |
+| 2560 | 12 | 195px | 300px @ 3839 |
+| 1536 | 8 | 172px | 315px @ 2559 |
+| 1280 | 4 | 292px | — |
+| 1024 | 3 | 310px | — |
+| 480 | 2 | — | — |
+| (below 480) | 1 | — | — |
 
-The density slider keeps its five stops and its inverted direction (dragging right = bigger cards,
-per the existing `invertDensity` comment), but each stop now maps to a width:
+Card width at max density then stays in a 172–315px band from 1536px all the way to 5120px,
+instead of ballooning to 1252px. The 1536 rung is unchanged, so the shipped "8 at max" behavior
+(§1b-i) is preserved exactly.
 
-| Stop | Target width | Columns at 412 | at 768 | at 1920 | at 5120 |
-|---|---|---|---|---|---|
-| 1 (smallest) | 150px | 2 | 4 | 12 | 33 |
-| 2 | 200px | 1 | 3 | 9 | 25 |
-| 3 (default) | 260px | 1 | 2 | 7 | 19 |
-| 4 | 340px | 1 | 2 | 5 | 14 |
-| 5 (largest) | 440px | 0→1 | 1 | 4 | 11 |
+`DENSITY_MAX` must become the **top** rung's cap (16), not the 1536 rung's — invert the derivation
+added in §1b-i so the slider can reach what the widest tier allows.
 
-> **⚠ This table now conflicts with a stated requirement, and the conflict is unresolved.**
+> **⚠ Extending the ladder creates dead slider stops, and that must be solved in the same change.**
 >
-> "At max density I should be able to see 8 videos in each row" is exact and viewport-independent
-> under the column-count model. Under a target-width model it is neither — column count is
-> emergent, so the answer varies by window size. Worse, **no single target width satisfies both
-> ends of the gamut**: hitting exactly 8 columns at 1920 requires a ~220px target, but 220px
-> yields **1** column at 412px, where max density should give 2. Reaching 2 columns at 412px needs
-> a target of ≤174px, which yields 10 at 1920, not 8.
+> `VideoGrid` renders `min(density, capForWidth(width))`. With `DENSITY_MAX` at 16, a user at
+> 1920px finds stops 9–16 all produce identical output — eight positions that do nothing. That is
+> the same class of defect §1b-i just fixed, at a larger scale. It already exists in miniature
+> today (at 1024px, stops 4–8 are inert), which is why it must not be scaled up unexamined.
 >
-> So the stop table above (150px at max density → 12 columns at 1920) does **not** deliver the
-> requirement. Three ways out, and this needs a decision before §2e is implemented:
+> **Resolution: the slider's range must track the viewport**, i.e. `max={viewportTierCap.value}`
+> rather than `max={DENSITY_MAX}` in both `routes/+page.svelte` and `routes/people/+page.svelte`.
+> Two consequences to handle deliberately:
 >
-> 1. **Keep the column-count model** and extend `TIERS` upward for ultrawides (2560 / 3840 / 5120).
->    Preserves "8 at max" exactly, and matches how the requirement was actually expressed — in
->    videos per row. Cost: the table needs extending again for future displays.
-> 2. **Target-width model**, accepting that "8" holds only near 1920 and drifts elsewhere.
-> 3. **Hybrid** — target width, clamped by a min/max column count.
+> 1. `invertDensity` is built on `DENSITY_MIN + DENSITY_MAX - n`. With a dynamic maximum it must
+>    invert against the *current* cap, or dragging right stops meaning "bigger cards".
+> 2. `clamp()` currently clamps the stored value to `DENSITY_MAX` on write. If the slider's max is
+>    the viewport cap, a user who sets max density on a laptop would overwrite a higher preference
+>    set on the ultrawide. Store the raw preference and clamp only at render, so moving between
+>    displays restores the intended density rather than ratcheting it down.
 >
-> Option 1 is now the stronger candidate. The original choice of the target-width model was made
-> before this requirement existed; the requirement is evidence that columns-per-row is the unit
-> the user actually reasons in.
+> This is why the ladder extension is **not** a two-line change and was not tacked onto the
+> shipped §1b-i work.
 
-**Migration:** existing browsers hold `holodex:media-density` values 2–6 under the old
-column-count meaning. Map on read — old 6 (most columns) → stop 1, old 2 (fewest) → stop 5 — and
-write back the new representation under a **new key** (`holodex:media-card-width`) so a rollback
-does not read new values through old semantics. This is the piece that needs a spec note, not just
-a design one.
+**No preference migration is needed.** Keeping the column-count model means the stored
+`holodex:media-density` value keeps its existing meaning — a column count. An existing `6` still
+means six columns both before and after; it is simply no longer the maximum. The
+`holodex:media-card-width` key proposed for the rejected model is not introduced, and the spec gate
+that existed solely to document that remap is therefore closed.
+
+The one storage question that remains is the ratcheting behavior in the warning box above: whether
+the raw preference or the viewport-clamped value is what gets written back.
 
 ## 3. Design tokens
 

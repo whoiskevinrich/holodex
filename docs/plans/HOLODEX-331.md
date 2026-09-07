@@ -42,8 +42,9 @@ field-grid change is what makes the width change worth anything.
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` — **required**: the density preference changes meaning (stored column count
-  → target card width), so `holodex:media-density` values 2–6 need a documented remap and a new key
+- [~] spec `write-spec` — **no longer required**. It existed solely to document the stored-preference
+  remap the target-width model would have forced; that model was rejected (handoff §2e), so
+  `holodex:media-density` keeps its existing column-count meaning and no migration happens
 - [~] architecture `architecture` — not applicable as judged; layout convention plus a
   component-local storage change, no data-model or seam change. Revisit if the stage cap is meant
   to be a standing rule for all future pages rather than a per-page choice (handoff §9.2)
@@ -51,12 +52,13 @@ field-grid change is what makes the width change worth anything.
   `responsive-page-width-mockup.svg` + `responsive-page-width-ladder.svg` +
   `responsive-page-width-qa-checklist.md`
 - [ ] frontend
-- [ ] testing `testing-strategy` — density remap is pure and unit-testable; layout needs the
-  geometry assertions in QA §3
+- [~] testing `testing-strategy` — partially done: `density.test.ts` covers the shipped ceiling
+  (mutation-checked). Still needed for the ladder extension (QA §4.4–4.7) and the layout geometry
+  assertions (QA §3)
 - [~] security `security-review` — not applicable; presentation only, no auth, access, or
   infrastructure surface
-- [ ] three-skin QA — Cinémathèque / Broadcast / Brutalist at 412 / 768 / 1024 / 1280 / 1920 / 5120,
-  reloading (not resizing) at each width
+- [~] three-skin QA — done for the density ceiling at 1536 and 1920. Still needed across
+  412 / 768 / 1024 / 1280 / 2560 / 3840 / 5120, reloading (not resizing) at each width
 
 ## Up next — ordered (position = priority)
 
@@ -70,8 +72,8 @@ field-grid change is what makes the width change worth anything.
    the change introduced in `PersonPosterGrid` (`eager={i < 12}` → `{i < cols}`). Verified at
    1920 (8 cols / 220px) and 1536 (8 cols / 172px), three skins, `wide` + `poster`, 1280 and 1024
    unregressed — `density.svelte.ts`, `PersonPosterGrid.svelte`, `density.test.ts`
-3. [ ] [spec] Density preference remap: old `holodex:media-density` (column count, 2–6) → new
-   `holodex:media-card-width` (target px), read-migrate and leave the old key intact for rollback
+3. [~] [spec] Density preference remap — **dropped**: only needed under the rejected target-width
+   model. Stored values keep their column-count meaning, so there is nothing to migrate
 4. [ ] [frontend] Stage token + wrapper: `--container-stage: 2600px` in `app.css` `@theme`, apply
    `max-w-stage` on the detail and owner pages, delete the three nested owner caps
 5. [ ] [frontend] Two-zone split on media detail: `minmax(0, 1.4fr) minmax(320px, 1fr)` at ≥1024px,
@@ -81,13 +83,14 @@ field-grid change is what makes the width change worth anything.
    `sm:col-span-2` → `grid-column: 1 / -1` on long-text and image fields
 7. [ ] [frontend] Same two-zone treatment on `films/[id]/+page.svelte` — confirm the banner's
    aspect ratio wants the same 1.4:1 split as the video player (handoff §9.3)
-8. [ ] [frontend] Density remodel — **BLOCKED on a design decision, see handoff §2e's warning
-   box.** "8 videos per row at max density" is exact under the column-count model but emergent
-   under the target-width model, and no single target width satisfies both ends: 220px gives 8
-   columns at 1920 but only 1 at 412, while ≤174px gives 2 at 412 but 10 at 1920. Resolve as
-   (1) keep column counts and extend `TIERS` upward for ultrawides — now the stronger candidate,
-   since the requirement was expressed in videos-per-row; (2) target width, accepting drift;
-   or (3) hybrid with a column clamp. Item 3's remap only matters under (2)/(3)
+8. [ ] [frontend] **Extend the density ladder upward** (decision taken — handoff §2e). Keep the
+   column-count model; add rungs `{2560: 12}` and `{3840: 16}` above the existing `{1536: 8}`, and
+   move `DENSITY_MAX` to derive from the **top** rung rather than the 1536 one. Keeps card width in
+   a ~170–320px band from 1536 to 5120 instead of ballooning to 1252px. **Not a two-line change:**
+   raising `DENSITY_MAX` to 16 makes stops 9–16 inert at 1920, so the slider's `max` must track
+   `viewportTierCap`, which in turn forces `invertDensity` to invert against the current cap and
+   `clamp()` to store the raw preference (else density ratchets down when you move from the
+   ultrawide to a laptop). Spec'd in §2e's warning box; QA §4.4–4.7
 9. [ ] [testing] Unit tests for the density remap incl. the garbage-value fallback; geometry
    assertions per QA §3
 10. [ ] [—] live three-skin QA on the real 5120x1440 and the real Pixel 7 Pro (QA §5 is written for
@@ -161,3 +164,28 @@ field-grid change is what makes the width change worth anything.
 - **Next session:** get a decision on §2e's three options *before* writing any remodel code. Item 2
   is done and independently useful, so the branch is no longer docs-only — it now carries a small,
   verified behavior change that stands on its own if the remodel is deferred.
+
+### 2026-09-06 (later still) · Density model decided: column counts kept, ladder to be extended
+- skills: design-handoff
+- **The §2e conflict is resolved in favour of the column-count model.** Kevin chose to keep
+  columns-per-row and extend `TIERS` upward rather than move to target card widths — consistent
+  with how he expressed the requirement in the first place. The target-width stop table is deleted
+  from the handoff; §2e now carries the replacement ladder (`{2560: 12}`, `{3840: 16}` above the
+  existing `{1536: 8}`) with card widths held in a ~170–320px band from 1536 to 5120.
+- **The spec gate closed as a consequence, not by being satisfied.** It existed only to document
+  the stored-preference remap that the target-width model would have forced. With column counts
+  retained, `holodex:media-density` keeps its meaning and nothing migrates — so the gate is `[~]`
+  not `[x]`, and the QA section that tested the migration was rewritten to test the ladder instead.
+- **Surfaced a new constraint rather than declaring the decision done:** extending the ladder
+  raises `DENSITY_MAX` to 16, which makes slider stops 9–16 inert at 1920 — the same dead-stop
+  defect the shipped work just fixed, at eight times the scale. The fix (slider `max` tracks
+  `viewportTierCap`) cascades into `invertDensity` and into whether `clamp()` stores the raw or
+  clamped preference, since clamping on write would ratchet density down when moving from the
+  ultrawide to a laptop. Written into §2e as a warning box and QA §4.5–4.7 so implementation is
+  mechanical.
+- **Deliberately not implemented this session.** The ladder is fully specified but is a three-file
+  change touching the inversion math and preference persistence; tacking it onto the end of a long
+  session is how the ratcheting bug would get shipped unnoticed. It is item 8, ready to start cold.
+- Kevin also confirmed keeping People poster at the derived 2:1 ratio (16 columns at max) rather
+  than giving it a separate ceiling.
+- **Next session:** item 4 (stage token) or item 8 (ladder) — both are unblocked and independent.
