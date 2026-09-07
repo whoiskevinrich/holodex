@@ -221,6 +221,46 @@ Measured: zones 547/390 at 1024, 1078/770 at 1920, 1503/1073 at 5120 with the se
 2600px and a 1260px left offset; Scenes spans 961 / 1872 / 2600 respectively. Stacks at 1023,
 splits at 1024.
 
+### 2c-ii. Stage-aligned grids
+
+Breaking the Scenes grid out of the stage cap fixes card size on an ultrawide (148px → 302px) but
+creates a new problem: a film with three scenes would strand three cards at the far edge of a
+5120px display, a screen-width from the hero they belong to. Most films have a handful of scenes,
+so that would be the common case.
+
+`VideoGrid`'s opt-in `stageAligned` mode resolves both. Three pieces, all required:
+
+1. **Fixed tracks instead of `1fr`.** `1fr` tracks always consume the container, so `fit-content`
+   could never shrink. The width comes from the **full** column count — cards are 302px whether the
+   film has three scenes or thirty.
+2. **Track count capped at the card count.** Declared-but-empty tracks still occupy their share, so
+   `repeat(16, 302px)` holds the grid open at full width with two cards. `repeat(min(cols, n), …)`
+   is what lets it shrink. This was the bug in the first attempt.
+3. **The CSS floor** — `width: fit-content; min-width: min(var(--container-stage), 100%);
+   max-width: 100%; margin-inline: auto; justify-content: start`.
+
+Measured at 5120 (16 columns, 302px cards, 2600px stage):
+
+| Scenes | Grid width | First card at | Reads as |
+|---|---|---|---|
+| 1–8 | 2600 | **1260** — the stage's left edge | aligned under the hero |
+| 9 | 2846 | 1137 | begins growing outward |
+| 12 | 3800 | 660 | centred, past the stage both sides |
+| 16 | 5072 | **24** — page edge | full width |
+| 20+ | 5072 | 24 | wraps to a second row |
+
+**The threshold is emergent, not a constant.** It flips at 9 because 8 cards measure 2528px, the
+last count fitting inside 2600. Change the card size or the stage and it moves on its own; a unit
+test pins that (`stageGrid.test.ts` asserts a 1600px stage would flip at 6 instead).
+
+**Below the stage width the mode is inert** — `min()` resolves to `100%` and the grid fills its
+container exactly as before. Verified: 1872px grid with 220px cards at 1920, and 2512px with 194px
+cards at 2560, both identical to the pre-change behaviour.
+
+The track maths live in `$lib/stageGrid` rather than inline, because the interesting behaviour
+happens at card counts the dev fixture cannot reach — its only film has two scenes — and the repo
+has no component-test harness. Same reasoning as `filmsPeopleLayout`.
+
 ### 2d. The field grid
 
 `media/[id]/+page.svelte:1713` changes from:
@@ -456,15 +496,10 @@ A full numbered checklist lives in
    rail it is two ~180px columns. Decide whether it should stack below some rail width (a container
    query would be the right tool) — QA 5.11.
 
-5. **Should a *grid* be exempt from the stage cap?** The film page's Scenes grid is the only
-   `VideoGrid` in the app inside a capped container, and above ~2650px that costs it roughly half
-   the card size the browse grid gets (148px vs 302px at 5120). §1c's own rule points at exempting
-   it: "a page uses extra width by adding columns; where there is no further column to add, content
-   stops growing" — a grid can always add columns, which is exactly why the browse grids are already
-   exempt. The counter-argument is that the film page is a document about one film, and a Scenes
-   grid that breaks the stage while the hero stays centred makes the page change width mid-scroll.
-   This is a visual judgment, deliberately not made unilaterally. If exempted, the fix is to move
-   the Scenes section outside the `max-w-stage` wrapper as a sibling.
+5. ~~Should a *grid* be exempt from the stage cap?~~ — **RESOLVED, and better than either
+   option originally posed.** The answer was not "cap it" or "break it out" but both: the Scenes
+   grid now sits outside the cap and is `stageAligned`, so it *holds* the stage width until it has
+   enough cards to outgrow it, then grows and centres. See §2c-ii.
 
 6. **Rail sections keep their existing chrome.** The wireframes drew rail items as bordered cards
    for legibility, but the implementation moved the existing sections across unchanged — Tags and

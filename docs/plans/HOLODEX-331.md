@@ -101,7 +101,7 @@ field-grid change is what makes the width change worth anything.
    `components/sort/DensitySlider.svelte`; `effectiveDensity()`/`posterColumns()` centralise the
    narrowing rule and the People 2:1 ratio. Card width 172–302px from 1536 to 5120; a 5120 poster
    row is 453px tall, was 1878px
-9. [~] [testing] Ladder covered by `density.test.ts` (tier boundaries, card-width bands for both
+9. [~] [testing] Ladder covered by `density.test.ts`, stage-aligned grid by `stageGrid.test.ts` (tier boundaries, card-width bands for both
    grids, inversion against a dynamic cap). Layout geometry assertions per QA §3 still needed
 10. [ ] [—] live three-skin QA on the real 5120x1440 and the real Pixel 7 Pro (QA §5 is written for
     a human on hardware, not an emulator), push, sync Jira
@@ -283,3 +283,29 @@ field-grid change is what makes the width change worth anything.
   and to QA §1.1.
 - **Next session:** items 9–11 — testing strategy, live three-skin QA on real hardware, then
   `/simplify` + `/code-review` on the whole implementation before marking the PR ready.
+
+### 2026-09-07 (later still) · Stage-aligned Scenes grid
+- skills: design-handoff
+- **Kevin's question turned a binary into a better third option.** I had framed §9.6 as "cap the
+  Scenes grid or break it out". He asked whether it could stay left-justified while it fits the
+  stage and centre once it reaches the edges — which is both, and removes the sparse-row cost that
+  made me hesitate to break it out at all.
+- **Implemented as `stageAligned`, opt-in on `VideoGrid`,** used only by the film Scenes list.
+  Three pieces, all load-bearing: fixed tracks instead of `1fr` (`1fr` always consumes the
+  container, so `fit-content` could never shrink); track **count** capped at the card count
+  (declared-but-empty tracks hold the grid open at full width — this was the bug in my first
+  prototype, caught by measuring rather than by reasoning); and the CSS floor
+  `width: fit-content; min-width: min(var(--container-stage), 100%); margin-inline: auto`.
+- **Measured at 5120:** ≤8 scenes → grid 2600px with its left edge exactly on the stage's (1260px),
+  302px cards; 9 → 2846px; 12 → 3800px; 16 → 5072px at the page edge. Card size constant throughout.
+  Below the stage the mode is inert — 1872px/220px at 1920 and 2512px/194px at 2560, both identical
+  to pre-change.
+- **Track maths extracted to `$lib/stageGrid` and unit-tested** (11 cases), following
+  `filmsPeopleLayout`'s precedent: the interesting behaviour lives at card counts the dev fixture
+  cannot reach — its only film has two scenes, and the attach dialog only offers studio/cast
+  matches — and the repo has no component-test harness. The tests pin the 9-card threshold *and*
+  that it is emergent: a 1600px stage would flip at 6 with no code change.
+- **Left for a human:** whether a 9–12 scene film, sitting partly outside the stage on both sides
+  while the hero stays centred, reads as deliberate (QA 6.9). Arithmetic is pinned; taste is not.
+- **Next session:** items 9–11 — testing strategy, real-hardware QA, then `/simplify` +
+  `/code-review` over the whole implementation before marking the PR ready.

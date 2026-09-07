@@ -207,3 +207,15 @@ list.
   reports `display: grid`, `gap: 24px`, and two tracks at ≥1024px on both `/media/{id}` and
   `/films/{id}`; a single track at 1023. The ratio and the 320px rail floor must exist only in
   `app.css` — grep that no route repeats `grid-cols-[minmax(`.
+
+- **6.7** `[agent]` **Stage-aligned Scenes grid** (handoff §2c-ii). At 5120 with a film of ≤8
+  scenes: the grid is 2600px wide and its left edge equals the stage section's left edge (1260px),
+  with 302px cards — *not* 148px, and *not* stranded at x=24. `grid-template-columns` reports one
+  fixed `302px` track per card, never more tracks than cards.
+- **6.8** `[agent]` **The mode is inert below the stage.** At 2560 the grid is 2512px at x=24 with
+  194px cards, and at 1920 it is 1872px at x=24 with 220px cards — both identical to the behaviour
+  before `stageAligned` existed. At 412 a single 364px track. No overflow inside `main` at any width.
+- **6.9** `[human]` **Does the growth read as deliberate?** A film with 9–12 scenes puts the grid
+  partly outside the stage on both sides while the hero above stays centred. Unit tests pin the
+  arithmetic, but whether the page reads as intentional or as a misaligned container needs eyes —
+  the dev fixture's only film has 2 scenes, so this needs a film with a real scene list.

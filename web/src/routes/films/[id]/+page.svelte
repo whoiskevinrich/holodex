@@ -609,36 +609,38 @@
 					{/if}
 				</div>
 			</div>
+		</section>
 
-			<!-- 2c. Scenes list -- spans the full stage beneath both zones. VideoGrid picks its
-			     column count from the VIEWPORT (effectiveDensity), not its container, so nesting it
-			     in the 1.4fr column would ask for up to 16 columns inside 1503px: 88px cards.
-			     Full-stage width fixes that up to ~2650px viewport, where it matches the browse grid
-			     exactly (218px cards at 1920, 195px at 2560). Above that the stage cap binds and
-			     browse pulls ahead -- measured at 5120/max density, Scenes gets 16 columns in 2600px
-			     (148px cards) against browse's 16 in 5072px (302px). Usable, and far better than the
-			     old max-w-4xl, but not parity. Whether a *grid* should be exempt from the stage cap
-			     the way the browse grids are is an open design question (handoff §9.6), not an
-			     oversight. -->
-			<section class="space-y-2">
-				<div class="flex items-center justify-between">
-					<h2 class="text-xs uppercase tracking-wide text-muted">Scenes</h2>
-					{#if isOwner}
-						<button onclick={() => (attachOpen = true)} class="btn-accent px-3 py-1.5 text-sm">
-							Attach videos…
-						</button>
-					{/if}
-				</div>
-				{#if scenes.length === 0}
-					<p class="py-8 text-center text-sm text-muted">No scenes attached yet.</p>
-				{:else}
-					<VideoGrid
-						videos={sortedScenes.map((s) => s.video)}
-						sceneNumbers={sceneNumberOf}
-						onEditScene={isOwner ? (v) => (editingSceneVideo = v) : undefined}
-					/>
+		<!-- 2c. Scenes list -- deliberately OUTSIDE the stage cap (HOLODEX-331 §9.6). A grid is
+		     the one thing that can always spend width on another column, which is why the browse
+		     grids are exempt from the cap too; capping this one held cards to 148px at 5120 where
+		     browse gets 302px.
+
+		     Breaking out alone would strand a three-scene film at the far edge of an ultrawide,
+		     far from the hero above it, so the grid is `stageAligned`: it holds the stage width
+		     until it has enough cards to outgrow it, then grows and centres. Below the stage width
+		     none of this applies and it fills its container as before.
+
+		     `mt-6` replaces the spacing the stage section used to give it as a child. -->
+		<section class="mt-6 space-y-2">
+			<div class="flex items-center justify-between">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Scenes</h2>
+				{#if isOwner}
+					<button onclick={() => (attachOpen = true)} class="btn-accent px-3 py-1.5 text-sm">
+						Attach videos…
+					</button>
 				{/if}
-			</section>
+			</div>
+			{#if scenes.length === 0}
+				<p class="py-8 text-center text-sm text-muted">No scenes attached yet.</p>
+			{:else}
+				<VideoGrid
+					videos={sortedScenes.map((s) => s.video)}
+					sceneNumbers={sceneNumberOf}
+					onEditScene={isOwner ? (v) => (editingSceneVideo = v) : undefined}
+					stageAligned
+				/>
+			{/if}
 		</section>
 	{/if}
 </AsyncState>

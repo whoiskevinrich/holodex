@@ -359,6 +359,27 @@
 		aspect-ratio: 2 / 3;
 	}
 
+	/* ---- Stage-aligned grid (HOLODEX-331 §9.6) ----
+	   Opt-in via VideoGrid's `stageAligned` prop, used by the film page's Scenes list.
+	   The grid holds the stage width until it has enough cards to outgrow it, then grows
+	   and centres — so a film with three scenes stays aligned under the hero instead of
+	   stranding three cards at the far edge of an ultrawide, while a film with twenty
+	   uses the whole display.
+
+	   This only does anything above the stage width; below it `min()` resolves to 100%
+	   and the grid fills its container exactly as it always has. Requires fixed-width
+	   tracks (VideoGrid computes them) rather than `1fr`: with `1fr` the tracks always
+	   consume the container, so `fit-content` could never shrink. VideoGrid also caps the
+	   *track count* at the card count, since declared-but-empty tracks would hold the
+	   grid open at full width no matter how few cards there are. */
+	.video-grid.stage-aligned {
+		justify-content: start;
+		width: fit-content;
+		min-width: min(var(--container-stage), 100%);
+		max-width: 100%;
+		margin-inline: auto;
+	}
+
 	/* ---- Reusable person-image frame (F25, ADR-038) ----
 	   Aspect-locked well for the three person-image ratios, parallel to
 	   .video-frame. The base owns the shared mechanics (token background,
