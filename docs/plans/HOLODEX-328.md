@@ -33,19 +33,23 @@ and affordance only; no field, namespace, or decision-model seam is touched.
 - [~] spec `write-spec` — not applicable; no behavior or requirement change, layout and affordance only
 - [~] architecture `architecture` — not applicable; no data-model or seam change
 - [x] design `design-handoff` — `docs/design/media-detail-films-people-handoff.md` + `media-detail-films-people-mockup.svg`
-- [ ] frontend
-- [ ] testing `testing-strategy`
+- [x] frontend
+- [x] testing `testing-strategy` — `filmsPeopleLayout` extracted as a pure function so the
+  four-state matrix is unit-testable (this repo has no component-test harness), 10 cases covering
+  all four link states × owner/visitor plus films_enabled off
 - [~] security `security-review` — not applicable; no auth, access, or infrastructure change
-- [ ] three-skin QA — Cinémathèque / Broadcast / Brutalist, owner **and** visitor
+- [x] three-skin QA — Cinémathèque / Broadcast / Brutalist, owner **and** visitor; found and fixed
+  a real AA contrast failure on the dim pill (see the session log)
 
 ## Up next — ordered (position = priority)
 
 1. [x] [design] Handoff doc + committed SVG mockup, Jira story filed against epic HOLODEX-12, branch renamed, In Progress fired — `docs/design/`
-2. [ ] [frontend] Collapse rule: empty Films → text CTA (drop the heading + dashed box), state-1 CTAs inline, stack-unless-both-populated — `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [frontend] Shared fixed tile width: `PeopleGrid`'s `grid-cols-3/4/6` → `flex flex-wrap` at the Films tile size (watch the Film page's Cast section, same component) — `web/src/lib/components/entity/PeopleGrid.svelte`
-4. [ ] [frontend] Scene pill port: overlay at `right-1.5 top-1.5` with `#N` / `—` / `Full`, `svelte:element` button-vs-span exactly as `VideoCard` does it; move the film chip's remove `×` to top-left — `web/src/routes/media/[id]/+page.svelte`
-5. [ ] [testing] Coverage aligned to the handoff's state matrix, including the visitor-blank case
-6. [ ] [—] `/simplify`, live three-skin QA (owner + visitor), push, open PR, sync Jira
+2. [x] [frontend] Collapse rule: empty Films → text CTA (drop the heading + dashed box), state-1 CTAs inline, stack-unless-both-populated — `web/src/routes/media/[id]/+page.svelte`
+3. [x] [frontend] Shared fixed tile width: `PeopleGrid`'s `grid-cols-3/4/6` → `flex flex-wrap` at the Films tile size (watch the Film page's Cast section, same component) — `web/src/lib/components/entity/PeopleGrid.svelte`
+4. [x] [frontend] Scene pill port: overlay at `right-1.5 top-1.5` with `#N` / `—` / `Full`, `svelte:element` button-vs-span exactly as `VideoCard` does it; move the film chip's remove `×` to top-left — `web/src/routes/media/[id]/+page.svelte`
+5. [x] [testing] Coverage aligned to the handoff's state matrix, including the visitor-blank case
+6. [x] [—] live three-skin QA (owner + visitor), push, sync Jira
+7. [ ] [—] `/simplify` + `/code-review` on the implementation diff, then mark PR #308 ready for review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -101,3 +105,42 @@ and affordance only; no field, namespace, or decision-model seam is touched.
   HOLODEX-329 and shipped on this branch rather than its own, since it edits the same chip markup
   the redesign rewrites. `go build`, `go test ./internal/repo ./internal/api`, and
   `npm run check` (0 errors) all pass.
+
+### 2026-09-06 · Implemented the design; three-skin QA caught a real AA failure
+- skills: graphify
+- handoff: built all three frontend steps. `PeopleGrid` swapped its responsive
+  `grid-cols-3/4/6` for a `flex flex-wrap` row of fixed `w-20` tiles (the film page's Cast
+  section rides along, as the handoff said it would) and now renders the bare "+ Add person"
+  CTA with **no** `<section>`/`<h2>` when empty — which also let the file's previously-DEAD
+  `personPicker` snippet finally do its job, collapsing two duplicated `<PersonPicker>` mounts
+  into one. On the media page the old `filmsVisible`/`peopleVisible` booleans were the wrong
+  shape: they conflated "has content" with "shows the owner's empty CTA", which the new rule
+  needs to distinguish. Rather than grow four inline `$derived` booleans, extracted the whole
+  matrix to `$lib/filmsPeopleLayout.ts` as a pure function — the repo has no component-test
+  harness (every frontend test is a `lib/*.test.ts` unit), so this is the only honest way to
+  pin a documented 8-case matrix; 10 tests now cover it. Markup restructured into three
+  snippets (`filmsSection` / `addFilmCta` / `peopleSection`) rendered from two branches, so
+  each piece exists once. The scene pill ports `VideoCard`'s `svelte:element` button-vs-span
+  trick verbatim, and remove moved to the tile's top-**left** to yield the corner.
+
+  **Three-skin QA earned its keep.** The handoff had flagged `text-muted` on `bg-black/70` as
+  "the risky one" and it genuinely failed: over the light `bg-logo-plate` poster, 30% of the
+  plate bleeding through the translucent chip put the `—`/`Full` pill at **3.14 / 2.41 /
+  2.85** across the three skins — an AA failure on 10px text. Switched the dim variant to an
+  opaque `bg-bg` (also better per the tokens-only rule than a hardcoded `black/70`): **6.31 /
+  4.90 / 5.73**, all passing. Deliberately did NOT touch `VideoCard`, which has the same
+  latent problem over a bright thumbnail — different file, different surface, content-dependent
+  rather than always-wrong — filed as HOLODEX-330 instead. Updated the handoff (§5 pill table,
+  §8 contrast note now records measured values) and the committed SVG mockup (`FILM`→`FILMS`,
+  opaque dim pills) so the artifacts match what ships.
+
+  Live-verified every cell of the matrix on `backend-films`, owner and visitor: state 1 owner
+  = two CTAs at identical `top`, no headings; state 1 visitor = nothing in the DOM at all (no
+  headings, no CTAs, no `#field-actors`); state 2 = film CTA above a full-width People
+  section; state 3 = Films section above the person CTA, with `Full` rendering as an inert
+  span; state 4 = both headings at the same `top`, all tiles `w:80` at the same `top`. Proved
+  the visitor pill's click-through with a hit-test (`elementFromPoint` at the pill's centre
+  returns the `<img>` beneath; following it navigates `/media/6 → /films/1`) — the exact
+  regression HOLODEX-326's code review caught, so worth pinning. Owner pill opens
+  `EditSceneNumberDialog`. `npm run check` 0 errors, 205 tests pass. Next: `/simplify` and
+  `/code-review` on the implementation diff, then mark PR #308 ready.

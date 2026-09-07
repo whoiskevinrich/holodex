@@ -38,6 +38,7 @@
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
+	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
@@ -224,11 +225,18 @@
 		if (canonical === 'overview') return !!overviewField;
 		return canonical === 'studio' || canonical === 'title' || canonical === 'genres' || canonical === 'actors';
 	}
-	// Films + People are co-located in one row (design handoff, media-detail-reorder) —
-	// each keeps its own pre-existing gate, but the row itself must contribute nothing
-	// to the page when both sides are hidden.
-	const filmsVisible = $derived(!!activity.caps?.films_enabled && (isOwner || films.length > 0));
-	const peopleVisible = $derived(isOwner || (video?.people?.length ?? 0) > 0);
+	// Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md §2).
+	// The four-state rule lives in $lib/filmsPeopleLayout so its matrix can be unit-tested
+	// — the old filmsVisible/peopleVisible booleans conflated "has content" with "shows
+	// the owner's empty CTA", which are now different layout positions.
+	const layout = $derived(
+		filmsPeopleLayout({
+			filmsEnabled: !!activity.caps?.films_enabled,
+			isOwner,
+			filmCount: films.length,
+			peopleCount: video?.people?.length ?? 0
+		})
+	);
 	// HOLODEX-119: every video-capable provider gets its own match/enrich/clear
 	// affordance (the backend is already per-provider — entity_enrichment keyed by
 	// provider). Was collapsed to the first capable provider, so a second matched
@@ -1280,114 +1288,152 @@
 			</section>
 		{/if}
 
-		<!-- Films + People (media-detail-reorder): co-located in one row so Films can
-		     shrink-wrap beside People instead of stacking as its own full-width section.
-		     Each side keeps its own pre-existing gate; the row contributes nothing when
-		     both are hidden (filmsVisible/peopleVisible above). -->
-		{#if filmsVisible || peopleVisible}
-			<div class="flex items-start gap-6">
-				{#if filmsVisible}
-					<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid,
-					     not Studio's read-only pills — film_videos is many-to-many like video_people. -->
-					<section class="max-w-[50%] flex-none space-y-1.5">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
-						<ul class="flex flex-wrap gap-3">
-							{#each films as f (f.film_id)}
-								<!-- Edit in place (HOLODEX-326): owner-only, and only for a scene attachment --
-								     a full-film row has no scene number to edit. When not editable, the badge
-								     stays INSIDE the <a> (as it was pre-HOLODEX-326) so clicking it still
-								     navigates to the film -- pulling it out to a sibling <button> only happens
-								     for the editable case, which needs it out to avoid nesting an interactive
-								     element inside the anchor. -->
-								{@const editable = isOwner && !f.is_full_film}
-								{#snippet filmPoster()}
-									<!-- The film's own poster when it has one, monogram plate otherwise —
-									     same served URL the film detail page uses, so the two agree on
-									     which image wins for a film carrying both an upload and a
-									     provider poster. `cover` (not the film header's `contain`) matches
-									     the People chips this row sits beside: at chip size, letterboxing
-									     an almost-2:3 source against the plate reads as a bug. -->
-									<div
-										class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
-									>
-										{#if f.poster_url}
-											<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
-										{:else}
-											<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
-												>{monogram(f.film_name)}</span
-											>
-										{/if}
-									</div>
-									<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
-								{/snippet}
-								<li class="curation-chip group relative w-20 shrink-0">
-									{#if editable}
-										<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-											{@render filmPoster()}
-										</a>
-										<button
-											type="button"
-											onclick={() => (editingSceneFilm = f)}
-											aria-label={`Edit scene number in ${f.film_name}`}
-											class="mt-1.5 block w-full rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink hover:ring-1 hover:ring-inset hover:ring-accent-ink/50"
-										>
-											{f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
-										</button>
-									{:else}
-										<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-											{@render filmPoster()}
-											<span
-												class="mt-1.5 block rounded-theme bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-accent-ink"
-											>
-												{f.is_full_film ? 'Full film' : f.scene_number !== null ? `#${f.scene_number}` : 'Unnumbered'}
-											</span>
-										</a>
-									{/if}
-									{#if isOwner}
-										<button
-											type="button"
-											onclick={() => removeFilm(f)}
-											disabled={filmBusyKey === f.film_id}
-											aria-label={`Remove ${f.film_name}`}
-											class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-										>
-											{filmBusyKey === f.film_id ? '…' : '×'}
-										</button>
-									{/if}
-								</li>
-							{/each}
-							{#if isOwner}
-								<li class="w-20 shrink-0">
-									<button
-										type="button"
-										onclick={() => (filmAttachOpen = true)}
-										class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
-									>
-										<span class="text-2xl leading-none">+</span>
-										<span class="text-xs">Attach film</span>
-									</button>
-								</li>
-							{/if}
-						</ul>
-						{#if filmRemoveError}
-							<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
-						{/if}
-					</section>
-				{/if}
+		<!-- Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md).
+		     One rule drives all four link states: a section renders its heading and tiles only
+		     when it has content, an empty side degrades to a bare "+ Add …" text CTA with no
+		     heading and no dashed box, and the two stack vertically unless BOTH are populated
+		     -- only then do they sit side by side, at equal tile size. Order is always Films
+		     then People. A visitor with neither linked gets nothing at all: every branch is
+		     gated on real content or on an owner-only CTA. -->
+		{#snippet filmsSection()}
+			<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid,
+			     not Studio's read-only pills — film_videos is many-to-many like video_people. -->
+			<section class="space-y-1.5">
+				<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
+				<ul class="flex flex-wrap gap-3">
+					{#each films as f (f.film_id)}
+						<!-- The scene number rides the poster as a corner pill (HOLODEX-328), the same
+						     shape and vocabulary as the film detail page's Scenes grid
+						     (video/VideoCard.svelte): "#N" for a numbered scene, a dim em-dash for an
+						     unnumbered one, a dim "Full" for a full-film link. It replaces the old
+						     below-poster badge block, which is what made a film chip taller than a
+						     person chip. Owner-editable except on a full film, which carries no scene
+						     number to edit (HOLODEX-326) -- and, exactly as VideoCard does it, the
+						     non-editable case is a pointer-events-none <span> so a click falls through
+						     to the <a> beneath and navigates instead of dying on the badge.
 
-				<!-- id="field-actors": the actors facet's deep link, for the same reason. -->
-				<div id="field-actors" class="min-w-0 flex-1">
-					<PeopleGrid
-						title="People"
-						people={video.people ?? []}
-						{isOwner}
-						attach={attachPerson}
-						detach={detachPerson}
-						bind:busyKey={personBusyKey}
-						onRemove={removeGridPerson}
-						removeError={personRemoveError}
-					/>
-				</div>
+						     The dim variant is `bg-bg` (an opaque token), NOT VideoCard's
+						     `bg-black/70`: VideoCard sits over a video thumbnail, this sits over the
+						     light `bg-logo-plate` poster, and 30% of that plate bleeding through drags
+						     text-muted to a measured 2.4-3.1:1 across the three skins -- an AA failure
+						     on 10px text. Opaque restores it, and costs nothing visually since the
+						     translucency was never doing work over a poster. -->
+						{@const editable = isOwner && !f.is_full_film}
+						{@const dimPill = f.is_full_film || f.scene_number === null}
+						{#snippet filmPoster()}
+							<!-- The film's own poster when it has one, monogram plate otherwise —
+							     same served URL the film detail page uses, so the two agree on
+							     which image wins for a film carrying both an upload and a
+							     provider poster. `cover` (not the film header's `contain`) matches
+							     the People chips this row sits beside: at chip size, letterboxing
+							     an almost-2:3 source against the plate reads as a bug. -->
+							<div
+								class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
+							>
+								{#if f.poster_url}
+									<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
+								{:else}
+									<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+										>{monogram(f.film_name)}</span
+									>
+								{/if}
+							</div>
+							<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+						{/snippet}
+						<li class="curation-chip group relative w-20 shrink-0">
+							<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+								{@render filmPoster()}
+							</a>
+							<svelte:element
+								this={editable ? 'button' : 'span'}
+								type={editable ? 'button' : undefined}
+								role={editable ? 'button' : undefined}
+								onclick={editable ? () => (editingSceneFilm = f) : undefined}
+								aria-label={editable ? `Edit scene number in ${f.film_name}` : undefined}
+								class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {editable
+									? 'hover:ring-accent focus-visible:ring-accent'
+									: 'pointer-events-none'} {dimPill ? 'bg-bg text-muted' : 'bg-accent text-accent-ink'}"
+							>
+								{f.is_full_film ? 'Full' : f.scene_number !== null ? `#${f.scene_number}` : '—'}
+							</svelte:element>
+							{#if isOwner}
+								<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):
+								     the scene pill owns the top-right corner the Scenes grid trained the
+								     eye to check. The two only share the tile while it is hovered or
+								     focused, since remove stays inside .curation-actions. -->
+								<button
+									type="button"
+									onclick={() => removeFilm(f)}
+									disabled={filmBusyKey === f.film_id}
+									aria-label={`Remove ${f.film_name}`}
+									class="curation-actions absolute left-1.5 top-1.5 z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
+								>
+									{filmBusyKey === f.film_id ? '…' : '×'}
+								</button>
+							{/if}
+						</li>
+					{/each}
+					{#if isOwner}
+						<li class="w-20 shrink-0">
+							<button
+								type="button"
+								onclick={() => (filmAttachOpen = true)}
+								class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
+							>
+								<span class="text-2xl leading-none">+</span>
+								<span class="text-xs">Attach film</span>
+							</button>
+						</li>
+					{/if}
+				</ul>
+				{#if filmRemoveError}
+					<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
+				{/if}
+			</section>
+		{/snippet}
+		{#snippet addFilmCta()}
+			<!-- Matches PersonPicker's empty-grid CTA exactly (btn-quiet, same size): the two
+			     are the same affordance for the same kind of nothing and must not look like two
+			     different ones, which is what the old dashed-box-vs-text-link split did. -->
+			<button type="button" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
+				+ Add film
+			</button>
+		{/snippet}
+		{#snippet peopleSection()}
+			<!-- id="field-actors": the actors facet's deep link. Rendered in exactly one branch
+			     below, so the id is never duplicated. PeopleGrid itself collapses to the bare
+			     "+ Add person" CTA (no heading) when the grid is empty. -->
+			<div id="field-actors" class="min-w-0">
+				<PeopleGrid
+					title="People"
+					people={video?.people ?? []}
+					{isOwner}
+					attach={attachPerson}
+					detach={detachPerson}
+					bind:busyKey={personBusyKey}
+					onRemove={removeGridPerson}
+					removeError={personRemoveError}
+				/>
+			</div>
+		{/snippet}
+
+		{#if layout.row === 'side-by-side'}
+			<div class="flex items-start gap-6">
+				<div class="max-w-[50%] flex-none">{@render filmsSection()}</div>
+				<div class="min-w-0 flex-1">{@render peopleSection()}</div>
+			</div>
+		{:else if layout.row !== 'hidden'}
+			<!-- Stacked, except when BOTH sides are just a CTA: two bare text buttons share one
+			     line rather than burning two rows on a video that links nothing yet. -->
+			<div class={layout.row === 'inline-ctas' ? 'flex flex-wrap items-center gap-4' : 'space-y-4'}>
+				{#if layout.films === 'section'}
+					{@render filmsSection()}
+				{:else if layout.films === 'cta'}
+					{@render addFilmCta()}
+				{/if}
+				{#if layout.people !== 'hidden'}
+					{@render peopleSection()}
+				{/if}
 			</div>
 		{/if}
 

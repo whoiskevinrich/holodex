@@ -120,8 +120,16 @@ what makes a film chip the same height as a person chip.
 | Attachment | Content | Fill | Owner-editable |
 |---|---|---|---|
 | Numbered scene | `#4` | `bg-accent text-accent-ink` | yes |
-| Unnumbered scene | `—` | `bg-black/70 text-muted` | yes |
-| Full film (`is_full_film`) | `Full` | `bg-black/70 text-muted` | **no** |
+| Unnumbered scene | `—` | `bg-bg text-muted` | yes |
+| Full film (`is_full_film`) | `Full` | `bg-bg text-muted` | **no** |
+
+**The dim fill is `bg-bg`, not VideoCard's `bg-black/70`.** VideoCard's badge sits over a video
+thumbnail; this one sits over the light `bg-logo-plate` poster, and letting 30% of that plate
+bleed through drags `text-muted` to a measured **3.14 / 2.41 / 2.85** across Cinémathèque /
+Broadcast / Brutalist — an AA failure on 10px text. Opaque `bg-bg` restores it to **6.31 / 4.90 /
+5.73** and costs nothing visually, since the translucency was never doing work over a poster.
+(`VideoCard` itself still uses `bg-black/70`; over a bright thumbnail it has the same latent
+problem, tracked separately — not changed here.)
 
 *Full film is inert for everyone* — a full-film attachment has no scene number to edit, which is
 already the rule today (`{@const editable = isOwner && !f.is_full_film}`). It keeps a pill rather
@@ -194,8 +202,9 @@ position is the point of the change.
 - **Headings** stay `<h2>` inside `<section>`. When a section collapses to a text CTA it emits no
   heading — so the CTA must be a `<button>` with its own accessible name (`Add film`, `Add person`),
   not a bare styled `<span>`.
-- **Contrast:** re-verify `text-accent` on `bg-bg` and `text-muted` on `bg-black/70` for all three
-  skins. The `—` pill is the risky one — it is muted-on-dark-on-light-plate.
+- **Contrast: resolved.** The `—` / `Full` pill was the risky one (muted on a translucent dark
+  chip over a light plate) and it did fail — see §5. Fixed by making the chip opaque; measured at
+  6.31 / 4.90 / 5.73 across the three skins. Re-measure if either token moves.
 
 ## 9. QA
 
@@ -224,9 +233,9 @@ Brutalist**, in **both** owner and visitor sessions.
 button corner move, owner and visitor variants.
 
 **Out:**
-- **Heading pluralization.** The heading stays `Films` / `People` regardless of count. The mockup
-  shows `FILM` singular because the source sketch did; a count-dependent label is a third rule to
-  maintain for no functional gain. Revisit only if review asks.
+- **Heading pluralization.** The heading stays `Films` / `People` regardless of count — a
+  count-dependent label is a third rule to maintain for no functional gain. The source sketch
+  wrote `FILM` singular; the mockup has been corrected to `FILMS` so it matches what ships.
 - **Extracting the shared tile component** — that is
   [HOLODEX-296](https://whoiskevinrich.atlassian.net/browse/HOLODEX-296). This handoff specifies the
   *sizing contract* that extraction should satisfy; it does not require the extraction to land first.
