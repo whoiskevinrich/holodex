@@ -31,6 +31,59 @@
 	--radius-theme: var(--radius);
 }
 
+/* Reading-width ceiling for the detail and owner pages, exposed as `max-w-stage`
+   (HOLODEX-331). Components reference it by name rather than as `max-w-[2600px]`.
+   Deliberately *not* applied to the browse grids: a grid always has another column to
+   add, so it stays edge-to-edge, while a rail stretched across 5120px would put a
+   field's value a screen-width from its label.
+
+   A plain `@theme`, not the `inline` block above: this is a constant, not an alias for
+   a per-skin `var(--x)`, and `inline` would resolve it into the utility *without*
+   emitting `--container-stage` as a custom property — leaving `var(--container-stage)`
+   undefined for any future calc() or component rule. Verified: under `inline` the
+   variable did not appear on `:root`. */
+@theme {
+	--container-stage: 2600px;
+}
+
+/* The detail pages' two-zone shell (HOLODEX-331): a subject column that stops growing,
+   beside a metadata rail that takes the width which used to be gutter. Named here rather
+   than repeated at each call site — the media and film detail pages must share one ratio
+   and one rail floor, and as a pair of arbitrary-value class strings they would drift.
+
+   `minmax(0, …)` on the subject column is load-bearing: a bare `1.4fr` has min-width:auto,
+   so a single long unbroken title or file path would push the column past the container and
+   squeeze the rail. The 320px rail floor is where a field label, its value and its
+   SourceBadge chip row still fit on one line.
+
+   Below `lg` this stays a single column, so the rail's cards stack under the subject in DOM
+   order — visual and focus order never diverge, and no `order-*` is needed anywhere. The gap
+   and the breakpoint are pulled from the theme scale rather than restated, so they cannot
+   drift from `gap-6` / `lg:` if either is ever retuned. */
+@utility stage-grid {
+	display: grid;
+	gap: --spacing(6);
+	@media (width >= theme(--breakpoint-lg)) {
+		grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+	}
+}
+
+/* Label/value field lists that add columns as they get room (HOLODEX-331 §2d) — the
+   resolved-metadata list, Manage, File, and the raw provider payloads. Named once rather
+   than repeated as a class string per list, so the floor below is retuned in one place.
+
+   320px is where a label, its value and its SourceBadge chip row still fit on one line.
+   The `min(320px, 100%)` guard is load-bearing, not defensive noise: a bare
+   `minmax(320px, 1fr)` makes 320px a hard floor, so in a narrower container the track
+   overflows instead of shrinking. At a 320px viewport these lists sit in 240px of content
+   box (320 − 48 page padding − 32 of their own p-4) and a bare floor overflowed it by 80px,
+   forcing horizontal page scroll and failing WCAG 1.4.10 reflow. Every viewport under
+   400px was affected. `min()` lets the track collapse to the container instead. */
+@utility field-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
+
 /*
  * SKIN TOKENS (ADR-021, docs/design/theming.md)
  * Every visual difference between skins lives here as CSS custom properties.
@@ -320,6 +373,27 @@
 	   are suppressed by their own rules (above) via :not([data-layout='poster']). */
 	.video-grid[data-layout='poster'] .video-frame {
 		aspect-ratio: 2 / 3;
+	}
+
+	/* ---- Stage-aligned grid (HOLODEX-331 §9.6) ----
+	   Opt-in via VideoGrid's `stageAligned` prop, used by the film page's Scenes list.
+	   The grid holds the stage width until it has enough cards to outgrow it, then grows
+	   and centres — so a film with three scenes stays aligned under the hero instead of
+	   stranding three cards at the far edge of an ultrawide, while a film with twenty
+	   uses the whole display.
+
+	   This only does anything above the stage width; below it `min()` resolves to 100%
+	   and the grid fills its container exactly as it always has. Requires fixed-width
+	   tracks (VideoGrid computes them) rather than `1fr`: with `1fr` the tracks always
+	   consume the container, so `fit-content` could never shrink. VideoGrid also caps the
+	   *track count* at the card count, since declared-but-empty tracks would hold the
+	   grid open at full width no matter how few cards there are. */
+	.video-grid.stage-aligned {
+		justify-content: start;
+		width: fit-content;
+		min-width: min(var(--container-stage), 100%);
+		max-width: 100%;
+		margin-inline: auto;
 	}
 
 	/* ---- Reusable person-image frame (F25, ADR-038) ----

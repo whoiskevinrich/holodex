@@ -15,7 +15,7 @@
 	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
-	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
+	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
@@ -369,30 +369,7 @@
 			/>
 		{/if}
 
-		<div class="min-w-[160px]">
-			<span class="mb-1 block text-xs text-muted">Density</span>
-			<div class="flex items-center gap-2">
-				<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-					<rect x="3" y="3" width="7" height="7" rx="1" />
-					<rect x="14" y="3" width="7" height="7" rx="1" />
-					<rect x="3" y="14" width="7" height="7" rx="1" />
-					<rect x="14" y="14" width="7" height="7" rx="1" />
-				</svg>
-				<input
-					type="range"
-					min={DENSITY_MIN}
-					max={DENSITY_MAX}
-					step="1"
-					aria-label="Grid density"
-					value={invertDensity(mediaDensity.value)}
-					oninput={(e) => (mediaDensity.value = invertDensity(Number(e.currentTarget.value)))}
-					class="accent-accent"
-				/>
-				<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-					<rect x="4" y="4" width="16" height="16" rx="2" />
-				</svg>
-			</div>
-		</div>
+		<DensitySlider label="Density" />
 
 		<MappedFacets
 			bind:mapped

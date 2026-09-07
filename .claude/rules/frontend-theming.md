@@ -14,7 +14,7 @@ The UI is built on semantic design tokens with three switchable skins (see
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
   utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
   `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
-  `rounded-theme`, `text-warn`/`border-warn`). **Never** a literal palette or value in a
+  `rounded-theme`, `text-warn`/`border-warn`, `max-w-stage`). **Never** a literal palette or value in a
   component: no `zinc-*`, `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px`
   radii. A hardcoded value is a theming bug — it won't react to the skin. Use `--warn`
   (`text-warn`/`border-warn`) for error/attention states — deliberately distinct from
@@ -24,6 +24,7 @@ The UI is built on semantic design tokens with three switchable skins (see
   markup. Layout-mode rules attach to `.video-grid[data-layout='...']` (operator-set
   via `holodex.yaml: card_layout`; not a skin — do not gate with `[data-theme]`).
   Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
+  Page width is a token too: a page-level cap is `max-w-stage`, never `max-w-[2600px]`; the two-zone detail shell is `stage-grid` and label/value lists are `field-grid` (both in `app.css`), never a repeated `grid-cols-[…]` string. `rg 'max-w-\[' web/src --glob '*.svelte'` should surface only per-element limits — truncation caps and the Films/People `max-w-[50%]` split — never a page wrapper.
 - **Reuse the shared button treatments; never dim a `text-muted` label.** Non-primary
   actions use `.btn-accent` (outlined accent — the affirmative action), `.btn-ghost`
   (bordered neutral — an immediate resolve), or `.btn-quiet` (borderless neutral — a UI-only

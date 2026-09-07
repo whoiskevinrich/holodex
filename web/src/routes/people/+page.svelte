@@ -20,7 +20,7 @@
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
-	import { mediaDensity, DENSITY_MIN, DENSITY_MAX, invertDensity } from '$lib/density.svelte';
+	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
 	let people = $state<Person[]>([]);
@@ -204,27 +204,7 @@
 			{/if}
 			<PersonViewToggle bind:view={activeView} />
 			{#if activeView === 'poster'}
-				<div class="flex items-center gap-2">
-					<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-						<rect x="3" y="3" width="7" height="7" rx="1" />
-						<rect x="14" y="3" width="7" height="7" rx="1" />
-						<rect x="3" y="14" width="7" height="7" rx="1" />
-						<rect x="14" y="14" width="7" height="7" rx="1" />
-					</svg>
-					<input
-						type="range"
-						min={DENSITY_MIN}
-						max={DENSITY_MAX}
-						step="1"
-						aria-label="Grid density"
-						value={invertDensity(mediaDensity.value)}
-						oninput={(e) => (mediaDensity.value = invertDensity(Number(e.currentTarget.value)))}
-						class="accent-accent"
-					/>
-					<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-						<rect x="4" y="4" width="16" height="16" rx="2" />
-					</svg>
-				</div>
+				<DensitySlider />
 			{/if}
 		</div>
 	</div>

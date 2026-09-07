@@ -28,6 +28,7 @@ mapped Tailwind utilities, never a literal palette.
 | `--font-display` | `font-display` | titles / wordmark (`.skin-title`) |
 | `--font-ui` | `font-ui` | body & UI (default on `<body>`) |
 | `--radius` | `rounded-theme` | corner radius (0 for the mono skins) |
+| `--container-stage` | `max-w-stage` | reading-width ceiling for detail and owner pages (2600px). The one **constant** here — identical on every skin, so it lives in a plain `@theme` block rather than the `@theme inline` one. Never write `max-w-[2600px]`. Browse grids are deliberately exempt: a grid can always add another column, so it stays edge-to-edge (HOLODEX-331). |
 
 ## Skins
 

@@ -66,6 +66,9 @@
 	}
 </script>
 
+<!-- Kept narrower than the stage, same reasoning as owner/keys: these rows are
+     `flex` with a `flex-1` title and `shrink-0` buttons, so full stage width would put a
+     row's Delete button ~2400px from its title (HOLODEX-331). -->
 <section class="mx-auto max-w-4xl space-y-4">
 	<header class="space-y-1">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Trash</h1>

@@ -1061,809 +1061,820 @@
 		{error || 'Not found.'}
 	</p>
 {:else}
-	<article class="mx-auto max-w-4xl space-y-6">
-		<div
-			class="group relative overflow-hidden rounded-theme border border-rule bg-black"
-			id="field-poster_url-upload"
-		>
-			{#if playFailed}
-				<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
-					<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
-					<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
-						Download / open file
-					</a>
-				</div>
-			{:else}
-				<!-- svelte-ignore a11y_media_has_caption -->
-				<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
-				     it shows a sharp cover instead of a black box until play — the small
-				     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
-				<video
-					src={api.streamURL(video.id)}
-					poster={video.poster_url
-						? api.thumbnailReload(video.poster_url, thumbVersion)
-						: undefined}
-					controls
-					preload="metadata"
-					class="aspect-video w-full bg-black"
-					onplay={() => setPlaying(true)}
-					onpause={() => setPlaying(false)}
-					onended={() => setPlaying(false)}
-					onerror={() => (playFailed = true)}
-				></video>
-				{#if isOwner}
-					<input
-						bind:this={posterInput}
-						type="file"
-						accept="image/*"
-						class="sr-only"
-						onchange={onPosterFileChosen}
-					/>
-					<button
-						onclick={triggerPosterUpload}
-						disabled={posterUploading}
-						title="Upload poster"
-						aria-label="Upload poster"
-						class="absolute right-16 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-					>
-						<svg
-							class="h-4 w-4 {posterUploading ? 'animate-spin' : ''}"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							viewBox="0 0 24 24"
-							aria-hidden="true"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" />
-						</svg>
-					</button>
-					{#if video.poster_uploaded}
-						<button
-							onclick={removePoster}
-							disabled={posterUploading}
-							title="Remove uploaded poster"
-							aria-label="Remove uploaded poster"
-							class="absolute right-9 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-						>
-							<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					{/if}
-				{/if}
-				<button
-					onclick={regenerateThumbnail}
-					disabled={regenerating}
-					title="Regenerate thumbnail from file"
-					aria-label="Regenerate thumbnail from file"
-					class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+	<article class="mx-auto max-w-stage space-y-6">
+		<!-- Player column + metadata rail (HOLODEX-331). The ratio, the rail's 320px floor
+		     and the stacking breakpoint live in `stage-grid` (app.css), shared with the film
+		     detail page so the two cannot drift. -->
+		<div class="stage-grid">
+			<div class="space-y-6">
+				<div
+					class="group relative overflow-hidden rounded-theme border border-rule bg-black"
+					id="field-poster_url-upload"
 				>
-					<svg
-						class="h-4 w-4 {regenerating ? 'animate-spin' : ''}"
-						fill="currentColor"
-						viewBox="0 0 24 24"
-						aria-hidden="true"
-					>
-						<path
-							d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-						/>
-					</svg>
-				</button>
-			{/if}
-		</div>
-		{#if posterError}
-			<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
-		{/if}
-
-		<header class="space-y-2">
-			{#key id}
-				<NameEditControl
-					id="field-title"
-					name={displayTitle}
-					{isOwner}
-					onCommit={commitTitle}
-					label="video"
-					headingClass="skin-title text-2xl font-semibold text-ink"
-					pencilAlwaysVisible
-				>
-					{#snippet verdict(c, resolve)}
-						<CollisionOfferCard
-							video={c}
-							proposedTitle={pendingTitleValue}
-							busy={titleCollisionBusy}
-							error={titleCollisionError}
-							onviewexisting={() => goto(`/media/${c.id}`)}
-							onsaveanyway={() => saveTitleAnyway(resolve)}
-							oncancel={resolve}
-						/>
-					{/snippet}
-				</NameEditControl>
-			{/key}
-			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-				<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
-				<span>{video.width}×{video.height}</span>
-				<span>·</span>
-				<span>{formatDuration(video.duration_sec)}</span>
-				{#if formatYear(video.recorded_at)}
-					<span>·</span><span>{formatYear(video.recorded_at)}</span>
-				{/if}
-			</div>
-
-			<!-- Overview (media-detail-entity-ux): the synopsis reads as page content, not
-			     as a data-management row, so it sits under the header meta line instead of
-			     in the Metadata list. Owners keep exactly the control the Metadata
-			     long_text branch gave it — the ADR-051 SourceBadge precedence chip row. -->
-			{#if overviewField && (isOwner || overviewField.values[0]?.trim())}
-				<div id="field-overview">
-					{#if isReplaceField(overviewField) && isOwner}
-						<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
-					{:else if overviewField.values[0]?.trim()}
-						<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
-					{/if}
-				</div>
-			{/if}
-		</header>
-
-		{#if isOwner || studioField?.values?.length}
-			<div class="flex flex-wrap items-center gap-3" id="field-studio">
-				{#each studios as s (s.id)}
-					<StudioLinkCard studio={s} />
-				{/each}
-				{#if isOwner}
-					<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
-						{#snippet verdict(c, resolve)}
-							<CollisionOfferCard
-								video={c}
-								busy={studioCollisionBusy}
-								error={studioCollisionError}
-								onviewexisting={() => goto(`/media/${c.id}`)}
-								onsaveanyway={() => saveStudioAnyway(resolve)}
-								oncancel={resolve}
-							/>
-						{/snippet}
-					</StudioPicker>
-				{:else if !studios.length && studioField?.values?.length}
-					<span class="text-ink">{studioField.values[0]}</span>
-				{/if}
-			</div>
-		{/if}
-
-		{#if isOwner || video.tags?.length}
-			<!-- id="field-genres": resolved genres materialize into Tag rows, so the
-			     completeness queue's #field-genres deep link lands here now that the
-			     Metadata list no longer carries a Genres row. -->
-			<section id="field-genres" class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
-				<div class="flex flex-wrap items-center gap-2">
-					{#each video.tags ?? [] as t (t.id)}
-						<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
-					{/each}
-
-					{#if isOwner}
-						{#if tagAddOpen}
-							<form onsubmit={submitTagAdd} class="inline-flex items-center gap-2">
-								<input
-									bind:this={tagInput}
-									bind:value={tagAddValue}
-									type="text"
-									placeholder="Add a tag"
-									aria-label="Add a tag"
-									class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
-								/>
-								<button type="submit" disabled={tagBusy} class="btn-accent px-3 py-1.5 text-sm">Add</button>
-								<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-quiet px-3 py-1.5 text-sm">
-									Cancel
-								</button>
-							</form>
-						{:else}
-							<button type="button" onclick={openTagAdd} class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button>
-						{/if}
-					{/if}
-				</div>
-
-				{#if tagNearMiss}
-					<!-- Non-blocking near-miss nudge (F43 P1-5, verbatim copy from /tags'
-					     actionNearMiss card) — the attach already succeeded; this only offers
-					     to consolidate onto the look-alike instead. -->
-					<div class="flex flex-wrap items-center gap-2 rounded-theme border border-rule bg-surface-2 px-3 py-2">
-						<p class="text-sm text-ink">
-							Looks a lot like <span class="font-semibold">{tagNearMiss.name}</span>
-							({videoCount(tagNearMiss.video_count ?? 0)}) — use that instead?
-						</p>
-						<button
-							type="button"
-							onclick={useTagNearMiss}
-							disabled={tagBusy}
-							class="btn-accent px-3 py-1.5 text-sm"
-						>
-							Use existing
-						</button>
-						<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
-							Add as new anyway
-						</button>
-					</div>
-				{/if}
-				{#if tagError}
-					<p class="text-sm text-warn">{tagError}</p>
-				{/if}
-			</section>
-		{/if}
-
-		<!-- Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md).
-		     One rule drives all four link states: a section renders its heading and tiles only
-		     when it has content, an empty side degrades to a bare "+ Add …" text CTA with no
-		     heading and no dashed box, and the two stack vertically unless BOTH are populated
-		     -- only then do they sit side by side, at equal tile size. Order is always Films
-		     then People. A visitor with neither linked gets nothing at all: every branch is
-		     gated on real content or on an owner-only CTA. -->
-		{#snippet filmsSection()}
-			<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid,
-			     not Studio's read-only pills — film_videos is many-to-many like video_people. -->
-			<section class="space-y-1.5">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
-				<ul class="flex flex-wrap gap-3">
-					{#each films as f (f.film_id)}
-						<!-- The scene number rides the poster as a corner pill (HOLODEX-328), the same
-						     shape and vocabulary as the film detail page's Scenes grid
-						     (video/VideoCard.svelte): "#N" for a numbered scene, a dim em-dash for an
-						     unnumbered one, a dim "Full" for a full-film link. It replaces the old
-						     below-poster badge block, which is what made a film chip taller than a
-						     person chip. Owner-editable except on a full film, which carries no scene
-						     number to edit (HOLODEX-326) -- and, exactly as VideoCard does it, the
-						     non-editable case is a pointer-events-none <span> so a click falls through
-						     to the <a> beneath and navigates instead of dying on the badge.
-
-						     The dim variant is `bg-bg` (an opaque token), NOT VideoCard's
-						     `bg-black/70`: VideoCard sits over a video thumbnail, this sits over the
-						     light `bg-logo-plate` poster, and 30% of that plate bleeding through drags
-						     text-muted to a measured 2.4-3.1:1 across the three skins -- an AA failure
-						     on 10px text. Opaque restores it, and costs nothing visually since the
-						     translucency was never doing work over a poster. -->
-						{@const editable = isOwner && !f.is_full_film}
-						{@const dimPill = f.is_full_film || f.scene_number === null}
-						{#snippet filmPoster()}
-							<!-- The film's own poster when it has one, monogram plate otherwise —
-							     same served URL the film detail page uses, so the two agree on
-							     which image wins for a film carrying both an upload and a
-							     provider poster. `cover` (not the film header's `contain`) matches
-							     the People chips this row sits beside: at chip size, letterboxing
-							     an almost-2:3 source against the plate reads as a bug. -->
-							<div
-								class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
-							>
-								{#if f.poster_url}
-									<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
-								{:else}
-									<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
-										>{monogram(f.film_name)}</span
-									>
-								{/if}
-							</div>
-							<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
-						{/snippet}
-						<li class="curation-chip group relative w-20 shrink-0">
-							<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-								{@render filmPoster()}
+					{#if playFailed}
+						<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
+							<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
+							<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
+								Download / open file
 							</a>
-							<!-- `role` is semantically redundant on a real <button>, but svelte-check cannot
-							     see what <svelte:element> resolves to and fails a11y without it. Keep it. -->
-							<svelte:element
-								this={editable ? 'button' : 'span'}
-								type={editable ? 'button' : undefined}
-								role={editable ? 'button' : undefined}
-								onclick={editable ? () => (editingSceneFilm = f) : undefined}
-								aria-label={editable ? `Edit scene number in ${f.film_name}` : undefined}
-								class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {editable
-									? 'hover:ring-accent focus-visible:ring-accent'
-									: 'pointer-events-none'} {dimPill ? 'bg-bg text-muted' : 'bg-accent text-accent-ink'}"
-							>
-								{sceneBadgeLabel(f.scene_number, f.is_full_film)}
-							</svelte:element>
-							{#if isOwner}
-								<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):
-								     the scene pill owns the top-right corner the Scenes grid trained the
-								     eye to check. The two only share the tile while it is hovered or
-								     focused, since remove stays inside .curation-actions. -->
-								<button
-									type="button"
-									onclick={() => removeFilm(f)}
-									disabled={filmBusyKey === f.film_id}
-									aria-label={`Remove ${f.film_name}`}
-									class="curation-actions absolute left-1.5 top-1.5 z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-								>
-									{filmBusyKey === f.film_id ? '…' : '×'}
-								</button>
-							{/if}
-						</li>
-					{/each}
-					{#if isOwner}
-						<li class="w-20 shrink-0">
-							<button
-								type="button"
-								onclick={() => (filmAttachOpen = true)}
-								class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
-							>
-								<span class="text-2xl leading-none">+</span>
-								<span class="text-xs">Attach film</span>
-							</button>
-						</li>
-					{/if}
-				</ul>
-				{#if filmRemoveError}
-					<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
-				{/if}
-			</section>
-		{/snippet}
-		{#snippet addFilmCta()}
-			<!-- Matches PersonPicker's empty-grid CTA exactly (btn-quiet, same size): the two
-			     are the same affordance for the same kind of nothing and must not look like two
-			     different ones, which is what the old dashed-box-vs-text-link split did. -->
-			<button type="button" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
-				+ Add film
-			</button>
-		{/snippet}
-		{#snippet peopleSection()}
-			<!-- id="field-actors": the actors facet's deep link. Rendered in exactly one branch
-			     below, so the id is never duplicated. PeopleGrid itself collapses to the bare
-			     "+ Add person" CTA (no heading) when the grid is empty. -->
-			<div id="field-actors" class="min-w-0">
-				<PeopleGrid
-					title="People"
-					people={video?.people ?? []}
-					{isOwner}
-					attach={attachPerson}
-					detach={detachPerson}
-					bind:busyKey={personBusyKey}
-					onRemove={removeGridPerson}
-					removeError={personRemoveError}
-				/>
-			</div>
-		{/snippet}
-
-		{#if layout.row === 'side-by-side'}
-			<div class="flex items-start gap-6">
-				<div class="max-w-[50%] flex-none">{@render filmsSection()}</div>
-				<div class="min-w-0 flex-1">{@render peopleSection()}</div>
-			</div>
-		{:else if layout.row !== 'hidden'}
-			<!-- Stacked, except when BOTH sides are just a CTA: two bare text buttons share one
-			     line rather than burning two rows on a video that links nothing yet. -->
-			<div class={layout.row === 'inline-ctas' ? 'flex flex-wrap items-center gap-4' : 'space-y-4'}>
-				{#if layout.films === 'section'}
-					{@render filmsSection()}
-				{:else if layout.films === 'cta'}
-					{@render addFilmCta()}
-				{/if}
-				{#if layout.people !== 'hidden'}
-					{@render peopleSection()}
-				{/if}
-			</div>
-		{/if}
-
-		{#if personConflict}
-			{@const conflict = personConflict}
-			<CollisionOfferCard
-				video={conflict}
-				busy={personCollisionBusy}
-				error={personCollisionError}
-				onviewexisting={() => goto(`/media/${conflict.id}`)}
-				onsaveanyway={() => savePersonAnyway(resolvePersonConflict)}
-				oncancel={resolvePersonConflict}
-			/>
-		{/if}
-
-		<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
-		     enrichment controls and writeback inline in the header. Falls back to
-		     file-only fields when no resolver output is present. Owner-only
-		     (media-detail-reorder) — visitors previously saw a filtered subset. -->
-		{#if isOwner}
-			<section class="space-y-1.5">
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<div class="flex items-baseline gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
-						<span class="text-xs text-muted">{metadataFieldCount} field{metadataFieldCount === 1 ? '' : 's'}</span>
-					</div>
-					<div class="flex flex-wrap items-center gap-2">
+						</div>
+					{:else}
+						<!-- svelte-ignore a11y_media_has_caption -->
+						<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
+						     it shows a sharp cover instead of a black box until play — the small
+						     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
+						<video
+							src={api.streamURL(video.id)}
+							poster={video.poster_url
+								? api.thumbnailReload(video.poster_url, thumbVersion)
+								: undefined}
+							controls
+							preload="metadata"
+							class="aspect-video w-full bg-black"
+							onplay={() => setPlaying(true)}
+							onpause={() => setPlaying(false)}
+							onended={() => setPlaying(false)}
+							onerror={() => (playFailed = true)}
+						></video>
 						{#if isOwner}
+							<input
+								bind:this={posterInput}
+								type="file"
+								accept="image/*"
+								class="sr-only"
+								onchange={onPosterFileChosen}
+							/>
 							<button
-								onclick={refreshMetadata}
-								disabled={refreshing}
-								title="Refresh metadata from the file and providers"
-								aria-label="Refresh metadata from the file and providers"
-								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+								onclick={triggerPosterUpload}
+								disabled={posterUploading}
+								title="Upload poster"
+								aria-label="Upload poster"
+								class="absolute right-16 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
 							>
 								<svg
-									class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"
-									fill="currentColor"
+									class="h-4 w-4 {posterUploading ? 'animate-spin' : ''}"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
 									viewBox="0 0 24 24"
 									aria-hidden="true"
 								>
-									<path
-										d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-									/>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" />
 								</svg>
-								{refreshing ? 'Refreshing…' : 'Refresh'}
 							</button>
-						{/if}
-						{#if isOwner}
-							<!-- F48.5a: the single-video extraction trigger. Ghost text, no border, no chip —
-							     the identical treatment Refresh uses beside it. It is a one-shot action, not a
-							     stateful provider link, so it must never grow chip chrome that would read as a
-							     sibling of the provider chips (ADR-090 D2). -->
-							<button
-								onclick={runExtract}
-								disabled={extracting}
-								title="Read this file's name for metadata (title, studio, people, year)"
-								aria-label="Extract metadata from the filename"
-								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
-							>
-								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg>
-								{extracting ? 'Extracting…' : 'Extract from filename'}
-							</button>
-							<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
-							     Enrich), Clear in a ⋯ overflow once matched. -->
-							<EnrichProviderChips
-								providers={videoProviders}
-								linked={(p) => enrichedByProvider.has(p)}
-								busy={enrichBusy}
-								refreshingAll={enrichRefreshingAll}
-								size="xs"
-								onenrich={(p) => (pickerProvider = p)}
-								onrefresh={refreshProvider}
-								onclear={clearProvider}
-								onrefreshall={refreshAllProviders}
-							/>
-						{/if}
-						{#if canWriteback}
-							<!-- Writeback badges (ADR-091, HOLODEX-323, spec R2.3): sit beside the write
-							     action they're all about, not the section label — see the design
-							     handoff. One pill geometry, two weights: "out of sync" is a steady
-							     state (outline only, no fill — reuses SourceBadge's own "file out of
-							     sync" pill treatment so the two read as one family) and is never
-							     hidden by pending/failed (R2.4/RD6) — the file genuinely still
-							     differs until a queued write lands, and a write can sit behind a
-							     large batch. Pending/failed are events (filled). RD5 clears a
-							     video's failed row only when a NEW write is submitted through this
-							     dialog — merge propagation, tag sync, and film-studio cascade
-							     enqueue via Queue.Enqueue/EnqueueMany directly and don't clear a
-							     prior failure first, so pending and failed CAN coexist for one video
-							     (TestGetVideoWritebackStatus asserts exactly this). The badge favors
-							     pending here since a write is actively in flight; the failed-detail
-							     line below is gated on `!pending` too, so a stale failure's Retry/
-							     Dismiss never renders next to an unrelated write that's already
-							     running. No counts anywhere here — the write is atomic per job
-							     (RD1/RD4). -->
-							{#if writebackStatus.pending}
-								<span
-									class="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[0.65rem] text-accent-ink"
-									aria-live="polite"
+							{#if video.poster_uploaded}
+								<button
+									onclick={removePoster}
+									disabled={posterUploading}
+									title="Remove uploaded poster"
+									aria-label="Remove uploaded poster"
+									class="absolute right-9 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
 								>
-									<svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 									</svg>
-									writing to file
-								</span>
-							{:else if writebackStatus.failed}
-								<span class="inline-flex items-center gap-1 rounded-full bg-warn px-2 py-0.5 text-[0.65rem] text-warn-ink">
-									<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a1 1 0 00.86 1.5h18.64a1 1 0 00.86-1.5L13.71 3.86a1 1 0 00-1.72 0z" />
-									</svg>
-									couldn't write
-								</span>
+								</button>
 							{/if}
-							{#if outOfSyncN > 0}
-								<span class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn">
-									out of sync
-								</span>
-							{/if}
-							<button
-								onclick={() => (writebackOpen = true)}
-								class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
-								title="Write decided field values to the file tags"
-							>
-								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-								Write decisions to file
-							</button>
 						{/if}
 						<button
-							type="button"
-							onclick={() => (metadataExpanded = !metadataExpanded)}
-							aria-expanded={metadataExpanded}
-							aria-controls="metadata-fields"
-							aria-label={metadataExpanded ? 'Hide metadata fields' : 'Show metadata fields'}
-							title={metadataExpanded ? 'Hide fields' : 'Show fields'}
-							class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
+							onclick={regenerateThumbnail}
+							disabled={regenerating}
+							title="Regenerate thumbnail from file"
+							aria-label="Regenerate thumbnail from file"
+							class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
 						>
 							<svg
-								class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
-								class:rotate-180={metadataExpanded}
+								class="h-4 w-4 {regenerating ? 'animate-spin' : ''}"
+								fill="currentColor"
 								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
 								aria-hidden="true"
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+								<path
+									d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+								/>
 							</svg>
 						</button>
-					</div>
-				</div>
-				{#if canWriteback && writebackStatus.failed && !writebackStatus.pending}
-					<!-- Failed-writeback detail line (spec R3.2): job-level, not per-field — the
-					     write is one exiftool/mkvpropedit invocation, so it lands whole or not at
-					     all (RD4). Persists until retried or dismissed (R3.1) — a failure that
-					     cleared itself would break "absence means nothing to report" everywhere
-					     else on this page. The extra `!pending` guard matters because pending and
-					     failed CAN coexist for one video (see the badge block's comment above) —
-					     without it, a stale failure's Retry/Dismiss controls would render right
-					     next to an unrelated write that's already in flight, inviting the owner to
-					     "retry" a write that isn't the one failing. -->
-
-					<p class="flex flex-wrap items-center gap-2 text-xs text-warn" aria-live="polite">
-						<span
-							>{writebackStatus.error ||
-								"Couldn't write to the file — it may be locked or read-only."}</span
-						>
-						<button
-							onclick={retryWriteback}
-							disabled={writebackAction !== null}
-							class="text-accent underline hover:no-underline disabled:cursor-not-allowed"
-						>
-							{writebackAction === 'retry' ? 'Retrying…' : 'Retry'}
-						</button>
-						<button
-							onclick={dismissWriteback}
-							disabled={writebackAction !== null}
-							class="text-muted underline hover:no-underline disabled:cursor-not-allowed"
-						>
-							{writebackAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
-						</button>
-					</p>
-					{#if writebackActionError}
-						<p class="text-xs text-warn" aria-live="polite">{writebackActionError}</p>
 					{/if}
+				</div>
+				{#if posterError}
+					<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
 				{/if}
-				{#if extractPanelVisible}
-					<!-- ADR-090 layer 1 at entity scope: adoption only — the filename value against the
-					     file's own tag. A provider's competing value never appears here; that is layer
-					     2's question and the SourceBadge chip row below already owns it. -->
-					<section class="rounded-theme border border-rule bg-surface" aria-labelledby="extract-panel-heading">
-						<div class="flex flex-wrap items-baseline justify-between gap-2 px-3 pb-1.5 pt-2.5">
-							<h3 id="extract-panel-heading" class="text-xs font-medium text-ink">
-								From filename{#if extractSorted.length}<span class="text-muted"> · {extractSorted.length} to review</span>{/if}
-							</h3>
-							<button onclick={runExtract} disabled={extracting} class="btn-quiet px-2 py-0.5 text-xs">
-								{extracting ? 'Extracting…' : 'Re-extract'}
-							</button>
-						</div>
-						{#if video}
-							<p class="truncate px-3 pb-2 text-xs text-muted" title={video.file_path}>{video.file_path}</p>
-						{/if}
 
-						<!-- A failed write must not take the rest of the panel with it: the remaining rows
-						     are still pending and actionable, so the error sits above them rather than
-						     replacing the chain (which stranded them until a full Re-extract). -->
-						{#if extractError}
-							<p class="border-t border-rule px-3 py-2 text-xs text-warn" role="alert">{extractError}</p>
-						{/if}
-						{#if extractApplying}
-							<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
-								Written to the file — waiting for it to be read back…
-							</p>
-						{:else if extractSorted.length === 0}
-							<!-- F48.6l: "no pattern matched" and "matched, nothing to review" are different
-							     outcomes and must read differently. Never an empty panel, never a zero count. -->
-							<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
-								{#if !extractRun?.matched}
-									No filename pattern matched this file.
-								{:else}
-									Nothing needs review — matched values are in the list below.
-								{/if}
-							</p>
-						{:else}
-							{#each extractSorted as row (row.id)}
-								<ExtractionQueueRow
-									{row}
-									fieldLabel={extractLabel(row.field_key)}
-									isEntityField={isEntityField(row.field_key)}
-									staged={extractStaged[row.id]}
-									onstage={(action, value) => (extractStaged = stagePick(extractStaged, row.id, action, value))}
-									onunstage={() => (extractStaged = unstagePick(extractStaged, row.id))}
-									resolveTag={() => api.resolveExtractionReview(row.id, 'tag')}
-									dismiss={() => api.dismissExtractionReview(row.id)}
-									onhandled={() => dropExtractRow(row.id)}
+				<header class="space-y-2">
+					{#key id}
+						<NameEditControl
+							id="field-title"
+							name={displayTitle}
+							{isOwner}
+							onCommit={commitTitle}
+							label="video"
+							headingClass="skin-title text-2xl font-semibold text-ink"
+							pencilAlwaysVisible
+						>
+							{#snippet verdict(c, resolve)}
+								<CollisionOfferCard
+									video={c}
+									proposedTitle={pendingTitleValue}
+									busy={titleCollisionBusy}
+									error={titleCollisionError}
+									onviewexisting={() => goto(`/media/${c.id}`)}
+									onsaveanyway={() => saveTitleAnyway(resolve)}
+									oncancel={resolve}
 								/>
+							{/snippet}
+						</NameEditControl>
+					{/key}
+					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+						<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
+						<span>{video.width}×{video.height}</span>
+						<span>·</span>
+						<span>{formatDuration(video.duration_sec)}</span>
+						{#if formatYear(video.recorded_at)}
+							<span>·</span><span>{formatYear(video.recorded_at)}</span>
+						{/if}
+					</div>
+
+					<!-- Overview (media-detail-entity-ux): the synopsis reads as page content, not
+					     as a data-management row, so it sits under the header meta line instead of
+					     in the Metadata list. Owners keep exactly the control the Metadata
+					     long_text branch gave it — the ADR-051 SourceBadge precedence chip row. -->
+					{#if overviewField && (isOwner || overviewField.values[0]?.trim())}
+						<div id="field-overview">
+							{#if isReplaceField(overviewField) && isOwner}
+								<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
+							{:else if overviewField.values[0]?.trim()}
+								<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
+							{/if}
+						</div>
+					{/if}
+				</header>
+
+				{#if isOwner || studioField?.values?.length}
+					<div class="flex flex-wrap items-center gap-3" id="field-studio">
+						{#each studios as s (s.id)}
+							<StudioLinkCard studio={s} />
+						{/each}
+						{#if isOwner}
+							<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
+								{#snippet verdict(c, resolve)}
+									<CollisionOfferCard
+										video={c}
+										busy={studioCollisionBusy}
+										error={studioCollisionError}
+										onviewexisting={() => goto(`/media/${c.id}`)}
+										onsaveanyway={() => saveStudioAnyway(resolve)}
+										oncancel={resolve}
+									/>
+								{/snippet}
+							</StudioPicker>
+						{:else if !studios.length && studioField?.values?.length}
+							<span class="text-ink">{studioField.values[0]}</span>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
+				     its block is null or empty, so an item with no siblings shows no rail. -->
+				{#if related?.person}
+					<RelatedShelf
+						title={related.person.name}
+						href={`/people/${related.person.id}`}
+						items={related.person.items}
+					/>
+				{/if}
+				{#if related?.tag}
+					<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+				{/if}
+			</div>
+
+			<div class="space-y-6">
+				{#if isOwner || video.tags?.length}
+					<!-- id="field-genres": resolved genres materialize into Tag rows, so the
+					     completeness queue's #field-genres deep link lands here now that the
+					     Metadata list no longer carries a Genres row. -->
+					<section id="field-genres" class="space-y-1.5">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each video.tags ?? [] as t (t.id)}
+								<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
 							{/each}
-							<div class="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-3 py-2">
-								<p class="text-xs text-muted" aria-live="polite">{extractStagedCount} staged · nothing written yet</p>
-								<div class="flex items-center gap-2">
-									<button onclick={() => (extractStaged = {})} disabled={extractStagedCount === 0} class="btn-quiet px-2 py-0.5 text-xs">
-										Clear
-									</button>
-									<button onclick={() => (extractPreviewOpen = true)} disabled={extractStagedCount === 0} class="btn-accent px-2.5 py-1 text-xs">
-										Review &amp; write {extractStagedCount}
-									</button>
-								</div>
+
+							{#if isOwner}
+								{#if tagAddOpen}
+									<form onsubmit={submitTagAdd} class="inline-flex items-center gap-2">
+										<input
+											bind:this={tagInput}
+											bind:value={tagAddValue}
+											type="text"
+											placeholder="Add a tag"
+											aria-label="Add a tag"
+											class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+										/>
+										<button type="submit" disabled={tagBusy} class="btn-accent px-3 py-1.5 text-sm">Add</button>
+										<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-quiet px-3 py-1.5 text-sm">
+											Cancel
+										</button>
+									</form>
+								{:else}
+									<button type="button" onclick={openTagAdd} class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button>
+								{/if}
+							{/if}
+						</div>
+
+						{#if tagNearMiss}
+							<!-- Non-blocking near-miss nudge (F43 P1-5, verbatim copy from /tags'
+							     actionNearMiss card) — the attach already succeeded; this only offers
+							     to consolidate onto the look-alike instead. -->
+							<div class="flex flex-wrap items-center gap-2 rounded-theme border border-rule bg-surface-2 px-3 py-2">
+								<p class="text-sm text-ink">
+									Looks a lot like <span class="font-semibold">{tagNearMiss.name}</span>
+									({videoCount(tagNearMiss.video_count ?? 0)}) — use that instead?
+								</p>
+								<button
+									type="button"
+									onclick={useTagNearMiss}
+									disabled={tagBusy}
+									class="btn-accent px-3 py-1.5 text-sm"
+								>
+									Use existing
+								</button>
+								<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
+									Add as new anyway
+								</button>
 							</div>
+						{/if}
+						{#if tagError}
+							<p class="text-sm text-warn">{tagError}</p>
 						{/if}
 					</section>
 				{/if}
-				{#if enrichError}
-					<p class="text-xs text-warn">{enrichError}</p>
-				{/if}
-				{#if refreshStatus}
-					<p
-						class="text-xs {refreshStatus.tone === 'warn' ? 'text-warn' : 'text-muted'}"
-						aria-live="polite"
-					>
-						{refreshStatus.text}
-					</p>
-				{/if}
-				<!-- The fold covers the field list only: Refresh / Extract / provider chips /
-				     writeback stay reachable while collapsed, and the extraction review panel
-				     above stays visible because it is transient work waiting on the owner. -->
-				<div
-					id="metadata-fields"
-					class="overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
-					style="max-height: {metadataExpanded ? '6000px' : '0px'}"
-					inert={!metadataExpanded}
-				>
-				{#if canonicalResolved.length || extraFields.length}
-				<dl class="grid grid-cols-1 gap-3 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each canonicalResolved as f (f.canonical)}
-						{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
-						{#if f.display === 'image_url'}
-							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-								<dt class="mb-1 text-muted">{f.label}:</dt>
-								<dd>
-									<img
-										src={f.values[0]}
-										alt={f.label}
-										class="max-h-64 rounded-theme border border-rule object-contain"
-									/>
-								</dd>
-								{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
-							</div>
-						{:else if f.display === 'long_text'}
-							<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-								<dt class="inline text-muted">{f.label}:</dt>
-								{#if isReplaceField(f) && isOwner}
-									<dd class="mt-1 block leading-relaxed">
-										<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
-									</dd>
-								{:else if f.values[0]?.trim()}
-									<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-									{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
-								{/if}
-							</div>
-						{:else if f.display === 'url'}
-							<div id={`field-${f.canonical}`}>
-								<dt class="inline text-muted">{f.label}:</dt>
-								<!-- HOLODEX-137: provider icon + host in the link folds in provenance. -->
-								<dd class="inline"><UrlValueList values={f.values} provider={winnerProvider} /></dd>
-							</div>
-						{:else}
-							<!-- Curatable text/set field (F30): per-value chips with provenance,
-							     edit/remove/no-write, and an add affordance for set fields. -->
-							<div id={`field-${f.canonical}`}>
-								<dt class="mb-1 text-muted">{f.label}:</dt>
-								<dd>
-									{#if isReplaceField(f) && isOwner}
-										<!-- Tier-2 replace field (F56): SourceBadge — collapsed
-										     ProvenanceBadge at rest, click-to-expand chip row + Confirm/
-										     Cancel. Merge fields and the visitor view keep the F30
-										     CurationFieldRow read-only render. -->
-										<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
-									{:else}
-										<CurationFieldRow
-											field={f}
-											videoId={id}
-											{isOwner}
-											people={video.people ?? []}
-											personStyle={f.canonical === 'actors' || f.canonical === 'director'}
-											onchanged={reloadDetail}
-										/>
+
+				<!-- Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md).
+				     One rule drives all four link states: a section renders its heading and tiles only
+				     when it has content, an empty side degrades to a bare "+ Add …" text CTA with no
+				     heading and no dashed box, and the two stack vertically unless BOTH are populated
+				     -- only then do they sit side by side, at equal tile size. Order is always Films
+				     then People. A visitor with neither linked gets nothing at all: every branch is
+				     gated on real content or on an owner-only CTA. -->
+				{#snippet filmsSection()}
+					<!-- Films (F56, design handoff §3a): poster-tile chips mirroring the People grid,
+					     not Studio's read-only pills — film_videos is many-to-many like video_people. -->
+					<section class="space-y-1.5">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
+						<ul class="flex flex-wrap gap-3">
+							{#each films as f (f.film_id)}
+								<!-- The scene number rides the poster as a corner pill (HOLODEX-328), the same
+								     shape and vocabulary as the film detail page's Scenes grid
+								     (video/VideoCard.svelte): "#N" for a numbered scene, a dim em-dash for an
+								     unnumbered one, a dim "Full" for a full-film link. It replaces the old
+								     below-poster badge block, which is what made a film chip taller than a
+								     person chip. Owner-editable except on a full film, which carries no scene
+								     number to edit (HOLODEX-326) -- and, exactly as VideoCard does it, the
+								     non-editable case is a pointer-events-none <span> so a click falls through
+								     to the <a> beneath and navigates instead of dying on the badge.
+
+								     The dim variant is `bg-bg` (an opaque token), NOT VideoCard's
+								     `bg-black/70`: VideoCard sits over a video thumbnail, this sits over the
+								     light `bg-logo-plate` poster, and 30% of that plate bleeding through drags
+								     text-muted to a measured 2.4-3.1:1 across the three skins -- an AA failure
+								     on 10px text. Opaque restores it, and costs nothing visually since the
+								     translucency was never doing work over a poster. -->
+								{@const editable = isOwner && !f.is_full_film}
+								{@const dimPill = f.is_full_film || f.scene_number === null}
+								{#snippet filmPoster()}
+									<!-- The film's own poster when it has one, monogram plate otherwise —
+									     same served URL the film detail page uses, so the two agree on
+									     which image wins for a film carrying both an upload and a
+									     provider poster. `cover` (not the film header's `contain`) matches
+									     the People chips this row sits beside: at chip size, letterboxing
+									     an almost-2:3 source against the plate reads as a bug. -->
+									<div
+										class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate transition group-hover:opacity-90"
+									>
+										{#if f.poster_url}
+											<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
+										{:else}
+											<span class="font-display text-lg font-semibold text-logo-plate-ink" aria-hidden="true"
+												>{monogram(f.film_name)}</span
+											>
+										{/if}
+									</div>
+									<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
+								{/snippet}
+								<li class="curation-chip group relative w-20 shrink-0">
+									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
+										{@render filmPoster()}
+									</a>
+									<!-- `role` is semantically redundant on a real <button>, but svelte-check cannot
+									     see what <svelte:element> resolves to and fails a11y without it. Keep it. -->
+									<svelte:element
+										this={editable ? 'button' : 'span'}
+										type={editable ? 'button' : undefined}
+										role={editable ? 'button' : undefined}
+										onclick={editable ? () => (editingSceneFilm = f) : undefined}
+										aria-label={editable ? `Edit scene number in ${f.film_name}` : undefined}
+										class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {editable
+											? 'hover:ring-accent focus-visible:ring-accent'
+											: 'pointer-events-none'} {dimPill ? 'bg-bg text-muted' : 'bg-accent text-accent-ink'}"
+									>
+										{sceneBadgeLabel(f.scene_number, f.is_full_film)}
+									</svelte:element>
+									{#if isOwner}
+										<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):
+										     the scene pill owns the top-right corner the Scenes grid trained the
+										     eye to check. The two only share the tile while it is hovered or
+										     focused, since remove stays inside .curation-actions. -->
+										<button
+											type="button"
+											onclick={() => removeFilm(f)}
+											disabled={filmBusyKey === f.film_id}
+											aria-label={`Remove ${f.film_name}`}
+											class="curation-actions absolute left-1.5 top-1.5 z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
+										>
+											{filmBusyKey === f.film_id ? '…' : '×'}
+										</button>
 									{/if}
-								</dd>
-							</div>
+								</li>
+							{/each}
+							{#if isOwner}
+								<li class="w-20 shrink-0">
+									<button
+										type="button"
+										onclick={() => (filmAttachOpen = true)}
+										class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
+									>
+										<span class="text-2xl leading-none">+</span>
+										<span class="text-xs">Attach film</span>
+									</button>
+								</li>
+							{/if}
+						</ul>
+						{#if filmRemoveError}
+							<p class="text-sm text-warn" aria-live="polite">{filmRemoveError}</p>
 						{/if}
-						<PromotedFieldEdit {isOwner} field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
-					{/each}
+					</section>
+				{/snippet}
+				{#snippet addFilmCta()}
+					<!-- Matches PersonPicker's empty-grid CTA exactly (btn-quiet, same size): the two
+					     are the same affordance for the same kind of nothing and must not look like two
+					     different ones, which is what the old dashed-box-vs-text-link split did. -->
+					<button type="button" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
+						+ Add film
+					</button>
+				{/snippet}
+				{#snippet peopleSection()}
+					<!-- id="field-actors": the actors facet's deep link. Rendered in exactly one branch
+					     below, so the id is never duplicated. PeopleGrid itself collapses to the bare
+					     "+ Add person" CTA (no heading) when the grid is empty. -->
+					<div id="field-actors" class="min-w-0">
+						<PeopleGrid
+							title="People"
+							people={video?.people ?? []}
+							{isOwner}
+							attach={attachPerson}
+							detach={detachPerson}
+							bind:busyKey={personBusyKey}
+							onRemove={removeGridPerson}
+							removeError={personRemoveError}
+						/>
+					</div>
+				{/snippet}
 
-					<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
-					<AutoFieldRows
-						fields={extraFields}
-						{isOwner}
-						entityType="video"
-						entityNoun="videos"
-						onchanged={reloadDetail}
-					/>
-				</dl>
-				{:else if fields.length}
-				<dl class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-					{#each fields as f (f.canonical)}
-						<div>
-							<dt class="inline text-muted">{f.label}:</dt>
-							<dd class="inline">{f.values.join(', ')}</dd>
-						</div>
-					{/each}
-				</dl>
-				{:else}
-				<p class="rounded-theme border border-rule bg-surface px-4 py-3 text-sm text-muted">
-					No metadata extracted yet.
-				</p>
+				{#if layout.row === 'side-by-side'}
+					<div class="flex items-start gap-6">
+						<div class="max-w-[50%] flex-none">{@render filmsSection()}</div>
+						<div class="min-w-0 flex-1">{@render peopleSection()}</div>
+					</div>
+				{:else if layout.row !== 'hidden'}
+					<!-- Stacked, except when BOTH sides are just a CTA: two bare text buttons share one
+					     line rather than burning two rows on a video that links nothing yet. -->
+					<div class={layout.row === 'inline-ctas' ? 'flex flex-wrap items-center gap-4' : 'space-y-4'}>
+						{#if layout.films === 'section'}
+							{@render filmsSection()}
+						{:else if layout.films === 'cta'}
+							{@render addFilmCta()}
+						{/if}
+						{#if layout.people !== 'hidden'}
+							{@render peopleSection()}
+						{/if}
+					</div>
 				{/if}
+
+				{#if personConflict}
+					{@const conflict = personConflict}
+					<CollisionOfferCard
+						video={conflict}
+						busy={personCollisionBusy}
+						error={personCollisionError}
+						onviewexisting={() => goto(`/media/${conflict.id}`)}
+						onsaveanyway={() => savePersonAnyway(resolvePersonConflict)}
+						oncancel={resolvePersonConflict}
+					/>
+				{/if}
+
+				<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
+				     enrichment controls and writeback inline in the header. Falls back to
+				     file-only fields when no resolver output is present. Owner-only
+				     (media-detail-reorder) — visitors previously saw a filtered subset. -->
+				{#if isOwner}
+					<section class="space-y-1.5">
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<div class="flex items-baseline gap-2">
+								<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
+								<span class="text-xs text-muted">{metadataFieldCount} field{metadataFieldCount === 1 ? '' : 's'}</span>
+							</div>
+							<div class="flex flex-wrap items-center gap-2">
+								{#if isOwner}
+									<button
+										onclick={refreshMetadata}
+										disabled={refreshing}
+										title="Refresh metadata from the file and providers"
+										aria-label="Refresh metadata from the file and providers"
+										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+									>
+										<svg
+											class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"
+											fill="currentColor"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+											/>
+										</svg>
+										{refreshing ? 'Refreshing…' : 'Refresh'}
+									</button>
+								{/if}
+								{#if isOwner}
+									<!-- F48.5a: the single-video extraction trigger. Ghost text, no border, no chip —
+									     the identical treatment Refresh uses beside it. It is a one-shot action, not a
+									     stateful provider link, so it must never grow chip chrome that would read as a
+									     sibling of the provider chips (ADR-090 D2). -->
+									<button
+										onclick={runExtract}
+										disabled={extracting}
+										title="Read this file's name for metadata (title, studio, people, year)"
+										aria-label="Extract metadata from the filename"
+										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+									>
+										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg>
+										{extracting ? 'Extracting…' : 'Extract from filename'}
+									</button>
+									<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
+									     Enrich), Clear in a ⋯ overflow once matched. -->
+									<EnrichProviderChips
+										providers={videoProviders}
+										linked={(p) => enrichedByProvider.has(p)}
+										busy={enrichBusy}
+										refreshingAll={enrichRefreshingAll}
+										size="xs"
+										onenrich={(p) => (pickerProvider = p)}
+										onrefresh={refreshProvider}
+										onclear={clearProvider}
+										onrefreshall={refreshAllProviders}
+									/>
+								{/if}
+								{#if canWriteback}
+									<!-- Writeback badges (ADR-091, HOLODEX-323, spec R2.3): sit beside the write
+									     action they're all about, not the section label — see the design
+									     handoff. One pill geometry, two weights: "out of sync" is a steady
+									     state (outline only, no fill — reuses SourceBadge's own "file out of
+									     sync" pill treatment so the two read as one family) and is never
+									     hidden by pending/failed (R2.4/RD6) — the file genuinely still
+									     differs until a queued write lands, and a write can sit behind a
+									     large batch. Pending/failed are events (filled). RD5 clears a
+									     video's failed row only when a NEW write is submitted through this
+									     dialog — merge propagation, tag sync, and film-studio cascade
+									     enqueue via Queue.Enqueue/EnqueueMany directly and don't clear a
+									     prior failure first, so pending and failed CAN coexist for one video
+									     (TestGetVideoWritebackStatus asserts exactly this). The badge favors
+									     pending here since a write is actively in flight; the failed-detail
+									     line below is gated on `!pending` too, so a stale failure's Retry/
+									     Dismiss never renders next to an unrelated write that's already
+									     running. No counts anywhere here — the write is atomic per job
+									     (RD1/RD4). -->
+									{#if writebackStatus.pending}
+										<span
+											class="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[0.65rem] text-accent-ink"
+											aria-live="polite"
+										>
+											<svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+											</svg>
+											writing to file
+										</span>
+									{:else if writebackStatus.failed}
+										<span class="inline-flex items-center gap-1 rounded-full bg-warn px-2 py-0.5 text-[0.65rem] text-warn-ink">
+											<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a1 1 0 00.86 1.5h18.64a1 1 0 00.86-1.5L13.71 3.86a1 1 0 00-1.72 0z" />
+											</svg>
+											couldn't write
+										</span>
+									{/if}
+									{#if outOfSyncN > 0}
+										<span class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn">
+											out of sync
+										</span>
+									{/if}
+									<button
+										onclick={() => (writebackOpen = true)}
+										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+										title="Write decided field values to the file tags"
+									>
+										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
+										Write decisions to file
+									</button>
+								{/if}
+								<button
+									type="button"
+									onclick={() => (metadataExpanded = !metadataExpanded)}
+									aria-expanded={metadataExpanded}
+									aria-controls="metadata-fields"
+									aria-label={metadataExpanded ? 'Hide metadata fields' : 'Show metadata fields'}
+									title={metadataExpanded ? 'Hide fields' : 'Show fields'}
+									class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
+								>
+									<svg
+										class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
+										class:rotate-180={metadataExpanded}
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										aria-hidden="true"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+									</svg>
+								</button>
+							</div>
+						</div>
+						{#if canWriteback && writebackStatus.failed && !writebackStatus.pending}
+							<!-- Failed-writeback detail line (spec R3.2): job-level, not per-field — the
+							     write is one exiftool/mkvpropedit invocation, so it lands whole or not at
+							     all (RD4). Persists until retried or dismissed (R3.1) — a failure that
+							     cleared itself would break "absence means nothing to report" everywhere
+							     else on this page. The extra `!pending` guard matters because pending and
+							     failed CAN coexist for one video (see the badge block's comment above) —
+							     without it, a stale failure's Retry/Dismiss controls would render right
+							     next to an unrelated write that's already in flight, inviting the owner to
+							     "retry" a write that isn't the one failing. -->
+
+							<p class="flex flex-wrap items-center gap-2 text-xs text-warn" aria-live="polite">
+								<span
+									>{writebackStatus.error ||
+										"Couldn't write to the file — it may be locked or read-only."}</span
+								>
+								<button
+									onclick={retryWriteback}
+									disabled={writebackAction !== null}
+									class="text-accent underline hover:no-underline disabled:cursor-not-allowed"
+								>
+									{writebackAction === 'retry' ? 'Retrying…' : 'Retry'}
+								</button>
+								<button
+									onclick={dismissWriteback}
+									disabled={writebackAction !== null}
+									class="text-muted underline hover:no-underline disabled:cursor-not-allowed"
+								>
+									{writebackAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
+								</button>
+							</p>
+							{#if writebackActionError}
+								<p class="text-xs text-warn" aria-live="polite">{writebackActionError}</p>
+							{/if}
+						{/if}
+						{#if extractPanelVisible}
+							<!-- ADR-090 layer 1 at entity scope: adoption only — the filename value against the
+							     file's own tag. A provider's competing value never appears here; that is layer
+							     2's question and the SourceBadge chip row below already owns it. -->
+							<section class="rounded-theme border border-rule bg-surface" aria-labelledby="extract-panel-heading">
+								<div class="flex flex-wrap items-baseline justify-between gap-2 px-3 pb-1.5 pt-2.5">
+									<h3 id="extract-panel-heading" class="text-xs font-medium text-ink">
+										From filename{#if extractSorted.length}<span class="text-muted"> · {extractSorted.length} to review</span>{/if}
+									</h3>
+									<button onclick={runExtract} disabled={extracting} class="btn-quiet px-2 py-0.5 text-xs">
+										{extracting ? 'Extracting…' : 'Re-extract'}
+									</button>
+								</div>
+								{#if video}
+									<p class="truncate px-3 pb-2 text-xs text-muted" title={video.file_path}>{video.file_path}</p>
+								{/if}
+
+								<!-- A failed write must not take the rest of the panel with it: the remaining rows
+								     are still pending and actionable, so the error sits above them rather than
+								     replacing the chain (which stranded them until a full Re-extract). -->
+								{#if extractError}
+									<p class="border-t border-rule px-3 py-2 text-xs text-warn" role="alert">{extractError}</p>
+								{/if}
+								{#if extractApplying}
+									<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
+										Written to the file — waiting for it to be read back…
+									</p>
+								{:else if extractSorted.length === 0}
+									<!-- F48.6l: "no pattern matched" and "matched, nothing to review" are different
+									     outcomes and must read differently. Never an empty panel, never a zero count. -->
+									<p class="border-t border-rule px-3 py-2 text-xs text-muted" aria-live="polite">
+										{#if !extractRun?.matched}
+											No filename pattern matched this file.
+										{:else}
+											Nothing needs review — matched values are in the list below.
+										{/if}
+									</p>
+								{:else}
+									{#each extractSorted as row (row.id)}
+										<ExtractionQueueRow
+											{row}
+											fieldLabel={extractLabel(row.field_key)}
+											isEntityField={isEntityField(row.field_key)}
+											staged={extractStaged[row.id]}
+											onstage={(action, value) => (extractStaged = stagePick(extractStaged, row.id, action, value))}
+											onunstage={() => (extractStaged = unstagePick(extractStaged, row.id))}
+											resolveTag={() => api.resolveExtractionReview(row.id, 'tag')}
+											dismiss={() => api.dismissExtractionReview(row.id)}
+											onhandled={() => dropExtractRow(row.id)}
+										/>
+									{/each}
+									<div class="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-3 py-2">
+										<p class="text-xs text-muted" aria-live="polite">{extractStagedCount} staged · nothing written yet</p>
+										<div class="flex items-center gap-2">
+											<button onclick={() => (extractStaged = {})} disabled={extractStagedCount === 0} class="btn-quiet px-2 py-0.5 text-xs">
+												Clear
+											</button>
+											<button onclick={() => (extractPreviewOpen = true)} disabled={extractStagedCount === 0} class="btn-accent px-2.5 py-1 text-xs">
+												Review &amp; write {extractStagedCount}
+											</button>
+										</div>
+									</div>
+								{/if}
+							</section>
+						{/if}
+						{#if enrichError}
+							<p class="text-xs text-warn">{enrichError}</p>
+						{/if}
+						{#if refreshStatus}
+							<p
+								class="text-xs {refreshStatus.tone === 'warn' ? 'text-warn' : 'text-muted'}"
+								aria-live="polite"
+							>
+								{refreshStatus.text}
+							</p>
+						{/if}
+						<!-- The fold covers the field list only: Refresh / Extract / provider chips /
+						     writeback stay reachable while collapsed, and the extraction review panel
+						     above stays visible because it is transient work waiting on the owner. -->
+						<div
+							id="metadata-fields"
+							class="overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+							style="max-height: {metadataExpanded ? '6000px' : '0px'}"
+							inert={!metadataExpanded}
+						>
+						{#if canonicalResolved.length || extraFields.length}
+						<dl class="field-grid gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
+							{#each canonicalResolved as f (f.canonical)}
+								{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
+								{#if f.display === 'image_url'}
+									<div class="col-span-full" id={`field-${f.canonical}`}>
+										<dt class="mb-1 text-muted">{f.label}:</dt>
+										<dd>
+											<img
+												src={f.values[0]}
+												alt={f.label}
+												class="max-h-64 rounded-theme border border-rule object-contain"
+											/>
+										</dd>
+										{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+									</div>
+								{:else if f.display === 'long_text'}
+									<div class="col-span-full" id={`field-${f.canonical}`}>
+										<dt class="inline text-muted">{f.label}:</dt>
+										{#if isReplaceField(f) && isOwner}
+											<dd class="mt-1 block leading-relaxed">
+												<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+											</dd>
+										{:else if f.values[0]?.trim()}
+											<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+											{#if winnerProvider}<ProvenanceBadge provider={winnerProvider} label={winnerProvider} />{/if}
+										{/if}
+									</div>
+								{:else if f.display === 'url'}
+									<div id={`field-${f.canonical}`}>
+										<dt class="inline text-muted">{f.label}:</dt>
+										<!-- HOLODEX-137: provider icon + host in the link folds in provenance. -->
+										<dd class="inline"><UrlValueList values={f.values} provider={winnerProvider} /></dd>
+									</div>
+								{:else}
+									<!-- Curatable text/set field (F30): per-value chips with provenance,
+									     edit/remove/no-write, and an add affordance for set fields. -->
+									<div id={`field-${f.canonical}`}>
+										<dt class="mb-1 text-muted">{f.label}:</dt>
+										<dd>
+											{#if isReplaceField(f) && isOwner}
+												<!-- Tier-2 replace field (F56): SourceBadge — collapsed
+												     ProvenanceBadge at rest, click-to-expand chip row + Confirm/
+												     Cancel. Merge fields and the visitor view keep the F30
+												     CurationFieldRow read-only render. -->
+												<SourceBadge field={f} decide={(s, mv) => decideField(f.canonical, s, mv)} />
+											{:else}
+												<CurationFieldRow
+													field={f}
+													videoId={id}
+													{isOwner}
+													people={video.people ?? []}
+													personStyle={f.canonical === 'actors' || f.canonical === 'director'}
+													onchanged={reloadDetail}
+												/>
+											{/if}
+										</dd>
+									</div>
+								{/if}
+								<PromotedFieldEdit {isOwner} field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
+							{/each}
+
+							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
+							<AutoFieldRows
+								fields={extraFields}
+								{isOwner}
+								entityType="video"
+								entityNoun="videos"
+								onchanged={reloadDetail}
+							/>
+						</dl>
+						{:else if fields.length}
+						<dl class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
+							{#each fields as f (f.canonical)}
+								<div>
+									<dt class="inline text-muted">{f.label}:</dt>
+									<dd class="inline">{f.values.join(', ')}</dd>
+								</div>
+							{/each}
+						</dl>
+						{:else}
+						<p class="rounded-theme border border-rule bg-surface px-4 py-3 text-sm text-muted">
+							No metadata extracted yet.
+						</p>
+						{/if}
+						</div>
+					</section>
+				{/if}
+
+				<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
+				     content and the Back link so a delete is never adjacent to navigation.
+				     Effective gate (F29) so visitor view hides it. -->
+				{#if isOwner}
+					<section class="space-y-2 border-t border-rule pt-4">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+						<div class="flex flex-wrap gap-2">
+							<button
+								onclick={() => openConfirm('soft')}
+								class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+							>
+								Move to Trash
+							</button>
+							<button
+								onclick={() => openConfirm('purge')}
+								class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+							>
+								Delete permanently
+							</button>
+						</div>
+					</section>
+				{/if}
+
+				{#if isOwner}
+				<section class="space-y-1.5">
+					<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
+					<div class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
+					<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
+					{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
+					{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
+					{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
+					{#if video.bitrate_kbps}
+						<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
+					{/if}
+					<div class="col-span-full truncate" title={video.file_path}>
+						<span class="text-muted">Path:</span> {video.file_path}
+					</div>
 				</div>
-			</section>
-		{/if}
+				</section>
+				{/if}
 
-		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-		     its block is null or empty, so an item with no siblings shows no rail. -->
-		{#if related?.person}
-			<RelatedShelf
-				title={related.person.name}
-				href={`/people/${related.person.id}`}
-				items={related.person.items}
-			/>
-		{/if}
-		{#if related?.tag}
-			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-		{/if}
+				{#if isOwner && completeness}
+					{#each completeness.facets as cf (cf.canonical)}
+						{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
+							<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
+						{/if}
+					{/each}
+				{/if}
 
-		<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
-		     content and the Back link so a delete is never adjacent to navigation.
-		     Effective gate (F29) so visitor view hides it. -->
-		{#if isOwner}
-			<section class="space-y-2 border-t border-rule pt-4">
-				<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-				<div class="flex flex-wrap gap-2">
-					<button
-						onclick={() => openConfirm('soft')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Move to Trash
-					</button>
-					<button
-						onclick={() => openConfirm('purge')}
-						class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
-					>
-						Delete permanently
-					</button>
-				</div>
-			</section>
-		{/if}
-
-		{#if isOwner}
-		<section class="space-y-1.5">
-			<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
-			<div class="grid grid-cols-1 gap-2 rounded-theme border border-rule bg-surface p-4 text-sm sm:grid-cols-2">
-			<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
-			{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
-			{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
-			{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
-			{#if video.bitrate_kbps}
-				<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
-			{/if}
-			<div class="truncate sm:col-span-2" title={video.file_path}>
-				<span class="text-muted">Path:</span> {video.file_path}
+				{#if isOwner}
+					<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
+				{/if}
 			</div>
 		</div>
-		</section>
-		{/if}
 
-		{#if isOwner && completeness}
-			{#each completeness.facets as cf (cf.canonical)}
-				{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
-					<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
-				{/if}
-			{/each}
-		{/if}
-
-		{#if isOwner}
-			<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
-		{/if}
-
+		<!-- Full width beneath both zones: raw audit payloads are wide <dl> dumps that
+		     would be unreadable squeezed into the rail. -->
 		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
 		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
 		     the page. Owner + Admin mode only (effectiveOwner); each self-omits when
@@ -1897,10 +1908,10 @@
 						{openEnriched[p] ? '▾' : '▸'} Enrichment data: {p} ({fields.length})
 					</button>
 					{#if openEnriched[p]}
-						<dl class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+						<dl class="mt-2 field-grid gap-2 text-xs">
 							{#each fields as f (f.canonical + f.provider)}
 								{#if f.display === 'image_url'}
-									<div class="sm:col-span-2">
+									<div class="col-span-full">
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
 											<img
