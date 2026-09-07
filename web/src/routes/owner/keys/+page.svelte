@@ -17,6 +17,8 @@
 	});
 </script>
 
+<!-- Kept narrower than the stage: a flat list of keys with trailing actions gains nothing
+     from 2600px and would strand each action a long way from its row label (HOLODEX-331). -->
 <section class="mx-auto max-w-4xl space-y-4">
 	<header class="space-y-1">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Metadata keys</h1>

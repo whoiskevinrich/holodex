@@ -74,13 +74,21 @@ field-grid change is what makes the width change worth anything.
    unregressed — `density.svelte.ts`, `PersonPosterGrid.svelte`, `density.test.ts`
 3. [~] [spec] Density preference remap — **dropped**: only needed under the rejected target-width
    model. Stored values keep their column-count meaning, so there is nothing to migrate
-4. [ ] [frontend] Stage token + wrapper: `--container-stage: 2600px` in `app.css` `@theme`, apply
-   `max-w-stage` on the detail and owner pages, delete the three nested owner caps
-5. [ ] [frontend] Two-zone split on media detail: `minmax(0, 1.4fr) minmax(320px, 1fr)` at ≥1024px,
-   rail carries Tags / Films / People / Metadata / Manage / File in that order, stacks below 1024
-   with no reordering (focus order must stay DOM order) — `media/[id]/+page.svelte`
-6. [ ] [frontend] Field grid `sm:grid-cols-2` → `repeat(auto-fit, minmax(320px, 1fr))`, and
-   `sm:col-span-2` → `grid-column: 1 / -1` on long-text and image fields
+4. [x] [frontend] **Stage token.** `--container-stage: 2600px` in a **plain** `@theme` block (not
+   `@theme inline` — that resolves the value into the utility without emitting the custom property;
+   verified `--container-stage` was absent from `:root` under `inline`). Registered in
+   `docs/design/theming.md` and `.claude/rules/frontend-theming.md`. `owner/+layout.svelte` and
+   `media/[id]` use `max-w-stage`; `owner/status` drops its genuinely redundant cap, while
+   `owner/keys`/`owner/trash` **keep** `max-w-4xl` — they were never redundant
+5. [x] [frontend] **Two-zone split** on media detail. Measured: 547/390 at 1024, 1069/764 at 1920,
+   1503/1073 at 5120 with the article at exactly 2600px, left offset 1253px; stacked at 768. Zero
+   `order-*` utilities, computed `order: 0` on both zones, DOM order left→rail. Deep links still
+   resolve while stacked
+6. [x] [frontend] **Field grid** → `grid-cols-[repeat(auto-fit,minmax(320px,1fr))]`, `sm:col-span-2`
+   → `col-span-full`, on all four grids in the page. **Not optional and not deferrable:** review
+   caught that shipping item 5 without it left two 174px field columns at 1024 (they had ~426px in
+   the old `max-w-4xl`) — a straight regression between 1024 and ~1714px. Now 1 column at 1024
+   (356px), 2 at 1920 (361px), 3 at 5120 (341px)
 7. [ ] [frontend] Same two-zone treatment on `films/[id]/+page.svelte` — confirm the banner's
    aspect ratio wants the same 1.4:1 split as the video player (handoff §9.3)
 8. [x] [frontend] **Density ladder extended.** Rungs `{2560:12}` and `{3840:16}` above
@@ -219,3 +227,31 @@ field-grid change is what makes the width change worth anything.
   would grow cards to ~462px. Documented in the TIERS comment and pinned by a test so it is a
   known boundary rather than a rediscovered bug.
 - **Next session:** item 4 (stage token) — the remaining layout work is untouched.
+
+### 2026-09-07 · Stage token + two-zone rail (items 4–6)
+- skills: design-handoff, simplify
+- **Stage token** lives in a plain `@theme` block, not `@theme inline`. Review flagged that `inline`
+  resolves the value into the utility *without* emitting the custom property; verified directly —
+  `--container-stage` was absent from `:root`, so `var(--container-stage)` would have been
+  undefined, which is the one thing a named token buys over `max-w-[2600px]`. Registered in
+  `theming.md` and the frontend-theming rule so the next full-width page finds it.
+- **Two-zone rail** on media detail, measured at every breakpoint (see item 5). Structural integrity
+  of the ~860-line move was verified independently by normalized diff: the only content delta is 3
+  balanced wrapper divs, the `<article>` class, and comments — nothing dropped or duplicated.
+- **Review caught a real regression I introduced.** Moving the field list into the rail without
+  item 6 left two 174px columns at 1024. My own handoff §4b says the two must ship together, and I
+  had split them. Item 6 landed in the same change; verified 1/2/3 columns at 1024/1920/5120.
+- **Corrected a claim I had repeated since the first analysis.** "The three owner pages double-wrap
+  redundantly" was true only for `owner/status` (5xl inside 5xl). `keys` and `trash` were
+  `max-w-4xl` inside `max-w-5xl` — *tighter*, so binding. Removing them was a ~3x widening, not
+  cleanup, and the wrong call: both are flat `flex` rows with a `flex-1` label and `shrink-0`
+  actions, so stage width would strand a Delete button ~2400px from its title. Both keep
+  `max-w-4xl`; the handoff, PR and Jira wording are corrected.
+- **Deliberately deferred:** `films/[id]` keeps `max-w-4xl` — giving it the stage without its rail
+  would make it a 2600px single column, the exact option-B failure this design rejects. Rail
+  sections also kept their existing chrome; turning the rail into a column of cards is a visual
+  decision, not something a layout move should smuggle in.
+- **New risks recorded rather than guessed at:** the metadata fold still animates to a magic
+  `max-height: 6000px` sized for an 864px-wide list (QA 3.19), and the Films/People `side-by-side`
+  branch inherited a `max-w-[50%]` split tuned for the old column (QA 5.11).
+- **Next session:** item 7 — the film detail page's rail, which unblocks giving it the stage token.

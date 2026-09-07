@@ -39,16 +39,20 @@ Skins under test: **Cinémathèque, Broadcast, Brutalist**.
 Run each at a **fresh page load** at the stated width. Read values with `javascript_tool`
 (`getBoundingClientRect`, `getComputedStyle`) rather than screenshots.
 
-- **3.1** `[agent]` At 1024 on `/media/{id}`: the page has exactly two grid columns; player column
-  ≈555px, rail ≈397px (±10px for scrollbar).
-- **3.2** `[agent]` At 1920 on `/media/{id}`: player column ≈1078px, rail ≈770px.
-- **3.3** `[agent]` At 5120 on `/media/{id}`: the stage element's width is 2600px, and its left
-  offset is ≈1260px — confirming it centres rather than left-aligns.
-- **3.4** `[agent]` At 768 on `/media/{id}`: the layout is a single column; the rail's first card
-  has a `top` greater than the player's `bottom` (it is stacked below, not beside).
+- **3.1** `[agent]` At 1024 on `/media/{id}`: exactly two grid columns. Measured 547 / 390
+  (predicted 555 / 397; the gap is scrollbar width).
+- **3.2** `[agent]` At 1920 on `/media/{id}`: measured 1069 / 764 (predicted 1078 / 770).
+- **3.3** `[agent]` At 5120 on `/media/{id}`: the `<article>` measures exactly 2600px with a left
+  offset of 1253px — capped and centred, not left-aligned. Zones 1503 / 1073.
+- **3.4** `[agent]` At 768 on `/media/{id}`: a single 705px column; the rail zone's `top` is at or
+  below the player zone's `bottom` (stacked, not beside).
 - **3.5** `[agent]` Field grid column count on `/media/{id}`, from
-  `getComputedStyle(dl).gridTemplateColumns.split(' ').length`: 1 at 412, 2 at 768, 1 at 1024,
-  1 at 1280, 2 at 1920, 3 at 5120.
+  `getComputedStyle(dl).gridTemplateColumns`. Measured on a multi-field list: **1 at 1024** (356px),
+  **2 at 1920** (361px each), **3 at 5120** (341px each); 1 at 412 and 768.
+  **Read the track widths, not just the count** — `auto-fit` collapses unused tracks to `0px`, so a
+  single-field list legitimately reports e.g. `[1039, 0, 0]`. That is correct (it lets one field
+  span the row instead of leaving dead space), not a bug. Use a list with 4+ fields to exercise the
+  multi-column case.
 - **3.6** `[agent]` A long-text field (Overview) reports `gridColumn` resolving to full width at
   every column count — not `span 2`.
 - **3.7** `[agent]` Browse grid column count at **default** density (4) is unchanged by the ladder
@@ -60,9 +64,10 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   no horizontal scrolling (WCAG 1.4.10).
 - **3.10** `[agent]` With a 200-character file path injected into the File section, the player
   column's width is unchanged at 1920 — `minmax(0, 1.4fr)` is clamping min-content.
-- **3.11** `[agent]` Focus order: tab from the player through to the rail and confirm the DOM order
-  is player zone → rail at both 768 (stacked) and 1920 (two-zone), with no `order-*` class present
-  on either zone.
+- **3.11** `[agent]` Focus order: DOM order is player zone → rail at both 768 (stacked) and 1920
+  (two-zone), and no real `order-*` utility exists inside the `<article>` (computed `order` is `0`
+  on both zones). **Beware `[class*="order-"]` — it also matches `border-*`;** match
+  `/^(?:[a-z0-9]+:)*order-/` against `classList` entries instead.
 - **3.12** `[agent]` Contrast: `--color-muted` on `--color-surface` (field labels on rail cards)
   meets AA in all three skins. Read computed colors and compute the ratio.
 - **3.13** `[agent]` **Max density reaches 8 columns** (shipped; handoff §1b-i). With
@@ -77,16 +82,26 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   3840+. Measured: **78x169px at 1536 (the tightest point on the ladder)**, 102x205px at 1920,
   103x207px at 3840. Names at 14px, no clipping with short names, no horizontal overflow. Confirm
   the count is exactly double the video grid's at the same density and width.
-- **5.10** `[human]` **Is 78px too small?** At 1536 wide and max density the People poster grid
-  renders 16 columns of 78x169px cards — the smallest cards anywhere on the ladder. Open the
-  People index in poster mode at roughly that window width and judge whether a face is still
-  recognisable and the name still useful. If not, the fix is a People-specific rung, not a change
-  to the video ladder.
 - **3.16** `[agent]` **First row eager-loads on the People poster grid.** `PersonPosterGrid` passes
   `eager={i < cols}`. With more people than one row holds, exactly the first `cols` images carry
   `loading="eager"` and the rest `lazy`. Guards the regression where the old literal `12` stopped
   matching one row once the ceiling moved.
 
+- **3.17** `[agent]` **Rail contents and order** at 1920, owner view: the rail's headings read
+  Tags, Films, People, Metadata, Manage, File, Completeness (Films/People self-omit when the video
+  has none — see `media-detail-films-people-handoff.md`). The left zone carries only the title and
+  the "More with …" shelves.
+- **3.18** `[agent]` **Visitor view leaves the rail sparse.** With Owner view off, the rail holds
+  only Tags and People — measured 240px tall against a 1102px player column at 1920. The grid
+  tracks stay fixed by design (§5c), so the player is the same size for a visitor as for the owner;
+  the cost is a tall empty right column. Confirm it renders without collapsing or stretching.
+- **3.19** `[agent]` **The metadata fold has a magic ceiling.** `#metadata-fields` animates via
+  `max-height: 6000px` when expanded — a sentinel sized when the field list was 864px wide with
+  426px columns. In a 356px rail column values wrap far more, so the same list is materially taller.
+  On a video with a full field set, expand the fold at 1024 and 412 and assert
+  `scrollHeight < 6000`; above that the fold silently clips with no overflow affordance. If it ever
+  crosses, replace the sentinel with `grid-template-rows: 0fr → 1fr` on a wrapper plus
+  `min-h-0 overflow-hidden` on the inner — same animation, no ceiling.
 ## 4. Density ladder
 
 The column-count model is retained (handoff §2e), so there is **no** preference migration to test —
@@ -155,6 +170,18 @@ list.
   deliberate truncation. Pre-existing, but the 16-column ceiling makes it bite at roughly 70% of
   the previous card width, so it is newly noticeable.
 
+- **5.10** `[human]` **Is 78px too small?** At 1536 wide and max density the People poster grid
+  renders 16 columns of 78x169px cards — the smallest cards anywhere on the ladder. Open the
+  People index in poster mode at roughly that window width and judge whether a face is still
+  recognisable and the name still useful. If not, the fix is a People-specific rung, not a change
+  to the video ladder.
+- **5.11** `[human]` **Films and People side by side inside the rail.** When a video has *both* a
+  linked film and linked people, `media/[id]/+page.svelte` renders them as
+  `max-w-[50%] flex-none` beside `min-w-0 flex-1` — markup written for the old ~896px column that
+  now lives in a 320–1073px rail. Structurally safe (the `min-w-0` and the 50% cap prevent
+  overflow), but at the narrowest rail (390px at a 1024px viewport) that is roughly a 195px film
+  column beside 171px of people, about two 80px tiles each. Open such a video at 1024 and judge
+  whether it reads as a deliberate two-up or as two squeezed columns that should stack instead.
 ## 6. Regression
 
 - **6.1** `[agent]` The metadata fold still expands and collapses, with its 200ms transition intact.

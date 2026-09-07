@@ -175,7 +175,7 @@
 	}
 </script>
 
-<section class="mx-auto max-w-5xl space-y-6">
+<section class="space-y-6">
 	<header class="space-y-1">
 		<h1 class="skin-title text-2xl font-semibold text-ink">System Activity</h1>
 		<p class="text-sm text-muted">What Holodex is doing under the hood — scans, the thumbnail queue, and the last 30 days of jobs.</p>

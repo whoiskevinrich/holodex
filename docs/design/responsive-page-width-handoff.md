@@ -26,9 +26,12 @@ pages already run edge-to-edge. Exactly six files cap anything:
 | `web/src/routes/owner/keys/+page.svelte:20` | `max-w-4xl` | **nested** |
 | `web/src/routes/owner/trash/+page.svelte:69` | `max-w-4xl` | **nested** |
 
-The three owner pages double-wrap: the layout caps at 1024, then each child caps again inside it.
-That redundancy is a bug regardless of which direction this change takes — the inner cap can never
-do anything the outer one hasn't already done.
+**Correction to an earlier reading of this table.** Only `owner/status` was genuinely redundant —
+`max-w-5xl` inside the layout's own `max-w-5xl`, a cap that could never bind. `owner/keys` and
+`owner/trash` were `max-w-4xl` (896px) *inside* 1024px: **tighter than the layout, and therefore
+doing real work.** Calling all three "redundant double-wrapping" was wrong. Removing the keys and
+trash caps is a deliberate ~3x widening, not cleanup — and on reflection the wrong call for those
+two, so they keep a narrower cap (see §2a).
 
 ### 1b. What's actually wrong
 
@@ -106,7 +109,7 @@ exception to the original ask, and the reasoning is in §4c.
 
 ![Option C drawn at 412, 768, 1024, 1920 and 5120 pixels](responsive-page-width-ladder.svg)
 
-### 2a. The stage
+### 2a. The stage — IMPLEMENTED
 
 A new outer wrapper replaces the per-page `max-w-*` on the detail and owner pages:
 
@@ -125,10 +128,19 @@ A new outer wrapper replaces the per-page `max-w-*` on the detail and owner page
 Tailwind v4's `--container-*` namespace generates the `max-w-stage` utility, so this stays
 tokens-only per ADR-021. **Do not** write `max-w-[2600px]`.
 
-The three owner child pages drop their own `mx-auto max-w-*` entirely — `owner/+layout.svelte` owns
-the stage for all of them.
+`owner/+layout.svelte` sets the stage as the outer bound. Its children may still narrow inside it,
+and two of them should:
 
-### 2b. The two-zone split (>= 1024px)
+- **`owner/status`** drops its own `max-w-5xl` — that cap was identical to the layout's and could
+  never bind. It now uses the full stage, which suits a multi-table page.
+- **`owner/keys` and `owner/trash` keep `max-w-4xl`.** They were never redundant; at 896px inside a
+  1024px layout they were the binding cap. Both are flat lists of `flex` rows with a `flex-1` label
+  and `shrink-0` actions, so stage width would strand a row's Delete button ~2400px from its title
+  — the same "value a screen-width from its label" failure the stage cap exists to prevent, and the
+  reason `films/[id]` is not converted either (§9.3). They gain the stage only if they gain a second
+  column.
+
+### 2b. The two-zone split (>= 1024px) — IMPLEMENTED
 
 Inside the stage, the media and film detail pages become a two-column grid:
 
@@ -146,23 +158,31 @@ Right column (rail): Tags, Films, People, Metadata, Manage, File — in that ord
 Below 1024px the grid collapses to a single column and the rail's cards stack **in the same order**
 under the player. No collapsing, no tabs — see §5b.
 
-### 2c. Resulting geometry
+### 2c. Resulting geometry — measured
 
-Content width is viewport minus `px-6` (48px). Player and rail split at 1.4:1 with a 24px gap.
+Predicted values are kept alongside what the built page actually reports, so a future change that
+drifts is visible. Differences are scrollbar width and sub-pixel rounding.
 
-| Viewport | Content | Player col | Rail | Metadata cols in rail |
-|---|---|---|---|---|
-| 412 | 364 | 364 (stacked) | 364 (stacked) | 1 |
-| 768 | 720 | 720 (stacked) | 720 (stacked) | 2 |
-| 1024 | 976 | 555 | 397 | 1 |
-| 1280 | 1232 | 705 | 503 | 1 |
-| 1920 | 1872 | 1078 | 770 | 2 |
-| 5120 | 2552 (capped) | 1475 | 1053 | 3 |
+| Viewport | Player col (pred → measured) | Rail (pred → measured) | Metadata cols in rail (pred → measured) |
+|---|---|---|---|
+| 768 | stacked → stacked, 705px | stacked → stacked below | 2 → **1** |
+| 1024 | 555 → **547** | 397 → **390** | 1 → **1** (356px) |
+| 1920 | 1078 → **1069** | 770 → **764** | 2 → **2** (361px each) |
+| 5120 | 1475 → **1503** | 1053 → **1073** | 3 → **3** (341px each) |
 
-The player never needs its own `max-height`: at every width above 1024 the player column is
-narrow enough that a 16:9 player clears the fold, and below 1024 the viewport is short enough that
-a full-width player is proportionally correct. Verify this rather than assuming it if the ratio
-`1.4fr` is changed.
+The field-column counts are measured on the built page **after** §2d landed. They are the reason
+§2d could not be deferred: with the original `sm:grid-cols-2` intact, the rail forced *two* columns
+of **174px** at 1024 — narrower than the 320px floor and far worse than the ~426px those fields had
+in the old `max-w-4xl` column. Moving the field list into a rail without §2d is a regression, which
+is what §4b means by "must ship together". At 768 the rail is full-width but `auto-fit` still
+resolves to one column because 705px is under two 320px tracks plus the gap.
+
+At 5120 the `<article>` measures exactly **2600px** with a left offset of **1253px** — capped and
+centred as specified. No horizontal overflow at any width, in any of the three skins.
+
+The player never needed its own `max-height`: at 1920 it renders 1069px wide (601px tall) and at
+5120 1501px wide (844px tall), both clearing the fold on their respective screens. Re-verify this
+if the `1.4fr` ratio changes.
 
 ### 2d. The field grid
 
@@ -382,6 +402,21 @@ A full numbered checklist lives in
    cross-cutting architectural decision. If the stage cap is expected to govern future pages as a
    standing rule rather than a per-page choice, that judgment should be revisited and an ADR
    written — flag it rather than assuming this call was right.
-3. **The film detail page's hero** (`films/[id]/+page.svelte`) has a banner rather than a player.
-   The rail applies, but the left-column geometry in §2c was derived from the video player; confirm
-   the banner's aspect ratio does not want a different split.
+3. **The film detail page is deliberately still capped at `max-w-4xl`** and has *not* been given
+   the stage token. Applying `max-w-stage` there without also building its rail would turn it into
+   a 2600px single column — precisely the option B failure this design rejected (§1b). The two must
+   land together. Its hero is a banner rather than a player, so confirm the banner's aspect ratio
+   wants the same 1.4:1 split before reusing §2c's geometry.
+
+4. **The Films/People `side-by-side` branch inherited a width assumption.** Its
+   `max-w-[50%] flex-none` / `min-w-0 flex-1` split (HOLODEX-328) was tuned for the old ~896px
+   column and now sits in a 320–1073px rail. `layout.row` is derived purely from film and people
+   counts — there is no width input and no responsive fallback. It cannot overflow, but at a 390px
+   rail it is two ~180px columns. Decide whether it should stack below some rail width (a container
+   query would be the right tool) — QA 5.11.
+
+5. **Rail sections keep their existing chrome.** The wireframes drew rail items as bordered cards
+   for legibility, but the implementation moved the existing sections across unchanged — Tags and
+   Films render as bare sections while the Metadata `<dl>` keeps its own `border-rule bg-surface`
+   panel. That is a layout change only, by design. If the rail should read as a column of cards,
+   that is a separate visual decision, not something the move should have smuggled in.

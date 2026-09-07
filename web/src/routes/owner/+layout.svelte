@@ -41,7 +41,7 @@
 	const activeTab = $derived(page.url.pathname);
 </script>
 
-<section class="mx-auto max-w-5xl space-y-5">
+<section class="mx-auto max-w-stage space-y-5">
 	<header class="space-y-1">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Owner</h1>
 		<p class="text-sm text-muted">Owner tools — visible only in your view, hidden from visitors.</p>

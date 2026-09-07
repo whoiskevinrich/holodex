@@ -31,6 +31,21 @@
 	--radius-theme: var(--radius);
 }
 
+/* Reading-width ceiling for the detail and owner pages, exposed as `max-w-stage`
+   (HOLODEX-331). Components reference it by name rather than as `max-w-[2600px]`.
+   Deliberately *not* applied to the browse grids: a grid always has another column to
+   add, so it stays edge-to-edge, while a rail stretched across 5120px would put a
+   field's value a screen-width from its label.
+
+   A plain `@theme`, not the `inline` block above: this is a constant, not an alias for
+   a per-skin `var(--x)`, and `inline` would resolve it into the utility *without*
+   emitting `--container-stage` as a custom property — leaving `var(--container-stage)`
+   undefined for any future calc() or component rule. Verified: under `inline` the
+   variable did not appear on `:root`. */
+@theme {
+	--container-stage: 2600px;
+}
+
 /*
  * SKIN TOKENS (ADR-021, docs/design/theming.md)
  * Every visual difference between skins lives here as CSS custom properties.
