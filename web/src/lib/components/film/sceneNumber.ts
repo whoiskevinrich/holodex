@@ -15,3 +15,13 @@ export function parseSceneNumberInput(
 	}
 	return { value: n };
 }
+
+// sceneBadgeLabel is the scene badge's vocabulary, shared by the film detail page's
+// Scenes grid (VideoCard) and the media detail page's Films chips (HOLODEX-328). The
+// design requires the two surfaces to read identically, so the three cases live in one
+// place rather than as parallel ternaries: a numbered scene, an unnumbered one, and a
+// full-film link, which has no scene number to show at all.
+export function sceneBadgeLabel(sceneNumber: number | null, isFullFilm = false): string {
+	if (isFullFilm) return 'Full';
+	return sceneNumber === null ? '\u2014' : `#${sceneNumber}`;
+}

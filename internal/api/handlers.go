@@ -747,7 +747,19 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		if fa, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
 			h.log.Warn("films for media detail", "id", id, "err", ferr)
 		} else {
-			films = fa
+			// Posters are loaded here rather than inside FilmsForVideo(s): this is the only
+			// caller that renders one. A missing poster degrades to the SPA's monogram
+			// plate, so a failure here warns and serves the attachments anyway.
+			if perr := h.repo.AttachFilmPosters(r.Context(), fa); perr != nil {
+				h.log.Warn("film posters for media detail", "id", id, "err", perr)
+			}
+			setFilmAttachmentPosterURLs(fa)
+			// append, not assign: FilmsForVideo returns a NIL slice for a video with no
+			// attachments (its map simply has no entry), and assigning that would undo the
+			// non-nil initializer above and emit "films": null -- exactly what the comment
+			// there promises it won't. film_videos.go's candidate picker already normalizes
+			// the same nil for the same reason.
+			films = append(films, fa...)
 		}
 	}
 	var fields []mapping.Resolved

@@ -32,6 +32,16 @@ type FilmAttachment struct {
 	// pill badge (design handoff §3a), which needs "#6" or "Full film", not just the
 	// is_full_film flag.
 	SceneNumber *int64 `json:"scene_number"`
+	// PosterVersion is the film's displayed poster row id, or 0 when the film has no
+	// poster. Internal: the API layer turns it into PosterURL, exactly as it does for
+	// Film.ImageVersions -- URL shapes live in the API layer, never the repo. Carries
+	// filmImageVersions' upload-over-provider precedence, same as the film detail read.
+	PosterVersion int64 `json:"-"`
+	// PosterURL is the serving URL for the film's poster, filled by the API layer from
+	// PosterVersion. Empty when the film has no poster, in which case the SPA renders
+	// its monogram plate -- without this the media detail page's Films chips could only
+	// ever draw the monogram, since the attachment carried no image at all.
+	PosterURL string `json:"poster_url,omitempty"`
 }
 
 // FilmsForVideo returns the films a single video is attached to (F56, ADR-085) -- a
@@ -74,6 +84,31 @@ func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]Fil
 		out[vid] = append(out[vid], fa)
 	}
 	return out, rows.Err()
+}
+
+// AttachFilmPosters fills PosterVersion on each attachment from film_images, in ONE
+// batch query -- the same filmImageVersions read the film list/detail paths use, so a
+// media page's chip and the film's own page agree on which image wins when a film holds
+// both an uploaded and a provider-sourced poster.
+//
+// Deliberately NOT folded into FilmsForVideos: only the media detail read renders a
+// poster. The attach-candidates picker uses attachments to flag "already attached", and
+// the studio cascade's membership check reads FilmID alone -- and that one runs once per
+// attached video, so welding a poster query into the shared read turned an N-query
+// cascade into 2N, half of it discarded.
+func (r *Repo) AttachFilmPosters(ctx context.Context, films []FilmAttachment) error {
+	ids := make([]int64, len(films))
+	for i, fa := range films {
+		ids[i] = fa.FilmID
+	}
+	versions, err := r.filmImageVersions(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range films {
+		films[i].PosterVersion = versions[films[i].FilmID][model.FilmImagePoster]
+	}
+	return nil
 }
 
 // ErrFilmExists is returned by CreateFilm when name+year already names a film --
