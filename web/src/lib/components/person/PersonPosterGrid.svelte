@@ -4,6 +4,9 @@
 	// width, so People shows ~2x the columns Videos does at the same density setting. The cap
 	// is derived from viewportTierCap rather than a second hand-maintained tier table, so it
 	// can't drift out of the stated 2:1 ratio if density.svelte.ts's TIERS ever change.
+	// Eager-load exactly the first row (`i < cols`) — it was a literal 12, which silently
+	// meant "one row" only while DENSITY_MAX was 6; raising the ceiling to 8 left the top
+	// row's last four posters lazy-loading above the fold (HOLODEX-331).
 	import type { Person } from '$lib/types';
 	import PersonPosterCard from './PersonPosterCard.svelte';
 	import { mediaDensity, viewportTierCap } from '$lib/density.svelte';
@@ -21,7 +24,7 @@
 		style={`grid-template-columns: repeat(${cols}, minmax(0, 1fr))`}
 	>
 		{#each people as person, i (person.id)}
-			<PersonPosterCard {person} eager={i < 12} />
+			<PersonPosterCard {person} eager={i < cols} />
 		{/each}
 	</div>
 {/if}

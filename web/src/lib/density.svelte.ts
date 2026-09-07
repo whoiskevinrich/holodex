@@ -5,7 +5,7 @@
 
 const KEY = 'holodex:media-density';
 export const DENSITY_MIN = 2;
-export const DENSITY_MAX = 6;
+export const DENSITY_MAX = 8;
 const DEFAULT_DENSITY = 4;
 
 function clamp(n: number): number {
@@ -54,14 +54,18 @@ export function invertDensity(n: number): number {
 // Tailwind utility classes (lg/xl/2xl + a custom 480px step). A shared singleton (one resize
 // listener) rather than per-VideoGrid-instance state, since several grids can be mounted at
 // once (the media list, an entity page's own grid, its "related" shelves).
+//
+// The top rung means "no viewport clamp at all", so it derives from DENSITY_MAX rather than
+// repeating it: VideoGrid takes min(density, cap), so any literal below DENSITY_MAX would
+// silently kill the slider's last stops (HOLODEX-331).
 const TIERS: { min: number; cap: number }[] = [
-	{ min: 1536, cap: 6 },
+	{ min: 1536, cap: DENSITY_MAX },
 	{ min: 1280, cap: 4 },
 	{ min: 1024, cap: 3 },
 	{ min: 480, cap: 2 }
 ];
 
-function capForWidth(width: number): number {
+export function capForWidth(width: number): number {
 	return TIERS.find((t) => width >= t.min)?.cap ?? 1;
 }
 

@@ -54,6 +54,44 @@ At 5120 a single poster row is 1878px tall on a 1440px-tall screen — you canno
 row. At 412 one card fills 61% of the viewport. Raising `DENSITY_MAX` fixes neither end, because
 the ceiling is not the binding constraint at either one.
 
+### 1b-i. Interim change already shipped: max density is now 8 columns
+
+Kevin's follow-up requirement — *"at max density, I should be able to see 8 videos in each row"* —
+was implemented immediately against the **current** column-count model, ahead of the remodel in
+§2e, because it is a two-value change that works today:
+
+- `DENSITY_MAX` 6 → 8.
+- The top tier became `{min: 1536, cap: DENSITY_MAX}` — **derived, not a second literal.** Both
+  halves were required: `VideoGrid` takes `min(density, viewportTierCap)`, so raising the ceiling
+  alone would have left the slider's last two stops dead. Deriving the top rung makes that
+  structural: it means "no viewport clamp at all", so it can never usefully differ from
+  `DENSITY_MAX`, and the next ceiling change is a one-line edit that cannot regress.
+- `capForWidth` is exported so the coupling is testable — `web/src/lib/density.test.ts` asserts
+  `Math.min(DENSITY_MAX, capForWidth(1920)) === 8`, mirroring `VideoGrid`'s own computation.
+  Mutation-checked: hardcoding the rung back to 6 fails 3 tests, and dropping `DENSITY_MAX` to 6
+  fails 2. An earlier version of the test asserted `DENSITY_MAX === 8` alone and caught **neither**.
+
+Verified at 1920: 8 columns, 220px cards, identical across all three skins in both `wide` and
+`poster` layouts, no horizontal overflow, and 1280/1024 unregressed. Stored preferences need no
+migration — an existing value of `6` still means six columns, it is simply no longer the maximum.
+
+**Where 8 columns begins.** The threshold is the existing 1536 rung, not a new one, so 8 columns
+arrive at 1536 where cards are **172px** (258px-tall posters) rather than 220px. Measured and
+accepted: 172px is a usable poster thumbnail, and a user selecting max density is explicitly asking
+for small. The alternative — adding a `{min: 1920, cap: 8}` rung above `{min: 1536, cap: 6}` —
+would leave the slider's last stops dead between 1536 and 1919, which is the exact failure this
+change exists to remove.
+
+**Knock-on 1 — People poster grid.** `PersonPosterGrid` derives its count as `min(density, cap) * 2`
+(RD8), so it now reaches **16 columns** — measured at 1920: 102x205px cards. The ratio is
+deliberate and was left intact rather than special-cased; see QA 3.15 and 5.9.
+
+**Knock-on 2 — eager-loading regression, found and fixed.** `PersonPosterGrid` passed
+`eager={i < 12}`, and `12` was silently *one row at the old ceiling* (6 x 2). At 16 columns the
+top row's last four posters would have lazy-loaded while sitting above the fold. Now
+`eager={i < cols}`, which tracks the real first row and is strictly cheaper at every density below
+max — at density 2 it eager-loads 4 posters instead of 12.
+
 ### 1c. The rule
 
 > **Width is spent on more information, never on bigger information.** A page uses extra width by
@@ -170,6 +208,28 @@ per the existing `invertDensity` comment), but each stop now maps to a width:
 | 3 (default) | 260px | 1 | 2 | 7 | 19 |
 | 4 | 340px | 1 | 2 | 5 | 14 |
 | 5 (largest) | 440px | 0→1 | 1 | 4 | 11 |
+
+> **⚠ This table now conflicts with a stated requirement, and the conflict is unresolved.**
+>
+> "At max density I should be able to see 8 videos in each row" is exact and viewport-independent
+> under the column-count model. Under a target-width model it is neither — column count is
+> emergent, so the answer varies by window size. Worse, **no single target width satisfies both
+> ends of the gamut**: hitting exactly 8 columns at 1920 requires a ~220px target, but 220px
+> yields **1** column at 412px, where max density should give 2. Reaching 2 columns at 412px needs
+> a target of ≤174px, which yields 10 at 1920, not 8.
+>
+> So the stop table above (150px at max density → 12 columns at 1920) does **not** deliver the
+> requirement. Three ways out, and this needs a decision before §2e is implemented:
+>
+> 1. **Keep the column-count model** and extend `TIERS` upward for ultrawides (2560 / 3840 / 5120).
+>    Preserves "8 at max" exactly, and matches how the requirement was actually expressed — in
+>    videos per row. Cost: the table needs extending again for future displays.
+> 2. **Target-width model**, accepting that "8" holds only near 1920 and drifts elsewhere.
+> 3. **Hybrid** — target width, clamped by a min/max column count.
+>
+> Option 1 is now the stronger candidate. The original choice of the target-width model was made
+> before this requirement existed; the requirement is evidence that columns-per-row is the unit
+> the user actually reasons in.
 
 **Migration:** existing browsers hold `holodex:media-density` values 2–6 under the old
 column-count meaning. Map on read — old 6 (most columns) → stop 1, old 2 (fewest) → stop 5 — and
