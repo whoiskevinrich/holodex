@@ -51,10 +51,12 @@ field-grid change is what makes the width change worth anything.
 - [x] design `design-handoff` — `docs/design/responsive-page-width-handoff.md` +
   `responsive-page-width-mockup.svg` + `responsive-page-width-ladder.svg` +
   `responsive-page-width-qa-checklist.md`
-- [ ] frontend
-- [~] testing `testing-strategy` — partially done: `density.test.ts` covers the shipped ceiling
-  (mutation-checked). Still needed for the ladder extension (QA §4.4–4.7) and the layout geometry
-  assertions (QA §3)
+- [x] frontend — density ladder + viewport-aware slider, `--container-stage` token, two-zone
+  layout on media and film detail, `field-grid`/`stage-grid` utilities, stage-aligned Scenes grid
+- [~] testing `testing-strategy` — unit coverage done: `density.test.ts` (ladder, inversion,
+  card-width bands; mutation-checked) and `stageGrid.test.ts` (track maths, stage-hold threshold).
+  The QA §3/§4 *geometry* assertions were verified in-session against a running app but are not
+  automated — this repo has no component-test harness, so they stay a manual checklist
 - [~] security `security-review` — not applicable; presentation only, no auth, access, or
   infrastructure surface
 - [~] three-skin QA — done for the density ceiling at 1536 and 1920. Still needed across
