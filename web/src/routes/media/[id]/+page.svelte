@@ -1062,14 +1062,10 @@
 	</p>
 {:else}
 	<article class="mx-auto max-w-stage space-y-6">
-		<!-- Two zones at >=1024px (HOLODEX-331): the player column stops growing and the
-		     rail takes the width that used to be gutter. Below `lg` the grid collapses to
-		     one column and the rail's cards stack under the player in this same DOM order,
-		     so visual and focus order never diverge -- no `order-*` anywhere in here.
-		     `minmax(0, ...)` on the player column is load-bearing: a bare `1.4fr` has
-		     min-width:auto, so one long unbroken title or file path would push the column
-		     past the container and squeeze the rail. -->
-		<div class="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)]">
+		<!-- Player column + metadata rail (HOLODEX-331). The ratio, the rail's 320px floor
+		     and the stacking breakpoint live in `stage-grid` (app.css), shared with the film
+		     detail page so the two cannot drift. -->
+		<div class="stage-grid">
 			<div class="space-y-6">
 				<div
 					class="group relative overflow-hidden rounded-theme border border-rule bg-black"

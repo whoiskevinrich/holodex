@@ -19,6 +19,12 @@ Skins under test: **Cinémathèque, Broadcast, Brutalist**.
 
 - **1.1** Start the backend: `preview_start` with `backend-films` (poster layout — the tallest
   card shape, and the worst case for a wide grid). Confirm it is on :7800.
+  **`FILMS_ENABLED=true` must be set** or `/films` 404s and the Films nav link is hidden — it is an
+  env var (`internal/config`), not implied by the films config paths. The local `.claude/launch.json`
+  sets it; that file is gitignored, so a fresh worktree needs it added. Note this also exposes
+  HOLODEX-333 (the header nav overflows at ~768 with five nav links), which is *not* a page-layout
+  fault — attribute any 768px overflow by counting overflowing elements **inside** the page's own
+  container before blaming the layout.
 - **1.2** Start the frontend: `preview_start` with `web`. Confirm it is on :5173.
 - **1.3** Confirm the worktree is serving its own code, not the main worktree's: `.claude/launch.json`
   must exist in this worktree. Load a page and confirm a change from this branch is present.
@@ -190,4 +196,14 @@ list.
 - **6.3** `[agent]` Owner pages (`/owner/status`, `/owner/keys`, `/owner/trash`) render their tables
   full-width to the stage cap, with no nested inner cap shrinking them.
 - **6.4** `[human]` The film detail page (`/films/{id}`) hero banner still looks right at 1920 and
-  5120 — its aspect ratio differs from the video player (handoff §9.3).
+  5120. It is an 8:3 band in the 1.4fr subject column — measured 401px tall at 1920 and 563px at
+  5120. Confirm it reads as a hero band rather than a wall, and that the header still overlaps its
+  lower third (the `-mb-14` coupling).
+- **6.5** `[agent]` **Film detail zoning** (handoff §2c-i). At 1920: zones 1078 / 770, the rail's
+  headings read Cast → Details → Full film (scene coverage appears only when a provider has billed
+  a cast), and the Scenes `<section>` spans the full 1872px beneath both zones — **not** the subject
+  column. At 5120 the section is exactly 2600px, left offset 1260px, with Scenes at 2600px.
+- **6.6** `[agent]` **`stage-grid` drives both detail pages.** `getComputedStyle('.stage-grid')`
+  reports `display: grid`, `gap: 24px`, and two tracks at ≥1024px on both `/media/{id}` and
+  `/films/{id}`; a single track at 1023. The ratio and the 320px rail floor must exist only in
+  `app.css` — grep that no route repeats `grid-cols-[minmax(`.

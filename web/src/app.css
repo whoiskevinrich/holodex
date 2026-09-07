@@ -46,6 +46,28 @@
 	--container-stage: 2600px;
 }
 
+/* The detail pages' two-zone shell (HOLODEX-331): a subject column that stops growing,
+   beside a metadata rail that takes the width which used to be gutter. Named here rather
+   than repeated at each call site — the media and film detail pages must share one ratio
+   and one rail floor, and as a pair of arbitrary-value class strings they would drift.
+
+   `minmax(0, …)` on the subject column is load-bearing: a bare `1.4fr` has min-width:auto,
+   so a single long unbroken title or file path would push the column past the container and
+   squeeze the rail. The 320px rail floor is where a field label, its value and its
+   SourceBadge chip row still fit on one line.
+
+   Below `lg` this stays a single column, so the rail's cards stack under the subject in DOM
+   order — visual and focus order never diverge, and no `order-*` is needed anywhere. The gap
+   and the breakpoint are pulled from the theme scale rather than restated, so they cannot
+   drift from `gap-6` / `lg:` if either is ever retuned. */
+@utility stage-grid {
+	display: grid;
+	gap: --spacing(6);
+	@media (width >= theme(--breakpoint-lg)) {
+		grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+	}
+}
+
 /*
  * SKIN TOKENS (ADR-021, docs/design/theming.md)
  * Every visual difference between skins lives here as CSS custom properties.

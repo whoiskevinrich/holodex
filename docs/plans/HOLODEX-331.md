@@ -89,8 +89,11 @@ field-grid change is what makes the width change worth anything.
    caught that shipping item 5 without it left two 174px field columns at 1024 (they had ~426px in
    the old `max-w-4xl`) — a straight regression between 1024 and ~1714px. Now 1 column at 1024
    (356px), 2 at 1920 (361px), 3 at 5120 (341px)
-7. [ ] [frontend] Same two-zone treatment on `films/[id]/+page.svelte` — confirm the banner's
-   aspect ratio wants the same 1.4:1 split as the video player (handoff §9.3)
+7. [x] [frontend] **Film detail rail.** `max-w-stage` + the shared `stage-grid`; subject zone =
+   banner + header (coupled by `-mb-14`), rail = Cast / scene coverage / Details / full-film file,
+   **Scenes full width beneath both**. The banner question is answered: it wants the 1.4fr column,
+   because at full stage width an 8:3 band is 975px tall. Extracted `@utility stage-grid` now that
+   a second call site exists, so the ratio and rail floor live in one place
 8. [x] [frontend] **Density ladder extended.** Rungs `{2560:12}` and `{3840:16}` above
    `{1536:8}`; `DENSITY_MAX` now `Math.max(...TIERS.map(cap))` so it survives reordering. Slider
    range tracks `viewportTierCap` (no inert stops), `invertDensity(n, max)` inverts against the
@@ -255,3 +258,28 @@ field-grid change is what makes the width change worth anything.
   `max-height: 6000px` sized for an 864px-wide list (QA 3.19), and the Films/People `side-by-side`
   branch inherited a `max-w-[50%]` split tuned for the old column (QA 5.11).
 - **Next session:** item 7 — the film detail page's rail, which unblocks giving it the stage token.
+
+### 2026-09-07 (later) · Film detail rail; shared stage-grid utility
+- skills: design-handoff, simplify
+- **Film page zoned differently from media detail, for measured reasons, not symmetry.** The banner
+  is `aspect-[8/3]`: at full stage width it would be 975px tall and swallow a 1440px screen, so it
+  sits in the 1.4fr subject column (401px at 1920, 563px at 5120) with the header, which overlaps
+  it via `-mb-14` and cannot be separated from it. The Scenes list went **full width** beneath both
+  zones because it renders `VideoGrid`, whose column count comes from `effectiveDensity()` — the
+  *viewport*, not the container. In the 1.4fr column it would ask for 16 columns inside 1503px
+  (~88px cards); at full stage width it gets 218px cards at 1920, matching the browse grid.
+- **Extracted `@utility stage-grid`** now that a second call site exists — a prior review predicted
+  exactly this ("defensible at one call site; two would not be"). The ratio, the 320px rail floor
+  and the stacking breakpoint now live once in `app.css`. Verified compiled: `display:grid`,
+  24px gap, two tracks at 1024 and one at 1023.
+- **Found and filed HOLODEX-333** while setting up: with `FILMS_ENABLED=true` the header nav has
+  five links plus the owner cluster and overflows horizontally at 768 (scrollWidth 778 vs 753).
+  Attributed properly rather than assumed — zero overflowing elements inside either page's own
+  container, and media detail overflows identically, so it is the shared header, not this work. It
+  fails WCAG 1.4.10 on every route.
+- **Setup gotcha worth remembering:** `films_enabled` is an env var (`FILMS_ENABLED`), not implied
+  by the films-specific config paths in `launch.json`. Without it `/films` 404s and the nav link is
+  hidden, so the film page cannot be verified at all. Added to the local (gitignored) launch config
+  and to QA §1.1.
+- **Next session:** items 9–11 — testing strategy, live three-skin QA on real hardware, then
+  `/simplify` + `/code-review` on the whole implementation before marking the PR ready.

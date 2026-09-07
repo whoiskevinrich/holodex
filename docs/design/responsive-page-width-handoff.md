@@ -142,7 +142,9 @@ and two of them should:
 
 ### 2b. The two-zone split (>= 1024px) — IMPLEMENTED
 
-Inside the stage, the media and film detail pages become a two-column grid:
+Inside the stage, the media and film detail pages become a two-column grid. It is a named utility,
+`stage-grid` in `app.css`, not a repeated arbitrary-value class string — both pages must share one
+ratio and one rail floor, and as two class strings they would drift:
 
 ```
 grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
@@ -183,6 +185,41 @@ centred as specified. No horizontal overflow at any width, in any of the three s
 The player never needed its own `max-height`: at 1920 it renders 1069px wide (601px tall) and at
 5120 1501px wide (844px tall), both clearing the fold on their respective screens. Re-verify this
 if the `1.4fr` ratio changes.
+
+### 2c-i. The film detail page — same shell, different zoning
+
+The film page uses the same `stage-grid`, but its content maps differently:
+
+| Zone | Contents |
+|---|---|
+| Subject column (1.4fr) | banner + header (coupled by `-mb-14`) |
+| Rail (minmax(320px, 1fr)) | Cast, scene coverage, Details, full-film file |
+| **Full width beneath both** | the Scenes list |
+
+Scenes sits full width rather than in the subject column for a concrete reason: it renders
+`VideoGrid`, whose column count comes from `effectiveDensity()` — derived from the **viewport**,
+not from its container. Nested in the 1.4fr column it would ask for up to 16 columns inside 1503px
+(~88px cards).
+
+Full-stage width fixes that **up to about a 2650px viewport**, where the count and the space agree
+exactly with the browse grid — 218px cards at 1920, 195px at 2560. Above that the stage cap binds
+while browse stays edge-to-edge, and they diverge. Measured at 5120 on max density:
+
+| Grid | Container | Columns | Card |
+|---|---|---|---|
+| Film Scenes | 2600 (capped) | 16 | **148px** |
+| Browse | 5072 (uncapped) | 16 | **302px** |
+
+148px is usable and far better than the ~98px the old `max-w-4xl` produced, so this is a large net
+improvement — but it is not parity, and an earlier draft of this section wrongly claimed it was.
+See §9.6 for the open question that follows from it.
+
+**Any future use of `VideoGrid` inside a narrowed container inherits this mismatch** — the real fix
+is making its column count container-derived, which is out of scope here.
+
+Measured: zones 547/390 at 1024, 1078/770 at 1920, 1503/1073 at 5120 with the section at exactly
+2600px and a 1260px left offset; Scenes spans 961 / 1872 / 2600 respectively. Stacks at 1023,
+splits at 1024.
 
 ### 2d. The field grid
 
@@ -396,17 +433,21 @@ A full numbered checklist lives in
 
 ## 9. Open items
 
-1. **`docs/design/theming.md` may need a note** on the new `--container-stage` token so it is not
-   re-derived as a literal elsewhere.
+1. ~~`docs/design/theming.md` may need a note on the new token~~ — **RESOLVED.** `--container-stage`
+   / `max-w-stage` is in the theming token table, and `.claude/rules/frontend-theming.md` now lists
+   the utility and carries a check that no page wrapper uses `max-w-[…]`. `stage-grid` is documented
+   at its definition in `app.css`.
+
 2. **No ADR proposed.** This is a layout convention plus a component-local storage change, not a
    cross-cutting architectural decision. If the stage cap is expected to govern future pages as a
    standing rule rather than a per-page choice, that judgment should be revisited and an ADR
    written — flag it rather than assuming this call was right.
-3. **The film detail page is deliberately still capped at `max-w-4xl`** and has *not* been given
-   the stage token. Applying `max-w-stage` there without also building its rail would turn it into
-   a 2600px single column — precisely the option B failure this design rejected (§1b). The two must
-   land together. Its hero is a banner rather than a player, so confirm the banner's aspect ratio
-   wants the same 1.4:1 split before reusing §2c's geometry.
+3. ~~The film detail page is deliberately still capped~~ — **RESOLVED.** It now uses `max-w-stage`
+   and the shared `stage-grid`, landed together as the design required. The banner question is
+   answered: it *does* want the 1.4fr column, and for a stronger reason than symmetry — an
+   `aspect-[8/3]` band at full stage width would stand **975px** tall and swallow a 1440px screen.
+   In the subject column it measures 401px at 1920 and 563px at 5120. Banner and header stay in the
+   same zone because the header overlaps the band via `-mb-14`.
 
 4. **The Films/People `side-by-side` branch inherited a width assumption.** Its
    `max-w-[50%] flex-none` / `min-w-0 flex-1` split (HOLODEX-328) was tuned for the old ~896px
@@ -415,7 +456,17 @@ A full numbered checklist lives in
    rail it is two ~180px columns. Decide whether it should stack below some rail width (a container
    query would be the right tool) — QA 5.11.
 
-5. **Rail sections keep their existing chrome.** The wireframes drew rail items as bordered cards
+5. **Should a *grid* be exempt from the stage cap?** The film page's Scenes grid is the only
+   `VideoGrid` in the app inside a capped container, and above ~2650px that costs it roughly half
+   the card size the browse grid gets (148px vs 302px at 5120). §1c's own rule points at exempting
+   it: "a page uses extra width by adding columns; where there is no further column to add, content
+   stops growing" — a grid can always add columns, which is exactly why the browse grids are already
+   exempt. The counter-argument is that the film page is a document about one film, and a Scenes
+   grid that breaks the stage while the hero stays centred makes the page change width mid-scroll.
+   This is a visual judgment, deliberately not made unilaterally. If exempted, the fix is to move
+   the Scenes section outside the `max-w-stage` wrapper as a sibling.
+
+6. **Rail sections keep their existing chrome.** The wireframes drew rail items as bordered cards
    for legibility, but the implementation moved the existing sections across unchanged — Tags and
    Films render as bare sections while the Metadata `<dl>` keeps its own `border-rule bg-surface`
    panel. That is a layout change only, by design. If the rail should read as a column of cards,
