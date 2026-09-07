@@ -754,7 +754,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				h.log.Warn("film posters for media detail", "id", id, "err", perr)
 			}
 			setFilmAttachmentPosterURLs(fa)
-			films = fa
+			// append, not assign: FilmsForVideo returns a NIL slice for a video with no
+			// attachments (its map simply has no entry), and assigning that would undo the
+			// non-nil initializer above and emit "films": null -- exactly what the comment
+			// there promises it won't. film_videos.go's candidate picker already normalizes
+			// the same nil for the same reason.
+			films = append(films, fa...)
 		}
 	}
 	var fields []mapping.Resolved

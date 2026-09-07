@@ -50,12 +50,12 @@ and affordance only; no field, namespace, or decision-model seam is touched.
 5. [x] [testing] Coverage aligned to the handoff's state matrix, including the visitor-blank case
 6. [x] [—] live three-skin QA (owner + visitor), push, sync Jira
 7. [x] [—] `/simplify` on the implementation diff (4 agents, findings applied)
-8. [ ] [—] `/code-review` on the implementation diff, then mark PR #308 ready for review
+8. [x] [—] `/code-review high` on the implementation diff (1 confirmed finding, fixed), PR #308 marked ready
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-06 · Design settled from a hand sketch; handoff + mockup committed
-- skills: design-handoff, graphify, simplify
+- skills: design-handoff, graphify, simplify, code-review
 - handoff: started from Kevin's hand-drawn four-panel sketch of the Films/People row. Read the
   current implementation first (`+page.svelte:1283-1385`, `PeopleGrid.svelte`, `PersonPicker.svelte`,
   `VideoCard.svelte`, `app.css` skin tokens) and rendered a today-vs-proposed mockup across all four
@@ -187,3 +187,29 @@ and affordance only; no field, namespace, or decision-model seam is touched.
   change — media page pills, the film page's Scenes grid (which `VideoCard`'s shared-label swap
   touches), poster still 1000×1500, headings still aligned. `go build`, `go test`, `npm run check`
   0 errors, 212 tests pass.
+
+### 2026-09-06 · `/code-review high`: one confirmed finding, fixed; PR marked ready
+- skills: code-review
+- handoff: single careful pass over the whole branch diff. One real finding, and it was
+  pre-existing rather than something this branch introduced: `getMedia` initializes
+  `films := []repo.FilmAttachment{}` with a comment promising the field never marshals as
+  `null`, then immediately does `films = fa` — and `FilmsForVideo` returns a **nil** slice
+  for a video with no attachments, since `FilmsForVideos` builds its map only from returned
+  rows. Confirmed empirically before reporting: `GET /api/v1/media/2` returned
+  `"films": null`. The SPA never noticed because `api.ts` does `films = res.films ?? []`, and
+  the sibling candidate-picker endpoint normalizes the same nil explicitly — so the two film
+  endpoints disagreed about the same type's empty representation, against the `[]`-never-null
+  convention HOLODEX-275 set. Fixed with `films = append(films, fa...)`, which keeps the
+  non-nil initializer; re-verified `media/2` now returns `[]` and `media/8` still carries its
+  `poster_url`. Fixed rather than deferred because it sits inside the hunk this branch
+  modified and marking the PR ready over a confirmed contract violation would be worse.
+
+  Explicitly checked and cleared: the empty-state restructure does NOT swallow removal errors
+  (both `removeFilm` and `curatePerson` mutate their arrays only after a successful await, so
+  a failure leaves the section populated and the error visible); nothing outside the media page
+  links to `#field-actors`, so tightening that anchor's render condition orphans no deep link;
+  `AttachFilmPosters` is nil- and empty-safe and mutates nothing on error; `VideoCard`'s
+  behaviour is byte-identical after the shared-label swap (`sceneBadgeLabel(n)` defaults
+  `isFullFilm` false); and all three `FilmsForVideo(s)` callers were re-enumerated to confirm
+  no MCP or other consumer needs posters. PR #308 marked ready for review — CI fires the Jira
+  In Review transition.
