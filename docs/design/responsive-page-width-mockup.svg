@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="opts-title opts-desc">
+<title id="opts-title">Page width — four options for the media detail page at a 1920x1080 viewport</title>
+<desc id="opts-desc">Four wireframes of the Holodex media detail page drawn inside a 1920 by 1080 browser viewport. Option A is the current 896 pixel centred column, leaving 512 pixels of unused gutter on each side. Option B removes the cap entirely, so the aspect-video player fills the full width and overruns the fold before the title renders. Option C splits the page into a player column and a metadata rail carrying tags, films and the field list. Option D widens the cap to 1280 pixels but keeps the single column, still leaving 320 pixels of gutter each side.</desc>
+<rect width="1000" height="640" fill="#0c0a09"/>
+
+<text x="20" y="30" fill="#f3ece1" font-size="15">Page width options — media detail at 1920x1080 (default skin)</text>
+<text x="20" y="52" fill="#9b9082" font-size="11">Dashed amber rule marks the 1080p fold. Grey blocks are unused gutter.</text>
+
+<text x="20" y="80" fill="#9b9082" font-size="12">A — current: 896px centred column</text>
+<rect x="20" y="90" width="460" height="240" fill="#0c0a09" stroke="#2a2622" rx="4"/>
+<line x1="20" y1="112" x2="480" y2="112" stroke="#2a2622"/>
+<text x="30" y="106" fill="#f3ece1" font-size="10">Holodex</text>
+<rect x="410" y="100" width="14" height="3" fill="#9b9082" rx="1"/><rect x="430" y="100" width="14" height="3" fill="#9b9082" rx="1"/><rect x="450" y="100" width="14" height="3" fill="#9b9082" rx="1"/>
+<rect x="20" y="112" width="122" height="218" fill="#100d0b"/>
+<rect x="358" y="112" width="122" height="218" fill="#100d0b"/>
+<text x="81" y="216" fill="#5a5149" font-size="10" text-anchor="middle">512px</text>
+<text x="81" y="230" fill="#5a5149" font-size="10" text-anchor="middle">unused</text>
+<text x="419" y="216" fill="#5a5149" font-size="10" text-anchor="middle">512px</text>
+<text x="419" y="230" fill="#5a5149" font-size="10" text-anchor="middle">unused</text>
+<rect x="142" y="120" width="216" height="121" fill="#000000" rx="2"/>
+<polygon points="245,174 245,188 258,181" fill="#4a4038"/>
+<text x="142" y="258" fill="#f3ece1" font-size="10">Blade Runner 2049</text>
+<rect x="142" y="266" width="42" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/><rect x="188" y="266" width="54" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/><rect x="246" y="266" width="36" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/>
+<text x="142" y="292" fill="#9b9082" font-size="10">Films</text>
+<rect x="142" y="298" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/><rect x="168" y="298" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/><rect x="194" y="298" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/>
+<line x1="20" y1="329" x2="480" y2="329" stroke="#e8a33d" stroke-dasharray="4 3"/>
+
+<text x="520" y="80" fill="#9b9082" font-size="12">B — cap removed: player overruns the fold</text>
+<rect x="520" y="90" width="460" height="240" fill="#0c0a09" stroke="#2a2622" rx="4"/>
+<line x1="520" y1="112" x2="980" y2="112" stroke="#2a2622"/>
+<text x="530" y="106" fill="#f3ece1" font-size="10">Holodex</text>
+<rect x="910" y="100" width="14" height="3" fill="#9b9082" rx="1"/><rect x="930" y="100" width="14" height="3" fill="#9b9082" rx="1"/><rect x="950" y="100" width="14" height="3" fill="#9b9082" rx="1"/>
+<rect x="528" y="120" width="444" height="209" fill="#000000" rx="2"/>
+<polygon points="742,206 742,224 758,215" fill="#4a4038"/>
+<text x="964" y="322" fill="#e8a33d" font-size="10" text-anchor="end">player continues past the fold — title never renders</text>
+<line x1="520" y1="329" x2="980" y2="329" stroke="#e8a33d" stroke-dasharray="4 3"/>
+
+<text x="20" y="360" fill="#e8a33d" font-size="12">C — player column + metadata rail  (chosen)</text>
+<rect x="20" y="370" width="460" height="240" fill="#0c0a09" stroke="#2a2622" rx="4"/>
+<line x1="20" y1="392" x2="480" y2="392" stroke="#2a2622"/>
+<text x="30" y="386" fill="#f3ece1" font-size="10">Holodex</text>
+<rect x="410" y="380" width="14" height="3" fill="#9b9082" rx="1"/><rect x="430" y="380" width="14" height="3" fill="#9b9082" rx="1"/><rect x="450" y="380" width="14" height="3" fill="#9b9082" rx="1"/>
+<rect x="28" y="400" width="264" height="148" fill="#000000" rx="2"/>
+<polygon points="153,467 153,481 166,474" fill="#4a4038"/>
+<text x="28" y="564" fill="#f3ece1" font-size="10">Blade Runner 2049</text>
+<rect x="28" y="572" width="230" height="5" rx="2" fill="#332d27"/>
+<rect x="28" y="583" width="196" height="5" rx="2" fill="#332d27"/>
+<rect x="300" y="400" width="172" height="44" fill="#15110e" stroke="#2a2622" rx="2"/>
+<text x="307" y="414" fill="#9b9082" font-size="10">Tags</text>
+<rect x="307" y="420" width="42" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/><rect x="353" y="420" width="52" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/><rect x="409" y="420" width="34" height="11" rx="5" fill="#1f1a16" stroke="#2a2622"/>
+<rect x="300" y="452" width="172" height="56" fill="#15110e" stroke="#2a2622" rx="2"/>
+<text x="307" y="466" fill="#9b9082" font-size="10">Films</text>
+<rect x="307" y="472" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/><rect x="333" y="472" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/><rect x="359" y="472" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/><rect x="385" y="472" width="22" height="28" rx="2" fill="#1f1a16" stroke="#2a2622"/>
+<rect x="300" y="516" width="172" height="86" fill="#15110e" stroke="#2a2622" rx="2"/>
+<text x="307" y="530" fill="#9b9082" font-size="10">Metadata</text>
+<rect x="307" y="540" width="48" height="5" rx="2" fill="#332d27"/><rect x="361" y="540" width="80" height="5" rx="2" fill="#4a4239"/>
+<rect x="307" y="554" width="42" height="5" rx="2" fill="#332d27"/><rect x="355" y="554" width="88" height="5" rx="2" fill="#4a4239"/>
+<rect x="307" y="568" width="54" height="5" rx="2" fill="#332d27"/><rect x="367" y="568" width="72" height="5" rx="2" fill="#4a4239"/>
+<rect x="307" y="582" width="46" height="5" rx="2" fill="#332d27"/><rect x="359" y="582" width="84" height="5" rx="2" fill="#4a4239"/>
+<line x1="20" y1="609" x2="480" y2="609" stroke="#e8a33d" stroke-dasharray="4 3"/>
+
+<text x="520" y="360" fill="#9b9082" font-size="12">D — wider cap: 1280px, still one column</text>
+<rect x="520" y="370" width="460" height="240" fill="#0c0a09" stroke="#2a2622" rx="4"/>
+<line x1="520" y1="392" x2="980" y2="392" stroke="#2a2622"/>
+<text x="530" y="386" fill="#f3ece1" font-size="10">Holodex</text>
+<rect x="910" y="380" width="14" height="3" fill="#9b9082" rx="1"/><rect x="930" y="380" width="14" height="3" fill="#9b9082" rx="1"/><rect x="950" y="380" width="14" height="3" fill="#9b9082" rx="1"/>
+<rect x="520" y="392" width="77" height="218" fill="#100d0b"/>
+<rect x="903" y="392" width="77" height="218" fill="#100d0b"/>
+<text x="558" y="504" fill="#5a5149" font-size="10" text-anchor="middle">320px</text>
+<text x="941" y="504" fill="#5a5149" font-size="10" text-anchor="middle">320px</text>
+<rect x="597" y="400" width="306" height="172" fill="#000000" rx="2"/>
+<polygon points="743,479 743,493 756,486" fill="#4a4038"/>
+<text x="597" y="590" fill="#f3ece1" font-size="10">Blade Runner 2049</text>
+<line x1="520" y1="609" x2="980" y2="609" stroke="#e8a33d" stroke-dasharray="4 3"/>
+</svg>
