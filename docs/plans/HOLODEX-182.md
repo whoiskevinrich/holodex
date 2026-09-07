@@ -34,7 +34,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [/] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md) drafted; repo created at `G:\source\flightplan`, `flightplan/` ported verbatim (verified byte-identical + tests pass unmodified), ADR-001 seeded there. Open: push to a GitHub remote (visibility unconfirmed), then file the gate-selector design as new work there → [HOLODEX-327](HOLODEX-327.md)
+8. [x] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md); repo at `G:\source\flightplan`, now an installed Claude Code plugin (its ADR-002). **Holodex cut over 2026-09-07**: `flightplan/` deleted, hooks unwired, parser vendored to `scripts/lib/worklog.mjs`. Open: push the new repo to a GitHub remote (visibility unconfirmed) → [HOLODEX-327](HOLODEX-327.md)
 9. [ ] [backend] `/handoff` skill → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — see retro verdict below
 10. [ ] [backend] `INBOX.md` + `/triage` → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — unblocked, retro completed 2026-07-29
 
@@ -56,6 +56,23 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-07 · Holodex cut over to the plugin — `flightplan/` deleted from this repo
+- skills: (none — direct execution against ADR-092/ADR-002 action items)
+- handoff: Flightplan is now an installed user-scope Claude Code plugin (registered in
+  `~/.claude/settings.json` from a local `directory` marketplace at `G:\source\flightplan` — purely
+  local, no remote). This repo therefore deleted its vendored `flightplan/` directory and removed
+  the three hook entries from `.claude/settings.json`, which would otherwise double-fire against the
+  plugin. **`.claude/flightplan.yaml` stays** — it is the config *and* the opt-in signal the plugin's
+  hooks now check before touching any repo. The one real cost: `scripts/whats-left.mjs` imported
+  `flightplan/lib/worklog.mjs`, and an installed plugin lives on a version-keyed path under
+  `~/.claude/plugins/cache/` that CI has no copy of, so the parser was vendored to
+  `scripts/lib/worklog.mjs` — knowingly re-splitting what ADR-064 item 7 collapsed (recorded in
+  ADR-092's Consequences). 105/105 script tests green; `whats-left.mjs` verified to load.
+  **Not yet verified:** nobody has restarted Claude Code since the plugin was registered, so the
+  hooks are currently firing from *neither* source in this repo. Confirm the plugin loads before
+  relying on SessionStart orientation again. Next: push the plugin repo to a remote, then the
+  gate-selector design (the original brainstorm) as new work there.
 
 ### 2026-09-06 · Extraction executed — new repo seeded, ADR-092 action items closed
 - skills: (none — direct execution against ADR-092's action items)

@@ -27,7 +27,7 @@ Backend (Go) via `Makefile`; frontend (`web/`) via npm:
 | Run the server | `make run` (`go run ./cmd/holodex`) |
 | Production build | `make build` |
 | Go tests | `make test` · integration: `make test-integration` |
-| Flightplan/scripts unit tests only | `make test-scripts` |
+| Node scripts unit tests only | `make test-scripts` |
 | Frontend dev server | `make web-dev` (or `cd web && npm run dev`) |
 | Frontend type-check / tests | `cd web && npm run check` · `npm run test` |
 | Full stack in Docker | `make docker` (`docker compose up --build`) |
@@ -118,9 +118,9 @@ file (also ADR-021 and `docs/design/theming.md`).
    any gate this push closed to `[x]`, append a session-log entry (skills run + a one-line
    handoff sentence), and update `Up next`/`release_note` if they changed. Stage the worklog
    file alongside the code/PR changes so it ships in the same commit — don't leave it for a
-   follow-up commit or wait for the user to notice it's stale. (`/handoff`, the skill meant to
-   automate this judgment call, is not yet built — see `flightplan/README.md` — so this is a
-   manual step until it lands.)
+   follow-up commit or wait for the user to notice it's stale. (`/flightplan:handoff`, the skill
+   meant to automate this judgment call, is not yet built — it lives in the Flightplan plugin repo,
+   ADR-092 — so this is a manual step until it lands.)
 3. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 4. Scan the working tree for secrets / PII (see "Secrets & publishing").
 5. **Draft unless the gates are green.** Open with `gh pr create --draft` whenever work
@@ -169,8 +169,8 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
-- **Internal agent-tooling work (e.g. `flightplan/`, `.claude/`) uses `chore(flightplan): ...`,
-  not `feat`/`fix`.** Both `cliff.toml` and `release-please-config.json` already hide `chore`
+- **Internal agent-tooling work (e.g. `.claude/`, `scripts/` agent plumbing) uses
+  `chore(flightplan): ...`, not `feat`/`fix`.** Both `cliff.toml` and `release-please-config.json` already hide `chore`
   commits, so this keeps agent-tooling changes out of user-facing CHANGELOG/Release notes
   without any config change — neither tool supports filtering by scope, only by type.
 - Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which

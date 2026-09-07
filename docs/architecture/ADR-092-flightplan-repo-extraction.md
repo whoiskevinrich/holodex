@@ -68,10 +68,11 @@ convention).
    hooks, `lib/`, skills) and for Flightplan's own architecture decisions going forward, seeded from
    ADR-064's content ported in as that repo's own first ADR — carrying forward batches 1–3 as already
    shipped/proven and batch 2 (`/handoff`, `/triage`, `INBOX.md`) as still pending there, not here.
-2. **Holodex becomes a consumer**, not the source: it keeps a local copy of `flightplan/` (re-synced
-   by hand on pull from the new repo — the "copy-out" step ADR-064 always described, just exercised
-   for the first time) plus its own `.claude/flightplan.yaml` config and its own `docs/plans/*.md`
-   worklogs, which stay Holodex-specific data.
+2. **Holodex becomes a consumer**, not the source. *(Revised 2026-09-07 — this originally said
+   Holodex would keep a hand-synced copy of `flightplan/`. It doesn't: the new repo's ADR-002 made
+   Flightplan an installable plugin, so Holodex deleted the directory outright and installs it
+   instead. What stays here is `.claude/flightplan.yaml` — the config, which is also the opt-in
+   signal — and `docs/plans/*.md`, which are Holodex data, not mechanism.)*
 3. **ADR-064 is not rewritten.** Its content remains Holodex's historical record of the design; this
    ADR narrowly supersedes only its "packaged as a `flightplan/` directory **in this repo**" placement
    clause. A reader wanting Flightplan's current design reads the new repo; a reader wanting *why
@@ -133,8 +134,16 @@ Option B's distribution mechanism ahead of real demand.
   subdirectory out of Holodex.
 
 **What becomes harder**
-- Two repos to keep in sync by hand — a Flightplan mechanism change means re-copying `flightplan/`
-  into Holodex (and any other consumer) manually; no installer exists to do this for us.
+- ~~Two repos to keep in sync by hand~~ — resolved before it bit: the new repo's ADR-002 ships
+  Flightplan as an installed plugin, so there is no vendored copy here to drift.
+- **The worklog parser is duplicated again.** `scripts/whats-left.mjs` imported
+  `flightplan/lib/worklog.mjs`; an installed plugin lives under `~/.claude/plugins/cache/` on a
+  version-keyed path that a clean CI checkout has no copy of, and `make test-scripts` runs in CI.
+  So the parser was vendored to `scripts/lib/worklog.mjs` as this repo's **reader** for the format.
+  This knowingly re-splits what ADR-064 item 7 deliberately collapsed — two copies previously cost
+  the same three parsing bugs twice. Accepted because the alternatives were worse: importing from
+  the plugin cache breaks CI, and deleting `whats-left.mjs` removes a live, documented tool. The
+  copy keeps upstream's writer helpers (unused here) so the two files can be diffed directly.
 - ADR-064 stays in Holodex as a historical record whose placement clause is now stale — a reader has
   to know to follow the supersession pointer to the new repo for the current design.
 - Holodex's `.claude/settings.json` hook wiring and `docs/plans/*.md` worklogs need to keep working
@@ -161,9 +170,14 @@ Option B's distribution mechanism ahead of real demand.
    from the new location.
 4. [x] ADR-064's content ported into the new repo as its own ADR-001 (`Accepted`; batches 1–3 marked
    shipped/live, batch 2 — `/handoff`/`/triage`/`INBOX.md` — marked pending there).
-5. [x] Re-sync verified — Holodex's `flightplan/` and the new repo's are currently byte-identical
-   (nothing has diverged yet, so there was nothing to pull back); hooks are unchanged and untouched
-   by this migration.
-6. [ ] File the profile-driven gate-selector + `/code-review` gate design as new work in the new
+5. [x] ~~Re-sync verified — byte-identical~~ — superseded by the cutover below; the copies did
+   diverge once the new repo was cleaned up, and Holodex no longer vendors one at all.
+6. [x] **Cutover (2026-09-07).** Deleted `flightplan/` from this repo; removed the three hook
+   entries from `.claude/settings.json` (Flightplan is now an installed user-scope plugin, so
+   leaving them would double-fire); relocated the worklog parser to `scripts/lib/worklog.mjs` and
+   repointed `scripts/whats-left.mjs`; dropped the `flightplan/**` glob from `make test-scripts`.
+   `.claude/flightplan.yaml` stays — it is both the config and the opt-in signal the plugin's hooks
+   check before touching a repo. 105/105 script tests green.
+7. [ ] File the profile-driven gate-selector + `/code-review` gate design as new work in the new
    repo's own ADR trail — out of scope here, not started.
-7. [x] Cleared the `needs-adr` label on HOLODEX-327.
+8. [x] Cleared the `needs-adr` label on HOLODEX-327.

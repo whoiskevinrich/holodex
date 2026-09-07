@@ -1,12 +1,19 @@
-// Flightplan · the canonical worklog parser (ADR-064). One implementation of the
-// docs/plans/<KEY>.md schema, shared by the hooks (flightplan/hooks/) and the repo's reporting CLI
-// (scripts/whats-left.mjs). Pure and dependency-free: every function is string → value, with no
-// filesystem access, so it can be unit-tested without loading any hook machinery.
+// This repo's READER for the Flightplan worklog schema (docs/plans/<KEY>.md). Pure and
+// dependency-free: every function is string → value with no filesystem access.
 //
-// This module exists because the two consumers previously carried their own copies of
-// section()/frontmatter()/parseGates()/parseUpNext(). Three bugs in a row (trailing YAML comments in
-// frontmatter, commented-out example gates counted as real, a session-log entry written inside an
-// open HTML comment) each had to be found and fixed twice. HOLODEX-182 item 7 tracked the collapse.
+// Vendored on purpose (ADR-092). Flightplan used to live in this repo at flightplan/, so its parser
+// could just be imported; it now ships as an installed Claude Code plugin whose files live under
+// ~/.claude/plugins/cache/ — a version-keyed path that CI has no copy of. `make test-scripts` runs on
+// a clean checkout, so scripts/whats-left.mjs needs a reader that is in the tree.
+//
+// Upstream is the flightplan repo's flightplan/lib/worklog.mjs, and this is a copy of it, writer
+// helpers (logSkillRun/flipGate — used only by the hooks, unused here) included, so the two can be
+// diffed directly when the schema changes. ADR-064 item 7 deliberately collapsed this repo's parser
+// and Flightplan's into one because maintaining two cost the same three bugs twice; extraction
+// re-splits them, and that regression is accepted knowingly — see ADR-092's Consequences.
+//
+// Read-side coverage lives in scripts/whats-left.test.mjs (section/parseGates/parseUpNext/
+// frontmatter, including the HTML-comment cases); the writer half is covered upstream.
 
 // ---- comment handling ---------------------------------------------------------------------------
 
