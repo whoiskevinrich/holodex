@@ -42,9 +42,13 @@
 	// $lib/stageGrid for why those differ and what each one buys.
 	const tracks = $derived(stageGridTracks(cols, videos.length, avail, GAP));
 
+	// In stageAligned mode the gap is emitted inline from the same GAP the track maths uses,
+	// so the two provably agree. `gap-4` stays on the element for the default path; the
+	// inline value simply wins here. Without this, retuning `gap-4` would silently desync
+	// the fixed tracks from the real gaps — and unlike a `1fr` grid, nothing self-corrects.
 	const gridStyle = $derived(
 		stageAligned && tracks.trackPx > 0
-			? `grid-template-columns: repeat(${tracks.trackCount}, ${tracks.trackPx}px)`
+			? `gap: ${GAP}px; grid-template-columns: repeat(${tracks.trackCount}, ${tracks.trackPx}px)`
 			: `grid-template-columns: repeat(${cols}, minmax(0, 1fr))`
 	);
 </script>

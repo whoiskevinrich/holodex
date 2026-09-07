@@ -35,10 +35,16 @@ Skins under test: **Cinémathèque, Broadcast, Brutalist**.
 - **2.1** `[smoke]` `cd web && npm run check` passes with no new type errors.
 - **2.2** `[smoke]` `cd web && npm run test` passes.
 - **2.3** `[smoke]` `make test` passes (no backend change expected; guards against accidental breakage).
-- **2.4** `[smoke]` No `max-w-[` arbitrary-value utility anywhere in the diff — the stage cap must
-  come from the `--container-stage` token. Grep the diff for `max-w-[`.
-- **2.5** `[smoke]` No `mx-auto max-w-*` remains in `owner/status`, `owner/keys`, or `owner/trash`;
-  only `owner/+layout.svelte` sets the stage.
+- **2.4** `[smoke]` No page-level width cap uses an arbitrary value — the stage must come from
+  `max-w-stage`. `rg 'max-w-\[' web/src --glob '*.svelte'` should return only truncation limits
+  (`max-w-[10rem]`-style) and the Films/People `max-w-[50%]` split, never a page wrapper.
+- **2.6** `[smoke]` No field list re-declares the grid template — `rg 'minmax\(320px' web/src` should
+  match only `app.css`. The four lists use the `field-grid` utility so the floor lives in one place.
+- **2.5** `[smoke]` `owner/status` has **no** `mx-auto max-w-*` — its old `max-w-5xl` was identical
+  to the layout's and could never bind, so it takes the stage. `owner/keys` and `owner/trash`
+  **keep** `mx-auto max-w-4xl` on purpose: at 896px inside a 1024px layout they were the *binding*
+  cap, and stage width would strand a row's Delete button ~2400px from its title. Do not "clean
+  them up" — removing them is a ~3x widening, not a de-duplication.
 
 ## 3. Agent-verifiable geometry
 

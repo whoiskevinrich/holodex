@@ -68,6 +68,22 @@
 	}
 }
 
+/* Label/value field lists that add columns as they get room (HOLODEX-331 §2d) — the
+   resolved-metadata list, Manage, File, and the raw provider payloads. Named once rather
+   than repeated as a class string per list, so the floor below is retuned in one place.
+
+   320px is where a label, its value and its SourceBadge chip row still fit on one line.
+   The `min(320px, 100%)` guard is load-bearing, not defensive noise: a bare
+   `minmax(320px, 1fr)` makes 320px a hard floor, so in a narrower container the track
+   overflows instead of shrinking. At a 320px viewport these lists sit in 240px of content
+   box (320 − 48 page padding − 32 of their own p-4) and a bare floor overflowed it by 80px,
+   forcing horizontal page scroll and failing WCAG 1.4.10 reflow. Every viewport under
+   400px was affected. `min()` lets the track collapse to the container instead. */
+@utility field-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
+
 /*
  * SKIN TOKENS (ADR-021, docs/design/theming.md)
  * Every visual difference between skins lives here as CSS custom properties.

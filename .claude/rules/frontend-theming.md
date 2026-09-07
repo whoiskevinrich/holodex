@@ -24,7 +24,7 @@ The UI is built on semantic design tokens with three switchable skins (see
   markup. Layout-mode rules attach to `.video-grid[data-layout='...']` (operator-set
   via `holodex.yaml: card_layout`; not a skin — do not gate with `[data-theme]`).
   Quick check over components: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` should be empty (raw hex values live only in `app.css` token blocks; `rounded-full` pills are an intentional shape).
-  Page width is a token too: a page-level cap is `max-w-stage`, never `max-w-[2600px]`. `rg 'max-w-\[' web/src --glob '*.svelte'` should surface only prose line-length limits and modal shells, no page wrappers.
+  Page width is a token too: a page-level cap is `max-w-stage`, never `max-w-[2600px]`; the two-zone detail shell is `stage-grid` and label/value lists are `field-grid` (both in `app.css`), never a repeated `grid-cols-[…]` string. `rg 'max-w-\[' web/src --glob '*.svelte'` should surface only per-element limits — truncation caps and the Films/People `max-w-[50%]` split — never a page wrapper.
 - **Reuse the shared button treatments; never dim a `text-muted` label.** Non-primary
   actions use `.btn-accent` (outlined accent — the affirmative action), `.btn-ghost`
   (bordered neutral — an immediate resolve), or `.btn-quiet` (borderless neutral — a UI-only

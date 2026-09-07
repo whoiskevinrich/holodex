@@ -1730,7 +1730,7 @@
 							inert={!metadataExpanded}
 						>
 						{#if canonicalResolved.length || extraFields.length}
-						<dl class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
+						<dl class="field-grid gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
 							{#each canonicalResolved as f (f.canonical)}
 								{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 								{#if f.display === 'image_url'}
@@ -1801,7 +1801,7 @@
 							/>
 						</dl>
 						{:else if fields.length}
-						<dl class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
+						<dl class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
 							{#each fields as f (f.canonical)}
 								<div>
 									<dt class="inline text-muted">{f.label}:</dt>
@@ -1844,7 +1844,7 @@
 				{#if isOwner}
 				<section class="space-y-1.5">
 					<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
-					<div class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
+					<div class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
 					<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
 					{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
 					{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
@@ -1908,7 +1908,7 @@
 						{openEnriched[p] ? '▾' : '▸'} Enrichment data: {p} ({fields.length})
 					</button>
 					{#if openEnriched[p]}
-						<dl class="mt-2 grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-2 text-xs">
+						<dl class="mt-2 field-grid gap-2 text-xs">
 							{#each fields as f (f.canonical + f.provider)}
 								{#if f.display === 'image_url'}
 									<div class="col-span-full">

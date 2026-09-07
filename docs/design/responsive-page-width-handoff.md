@@ -269,11 +269,23 @@ has no component-test harness. Same reasoning as `filmsPeopleLayout`.
 class="grid grid-cols-1 gap-3 … sm:grid-cols-2"
 ```
 
-to an intrinsic grid:
+to the `field-grid` utility (`app.css`), shared by all four label/value lists on the page so the
+floor lives in one place:
 
+```css
+@utility field-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+}
 ```
-style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))"
-```
+
+**The `min(320px, 100%)` guard is load-bearing, not defensive noise.** A bare
+`minmax(320px, 1fr)` makes 320px a *hard floor*: in a narrower container the track overflows
+rather than shrinking. Code review caught this after the first implementation shipped the bare
+form — at a 320px viewport these lists sit in 240px of content box (320 − 48 page padding − 32 of
+their own `p-4`), and the track resolved to 320px, overflowing by 80px and forcing horizontal page
+scroll. That failed §7's WCAG 1.4.10 requirement on **every viewport under 400px**. Measured in a
+240px probe: bare → 320px track; guarded → 240px track.
 
 `auto-fit` (not `auto-fill`) so a single field still spans the row rather than leaving a phantom
 empty track. The existing `sm:col-span-2` on long-text and image fields becomes
