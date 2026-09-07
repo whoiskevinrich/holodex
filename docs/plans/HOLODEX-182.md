@@ -34,8 +34,9 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [ ] [backend] `/handoff` skill → batch 2 (own slice) — **do this one first**, see retro verdict below
-9. [ ] [backend] `INBOX.md` + `/triage` → batch 2 (own slice) — unblocked, retro completed 2026-07-29
+8. [x] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md); repo at `G:\source\flightplan`, now an installed Claude Code plugin (its ADR-002). **Holodex cut over 2026-09-07**: `flightplan/` deleted, hooks unwired, parser vendored to `scripts/lib/worklog.mjs`. Open: push the new repo to a GitHub remote (visibility unconfirmed) → [HOLODEX-327](HOLODEX-327.md)
+9. [ ] [backend] `/handoff` skill → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — see retro verdict below
+10. [ ] [backend] `INBOX.md` + `/triage` → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — unblocked, retro completed 2026-07-29
 
 ## Batch-1 retro checkpoint (unblocks item 9) — ✅ completed 2026-07-29
 
@@ -55,6 +56,50 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   - **Workarounds** — any manual step done by hand that a hook should have done instead?
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-07 · Holodex cut over to the plugin — `flightplan/` deleted from this repo
+- skills: (none — direct execution against ADR-092/ADR-002 action items)
+- handoff: Flightplan is now an installed user-scope Claude Code plugin (registered in
+  `~/.claude/settings.json` from a local `directory` marketplace at `G:\source\flightplan` — purely
+  local, no remote). This repo therefore deleted its vendored `flightplan/` directory and removed
+  the three hook entries from `.claude/settings.json`, which would otherwise double-fire against the
+  plugin. **`.claude/flightplan.yaml` stays** — it is the config *and* the opt-in signal the plugin's
+  hooks now check before touching any repo. The one real cost: `scripts/whats-left.mjs` imported
+  `flightplan/lib/worklog.mjs`, and an installed plugin lives on a version-keyed path under
+  `~/.claude/plugins/cache/` that CI has no copy of, so the parser was vendored to
+  `scripts/lib/worklog.mjs` — knowingly re-splitting what ADR-064 item 7 collapsed (recorded in
+  ADR-092's Consequences). 105/105 script tests green; `whats-left.mjs` verified to load.
+  **Not yet verified:** nobody has restarted Claude Code since the plugin was registered, so the
+  hooks are currently firing from *neither* source in this repo. Confirm the plugin loads before
+  relying on SessionStart orientation again. Next: push the plugin repo to a remote, then the
+  gate-selector design (the original brainstorm) as new work there.
+
+### 2026-09-06 · Extraction executed — new repo seeded, ADR-092 action items closed
+- skills: (none — direct execution against ADR-092's action items)
+- handoff: Kevin created the new repo locally at `G:\source\flightplan`. Ported `flightplan/`
+  verbatim (`diff -rq` against Holodex's copy is empty) and confirmed its 13-test suite passes
+  unmodified from the new location — the first real evidence for ADR-064/ADR-001's "copy-out, not a
+  rewrite" claim. Seeded the new repo's own scaffolding (`package.json`, root `README.md`,
+  `docs/architecture/README.md` + ADR-001 ported from ADR-064, Accepted). Closed out ADR-092 action
+  items 1/3/4/5/7; item 2 (repo exists locally, GitHub remote/visibility still unconfirmed) partial;
+  item 6 (file the gate-selector design in the new repo) not started. Holodex's own `flightplan/` is
+  untouched and currently identical to the new repo — no divergence to reconcile yet. Next: decide
+  whether/when to push the new repo to GitHub (and its visibility), then pick up the profile-driven
+  gate-selector + `/code-review` gate design as new work there.
+
+### 2026-09-06 · Product-brainstorming session → ADR-092 (extraction) drafted
+- skills: product-brainstorming, architecture
+- handoff: A brainstorm on gate-selector UX (a profile-driven pre-implementation gate picker +
+  `/code-review high --fix` gate) pivoted mid-session into a bigger question — does that design work
+  even belong in Holodex, given Flightplan was always meant to be portable and ADR numbering has
+  already collided twice with flightplan-adjacent tooling work (#257)? Converged: extract
+  `flightplan/` to its own standalone repo (own ADR trail, still hand-copied per consumer — no
+  packaged plugin yet, no second real consumer exists to design that interface against). Filed
+  [HOLODEX-327](HOLODEX-327.md) and drafted [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md)
+  (Proposed; narrowly supersedes only ADR-064's in-repo packaging clause — worklog/hook/skill design
+  stands). Batch 2 (`/handoff`, `/triage`) reprioritized to execute in the new repo post-extraction,
+  not here. Next: get the extraction ADR reviewed (ships as a Draft PR per ADR-069), then confirm the
+  new repo's name/visibility before creating it — that confirmation is explicitly not done yet.
 
 ### 2026-07-29 · Batch-1 retro — completed, answered from evidence + Kevin
 - handoff: Trigger fired on the hard-stop date alone (2026-07-25, four days past); answered the

@@ -29,10 +29,11 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { frontmatter, parseGates, parseUpNext, section } from "../flightplan/lib/worklog.mjs";
+import { frontmatter, parseGates, parseUpNext, section } from "./lib/worklog.mjs";
 
-// The worklog schema parser is Flightplan's (ADR-064) — this script is one of its two consumers, not
-// a second implementation. Re-exported so scripts/whats-left.test.mjs keeps covering them from here.
+// The worklog schema is Flightplan's; ./lib/worklog.mjs is this repo's vendored *reader* for it
+// (ADR-092 — Flightplan now ships as an installed plugin, which CI cannot import from).
+// Re-exported so scripts/whats-left.test.mjs keeps covering them from here.
 export { frontmatter, parseGates, parseUpNext, section };
 
 export const LADDER = ["To Do", "In Progress", "In Review", "Done", "Released"];
