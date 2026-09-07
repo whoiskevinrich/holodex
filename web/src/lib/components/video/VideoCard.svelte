@@ -2,6 +2,7 @@
 	import type { Video } from '$lib/types';
 	import { api } from '$lib/api';
 	import { formatDuration, resolutionBucket } from '$lib/format';
+	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
 
 	let {
 		video,
@@ -117,7 +118,7 @@
 				? 'hover:ring-accent focus-visible:ring-accent'
 				: 'pointer-events-none'} {sceneNumber === null ? 'bg-black/70 text-muted' : 'bg-accent text-accent-ink'}"
 		>
-			{sceneNumber === null ? '—' : `#${sceneNumber}`}
+			{sceneBadgeLabel(sceneNumber)}
 		</svelte:element>
 	{/if}
 </div>

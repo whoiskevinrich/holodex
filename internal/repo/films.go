@@ -83,43 +83,30 @@ func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]Fil
 		fa.IsFullFilm = isFull != 0
 		out[vid] = append(out[vid], fa)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	// Close before the second query rather than leaning on the deferred Close: the
-	// poster lookup below runs while this cursor would otherwise still be open.
-	// (sql.Rows.Close is safe to call twice, so the defer stays as the error path.)
-	rows.Close()
-	if err := r.attachFilmAttachmentPosters(ctx, out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return out, rows.Err()
 }
 
-// attachFilmAttachmentPosters fills PosterVersion on every attachment in byVideo from
-// film_images, in ONE batch query over the distinct film ids -- the same
-// filmImageVersions read the film list/detail paths use, so a chip and the film's own
-// page agree on which image wins when a film has both an uploaded and a
-// provider-sourced poster.
-func (r *Repo) attachFilmAttachmentPosters(ctx context.Context, byVideo map[int64][]FilmAttachment) error {
-	seen := map[int64]struct{}{}
-	var filmIDs []int64
-	for _, fas := range byVideo {
-		for _, fa := range fas {
-			if _, ok := seen[fa.FilmID]; !ok {
-				seen[fa.FilmID] = struct{}{}
-				filmIDs = append(filmIDs, fa.FilmID)
-			}
-		}
+// AttachFilmPosters fills PosterVersion on each attachment from film_images, in ONE
+// batch query -- the same filmImageVersions read the film list/detail paths use, so a
+// media page's chip and the film's own page agree on which image wins when a film holds
+// both an uploaded and a provider-sourced poster.
+//
+// Deliberately NOT folded into FilmsForVideos: only the media detail read renders a
+// poster. The attach-candidates picker uses attachments to flag "already attached", and
+// the studio cascade's membership check reads FilmID alone -- and that one runs once per
+// attached video, so welding a poster query into the shared read turned an N-query
+// cascade into 2N, half of it discarded.
+func (r *Repo) AttachFilmPosters(ctx context.Context, films []FilmAttachment) error {
+	ids := make([]int64, len(films))
+	for i, fa := range films {
+		ids[i] = fa.FilmID
 	}
-	versions, err := r.filmImageVersions(ctx, filmIDs)
+	versions, err := r.filmImageVersions(ctx, ids)
 	if err != nil {
 		return err
 	}
-	for vid, fas := range byVideo {
-		for i := range fas {
-			byVideo[vid][i].PosterVersion = versions[fas[i].FilmID][model.FilmImagePoster]
-		}
+	for i := range films {
+		films[i].PosterVersion = versions[films[i].FilmID][model.FilmImagePoster]
 	}
 	return nil
 }

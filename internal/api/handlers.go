@@ -747,6 +747,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		if fa, ferr := h.repo.FilmsForVideo(r.Context(), id); ferr != nil {
 			h.log.Warn("films for media detail", "id", id, "err", ferr)
 		} else {
+			// Posters are loaded here rather than inside FilmsForVideo(s): this is the only
+			// caller that renders one. A missing poster degrades to the SPA's monogram
+			// plate, so a failure here warns and serves the attachments anyway.
+			if perr := h.repo.AttachFilmPosters(r.Context(), fa); perr != nil {
+				h.log.Warn("film posters for media detail", "id", id, "err", perr)
+			}
 			setFilmAttachmentPosterURLs(fa)
 			films = fa
 		}

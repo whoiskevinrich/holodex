@@ -20,7 +20,13 @@ export interface FilmsPeopleInput {
 	peopleCount: number;
 }
 
-/** What one side renders: its full section, the bare add CTA, or nothing at all. */
+/**
+ * What one side renders: its full section, the bare add CTA, or nothing at all.
+ *
+ * Note the template only branches on `people !== 'hidden'` — PeopleGrid decides
+ * section-vs-CTA internally from the same people array. People's third value exists so
+ * `row` can be computed, not because the page renders three People variants.
+ */
 export type SideLayout = 'section' | 'cta' | 'hidden';
 
 export interface FilmsPeopleLayout {
@@ -41,14 +47,13 @@ export function filmsPeopleLayout({
 	const films: SideLayout = !filmsEnabled ? 'hidden' : filmCount > 0 ? 'section' : isOwner ? 'cta' : 'hidden';
 	const people: SideLayout = peopleCount > 0 ? 'section' : isOwner ? 'cta' : 'hidden';
 
-	const row =
-		films === 'section' && people === 'section'
-			? 'side-by-side'
-			: films === 'cta' && people === 'cta'
-				? 'inline-ctas'
-				: films === 'hidden' && people === 'hidden'
-					? 'hidden'
-					: 'stacked';
+	// Stated in the order the design doc's state table lists them. 'stacked' is the
+	// fall-through and by far the most common outcome, so it is the default rather than
+	// the tail of a ternary staircase.
+	let row: FilmsPeopleLayout['row'] = 'stacked';
+	if (films === 'hidden' && people === 'hidden') row = 'hidden';
+	else if (films === 'section' && people === 'section') row = 'side-by-side';
+	else if (films === 'cta' && people === 'cta') row = 'inline-ctas';
 
 	return { row, films, people };
 }

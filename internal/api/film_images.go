@@ -35,6 +35,14 @@ func (h *Handlers) mountFilmImages(r chi.Router) {
 	r.Delete("/films/{id}/images/{role}", h.deleteFilmImage)
 }
 
+// filmImageURL is the one place the served film-image route is spelled, shared by the
+// entity and attachment fillers below so neither can drift from the route Mount
+// registers. The ?v={row id} changes when the image is replaced, so a stale image is
+// never pinned by a cache.
+func filmImageURL(filmID int64, role string, version int64) string {
+	return fmt.Sprintf("/api/v1/films/%d/images/%s?v=%d", filmID, role, version)
+}
+
 // setFilmImageURLs fills PosterURL/BannerURL from ImageVersions, pointing at the served
 // route on our own origin. A role absent from ImageVersions stays empty (the SPA
 // renders its fallback). Mirrors setStudioImageURLs.
@@ -43,7 +51,7 @@ func setFilmImageURLs(f *model.Film) {
 		return
 	}
 	for role, v := range f.ImageVersions {
-		url := fmt.Sprintf("/api/v1/films/%d/images/%s?v=%d", f.ID, role, v)
+		url := filmImageURL(f.ID, role, v)
 		switch role {
 		case model.FilmImagePoster:
 			f.PosterURL = url
@@ -62,8 +70,7 @@ func setFilmAttachmentPosterURLs(films []repo.FilmAttachment) {
 		if films[i].PosterVersion == 0 {
 			continue
 		}
-		films[i].PosterURL = fmt.Sprintf("/api/v1/films/%d/images/%s?v=%d",
-			films[i].FilmID, model.FilmImagePoster, films[i].PosterVersion)
+		films[i].PosterURL = filmImageURL(films[i].FilmID, model.FilmImagePoster, films[i].PosterVersion)
 	}
 }
 

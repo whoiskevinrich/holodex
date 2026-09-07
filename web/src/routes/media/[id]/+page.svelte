@@ -39,6 +39,7 @@
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
+	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
@@ -1344,6 +1345,8 @@
 							<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
 								{@render filmPoster()}
 							</a>
+							<!-- `role` is semantically redundant on a real <button>, but svelte-check cannot
+							     see what <svelte:element> resolves to and fails a11y without it. Keep it. -->
 							<svelte:element
 								this={editable ? 'button' : 'span'}
 								type={editable ? 'button' : undefined}
@@ -1354,7 +1357,7 @@
 									? 'hover:ring-accent focus-visible:ring-accent'
 									: 'pointer-events-none'} {dimPill ? 'bg-bg text-muted' : 'bg-accent text-accent-ink'}"
 							>
-								{f.is_full_film ? 'Full' : f.scene_number !== null ? `#${f.scene_number}` : '—'}
+								{sceneBadgeLabel(f.scene_number, f.is_full_film)}
 							</svelte:element>
 							{#if isOwner}
 								<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):

@@ -49,12 +49,13 @@ and affordance only; no field, namespace, or decision-model seam is touched.
 4. [x] [frontend] Scene pill port: overlay at `right-1.5 top-1.5` with `#N` / `—` / `Full`, `svelte:element` button-vs-span exactly as `VideoCard` does it; move the film chip's remove `×` to top-left — `web/src/routes/media/[id]/+page.svelte`
 5. [x] [testing] Coverage aligned to the handoff's state matrix, including the visitor-blank case
 6. [x] [—] live three-skin QA (owner + visitor), push, sync Jira
-7. [ ] [—] `/simplify` + `/code-review` on the implementation diff, then mark PR #308 ready for review
+7. [x] [—] `/simplify` on the implementation diff (4 agents, findings applied)
+8. [ ] [—] `/code-review` on the implementation diff, then mark PR #308 ready for review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-06 · Design settled from a hand sketch; handoff + mockup committed
-- skills: design-handoff, graphify
+- skills: design-handoff, graphify, simplify
 - handoff: started from Kevin's hand-drawn four-panel sketch of the Films/People row. Read the
   current implementation first (`+page.svelte:1283-1385`, `PeopleGrid.svelte`, `PersonPicker.svelte`,
   `VideoCard.svelte`, `app.css` skin tokens) and rendered a today-vs-proposed mockup across all four
@@ -144,3 +145,45 @@ and affordance only; no field, namespace, or decision-model seam is touched.
   regression HOLODEX-326's code review caught, so worth pinning. Owner pill opens
   `EditSceneNumberDialog`. `npm run check` 0 errors, 205 tests pass. Next: `/simplify` and
   `/code-review` on the implementation diff, then mark PR #308 ready.
+
+### 2026-09-06 · `/simplify` caught a real perf regression the implementation introduced
+- skills: simplify
+- handoff: four review agents (reuse / simplification / efficiency / altitude). Three of them
+  independently landed on the same defect, and it was a genuine regression rather than a style
+  nit: HOLODEX-329's poster lookup had been welded into `FilmsForVideos`, but only ONE of that
+  read's three callers renders a poster. The attach-candidates picker never serializes
+  `poster_url` at all, and `decisions.go`'s `filmAttachedToVideo` reads `FilmID` alone — and
+  `film_studio_cascade.go:118` calls that once **per attached video**, so a studio cascade over
+  a 40-scene film went from 40 queries to 80, half of them discarded. Note the simplification
+  agent's proposed fix (push the fill down into `FilmsForVideo`) would have missed half the
+  problem, since the cascade path goes through `FilmsForVideo` too — verified before applying.
+  Correct fix: `FilmsForVideos` returns to a single query, and a new exported
+  `Repo.AttachFilmPosters` is called only from the media-detail handler. That also deleted the
+  `seen`-map distinct-id loop and the explicit early `rows.Close()`, since one video's
+  attachments are already distinct and the cursor is already closed. `TestFilmsForVideoPosterVersion`
+  now asserts both halves: the plain read leaves `PosterVersion` at 0, and `AttachFilmPosters`
+  fills it with upload-beats-provider precedence.
+
+  Also applied: the reuse agent found `web/src/lib/components/film/sceneNumber.ts` already exists
+  as the shared scene-number module, so the badge *vocabulary* (`#N` / `—` / `Full`) moved there as
+  `sceneBadgeLabel` and both surfaces call it — the design requires the two to read identically,
+  and this is the half of the duplication that could be shared without touching the film page's
+  markup. New `sceneNumber.test.ts` pins those three cases (plus `parseSceneNumberInput`, which
+  had no unit coverage). `filmImageURL()` extracted in `api/film_images.go` — the route template
+  was written twice in one file. `filmsPeopleLayout`'s four-deep ternary staircase flattened to a
+  defaulted if/else chain in the order the design table lists the states.
+
+  **One agent finding was wrong and rejected on evidence.** Simplification claimed
+  `role={editable ? 'button' : undefined}` on the pill was inert in both branches. Removing it
+  immediately produced a new svelte-check a11y warning — the linter can't see what
+  `<svelte:element>` resolves to, which is exactly why HOLODEX-326 added it. Restored with a
+  comment above the element so the next pass doesn't repeat the removal.
+
+  Deferred rather than dropped: the shared `w-20` tile width is four independent literals with
+  nothing enforcing the contract (commented on HOLODEX-296, which now has a correctness argument,
+  not just a DRY one); `FilmsRow.svelte` has the same monogram-only gap as the films index
+  (commented on HOLODEX-318); extracting a shared `SceneBadge` component and `filmImageVersions`
+  growing a role filter were both judged out of this diff's scope. Re-verified live after every
+  change — media page pills, the film page's Scenes grid (which `VideoCard`'s shared-label swap
+  touches), poster still 1000×1500, headings still aligned. `go build`, `go test`, `npm run check`
+  0 errors, 212 tests pass.

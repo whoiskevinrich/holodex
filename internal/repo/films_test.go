@@ -125,6 +125,18 @@ func TestFilmsForVideoPosterVersion(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("got %d attachments, want 3: %+v", len(got), got)
 	}
+	// The plain read must NOT pay for posters -- callers that only need film membership
+	// (the attach-candidates picker, the studio cascade's per-video check) would otherwise
+	// each fund a discarded query.
+	for i, fa := range got {
+		if fa.PosterVersion != 0 {
+			t.Errorf("attachment[%d] PosterVersion = %d before AttachFilmPosters, want 0", i, fa.PosterVersion)
+		}
+	}
+
+	if err := r.AttachFilmPosters(ctx, got); err != nil {
+		t.Fatalf("attach film posters: %v", err)
+	}
 	// Ordered by film name: Aaa, Bbb, Ccc.
 	want := []int64{0, 10, 21}
 	for i, w := range want {
