@@ -26,6 +26,7 @@ import (
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
+	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
 )
 
@@ -1097,6 +1098,12 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 		// provider describe/fetch must not block the reload response — and best-effort.
 		go h.RefreshProviderIcons(context.Background())
 	}
+	// Re-check the write/read-back pairing against the mapping that just went live
+	// (ADR-093 D5) — this is the edit where an operator closes or opens such a gap, so
+	// it is the moment the warning is most actionable. Logged only once every reload
+	// above has succeeded, so the advice never accompanies a reload the operator was
+	// told had failed.
+	writeback.LogReadbackGaps(h.log, h.mappings.Current().Fields())
 	if h.cache != nil {
 		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)
 	}

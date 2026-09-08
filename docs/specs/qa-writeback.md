@@ -8,7 +8,9 @@
 ## 0. Setup
 
 **0.1** [smoke] `go build ./...` — clean build, no errors  
-**0.2** [smoke] `go test ./internal/writeback/... -v` — `TestTagForField` PASS (18 cases), failure/cancel/empty tests PASS, success tests PASS or SKIP with informative message  
+**0.2** [smoke] `go test ./internal/writeback/... -v` — `TestTagForField` PASS (18 cases), failure/cancel/empty tests PASS, success tests PASS or SKIP with informative message
+**0.2a** [smoke] Same run — `TestExampleMappingCoversWriteTargets`, `TestUnreadableExemptionsStayJustified`, `TestReadbackGaps_DetectsWrongTag`, `TestLogReadbackGaps_MessageIsActionable` and `TestLogReadbackGaps_SilentWhenClean` all PASS (ADR-093: the write-tag table and the shipped mapping's `file:` sources still agree)
+**0.2b** [agent] Start the server with a `metadata-mappings.yaml` whose `release_date` lists no `Year` source — startup logs exactly one `writeback read-back gap` WARN naming `field=release_date add_one_of=year`. Add `Year`, `POST /api/v1/admin/reload-config`, and confirm the warning is **gone**: silence is the signal, so a line on every start would be the defect  
 **0.3** [smoke] `go test ./...` — full suite passes  
 **0.4** [human] Start Holodex with a media library containing at least one MKV or MP4 file; confirm the file appears on the browse page  
 **0.5** [human] Open the admin panel and set your owner token; confirm the admin controls appear (the "Enrich" button or trash icon are visible on a media detail page)

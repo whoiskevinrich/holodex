@@ -184,6 +184,11 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		return fmt.Errorf("load metadata mappings: %w", err)
 	}
 	log.Info("metadata field mappings loaded", "path", cfg.MetadataMappingsPath, "fields", len(mappings.Current().Fields()))
+	// ADR-093 D5: a field writeback can write but the mapping cannot read back reports
+	// its sync state as unknown forever. Only the operator can close that gap
+	// (metadata-mappings.yaml is per-deployment), so surface it here rather than leaving
+	// it to be discovered as a pill that never clears.
+	writeback.LogReadbackGaps(log, mappings.Current().Fields())
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

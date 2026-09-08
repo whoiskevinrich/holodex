@@ -60,7 +60,9 @@ global rule decide for them.
    live layer, so a later Refresh file-edit or re-enrich flows straight through; only `custom` is
    frozen.
 5. **Surface conflict and sync state** — when matched providers disagree, say so; when a decided
-   value differs from what's embedded in the file, show it, per field and in aggregate.
+   value differs from what's embedded in the file, show it, per field and in aggregate. Say nothing
+   when the field's mapping declares no file source to read back through: the state is then unknown,
+   not out of sync ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)).
 6. **Keep it legible and safe** — owner-gated, themed across all three skins, reusing the
    existing curation components and provenance vocabulary.
 
@@ -156,7 +158,7 @@ global rule decide for them.
 - **P1-1 — Multi-provider control.** One `Adopt` option per **matched** provider (`Keep file / IMDB / TMDB / Custom`).
   - Given two providers supply different values for a replace field, Then a per-field "sources disagree" hint shows and each provider is selectable.
 - **P1-2 — Inter-provider trust order.** ✅ **implemented** ([HOLODEX-118](https://whoiskevinrich.atlassian.net/browse/HOLODEX-118)): the `provider_trust_order` config orders providers for the *undecided* winner among providers (file still ahead of all under `default_source: file`; unlisted providers keep mapping order behind the listed ones). Per-field decision overrides it. Applied under the file-first default; `default_source: mapping` keeps literal `sources` order. Backend-only — the SourceSelect chips are already per-provider.
-- **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision.
+- **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision — provided the field declares a `file:` source matching the tag writeback writes. When it does not, there is no file value to compare against: the field shows **no chip and is excluded from the count**, because the state is unknown rather than in sync ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md) D1).
 - **P1-4 — Candidate visibility.** Under a replace field, show the available candidates (file value, each provider value) so the choice is informed, not blind.
 
 ### Future considerations (P2)
@@ -176,13 +178,14 @@ Merge fields are unchanged: F30 union + per-value curation; decisions do not app
 
 ### Writeback
 - **Decisions are DB-only; the file is touched only by the explicit write action (RD5).** Toggling a source, typing a custom value, clearing a decision → no file I/O.
-- The write action collects **all** of the item's decided + out-of-sync fields and issues **one** durable job → **one atomic `WriteBatch` per file** (copy→write→rename; all tags in a single tool invocation). Never per-field. This rides the existing `internal/writeback.WriteBatch` + the F30 queue unchanged — F36 adds *which values* to write, not a new write mechanism.
+- The write action collects **all** of the item's decided + out-of-sync fields — out-of-sync meaning `in_sync === false`, so a decided field whose sync state is *unknown* (ADR-093) is neither counted nor pre-checked, though it still lists and stays checkable by hand — and issues **one** durable job → **one atomic `WriteBatch` per file** (copy→write→rename; all tags in a single tool invocation). Never per-field. This rides the existing `internal/writeback.WriteBatch` + the F30 queue unchanged — F36 adds *which values* to write, not a new write mechanism.
 - **The dialog's default selection is exactly that set** (HOLODEX-213). Both the header's out-of-sync count and the dialog's initial `checked` derive from one exported predicate, `needsWriteback()` in `f36.ts`, so they cannot disagree. An **undecided** provider value — one winning by mapping precedence, `poster_url` included — stays listed and writable but is not pre-selected; those rows sit behind a labelled disclosure group. See the [selection handoff](../design/writeback-selection-handoff.md) + [QA checklist](../design/writeback-selection-qa-checklist.md).
 - The write payload per replace field = the decided value (P0-4). Merge fields = the curated write-enabled set (F30).
 - After write, recompute per-field sync (decided value vs. the tag now in the file). The decision is **not** mutated (aligned with ADR-051 §5).
 
 ### Sync state
 - A field is *out of sync* when its decided value differs from the value currently embedded in the file's tag (read via the existing extract path / last writeback audit). Surfaced per-field + aggregate (RD2).
+- Sync state is **tri-state**, not boolean ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)): in sync, out of sync, or **unknown** when the field's `sources:` list declares no `file:` source — there is then no embedded value to compare against, and reporting "differs" would be a claim the resolver cannot support. Unknown is what person and studio entities already report (F37), having no file at all.
 
 ## API
 
@@ -192,7 +195,7 @@ DELETE /api/v1/media/{id}/fields/{canonical}/decision                           
 
 200/204 on success · 400 bad source/canonical · 401/403 owner gate · 404 unknown id/field · 409 soft-deleted
 ```
-`source ∈ { "file", "provider:<name>", "manual" }`; `manual_value` required (and sanitized) iff `source="manual"`; a `provider:<name>` must be a currently-matched provider. The media detail payload gains a per-field `decision` marker (chosen source + standing flag) and per-field `in_sync`.
+`source ∈ { "file", "provider:<name>", "manual" }`; `manual_value` required (and sanitized) iff `source="manual"`; a `provider:<name>` must be a currently-matched provider. The media detail payload gains a per-field `decision` marker (chosen source + standing flag) and per-field `in_sync`. `in_sync` is **omitted** when the field's sync state is unknown (ADR-093), so consumers must treat it as tri-state rather than defaulting an absent value to `false`.
 
 ## UI (grounded in real components)
 
@@ -211,7 +214,7 @@ This is a single-owner correctness/control feature, not a funnel. Success =
 
 ## Open Questions
 
-- **Q1 (engineering, non-blocking):** Sync read source — derive "value in file" from a fresh extract on demand, or from the `file_writebacks` audit + file mtime? (Audit is cheaper; an external edit since the last write would make it stale — Refresh reconciles. Decide in implementation.)
+- **Q1 (engineering, non-blocking) — ✅ resolved.** Sync read source is the **stored baseline**: `baselineValue` walks the field's declared `file:` sources over `videos`/`extra_metadata`. Neither option in the original question was taken — not a fresh extract, and not the `file_writebacks` audit, which is also not a faithful record of the written bytes for multi-value fields ([HOLODEX-338](https://whoiskevinrich.atlassian.net/browse/HOLODEX-338)). Staleness is handled by the unconditional post-write re-extract ([ADR-073](../architecture/ADR-073-post-write-baseline-resync.md) D1); the *absence* of a declared source is what makes the state unknown ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)).
 - **Q2 (engineering, non-blocking):** Should `DELETE decision` on a field that was `custom` also clear any F30 manual-add row for that field, or are they independent stores? (Lean: independent; deleting a decision reverts source selection only.)
 - **Q3 (design) — ✅ resolved in [handoff](../design/field-source-of-truth-handoff.md).** Only the out-of-sync pill is `text-warn` (value row); "providers differ" is a **muted** informational hint on the candidates line (different rows, different weights) — so the two never read as one alarm.
 

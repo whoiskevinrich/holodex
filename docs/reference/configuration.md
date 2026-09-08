@@ -173,6 +173,27 @@ Maps raw container tags (iTunes atoms, Matroska tags) and enrichment fields to c
 
 See `metadata-mappings.yaml.example` for the full syntax. The canonical field vocabulary is in [canonical-fields.md](canonical-fields.md).
 
+**If you write metadata back to files, a replace field must also declare the tag the writeback writes**
+(ADR-093). Writeback picks its destination tag from its own per-container table; the sync check reads the
+file value back through this field's `sources:` list. When they name different tags — or the field lists no
+`file:` source at all — nothing can confirm the write landed, and the field reports no sync state rather
+than a false mismatch. The pairings and an upgrade recipe are in
+[canonical-fields.md § Writeback round-trip](canonical-fields.md#writeback-round-trip):
+`title` → `file:title`, `overview` → `Comment`, `release_date` → `Year`, `studio` → `Publisher`.
+
+Holodex tells you when a field is in that state. At process start and after every
+`POST /api/v1/admin/reload-config`, it logs one warning per affected replace field, naming the key that
+closes the gap:
+
+```
+WARN writeback read-back gap: this field declares no file source matching the tag writeback writes,
+     so its sync state can never be verified  field=release_date add_one_of=year
+```
+
+A gap is a config problem, never fatal — the server starts normally. Nothing is logged when there is
+nothing to act on, including for the few fields whose write target cannot be read back on any container
+(see the round-trip table).
+
 ### In-app field promotion overrides `metadata-mappings.yaml` (F44, ADR-062)
 
 `metadata-mappings.yaml` is **operator config** — the app never writes it. But an owner can, from an
@@ -319,6 +340,12 @@ default_source: "mapping"  # legacy: first non-empty source in each field's `sou
 Holodex keeps three metadata layers per field — the **file** layer (your container tags), **provider** enrichment, and **manual** curation. For a replace field the owner can make a standing per-item decision (`keep file` / `adopt <provider>` / `custom`) via the detail-page source control; `default_source` only decides what happens **before** any such decision.
 
 **`file` (default)** — the file/baseline value is the source of truth; a provider value is shown as a *candidate* you adopt deliberately, never an automatic winner. This fixes the case where a provider silently masks your own file tags (and where writeback would then overwrite them). Recommended for personal libraries and any non-film provider. Under this mode the `sources` order in `metadata-mappings.yaml` is only **candidate suggestion order**, not a display winner.
+
+> **Adding a `file:` source changes what wins.** Under `file`, the baseline layer beats every provider on
+> an *undecided* item — so adding `Year` to `release_date` to close a read-back gap (above) also makes a
+> file tag reading a bare `2022` display over a provider's `2022-10-19`. That is the model working as
+> intended, and it is what `studio` has always done, but it is a visible change on items you have not
+> decided. Items with a standing decision are unaffected.
 
 **`mapping`** — restores the legacy behavior: the first non-empty source in each field's `sources` list wins. Choose this for a film library that wants provider-first display without setting a decision on every item.
 

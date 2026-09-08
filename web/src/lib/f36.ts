@@ -200,6 +200,10 @@ export function isPendingSelection(field: ResolvedField, chips: SourceChip[], ba
 // (`in_sync === false`). This is the single per-field `text-warn` signal (RD2). An undecided
 // (file-default) field is in sync by construction, so only a decision can read out of sync.
 // Person fields never carry `in_sync` (F37 — a person has no file), so this is never true there.
+// A video field whose mapping declares no file source also omits `in_sync` (ADR-093): nothing can
+// read the written tag back, so the state is unknown. The `=== false` test is what makes both
+// absences read as "no warning" rather than a claim we cannot support — the field still lists in
+// the batch dialog and stays checkable by hand, it just is not pre-checked.
 export function outOfSync(field: ResolvedField): boolean {
 	return field.in_sync === false;
 }

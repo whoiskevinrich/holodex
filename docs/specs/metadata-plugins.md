@@ -162,6 +162,7 @@ fields:
       - file:title        # fall back to the filename-derived title
   - canonical: overview
     sources:
+      - Comment           # file tag — also the read-back for the tag writeback writes
       - tmdb:overview
   - canonical: genres
     multi: true
@@ -324,6 +325,8 @@ Per-field, operator-confirmed write-back of enrichment-sourced values into the m
 ### Format mapping
 
 Tag names are resolved by `internal/writeback.TagForField(canonical, container)` using the container value from `videos.container` (set by the scanner's `normalizeContainer()`). Supported containers: `Matroska`, `MP4`, `WebM`, `mp3`, `flac`. A `422` is returned for any unrecognized container.
+
+**Writing a tag is only half the round trip** ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). `formatMap` decides where a value is *written*; the field's `sources:` list in `metadata-mappings.yaml` decides where it is *read back from* when computing `in_sync`. Nothing else relates the two, so a replace field can be writable and unverifiable at once — which is exactly what happened to `title` and `release_date` (HOLODEX-335). `writeback.ReadbackGaps` now compares them, `TestExampleMappingCoversWriteTargets` holds the shipped example to it, and `writeback.LogReadbackGaps` warns per affected field at process start and on `POST /api/v1/admin/reload-config`.
 
 ### Audit
 

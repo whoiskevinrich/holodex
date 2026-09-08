@@ -36,6 +36,15 @@
 # /enrich response can produce — across all three entity types it supports (video,
 # person, studio) — is mapped below. Comment out or delete anything you don't want
 # to adopt; each entry is independent.
+#
+# IMPORTANT — writeback round-trip (HOLODEX-335, ADR-093): a REPLACE field you intend
+# to write back to the file must ALSO list the file tag the writeback writes, or
+# Holodex has no way to read the written value back and the field's sync state is
+# unknowable (the detail page then reports no in-sync state at all rather than a
+# permanent "out of sync"). The write targets are per container — see
+# docs/reference/canonical-fields.md ("Writeback round-trip"). The pairings that
+# matter here: title → file:title, overview → Comment, release_date → Year,
+# studio → Publisher.
 
 fields:
   # ============================ Video / film fields ============================
@@ -48,7 +57,9 @@ fields:
   # - canonical: title
   #   browse: true
   #   sources:
-  #     - file:title        # baseline: the scanner's raw filename-stem fallback
+  #     - file:title        # baseline: the scanner's raw filename-stem fallback, AND
+  #                         # the read-back for the Title tag writeback writes — keep
+  #                         # it listed or a written title can never report in sync
   #     - filename:title    # candidate: parsed via a configured filename pattern (F48)
   #     - tmdb:title        # candidate: adopt per-item, or wins under default_source: mapping
 
@@ -65,10 +76,11 @@ fields:
   # ("Claiming a provider key") for the claim / promote / do-nothing decision table.
   - canonical: overview
     sources:
+      - Comment           # bare = file tag (file:Comment); claims nothing. Also the
+                          # read-back for the Comment tag writeback writes.
       - tmdb:overview
     # - provA:synopsis    # claimed → folds into Overview instead of its own row
     # - provB:comments    # claimed → same
-    # - Comment           # bare = file tag (file:Comment); claims nothing
 
   - canonical: tagline
     sources:
@@ -76,6 +88,10 @@ fields:
 
   - canonical: release_date
     sources:
+      - Year                    # file tag — the baseline, and the read-back for the
+                                # Year tag writeback writes (Matroska/WebM YEAR,
+                                # MP4 QuickTime:Year). Without it a written release
+                                # date can never report in sync.
       - filename:release_date   # candidate: parsed year from a filename pattern (F48)
       - tmdb:release_date
 

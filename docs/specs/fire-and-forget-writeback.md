@@ -23,7 +23,9 @@ records the transport decision and supersedes **[ADR-073](../architecture/ADR-07
   which this spec relies on and does not touch) — without it the page could not re-resolve to a
   correct baseline when a job lands
 - the per-field decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)/[ADR-052](../architecture/ADR-052-baseline-source-contract.md)) —
-  `in_sync` and the existing per-field `file out of sync` pill
+  `in_sync` and the existing per-field `file out of sync` pill. `in_sync` is tri-state
+  ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)); the badge keys off
+  `in_sync === false`, so an absent (unknown) value correctly renders nothing
 - the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
 ---
@@ -248,7 +250,11 @@ automated yet. Summary:
 - **Adversarial**: a job that fails, is retried, and fails again; a dismiss racing a worker that is
   mid-write on that row; a page open in two tabs where one dismisses.
 - **Regression**: after a write lands, `in_sync` recomputes against the post-write baseline and the
-  out-of-sync badge clears — the ADR-073 D1 behaviour this spec depends on.
+  out-of-sync badge clears — the ADR-073 D1 behaviour this spec depends on. The precondition is
+  ADR-093's: the field must declare a `file:` source matching the tag writeback writes, or the
+  recompute has nothing to read and the badge never clears. Assert this against a field that does
+  (`studio`, `release_date`) — running it against one that does not is how HOLODEX-335 stayed
+  invisible.
 
 ## Open items
 

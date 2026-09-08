@@ -271,9 +271,14 @@ export interface ResolvedField {
 	// for the "calculated from …" provenance copy. Backend-supplied so the SPA needs no registry.
 	derived_from?: string[];
 	// F36 (ADR-051) — per-field source-of-truth, present on replace (scalar) fields only.
-	// `decision` is the standing source choice (absent ⇒ implicit file default); `in_sync`
-	// is false when the decided value differs from the value embedded in the file; the
+	// `decision` is the standing source choice (absent ⇒ implicit file default); the
 	// `candidates` feed the SourceSelect segments + the candidates line.
+	//
+	// `in_sync` is tri-state (ADR-093): false when the decided value differs from the value
+	// embedded in the file, true when it matches, and ABSENT when the field's mapping
+	// declares no file source — nothing reads the written tag back, so the answer is
+	// unknown rather than "differs". Absent is also the person/studio contract (F37: no
+	// file to compare against), and `outOfSync` treats both the same way.
 	decision?: FieldDecision;
 	in_sync?: boolean;
 	candidates?: FieldCandidate[];
