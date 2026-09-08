@@ -416,6 +416,19 @@ describe('outOfSync / outOfSyncCount', () => {
 	it('in_sync true reads in sync', () => {
 		expect(outOfSync(field({ in_sync: true }))).toBe(false);
 	});
+	it('a decided video field with an unreadable baseline reads unknown, not out of sync (ADR-093)', () => {
+		// HOLODEX-335: the backend omits in_sync when the field's mapping declares no file
+		// source, because nothing reads the written tag back. Unknown must not light the warn
+		// signal or inflate the header count — that is what kept the pill lit forever.
+		const unknown = field({
+			canonical: 'release_date',
+			decision: { source: 'provider:tmdb', standing: true },
+			write_target: 'Year'
+		});
+		expect(unknown.in_sync).toBeUndefined();
+		expect(outOfSync(unknown)).toBe(false);
+		expect(outOfSyncCount([unknown])).toBe(0);
+	});
 	it('counts only out-of-sync replace fields (merge fields excluded, RD1)', () => {
 		const fields = [
 			field({ canonical: 'title', in_sync: false, write_target: 'Title' }),

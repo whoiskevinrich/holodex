@@ -178,3 +178,64 @@ func providerCandidate(f resolver.ResolvedField, provider string) string {
 	}
 	return ""
 }
+
+// --- Unreadable baseline: in_sync is unknown, not false (HOLODEX-335, ADR-093) ----
+
+// TestResolve_NoBaselineSource_InSyncUnknown is the HOLODEX-335 regression: a field
+// mapped to providers only (the shipped example's `release_date`, whose sources were
+// `filename:release_date` + `tmdb:release_date`) has nothing to read the file value
+// back through, so the pre-fix `decided == ""` comparison reported it out of sync
+// permanently — the writeback wrote the tag, the pill never cleared, and rewriting
+// could not help because the read side never looked at the tag that was written.
+func TestResolve_NoBaselineSource_InSyncUnknown(t *testing.T) {
+	fields := []mapping.Field{stubField("release_date", false, "tmdb:release_date")}
+	enr := resolver.Enrichment{"tmdb": {"release_date": {"2022-10-19"}}}
+
+	got := resolver.Resolve(testVideo, testExtra, enr, nil, fields, decide("release_date", "provider:tmdb", ""))
+	if len(got) != 1 || got[0].Values[0] != "2022-10-19" {
+		t.Fatalf("want the adopted provider value, got %+v", got)
+	}
+	if got[0].InSync != nil {
+		t.Errorf("a field with no baseline source cannot know its sync state; want nil, got %v", *got[0].InSync)
+	}
+}
+
+// TestResolve_DeclaredBaseline_StaysKnowable guards the other half of the distinction:
+// once the field DOES declare the file tag writeback writes, sync state is knowable
+// again in both directions — false while the tag is empty (the file really is missing
+// the decided value, so the unknown case above must not swallow it) and true once the
+// written value is there. The second half is the state a fixed metadata-mappings.yaml
+// reaches after a successful write.
+func TestResolve_DeclaredBaseline_StaysKnowable(t *testing.T) {
+	fields := []mapping.Field{stubField("release_date", false, "Year", "tmdb:release_date")}
+	enr := resolver.Enrichment{"tmdb": {"release_date": {"2022-10-19"}}}
+	opts := decide("release_date", "provider:tmdb", "")
+
+	// testExtra carries no "Year" tag, so the declared baseline source resolves empty.
+	empty := resolver.Resolve(testVideo, testExtra, enr, nil, fields, opts)
+	if empty[0].InSync == nil {
+		t.Fatal("a declared file source makes sync state knowable; want false, got nil")
+	}
+	if *empty[0].InSync {
+		t.Error("decided value differs from an empty declared file tag; want out of sync")
+	}
+
+	written := []model.ExtraMetadata{{SourceKey: "Year", Value: "2022-10-19"}}
+	got := resolver.Resolve(testVideo, written, enr, nil, fields, opts)
+	if got[0].InSync == nil || !*got[0].InSync {
+		t.Errorf("provider value matching the written file tag must read in sync, got %v", got[0].InSync)
+	}
+}
+
+// TestResolve_NoBaselineSource_UndecidedStaysInSync keeps the unknown case scoped to
+// decided fields: an undecided field is in sync by construction (nothing was chosen
+// to diverge from the file), and that contract predates this change.
+func TestResolve_NoBaselineSource_UndecidedStaysInSync(t *testing.T) {
+	fields := []mapping.Field{stubField("release_date", false, "tmdb:release_date")}
+	enr := resolver.Enrichment{"tmdb": {"release_date": {"2022-10-19"}}}
+
+	got := resolver.Resolve(testVideo, testExtra, enr, nil, fields, resolver.Options{})
+	if got[0].InSync == nil || !*got[0].InSync {
+		t.Errorf("undecided field must read in sync by construction, got %v", got[0].InSync)
+	}
+}

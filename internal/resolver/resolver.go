@@ -86,9 +86,15 @@ type ResolvedField struct {
 
 	// F36 (ADR-051) — per-field source-of-truth, populated on replace (scalar)
 	// fields only. Decision is the standing source choice (Standing=false for the
-	// implicit file-first default); InSync is false when the decided value differs
-	// from the file-embedded value; Candidates feed the SourceSelect segments + the
+	// implicit file-first default); Candidates feed the SourceSelect segments + the
 	// candidates line. Merge fields leave all three nil (replace-only, RD1).
+	//
+	// InSync is tri-state (HOLODEX-335, ADR-093): true when the decided value matches
+	// the file-embedded value, false when it differs, and nil when the field declares
+	// no baseline source at all — there is then no file value to compare against, so
+	// the answer is unknown rather than "differs." Reporting nil (omitted) instead of
+	// false is what keeps a field the writeback can write but the mapping can never
+	// read back from lighting the out-of-sync pill forever.
 	Decision   *FieldDecision   `json:"decision,omitempty"`
 	InSync     *bool            `json:"in_sync,omitempty"`
 	Candidates []FieldCandidate `json:"candidates,omitempty"`
@@ -529,7 +535,7 @@ func resolveDecided(baseline BaselineSource, enrichment Enrichment, fc FieldCura
 	}
 	switch dec.Source {
 	case fieldsource.File:
-		if cand, src, ok := baselineValue(baseline, f); ok {
+		if cand, src, ok, _ := baselineValue(baseline, f); ok {
 			return decidedItem(cand, src.Namespace, fc, f, false), src.Namespace + ":" + src.Key
 		}
 		return nil, ""
@@ -545,17 +551,24 @@ func resolveDecided(baseline BaselineSource, enrichment Enrichment, fc FieldCura
 // a non-empty value, plus that value. It is the single "which file value backs this
 // field" scan shared by the decided-file path and the candidate/in-sync markers, so
 // the two never diverge on which source wins.
-func baselineValue(baseline BaselineSource, f mapping.Field) (val string, src mapping.Source, ok bool) {
+//
+// ok and declared are different answers and must not be collapsed: ok means "a
+// baseline source carried a value", declared means "the field names a baseline
+// source at all". Treating an undeclared field as an empty one is the HOLODEX-335
+// bug — a declared-but-empty file tag really is out of sync with a differing
+// decision, while an undeclared field has no file value to compare against.
+func baselineValue(baseline BaselineSource, f mapping.Field) (val string, src mapping.Source, ok, declared bool) {
 	for _, s := range f.ParsedSources {
 		vals, isBaseline := baseline.Baseline(s)
 		if !isBaseline {
 			continue
 		}
+		declared = true
 		if v := firstNonEmpty(vals); v != "" {
-			return v, s, true
+			return v, s, true, true
 		}
 	}
-	return "", mapping.Source{}, false
+	return "", mapping.Source{}, false, declared
 }
 
 // decidedItem builds the single ResolvedValue for a decided replace field, applying
@@ -680,10 +693,11 @@ func hasFilmCandidate(enrichment Enrichment, filmNS []string, canonical string) 
 // candidate list (file value + each matched provider's value), the decision marker
 // (standing or the implicit file-first default winner), and the in-sync flag. A
 // field is out of sync only when a *standing* decision's value differs from the
-// file-embedded value — an undecided (file-default) field is in sync by construction.
+// file-embedded value — an undecided (file-default) field is in sync by construction,
+// and a field with no baseline source at all reports nil (unknown, ADR-093).
 func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue, filmNS []string) (*FieldDecision, []FieldCandidate, *bool) {
 	// File baseline candidate (always present; Value may be "").
-	fileRaw, _, _ := baselineValue(baseline, f)
+	fileRaw, _, _, fileDeclared := baselineValue(baseline, f)
 	fileVal := applyCasing(fileRaw, f.Casing)
 	candidates := []FieldCandidate{{Source: fieldsource.File, Value: fileVal}}
 
@@ -736,6 +750,11 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		marker.Standing = true
 		if dec.Source == fieldsource.Manual {
 			marker.ManualValue = strings.TrimSpace(dec.ManualValue)
+		}
+		if !fileDeclared {
+			// fileVal is "" for want of anywhere to read it, not because the file is
+			// empty — the sync state is unknown, not false (see InSync, ADR-093).
+			return marker, candidates, nil
 		}
 		decided := ""
 		if len(items) > 0 {

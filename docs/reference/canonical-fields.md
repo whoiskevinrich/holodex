@@ -206,6 +206,58 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 
 ---
 
+## Writeback round-trip ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md))
+
+Writeback and the sync check read two different tables, and it is on you to keep them agreeing.
+Writeback picks its destination tag per container from `internal/writeback`'s `formatMap`. The
+detail page's in-sync check reads the file value back through the field's own `sources:` list,
+looking for one in the `file:` namespace. **A replace field you intend to write back must list the
+tag writeback writes**, or there is nothing to compare the written value against.
+
+| Canonical | Matroska / WebM | MP4 | Declare as | Round-trips? |
+|---|---|---|---|---|
+| `title` | `Title` | `QuickTime:Title` | `file:title` | yes — the extractor folds `Title` into `videos.title`, which `file:title` addresses |
+| `overview` | `Comment` | `QuickTime:Comment` | `Comment` | yes |
+| `release_date` | `Year` | `QuickTime:Year` | `Year` | yes |
+| `studio` | `Publisher` | `QuickTime:Publisher` | `Publisher` | yes |
+| `tagline` | `Subtitle` | `QuickTime:Keywords` | `Subtitle` | Matroska only — MP4's `Keywords` is consumed into content tags, never `extra_metadata` |
+| `original_title` | `OriginalMediaType` | *(no target)* | — | Matroska only — not written at all on MP4 |
+| `original_language` | `Language` | `QuickTime:MediaLanguage` | — | Matroska only — the MP4 tag is undefined in exiftool and the write is dropped |
+
+`genres` and `actors` are merge fields: they carry no decision and no `in_sync` (ADR-051 RD1), so
+the round-trip does not gate anything for them. Their write targets (`Genre`, `Artist`) are consumed
+by the extractor into `Extracted.Tags` / `Extracted.People` rather than `extra_metadata`, so a
+`file:` source would not resolve for them anyway.
+
+**When a field cannot be read back**, `in_sync` is omitted from the payload entirely — unknown, not
+`false`. The detail page then shows no sync state for that field rather than a permanently-lit "out
+of sync" pill, and the batch dialog leaves the row unchecked (it still lists, and you can check it
+by hand). The three Matroska-only rows above are deliberately left without a `file:` source for
+exactly this reason: declaring one would make the state *look* knowable and report every MP4 write
+as out of sync.
+
+### Upgrading an existing `metadata-mappings.yaml`
+
+`metadata-mappings.yaml` is gitignored, so a shipped-example fix does not reach an existing install.
+If a field reported "out of sync" indefinitely after a successful write, add the file tag from the
+table above to its `sources:`, first in the list, then
+`POST /api/v1/admin/reload-config` (or restart):
+
+```yaml
+- canonical: release_date
+  sources:
+    - Year                    # ← the tag writeback writes; without it, sync is unknowable
+    - filename:release_date
+    - tmdb:release_date
+```
+
+Note this also changes precedence: under the file-first default (`default_source: file`) the file
+layer becomes the winner for an *undecided* item, so a file whose `YEAR` tag holds a bare `2022`
+will display `2022` where the provider's `2022-10-19` used to show. Any item with a standing
+decision is unaffected.
+
+---
+
 ## Person fields
 
 | Canonical | Default Label | Render | Description |
