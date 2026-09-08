@@ -6012,15 +6012,15 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/claim_test.go": {
-    "mtime": 1788894234.0833235,
-    "seen": 1788894557.1842084,
-    "ast_hash": "ef3a35415b2befdf814881d462243c90",
+    "mtime": 1788900162.6695428,
+    "seen": 1788900570.0056179,
+    "ast_hash": "c70d9062407198e1f5346cd019e144d3",
     "semantic_hash": ""
   },
   "testdata/stressseed/main.go": {
-    "mtime": 1788894160.359737,
-    "seen": 1788894557.1842096,
-    "ast_hash": "af15870bfc2bbf06bb8cd34dd6b282c2",
+    "mtime": 1788900453.4896877,
+    "seen": 1788900570.0056252,
+    "ast_hash": "7827e823db1c37ad2d564e090af3fd19",
     "semantic_hash": ""
   },
   "docs/architecture/ADR-094-local-dev-credentials-from-environment.md": {
@@ -6036,9 +6036,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-342.md": {
-    "mtime": 1788894506.1329968,
-    "seen": 1788894557.184809,
-    "ast_hash": "f09cfa6064ee7d612f44ec4ca7f4161e",
+    "mtime": 1788900537.820146,
+    "seen": 1788900570.0062122,
+    "ast_hash": "d5a6c6bf04db654e3d909c6034a5752d",
     "semantic_hash": ""
   },
   "docs/specs/stress-fixture.md": {
@@ -6048,9 +6048,39 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/README.md": {
-    "mtime": 1788894322.4529622,
-    "seen": 1788894557.1849785,
-    "ast_hash": "94f4685adddb056c5ca69ae0ae58464e",
+    "mtime": 1788900255.9350293,
+    "seen": 1788900570.0063207,
+    "ast_hash": "ef5ff3c405772dfff86baa6e1f569ca3",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/filelayer.go": {
+    "mtime": 1788900393.823951,
+    "seen": 1788900570.0056202,
+    "ast_hash": "7a0ba15c936f8d766988553dbc48d7fe",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/generate.go": {
+    "mtime": 1788900393.834464,
+    "seen": 1788900570.0056217,
+    "ast_hash": "6cfbac8c2a858b4b695b328547c5d9da",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/ladder.go": {
+    "mtime": 1788900403.9262145,
+    "seen": 1788900570.0056229,
+    "ast_hash": "4ae89b0f50c29f14200fafb429481124",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/ladder_test.go": {
+    "mtime": 1788900424.879664,
+    "seen": 1788900570.0056238,
+    "ast_hash": "9784739ced762ce92bf71de45a12a0c9",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/manifest.go": {
+    "mtime": 1788899434.3059218,
+    "seen": 1788900570.0056267,
+    "ast_hash": "4ff993a79e5f9993d85a2df9afa0308b",
     "semantic_hash": ""
   }
 }

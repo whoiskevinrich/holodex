@@ -70,10 +70,13 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
    Jira moved to In Progress
 5. [x] [dev-tooling] **HOLODEX-343** — seeder skeleton, isolated `DATA_PATH`, refuse-if-not-mine
    guard, committed `backend-stress` launch entry with `FILMS_ENABLED=true`
-6. [ ] [dev-tooling] **HOLODEX-344** — declarative ladder table, OFAT generation, reserved ID
-   blocks, `manifest.json`
-7. [ ] [dev-tooling] **HOLODEX-347** — relationship-cardinality ladder (people, tags, studios,
-   films, scenes)
+6. [x] [dev-tooling] **HOLODEX-344** — declarative ladder table, OFAT generation, reserved ID
+   blocks, `manifest.json`. Two dimensions ship (`people`, `text`) — enough to prove blocks,
+   OFAT, name encoding and the manifest end to end; the rest are rows for the tickets below
+7. [ ] [dev-tooling] **HOLODEX-347** — relationship-cardinality ladder (tags, studios, films,
+   scenes; people already landed in 344). **Read `testdata/stressseed/filelayer.go` first** —
+   `video_studios` is derived the same way `video_people` is, so the tags/studios rungs must
+   seed the file layer, not the link table
 8. [ ] [dev-tooling] **HOLODEX-346** — text torture palette
 9. [ ] [dev-tooling] **HOLODEX-345** — adversarial image set
 10. [ ] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`
@@ -85,7 +88,42 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · HOLODEX-343 — seeder skeleton, isolated DATA_PATH, safety guard
+### 2026-09-08 (last) · HOLODEX-344 — ladder table, OFAT, reserved blocks, manifest
+- skills: code-review
+- **The fixture destroyed itself the first time it was served, and only a live check
+  caught it.** `video_people` is a *derived* table (ADR-072): `cmd/holodex` re-derives
+  every video's links from the resolved file layer at startup. The first cut seeded the
+  link table directly, so all 19 tests passed against a database that the startup relink
+  then emptied — 50 links wiped, every person orphan-stamped. The fix is to seed the file
+  tag the mapping maps to `actors` and let the derivation produce the links; the backfill
+  now logs `pre_links=107 post_links=107` and changes nothing. **Generalisable:** for any
+  table the server derives, a green test suite proves only that the seeder wrote what it
+  meant to — booting the thing is the only test that matters.
+- **That forced a real dependency: the seeder must read the same
+  `metadata-mappings.yaml` the server gets.** The mapping decides which tag carries the
+  cast (it picked `Artist` on the films profile, not `Cast`), so a fixture built against a
+  different mapping is erased by the one serving it. Hence `-mappings`, defaulting to
+  `METADATA_MAPPINGS_PATH`, and a refusal — before touching disk — if no person-typed
+  field maps to a file tag.
+- **Reserved ID blocks without a caller-chosen-ID escape hatch:** no repo method accepts
+  one, and raw `INSERT`s would have stopped the fixture exercising the write path the app
+  uses (tag folding, association rules, FTS triggers). Steering each table's
+  `sqlite_sequence` before the block's rows land keeps the real API *and* the address.
+  `sqlite_sequence` has no unique index, so it is delete-then-insert, not an upsert.
+- **A mutation test deleted code rather than confirming it.** Removing the sequence rewind
+  from `reset()` changed nothing — steering already set every sequence — so the rewind was
+  redundant and the comment claiming it "makes the addresses stable" was false. Two further
+  mutations (no block steering, per-person reconcile) failed loudly with the intended
+  diagnostics, which is what makes the passing suite worth believing.
+- Deliberate scope cut: two dimensions, not six. Blocks, OFAT, name encoding and the
+  manifest are all proven by two; the rest are table rows belonging to 345/346/347/350.
+- Handoff: `go run ./testdata/stressseed -mappings <profile's mappings>` seeds 14 entities
+  in blocks 100-105 (people 0…50) and 200-207 (text: empty, unbroken, CJK, RTL, emoji,
+  diacritics, lorem), writes `manifest.json`, and survives `backend-stress` — verified
+  through the API. Next is HOLODEX-347; `video_studios` is derived exactly like
+  `video_people`, so read `filelayer.go` before adding those rungs.
+
+### 2026-09-08 · HOLODEX-343 — seeder skeleton, isolated DATA_PATH, safety guard
 - skills: code-review
 - **The guard has to allow the empty database, or it is a trap rather than a guard.** The
   obvious rule — refuse any database this tool did not mark — breaks the order people
