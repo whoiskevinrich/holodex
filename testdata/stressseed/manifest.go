@@ -42,6 +42,11 @@ type entry struct {
 type axes struct {
 	Video *videoAxes `json:"video,omitempty"`
 	Film  *filmAxes  `json:"film,omitempty"`
+
+	// Name is the coordinate of a derived kind — a person, studio or tag whose
+	// own name is the rung. It is one axis rather than a struct because there is
+	// only one: an addressed person has no cardinality of its own, it has a name.
+	Name *nameAxes `json:"name,omitempty"`
 }
 
 type videoAxes struct {
@@ -56,11 +61,24 @@ type filmAxes struct {
 	Scenes int `json:"scenes"`
 }
 
+type nameAxes struct {
+	Text string `json:"text"`
+
+	// Value is the name as stored, which is not always the palette's own string:
+	// a tag is lowercased on the way in. Recording it means a reader never has to
+	// reconstruct the normalisation to search for the entity it is looking at.
+	Value string `json:"value"`
+}
+
 func axesOf(kind entityKind, s spec) axes {
-	if kind == kindFilm {
+	switch {
+	case kind.derived():
+		return axes{Name: &nameAxes{Text: s.text.key, Value: s.text.value}}
+	case kind == kindFilm:
 		return axes{Film: &filmAxes{Cast: s.cast, Scenes: s.scenes}}
+	default:
+		return axes{Video: &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}}
 	}
-	return axes{Video: &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}}
 }
 
 // manifest is the machine-readable half of the addressing scheme (D4, layer 3).

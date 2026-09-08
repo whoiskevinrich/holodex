@@ -19,7 +19,15 @@ import (
 // caller has already proved this database is the fixture's own (see claim.go).
 //
 // Ordered parents-last: videos first sheds most of the link rows by cascade.
-var seededTables = []string{"videos", "films", "people", "studios", "tags"}
+//
+// identity_review_queue is in the list despite holding no fixture entity of its
+// own. Every entity created through resolveOrCreateByName is run past
+// FlagNearMiss, which files a suggested merge here — and the table stores bare
+// (entity_type, id_lo, id_hi) integers with no foreign key, so nothing cascades
+// when the entities are deleted. Leave it and a row filed against ids 20001/20003
+// outlives the palette that produced them, and reappears on the owner's
+// duplicates page pointing at whatever now holds those addresses.
+var seededTables = []string{"videos", "films", "people", "studios", "tags", "identity_review_queue"}
 
 // generate builds every dimension in the ladder and returns what it addressed.
 //
@@ -47,14 +55,14 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 	var entries []entry
 	var scenePool []int64
 	for _, dim := range ladder {
-		// The scene pool is made of videos, so it cannot be steered into the pool
-		// range until every video dimension has taken its block: SQLite's
-		// AUTOINCREMENT counter only moves forward, and rewinding it below rows
-		// that already exist would collide rather than renumber. validateLadder
-		// guarantees the video dimensions all come first, so building it lazily
-		// here — at the first film dimension — is the only point where both
-		// conditions hold.
-		if dim.entity == kindFilm && scenePool == nil {
+		// Everything that is not an addressed video needs the videos sequence moved
+		// out of the addressed range first — the scene pool and the derived kinds'
+		// carrier videos alike. It cannot happen earlier: SQLite's AUTOINCREMENT
+		// counter only moves forward, and rewinding it below rows that already
+		// exist would collide rather than renumber. validateLadder guarantees every
+		// video dimension comes first, so the first non-video dimension is the one
+		// point where both conditions hold.
+		if dim.entity != kindVideo && scenePool == nil {
 			if err := steer(ctx, database, kindVideo.table(), poolBase); err != nil {
 				return nil, err
 			}
@@ -106,7 +114,8 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 func validateLadder(dims []dimension) error {
 	blocks := map[int64]string{}
 	highest := map[entityKind]int64{}
-	sawFilm, sawFilmKey := false, ""
+	sawOther, sawOtherKey := false, ""
+	var sawOtherKind entityKind
 	for _, dim := range dims {
 		if dim.entity.table() == "" || dim.entity.urlFor(1) == "" {
 			return fmt.Errorf("dimension %q addresses entity kind %q, which has no table or route mapping",
@@ -120,9 +129,10 @@ func validateLadder(dims []dimension) error {
 			return fmt.Errorf("dimension %q declares %d rungs but a block holds %d",
 				dim.key, len(dim.rungs), blockSize)
 		}
-		if dim.block <= 0 || dim.block+blockSize > poolBase {
-			return fmt.Errorf("dimension %q block %d is outside the addressable range [1,%d)",
-				dim.key, dim.block, poolBase)
+		lo, hi := dim.entity.addressSpace()
+		if dim.block < lo || dim.block+blockSize > hi {
+			return fmt.Errorf("dimension %q block %d is outside the addressable range "+
+				"[%d,%d) for a %s", dim.key, dim.block, lo, hi, dim.entity)
 		}
 		if other, taken := blocks[dim.block]; taken {
 			return fmt.Errorf("dimensions %q and %q both claim block %d", other, dim.key, dim.block)
@@ -140,22 +150,35 @@ func validateLadder(dims []dimension) error {
 		}
 		highest[dim.entity] = dim.block
 
-		// Every video dimension must precede every film one. generate() steers the
-		// videos sequence into the pool range to build the scene pool at the first
-		// film dimension, and an AUTOINCREMENT counter cannot be rewound below rows
-		// that already exist — so a video dimension after a film one would try to
-		// steer backwards and collide instead of landing in its block.
+		// Every video dimension must precede every dimension of any other kind.
+		// generate() steers the videos sequence into the pool range at the first
+		// non-video dimension — for the scene pool, and for the carrier videos the
+		// derived kinds need — and an AUTOINCREMENT counter cannot be rewound below
+		// rows that already exist, so a video dimension after one of those would
+		// try to steer backwards and collide instead of landing in its block.
 		// Tracked as a bool rather than by testing the remembered key against "":
-		// a film dimension whose key was left empty would make an empty sentinel
-		// indistinguishable from "no film seen yet", silently disabling the one
-		// guard standing between a mis-ordered table and corrupted addresses.
-		if dim.entity == kindVideo && sawFilm {
-			return fmt.Errorf("video dimension %q is declared after the film dimension %q; "+
-				"all video dimensions must come first, because the scene pool consumes the "+
-				"videos sequence once the film half starts", dim.key, sawFilmKey)
+		// a dimension whose key was left empty would make an empty sentinel
+		// indistinguishable from "none seen yet", silently disabling the one guard
+		// standing between a mis-ordered table and corrupted addresses.
+		if dim.entity == kindVideo && sawOther {
+			return fmt.Errorf("video dimension %q is declared after the %s dimension %q; "+
+				"all video dimensions must come first, because the videos sequence is "+
+				"steered into the pool range once the non-video half starts",
+				dim.key, sawOtherKind, sawOtherKey)
 		}
-		if dim.entity == kindFilm {
-			sawFilm, sawFilmKey = true, dim.key
+		if dim.entity != kindVideo {
+			sawOther, sawOtherKey, sawOtherKind = true, dim.key, dim.entity
+		}
+
+		// D2's only escape hatch, and it has to be argued for in the table.
+		if dim.noEmptyRung == "" && !hasEmptyRung(dim) {
+			return fmt.Errorf("dimension %q has no empty rung and gives no reason; the zero "+
+				"case is half the layout bug class (spec D2). Add the rung, or set "+
+				"noEmptyRung to why the app cannot reach that state either", dim.key)
+		}
+		if dim.noEmptyRung != "" && hasEmptyRung(dim) {
+			return fmt.Errorf("dimension %q has an empty rung but also claims it cannot: %q",
+				dim.key, dim.noEmptyRung)
 		}
 
 		seen := map[string]bool{}
@@ -183,10 +206,14 @@ func validateLadder(dims []dimension) error {
 // materialize turns one spec into one entity and its links, and returns the id it
 // was addressed at.
 func materialize(ctx context.Context, r *repo.Repo, ff fixtureFields, dim dimension, rg rung, s spec, scenePool []int64) (int64, error) {
-	if dim.entity == kindFilm {
+	switch {
+	case dim.entity.derived():
+		return materializeNamed(ctx, r, ff, dim, rg, s)
+	case dim.entity == kindFilm:
 		return materializeFilm(ctx, r, ff, s, scenePool)
+	default:
+		return materializeVideo(ctx, r, ff, dim, rg, s)
 	}
-	return materializeVideo(ctx, r, ff, dim, rg, s)
 }
 
 // materializeVideo builds one addressed video rung.
@@ -194,16 +221,144 @@ func materializeVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 	// The path is stable and unique per rung. It never points at a real file — the
 	// seeder bypasses the scanner by design (D1) — but it is what UpsertVideo
 	// identifies a row by, so it has to be derived from the address.
-	return upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant), title(dim, s), s)
+	return upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
+		title(dim, s), poolLinks(s), s.text.value)
 }
 
-// upsertVideo writes one video, its file layer, and every relationship the spec
-// declares. Shared by the addressed rungs and the scene pool, which differ only
-// in what they are called and where they are addressed — so a link written one
-// way for a rung and another way for a scene would be a bug waiting to happen.
-func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, name string, s spec) (int64, error) {
-	cast := poolNames("person", s.people)
-	studios := poolNames("studio", s.studios)
+// materializeNamed builds one addressed person, studio or tag: the entity whose
+// *name* is the rung.
+//
+// Each rung seeds its own carrier video, because nothing in the repo creates one
+// of these from a name alone — a person and a studio are reconciled from a
+// video's resolved file layer, a tag is attached to a video. The carrier is a
+// pool entity: it exists so the addressed entity can, carries only the one entity
+// under test, and is deliberately not addressed itself.
+//
+// One carrier per rung rather than one per dimension, so exactly one row enters
+// the table per rung and the block's addresses stay in rung order.
+func materializeNamed(ctx context.Context, r *repo.Repo, ff fixtureFields, dim dimension, rg rung, s spec) (int64, error) {
+	name := s.text.value
+
+	var l links
+	switch dim.entity {
+	case kindPerson:
+		l.cast = []string{name}
+	case kindStudio:
+		l.studios = []string{name}
+	case kindTag:
+		// Deliberately not l.tags: the repo has no per-video tag read-back, so a tag
+		// attached inside upsertVideo would have to be attached a second time just to
+		// learn its id. bindNamedEntity does the one attach and keeps the row it
+		// returns — one write, and the code stops calling a write a lookup.
+	default:
+		return 0, fmt.Errorf("no carrier shape for derived kind %q", dim.entity)
+	}
+
+	// The carrier's title is the coordinate, not the variant: it is the one page in
+	// this dimension that is *not* the thing under test, so it should say so rather
+	// than wear the tortured name too.
+	carrier, err := upsertVideo(ctx, r, ff,
+		fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant), encodeName(dim.entity, s), l, "")
+	if err != nil {
+		return 0, fmt.Errorf("carrier video: %w", err)
+	}
+	// A carrier landing inside an addressed block would mean the videos sequence
+	// was never steered out of the addressed range — which can only happen if the
+	// ladder put a derived dimension before the video ones, so fail here rather
+	// than hand out an address that belongs to something else.
+	if carrier < poolBase {
+		return 0, fmt.Errorf("carrier video landed at id %d, inside the addressed range "+
+			"below %d — a derived dimension has been declared before the video ones",
+			carrier, poolBase)
+	}
+	return bindNamedEntity(ctx, r, dim.entity, carrier, name)
+}
+
+// bindNamedEntity returns the addressed entity, and for a tag creates it.
+//
+// The asymmetry is the ADR-075 D3 one, the same split upsertVideo already makes:
+// a person and a studio are *derived* from the carrier's file layer, so they
+// already exist by now and reading them back is the only proof the derivation ran
+// at all — a miss here is HOLODEX-344's wiped links caught one step earlier. A tag
+// is *authored*, so it has to be attached, and that attach is what returns the row.
+func bindNamedEntity(ctx context.Context, r *repo.Repo, kind entityKind, carrier int64, name string) (int64, error) {
+	switch kind {
+	case kindPerson:
+		id, ok, err := r.PersonIDByName(ctx, name)
+		if err != nil {
+			return 0, fmt.Errorf("look up person %q: %w", name, err)
+		}
+		if !ok {
+			return 0, fmt.Errorf("no person named %q after seeding its carrier — the "+
+				"reconcile dropped the name rather than creating it", name)
+		}
+		return id, nil
+
+	case kindStudio:
+		// There is no StudioIDByName, so the carrier's own link list is the lookup —
+		// which also asserts the reconcile produced exactly one studio rather than
+		// splitting the name into several.
+		byVideo, err := r.StudiosForVideos(ctx, []int64{carrier})
+		if err != nil {
+			return 0, fmt.Errorf("look up studios of carrier %d: %w", carrier, err)
+		}
+		got := byVideo[carrier]
+		if len(got) != 1 {
+			return 0, fmt.Errorf("carrier %d resolved to %d studios, want exactly 1 named %q",
+				carrier, len(got), name)
+		}
+		if got[0].Name != name {
+			return 0, fmt.Errorf("carrier %d resolved to studio %q, want %q — the name was "+
+				"rewritten on the way in", carrier, got[0].Name, name)
+		}
+		return got[0].ID, nil
+
+	case kindTag:
+		tag, err := r.AttachTagToVideo(ctx, carrier, name)
+		if err != nil {
+			return 0, fmt.Errorf("attach tag %q: %w", name, err)
+		}
+		// Tags are lowercased on the way in (curationNorm). namePalette lowercases
+		// them first so the two agree; if they ever stop agreeing, the manifest would
+		// name a tag that does not exist.
+		if tag.Name != name {
+			return 0, fmt.Errorf("tag stored as %q but the ladder seeded %q — namePalette "+
+				"and the repo's tag normalisation have diverged", tag.Name, name)
+		}
+		return tag.ID, nil
+
+	default:
+		return 0, fmt.Errorf("no lookup for derived kind %q", kind)
+	}
+}
+
+// links are the entity names a video carries. They are passed in rather than
+// derived from the spec inside upsertVideo, because the two kinds of video want
+// opposite things from the same writer: a cardinality rung wants n interchangeable
+// supporting entities, while a derived rung's carrier wants exactly one entity
+// with a specific, deliberately awful name. Both still go in through one function,
+// so a link written one way here and another way there stays impossible.
+type links struct {
+	cast    []string
+	studios []string
+	tags    []string
+}
+
+// poolLinks is what a cardinality rung asks for: n supporting entities per axis.
+func poolLinks(s spec) links {
+	return links{
+		cast:    poolNames("person", s.people),
+		studios: poolNames("studio", s.studios),
+		tags:    poolNames("tag", s.tags),
+	}
+}
+
+// upsertVideo writes one video, its file layer, and every relationship it
+// carries. Shared by the addressed rungs, the scene pool and the derived kinds'
+// carriers.
+func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, name string, l links, overview string) (int64, error) {
+	cast := l.cast
+	studios := l.studios
 
 	// People and studios go in as file-layer tags, which is what makes them
 	// survive: the server re-derives video_people and video_studios from these on
@@ -218,6 +373,19 @@ func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, 
 		return 0, err
 	}
 	extra = append(extra, studioTags...)
+
+	// The overview carries the same text variant as the title, so one rung tortures
+	// both of the video's free-text fields at once. That is still one axis — the
+	// variant — not two: it is the same knob reaching a second container, which has
+	// its own clamp and its own wrapping behaviour.
+	//
+	// The empty rung writes no row at all rather than an empty one. The resolver
+	// would drop an empty value anyway (firstNonEmpty), so the two are
+	// indistinguishable on the page; writing nothing is what "absent" actually
+	// means, and leaves no empty metadata row for a later rescan to reason about.
+	if overview != "" {
+		extra = append(extra, model.ExtraMetadata{SourceKey: ff.overview.fileKey, Value: overview})
+	}
 
 	now := time.Now().UTC()
 	id, err := r.UpsertVideo(ctx, &model.Video{
@@ -247,17 +415,17 @@ func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, 
 		people = append(people, repo.PersonRoleName{Name: person, Role: ff.person.role})
 	}
 	if err := r.ReconcileVideoPeople(ctx, id, people, nil); err != nil {
-		return 0, fmt.Errorf("link %d people: %w", s.people, err)
+		return 0, fmt.Errorf("link %d people: %w", len(cast), err)
 	}
 	if err := r.ReconcileVideoStudios(ctx, id, studios, nil); err != nil {
-		return 0, fmt.Errorf("link %d studios: %w", s.studios, err)
+		return 0, fmt.Errorf("link %d studios: %w", len(studios), err)
 	}
 
 	// Tags are the exception: they are authored, not derived (ADR-075 D3), so there
 	// is no file tag to write and no reconcile to agree with. AttachTagToVideo is
 	// one row at a time because that is the only API — it is additive rather than a
 	// replace, so the loop is correct here where it would be a bug above.
-	for _, tag := range poolNames("tag", s.tags) {
+	for _, tag := range l.tags {
 		if _, err := r.AttachTagToVideo(ctx, id, tag); err != nil {
 			return 0, fmt.Errorf("attach tag %q: %w", tag, err)
 		}
@@ -358,7 +526,8 @@ func seedScenePool(ctx context.Context, r *repo.Repo, ff fixtureFields, size int
 		s := baseline()
 		s.text = textPalette[i%len(textPalette)]
 
-		id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/scene/%03d.mp4", i+1), s.text.value, s)
+		id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/scene/%03d.mp4", i+1),
+			s.text.value, poolLinks(s), s.text.value)
 		if err != nil {
 			return nil, fmt.Errorf("scene video %d: %w", i+1, err)
 		}
@@ -441,6 +610,24 @@ func steer(ctx context.Context, database *sql.DB, table string, next int64) erro
 		return fmt.Errorf("begin steer %s: %w", table, err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	// Refuse to steer backwards over rows that already exist. Everything above
+	// assumes an AUTOINCREMENT counter only moves forward — a lowered counter
+	// either collides on insert or, worse, lands the next row inside a block that
+	// already holds someone else's entities, which no later check would catch
+	// because the id is still inside the block it was supposed to be in. The
+	// ordering rules in validateLadder exist to prevent this; this is the assertion
+	// that they worked, at the one place the assumption is actually used.
+	var highest sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `SELECT MAX(id) FROM `+table).Scan(&highest); err != nil {
+		return fmt.Errorf("read highest id in %s: %w", table, err)
+	}
+	if highest.Valid && highest.Int64 >= next {
+		return fmt.Errorf("cannot steer %s to %d: it already holds id %d.\n"+
+			"Steering backwards over existing rows would put the next entity somewhere "+
+			"neither its block nor the overflow check predicts — check the dimension "+
+			"ordering in ladder.go", table, next, highest.Int64)
+	}
 
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM sqlite_sequence WHERE name = ?`, table); err != nil {

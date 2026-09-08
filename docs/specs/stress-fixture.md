@@ -140,6 +140,44 @@ The 1500-character lorem case is retained for vertical overflow, but it is the *
 Short Latin words with spaces everywhere wrap beautifully. The rungs that actually break flex
 containers are a 60+ character unbroken token, CJK, RTL, emoji, and combining diacritics.
 
+Two of those are a pair rather than one rung each (HOLODEX-346). **Pure RTL** finds direction
+and alignment bugs; **mixed LTR/RTL** finds bidi bleed, where neutral characters — digits,
+brackets, an em dash — take their direction from whichever run they sit beside and land at the
+wrong end of the line. Only the second produces that. Likewise **emoji** means the
+*multi-codepoint* sequence — a ZWJ family, a two-codepoint flag, a skin-tone modifier — because
+anything counting runes or sizing a line box per code point breaks there and not on a single
+emoji. Each rung's defining property is asserted in `ladder_test.go`: the joiners and combining
+marks are invisible in the source line, so nothing else would notice them being stripped.
+
+### D11 — The palette reaches every free-text field the app renders, and no others (HOLODEX-346).
+
+Not just the video title. A video also carries an **overview** — resolvable only, there is no
+`videos.overview` column — and a person, studio and tag each has a detail page where its **name
+is the `h1`**. All five get the palette.
+
+Two consequences fall out of *how* the last three exist. None can be created from a name alone
+(people and studios are reconciled from a video's file layer, tags are attached to a video), so
+each rung seeds an unaddressed **carrier video**; and because a carrier can only be made after
+the `videos` sequence has left the addressed range, their blocks sit **above** the supporting
+pool at `derivedBase`, inverting the usual numbering. Renumbering the existing blocks downward
+to avoid that was rejected: D4 promises an address never moves.
+
+**The palette is filtered per field, by the platform's own limits, with the reason printed.** An
+empty person or studio name is skipped by the reconcile so the entity would never exist; an
+empty tag is creatable through the repo but refused by the HTTP layer, so seeding one would show
+a state the app cannot reach; lorem's commas fracture a multi-field name into several entities,
+and its length is over `model.MaxNameLen` for a tag. Those exclusions are computed rather than
+listed, so changing the palette re-derives them. This also means the derived dimensions carry no
+empty rung, which D2 otherwise forbids — the escape hatch is a stated reason on the dimension,
+and "the app cannot reach the empty state either" is the only one that qualifies.
+
+**`role` is excluded on different grounds: it is invisible.** It is free text with no
+validation, so it would seed cleanly — but nothing in the frontend renders a role string, and a
+role outside `actor`/`director` breaks the media page's remove control. A rung that cannot be
+seen but can break a button is worth less than no rung. Parked as HOLODEX-352, to add when the
+UI renders roles. **Generalising: a rung is only real if the UI renders it** — the same shape as
+HOLODEX-347's "a rung is only real if the resolver can express it", one layer further out.
+
 ### D8 — Brightness is one image rung of six.
 
 Bright backgrounds catch text-over-image contrast — real, and retained. But `app.css` hardcodes
@@ -194,7 +232,8 @@ Rungs are illustrative; the authoritative list is the declarative table in the s
 | Video → studios | 0, 1, 5 | empty section, single-item layout |
 | Film → cast | 0, 1, 5, 10, 25, 50 | shared tile sizing with the media page |
 | Film → scenes | 0, 1, 6, 12 | scene badge, ordering, empty film |
-| Free text | empty, 1 char, 1500 lorem, 60-char unbroken, CJK, RTL, emoji, diacritics | wrap, truncation, container overflow |
+| Video title + overview | empty, 1 char, 1500 lorem, 60-char unbroken, CJK, RTL, mixed bidi, emoji, diacritics | wrap, truncation, container overflow, bidi bleed |
+| Person / studio / tag name | the same palette less `empty` and `lorem` (see D11) | heading wrap, the docked rename pencil, cast-tile and chip labels |
 | Images | bright, black, wrong ratio, 32px, transparent, missing | contrast, crop geometry, broken-image path |
 | Collection size | `--count` 100 default, `--big` ~2000 | pagination, virtualization, scroll perf |
 

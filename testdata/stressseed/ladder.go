@@ -1,6 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"unicode/utf8"
+
+	"holodex/internal/model"
+)
 
 // The ladder is a table, not a program (HOLODEX-344). Adding a dimension is
 // adding a row to `ladder`; adding a rung is adding an entry to that row. Block
@@ -28,8 +34,31 @@ const (
 	// poolBase is where supporting entities start — the people, tags and studios
 	// that exist only to be counted by a cardinality rung. They are deliberately
 	// above every dimension block so a block never has to skip over them, and so
-	// an ID below poolBase is always an addressed entity.
+	// an ID below poolBase is always an addressed video or film.
 	poolBase = 9000
+
+	// derivedBase is where the *derived* kinds' blocks start, above the pool rather
+	// than below it (HOLODEX-346).
+	//
+	// A person, studio or tag cannot be created on its own: the only path into
+	// those tables is a reconcile driven by a video's file layer, so an addressed
+	// one needs a carrier video, and a carrier video can only be made once the
+	// videos sequence has been steered past every addressed video block. By then
+	// the people, studio and tag sequences have long since passed poolBase — the
+	// cardinality rungs created their supporting entities on the way — and SQLite's
+	// AUTOINCREMENT counter cannot be rewound. So the addressed people sit above
+	// their own supporting cast, which is the opposite order to videos and films.
+	//
+	// The alternative was to renumber every existing block downward to make room at
+	// the bottom, which is the one thing D4 promises never to do.
+	derivedBase = 20000
+
+	// derivedCeiling bounds the derived address space so a typo in a block cannot
+	// push entities somewhere nothing checks. The gap below it is headroom for the
+	// supporting entities, which grow with the ladder and with `-count`
+	// (HOLODEX-350); if they ever reach derivedBase, generation fails on the
+	// per-rung block check rather than quietly colliding.
+	derivedCeiling = 30000
 )
 
 // entityKind is the entity a dimension's rungs address. It decides which ID
@@ -39,6 +68,14 @@ type entityKind string
 const (
 	kindVideo entityKind = "video"
 	kindFilm  entityKind = "film"
+
+	// The derived kinds. Each has its own detail page — /people/{id},
+	// /studios/{id}, /tags/{id} — which is why their names are worth addressing
+	// rather than leaving to fall out of the video ladder: the name is an h1 there,
+	// with a docked rename pencil beside it, not a label inside a tile.
+	kindPerson entityKind = "person"
+	kindStudio entityKind = "studio"
+	kindTag    entityKind = "tag"
 )
 
 // urlFor renders the page an addressed entity lives at, which is the whole
@@ -53,6 +90,12 @@ func (k entityKind) urlFor(id int64) string {
 		return fmt.Sprintf("/media/%d", id)
 	case kindFilm:
 		return fmt.Sprintf("/films/%d", id)
+	case kindPerson:
+		return fmt.Sprintf("/people/%d", id)
+	case kindStudio:
+		return fmt.Sprintf("/studios/%d", id)
+	case kindTag:
+		return fmt.Sprintf("/tags/%d", id)
 	default:
 		return ""
 	}
@@ -66,9 +109,42 @@ func (k entityKind) table() string {
 		return "videos"
 	case kindFilm:
 		return "films"
+	case kindPerson:
+		return "people"
+	case kindStudio:
+		return "studios"
+	case kindTag:
+		return "tags"
 	default:
 		return ""
 	}
+}
+
+// derived reports whether this kind's rows can only come into existence as a
+// byproduct of a video — a reconcile over the video's resolved file layer for
+// people and studios, an attach for tags. Nothing in the repo creates one from a
+// name alone, and a studio that loses its last link is deleted outright.
+//
+// Two consequences, both structural rather than stylistic. A rung of a derived
+// kind has to seed a carrier video to hang its entity off, and its reserved block
+// lives above poolBase rather than below it — see derivedBase.
+func (k entityKind) derived() bool {
+	switch k {
+	case kindPerson, kindStudio, kindTag:
+		return true
+	default:
+		return false
+	}
+}
+
+// addressSpace is the ID range this kind's reserved blocks have to fall inside.
+// There are two ranges rather than one because the two halves are numbered in
+// opposite orders around the supporting-entity pool (see derivedBase).
+func (k entityKind) addressSpace() (lo, hi int64) {
+	if k.derived() {
+		return derivedBase, derivedCeiling
+	}
+	return 1, poolBase
 }
 
 // spec is one fixture entity as the ladder describes it: the neutral baseline
@@ -137,6 +213,17 @@ type dimension struct {
 	block  int64      // first ID of this dimension's reserved block (D4)
 	finds  string     // the bug class this dimension exists to surface
 	rungs  []rung
+
+	// noEmptyRung, when non-empty, is why this dimension cannot carry the zero
+	// case — and is the only thing that excuses it from D2.
+	//
+	// It is a stated reason rather than a bool, and rather than a skip list in the
+	// test, because "this dimension has no empty rung" is nearly always a bug: D2
+	// exists because empty states are half the layout bug class, and HOLODEX-328 is
+	// what it cost to learn that. The only legitimate excuse is that the *app*
+	// cannot reach the empty state either, which is a claim about the code that
+	// belongs next to the dimension making it.
+	noEmptyRung string
 
 	// ownsTitle says this dimension's subject *is* the entity's title, so the
 	// title must be the raw variant rather than the encoded coordinate.
@@ -259,6 +346,43 @@ var ladder = []dimension{
 		// the other, and equal rungs make that a like-for-like comparison.
 		rungs: counts(func(s *spec, n int) { s.cast = n }, 0, 1, 5, 10, 25, 50),
 	},
+
+	// The derived half (HOLODEX-346). These three exist because a person, studio
+	// and tag each has a detail page of its own where the name is the h1 — the same
+	// palette that tortures a video title has to reach those headings, and the
+	// cast tile, studio chip and tag chip it renders in besides.
+	//
+	// They come last in the table, and must: each rung seeds a carrier video to
+	// hang its entity off, and a carrier can only be made once the videos sequence
+	// has been steered out of the addressed range. validateLadder enforces it.
+	{
+		key:    "persontext",
+		entity: kindPerson,
+		block:  derivedBase,
+		finds:  "hero heading wrap, the docked rename pencil, cast-tile label truncation",
+		noEmptyRung: "ReconcileVideoPeople skips an empty name, so an unnamed person cannot " +
+			"exist — the empty *cast* is covered by the people=00 rung instead",
+		rungs: texts(namePalette(kindPerson)...),
+	},
+	{
+		key:    "studiotext",
+		entity: kindStudio,
+		block:  derivedBase + blockSize,
+		finds:  "studio heading wrap, chip width on the media page, studio-list column width",
+		noEmptyRung: "ReconcileVideoStudios skips an empty name, and prunes a studio that " +
+			"loses its last link — the empty studio *section* is the studios=00 rung",
+		rungs: texts(namePalette(kindStudio)...),
+	},
+	{
+		key:    "tagtext",
+		entity: kindTag,
+		block:  derivedBase + 2*blockSize,
+		finds:  "chip wrap and height, filter-bar overflow, tag-page heading",
+		noEmptyRung: "the repo would create an empty tag but the HTTP layer refuses one, so " +
+			"seeding it would show a state the app cannot reach; the empty tag *row* " +
+			"is the tags=00 rung",
+		rungs: texts(namePalette(kindTag)...),
+	},
 }
 
 // textPalette is the shared set of adversarial strings. It is a package-level
@@ -273,13 +397,120 @@ var textPalette = []textVariant{
 	{"unbroken", "Supercalifragilisticexpialidociousandthensomemoreforgoodmeasure"},
 	{"cjk", "日本語のタイトルは折り返しの規則が違うので幅の計算が狂いやすい"},
 	{"rtl", "عنوان طويل بالعربية لاختبار اتجاه النص والتفاف الأسطر في الواجهة"},
-	{"emoji", "🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️"},
+	// Mixed bidi is a separate rung from `rtl`, not a longer version of it: the two
+	// fail differently. A pure-RTL string finds direction and alignment bugs; a
+	// string that changes direction mid-line finds bidi bleed — neutral characters
+	// (the digits, the parentheses, the em dash) taking their direction from the
+	// run beside them, so punctuation lands at the wrong end of the line. Only the
+	// second one can produce that, and the dimension's `finds` already promised it.
+	{"bidi", "Episode 12 — مقدمة الفيلم الوثائقي (Director's Cut) — 1080p"},
+	// Not just a run of emoji: the AC's failure mode is the *multi-codepoint*
+	// sequence. A ZWJ family, a flag built from two regional indicators, a skin-tone
+	// modifier and an emoji carrying a variation selector are each one grapheme
+	// cluster made of several code points, so anything counting runes, slicing
+	// bytes, or sizing a line box per code point breaks here and not on 🎬. The
+	// joiners and selectors are invisible in this source line, which is exactly why
+	// TestEmojiRungKeepsItsMultiCodepointSequences exists.
+	{"emoji", "🎬🎥📽️🍿🎞️ 👨‍👩‍👧‍👦 🧑‍💻 🏳️‍🌈 ❤️‍🔥 👍🏽 🇯🇵 🎬🎥📽️🍿🎞️ 👨‍👩‍👧‍👦 🧑‍💻 🏳️‍🌈 ❤️‍🔥 👍🏽 🇯🇵"},
 	{"diacritics", "Z̸̢̛͇͓a̷̡̮͐l̶̪̀g̵̛̭o̴̠͐ ̷̣̈t̶̰́e̶̪͐x̷̱̌t̸̗̽ ̴̙̇w̷̢̌i̶̻͐t̵̰̏h̶̬̀ ̸̜̐s̶̙̈t̷̗̏a̷̪̐c̸̣̈k̶̝̇e̷̙̊d̸̯̄ ̶̬̇m̷̜̊a̸̡̽r̶̢̈k̷̙̇s̸̪̈"},
 	{"lorem", lorem},
 }
 
-// lorem is the 1500-character vertical-overflow rung. Weakest of the text set by
-// design (D7), kept because vertical overflow is still a real failure mode.
+// hasEmptyRung reports whether a dimension renders the zero case: a count of 0,
+// or a text variant of "". Both spellings matter — the ladder addresses "no
+// people" and "no title" as the same idea in two types.
+func hasEmptyRung(dim dimension) bool {
+	for _, rg := range dim.rungs {
+		switch v := rg.value.(type) {
+		case int:
+			if v == 0 {
+				return true
+			}
+		case string:
+			if v == "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// namePalette is the subset of textPalette a derived entity's *name* can carry.
+//
+// The exclusions are computed from the platform's own limits rather than written
+// down as a list, so a rung cannot be silently lost: change the palette and the
+// filter re-derives; change the limit and the filter follows. nameRejects returns
+// the reason, which the seeder prints and the tests assert, because an omission
+// with no stated cause is indistinguishable from a bug.
+//
+// Tag values are lowercased here because resolveOrCreateByName lowercases a tag
+// on the way in (curationNorm, the "fox"/"Fox" fix). Seeding the mixed-case form
+// would store something other than what the manifest claims, and the manifest
+// being true is the entire point of addressing these at all.
+func namePalette(kind entityKind) []textVariant {
+	out := make([]textVariant, 0, len(textPalette))
+	for _, v := range textPalette {
+		if nameRejects(kind, v) != "" {
+			continue
+		}
+		if kind == kindTag {
+			v.value = strings.ToLower(v.value)
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+// nameRejects explains why this kind cannot be named with this variant, or ""
+// when it can. Each reason is a real limit in the code, not a preference.
+func nameRejects(kind entityKind, v textVariant) string {
+	if !kind.derived() {
+		return ""
+	}
+	if v.value == "" {
+		if kind == kindTag {
+			// Unlike people and studios, an empty tag row really is creatable — the
+			// repo path has no guard and would insert one. The HTTP layer refuses it
+			// (400 "name is required"), so seeding one would put a state on the page
+			// that the running app cannot produce, and any layout bug found there
+			// would be unreportable.
+			return "only the repo API can create an empty tag; the HTTP layer refuses one, " +
+				"so the fixture would be showing a state the app cannot reach"
+		}
+		return "the reconcile that maintains this table skips an empty name, so the entity " +
+			"would never be created at all"
+	}
+	switch kind {
+	case kindPerson, kindStudio:
+		// People and studios are derived from a *multi* file field, and the resolver
+		// splits a multi value on these before it ever reaches the repo. A name
+		// carrying one would arrive as several entities — the same refusal linkTags
+		// already makes at seed time, hoisted to the table so the rung is never built.
+		if strings.ContainsAny(v.value, multiValueSeparators) {
+			return fmt.Sprintf("the resolver splits a multi field on %q, so this name would "+
+				"fracture into several entities", multiValueSeparators)
+		}
+	case kindTag:
+		// resolveOrCreateByName rejects an over-long tag with ErrTagNameTooLong, and
+		// AttachMaterializedTags skips it silently — so without this the rung would
+		// vanish from the fixture with nothing said.
+		if n := utf8.RuneCountInString(v.value); n > model.MaxNameLen {
+			return fmt.Sprintf("%d characters is over model.MaxNameLen (%d), which the repo "+
+				"rejects with ErrTagNameTooLong", n, model.MaxNameLen)
+		}
+	}
+	return ""
+}
+
+// lorem is the vertical-overflow rung: at least loremMin characters. Weakest of
+// the text set by design (D7), kept because vertical overflow is still a real
+// failure mode.
+//
+// The length is asserted rather than trusted. This string spent HOLODEX-344 and
+// -347 at 1393 characters under a comment claiming 1500 — harmless in itself, but
+// the failure it hides is not: an overview clamped to N lines stops overflowing
+// once the text is short enough, and the rung would then pass by having quietly
+// become a different test.
 const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod " +
 	"tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis " +
 	"nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis " +
@@ -295,7 +526,16 @@ const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e
 	"aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem " +
 	"ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur. Quis " +
 	"autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae " +
-	"consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur."
+	"consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur. At vero eos " +
+	"et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum " +
+	"deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati " +
+	"cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi."
+
+// loremMin is the length the lorem rung has to reach to still be doing its job.
+// 1500 is the number the ticket asked for; what matters is that it is far past
+// any line clamp on the page, so shortening the string fails the test instead of
+// silently weakening the rung.
+const loremMin = 1500
 
 // encodeName renders a spec as the coordinate the owner reads off the page and
 // searches for (D4, layer 2): `STRESS people=05 tags=03 studios=01 text=cjk`.
@@ -305,6 +545,13 @@ const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e
 // name readable without consulting the manifest, and makes a screenshot pasted
 // into a bug report self-describing.
 func encodeName(kind entityKind, s spec) string {
+	if kind.derived() {
+		// A derived entity's own name *is* the rung, so its coordinate cannot also
+		// be its name — the whole point of the empty-adjacent rungs is that nothing
+		// is prefixed onto them. The coordinate still goes in the manifest, where it
+		// is read rather than rendered; the page shows the raw variant.
+		return fmt.Sprintf("STRESS %s text=%s", strings.ToUpper(string(kind)), s.text.key)
+	}
 	if kind == kindFilm {
 		// A film's name is also its identity: CreateFilm resolves-or-creates by
 		// (name, year), so two rungs sharing a name would silently become one

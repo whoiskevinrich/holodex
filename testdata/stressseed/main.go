@@ -187,20 +187,70 @@ func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields,
 	// Naming the tags is worth the lines: they are the one input that has to match
 	// the server's, and a mismatch shows up as silently empty links rather than an
 	// error (filelayer.go).
-	fmt.Printf("\nderived links written through the file layer, so the server's startup\n" +
-		"relink re-derives them instead of wiping them:\n")
-	for _, f := range []fileField{ff.person, ff.studio} {
+	fmt.Printf("\nwritten through the file layer, so the server resolves them from the same\n" +
+		"place it would resolve real media — and the startup relink re-derives the\n" +
+		"links instead of wiping them:\n")
+	for _, f := range []fileField{ff.person, ff.studio, ff.overview} {
 		fmt.Printf("  %-8s file tag %q\n", f.canonical, f.fileKey)
 	}
 
 	fmt.Printf("\n%d entities across %d dimensions:\n", len(entries), len(ladder))
+	width := 0
+	for _, dim := range ladder {
+		width = max(width, len(dim.key))
+	}
 	for _, dim := range ladder {
 		variants := make([]string, 0, len(dim.rungs))
 		for _, rg := range dim.rungs {
 			variants = append(variants, rg.variant)
 		}
-		fmt.Printf("  %-8s %d-%d  %s\n", dim.key, dim.block,
+		fmt.Printf("  %-*s %d-%d  %s\n", width, dim.key, dim.block,
 			dim.block+int64(len(dim.rungs))-1, strings.Join(variants, " "))
 	}
+
+	// A dimension that is quietly short of a rung looks identical to one that never
+	// had it. The derived kinds cannot carry the whole palette — an empty name is
+	// skipped by the reconcile, an over-long one is rejected outright — so the
+	// omissions are printed with their cause, or the next person to look would file
+	// the gap as a bug in the fixture.
+	printPaletteExclusions()
 	fmt.Printf("\nServe it with the `backend-stress` launch profile; tear it down with rm -rf %s\n", cfg.DataPath)
+}
+
+// printPaletteExclusions reports every text rung a derived kind cannot be named
+// with, and why. Reasons are grouped so the common ones are stated once.
+func printPaletteExclusions() {
+	type exclusion struct {
+		kind entityKind
+		rung string
+	}
+	byReason := map[string][]exclusion{}
+	var order []string
+	for _, dim := range ladder {
+		if !dim.entity.derived() {
+			continue
+		}
+		for _, v := range textPalette {
+			reason := nameRejects(dim.entity, v)
+			if reason == "" {
+				continue
+			}
+			if _, seen := byReason[reason]; !seen {
+				order = append(order, reason)
+			}
+			byReason[reason] = append(byReason[reason], exclusion{dim.entity, v.key})
+		}
+	}
+	if len(order) == 0 {
+		return
+	}
+
+	fmt.Printf("\ntext rungs a derived entity's name cannot carry:\n")
+	for _, reason := range order {
+		names := make([]string, 0, len(byReason[reason]))
+		for _, e := range byReason[reason] {
+			names = append(names, fmt.Sprintf("%s/%s", e.kind, e.rung))
+		}
+		fmt.Printf("  %s\n    %s\n", strings.Join(names, " "), reason)
+	}
 }

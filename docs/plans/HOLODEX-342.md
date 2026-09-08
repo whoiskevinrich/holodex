@@ -76,29 +76,83 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 7. [x] [dev-tooling] **HOLODEX-347** — relationship-cardinality ladder. Six dimensions now:
    `people`, `text`, `tags`, `studios`, `scenes`, `filmcast`. The studios rungs forced a new
    decision (D10, below): the fixture owns a committed `testdata/stressseed/mappings.yaml`
-8. [ ] [dev-tooling] **HOLODEX-346** — text torture palette
+8. [x] [dev-tooling] **HOLODEX-346** — text torture palette. Nine dimensions now: the video
+   half gained `overview` and two rungs the palette was missing (`bidi`, multi-codepoint
+   `emoji`), and three derived dimensions address the person, studio and tag *names*
+   (`persontext`, `studiotext`, `tagtext`). Two deliberate deviations, both below
 9. [ ] [dev-tooling] **HOLODEX-345** — adversarial image set
 10. [ ] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`
 11. [ ] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
 13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
     fixture is not adversarial enough — treat that as a failure of the fixture, not a pass
-14. [ ] [dev-tooling] **HOLODEX-351** — addressed `person → videos` / `studio → videos`
+14. [ ] [dev-tooling] **HOLODEX-352** — torture the person `role` string, *after* the UI
+    renders one. Split out of 346: role is free text with no validation, so a rung would
+    seed cleanly and find nothing — no component interpolates a role, `credited_roles` has
+    no frontend consumer at all, and a role outside `actor`/`director` breaks the media
+    page's remove control. Not a gate on this epic
+15. [ ] [dev-tooling] **HOLODEX-351** — addressed `person → videos` / `studio → videos`
     filmography dimensions. Split out of 347: the reverse direction is currently *emergent*
     and has no "few" bucket for studios. Lowest priority, and not a gate on this epic — read
     the ticket's "why it was not just patched in" first, the cheap fixes all corrupt an axis
-15. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
+16. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
     same step sweep every completed child to `In Review` by hand.** CI transitions exactly one
     issue: `scripts/jira-transition.mjs:48` takes `extractKeys(BRANCH_REF)[0]` and calls
     `syncKeys({ keys: [key] })`, so only HOLODEX-342 (the branch key) ever moves. Nothing walks to
     children, and they would otherwise sit at `In Progress` forever
-16. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
+17. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
     (2026-09-08): children track the epic's PR lifecycle manually rather than going `Done` when
     their work lands, so `Done` keeps meaning "merged to main" even if a branch is abandoned
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · HOLODEX-347 — relationship cardinality, films, scenes, film cast
+### 2026-09-08 (last) · HOLODEX-346 — text palette across every free-text field
+- skills: code-review
+- **A rung is only real if the UI renders it** — 347's "only real if the resolver can
+  express it", one layer further out. The ticket named `role` as a free-text field to
+  torture. It is free text with no validation, so it would have seeded cleanly and found
+  nothing: no Svelte component interpolates a role string, `credited_roles` is serialized
+  by the API with no frontend consumer at all, and a role outside `actor`/`director` makes
+  the media page's remove control fail. A rung that cannot be seen but can break a button
+  is worth less than no rung. Declined and filed as **HOLODEX-352**, to add when the UI
+  renders roles.
+- **Three of the six fields belong to entities the ladder could not address, and the fix
+  inverted the numbering rather than renumbering.** A person, studio and tag each has a
+  detail page where the name is the `h1`, but none can be created from a name alone — so
+  every rung seeds a carrier video, and a carrier can only exist once the `videos` sequence
+  has left the addressed range. By then the people/studio/tag sequences are past
+  `poolBase` and `AUTOINCREMENT` cannot be rewound, so those blocks start at
+  `derivedBase` (20000), *above* their own supporting cast. The obvious alternative —
+  renumber the existing blocks downward to make room at the bottom — is the one thing D4
+  promises never to do.
+- **The palette does not fit every field, and the seeder now says so out loud.** An empty
+  person or studio name is skipped by the reconcile; an empty tag is creatable through the
+  repo but refused by the HTTP layer, so seeding one would show a state the app cannot
+  reach; lorem's commas fracture a multi-field name, and its 1575 runes are over
+  `model.MaxNameLen` for a tag. The exclusions are *computed* from those limits and printed
+  with their cause on every run — a short list with no stated reason is indistinguishable
+  from a bug. That also forced D2 to grow an escape hatch: `noEmptyRung`, a stated reason,
+  which `validateLadder` demands and only "the app cannot reach it either" justifies.
+- **Two rungs the palette claimed but never had.** `finds` promised "bidi bleed" while the
+  only direction rung was pure Arabic — mixed LTR/RTL is a different failure (neutrals
+  taking direction from the adjacent run) and is now its own rung. The emoji rung was 20
+  single code points, not the multi-codepoint sequences the ticket asked for. And lorem sat
+  at 1393 characters under a comment claiming 1500. All three are now asserted, because all
+  three decay invisibly — the joiners and combining marks cannot be seen in the source line.
+- **Two review findings were real and pre-existing.** `steer` wrote `sqlite_sequence`
+  unconditionally, so a backward steer over existing rows was silent — the assumption every
+  block rests on, never checked where it is used; it now refuses. And `reset` did not clear
+  `identity_review_queue`, which every `resolveOrCreateByName` feeds through `FlagNearMiss`
+  and which stores bare integer ids with no foreign key, so a stale suggested-merge row
+  would outlive the entities that produced it and reappear against whatever later holds
+  those addresses.
+- Handoff: `go run ./testdata/stressseed` seeds 53 addressed entities across nine
+  dimensions; verified through the API after a server boot — all 30 text-related addresses
+  match the manifest, including the tag lowercase round-trip and the empty rung resolving
+  to an *absent* overview rather than a blank one. Next is HOLODEX-345 (images), then 350
+  (breadth), 348 (enrichment), 349 (the assertion harness — the last open gate).
+
+### 2026-09-08 · HOLODEX-347 — relationship cardinality, films, scenes, film cast
 - skills: code-review
 - **A ladder rung is only real if the resolver can express it.** `studio` is a REPLACE
   field in both of the owner's mapping profiles, so the resolver returns exactly one

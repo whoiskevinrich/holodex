@@ -34,8 +34,57 @@ failure names the knob that caused it.
 Each dimension reserves an **ID block** (spec D4), so inserting a rung renumbers only
 within one block and never invalidates an assertion written against another. Supporting
 entities — the people, tags and studios that exist only to be counted — are steered above
-`poolBase` (9000), so an ID below it is always an addressed entity. Generation refuses if
-a dimension overflows its block rather than quietly overwriting the next one.
+`poolBase` (9000), so an ID below it is always an addressed video or film. Generation
+refuses if a dimension overflows its block rather than quietly overwriting the next one.
+
+Every dimension must also carry an **empty rung** (spec D2), and `validateLadder` refuses
+one that does not. The single escape hatch is `noEmptyRung`, a stated reason, and the only
+legitimate reason is that the *app* cannot reach the empty state either — see the derived
+kinds below.
+
+## Derived kinds are addressed above the pool, not below it
+
+A person, studio and tag each has a detail page where its **name is the `h1`**, so the text
+palette has to reach those names and not only the video title. But none of the three can be
+created from a name alone: people and studios are reconciled from a video's resolved file
+layer, tags are attached to a video, and a studio that loses its last link is deleted
+outright. So every rung of `persontext` / `studiotext` / `tagtext` seeds a **carrier video**
+to hang its entity off — a pool entity that exists only so the addressed one can, carrying
+just the entity under test and deliberately not addressed itself.
+
+That inverts the numbering. A carrier can only be made once the `videos` sequence has been
+steered past every addressed video block, and by then the people, studio and tag sequences
+have long since passed `poolBase` — the cardinality rungs created their supporting entities
+on the way. `AUTOINCREMENT` cannot be rewound, so these blocks start at **`derivedBase`
+(20000)**, above their own supporting cast. The alternative was renumbering every existing
+block downward to make room at the bottom, which is the one thing D4 promises never to do.
+
+Two consequences worth knowing before adding a dimension: every video dimension must come
+first in the table (`validateLadder` enforces it), and the entity is read back after the
+carrier is written rather than assumed — for people and studios the row is produced by the
+server's own *derivation*, so reading it back is the only proof the derivation ran.
+
+## Not every rung fits every field
+
+A derived entity's name cannot carry the whole palette, and the seeder prints what it
+dropped and why on every run rather than leaving a short list to look like an oversight:
+
+| rung | person / studio | tag |
+|---|---|---|
+| `empty` | the reconcile skips an empty name, so the entity is never created | the repo would insert one, but the HTTP layer refuses it — seeding it would show a state the app cannot reach |
+| `lorem` | the resolver splits a multi field on `,;/\n`, so the name would fracture into several entities | 1575 runes is over `model.MaxNameLen` (200), which the repo rejects with `ErrTagNameTooLong` |
+
+The exclusions are computed from those limits rather than written down, so changing the
+palette re-derives them and changing a limit follows it. Tag values are lowercased in the
+palette because `resolveOrCreateByName` lowercases a tag on the way in (the "fox"/"Fox"
+fix) — seeding the mixed-case form would store something other than what the manifest says.
+
+**`role` is deliberately not tortured.** `video_people.role` and `film_people_roles.role`
+are free text with no validation, so a rung there would seed cleanly — and find nothing:
+no Svelte component renders a role string, `credited_roles` has no frontend consumer at
+all, and a role outside `actor`/`director` makes the media page's remove control fail with
+"has no role set on this video". A rung that cannot be seen but can break a button is worth
+less than no rung. Tracked as HOLODEX-352, to add if the UI ever renders roles.
 
 Blocks are honoured by steering each table's `AUTOINCREMENT` counter before the rows are
 written, so entities still go in through the ordinary repo API. Raw `INSERT`s with chosen
@@ -123,11 +172,13 @@ HOLODEX-351 covers addressed filmography dimensions if that middle turns out to 
 
 ## Status
 
-The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344) and the relationship
-cardinality ladder (HOLODEX-347) are in — six dimensions: `people`, `text`, `tags`,
-`studios`, `scenes` and `filmcast`. The remaining dimensions are rows to be added: the full
-text palette (HOLODEX-346), adversarial images (HOLODEX-345), collection breadth at
-`--count` and `--big` (HOLODEX-350), and the enrichment profile (HOLODEX-348).
+The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344), the relationship
+cardinality ladder (HOLODEX-347) and the text palette (HOLODEX-346) are in — nine
+dimensions: `people`, `text`, `tags`, `studios`, `scenes`, `filmcast`, `persontext`,
+`studiotext` and `tagtext`. The palette reaches every free-text field the app renders: the
+video title and overview, and the person, studio and tag names. The remaining dimensions
+are rows to be added: adversarial images (HOLODEX-345), collection breadth at `--count` and
+`--big` (HOLODEX-350), and the enrichment profile (HOLODEX-348).
 
 `-count` / `-big` are accepted and recorded, but nothing consumes them yet; the collection
 filler is HOLODEX-350. `-seed` likewise: the ladder is fully determined by the table, so

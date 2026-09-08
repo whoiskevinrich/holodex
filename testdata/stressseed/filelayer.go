@@ -51,10 +51,18 @@ type fileField struct {
 }
 
 // fixtureFields are the file-layer fields the ladder needs in order to express
-// its cardinality rungs.
+// its cardinality and text rungs.
 type fixtureFields struct {
 	person fileField
 	studio fileField
+
+	// overview is the second free-text field on a video and the only one that is
+	// not a column: there is no `videos.overview`, so it exists only as a resolved
+	// field (registry `overview`, display long_text). The media page renders it
+	// through ExpandableText, which is a different container from the title with a
+	// different clamp — so the text palette has to reach it, and can only do so
+	// through whichever file tag the mapping points at (HOLODEX-346).
+	overview fileField
 }
 
 // loadFields resolves every field the ladder writes through the file layer, and
@@ -88,9 +96,39 @@ func loadFields(mappingsPath string, want ladderDemands) (fixtureFields, error) 
 	if err != nil {
 		return fixtureFields{}, err
 	}
-	studio, err := loadFileField(m, "studio", mappingsPath)
+	studio, err := loadFileField(m, "studio", mappingsPath, fieldHint{
+		tag:   "Publisher",
+		multi: true,
+		why: "The fixture builds its links through the file layer so the server's startup\n" +
+			"relink derives the same links instead of wiping them",
+	})
 	if err != nil {
 		return fixtureFields{}, err
+	}
+	overview, err := loadFileField(m, "overview", mappingsPath, fieldHint{
+		tag:   "Comment",
+		multi: false,
+		why: "The text ladder tortures the overview as well as the title, and there is no\n" +
+			"videos.overview column — it resolves from the file layer or not at all",
+	})
+	if err != nil {
+		return fixtureFields{}, err
+	}
+
+	// The opposite demand to the one below: overview must NOT be multi. A replace
+	// field is passed through whole (mapping.go takes TrimSpace(vals[0])), while a
+	// multi field is run through SplitMulti — which splits on `, ; /` and newline.
+	// The lorem rung is 1500 characters of comma-spliced Latin, so a multi overview
+	// would resolve as a list of two dozen fragments and the page would render a
+	// value list where the fixture claims a paragraph. That is not a smaller test,
+	// it is a different one, and it would look plausible enough to go unnoticed.
+	if overview.multi {
+		return fixtureFields{}, fmt.Errorf(
+			"%s declares `overview` as a MULTI field, but the text ladder writes prose "+
+				"through it.\nThe resolver runs a multi field through SplitMulti, which splits "+
+				"on %q — so the\nlorem rung would arrive as a list of fragments rather than the "+
+				"paragraph the manifest\nclaims. Drop `multi: true` from that field.",
+			mappingsPath, multiValueSeparators)
 	}
 
 	for _, req := range []struct {
@@ -106,7 +144,7 @@ func loadFields(mappingsPath string, want ladderDemands) (fixtureFields, error) 
 				req.f.canonical, req.want, mappingsPath, req.f.canonical)
 		}
 	}
-	return fixtureFields{person: person, studio: studio}, nil
+	return fixtureFields{person: person, studio: studio, overview: overview}, nil
 }
 
 // loadPersonField finds the first person-typed field whose configured mapping has
@@ -124,18 +162,19 @@ func loadPersonField(m *mapping.Mappings, mappingsPath string) (fileField, error
 			return fileField{canonical: def.Canonical, role: def.Role, fileKey: src.Key, multi: f.Multi}, nil
 		}
 	}
-	return fileField{}, missingFieldErr(mappingsPath, "any person-typed", "actors", "Cast",
-		"The fixture builds its cast through the file layer so the server's startup\n"+
-			"relink derives the same links instead of wiping them")
+	return fileField{}, missingFieldErr(mappingsPath, "any person-typed", "actors", fieldHint{
+		tag:   "Cast",
+		multi: true,
+		why: "The fixture builds its cast through the file layer so the server's startup\n" +
+			"relink derives the same links instead of wiping them",
+	})
 }
 
 // loadFileField resolves one named canonical field to its file-layer source.
-func loadFileField(m *mapping.Mappings, canonical, mappingsPath string) (fileField, error) {
+func loadFileField(m *mapping.Mappings, canonical, mappingsPath string, hint fieldHint) (fileField, error) {
 	f, ok := m.ByCanonical(canonical)
 	if !ok {
-		return fileField{}, missingFieldErr(mappingsPath, canonical, canonical, "Publisher",
-			"The fixture builds its links through the file layer so the server's startup\n"+
-				"relink derives the same links instead of wiping them")
+		return fileField{}, missingFieldErr(mappingsPath, canonical, canonical, hint)
 	}
 	src, ok := fileSource(f)
 	if !ok {
@@ -159,12 +198,28 @@ func fileSource(f mapping.Field) (mapping.Source, bool) {
 	return mapping.Source{}, false
 }
 
-func missingFieldErr(mappingsPath, subject, canonical, tag, why string) error {
+// fieldHint is the worked example a missing-field error prints. It is per-field
+// rather than one generic template because the interesting half of the example is
+// the part that differs: a cast or studio field must be `multi: true` or its rungs
+// collapse to one, while an overview must NOT be, or the resolver splits the prose
+// on its commas. A single template would have told half the readers the wrong
+// thing in the one place they are already lost.
+type fieldHint struct {
+	tag   string // a plausible file tag to hang the field off
+	multi bool   // whether the suggested mapping should carry `multi: true`
+	why   string // what the fixture needs this field for
+}
+
+func missingFieldErr(mappingsPath, subject, canonical string, hint fieldHint) error {
+	multi := ""
+	if hint.multi {
+		multi = "    multi: true\n"
+	}
 	return fmt.Errorf(
 		"no %s field in %s maps to a file tag.\n%s, which needs a mapping like:\n\n"+
-			"  - canonical: %s\n    multi: true\n    sources:\n      - file:%s\n\n"+
+			"  - canonical: %s\n%s    sources:\n      - file:%s\n\n"+
 			"Point -mappings at the file the `backend-stress` profile uses, or add the field.",
-		subject, mappingsPath, why, canonical, tag)
+		subject, mappingsPath, hint.why, canonical, multi, hint.tag)
 }
 
 // linkTags renders a list of entity names as file-layer rows for this field.
