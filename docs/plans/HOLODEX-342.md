@@ -84,7 +84,14 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
 13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
     fixture is not adversarial enough — treat that as a failure of the fixture, not a pass
-14. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands
+14. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
+    same step sweep every completed child to `In Review` by hand.** CI transitions exactly one
+    issue: `scripts/jira-transition.mjs:48` takes `extractKeys(BRANCH_REF)[0]` and calls
+    `syncKeys({ keys: [key] })`, so only HOLODEX-342 (the branch key) ever moves. Nothing walks to
+    children, and they would otherwise sit at `In Progress` forever
+15. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
+    (2026-09-08): children track the epic's PR lifecycle manually rather than going `Done` when
+    their work lands, so `Done` keeps meaning "merged to main" even if a branch is abandoned
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

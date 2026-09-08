@@ -181,6 +181,13 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   (merge), and **Released** (`ghcr` deploy) are fired by CI
   (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
   Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
+- **CI transitions exactly one issue — the branch's — so an epic's children never move on
+  their own.** `scripts/jira-transition.mjs` takes `extractKeys(BRANCH_REF)[0]` and calls
+  `syncKeys({ keys: [key] })`; nothing walks to children. A child of an epic therefore stays
+  `In Progress` when its work lands, and is swept **by hand, with the epic**: to `In Review`
+  when the PR is marked ready, to `Done` on merge. Do not move a child to `Done` just because
+  its code is committed — `Done` means merged to main, and a branch can still be abandoned.
+  Put both sweeps in the worklog's `Up next` so they survive a context reset.
 
 ## Secrets & publishing
 
