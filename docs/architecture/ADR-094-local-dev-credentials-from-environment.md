@@ -32,8 +32,9 @@ model from "don't commit secrets", and the existing gitignore rule does not addr
 Two structural facts made the file the path of least resistance:
 
 1. **The sidecar has no `.env`.** The backend loads a local `.env` via `loadDotenv` in
-   `internal/config` (ADR-027). `providers/tmdb` is a separate module that must not import
-   `internal/*` (ADR-033), so it cannot reuse that loader — it reads plain `os.Getenv`.
+   `internal/config` (ADR-027). `providers/tmdb` lives in the same Go module but ships as
+   its own binary and container image, and the sidecar rule (ADR-033) forbids it importing
+   `internal/*` — so it must not reuse that loader; it reads plain `os.Getenv`.
    There was no sanctioned file-based home for its token, so it went inline.
 
 2. **`launch.json` is per-worktree.** Each worktree needs its own copy, so every credential
@@ -67,14 +68,29 @@ fails, because it is still in the objects — which is the only check that match
 actually works. It runs on every PR and push to `main`, and `release.yml` reuses `ci.yml`
 via `workflow_call`, so the image build is gated by it too.
 
+**D5 — The sidecar fails fast on a swapped credential.** Moving the token into the
+environment makes rotation easy, which makes *mis*-rotation the next most likely failure.
+TMDB's dashboard shows the v3 API key and the Read Access Token together and regenerates
+them as a pair, and the two are sent completely differently — `Authorization: Bearer` for
+the token, an `api_key` query parameter for the key. Putting one in the other's variable
+passes the existing emptiness check, so the sidecar starts healthy and every enrichment
+then fails with an opaque 401 far from the cause. `classifyCredential` now classifies each
+value by shape at startup: an unambiguous swap logs which variable to use instead and
+exits non-zero, while an unrecognized shape only warns, so a future TMDB credential format
+degrades to a hint rather than an outage. Only the classification is logged, never the
+value.
+
 ## Consequences
 
 - **`setx` only affects processes started afterwards.** The editor/agent must be restarted
   once after setting the variables, or the dev servers will start without them. The
   template file states this, because it is the one non-obvious step.
-- **A fresh clone needs two commands before the sidecar runs.** The failure is loud and
-  already handled: `providers/tmdb/main.go` exits with
-  `TMDB_API_TOKEN or TMDB_API_KEY must be set`.
+- **A fresh clone needs two commands before the sidecar runs.** Both failure modes are
+  loud: a missing credential exits with `TMDB_API_TOKEN or TMDB_API_KEY must be set`, and
+  a swapped one exits via D5 naming the correct variable.
+- **D5 is shape-based, not a liveness check.** It catches a credential in the wrong
+  variable; it cannot catch a well-formed token that is expired, revoked, or simply wrong.
+  Those still surface as 401s at request time, which is the appropriate place for them.
 - **A committed secret becomes a CI failure that cannot be fixed forward.** Once the value
   is in a pushed object, the only real remedy is rotation; a follow-up commit does not
   remove it. Making the gate hard is the point.

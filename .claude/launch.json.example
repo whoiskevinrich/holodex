@@ -10,6 +10,10 @@
     "  setx ADMIN_TOKEN     \"<your local dev token>\"",
     "  setx TMDB_API_TOKEN  \"<TMDB Settings > API > Read Access Token>\"",
     "",
+    "Use the Read Access Token (the long eyJ... value), not the 32-character v3 API",
+    "key beside it — they are sent differently and are not interchangeable. The sidecar",
+    "refuses to start if the two are swapped (ADR-094 D5).",
+    "",
     "setx only affects processes started afterwards — restart your editor/agent once.",
     "The backend also reads a gitignored .env (ADR-027); the TMDB sidecar does not,",
     "so its token must come from the environment. Real env wins over .env."
