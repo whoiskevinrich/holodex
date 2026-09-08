@@ -82,9 +82,17 @@ security gate is ADR-070's.
 8. [x] [docs] Corrected a factual error of my own: the ADR and `.env.example` called the sidecar "a
    separate module." There is one `go.mod`; it is a separate *binary* in the same module, barred from
    the import by the ADR-033 rule. Now matches `.claude/rules/provider-sidecar.md`
-9. [ ] [—] Confirm the new `secrets` job is green on the real PR run — the `safe.directory` fix is
-   reasoned and locally exercised, but only a Linux runner proves it
-10. [ ] [—] Mark the PR ready once item 9 is green
+9. [x] [ci] Confirm the `secrets` job on a real Linux runner. It **failed on the first run** —
+   `leaks found: 6`, all in `providers/tmdb/main_test.go`. The `safe.directory` guard itself was
+   correct (the scan ran to completion, 345 commits); the failure was the fixtures
+10. [x] [testing] **The gate caught a real mistake of mine.** Five findings were false positives on
+    synthetic fixtures, but one was `8071a1d660532cfb1aa088e5f4028745` — the `aud` claim decoded out
+    of the exposed JWT, i.e. the real v3 API key paired with the rotated token. It had been lifted
+    from the leaked credential into a committed test file and pushed. Fixtures are now **assembled at
+    run time** (`hexKey()`, `jwt(...)`) so no credential-shaped literal exists in source — chosen over
+    a path allowlist, which would have silenced the gate *and* masked a real secret later committed to
+    that file. Branch history amended and force-pushed (approved); `secrets` now passes
+11. [ ] [—] Mark the PR ready — all gates green as of the amended push
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -98,7 +106,15 @@ security gate is ADR-070's.
 - Second: a fix can invite its own failure. Making rotation trivial makes mis-rotation the next
   likely error, and the pre-existing emptiness check could not catch it because both credentials are
   non-empty. D5 exists because of the mechanism D2 introduced, not independently of it.
-- Handoff: branch `HOLODEX-341-local-dev-improvements`, Draft PR open, Jira In Progress. Everything is
-  green locally (vet clean, 26 packages, no failures; gitleaks exit 0 on a clone of the branch). The
-  one open item is whether the `safe.directory` guard behaves on a real ubuntu runner — check the
-  `secrets` job on the first PR run before marking ready.
+- Third, and the sharpest lesson: **the gate's first real run failed, on my own commit.** Building
+  the credential-shape test, I used the v3 API key decoded out of the exposed JWT as a fixture — a
+  real credential, pasted into a committed test file and pushed, on the very change whose purpose was
+  to keep credentials out of the repo. Rotated and therefore low-impact, but wrong regardless. Two
+  things generalize: a test that asserts on the *shape* of a secret must never source its fixture
+  from a real one, and "it's already rotated" is not a reason to commit a value. It also validated
+  D4's design in the least comfortable way — full-history scanning is what made fixing forward
+  insufficient and forced the rewrite, exactly as the ADR says it should.
+- Handoff: branch `HOLODEX-341-local-dev-improvements`, PR #312, Jira In Progress. All CI green
+  including `secrets` (the `safe.directory` guard behaves correctly on ubuntu-latest — the earlier
+  failure was fixtures, not the guard). Local: vet clean, 26 packages, no failures. No open items;
+  ready to mark for review.
