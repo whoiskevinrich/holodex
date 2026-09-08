@@ -98,23 +98,34 @@ fields: merge fields carry no `in_sync` by ADR-051 RD1, which also sidesteps `ge
 whose write targets (`Genre`/`Artist`) are consumed into `Extracted.Tags`/`People` rather than
 `extra_metadata`.
 
-Two limits, stated so this is not mistaken for closing the gap. It guards the *example*, which is
-not the file any deployment runs; and a canonical the example ships commented out — today `title`,
-one of the two fields this ADR is named for — is absent from `Fields()` and therefore uncovered.
+One limit remains: a canonical the example ships commented out — today `title`, one of the two
+fields this ADR is named for — is absent from `Fields()` and therefore uncovered.
+
+**D5. The same check runs against the live mapping, and warns.** `writeback.ReadbackGaps` is the
+one implementation; the guard test holds the shipped example to it, and
+`writeback.LogReadbackGaps` reports it at the two moments a mapping becomes live — process start
+and `POST /admin/reload-config`. Without this, D2 and D4 only ever reach a *new* install:
+`metadata-mappings.yaml` is per-deployment and gitignored, so the operator who owns the only copy
+that matters is the one person the fix could not reach.
+
+The warning names the field and the key that closes it, and stays silent when there is nothing to
+act on — including for D3's exemptions, where no `file:` source could close the gap and a line on
+every start would only train the operator to ignore the channel. A gap is a config problem, never a
+reason to refuse to start.
+
+`internal/writeback` gains a dependency on `internal/mapping` (a leaf config package; no cycle) so
+that the write-tag table and the check over it stay in one place. The alternative — putting the
+check in `mapping.Load` — would have inverted that, teaching the config loader about file writing.
 
 ## Consequences
 
-- **Existing deployments need a one-line config edit.** `metadata-mappings.yaml` is gitignored, so
-  D2 reaches new installs only. Until an operator adds the `file:` source, D1 changes their symptom
-  from a permanently-lit pill to no sync signal at all for that field — honest, but not yet useful.
-  The migration note lives in `docs/reference/canonical-fields.md`.
-- **The obvious next step is to run D4's check against the live mapping, not the example.** The same
-  comparison, applied at config load / `reload-config` and logged as a warning per
-  writable-but-unreadable replace field, would have surfaced this on the operator's own install
-  instead of via a bug report, and would make D2's migration self-announcing rather than
-  doc-dependent. `mapping.Load` has no validation surface today, and the check needs the writeback
-  tag table, so it wants a call site above both packages rather than a new import in the loader.
-  Deliberately not done here: it is a new startup surface, not a narrowing of this defect.
+- **Existing deployments still need a one-line config edit** — D5 tells them so on the next start
+  or reload, rather than leaving it to be inferred from a pill that never clears. Until the `file:`
+  source is added, D1 leaves that field with no sync signal at all: honest, but not yet useful. The
+  migration note lives in `docs/reference/canonical-fields.md`.
+- **D5 adds a startup warning that fires on an existing, previously-silent config.** Anyone
+  upgrading with `release_date` mapped provider-only gets a new WARN line per affected field until
+  they edit. That is the intent, but it is a behavior change on a channel operators may be watching.
 - **Adding a file source changes precedence for that field.** Under the file-first default the file
   layer becomes the undecided winner, so a video whose `YEAR` tag holds a bare `2022` will show
   `2022` where it previously showed the provider's `2022-10-19`. That is the ADR-033/051 model

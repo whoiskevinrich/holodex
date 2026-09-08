@@ -239,9 +239,16 @@ as out of sync.
 ### Upgrading an existing `metadata-mappings.yaml`
 
 `metadata-mappings.yaml` is gitignored, so a shipped-example fix does not reach an existing install.
-If a field reported "out of sync" indefinitely after a successful write, add the file tag from the
-table above to its `sources:`, first in the list, then
-`POST /api/v1/admin/reload-config` (or restart):
+**Holodex tells you which fields are affected**: at start and after every
+`POST /api/v1/admin/reload-config` it logs one warning per replace field that writeback can write
+but the mapping cannot read back, naming the key that closes it:
+
+```
+WARN writeback read-back gap: this field declares no file source matching the tag writeback writes,
+     so its sync state can never be verified  field=release_date add_one_of=year
+```
+
+Add the named tag to that field's `sources:`, first in the list, then reload (or restart):
 
 ```yaml
 - canonical: release_date

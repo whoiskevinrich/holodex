@@ -77,16 +77,50 @@ the write-target table is ADR-041's.
    `internal/writeback/example_mapping_test.go`
 6. [x] [docs] "Writeback round-trip" reference section + the upgrade note for an existing
    gitignored `metadata-mappings.yaml` — `docs/reference/canonical-fields.md`
-7. [ ] [—] File the two spun-off issues: HOLODEX-336 (MP4 `original_language`/`tagline` write
-   targets) and the reporter's two secondary observations — a genuine `overview` value mismatch
-   with a populated file candidate, and `file_writebacks.value` storing multi-value fields
-   newline-joined while the file receives them comma-joined
-8. [ ] [—] Live three-skin QA on a real writeback: confirm the pill clears for `release_date` once
+7. [x] [tracking] Fire In Progress; file the spun-off issues — **HOLODEX-336** (MP4
+   `original_language`/`tagline` write targets), **HOLODEX-337** (`overview` mismatch against a
+   *populated* candidate), **HOLODEX-338** (`file_writebacks.value` join fidelity) — all linked
+   Relates to this one
+8. [x] [backend] **ADR-093 D5 — the live-config warning.** `writeback.ReadbackGaps` is now the one
+   implementation, warned at process start and `reload-config`, with the guard test holding the
+   example to the same function — `internal/writeback/readback.go`, `cmd/holodex/main.go`,
+   `internal/api/handlers.go`
+9. [ ] [—] Live three-skin QA on a real writeback: confirm the pill clears for `release_date` once
    the file source is declared, and that an undeclared field shows no sync state rather than a lit
-   pill
-9. [ ] [—] `/simplify` then `/code-review` on the diff, mark the PR ready
+   pill. Also confirm the new WARN fires on Kevin's real mapping and names the right keys
+10. [ ] [—] `/simplify` then `/code-review` on the diff, mark the PR ready
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-07 (later) · Live-config warning (D5) + Jira sync
+- skills: architecture
+- **Took the review's verdict and built the piece it said was missing.** D2/D4 only ever reached a
+  *new* install; `metadata-mappings.yaml` is gitignored, so the one person who could close the gap
+  — the operator running the affected deployment — was the one the fix could not reach.
+  `writeback.LogReadbackGaps` now warns at process start and at `reload-config`, naming the field
+  and the key that closes it.
+- **One implementation, three consumers.** `ReadbackGaps` moved out of the test into
+  `internal/writeback/readback.go`; the guard test now holds the shipped example to the same
+  function rather than re-deriving the comparison, and `UnreadableWriteTargets` moved with it so
+  the exemptions cannot diverge between the test and the runtime warning. That deletes the
+  duplication the original test carried — the very disease this ADR is about.
+- **Made silence load-bearing and tested it.** The warning is suppressed for D3's exemptions (no
+  `file:` source could close those, so a line every start would only train Kevin to ignore the
+  channel) and `TestLogReadbackGaps_SilentWhenClean` pins that. `..._MessageIsActionable` pins that
+  the line names the field and the key — a warning that only said "something is wrong" would leave
+  the reader where the bug report started.
+- **Layering call, stated:** `internal/writeback` now imports `internal/mapping` (a leaf config
+  package, no cycle). The alternative — validating inside `mapping.Load` — would have taught the
+  config loader about file writing, which is backwards.
+- **Jira caught up now the connector is back:** HOLODEX-335 → In Progress; HOLODEX-336/337/338
+  filed with self-contained repros and linked Relates. 336 carries the explicit note that the guard
+  test does *not* fire when its underlying reason is fixed, so the exemption entries must be deleted
+  by hand as part of that work.
+- **Known behavior change:** anyone upgrading with a provider-only `release_date` gets a new WARN
+  line per affected field until they edit. Intended, and recorded in the ADR's consequences rather
+  than left as a surprise.
+- **Next session:** items 9–10 — live QA (including that the new warning fires against the real
+  mapping), then `/code-review` before marking the PR ready.
 
 ### 2026-09-07 · Root cause found, fix + ADR + guard test landed
 - skills: architecture, simplify

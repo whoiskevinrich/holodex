@@ -18,9 +18,9 @@
     "semantic_hash": ""
   },
   "cmd/holodex/main.go": {
-    "mtime": 1788571891.1766427,
-    "seen": 1788572752.3460042,
-    "ast_hash": "da8635b949f08cf797708672b868a365",
+    "mtime": 1788836890.214657,
+    "seen": 1788837150.3928266,
+    "ast_hash": "148320c69405c6f4faf909f79ecedc22",
     "semantic_hash": ""
   },
   "cmd/holodex/spa.go": {
@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "internal/api/handlers.go": {
-    "mtime": 1788830023.91969,
-    "seen": 1788831692.7003942,
-    "ast_hash": "da16666a69d202e78340dae6d6d6382d",
+    "mtime": 1788836902.79477,
+    "seen": 1788837150.3929446,
+    "ast_hash": "a51f402ad436a8bc6eaeec87d41d2a54",
     "semantic_hash": ""
   },
   "internal/api/handlers_test.go": {
@@ -2964,9 +2964,9 @@
     "semantic_hash": "9678b4a7fbc2f32265dc3b7b957274b2"
   },
   "docs/architecture/README.md": {
-    "mtime": 1788831069.3609073,
-    "seen": 1788831692.7012644,
-    "ast_hash": "d453542f00e95cb04c858cd8029653ea",
+    "mtime": 1788837020.7994676,
+    "seen": 1788837150.3938856,
+    "ast_hash": "ea3814dffd787ab7285f255c9cb5537b",
     "semantic_hash": ""
   },
   "docs/design/admin-mode-handoff.md": {
@@ -3318,9 +3318,9 @@
     "semantic_hash": "20596d558b5a2fb48900bae5de3bd069"
   },
   "docs/reference/canonical-fields.md": {
-    "mtime": 1788831069.3619075,
-    "seen": 1788831692.7014668,
-    "ast_hash": "59a3ab00019dd71e755c4d05f693d075",
+    "mtime": 1788837020.8073082,
+    "seen": 1788837150.3941405,
+    "ast_hash": "84ad7874a676f17f1f3657e7bcbb432f",
     "semantic_hash": ""
   },
   "docs/reference/configuration.md": {
@@ -5700,9 +5700,9 @@
     "semantic_hash": ""
   },
   "internal/writeback/example_mapping_test.go": {
-    "mtime": 1788831491.6941211,
-    "seen": 1788831692.7008474,
-    "ast_hash": "93f47218b9048e8425ea00dd2226987e",
+    "mtime": 1788836983.3580287,
+    "seen": 1788837150.393394,
+    "ast_hash": "a813076032dc51ae4e5f0b39c232d487",
     "semantic_hash": ""
   },
   "scripts/adr-claims.mjs": {
@@ -5820,9 +5820,9 @@
     "semantic_hash": ""
   },
   "docs/architecture/ADR-093-writeback-readback-and-tristate-in-sync.md": {
-    "mtime": 1788831536.9630568,
-    "seen": 1788831692.7012632,
-    "ast_hash": "4c1a02f2eac10d24a5a56672660b3f10",
+    "mtime": 1788837007.227642,
+    "seen": 1788837150.393884,
+    "ast_hash": "49a716b5a1e6d4471f66d6dda1d3560c",
     "semantic_hash": ""
   },
   "docs/design/expandable-text-handoff.md": {
@@ -5928,9 +5928,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-335.md": {
-    "mtime": 1788831655.7275927,
-    "seen": 1788831692.7014601,
-    "ast_hash": "38a660377e4c8aebec0e57ef8b46660a",
+    "mtime": 1788837113.792069,
+    "seen": 1788837150.3941321,
+    "ast_hash": "78fc1c039d2abbd3fdd4bf97f41c9846",
     "semantic_hash": ""
   },
   "docs/specs/film-provider-enrichment-ux.md": {
@@ -5985,6 +5985,18 @@
     "mtime": 1788830023.9067059,
     "seen": 1788831692.7016044,
     "ast_hash": "ea75710e5e6373255ed7560dc6beb136",
+    "semantic_hash": ""
+  },
+  "internal/writeback/readback.go": {
+    "mtime": 1788836859.6769776,
+    "seen": 1788837150.393397,
+    "ast_hash": "97525076616ba295efd1b91440aa56fd",
+    "semantic_hash": ""
+  },
+  "internal/writeback/readback_test.go": {
+    "mtime": 1788836983.3580287,
+    "seen": 1788837150.3933983,
+    "ast_hash": "0573b7cb6bb9891b59e8d0c3108621a2",
     "semantic_hash": ""
   }
 }
