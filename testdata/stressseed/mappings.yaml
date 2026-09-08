@@ -1,0 +1,63 @@
+# Metadata field mapping for the HOLODEX-342 stress fixture. NOT a template.
+#
+# The fixture owns its mapping rather than borrowing the operator's, because the
+# mapping is not a setting here — it is part of the fixture's contract.
+#
+# Two facts force it. First, the mapping decides which file tag carries the cast,
+# and the server re-derives video_people from the file layer on every boot
+# (ADR-072); a fixture seeded against a different mapping than the one serving it
+# has its links wiped rather than read (see filelayer.go). Second, `studio` is a
+# REPLACE field in an ordinary mapping, so the resolver returns exactly one value
+# and a "5 studios" rung would silently collapse to 1 — the fixture would state a
+# cardinality in its manifest that the page never renders.
+#
+# So: `backend-stress` and the seeder both read THIS file, it is committed, and
+# the studios ladder is expressible because `studio` declares `multi: true` here.
+# That is a legitimate configuration (video_studios has been many-to-many since
+# migration 0017, and the media detail page renders the list), not a fiction — it
+# is simply not the shape either of the operator's own profiles happens to use.
+#
+# Keep this file boring. It exists to make relationships resolvable, not to
+# exercise mapping features; provider namespaces belong to HOLODEX-348.
+
+fields:
+  # --- Title. The text ladder writes videos.title directly, which `file:title`
+  # aliases, so browse cards and the detail page both show the tortured string.
+  - canonical: title
+    browse: true
+    sources:
+      - file:title
+
+  - canonical: overview
+    sources:
+      - file:Comment
+
+  # --- Cast. `multi: true` is what makes a 50-person rung resolve to 50 names;
+  # the seeder writes one `Cast` row per person (never a joined string) so a name
+  # containing a separator cannot fracture into two people.
+  - canonical: actors
+    multi: true
+    sources:
+      - file:Cast
+
+  - canonical: director
+    multi: true
+    sources:
+      - file:Director
+
+  # --- Studio. `multi: true` is load-bearing: without it the resolver's replace
+  # path takes firstNonEmpty and every studios rung above 1 collapses to 1.
+  - canonical: studio
+    multi: true
+    sources:
+      - file:Publisher
+
+  - canonical: genres
+    multi: true
+    filterable: true
+    sources:
+      - file:Genre
+
+  - canonical: collection
+    sources:
+      - file:Album

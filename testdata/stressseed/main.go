@@ -9,7 +9,8 @@
 //	rm -rf ./data/stress                         # teardown — the whole fixture
 //
 // -mappings must name the same file the server will read; see filelayer.go for
-// why the two have to agree. It defaults to METADATA_MAPPINGS_PATH.
+// why the two have to agree. It defaults to the fixture's own committed mapping,
+// which the `backend-stress` profile also points the server at.
 //
 // What varies is declared as a table in ladder.go, not written as loops: each
 // dimension reserves an ID block, and each of its rungs mutates a neutral
@@ -80,17 +81,21 @@ func flagWasSet(name string) bool {
 	return set
 }
 
-// defaultMappingsPath honours METADATA_MAPPINGS_PATH so the seeder reads the same
-// mapping the `backend-stress` profile hands the server. That matters because the
-// mapping decides which file tag carries the cast, and a fixture built against a
-// different mapping than the one serving it would have its links re-derived away
-// (filelayer.go). Unlike DATA_PATH this is a read-only input and cannot redirect
-// a write, so taking it from the environment does not weaken the D5 isolation.
+// stressMappingsPath is the mapping the fixture owns, relative to the repo root
+// the seeder is run from. See mappings.yaml for why the fixture does not borrow
+// the operator's: the mapping decides which file tag carries each derived link,
+// and `studio` has to be `multi: true` for the studios ladder to be expressible
+// at all.
+const stressMappingsPath = "testdata/stressseed/mappings.yaml"
+
+// defaultMappingsPath deliberately ignores METADATA_MAPPINGS_PATH, unlike the
+// server. Honouring it would mean a shell that had exported it for the `backend`
+// profile silently redirected the fixture onto the operator's own mapping, whose
+// replace-mode `studio` collapses the studios ladder — the exact failure the
+// committed file exists to prevent. `backend-stress` points the server at the
+// same path, and -mappings overrides both halves together when it has to.
 func defaultMappingsPath() string {
-	if p := os.Getenv("METADATA_MAPPINGS_PATH"); p != "" {
-		return p
-	}
-	return config.Defaults().MetadataMappingsPath
+	return stressMappingsPath
 }
 
 func run(dataPath string, count int, seed uint64, mappingsPath string) error {
@@ -104,7 +109,7 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 	// Before touching anything: a mapping that cannot carry a cast means the
 	// people ladder would be erased on the next boot, so fail now rather than
 	// after writing a fixture that destroys itself.
-	pf, err := loadPersonField(mappingsPath)
+	ff, err := loadFields(mappingsPath, demands(ladder))
 	if err != nil {
 		return err
 	}
@@ -148,7 +153,7 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 		return fmt.Errorf("create empty media dir: %w", err)
 	}
 
-	entries, err := generate(ctx, database, repo.New(database), pf)
+	entries, err := generate(ctx, database, repo.New(database), ff)
 	if err != nil {
 		return err
 	}
@@ -157,14 +162,14 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 		return err
 	}
 
-	report(cfg, mediaPath, manifestPath, pf, entries, count, seed)
+	report(cfg, mediaPath, manifestPath, ff, entries, count, seed)
 	return nil
 }
 
 // report prints where the fixture landed and what it addressed, so an operator
 // can see every path the tool considers its own before trusting the isolation
 // claim — and can find a dimension's block without opening the manifest.
-func report(cfg config.Config, mediaPath, manifestPath string, pf personField, entries []entry, count int, seed uint64) {
+func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields, entries []entry, count int, seed uint64) {
 	fmt.Printf("fixture claimed at %s (seed %d, count %d)\n\n", cfg.DataPath, seed, count)
 	for _, p := range []struct{ label, path string }{
 		{"database", cfg.DatabasePath},
@@ -179,12 +184,14 @@ func report(cfg config.Config, mediaPath, manifestPath string, pf personField, e
 		fmt.Printf("  %-16s %s\n", p.label, p.path)
 	}
 
-	// Naming the tag is worth a line: it is the one input that has to match the
-	// server's, and a mismatch shows up as a silently empty cast rather than an
+	// Naming the tags is worth the lines: they are the one input that has to match
+	// the server's, and a mismatch shows up as silently empty links rather than an
 	// error (filelayer.go).
-	fmt.Printf("\ncast written as file tag %q, which this mapping resolves %q from —\n"+
-		"so the server's startup relink re-derives these links instead of wiping them\n",
-		pf.fileKey, pf.canonical)
+	fmt.Printf("\nderived links written through the file layer, so the server's startup\n" +
+		"relink re-derives them instead of wiping them:\n")
+	for _, f := range []fileField{ff.person, ff.studio} {
+		fmt.Printf("  %-8s file tag %q\n", f.canonical, f.fileKey)
+	}
 
 	fmt.Printf("\n%d entities across %d dimensions:\n", len(entries), len(ladder))
 	for _, dim := range ladder {

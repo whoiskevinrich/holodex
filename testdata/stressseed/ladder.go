@@ -36,7 +36,10 @@ const (
 // sequence gets steered and which URL the manifest records.
 type entityKind string
 
-const kindVideo entityKind = "video"
+const (
+	kindVideo entityKind = "video"
+	kindFilm  entityKind = "film"
+)
 
 // urlFor renders the page an addressed entity lives at, which is the whole
 // reason the manifest is worth emitting: it turns "media 123" into a link.
@@ -48,6 +51,8 @@ func (k entityKind) urlFor(id int64) string {
 	switch k {
 	case kindVideo:
 		return fmt.Sprintf("/media/%d", id)
+	case kindFilm:
+		return fmt.Sprintf("/films/%d", id)
 	default:
 		return ""
 	}
@@ -59,6 +64,8 @@ func (k entityKind) table() string {
 	switch k {
 	case kindVideo:
 		return "videos"
+	case kindFilm:
+		return "films"
 	default:
 		return ""
 	}
@@ -69,10 +76,19 @@ func (k entityKind) table() string {
 // reports, so a name is a complete coordinate rather than a label — which is
 // what lets the owner read "this is the 25-people one" off the page itself.
 type spec struct {
+	// Video axes.
 	people  int
 	tags    int
 	studios int
 	text    textVariant
+
+	// Film axes. A film is a separate entity kind with a separate ID sequence and
+	// separate rungs, so only one half of this struct describes any given entity —
+	// which is why encodeName and axesOf are both keyed by entity kind rather than
+	// rendering the whole thing. A film entry carrying the video baseline's
+	// people=2 in its manifest would be a plain falsehood about that film.
+	cast   int
+	scenes int
 }
 
 // textVariant pairs the string under test with the short label that names it.
@@ -93,6 +109,8 @@ func baseline() spec {
 		tags:    3,
 		studios: 1,
 		text:    textVariant{key: "plain", value: "Stress baseline"},
+		cast:    2,
+		scenes:  3,
 	}
 }
 
@@ -189,17 +207,75 @@ var ladder = []dimension{
 		// with spaces everywhere wrap beautifully, so it only stresses vertical
 		// space. It is kept as the weakest rung; the ones that actually break a
 		// flex container are the unbroken token, CJK, RTL and the diacritics.
-		rungs: texts(
-			textVariant{"empty", ""},
-			textVariant{"single", "x"},
-			textVariant{"unbroken", "Supercalifragilisticexpialidociousandthensomemoreforgoodmeasure"},
-			textVariant{"cjk", "日本語のタイトルは折り返しの規則が違うので幅の計算が狂いやすい"},
-			textVariant{"rtl", "عنوان طويل بالعربية لاختبار اتجاه النص والتفاف الأسطر في الواجهة"},
-			textVariant{"emoji", "🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️"},
-			textVariant{"diacritics", "Z̸̢̛͇͓a̷̡̮͐l̶̪̀g̵̛̭o̴̠͐ ̷̣̈t̶̰́e̶̪͐x̷̱̌t̸̗̽ ̴̙̇w̷̢̌i̶̻͐t̵̰̏h̶̬̀ ̸̜̐s̶̙̈t̷̗̏a̷̪̐c̸̣̈k̶̝̇e̷̙̊d̸̯̄ ̶̬̇m̷̜̊a̸̡̽r̶̢̈k̷̙̇s̸̪̈"},
-			textVariant{"lorem", lorem},
-		),
+		rungs: texts(textPalette...),
 	},
+	{
+		key:    "tags",
+		entity: kindVideo,
+		block:  300,
+		finds:  "chip wrapping, row height blowout, filter-bar overflow",
+		// Tags are the one relationship here that is authored rather than derived
+		// (ADR-075 D3: only a file-sourced rescan clears them, and the fixture has
+		// no files), so this dimension needs nothing from the mapping. The top rung
+		// is well past what a real library carries because the failure is a wrap,
+		// and a wrap needs enough chips to reach the second and third row.
+		rungs: counts(func(s *spec, n int) { s.tags = n }, 0, 1, 5, 30),
+	},
+	{
+		key:    "studios",
+		entity: kindVideo,
+		block:  400,
+		finds:  "empty section, single-item layout, multi-studio row wrap",
+		// Capped lower than people on purpose: co-productions in the low single
+		// digits are the realistic maximum, and the rung that actually finds bugs
+		// is 0 (the empty section) rather than the top. Reaching 5 at all requires
+		// `studio` to be `multi: true` in the mapping — loadFields refuses
+		// otherwise rather than letting the rungs collapse silently.
+		rungs: counts(func(s *spec, n int) { s.studios = n }, 0, 1, 5),
+	},
+	{
+		key:    "scenes",
+		entity: kindFilm,
+		block:  500,
+		finds:  "scene badge, ordering, empty film, scene-list overflow",
+		// "Scene" is not an entity — film_videos.scene_number is a role a video
+		// plays inside a film (ADR-085) — so these rungs vary how many videos a
+		// film has attached, drawn from the scene pool rather than from the
+		// addressed video rungs. Attaching an addressed rung would have put a film
+		// badge on it and broken OFAT: a failure on the people=25 page could then
+		// be the cast or the film attachment. The pool carries the text palette
+		// instead, so the scene list still inherits the text torture.
+		rungs: counts(func(s *spec, n int) { s.scenes = n }, 0, 1, 6, 12),
+	},
+	{
+		key:    "filmcast",
+		entity: kindFilm,
+		block:  600,
+		finds:  "shared cast-tile sizing with the media page, billing order, empty cast",
+		// film_people_roles is authored, not derived (ADR-085 §2) — it is a
+		// property of the film rather than a union over its scenes, which is the
+		// derived FilmCast. Same rungs as the video people ladder because the tile
+		// size is shared between the two pages: a fix on one has to be checked on
+		// the other, and equal rungs make that a like-for-like comparison.
+		rungs: counts(func(s *spec, n int) { s.cast = n }, 0, 1, 5, 10, 25, 50),
+	},
+}
+
+// textPalette is the shared set of adversarial strings. It is a package-level
+// var rather than an argument list inline in the text dimension because the
+// scene pool cycles the same palette through its titles (generate.go): a film
+// whose scene list is all plain names would not inherit the text torture the
+// spec promises it, and two divergent copies of the palette would be the
+// obvious way for that to rot.
+var textPalette = []textVariant{
+	{"empty", ""},
+	{"single", "x"},
+	{"unbroken", "Supercalifragilisticexpialidociousandthensomemoreforgoodmeasure"},
+	{"cjk", "日本語のタイトルは折り返しの規則が違うので幅の計算が狂いやすい"},
+	{"rtl", "عنوان طويل بالعربية لاختبار اتجاه النص والتفاف الأسطر في الواجهة"},
+	{"emoji", "🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️🎬🎥📽️🍿🎞️"},
+	{"diacritics", "Z̸̢̛͇͓a̷̡̮͐l̶̪̀g̵̛̭o̴̠͐ ̷̣̈t̶̰́e̶̪͐x̷̱̌t̸̗̽ ̴̙̇w̷̢̌i̶̻͐t̵̰̏h̶̬̀ ̸̜̐s̶̙̈t̷̗̏a̷̪̐c̸̣̈k̶̝̇e̷̙̊d̸̯̄ ̶̬̇m̷̜̊a̸̡̽r̶̢̈k̷̙̇s̸̪̈"},
+	{"lorem", lorem},
 }
 
 // lorem is the 1500-character vertical-overflow rung. Weakest of the text set by
@@ -228,7 +304,47 @@ const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e
 // baseline, so the odd value out *is* the dimension under test — which makes a
 // name readable without consulting the manifest, and makes a screenshot pasted
 // into a bug report self-describing.
-func encodeName(s spec) string {
+func encodeName(kind entityKind, s spec) string {
+	if kind == kindFilm {
+		// A film's name is also its identity: CreateFilm resolves-or-creates by
+		// (name, year), so two rungs sharing a name would silently become one
+		// film. Every film rung varies one of these two axes, so the pair is
+		// unique across the whole film half of the ladder.
+		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d", s.cast, s.scenes)
+	}
 	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s",
 		s.people, s.tags, s.studios, s.text.key)
+}
+
+// ladderDemands is the highest rung the table reaches on each axis that has to be
+// expressible through the file layer. It is derived from the table rather than
+// written down, so raising a rung cannot leave the mapping check behind.
+type ladderDemands struct {
+	people  int
+	studios int
+	cast    int
+	scenes  int
+}
+
+func demands(dims []dimension) ladderDemands {
+	var d ladderDemands
+	for _, dim := range dims {
+		for _, rg := range dim.rungs {
+			s := baseline()
+			rg.apply(&s)
+			// Only the axes belonging to the rung's own entity kind count: the
+			// baseline's film axes ride along on every video spec, and taking the
+			// max over those would demand a scene pool from a ladder with no film
+			// dimensions at all.
+			switch dim.entity {
+			case kindVideo:
+				d.people = max(d.people, s.people)
+				d.studios = max(d.studios, s.studios)
+			case kindFilm:
+				d.cast = max(d.cast, s.cast)
+				d.scenes = max(d.scenes, s.scenes)
+			}
+		}
+	}
+	return d
 }

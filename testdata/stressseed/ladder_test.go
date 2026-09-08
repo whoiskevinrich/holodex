@@ -114,6 +114,12 @@ func TestRungsVaryExactlyOneAxis(t *testing.T) {
 			if got.text != base.text {
 				differing = append(differing, "text")
 			}
+			if got.cast != base.cast {
+				differing = append(differing, "cast")
+			}
+			if got.scenes != base.scenes {
+				differing = append(differing, "scenes")
+			}
 			// A rung may equal the baseline on its own axis (people=02 would),
 			// so "more than one" is the violation, not "not exactly one".
 			if len(differing) > 1 {
@@ -194,6 +200,42 @@ func TestGenerate_ClearsRowsFromAPreviousRun(t *testing.T) {
 	}
 }
 
+// seededTables names films and videos but neither film_videos nor
+// film_people_roles: those are cleared only by ON DELETE CASCADE, which in SQLite
+// is silently inert unless `PRAGMA foreign_keys` is on. If it ever were not, a
+// re-seed would double every film's scenes and credits while every other
+// assertion here still passed — the fixture would be reproducible in name only.
+func TestGenerate_ReSeedingDoesNotAccumulateFilmLinks(t *testing.T) {
+	dir := t.TempDir()
+	_, database := seedInto(t, dir)
+
+	before := map[string]int{}
+	for _, table := range []string{"film_videos", "film_people_roles"} {
+		before[table] = countRows(t, database, table)
+		if before[table] == 0 {
+			t.Fatalf("%s is empty after a seed, so this test proves nothing", table)
+		}
+	}
+	database.Close()
+
+	_, database = seedInto(t, dir)
+	for table, want := range before {
+		if got := countRows(t, database, table); got != want {
+			t.Errorf("%s holds %d rows after re-seeding but %d after the first seed — "+
+				"rows from the previous run survived", table, got, want)
+		}
+	}
+}
+
+func countRows(t *testing.T, database *sql.DB, table string) int {
+	t.Helper()
+	var n int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+		t.Fatalf("count %s: %v", table, err)
+	}
+	return n
+}
+
 // The relationship counts a rung declares must be the counts actually written.
 // The reconcile APIs are full-replace, so a loop where a single call belongs
 // would leave exactly one link and pass every test that only checked "non-empty".
@@ -201,24 +243,113 @@ func TestGenerate_LinkCountsMatchTheSpec(t *testing.T) {
 	entries, database := seed(t)
 
 	for _, e := range entries {
-		for _, link := range []struct {
+		var rows []struct {
 			table string
+			col   string
 			want  int
-		}{
-			{"video_people", e.Axes.People},
-			{"video_tags", e.Axes.Tags},
-			{"video_studios", e.Axes.Studios},
-		} {
+		}
+		switch e.Entity {
+		case kindVideo:
+			rows = append(rows,
+				struct {
+					table string
+					col   string
+					want  int
+				}{"video_people", "video_id", e.Axes.Video.People},
+				struct {
+					table string
+					col   string
+					want  int
+				}{"video_tags", "video_id", e.Axes.Video.Tags},
+				struct {
+					table string
+					col   string
+					want  int
+				}{"video_studios", "video_id", e.Axes.Video.Studios})
+		case kindFilm:
+			rows = append(rows,
+				struct {
+					table string
+					col   string
+					want  int
+				}{"film_videos", "film_id", e.Axes.Film.Scenes},
+				struct {
+					table string
+					col   string
+					want  int
+				}{"film_people_roles", "film_id", e.Axes.Film.Cast})
+		}
+		for _, link := range rows {
 			var got int
 			if err := database.QueryRow(
-				`SELECT COUNT(*) FROM `+link.table+` WHERE video_id = ?`, e.ID).Scan(&got); err != nil {
+				`SELECT COUNT(*) FROM `+link.table+` WHERE `+link.col+` = ?`, e.ID).Scan(&got); err != nil {
 				t.Fatalf("count %s for %d: %v", link.table, e.ID, err)
 			}
 			if got != link.want {
-				t.Errorf("media %d (%s=%s) declares %d rows in %s but has %d",
-					e.ID, e.Dimension, e.Variant, link.want, link.table, got)
+				t.Errorf("%s %d (%s=%s) declares %d rows in %s but has %d",
+					e.Entity, e.ID, e.Dimension, e.Variant, link.want, link.table, got)
 			}
 		}
+	}
+}
+
+// Exactly one half of the coordinate describes any entity. A film reporting the
+// video baseline's people=2 would be a falsehood the manifest states as fact, and
+// an assertion written against it would be measuring nothing.
+func TestManifestAxesAreScopedToTheEntityKind(t *testing.T) {
+	entries, _ := seed(t)
+
+	for _, e := range entries {
+		switch e.Entity {
+		case kindVideo:
+			if e.Axes.Video == nil || e.Axes.Film != nil {
+				t.Errorf("media %d carries axes %+v; a video has no film coordinate", e.ID, e.Axes)
+			}
+		case kindFilm:
+			if e.Axes.Film == nil || e.Axes.Video != nil {
+				t.Errorf("film %d carries axes %+v; a film has no video coordinate", e.ID, e.Axes)
+			}
+		}
+	}
+}
+
+// Scenes must not be drawn from the addressed video rungs. Attaching one would
+// put a film section on a page whose dimension is people or text, so a layout
+// failure there could be either cause — the attribution loss OFAT exists to
+// prevent (spec D3).
+func TestScenesAreDrawnFromThePoolNotFromAddressedRungs(t *testing.T) {
+	entries, database := seed(t)
+
+	addressed := map[int64]entry{}
+	for _, e := range entries {
+		if e.Entity == kindVideo {
+			addressed[e.ID] = e
+		}
+	}
+
+	rows, err := database.Query(`SELECT DISTINCT video_id FROM film_videos`)
+	if err != nil {
+		t.Fatalf("list scene videos: %v", err)
+	}
+	defer rows.Close()
+
+	scenes := 0
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		scenes++
+		if e, clash := addressed[id]; clash {
+			t.Errorf("film scene uses media %d, which is the addressed %s=%s rung — "+
+				"that page now has a second varied axis", id, e.Dimension, e.Variant)
+		}
+		if id < poolBase {
+			t.Errorf("scene video %d is inside the addressable range below %d", id, poolBase)
+		}
+	}
+	if scenes == 0 {
+		t.Fatal("no film scenes were attached, so this test proved nothing")
 	}
 }
 
@@ -300,23 +431,29 @@ func seedInto(t *testing.T, dir string) ([]entry, *sql.DB) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 
-	entries, err := generate(context.Background(), database, repo.New(database), testPersonField(t))
+	entries, err := generate(context.Background(), database, repo.New(database), testFields(t))
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
 	return entries, database
 }
 
-// testMappingsYAML is the minimal mapping the seeder needs to build its cast
-// through the file layer. Written here rather than read from the developer's own
-// metadata-mappings.yaml, so these tests assert on the fixture and not on the
-// machine running them.
+// testMappingsYAML is the minimal mapping the seeder needs to build its derived
+// links through the file layer. Written here rather than read from the shipped
+// testdata/stressseed/mappings.yaml, so a test failure names the seeder rather
+// than the mapping, and the mapping's own obligations are asserted separately by
+// TestShippedMappingSatisfiesTheLadder.
 const testMappingsYAML = `fields:
   - canonical: actors
     label: Actors
     multi: true
     sources:
       - Cast
+  - canonical: studio
+    label: Studio
+    multi: true
+    sources:
+      - Publisher
 `
 
 func testMappingsPath(t *testing.T) string {
@@ -324,13 +461,13 @@ func testMappingsPath(t *testing.T) string {
 	return writeMappings(t, "valid", testMappingsYAML)
 }
 
-func testPersonField(t *testing.T) personField {
+func testFields(t *testing.T) fixtureFields {
 	t.Helper()
-	pf, err := loadPersonField(testMappingsPath(t))
+	ff, err := loadFields(testMappingsPath(t), demands(ladder))
 	if err != nil {
-		t.Fatalf("loadPersonField: %v", err)
+		t.Fatalf("loadFields: %v", err)
 	}
-	return pf
+	return ff
 }
 
 func writeMappings(t *testing.T, name, body string) string {
@@ -342,26 +479,35 @@ func writeMappings(t *testing.T, name, body string) string {
 	return path
 }
 
-// The cast has to reach the file layer, because that is the layer the server
-// re-derives video_people from on startup. A fixture whose people exist only in
-// video_people empties itself the first time it is served (see filelayer.go), and
-// nothing else in this file would notice — every link assertion would still pass
-// against the database the seeder just wrote.
-func TestGenerate_CastIsWrittenToTheFileLayer(t *testing.T) {
+// The derived links have to reach the file layer, because that is the layer the
+// server re-derives video_people and video_studios from on startup. A fixture
+// whose links exist only in those tables empties itself the first time it is
+// served (see filelayer.go), and nothing else in this file would notice — every
+// link assertion would still pass against the database the seeder just wrote.
+func TestGenerate_DerivedLinksAreWrittenToTheFileLayer(t *testing.T) {
 	entries, database := seed(t)
-	pf := testPersonField(t)
+	ff := testFields(t)
 
 	for _, e := range entries {
-		var got int
-		if err := database.QueryRow(
-			`SELECT COUNT(*) FROM video_metadata WHERE video_id = ? AND source_key = ?`,
-			e.ID, pf.fileKey).Scan(&got); err != nil {
-			t.Fatalf("count file tags for %d: %v", e.ID, err)
+		if e.Entity != kindVideo {
+			continue
 		}
-		if got != e.Axes.People {
-			t.Errorf("media %d (%s=%s) has %d people but %d %q file tags — the startup "+
-				"relink resolves from these tags, so a mismatch is a fixture that erases "+
-				"itself when served", e.ID, e.Dimension, e.Variant, e.Axes.People, got, pf.fileKey)
+		for _, want := range []struct {
+			field fileField
+			count int
+		}{{ff.person, e.Axes.Video.People}, {ff.studio, e.Axes.Video.Studios}} {
+			var got int
+			if err := database.QueryRow(
+				`SELECT COUNT(*) FROM video_metadata WHERE video_id = ? AND source_key = ?`,
+				e.ID, want.field.fileKey).Scan(&got); err != nil {
+				t.Fatalf("count file tags for %d: %v", e.ID, err)
+			}
+			if got != want.count {
+				t.Errorf("media %d (%s=%s) declares %d %s but has %d %q file tags — the "+
+					"startup relink resolves from these tags, so a mismatch is a fixture "+
+					"that erases itself when served",
+					e.ID, e.Dimension, e.Variant, want.count, want.field.canonical, got, want.field.fileKey)
+			}
 		}
 	}
 }
@@ -369,16 +515,16 @@ func TestGenerate_CastIsWrittenToTheFileLayer(t *testing.T) {
 // A name carrying a resolver separator would be split by the server into more
 // people than the manifest claims, so the seeder refuses it rather than shipping
 // a page that disagrees with its own address book.
-func TestCastTags_RefusesNamesTheResolverWouldSplit(t *testing.T) {
-	pf := testPersonField(t)
+func TestLinkTags_RefusesNamesTheResolverWouldSplit(t *testing.T) {
+	pf := testFields(t).person
 
 	for _, name := range []string{"stress person 1/2", "Downey Jr., Robert", "a;b", "two\nlines"} {
-		if _, err := pf.castTags([]string{name}); err == nil {
+		if _, err := pf.linkTags([]string{name}); err == nil {
 			t.Errorf("expected %q to be refused — the resolver splits on %q",
 				name, multiValueSeparators)
 		}
 	}
-	if _, err := pf.castTags([]string{"stress person 001"}); err != nil {
+	if _, err := pf.linkTags([]string{"stress person 001"}); err != nil {
 		t.Errorf("a separator-free name must be accepted, got %v", err)
 	}
 }
@@ -393,14 +539,15 @@ func TestMultiValueSeparators_MatchTheResolver(t *testing.T) {
 	}
 }
 
-func TestLoadPersonField_RefusesAMappingThatCannotCarryACast(t *testing.T) {
+func TestLoadFields_RefusesAMappingThatCannotCarryTheLadder(t *testing.T) {
 	cases := map[string]string{
 		"no person-typed field at all": `fields:
-  - canonical: title
+  - canonical: studio
+    multi: true
     sources:
-      - Title
+      - Publisher
 `,
-		// A provider-only cast cannot work: the file layer is what the fixture
+		// A provider-only source cannot work: the file layer is what the fixture
 		// seeds, and tmdb:/filename: sources resolve from data it does not write.
 		"actors mapped to providers only": `fields:
   - canonical: actors
@@ -408,14 +555,87 @@ func TestLoadPersonField_RefusesAMappingThatCannotCarryACast(t *testing.T) {
     sources:
       - tmdb:actors
       - filename:people
+  - canonical: studio
+    multi: true
+    sources:
+      - Publisher
+`,
+		"studio not mapped at all": `fields:
+  - canonical: actors
+    multi: true
+    sources:
+      - Cast
+`,
+		// The one this ticket exists for: a REPLACE studio resolves through
+		// firstNonEmpty, so every rung above 1 would collapse to 1 and the manifest
+		// would claim a cardinality the page never renders.
+		"studio is a replace field": `fields:
+  - canonical: actors
+    multi: true
+    sources:
+      - Cast
+  - canonical: studio
+    sources:
+      - Publisher
+`,
+		"actors is a replace field": `fields:
+  - canonical: actors
+    sources:
+      - Cast
+  - canonical: studio
+    multi: true
+    sources:
+      - Publisher
 `,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadPersonField(writeMappings(t, "invalid", body)); err == nil {
-				t.Fatal("expected a refusal: seeding a cast this mapping cannot resolve " +
-					"would produce links the next boot deletes")
+			if _, err := loadFields(writeMappings(t, "invalid", body), demands(ladder)); err == nil {
+				t.Fatal("expected a refusal: seeding links this mapping cannot resolve " +
+					"would produce a fixture that disagrees with the page serving it")
 			}
 		})
+	}
+}
+
+// The shipped mapping is part of the fixture's contract, not a sample: the
+// `backend-stress` profile hands the server this exact file, so a ladder the
+// mapping cannot express is a fixture that lies on every page.
+func TestShippedMappingSatisfiesTheLadder(t *testing.T) {
+	// stressMappingsPath is relative to the repository root, which is where the
+	// seeder and the `backend-stress` server both run from; `go test` runs from the
+	// package directory. Walking back up rather than hardcoding "mappings.yaml"
+	// keeps the constant itself under test — a typo in it would fail here instead
+	// of at the next seed.
+	path := filepath.Join("..", "..", stressMappingsPath)
+	if _, err := loadFields(path, demands(ladder)); err != nil {
+		t.Fatalf("%s cannot express the ladder: %v", stressMappingsPath, err)
+	}
+}
+
+// The scene pool consumes the videos sequence once the film half starts, and
+// SQLite's AUTOINCREMENT counter cannot be rewound below rows that already
+// exist — so a video dimension after a film one would collide rather than land
+// in its block. Silent corruption, hence a table-level refusal.
+func TestValidateLadder_RejectsAVideoDimensionAfterAFilmOne(t *testing.T) {
+	err := validateLadder([]dimension{
+		{key: "f", entity: kindFilm, block: 100, rungs: counts(func(s *spec, n int) { s.scenes = n }, 0, 1)},
+		{key: "v", entity: kindVideo, block: 200, rungs: counts(func(s *spec, n int) { s.people = n }, 0, 1)},
+	})
+	if err == nil {
+		t.Fatal("expected a refusal: the scene pool has already taken the videos sequence")
+	}
+}
+
+// Film cast is drawn from the people the video ladder creates, so a cast rung
+// above the top people rung would fail per-entity, mid-seed, with a "person not
+// found" that names neither cause.
+func TestValidateLadder_RejectsACastLadderTallerThanThePeopleLadder(t *testing.T) {
+	err := validateLadder([]dimension{
+		{key: "people", entity: kindVideo, block: 100, rungs: counts(func(s *spec, n int) { s.people = n }, 0, 5)},
+		{key: "filmcast", entity: kindFilm, block: 200, rungs: counts(func(s *spec, n int) { s.cast = n }, 0, 50)},
+	})
+	if err == nil {
+		t.Fatal("expected a refusal: the person pool never reaches 50")
 	}
 }

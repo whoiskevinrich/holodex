@@ -5,17 +5,19 @@ counts from zero to absurd — so layout and UX bugs surface locally instead of 
 owner. See [`docs/specs/stress-fixture.md`](../../docs/specs/stress-fixture.md).
 
 ```bash
-go run ./testdata/stressseed -mappings <the profile's metadata-mappings.yaml>
+go run ./testdata/stressseed                 # from the repository root
 go run ./testdata/stressseed -big            # shorthand for -count 2000
 go run ./testdata/stressseed -data ./data/x  # somewhere else
 rm -rf ./data/stress                         # teardown — the whole fixture, at once
 ```
 
-`-mappings` must point at the **same** mapping file the server will use — the one
-`backend-stress` sets `METADATA_MAPPINGS_PATH` to. It defaults to that environment
-variable, then to `./metadata-mappings.yaml`. See "The cast goes through the file layer"
-below for why the fixture and the server have to agree on it; the seeder refuses to run,
-before touching disk, if the mapping cannot carry a cast.
+`-mappings` defaults to the fixture's own [`mappings.yaml`](mappings.yaml), which
+`backend-stress` also passes the server as `METADATA_MAPPINGS_PATH` — so the two agree by
+construction. It deliberately does **not** honour the `METADATA_MAPPINGS_PATH` environment
+variable: a shell that had exported it for the `backend` profile would otherwise redirect
+the fixture onto the operator's own mapping. See "Derived links go through the file layer"
+below; the seeder refuses to run, before touching disk, if the mapping cannot express the
+ladder.
 
 Then serve it with the **`backend-stress`** profile in `.claude/launch.json`, which points
 the server at the same directory with `FILMS_ENABLED=true`. Stop that server before
@@ -52,29 +54,80 @@ what turns "fix the page the owner noticed" into "check the fix everywhere it co
 wrong". Each entry carries the entity's full coordinate (`axes`), so an assertion can be
 written against a threshold rather than a list of ids that goes stale.
 
-## The cast goes through the file layer
+## Derived links go through the file layer
 
-`video_people` is a **derived** table (ADR-072). Its source is the video's resolved
-person-typed fields, and `cmd/holodex` re-derives every video's links from that source at
-startup (`backfillPersonLinks`).
+`video_people` and `video_studios` are **derived** tables (ADR-072, ADR-053). Their source
+is the video's resolved person- and studio-typed fields, and `cmd/holodex` re-derives every
+video's links from that source at startup (`backfillPersonLinks`, `backfillStudioLinks`).
 
-So the fixture seeds a **file tag** the mapping maps to `actors`, not `video_people`
-directly. The first version of this seeder wrote the links directly; they survived exactly
-until the server booted, at which point the startup relink resolved each video to zero
-actors, wiped all 50 links and orphan-stamped every person. Verified fixed — the backfill
-now logs `pre_links=107 post_links=107` and changes nothing.
+So the fixture seeds the **file tags** the mapping resolves `actors` and `studio` from, not
+those tables directly. The first version of this seeder wrote the person links directly;
+they survived exactly until the server booted, at which point the startup relink resolved
+each video to zero actors, wiped all 50 links and orphan-stamped every person. Studios had
+the same latent bug and survived only by luck — `backfillStudioLinks` skips outright once
+any link exists, so the seeder's own rows suppressed the pass that would have deleted them.
 
-That is why `-mappings` matters: the mapping decides which tag carries the cast, so a
+Verified by deleting all 145 person links, all 36 studio links and all 5 studios from a
+seeded database and rebooting: the server rebuilt every one of them, identically, from the
+file layer alone.
+
+**Tags are the exception.** `video_tags` is authored, not derived (ADR-075 D3) — only a
+file-sourced rescan clears it, and the fixture has no files — so tags go in through
+`AttachTagToVideo` and nothing re-derives them. Same for the film half: `film_videos` and
+`film_people_roles` are asserted owner links with no reconciler at all (ADR-085 §2).
+
+That is what `mappings.yaml` is for: the mapping decides which tag carries each link, so a
 fixture built against a different mapping than the one serving it gets erased.
+
+## Films, scenes and the scene pool
+
+A "scene" is not an entity — `film_videos.scene_number` is a role a video plays inside a
+film (ADR-085) — so the `scenes` dimension varies how many videos a film has attached.
+
+Those videos come from a **scene pool** above `poolBase`, not from the addressed video
+rungs, which is the obvious reading of the spec's "scenes are drawn from existing video
+rungs". Attaching the `people=50` video to a film would put a film section on that page, so
+a layout failure there could be the cast or the attachment — exactly the attribution loss
+OFAT exists to prevent. The pool carries the **text palette** instead, which is what that
+line was actually buying: a film's scene list inherits the full text torture (empty title,
+unbroken token, CJK, RTL, emoji, diacritics, lorem) without any addressed entity gaining a
+second varied axis.
+
+Scene videos are otherwise plain baseline videos — 2 people, 1 studio, 3 tags. A film's
+`cast`, `studios` and `tags` are all derived live from its attached videos, so a bare scene
+pool would leave three whole sections of the film page empty at every rung. Baseline rather
+than varied, because a per-scene cast would make those lists grow with the scenes rung and
+a film-page failure could then be either cause.
+
+`filmcast` is the other half and a different table: `film_people_roles` is authored per
+film, with `billing_order` seeded so the cast list's order is deterministic rather than
+incidental.
+
+## Reverse cardinality is emergent, not addressed
+
+`person → videos` and `studio → videos` are not dimensions. They fall out of the forward
+ladder, because `stress person 001` is in every rung with a cast while `stress person 050`
+is in only one:
+
+| direction | spread across the fixture |
+|---|---|
+| person → videos | 1 (×25 people), 2 (×15), 3 (×5), 4 (×3), 31, 32 |
+| tag → videos | 1 … 32 across 30 tags |
+| studio → videos | 32, then 1 (×4) — **no "few" bucket** |
+
+Two caveats worth knowing before writing an assertion against these. A **zero rung is
+structurally impossible** in this direction: an entity with no links is orphan-stamped or
+pruned by the very reconcile that maintains it. And the studio spread has no middle,
+because studios 002–005 exist only to be counted by the single `studios=05` rung —
+HOLODEX-351 covers addressed filmography dimensions if that middle turns out to matter.
 
 ## Status
 
-The skeleton (HOLODEX-343) and the ladder machinery (HOLODEX-344) are in. Two dimensions
-ship — `people` cardinality and `text` torture — which is what proves blocks, OFAT, the
-name encoding and the manifest end to end. The remaining dimensions are rows to be added:
-relationship cardinality for tags/studios/films/scenes (HOLODEX-347), the full text
-palette (HOLODEX-346), adversarial images (HOLODEX-345), collection breadth at `--count`
-and `--big` (HOLODEX-350), and the enrichment profile (HOLODEX-348).
+The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344) and the relationship
+cardinality ladder (HOLODEX-347) are in — six dimensions: `people`, `text`, `tags`,
+`studios`, `scenes` and `filmcast`. The remaining dimensions are rows to be added: the full
+text palette (HOLODEX-346), adversarial images (HOLODEX-345), collection breadth at
+`--count` and `--big` (HOLODEX-350), and the enrichment profile (HOLODEX-348).
 
 `-count` / `-big` are accepted and recorded, but nothing consumes them yet; the collection
 filler is HOLODEX-350. `-seed` likewise: the ladder is fully determined by the table, so

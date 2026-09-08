@@ -30,18 +30,37 @@ type entry struct {
 	Axes axes `json:"axes"`
 }
 
-// axes mirrors spec in the wire format. It is a separate type on purpose: spec
-// is free to change shape as dimensions are added, while this is a contract with
-// whatever reads the manifest back.
+// axes is the entity's full coordinate in the wire format. It is a separate type
+// from spec on purpose: spec is free to change shape as dimensions are added,
+// while this is a contract with whatever reads the manifest back.
+//
+// Exactly one half is populated, chosen by the entry's entity kind. spec carries
+// both halves so a rung can be written without knowing which it is, but only one
+// describes any given entity — a film reporting the video baseline's people=2
+// would be a plain falsehood about that film, and an assertion written against it
+// would be measuring nothing.
 type axes struct {
+	Video *videoAxes `json:"video,omitempty"`
+	Film  *filmAxes  `json:"film,omitempty"`
+}
+
+type videoAxes struct {
 	People  int    `json:"people"`
 	Tags    int    `json:"tags"`
 	Studios int    `json:"studios"`
 	Text    string `json:"text"`
 }
 
-func axesOf(s spec) axes {
-	return axes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}
+type filmAxes struct {
+	Cast   int `json:"cast"`
+	Scenes int `json:"scenes"`
+}
+
+func axesOf(kind entityKind, s spec) axes {
+	if kind == kindFilm {
+		return axes{Film: &filmAxes{Cast: s.cast, Scenes: s.scenes}}
+	}
+	return axes{Video: &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}}
 }
 
 // manifest is the machine-readable half of the addressing scheme (D4, layer 3).

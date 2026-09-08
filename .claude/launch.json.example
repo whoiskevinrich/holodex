@@ -58,7 +58,7 @@
         "FILMS_ENABLED": "true",
         "THUMBNAIL_ENABLED": "false",
         "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
-        "METADATA_MAPPINGS_PATH": "G:/source/holodex/metadata-mappings.local.yaml"
+        "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
       }
     },
     {

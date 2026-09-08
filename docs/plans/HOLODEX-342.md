@@ -73,10 +73,9 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 6. [x] [dev-tooling] **HOLODEX-344** — declarative ladder table, OFAT generation, reserved ID
    blocks, `manifest.json`. Two dimensions ship (`people`, `text`) — enough to prove blocks,
    OFAT, name encoding and the manifest end to end; the rest are rows for the tickets below
-7. [ ] [dev-tooling] **HOLODEX-347** — relationship-cardinality ladder (tags, studios, films,
-   scenes; people already landed in 344). **Read `testdata/stressseed/filelayer.go` first** —
-   `video_studios` is derived the same way `video_people` is, so the tags/studios rungs must
-   seed the file layer, not the link table
+7. [x] [dev-tooling] **HOLODEX-347** — relationship-cardinality ladder. Six dimensions now:
+   `people`, `text`, `tags`, `studios`, `scenes`, `filmcast`. The studios rungs forced a new
+   decision (D10, below): the fixture owns a committed `testdata/stressseed/mappings.yaml`
 8. [ ] [dev-tooling] **HOLODEX-346** — text torture palette
 9. [ ] [dev-tooling] **HOLODEX-345** — adversarial image set
 10. [ ] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`
@@ -84,18 +83,73 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
 13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
     fixture is not adversarial enough — treat that as a failure of the fixture, not a pass
-14. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
+14. [ ] [dev-tooling] **HOLODEX-351** — addressed `person → videos` / `studio → videos`
+    filmography dimensions. Split out of 347: the reverse direction is currently *emergent*
+    and has no "few" bucket for studios. Lowest priority, and not a gate on this epic — read
+    the ticket's "why it was not just patched in" first, the cheap fixes all corrupt an axis
+15. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
     same step sweep every completed child to `In Review` by hand.** CI transitions exactly one
     issue: `scripts/jira-transition.mjs:48` takes `extractKeys(BRANCH_REF)[0]` and calls
     `syncKeys({ keys: [key] })`, so only HOLODEX-342 (the branch key) ever moves. Nothing walks to
     children, and they would otherwise sit at `In Progress` forever
-15. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
+16. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
     (2026-09-08): children track the epic's PR lifecycle manually rather than going `Done` when
     their work lands, so `Done` keeps meaning "merged to main" even if a branch is abandoned
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · HOLODEX-344 — ladder table, OFAT, reserved blocks, manifest
+### 2026-09-08 (last) · HOLODEX-347 — relationship cardinality, films, scenes, film cast
+- skills: code-review
+- **A ladder rung is only real if the resolver can express it.** `studio` is a REPLACE
+  field in both of the owner's mapping profiles, so the resolver returns exactly one
+  value through `firstNonEmpty` — a "5 studios" rung would have resolved back down to 1
+  and the manifest would have stated a cardinality the page never renders. That is the
+  same class of lie as HOLODEX-344's wiped links, one layer up: not wrong data at a
+  stable address, but a *number* at a stable address that nothing on the page agrees
+  with. Found by reading the resolver rather than by seeding and looking.
+- **So the fixture now owns its mapping** (new D10). `testdata/stressseed/mappings.yaml`
+  is committed, `backend-stress` points the server at it, and `-mappings` deliberately
+  stopped honouring `METADATA_MAPPINGS_PATH` — a shell that had exported it for the
+  `backend` profile would otherwise silently redirect the fixture onto a mapping that
+  collapses the ladder. The mapping is not a setting here, it is part of the contract.
+- **The seeder refuses what it cannot express, and the maxima are derived from the
+  table.** `loadFields` fails before touching disk on a missing file source *or* a
+  replace field under a rung above 1, and `ladderDemands` is computed by applying every
+  rung to the baseline — so raising a rung cannot leave the check behind.
+- **HOLODEX-344's studio links were a latent version of the same bug and survived only
+  by luck.** `backfillStudioLinks` skips outright when `StudioLinkCount > 0`, so the
+  seeder's own rows suppressed the pass that would have deleted them; the resolved
+  `studio` field on those pages was empty the whole time. Proved by deleting all 145
+  person links, all 36 studio links and all 5 studios from a seeded database and
+  rebooting: the server rebuilt every one, identically, from the file layer alone. That
+  is the assertion worth keeping — a green suite only proves the seeder wrote what it
+  meant to.
+- **Declined the spec's own wording on scenes.** "Scenes are drawn from existing video
+  rungs" reads as attaching the addressed rungs to films, which would put a film section
+  on the `people=50` page and make a failure there unattributable — the exact loss D3
+  exists to prevent. Scene videos are a pool above `poolBase` carrying the text palette
+  instead, which is what that line was actually buying. Spec updated rather than quietly
+  deviated from.
+- Scene videos are *baseline* videos, not bare ones: a film's cast, studios and tags are
+  each derived live from its attached videos, so a bare pool would have left three whole
+  sections of the film page empty at every rung. Constant rather than varied, or those
+  lists would grow with the scenes rung and reintroduce the same attribution loss.
+- The scene pool consumes the `videos` sequence, and SQLite's AUTOINCREMENT counter only
+  moves forward — so every video dimension must precede every film one. `validateLadder`
+  enforces it, and the review caught that the first version tracked "have I seen a film
+  dimension" in a string keyed on `dim.key`: a film row with an empty key would have made
+  the sentinel indistinguishable from "none seen yet" and silently disabled the guard.
+- Deliberate scope cut, filed as **HOLODEX-351**: `person → videos` and `studio → videos`
+  stay *emergent*. They fall out of the forward ladder with a genuine 1/few/many spread
+  for people and tags, but no "few" bucket for studios — and a zero rung is structurally
+  impossible in that direction, because an entity with no links is orphan-stamped by the
+  reconcile that maintains it. Every cheap fix corrupts an existing axis.
+- Handoff: `go run ./testdata/stressseed` (from the repo root, no flags) seeds 31 addressed
+  entities across six dimensions plus a 12-video scene pool, and survives `backend-stress`
+  — verified through the API at every rung. Next is HOLODEX-346 (text palette), then 345
+  (images), 350 (breadth), 348 (enrichment).
+
+### 2026-09-08 · HOLODEX-344 — ladder table, OFAT, reserved blocks, manifest
 - skills: code-review
 - **The fixture destroyed itself the first time it was served, and only a live check
   caught it.** `video_people` is a *derived* table (ADR-072): `cmd/holodex` re-derives

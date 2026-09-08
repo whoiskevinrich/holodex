@@ -158,6 +158,29 @@ Five "providers" therefore cost no extra processes.
   `disambiguation`, plus slow / 5xx / malformed-JSON providers so loading and error states are
   reachable on demand. This is groundwork for planned `EnrichPicker` UX work.
 
+
+### D10 — The fixture owns its metadata mapping (HOLODEX-347).
+
+`backend-stress` and the seeder both read a committed `testdata/stressseed/mappings.yaml`, rather
+than the operator's gitignored `metadata-mappings.local.*.yaml`. `-mappings` still overrides both
+halves together, and deliberately does **not** honour `METADATA_MAPPINGS_PATH` — a shell that had
+exported it for the `backend` profile would otherwise redirect the fixture onto a different mapping
+than the one serving it.
+
+**Rationale**: the mapping is not a setting here, it is part of the fixture's contract. Two facts
+force it. The mapping decides which file tag carries each derived link, and the server re-derives
+`video_people` / `video_studios` from the file layer on every boot (ADR-072, ADR-053) — so a fixture
+seeded against a different mapping than the one serving it has its links wiped rather than read.
+And `studio` is a REPLACE field in both of the operator's own profiles, so the resolver returns
+exactly one value through `firstNonEmpty`: the 5-studio rung below would silently collapse to 1, and
+the manifest would state a cardinality the page never renders. `multi: true` on `studio` is a
+legitimate configuration — `video_studios` has been many-to-many since migration 0017 and the media
+detail page renders the list — it is simply not the shape either operator profile happens to use.
+
+**Consequence**: the seeder refuses, before touching disk, if the mapping cannot express the ladder —
+a missing file source, or a replace field under a rung above 1. The demanded maxima are derived from
+the ladder table, so raising a rung cannot leave the check behind.
+
 ---
 
 ## Ladder dimensions
@@ -176,11 +199,31 @@ Rungs are illustrative; the authoritative list is the declarative table in the s
 | Collection size | `--count` 100 default, `--big` ~2000 | pagination, virtualization, scroll perf |
 
 **Note on scenes**: "scene" is not an entity — `film_videos.scene_number` is a role a video plays
-inside a film. A film's scenes are therefore drawn from existing video rungs, and the film detail
-page inherits the full text and image torture at no extra cost.
+inside a film.
+
+A film's scenes are drawn from a **scene pool** above `poolBase`, *not* from the addressed video
+rungs (HOLODEX-347, correcting this spec's first reading). Attaching the `people=50` video to a film
+would put a film section on that page, so a layout failure there could be the cast or the
+attachment — exactly the attribution loss D3 exists to prevent. The pool carries the text palette
+instead, which is what "inherits the torture at no extra cost" was actually buying: the film's scene
+list renders the empty title, the unbroken token, CJK, RTL, emoji, diacritics and lorem without any
+addressed entity gaining a second varied axis.
+
+Scene videos are otherwise plain baseline videos. A film's `cast`, `studios` and `tags` are each
+derived live from its attached videos, so a bare pool would leave three whole sections of the film
+page empty at every rung; baseline rather than varied, because a per-scene cast would make those
+lists grow with the scenes rung and reintroduce the same attribution loss.
 
 **Note on films**: `FILMS_ENABLED` defaults to false and the routes 404 when off. The
 `backend-stress` profile must set it or half the fixture silently renders an empty page.
+
+**Note on reverse cardinality**: `person → videos` and `studio → videos` are *emergent*, not
+addressed — they fall out of the forward ladder, because `stress person 001` is in every rung with a
+cast while `stress person 050` is in only one. That yields a genuine 1/few/many spread for people
+(1 ×25, 2 ×15, 3 ×5, 4 ×3, 31, 32) and tags (1…32), but no "few" bucket for studios. Note also that
+a **zero rung is structurally impossible** in this direction: an entity with no links is
+orphan-stamped or pruned by the reconcile that maintains it, so D2 cannot apply. Addressed
+filmography dimensions are HOLODEX-351.
 
 ---
 
@@ -190,7 +233,8 @@ page inherits the full text and image torture at no extra cost.
 2. The seeder refuses to run against a `DATA_PATH` containing rows it did not create.
 3. `manifest.json` resolves any fixture entity ID to its dimension, value and URL, and supports
    enumerating all entities sharing a dimension.
-4. Every ladder dimension above has a rung at 0 and a rung at its maximum.
+4. Every ladder dimension above has a rung at 0 and a rung at its maximum. (Reverse
+   cardinality is exempt and is not a dimension — see the note above.)
 5. Detail pages for media, person, studio, film, tag and category all render at every rung in all
    three skins without console errors.
 6. The enrichment stub yields at least five conflicting namespaces on a shared field, and at least
@@ -222,6 +266,10 @@ that passes on day one is a demo, not a test.
   HOLODEX-343 … HOLODEX-350.
 - ADR-090 — the adoption / precedence split that D9 stresses.
 - ADR-051 — per-field source of truth; the `SourceBadge` chip row.
-- ADR-085 — films entity and `film_videos.scene_number`.
+- ADR-085 — films entity, `film_videos.scene_number`, and `film_people_roles` as an
+  asserted owner link with no reconciler.
+- ADR-053 / ADR-072 — `video_studios` and `video_people` as derived tables; why the
+  fixture seeds the file layer rather than the link tables.
+- ADR-075 D3 — `video_tags` as an authored table, the one relationship that is not derived.
 - `docs/design/theming.md` and `.claude/rules/frontend-theming.md` — the three-skin QA obligation
   this fixture is built to serve.
