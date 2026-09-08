@@ -122,3 +122,30 @@ jobs:
             exit 1
           fi
           echo "No duplicate ADR numbers."
+
+  secrets:
+    # A committed credential is the one CI failure a follow-up commit cannot fix — once
+    # pushed, the value has to be rotated. So this scans the branch's whole history, not
+    # just the diff: a secret added in an earlier commit and "removed" in a later one
+    # still fails, because it is still in the objects. fetch-depth: 0 is required for that.
+    #
+    # Credentials belong in the environment, never in a tracked file — see
+    # .claude/launch.json.example and .env.example for the local-dev mechanism.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # full history — a shallow clone would scan only the tip commit
+
+      - name: No secrets in history
+        # The image runs as root while the runner checks out as uid 1001, so git inside
+        # the container would refuse the bind-mounted repo with "detected dubious
+        # ownership". GIT_CONFIG_* marks /repo safe without writing to any config file.
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --redact --no-banner

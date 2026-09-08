@@ -1,0 +1,53 @@
+{
+  "//": [
+    "Template for .claude/launch.json — copy this file to .claude/launch.json and edit",
+    "the paths for your machine. The real file is gitignored (.claude/launch.json*).",
+    "",
+    "RULE: this file holds machine-specific PATHS and profile config only — never",
+    "credentials. Secrets come from the user environment, so they live in exactly one",
+    "place per machine instead of being duplicated into every worktree's launch.json:",
+    "",
+    "  setx ADMIN_TOKEN     \"<your local dev token>\"",
+    "  setx TMDB_API_TOKEN  \"<TMDB Settings > API > Read Access Token>\"",
+    "",
+    "setx only affects processes started afterwards — restart your editor/agent once.",
+    "The backend also reads a gitignored .env (ADR-027); the TMDB sidecar does not,",
+    "so its token must come from the environment. Real env wins over .env."
+  ],
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "web",
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/holodex", "--host", "127.0.0.1"],
+      "port": 7800,
+      "autoPort": false,
+      "env": {
+        "MEDIA_PATH": "E:/YourMediaLibrary",
+        "CARD_LAYOUT": "poster",
+        "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
+        "METADATA_MAPPINGS_PATH": "G:/source/holodex/metadata-mappings.local.yaml"
+      }
+    },
+    {
+      "name": "provider-tmdb",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./providers/tmdb", "--host", "127.0.0.1"],
+      "port": 9100
+    },
+    {
+      "name": "docker-compose",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "--build"],
+      "port": 7800
+    }
+  ]
+}

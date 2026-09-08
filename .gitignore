@@ -53,9 +53,12 @@
 .env.*
 !.env.example
 .claude/settings.local.json
-# Local dev-server config (machine-specific media paths; may hold provider tokens).
-# Glob covers backups/variants (e.g. launch.json.bak) so a stray copy is never staged.
+# Local dev-server config (machine-specific media paths and profile settings).
+# Glob covers backups/variants (e.g. launch.json.bak) so a stray copy is never staged;
+# the committed .example template is re-included. Credentials never belong in either:
+# secrets come from the user environment (see .claude/launch.json.example).
 .claude/launch.json*
+!.claude/launch.json.example
 
 # Backup left by `graphify claude install` before it edits settings.json.
 .claude/settings.json.graphify-bak
