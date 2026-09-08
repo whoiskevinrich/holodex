@@ -68,7 +68,7 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 3. [x] [spec] `docs/specs/stress-fixture.md`
 4. [x] [tracking] Epic HOLODEX-342 + children HOLODEX-343…350, branch renamed onto the key,
    Jira moved to In Progress
-5. [ ] [dev-tooling] **HOLODEX-343** — seeder skeleton, isolated `DATA_PATH`, refuse-if-not-mine
+5. [x] [dev-tooling] **HOLODEX-343** — seeder skeleton, isolated `DATA_PATH`, refuse-if-not-mine
    guard, committed `backend-stress` launch entry with `FILMS_ENABLED=true`
 6. [ ] [dev-tooling] **HOLODEX-344** — declarative ladder table, OFAT generation, reserved ID
    blocks, `manifest.json`
@@ -85,7 +85,32 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · brainstormed, reframed, specced
+### 2026-09-08 (last) · HOLODEX-343 — seeder skeleton, isolated DATA_PATH, safety guard
+- skills: code-review
+- **The guard has to allow the empty database, or it is a trap rather than a guard.** The
+  obvious rule — refuse any database this tool did not mark — breaks the order people
+  actually work in: starting `backend-stress` before the first seed creates an empty,
+  migrated database, and refusing that teaches the owner to reach for `-force`. So an
+  unmarked database is claimable only while every content table is empty. Tempting
+  additions (`job_runs`, so "a server has run here" counts as foreign) would have
+  reintroduced exactly that trap: the initial scan records a job run.
+- **Verified the refusal against the real dev library, not a fixture of one.** Pointing the
+  seeder at `./data` refused with `videos: 209, people: 72, studios: 8, tags: 31, films: 1`
+  and left the file byte-identical (same mtime and size, WAL untouched) — which is the
+  claim that actually matters, and the read-only inspection is what makes it true.
+- **The empty `MEDIA_PATH` is load-bearing, not cosmetic.** Seeded rows have no files behind
+  them, so a real media root would let the scanner mix real media in; an empty one makes
+  the scanner see zero files and skip its deactivation sweep, so it cannot delete the
+  fixture either. Confirmed in the running server's log.
+- **Deviation from the ticket, deliberate:** the seed is plumbed, recorded in the marker and
+  guarded against a mid-fixture change, but no `*rand.Rand` is constructed yet — there is
+  nothing to draw from until the ladder lands. It gets built where it is consumed
+  (HOLODEX-344).
+- Handoff: `go run ./testdata/stressseed` seeds `./data/stress`; `backend-stress` serves it
+  with films enabled (verified: `/api/v1/films` 200 rather than 404). Next is HOLODEX-344 —
+  the ladder table, OFAT generation, reserved ID blocks and `manifest.json`.
+
+### 2026-09-08 · brainstormed, reframed, specced
 - skills: product-brainstorming, write-spec
 - **The most valuable output of discovery was finding what already existed.** Three fixtures cover
   most of the mechanism; the brief described building them again. Checking before designing turned

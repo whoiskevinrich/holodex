@@ -1,0 +1,142 @@
+// Command stressseed builds the dev-time stress fixture (HOLODEX-342): a
+// deliberately adversarial library whose entities are worse than anything real
+// data produces, so layout and UX bugs surface locally instead of reaching the
+// owner.
+//
+//	go run ./testdata/stressseed                 # seed ./data/stress
+//	go run ./testdata/stressseed -big            # shorthand for -count 2000
+//	go run ./testdata/stressseed -data ./data/x  # somewhere else
+//	rm -rf ./data/stress                         # teardown — the whole fixture
+//
+// This is the skeleton (HOLODEX-343). It stands up the isolated data directory,
+// the database, and the safety guard; the ladder that fills them lands in
+// HOLODEX-344.
+//
+// The fixture never shares a DATA_PATH with a real library (spec D5). Two things
+// enforce that. First, paths are derived from config.Defaults() plus the -data
+// flag alone — never config.Load — so no DATA_PATH env var, .env, or holodex.yaml
+// can redirect the seeder onto real data. Second, the seeder refuses to run
+// against a database holding rows it did not create; see claim.go.
+//
+// Run the fixture with the `backend-stress` profile in .claude/launch.json, which
+// points the server at the same directory with FILMS_ENABLED=true. Stop that
+// server first: it holds its own connection, and two writers on one SQLite file
+// contend past the busy timeout.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"holodex/internal/config"
+	"holodex/internal/db"
+)
+
+const (
+	defaultDataPath = "./data/stress"
+	defaultCount    = 100
+	bigCount        = 2000
+)
+
+func main() {
+	dataPath := flag.String("data", defaultDataPath, "isolated data directory for the fixture")
+	count := flag.Int("count", defaultCount, "how many media entities the collection carries")
+	big := flag.Bool("big", false, fmt.Sprintf("shorthand for -count %d (pagination, scroll perf)", bigCount))
+	seed := flag.Uint64("seed", 1, "RNG seed — the same seed reproduces the same fixture")
+	flag.Parse()
+
+	// An explicit -count wins over -big, so the two can be combined without the
+	// shorthand silently overwriting the specific number.
+	if *big && !flagWasSet("count") {
+		*count = bigCount
+	}
+
+	if err := run(*dataPath, *count, *seed); err != nil {
+		log.Fatalf("stressseed: %v", err)
+	}
+}
+
+func flagWasSet(name string) bool {
+	set := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+
+func run(dataPath string, count int, seed uint64) error {
+	if count < 0 {
+		return fmt.Errorf("-count %d: must not be negative", count)
+	}
+
+	cfg := config.Defaults()
+	cfg.ApplyOverrides(config.Overrides{DataPath: dataPath})
+
+	c, err := inspect(cfg.DatabasePath)
+	if err != nil {
+		return err
+	}
+	if len(c.foreign) > 0 {
+		return fmt.Errorf("%s holds rows this tool did not create (%s).\n"+
+			"Refusing to write into it. Point -data at a directory of the fixture's own,\n"+
+			"or remove that one first: rm -rf %s",
+			cfg.DatabasePath, strings.Join(c.foreign, ", "), dataPath)
+	}
+	// Re-seeding half a fixture is worse than not seeding it: the rows from the
+	// old seed stay, and nothing about the result is reproducible any more.
+	if c.claimed && c.seed != seed {
+		return fmt.Errorf("%s was seeded with -seed %d, not %d.\n"+
+			"Regenerate from scratch instead: rm -rf %s", cfg.DatabasePath, c.seed, seed, dataPath)
+	}
+
+	database, err := db.Open(cfg.DatabasePath) // creates the directory, applies migrations
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+	if err := markOwned(ctx, database, seed, count); err != nil {
+		return err
+	}
+
+	// The `backend-stress` profile points MEDIA_PATH at this directory, and it is
+	// deliberately empty: the scanner walks it, sees zero files, and then skips
+	// its end-of-scan deactivation sweep ("scan saw zero media files"), so it
+	// cannot deactivate seeded rows — which have no files behind them by design
+	// (spec D1). Pointing the profile at a real library instead would let the
+	// scanner mix real media into the fixture.
+	mediaPath := filepath.Join(dataPath, "media")
+	if err := os.MkdirAll(mediaPath, 0o755); err != nil {
+		return fmt.Errorf("create empty media dir: %w", err)
+	}
+
+	report(cfg, mediaPath, count, seed)
+	return nil
+}
+
+// report prints where the fixture landed, so an operator can see every path the
+// tool considers its own before trusting the isolation claim.
+func report(cfg config.Config, mediaPath string, count int, seed uint64) {
+	fmt.Printf("fixture claimed at %s (seed %d, count %d)\n\n", cfg.DataPath, seed, count)
+	for _, p := range []struct{ label, path string }{
+		{"database", cfg.DatabasePath},
+		{"thumbnails", cfg.ThumbnailPath},
+		{"person images", cfg.PersonImagePath},
+		{"studio images", cfg.StudioImagePath},
+		{"film images", cfg.FilmImagePath},
+		{"provider icons", cfg.ProviderIconPath},
+		{"media (empty)", mediaPath},
+	} {
+		fmt.Printf("  %-16s %s\n", p.label, p.path)
+	}
+	fmt.Printf("\nNo entities yet — the ladder that generates them is HOLODEX-344.\n")
+	fmt.Printf("Serve it with the `backend-stress` launch profile; tear it down with rm -rf %s\n", cfg.DataPath)
+}

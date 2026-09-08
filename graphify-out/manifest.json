@@ -1590,9 +1590,9 @@
     "semantic_hash": ""
   },
   "providers/tmdb/main.go": {
-    "mtime": 1784739719.3926463,
-    "seen": 1788052049.9091418,
-    "ast_hash": "5a9e644b8488783237097463cde17557",
+    "mtime": 1788893237.2095253,
+    "seen": 1788894557.184164,
+    "ast_hash": "62975bda3c9d8cdaf0b297aec7cad558",
     "semantic_hash": ""
   },
   "providers/tmdb/tmdb.go": {
@@ -2406,9 +2406,9 @@
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
-    "mtime": 1788830023.8952136,
-    "seen": 1788831692.7011178,
-    "ast_hash": "d470881306ead244abbdb566e2c6e8d0",
+    "mtime": 1788885578.200719,
+    "seen": 1788894557.1844392,
+    "ast_hash": "d845f558d1699df6cdd45e0cdd12660e",
     "semantic_hash": ""
   },
   ".claude/flightplan.yaml": {
@@ -2442,10 +2442,10 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1784848696.8670497,
-    "seen": 1788052049.9093597,
-    "ast_hash": "bd7ee265085e46c72949e8fc5c6517e8",
-    "semantic_hash": "bd7ee265085e46c72949e8fc5c6517e8"
+    "mtime": 1788893237.206008,
+    "seen": 1788894557.1844475,
+    "ast_hash": "fe80fffba79d763b08b6b5463ce131dc",
+    "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
     "mtime": 1788101600.3522692,
@@ -2964,9 +2964,9 @@
     "semantic_hash": "9678b4a7fbc2f32265dc3b7b957274b2"
   },
   "docs/architecture/README.md": {
-    "mtime": 1788837020.7994676,
-    "seen": 1788837150.3938856,
-    "ast_hash": "ea3814dffd787ab7285f255c9cb5537b",
+    "mtime": 1788893237.2080214,
+    "seen": 1788894557.1845953,
+    "ast_hash": "dc5a4c6e0ee86f50339bdbdca4cd0a2d",
     "semantic_hash": ""
   },
   "docs/design/admin-mode-handoff.md": {
@@ -3510,9 +3510,9 @@
     "semantic_hash": ""
   },
   "docs/specs/qa-tmdb-provider.md": {
-    "mtime": 1786645528.0302136,
-    "seen": 1788052049.9096682,
-    "ast_hash": "a01b46bcbec1797679f9d443552b2479",
+    "mtime": 1788893237.2080214,
+    "seen": 1788894557.1849241,
+    "ast_hash": "1fec9fbf78dd2fb7a31eeb5ae5c54c74",
     "semantic_hash": ""
   },
   "docs/specs/qa-writeback.md": {
@@ -3594,9 +3594,9 @@
     "semantic_hash": ""
   },
   "testdata/README.md": {
-    "mtime": 1788571891.2253482,
-    "seen": 1788572752.347209,
-    "ast_hash": "aae4d083a751359a7cb5e2b3df0977cb",
+    "mtime": 1788894338.3510492,
+    "seen": 1788894557.1849718,
+    "ast_hash": "81503fe6fcfd0fd72413728f6f30dee6",
     "semantic_hash": ""
   },
   "testdata/enrich-stub/README.md": {
@@ -5997,6 +5997,60 @@
     "mtime": 1788839698.9863553,
     "seen": 1788839898.157859,
     "ast_hash": "59fe2e6f9ee8ef03f1265fb527ba3a51",
+    "semantic_hash": ""
+  },
+  "providers/tmdb/main_test.go": {
+    "mtime": 1788893237.2095253,
+    "seen": 1788894557.1841664,
+    "ast_hash": "5a9481a6b61027ecfed7c33edd10f5c3",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/claim.go": {
+    "mtime": 1788894471.6522913,
+    "seen": 1788894557.1842074,
+    "ast_hash": "3942a9a5ccf0e386c41c5219e07b944b",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/claim_test.go": {
+    "mtime": 1788894234.0833235,
+    "seen": 1788894557.1842084,
+    "ast_hash": "ef3a35415b2befdf814881d462243c90",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/main.go": {
+    "mtime": 1788894160.359737,
+    "seen": 1788894557.1842096,
+    "ast_hash": "af15870bfc2bbf06bb8cd34dd6b282c2",
+    "semantic_hash": ""
+  },
+  "docs/architecture/ADR-094-local-dev-credentials-from-environment.md": {
+    "mtime": 1788893237.206512,
+    "seen": 1788894557.184594,
+    "ast_hash": "c21b45e67f6a5b9a7418ef9ca6589aad",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-341.md": {
+    "mtime": 1788893237.2080214,
+    "seen": 1788894557.1848078,
+    "ast_hash": "94e2cf44c2094a165ca86e9a84bc6df9",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-342.md": {
+    "mtime": 1788894506.1329968,
+    "seen": 1788894557.184809,
+    "ast_hash": "f09cfa6064ee7d612f44ec4ca7f4161e",
+    "semantic_hash": ""
+  },
+  "docs/specs/stress-fixture.md": {
+    "mtime": 1788893562.0659873,
+    "seen": 1788894557.1849356,
+    "ast_hash": "60dc4236794ee591ae291a4db8bb5e06",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/README.md": {
+    "mtime": 1788894322.4529622,
+    "seen": 1788894557.1849785,
+    "ast_hash": "94f4685adddb056c5ca69ae0ae58464e",
     "semantic_hash": ""
   }
 }

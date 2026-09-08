@@ -16,7 +16,12 @@
     "",
     "setx only affects processes started afterwards — restart your editor/agent once.",
     "The backend also reads a gitignored .env (ADR-027); the TMDB sidecar does not,",
-    "so its token must come from the environment. Real env wins over .env."
+    "so its token must come from the environment. Real env wins over .env.",
+    "",
+    "backend-stress serves the HOLODEX-342 stress fixture instead of a real library.",
+    "Seed it first with `go run ./testdata/stressseed`; tear the whole thing down with",
+    "`rm -rf ./data/stress`. It binds the same port as `backend`, so run one or the",
+    "other — never both."
   ],
   "version": "0.0.1",
   "configurations": [
@@ -37,6 +42,21 @@
       "env": {
         "MEDIA_PATH": "E:/YourMediaLibrary",
         "CARD_LAYOUT": "poster",
+        "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
+        "METADATA_MAPPINGS_PATH": "G:/source/holodex/metadata-mappings.local.yaml"
+      }
+    },
+    {
+      "name": "backend-stress",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/holodex", "--host", "127.0.0.1"],
+      "port": 7800,
+      "autoPort": false,
+      "env": {
+        "DATA_PATH": "./data/stress",
+        "MEDIA_PATH": "./data/stress/media",
+        "FILMS_ENABLED": "true",
+        "THUMBNAIL_ENABLED": "false",
         "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
         "METADATA_MAPPINGS_PATH": "G:/source/holodex/metadata-mappings.local.yaml"
       }
