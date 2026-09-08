@@ -39,6 +39,43 @@ func TestReadbackGaps_DetectsWrongTag(t *testing.T) {
 	}
 }
 
+// TestReadbackGaps_TitleReadsThroughTheFileTitleAlias covers the one canonical whose
+// read location is not extra_metadata: writeback writes `Title` / `QuickTime:Title`, the
+// extractor folds that into videos.title, and only `file:title` addresses it
+// (mapping.Source.IsFileTitle). Both write targets must therefore fold to the same key a
+// `file:title` source folds to, or every install that maps title correctly gets a
+// spurious warning. The shipped-example guard cannot cover this — the example ships its
+// title block commented out — so it is pinned here.
+func TestReadbackGaps_TitleReadsThroughTheFileTitleAlias(t *testing.T) {
+	aliased := mapping.Field{
+		Canonical:     "title",
+		ParsedSources: []mapping.Source{{Namespace: "file", Key: "title"}, {Namespace: "tmdb", Key: "title"}},
+	}
+	if gaps := ReadbackGaps([]mapping.Field{aliased}); len(gaps) != 0 {
+		t.Errorf("file:title reads back the written Title tag; want no gap, got %+v", gaps)
+	}
+
+	// The same source spelled as the bare file tag (`sources: [Title]`) must behave
+	// identically — parseSources turns it into file:Title, and IsFileTitle lowercases.
+	bare := mapping.Field{
+		Canonical:     "title",
+		ParsedSources: []mapping.Source{{Namespace: "file", Key: "Title"}},
+	}
+	if gaps := ReadbackGaps([]mapping.Field{bare}); len(gaps) != 0 {
+		t.Errorf("bare `Title` is file:Title and reads back the same tag; want no gap, got %+v", gaps)
+	}
+
+	// And a title mapped provider-only is a gap naming the key that closes it.
+	providerOnly := mapping.Field{
+		Canonical:     "title",
+		ParsedSources: []mapping.Source{{Namespace: "tmdb", Key: "title"}},
+	}
+	gaps := ReadbackGaps([]mapping.Field{providerOnly})
+	if len(gaps) != 1 || len(gaps[0].WantKeys) != 1 || gaps[0].WantKeys[0] != "title" {
+		t.Errorf("want one gap naming [title], got %+v", gaps)
+	}
+}
+
 // TestLogReadbackGaps_MessageIsActionable pins that the runtime warning carries what an
 // operator needs to act — which field, and which key closes it. A warning that only says
 // "something is wrong" would leave them exactly where the HOLODEX-335 reporter started.

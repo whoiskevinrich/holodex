@@ -213,6 +213,9 @@ func TestResolve_DeclaredBaseline_StaysKnowable(t *testing.T) {
 
 	// testExtra carries no "Year" tag, so the declared baseline source resolves empty.
 	empty := resolver.Resolve(testVideo, testExtra, enr, nil, fields, opts)
+	if len(empty) != 1 {
+		t.Fatalf("a decided field must stay in the output even with an empty baseline, got %+v", empty)
+	}
 	if empty[0].InSync == nil {
 		t.Fatal("a declared file source makes sync state knowable; want false, got nil")
 	}
@@ -222,6 +225,9 @@ func TestResolve_DeclaredBaseline_StaysKnowable(t *testing.T) {
 
 	written := []model.ExtraMetadata{{SourceKey: "Year", Value: "2022-10-19"}}
 	got := resolver.Resolve(testVideo, written, enr, nil, fields, opts)
+	if len(got) != 1 {
+		t.Fatalf("want the release_date field, got %+v", got)
+	}
 	if got[0].InSync == nil || !*got[0].InSync {
 		t.Errorf("provider value matching the written file tag must read in sync, got %v", got[0].InSync)
 	}
@@ -235,6 +241,9 @@ func TestResolve_NoBaselineSource_UndecidedStaysInSync(t *testing.T) {
 	enr := resolver.Enrichment{"tmdb": {"release_date": {"2022-10-19"}}}
 
 	got := resolver.Resolve(testVideo, testExtra, enr, nil, fields, resolver.Options{})
+	if len(got) != 1 {
+		t.Fatalf("want the release_date field, got %+v", got)
+	}
 	if got[0].InSync == nil || !*got[0].InSync {
 		t.Errorf("undecided field must read in sync by construction, got %v", got[0].InSync)
 	}

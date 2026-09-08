@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "internal/api/handlers.go": {
-    "mtime": 1788836902.79477,
-    "seen": 1788837150.3929446,
-    "ast_hash": "a51f402ad436a8bc6eaeec87d41d2a54",
+    "mtime": 1788839698.9948406,
+    "seen": 1788839898.1574092,
+    "ast_hash": "492a88d15b8c63ae59bc07e8131b334b",
     "semantic_hash": ""
   },
   "internal/api/handlers_test.go": {
@@ -1380,9 +1380,9 @@
     "semantic_hash": "6aa4de268e7d46bd1df2a3a0d67d4d8e"
   },
   "internal/resolver/decisions_test.go": {
-    "mtime": 1788831461.5128663,
-    "seen": 1788831692.7008097,
-    "ast_hash": "b06617a0947811b13dc1b523f1828b24",
+    "mtime": 1788839698.9937882,
+    "seen": 1788839898.157811,
+    "ast_hash": "4a6eac48308c3ee02d0d591778a62587",
     "semantic_hash": ""
   },
   "internal/resolver/derive.go": {
@@ -5928,9 +5928,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-335.md": {
-    "mtime": 1788838109.3446088,
-    "seen": 1788838168.1949453,
-    "ast_hash": "991606f3d388db440bd0d0481ed469e2",
+    "mtime": 1788839869.026255,
+    "seen": 1788839898.158544,
+    "ast_hash": "2ea8d1c634ccb23e5eb413d2009ad2ba",
     "semantic_hash": ""
   },
   "docs/specs/film-provider-enrichment-ux.md": {
@@ -5988,15 +5988,15 @@
     "semantic_hash": ""
   },
   "internal/writeback/readback.go": {
-    "mtime": 1788836859.6769776,
-    "seen": 1788837150.393397,
-    "ast_hash": "97525076616ba295efd1b91440aa56fd",
+    "mtime": 1788839698.9863553,
+    "seen": 1788839898.157858,
+    "ast_hash": "c4852e8bb1711a87c3b47f263dead0fa",
     "semantic_hash": ""
   },
   "internal/writeback/readback_test.go": {
-    "mtime": 1788836983.3580287,
-    "seen": 1788837150.3933983,
-    "ast_hash": "0573b7cb6bb9891b59e8d0c3108621a2",
+    "mtime": 1788839698.9863553,
+    "seen": 1788839898.157859,
+    "ast_hash": "59fe2e6f9ee8ef03f1265fb527ba3a51",
     "semantic_hash": ""
   }
 }

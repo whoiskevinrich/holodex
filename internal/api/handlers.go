@@ -1078,10 +1078,6 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "reload config", err)
 		return
 	}
-	// Re-check the write/read-back pairing against the mapping that just went live
-	// (ADR-093 D5) — this is the edit where an operator closes or opens such a gap, so
-	// it is the moment the warning is most actionable.
-	writeback.LogReadbackGaps(h.log, h.mappings.Current().Fields())
 	// Reload the filename-pattern list alongside the mappings (F48.1a, ADR-067)
 	// so an edited metadata-patterns.yaml takes effect without a restart.
 	if h.patterns != nil {
@@ -1102,6 +1098,12 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 		// provider describe/fetch must not block the reload response — and best-effort.
 		go h.RefreshProviderIcons(context.Background())
 	}
+	// Re-check the write/read-back pairing against the mapping that just went live
+	// (ADR-093 D5) — this is the edit where an operator closes or opens such a gap, so
+	// it is the moment the warning is most actionable. Logged only once every reload
+	// above has succeeded, so the advice never accompanies a reload the operator was
+	// told had failed.
+	writeback.LogReadbackGaps(h.log, h.mappings.Current().Fields())
 	if h.cache != nil {
 		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)
 	}

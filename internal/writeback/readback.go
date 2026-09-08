@@ -2,7 +2,8 @@ package writeback
 
 import (
 	"log/slog"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"holodex/internal/mapping"
@@ -70,21 +71,11 @@ func readKey(tag string) string {
 // internal/metadata into Extracted.Tags/People rather than extra_metadata, so no `file:`
 // source could ever satisfy them.
 func ReadbackGaps(fields []mapping.Field) []ReadbackGap {
-	// canonical → the read keys that would pick its written value back up, across every
-	// container that can write it.
-	wantKeys := map[string]map[string]bool{}
-	for _, tags := range formatMap {
-		for canonical, tag := range tags {
-			if wantKeys[canonical] == nil {
-				wantKeys[canonical] = map[string]bool{}
-			}
-			wantKeys[canonical][readKey(tag)] = true
-		}
-	}
+	readKeys := writeTargetReadKeys()
 
 	var gaps []ReadbackGap
 	for _, f := range fields {
-		want := wantKeys[f.Canonical]
+		want := readKeys[f.Canonical]
 		if f.Multi || f.Merge || want == nil {
 			continue
 		}
@@ -99,11 +90,29 @@ func ReadbackGaps(fields []mapping.Field) []ReadbackGap {
 			}
 		}
 		if !reads {
-			gaps = append(gaps, ReadbackGap{Canonical: f.Canonical, WantKeys: sortedKeys(want)})
+			gaps = append(gaps, ReadbackGap{Canonical: f.Canonical, WantKeys: slices.Sorted(maps.Keys(want))})
 		}
 	}
-	sort.Slice(gaps, func(i, j int) bool { return gaps[i].Canonical < gaps[j].Canonical })
+	slices.SortFunc(gaps, func(a, b ReadbackGap) int { return strings.Compare(a.Canonical, b.Canonical) })
 	return gaps
+}
+
+// writeTargetReadKeys inverts formatMap into canonical → the set of `file:` source keys
+// that would pick a written value back up, unioned across every container that can write
+// that canonical. Deliberately keyed the same way formatMap is (exact canonical, no case
+// folding): a canonical TagForField cannot write is not writeback-capable, so it has no
+// gap to report.
+func writeTargetReadKeys() map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, tags := range formatMap {
+		for canonical, tag := range tags {
+			if out[canonical] == nil {
+				out[canonical] = map[string]bool{}
+			}
+			out[canonical][readKey(tag)] = true
+		}
+	}
+	return out
 }
 
 // LogReadbackGaps warns once per gap. Called wherever a mapping becomes live — process
@@ -117,13 +126,4 @@ func LogReadbackGaps(log *slog.Logger, fields []mapping.Field) {
 			"add_one_of", strings.Join(g.WantKeys, ", "),
 			"doc", "docs/reference/canonical-fields.md#writeback-round-trip")
 	}
-}
-
-func sortedKeys(set map[string]bool) []string {
-	out := make([]string, 0, len(set))
-	for k := range set {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

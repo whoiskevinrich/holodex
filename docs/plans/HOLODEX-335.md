@@ -97,9 +97,39 @@ the write-target table is ADR-041's.
 10. [ ] [—] Live three-skin QA on a real writeback: confirm the pill clears for `release_date` once
     the file source is declared, and that an undeclared field shows no sync state rather than a lit
     pill. Also confirm the new WARN fires on Kevin's real mapping and names the right keys (QA 0.2b)
-11. [ ] [—] `/simplify` then `/code-review` on the diff, mark the PR ready
+11. [x] [review] `/code-review xhigh --fix` — 9 findings; 6 fixed in-tree, 2 spun off as
+    **HOLODEX-339**, 1 process note accepted
+12. [ ] [—] Mark the PR ready once QA (item 10) is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-07 (last) · xhigh code review — found the same bug from a second cause
+- skills: code-review (xhigh, --fix)
+- **The most valuable finding is a bug this PR does not fix, in the function it does touch.**
+  `replaceMarkers` computes `decided` as `items[0].Value` or `""` when items is empty — so a standing
+  decision whose source stops resolving (adopt tmdb, then tmdb stops matching) compares `"" != fileVal`
+  and reports out of sync forever. `needsWriteback` then pre-checks it, and `ResolveForContainer` drops
+  any field with no values, so the write is a no-op and the pill never clears. That is HOLODEX-335's
+  exact user experience from a different cause. Filed as **HOLODEX-339** rather than patched: the right
+  answer ("unsatisfiable decision" is arguably its own state, not `false`) is a design call, and naively
+  widening ADR-093's nil return to cover empty items would swallow the deliberate F37 RD3 blank-pin case.
+- **Second half of the same root, same ticket:** the `file` candidate chip is emitted even for a field
+  with no baseline source, so the source control offers "keep file" on a field that has no file layer
+  and selecting it blanks the field. `fileDeclared` is right there to gate it, but `f36.ts`'s
+  `resolveSelection`/`selectedChipKey` fall back to the baseline chip, so it is not a free removal.
+- **Fixed in-tree:** `sortedKeys` → `slices.Sorted(maps.Keys(...))` (module is Go 1.25.5, so the
+  hand-rolled version was never needed); the read-key table extracted to a named
+  `writeTargetReadKeys()` so `ReadbackGaps` is one loop; length guards on three new resolver tests that
+  indexed `got[0]` unchecked; the reload-config warning moved *after* the pattern/provider reloads, so
+  config advice never accompanies a reload the operator was told had failed.
+- **Closed a real coverage hole:** nothing tested `title`, the one canonical whose read location is
+  `videos.title` rather than `extra_metadata`, and the shipped-example guard structurally cannot cover
+  it (the example ships that block commented out). Now pinned three ways — `file:title`, bare `Title`,
+  and provider-only-is-a-gap — and mutation-checked: dropping the case fold in `readKey` fails it.
+- **Process finding taken, not argued:** commits 2 and 3 went in without the mandated `/simplify`, which
+  is exactly why the reuse and simplification findings survived to this review. The checklist item
+  exists because it works — the first commit's `/simplify` changed the shape of the fix.
+- **Next session:** item 10 (live QA) then mark ready.
 
 ### 2026-09-07 (later still) · Documentation sweep — and a gate I had wrongly closed
 - skills: architecture
