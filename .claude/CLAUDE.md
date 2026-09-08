@@ -96,7 +96,9 @@ implementation. See [ADR-069](../docs/architecture/ADR-069-draft-prs-for-pre-imp
 
 ## Pre-commit checklist (every commit)
 
-1. Run **`/simplify`** on the changed code (reuse, simplification, efficiency) — always, before committing.
+1. Run **`/code-review high --fix`** on the changed code — always, before committing. It supersedes
+   `/simplify` here: same reuse/simplification/efficiency pass, plus correctness bugs, so running both
+   is redundant.
 2. If the change touched **auth, access, or infrastructure** → run **`/security-review`**.
 3. Confirm the matching **spec / ADR / design / testing** artifacts (table above) were created or updated.
 4. Confirm **no secrets, credentials, or PII** in the diff (see "Secrets & publishing").
