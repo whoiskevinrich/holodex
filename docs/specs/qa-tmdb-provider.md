@@ -11,7 +11,7 @@
 **0.2** [smoke] Ensure tests pass: `go test ./...`  
 **0.3** [smoke] Build the provider binary: `go build -o /tmp/holodex-provider-tmdb ./providers/tmdb`  
 **0.4** [smoke] `Dockerfile.provider-tmdb` builds without error: `docker build -f Dockerfile.provider-tmdb -t holodex-provider-tmdb:qa .`  
-**0.5** [human] Copy `.env.example` → `.env` in the worktree; confirm `TMDB_API_TOKEN` is set (obtain from TMDB dashboard → Settings → API → Read Access Token)  
+**0.5** [human] Confirm `TMDB_API_TOKEN` is set **in your user environment**, not in a file (ADR-094): `setx TMDB_API_TOKEN "<token>"`, then restart your shell/editor so the new value is inherited. Obtain it from TMDB dashboard → Settings → API → Read Access Token. The sidecar reads plain `os.Getenv` and does **not** load `.env`, so putting the token there has no effect.  
 **0.6** [human] Copy `metadata-mappings.yaml.example` → `metadata-mappings.yaml` (next to `holodex.yaml`) and reload config. This is what wires tmdb's raw enrichment fields (`release_date`, `bio`, `birthdate`, studio `description`/`country`/`logo`, …) into the resolved API — §3, §7b, and §8 below all assume it's in place. Without it, enrichment can succeed yet none of those fields render.
 
 ---
