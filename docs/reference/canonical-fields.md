@@ -206,7 +206,9 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 
 ---
 
-## Writeback round-trip ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md))
+## Writeback round-trip
+
+Defined by [ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md).
 
 Writeback and the sync check read two different tables, and it is on you to keep them agreeing.
 Writeback picks its destination tag per container from `internal/writeback`'s `formatMap`. The

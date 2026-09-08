@@ -3318,15 +3318,15 @@
     "semantic_hash": "20596d558b5a2fb48900bae5de3bd069"
   },
   "docs/reference/canonical-fields.md": {
-    "mtime": 1788837020.8073082,
-    "seen": 1788837150.3941405,
-    "ast_hash": "84ad7874a676f17f1f3657e7bcbb432f",
+    "mtime": 1788838064.8823476,
+    "seen": 1788838168.1949544,
+    "ast_hash": "d4d18aa25d679595fd7a075131a1250f",
     "semantic_hash": ""
   },
   "docs/reference/configuration.md": {
-    "mtime": 1787695570.909243,
-    "seen": 1788052049.909626,
-    "ast_hash": "7623a9a0e22ab4dc61a6fec727c84ee5",
+    "mtime": 1788837910.2254574,
+    "seen": 1788838168.1949558,
+    "ast_hash": "39848630ccbd6606601da2497bb2cd14",
     "semantic_hash": ""
   },
   "docs/reference/jira-pipeline.md": {
@@ -3354,10 +3354,10 @@
     "semantic_hash": "220ccf427e5900cf1e3ba2e67459919e"
   },
   "docs/specs/claimed-provider-keys.md": {
-    "mtime": 1785270912.5812416,
-    "seen": 1788052049.9096315,
-    "ast_hash": "c9c3bcf8c6b798c3bd3faaa59b9d3d9a",
-    "semantic_hash": "c9c3bcf8c6b798c3bd3faaa59b9d3d9a"
+    "mtime": 1788837955.843185,
+    "seen": 1788838168.1949632,
+    "ast_hash": "372f8f8bb2c9c5f1231b2c99477ff290",
+    "semantic_hash": ""
   },
   "docs/specs/delete-media.md": {
     "mtime": 1784739719.2525804,
@@ -3384,10 +3384,10 @@
     "semantic_hash": "c412ad9b190b8d91a66a0506f7f859e5"
   },
   "docs/specs/field-source-of-truth.md": {
-    "mtime": 1785087498.9406188,
-    "seen": 1788052049.909639,
-    "ast_hash": "a8f69e5b1d751c59c12029492fc21375",
-    "semantic_hash": "a8f69e5b1d751c59c12029492fc21375"
+    "mtime": 1788838041.4011052,
+    "seen": 1788838168.194973,
+    "ast_hash": "c78c3106764fc25e9d2290e82d802a2c",
+    "semantic_hash": ""
   },
   "docs/specs/gallery-webp.md": {
     "mtime": 1784739719.2549756,
@@ -3414,15 +3414,15 @@
     "semantic_hash": ""
   },
   "docs/specs/metadata-plugins.md": {
-    "mtime": 1784739719.2569716,
-    "seen": 1788052049.9096467,
-    "ast_hash": "2792262c79ca13020ed4b0ab323e9119",
+    "mtime": 1788837934.6642227,
+    "seen": 1788838168.1949852,
+    "ast_hash": "dbe592083255133ab2887bab8edd15bf",
     "semantic_hash": ""
   },
   "docs/specs/metadata-provider-contract.md": {
-    "mtime": 1788712731.3448446,
-    "seen": 1788831692.701497,
-    "ast_hash": "33be015a4d7c96d22cb0668d03020473",
+    "mtime": 1788837910.2265003,
+    "seen": 1788838168.1949868,
+    "ast_hash": "81c57e0e069086109d6624dfc7f05061",
     "semantic_hash": ""
   },
   "docs/specs/metadata-refresh.md": {
@@ -3516,9 +3516,9 @@
     "semantic_hash": ""
   },
   "docs/specs/qa-writeback.md": {
-    "mtime": 1784739719.2665424,
-    "seen": 1788052049.9096692,
-    "ast_hash": "395278a3dc90e19e189f88389ee312c6",
+    "mtime": 1788838041.403613,
+    "seen": 1788838168.1950548,
+    "ast_hash": "a79b3e749d413dd9ac80ae04896027e5",
     "semantic_hash": ""
   },
   "docs/specs/queryable-fields-substrate.md": {
@@ -5928,9 +5928,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-335.md": {
-    "mtime": 1788837113.792069,
-    "seen": 1788837150.3941321,
-    "ast_hash": "78fc1c039d2abbd3fdd4bf97f41c9846",
+    "mtime": 1788838109.3446088,
+    "seen": 1788838168.1949453,
+    "ast_hash": "991606f3d388db440bd0d0481ed469e2",
     "semantic_hash": ""
   },
   "docs/specs/film-provider-enrichment-ux.md": {
@@ -5940,9 +5940,9 @@
     "semantic_hash": ""
   },
   "docs/specs/fire-and-forget-writeback.md": {
-    "mtime": 1788830023.9131196,
-    "seen": 1788831692.7014892,
-    "ast_hash": "163b8e291ed18fc130ccfb2245ab3773",
+    "mtime": 1788838041.4026086,
+    "seen": 1788838168.1949785,
+    "ast_hash": "a9fbff1c546c16f1a6502f09eb7f4e7a",
     "semantic_hash": ""
   },
   "docs/design/expandable-text-mockup.svg": {

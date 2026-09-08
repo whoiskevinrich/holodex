@@ -145,7 +145,7 @@ UI names what it will remove before it does. One key, one home.
 | Per-entity claims | A claim answers "are these the same field?", which is type-global. Per-entity scope would reintroduce exactly the instability RD2 rejects. |
 | Removing the existing `rendered` canonical-name check | It is incomplete, not wrong. It still suppresses an unmapped provider key that collides with a rendered canonical name. Dropping it would create *new* duplicates. |
 | One key claimed by two canonicals | A key has one home. Multi-claim has no use case and makes precedence ambiguous. |
-| Changing writeback | Claiming affects which sources feed a canonical, not which file tag it writes to. That is [HOLODEX-217](https://whoiskevinrich.atlassian.net/browse/HOLODEX-217). |
+| Changing writeback | Claiming affects which sources feed a canonical, not which file tag it writes to. That is [HOLODEX-217](https://whoiskevinrich.atlassian.net/browse/HOLODEX-217). Editing `sources:` does still affect writeback *reporting*: dropping the `file:` source matching the written tag makes `in_sync` unknowable and now emits a startup warning (ADR-093). |
 | Reconciling the shadow store | Claims are a read/resolve-time concern. No `entity_enrichment` row is rewritten or deleted. |
 
 ## 5. User Stories
@@ -189,7 +189,9 @@ claimedKeys(effective []mapping.Field) map[string]bool
 
 **Only namespaced provider sources claim.** A bare source (`Comment`, `Artist`) and the `file:`
 namespace are file tags, not provider keys — they must never claim, or one mapping's `Comment` source
-would swallow every provider's `comment` key.
+would swallow every provider's `comment` key. Not claiming is not the same as doing nothing: the `file:`
+namespace is also the baseline layer the resolver reads back for `in_sync` (ADR-093), a second and
+load-bearing job.
 
 ### 6.2 A DB claim adds a source; it does not merely suppress
 
@@ -341,7 +343,10 @@ Nothing in the shadow store is rewritten either way, so an unclaim is always a c
 **Two things that will not work, and why**
 
 - **A bare key never claims.** `sources: [Comment]` means `file:Comment` — a file tag. It has no effect
-  on any provider's `comment` key.
+  on any provider's `comment` key. It is not inert, though: a `file:` source is the layer `in_sync` is
+  computed against, so on a writeback-capable replace field it is what makes a written value verifiable
+  ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). Prune bare sources for
+  being "non-claiming" and you silently remove that field's sync reporting.
 - **Claiming a canonical name is rejected** (422). `bio` is already a field; there is nothing to attach.
 
 ## 7. Requirements

@@ -781,7 +781,13 @@ Rules:
 **How Holodex consumes it.** Holodex persists your advertised hints when it reads `/describe`, then renders any
 stored non-canonical field first-class with the hinted label/mode/order — **with zero per-operator mapping
 config**. An operator who wants to curate or re-source such a field can still add a `metadata-mappings.yaml`
-entry, which overrides your hint.
+entry, which overrides your hint. If that entry is a **replace** field Holodex can write back to a file
+(`title`, `original_title`, `overview`, `tagline`, `release_date`, `original_language`, `studio`), it must
+also list the file tag the writeback writes — otherwise the written value cannot be read back and the
+field reports no sync state at all. See
+[canonical-fields.md § Writeback round-trip](../reference/canonical-fields.md#writeback-round-trip)
+([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). This is a Holodex-side
+mapping concern only — it places no requirement on your wire contract.
 
 ---
 

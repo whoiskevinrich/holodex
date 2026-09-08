@@ -45,8 +45,13 @@ the write-target table is ADR-041's.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable as judged; no new requirement or scope, a defect in an
-  existing contract. The contract change itself (tri-state `in_sync`) is carried by the ADR
+- [x] spec `write-spec` — **judged `[~]` first, and that was wrong.** A doc audit found
+  `docs/specs/field-source-of-truth.md` documents the `in_sync` contract in terms this change
+  breaks: "A field is *out of sync* when its decided value differs from the value currently embedded
+  in the file's tag" is the exact two-way comparison ADR-093 splits, and the API section promised
+  `in_sync` unconditionally. Updated there plus `fire-and-forget-writeback.md`,
+  `metadata-plugins.md`, `metadata-provider-contract.md`, `claimed-provider-keys.md` and
+  `qa-writeback.md`
 - [x] architecture `architecture` —
   `docs/architecture/ADR-093-writeback-readback-and-tristate-in-sync.md`, indexed in
   `docs/architecture/README.md`
@@ -85,12 +90,45 @@ the write-target table is ADR-041's.
    implementation, warned at process start and `reload-config`, with the guard test holding the
    example to the same function — `internal/writeback/readback.go`, `cmd/holodex/main.go`,
    `internal/api/handlers.go`
-9. [ ] [—] Live three-skin QA on a real writeback: confirm the pill clears for `release_date` once
-   the file source is declared, and that an undeclared field shows no sync state rather than a lit
-   pill. Also confirm the new WARN fires on Kevin's real mapping and names the right keys
-10. [ ] [—] `/simplify` then `/code-review` on the diff, mark the PR ready
+9. [x] [docs] Provider-contract + configuration documentation swept for the tri-state contract, the
+   write/read-back pairing and the new WARN — `docs/reference/configuration.md`,
+   `docs/specs/metadata-provider-contract.md`, `metadata-plugins.md`, `claimed-provider-keys.md`,
+   `field-source-of-truth.md`, `fire-and-forget-writeback.md`, `qa-writeback.md`
+10. [ ] [—] Live three-skin QA on a real writeback: confirm the pill clears for `release_date` once
+    the file source is declared, and that an undeclared field shows no sync state rather than a lit
+    pill. Also confirm the new WARN fires on Kevin's real mapping and names the right keys (QA 0.2b)
+11. [ ] [—] `/simplify` then `/code-review` on the diff, mark the PR ready
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-07 (later still) · Documentation sweep — and a gate I had wrongly closed
+- skills: architecture
+- **The audit overturned my own judgment.** I had marked the spec gate `[~] not applicable` on the
+  grounds that this was "a defect in an existing contract, no new requirement". But
+  `field-source-of-truth.md` *is* where that contract is written down, and it defined sync state as
+  a two-way comparison and promised `in_sync` unconditionally in the API payload — both now wrong.
+  The gate is `[x]`, not `[~]`. Worth remembering as a pattern: "no new behaviour" does not mean
+  "no spec change" when the change is to the meaning of an existing field.
+- **Provider contract is genuinely almost untouched, and I said so rather than padding.**
+  `metadata-provider-contract.md` never mentions `in_sync` — it is a wire contract, and this is a
+  Holodex-side mapping concern. One edit: its single mapping-authoring instruction (§4.7) now says a
+  writeback-capable replace field must also list the written file tag, with an explicit note that
+  this places **no** requirement on the provider's wire contract. `.claude/rules/provider-sidecar.md`
+  needed nothing at all.
+- **Two shipped examples carried the bug.** `metadata-plugins.md`'s F27 operator example mapped
+  `overview` to `tmdb:overview` alone — the same shape as the defect. Fixed, alongside the F28
+  "Format mapping" section, which described `TagForField` as the whole story.
+- **Corrected a claim that is now actively misleading.** `claimed-provider-keys.md` said a bare
+  source "has no effect on any provider's `comment` key" — true about *claiming*, but it reads as
+  "inert", and an operator pruning inert-looking bare sources would silently delete their own sync
+  reporting. Now states the second, load-bearing job.
+- **Caught a dead anchor before it shipped.** The new `## Writeback round-trip` heading carried an
+  inline ADR link, so GitHub would slug it `#writeback-round-trip-adr-093` and all three inbound
+  references — including the path in the runtime WARN — would have 404'd. Heading made plain, ADR
+  moved to the body; verified every relative link added in this sweep resolves on disk.
+- **QA gained the step that would have caught this class:** 0.2b starts with a gapped mapping,
+  asserts exactly one WARN naming the right key, then asserts silence after the fix.
+- **Next session:** items 10–11 — live QA, then `/code-review` before marking ready.
 
 ### 2026-09-07 (later) · Live-config warning (D5) + Jira sync
 - skills: architecture
