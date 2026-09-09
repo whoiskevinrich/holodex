@@ -108,14 +108,19 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
     filmography dimensions. Split out of 347: the reverse direction is currently *emergent*
     and has no "few" bucket for studios. Lowest priority, and not a gate on this epic — read
     the ticket's "why it was not just patched in" first, the cheap fixes all corrupt an axis
-16. [ ] [—] Mark the PR ready once the spec is reviewed and the testing gate lands — **and in the
-    same step sweep every completed child to `In Review` by hand.** CI transitions exactly one
-    issue: `scripts/jira-transition.mjs:48` takes `extractKeys(BRANCH_REF)[0]` and calls
-    `syncKeys({ keys: [key] })`, so only HOLODEX-342 (the branch key) ever moves. Nothing walks to
-    children, and they would otherwise sit at `In Progress` forever
-17. [ ] [—] On merge, sweep the completed children to `Done` the same way. Owner's decision
-    (2026-09-08): children track the epic's PR lifecycle manually rather than going `Done` when
-    their work lands, so `Done` keeps meaning "merged to main" even if a branch is abandoned
+16. [x] [—] PR #313 marked ready for review (2026-09-09), and every completed child swept to
+    `In Review` by hand: HOLODEX-343…350 **and HOLODEX-342 itself**. **This item's own premise
+    was wrong and the correction matters for the merge sweep below.** It assumed CI moves the
+    branch key and only the branch key. It moves *neither* here: `jira-branch-sync.mjs` ran,
+    succeeded, and logged `HOLODEX-342: is an Epic — status is reviewed manually, skipping`.
+    So on an epic-keyed branch CI transitions **nothing at all**, and the epic needs the same
+    hand-transition its children do. Verified after the fact — the "Jira sync" run was green
+    while the epic sat at `In Progress`, which is exactly the shape of failure a green check
+    hides
+17. [ ] [—] On merge, sweep the completed children **and the epic** to `Done` the same way —
+    per item 16, CI will move nothing on this branch. Owner's decision (2026-09-08): children
+    track the epic's PR lifecycle manually rather than going `Done` when their work lands, so
+    `Done` keeps meaning "merged to main" even if a branch is abandoned
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -166,10 +171,13 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 - Verified live end to end: 234 checks across six cells in 45s, exit 0. The `-big` path was
   verified separately by reseeding — the `requires` gate opens, count mode measures
   **2064** rows on `/people`, matching HOLODEX-354's own figure independently.
+- **CI moves nothing on an epic-keyed branch, which item 16 had wrong.** `jira-branch-sync.mjs`
+  ran green and logged `HOLODEX-342: is an Epic — status is reviewed manually, skipping`, so
+  the epic sat at `In Progress` behind a passing check. HOLODEX-342 and all eight children
+  were hand-transitioned to `In Review`; the merge sweep must do the same.
 - handoff: HOLODEX-349 is done and verified live; the `testing` gate was the epic's last
-  open one, so **all six gates are now green and PR #313 is ready to be marked ready for
-  review** — which is also the moment to sweep every completed child to `In Review` by hand
-  (CI moves only HOLODEX-342). Note the fixture is currently seeded **`-big`**, so the
+  open one, so **all six gates are green and PR #313 is out of Draft and in review**, with
+  HOLODEX-342 and HOLODEX-343…350 all swept to `In Review` by hand. Note the fixture is currently seeded **`-big`**, so the
   server takes ~72s to boot (HOLODEX-353); reseed without `-big` for a fast loop. What is
   left on the epic is the *human* three-skin pass (item 13) — the image rungs especially,
   which geometry cannot see by design.
