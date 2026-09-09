@@ -92,8 +92,51 @@ IDs would have been simpler and would have stopped the fixture exercising the wr
 the app itself uses — tag folding, association rules, FTS triggers.
 
 Every run clears the fixture's own rows first, so an address is a function of the table
-alone. Two runs produce the same ids, names, URLs and links; `indexed_at` differs, because
-`UpsertVideo` stamps it itself.
+alone. Two runs produce the same ids, names, URLs and links. The stamped timestamps do
+differ — `indexed_at`, because `UpsertVideo` sets it itself, and `fetched_at` on the
+enrichment rows, because `UpsertEnrichment` does; neither takes a value from the caller.
+
+## The enrichment dimension
+
+The `enrich` rungs are the one axis that is neither a link nor a column: they seed the
+ADR-090 **precedence** layer, several provider namespaces holding *different* values for
+one field, so the ADR-051 `SourceBadge` chip row has something to choose between. After a
+bare `go run ./testdata/stressseed`:
+
+| id | rung | what the media page shows |
+|---|---|---|
+| 900 | `00` | no provider chips at all — the un-enriched state, which is its own layout branch |
+| 901 | `01` | one provider. `SourceBadge` shows **no** affordance below two selectable chips, so this is the boundary, not a smaller five |
+| 902 | `05` | five competing chips on `Tagline` and `Language` |
+
+The namespaces come from [`../enrich-stub/personas.json`](../enrich-stub/personas.json) —
+the same table the stub serves, so a seeded value and a live re-enrich agree. Two copies
+would drift, and a drifted copy means the fixture states a value the page stops rendering
+the moment anyone hits Refresh.
+
+**The two surfaces are wired differently, and only one needs the mapping.** A person's
+field set is a hardcoded Go list (`personScalarFields`) and `personProviders` unions every
+provider that has a stored row, so a person's chip row grows from the rows alone. A
+*video's* comes from the mapping — a provider is a candidate only if `<name>:<field>`
+appears in that field's `sources:` list — which is why `mappings.yaml` carries provider
+namespaces on `tagline` and `original_language`, and why the seeder refuses a mapping that
+names none. It also refuses a provider-sourced field marked `multi: true`: the resolver
+only builds a candidate list for a replace field, so a merge field renders no chip row at
+all and the namespaces would be stored and invisible.
+
+`tagline` and `original_language` were chosen because no other dimension owns them. The
+ladder already tortures `title` and `overview` for text and `studio`/`actors`/`genres` for
+cardinality, so conflicting on any of those would leave a failure un-attributable.
+
+**Only the precedence half is seeded.** A candidate list exists only during a resolve, so
+the *adoption* half — the 30-candidate flood, the identical-label twins, the slow/5xx/
+malformed providers — is reachable only against the running stub. See its
+[README](../enrich-stub/README.md).
+
+`entity_enrichment` is therefore one of the fixture's own tables: every run clears it, and
+because `reset()` deletes it, `inspect()` counts it — a database holding nothing but
+enrichment rows is somebody's shadow store and is refused, which
+`TestClaimCoversEverySeededTable` enforces.
 
 ## `manifest.json`
 
@@ -127,6 +170,12 @@ file-sourced rescan clears it, and the fixture has no files — so tags go in th
 
 That is what `mappings.yaml` is for: the mapping decides which tag carries each link, so a
 fixture built against a different mapping than the one serving it gets erased.
+
+`sources.yaml` is the same argument one layer out: the fixture owns its **provider
+registry** too, because "five competing chips" is only an address if five namespaces are
+configured — and it would not be, if `backend-stress` loaded whichever gitignored
+`metadata-sources.yaml` the operator happened to have. The seeder never reads that file;
+the server does, via `METADATA_SOURCES_PATH` in the `backend-stress` profile.
 
 ## Films, scenes and the scene pool
 

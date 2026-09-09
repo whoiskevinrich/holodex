@@ -550,6 +550,15 @@ const testMappingsYAML = `fields:
     label: Overview
     sources:
       - Comment
+  - canonical: tagline
+    label: Tagline
+    sources:
+      - file:Tagline
+      - alpha:tagline
+      - bravo:tagline
+      - charlie:tagline
+      - delta:tagline
+      - stress-provider-with-a-very-long-name-40:tagline
 `
 
 func testMappingsPath(t *testing.T) string {
@@ -557,9 +566,20 @@ func testMappingsPath(t *testing.T) string {
 	return writeMappings(t, "valid", testMappingsYAML)
 }
 
+// testPersonasPath points at the committed fake-provider table. Unlike the
+// mapping, it is NOT rewritten into a temp file: the personas are the fixture's
+// contract with the stub that serves them, so a test that invented its own would
+// stop noticing if the shipped table lost a persona the ladder demands.
+// personasPath is relative to the repository root; tests run in the package
+// directory.
+func testPersonasPath(t *testing.T) string {
+	t.Helper()
+	return filepath.Join("..", "..", personasPath)
+}
+
 func testFields(t *testing.T) fixtureFields {
 	t.Helper()
-	ff, err := loadFields(testMappingsPath(t), demands(ladder))
+	ff, err := loadFields(testMappingsPath(t), testPersonasPath(t), demands(ladder))
 	if err != nil {
 		t.Fatalf("loadFields: %v", err)
 	}
@@ -692,7 +712,7 @@ func TestLoadFields_RefusesAMappingThatCannotCarryTheLadder(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := loadFields(writeMappings(t, "invalid", tc.body), demands(ladder))
+			_, err := loadFields(writeMappings(t, "invalid", tc.body), testPersonasPath(t), demands(ladder))
 			if err == nil {
 				t.Fatal("expected a refusal: seeding a field this mapping cannot resolve " +
 					"would produce a fixture that disagrees with the page serving it")
@@ -715,7 +735,7 @@ func TestShippedMappingSatisfiesTheLadder(t *testing.T) {
 	// keeps the constant itself under test — a typo in it would fail here instead
 	// of at the next seed.
 	path := filepath.Join("..", "..", stressMappingsPath)
-	if _, err := loadFields(path, demands(ladder)); err != nil {
+	if _, err := loadFields(path, testPersonasPath(t), demands(ladder)); err != nil {
 		t.Fatalf("%s cannot express the ladder: %v", stressMappingsPath, err)
 	}
 }

@@ -87,7 +87,9 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
     population axis: 100/2000 of *every* kind including categories, which no dimension
     addresses. Found two real product bugs on its first run — **HOLODEX-353** (72s blocked
     startup) and **HOLODEX-354** (unbounded list pages), both filed
-11. [ ] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers
+11. [x] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers. Ten
+    fake providers on one process; the precedence half became a ladder dimension
+    (`enrich`, block 900) rather than config alone, which amended D9 — see below
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
 13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
     fixture is not adversarial enough — treat that as a failure of the fixture, not a pass
@@ -110,6 +112,58 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
     their work lands, so `Done` keeps meaning "merged to main" even if a branch is abandoned
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-09 (last) · HOLODEX-348 — ten fake providers, and the half that had to be seeded
+- skills: code-review, handoff
+- **Config-first reached the state but never addressed it, so D9 is amended.** The
+  ticket asked for provider entries pointing at one stub; that gets five competing
+  namespaces only after somebody clicks Enrich five times. D6 is the reason that is
+  not enough — a chip row which exists only after a remembered click is not a
+  measurable invariant at a stable address, so HOLODEX-349's harness could assert
+  nothing about enrichment at all. Owner chose the addressed version: `enrich` is now
+  a dimension (block 900, rungs 0/1/5), and `go run ./testdata/stressseed` alone
+  leaves media 902 with five competing chips. **Adoption stays live and that
+  asymmetry is not an inconsistency** — a candidate list exists only during a
+  `/resolve`, so there is nothing to seed.
+- **The two surfaces are wired differently, and only one needs the mapping.** A
+  person's field set is a hardcoded Go list and `personProviders` unions every
+  provider holding a stored row, so a person's chip row grows from the rows alone. A
+  *video's* comes from the mapping — a provider competes only if `<name>:<field>` is
+  in that field's `sources:`. Assuming otherwise would have produced a fixture that
+  seeded rows nothing ever rendered, so the seeder now refuses a mapping naming no
+  provider namespace, and refuses a provider-sourced field marked `multi: true`
+  (a merge field never reaches `replaceMarkers`, so its namespaces are stored and
+  invisible). `tagline` and `original_language` carry the conflict because no other
+  dimension owns them.
+- **`entity_enrichment` has no foreign key at all**, which makes its `seededTables`
+  entry load-bearing rather than tidy: nothing cascades, so without it the rows
+  outlive their entities and the next seed hands those ids to new ones, which inherit
+  a chip row the manifest says is absent. Review caught the first version of that
+  comment claiming the opposite. The claim guard follows the HOLODEX-350 invariant —
+  everything `reset()` deletes, `inspect()` counts.
+- **The fixture caught its own bug through the h1.** `namespaces` went into `spec` but
+  not into `encodeName`, so all three enrich rungs rendered the same title and the
+  coordinate stopped being readable off the page. Nothing failed: a video is
+  identified by file path, so colliding names cost no rows. Now asserted — but
+  **within** a dimension only, because D3 makes cross-dimension collisions legitimate:
+  a rung whose value *is* the baseline's encodes to the baseline coordinate, so
+  `studios/01`, `videoimage/none` and `enrich/00` genuinely share one.
+- One deviation from the ticket's AC: the flood persona returns **30** candidates but
+  core caps a response at `maxCandidates = 25`, so the picker renders 25. Kept at 30 —
+  it stresses the list *and* proves the cap holds — and recorded in criterion 6.
+- The persona table is one committed file (`testdata/enrich-stub/personas.json`) that
+  the stub serves and the seeder seeds from. Two copies would drift, and a drifted
+  copy means the fixture states a value the page stops rendering on the next Refresh.
+  A test keeps `sources.yaml` in step with it.
+- Live-verified end to end: 10 sources load, 9 brand icons cache through the ADR-039
+  perimeter and `charlie` correctly has none; media 900/901/902 resolve 0/1/5 chips
+  with no manual enrichment; person and video surfaces both reach five namespaces;
+  and slow/503/malformed each fail the way core reports them.
+- handoff: HOLODEX-348 is done and verified live — the fixture now boots with a
+  populated chip row, and `backend-stress` + `enrich-stub` are the two profiles to
+  run. Next is **HOLODEX-349**, the geometry assertion harness, which is the last
+  open gate (`testing`) on this epic; the enrich dimension was built specifically to
+  give it something to assert about enrichment.
 
 ### 2026-09-08 (last) · HOLODEX-350 — collection breadth, and the first bugs it found
 - skills: code-review

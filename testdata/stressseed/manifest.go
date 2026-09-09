@@ -62,6 +62,15 @@ type videoAxes struct {
 	Tags    int    `json:"tags"`
 	Studios int    `json:"studios"`
 	Text    string `json:"text"`
+
+	// Namespaces is how many provider namespaces hold a competing value on this
+	// video's enrichable fields, and Enrichable names those fields. Both are
+	// reported because a chip-row assertion needs both halves: the count is what
+	// it checks, and the field list is where to look — which is a function of the
+	// mapping, so a harness that guessed it would guess wrong the moment the
+	// mapping gains a provider source.
+	Namespaces int      `json:"namespaces"`
+	Enrichable []string `json:"enrichable,omitempty"`
 }
 
 type filmAxes struct {
@@ -109,7 +118,7 @@ type imageSlotAxes struct {
 // named from its coordinate, or every rung would resolve to the same entity.
 // title() is the single answer to "what is this thing actually called", and
 // nameAxes.Value promises exactly that.
-func axesOf(dim dimension, s spec) axes {
+func axesOf(dim dimension, s spec, enrichable []string) axes {
 	var a axes
 	switch kind := dim.entity; {
 	case kind.derived():
@@ -117,7 +126,15 @@ func axesOf(dim dimension, s spec) axes {
 	case kind == kindFilm:
 		a.Film = &filmAxes{Cast: s.cast, Scenes: s.scenes}
 	default:
-		a.Video = &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}
+		v := &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key,
+			Namespaces: s.namespaces}
+		// Only when there is a conflict to look at. Listing the enrichable fields on
+		// every video would claim each of them carries competing values, which is
+		// false for every rung but this dimension's.
+		if s.namespaces > 0 {
+			v.Enrichable = enrichable
+		}
+		a.Video = v
 	}
 	a.Image = imageAxesOf(dim.entity, s.image)
 	return a

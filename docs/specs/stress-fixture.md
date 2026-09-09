@@ -213,16 +213,44 @@ a run clears them first: a video thumbnail is addressed by video id alone, video
 D4, so a file left by an earlier run would sit exactly where the next run's `missing` rung must
 not have one.
 
-### D9 — Enrichment stresses both ADR-090 layers, config-first.
+### D9 — Enrichment stresses both ADR-090 layers; precedence is seeded, adoption is live.
 
-One `stub.js` process; several `metadata-sources.yaml` entries pointing at it on different paths.
-Five "providers" therefore cost no extra processes.
+One `stub.js` process; several provider entries pointing at it on different paths. Core concatenates
+`base_url` with `/resolve` rather than re-parsing it, so a path-carrying base addresses a persona and
+ten "providers" cost no extra processes.
 
-- **Precedence (layer 2)**: 5+ namespaces returning *different* values for the same field, so the
-  ADR-051 `SourceBadge` chip row has something to render. Five sources that agree teach nothing.
+- **Precedence (layer 2)**: 5+ namespaces holding *different* values for the same field, so the
+  ADR-051 `SourceBadge` chip row has something to render. Five sources that agree teach nothing —
+  the chip row folds by value, so they would render as one chip.
 - **Adoption (layer 1)**: a 30-candidate `/resolve` response, candidates distinguished only by
   `disambiguation`, plus slow / 5xx / malformed-JSON providers so loading and error states are
   reachable on demand. This is groundwork for planned `EnrichPicker` UX work.
+
+**Amended (HOLODEX-348): the precedence layer is a ladder dimension, not config alone.** The
+original decision was config-first throughout — configure five providers, enrich five times by
+hand. That reaches the state but never *addresses* it, and D6 is the reason it is not enough: a
+chip row that exists only after somebody remembered to click five times is not a measurable
+invariant at a stable address, so the geometry harness (HOLODEX-349) could assert nothing about
+enrichment at all. So the seeder writes `entity_enrichment` directly, from the same persona table
+the stub serves, and `namespaces` is an axis with rungs 0/1/5.
+
+Adoption stays live, and that asymmetry is not an inconsistency: a candidate list exists only
+during a `/resolve`, so there is nothing to seed. Layer 1 is reachable by opening the picker
+against a running stub; layer 2 is there on boot.
+
+**Consequences.** The fixture owns a committed `testdata/stressseed/sources.yaml` for the same
+reason D10 gives for the mapping — five competing chips is only an address if five namespaces are
+configured. The persona table is a single committed file both the stub and the seeder read, because
+a seeded value that disagreed with the stub's would be silently overwritten by the next Refresh.
+And `entity_enrichment` becomes one of the fixture's owned tables, so the claim guard has to count
+it or a shadow-store-only database would be wiped.
+
+**The two surfaces are wired differently.** A person's chip row grows from stored rows alone
+(`personScalarFields` is hardcoded in Go and `personProviders` unions the providers that have rows);
+a video's field set comes from the mapping, so a provider competes there only if `<name>:<field>`
+appears in that field's `sources:`. The seeder refuses a mapping that names none, and refuses a
+provider-sourced field marked `multi: true` — a merge field never reaches `replaceMarkers`, so its
+namespaces would be stored and invisible.
 
 
 ### D10 — The fixture owns its metadata mapping (HOLODEX-347).
@@ -302,6 +330,7 @@ Rungs are illustrative; the authoritative list is the declarative table in the s
 | Video title + overview | empty, 1 char, 1500 lorem, 60-char unbroken, CJK, RTL, mixed bidi, emoji, diacritics | wrap, truncation, container overflow, bidi bleed |
 | Person / studio / tag name | the same palette less `empty` and `lorem` (see D11) | heading wrap, the docked rename pencil, cast-tile and chip labels |
 | Images (×4 kinds) | none, bright, black, ratio, tiny, alpha, missing | contrast, crop geometry, the three broken-image paths |
+| Enrichment namespaces | 0, 1, 5 | chip row wrapping, the icon-only provenance badge, long provider names |
 | Collection size | `--count` 100 default, `--big` ~2000 | pagination, virtualization, scroll perf |
 
 **Note on scenes**: "scene" is not an entity — `film_videos.scene_number` is a role a video plays
@@ -344,7 +373,9 @@ filmography dimensions are HOLODEX-351.
 5. Detail pages for media, person, studio, film, tag and category all render at every rung in all
    three skins without console errors.
 6. The enrichment stub yields at least five conflicting namespaces on a shared field, and at least
-   one 30-candidate `/resolve` response.
+   one 30-candidate `/resolve` response. The five land in `entity_enrichment` from the seed alone,
+   at an address the manifest names. (Note: core caps a response at `maxCandidates = 25`, so the
+   picker renders 25 of the 30 — the flood persona stresses the list *and* proves the cap holds.)
 7. The geometry harness runs against the manifest, evaluates at least one real invariant across all
    three skins, and reports the page, variant, selector and measured-vs-expected value on failure.
 8. `docs/testing-strategy.md` describes the harness and when to add an assertion.

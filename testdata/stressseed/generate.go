@@ -27,7 +27,17 @@ import (
 // when the entities are deleted. Leave it and a row filed against ids 20001/20003
 // outlives the palette that produced them, and reappears on the owner's
 // duplicates page pointing at whatever now holds those addresses.
-var seededTables = []string{"videos", "films", "people", "studios", "tags", "categories", "identity_review_queue"}
+//
+// entity_enrichment is here for exactly the same reason as identity_review_queue,
+// and it is load-bearing rather than tidy: migration 0005 gives the table NO
+// foreign key — it stores bare (entity_type, entity_id) integers — so nothing
+// cascades when a video, person or studio is deleted. Without this entry the rows
+// simply outlive the entities they described, and the next seed hands their ids to
+// new entities, which inherit a chip row nothing in the ladder put there at an
+// address the manifest describes as un-enriched. That covers both the ladder's own
+// rows (HOLODEX-348) and any an operator created by enriching through the stub
+// during a QA pass.
+var seededTables = []string{"videos", "films", "people", "studios", "tags", "categories", "identity_review_queue", "entity_enrichment"}
 
 // generate builds every dimension in the ladder and returns what it addressed.
 //
@@ -130,7 +140,7 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 				Value:     rg.value,
 				Name:      encodeName(dim.entity, s),
 				URL:       dim.entity.urlFor(id),
-				Axes:      axesOf(dim, s),
+				Axes:      axesOf(dim, s, ff.enrich.fields),
 			})
 		}
 	}
@@ -278,8 +288,22 @@ func materializeVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 	// The path is stable and unique per rung. It never points at a real file — the
 	// seeder bypasses the scanner by design (D1) — but it is what UpsertVideo
 	// identifies a row by, so it has to be derived from the address.
-	return upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
+	id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
 		title(dim, s), poolLinks(s), s.text.value)
+	if err != nil {
+		return 0, err
+	}
+
+	// The enrichment axis is written after the video exists, because a shadow-store
+	// row is keyed by the entity id. It is the one axis that is not a link and not a
+	// column — it is the ADR-090 precedence layer, seeded so the chip row is there
+	// on boot rather than after somebody remembers to enrich five times.
+	if s.namespaces > 0 {
+		if err := seedEnrichment(ctx, r, ff.enrich, id, s.namespaces); err != nil {
+			return 0, err
+		}
+	}
+	return id, nil
 }
 
 // materializeNamed builds one addressed person, studio or tag: the entity whose

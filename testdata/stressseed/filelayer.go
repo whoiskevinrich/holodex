@@ -63,6 +63,13 @@ type fixtureFields struct {
 	// different clamp — so the text palette has to reach it, and can only do so
 	// through whichever file tag the mapping points at (HOLODEX-346).
 	overview fileField
+
+	// enrich is the shadow-store half rather than a file-layer field: which
+	// provider namespaces exist, and which canonical fields the mapping lets them
+	// disagree about (HOLODEX-348). It rides here because it is derived from the
+	// same mapping, and because loading it here is what makes the seeder refuse a
+	// ladder the configuration cannot express *before* it touches disk.
+	enrich enrichPlan
 }
 
 // loadFields resolves every field the ladder writes through the file layer, and
@@ -74,7 +81,7 @@ type fixtureFields struct {
 // the same guarantee one level up: a replace field resolves through
 // firstNonEmpty, so a rung above 1 would land in the manifest as a cardinality
 // the page cannot render.
-func loadFields(mappingsPath string, want ladderDemands) (fixtureFields, error) {
+func loadFields(mappingsPath, personasFile string, want ladderDemands) (fixtureFields, error) {
 	// mapping.Load treats a missing file as an empty mapping rather than an error,
 	// which would send someone off to add an actors field to a file that is not
 	// there. Check first and say which of the two problems it actually is.
@@ -144,7 +151,12 @@ func loadFields(mappingsPath string, want ladderDemands) (fixtureFields, error) 
 				req.f.canonical, req.want, mappingsPath, req.f.canonical)
 		}
 	}
-	return fixtureFields{person: person, studio: studio, overview: overview}, nil
+	plan, err := loadEnrichPlan(m, personasFile, mappingsPath, want.namespaces)
+	if err != nil {
+		return fixtureFields{}, err
+	}
+
+	return fixtureFields{person: person, studio: studio, overview: overview, enrich: plan}, nil
 }
 
 // loadPersonField finds the first person-typed field whose configured mapping has

@@ -158,6 +158,14 @@ type spec struct {
 	studios int
 	text    textVariant
 
+	// namespaces is how many provider namespaces hold a COMPETING value for the
+	// fields the mapping lets them disagree about (HOLODEX-348). It is a video
+	// axis rather than a shared one because the surfaces differ: a video's field
+	// set comes from the mapping, so a namespace only competes there if the
+	// mapping names it, while a person's is a hardcoded Go list that unions
+	// whatever providers have stored rows.
+	namespaces int
+
 	// image is the one axis every entity kind that renders a picture shares, so
 	// unlike the two halves below it is not keyed to a kind: a video, a person, a
 	// studio and a film each have image slots, and the same rung means the same
@@ -201,6 +209,13 @@ func baseline() spec {
 		// of the ~50 supporting people a cardinality rung creates, which is minutes
 		// of JPEG encoding on every run for entities nothing is addressed at.
 		image: imageNone,
+
+		// Namespaces is the second such case, and the stronger one: an un-enriched
+		// library has an empty shadow store by definition. A non-zero baseline would
+		// also put provider values on every entity of every other dimension, so a
+		// text or cardinality failure could be the provider chip row instead — the
+		// attribution loss D3 exists to prevent.
+		namespaces: 0,
 	}
 }
 
@@ -361,6 +376,23 @@ var ladder = []dimension{
 		// it — so the video half skips over the film half rather than renumbering it.
 		// The same inversion HOLODEX-346 accepted for the derived kinds.
 		rungs: images(imagePalette...),
+	},
+	{
+		key:    "enrich",
+		entity: kindVideo,
+		block:  900,
+		finds:  "chip row wrapping, the icon-only provenance badge, long provider names",
+		// The precedence half of ADR-090 (HOLODEX-348). Rungs are namespace COUNTS
+		// on a shared field, so this dimension varies how many providers disagree
+		// and nothing else — the values themselves come from the persona table.
+		//
+		// Five is the top rung because five is what the fixture's provider registry
+		// declares; loadEnrichPlan refuses if the two ever disagree rather than
+		// silently seeding fewer. One is worth its own rung because a single
+		// provider is the case where the chip row does NOT appear — SourceBadge
+		// renders the affordance only above one selectable chip — so it is the
+		// boundary, not a smaller version of five.
+		rungs: counts(func(s *spec, n int) { s.namespaces = n }, 0, 1, 5),
 	},
 	{
 		key:    "scenes",
@@ -648,19 +680,20 @@ func encodeName(kind entityKind, s spec) string {
 		// unique across the whole film half of the ladder.
 		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d image=%s", s.cast, s.scenes, s.image.key)
 	}
-	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s image=%s",
-		s.people, s.tags, s.studios, s.text.key, s.image.key)
+	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s image=%s ns=%02d",
+		s.people, s.tags, s.studios, s.text.key, s.image.key, s.namespaces)
 }
 
 // ladderDemands is the highest rung the table reaches on each axis that has to be
 // expressible through the file layer. It is derived from the table rather than
 // written down, so raising a rung cannot leave the mapping check behind.
 type ladderDemands struct {
-	people  int
-	studios int
-	tags    int
-	cast    int
-	scenes  int
+	people     int
+	studios    int
+	tags       int
+	cast       int
+	scenes     int
+	namespaces int
 }
 
 func demands(dims []dimension) ladderDemands {
@@ -678,6 +711,7 @@ func demands(dims []dimension) ladderDemands {
 				d.people = max(d.people, s.people)
 				d.studios = max(d.studios, s.studios)
 				d.tags = max(d.tags, s.tags)
+				d.namespaces = max(d.namespaces, s.namespaces)
 			case kindFilm:
 				d.cast = max(d.cast, s.cast)
 				d.scenes = max(d.scenes, s.scenes)

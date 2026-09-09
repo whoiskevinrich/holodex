@@ -110,7 +110,7 @@ func TestRun_RefusesAForeignDatabase(t *testing.T) {
 		}
 	})
 
-	err := run(dir, 100, 1, testMappingsPath(t))
+	err := run(dir, 100, 1, testMappingsPath(t), testPersonasPath(t))
 	if err == nil {
 		t.Fatal("expected run to refuse a database holding rows it did not create")
 	}
@@ -121,10 +121,10 @@ func TestRun_RefusesAForeignDatabase(t *testing.T) {
 
 func TestRun_RefusesADifferentSeed(t *testing.T) {
 	dir := t.TempDir()
-	if err := run(dir, 100, 1, testMappingsPath(t)); err != nil {
+	if err := run(dir, 100, 1, testMappingsPath(t), testPersonasPath(t)); err != nil {
 		t.Fatalf("first run: %v", err)
 	}
-	if err := run(dir, 100, 2, testMappingsPath(t)); err == nil {
+	if err := run(dir, 100, 2, testMappingsPath(t), testPersonasPath(t)); err == nil {
 		t.Fatal("expected run to refuse re-seeding an existing fixture with a different seed")
 	}
 }
@@ -132,7 +132,7 @@ func TestRun_RefusesADifferentSeed(t *testing.T) {
 func TestRun_IsRepeatable(t *testing.T) {
 	dir := t.TempDir()
 	for i := range 2 {
-		if err := run(dir, 100, 1, testMappingsPath(t)); err != nil {
+		if err := run(dir, 100, 1, testMappingsPath(t), testPersonasPath(t)); err != nil {
 			t.Fatalf("run %d: %v", i+1, err)
 		}
 	}

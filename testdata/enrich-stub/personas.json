@@ -1,0 +1,132 @@
+{
+  "//": [
+    "The fake-provider table for the HOLODEX-342 stress fixture (HOLODEX-348).",
+    "",
+    "Data, not code, because THREE things have to agree about it and only one of",
+    "them is JavaScript: testdata/enrich-stub/stub.js serves these personas,",
+    "testdata/stressseed seeds their values into entity_enrichment so the fixture",
+    "boots with a populated chip row, and testdata/stressseed/sources.yaml",
+    "registers them with the server. A seeder holding its own copy of these",
+    "strings would drift from the stub, and the fixture would then state a value",
+    "the page stops rendering the moment anyone hits Refresh — which is the exact",
+    "failure the whole addressing scheme exists to prevent.",
+    "",
+    "group:",
+    "  precedence — ADR-090 layer 2. Values MUST differ between personas: the chip",
+    "               row folds by value, so five providers that agree render as one",
+    "               chip and teach nothing.",
+    "  adoption   — ADR-090 layer 1. Candidate-list shapes for EnrichPicker.",
+    "  fault      — loading and error states, reachable on demand.",
+    "",
+    "icon is an RGB triple the stub renders as a solid PNG, or null for no",
+    "brand_icon at all (the ProviderIcon monogram fallback). candidates and fault",
+    "name behaviours implemented in stub.js."
+  ],
+  "personas": [
+    {
+      "slug": "alpha",
+      "name": "alpha",
+      "group": "precedence",
+      "icon": [198, 64, 60],
+      "values": {
+        "bio": ["Japanese filmmaker and co-founder of Studio Ghibli."],
+        "birthdate": ["1941-01-05"],
+        "nationality": ["Japanese"],
+        "website": ["https://example.com/alpha/miyazaki"],
+        "tagline": ["A boy, a girl, and a castle in the sky."],
+        "original_language": ["Japanese"]
+      }
+    },
+    {
+      "slug": "bravo",
+      "name": "bravo",
+      "group": "precedence",
+      "icon": [58, 122, 196],
+      "values": {
+        "bio": ["Animator, director and manga artist. Retired (repeatedly)."],
+        "birthdate": ["1941-01-06"],
+        "nationality": ["Japan"],
+        "website": ["https://example.com/bravo/hayao-miyazaki"],
+        "tagline": ["Adventure waits above the clouds."],
+        "original_language": ["ja"]
+      }
+    },
+    {
+      "slug": "charlie",
+      "name": "charlie",
+      "group": "precedence",
+      "icon": null,
+      "values": {
+        "bio": ["Co-founder, Studio Ghibli. Directed Spirited Away."],
+        "birthdate": ["1941-05-01"],
+        "nationality": ["JP"],
+        "website": ["https://example.com/charlie/m"],
+        "tagline": ["Some doors are better left closed."],
+        "original_language": ["jpn"]
+      }
+    },
+    {
+      "slug": "delta",
+      "name": "delta",
+      "group": "precedence",
+      "icon": [86, 156, 84],
+      "values": {
+        "bio": ["宮崎駿 — director. Bio deliberately mixes scripts for the tofu check."],
+        "birthdate": ["1940-12-31"],
+        "nationality": ["日本"],
+        "website": ["https://example.com/delta/%E5%AE%AE%E5%B4%8E%E9%A7%BF"],
+        "tagline": ["雲の上に、城がある。"],
+        "original_language": ["ja-JP"]
+      }
+    },
+    {
+      "slug": "longname",
+      "name": "stress-provider-with-a-very-long-name-40",
+      "group": "precedence",
+      "icon": [150, 96, 190],
+      "values": {
+        "bio": ["A provider whose name is far longer than any chip row expects."],
+        "birthdate": ["1941-01-04"],
+        "nationality": ["Japanese (Empire of)"],
+        "website": ["https://example.com/a-provider-with-a-very-long-name/profile/hayao-miyazaki"],
+        "tagline": ["The longest name on the row, and the longest tagline too — both on purpose."],
+        "original_language": ["Japanese (ja-JP)"]
+      }
+    },
+
+    {
+      "slug": "flood",
+      "name": "flood",
+      "group": "adoption",
+      "icon": [188, 140, 44],
+      "candidates": "flood",
+      "values": { "bio": ["Picked from a flooded candidate list."] }
+    },
+    {
+      "slug": "twins",
+      "name": "twins",
+      "group": "adoption",
+      "icon": [64, 160, 160],
+      "candidates": "twins",
+      "values": { "bio": ["Picked from a list of identical labels."] }
+    },
+
+    {
+      "slug": "slow",
+      "name": "slow",
+      "group": "fault",
+      "icon": [130, 130, 130],
+      "fault": "slow",
+      "//": "Carries values, unlike boom and garbage: those two never reach /enrich, but a slow enrich SUCCEEDS. With no fields it would spin and then store nothing, so the loading state would be reachable while the flow it gates never visibly finished.",
+      "values": { "bio": ["Arrived eventually, from the deliberately slow provider."] }
+    },
+    { "slug": "boom", "name": "boom", "group": "fault", "icon": [176, 48, 96], "fault": "error" },
+    {
+      "slug": "garbage",
+      "name": "garbage",
+      "group": "fault",
+      "icon": [96, 96, 48],
+      "fault": "malformed"
+    }
+  ]
+}

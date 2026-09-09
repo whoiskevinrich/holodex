@@ -66,7 +66,7 @@ func main() {
 		*count = bigCount
 	}
 
-	if err := run(*dataPath, *count, *seed, *mappings); err != nil {
+	if err := run(*dataPath, *count, *seed, *mappings, personasPath); err != nil {
 		log.Fatalf("stressseed: %v", err)
 	}
 }
@@ -88,6 +88,13 @@ func flagWasSet(name string) bool {
 // at all.
 const stressMappingsPath = "testdata/stressseed/mappings.yaml"
 
+// stressSourcesPath is the fixture's provider registry — the same argument as the
+// mapping, one layer out (HOLODEX-348). The seeder never reads it; the SERVER
+// does, via METADATA_SOURCES_PATH in the `backend-stress` profile. It is named
+// here so the drift guard between it and the persona table has one place to point
+// at, and so the two halves of the fixture's committed configuration sit together.
+const stressSourcesPath = "testdata/stressseed/sources.yaml"
+
 // defaultMappingsPath deliberately ignores METADATA_MAPPINGS_PATH, unlike the
 // server. Honouring it would mean a shell that had exported it for the `backend`
 // profile silently redirected the fixture onto the operator's own mapping, whose
@@ -98,7 +105,7 @@ func defaultMappingsPath() string {
 	return stressMappingsPath
 }
 
-func run(dataPath string, count int, seed uint64, mappingsPath string) error {
+func run(dataPath string, count int, seed uint64, mappingsPath, personasFile string) error {
 	if count < 0 {
 		return fmt.Errorf("-count %d: must not be negative", count)
 	}
@@ -117,7 +124,7 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 	// Before touching anything: a mapping that cannot carry a cast means the
 	// people ladder would be erased on the next boot, so fail now rather than
 	// after writing a fixture that destroys itself.
-	ff, err := loadFields(mappingsPath, demands(ladder))
+	ff, err := loadFields(mappingsPath, personasFile, demands(ladder))
 	if err != nil {
 		return err
 	}

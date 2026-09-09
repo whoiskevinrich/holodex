@@ -21,7 +21,14 @@
     "backend-stress serves the HOLODEX-342 stress fixture instead of a real library.",
     "Seed it first with `go run ./testdata/stressseed`; tear the whole thing down with",
     "`rm -rf ./data/stress`. It binds the same port as `backend`, so run one or the",
-    "other — never both."
+    "other — never both. It reads the fixture's own committed mapping AND provider",
+    "registry rather than your gitignored local ones, so the ladder and the chip row",
+    "are the same on every machine (HOLODEX-347 / HOLODEX-348).",
+    "",
+    "enrich-stub serves every fake provider that registry names — ten personas on one",
+    "node process, addressed by URL path. Start it alongside backend-stress to reach",
+    "the enrichment stress profile. It binds the same port as provider-tmdb, so again:",
+    "one or the other."
   ],
   "version": "0.0.1",
   "configurations": [
@@ -57,9 +64,16 @@
         "MEDIA_PATH": "./data/stress/media",
         "FILMS_ENABLED": "true",
         "THUMBNAIL_ENABLED": "false",
-        "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
+        "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
         "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
       }
+    },
+    {
+      "name": "enrich-stub",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["testdata/enrich-stub/stub.js"],
+      "port": 9100,
+      "autoPort": false
     },
     {
       "name": "provider-tmdb",

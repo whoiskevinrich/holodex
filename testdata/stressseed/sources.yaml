@@ -1,0 +1,92 @@
+# Metadata source providers for the HOLODEX-342 stress fixture. NOT a template.
+#
+# The fixture owns its provider registry for the same reason it owns its field
+# mapping (see mappings.yaml): these are not settings here, they are part of the
+# fixture's contract. A chip row with five competing namespaces only exists if
+# five namespaces are configured, and an assertion written against "five chips"
+# is a lie the moment the operator's own gitignored metadata-sources.yaml is what
+# `backend-stress` happened to load.
+#
+# Every entry points at ONE process — testdata/enrich-stub/stub.js — on a different
+# path. Core concatenates base_url with "/describe", "/resolve" and "/enrich"
+# rather than re-parsing it (internal/enrich/client.go), so a base_url carrying a
+# path addresses a persona and each entry below is an independent provider as far
+# as core is concerned. Five providers, one `node` process, no containers, no keys.
+#
+#   node testdata/enrich-stub/stub.js       # or: preview_start enrich-stub
+#
+# The stub binds 9100, which is also the `provider-tmdb` port — run one or the
+# other. Nothing here reaches the network: 127.0.0.1 is the whole SSRF allowlist,
+# and each persona serves its own brand icon from that same host, which is what
+# ADR-039 requires.
+
+sources:
+  # --- Precedence: ADR-090 layer 2 ----------------------------------------
+  # Five namespaces that DISAGREE about the same fields, so the ADR-051 SourceBadge
+  # chip row has something to choose between. Five that agreed would fold into one
+  # chip — f36.ts folds by value, not by source — and would teach nothing.
+  #
+  # Person fields (bio, birthdate, nationality, website) are canonical in Go and
+  # need no mapping; the video fields these providers also answer (tagline,
+  # original_language) are wired up in mappings.yaml.
+  - name: alpha
+    base_url: http://127.0.0.1:9100/p/alpha
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  - name: bravo
+    base_url: http://127.0.0.1:9100/p/bravo
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  # No brand_icon in its /describe — the ProviderIcon monogram fallback, which is
+  # otherwise only visible for the moment before the icon cache warms.
+  - name: charlie
+    base_url: http://127.0.0.1:9100/p/charlie
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  - name: delta
+    base_url: http://127.0.0.1:9100/p/delta
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  # 40 characters. Two places render a provider name with no truncation and no
+  # max-width — the expanded chip's `·{provenance}` suffix and the owner's
+  # per-provider action chips — so this entry is what finds them.
+  - name: stress-provider-with-a-very-long-name-40
+    base_url: http://127.0.0.1:9100/p/longname
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  # --- Adoption: ADR-090 layer 1 ------------------------------------------
+  # Candidate-list shapes for EnrichPicker. Both stay below the 0.85 auto-apply
+  # threshold, or the list they exist to stress would be skipped entirely.
+  - name: flood
+    base_url: http://127.0.0.1:9100/p/flood
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  - name: twins
+    base_url: http://127.0.0.1:9100/p/twins
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  # --- Faults --------------------------------------------------------------
+  # Loading and error states, reachable on demand instead of only when a real
+  # provider misbehaves. Each faults /resolve + /enrich only — /describe stays
+  # healthy, so a failure is attributable to the call the operator made.
+  - name: slow
+    base_url: http://127.0.0.1:9100/p/slow
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  - name: boom
+    base_url: http://127.0.0.1:9100/p/boom
+    entity_types: [person, video, studio, film]
+    enabled: true
+
+  - name: garbage
+    base_url: http://127.0.0.1:9100/p/garbage
+    entity_types: [person, video, studio, film]
+    enabled: true

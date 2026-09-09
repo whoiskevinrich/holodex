@@ -27,7 +27,12 @@ const markerTable = "stress_fixture"
 // library can hold categories and nothing else — and once the breadth pool made
 // the fixture own that table (HOLODEX-350), an unchecked one would have been
 // silently wiped. TestClaimCoversEverySeededTable keeps the two in step.
-var contentTables = []string{"videos", "people", "studios", "tags", "films", "categories"}
+// entity_enrichment joined the list when the fixture started seeding the ADR-090
+// precedence layer (HOLODEX-348). It is the case the comment above was already
+// describing in the abstract: a database holding nothing but enrichment rows is
+// somebody's shadow store, and once reset() deletes that table an unchecked one
+// would be wiped by a seeder that never looked at it.
+var contentTables = []string{"videos", "people", "studios", "tags", "films", "categories", "entity_enrichment"}
 
 // claim is what inspect learned about a candidate database.
 type claim struct {

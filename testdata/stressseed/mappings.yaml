@@ -17,8 +17,9 @@
 # migration 0017, and the media detail page renders the list), not a fiction — it
 # is simply not the shape either of the operator's own profiles happens to use.
 #
-# Keep this file boring. It exists to make relationships resolvable, not to
-# exercise mapping features; provider namespaces belong to HOLODEX-348.
+# Keep the relationship half of this file boring. It exists to make relationships
+# resolvable, not to exercise mapping features. The provider namespaces at the
+# bottom are the one deliberate exception (HOLODEX-348).
 
 fields:
   # --- Title. The text ladder writes videos.title directly, which `file:title`
@@ -61,3 +62,38 @@ fields:
   - canonical: collection
     sources:
       - file:Album
+
+  # --- Provider namespaces (HOLODEX-348) -----------------------------------
+  # A VIDEO's field set comes from this file, so a provider only becomes a
+  # competing candidate on the media page if `<name>:<field>` appears in that
+  # field's `sources:` list. (A person's does not: personScalarFields is a
+  # hardcoded Go list and personProviders unions every provider that has a stored
+  # row, so the person page grows chips from the rows alone.) These two fields are
+  # the video surface's half of that, and they are chosen to avoid confounding an
+  # existing axis: the ladder already tortures `title` and `overview` for text and
+  # `studio`/`actors`/`genres` for cardinality, so conflicting on any of those
+  # would leave a failure un-attributable (D3).
+  #
+  # Neither may be `multi: true`: replaceMarkers only builds a candidate list for
+  # a replace field, so a merge field has no chip row at all.
+  #
+  # `file:` first, and kept, for two reasons — it is the baseline chip the five
+  # providers are voting against, and loadFileField hard-refuses a field whose
+  # sources are provider-only.
+  - canonical: original_language
+    sources:
+      - file:Language
+      - alpha:original_language
+      - bravo:original_language
+      - charlie:original_language
+      - delta:original_language
+      - stress-provider-with-a-very-long-name-40:original_language
+
+  - canonical: tagline
+    sources:
+      - file:Tagline
+      - alpha:tagline
+      - bravo:tagline
+      - charlie:tagline
+      - delta:tagline
+      - stress-provider-with-a-very-long-name-40:tagline
