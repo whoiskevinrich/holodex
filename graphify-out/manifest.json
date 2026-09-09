@@ -1728,9 +1728,9 @@
     "semantic_hash": "bbc6b25e9fc91a29e4c8b147c6b707f1"
   },
   "web/package.json": {
-    "mtime": 1788712731.3488438,
-    "seen": 1788831692.7009017,
-    "ast_hash": "f5dbc68565dbcf257153fa6a3e5db8c1",
+    "mtime": 1788993210.3638644,
+    "seen": 1788995415.8437722,
+    "ast_hash": "beee13d7cc947230a146a4fb0e78625b",
     "semantic_hash": ""
   },
   "web/scripts/gen-country-names.mjs": {
@@ -3576,9 +3576,9 @@
     "semantic_hash": ""
   },
   "docs/testing-strategy.md": {
-    "mtime": 1788830023.91615,
-    "seen": 1788831692.7015526,
-    "ast_hash": "3e937090375a628e25a5f0bddd652af2",
+    "mtime": 1788994144.2525787,
+    "seen": 1788995415.8445418,
+    "ast_hash": "f8e4a1e30bc93d6e59e2b29677d00c86",
     "semantic_hash": ""
   },
   "site/README.md": {
@@ -6036,9 +6036,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-342.md": {
-    "mtime": 1788988320.6641908,
-    "seen": 1788988384.4679325,
-    "ast_hash": "e647ae5e5cb1aa529d63f4c77c9788e4",
+    "mtime": 1788994369.4591665,
+    "seen": 1788995415.8443518,
+    "ast_hash": "4c97e01989cda66c3c9e3eeb6095b39d",
     "semantic_hash": ""
   },
   "docs/specs/stress-fixture.md": {
@@ -6135,6 +6135,66 @@
     "mtime": 1788930097.9941885,
     "seen": 1788988384.468043,
     "ast_hash": "35fc4061353eb7409850e573d0603eb5",
+    "semantic_hash": ""
+  },
+  "web/geometry/assertions.mjs": {
+    "mtime": 1788993832.5228207,
+    "seen": 1788995415.8437605,
+    "ast_hash": "e0cf98853fcff51741cf85932ff37ae6",
+    "semantic_hash": ""
+  },
+  "web/geometry/browser.mjs": {
+    "mtime": 1788994241.016266,
+    "seen": 1788995415.8437626,
+    "ast_hash": "b670c67a1ea95056a98a4a6da67cff85",
+    "semantic_hash": ""
+  },
+  "web/geometry/evaluate.mjs": {
+    "mtime": 1788994241.016266,
+    "seen": 1788995415.843764,
+    "ast_hash": "49c256baef0e790fb54e6ca4894dd1ab",
+    "semantic_hash": ""
+  },
+  "web/geometry/evaluate.test.mjs": {
+    "mtime": 1788994250.2822695,
+    "seen": 1788995415.843765,
+    "ast_hash": "419de4fe2e45a54c073b4f9004f9d88e",
+    "semantic_hash": ""
+  },
+  "web/geometry/manifest.mjs": {
+    "mtime": 1788992868.1143823,
+    "seen": 1788995415.8437662,
+    "ast_hash": "96ebe6a5ba3ab39bae6cdd2c73f016a8",
+    "semantic_hash": ""
+  },
+  "web/geometry/manifest.test.mjs": {
+    "mtime": 1788993254.8894506,
+    "seen": 1788995415.8437674,
+    "ast_hash": "1ba9379506268e7d756bb711901bb2c1",
+    "semantic_hash": ""
+  },
+  "web/geometry/report.mjs": {
+    "mtime": 1788993095.1931798,
+    "seen": 1788995415.8437684,
+    "ast_hash": "b9d6c710a1d3e98145b87b286dfe5845",
+    "semantic_hash": ""
+  },
+  "web/geometry/report.test.mjs": {
+    "mtime": 1788993276.228543,
+    "seen": 1788995415.8437696,
+    "ast_hash": "2526e8aa0467a3cf07a2ca348ff632bd",
+    "semantic_hash": ""
+  },
+  "web/geometry/run.mjs": {
+    "mtime": 1788994223.380558,
+    "seen": 1788995415.843771,
+    "ast_hash": "f391c1f23d324e44941055b8d2f89679",
+    "semantic_hash": ""
+  },
+  "web/geometry/README.md": {
+    "mtime": 1788994054.535653,
+    "seen": 1788995415.8445642,
+    "ast_hash": "76b270ef8993f160755262e6c3e1dc06",
     "semantic_hash": ""
   }
 }
