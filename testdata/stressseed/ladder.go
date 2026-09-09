@@ -658,6 +658,7 @@ func encodeName(kind entityKind, s spec) string {
 type ladderDemands struct {
 	people  int
 	studios int
+	tags    int
 	cast    int
 	scenes  int
 }
@@ -676,6 +677,7 @@ func demands(dims []dimension) ladderDemands {
 			case kindVideo:
 				d.people = max(d.people, s.people)
 				d.studios = max(d.studios, s.studios)
+				d.tags = max(d.tags, s.tags)
 			case kindFilm:
 				d.cast = max(d.cast, s.cast)
 				d.scenes = max(d.scenes, s.scenes)

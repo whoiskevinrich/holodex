@@ -420,7 +420,7 @@ func TestManifest_ResolvesAndEnumerates(t *testing.T) {
 	entries, database := seedInto(t, dir)
 	database.Close()
 
-	path, err := writeManifest(dir, buildManifest(entries, 1, 100))
+	path, err := writeManifest(dir, buildManifest(entries, 1, 100, newBreadthPool(100)))
 	if err != nil {
 		t.Fatalf("writeManifest: %v", err)
 	}
@@ -483,7 +483,19 @@ func seed(t *testing.T) ([]entry, *sql.DB) {
 // seedInto runs a generation against dir and hands back both halves of the
 // result. The caller owns the returned handle; on Windows a lingering one stops
 // t.TempDir cleanup, so tests that re-open close it first.
+// The ladder tests seed with no breadth pool: every one of them is a claim about
+// an addressed entity, and bulk rows would only add minutes. The breadth axis has
+// its own tests, which use seedCountInto.
 func seedInto(t *testing.T, dir string) ([]entry, *sql.DB) {
+	t.Helper()
+	entries, _, database := seedCountInto(t, dir, 0)
+	return entries, database
+}
+
+// seedCountInto runs a generation against dir at a given -count and hands back
+// all three halves of the result. The caller owns the returned handle; on Windows
+// a lingering one stops t.TempDir cleanup, so tests that re-open close it first.
+func seedCountInto(t *testing.T, dir string, count int) ([]entry, *breadthPool, *sql.DB) {
 	t.Helper()
 	database, err := db.Open(filepath.Join(dir, "holodex.db"))
 	if err != nil {
@@ -491,11 +503,11 @@ func seedInto(t *testing.T, dir string) ([]entry, *sql.DB) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 
-	entries, err := generate(context.Background(), database, repo.New(database), testFields(t), testTargets(dir))
+	entries, pool, err := generate(context.Background(), database, repo.New(database), testFields(t), testTargets(dir), count)
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	return entries, database
+	return entries, pool, database
 }
 
 // testTargets puts the asset roots under the same directory as the database, the

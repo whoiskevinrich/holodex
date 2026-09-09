@@ -27,7 +27,7 @@ import (
 // when the entities are deleted. Leave it and a row filed against ids 20001/20003
 // outlives the palette that produced them, and reappears on the owner's
 // duplicates page pointing at whatever now holds those addresses.
-var seededTables = []string{"videos", "films", "people", "studios", "tags", "identity_review_queue"}
+var seededTables = []string{"videos", "films", "people", "studios", "tags", "categories", "identity_review_queue"}
 
 // generate builds every dimension in the ladder and returns what it addressed.
 //
@@ -35,18 +35,18 @@ var seededTables = []string{"videos", "films", "people", "studios", "tags", "ide
 // baseline, mutates exactly one axis, and becomes exactly one entity. There is
 // deliberately no nesting here — a cross-product would be a loop inside this
 // loop, and its absence is the design.
-func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFields, targets imageTargets) ([]entry, error) {
+func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFields, targets imageTargets, count int) ([]entry, *breadthPool, error) {
 	if err := validateLadder(ladder); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := reset(ctx, database); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// The database half of the clear cascades from reset()'s entity tables; the
 	// files do not cascade from anything, and a stale one would make the `missing`
 	// rung show a working image. See clearImages.
 	if err := clearImages(targets); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	images := imageWriter{repo: r, targets: targets}
 
@@ -55,12 +55,14 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 	// never land on an address an assertion was written against.
 	for _, table := range []string{"people", "studios", "tags"} {
 		if err := steer(ctx, database, table, poolBase); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	var entries []entry
-	var scenePool []int64
+	var scenePool, bulkVideos []int64
+	pool := newBreadthPool(count)
+	poolSeeded := false
 	for _, dim := range ladder {
 		// Everything that is not an addressed video needs the videos sequence moved
 		// out of the addressed range first — the scene pool and the derived kinds'
@@ -69,17 +71,29 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 		// exist would collide rather than renumber. validateLadder guarantees every
 		// video dimension comes first, so the first non-video dimension is the one
 		// point where both conditions hold.
-		if dim.entity != kindVideo && scenePool == nil {
+		//
+		// The breadth pool's videos ride along here for the same reason, plus one of
+		// their own: bulk people, studios and tags have to be created while those
+		// sequences are still in the [poolBase, derivedBase) gap, before the derived
+		// dimensions steer them up to derivedBase. See breadth.go.
+		if dim.entity != kindVideo && !poolSeeded {
+			poolSeeded = true
 			if err := steer(ctx, database, kindVideo.table(), poolBase); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			var err error
 			if scenePool, err = seedScenePool(ctx, r, ff, demands(ladder).scenes); err != nil {
-				return nil, fmt.Errorf("scene pool: %w", err)
+				return nil, nil, fmt.Errorf("scene pool: %w", err)
+			}
+			if bulkVideos, err = seedBreadthVideos(ctx, r, ff, images, count, pool); err != nil {
+				return nil, nil, fmt.Errorf("breadth videos: %w", err)
+			}
+			if err := recordBulkDerived(ctx, r, count, pool); err != nil {
+				return nil, nil, fmt.Errorf("breadth pool: %w", err)
 			}
 		}
 		if err := steer(ctx, database, dim.entity.table(), dim.block); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, rg := range dim.rungs {
 			s := baseline()
@@ -87,14 +101,14 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 
 			id, err := materialize(ctx, r, ff, dim, rg, s, scenePool)
 			if err != nil {
-				return nil, fmt.Errorf("%s=%s: %w", dim.key, rg.variant, err)
+				return nil, nil, fmt.Errorf("%s=%s: %w", dim.key, rg.variant, err)
 			}
 			// The block is only a real address if nothing escapes it. Steering
 			// puts the first entity in the right place; this catches the case
 			// where a dimension has outgrown the block it declared, which would
 			// otherwise silently overwrite the next dimension's addresses.
 			if id < dim.block || id >= dim.block+blockSize {
-				return nil, fmt.Errorf(
+				return nil, nil, fmt.Errorf(
 					"dimension %q overflowed its reserved block: %s landed at id %d, outside [%d,%d).\n"+
 						"Give it a larger block or move the dimensions above it",
 					dim.key, rg.variant, id, dim.block, dim.block+blockSize)
@@ -105,7 +119,7 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 			// write. Done here rather than inside materialize because this is the one
 			// place that holds the id and the spec at the same time, for all five kinds.
 			if err := images.seed(ctx, dim.entity, id, s.image); err != nil {
-				return nil, fmt.Errorf("%s=%s images: %w", dim.key, rg.variant, err)
+				return nil, nil, fmt.Errorf("%s=%s images: %w", dim.key, rg.variant, err)
 			}
 
 			entries = append(entries, entry{
@@ -120,7 +134,35 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 			})
 		}
 	}
-	return entries, nil
+
+	// A ladder of nothing but video dimensions never reaches the block above, so
+	// the pool would silently not exist. Real ladders always have a non-video
+	// dimension; test ones need not, and a breadth pool that is quietly absent is
+	// worse than one that is late.
+	if !poolSeeded {
+		if err := steer(ctx, database, kindVideo.table(), poolBase); err != nil {
+			return nil, nil, err
+		}
+		var err error
+		if bulkVideos, err = seedBreadthVideos(ctx, r, ff, images, count, pool); err != nil {
+			return nil, nil, fmt.Errorf("breadth videos: %w", err)
+		}
+		if err := recordBulkDerived(ctx, r, count, pool); err != nil {
+			return nil, nil, fmt.Errorf("breadth pool: %w", err)
+		}
+	}
+
+	// Films and categories come last, after every film dimension has been placed.
+	// A bulk film created alongside the bulk videos would consume the addresses the
+	// film dimensions are steered into, because films are addressed in blocks below
+	// poolBase — the one kind whose breadth half cannot share the videos' moment.
+	if err := seedBreadthFilms(ctx, database, r, count, bulkVideos, pool); err != nil {
+		return nil, nil, fmt.Errorf("breadth films: %w", err)
+	}
+	if err := seedBreadthCategories(ctx, database, r, count, pool); err != nil {
+		return nil, nil, fmt.Errorf("breadth categories: %w", err)
+	}
+	return entries, pool, nil
 }
 
 // validateLadder enforces the invariants the table's readers assume. They are

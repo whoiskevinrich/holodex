@@ -20,7 +20,14 @@ const markerTable = "stress_fixture"
 // else. Any one of them being non-empty in an unmarked database is enough to
 // refuse: a real library has videos, and an enrichment-only or people-only
 // database is still not ours to overwrite.
-var contentTables = []string{"videos", "people", "studios", "tags", "films"}
+//
+// This list has to cover everything reset() deletes, or the fixture destroys a
+// table it never looked at. Categories are the case that makes the rule concrete:
+// they are created by the owner directly rather than derived from media, so a
+// library can hold categories and nothing else — and once the breadth pool made
+// the fixture own that table (HOLODEX-350), an unchecked one would have been
+// silently wiped. TestClaimCoversEverySeededTable keeps the two in step.
+var contentTables = []string{"videos", "people", "studios", "tags", "films", "categories"}
 
 // claim is what inspect learned about a candidate database.
 type claim struct {

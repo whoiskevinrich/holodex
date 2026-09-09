@@ -170,19 +170,53 @@ pruned by the very reconcile that maintains it. And the studio spread has no mid
 because studios 002–005 exist only to be counted by the single `studios=05` rung —
 HOLODEX-351 covers addressed filmography dimensions if that middle turns out to matter.
 
+## The breadth pool (`-count` / `-big`)
+
+The ladder is the *depth* axis: it tortures one entity until a layout breaks. `-count` is
+the *breadth* axis, and it finds a different bug class — pagination, virtualization and
+scroll perf. A 50-person cast finds a wrapping bug on one page; two thousand people find
+that `/people` has no pagination at all.
+
+```
+go run ./testdata/stressseed            # 100 of every kind (default)
+go run ./testdata/stressseed -big       # 2000 of every kind — ~150s, ~160MB
+go run ./testdata/stressseed -count 0   # the ladder alone, for a fast reseed
+```
+
+Every kind the app has a list page for is populated, not just media: videos, people,
+studios, tags, films **and categories** — the last being the one entity no dimension
+addresses, so this is the fixture's only coverage of it.
+
+Bulk entities are **pool** entities, not addressed ones. They are named
+`stress bulk <kind> NNNN`, they live in `[9000, 20000)` outside every reserved block, and
+the manifest records them as a range and a count rather than one by one — because no
+individual bulk entity matters, only how many there are. Adding a breadth pool therefore
+never moves an addressed id, which `TestBreadthDoesNotMoveAddressedEntities` asserts
+against a `-count 0` run.
+
+They are also deliberately *boring*: one person, one studio and one tag per video, a
+well-formed mid-tone image, a short plain name. That is D3 applied to the breadth axis —
+if `/people` is slow at 2000 rows, the only variable that could have caused it is 2000.
+
+`-count` is capped at `breadthCeiling()` (10950 today: the pool gap less the ladder's own
+draw) and refused in `run()` before the database is opened, so a typo cannot cost you the
+fixture it was about to decline to replace.
+
 ## Status
 
-The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344), the relationship
-cardinality ladder (HOLODEX-347) and the text palette (HOLODEX-346) are in — nine
-dimensions: `people`, `text`, `tags`, `studios`, `scenes`, `filmcast`, `persontext`,
-`studiotext` and `tagtext`. The palette reaches every free-text field the app renders: the
-video title and overview, and the person, studio and tag names. The remaining dimensions
-are rows to be added: adversarial images (HOLODEX-345), collection breadth at `--count` and
-`--big` (HOLODEX-350), and the enrichment profile (HOLODEX-348).
+Every dimension is in. The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344), the
+relationship cardinality ladder (HOLODEX-347), the text palette (HOLODEX-346) and the
+adversarial image set (HOLODEX-345) give thirteen dimensions: `people`, `text`, `tags`,
+`studios`, `scenes`, `filmcast`, `videoimage`, `filmimage`, `persontext`, `studiotext`,
+`tagtext`, `personimage` and `studioimage`. The palette reaches every free-text field the
+app renders; the image rungs reach every picture-rendering kind. Collection breadth
+(HOLODEX-350) adds the population axis above.
 
-`-count` / `-big` are accepted and recorded, but nothing consumes them yet; the collection
-filler is HOLODEX-350. `-seed` likewise: the ladder is fully determined by the table, so
-there is nothing random to draw yet.
+Still to come: the enrichment profile (HOLODEX-348) and the geometry-assertion harness
+(HOLODEX-349).
+
+`-seed` is accepted and recorded but draws nothing yet: the ladder and the breadth pool are
+both fully determined by the table and `-count`, so there is nothing random to seed.
 
 ## Isolation, twice over (spec D5)
 

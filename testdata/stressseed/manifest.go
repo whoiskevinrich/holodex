@@ -158,6 +158,12 @@ type manifest struct {
 	Dimensions  []manifestDimension `json:"dimensions"`
 	Entities    map[string]entry    `json:"entities"`
 	ByDimension map[string][]int64  `json:"by_dimension"`
+
+	// Breadth is the population half of the fixture (HOLODEX-350): how many of each
+	// kind exist and where they landed. It is a range and a count rather than
+	// entities, because no individual bulk row is worth addressing — a breadth
+	// assertion is about how many there are, not which one.
+	Breadth *breadthPool `json:"breadth,omitempty"`
 }
 
 // manifestDimension describes a dimension itself, so a reader can see the shape
@@ -171,11 +177,12 @@ type manifestDimension struct {
 	Rungs  []string   `json:"rungs"`
 }
 
-func buildManifest(entries []entry, seed uint64, count int) manifest {
+func buildManifest(entries []entry, seed uint64, count int, pool *breadthPool) manifest {
 	m := manifest{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Seed:        seed,
 		Count:       count,
+		Breadth:     pool,
 		BlockSize:   blockSize,
 		PoolBase:    poolBase,
 		Entities:    make(map[string]entry, len(entries)),

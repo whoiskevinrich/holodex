@@ -247,6 +247,45 @@ detail page renders the list — it is simply not the shape either operator prof
 a missing file source, or a replace field under a rung above 1. The demanded maxima are derived from
 the ladder table, so raising a rung cannot leave the check behind.
 
+### D12 — Breadth is a pool, not a dimension (HOLODEX-350).
+
+`-count` (default 100, `-big` 2000) populates **every** entity kind the app has a list page for —
+videos, people, studios, tags, films and categories — not just media. Bulk entities are *pool*
+entities: unaddressed, named `stress bulk <kind> NNNN`, living in the `[poolBase, derivedBase)` gap
+outside every reserved block, and recorded in the manifest as a **range and a count** rather than
+one by one.
+
+**Rationale**: a dimension addresses its entities so an assertion can name one, and the whole point
+of breadth is that no individual bulk entity matters — only how many there are. Sizing every kind
+rather than only media is what the surfaces demand: the media browse grid is the *only* paginated
+list in the app, and `/people`, `/studios`, `/tags`, `/films` and `/categories/{id}` each fetch and
+render their whole table unvirtualized. A breadth pool of 2000 media alone would leave every one of
+those untouched.
+
+**D3 applies to the breadth axis itself**, which is why a bulk entity is aggressively neutral: one
+person, one studio and one tag per video, a well-formed mid-tone image, a short plain name. If
+`/people` is slow at 2000 rows, the only variable that could have caused it is 2000. The 1:1 shape
+is also what makes the pool count of all four of those kinds equal `-count` without a second knob
+deciding how they are distributed.
+
+**Consequences**, each forced rather than chosen:
+
+- **Bulk videos are seeded at the scene pool's moment**, the one point where the videos sequence has
+  left the addressed range and the people/studio/tag sequences have not yet been steered up to
+  `derivedBase`. **Bulk films cannot share that moment** — films are addressed in blocks *below*
+  `poolBase`, so a bulk film created there would eat the addresses the film dimensions are steered
+  into. They and the categories come after the whole ladder walk.
+- **Bulk videos carry an image**; bulk people, studios and films do not. The browse grid is a poster
+  grid, so timing it without image decode would answer a question nobody asked — and the AC wants
+  numbers. Image *variety* stays the depth ladder's job.
+- **`-count` has a ceiling** (`breadthCeiling()`, currently 10950), derived from the gap less the
+  ladder's own pool draw, and refused in `run()` before the database is opened. Refusing later would
+  mean a typo cost the operator the fixture it was about to decline to replace.
+- **Categories are the one entity no dimension addresses**, so the pool is the fixture's only
+  coverage of them — and adding them to the fixture's owned tables forced the reverse guard too:
+  everything `reset()` deletes must be something `inspect()` counts, or the fixture destroys a table
+  it never looked at. Categories are the reachable case, being owner-created rather than derived.
+
 ---
 
 ## Ladder dimensions

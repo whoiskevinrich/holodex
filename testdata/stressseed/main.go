@@ -53,7 +53,7 @@ const (
 
 func main() {
 	dataPath := flag.String("data", defaultDataPath, "isolated data directory for the fixture")
-	count := flag.Int("count", defaultCount, "how many media entities the collection carries")
+	count := flag.Int("count", defaultCount, "how many of every kind the breadth pool carries")
 	big := flag.Bool("big", false, fmt.Sprintf("shorthand for -count %d (pagination, scroll perf)", bigCount))
 	seed := flag.Uint64("seed", 1, "RNG seed — the same seed reproduces the same fixture")
 	mappings := flag.String("mappings", defaultMappingsPath(),
@@ -101,6 +101,14 @@ func defaultMappingsPath() string {
 func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 	if count < 0 {
 		return fmt.Errorf("-count %d: must not be negative", count)
+	}
+	// Before anything is opened or cleared. seedBreadthVideos refuses an oversized
+	// -count too, but by then reset() has emptied the previous fixture and the
+	// addressed video dimensions have been rebuilt — so a typo would cost the
+	// operator the fixture it was about to refuse to replace.
+	if count > breadthCeiling() {
+		return fmt.Errorf("-count %d exceeds %d, the most the pool range [%d,%d) can hold",
+			count, breadthCeiling(), poolBase, derivedBase)
 	}
 
 	cfg := config.Defaults()
@@ -167,24 +175,24 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 		filmMaxDim:   cfg.FilmImageMaxDimension,
 	}
 
-	entries, err := generate(ctx, database, repo.New(database), ff, targets)
+	entries, pool, err := generate(ctx, database, repo.New(database), ff, targets, count)
 	if err != nil {
 		return err
 	}
-	manifestPath, err := writeManifest(cfg.DataPath, buildManifest(entries, seed, count))
+	manifestPath, err := writeManifest(cfg.DataPath, buildManifest(entries, seed, count, pool))
 	if err != nil {
 		return err
 	}
 
-	report(cfg, mediaPath, manifestPath, ff, entries, count, seed)
+	report(cfg, mediaPath, manifestPath, ff, entries, pool, seed)
 	return nil
 }
 
 // report prints where the fixture landed and what it addressed, so an operator
 // can see every path the tool considers its own before trusting the isolation
 // claim — and can find a dimension's block without opening the manifest.
-func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields, entries []entry, count int, seed uint64) {
-	fmt.Printf("fixture claimed at %s (seed %d, count %d)\n\n", cfg.DataPath, seed, count)
+func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields, entries []entry, pool *breadthPool, seed uint64) {
+	fmt.Printf("fixture claimed at %s (seed %d, count %d)\n\n", cfg.DataPath, seed, pool.Count)
 	for _, p := range []struct{ label, path string }{
 		{"database", cfg.DatabasePath},
 		{"manifest", manifestPath},
@@ -222,6 +230,8 @@ func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields,
 			dim.block+int64(len(dim.rungs))-1, strings.Join(variants, " "))
 	}
 
+	printBreadth(pool)
+
 	// A dimension that is quietly short of a rung looks identical to one that never
 	// had it. The derived kinds cannot carry the whole palette — an empty name is
 	// skipped by the reconcile, an over-long one is rejected outright — so the
@@ -229,6 +239,29 @@ func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields,
 	// the gap as a bug in the fixture.
 	printPaletteExclusions()
 	fmt.Printf("\nServe it with the `backend-stress` launch profile; tear it down with rm -rf %s\n", cfg.DataPath)
+}
+
+// printBreadth reports the population half of the fixture: how many of each kind
+// the breadth pool added, and the id range they occupy.
+//
+// The range is printed rather than only the count because it is the claim worth
+// checking by eye — every bulk row sits above poolBase and below derivedBase, so
+// a number outside that gap means an entity landed on an address the ladder had
+// reserved, which is the one failure the block scheme exists to prevent.
+func printBreadth(pool *breadthPool) {
+	if pool.Count == 0 {
+		fmt.Printf("\nno breadth pool (-count 0): the ladder alone, for a fast reseed\n")
+		return
+	}
+	fmt.Printf("\n%d of every kind in the breadth pool, ids in [%d,%d) and addressed by\n"+
+		"nobody — the population axis, for pagination and scroll perf:\n", pool.Count, poolBase, derivedBase)
+	for _, table := range []string{"videos", "people", "studios", "tags", "films", categoriesTable} {
+		r, ok := pool.Tables[table]
+		if !ok {
+			continue
+		}
+		fmt.Printf("  %-12s %5d  %d-%d\n", table, r.N, r.Lo, r.Hi)
+	}
 }
 
 // printPaletteExclusions reports every text rung a derived kind cannot be named

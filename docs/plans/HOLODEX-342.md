@@ -83,7 +83,10 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 9. [x] [dev-tooling] **HOLODEX-345** — adversarial image set. Thirteen dimensions now: one
    image dimension per picture-rendering kind (`videoimage`, `filmimage`, `personimage`,
    `studioimage`), seven rungs each. Two deviations from the ticket's AC, both below
-10. [ ] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`
+10. [x] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`. The
+    population axis: 100/2000 of *every* kind including categories, which no dimension
+    addresses. Found two real product bugs on its first run — **HOLODEX-353** (72s blocked
+    startup) and **HOLODEX-354** (unbounded list pages), both filed
 11. [ ] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
 13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
@@ -108,7 +111,62 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · HOLODEX-345 — adversarial image set across four kinds
+### 2026-09-08 (last) · HOLODEX-350 — collection breadth, and the first bugs it found
+- skills: code-review
+- **The fixture did its job on the first run: two real product bugs, neither known.**
+  **HOLODEX-353** — the server blocks for **72 seconds** before listening at 2076
+  videos, and 71.6s of it is the identity review-queue seed, which queued nothing;
+  the person-link backfill over the same videos took 0.8s, so it is that pass
+  specifically, not "touching every video". **HOLODEX-354** — the media browse grid
+  is the *only* paginated list in the app. `/people` renders 2064 rows and 2064
+  `<img>` unvirtualized (12,477 DOM nodes, a 112,285px page); `/tags` renders 4037
+  and reaches **452,541px**. Five list endpoints accept no `limit` at all. The
+  backend answers all of them in 5–26ms, so the bottleneck is that it answers with
+  everything — the fix is pagination or virtualization, not faster queries.
+- **Breadth is a pool, not a dimension, and that follows from what an assertion can
+  say about it.** A dimension addresses its entities so an assertion can name one;
+  no individual bulk entity matters here, only how many there are. So bulk rows are
+  unaddressed, live in the `[9000,20000)` gap, and reach the manifest as a range and
+  a count. **D3 then applies to the breadth axis itself** — every bulk entity is
+  aggressively neutral (one person, one studio, one tag, a well-formed mid-tone
+  image) so that a slow `/people` has exactly one candidate cause.
+- **Sizing every kind, not just media, was the AC read that the surfaces confirmed.**
+  "100+ of every entity type" looked like it might be over-literal until the frontend
+  sweep showed `/people`, `/studios`, `/tags`, `/films` and `/categories/{id}` each
+  render their whole table. A pool of 2000 media alone would have touched none of them.
+- **Films could not share the bulk videos' moment, and the reason is the same shape as
+  everything else in this epic.** Bulk videos are seeded where the scene pool is — the
+  one point where the videos sequence has left the addressed range and people/studios/
+  tags have not yet been steered to `derivedBase`. But films are addressed *below*
+  `poolBase`, so a bulk film created there eats the addresses the film dimensions are
+  steered into. Films and categories go after the whole walk. Proved by mutation:
+  dropping that steer lands a bulk film at id 807, and four tests say so.
+- **Adding categories to the fixture's owned tables quietly made it destructive, and
+  the review caught it.** `categories` went into `seededTables` (so `reset()` deletes
+  them) but not into `contentTables` (the set whose rows make an unmarked database
+  refuse). Categories are owner-created rather than derived, so a library can hold
+  categories and nothing else — that database was claimable and would have been wiped.
+  The fix is the general invariant, not the one table: everything `reset()` deletes
+  must be something `inspect()` counts, now asserted by
+  `TestClaimCoversEverySeededTable`.
+- Also from review: an oversized `-count` was refused only *after* `reset()` had
+  emptied the previous fixture and the video dimensions had been rebuilt, so a typo
+  cost the operator the fixture it was about to decline to replace. The ceiling check
+  moved into `run()`, before the database is opened — verified live: `-count 20000`
+  refuses naming the 10950 limit and leaves all six row counts identical.
+- One mutation **failed to fail**: deleting `assertPooled`'s `derivedBase` branch
+  changed nothing, because the up-front ceiling makes it unreachable through a seed.
+  Kept rather than deleted — `steer` does catch the same overrun, but its message
+  sends the reader to the dimension ordering in ladder.go, which is not the cause —
+  and given a direct unit test instead, which the mutation now fails.
+- Handoff: `go run ./testdata/stressseed` seeds 100 of every kind in ~10s; `-big` gives
+  2000 of each in ~150s and 162MB. Verified live at both scales — counts reconcile
+  exactly (people 164 = 100 bulk + 50 pool + 7 + 7, and so on), bulk films and
+  categories carry their scene and tag, and `pre_links == post_links` still holds so
+  the startup relink changes nothing. The fixture is left seeded at the default.
+  Next is HOLODEX-348 (enrichment), then 349 (the assertion harness — the last open gate).
+
+### 2026-09-08 · HOLODEX-345 — adversarial image set across four kinds
 - skills: code-review
 - **"Fully transparent PNG" is not a state this app can store, so the rung became the
   *flattening* instead.** Every ingest path runs `personimage.Normalize`, which
