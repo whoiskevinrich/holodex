@@ -34,11 +34,12 @@ type entry struct {
 // from spec on purpose: spec is free to change shape as dimensions are added,
 // while this is a contract with whatever reads the manifest back.
 //
-// Exactly one half is populated, chosen by the entry's entity kind. spec carries
-// both halves so a rung can be written without knowing which it is, but only one
-// describes any given entity — a film reporting the video baseline's people=2
-// would be a plain falsehood about that film, and an assertion written against it
-// would be measuring nothing.
+// Exactly one of the three kind-keyed halves is populated, chosen by the entry's
+// entity kind. spec carries them all so a rung can be written without knowing
+// which it is, but only one describes any given entity — a film reporting the
+// video baseline's people=2 would be a plain falsehood about that film, and an
+// assertion written against it would be measuring nothing. Image is the one axis
+// that crosses kinds and so sits alongside whichever half applies.
 type axes struct {
 	Video *videoAxes `json:"video,omitempty"`
 	Film  *filmAxes  `json:"film,omitempty"`
@@ -47,6 +48,13 @@ type axes struct {
 	// own name is the rung. It is one axis rather than a struct because there is
 	// only one: an addressed person has no cardinality of its own, it has a name.
 	Name *nameAxes `json:"name,omitempty"`
+
+	// Image is the exception to "exactly one half": it is present alongside
+	// whichever half describes the kind, because an image is a property all four
+	// picture-rendering kinds have (HOLODEX-345). It is omitted for the zero rung,
+	// so its presence means "this entity carries a deliberately awful image" and a
+	// reader does not have to know which key means none.
+	Image *imageAxes `json:"image,omitempty"`
 }
 
 type videoAxes struct {
@@ -70,15 +78,68 @@ type nameAxes struct {
 	Value string `json:"value"`
 }
 
-func axesOf(kind entityKind, s spec) axes {
-	switch {
+// imageAxes is what a geometry assertion needs to know about an entity's images
+// without re-deriving the seeder's tables: which treatment they carry, and which
+// slots to look at.
+//
+// Slots is spelled out even though it is a function of the entity kind, because
+// the alternative is a second copy of slotsFor living in whatever reads the
+// manifest — and that copy is the one that would go stale. Contain likewise: the
+// difference between a black plate under object-cover and one under object-contain
+// is the whole reason the alpha rung is worth addressing, and a harness that has to
+// guess which slots letterbox will guess wrong.
+type imageAxes struct {
+	Variant string          `json:"variant"`
+	Slots   []imageSlotAxes `json:"slots"`
+}
+
+// imageSlotAxes is one image slot as the manifest reports it. Frame is the aspect
+// the bytes were actually produced at, which on the `ratio` rung is deliberately
+// not the frame the UI renders them in — that gap is the assertion.
+type imageSlotAxes struct {
+	Role    string `json:"role,omitempty"`
+	Label   string `json:"label"`
+	Frame   string `json:"frame"`
+	Contain bool   `json:"contain"`
+}
+
+// axesOf takes the dimension rather than just the kind, because a derived
+// entity's stored name is not always its text variant: a dimension that owns the
+// name is named from the palette, and one that does not — an image dimension — is
+// named from its coordinate, or every rung would resolve to the same entity.
+// title() is the single answer to "what is this thing actually called", and
+// nameAxes.Value promises exactly that.
+func axesOf(dim dimension, s spec) axes {
+	var a axes
+	switch kind := dim.entity; {
 	case kind.derived():
-		return axes{Name: &nameAxes{Text: s.text.key, Value: s.text.value}}
+		a.Name = &nameAxes{Text: s.text.key, Value: title(dim, s)}
 	case kind == kindFilm:
-		return axes{Film: &filmAxes{Cast: s.cast, Scenes: s.scenes}}
+		a.Film = &filmAxes{Cast: s.cast, Scenes: s.scenes}
 	default:
-		return axes{Video: &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}}
+		a.Video = &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key}
 	}
+	a.Image = imageAxesOf(dim.entity, s.image)
+	return a
+}
+
+// imageAxesOf is nil for the zero rung and for a tag, which has no images at all.
+func imageAxesOf(kind entityKind, v imageVariant) *imageAxes {
+	slots := slotsFor(kind)
+	if v.absent || len(slots) == 0 {
+		return nil
+	}
+	out := &imageAxes{Variant: v.key}
+	for _, slot := range slots {
+		frame := slot.frame
+		if v.useWrong {
+			frame = slot.wrong
+		}
+		out.Slots = append(out.Slots, imageSlotAxes{
+			Role: slot.role, Label: slot.label, Frame: frame.String(), Contain: slot.contain,
+		})
+	}
+	return out
 }
 
 // manifest is the machine-readable half of the addressing scheme (D4, layer 3).

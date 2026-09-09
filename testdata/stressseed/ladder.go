@@ -158,6 +158,13 @@ type spec struct {
 	studios int
 	text    textVariant
 
+	// image is the one axis every entity kind that renders a picture shares, so
+	// unlike the two halves below it is not keyed to a kind: a video, a person, a
+	// studio and a film each have image slots, and the same rung means the same
+	// thing on all four. That is deliberate — it is what lets a crop fix found on
+	// the media page be checked on the person page without translating the address.
+	image imageVariant
+
 	// Film axes. A film is a separate entity kind with a separate ID sequence and
 	// separate rungs, so only one half of this struct describes any given entity —
 	// which is why encodeName and axesOf are both keyed by entity kind rather than
@@ -187,6 +194,13 @@ func baseline() spec {
 		text:    textVariant{key: "plain", value: "Stress baseline"},
 		cast:    2,
 		scenes:  3,
+		// The baseline carries no image, which is the one place the neutral value is
+		// also the zero rung rather than a small non-zero one. Two reasons. An
+		// un-enriched library really does look like this, so it is the honest
+		// default; and giving every entity a picture would mean seeding one for each
+		// of the ~50 supporting people a cardinality rung creates, which is minutes
+		// of JPEG encoding on every run for entities nothing is addressed at.
+		image: imageNone,
 	}
 }
 
@@ -225,8 +239,9 @@ type dimension struct {
 	// belongs next to the dimension making it.
 	noEmptyRung string
 
-	// ownsTitle says this dimension's subject *is* the entity's title, so the
-	// title must be the raw variant rather than the encoded coordinate.
+	// ownsTitle says this dimension's subject *is* the entity's name — a video's
+	// title, or a person's, studio's or tag's own name — so that name must be the
+	// raw variant rather than the encoded coordinate.
 	//
 	// Entities normally carry their coordinate as their name, so the owner can
 	// tell what they are looking at without opening the manifest. A dimension
@@ -264,6 +279,21 @@ func texts(variants ...textVariant) []rung {
 			variant: v.key,
 			value:   v.value,
 			apply:   func(s *spec) { s.text = v },
+		})
+	}
+	return out
+}
+
+// images renders the image rungs. Exactly texts() one type over: the variant's
+// key addresses the rung and its value describes it, so the zero rung's empty
+// value is what hasEmptyRung reads.
+func images(variants ...imageVariant) []rung {
+	out := make([]rung, 0, len(variants))
+	for _, v := range variants {
+		out = append(out, rung{
+			variant: v.key,
+			value:   v.value,
+			apply:   func(s *spec) { s.image = v },
 		})
 	}
 	return out
@@ -321,6 +351,18 @@ var ladder = []dimension{
 		rungs: counts(func(s *spec, n int) { s.studios = n }, 0, 1, 5),
 	},
 	{
+		key:    "videoimage",
+		entity: kindVideo,
+		block:  700,
+		finds:  "text-over-thumbnail contrast, grid crop, the broken-image retry loop",
+		// Block 700 rather than 500 because 500 and 600 belong to the film
+		// dimensions below. Blocks are unique across the whole table, and D4's
+		// promise is that a block never moves once assertions can be written against
+		// it — so the video half skips over the film half rather than renumbering it.
+		// The same inversion HOLODEX-346 accepted for the derived kinds.
+		rungs: images(imagePalette...),
+	},
+	{
 		key:    "scenes",
 		entity: kindFilm,
 		block:  500,
@@ -346,6 +388,16 @@ var ladder = []dimension{
 		// the other, and equal rungs make that a like-for-like comparison.
 		rungs: counts(func(s *spec, n int) { s.cast = n }, 0, 1, 5, 10, 25, 50),
 	},
+	{
+		key:    "filmimage",
+		entity: kindFilm,
+		block:  800,
+		finds:  "poster crop, the 8/3 banner hero, the header fade over a bright image",
+		// The film banner is the largest image the app renders and the only one with
+		// text laid over it by default (.portrait-frame--banner::before is a fade,
+		// not a scrim), so `bright` is the rung to look at first here.
+		rungs: images(imagePalette...),
+	},
 
 	// The derived half (HOLODEX-346). These three exist because a person, studio
 	// and tag each has a detail page of its own where the name is the h1 — the same
@@ -356,32 +408,66 @@ var ladder = []dimension{
 	// hang its entity off, and a carrier can only be made once the videos sequence
 	// has been steered out of the addressed range. validateLadder enforces it.
 	{
-		key:    "persontext",
-		entity: kindPerson,
-		block:  derivedBase,
-		finds:  "hero heading wrap, the docked rename pencil, cast-tile label truncation",
+		key:       "persontext",
+		ownsTitle: true,
+		entity:    kindPerson,
+		block:     derivedBase,
+		finds:     "hero heading wrap, the docked rename pencil, cast-tile label truncation",
 		noEmptyRung: "ReconcileVideoPeople skips an empty name, so an unnamed person cannot " +
 			"exist — the empty *cast* is covered by the people=00 rung instead",
 		rungs: texts(namePalette(kindPerson)...),
 	},
 	{
-		key:    "studiotext",
-		entity: kindStudio,
-		block:  derivedBase + blockSize,
-		finds:  "studio heading wrap, chip width on the media page, studio-list column width",
+		key:       "studiotext",
+		ownsTitle: true,
+		entity:    kindStudio,
+		block:     derivedBase + blockSize,
+		finds:     "studio heading wrap, chip width on the media page, studio-list column width",
 		noEmptyRung: "ReconcileVideoStudios skips an empty name, and prunes a studio that " +
 			"loses its last link — the empty studio *section* is the studios=00 rung",
 		rungs: texts(namePalette(kindStudio)...),
 	},
 	{
-		key:    "tagtext",
-		entity: kindTag,
-		block:  derivedBase + 2*blockSize,
-		finds:  "chip wrap and height, filter-bar overflow, tag-page heading",
+		key:       "tagtext",
+		ownsTitle: true,
+		entity:    kindTag,
+		block:     derivedBase + 2*blockSize,
+		finds:     "chip wrap and height, filter-bar overflow, tag-page heading",
 		noEmptyRung: "the repo would create an empty tag but the HTTP layer refuses one, so " +
 			"seeding it would show a state the app cannot reach; the empty tag *row* " +
 			"is the tags=00 rung",
 		rungs: texts(namePalette(kindTag)...),
+	},
+
+	// The derived kinds that render pictures. A tag has no image dimension because
+	// it has no image: it is a chip and a heading, and slotsFor says so.
+	//
+	// These come after the text dimensions and must, for the same reason those come
+	// after the video ones: each rung seeds a carrier video, and blocks ascend
+	// within an entity kind because they share one ID sequence.
+	{
+		key:    "personimage",
+		entity: kindPerson,
+		block:  derivedBase + 3*blockSize,
+		finds:  "avatar crop at every size, the 8/3 hero banner, gallery tile shape",
+		// The most image-dense entity in the app: four slots, three of them core, and
+		// the headshot is rendered at w-12, w-20 and w-32 on different pages from the
+		// same stored file. `ratio` is the rung to look at first — a 21/9 headshot is
+		// in the ticket by name, and object-position: center 28% means a cover crop
+		// here is not even centred.
+		rungs: images(imagePalette...),
+	},
+	{
+		key:    "studioimage",
+		entity: kindStudio,
+		block:  derivedBase + 4*blockSize,
+		finds:  "logo letterboxing, the transparent-logo black plate, list-well icon width",
+		// The one kind whose slots are object-contain, which makes it the only place
+		// the `alpha` rung shows something `black` does not: a flattened transparent
+		// logo is a plate that does not fill its well rather than an image that does.
+		// Against these three dark skins it reads as a logo that half-disappeared, not
+		// as an obvious black box — which is the harder failure to notice.
+		rungs: images(imagePalette...),
 	},
 }
 
@@ -546,21 +632,24 @@ const loremMin = 1500
 // into a bug report self-describing.
 func encodeName(kind entityKind, s spec) string {
 	if kind.derived() {
-		// A derived entity's own name *is* the rung, so its coordinate cannot also
-		// be its name — the whole point of the empty-adjacent rungs is that nothing
-		// is prefixed onto them. The coordinate still goes in the manifest, where it
-		// is read rather than rendered; the page shows the raw variant.
-		return fmt.Sprintf("STRESS %s text=%s", strings.ToUpper(string(kind)), s.text.key)
+		// A derived entity's coordinate is not always its name: when the dimension
+		// owns the name (persontext and friends) the page shows the raw variant and
+		// this is only what the manifest and the carrier video carry. When it does
+		// not — personimage, studioimage — this *is* the entity's name, and every
+		// rung needs a different one or resolveOrCreateByName would fold the whole
+		// dimension into a single entity. Which is why the image axis has to be here.
+		return fmt.Sprintf("STRESS %s text=%s image=%s",
+			strings.ToUpper(string(kind)), s.text.key, s.image.key)
 	}
 	if kind == kindFilm {
 		// A film's name is also its identity: CreateFilm resolves-or-creates by
 		// (name, year), so two rungs sharing a name would silently become one
-		// film. Every film rung varies one of these two axes, so the pair is
+		// film. Every film rung varies one of these three axes, so the triple is
 		// unique across the whole film half of the ladder.
-		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d", s.cast, s.scenes)
+		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d image=%s", s.cast, s.scenes, s.image.key)
 	}
-	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s",
-		s.people, s.tags, s.studios, s.text.key)
+	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s image=%s",
+		s.people, s.tags, s.studios, s.text.key, s.image.key)
 }
 
 // ladderDemands is the highest rung the table reaches on each axis that has to be

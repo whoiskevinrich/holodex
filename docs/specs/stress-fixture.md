@@ -178,12 +178,40 @@ seen but can break a button is worth less than no rung. Parked as HOLODEX-352, t
 UI renders roles. **Generalising: a rung is only real if the UI renders it** — the same shape as
 HOLODEX-347's "a rung is only real if the resolver can express it", one layer further out.
 
-### D8 — Brightness is one image rung of six.
+### D8 — Brightness is one image rung of seven, and the images go in through the app's normalizer.
 
 Bright backgrounds catch text-over-image contrast — real, and retained. But `app.css` hardcodes
 `2/3` poster, `1/1` headshot and `8/3` banner frames, and `cropGeometry.ts` is keyed to those
-rules, so **wrong aspect ratios** matter as much as brightness. The full set: bright, pure black,
-wrong ratio, degenerate 32px, transparent PNG, and a referenced-but-missing asset.
+rules, so **wrong aspect ratios** matter as much as brightness. The set is `none`, `bright`,
+`black`, `ratio`, `tiny`, `alpha`, `missing` — one dimension each for the four kinds that render a
+picture (video, film, person, studio); a tag has none, because a tag is a chip and a heading.
+
+Three things HOLODEX-345 settled that the original wording got wrong:
+
+- **`none` and `missing` are two rungs, not one.** "No image" draws the UI's own empty state and
+  issues no request. "Referenced but absent" is a row pointing at a file that is not there, and it
+  fails *three different ways*: `EntityImageSlot` (studio, film) has no error handler at all and
+  draws the browser's broken-image glyph, `PersonImageFrame` hides the `img` and leaves an empty
+  well, and `VideoCard` retries five times with backoff before falling back to a play glyph. Only
+  the second of those was in the original list.
+- **"Transparent PNG" is not a state the app can store**, so the rung is the *flattening* instead.
+  Every ingest path runs `personimage.Normalize`, which re-encodes to JPEG; JPEG has no alpha and
+  Go premultiplies, so a transparent pixel is written as pure black whatever colour sits under it
+  (asserted by `TestAlphaFlattensToBlack`). The `alpha` rung therefore seeds a transparent-background
+  PNG *source* and lets the normalizer do what it does to a real uploaded logo. It differs from
+  `black` only where the frame is `object-contain` — the studio logo and icon, the film banner —
+  and it is kept on the cover frames anyway so one rung key means one thing on every kind.
+- **Every skin is a dark ground**, so `black` is the quieter failure rather than the obvious one:
+  a black plate reads as an absent image, not a broken one. (The spec's earlier draft of this
+  section assumed a light skin to check against; there isn't one.)
+
+**Consequence**: the seeder writes its bytes through `Normalize` with each kind's own configured
+`*_MAX_DIMENSION`, so the stored size is the size the running app would store — a studio's 1000px
+cap reshapes the `ratio` rung's 1400×600 to 1000×428, and the manifest reports what landed rather
+than what was asked for. And because nothing cascades from the database to the asset directories,
+a run clears them first: a video thumbnail is addressed by video id alone, video ids are stable by
+D4, so a file left by an earlier run would sit exactly where the next run's `missing` rung must
+not have one.
 
 ### D9 — Enrichment stresses both ADR-090 layers, config-first.
 
@@ -234,7 +262,7 @@ Rungs are illustrative; the authoritative list is the declarative table in the s
 | Film → scenes | 0, 1, 6, 12 | scene badge, ordering, empty film |
 | Video title + overview | empty, 1 char, 1500 lorem, 60-char unbroken, CJK, RTL, mixed bidi, emoji, diacritics | wrap, truncation, container overflow, bidi bleed |
 | Person / studio / tag name | the same palette less `empty` and `lorem` (see D11) | heading wrap, the docked rename pencil, cast-tile and chip labels |
-| Images | bright, black, wrong ratio, 32px, transparent, missing | contrast, crop geometry, broken-image path |
+| Images (×4 kinds) | none, bright, black, ratio, tiny, alpha, missing | contrast, crop geometry, the three broken-image paths |
 | Collection size | `--count` 100 default, `--big` ~2000 | pagination, virtualization, scroll perf |
 
 **Note on scenes**: "scene" is not an entity — `film_videos.scene_number` is a role a video plays

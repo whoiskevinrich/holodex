@@ -153,7 +153,21 @@ func run(dataPath string, count int, seed uint64, mappingsPath string) error {
 		return fmt.Errorf("create empty media dir: %w", err)
 	}
 
-	entries, err := generate(ctx, database, repo.New(database), ff)
+	// The maxima are the server's own configured downscale limits, not numbers
+	// chosen here: Normalize applies them on every real ingest, so passing anything
+	// else would store an image at a size the running app never would — and the
+	// wrong-ratio rung is precisely a claim about stored size (images.go).
+	targets := imageTargets{
+		thumbnailDir: cfg.ThumbnailPath,
+		personDir:    cfg.PersonImagePath,
+		studioDir:    cfg.StudioImagePath,
+		filmDir:      cfg.FilmImagePath,
+		personMaxDim: cfg.PersonImageMaxDimension,
+		studioMaxDim: cfg.StudioImageMaxDimension,
+		filmMaxDim:   cfg.FilmImageMaxDimension,
+	}
+
+	entries, err := generate(ctx, database, repo.New(database), ff, targets)
 	if err != nil {
 		return err
 	}
@@ -227,7 +241,12 @@ func printPaletteExclusions() {
 	byReason := map[string][]exclusion{}
 	var order []string
 	for _, dim := range ladder {
-		if !dim.entity.derived() {
+		// Only the dimensions built from namePalette — the ones whose rungs *are*
+		// names. A derived kind now also has an image dimension (HOLODEX-345), which
+		// draws no rung from the text palette at all; listing its exclusions would
+		// claim it lost rungs it never asked for, and would print each kind's
+		// exclusions twice besides.
+		if !dim.entity.derived() || !dim.ownsTitle {
 			continue
 		}
 		for _, v := range textPalette {

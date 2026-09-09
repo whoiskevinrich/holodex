@@ -491,11 +491,31 @@ func seedInto(t *testing.T, dir string) ([]entry, *sql.DB) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 
-	entries, err := generate(context.Background(), database, repo.New(database), testFields(t))
+	entries, err := generate(context.Background(), database, repo.New(database), testFields(t), testTargets(dir))
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
 	return entries, database
+}
+
+// testTargets puts the asset roots under the same directory as the database, the
+// way config.derive() does, so a seeded run's images land inside the test's own
+// temp dir and the file half of a rung can be inspected.
+//
+// The maxima are the production defaults from config.Defaults(). They are copied
+// rather than imported so a test that starts failing because the app lowered a
+// downscale limit fails *here*, naming the fixture, instead of silently storing
+// something smaller than the manifest describes.
+func testTargets(dir string) imageTargets {
+	return imageTargets{
+		thumbnailDir: filepath.Join(dir, "thumbnails"),
+		personDir:    filepath.Join(dir, "person-images"),
+		studioDir:    filepath.Join(dir, "studio-images"),
+		filmDir:      filepath.Join(dir, "film-images"),
+		personMaxDim: 2000,
+		studioMaxDim: 1000,
+		filmMaxDim:   1500,
+	}
 }
 
 // testMappingsYAML is the minimal mapping the seeder needs to build its derived

@@ -80,7 +80,9 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
    half gained `overview` and two rungs the palette was missing (`bidi`, multi-codepoint
    `emoji`), and three derived dimensions address the person, studio and tag *names*
    (`persontext`, `studiotext`, `tagtext`). Two deliberate deviations, both below
-9. [ ] [dev-tooling] **HOLODEX-345** — adversarial image set
+9. [x] [dev-tooling] **HOLODEX-345** — adversarial image set. Thirteen dimensions now: one
+   image dimension per picture-rendering kind (`videoimage`, `filmimage`, `personimage`,
+   `studioimage`), seven rungs each. Two deviations from the ticket's AC, both below
 10. [ ] [dev-tooling] **HOLODEX-350** — collection breadth at `--count` and `--big`
 11. [ ] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers
 12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
@@ -106,7 +108,55 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-08 (last) · HOLODEX-346 — text palette across every free-text field
+### 2026-09-08 (last) · HOLODEX-345 — adversarial image set across four kinds
+- skills: code-review
+- **"Fully transparent PNG" is not a state this app can store, so the rung became the
+  *flattening* instead.** Every ingest path runs `personimage.Normalize`, which
+  re-encodes to JPEG; JPEG has no alpha and Go reads pixels premultiplied, so a
+  transparent pixel is written as pure black *whatever colour sits under it* — proven
+  by feeding it explicitly-white transparent pixels and getting rgb(0,0,0) back. A
+  literal "transparent" rung would therefore have been a byte-identical duplicate of
+  `black`. The rung now seeds a transparent-background PNG **source** and lets the
+  normalizer do to it what it does to a real uploaded logo. That is the third instance
+  of this epic's pattern — 347's "only real if the resolver can express it", 346's
+  "only real if the UI renders it", and now **only real if the storage layer can hold it**.
+- **Where that rung earns its place is narrower than it looks, and the narrowing is the
+  useful part.** A black plate under `object-cover` fills the frame and is honestly
+  indistinguishable from `black`. Under `object-contain` — the studio logo and icon, the
+  film banner — it does not fill its well, so it reads as a logo that half-disappeared.
+  Kept on the cover frames anyway so one rung key means one thing on every kind. Also
+  corrected a claim I had written twice: **there is no light skin**; all three compute a
+  near-black body background, which makes `black` the *quiet* failure rather than the
+  obvious one.
+- **The bytes go through the app's normalizer, and that decision did real work.** Passing
+  each kind's own configured `*_MAX_DIMENSION` means the studio's 1000px cap reshapes the
+  ratio rung's 1400×600 to 1000×428 — the size the running app would actually store, and
+  the size the manifest now reports. Verified live: a 21/9 headshot and a 1/1 poster, the
+  ticket's two named cases, at the addresses the manifest gives.
+- **A monogram that states a size must state the stored one.** The first cut computed the
+  label before the downscale, so the studio ratio rung would have carried "1400x600"
+  burned into a 1000×428 file — a wrong answer in the one place a reader cannot check it.
+  Fixed by giving the renderer and the label a single `geometry()` and pre-sizing inside
+  the cap so `Normalize` has nothing left to resize.
+- **Six mutations, one of which exposed a hole in my own test.** Deleting `clearImages`
+  left the reseed test green, because it planted its stale file against a *person* image —
+  whose id comes from an unsteered AUTOINCREMENT, so run two writes new rows at new ids
+  and never looks there. The case that actually matters is the **video**: a thumbnail is
+  addressed by video id alone and video ids are stable by D4, so a leftover file sits
+  exactly where the next run's `missing` rung must not have one. Retargeted; all six
+  mutations now fail with their intended diagnostic.
+- Two findings the ladder's own guards caught: `nameAxes.Value` promised "the name as
+  stored" but reported the text variant, which is false for a dimension that names its
+  entity from the coordinate (HOLODEX-344's file-layer test failed on all 14 rungs); and
+  the palette-exclusion report printed each derived kind twice once a kind had two
+  dimensions.
+- Handoff: `go run ./testdata/stressseed` seeds 81 entities across 13 dimensions; all 28
+  image rungs and 62 image references verified through the live API after a boot —
+  `none` references nothing, `missing` 404s on every slot, everything else 200s as JPEG.
+  Next is HOLODEX-350 (breadth at `--count`/`--big`), then 348 (enrichment), then 349
+  (the assertion harness — the last open gate).
+
+### 2026-09-08 · HOLODEX-346 — text palette across every free-text field
 - skills: code-review
 - **A rung is only real if the UI renders it** — 347's "only real if the resolver can
   express it", one layer further out. The ticket named `role` as a free-text field to

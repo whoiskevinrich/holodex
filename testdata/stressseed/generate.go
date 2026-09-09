@@ -35,13 +35,20 @@ var seededTables = []string{"videos", "films", "people", "studios", "tags", "ide
 // baseline, mutates exactly one axis, and becomes exactly one entity. There is
 // deliberately no nesting here — a cross-product would be a loop inside this
 // loop, and its absence is the design.
-func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFields) ([]entry, error) {
+func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFields, targets imageTargets) ([]entry, error) {
 	if err := validateLadder(ladder); err != nil {
 		return nil, err
 	}
 	if err := reset(ctx, database); err != nil {
 		return nil, err
 	}
+	// The database half of the clear cascades from reset()'s entity tables; the
+	// files do not cascade from anything, and a stale one would make the `missing`
+	// rung show a working image. See clearImages.
+	if err := clearImages(targets); err != nil {
+		return nil, err
+	}
+	images := imageWriter{repo: r, targets: targets}
 
 	// Supporting entities are steered once, into the pool range above every
 	// dimension block, so a person created to satisfy a cardinality rung can
@@ -93,6 +100,14 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 					dim.key, rg.variant, id, dim.block, dim.block+blockSize)
 			}
 
+			// Unconditional, and a no-op for every dimension that is not an image one:
+			// the baseline carries imageNone, so only an image rung has anything to
+			// write. Done here rather than inside materialize because this is the one
+			// place that holds the id and the spec at the same time, for all five kinds.
+			if err := images.seed(ctx, dim.entity, id, s.image); err != nil {
+				return nil, fmt.Errorf("%s=%s images: %w", dim.key, rg.variant, err)
+			}
+
 			entries = append(entries, entry{
 				ID:        id,
 				Entity:    dim.entity,
@@ -101,7 +116,7 @@ func generate(ctx context.Context, database *sql.DB, r *repo.Repo, ff fixtureFie
 				Value:     rg.value,
 				Name:      encodeName(dim.entity, s),
 				URL:       dim.entity.urlFor(id),
-				Axes:      axesOf(dim.entity, s),
+				Axes:      axesOf(dim, s),
 			})
 		}
 	}
@@ -237,7 +252,12 @@ func materializeVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 // One carrier per rung rather than one per dimension, so exactly one row enters
 // the table per rung and the block's addresses stay in rung order.
 func materializeNamed(ctx context.Context, r *repo.Repo, ff fixtureFields, dim dimension, rg rung, s spec) (int64, error) {
-	name := s.text.value
+	// The same rule the video half uses: the entity's name is the raw variant when
+	// this dimension is the one torturing names, and the coordinate otherwise. An
+	// image dimension needs the coordinate — every rung shares the baseline text, so
+	// naming them all from it would fold the whole dimension into one entity via
+	// resolveOrCreateByName.
+	name := title(dim, s)
 
 	var l links
 	switch dim.entity {
@@ -256,9 +276,13 @@ func materializeNamed(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 
 	// The carrier's title is the coordinate, not the variant: it is the one page in
 	// this dimension that is *not* the thing under test, so it should say so rather
-	// than wear the tortured name too.
+	// than wear the tortured name too. It says "carrier" out loud because on an
+	// image dimension the addressed entity is named from the same coordinate, and
+	// two pages showing the identical heading would be a fixture that cannot tell
+	// you which one you are looking at.
 	carrier, err := upsertVideo(ctx, r, ff,
-		fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant), encodeName(dim.entity, s), l, "")
+		fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
+		encodeName(dim.entity, s)+" carrier", l, "")
 	if err != nil {
 		return 0, fmt.Errorf("carrier video: %w", err)
 	}
