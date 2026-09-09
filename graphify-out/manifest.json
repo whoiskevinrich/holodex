@@ -6006,9 +6006,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/claim.go": {
-    "mtime": 1788894471.6522913,
-    "seen": 1788894557.1842074,
-    "ast_hash": "3942a9a5ccf0e386c41c5219e07b944b",
+    "mtime": 1788917566.9636638,
+    "seen": 1788917910.964961,
+    "ast_hash": "48c1982fa4412195308fe77eece55139",
     "semantic_hash": ""
   },
   "testdata/stressseed/claim_test.go": {
@@ -6018,9 +6018,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/main.go": {
-    "mtime": 1788912955.9031725,
-    "seen": 1788914263.7972558,
-    "ast_hash": "26edd9c9ea6d7f0a2053f4114ae15825",
+    "mtime": 1788917437.8529255,
+    "seen": 1788917910.9649723,
+    "ast_hash": "9db9f73a8f9e5231fe7f9534c47bc11b",
     "semantic_hash": ""
   },
   "docs/architecture/ADR-094-local-dev-credentials-from-environment.md": {
@@ -6036,21 +6036,21 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-342.md": {
-    "mtime": 1788914231.2478077,
-    "seen": 1788914263.7978232,
-    "ast_hash": "a306ed8f199620024e7df09c46637369",
+    "mtime": 1788917854.8774693,
+    "seen": 1788917910.9655864,
+    "ast_hash": "fd4a825be11722e8f11dce961f0993ae",
     "semantic_hash": ""
   },
   "docs/specs/stress-fixture.md": {
-    "mtime": 1788913664.7995265,
-    "seen": 1788914263.7978926,
-    "ast_hash": "c8cb94237f72c987440d455f78081d9b",
+    "mtime": 1788917723.591622,
+    "seen": 1788917910.9656599,
+    "ast_hash": "da106f1685cffc021d2e4abd80d3db23",
     "semantic_hash": ""
   },
   "testdata/stressseed/README.md": {
-    "mtime": 1788909192.9705267,
-    "seen": 1788909818.0973642,
-    "ast_hash": "4fe5e3f8eb03361ad227d52f85279c0b",
+    "mtime": 1788917741.1673656,
+    "seen": 1788917910.9656959,
+    "ast_hash": "7394f52912b0fca8703a26e75ec11508",
     "semantic_hash": ""
   },
   "testdata/stressseed/filelayer.go": {
@@ -6060,27 +6060,27 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/generate.go": {
-    "mtime": 1788913854.043448,
-    "seen": 1788914263.797248,
-    "ast_hash": "d9a0f0af6a63f9919cca61d0abd6ffa2",
+    "mtime": 1788917000.370389,
+    "seen": 1788917910.9649658,
+    "ast_hash": "559438eb3b930f4a88d91d2a237c265a",
     "semantic_hash": ""
   },
   "testdata/stressseed/ladder.go": {
-    "mtime": 1788913867.0264544,
-    "seen": 1788914263.7972531,
-    "ast_hash": "9659e43a93c67e0c331a08fc9908ce40",
+    "mtime": 1788917000.289848,
+    "seen": 1788917910.9649696,
+    "ast_hash": "533f32cf9ec8f1f6f42e300c99b2b9b1",
     "semantic_hash": ""
   },
   "testdata/stressseed/ladder_test.go": {
-    "mtime": 1788912485.5696,
-    "seen": 1788914263.7972543,
-    "ast_hash": "53c6271be385143fac52363fb91a079b",
+    "mtime": 1788917075.98219,
+    "seen": 1788917910.964971,
+    "ast_hash": "e63747a575d96750d5025be06066061c",
     "semantic_hash": ""
   },
   "testdata/stressseed/manifest.go": {
-    "mtime": 1788912577.085948,
-    "seen": 1788914263.7972567,
-    "ast_hash": "41cb3ec5fbb0fb6aaae187ce0f6804ca",
+    "mtime": 1788917031.1349106,
+    "seen": 1788917910.9649734,
+    "ast_hash": "cfa3a5af712bd45f7167f5e1c50dc044",
     "semantic_hash": ""
   },
   "testdata/stressseed/mappings.yaml": {
@@ -6099,6 +6099,18 @@
     "mtime": 1788913784.8725839,
     "seen": 1788914263.797252,
     "ast_hash": "5db29d7b712568e12537f52b8a60fa57",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/breadth.go": {
+    "mtime": 1788917321.4461563,
+    "seen": 1788917910.9649575,
+    "ast_hash": "c8be8495bada2a0c8e8cfe02785993e1",
+    "semantic_hash": ""
+  },
+  "testdata/stressseed/breadth_test.go": {
+    "mtime": 1788917448.1509368,
+    "seen": 1788917910.9649594,
+    "ast_hash": "015f4c3662a27ff36d2cbc4162b37064",
     "semantic_hash": ""
   }
 }
