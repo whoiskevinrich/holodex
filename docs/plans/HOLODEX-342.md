@@ -53,8 +53,9 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 - [~] architecture `architecture` — not applicable; dev-time seam, no production code path. The
   seeder writes through existing repo APIs. Revisit only if it needs a hook the server binary ships
 - [~] design `design-handoff` — not applicable; no user-facing surface
-- [ ] testing `testing-strategy` — `docs/testing-strategy.md` to describe the geometry-assertion
-  harness and when to add an assertion (HOLODEX-349)
+- [x] testing `testing-strategy` — `docs/testing-strategy.md` §12 describes the harness, the
+  loop it serves, when to add an assertion and when not to, and the four ways it refuses to
+  hide a green-but-empty run (HOLODEX-349)
 - [~] security `security-review` — not applicable; no auth, access, or production infrastructure
   change. The seeder's blast radius is bounded by D5 (isolated `DATA_PATH` + refuse-if-not-mine)
 - [~] three-skin QA — not applicable to the fixture itself; it is the *instrument* for three-skin QA
@@ -90,9 +91,14 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 11. [x] [enrichment] **HOLODEX-348** — enrichment stress profile, both ADR-090 layers. Ten
     fake providers on one process; the precedence half became a ladder dimension
     (`enrich`, block 900) rather than config alone, which amended D9 — see below
-12. [ ] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
-13. [ ] [review] First three-skin run against the fixture. If it finds zero unknown bugs, the
-    fixture is not adversarial enough — treat that as a failure of the fixture, not a pass
+12. [x] [testing] **HOLODEX-349** — geometry assertion harness + `docs/testing-strategy.md`
+    §12. `web/geometry/`, Playwright, three skins × two widths. Found three unknown bugs on
+    its first full run — **HOLODEX-355**, **HOLODEX-356**, **HOLODEX-357** — all filed and
+    marked `blockedBy` so the run is green while they are open
+13. [ ] [review] First three-skin run against the fixture — the *human* pass. The
+    machine-measurable half already ran (HOLODEX-349) and cleared the bar: three unknown
+    bugs. What is left is everything geometry cannot see — the image rungs especially, whose
+    frames are aspect-locked so the box measures correct however wrong the pixels are
 14. [ ] [dev-tooling] **HOLODEX-352** — torture the person `role` string, *after* the UI
     renders one. Split out of 346: role is free text with no validation, so a rung would
     seed cleanly and find nothing — no component interpolates a role, `credited_roles` has
@@ -113,7 +119,62 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-09 (last) · HOLODEX-348 — ten fake providers, and the half that had to be seeded
+### 2026-09-09 (last) · HOLODEX-349 — the regression mechanism, and the three bugs it found
+- skills: code-review, handoff
+- **The harness asserts a property, never a page, and that is the whole deliverable.**
+  `web/geometry/assertions.mjs` is the file a human edits; everything else is machinery.
+  One entry — *any page where `people >= 10`* — resolves through the manifest's `axes` to
+  the `people` rungs at 10/25/50 **and** the `filmcast` rungs at 10/25/50, in six
+  skin/width cells: 36 checks from four lines, and it picks up an 80-person rung the day
+  one is added, unedited. Owner chose Playwright (a `web/` devDependency) over a
+  hand-rolled CDP driver, and 3 skins × 2 widths (1440/768) over skins alone — the
+  canonical complaint is width-dependent and `.stage-grid` changes shape below `lg`.
+- **Three unknown bugs on the first full run, which is the bar the epic set for itself.**
+  **HOLODEX-355** is the big one and it is *structural, not textual*: `@utility stage-grid`
+  applies its `minmax(0, …)` guard only inside `@media (width >= lg)`, so below `lg` the
+  implicit `auto` column takes the item's min-content — 1184px inside a 720px container —
+  and every media and film detail page scrolls sideways by 440px at 768. It reproduces on
+  `text/empty`, which is how it was told apart from the torture text. The utility's own
+  comment already documents that exact failure mode for the two-column case. **HOLODEX-356**
+  is two more overflow sources with different causes (header nav +10px at 768; the person
+  hero +17px at 1440 on the `unbroken` rung — the one finding only the text ladder could
+  produce). **HOLODEX-357** is a decision, not a defect: tag chips are 20px and source
+  chips 22px against WCAG 2.2 AA's 24×24, a bar this project has not explicitly adopted, so
+  the ticket puts it to the owner rather than asserting it.
+- **`blockedBy` exists because of those three, and its first version was wrong.** A filed,
+  unfixed bug must not turn the run red, but a *stale* marker is how a fixed bug stops
+  being guarded — so a fully-passing marked assertion goes red with `NEWS`. Scoring that
+  per page produced **101 false alarms**: while a bug is open most pages still pass. The
+  verdict is now reached once over the whole assertion (`reconcileBlocked`), and the
+  regression is pinned by a test that names the number.
+- **The vacuity guard caught a defect in the harness itself, on its first live run.** A
+  selector matching nothing satisfies "every match is ≥40px" trivially, so it is reported
+  as `VOID`, not a pass. It fired on the enrichment assertion — and the cause was real:
+  owner-gated surfaces mount only after `/capabilities` answers, so the harness had been
+  measuring an empty visitor page. `goto` now registers that wait *before* navigating.
+- Four fixes from the code-review pass, each a real failure: `process.exit()` can truncate
+  a piped report before stdout flushes (now `process.exitCode`); an unknown `--skin` was
+  unvalidated and turned a typo into six cells of 15s timeouts; a manifest with no video
+  entity crashed preflight with a bare `TypeError`; and `scrollWidth - clientWidth` reads a
+  confident **0** on a non-scrollable inline box — precisely the elements whose text is
+  most likely to be spilling — so the probe now reports it unmeasurable and `evaluate`
+  refuses to score it.
+- Preflight refuses to measure the wrong server: `/capabilities` for `owner` +
+  `films_enabled`, then one seeded entity's title compared against the manifest. Every
+  backend profile binds `:7800`, and a dev server in a worktree without its own
+  `launch.json` serves a different checkout without erroring.
+- Verified live end to end: 234 checks across six cells in 45s, exit 0. The `-big` path was
+  verified separately by reseeding — the `requires` gate opens, count mode measures
+  **2064** rows on `/people`, matching HOLODEX-354's own figure independently.
+- handoff: HOLODEX-349 is done and verified live; the `testing` gate was the epic's last
+  open one, so **all six gates are now green and PR #313 is ready to be marked ready for
+  review** — which is also the moment to sweep every completed child to `In Review` by hand
+  (CI moves only HOLODEX-342). Note the fixture is currently seeded **`-big`**, so the
+  server takes ~72s to boot (HOLODEX-353); reseed without `-big` for a fast loop. What is
+  left on the epic is the *human* three-skin pass (item 13) — the image rungs especially,
+  which geometry cannot see by design.
+
+### 2026-09-09 · HOLODEX-348 — ten fake providers, and the half that had to be seeded
 - skills: code-review, handoff
 - **Config-first reached the state but never addressed it, so D9 is amended.** The
   ticket asked for provider entries pointing at one stub; that gets five competing
@@ -165,7 +226,7 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
   open gate (`testing`) on this epic; the enrich dimension was built specifically to
   give it something to assert about enrichment.
 
-### 2026-09-08 (last) · HOLODEX-350 — collection breadth, and the first bugs it found
+### 2026-09-08 · HOLODEX-350 — collection breadth, and the first bugs it found
 - skills: code-review
 - **The fixture did its job on the first run: two real product bugs, neither known.**
   **HOLODEX-353** — the server blocks for **72 seconds** before listening at 2076
