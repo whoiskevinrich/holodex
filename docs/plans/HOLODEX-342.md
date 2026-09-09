@@ -49,7 +49,7 @@ films and scene numbering are ADR-085's; the three-skin obligation is ADR-021's.
 ## Gates — definition of done
 
 - [x] spec `write-spec` — `docs/specs/stress-fixture.md` (D1–D9, ladder table, acceptance criteria,
-  two open questions). Jira `needs-spec` label to clear once reviewed
+  two open questions). Reviewed by the owner; Jira `needs-spec` label cleared 2026-09-09
 - [~] architecture `architecture` — not applicable; dev-time seam, no production code path. The
   seeder writes through existing repo APIs. Revisit only if it needs a hook the server binary ships
 - [~] design `design-handoff` — not applicable; no user-facing surface
