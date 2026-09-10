@@ -368,8 +368,14 @@
 								onchanged={reloadDetail}
 							/>
 						</div>
-						<div class="flex-1 space-y-2">
-							<h1 class="skin-title text-2xl font-semibold text-ink">{film.name}</h1>
+						<!-- `min-w-0` + `break-words` (HOLODEX-356): this column is a flex item, so without
+						     the floor removed its automatic minimum size is the widest unbreakable word in
+						     the film's name and a 60-character title widens the whole page. The title is
+						     content, so it breaks across lines rather than truncating. The film pages have
+						     no text rung in the geometry fixture, so nothing guards this — measured by hand
+						     at 768px: +251px before, 0 after. -->
+						<div class="min-w-0 flex-1 space-y-2">
+							<h1 class="skin-title break-words text-2xl font-semibold text-ink">{film.name}</h1>
 
 							<!-- Year (F59/HOLODEX-317). Reuses the Media page's edit affordance rather than
 							     imitating it — this page previously hand-rolled `name-edit-row`/

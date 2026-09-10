@@ -174,7 +174,14 @@
 	</form>
 {:else}
 	<div {id} class="name-edit-row flex items-center gap-2">
-		<svelte:element this={as} class={headingClass}>{name || placeholder || ''}</svelte:element>
+		<!-- `min-w-0 break-words` is the row's own overflow guard (HOLODEX-356), not a caller
+		     concern: the heading is a flex item, so its automatic minimum size is the widest
+		     unbreakable word in the name — a 60-character token then widens the row, the page,
+		     and every page's horizontal scrollbar with it. `min-w-0` lets the item shrink and
+		     `break-words` breaks the token instead of painting past the edge. Both are inert
+		     against an ordinary name, and inert again when a caller passes `truncate` (person),
+		     whose `white-space: nowrap` takes `overflow-wrap` out of play. -->
+		<svelte:element this={as} class="min-w-0 break-words {headingClass}">{name || placeholder || ''}</svelte:element>
 		{#if trailing}{@render trailing()}{/if}
 		{#if isOwner}
 			<button

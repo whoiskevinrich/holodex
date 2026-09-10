@@ -162,7 +162,15 @@
 	}
 </script>
 
-<header class="flex items-center justify-between gap-4 border-b border-rule px-6 py-3">
+<!-- `flex-wrap` here and on the nav below is the header's narrow-width guard (HOLODEX-356).
+     In owner view the bar carries ~800px of content — logo, search, five content links, the
+     activity dot and the three owner controls — against 705px of usable width at 768px. As one
+     unwrappable row the only item that could shrink was the search box, which collapsed to its
+     42px min-content (an unusable input) and *still* left the nav 47px past the edge, so every
+     page scrolled sideways. Wrapping spends vertical space instead: the nav drops to its own row
+     and the search box keeps its full `max-w-md`. Both are no-ops at desktop width, where the row
+     fits as before. -->
+<header class="flex flex-wrap items-center justify-between gap-4 border-b border-rule px-6 py-3">
 	<a href="/" class="skin-title text-lg font-semibold tracking-tight text-ink">Holodex</a>
 
 	<form
@@ -274,7 +282,11 @@
 		{/if}
 	</form>
 
-	<nav class="flex items-center gap-3 text-sm text-muted">
+	<!-- Wraps for the same reason as the header (HOLODEX-356): on a phone the nav alone is wider
+	     than the viewport, so it needs a second line of its own. Left-aligned on that line, under
+	     the logo — `justify-between` places a lone wrapped item at the start, and matching the
+	     logo's edge reads better than a right-aligned orphan row. -->
+	<nav class="flex flex-wrap items-center gap-3 text-sm text-muted">
 		<a href="/" class="hover:text-ink">Media</a>
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/studios" class="hover:text-ink">Studios</a>

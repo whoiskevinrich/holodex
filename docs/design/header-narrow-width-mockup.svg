@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" role="img"
+     aria-labelledby="title desc" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <title id="title">The Holodex header at 768px, before and after the wrap fix</title>
+  <desc id="desc">Before: the search box is crushed to 42 pixels and the nav runs 47 pixels past
+    the right edge of the viewport. After: the header wraps, the search box is back to its full
+    448 pixels on the first row and the nav sits on a second row, left-aligned under the logo.</desc>
+
+  <rect x="0" y="0" width="760" height="400" fill="#ffffff"/>
+
+  <text x="40" y="34" font-size="15" font-weight="600" fill="#111827">Header at 768px, owner view</text>
+  <text x="40" y="54" font-size="12" fill="#6b7280">HOLODEX-356 — the bar carries ~800px of content into 705px of usable width</text>
+
+  <text x="40" y="88" font-size="13" font-weight="600" fill="#b91c1c">Before</text>
+
+  <rect x="40" y="98" width="640" height="60" fill="#fafaf9" stroke="#d6d3d1"/>
+  <line x1="40" y1="158" x2="680" y2="158" stroke="#d6d3d1"/>
+  <text x="60" y="133" font-size="12" font-weight="600" fill="#111827">Holodex</text>
+  <rect x="118" y="118" width="35" height="22" fill="#ffffff" stroke="#a8a29e"/>
+  <text x="122" y="133" font-size="9" fill="#a8a29e">42px</text>
+  <text x="168" y="132" font-size="11" fill="#57534e">Media · People · Studios · Tags · Films</text>
+  <line x1="352" y1="112" x2="352" y2="146" stroke="#d6d3d1"/>
+  <circle cx="366" cy="129" r="4" fill="#c2410c"/>
+  <text x="378" y="133" font-size="11" fill="#57534e">Owner</text>
+  <rect x="422" y="119" width="66" height="20" rx="4" fill="#fed7aa" stroke="#fb923c"/>
+  <text x="429" y="133" font-size="10" fill="#7c2d12">Owner view</text>
+  <rect x="496" y="119" width="146" height="20" rx="4" fill="#ffffff" stroke="#a8a29e"/>
+  <text x="503" y="133" font-size="10" fill="#57534e">Cinémathèque  ● ● ●</text>
+
+  <rect x="680" y="98" width="52" height="60" fill="#fee2e2"/>
+  <line x1="680" y1="90" x2="680" y2="170" stroke="#b91c1c" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="686" y="182" font-size="11" fill="#b91c1c">+47px</text>
+  <text x="40" y="182" font-size="11" fill="#b91c1c">Search collapsed to its 42px min-content — and the nav still runs off the page.</text>
+
+  <text x="40" y="234" font-size="13" font-weight="600" fill="#15803d">After — flex-wrap on the header and the nav</text>
+
+  <rect x="40" y="244" width="640" height="88" fill="#fafaf9" stroke="#d6d3d1"/>
+  <line x1="40" y1="332" x2="680" y2="332" stroke="#d6d3d1"/>
+  <text x="60" y="274" font-size="12" font-weight="600" fill="#111827">Holodex</text>
+  <rect x="118" y="259" width="373" height="24" rx="4" fill="#ffffff" stroke="#a8a29e"/>
+  <text x="126" y="275" font-size="10" fill="#a8a29e">Search everything…  (Ctrl-K)</text>
+  <text x="497" y="275" font-size="9" fill="#15803d">448px</text>
+
+  <text x="60" y="312" font-size="11" fill="#57534e">Media · People · Studios · Tags · Films</text>
+  <line x1="244" y1="296" x2="244" y2="324" stroke="#d6d3d1"/>
+  <circle cx="258" cy="309" r="4" fill="#c2410c"/>
+  <text x="270" y="313" font-size="11" fill="#57534e">Owner</text>
+  <rect x="314" y="299" width="66" height="20" rx="4" fill="#fed7aa" stroke="#fb923c"/>
+  <text x="321" y="313" font-size="10" fill="#7c2d12">Owner view</text>
+  <rect x="388" y="299" width="146" height="20" rx="4" fill="#ffffff" stroke="#a8a29e"/>
+  <text x="395" y="313" font-size="10" fill="#57534e">Cinémathèque  ● ● ●</text>
+
+  <line x1="680" y1="236" x2="680" y2="344" stroke="#15803d" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="40" y="356" font-size="11" fill="#15803d">Nothing off-screen. Nothing hidden. Header grows 46px taller; desktop is unchanged.</text>
+  <text x="40" y="380" font-size="11" fill="#6b7280">At 375px the nav takes a second line of its own — three rows, still no overflow.</text>
+</svg>

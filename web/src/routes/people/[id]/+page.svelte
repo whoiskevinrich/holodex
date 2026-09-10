@@ -465,7 +465,11 @@
 						? 'sm:rounded-theme sm:bg-black/55 sm:py-1.5 sm:pr-2'
 						: ''}"
 				>
-					<div class="flex items-end gap-4">
+					<!-- `min-w-0` (HOLODEX-356): this column is a flex item of the row above, so without it
+					     its automatic minimum size is its min-content — which an unbreakable 60-character
+					     name makes wider than the page. The `truncate` on the h1 inside cannot help, because
+					     the column never shrinks far enough to clip anything. -->
+					<div class="flex min-w-0 items-end gap-4">
 					{#if posterLed}
 						<!-- Poster-led: the poster is the primary avatar; the headshot rides as a small
 						     identity badge on its lower-left corner (the bg-bg padding stands in for a
