@@ -1,0 +1,83 @@
+<svg width="900" height="620" viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Manage block split button mockup</title>
+<desc>Before and after of the media detail page's owner-only Manage block. Before: Move to Trash and Delete permanently as two identical outline-warn buttons side by side. After: a single split button whose default segment is Move to Trash in outline warn and whose chevron segment opens a menu holding a solid-warn-filled Delete permanently item. The after state is shown resting and open across all three skins, with focus order and dismissal behaviour annotated.</desc>
+<rect width="900" height="620" fill="#f4f2ee"/>
+
+<text x="24" y="28" font-size="11" letter-spacing="1" fill="#8a8478">1 · MANAGE BLOCK — BEFORE (equal weight, adjacent, one overshoot apart)</text>
+<rect x="24" y="40" width="852" height="88" rx="6" fill="#060814" stroke="#1a2240"/>
+<text x="44" y="64" font-size="10" letter-spacing="1.2" fill="#6f7da6">MANAGE</text>
+<rect x="44" y="76" width="112" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<text x="100" y="96" font-size="12" fill="#ff6f61" text-anchor="middle">Move to Trash</text>
+<rect x="164" y="76" width="134" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<text x="231" y="96" font-size="12" fill="#ff6f61" text-anchor="middle">Delete permanently</text>
+<path d="M156 91 L164 91" stroke="#e24b4a" stroke-width="1.5"/>
+<text x="320" y="86" font-size="10" fill="#e24b4a">8px of gap is all that separates a recoverable action from an unrecoverable one.</text>
+<text x="320" y="102" font-size="10" fill="#e24b4a">Identical border, text colour, size and shape — nothing encodes which one is safe.</text>
+
+<text x="24" y="162" font-size="11" letter-spacing="1" fill="#8a8478">2 · AFTER — SPLIT BUTTON, RESTING (broadcast)</text>
+<rect x="24" y="174" width="414" height="104" rx="6" fill="#060814" stroke="#1a2240"/>
+<text x="44" y="198" font-size="10" letter-spacing="1.2" fill="#6f7da6">MANAGE</text>
+<rect x="44" y="210" width="112" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<text x="100" y="230" font-size="12" fill="#ff6f61" text-anchor="middle">Move to Trash</text>
+<rect x="156" y="210" width="28" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<path d="M163 221 l7 7 l7 -7" fill="none" stroke="#ff6f61" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="200" y="224" font-size="10" fill="#6f7da6">Default segment stays outline-warn:</text>
+<text x="200" y="238" font-size="10" fill="#6f7da6">still reads destructive, just recoverable.</text>
+<text x="44" y="262" font-size="10" fill="#6f7da6">Permanent delete is not on screen at rest.</text>
+
+<text x="462" y="162" font-size="11" letter-spacing="1" fill="#8a8478">3 · AFTER — MENU OPEN (broadcast)</text>
+<rect x="462" y="174" width="414" height="104" rx="6" fill="#060814" stroke="#1a2240"/>
+<text x="482" y="198" font-size="10" letter-spacing="1.2" fill="#6f7da6">MANAGE</text>
+<rect x="482" y="210" width="112" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<text x="538" y="230" font-size="12" fill="#ff6f61" text-anchor="middle">Move to Trash</text>
+<rect x="594" y="210" width="28" height="30" rx="2" fill="none" stroke="#ff6f61"/>
+<path d="M601 225 l7 -7 l7 7" fill="none" stroke="#ff6f61" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="482" y="244" width="164" height="30" rx="2" fill="#0b0f22" stroke="#1a2240"/>
+<rect x="486" y="248" width="156" height="22" rx="2" fill="#ff6f61"/>
+<text x="564" y="263" font-size="11" fill="#0a0610" text-anchor="middle">Delete permanently…</text>
+<text x="662" y="256" font-size="10" fill="#6f7da6">Solid fill = heavier than the</text>
+<text x="662" y="270" font-size="10" fill="#6f7da6">default. 7.36:1 (AA pass).</text>
+
+<text x="24" y="312" font-size="11" letter-spacing="1" fill="#8a8478">4 · ALL THREE SKINS — RESTING, THEN OPEN</text>
+
+<rect x="24" y="324" width="272" height="150" rx="6" fill="#0c0a09" stroke="#2a2622"/>
+<text x="40" y="344" font-size="10" letter-spacing="1" fill="#9b9082">CINÉMATHÈQUE</text>
+<rect x="40" y="356" width="112" height="30" rx="4" fill="none" stroke="#e2603f"/>
+<text x="96" y="376" font-size="12" fill="#e2603f" text-anchor="middle">Move to Trash</text>
+<rect x="152" y="356" width="28" height="30" rx="4" fill="none" stroke="#e2603f"/>
+<path d="M159 367 l7 7 l7 -7" fill="none" stroke="#e2603f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="400" width="164" height="30" rx="4" fill="#15110e" stroke="#2a2622"/>
+<rect x="44" y="404" width="156" height="22" rx="4" fill="#e2603f"/>
+<text x="122" y="419" font-size="11" fill="#170e08" text-anchor="middle">Delete permanently…</text>
+<text x="40" y="452" font-size="10" fill="#9b9082">warn-ink is dark here (5.42:1) —</text>
+<text x="40" y="464" font-size="10" fill="#9b9082">HOLODEX-324 already solved this.</text>
+
+<rect x="314" y="324" width="272" height="150" rx="6" fill="#060814" stroke="#1a2240"/>
+<text x="330" y="344" font-size="10" letter-spacing="1" fill="#6f7da6">BROADCAST</text>
+<rect x="330" y="356" width="112" height="30" rx="0" fill="none" stroke="#ff6f61"/>
+<text x="386" y="376" font-size="12" fill="#ff6f61" text-anchor="middle">Move to Trash</text>
+<rect x="442" y="356" width="28" height="30" rx="0" fill="none" stroke="#ff6f61"/>
+<path d="M449 367 l7 7 l7 -7" fill="none" stroke="#ff6f61" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="330" y="400" width="164" height="30" rx="0" fill="#0b0f22" stroke="#1a2240"/>
+<rect x="334" y="404" width="156" height="22" rx="0" fill="#ff6f61"/>
+<text x="412" y="419" font-size="11" fill="#0a0610" text-anchor="middle">Delete permanently…</text>
+<text x="330" y="452" font-size="10" fill="#6f7da6">--radius: 0 — square corners are</text>
+<text x="330" y="464" font-size="10" fill="#6f7da6">the skin, not a variant.</text>
+
+<rect x="604" y="324" width="272" height="150" rx="6" fill="#0a0a0a" stroke="#333333"/>
+<text x="620" y="344" font-size="10" letter-spacing="1" fill="#8a8a8a">BRUTALIST</text>
+<rect x="620" y="356" width="112" height="30" rx="0" fill="none" stroke="#ff5e3a"/>
+<text x="676" y="376" font-size="12" fill="#ff5e3a" text-anchor="middle">Move to Trash</text>
+<rect x="732" y="356" width="28" height="30" rx="0" fill="none" stroke="#ff5e3a"/>
+<path d="M739 367 l7 7 l7 -7" fill="none" stroke="#ff5e3a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="620" y="400" width="164" height="30" rx="0" fill="#0e0e0e" stroke="#333333"/>
+<rect x="624" y="404" width="156" height="22" rx="0" fill="#ff5e3a"/>
+<text x="702" y="419" font-size="11" fill="#0a0a0a" text-anchor="middle">Delete permanently…</text>
+<text x="620" y="452" font-size="10" fill="#8a8a8a">6.52:1 both segments.</text>
+
+<text x="24" y="508" font-size="11" letter-spacing="1" fill="#8a8478">5 · BEHAVIOUR</text>
+<rect x="24" y="520" width="852" height="80" rx="6" fill="#ffffff" stroke="#ddd8cf"/>
+<text x="44" y="542" font-size="11" fill="#3a352d">Tab reaches two stops: the default segment, then the chevron. Enter/Space on the default fires Move to Trash; on the chevron it opens the menu</text>
+<text x="44" y="558" font-size="11" fill="#3a352d">and moves focus to the first item. Escape closes and returns focus to the chevron; an outside click closes without moving focus (use:dismissable).</text>
+<text x="44" y="578" font-size="11" fill="#a32d2d">Both paths still open ConfirmDialog. The menu reduces accidental adjacency, not accidental commitment — it is not a confirmation.</text>
+</svg>
