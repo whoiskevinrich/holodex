@@ -69,7 +69,7 @@ export const ASSERTIONS = [
 		selector: ':document',
 		measure: 'overflowX',
 		expect: { max: 0 },
-		blockedBy: 'HOLODEX-355, HOLODEX-356'
+		blockedBy: 'HOLODEX-356'
 	},
 
 	{
