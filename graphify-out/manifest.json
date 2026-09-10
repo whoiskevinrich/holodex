@@ -4794,9 +4794,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/curation/SourceBadge.svelte": {
-    "mtime": 1787543649.5876775,
-    "seen": 1788052049.909201,
-    "ast_hash": "2fb1e912f4b64415a74410a0a72cfb93",
+    "mtime": 1789017983.382313,
+    "seen": 1789018174.9972346,
+    "ast_hash": "2960ec705f774ca7fa8bffdab590c81a",
     "semantic_hash": ""
   },
   "web/src/lib/components/enrichment/ProviderLinkBadge.svelte": {
@@ -6210,21 +6210,21 @@
     "semantic_hash": ""
   },
   "docs/design/header-narrow-width-handoff.md": {
-    "mtime": 1789014856.6481125,
-    "seen": 1789015312.6562924,
-    "ast_hash": "ce00cd4c8bc9ecc425d7bcc71ab074f3",
+    "mtime": 1789018020.4335,
+    "seen": 1789018174.9976468,
+    "ast_hash": "fffb5b6552954e98fa3e59e3587d2b05",
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-356.md": {
-    "mtime": 1789015275.351253,
-    "seen": 1789015312.6564782,
-    "ast_hash": "8736c144cbd896a271bca5bfad73387a",
+    "mtime": 1789018126.100736,
+    "seen": 1789018174.9978878,
+    "ast_hash": "a87ada703773c03e170a2f056d496ec9",
     "semantic_hash": ""
   },
   "docs/design/header-narrow-width-mockup.svg": {
-    "mtime": 1789014825.3572812,
-    "seen": 1789015312.6566362,
-    "ast_hash": "fbd16ffeb831a519560725bfd2d30711",
+    "mtime": 1789018020.3223026,
+    "seen": 1789018174.9980512,
+    "ast_hash": "597014d088247990dd261c018f81e1b6",
     "semantic_hash": ""
   }
 }
