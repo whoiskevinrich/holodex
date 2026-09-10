@@ -30,8 +30,16 @@ At 768px the nav drops to a second row and the search box returns to its full `m
 At 375px the nav needs a second line of its own, so the header stands three rows. At desktop width
 the row still fits and both declarations are inert — the header is pixel-identical to before.
 
-Wrapped rows are left-aligned under the logo. `justify-between` places a lone wrapped item at the
-start of its line, and matching the logo's edge reads better than a right-aligned orphan row.
+The wrapped nav row is left-aligned under the logo: `justify-between` places a lone wrapped item at
+the start of its line, and matching the logo's edge reads better than a right-aligned orphan row.
+
+On the first line, that same `justify-between` spreads the two remaining items — so the search box
+sits against the right edge with a gap after the logo (187px at 768px, measured). That is the
+header's existing desktop behaviour, not something wrapping introduced: at 1440px the equivalent gap
+is 112px. Closing it is possible but not free — every way of doing it (an auto margin, `justify-start`
+plus a pushed nav, wrapping logo and search in a group) also moves the search box at desktop width,
+which this fix deliberately does not touch. Left as-is; worth revisiting if the header is ever
+redesigned for narrow widths.
 
 ### 2a. Why not collapse the nav into a menu
 
