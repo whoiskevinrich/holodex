@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-358
-status: in-review
+status: done
 depends-on: [HOLODEX-356]
 release_note: Fixed a long field value scrolling the media page sideways on a phone.
 ---
@@ -43,16 +43,40 @@ closing it would move the desktop header.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [P2·S] **The harness has no viewport below 768px, and no film or category rung** — so this
-   fix, and HOLODEX-356's film and category fixes, are all unguarded. A third cell in
-   `web/geometry/browser.mjs` plus a `filmtext` dimension in `testdata/stressseed` is the fix;
-   carried from [HOLODEX-356](HOLODEX-356.md) item 3
-2. [ ] [—] Sweep to `Done` on merge — CI transitions only the branch's own key
+1. [ ] [—] Harness rung for the phone width and a long-text film/category fixture →
+   **[HOLODEX-359](https://whoiskevinrich.atlassian.net/browse/HOLODEX-359)** — promoted out of
+   this epic now that it has merged, because both worklogs carrying it (356 and this one) are closed
+   and it would otherwise be lost
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-09 · PR #316 merged — worklog closed out
+- skills: handoff
+- verified: [PR #316](https://github.com/whoiskevinrich/holodex/pull/316) merged to `main` as
+  `8cebb82` with all 11 checks green, and Jira `HOLODEX-358` is `Done` — CI fired it on the merge,
+  so the by-hand sweep this queue was holding never needed doing: 358 is a standalone Bug with no
+  epic parent, and the child-stays-`In Progress` trap only bites an epic's children. Working tree
+  clean, branch in sync with `origin`.
+- then: promoted the one surviving queue item to its own ticket,
+  **[HOLODEX-359](https://whoiskevinrich.atlassian.net/browse/HOLODEX-359)**, linked to 349/356/358.
+  It is the only thing that outlives this epic, and it was being carried by two worklogs that are
+  both now closed.
+- gotcha, the expensive kind: this closeout first went out on a branch named
+  `chore/holodex-358-worklog-closeout`, chosen specifically so CI would find no key and move
+  nothing — because `jira-sync.mjs` skips `Done` on a docs-only merge but does **not** skip
+  `In Review`, so a keyed branch drags a `Done` issue backwards and then strands it there.
+  `extractKeys` builds its regex with the **`gi`** flags, so the lowercase `holodex-358` matched
+  anyway and CI moved HOLODEX-358 `Done` → `In Review`. Restored by hand; branch renamed to
+  `chore/flightplan-worklog-closeout`. **A key in a branch name is case-insensitive — lowercasing
+  it hides nothing.**
+- handoff: HOLODEX-358 is finished, merged and `Done` — nothing here is left to build. The next
+  move on this thread is HOLODEX-359: add a 375px cell to `WIDTHS` in `web/geometry/browser.mjs`
+  (decide the cost first — `matrix()` is `SKINS x WIDTHS`, so it takes the run from 6 cells to 9)
+  plus a `filmtext` dimension in `testdata/stressseed`, so the three overflow fixes from PRs
+  #314/#315/#316 finally have a test that can reproduce them.
+
 ### 2026-09-09 · `code-review medium --fix` over PR #315, both findings applied
-- skills: code-review
+- skills: code-review, handoff
 - verified: a second pass at a viewport nothing else tests. **A field value still overflowed the
   page below ~440px** — `/media/202` at 375px, 133px of scroll from `#field-overview`'s value span.
   The fix is not the one HOLODEX-356 used, and that is the finding worth remembering:
