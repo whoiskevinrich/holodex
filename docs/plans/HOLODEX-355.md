@@ -77,9 +77,19 @@ coverage is [`docs/testing-strategy.md`](../testing-strategy.md) §12 (the HOLOD
 - handoff: two findings not applied, both now items 3 and 4 in *Up next* — the `blockedBy`
   granularity gap (which is why this ticket's own fix still is not regression-guarded) and the
   tag-chip selector's future-fix trap. Neither blocks the merge. Note the CI change adds ~94s to
-  the backend job; that is the price of compiling the seeder at all, and tuning it is a separate
-  call. Two evaluate.mjs tests were updated rather than kept green: both were pinning the
-  defective behaviour they described.
+  the backend job (confirmed in CI: `backend` now runs 2m31s); that is the price of compiling the
+  seeder at all, and tuning it is a separate call. Two evaluate.mjs tests were updated rather than
+  kept green: both were pinning the defective behaviour they described.
+- then: **#313 squash-merged, and the stack needed a sync.** Squash gave 342's commits a new SHA,
+  so all 17 files this branch shares with it conflicted as add/add and #314 went `DIRTY`. Resolved
+  by first proving `origin/main`'s copy of every one is byte-identical to 342's old tip `8015dd9`
+  — which makes this branch's copy "main plus the review fixes", so `--ours` is correct for all 17
+  rather than merely convenient. `graphify-out/graph.json` *auto-merged* without conflicting,
+  which for a generated 200K-line file means git blended two lineages; restored from HEAD and
+  re-derived (graphify then reported no topology change, confirming HEAD's copy was canonical).
+  #314 is now `MERGEABLE/CLEAN` against `main`, all ten checks green, and its diff is exactly this
+  branch's own work. Pre-existing `gofmt` drift on ten `internal/**` files is visible locally but
+  is untouched by this branch and already on main — left alone, worth its own cleanup.
 
 ### 2026-09-09 · fixed, measured before/after against the stress fixture
 - skills: code-review
