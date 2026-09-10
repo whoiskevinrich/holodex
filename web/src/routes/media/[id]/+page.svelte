@@ -16,6 +16,7 @@
 		toMessage,
 		videoCount
 	} from '$lib/format';
+	import { dismissable } from '$lib/actions/dismissable';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import { expandedField } from '$lib/expandedField.svelte';
@@ -90,6 +91,13 @@
 	let confirmMode = $state<'soft' | 'purge' | null>(null);
 	let deleteBusy = $state(false);
 	let deleteError = $state('');
+	// Manage split button (HOLODEX-362): the chevron's menu, holding the purge path so it is
+	// never adjacent to the soft-delete it used to sit beside. Local $state rather than
+	// PopoverMenu — that class is keyed by row id and carries an inline value/busy/error form
+	// slot, neither of which a single instance with no form has any use for.
+	let deleteMenuOpen = $state(false);
+	let deleteMenuTrigger = $state<HTMLButtonElement | null>(null);
+	let deleteMenuFirstItem = $state<HTMLButtonElement | null>(null);
 	// Whether this page was reached via in-app navigation vs. a fresh/direct load — decides
 	// whether Delete can pop browser history back to the referring list (HOLODEX-41).
 	let cameFromInApp = $state(false);
@@ -322,6 +330,25 @@
 	function openConfirm(mode: 'soft' | 'purge') {
 		deleteError = '';
 		confirmMode = mode;
+		// Bypasses closeDeleteMenu deliberately: that one restores focus to the chevron, and
+		// ConfirmDialog is about to claim focus for its Cancel button. Unifying the two would
+		// put them in a focus fight over the same tick.
+		deleteMenuOpen = false;
+	}
+
+	async function openDeleteMenu() {
+		deleteMenuOpen = true;
+		await tick();
+		deleteMenuFirstItem?.focus();
+	}
+
+	// viaEscape distinguishes keyboard dismissal (focus returns to the trigger, so the tab
+	// position survives) from an outside click (the pointer has already moved on; yanking
+	// focus back would scroll the page to a control the owner just navigated away from).
+	function closeDeleteMenu(viaEscape = true) {
+		if (!deleteMenuOpen) return;
+		deleteMenuOpen = false;
+		if (viaEscape) deleteMenuTrigger?.focus();
 	}
 
 	async function confirmDelete() {
@@ -1824,19 +1851,72 @@
 				{#if isOwner}
 					<section class="space-y-2 border-t border-rule pt-4">
 						<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
-						<div class="flex flex-wrap gap-2">
+						<!-- Split button (HOLODEX-362, docs/design/manage-split-button-handoff.md). Only
+						     the reversible path is on screen at rest; the purge lives behind the chevron
+						     and, when revealed, is a SOLID warn fill -- heavier than the outline segment
+						     it drops from, never equal to it, which is what the old side-by-side pair got
+						     wrong. The default segment stays warn-outlined: moving a file to Trash is
+						     still destructive (it leaves the library and purges on a timer), so demoting
+						     it to a neutral border would undersell it. Shape is EnrichProviderChips'
+						     (inline-flex items-stretch + border-l trigger + an absolutely-positioned
+						     role="menu"), with a chevron instead of the overflow glyph because the menu
+						     holds a *variant of the action to its left*, not more actions of the same kind. -->
+						<div
+							class="relative inline-flex items-stretch rounded-theme border border-warn text-sm text-warn"
+							data-delete-split
+							use:dismissable={{
+								enabled: deleteMenuOpen,
+								inside: '[data-delete-split]',
+								onclose: closeDeleteMenu
+							}}
+						>
 							<button
+								type="button"
 								onclick={() => openConfirm('soft')}
-								class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+								class="rounded-theme px-3 py-1.5 hover:bg-warn/10"
 							>
 								Move to Trash
 							</button>
 							<button
-								onclick={() => openConfirm('purge')}
-								class="rounded-theme border border-warn px-3 py-1.5 text-sm text-warn hover:bg-warn/10"
+								type="button"
+								bind:this={deleteMenuTrigger}
+								onclick={() => (deleteMenuOpen ? closeDeleteMenu() : openDeleteMenu())}
+								aria-haspopup="menu"
+								aria-expanded={deleteMenuOpen}
+								aria-label="More delete options"
+								class="inline-flex items-center rounded-theme border-l border-warn px-2 hover:bg-warn/10"
 							>
-								Delete permanently
+								<svg
+									class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
+									class:rotate-180={deleteMenuOpen}
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									aria-hidden="true"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+								</svg>
 							</button>
+							{#if deleteMenuOpen}
+								<div
+									role="menu"
+									class="absolute left-0 top-full z-10 mt-1 min-w-max rounded-theme border border-rule bg-surface p-1"
+								>
+									<!-- Ellipsis: this opens a dialog rather than purging on click. The default
+									     segment opens one too but keeps its bare label -- an ellipsis on the
+									     control owners click most would dilute the signal here. -->
+									<button
+										type="button"
+										role="menuitem"
+										bind:this={deleteMenuFirstItem}
+										onclick={() => openConfirm('purge')}
+										class="block w-full rounded-theme bg-warn px-3 py-1.5 text-left text-warn-ink"
+									>
+										Delete permanently…
+									</button>
+								</div>
+							{/if}
 						</div>
 					</section>
 				{/if}
