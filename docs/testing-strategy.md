@@ -2199,6 +2199,7 @@ automated frontend coverage in this repo that exercises rendered geometry rather
 pure logic.
 
 ```bash
+cd web && npx playwright install chromium   # once per machine; `npm ci` does not
 go run ./testdata/stressseed        # seed; writes data/stress/manifest.json
 # start the `backend-stress` and `web` launch profiles
 cd web && npm run geometry
@@ -2262,7 +2263,11 @@ rather than folded into "passed":
 | `VOID` | The selector matched fewer elements than `atLeast` (default 1). "Every match is ≥40px" is trivially true of zero matches, so a renamed class would otherwise turn a real assertion green. **This fired on the harness's own first live run and was a genuine defect in it.** |
 | `VOID` (at plan time) | The assertion's `when` selects no page in the fixture — the coordinate it asks for is gone, so its coverage evaporated silently. |
 | `ERR` | Preflight or page preparation could not reach a measurable state. |
-| `NEWS` | Every check under a `blockedBy` marker now passes: the bug is fixed and the marker is now the thing hiding the next regression. Decided over the whole assertion, never per page — while a bug is open most pages still pass. |
+| `NEWS` | Every check under a `blockedBy` marker now passes: the bug is fixed and the marker is now the thing hiding the next regression. Decided over the whole assertion, never per page — while a bug is open most pages still pass — and only on a full-matrix run, since a `--skin`/`--width` slice can miss the cell the bug lives in. |
+
+A `blockedBy` marker mutes a **failure** and nothing else. `VOID` is never muted: the
+selector matching nothing is a statement about the harness, not about the filed bug, so an
+open ticket is no reason to believe the assertion should have measured zero elements.
 
 Preflight additionally refuses to measure the wrong server: it checks `/capabilities` for
 `owner` and `films_enabled`, then fetches one seeded entity and compares its title to the
@@ -2281,18 +2286,22 @@ exercised only by running the harness.
 | assertion | state |
 |---|---|
 | `person-tiles-stay-legible` | **passes** — 36 checks. The ticket's own example; tiles are a fixed 80px. |
-| `no-horizontal-page-overflow` | **open** — HOLODEX-355, HOLODEX-356 |
+| `no-horizontal-page-overflow` | **open** — HOLODEX-356. HOLODEX-355 was the other half and is fixed. |
 | `tag-chips-stay-tappable` | **open** — HOLODEX-357 |
 | `source-chips-stay-tappable` | **open** — HOLODEX-357 |
 | `people-list-does-not-render-everything` | **open** — HOLODEX-354; skipped unless seeded `-big` |
 
 Three bugs were found on the first full run, none previously known — which is the outcome
 the epic asked for (*"if it finds zero unknown bugs, the fixture is not adversarial
-enough"*). The largest, HOLODEX-355, is structural rather than text-driven: `@utility
-stage-grid` applies its `minmax(0, …)` guard only inside `@media (width >= lg)`, so below
-`lg` the implicit `auto` column takes the item's min-content — 1184px inside a 720px
-container — and every media and film detail page scrolls sideways by 440px at 768px. The
-utility's own comment already documents that exact failure mode for the two-column case.
+enough"*). The largest, HOLODEX-355, was structural rather than text-driven: `@utility
+stage-grid` applied its `minmax(0, …)` guard only inside `@media (width >= lg)`, so below
+`lg` the implicit `auto` column took the item's min-content — 1184px inside a 720px
+container — and every media and film detail page scrolled sideways by 440px at 768px. The
+utility's own comment already documented that exact failure mode for the two-column case.
+**Fixed** by declaring the guard on the base track as well; `blockedBy` narrowed to
+HOLODEX-356 accordingly. Keep this section in step with `assertions.mjs` — a marker that
+outlives its bug is the one thing §12.3's `NEWS` status exists to catch, and a table that
+outlives its marker is the same failure one level up.
 
 ### 12.5 Standing gaps
 

@@ -157,6 +157,20 @@ func run(dataPath string, count int, seed uint64, mappingsPath, personasFile str
 		return err
 	}
 
+	// The manifest is the fixture's completion marker, so it has to go before the
+	// rebuild starts rather than merely being overwritten after it finishes. The claim
+	// marker is committed above and reset() commits immediately below, so a run that
+	// dies in between — a full disk, or the `backend-stress` server still holding the
+	// database past the busy timeout — leaves a half-rebuilt fixture. Addresses are
+	// steered, so the surviving entities have the ids and names the *old* manifest
+	// describes: the geometry harness's preflight compares one of them and passes, then
+	// measures rungs that were never rebuilt and reports layout verdicts for a seeding
+	// failure. Removing it first makes the failure say what it is — `npm run geometry`
+	// then prints manifest.mjs's "Seed one first" instead of a plausible green run.
+	if err := os.Remove(filepath.Join(cfg.DataPath, manifestName)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear previous manifest: %w", err)
+	}
+
 	// The `backend-stress` profile points MEDIA_PATH at this directory, and it is
 	// deliberately empty: the scanner walks it, sees zero files, and then skips
 	// its end-of-scan deactivation sweep ("scan saw zero media files"), so it

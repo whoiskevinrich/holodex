@@ -37,7 +37,59 @@ import (
 // address the manifest describes as un-enriched. That covers both the ladder's own
 // rows (HOLODEX-348) and any an operator created by enriching through the stub
 // during a QA pass.
-var seededTables = []string{"videos", "films", "people", "studios", "tags", "categories", "identity_review_queue", "entity_enrichment"}
+//
+// The owner-decision tables below are here for that same no-foreign-key reason, and
+// they are the ones a QA pass is most likely to write: every one of them is a click
+// on a fixture page. field_source_decisions (0016), metadata_curation (0013),
+// facet_not_applicable (0039) and entity_keep_separate (0022) all store bare
+// (entity_type, entity_id) integers, none has a foreign key, and none is reached by
+// any AFTER DELETE trigger — 0022 hand-writes DELETE statements for the first two
+// precisely because nothing cascades. Since steer() puts the next seed's entities on
+// the same addresses, a decision left behind is not merely stale, it is re-attached:
+// the reseeded video 101 renders a pinned chip the manifest says it never got, and a
+// "keep separate" on 20001/20003 suppresses the near-miss queue entry that rung
+// exists to demonstrate, permanently and with nothing to point at.
+//
+// denied_tags (0031) is the sharpest of them, because it fails the *next* run rather
+// than corrupting it: the table is keyed by folded term with no foreign key, and
+// resolveOrCreateByName refuses a denied term even when a tags row for it already
+// exists (ADR-075 D2). AttachTagToVideo propagates that refusal rather than skipping
+// it, so a single tag denied during QA aborts every later seed — after reset() has
+// already committed, leaving no fixture and no obvious cause.
+//
+// job_runs is not an entity table but belongs here for a related reason: it gates
+// work that runs *outside* this tool. backfillPersonLinks short-circuits on a
+// successful-run marker rather than on a link count (cmd/holodex/main.go), so once
+// the first `backend-stress` boot records one, no later boot re-derives the person
+// links from the file layer — taking the "active link count SHRANK" loss guard with
+// it. That guard is the only automatic check that the fixture's file layer and the
+// server's mapping still agree, which is the whole premise filelayer.go is built on.
+var seededTables = []string{
+	"videos", "films", "people", "studios", "tags", "categories",
+	"identity_review_queue", "entity_enrichment",
+	"field_source_decisions", "metadata_curation", "facet_not_applicable", "entity_keep_separate",
+	"denied_tags", "job_runs",
+}
+
+// notContentTables are the seeded tables deliberately absent from claim.go's
+// contentTables, and why. Everything reset() deletes must otherwise be something
+// inspect() counts, or the fixture wipes a table it never looked at — so an entry
+// here is an argument that a real library cannot hold *only* this table's rows.
+// TestClaimCoversEverySeededTable reads this map rather than restating the list, so
+// the exemption and its reason cannot drift apart.
+var notContentTables = map[string]string{
+	"identity_review_queue":  "holds no entity of its own; a library with rows here has the entities that produced them",
+	"field_source_decisions": "a decision is made on an entity, so a library with one has the entity too",
+	"metadata_curation":      "same: curation is keyed to an entity contentTables already counts",
+	"facet_not_applicable":   "same: a not-applicable facet is keyed to an entity",
+	"entity_keep_separate":   "names two entity ids, so a library with a pair has both entities",
+	// The one exemption that is about the server rather than about entities. The
+	// scanner and the startup backfills record a run on every boot, and claim.go
+	// deliberately keeps an otherwise-empty database claimable so that starting
+	// `backend-stress` before the first seed is not a trap. Counting job_runs would
+	// spring exactly that trap.
+	"job_runs": "written by the server on every boot; counting it would refuse the empty database backend-stress creates",
+}
 
 // generate builds every dimension in the ladder and returns what it addressed.
 //

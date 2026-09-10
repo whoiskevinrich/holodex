@@ -32,7 +32,13 @@ const markerTable = "stress_fixture"
 // describing in the abstract: a database holding nothing but enrichment rows is
 // somebody's shadow store, and once reset() deletes that table an unchecked one
 // would be wiped by a seeder that never looked at it.
-var contentTables = []string{"videos", "people", "studios", "tags", "films", "categories", "entity_enrichment"}
+//
+// denied_tags is the same shape as categories, one step further out: it is keyed by
+// a folded *term* rather than by an entity id, so an owner can deny a term for a tag
+// that was never created — a library can hold a deny list and nothing else. The
+// other owner-decision tables reset() clears are all keyed to an entity this list
+// already counts, so they are exempt; see notContentTables in generate.go.
+var contentTables = []string{"videos", "people", "studios", "tags", "films", "categories", "entity_enrichment", "denied_tags"}
 
 // claim is what inspect learned about a candidate database.
 type claim struct {

@@ -158,11 +158,29 @@ const BY_SLUG = new Map(PERSONAS.map((p) => [p.slug, p]));
 const STRONG = 0.9;
 const WEAK = 0.6;
 
+// The namespace IS the prefix before the first colon — not a label beside it. The
+// contract says so twice (metadata-provider-contract.md §4.1 and its conformance
+// list), core's own in-process provider derives it the same way
+// (internal/enrich/fake.go), and ADR-082 stores the pair as one `<namespace>:<id>`
+// string that the UI splits back apart. This file is the contract's designated
+// reference implementation, so a hand-written namespace that disagrees with the id it
+// sits next to is copied outward as well as being wrong here.
+const namespaceOf = (externalID) => externalID.slice(0, externalID.indexOf(':'));
+
+// Which namespace a persona issues ids in. The stress personas answer to their own
+// name because that is the id the seeder records (testdata/stressseed/enrichment.go),
+// so a Refresh against the running stub re-fetches the same record.
+function idNamespaceFor(persona) {
+  if (persona.candidates === 'flood') return 'flood';
+  if (persona.candidates === 'twins') return 'twins';
+  return persona.name;
+}
+
 function candidatesFor(persona, query) {
   if (persona.candidates === 'flood') {
     return Array.from({ length: 30 }, (_, i) => ({
       external_id: `flood:${100 + i}`,
-      namespace: 'tmdb',
+      namespace: namespaceOf(`flood:${100 + i}`),
       label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
       confidence: Number((WEAK - i * 0.01).toFixed(2)),
       disambiguation: `Result ${i + 1} of 30 · flooded list`
@@ -181,7 +199,7 @@ function candidatesFor(persona, query) {
     ];
     return where.map((d, i) => ({
       external_id: `twins:${200 + i}`,
-      namespace: 'tmdb',
+      namespace: namespaceOf(`twins:${200 + i}`),
       label: 'Hayao Miyazaki',
       confidence: WEAK,
       disambiguation: d
@@ -190,7 +208,7 @@ function candidatesFor(persona, query) {
   return [
     {
       external_id: `${persona.name}:608`,
-      namespace: 'tmdb',
+      namespace: namespaceOf(`${persona.name}:608`),
       label: 'Hayao Miyazaki',
       confidence: STRONG,
       disambiguation: `Director · 1941 · via ${persona.name}`
@@ -206,7 +224,10 @@ function describeFor(persona, origin) {
     version: 'stub-1',
     protocol_version: 1, // core hard-refuses anything else (internal/enrich/enrich.go)
     entity_types: persona.entityTypes || ALL_ENTITY_TYPES,
-    id_namespaces: ['tmdb', 'imdb'],
+    // Only what this persona actually issues. §4.1: "You MUST emit ids only in
+    // namespaces you advertise" — advertising `tmdb` while emitting `alpha:608` is
+    // the same disagreement from the other end.
+    id_namespaces: [idNamespaceFor(persona)],
     fields: Object.keys(persona.values || {})
   };
   if (persona.icon) {

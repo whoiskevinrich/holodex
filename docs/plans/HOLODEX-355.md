@@ -41,8 +41,45 @@ coverage is [`docs/testing-strategy.md`](../testing-strategy.md) §12 (the HOLOD
    nav at 768px (+10px/+33px depending on skin) and the person hero on an `unbroken` name
    (+231px). Only when *that* lands does the assertion go green and `blockedBy` come off
    entirely → HOLODEX-356
+3. [ ] [P2·M] **File: `blockedBy` mutes an assertion across every page it runs on.** Surfaced by
+   the `code-review max` pass below and deliberately not fixed there. `no-horizontal-page-overflow`
+   selects 30 of 84 fixture pages × 6 cells = 180 checks, and the single HOLODEX-356 marker mutes
+   all 180 — so *this ticket's own fix is not regression-guarded*: reverting `minmax(0, 1fr)` moves
+   the report from `70 known-open` to `79` and still exits 0. The fix is to narrow a marker to the
+   cells/pages the bug actually reproduces on (per-cell, since at `narrow` all 30 fail while at
+   `wide` only 1–2 do), which needs 356's real failing set measured first — guessing it would mute
+   the wrong pages, the same defect pointed the other way
+4. [ ] [P3·S] `tag-chips-stay-tappable` measures the inner `<a>`, which is correct today (the owner
+   branch's padding sits on a non-clickable wrapper, so 20px is the real tap target) but becomes a
+   trap if HOLODEX-357 is resolved by padding `.curation-chip` instead of the link — the assertion
+   would keep failing and its stale-marker signal would never fire. Whoever rules on 357 should
+   re-check this selector against the ruling; a comment in `assertions.mjs` now records why
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-09 · `code-review max --fix` over the whole stacked branch
+- skills: code-review
+- verified: 10 finder angles + per-candidate verification over the 39 reviewable files (~9.9K
+  lines; `graphify-out/` and the lockfile excluded). 15 findings, 13 fixed. Most land in
+  HOLODEX-342's half of the stack rather than this one. The load-bearing four: **the harness
+  could pass on measuring nothing** (`applies: 'count'` returned before the vacuity guard, so a
+  renamed class read as a pass *and* triggered "HOLODEX-354 looks fixed, drop `blockedBy`"), and
+  `blockedBy` swallowed `vacuous` on 4 of 5 assertions so a stale selector exited 0; **`reset()`
+  left six no-FK tables behind** — `job_runs` (which permanently disables the person-link backfill
+  and its "SHRANK" loss guard from the second boot on), `denied_tags` (one QA deny aborts every
+  later reseed *after* the wipe), and the four owner-decision tables (re-attached to the next
+  seed's entities at the same steered addresses); **6,065 lines of Go never ran in CI**, since the
+  toolchain excludes any directory named `testdata` from `./...`; and **`npm ci` installs no
+  browser**, which the docs never said and which surfaced only after preflight had passed.
+  Green after: `go test ./testdata/stressseed` ok 94s, `npx vitest run` 269/269, `npm run check`
+  0 errors, and a full live harness run reproducing the baseline exactly — 146 passed / 88
+  known-open / 1 skipped, 234 page loads, exit 0. Seed + reseed into a scratch path both clean.
+- handoff: two findings not applied, both now items 3 and 4 in *Up next* — the `blockedBy`
+  granularity gap (which is why this ticket's own fix still is not regression-guarded) and the
+  tag-chip selector's future-fix trap. Neither blocks the merge. Note the CI change adds ~94s to
+  the backend job; that is the price of compiling the seeder at all, and tuning it is a separate
+  call. Two evaluate.mjs tests were updated rather than kept green: both were pinning the
+  defective behaviour they described.
 
 ### 2026-09-09 · fixed, measured before/after against the stress fixture
 - skills: code-review

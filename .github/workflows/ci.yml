@@ -27,12 +27,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # `./testdata/stressseed` is named explicitly because the Go toolchain excludes
+      # every directory called `testdata` from `./...` — see the Makefile's GO_PKGS.
       - name: Vet
-        run: go vet ./...
+        run: go vet ./... ./testdata/stressseed
 
       # Unit tests are binary-free (pure-Go SQLite via modernc; mappers use inline JSON).
       - name: Test
-        run: go test ./...
+        run: go test ./... ./testdata/stressseed
 
       # Enable once testdata/gen.sh + golden fixtures land (testing-strategy §3, §8):
       # - name: Install media tools

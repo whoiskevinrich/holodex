@@ -4,6 +4,10 @@ Layout invariants, measured in a real browser against the [stress
 fixture](../../testdata/stressseed/README.md), across three skins and two viewport widths.
 
 ```bash
+# 0. once per machine — `npm ci` installs no browser binaries (playwright ships no
+#    install script), and the harness only discovers that after preflight has passed
+cd web && npx playwright install chromium
+
 # 1. seed the fixture (from the repository root)
 go run ./testdata/stressseed
 
