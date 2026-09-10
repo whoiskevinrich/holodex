@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-358
-status: in-progress
+status: in-review
 depends-on: [HOLODEX-356]
 release_note: Fixed a long field value scrolling the media page sideways on a phone.
 ---
@@ -69,6 +69,8 @@ closing it would move the desktop header.
   every way of closing it also moves the search box at desktop width, which this fix does not touch.
   Green after: `npm run check` 0 errors · vitest 272/272 · full harness 216 passed / 18 known-open /
   1 skipped, unchanged.
+- then: opened **[PR #316](https://github.com/whoiskevinrich/holodex/pull/316)** ready for review —
+  every gate satisfied, so no Draft posture applies and CI fires `In Review` on the ready state.
 - handoff: nothing deferred. Both findings landed after PR #315 had merged, so they moved to this
   key on a branch off the new `main` rather than reopening a `Done` issue. The `SourceBadge` change
   reaches into a shared component — isolated to one class on one span, and easy to drop if that
