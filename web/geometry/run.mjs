@@ -320,7 +320,14 @@ async function visit(page, url, cell, group, preparations) {
 // Whether a `blockedBy` marker has gone stale is decided once, over the whole run —
 // and only when the run actually was the whole matrix.
 const final = reconcileBlocked(results, { complete: wholeMatrix });
-console.log(render(final, { cells: cells.length, pages: pageLoads, elapsedMs: Date.now() - started }));
+console.log(
+	render(final, {
+		cells: cells.length,
+		pages: pageLoads,
+		elapsedMs: Date.now() - started,
+		reconciled: wholeMatrix
+	})
+);
 // `process.exitCode`, not `process.exit()`: stdout to a pipe or a file is asynchronous,
 // and exiting outright can truncate a long report mid-line. Setting the code lets node
 // drain and exit on its own.

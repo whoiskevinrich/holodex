@@ -2199,7 +2199,7 @@ automated frontend coverage in this repo that exercises rendered geometry rather
 pure logic.
 
 ```bash
-cd web && npx playwright install chromium   # once per machine; `npm ci` does not
+(cd web && npx playwright install chromium)   # once per machine; `npm ci` does not
 go run ./testdata/stressseed        # seed; writes data/stress/manifest.json
 # start the `backend-stress` and `web` launch profiles
 cd web && npm run geometry

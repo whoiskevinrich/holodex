@@ -110,7 +110,13 @@ export function reconcileBlocked(results, opts = {}) {
 	}
 	const extra = [];
 	for (const { assertion, statuses } of groups.values()) {
-		const stillBroken = statuses.some((s) => s === 'blocked' || s === 'error');
+		// Anything that is not positive evidence counts as still broken, stated as an
+		// exclusion rather than a list of bad statuses. Enumerating them is what broke:
+		// `vacuous` stopped being remapped to `blocked` (see evaluate), and a group of
+		// some passes and some stale selectors then read as "every check now passes" —
+		// telling the operator to disarm an assertion that measured nothing on half its
+		// pages. A status this code has not heard of should suppress the verdict too.
+		const stillBroken = statuses.some((s) => s !== 'pass' && s !== 'skipped');
 		const ranAtAll = statuses.some((s) => s === 'pass');
 		if (!stillBroken && ranAtAll) {
 			extra.push({

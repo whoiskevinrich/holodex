@@ -223,10 +223,20 @@ func buildManifest(entries []entry, seed uint64, count int, pool *breadthPool) m
 	return m
 }
 
+// manifestPathIn locates the manifest inside a fixture's data directory. It exists so
+// the write and the delete cannot address different files: run() clears the previous
+// manifest before rebuilding (it is the fixture's completion marker), and a second copy
+// of this join would let a change to the name or the layout desynchronise the two —
+// leaving a stale manifest alive beside a fresh one, which is the exact state the clear
+// exists to prevent.
+func manifestPathIn(dataPath string) string {
+	return filepath.Join(dataPath, manifestName)
+}
+
 // writeManifest emits the manifest, indented because a human reads it too — it
 // is the first thing to open when a fixture entity looks wrong.
 func writeManifest(dataPath string, m manifest) (string, error) {
-	path := filepath.Join(dataPath, manifestName)
+	path := manifestPathIn(dataPath)
 	body, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode manifest: %w", err)

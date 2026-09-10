@@ -179,6 +179,24 @@ func TestClaimCoversEverySeededTable(t *testing.T) {
 	for _, table := range contentTables {
 		checked[table] = true
 	}
+	// An exemption has to name a table the fixture actually clears, and has to carry the
+	// argument for why a real library cannot hold only that table's rows. Checking both
+	// keeps the map from silently accumulating entries for tables that left seededTables
+	// (a stale exemption would wave through a genuinely dangerous table if the name were
+	// ever reused) and from carrying an empty string where the reasoning should be.
+	seeded := map[string]bool{}
+	for _, table := range seededTables {
+		seeded[table] = true
+	}
+	for table, why := range notContentTables {
+		if !seeded[table] {
+			t.Errorf("notContentTables exempts %q, which reset() no longer deletes — drop the exemption", table)
+		}
+		if strings.TrimSpace(why) == "" {
+			t.Errorf("notContentTables exempts %q with no reason — say why a library cannot hold only these rows", table)
+		}
+	}
+
 	for _, table := range seededTables {
 		// The deliberate exemptions are argued for where they are declared, next to
 		// seededTables — read from there rather than restated here, so a new one

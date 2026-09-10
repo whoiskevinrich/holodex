@@ -37,7 +37,7 @@ const ICON = {
  * how a harness stops being read.
  *
  * @param {Result[]} results
- * @param {{cells: number, pages: number, elapsedMs: number}} stats
+ * @param {{cells: number, pages: number, elapsedMs: number, reconciled?: boolean}} stats
  */
 export function render(results, stats) {
 	const lines = [];
@@ -92,7 +92,7 @@ export function render(results, stats) {
  * regression, and an assertion that could not apply is not a result.
  *
  * @param {Result[]} results
- * @param {{cells: number, pages: number, elapsedMs: number}} stats
+ * @param {{cells: number, pages: number, elapsedMs: number, reconciled?: boolean}} stats
  */
 export function summary(results, stats) {
 	const tally = { pass: 0, fail: 0, vacuous: 0, error: 0, blocked: 0, fixed: 0, skipped: 0 };
@@ -107,7 +107,13 @@ export function summary(results, stats) {
 		tally.skipped ? `${tally.skipped} skipped` : ''
 	].filter(Boolean);
 	const secs = (stats.elapsedMs / 1000).toFixed(1);
-	return `${parts.join(', ')}  —  ${stats.pages} page loads across ${stats.cells} skin/width cells in ${secs}s`;
+	const line = `${parts.join(', ')}  —  ${stats.pages} page loads across ${stats.cells} skin/width cells in ${secs}s`;
+	// A narrowed run cannot retire a `blockedBy` marker (see reconcileBlocked), and its
+	// tally is indistinguishable from a full run that found none stale. Say which it was,
+	// rather than letting the absence of a NEWS line read as evidence.
+	return stats.reconciled === false
+		? `${line}\n  known-open markers not checked: this run measured part of the matrix`
+		: line;
 }
 
 /** @param {Result[]} results */

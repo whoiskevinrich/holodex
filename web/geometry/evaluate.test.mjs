@@ -155,6 +155,22 @@ describe('reconcileBlocked', () => {
 		expect(reconcileBlocked([r(marked, 'pass'), r(marked, 'error')]).some((x) => x.status === 'fixed')).toBe(false);
 	});
 
+	// The regression that came with un-muting `vacuous`: once it stopped being remapped
+	// to `blocked`, a group of some passes and some stale selectors slipped past a
+	// `stillBroken` that only enumerated blocked/error — and reported "every check now
+	// passes" for an assertion that measured nothing on half its pages.
+	it('stays quiet when some pages measured nothing', () => {
+		const out = reconcileBlocked([r(marked, 'pass'), r(marked, 'vacuous')]);
+		expect(out.some((x) => x.status === 'fixed')).toBe(false);
+		expect(out).toHaveLength(2);
+	});
+
+	// Stated as an exclusion rather than a list, so a status added later suppresses the
+	// verdict by default instead of silently counting as evidence the bug is gone.
+	it('stays quiet on a status it has never heard of', () => {
+		expect(reconcileBlocked([r(marked, 'pass'), r(marked, 'weird')]).some((x) => x.status === 'fixed')).toBe(false);
+	});
+
 	it('says nothing about an assertion carrying no marker', () => {
 		expect(reconcileBlocked([r(plain, 'pass')])).toHaveLength(1);
 	});

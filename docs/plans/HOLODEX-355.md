@@ -91,6 +91,34 @@ coverage is [`docs/testing-strategy.md`](../testing-strategy.md) §12 (the HOLOD
   branch's own work. Pre-existing `gofmt` drift on ten `internal/**` files is visible locally but
   is untouched by this branch and already on main — left alone, worth its own cleanup.
 
+### 2026-09-10 · `code-review xhigh` over PR #314, all 14 findings applied
+- skills: code-review
+- verified: reviewed this PR's own diff (656 reviewable lines) rather than the epic's, which
+  caught **a regression the previous pass introduced**: un-muting `vacuous` was right, but
+  `reconcileBlocked`'s `stillBroken` still enumerated only `blocked`/`error`, so a group of some
+  passes and some stale selectors would have printed "every check now passes — drop `blockedBy`"
+  for an assertion that measured nothing on half its pages. Now stated as an exclusion
+  (`s !== 'pass' && s !== 'skipped'`) so an unknown status suppresses the verdict by default.
+  Second self-inflicted one: `cd web` as step 0 of the quickstart broke the block as a paste in
+  both the README and §12 — the following `go run ./testdata/stressseed` would have run from
+  `web/`. Subshelled. The rest cluster as "the fix left two hand-maintained copies": the stub's id
+  template was built twice per candidate and `idNamespaceFor` restated the `flood`/`twins`
+  prefixes, so `/describe` and `/resolve` could disagree again through a one-sided edit — both now
+  derive from one `candidate()` helper, and `stub.js` is requireable (`require.main` guard) so a
+  new `stub.test.mjs` guards the §4.1 relationship under `make test-scripts`. Same shape in the
+  build config: CI now calls `make vet` / `make test-go` instead of restating `GO_PKGS`, and
+  `test-integration` uses it too.
+  **Both new guards were mutation-tested**: reinstating `namespace: 'tmdb'` fails 2 of the 4 stub
+  tests, and reverting `stillBroken` fails the 2 new reconcile tests.
+  Green after: `go vet ./... ./testdata/stressseed` clean · full Go suite passing · 109 node tests
+  (105 + 4 new) · vitest 272/272 · a full harness run reproducing the baseline exactly (146/88/1,
+  exit 0) · and a narrowed run now prints "known-open markers not checked".
+- handoff: nothing deferred — all 14 applied. Committed as `chore(testing)` this time; the
+  previous review commit used `fix(testing)`, which broke the convention every other commit in
+  this epic follows and which exists to keep dev-fixture churn out of the CHANGELOG.
+  Note `make` is not on PATH on this Windows box, so the two new CI steps were verified by running
+  their target commands directly — CI's `scripts` job already proves `make` works on the runner.
+
 ### 2026-09-09 · fixed, measured before/after against the stress fixture
 - skills: code-review
 - verified: reproduced the ticket's exact measurement on `/media/200` at 768px

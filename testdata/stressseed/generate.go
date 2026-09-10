@@ -64,6 +64,14 @@ import (
 // links from the file layer — taking the "active link count SHRANK" loss guard with
 // it. That guard is the only automatic check that the fixture's file layer and the
 // server's mapping still agree, which is the whole premise filelayer.go is built on.
+//
+// Clearing it is broader than those two markers, and deliberately so: enrich, extract,
+// personorphan, purge, refresh and the scanner all RecordJobRun, so a reseed empties the
+// whole F21 System Activity history rather than trimming it. That is the reproducible
+// answer — a fixture that carried the previous run's job rows would show activity no
+// dimension in the ladder produced — but it does mean the Activity page reads empty
+// until the server next does something, which the seeder's report says out loud so an
+// operator does not mistake it for a broken page.
 var seededTables = []string{
 	"videos", "films", "people", "studios", "tags", "categories",
 	"identity_review_queue", "entity_enrichment",

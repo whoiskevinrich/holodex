@@ -165,26 +165,40 @@ const WEAK = 0.6;
 // string that the UI splits back apart. This file is the contract's designated
 // reference implementation, so a hand-written namespace that disagrees with the id it
 // sits next to is copied outward as well as being wrong here.
-const namespaceOf = (externalID) => externalID.slice(0, externalID.indexOf(':'));
+function namespaceOf(externalID) {
+  const colon = externalID.indexOf(':');
+  // Not `slice(0, indexOf(...))`: indexOf returns -1 when there is no colon, and
+  // slice(0, -1) would quietly hand back the id minus its last character — a namespace
+  // that is a near-miss of the real one, which is far harder to notice than nothing.
+  if (colon < 0) throw new Error(`external_id ${JSON.stringify(externalID)} has no ":" — it must be <namespace>:<id>`);
+  return externalID.slice(0, colon);
+}
 
-// Which namespace a persona issues ids in. The stress personas answer to their own
-// name because that is the id the seeder records (testdata/stressseed/enrichment.go),
-// so a Refresh against the running stub re-fetches the same record.
+// candidate builds one candidate with its namespace derived from the id rather than
+// written beside it, so the pair cannot be edited apart. That divergence is the whole
+// defect this shape exists to prevent, and a hand-written second copy of the prefix
+// re-creates it the moment somebody edits one of the two.
+const candidate = (externalID, rest) => ({ external_id: externalID, namespace: namespaceOf(externalID), ...rest });
+
+// Which namespace a persona issues ids in, read off the candidates it actually returns
+// rather than restated. §4.1 — "You MUST emit ids only in advertised namespaces" — is a
+// claim about /describe agreeing with /resolve, so deriving one from the other is the
+// only version of it that cannot drift. Personas answer to their own name because that
+// is the id the seeder records (testdata/stressseed/enrichment.go), so a Refresh against
+// the running stub re-fetches the same record.
 function idNamespaceFor(persona) {
-  if (persona.candidates === 'flood') return 'flood';
-  if (persona.candidates === 'twins') return 'twins';
-  return persona.name;
+  return namespaceOf(candidatesFor(persona, '')[0].external_id);
 }
 
 function candidatesFor(persona, query) {
   if (persona.candidates === 'flood') {
-    return Array.from({ length: 30 }, (_, i) => ({
-      external_id: `flood:${100 + i}`,
-      namespace: namespaceOf(`flood:${100 + i}`),
-      label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
-      confidence: Number((WEAK - i * 0.01).toFixed(2)),
-      disambiguation: `Result ${i + 1} of 30 · flooded list`
-    }));
+    return Array.from({ length: 30 }, (_, i) =>
+      candidate(`flood:${100 + i}`, {
+        label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
+        confidence: Number((WEAK - i * 0.01).toFixed(2)),
+        disambiguation: `Result ${i + 1} of 30 · flooded list`
+      })
+    );
   }
   if (persona.candidates === 'twins') {
     const where = [
@@ -197,22 +211,20 @@ function candidatesFor(persona, query) {
       'Composer · 1950 · unaffiliated',
       'Director · 1941 · Studio Ghibli' // a genuine duplicate: even the tiebreaker ties
     ];
-    return where.map((d, i) => ({
-      external_id: `twins:${200 + i}`,
-      namespace: namespaceOf(`twins:${200 + i}`),
-      label: 'Hayao Miyazaki',
-      confidence: WEAK,
-      disambiguation: d
-    }));
+    return where.map((d, i) =>
+      candidate(`twins:${200 + i}`, {
+        label: 'Hayao Miyazaki',
+        confidence: WEAK,
+        disambiguation: d
+      })
+    );
   }
   return [
-    {
-      external_id: `${persona.name}:608`,
-      namespace: namespaceOf(`${persona.name}:608`),
+    candidate(`${persona.name}:608`, {
       label: 'Hayao Miyazaki',
       confidence: STRONG,
       disambiguation: `Director · 1941 · via ${persona.name}`
-    }
+    })
   ];
 }
 
@@ -258,6 +270,12 @@ function route(path) {
   if (!m) return { persona: LEGACY, endpoint: path };
   return { persona: BY_SLUG.get(m[1]), endpoint: m[2] || '/' };
 }
+
+// Exported so the conformance test can check the persona table without binding a port;
+// the server only starts when this file is run directly, not when it is required.
+module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor };
+
+if (require.main !== module) return;
 
 http
   .createServer(async (req, res) => {

@@ -94,6 +94,14 @@ describe('summary and exit code', () => {
 		expect(line).toContain('6 skin/width cells');
 	});
 
+	// A narrowed run's tally is identical to a full run that found no stale marker, so
+	// the absence of a NEWS line must not read as evidence that none was stale.
+	it('says so when a narrowed run could not check known-open markers', () => {
+		expect(summary([mk('pass')], { ...stats, reconciled: false })).toContain('known-open markers not checked');
+		expect(summary([mk('pass')], { ...stats, reconciled: true })).not.toContain('not checked');
+		expect(summary([mk('pass')], stats)).not.toContain('not checked');
+	});
+
 	it('stays green for a known-open bug and a skip, red for anything unknown', () => {
 		expect(exitCode([mk('pass'), mk('blocked'), mk('skipped')])).toBe(0);
 		expect(exitCode([mk('pass'), mk('vacuous')])).toBe(1);

@@ -33,6 +33,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -167,7 +168,7 @@ func run(dataPath string, count int, seed uint64, mappingsPath, personasFile str
 	// measures rungs that were never rebuilt and reports layout verdicts for a seeding
 	// failure. Removing it first makes the failure say what it is — `npm run geometry`
 	// then prints manifest.mjs's "Seed one first" instead of a plausible green run.
-	if err := os.Remove(filepath.Join(cfg.DataPath, manifestName)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(manifestPathIn(cfg.DataPath)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("clear previous manifest: %w", err)
 	}
 
@@ -236,6 +237,12 @@ func report(cfg config.Config, mediaPath, manifestPath string, ff fixtureFields,
 	for _, f := range []fileField{ff.person, ff.studio, ff.overview} {
 		fmt.Printf("  %-8s file tag %q\n", f.canonical, f.fileKey)
 	}
+
+	// Said out loud because an empty Activity page looks like a bug: reset() clears
+	// job_runs so the startup relink re-runs on every boot (see seededTables), and that
+	// takes every other subsystem's history with it.
+	fmt.Printf("\nSystem Activity starts empty — job history is cleared so the startup\n" +
+		"relink runs again on the next boot rather than being skipped as already-done.\n")
 
 	fmt.Printf("\n%d entities across %d dimensions:\n", len(entries), len(ladder))
 	width := 0
