@@ -1,7 +1,7 @@
 # Holodex Testing Strategy
 
 **Status**: Draft (plan); Phase-1 implementation status below  
-**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation) · 2026-08-05 (F52 owner-mode video editing: commentary field, poster upload, studio placement, file-metadata gating; F40 implementation begins) · 2026-08-05 (F53 two-tier video poster resolution, HOLODEX-253, pre-implementation) · 2026-08-05 (F54 configurable provider search patterns, ADR-080, HOLODEX-254, pre-implementation) · 2026-08-05 (F55 Poster View for the People list page, HOLODEX-255, [design handoff](design/people-poster-view-handoff.md), pre-implementation) · 2026-08-07 (tag detail hierarchy & categories, HOLODEX-259, epic HOLODEX-240) · 2026-08-09 (Entity Completeness Score, F55/HOLODEX-260, ADR-081/082, [design handoff](design/entity-completeness-handoff.md)) · 2026-08-10 (Two-tier field editing model, F56/HOLODEX-268, epic HOLODEX-267, [design handoff](design/two-tier-field-editing-handoff.md), pre-implementation) · 2026-08-11 (Video composite-key collision check, F56.3/HOLODEX-270, [spec](specs/video-composite-key-collision.md), [design handoff](design/video-collision-verdict-handoff.md)) · 2026-08-11 (Studio relationship-edit popover, F56.4/HOLODEX-271, [spec](specs/studio-relationship-popover.md), [design handoff](design/studio-picker-handoff.md)) · 2026-08-13 (Writeback hides the target file tag, HOLODEX-216, parent epic HOLODEX-167, [design handoff](design/writeback-target-visibility-handoff.md)) · 2026-08-16 (Core file-metadata fields manually editable + writable, HOLODEX-115, epic HOLODEX-167: `overview`'s `long_text` branch now renders `SourceBadge` like every other replace field; the bespoke `commentary` field (F52) is retired — a system owner maps whatever they want the file's Comment tag to mean via `metadata-mappings.yaml`, not a hardcoded facet) · 2026-09-02 (alias collapse, ADR-088/HOLODEX-306 — provider `also_known_as` values become real `entity_aliases` rows; plan written ahead of implementation) · 2026-09-04 (F59 film provider enrichment, ADR-089) · 2026-09-06 (Fire-and-forget writeback, ADR-091/HOLODEX-323, [spec](specs/fire-and-forget-writeback.md), pre-implementation — supersedes **ADR-073 D4 only**; the D1/D2/D3 rows below stand)  
+**Date**: 2026-06-05 (plan) · updated 2026-06-14 (Quick Wins batch: ADR-031/032) · 2026-06-29 (Owner tooling hub F35) · 2026-07-12 (F47 enrichment review workflow, ADR-066) · 2026-07-14 (F48 on-demand metadata extraction, ADR-067) · 2026-07-28 (F49 claimed provider keys, ADR-074) · 2026-07-29 (F50 tag governance & video enrichment, ADR-075) · 2026-07-31 (tag writeback exclusion, ADR-077, HOLODEX-239; tag categories, ADR-078, HOLODEX-240) · 2026-08-01 (tag & category create affordance, HOLODEX-243) · 2026-08-04 (unified nav search live filter, HOLODEX-249, pre-implementation) · 2026-08-05 (F52 owner-mode video editing: commentary field, poster upload, studio placement, file-metadata gating; F40 implementation begins) · 2026-08-05 (F53 two-tier video poster resolution, HOLODEX-253, pre-implementation) · 2026-08-05 (F54 configurable provider search patterns, ADR-080, HOLODEX-254, pre-implementation) · 2026-08-05 (F55 Poster View for the People list page, HOLODEX-255, [design handoff](design/people-poster-view-handoff.md), pre-implementation) · 2026-08-07 (tag detail hierarchy & categories, HOLODEX-259, epic HOLODEX-240) · 2026-08-09 (Entity Completeness Score, F55/HOLODEX-260, ADR-081/082, [design handoff](design/entity-completeness-handoff.md)) · 2026-08-10 (Two-tier field editing model, F56/HOLODEX-268, epic HOLODEX-267, [design handoff](design/two-tier-field-editing-handoff.md), pre-implementation) · 2026-08-11 (Video composite-key collision check, F56.3/HOLODEX-270, [spec](specs/video-composite-key-collision.md), [design handoff](design/video-collision-verdict-handoff.md)) · 2026-08-11 (Studio relationship-edit popover, F56.4/HOLODEX-271, [spec](specs/studio-relationship-popover.md), [design handoff](design/studio-picker-handoff.md)) · 2026-08-13 (Writeback hides the target file tag, HOLODEX-216, parent epic HOLODEX-167, [design handoff](design/writeback-target-visibility-handoff.md)) · 2026-08-16 (Core file-metadata fields manually editable + writable, HOLODEX-115, epic HOLODEX-167: `overview`'s `long_text` branch now renders `SourceBadge` like every other replace field; the bespoke `commentary` field (F52) is retired — a system owner maps whatever they want the file's Comment tag to mean via `metadata-mappings.yaml`, not a hardcoded facet) · 2026-09-02 (alias collapse, ADR-088/HOLODEX-306 — provider `also_known_as` values become real `entity_aliases` rows; plan written ahead of implementation) · 2026-09-04 (F59 film provider enrichment, ADR-089) · 2026-09-06 (Fire-and-forget writeback, ADR-091/HOLODEX-323, [spec](specs/fire-and-forget-writeback.md), pre-implementation — supersedes **ADR-073 D4 only**; the D1/D2/D3 rows below stand) · 2026-09-09 (geometry assertion harness, HOLODEX-349/epic HOLODEX-342 — see §12; first automated frontend coverage of rendered layout, and the regression mechanism for the stress fixture)  
 **Scope**: Phases 1–3. Grounded in the ADRs (`docs/architecture/`) and phase specs (`docs/specs/`).
 
 ---
@@ -2187,3 +2187,123 @@ Then BOTH 'writing to file' and 'out of sync' are present (RD6)
 - **film_people_roles CRUD (HOLODEX-281, epic HOLODEX-279)**: resolves the HOLODEX-281 half of the epic bullet's deferred item (4) above. Owner-gated `POST/PUT/DELETE /films/{filmId}/roles...` (`internal/api/film_people_roles.go`, mirroring `film_videos.go`'s attach/detach shape) over the already-migrated `film_people_roles` table (migration 0043, ADR-085) — a person's film-level role/billing_order, additive and separate from the per-video `video_people` link (migration 0037), constrained at the app layer to one credited row per person per film (`repo.ErrFilmPersonAlreadyCredited`) so the role text stays addressable by `(filmId, personId)` rather than needing a role-string-in-URL scheme. Go-test-covered end to end: `internal/repo/film_people_roles_test.go` (add/edit/remove, re-add conflict, edit/remove-uncredited `ErrNotFound`, and that `FilmCast`'s inherited union stays unaffected by crediting) and `internal/api/film_people_roles_test.go` (the same at the HTTP layer, plus unauthenticated-401/403 and unknown-person-404, and confirming `getFilm`'s new `credited_roles` field is independent of the pre-existing read-only `cast` field). No new migration — API-surface-only over ADR-085's existing schema, no ADR/spec/design update needed. `/security-review` closed clean (owner-gated via the existing `requireOwner` group, parameterized SQL, film/person existence checked before mutation, no new data exposure). **Deferred, tracked rather than silently assumed done**: the frontend surface (film detail page add/edit/remove UI for credited roles) — `docs/plans/HOLODEX-281.md`'s "Up next" queue.
 - **TagLinkChip — shared tag display (HOLODEX-292)**: design handoff landed 2026-08-29 (`docs/design/tag-link-chip-handoff.md`); this update closes the story's `/testing-strategy` gate. Pure frontend markup consolidation — no backend/API/schema change, so no new Go test coverage is needed (mirrors `StudioLinkCard`'s HOLODEX-290 precedent directly above in scope, not just in shape). No new automated Vitest/Playwright coverage either — the same standing frontend-automation gap every other recent presentational component in this file carries — but this one got thorough manual driven-browser QA: owner view (`/media/{id}` as owner) confirmed the `·file`/`·provider` suffix and hover-reveal remove button render identically to the pre-extraction markup; visitor view (`/media/{id}` unauthenticated) confirmed **no** provenance suffix leaks through (see next sentence); Film detail (`/films/{id}`) confirmed the always-read-only variant with no eyebrow label. **Regression caught by this QA pass, not by review**: the first draft of `TagLinkChip` showed the provenance suffix unconditionally, which would have been a new capability exposed to non-owner visitors that neither Media's prior visitor branch nor Film's prior markup ever had — fixed by gating the suffix on `onremove` (owner-only) before this gate closed, and confirmed fixed by re-running the visitor-view check. 3-skin token check (Cinémathèque/Broadcast/Brutalist) passed — no hardcoded colors/radii in the new component. `/security-review` and `/architecture` not applicable per the handoff's own "why no spec/ADR" section (no new capability, no schema/cross-cutting decision). People details is explicitly out of scope for this story (tracked separately, HOLODEX-39) — see the handoff's callout.
 - **`categories/[id]` migrated to shared TagLinkChip (HOLODEX-293, follow-up to HOLODEX-292)**: the category detail page was the one caller HOLODEX-292 left unmigrated (out of that story's Media/Film-only scope) — still had a byte-near-identical pre-extraction inline owner/visitor chip pair. Swapped to `<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />`, deleting the duplicated markup and a stale comment pointing at code no longer present on the Media page. Pure like-for-like markup swap onto an already-designed, already-reviewed component — no spec/ADR/design-handoff gate, same precedent as HOLODEX-292 itself. `npm run check`: 0 errors. Manual driven-browser QA: owner view (add/remove a tag, confirm the remove button + full padded hit-target render); visitor view (confirm the read-only pill is the full 72×29.6px `<a>`, not just the text); both checked across Cinémathèque, Broadcast, and Brutalist. Category tags carry no `source` field, so the provenance suffix simply never renders here — matches Film's existing behavior, not a new code path. `/security-review` not applicable (no auth/access/infrastructure touched).
+
+---
+
+## 12. Layout invariants — the geometry assertion harness (HOLODEX-349)
+
+`web/geometry/` measures the running [stress fixture](../testdata/stressseed/README.md)
+in a real browser and asserts layout invariants against it. It is the regression
+mechanism for the HOLODEX-342 epic (spec [D6](specs/stress-fixture.md)) and the first
+automated frontend coverage in this repo that exercises rendered geometry rather than
+pure logic.
+
+```bash
+go run ./testdata/stressseed        # seed; writes data/stress/manifest.json
+# start the `backend-stress` and `web` launch profiles
+cd web && npm run geometry
+```
+
+Three skins × two viewport widths (1440 and 768) — 234 checks in ~45s at the current
+table. Exit 0 means every invariant holds. Full reference: `web/geometry/README.md`.
+
+### 12.1 What it asserts, and why not screenshots
+
+Not screenshot diffing. **Measurable invariants at stable addresses**: `getBoundingClientRect`
+plus computed style, at pages the seed manifest addresses by *coordinate* rather than by id.
+
+The loop it exists to serve:
+
+1. The owner looks at the fixture and describes a problem in plain language — *"media 902
+   has twelve people and the headshots are unusably small."*
+2. The agent resolves `902` through `data/stress/manifest.json`, measures the actual
+   geometry across all three skins, and confirms the complaint.
+3. The finding is written back as an assertion about **the property, not the page** — *any
+   page where `people >= 10`* — which fails until fixed and keeps failing if it regresses.
+
+Step 3 is the whole value. One entry in `web/geometry/assertions.mjs` covers the `people`
+rungs at 10/25/50 *and* the `filmcast` rungs at 10/25/50 in six skin/width cells — 36
+checks — and picks up an 80-person rung the day one is added, unedited. A screenshot diff
+would pin one page, need byte-stable images, and go red on every restyle. It is also the
+only technique available: browser screenshots time out on Holodex (see §5), which is why
+computed-style verification was already this repo's three-skin QA method.
+
+### 12.2 When to add an assertion
+
+**Add one when** a layout problem has been *observed* on the fixture and is *measurable* as
+a number — a box too small, text overflowing its container, a page scrolling sideways, a
+list rendering more rows than it should. Write the predicate against the axis that causes
+it (`axes.video.people`, `axes.video.namespaces`, `dimension === 'text'`), never against an
+id, and give it a `finds` sentence saying what breaking it looks like to a human.
+
+**Do not add one when:**
+
+- **A unit test is cheaper.** Pure logic — `density.svelte.ts`'s tier ladder,
+  `cropGeometry.ts`, `filmsPeopleLayout.ts` — belongs in Vitest, where it runs in
+  milliseconds with no server. Only assert in the browser what only a browser can answer.
+- **Geometry cannot see it.** The `ratio`, `bright`, `black` and `alpha` image rungs
+  produce frames that are aspect-locked by CSS, so the *box* measures correct however wrong
+  the pixels are. Those rungs are for the owner's eye, and for the computed-style contrast
+  method in §5 — not for this harness. Likewise colour, contrast and focus rings.
+- **It needs a fixture shape the default run does not have.** An assertion that can only
+  distinguish right from wrong at `-big` must carry a `requires` gate, or it will pass
+  vacuously on a small fixture and report the bug as fixed.
+- **The bound is a standard the project has not adopted.** State the intent, mark it
+  `blockedBy` a ticket that puts the decision to the owner, and let the ruling settle it
+  (HOLODEX-357 is the worked example).
+
+### 12.3 Four failure modes it refuses to hide
+
+Each of these is a way a green run can be a lie, and each is reported with its own status
+rather than folded into "passed":
+
+| status | meaning |
+|---|---|
+| `VOID` | The selector matched fewer elements than `atLeast` (default 1). "Every match is ≥40px" is trivially true of zero matches, so a renamed class would otherwise turn a real assertion green. **This fired on the harness's own first live run and was a genuine defect in it.** |
+| `VOID` (at plan time) | The assertion's `when` selects no page in the fixture — the coordinate it asks for is gone, so its coverage evaporated silently. |
+| `ERR` | Preflight or page preparation could not reach a measurable state. |
+| `NEWS` | Every check under a `blockedBy` marker now passes: the bug is fixed and the marker is now the thing hiding the next regression. Decided over the whole assertion, never per page — while a bug is open most pages still pass. |
+
+Preflight additionally refuses to measure the wrong server: it checks `/capabilities` for
+`owner` and `films_enabled`, then fetches one seeded entity and compares its title to the
+manifest. Every backend profile binds `:7800`, and a dev server started from a worktree
+without its own `.claude/launch.json` will serve a *different* checkout without erroring.
+
+### 12.4 Coverage and current state
+
+The pure halves — manifest selection, verdict scoring, the vacuity guard, the `blockedBy`
+reconciliation, report formatting and the assertion-table validator — are unit-tested under
+`cd web && npm run test` (vitest, no browser, no server). The browser driver itself is
+exercised only by running the harness.
+
+**Assertions shipped** (`web/geometry/assertions.mjs`), and what the first full run found:
+
+| assertion | state |
+|---|---|
+| `person-tiles-stay-legible` | **passes** — 36 checks. The ticket's own example; tiles are a fixed 80px. |
+| `no-horizontal-page-overflow` | **open** — HOLODEX-355, HOLODEX-356 |
+| `tag-chips-stay-tappable` | **open** — HOLODEX-357 |
+| `source-chips-stay-tappable` | **open** — HOLODEX-357 |
+| `people-list-does-not-render-everything` | **open** — HOLODEX-354; skipped unless seeded `-big` |
+
+Three bugs were found on the first full run, none previously known — which is the outcome
+the epic asked for (*"if it finds zero unknown bugs, the fixture is not adversarial
+enough"*). The largest, HOLODEX-355, is structural rather than text-driven: `@utility
+stage-grid` applies its `minmax(0, …)` guard only inside `@media (width >= lg)`, so below
+`lg` the implicit `auto` column takes the item's min-content — 1184px inside a 720px
+container — and every media and film detail page scrolls sideways by 440px at 768px. The
+utility's own comment already documents that exact failure mode for the two-column case.
+
+### 12.5 Standing gaps
+
+- **Not in CI.** The harness needs a seeded fixture and two running servers, so it is a
+  local, deliberate run. Wiring it into CI would need the seed and both profiles
+  orchestrated in the workflow; not attempted.
+- **One assertion is unexercised at default fixture size.**
+  `people-list-does-not-render-everything` is `requires`-gated to a `-big` seed and skips
+  otherwise, so a routine run does not cover HOLODEX-354.
+- **Playwright is now a `web/` devDependency**, which partially closes the standing "the
+  Playwright E2E suite — covered manually for Phase 1; to be automated" gap in §0: the
+  browser tooling now exists, but the ~10 E2E *flows* in §6 remain unautomated. This
+  harness measures layout on pages; it does not drive user journeys.
+- **The image dimensions have no assertion at all**, deliberately — see §12.2.

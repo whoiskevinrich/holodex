@@ -1,0 +1,99 @@
+# Metadata field mapping for the HOLODEX-342 stress fixture. NOT a template.
+#
+# The fixture owns its mapping rather than borrowing the operator's, because the
+# mapping is not a setting here — it is part of the fixture's contract.
+#
+# Two facts force it. First, the mapping decides which file tag carries the cast,
+# and the server re-derives video_people from the file layer on every boot
+# (ADR-072); a fixture seeded against a different mapping than the one serving it
+# has its links wiped rather than read (see filelayer.go). Second, `studio` is a
+# REPLACE field in an ordinary mapping, so the resolver returns exactly one value
+# and a "5 studios" rung would silently collapse to 1 — the fixture would state a
+# cardinality in its manifest that the page never renders.
+#
+# So: `backend-stress` and the seeder both read THIS file, it is committed, and
+# the studios ladder is expressible because `studio` declares `multi: true` here.
+# That is a legitimate configuration (video_studios has been many-to-many since
+# migration 0017, and the media detail page renders the list), not a fiction — it
+# is simply not the shape either of the operator's own profiles happens to use.
+#
+# Keep the relationship half of this file boring. It exists to make relationships
+# resolvable, not to exercise mapping features. The provider namespaces at the
+# bottom are the one deliberate exception (HOLODEX-348).
+
+fields:
+  # --- Title. The text ladder writes videos.title directly, which `file:title`
+  # aliases, so browse cards and the detail page both show the tortured string.
+  - canonical: title
+    browse: true
+    sources:
+      - file:title
+
+  - canonical: overview
+    sources:
+      - file:Comment
+
+  # --- Cast. `multi: true` is what makes a 50-person rung resolve to 50 names;
+  # the seeder writes one `Cast` row per person (never a joined string) so a name
+  # containing a separator cannot fracture into two people.
+  - canonical: actors
+    multi: true
+    sources:
+      - file:Cast
+
+  - canonical: director
+    multi: true
+    sources:
+      - file:Director
+
+  # --- Studio. `multi: true` is load-bearing: without it the resolver's replace
+  # path takes firstNonEmpty and every studios rung above 1 collapses to 1.
+  - canonical: studio
+    multi: true
+    sources:
+      - file:Publisher
+
+  - canonical: genres
+    multi: true
+    filterable: true
+    sources:
+      - file:Genre
+
+  - canonical: collection
+    sources:
+      - file:Album
+
+  # --- Provider namespaces (HOLODEX-348) -----------------------------------
+  # A VIDEO's field set comes from this file, so a provider only becomes a
+  # competing candidate on the media page if `<name>:<field>` appears in that
+  # field's `sources:` list. (A person's does not: personScalarFields is a
+  # hardcoded Go list and personProviders unions every provider that has a stored
+  # row, so the person page grows chips from the rows alone.) These two fields are
+  # the video surface's half of that, and they are chosen to avoid confounding an
+  # existing axis: the ladder already tortures `title` and `overview` for text and
+  # `studio`/`actors`/`genres` for cardinality, so conflicting on any of those
+  # would leave a failure un-attributable (D3).
+  #
+  # Neither may be `multi: true`: replaceMarkers only builds a candidate list for
+  # a replace field, so a merge field has no chip row at all.
+  #
+  # `file:` first, and kept, for two reasons — it is the baseline chip the five
+  # providers are voting against, and loadFileField hard-refuses a field whose
+  # sources are provider-only.
+  - canonical: original_language
+    sources:
+      - file:Language
+      - alpha:original_language
+      - bravo:original_language
+      - charlie:original_language
+      - delta:original_language
+      - stress-provider-with-a-very-long-name-40:original_language
+
+  - canonical: tagline
+    sources:
+      - file:Tagline
+      - alpha:tagline
+      - bravo:tagline
+      - charlie:tagline
+      - delta:tagline
+      - stress-provider-with-a-very-long-name-40:tagline
