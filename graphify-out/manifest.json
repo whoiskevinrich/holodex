@@ -6036,9 +6036,9 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-342.md": {
-    "mtime": 1788994369.4591665,
-    "seen": 1788995415.8443518,
-    "ast_hash": "4c97e01989cda66c3c9e3eeb6095b39d",
+    "mtime": 1788997650.2261207,
+    "seen": 1788998684.7231045,
+    "ast_hash": "0b386e28f8debe0e57a31142f2a1e1ff",
     "semantic_hash": ""
   },
   "docs/specs/stress-fixture.md": {
@@ -6138,9 +6138,9 @@
     "semantic_hash": ""
   },
   "web/geometry/assertions.mjs": {
-    "mtime": 1788993832.5228207,
-    "seen": 1788995415.8437605,
-    "ast_hash": "e0cf98853fcff51741cf85932ff37ae6",
+    "mtime": 1788998227.1669908,
+    "seen": 1788998684.7225296,
+    "ast_hash": "d7bee47d805f09e39fcd6a7cece668c8",
     "semantic_hash": ""
   },
   "web/geometry/browser.mjs": {
@@ -6195,6 +6195,12 @@
     "mtime": 1788994054.535653,
     "seen": 1788995415.8445642,
     "ast_hash": "76b270ef8993f160755262e6c3e1dc06",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-355.md": {
+    "mtime": 1788998577.3034613,
+    "seen": 1788998684.7231064,
+    "ast_hash": "5d8ae67a8d50553930921833241d63d9",
     "semantic_hash": ""
   }
 }
