@@ -68,8 +68,7 @@ export const ASSERTIONS = [
 		when: (e) => ['text', 'persontext', 'studiotext', 'tagtext'].includes(e.dimension),
 		selector: ':document',
 		measure: 'overflowX',
-		expect: { max: 0 },
-		blockedBy: 'HOLODEX-356'
+		expect: { max: 0 }
 	},
 
 	{

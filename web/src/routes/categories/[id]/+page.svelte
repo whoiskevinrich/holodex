@@ -193,8 +193,12 @@
 						{#if renameError}<p class="w-full text-sm text-warn">{renameError}</p>{/if}
 					</form>
 				{:else}
+					<!-- This row hand-rolls NameEditControl's heading+pencil shape, so it needs that
+					     component's own overflow guard restated here (HOLODEX-356): `min-w-0` lets the
+					     heading shrink, `break-words` breaks a name with no wrap opportunity instead of
+					     painting it past the page edge. -->
 					<div class="flex items-center gap-2">
-						<h1 class="skin-title text-2xl font-semibold text-ink">{category.name}</h1>
+						<h1 class="skin-title min-w-0 break-words text-2xl font-semibold text-ink">{category.name}</h1>
 						{#if isOwner}
 							<button
 								aria-label="Rename category"
