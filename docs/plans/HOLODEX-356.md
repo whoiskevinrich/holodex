@@ -64,11 +64,12 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
    narrowing a marker needs 356's real failing set measured first, and this session measured it.
    The set was `text|studiotext|tagtext / unbroken` at `narrow` in `cinematheque` and `brutalist`
    only — 6 of 180 checks — which is exactly the per-cell granularity the item argues for
-3. [ ] [P2·S] **The text ladder has no film or category rung — and no viewport below 768px**, so
-   cause 4's two fixes and the `SourceBadge` one are not regression-guarded — dropping either class again would leave the harness at 216 passed. Raised by
-   the `code-review high` pass and deliberately not fixed there: it is a `testdata/stressseed`
-   change (a `filmtext` dimension, its manifest entries, and the assertion's `when`), not a
-   frontend one
+3. [ ] [P2·S] **The text ladder has no film or category rung, and the harness has no viewport
+   below 768px** — so cause 4's two fixes are unguarded, as is
+   [HOLODEX-358](HOLODEX-358.md)'s. Dropping any of those classes again would still leave the run
+   at 216 passed. Raised by the `code-review high` pass and deliberately not fixed there: it needs
+   a `filmtext` dimension in `testdata/stressseed` and a third cell in `web/geometry/browser.mjs`,
+   neither of which is a frontend change
 4. [ ] [P3·S] `tag-chips-stay-tappable` measures the inner `<a>` and becomes a trap if HOLODEX-357
    is resolved by padding `.curation-chip` instead — carried over from HOLODEX-355 item 4
 5. [ ] [P3·S] The header is 46px taller at 768px and 72px at 375px. If that reads as too much
@@ -77,28 +78,10 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-09 · `code-review medium --fix` over PR #315, both findings applied
-- skills: code-review
-- verified: a second pass at a viewport nothing else tests. **A field value still overflowed the
-  page below ~440px** — `/media/202` at 375px, 133px of scroll from `#field-overview`'s value span.
-  The fix is not the one the rest of this ticket used, and that is the finding worth remembering:
-  `overflow-wrap: break-word` **deliberately does not reduce min-content**, so on a *flex item*
-  (which a `SourceBadge` value is) `max-w-full` + `break-words` left all 133px in place. Only
-  `overflow-wrap: anywhere` (`wrap-anywhere`) collapses it. Put on the value span rather than the
-  wrapper so it does not inherit into the provider chip row. The heading fixes elsewhere in this
-  ticket are a different shape — the `h1` there is a *block* inside a shrunk column, so
-  `break-words` is enough once `min-w-0` has narrowed the box. Person, studio and tag pages are
-  clean at 375, so this was one element, not a family.
-  Second finding: **the committed mockup disagreed with what ships.** `justify-between` spreads the
-  wrapped first line, so the search box sits against the right edge with a 187px gap after the logo,
-  not adjacent to it as drawn. The mockup and handoff now show the real layout and name the gap —
-  every way of closing it also moves the search box at desktop width, which this fix does not touch.
-  Green after: `npm run check` 0 errors · vitest 272/272 · full harness 216 passed / 18 known-open /
-  1 skipped, unchanged.
-- handoff: nothing deferred from this pass. The `SourceBadge` change is the one hunk that reaches
-  outside the ticket's stated widths and into a shared component — isolated to one class on one
-  span, and easy to drop if that scope is unwanted. Note it is unguarded for the same reason as the
-  film and category fixes: the harness runs at 768 and 1440, and this only reproduces below ~440px.
+> The tail of this ticket — a `code-review medium` pass that landed after PR #315 had
+> already merged — is tracked separately as
+> [HOLODEX-358](HOLODEX-358.md), since reusing this key would have dragged a `Done`
+> issue back through `In Review`.
 
 ### 2026-09-09 · all three causes fixed, harness armed
 - skills: design-handoff, code-review
