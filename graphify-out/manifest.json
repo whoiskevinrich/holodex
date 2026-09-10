@@ -1716,9 +1716,9 @@
     "semantic_hash": ""
   },
   "testdata/enrich-stub/stub.js": {
-    "mtime": 1788986784.1017122,
-    "seen": 1788988384.4673097,
-    "ast_hash": "924f4730e65775dc943d01441f0238fc",
+    "mtime": 1789002005.2422156,
+    "seen": 1789002702.8503816,
+    "ast_hash": "478eea9926135dbfa5ce1751163d9420",
     "semantic_hash": ""
   },
   "testdata/gen.sh": {
@@ -2442,9 +2442,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1788893237.206008,
-    "seen": 1788894557.1844475,
-    "ast_hash": "fe80fffba79d763b08b6b5463ce131dc",
+    "mtime": 1789002029.886404,
+    "seen": 1789002702.8507257,
+    "ast_hash": "395b24f6d40a8a80570eeef10b1a961c",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -3576,9 +3576,9 @@
     "semantic_hash": ""
   },
   "docs/testing-strategy.md": {
-    "mtime": 1788994144.2525787,
-    "seen": 1788995415.8445418,
-    "ast_hash": "f8e4a1e30bc93d6e59e2b29677d00c86",
+    "mtime": 1789002075.1129937,
+    "seen": 1789002702.851381,
+    "ast_hash": "bce0bf94ff5e5aae0e3f26da7a4ebb56",
     "semantic_hash": ""
   },
   "site/README.md": {
@@ -6006,9 +6006,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/claim.go": {
-    "mtime": 1788987313.7303667,
-    "seen": 1788988384.467316,
-    "ast_hash": "809072aa7ff06541f1d32f13c163f77c",
+    "mtime": 1789001949.762695,
+    "seen": 1789002702.8503904,
+    "ast_hash": "e7c4f3a346d36d0f326916f5c3f3a7a0",
     "semantic_hash": ""
   },
   "testdata/stressseed/claim_test.go": {
@@ -6018,9 +6018,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/main.go": {
-    "mtime": 1788987283.3160245,
-    "seen": 1788988384.4673293,
-    "ast_hash": "50b0f4d6c124eb1b67ececb56fce8dfa",
+    "mtime": 1789001965.6496327,
+    "seen": 1789002702.8504105,
+    "ast_hash": "d5eeeb56f2e4a75a166f0120fb7ccad5",
     "semantic_hash": ""
   },
   "docs/architecture/ADR-094-local-dev-credentials-from-environment.md": {
@@ -6060,9 +6060,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/generate.go": {
-    "mtime": 1788988078.2911701,
-    "seen": 1788988384.467323,
-    "ast_hash": "4885e5b8657fdab283817bc87b446ce4",
+    "mtime": 1789002094.7619698,
+    "seen": 1789002702.8504004,
+    "ast_hash": "5262fe54cf5837cbde1fd887ef9bca9a",
     "semantic_hash": ""
   },
   "testdata/stressseed/ladder.go": {
@@ -6108,9 +6108,9 @@
     "semantic_hash": ""
   },
   "testdata/stressseed/breadth_test.go": {
-    "mtime": 1788917448.1509368,
-    "seen": 1788917910.9649594,
-    "ast_hash": "015f4c3662a27ff36d2cbc4162b37064",
+    "mtime": 1789001930.3403738,
+    "seen": 1789002702.8503883,
+    "ast_hash": "c68386c13665ebeb6506e3564d20884e",
     "semantic_hash": ""
   },
   "testdata/enrich-stub/personas.json": {
@@ -6138,27 +6138,27 @@
     "semantic_hash": ""
   },
   "web/geometry/assertions.mjs": {
-    "mtime": 1788998227.1669908,
-    "seen": 1788998684.7225296,
-    "ast_hash": "d7bee47d805f09e39fcd6a7cece668c8",
+    "mtime": 1789001878.765686,
+    "seen": 1789002702.8504138,
+    "ast_hash": "b361726626925dbf17960c3ee12d1982",
     "semantic_hash": ""
   },
   "web/geometry/browser.mjs": {
-    "mtime": 1788994241.016266,
-    "seen": 1788995415.8437626,
-    "ast_hash": "b670c67a1ea95056a98a4a6da67cff85",
+    "mtime": 1789001868.5950735,
+    "seen": 1789002702.850415,
+    "ast_hash": "0e370e1b260985557a2599d665214557",
     "semantic_hash": ""
   },
   "web/geometry/evaluate.mjs": {
-    "mtime": 1788994241.016266,
-    "seen": 1788995415.843764,
-    "ast_hash": "49c256baef0e790fb54e6ca4894dd1ab",
+    "mtime": 1789001824.4011748,
+    "seen": 1789002702.8504164,
+    "ast_hash": "cbbd8a7bb3fb5a307f4f9229b0e7d3b3",
     "semantic_hash": ""
   },
   "web/geometry/evaluate.test.mjs": {
-    "mtime": 1788994250.2822695,
-    "seen": 1788995415.843765,
-    "ast_hash": "419de4fe2e45a54c073b4f9004f9d88e",
+    "mtime": 1789002245.7441964,
+    "seen": 1789002702.850418,
+    "ast_hash": "402c0fd100870da1179914b0d8ce4173",
     "semantic_hash": ""
   },
   "web/geometry/manifest.mjs": {
@@ -6186,21 +6186,21 @@
     "semantic_hash": ""
   },
   "web/geometry/run.mjs": {
-    "mtime": 1788994223.380558,
-    "seen": 1788995415.843771,
-    "ast_hash": "f391c1f23d324e44941055b8d2f89679",
+    "mtime": 1789001859.3817966,
+    "seen": 1789002702.8504267,
+    "ast_hash": "4e4e4417c33c262e8abe53689e824469",
     "semantic_hash": ""
   },
   "web/geometry/README.md": {
-    "mtime": 1788994054.535653,
-    "seen": 1788995415.8445642,
-    "ast_hash": "76b270ef8993f160755262e6c3e1dc06",
+    "mtime": 1789002047.007453,
+    "seen": 1789002702.8513994,
+    "ast_hash": "d09a5065759a32b41d9568e2fe89bba1",
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-355.md": {
-    "mtime": 1788998577.3034613,
-    "seen": 1788998684.7231064,
-    "ast_hash": "5d8ae67a8d50553930921833241d63d9",
+    "mtime": 1789002642.79881,
+    "seen": 1789002702.8512475,
+    "ast_hash": "6ededda06dc73e561b6009047c3d93ca",
     "semantic_hash": ""
   }
 }
