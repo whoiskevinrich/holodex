@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-356
-status: in-progress
+status: in-review
 depends-on: [HOLODEX-355]
 release_note: Fixed the header and long titles pushing pages sideways on tablet and phone widths.
 ---
@@ -89,6 +89,9 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
   -354, both pre-existing) / 1 skipped, `npm run check` 0 errors, vitest 272/272. `code-review high`
   then found cause 4 — two headings the harness does not address — and both were fixed and the film
   one measured live; its third finding, the missing ladder rung, is item 3 in *Up next*.
+- then: opened **[PR #315](https://github.com/whoiskevinrich/holodex/pull/315)** ready for review
+  (not draft) — every gate in the routing table is satisfied, so the Draft posture ADR-069 asks for
+  does not apply and CI fires `In Review` on the ready state.
 - handoff: the assertion is armed — `blockedBy` is gone, so the next sideways-scrolling regression
   on a text-ladder page fails the run instead of being absorbed. The one judgement call worth
   re-examining is `break-words` vs `truncate` on the three detail headings: `truncate` would match
