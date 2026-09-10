@@ -64,11 +64,12 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
    narrowing a marker needs 356's real failing set measured first, and this session measured it.
    The set was `text|studiotext|tagtext / unbroken` at `narrow` in `cinematheque` and `brutalist`
    only — 6 of 180 checks — which is exactly the per-cell granularity the item argues for
-3. [ ] [P2·S] **The text ladder has no film or category rung**, so cause 4's two fixes are not
-   regression-guarded — dropping either class again would leave the harness at 216 passed. Raised by
-   the `code-review high` pass and deliberately not fixed there: it is a `testdata/stressseed`
-   change (a `filmtext` dimension, its manifest entries, and the assertion's `when`), not a
-   frontend one
+3. [ ] [P2·S] **The text ladder has no film or category rung, and the harness has no viewport
+   below 768px** — so cause 4's two fixes are unguarded, as is
+   [HOLODEX-358](HOLODEX-358.md)'s. Dropping any of those classes again would still leave the run
+   at 216 passed. Raised by the `code-review high` pass and deliberately not fixed there: it needs
+   a `filmtext` dimension in `testdata/stressseed` and a third cell in `web/geometry/browser.mjs`,
+   neither of which is a frontend change
 4. [ ] [P3·S] `tag-chips-stay-tappable` measures the inner `<a>` and becomes a trap if HOLODEX-357
    is resolved by padding `.curation-chip` instead — carried over from HOLODEX-355 item 4
 5. [ ] [P3·S] The header is 46px taller at 768px and 72px at 375px. If that reads as too much
@@ -76,6 +77,11 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
    here on purpose (handoff §2a), not overlooked
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+> The tail of this ticket — a `code-review medium` pass that landed after PR #315 had
+> already merged — is tracked separately as
+> [HOLODEX-358](HOLODEX-358.md), since reusing this key would have dragged a `Done`
+> issue back through `In Review`.
 
 ### 2026-09-09 · all three causes fixed, harness armed
 - skills: design-handoff, code-review
