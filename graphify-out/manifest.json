@@ -2250,9 +2250,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/+layout.svelte": {
-    "mtime": 1788571891.2363803,
-    "seen": 1788572752.3467617,
-    "ast_hash": "0bb2a9e11c41e490fe2d6c3434a5ca25",
+    "mtime": 1789014777.8082554,
+    "seen": 1789015312.6560514,
+    "ast_hash": "668b347271d65ff2b0a64e697ff1db1a",
     "semantic_hash": ""
   },
   "web/src/routes/+layout.ts": {
@@ -2340,9 +2340,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/people/[id]/+page.svelte": {
-    "mtime": 1788830023.956733,
-    "seen": 1788831692.7011034,
-    "ast_hash": "134cecc8f1a76d1ba220669ee1e34f5e",
+    "mtime": 1789014787.4340322,
+    "seen": 1789015312.6560788,
+    "ast_hash": "3e14e514beeeef954fbc7d0b0e90dbfd",
     "semantic_hash": ""
   },
   "web/src/routes/search/+page.svelte": {
@@ -4092,9 +4092,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/categories/[id]/+page.svelte": {
-    "mtime": 1788057395.6575398,
-    "seen": 1788106586.085109,
-    "ast_hash": "97d80efc318fb5d3ebbb842ac16aeae5",
+    "mtime": 1789015115.7853677,
+    "seen": 1789015312.6560552,
+    "ast_hash": "c94fa5c93c32f16e2105a7dcdd15fe6e",
     "semantic_hash": ""
   },
   "docs/architecture/ADR-077-tag-writeback-exclusion.md": {
@@ -4836,9 +4836,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/NameEditControl.svelte": {
-    "mtime": 1788623681.478975,
-    "seen": 1788831692.7009704,
-    "ast_hash": "86493322acd6d624d3263d3ab22ef00a",
+    "mtime": 1789013679.9759493,
+    "seen": 1789015312.6559315,
+    "ast_hash": "b814d9032e664c617501672dcd982e14",
     "semantic_hash": ""
   },
   "web/src/lib/components/entity/PersonPicker.svelte": {
@@ -4932,9 +4932,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/films/[id]/+page.svelte": {
-    "mtime": 1788830023.9515374,
-    "seen": 1788831692.7010844,
-    "ast_hash": "dfb0b2a7d010bbc608e6159186a3caec",
+    "mtime": 1789015115.7838542,
+    "seen": 1789015312.6560585,
+    "ast_hash": "027c6936e2c05451858f9dfbc2c612a7",
     "semantic_hash": ""
   },
   "web/src/routes/owner/completeness/+page.svelte": {
@@ -6138,9 +6138,9 @@
     "semantic_hash": ""
   },
   "web/geometry/assertions.mjs": {
-    "mtime": 1789007287.9939,
-    "seen": 1789007333.1364284,
-    "ast_hash": "b361726626925dbf17960c3ee12d1982",
+    "mtime": 1789013733.1108274,
+    "seen": 1789015312.655843,
+    "ast_hash": "86022e29ce6386792de96544ed84becc",
     "semantic_hash": ""
   },
   "web/geometry/browser.mjs": {
@@ -6198,15 +6198,33 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-355.md": {
-    "mtime": 1789007661.4899714,
-    "seen": 1789009956.8414543,
-    "ast_hash": "dcc139861842644b50f4f7332776e6da",
+    "mtime": 1789009975.939862,
+    "seen": 1789015312.6564767,
+    "ast_hash": "09a2ae58acf0f161167cf1718526f786",
     "semantic_hash": ""
   },
   "testdata/enrich-stub/stub.test.mjs": {
     "mtime": 1789009479.9016502,
     "seen": 1789009956.8408134,
     "ast_hash": "71b650fb159ba959a0ec70fe3ebd53cf",
+    "semantic_hash": ""
+  },
+  "docs/design/header-narrow-width-handoff.md": {
+    "mtime": 1789014856.6481125,
+    "seen": 1789015312.6562924,
+    "ast_hash": "ce00cd4c8bc9ecc425d7bcc71ab074f3",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-356.md": {
+    "mtime": 1789015275.351253,
+    "seen": 1789015312.6564782,
+    "ast_hash": "8736c144cbd896a271bca5bfad73387a",
+    "semantic_hash": ""
+  },
+  "docs/design/header-narrow-width-mockup.svg": {
+    "mtime": 1789014825.3572812,
+    "seen": 1789015312.6566362,
+    "ast_hash": "fbd16ffeb831a519560725bfd2d30711",
     "semantic_hash": ""
   }
 }
