@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-356
-status: in-review
+status: done
 depends-on: [HOLODEX-355]
 release_note: Fixed the header and long titles pushing pages sideways on tablet and phone widths.
 ---
@@ -58,23 +58,21 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Sweep to `Done` on merge — CI transitions only the branch's own key
-2. [ ] [P2·M] **`blockedBy` mutes an assertion across every page it runs on** — carried over from
-   [HOLODEX-355](HOLODEX-355.md) item 3, and now *unblocked*: that item was deferred because
-   narrowing a marker needs 356's real failing set measured first, and this session measured it.
-   The set was `text|studiotext|tagtext / unbroken` at `narrow` in `cinematheque` and `brutalist`
-   only — 6 of 180 checks — which is exactly the per-cell granularity the item argues for
-3. [ ] [P2·S] **The text ladder has no film or category rung, and the harness has no viewport
-   below 768px** — so cause 4's two fixes are unguarded, as is
-   [HOLODEX-358](HOLODEX-358.md)'s. Dropping any of those classes again would still leave the run
-   at 216 passed. Raised by the `code-review high` pass and deliberately not fixed there: it needs
-   a `filmtext` dimension in `testdata/stressseed` and a third cell in `web/geometry/browser.mjs`,
-   neither of which is a frontend change
-4. [ ] [P3·S] `tag-chips-stay-tappable` measures the inner `<a>` and becomes a trap if HOLODEX-357
-   is resolved by padding `.curation-chip` instead — carried over from HOLODEX-355 item 4
-5. [ ] [P3·S] The header is 46px taller at 768px and 72px at 375px. If that reads as too much
-   vertical chrome in real use, the follow-up is collapsing the nav at narrow widths — declined
-   here on purpose (handoff §2a), not overlooked
+Everything that outlives this epic has been promoted; nothing here is waiting on this worklog.
+
+1. [ ] [—] Phone-width harness cell + a `filmtext` rung, so cause 4's film/category fixes stop
+   being unguarded → **[HOLODEX-359](https://whoiskevinrich.atlassian.net/browse/HOLODEX-359)**
+   (was item 3, shared with [HOLODEX-358](HOLODEX-358.md))
+2. [ ] [—] `blockedBy` mutes an assertion across every page it runs on — now actionable, because
+   this epic measured the failing set (6 of 180 checks) that HOLODEX-355 said had to be measured
+   first → **[HOLODEX-360](https://whoiskevinrich.atlassian.net/browse/HOLODEX-360)** (was item 2)
+3. [ ] [—] `tag-chips-stay-tappable` measures the inner `<a>` and becomes a trap if HOLODEX-357 is
+   resolved by padding `.curation-chip` → recorded as a comment **on HOLODEX-357 itself**, where
+   whoever rules on it will see it (was item 4)
+4. [ ] [—] The header is 46px taller at 768px and 72px at 375px; if that reads as too much vertical
+   chrome in real use, the follow-up is collapsing the nav at narrow widths. Not promoted on
+   purpose — it is a declined option with a re-open condition, and its durable record is
+   [`header-narrow-width-handoff.md`](../design/header-narrow-width-handoff.md) §2a, not this queue
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,6 +80,22 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
 > already merged — is tracked separately as
 > [HOLODEX-358](HOLODEX-358.md), since reusing this key would have dragged a `Done`
 > issue back through `In Review`.
+
+### 2026-09-09 · PR #315 merged — worklog closed out
+- skills: handoff
+- verified: [PR #315](https://github.com/whoiskevinrich/holodex/pull/315) merged and Jira
+  `HOLODEX-356` is `Done`; the `status: in-review` this file carried was simply stale, and the
+  "sweep to `Done` on merge" item it was holding had already been done by CI.
+- then: promoted the three surviving queue items rather than letting a closed worklog hold them —
+  **[HOLODEX-359](https://whoiskevinrich.atlassian.net/browse/HOLODEX-359)** (phone cell +
+  `filmtext` rung), **[HOLODEX-360](https://whoiskevinrich.atlassian.net/browse/HOLODEX-360)**
+  (`blockedBy` granularity), and a comment on HOLODEX-357 for the `tag-chips-stay-tappable`
+  selector trap. The fourth item is a *declined* option, so it stays in the design handoff where it
+  was decided instead of becoming a ticket nobody asked for.
+- handoff: HOLODEX-356 is finished, merged and `Done` — nothing here is left to build, and the
+  epic's queue is empty by promotion rather than by neglect. The strongest next move on this thread
+  is HOLODEX-360: this epic produced exactly the measurement HOLODEX-355 said the fix was blocked
+  on, and that measurement will decay.
 
 ### 2026-09-09 · all three causes fixed, harness armed
 - skills: design-handoff, code-review
