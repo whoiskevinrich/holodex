@@ -217,10 +217,16 @@
 </script>
 
 <div class="inline-flex flex-wrap items-center gap-2" data-source-badge={field.canonical}>
+	<!-- `wrap-anywhere` on the value, and nowhere else (HOLODEX-356). A field value is arbitrary
+	     text, and as a flex item it is floored at its own min-content — so an unbreakable token
+	     widens this row past the page. `break-words` cannot fix that shape: `overflow-wrap:
+	     break-word` deliberately does not reduce min-content, which is why the row still overflowed
+	     at 375px with both `max-w-full` and `break-words` applied. `anywhere` does reduce it. Kept
+	     on the span rather than the wrapper so it does not inherit into the provider chip row. -->
 	{#if !isMultiSource}
-		<span class={field.values.join(', ') ? 'text-ink' : 'text-muted'}>{field.values.join(', ') || '—'}</span>
+		<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
 	{:else}
-		<span class={field.values.join(', ') ? 'text-ink' : 'text-muted'}>{field.values.join(', ') || '—'}</span>
+		<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
 		<button
 			type="button"
 			bind:this={badgeEl}

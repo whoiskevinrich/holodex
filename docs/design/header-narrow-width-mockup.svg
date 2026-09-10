@@ -36,9 +36,9 @@
   <rect x="40" y="244" width="640" height="88" fill="#fafaf9" stroke="#d6d3d1"/>
   <line x1="40" y1="332" x2="680" y2="332" stroke="#d6d3d1"/>
   <text x="60" y="274" font-size="12" font-weight="600" fill="#111827">Holodex</text>
-  <rect x="118" y="259" width="373" height="24" rx="4" fill="#ffffff" stroke="#a8a29e"/>
-  <text x="126" y="275" font-size="10" fill="#a8a29e">Search everything…  (Ctrl-K)</text>
-  <text x="497" y="275" font-size="9" fill="#15803d">448px</text>
+  <rect x="274" y="259" width="373" height="24" rx="4" fill="#ffffff" stroke="#a8a29e"/>
+  <text x="282" y="275" font-size="10" fill="#a8a29e">Search everything…  (Ctrl-K)</text>
+  <text x="128" y="275" font-size="9" fill="#6b7280">448px, pushed right by justify-between</text>
 
   <text x="60" y="312" font-size="11" fill="#57534e">Media · People · Studios · Tags · Films</text>
   <line x1="244" y1="296" x2="244" y2="324" stroke="#d6d3d1"/>
@@ -52,4 +52,5 @@
   <line x1="680" y1="236" x2="680" y2="344" stroke="#15803d" stroke-width="2" stroke-dasharray="4 3"/>
   <text x="40" y="356" font-size="11" fill="#15803d">Nothing off-screen. Nothing hidden. Header grows 46px taller; desktop is unchanged.</text>
   <text x="40" y="380" font-size="11" fill="#6b7280">At 375px the nav takes a second line of its own — three rows, still no overflow.</text>
+  <text x="40" y="396" font-size="11" fill="#6b7280">The gap after the logo is justify-between spreading a two-item line; it is the same effect as at desktop.</text>
 </svg>
