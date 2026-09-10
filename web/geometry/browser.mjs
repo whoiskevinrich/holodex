@@ -226,7 +226,14 @@ export async function probe(page, selector) {
 				// or <span>, for instance — so their difference would read as a confident
 				// "0, no overflow" for exactly the elements most likely to be overflowing
 				// their text. Report it as unmeasurable instead and let evaluate() say so.
-				const scrollable = el.clientWidth > 0 || el.clientHeight > 0;
+				//
+				// Per axis, not per element: a box can be collapsed in one axis and
+				// measurable in the other. A closed disclosure fold (`max-height: 0` with
+				// `overflow-hidden`) has a real clientWidth and a zero clientHeight, so one
+				// shared flag would either fabricate an overflowY of the entire content
+				// height, or throw away a perfectly good overflowX.
+				const measurableX = el.clientWidth > 0;
+				const measurableY = el.clientHeight > 0;
 				return {
 					index,
 					tag:
@@ -237,8 +244,8 @@ export async function probe(page, selector) {
 							: ''),
 					width: Math.round(rect.width * 100) / 100,
 					height: Math.round(rect.height * 100) / 100,
-					overflowX: scrollable ? el.scrollWidth - el.clientWidth : null,
-					overflowY: scrollable ? el.scrollHeight - el.clientHeight : null,
+					overflowX: measurableX ? el.scrollWidth - el.clientWidth : null,
+					overflowY: measurableY ? el.scrollHeight - el.clientHeight : null,
 					fontSize: parseFloat(style.fontSize) || 0,
 					visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',
 					text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60)

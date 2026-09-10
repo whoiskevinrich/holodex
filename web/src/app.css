@@ -57,12 +57,18 @@
    SourceBadge chip row still fit on one line.
 
    Below `lg` this stays a single column, so the rail's cards stack under the subject in DOM
-   order — visual and focus order never diverge, and no `order-*` is needed anywhere. The gap
+   order — visual and focus order never diverge, and no `order-*` is needed anywhere. That
+   branch needs the `minmax(0, …)` guard just as much as the two-column one, so it is declared
+   as a base track rather than left implicit (HOLODEX-355): with no track definition at all the
+   single implicit column is sized `auto`, which carries min-width:auto and so resolves to the
+   content's min-content width — 1184px inside a 720px container at the 768px viewport, i.e.
+   horizontal page scroll on every detail page below `lg`, content-independent. The gap
    and the breakpoint are pulled from the theme scale rather than restated, so they cannot
    drift from `gap-6` / `lg:` if either is ever retuned. */
 @utility stage-grid {
 	display: grid;
 	gap: --spacing(6);
+	grid-template-columns: minmax(0, 1fr);
 	@media (width >= theme(--breakpoint-lg)) {
 		grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
 	}

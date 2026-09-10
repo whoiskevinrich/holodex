@@ -27,12 +27,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Both go through the Makefile so the package set lives in exactly one place: the
+      # toolchain hides every directory called `testdata` from `./...`, so the seeder has
+      # to be named, and a list restated here would be a second copy to forget. Same
+      # targets the maintainer runs locally.
       - name: Vet
-        run: go vet ./...
+        run: make vet
 
       # Unit tests are binary-free (pure-Go SQLite via modernc; mappers use inline JSON).
       - name: Test
-        run: go test ./...
+        run: make test-go
 
       # Enable once testdata/gen.sh + golden fixtures land (testing-strategy §3, §8):
       # - name: Install media tools

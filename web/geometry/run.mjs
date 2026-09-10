@@ -7,9 +7,10 @@
 // across three skins and two viewport widths, and exits non-zero when one is broken.
 //
 // Prerequisites, all checked before anything is measured:
-//   1. `go run ./testdata/stressseed`      — seeds the fixture and writes the manifest
-//   2. the `backend-stress` launch profile — serves it on :7800
-//   3. the `web` launch profile            — the dev server on :5173, proxying /api
+//   1. `npx playwright install chromium`   — once per machine; `npm ci` does not do it
+//   2. `go run ./testdata/stressseed`      — seeds the fixture and writes the manifest
+//   3. the `backend-stress` launch profile — serves it on :7800
+//   4. the `web` launch profile            — the dev server on :5173, proxying /api
 //
 // See README.md for the shape of an assertion and docs/testing-strategy.md for when
 // writing one is the right move.
@@ -54,36 +55,49 @@ if (problems.length > 0) {
 	process.exit(2);
 }
 
-const manifest = load(values.manifest);
-const assertions = values.only.length
-	? ASSERTIONS.filter((a) => values.only.includes(a.key))
-	: ASSERTIONS;
-if (assertions.length === 0) {
-	console.error(`no assertion matches --only ${values.only.join(', ')}`);
+// Every filter value is validated up front, and an unknown one is fatal rather than
+// ignored. A typo must never *narrow* the run: `--width narow --width wide` would
+// otherwise measure half the matrix and report a clean pass over it, which is a worse
+// outcome than any failure. Checking each list against its own vocabulary catches that,
+// where a "did anything survive the filter?" test does not — one good value hides an
+// arbitrary number of bad ones. (For --skin the alternative is also slow and opaque:
+// every page would spend 15s waiting for `data-theme` to equal a value the app can
+// never set.)
+const known = [
+	{ flag: '--only', given: values.only, vocabulary: ASSERTIONS.map((a) => a.key) },
+	{ flag: '--skin', given: values.skin, vocabulary: SKINS },
+	{ flag: '--width', given: values.width, vocabulary: WIDTHS.map((w) => w.key) }
+];
+for (const { flag, given, vocabulary } of known) {
+	const unknown = given.filter((v) => !vocabulary.includes(v));
+	if (unknown.length > 0) {
+		console.error(`unknown ${flag}: ${unknown.join(', ')} — known values are ${vocabulary.join(', ')}`);
+		process.exit(2);
+	}
+}
+
+// A missing or malformed manifest is a prerequisite failure like any other, and
+// manifest.mjs writes a better message for it than a bare stack trace does — but only
+// if it is caught. Exit 2, the code this file reserves for "the harness could not run".
+let manifest;
+try {
+	manifest = load(values.manifest);
+} catch (err) {
+	console.error(/** @type {Error} */ (err).message);
 	process.exit(2);
 }
 
-// An unknown skin has to be caught here rather than at measurement time: the run would
-// otherwise proceed and every page would spend 15s waiting for `data-theme` to equal a
-// value the app can never set, turning a typo into a long run of opaque errors. An
-// unknown --width already collapses the matrix to nothing and is caught below.
-const unknownSkins = values.skin.filter((s) => !SKINS.includes(s));
-if (unknownSkins.length > 0) {
-	console.error(`unknown skin: ${unknownSkins.join(', ')} — known skins are ${SKINS.join(', ')}`);
-	process.exit(2);
-}
+const assertions = values.only.length
+	? ASSERTIONS.filter((a) => values.only.includes(a.key))
+	: ASSERTIONS;
 
 const cells = matrix(
 	values.skin.length ? values.skin : SKINS,
 	values.width.length ? WIDTHS.filter((w) => values.width.includes(w.key)) : WIDTHS
 );
-if (cells.length === 0) {
-	console.error(
-		`no skin/width cell matches --width ${values.width.join(', ')} — known widths are ` +
-			WIDTHS.map((w) => w.key).join(', ')
-	);
-	process.exit(2);
-}
+
+// A narrowed matrix cannot retire a `blockedBy` marker: see reconcileBlocked.
+const wholeMatrix = values.skin.length === 0 && values.width.length === 0;
 
 /**
  * plan resolves each assertion to the pages it applies to.
@@ -225,7 +239,24 @@ for (const t of targets) {
 	byUrl.get(t.url).push(t);
 }
 
-const browser = await launch(values.headed);
+// Acquiring the browser is a prerequisite, not a measurement, so it exits 2 like the
+// rest of them. `npm ci` installs no browser binaries — playwright 1.63 ships no
+// install script — so "run `npx playwright install chromium`" is the single most likely
+// thing to go wrong on a clean checkout, and it happens *after* preflight has already
+// passed. Left uncaught it surfaces as a raw stack and exit 1, which reads as a layout
+// regression.
+let browser;
+try {
+	browser = await launch(values.headed);
+} catch (err) {
+	console.error(
+		`could not start a browser: ${/** @type {Error} */ (err).message}\n` +
+			`  \`npm ci\` does not download browser binaries. Install the one this harness uses:\n` +
+			`    npx playwright install chromium`
+	);
+	process.exit(2);
+}
+
 try {
 	for (const cell of cells) {
 		const { context, page } = await open(browser, cell);
@@ -286,9 +317,17 @@ async function visit(page, url, cell, group, preparations) {
 	}
 }
 
-// Whether a `blockedBy` marker has gone stale is decided once, over the whole run.
-const final = reconcileBlocked(results);
-console.log(render(final, { cells: cells.length, pages: pageLoads, elapsedMs: Date.now() - started }));
+// Whether a `blockedBy` marker has gone stale is decided once, over the whole run —
+// and only when the run actually was the whole matrix.
+const final = reconcileBlocked(results, { complete: wholeMatrix });
+console.log(
+	render(final, {
+		cells: cells.length,
+		pages: pageLoads,
+		elapsedMs: Date.now() - started,
+		reconciled: wholeMatrix
+	})
+);
 // `process.exitCode`, not `process.exit()`: stdout to a pipe or a file is asynchronous,
 // and exiting outright can truncate a long report mid-line. Setting the code lets node
 // drain and exit on its own.

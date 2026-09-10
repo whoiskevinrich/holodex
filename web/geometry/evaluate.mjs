@@ -63,7 +63,13 @@ export function evaluate(a, probe) {
 	// the run red. Whether the *marker* has gone stale is a question about the whole
 	// assertion rather than about one page — most pages pass even while the bug is
 	// open — so it is answered once, afterwards, by reconcileBlocked.
-	if (a.blockedBy && (verdict.status === 'fail' || verdict.status === 'vacuous')) {
+	//
+	// `vacuous` is deliberately NOT muted. It is a statement about the harness, not
+	// about the filed bug: the selector measured nothing, so the assertion proves
+	// nothing either way and the ticket is not evidence that it should have. Muting it
+	// would let a renamed class hide behind an open ticket and exit 0 — the same
+	// vacuity the guard below exists to catch, reintroduced one layer up.
+	if (a.blockedBy && verdict.status === 'fail') {
 		return { ...verdict, status: 'blocked' };
 	}
 	return verdict;
@@ -81,11 +87,20 @@ export function evaluate(a, probe) {
  * Returns the results plus one synthetic entry per newly-passing assertion, rather
  * than rewriting the passes, so the report keeps saying how many checks actually ran.
  *
+ * `complete` is what makes the answer trustworthy. A `--skin`/`--width` run measures a
+ * slice of the matrix, and a bug that reproduces only at `narrow` is absent from a
+ * `--width wide` run for reasons that have nothing to do with it being fixed. Retiring
+ * a marker on that evidence would disarm the assertion against a bug that is still
+ * open, so a narrowed run declines to answer the question at all.
+ *
  * @template {{assertion: {key: string, blockedBy?: string}, status: string}} R
  * @param {R[]} results
+ * @param {{complete?: boolean}} [opts] `complete: false` when the matrix was narrowed.
  * @returns {(R | {assertion: any, url: string, label: string, cell: string, status: string, detail: string})[]}
  */
-export function reconcileBlocked(results) {
+export function reconcileBlocked(results, opts = {}) {
+	if (opts.complete === false) return [...results];
+
 	/** @type {Map<string, {assertion: any, statuses: string[]}>} */
 	const groups = new Map();
 	for (const r of results) {
@@ -95,7 +110,13 @@ export function reconcileBlocked(results) {
 	}
 	const extra = [];
 	for (const { assertion, statuses } of groups.values()) {
-		const stillBroken = statuses.some((s) => s === 'blocked' || s === 'error');
+		// Anything that is not positive evidence counts as still broken, stated as an
+		// exclusion rather than a list of bad statuses. Enumerating them is what broke:
+		// `vacuous` stopped being remapped to `blocked` (see evaluate), and a group of
+		// some passes and some stale selectors then read as "every check now passes" —
+		// telling the operator to disarm an assertion that measured nothing on half its
+		// pages. A status this code has not heard of should suppress the verdict too.
+		const stillBroken = statuses.some((s) => s !== 'pass' && s !== 'skipped');
 		const ranAtAll = statuses.some((s) => s === 'pass');
 		if (!stillBroken && ranAtAll) {
 			extra.push({
@@ -121,16 +142,14 @@ function score(a, probe) {
 	if (probe.error) return { status: /** @type {const} */ ('error'), detail: probe.error };
 
 	const bound = a.expect;
-	if (a.applies === 'count') {
-		const check = within(probe.matched, bound);
-		return check.ok
-			? { status: /** @type {const} */ ('pass'), detail: `count ${probe.matched} ${check.want}` }
-			: {
-					status: /** @type {const} */ ('fail'),
-					detail: `matched ${probe.matched} elements, want ${check.want}`
-				};
-	}
 
+	// The vacuity guard runs before the `count` branch, not after it. A count bound is
+	// usually a ceiling ("at most 200 rows"), and zero matches satisfies a ceiling — so
+	// a count assertion is the one shape where a stale selector reads as a confident
+	// pass rather than as a suspiciously green `each`. Worse, an all-pass group is what
+	// reconcileBlocked reads as "the bug is fixed", so a renamed class would print an
+	// instruction to disarm the check. `atLeast: 0` is the opt-out, for a count
+	// assertion that is genuinely asserting absence.
 	const atLeast = a.atLeast ?? 1;
 	if (probe.matched < atLeast) {
 		return {
@@ -139,6 +158,16 @@ function score(a, probe) {
 				`selector matched ${probe.matched} elements, expected at least ${atLeast} — ` +
 				`the assertion measured nothing, so it proves nothing (selector stale, or the page did not render)`
 		};
+	}
+
+	if (a.applies === 'count') {
+		const check = within(probe.matched, bound);
+		return check.ok
+			? { status: /** @type {const} */ ('pass'), detail: `count ${probe.matched} ${check.want}` }
+			: {
+					status: /** @type {const} */ ('fail'),
+					detail: `matched ${probe.matched} elements, want ${check.want}`
+				};
 	}
 
 	const metric = a.measure;

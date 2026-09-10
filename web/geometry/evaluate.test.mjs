@@ -87,9 +87,18 @@ describe('evaluate — count', () => {
 		expect(v.detail).toContain('201');
 	});
 
-	// An empty match is a legitimate count, so the vacuity guard must not fire here.
-	it('does not apply the vacuity guard', () => {
-		expect(evaluate(counting, probeOf([])).status).toBe('pass');
+	// A count bound is usually a ceiling, and zero satisfies a ceiling — so this is the
+	// one shape where a stale selector reads as a confident pass rather than as a
+	// suspiciously green `each`. The guard has to run before the count branch, not after.
+	it('applies the vacuity guard, so a stale selector is not a passing count', () => {
+		const v = evaluate(counting, probeOf([]));
+		expect(v.status).toBe('vacuous');
+		expect(failed(v.status)).toBe(true);
+	});
+
+	// The opt-out, for a count assertion that is genuinely asserting absence.
+	it('honours atLeast: 0 for a count that may legitimately be empty', () => {
+		expect(evaluate({ ...counting, atLeast: 0 }, probeOf([])).status).toBe('pass');
 	});
 });
 
@@ -108,8 +117,14 @@ describe('evaluate — known-open bugs', () => {
 		expect(evaluate(blocked, probeOf([{ width: 80 }])).status).toBe('pass');
 	});
 
-	it('still reports a stale selector under a marker', () => {
-		expect(evaluate(blocked, probeOf([])).status).toBe('blocked');
+	// A marker mutes a *failure*. It does not mute vacuity: "the selector matched
+	// nothing" is a statement about the harness, and an open ticket is no reason to
+	// believe the assertion should have measured zero elements. Muting it would let a
+	// renamed class hide behind the ticket and exit 0.
+	it('still reports a stale selector under a marker, and still fails the run', () => {
+		const v = evaluate(blocked, probeOf([]));
+		expect(v.status).toBe('vacuous');
+		expect(failed(v.status)).toBe(true);
 	});
 });
 
@@ -140,8 +155,33 @@ describe('reconcileBlocked', () => {
 		expect(reconcileBlocked([r(marked, 'pass'), r(marked, 'error')]).some((x) => x.status === 'fixed')).toBe(false);
 	});
 
+	// The regression that came with un-muting `vacuous`: once it stopped being remapped
+	// to `blocked`, a group of some passes and some stale selectors slipped past a
+	// `stillBroken` that only enumerated blocked/error — and reported "every check now
+	// passes" for an assertion that measured nothing on half its pages.
+	it('stays quiet when some pages measured nothing', () => {
+		const out = reconcileBlocked([r(marked, 'pass'), r(marked, 'vacuous')]);
+		expect(out.some((x) => x.status === 'fixed')).toBe(false);
+		expect(out).toHaveLength(2);
+	});
+
+	// Stated as an exclusion rather than a list, so a status added later suppresses the
+	// verdict by default instead of silently counting as evidence the bug is gone.
+	it('stays quiet on a status it has never heard of', () => {
+		expect(reconcileBlocked([r(marked, 'pass'), r(marked, 'weird')]).some((x) => x.status === 'fixed')).toBe(false);
+	});
+
 	it('says nothing about an assertion carrying no marker', () => {
 		expect(reconcileBlocked([r(plain, 'pass')])).toHaveLength(1);
+	});
+
+	// A --skin/--width slice is not evidence a bug is fixed: it may simply not have
+	// measured the cell the bug lives in. Retiring a marker on that would disarm the
+	// assertion against a bug that is still open, so a narrowed run declines to answer.
+	it('refuses to retire a marker on a narrowed run', () => {
+		const out = reconcileBlocked([r(marked, 'pass'), r(marked, 'pass')], { complete: false });
+		expect(out.some((x) => x.status === 'fixed')).toBe(false);
+		expect(out).toHaveLength(2);
 	});
 });
 

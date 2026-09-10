@@ -69,7 +69,7 @@ export const ASSERTIONS = [
 		selector: ':document',
 		measure: 'overflowX',
 		expect: { max: 0 },
-		blockedBy: 'HOLODEX-355, HOLODEX-356'
+		blockedBy: 'HOLODEX-356'
 	},
 
 	{
@@ -78,6 +78,14 @@ export const ASSERTIONS = [
 			'Tag chips squeezing below a comfortable touch target once a video carries enough ' +
 			'of them to wrap onto several rows.',
 		when: (e) => (e.axes.video?.tags ?? 0) >= 5,
+		// The inner <a>, not the chip around it, and deliberately so: a target-size
+		// bound is a claim about the *actionable* region. TagLinkChip's owner branch
+		// (the one the harness runs in, since it pins admin mode) moved the padding
+		// onto a wrapping <span> to make room for the remove ×, leaving the link an
+		// unpadded 20px text box — clicking the chip's padding activates nothing. The
+		// visitor branch keeps the padding on the <a> and would measure 30px. Measuring
+		// the wrapper here would report the chip as compliant while the thing you can
+		// actually tap is not, so HOLODEX-357 is only fixed when *this* node clears 24.
 		selector: '#field-genres a[href^="/tags/"]',
 		measure: 'height',
 		// 24px is WCAG 2.2 AA (SC 2.5.8 Target Size, Minimum). The project has not
