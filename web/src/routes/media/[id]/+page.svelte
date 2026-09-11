@@ -33,6 +33,7 @@
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
@@ -214,6 +215,10 @@
 	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
+	// Overview edit modal (HOLODEX-365, the Person-bio pattern from HOLODEX-303) — owner-only
+	// pencil in the section heading opens this; SourceEditModal owns its own staged-selection/
+	// Confirm state, this just tracks open/closed.
+	let overviewEditOpen = $state(false);
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 	// Metadata fold (media-detail-entity-ux): the field list collapses the same way the
 	// Completeness panel does. Collapsed is the resting state, and — as there the score
@@ -1274,20 +1279,41 @@
 
 			<div class="space-y-6">
 				<!-- Overview: the rail's first block (HOLODEX-363; column contract in
-				     routes/CLAUDE.md). The synopsis is a resolved field whose owner rendering IS
-				     the ADR-051 SourceBadge chip row, and the rail's 320px floor was sized for
-				     exactly that row (HOLODEX-331). It stays its own block above Tags rather than
-				     rejoining the Metadata list — the media-detail-entity-ux point that it reads
-				     as page content, not a data-management row, still holds; only its column
-				     changed. Unconditional on purpose: a viewport-keyed move could not be a
+				     routes/CLAUDE.md). The synopsis is a resolved field; owner and visitor share
+				     one ExpandableText rendering and the owner's source decision lives in the
+				     SourceEditModal behind the heading pencil (HOLODEX-365). It stays its own
+				     block above Tags rather than rejoining the Metadata list — the
+				     media-detail-entity-ux point that it reads as page content, not a
+				     data-management row, still holds; only its column changed. Unconditional
+				     on purpose: a viewport-keyed move could not be a
 				     second render (#field-overview is a deep link) and would have forced
 				     stage-grid into named areas for one block. -->
 				{#if overviewField && ((isReplaceField(overviewField) && isOwner) || overviewField.values[0]?.trim())}
 					<section id="field-overview" class="space-y-1.5">
-						<h2 class="text-xs uppercase tracking-wide text-muted">Overview</h2>
-						{#if isReplaceField(overviewField) && isOwner}
-							<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
-						{:else if overviewField.values[0]?.trim()}
+						<h2 class="flex items-center gap-1 text-xs uppercase tracking-wide text-muted">
+							Overview
+							{#if isReplaceField(overviewField) && isOwner}
+								<!-- Owner-only pencil (HOLODEX-365): the long_text tier-2 control is the
+								     SourceEditModal, not SourceBadge's inline chip row (HOLODEX-303 — the
+								     Person bio pattern, of which Video overview was the named follow-up).
+								     Owner and visitor now share the ExpandableText rendering below. -->
+								<button
+									type="button"
+									onclick={() => (overviewEditOpen = true)}
+									aria-label={`Edit ${overviewField.label}`}
+									class="ml-1 inline-flex rounded-theme align-middle text-muted hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+								>
+									<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+										/>
+									</svg>
+								</button>
+							{/if}
+						</h2>
+						{#if overviewField.values[0]?.trim()}
 							<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
 						{/if}
 					</section>
@@ -2166,4 +2192,12 @@
 			{/snippet}
 		</ConfirmDialog>
 	{/if}
+{/if}
+
+{#if overviewEditOpen && overviewField}
+	<SourceEditModal
+		field={overviewField}
+		decide={(s, mv) => decideField('overview', s, mv)}
+		onclose={() => (overviewEditOpen = false)}
+	/>
 {/if}

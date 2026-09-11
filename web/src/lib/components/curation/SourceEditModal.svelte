@@ -4,8 +4,8 @@
 	// expanding a multi-line source comparison inline either truncates the very thing being
 	// compared, or blows out the surrounding layout. This gives each candidate its own
 	// full-width row instead, inside a modal. Adopted as the standard pattern for `long_text`
-	// tier-2 fields going forward (today: Person bio; Video overview is a candidate follow-up,
-	// not yet migrated). Same staged-then-Confirm contract as SourceBadge: nothing calls
+	// tier-2 fields going forward (Person bio; Video overview since HOLODEX-365). Same
+	// staged-then-Confirm contract as SourceBadge: nothing calls
 	// `decide` until Save. Entity-generic like SourceBadge (`baselineKey`: 'file' for videos,
 	// 'record' for persons/studios). Modal chrome delegates to ConfirmDialog (focus trap, Esc,
 	// backdrop, focus-return), mirroring MergeCanonicalDialog's own radio-body usage of it.
