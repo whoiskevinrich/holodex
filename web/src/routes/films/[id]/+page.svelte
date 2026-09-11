@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket, releaseYear } from '$lib/format';
+	import { toMessage, resolutionBucket, releaseYear, providerFromWinningSource } from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
-	import { providerOf } from '$lib/f36';
+	import { isReplaceField, providerOf } from '$lib/f36';
 	import type {
 		DecisionSource,
 		EnrichSource,
@@ -22,6 +22,7 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
@@ -34,15 +35,18 @@
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
+	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
 	// scenes list (§2c) — never merged (RD4). Cast/tags/studios are the read-only union of
 	// the film's videos (RD2/RD3), not editable chips, so they route through plain links,
-	// not SourceSelect. The Details section (description/release_date) mirrors Studio's
+	// not SourceSelect. The Details section (release_date) mirrors Studio's
 	// SourceBadge/`baselineKey='record'` pattern exactly, and since F59/HOLODEX-309 so does
 	// its enrichment header row — films still have no rename/aliases (HOLODEX-281 deferred).
+	// The description is not a Details row: it is the rail's first block, rendered once for
+	// both roles (HOLODEX-364; see descriptionField).
 	// The poster (HOLODEX-280,
 	// ADR-086) is the header's own image now (HOLODEX-307) — EntityImageSlot in its
 	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
@@ -92,12 +96,21 @@
 	const isOwner = $derived(activity.effectiveOwner);
 
 	// A film has no `name` beyond baseline (no rename in v1 — ADR-089 D3 keeps it that
-	// way), so only fields beyond `name` gate the Details section — same "hide the whole
-	// section, don't show an empty box" rule. The owner also gets the section when a
-	// film-capable provider exists but nothing has resolved yet, or there would be no
-	// way to reach the Enrich control on an unenriched film.
-	const replaceFields = $derived(resolved.filter((f) => f.canonical !== 'name'));
-	const hasDetails = $derived(replaceFields.length > 0);
+	// way), and the description is the rail's first block (HOLODEX-364, the media page's
+	// Overview rule from HOLODEX-363), not a Details row — so only the fields left over
+	// gate the Details section: same "hide the whole section, don't show an empty box"
+	// rule. The owner also gets the section when a film-capable provider exists but
+	// nothing has resolved yet, or there would be no way to reach the Enrich control on
+	// an unenriched film.
+	const detailFields = $derived(
+		resolved.filter((f) => f.canonical !== 'name' && f.canonical !== 'description')
+	);
+	const hasDetails = $derived(detailFields.length > 0);
+	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
+	// Description edit modal (HOLODEX-364, the media Overview pattern from HOLODEX-365) —
+	// owner-only pencil in the section heading opens this; SourceEditModal owns its own
+	// staged-selection/Confirm state, this just tracks open/closed.
+	let descriptionEditOpen = $state(false);
 
 	// Film-capable providers offered as Enrich actions, mirroring studioProviders. No
 	// films_enabled check is needed: film enrich routes are unregistered when the flag is
@@ -456,31 +469,70 @@
 								{/if}
 							</div>
 						{/if}
-
-							<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
-							     section markup (heading + TagLinkChip wrap) as the Media detail page's
-							     Tags section for visual parity; only the owner add/remove controls differ. -->
-							{#if tags.length}
-								<section class="space-y-1.5">
-									<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
-									<div class="flex flex-wrap items-center gap-2">
-										{#each tags as t (t.id)}
-											<TagLinkChip tag={t} />
-										{/each}
-									</div>
-								</section>
-							{/if}
-
-							{#each replaceFields.filter((f) => f.canonical === 'description') as f (f.canonical)}
-								{#if f.values[0]?.trim()}
-									<ExpandableText text={f.values[0]} chevronLabel="description" />
-								{/if}
-							{/each}
 						</div>
 					</div>
 				</div>
 
 				<div class="space-y-6">
+					<!-- Description: the rail's first block (HOLODEX-364 — the media page's Overview
+					     rule, HOLODEX-363; column contract in routes/CLAUDE.md). It used to render in
+					     the header for everyone AND, for the owner, a second time as a SourceBadge row
+					     in Details; that was the split HOLODEX-365 fixed on the media Overview. Now
+					     owner and visitor share one ExpandableText rendering, the owner's source
+					     decision lives in the SourceEditModal behind the heading pencil, and the
+					     visitor gets the winning provider's ProvenanceBadge under the text (the
+					     Person bio's pattern). Unconditional on purpose: #field-description is the
+					     completeness deep link, so it must render in exactly one branch. -->
+					{#if descriptionField && ((isReplaceField(descriptionField) && isOwner) || descriptionField.values[0]?.trim())}
+						<section id="field-description" class="space-y-1.5">
+							<h2 class="flex items-center gap-1 text-xs uppercase tracking-wide text-muted">
+								{descriptionField.label}
+								{#if isReplaceField(descriptionField) && isOwner}
+									<!-- Owner-only pencil: the long_text tier-2 control is the SourceEditModal,
+									     not SourceBadge's inline chip row — SourceBadge renders the value itself
+									     and so cannot be the owner branch of a visitor-visible field. -->
+									<button
+										type="button"
+										onclick={() => (descriptionEditOpen = true)}
+										aria-label={`Edit ${descriptionField.label}`}
+										class="ml-1 inline-flex rounded-theme align-middle text-muted hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+									>
+										<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+											/>
+										</svg>
+									</button>
+								{/if}
+							</h2>
+							{#if descriptionField.values[0]?.trim()}
+								{@const provider = !isOwner ? providerFromWinningSource(descriptionField.winning_source) : ''}
+								<ExpandableText text={descriptionField.values[0]} chevronLabel="description" />
+								{#if provider}
+									<ProvenanceBadge {provider} label={provider} />
+								{/if}
+							{/if}
+						</section>
+					{/if}
+
+					<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
+					     section markup (heading + TagLinkChip wrap) as the Media detail page's
+					     Tags section for visual parity; only the owner add/remove controls differ.
+					     In the rail under the description, where the column contract puts tags
+					     and where the media page has them (HOLODEX-364). -->
+					{#if tags.length}
+						<section class="space-y-1.5">
+							<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
+							<div class="flex flex-wrap items-center gap-2">
+								{#each tags as t (t.id)}
+									<TagLinkChip tag={t} />
+								{/each}
+							</div>
+						</section>
+					{/if}
+
 					<!-- Cast (design handoff §2a): read-only union of the film's scenes' people, shared
 					     PeopleGrid component with the Media detail page's People section (not inline
 					     pills) — no attach/detach passed, since this is derived display, not an
@@ -531,14 +583,15 @@
 						</section>
 					{/if}
 
-					<!-- Details (description/release_date) — mirrors Studio's SourceBadge pattern, and
-					     since F59/HOLODEX-309 its enrichment header row too.
+					<!-- Details (release_date) — mirrors Studio's SourceBadge pattern, and since
+					     F59/HOLODEX-309 its enrichment header row too.
 					     **Owner-only.** This section is provenance and curation machinery, not reader
-					     content: the description a visitor wants already renders in the header above,
-					     and everything else here (source badges, provider chips, Released) exists to
-					     serve editing decisions. Gating the whole section also retired the visitor's
-					     section-level "Enriched from X" note, which could no longer render. The owner
-					     still gets it when a provider exists but nothing has resolved yet, or an
+					     content: the description a visitor wants renders in the rail block above with
+					     its own ProvenanceBadge, and everything here (source badges, provider chips,
+					     Released) exists to serve editing decisions. The section-level "Enriched from
+					     X" visitor note stays retired on purpose (HOLODEX-364): the per-value badge
+					     already says which provider each visible value came from. The owner still
+					     gets the section when a provider exists but nothing has resolved yet, or an
 					     unenriched film would offer no way to reach Enrich. -->
 					{#if isOwner && (hasDetails || filmProviders.length)}
 						<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
@@ -567,7 +620,7 @@
 
 
 							<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-								{#each replaceFields as f (f.canonical)}
+								{#each detailFields as f (f.canonical)}
 									<div id={`field-${f.canonical}`}>
 										<dt class="mb-1 text-muted">{f.label}:</dt>
 										<dd>
@@ -730,5 +783,14 @@
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
+	/>
+{/if}
+
+{#if descriptionEditOpen && descriptionField}
+	<SourceEditModal
+		field={descriptionField}
+		baselineKey="record"
+		decide={(s, mv) => decideField('description', s, mv)}
+		onclose={() => (descriptionEditOpen = false)}
 	/>
 {/if}

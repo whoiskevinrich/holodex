@@ -12,6 +12,7 @@
 		formatYear,
 		monogram,
 		personKey,
+		providerFromWinningSource,
 		resolutionBucket,
 		toMessage,
 		videoCount
@@ -1314,7 +1315,14 @@
 							{/if}
 						</h2>
 						{#if overviewField.values[0]?.trim()}
+							<!-- Visitors get the value plus its ProvenanceBadge (routes/CLAUDE.md); the
+							     Person bio and Film description do this too (HOLODEX-364 converged the
+							     three long_text blocks). The owner has the pencil instead. -->
+							{@const provider = !isOwner ? providerFromWinningSource(overviewField.winning_source) : ''}
 							<ExpandableText text={overviewField.values[0]} chevronLabel="overview" />
+							{#if provider}
+								<ProvenanceBadge {provider} label={provider} />
+							{/if}
 						{/if}
 					</section>
 				{/if}

@@ -68,8 +68,11 @@ Read it before adding any full-width row.
 ## Where the reasoning lives
 
 `docs/design/media-detail-stage-layout-handoff.md` (HOLODEX-363) is the source for all of the above.
-The film page had the opposite arrangement and converges on it via HOLODEX-364 — if you are reading
-`films/[id]` and it still renders the description in the header, that ticket is why.
+The film page had the opposite arrangement (description in the header for everyone, again in the
+owner-only Details as a `SourceBadge`) and converged on it in HOLODEX-364: `#field-description` is
+the rail's first block, one `ExpandableText`, pencil → `SourceEditModal`, visitor `ProvenanceBadge`.
+The three `long_text` blocks — Person bio, media Overview, film description — now render alike,
+badge included.
 
 The words used above — owner/visitor branch, value vs. affordance, value-owning control, knob,
 parity, drift — are defined in [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md);

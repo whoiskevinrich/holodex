@@ -18,6 +18,10 @@
     "The backend also reads a gitignored .env (ADR-027); the TMDB sidecar does not,",
     "so its token must come from the environment. Real env wins over .env.",
     "",
+    "The film pages (/films, their enrich routes) are behind FILMS_ENABLED and 404",
+    "without it — set it on any backend config you use for film QA, as `backend` and",
+    "`backend-stress` do below.",
+    "",
     "backend-stress serves the HOLODEX-342 stress fixture instead of a real library.",
     "Seed it first with `go run ./testdata/stressseed`; tear the whole thing down with",
     "`rm -rf ./data/stress`. It binds the same port as `backend`, so run one or the",
@@ -49,6 +53,7 @@
       "env": {
         "MEDIA_PATH": "E:/YourMediaLibrary",
         "CARD_LAYOUT": "poster",
+        "FILMS_ENABLED": "true",
         "METADATA_SOURCES_PATH": "G:/source/holodex/metadata-sources.local.yaml",
         "METADATA_MAPPINGS_PATH": "G:/source/holodex/metadata-mappings.local.yaml"
       }
