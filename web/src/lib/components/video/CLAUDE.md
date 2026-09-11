@@ -50,7 +50,13 @@ reaches. Prose lives beside the CSS in `app.css`; ADR/spec context is HOLODEX-33
   fixed-width cards that borrows the `.video-grid` class only to reset the Brutalist `reel`
   counter and inherit `data-layout` sizing. There is no `stageAligned` prop to pass; the
   class has to go on directly, and `width: fit-content` against `overflow-x: auto` is not
-  the same layout as against a grid — verify it live before assuming parity.
+  the same layout as against a grid — it was verified live for HOLODEX-363 and is; re-verify if
+  the scroller's card sizing or wrapping changes.
 
 **Current call sites.** `stageAligned` is opt-in and used by exactly one: the film page's
-Scenes grid. `RelatedShelf` does not use it yet.
+Scenes grid. `RelatedShelf` carries the same declaration as `.stage-band` (a second selector on
+the same rule, HOLODEX-363) on its `<section>`, so the heading travels with the cards — and it
+only works because the media page renders the shelves as siblings of its `max-w-stage` wrappers.
+Verified live: `width: fit-content` against the flex `overflow-x: auto` scroller behaves exactly
+as it does against the grid (5 cards pin to the stage, 16 overhang 612px each side, 30 cap at the
+window and scroll).

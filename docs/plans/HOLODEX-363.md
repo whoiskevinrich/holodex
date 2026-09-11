@@ -83,43 +83,94 @@ lives in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so that wo
 - [~] backend — n/a: frontend-only. The resolver already returns the fields; no endpoint, gate or
   payload changes. Visitors were already served the resolved fields by the API — only the template
   withheld them
-- [ ] frontend — three moves in `web/src/routes/media/[id]/+page.svelte` (File to the bottom,
-  overview into the rail, Metadata un-gated for visitors), the shelves lifted out of the
-  `max-w-stage` article, and one class on `RelatedShelf.svelte`. **No `app.css` structural change** —
-  `stage-grid` is untouched
-- [ ] testing `testing-strategy` — geometry rungs for shelf overhang symmetry above the cap and
-  left-alignment below it, a `#field-overview` uniqueness assertion at every viewport, and an
-  overflow check on the overview in the 397px rail at the narrowest two-column width (1024). Folds
-  into [HOLODEX-359](HOLODEX-359.md)'s harness work rather than standing up a second one
+- [x] frontend — `+page.svelte`: File to the bottom audit wrapper, overview into the rail as its
+  first block, Metadata un-gated for visitors (`visibleResolved`, owner-only fold, fallback guarded on
+  `!resolved.length`), the article split into two `max-w-stage` wrappers with the shelves between
+  them; `RelatedShelf.svelte` carries `.stage-band`, a second selector on the existing
+  `.video-grid.stage-aligned` rule in `app.css` (`stage-grid` itself untouched);
+  `ExpandableText.svelte` gains `wrap-anywhere`. Live-verified owner + visitor at 5120 / 1920 /
+  1024 / 412 in all three skins
+- [x] testing `testing-strategy` — §5 row + §12.4 rows. Two harness assertions:
+  `field-overview-renders-once` (count ≤ 1, 288 checks) and `overview-fits-the-rail` (overflowX on
+  the visitor `<p>`, 72 checks), the second **mutation-tested** — fix removed, it fails on exactly
+  `text/unbroken` at `lg` in every skin. Making it able to fail at all needed two harness additions
+  that overlap [HOLODEX-359](HOLODEX-359.md): an `lg` (1024) width cell and a `visitor-view`
+  preparation. Shelf overhang symmetry is **not** a harness assertion — the harness expresses a
+  bound in px, not "equals another element's width", so it is measured live and recorded in §5
+  instead. Full run: 684 passed, 27 known-open (HOLODEX-357), 585 loads across 9 cells
 - [~] security `security-review` — n/a: no auth, access or infrastructure change. Re-exposing
   resolved field values to visitors is a template gate, not an access-control one; `file_path`,
   codecs and byte size stay behind `isOwner` with `File` itself
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [M] **Implement.** Nothing is gated any more — the design is settled, the ADR is gone and all
-   three decisions are independent of each other. Suggested order: File to the bottom (smallest,
-   self-contained), then the shelves out of the article, then the overview + visitor Metadata
-   together since they share the rail.
-2. [ ] [S] Verify `width: fit-content` against `overflow-x: auto` on `RelatedShelf` live. If the
-   flex-scroller case does not match the grid case, the shelf needs its own declaration instead of
-   sharing `.video-grid.stage-aligned` — decide that before generalising the class.
-3. [ ] [S] Restate the shelves' vertical rhythm at their new call site. Leaving `max-w-stage` also
-   leaves the article's `space-y-6`, so the gap above and below the band has to be explicit.
-4. [ ] [S] [HOLODEX-364](HOLODEX-364.md) — film page onto the same overview rule, after this merges.
+1. [ ] [—] **Mark PR #321 ready for review** once the owner has eyeballed the page — every gate is
+   green and the checklist below it is done. That is the act that moves this ticket to In Review.
+2. [ ] [S] [HOLODEX-359](HOLODEX-359.md) now inherits a head start and a constraint: the `lg` cell
+   and the `visitor-view` preparation landed here, so its phone-width cell goes on top of a
+   three-width matrix (585 loads, ~2 min), and its long-text rung should be checked against
+   `overview-fits-the-rail` as well as the document assertion.
+3. [ ] [S] [HOLODEX-364](HOLODEX-364.md) — film page onto the same overview rule, after this merges.
    Watch the header/banner `-mb-14` overlap: the header loses a block, so how much band shows
    changes.
-5. [ ] [—] Sweep this issue **with its epic** ([HOLODEX-12](https://whoiskevinrich.atlassian.net/browse/HOLODEX-12)):
+4. [ ] [—] Sweep this issue **with its epic** ([HOLODEX-12](https://whoiskevinrich.atlassian.net/browse/HOLODEX-12)):
    CI transitions only the branch's own key, so a child of an epic never moves on its own. To
    `In Review` when the PR is marked ready, to `Done` on merge.
-6. [ ] [—] `chore/flightplan-worklog-closeout` still holds one unmerged commit (`ee66874`, the
+5. [ ] [—] `chore/flightplan-worklog-closeout` still holds one unmerged commit (`ee66874`, the
    HOLODEX-356 worklog closeout) and its remote is `[gone]`. Left untouched by this branch — needs
    either a fresh PR or a cherry-pick onto a live branch before it is lost.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-10 (build) · implemented, and the move found what the design could not
+- skills: code-review (high --fix), testing-strategy (by hand, §5 + §12.4)
+- built in the order the last handoff suggested and it held: File first (self-contained), then the
+  shelves out of the article, then overview + visitor Metadata together. The article became
+  `space-y-6` with **two** `max-w-stage` wrappers and the shelves between them — a sibling of the
+  capped wrappers rather than of the article, which the handoff said; same effect, one landmark.
+- **the visitor Metadata section is a fold, collapsed by default.** Un-gating it alone would have
+  shown a visitor "METADATA · 3 fields ▾" and no values — the exact opposite of the decision.
+  `metadataListOpen = isOwner ? metadataExpanded : true`, chevron owner-only. Not in the handoff;
+  recorded there now as the faithful reading of "visitors see the values", not a new call.
+- **first visitor render duplicated the overview.** Every resolved field on 9011 is either shown
+  elsewhere or valueless, so `visibleResolved` was empty, so the template fell into the file-only
+  `fields` fallback — meant for *no resolver output* — and re-rendered Overview/Actors/Studio
+  from raw file tags. Pre-existing latent bug; the owner never hit it because `canonicalResolved`
+  keeps the empty field. Guarded on `!resolved.length`, in both the branch and the count.
+- verified live rather than trusted, with the stress fixture on `backend-stress`: tracks at 5120 /
+  1920 / 1024 / 412 match the handoff to the scrollbar (1503/1073, 1069/764, 547/390, 364);
+  Metadata 3/2/1-across. **File is 7-across at 2600, not 8** — `gap-2` costs a column
+  (8×320+7×8 = 2616 > 2568); every doc that said 8 now says 7. The shelf rule's `fit-content`
+  against `overflow-x: auto` — the handoff's "verify live" — behaves exactly as the grid case: 5
+  cards pin to the stage with zero overhang, 16 cloned cards overhang 612px each side symmetric to
+  the pixel, 30 cap at the window and scroll with no document overflow. Tab order at 412: Tags
+  focusables at index 12, shelf at 17 — the free win is real.
+- three skins by computed token: the new `Overview` label is byte-identical in class to `Tags` and
+  measures identical colour/size/tracking in cinematheque `#9b9082`, broadcast `#6f7da6`,
+  brutalist `#8a8a8a`. `stage-band` paints nothing in any skin.
+- **the move created one real defect, and the design could not have seen it.** At 1024 the
+  visitor's `ExpandableText` `<p>` overflowed the 390px rail by 34px on the `unbroken` rung —
+  `line-clamp`'s `overflow:hidden` clipped it silently, no scroll, nothing poking out. In the
+  547px subject column it fit. `wrap-anywhere` on the `<p>` (SourceBadge's own HOLODEX-356 fix,
+  one component over). Then an assertion for it — which **passed with the fix removed**, because
+  `wide` (1440) has a 570px rail and `narrow` (768) is one column: the clip exists only between
+  1024 and ~1090. Added the `lg` cell and a `visitor-view` preparation (the harness pins owner
+  view, whose overview is a SourceBadge with no `<p>`; the vacuity guard refused the first
+  attempt on all 54 pages, correctly). Mutation-tested again: fails on exactly `text/unbroken` at
+  `lg`, all three skins, nowhere else. That is the §12.2 rule lived rather than cited.
+- code-review found two: the audit wrapper rendered empty for visitors and collected 24px of
+  `space-y-6`; and the Overview gate `isOwner || value` was not exhaustive with its branches, so an
+  owner with `overview` mapped `multi` and empty would get an orphan heading — fixed, and
+  `hasPageAnchor` aligned so the deep-link anchor cannot go missing in the same gap.
+- green: `npm run check` 0 errors (15 warnings, all pre-existing, none in touched files); vitest
+  272/272; geometry 684 passed / 27 known-open / 1 skipped across 9 cells.
+- handoff: **everything is built and verified; nothing is left to build.** PR #321 is still Draft
+  only because marking it ready is the owner's act (it fires In Review). Queue item 1 is that
+  click. The one thing worth the owner's eye before it: the phone order — synopsis now reads after
+  the studio card, the accepted cost — and whether 7-across File at ultrawide reads well.
+
 ### 2026-09-10 (later) · one sentence deleted the ADR
-- skills: design-handoff
+- skills: design-handoff, code-review
 - the owner's "maybe it would be easier to say the overview moves to the second column as a general
   statement" removed the single most expensive item in this ticket. Everything that made the move
   hard was the *viewport condition*, not the move: `#field-overview` is a deep-link anchor, so a
