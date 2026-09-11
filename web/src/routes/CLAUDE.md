@@ -71,5 +71,27 @@ Read it before adding any full-width row.
 The words used above — owner/visitor branch, value vs. affordance, value-owning control, knob,
 parity, drift — are defined in [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md);
 use them when asking for or describing a change.
+
+## Vocabulary: translate, link, record
+
+The owner describes changes in plain words; the vocabulary doc holds the mechanism names. When a
+request maps onto a term — "add a way for the component to be configured so the text can be more
+of a grey than white" is *a knob for tone* — do three things, in the same turn:
+
+1. **Name the term** in the reply, so the translation is visible and can be corrected before any
+   code moves. Do not silently act on the mechanism you inferred.
+2. **Link it.** Any UX term from the doc that appears in a reply — knob, parity, drift,
+   value-owning control, chrome, chip row, docked pencil, adoption/precedence — carries a link to
+   [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md) (deep-link the
+   section when there is one) the first time it is used in that reply, so the owner can check the
+   meaning rather than infer it from context.
+3. **Record the translation.** If the plain phrasing is not already in the doc's *Translations*
+   table, add it — the phrasing the owner actually used, the term it landed on, and what that
+   changes about the work — in the same change as the code. A translation that only happened in
+   chat is lost with the session. Same rule when a request needs a term the doc does not have
+   yet: coin it, define it, add it, and say so.
+
+This is the mechanism by which the vocabulary stays the owner's rather than the agent's: every
+entry traces to a phrasing the owner said.
 The film page had the opposite arrangement and converges on it via HOLODEX-364 — if you are reading
 `films/[id]` and it still renders the description in the header, that ticket is why.

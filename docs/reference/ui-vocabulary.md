@@ -112,6 +112,21 @@ row for persons/studios (`'record'`). Enrichment is an additive shadow over it; 
 the only merge point.
 → [ADR-033](../architecture/ADR-033-metadata-source-plugins.md), ADR-051
 
+## Translations
+
+Plain phrasings the owner has used, and the term each landed on. Append here whenever a request
+is translated into a term (`web/src/routes/CLAUDE.md` § "Vocabulary: translate, link, record");
+the phrasing is kept as said so the next reading of it is consistent.
+
+| Owner said | Term | What that changes about the work |
+|---|---|---|
+| "add a way for the component to be configured so the text can be more of a grey than white" | **a knob for tone** | it is a styling prop, so the question is whether the look should be the component's rule instead — `ExpandableText` had exactly this knob and lost it |
+| "the owner view and the visitor view should look the same" | **parity** | check computed typography of the value, not which component is named; the harness assertion is HOLODEX-366 |
+| "include the collapsible chevron" | **long prose** (`ExpandableText`) | the chevron is not a feature to add, it is part of the one rendering long prose gets |
+| "are the owner and visitor view using the same component now?" | **decision / display separation** | the answer is about *where the value renders*, not which control the owner has |
+| "co-locate owner and visitor views in the same file to reduce divergence" | **drift**, and the *owner branch* rule | co-location does not prevent drift; one unconditional rendering of the value does |
+| "a reuse mechanism for long prose — biographies, comments, descriptions" | **long prose** + **enforcement by subtraction** | the mechanism existed; it had a knob — the fix is removing the knob, not adding a component |
+
 ## Saying it
 
 | You say | It means |
