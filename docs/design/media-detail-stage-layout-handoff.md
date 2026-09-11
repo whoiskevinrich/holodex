@@ -1,6 +1,6 @@
 # Design handoff: Media detail stage layout
 
-**Status:** Design approved — not yet implemented
+**Status:** Implemented (pending review)
 **Phase:** HOLODEX-363 (Story) under epic HOLODEX-12 "Video detail page"
 **Owner:** Project owner
 **Date:** 2026-09-10
@@ -40,8 +40,9 @@ never separate: File, `Enrichment data: File Extraction`, then one `Enrichment d
 block per provider — one audit group, in that order.
 
 It sits **inside** `max-w-stage`, following the enrichment disclosures rather than going
-window-scoped, so its `field-grid` resolves 8-across at 2600px. That is a much better home for the
-`col-span-full truncate` `Path:` row than a 320px rail ever was.
+window-scoped, so its `field-grid` resolves **7-across** at 2600px (not 8 — `gap-2` costs a column:
+8×320 + 7×8 = 2616 > 2568). That is a much better home for the `col-span-full truncate` `Path:` row
+than a 320px rail ever was.
 
 Supersedes the "File moved above Completeness" point in
 [`media-detail-reorder-handoff.md`](media-detail-reorder-handoff.md) — Completeness stays in the
@@ -76,8 +77,12 @@ not re-decided per component.
    with fixed-width cards (`w-32`/`w-52` per `data-layout`), borrowing the `.video-grid` class only
    to reset the Brutalist `reel` counter and inherit `data-layout` sizing. There is no
    `stageAligned` prop to pass — the class goes on directly, and `width: fit-content` against
-   `overflow-x: auto` is **not** the same layout as against a grid. Verify live before assuming
-   parity; if it does not hold, the shelf needs its own declaration rather than a shared class.
+   `overflow-x: auto` is **not** the same layout as against a grid. **Verified live: it is.** At
+   5120, 5 cards pin the box to 2600 with zero overhang; 16 cloned cards grow it to 3824 with a
+   612px overhang each side, symmetric to the pixel; 30 cards cap it at the window and scroll
+   internally with no document overflow. Shipped as `.stage-band`, a second selector on the
+   existing `.video-grid.stage-aligned` rule — on the `<section>`, so the heading travels with
+   the cards.
 2. **Breaking the cap means leaving the article.** `max-width: 100%` resolves against the
    *container*, so a shelf inside `<article class="mx-auto max-w-stage">` caps at 2600 forever.
    The shelves must become **siblings** of that article, which also drops them out of its
@@ -150,15 +155,16 @@ than re-deriving it. Do not treat this handoff as licence to leave the two pages
 
 | Viewport | CSS px | Subject | Rail | Shelf | Metadata `field-grid` | File `field-grid` | Overview |
 |---|---|---|---|---|---|---|---|
-| Ultrawide 5120×1440 | 5120×1440 @100% | 1503 | 1073 | 5072, centred | 3-across | 8-across | in rail |
+| Ultrawide 5120×1440 | 5120×1440 @100% | 1503 | 1073 | 5072, centred | 3-across | 7-across | in rail |
 | Desktop 4K @200% | 1920×1080 | 1078 | 770 | 1872, left | 2-across | 5-across | in rail |
 | Desktop 4K @150% | 2560×1440 | 1451 | 1037 | 2512, left | 3-across | 7-across | in rail |
 | Narrowest two-column | 1024×768 | 555 | 397 | 976, left | 1-across | 2-across | in rail |
 | Pixel 7 Pro | 412×892 @DPR 3.5 | 364 (one col) | — | 364, left | 1-across | 1-across | in stack |
 
 Gutter is 1260px each side at ultrawide and zero everywhere else in this table.
-`field-grid` is `repeat(auto-fit, minmax(min(320px, 100%), 1fr))`; column counts above are
-`floor((container − 32px of p-4) / 320)`.
+`field-grid` is `repeat(auto-fit, minmax(min(320px, 100%), 1fr))` with a `gap`; column counts above
+are the largest *n* with `n×320 + (n−1)×gap ≤ container − 32px of p-4`. Measured live at 5120,
+1920, 1024 and 412: subject/rail 1503/1073, 1069/764 (15px scrollbar), 547/390, 364.
 
 **Measure check.** As prose, the overview reads at roughly 52 characters per line in a 397px rail,
 100 at 770px and 140 at 1073px. The subject column would give 73, 140 and 200 respectively. So the
@@ -184,6 +190,12 @@ child. `stage-grid` is untouched, the film page inherits nothing new from this c
 | Element | Case | Behavior |
 |---|---|---|
 | Overview | absent | nothing renders; Tags becomes the rail's first block |
+| Overview | owner, field mapped `multi`, no value | section does not render — the gate is `(isReplaceField && isOwner) \|\| value`, exhaustive with its two branches, and `hasPageAnchor('overview')` mirrors it so the completeness fallback anchor stays in step (found in code review: the old header gate would have produced an orphan "Overview" heading) |
+| Overview | visitor, 60+ character unbroken token, 390px rail | wraps — `ExpandableText` now carries `wrap-anywhere`. Before the fix it overflowed by 34px and `line-clamp`'s `overflow:hidden` cut it off silently (found on the first live check at 1024) |
+| Metadata (visitor) | fold | **always open, no chevron** — the fold is owner noise control; a visitor has no controls, the values are the section. The design said "visitors see the values"; a collapsed fold would have shown them a count and a chevron |
+| Metadata (visitor) | every resolved field is elsewhere or valueless | section does not render — `metadataFieldCount` is 0. The file-only `fields` fallback is guarded on `!resolved.length`; without that guard the first visitor render fell into it and re-rendered Overview/Actors/Studio from raw file tags as a second copy |
+| Metadata (visitor) | valueless resolved field | dropped from `visibleResolved` (owner keeps it so the pin stays changeable). Note this is a *different* rule from the pre-reorder `visibleResolved`, which showed visitors only provider-won fields and hid file-derived ones; the contract in `routes/CLAUDE.md` is "visible whenever a value exists" |
+| Audit wrapper | visitor | the whole `max-w-stage` wrapper is gated, not just its children — an empty div would still collect the article's `space-y-6` and leave 24px of dead space at the page bottom (found in code review) |
 | Overview | present, one line | no expand chevron (fixed in #319, `ExpandableText` gates on `clamps`) |
 | Overview | owner | renders `SourceBadge`, as today — the chip row the 320px rail floor was sized for |
 | Overview | visitor | renders `ExpandableText`, as today |
@@ -202,7 +214,8 @@ child. `stage-grid` is untouched, the film page inherits nothing new from this c
 - **The shelf band's new position is a focus-order change on one column** — Tags, Films and People
   are now reached before the recommendation shelves. That is the intended improvement, not a
   regression.
-- **`#field-overview` must appear exactly once** at every viewport and in both roles. Assert it.
+- **`#field-overview` must appear exactly once** at every viewport and in both roles. Asserted:
+  `field-overview-renders-once` in the geometry harness, 288 checks across 9 skin/width cells.
 - No new interactive elements. The visitor Metadata list is non-interactive text plus
   `ProvenanceBadge`, so it adds no tab stops.
 
@@ -234,9 +247,12 @@ with the player's left edge (compare `getBoundingClientRect().left`). `[agent]`
 3.3 At 5120 with many shelf cards: shelf box is wider than 2600, and its left and right overhang
 past the stage edges are equal to within 1px. `[agent]`
 3.4 `#field-overview` appears exactly once in the DOM at 412, 1024, 1920 and 5120, in both roles,
-and its computed `left` places it in the rail column at every two-column width. `[agent]`
-3.5 At 1024 (narrowest two-column) the overview does not overflow its 397px track — no horizontal
-scroll, and `scrollWidth === clientWidth` on the rail. `[agent]`
+and its computed `left` places it in the rail column at every two-column width. `[agent]` — **done**,
+and now `field-overview-renders-once` in the harness.
+3.5 At 1024 (narrowest two-column) the overview does not overflow its 390px track — measured on the
+`<p>` as visitor, since `line-clamp` clips and the rail itself never reports overflow. `[agent]` —
+**done; found the clip; fixed; now `overview-fits-the-rail` under the `visitor-view` preparation
+at the new `lg` cell, mutation-tested.**
 3.6 Tab order from the player reaches Tags before the More-with shelves at 412px. `[agent]`
 3.7 File's `field-grid` computes 8 columns at 5120 and 1 at 412. `[agent]`
 

@@ -91,7 +91,7 @@
 
     <rect class="surface2" x="24" y="478" width="301" height="24" /><rect class="accentStroke" x="24" y="478" width="301" height="24" />
     <rect class="accent" x="24" y="478" width="3" height="24" />
-    <text x="34" y="494" class="accent blk" font-weight="600">File — moved, 8-across</text><text x="315" y="494" class="accent scope" text-anchor="end">STAGE · OWNER</text>
+    <text x="34" y="494" class="accent blk" font-weight="600">File — moved, 7-across</text><text x="315" y="494" class="accent scope" text-anchor="end">STAGE · OWNER</text>
 
     <rect class="surface" x="24" y="506" width="301" height="24" /><rect class="gateOwner" x="24" y="506" width="301" height="24" />
     <text x="34" y="522" class="ink blk">Enrichment data: …</text><text x="315" y="522" class="muted scope" text-anchor="end">STAGE · OWNER</text>
