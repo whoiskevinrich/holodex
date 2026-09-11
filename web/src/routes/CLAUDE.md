@@ -70,3 +70,8 @@ Read it before adding any full-width row.
 `docs/design/media-detail-stage-layout-handoff.md` (HOLODEX-363) is the source for all of the above.
 The film page had the opposite arrangement and converges on it via HOLODEX-364 — if you are reading
 `films/[id]` and it still renders the description in the header, that ticket is why.
+
+The words used above — owner/visitor branch, value vs. affordance, value-owning control, knob,
+parity, drift — are defined in [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md);
+use them when asking for or describing a change (the translate / link / record rule is
+`.claude/rules/ui-vocabulary.md`, which loads with any `web/**` source file).
