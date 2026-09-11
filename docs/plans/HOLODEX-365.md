@@ -72,8 +72,8 @@ assertion that would have caught this: owner/visitor computed typography identic
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] **Mark the PR ready for review** once the owner has eyeballed the block — every gate
-   is green. That is the act that moves this ticket to In Review.
+1. [x] [—] **Mark the PR ready for review** — owner eyeballed media 210 and person 42 ("looks
+   good"), PR #322 marked ready 2026-09-11; CI moves this ticket to In Review.
 2. [ ] [S] [HOLODEX-364](HOLODEX-364.md) (film page onto the media page's overview rule) now has a
    second thing to inherit: the film `description` is the other `long_text`-shaped field rendered
    as `ExpandableText` for visitors and `SourceBadge` for owners — the exact split this issue
@@ -98,5 +98,6 @@ assertion that would have caught this: owner/visitor computed typography identic
   `ExpandableText` row now says "no exceptions, no styling props"), file the parity assertion
   (HOLODEX-366, ticket only). Declined for now: extracting a `LongTextField` — at two call sites
   the prop count would exceed the duplication; the third (HOLODEX-364) is the trigger.
-- handoff: implementation is complete and live-verified on media 210 and person 42; the PR is
-  Draft only pending the owner's eyeball, then mark ready.
+- handoff: implementation is complete, live-verified on media 210 and person 42, and owner-approved;
+  PR #322 is ready for review. Nothing left on this branch — next is HOLODEX-364 (film description
+  onto the same rule), which inherits `routes/CLAUDE.md`'s sharpened gate rule.
