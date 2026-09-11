@@ -393,8 +393,17 @@
 	   tracks (VideoGrid computes them) rather than `1fr`: with `1fr` the tracks always
 	   consume the container, so `fit-content` could never shrink. VideoGrid also caps the
 	   *track count* at the card count, since declared-but-empty tracks would hold the
-	   grid open at full width no matter how few cards there are. */
-	.video-grid.stage-aligned {
+	   grid open at full width no matter how few cards there are.
+
+	   `.stage-band` (HOLODEX-363) is the same rule for a non-grid row: RelatedShelf's
+	   section, which wraps a heading plus a flex overflow-x scroller of fixed-width cards.
+	   It sits on the section rather than the scroller so the heading travels with the
+	   cards. The scroller's max-content (the card sum) is what `fit-content` measures, and
+	   `max-width: 100%` is what turns a long row back into a scroll instead of overflow.
+	   Requires the caller to place it OUTSIDE any max-w-stage wrapper — inside one,
+	   `100%` is the cap and nothing breaks out. */
+	.video-grid.stage-aligned,
+	.stage-band {
 		justify-content: start;
 		width: fit-content;
 		min-width: min(var(--container-stage), 100%);
