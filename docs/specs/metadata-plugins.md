@@ -109,7 +109,7 @@ A provider is an HTTP/JSON service. Core calls it; it owns its upstream API key,
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F22.7a | Every resolved field shows its provenance ("from TMDB" / "from file") | The winning source is labeled; QA'd in all three skins using semantic tokens (no hardcoded styling) |
-| F22.7b | Owner can clear a provider's contribution for an entity | One action removes `entity_enrichment` rows for that provider+entity; field falls back to the next source |
+| F22.7b | Owner can clear a provider's contribution for an entity | One action removes `entity_enrichment` rows for that provider+entity; field falls back to the next source. Clearing never touches the file: for a video whose file already carries that provider's values (a prior writeback), the response says so (`written_back`, HOLODEX-370) and the page points at the batch Revert |
 
 ### F22.8 — Provider health & observability
 

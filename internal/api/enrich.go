@@ -330,7 +330,26 @@ func (h *Handlers) enrichVideoClear(w http.ResponseWriter, r *http.Request) {
 	// as applying one — same shared dispatcher enrichVideoApply/Refresh use, so a
 	// clear doesn't skip studio relink (F38) or tag materialization (F50 P0-9).
 	h.afterEnrichApply(r, model.EnrichEntityVideo, id)
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]any{"written_back": h.providerWrittenBack(r, model.EnrichEntityVideo, id, provider)})
+}
+
+// providerWrittenBack reports whether the provider's values were ever written into
+// the entity's file (HOLODEX-370). Clear and Dismiss drop the provider from the DB
+// but never touch the file, so re-extract leaves its values as the file-layer
+// baseline and the page keeps showing them; the flag lets the UI say so and point
+// at the batch Revert in Job history. Only videos have a file — every other entity
+// type is false. A lookup failure is logged, not surfaced: the clear/dismiss
+// itself succeeded, and a missing notice is the lesser harm.
+func (h *Handlers) providerWrittenBack(r *http.Request, entityType string, id int64, provider string) bool {
+	if entityType != model.EnrichEntityVideo {
+		return false
+	}
+	found, err := h.repo.HasWritebackFromProvider(r.Context(), id, provider)
+	if err != nil {
+		h.log.Warn("writeback attribution lookup failed", "video", id, "provider", provider, "err", err)
+		return false
+	}
+	return found
 }
 
 // enrichStudioResolve searches a provider for company candidates matching a studio

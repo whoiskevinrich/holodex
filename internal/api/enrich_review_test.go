@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -186,8 +187,8 @@ func TestFilmEnrichDismissAndRefreshRoundTrip(t *testing.T) {
 	dismiss := base + "/enrich/fake/dismiss"
 	resolve := base + "/enrich/resolve"
 
-	if code := sendTok(t, http.MethodPost, dismiss, ""); code != http.StatusNoContent {
-		t.Fatalf("dismiss = %d, want 204", code)
+	if code, body := doJSONTok(t, http.MethodPost, dismiss, ""); code != http.StatusOK || body["written_back"] != false {
+		t.Fatalf("dismiss = %d %v, want 200 {written_back:false} (a film has no file)", code, body)
 	}
 	if code, _ := postTok(t, resolve, "", map[string]string{"provider": "fake", "query": "spirited"}); code != http.StatusConflict {
 		t.Errorf("resolve while dismissed = %d, want 409", code)
@@ -233,8 +234,9 @@ func TestEnrichDismissUndismiss(t *testing.T) {
 	if code := sendTok(t, http.MethodPost, dismiss, ""); code != http.StatusUnauthorized {
 		t.Errorf("no-token dismiss = %d, want 401", code)
 	}
-	if code := sendTok(t, http.MethodPost, dismiss, "s3cret"); code != http.StatusNoContent {
-		t.Fatalf("dismiss = %d, want 204", code)
+	// A person has no file, so the HOLODEX-370 flag is always false here.
+	if code, body := doJSONTok(t, http.MethodPost, dismiss, "s3cret"); code != http.StatusOK || body["written_back"] != false {
+		t.Fatalf("dismiss = %d %v, want 200 {written_back:false}", code, body)
 	}
 
 	// The queue no longer lists the person (its only provider is now dismissed).
@@ -258,6 +260,68 @@ func TestEnrichDismissUndismiss(t *testing.T) {
 	}
 	if code, _ := postTok(t, resolve, "s3cret", map[string]string{"provider": "fake", "query": "miyazaki"}); code != http.StatusOK {
 		t.Errorf("resolve after undismiss = %d, want 200", code)
+	}
+}
+
+// doJSONTok sends a bodiless request with the admin token and decodes a JSON body
+// (empty map on 204 / no body).
+func doJSONTok(t *testing.T, method, url, token string) (int, map[string]any) {
+	t.Helper()
+	req, _ := http.NewRequest(method, url, nil)
+	if token != "" {
+		req.Header.Set(api.AdminTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, url, err)
+	}
+	defer resp.Body.Close()
+	out := map[string]any{}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
+// Clear and Dismiss on a video report whether the provider's values were ever written
+// into the file (HOLODEX-370): neither touches the file, so the owner needs to be told
+// the page will keep showing those values until the batch is reverted. Attribution is
+// the audit row's "<provider>:" source prefix — a different provider's row, or a
+// same-prefix lookalike, must not trip it.
+func TestVideoClearAndDismissReportWrittenBack(t *testing.T) {
+	srv, r, _, _, vid, _ := reviewServer(t, "s3cret")
+	ctx := context.Background()
+	base := srv.URL + "/api/v1/media/" + itoa(vid) + "/enrich/fake"
+	dismiss := base + "/dismiss"
+
+	// No audit rows at all: both answer false.
+	if code, body := doJSONTok(t, http.MethodDelete, base, "s3cret"); code != http.StatusOK || body["written_back"] != false {
+		t.Fatalf("clear with no writeback = %d %v, want 200 {written_back:false}", code, body)
+	}
+	if code, body := doJSONTok(t, http.MethodPost, dismiss, "s3cret"); code != http.StatusOK || body["written_back"] != false {
+		t.Fatalf("dismiss with no writeback = %d %v, want 200 {written_back:false}", code, body)
+	}
+	if code := sendTok(t, http.MethodDelete, dismiss, "s3cret"); code != http.StatusNoContent {
+		t.Fatalf("undismiss = %d, want 204 (unchanged)", code)
+	}
+
+	// Rows from another provider and from a lookalike namespace don't count.
+	for _, src := range []string{"other:title", "fakery:title", "manual", "revert"} {
+		if err := r.InsertWriteback(ctx, vid, "title", "Title", "x", src); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if code, body := doJSONTok(t, http.MethodDelete, base, "s3cret"); code != http.StatusOK || body["written_back"] != false {
+		t.Fatalf("clear with foreign writebacks = %d %v, want {written_back:false}", code, body)
+	}
+
+	// One row attributed to this provider flips both.
+	if err := r.InsertWriteback(ctx, vid, "title", "Title", "x", "fake:title"); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := doJSONTok(t, http.MethodDelete, base, "s3cret"); code != http.StatusOK || body["written_back"] != true {
+		t.Fatalf("clear after writeback = %d %v, want {written_back:true}", code, body)
+	}
+	if code, body := doJSONTok(t, http.MethodPost, dismiss, "s3cret"); code != http.StatusOK || body["written_back"] != true {
+		t.Fatalf("dismiss after writeback = %d %v, want {written_back:true}", code, body)
 	}
 }
 
@@ -329,8 +393,8 @@ func TestEnrichRefreshAll(t *testing.T) {
 	if code := sendTok(t, http.MethodDelete, base+"/enrich/fake", ""); code != http.StatusNoContent {
 		t.Fatalf("clear = %d, want 204", code)
 	}
-	if code := sendTok(t, http.MethodPost, base+"/enrich/fake/dismiss", ""); code != http.StatusNoContent {
-		t.Fatalf("dismiss = %d, want 204", code)
+	if code := sendTok(t, http.MethodPost, base+"/enrich/fake/dismiss", ""); code != http.StatusOK {
+		t.Fatalf("dismiss = %d, want 200", code)
 	}
 	code, body = postTok(t, refreshAll, "", nil)
 	if code != http.StatusOK {

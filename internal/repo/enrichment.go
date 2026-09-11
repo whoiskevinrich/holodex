@@ -169,6 +169,26 @@ func (r *Repo) InsertWriteback(ctx context.Context, videoID int64, fieldKey, tag
 	return nil
 }
 
+// HasWritebackFromProvider reports whether any file_writebacks audit row for the
+// video was attributed to provider (HOLODEX-370). The audit `source` is the
+// resolver's winning-source token ("<namespace>:<key>", e.g. "tmdb:title"), so the
+// match is an exact "<provider>:" prefix — not LIKE, so a provider name is never a
+// pattern. Clear/Dismiss use it to tell the owner the file still carries the
+// provider's values; the audit table has no batch id, so this is detection only,
+// never a revert.
+func (r *Repo) HasWritebackFromProvider(ctx context.Context, videoID int64, provider string) (bool, error) {
+	var found bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM file_writebacks
+			WHERE video_id = ? AND substr(source, 1, length(?) + 1) = ? || ':'
+		)`, videoID, provider, provider).Scan(&found)
+	if err != nil {
+		return false, fmt.Errorf("has writeback from provider: %w", err)
+	}
+	return found, nil
+}
+
 // DeleteEnrichmentByProvider removes one provider's contribution for an entity so
 // the affected fields fall back to their next source (F22.7b). Returns the number
 // of rows removed.
