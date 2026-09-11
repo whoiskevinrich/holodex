@@ -32,7 +32,7 @@ unconditional.
 **Deliberate split vs. drift.** Before "fixing" a divergence, look for the written decision. The
 film page's description was a deliberate split (visitor in the header, owner in Details, reasoned
 in a comment) that *became* drift the moment the sibling media page decided the opposite
-(HOLODEX-363 → HOLODEX-364).
+(HOLODEX-363), and was converged in HOLODEX-364.
 
 ## Content and chrome
 

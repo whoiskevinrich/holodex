@@ -134,19 +134,23 @@ overview's owner rendering *is* a `SourceBadge`. The rail was already sized for 
 into the Metadata field list. The `media-detail-entity-ux` reasoning that "the synopsis reads as page
 content, not as a data-management row" survives; only its column changes.
 
-### 3c. Divergence from the film detail page — being resolved, not accepted
+### 3c. Divergence from the film detail page — resolved in HOLODEX-364
 
-`films/[id]/+page.svelte` currently does the opposite: the description renders as `ExpandableText`
-in the header (subject column, all roles) and the whole "Details" section is owner-only, reasoned in
-a comment as *"the description a visitor wants already renders in the header above, and everything
+`films/[id]/+page.svelte` did the opposite: the description rendered as `ExpandableText` in the
+header (subject column, all roles) and the whole "Details" section was owner-only, reasoned in a
+comment as *"the description a visitor wants already renders in the header above, and everything
 else here exists to serve editing decisions."* Both pages share `stage-grid`.
 
-The owner's call is to **generalise, as a follow-on**: the media page changes here, and
-**HOLODEX-364** moves the film page's description into its rail on the same rule — which also means
-un-gating that part of `Details` for visitors exactly as §3a does here, and re-checking the
-header/banner `-mb-14` overlap once the header loses a block. The column contract itself is recorded
-in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so the film work inherits it rather
-than re-deriving it. Do not treat this handoff as licence to leave the two pages disagreeing.
+The owner's call was to **generalise, as a follow-on**: the media page changed here, and
+**HOLODEX-364** moved the film page's description into its rail on the same rule, using the
+HOLODEX-365 pattern rather than un-gating the `SourceBadge` row — `#field-description` is the rail's
+first block above Tags, one unconditional `ExpandableText`, the owner's pencil opens
+`SourceEditModal` (`baselineKey="record"`), and the visitor gets the winning provider's
+`ProvenanceBadge` under the text. `Details` kept only `release_date`, still owner-only. The
+header/banner overlap was re-measured after the header lost the block: `-mb-14` is a fixed 56px at
+375 / 768 / 1440, and the header's height is set by the 240px poster, not the prose, so nothing
+visible changed and no film-specific mockup was drawn. The column contract is recorded in
+[`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md).
 
 ## 4. Measured tracks
 

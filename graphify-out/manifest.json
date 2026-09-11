@@ -2274,9 +2274,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/media/[id]/+page.svelte": {
-    "mtime": 1789143682.0054257,
-    "seen": 1789143806.3262186,
-    "ast_hash": "1068485bf493223e267fb47f5d70bada",
+    "mtime": 1789149275.5126548,
+    "seen": 1789149811.8141103,
+    "ast_hash": "6c5b1452d9bae97a32fa00973608f4e3",
     "semantic_hash": ""
   },
   "web/src/routes/owner/+layout.svelte": {
@@ -2406,9 +2406,9 @@
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
-    "mtime": 1788901942.967565,
-    "seen": 1789142273.5014384,
-    "ast_hash": "6199f85eb6cb731382b899879a72a27d",
+    "mtime": 1789148580.560296,
+    "seen": 1789149811.8141418,
+    "ast_hash": "6d7a9e1dd34684d2c554c24bfbabe8f1",
     "semantic_hash": ""
   },
   ".claude/flightplan.yaml": {
@@ -3624,9 +3624,9 @@
     "semantic_hash": "4619f8a50aee54ee840cd98beeb6f690"
   },
   "web/src/lib/components/curation/CLAUDE.md": {
-    "mtime": 1789142233.1204383,
-    "seen": 1789142273.501842,
-    "ast_hash": "c8ef42a0d1e2ebc60a809fbe03ae3e14",
+    "mtime": 1789149670.2322283,
+    "seen": 1789149811.814613,
+    "ast_hash": "3f53302b4d8f7a6b34e9e38e3f26e368",
     "semantic_hash": ""
   },
   "web/src/lib/components/duplicates/CLAUDE.md": {
@@ -4932,9 +4932,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/films/[id]/+page.svelte": {
-    "mtime": 1789015115.7838542,
-    "seen": 1789142273.501394,
-    "ast_hash": "027c6936e2c05451858f9dfbc2c612a7",
+    "mtime": 1789149737.619337,
+    "seen": 1789149811.8141067,
+    "ast_hash": "3e7460a802c937ec1dd8fdc71ebc746e",
     "semantic_hash": ""
   },
   "web/src/routes/owner/completeness/+page.svelte": {
@@ -6246,9 +6246,9 @@
     "semantic_hash": ""
   },
   "docs/design/media-detail-stage-layout-handoff.md": {
-    "mtime": 1789092450.7832313,
-    "seen": 1789142273.501597,
-    "ast_hash": "46e31c18291dafa32ddbc54738c60554",
+    "mtime": 1789149670.2322283,
+    "seen": 1789149811.8143246,
+    "ast_hash": "23003ff1cd452f7c4c232919a6fdd492",
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-362.md": {
@@ -6264,15 +6264,15 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-365.md": {
-    "mtime": 1789143778.4839008,
-    "seen": 1789143806.3266118,
-    "ast_hash": "167f87efe94fc855ca267c29a78abbf0",
+    "mtime": 1789143915.4938526,
+    "seen": 1789149811.8145,
+    "ast_hash": "aa977568310468c2564d7fdea5fcb9b0",
     "semantic_hash": ""
   },
   "web/src/routes/CLAUDE.md": {
-    "mtime": 1789143682.0063968,
-    "seen": 1789143806.3267403,
-    "ast_hash": "068a5279baba34f9c9d6193b8b184829",
+    "mtime": 1789149670.2322283,
+    "seen": 1789149811.8146274,
+    "ast_hash": "f851037a7e8636a3d0c9364d7ba17cad",
     "semantic_hash": ""
   },
   "docs/design/manage-split-button-mockup.svg": {
@@ -6291,6 +6291,24 @@
     "mtime": 1789077183.2467763,
     "seen": 1789142273.501876,
     "ast_hash": "6d8ac58c555ae862c779376a7fbcaa94",
+    "semantic_hash": ""
+  },
+  ".claude/rules/ui-vocabulary.md": {
+    "mtime": 1789148580.5517342,
+    "seen": 1789149811.8141484,
+    "ast_hash": "3fa3893d2c5d0dea91dccdc79df6b646",
+    "semantic_hash": ""
+  },
+  "docs/plans/HOLODEX-364.md": {
+    "mtime": 1789149709.6907642,
+    "seen": 1789149811.814499,
+    "ast_hash": "7d2dda8444968b94695d0343cc518634",
+    "semantic_hash": ""
+  },
+  "docs/reference/ui-vocabulary.md": {
+    "mtime": 1789149670.233229,
+    "seen": 1789149811.8145103,
+    "ast_hash": "4cac51d0d7aa4a5629aa88bf60b29f00",
     "semantic_hash": ""
   }
 }
