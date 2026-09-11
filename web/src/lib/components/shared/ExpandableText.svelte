@@ -5,15 +5,19 @@
 	// clamp gets no chevron at all (HOLODEX-361): a control that cannot change
 	// what you see is one the reader learns to distrust, and its aria-expanded
 	// announced a collapsed region that was never there.
+	//
+	// No styling props on purpose (HOLODEX-365): long prose — bio, overview, description — is
+	// muted `text-sm leading-relaxed`, and this component is where that is decided. A `tone`
+	// knob used to exist, defaulted to ink, and only one of three call sites set it, so the
+	// "one look for prose" rule was opt-in per page. `lines` stays: 4 vs 5 is a layout fit
+	// (the photo-pinned Person hero vs the rail), not a typography choice.
 	const CLAMP = { 4: 'line-clamp-4', 5: 'line-clamp-5' } as const;
-	const TONE = { ink: 'text-ink', muted: 'text-muted' } as const;
 
 	let {
 		text,
 		lines = 5,
-		tone = 'ink',
 		chevronLabel
-	}: { text: string; lines?: 4 | 5; tone?: 'ink' | 'muted'; chevronLabel: string } = $props();
+	}: { text: string; lines?: 4 | 5; chevronLabel: string } = $props();
 
 	let expanded = $state(false);
 	let clamps = $state(false);
@@ -54,7 +58,7 @@
 		bind:this={prose}
 		bind:clientWidth={proseWidth}
 		id={textId}
-		class="wrap-anywhere text-sm leading-relaxed {TONE[tone]} {expanded ? '' : CLAMP[lines]}"
+		class="wrap-anywhere text-sm leading-relaxed text-muted {expanded ? '' : CLAMP[lines]}"
 	>
 		{text}
 	</p>

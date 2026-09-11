@@ -123,8 +123,8 @@ beneath the name/meta block, not clamped to the header height — see Responsive
 | `border-rule` | column divider, modal border, radio-row borders |
 | `bg-surface` | modal body |
 | `bg-accent` / `text-accent-ink` | Save button, selected-radio-row accent |
-| `text-ink` | bio body text, modal title |
-| `text-muted` | unselected radio labels, "no value on file" placeholder |
+| `text-ink` | modal title. *Was also the bio body text; superseded by HOLODEX-365 — see next row* |
+| `text-muted` | bio body text (HOLODEX-365: all long prose is `ExpandableText`'s muted `text-sm leading-relaxed`, one look for bio / overview / description, owner and visitor alike), unselected radio labels, "no value on file" placeholder |
 | `rounded-theme` | modal, radio rows, buttons |
 | `font-ui` | modal body (inherits) |
 

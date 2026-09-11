@@ -42,6 +42,17 @@ additionally get `SourceBadge`, the enrichment controls, writeback and the edit 
 Blocks that are wholly owner machinery — Manage, Completeness, File, the `Enrichment data:`
 payload disclosures — are the exception and stay fully gated.
 
+**The value's rendering sits outside the owner branch; only the affordance goes inside one.**
+Co-location is not enough — the media Overview had both views five lines apart in one file and
+still diverged (HOLODEX-365), because the owner branch delegated the *value* to `SourceBadge`,
+which renders it at rest in its own typography (ink, unclamped, no chevron) while the visitor
+branch used `ExpandableText`. So: one rendering of the value, unconditional; the owner-only
+part is the pencil / badge / chip row beside it. A control that renders the value itself
+(`SourceBadge` does) cannot be the owner branch of a field a visitor also sees — on a
+visitor-visible block use the `SourceEditModal` pattern, which separates the decision from the
+display. Long prose in particular is always `ExpandableText`
+(`web/src/lib/components/shared/CLAUDE.md`).
+
 ## Page-bottom audit group
 
 `File` and the `Enrichment data:` disclosures are one owner-only group at the very bottom, in that
