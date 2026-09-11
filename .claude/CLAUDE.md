@@ -46,7 +46,7 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 | `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, ADR-013) + per-field metadata (labels/display) |
 | `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` (see `.claude/rules/migrations.md`) |
 | `providers/tmdb` | Standalone metadata-provider **sidecar** (see `.claude/rules/provider-sidecar.md`) |
-| `web/` | SvelteKit SPA (see `.claude/rules/frontend-theming.md`) |
+| `web/` | SvelteKit SPA (see `.claude/rules/frontend-theming.md`; UX terms and the translate / link / record rule in `.claude/rules/ui-vocabulary.md` → `docs/reference/ui-vocabulary.md`) |
 
 **The core model** (ADR-033/051/052): the file layer is the **baseline/default truth**; provider
 enrichment is an **additive shadow** (never flattened into the file layer); the **pure resolver** is

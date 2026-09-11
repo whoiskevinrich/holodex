@@ -115,7 +115,7 @@ the only merge point.
 ## Translations
 
 Plain phrasings the owner has used, and the term each landed on. Append here whenever a request
-is translated into a term (`web/src/routes/CLAUDE.md` § "Vocabulary: translate, link, record");
+is translated into a term (`.claude/rules/ui-vocabulary.md`, translate / link / record);
 the phrasing is kept as said so the next reading of it is consistent.
 
 | Owner said | Term | What that changes about the work |
