@@ -21,6 +21,13 @@ import { chromium } from 'playwright';
 export const SKINS = ['cinematheque', 'broadcast', 'brutalist'];
 export const WIDTHS = [
 	{ key: 'wide', width: 1440, height: 900 },
+	// The `lg` breakpoint edge: the narrowest width at which stage-grid is still two
+	// columns, so the rail is at its smallest (390px here). Added for HOLODEX-363 after the
+	// overview moved into the rail and its first clip — 34px off the `unbroken` rung —
+	// turned out to exist only between 1024 and ~1090: `wide` has a 570px rail and `narrow`
+	// is one column, so neither could fail. An assertion that cannot fail on the matrix is
+	// the vacuous pass §12.2 of the testing strategy warns about.
+	{ key: 'lg', width: 1024, height: 768 },
 	{ key: 'narrow', width: 768, height: 1024 }
 ];
 
@@ -171,6 +178,26 @@ export const PREPARATIONS = {
 		const opener = page.locator(`${badge} button[aria-expanded="false"]`);
 		if ((await opener.count()) > 0) await opener.first().click();
 		await page.waitForSelector(`${badge} [data-seg]`, { state: 'attached', timeout: 5000 });
+	},
+	// The third kind of hidden subtree is not a fold but a role: the context pins the
+	// owner presentation switch ON (addInitScript above) because most measurable surfaces
+	// are owner-only, which means anything that renders ONLY for a visitor is invisible to
+	// every assertion by default. HOLODEX-363 produced the first such surface worth
+	// measuring — ExpandableText's prose render of the overview, whose owner counterpart
+	// is a SourceBadge — and its first live check found a 34px clip that no owner-view
+	// assertion could see. This flips the header switch off for one page load. Idempotent
+	// the same way the folds are: it clicks only when the switch reports checked, and the
+	// wait is on the switch's own state, not on an owner landmark leaving the DOM, so a
+	// page that has not mounted its owner surface yet cannot pass as already-prepared.
+	'visitor-view': async (page) => {
+		const sw = page.locator('button[role="switch"][aria-label="Owner view"]');
+		await sw.waitFor({ state: 'attached', timeout: 10000 });
+		if ((await sw.getAttribute('aria-checked')) === 'true') await sw.click();
+		await page.waitForFunction(
+			() => document.querySelector('button[role="switch"][aria-label="Owner view"]')?.getAttribute('aria-checked') === 'false',
+			null,
+			{ timeout: 5000 }
+		);
 	}
 };
 

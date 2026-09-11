@@ -72,6 +72,41 @@ export const ASSERTIONS = [
 	},
 
 	{
+		key: 'overview-fits-the-rail',
+		finds:
+			'The synopsis losing its tail. HOLODEX-363 moved the overview from the subject column ' +
+			'into the rail, whose floor is 320px — at the narrowest two-column width that is a ' +
+			'390px track, and the `unbroken` rung’s 60-character token overflowed it by 34px on ' +
+			'the first live check. Nothing scrolled and nothing poked out: the line clamp’s ' +
+			'overflow:hidden simply cut the word off. Measured on the <p> (the visitor render), ' +
+			'not the section, because the section is the thing doing the clipping — and under ' +
+			'the `visitor-view` preparation, because the harness runs as owner and the owner’s ' +
+			'overview is a SourceBadge with no <p> at all: without the switch this matched nothing ' +
+			'on all 54 pages and the vacuity guard refused it, correctly.',
+		// `empty` is the one text rung with no synopsis at all, so it has no #field-overview
+		// to measure and would otherwise report as vacuous on every run.
+		when: (e) => e.entity === 'video' && e.dimension === 'text' && e.variant !== 'empty',
+		prepare: ['visitor-view'],
+		selector: '#field-overview p',
+		measure: 'overflowX',
+		expect: { max: 0 }
+	},
+
+	{
+		key: 'field-overview-renders-once',
+		finds:
+			'A second #field-overview on the page. It is the deep-link anchor the completeness ' +
+			'queue jumps to, and HOLODEX-363 rejected a viewport-conditional placement precisely ' +
+			'because a media-query branch would have rendered it twice. Two matches means a ' +
+			'second render site came back, or the hidden completeness fallback anchor stopped ' +
+			'honouring hasPageAnchor. Zero is a valid state (a visitor on a video with no synopsis).',
+		when: (e) => e.entity === 'video',
+		selector: '#field-overview',
+		applies: 'count',
+		expect: { max: 1 }
+	},
+
+	{
 		key: 'tag-chips-stay-tappable',
 		finds:
 			'Tag chips squeezing below a comfortable touch target once a video carries enough ' +

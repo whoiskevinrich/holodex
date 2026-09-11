@@ -45,11 +45,16 @@
 </script>
 
 <div>
+	<!-- `wrap-anywhere` (HOLODEX-363, same rule as SourceBadge's value span): the text is
+	     arbitrary and an unbreakable token wider than the box is otherwise clipped by the
+	     clamp's overflow:hidden — silently, with no scroll and nothing poking out. The
+	     media page's overview now sits in the rail, whose floor is 320px, so a 60-character
+	     token overflowed a 390px track by 34px at 1024 and lost its tail. -->
 	<p
 		bind:this={prose}
 		bind:clientWidth={proseWidth}
 		id={textId}
-		class="text-sm leading-relaxed {TONE[tone]} {expanded ? '' : CLAMP[lines]}"
+		class="wrap-anywhere text-sm leading-relaxed {TONE[tone]} {expanded ? '' : CLAMP[lines]}"
 	>
 		{text}
 	</p>

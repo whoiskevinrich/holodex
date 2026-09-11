@@ -204,7 +204,7 @@
 	// render site so "every field is shown exactly once" stays auditable in one place:
 	//   studio      → StudioLinkCard/StudioPicker under the header (F52)
 	//   title       → edited in place on the header <h1> (HOLODEX-269)
-	//   overview    → the synopsis under the header meta line (see overviewField)
+	//   overview    → the rail's first block, above Tags (see overviewField)
 	//   poster_url  → the player's own poster + upload/remove/regenerate controls
 	//   genres      → materialized into real Tag rows, curated in the Tags section
 	//   actors      → the People grid (video_people), attach/detach per person
@@ -219,9 +219,24 @@
 	// Completeness panel does. Collapsed is the resting state, and — as there the score
 	// stays visible — the field count is the summary that keeps the fold honest.
 	let metadataExpanded = $state(false);
-	const metadataFieldCount = $derived(
-		canonicalResolved.length + extraFields.length || fields.length
+	// Visitors get the resolved values, not the machinery (HOLODEX-363, routes/CLAUDE.md).
+	// A field with no value is retained for the owner so its pin stays changeable
+	// (internal/resolver/resolver.go) but is nothing to a visitor, so it is dropped from
+	// their list rather than rendered as an empty label. Owners see canonicalResolved whole.
+	const visibleResolved = $derived(
+		isOwner ? canonicalResolved : canonicalResolved.filter((f) => f.values.some((v) => v?.trim()))
 	);
+	// The file-only `fields` list is a fallback for NO resolver output, not for "the resolved
+	// list came up empty": a visitor whose every resolved field is either shown elsewhere or
+	// valueless must not drop into it, or the raw file tags for overview/actors/studio
+	// reappear as a second copy of blocks the page already renders.
+	const metadataFieldCount = $derived(
+		visibleResolved.length + extraFields.length || (resolved.length ? 0 : fields.length)
+	);
+	// The fold is owner noise control: collapsed at rest because the controls above it are
+	// what an owner comes to the section for. A visitor has no controls — the values ARE the
+	// section — so their list is always open and the chevron does not render.
+	const metadataListOpen = $derived(isOwner ? metadataExpanded : true);
 	// Canonicals whose `#field-<canonical>` anchor is rendered elsewhere on an owner's page,
 	// so the hidden completeness fallback below must not emit a second element with the same
 	// id. studio/title/genres/actors are unconditional for an owner (their containers gate on
@@ -231,7 +246,12 @@
 	// (internal/resolver/resolver.go), and that field reports tier `missing`. So it is tested,
 	// not listed.
 	function hasPageAnchor(canonical: string): boolean {
-		if (canonical === 'overview') return !!overviewField;
+		// Must mirror the Overview section's own gate exactly (it is owner-only here, so the
+		// isOwner term is implied): the section renders for a replace field regardless of
+		// value, or for any field with a value. Diverging leaves a #field-overview deep link
+		// with no target in the gap between the two.
+		if (canonical === 'overview')
+			return !!overviewField && (isReplaceField(overviewField) || !!overviewField.values[0]?.trim());
 		return canonical === 'studio' || canonical === 'title' || canonical === 'genres' || canonical === 'actors';
 	}
 	// Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md §2).
@@ -1088,7 +1108,12 @@
 		{error || 'Not found.'}
 	</p>
 {:else}
-	<article class="mx-auto max-w-stage space-y-6">
+	<article class="space-y-6">
+		<!-- Three zones, two widths (HOLODEX-363, design handoff §2). The stage and the
+		     bottom audit group each sit in their own max-w-stage wrapper; the More-with band
+		     between them does NOT, because `.stage-band`'s max-width: 100% has to resolve
+		     against the window to break the 2600px cap — inside the wrapper it never could. -->
+		<div class="mx-auto max-w-stage">
 		<!-- Player column + metadata rail (HOLODEX-331). The ratio, the rail's 320px floor
 		     and the stacking breakpoint live in `stage-grid` (app.css), shared with the film
 		     detail page so the two cannot drift. -->
@@ -1220,20 +1245,6 @@
 							<span>·</span><span>{formatYear(video.recorded_at)}</span>
 						{/if}
 					</div>
-
-					<!-- Overview (media-detail-entity-ux): the synopsis reads as page content, not
-					     as a data-management row, so it sits under the header meta line instead of
-					     in the Metadata list. Owners keep exactly the control the Metadata
-					     long_text branch gave it — the ADR-051 SourceBadge precedence chip row. -->
-					{#if overviewField && (isOwner || overviewField.values[0]?.trim())}
-						<div id="field-overview">
-							{#if isReplaceField(overviewField) && isOwner}
-								<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
-							{:else if overviewField.values[0]?.trim()}
-								<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
-							{/if}
-						</div>
-					{/if}
 				</header>
 
 				{#if isOwner || studioField?.values?.length}
@@ -1259,22 +1270,29 @@
 						{/if}
 					</div>
 				{/if}
-
-				<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when
-				     its block is null or empty, so an item with no siblings shows no rail. -->
-				{#if related?.person}
-					<RelatedShelf
-						title={related.person.name}
-						href={`/people/${related.person.id}`}
-						items={related.person.items}
-					/>
-				{/if}
-				{#if related?.tag}
-					<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
-				{/if}
 			</div>
 
 			<div class="space-y-6">
+				<!-- Overview: the rail's first block (HOLODEX-363; column contract in
+				     routes/CLAUDE.md). The synopsis is a resolved field whose owner rendering IS
+				     the ADR-051 SourceBadge chip row, and the rail's 320px floor was sized for
+				     exactly that row (HOLODEX-331). It stays its own block above Tags rather than
+				     rejoining the Metadata list — the media-detail-entity-ux point that it reads
+				     as page content, not a data-management row, still holds; only its column
+				     changed. Unconditional on purpose: a viewport-keyed move could not be a
+				     second render (#field-overview is a deep link) and would have forced
+				     stage-grid into named areas for one block. -->
+				{#if overviewField && ((isReplaceField(overviewField) && isOwner) || overviewField.values[0]?.trim())}
+					<section id="field-overview" class="space-y-1.5">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Overview</h2>
+						{#if isReplaceField(overviewField) && isOwner}
+							<SourceBadge field={overviewField} decide={(src, mv) => decideField('overview', src, mv)} />
+						{:else if overviewField.values[0]?.trim()}
+							<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
+						{/if}
+					</section>
+				{/if}
+
 				{#if isOwner || video.tags?.length}
 					<!-- id="field-genres": resolved genres materialize into Tag rows, so the
 					     completeness queue's #field-genres deep link lands here now that the
@@ -1501,9 +1519,11 @@
 
 				<!-- Metadata section (F27): resolved fields (merged file + enrichment) with
 				     enrichment controls and writeback inline in the header. Falls back to
-				     file-only fields when no resolver output is present. Owner-only
-				     (media-detail-reorder) — visitors previously saw a filtered subset. -->
-				{#if isOwner}
+				     file-only fields when no resolver output is present. Visitors see the
+				     values (HOLODEX-363, reversing media-detail-reorder's owner-only gate):
+				     every control inside is already gated on isOwner individually, so
+				     un-gating the section exposes the values and nothing else. -->
+				{#if isOwner || metadataFieldCount > 0}
 					<section class="space-y-1.5">
 						<div class="flex flex-wrap items-center justify-between gap-2">
 							<div class="flex items-baseline gap-2">
@@ -1613,27 +1633,29 @@
 										Write decisions to file
 									</button>
 								{/if}
-								<button
-									type="button"
-									onclick={() => (metadataExpanded = !metadataExpanded)}
-									aria-expanded={metadataExpanded}
-									aria-controls="metadata-fields"
-									aria-label={metadataExpanded ? 'Hide metadata fields' : 'Show metadata fields'}
-									title={metadataExpanded ? 'Hide fields' : 'Show fields'}
-									class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
-								>
-									<svg
-										class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
-										class:rotate-180={metadataExpanded}
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										aria-hidden="true"
+								{#if isOwner}
+									<button
+										type="button"
+										onclick={() => (metadataExpanded = !metadataExpanded)}
+										aria-expanded={metadataExpanded}
+										aria-controls="metadata-fields"
+										aria-label={metadataExpanded ? 'Hide metadata fields' : 'Show metadata fields'}
+										title={metadataExpanded ? 'Hide fields' : 'Show fields'}
+										class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
 									>
-										<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
-									</svg>
-								</button>
+										<svg
+											class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
+											class:rotate-180={metadataExpanded}
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											aria-hidden="true"
+										>
+											<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+										</svg>
+									</button>
+								{/if}
 							</div>
 						</div>
 						{#if canWriteback && writebackStatus.failed && !writebackStatus.pending}
@@ -1753,12 +1775,12 @@
 						<div
 							id="metadata-fields"
 							class="overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
-							style="max-height: {metadataExpanded ? '6000px' : '0px'}"
-							inert={!metadataExpanded}
+							style="max-height: {metadataListOpen ? '6000px' : '0px'}"
+							inert={!metadataListOpen}
 						>
-						{#if canonicalResolved.length || extraFields.length}
+						{#if visibleResolved.length || extraFields.length}
 						<dl class="field-grid gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
-							{#each canonicalResolved as f (f.canonical)}
+							{#each visibleResolved as f (f.canonical)}
 								{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 								{#if f.display === 'image_url'}
 									<div class="col-span-full" id={`field-${f.canonical}`}>
@@ -1827,7 +1849,7 @@
 								onchanged={reloadDetail}
 							/>
 						</dl>
-						{:else if fields.length}
+						{:else if !resolved.length && fields.length}
 						<dl class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
 							{#each fields as f (f.canonical)}
 								<div>
@@ -1921,24 +1943,6 @@
 					</section>
 				{/if}
 
-				{#if isOwner}
-				<section class="space-y-1.5">
-					<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
-					<div class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
-					<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
-					{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
-					{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
-					{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
-					{#if video.bitrate_kbps}
-						<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
-					{/if}
-					<div class="col-span-full truncate" title={video.file_path}>
-						<span class="text-muted">Path:</span> {video.file_path}
-					</div>
-				</div>
-				</section>
-				{/if}
-
 				{#if isOwner && completeness}
 					{#each completeness.facets as cf (cf.canonical)}
 						{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
@@ -1952,6 +1956,46 @@
 				{/if}
 			</div>
 		</div>
+		</div>
+
+		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when its
+		     block is null or empty, so an item with no siblings shows no rail. A sibling of
+		     the capped wrappers, not a child — see the article comment. Leaving the subject
+		     column also lifts Tags/Films/People above the shelves in the one-column stack
+		     below lg, where the rail follows the subject in DOM order. -->
+		{#if related?.person}
+			<RelatedShelf
+				title={related.person.name}
+				href={`/people/${related.person.id}`}
+				items={related.person.items}
+			/>
+		{/if}
+		{#if related?.tag}
+			<RelatedShelf title={related.tag.name} href={`/tags/${related.tag.id}`} items={related.tag.items} />
+		{/if}
+
+		<!-- Owner-only audit group (HOLODEX-363): File, then the Enrichment data disclosures,
+		     in that order and never separated. File left the rail because a 320px column is
+		     the worst home for a col-span-full file path; here field-grid gets the stage.
+		     The wrapper itself is gated, not just its children: an empty div would still
+		     collect the article's space-y-6 margin and leave a visitor 24px of dead space. -->
+		{#if isOwner}
+		<div class="mx-auto max-w-stage space-y-6">
+		<section class="space-y-1.5">
+			<h2 class="text-xs uppercase tracking-wide text-muted">File</h2>
+			<div class="field-grid gap-2 rounded-theme border border-rule bg-surface p-4 text-sm">
+			<div><span class="text-muted">File size:</span> {formatBytes(video.file_size)}</div>
+			{#if video.container}<div><span class="text-muted">Container:</span> {video.container}</div>{/if}
+			{#if video.video_codec}<div><span class="text-muted">Video codec:</span> {video.video_codec}</div>{/if}
+			{#if video.audio_codec}<div><span class="text-muted">Audio codec:</span> {video.audio_codec}</div>{/if}
+			{#if video.bitrate_kbps}
+				<div><span class="text-muted">Bitrate:</span> {formatBitrate(video.bitrate_kbps)}</div>
+			{/if}
+			<div class="col-span-full truncate" title={video.file_path}>
+				<span class="text-muted">Path:</span> {video.file_path}
+			</div>
+		</div>
+		</section>
 
 		<!-- Full width beneath both zones: raw audit payloads are wide <dl> dumps that
 		     would be unreadable squeezed into the rail. -->
@@ -2012,6 +2056,8 @@
 					{/if}
 				</section>
 			{/each}
+		{/if}
+		</div>
 		{/if}
 	</article>
 

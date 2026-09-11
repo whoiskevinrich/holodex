@@ -1,7 +1,7 @@
 # Geometry assertion harness (HOLODEX-349)
 
 Layout invariants, measured in a real browser against the [stress
-fixture](../../testdata/stressseed/README.md), across three skins and two viewport widths.
+fixture](../../testdata/stressseed/README.md), across three skins and three viewport widths.
 
 ```bash
 # 0. once per machine — `npm ci` installs no browser binaries (playwright ships no

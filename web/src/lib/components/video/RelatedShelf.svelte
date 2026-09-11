@@ -10,7 +10,13 @@
 </script>
 
 {#if items.length > 0}
-	<section class="space-y-2">
+	<!-- stage-band (HOLODEX-363, video/CLAUDE.md "Stage cap vs. window width"): the same
+	     hold-the-stage-then-grow rule as .video-grid.stage-aligned, on the SECTION so the
+	     heading travels with the cards. Below 2648px the box is the stage and cards sit
+	     flush with the player's left edge; above it a short row still pins to the stage
+	     and centres, a long row grows toward the window. Only works if the caller keeps
+	     this OUTSIDE its max-w-stage wrapper — inside, max-width: 100% is the cap. -->
+	<section class="stage-band space-y-2">
 		<h2 class="skin-title text-sm font-semibold uppercase tracking-wide text-muted">
 			More with <a {href} class="text-ink hover:text-accent">{title}</a>
 		</h2>

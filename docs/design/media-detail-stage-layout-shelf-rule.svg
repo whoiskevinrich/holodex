@@ -1,0 +1,97 @@
+<svg viewBox="0 0 1000 430" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .win { stroke: #9b9082; stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+      .stageGuide { stroke: #6b6257; stroke-width: 1; stroke-dasharray: 2 4; }
+      .box { stroke: #e8a33d; stroke-width: 1.5; fill: none; }
+      .card { fill: #221b15; stroke: #3a322a; stroke-width: 1; }
+      .mono { font-family: 'Spline Sans Mono Variable', monospace; font-size: 10px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1000" height="430" />
+
+  <text x="24" y="30" class="ink title" font-size="19" font-weight="600">Shelf justification rule (HOLODEX-363)</text>
+  <text x="24" y="49" class="muted" font-size="11">Left-justified while the stage still fills the window; centred once it does not. Already encoded as .video-grid.stage-aligned — HOLODEX-331 section 9.6.</text>
+
+  <!-- ===== STATE 1: short row, above the cap ===== -->
+  <g>
+    <text x="24" y="82" class="ink" font-size="12" font-weight="600">Short row, above 2648px</text>
+    <text x="24" y="97" class="muted" font-size="10">box pinned to stage by min-width</text>
+    <rect class="win" x="24" y="108" width="300" height="86" />
+    <text x="28" y="121" class="muted" font-size="9">WINDOW</text>
+    <line class="stageGuide" x1="98" y1="104" x2="98" y2="198" />
+    <line class="stageGuide" x1="250" y1="104" x2="250" y2="198" />
+    <rect class="box" x="98" y="130" width="152" height="54" />
+    <rect class="card" x="103" y="137" width="42" height="40" />
+    <rect class="card" x="149" y="137" width="42" height="40" />
+    <rect class="card" x="195" y="137" width="42" height="40" />
+    <text x="174" y="210" class="accent" font-size="9" text-anchor="middle">STAGE 2600</text>
+  </g>
+
+  <!-- ===== STATE 2: grown row, above the cap ===== -->
+  <g>
+    <text x="350" y="82" class="ink" font-size="12" font-weight="600">Grown row, above 2648px</text>
+    <text x="350" y="97" class="muted" font-size="10">overhangs the stage, both sides equally</text>
+    <rect class="win" x="350" y="108" width="300" height="86" />
+    <text x="354" y="121" class="muted" font-size="9">WINDOW</text>
+    <line class="stageGuide" x1="424" y1="104" x2="424" y2="198" />
+    <line class="stageGuide" x1="576" y1="104" x2="576" y2="198" />
+    <rect class="box" x="390" y="130" width="220" height="54" />
+    <rect class="card" x="395" y="137" width="42" height="40" />
+    <rect class="card" x="441" y="137" width="42" height="40" />
+    <rect class="card" x="487" y="137" width="42" height="40" />
+    <rect class="card" x="533" y="137" width="42" height="40" />
+    <rect class="card" x="579" y="137" width="26" height="40" />
+    <text x="500" y="210" class="accent" font-size="9" text-anchor="middle">STAGE 2600 — box is wider, margin-inline: auto centres it</text>
+  </g>
+
+  <!-- ===== STATE 3: any row, below the cap ===== -->
+  <g>
+    <text x="676" y="82" class="ink" font-size="12" font-weight="600">Any row, below 2648px</text>
+    <text x="676" y="97" class="muted" font-size="10">stage equals window, so justification is moot</text>
+    <rect class="win" x="676" y="108" width="300" height="86" />
+    <text x="680" y="121" class="muted" font-size="9">WINDOW</text>
+    <line class="stageGuide" x1="680" y1="104" x2="680" y2="198" />
+    <line class="stageGuide" x1="972" y1="104" x2="972" y2="198" />
+    <rect class="box" x="680" y="130" width="292" height="54" />
+    <rect class="card" x="685" y="137" width="42" height="40" />
+    <rect class="card" x="731" y="137" width="42" height="40" />
+    <rect class="card" x="777" y="137" width="42" height="40" />
+    <text x="826" y="210" class="muted" font-size="9" text-anchor="middle">cards flush with the player's left edge</text>
+  </g>
+
+  <line x1="24" y1="238" x2="976" y2="238" class="rule" />
+
+  <!-- ===== THE DECLARATION ===== -->
+  <rect class="surface2" x="24" y="254" width="500" height="118" />
+  <rect class="rule" x="24" y="254" width="500" height="118" />
+  <text x="38" y="274" class="ink" font-size="11" font-weight="600">app.css — already shipped</text>
+  <text x="38" y="294" class="accent mono">.video-grid.stage-aligned {</text>
+  <text x="50" y="309" class="muted mono">justify-content: start;</text>
+  <text x="50" y="323" class="muted mono">width: fit-content;</text>
+  <text x="50" y="337" class="muted mono">min-width: min(var(--container-stage), 100%);</text>
+  <text x="50" y="351" class="muted mono">max-width: 100%;  margin-inline: auto;</text>
+  <text x="38" y="365" class="accent mono">}</text>
+
+  <rect class="surface" x="548" y="254" width="428" height="118" />
+  <rect class="rule" x="548" y="254" width="428" height="118" />
+  <text x="562" y="274" class="ink" font-size="11" font-weight="600">Why it is not a one-line change</text>
+  <text x="562" y="294" class="muted" font-size="10">RelatedShelf is a flex overflow-x-auto scroller, not a VideoGrid —</text>
+  <text x="562" y="307" class="muted" font-size="10">no stageAligned prop exists on it. The class goes on directly, and</text>
+  <text x="562" y="320" class="muted" font-size="10">fit-content against overflow-x: auto must be verified live.</text>
+  <text x="562" y="340" class="muted" font-size="10">max-width: 100% resolves against the container, so a shelf inside</text>
+  <text x="562" y="353" class="muted" font-size="10">max-w-stage caps at 2600 forever. It must become a sibling of</text>
+  <text x="562" y="366" class="muted" font-size="10">the article, which also drops it out of that space-y-6 rhythm.</text>
+
+  <text x="24" y="398" class="muted" font-size="10">Only one call site uses stage-aligned today: the film detail page's Scenes grid. Track maths in $lib/stageGrid, pinned by stageGrid.test.ts.</text>
+  <text x="24" y="414" class="muted" font-size="10">Decision recorded in web/src/lib/components/video/CLAUDE.md so it is not re-litigated per component.</text>
+</svg>

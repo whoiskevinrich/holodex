@@ -1,0 +1,209 @@
+<svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentStroke { stroke: #e8a33d; stroke-width: 1; fill: none; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .label { font-size: 10px; letter-spacing: 0.07em; }
+      .blk { font-size: 11px; }
+      .scope { font-size: 9px; letter-spacing: 0.05em; }
+      .gateOwner { stroke: #9b9082; stroke-width: 1; stroke-dasharray: 2 2; fill: none; }
+      .window { stroke: #e8a33d; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1000" height="760" />
+
+  <text x="24" y="30" class="ink title" font-size="19" font-weight="600">Media detail — stage layout (HOLODEX-363)</text>
+  <text x="24" y="49" class="muted" font-size="11">Cinematheque tokens · block order and width scope · owner and visitor · widths are the exact 1.4fr / 1fr resolution of stage-grid</text>
+
+  <rect class="surface2" x="24" y="62" width="952" height="30" />
+  <rect class="rule" x="24" y="62" width="952" height="30" />
+  <text x="36" y="81" class="ink" font-size="11">Threshold <tspan class="accent" font-weight="600">2648px</tspan> = --container-stage (2600) + main padding (48). At or above it the stage stops growing, gutters open and the shelf box centres. The overview move is unconditional — it is not keyed to this.</text>
+
+  <!-- ============ COLUMN HEADERS ============ -->
+  <g>
+    <text x="24" y="118" class="ink" font-size="12" font-weight="600">Ultrawide</text>
+    <text x="24" y="133" class="muted" font-size="10">5120 x 1440 CSS px · stage 2600 capped</text>
+    <text x="24" y="146" class="muted" font-size="10">subject 1503 · rail 1073 · gutter 1260</text>
+    <rect class="accent" x="24" y="154" width="174" height="9" />
+    <rect class="surface" x="201" y="154" width="124" height="9" />
+    <rect class="rule" x="201" y="154" width="124" height="9" />
+    <text x="24" y="176" class="muted label">SUBJECT</text>
+    <text x="325" y="176" class="muted label" text-anchor="end">RAIL</text>
+  </g>
+  <g>
+    <text x="350" y="118" class="ink" font-size="12" font-weight="600">Desktop 4K at 200%</text>
+    <text x="350" y="133" class="muted" font-size="10">1920 x 1080 CSS px · stage 1872</text>
+    <text x="350" y="146" class="muted" font-size="10">subject 1078 · rail 770 · no gutter</text>
+    <rect class="accent" x="350" y="154" width="177" height="9" />
+    <rect class="surface" x="530" y="154" width="121" height="9" />
+    <rect class="rule" x="530" y="154" width="121" height="9" />
+    <text x="350" y="176" class="muted label">SUBJECT</text>
+    <text x="651" y="176" class="muted label" text-anchor="end">RAIL</text>
+  </g>
+  <g>
+    <text x="676" y="118" class="ink" font-size="12" font-weight="600">Pixel 7 Pro</text>
+    <text x="676" y="133" class="muted" font-size="10">412 x 892 CSS px at DPR 3.5</text>
+    <text x="676" y="146" class="muted" font-size="10">364 single column · below lg</text>
+    <rect class="accent" x="676" y="154" width="300" height="9" />
+    <text x="676" y="176" class="muted label">ONE COLUMN — RAIL STACKS UNDER SUBJECT IN DOM ORDER</text>
+  </g>
+
+  <!-- ============ ULTRAWIDE BLOCK STACK ============ -->
+  <g>
+    <rect class="surface" x="24" y="186" width="301" height="24" /><rect class="rule" x="24" y="186" width="301" height="24" />
+    <text x="34" y="202" class="ink blk">Player</text><text x="315" y="202" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="24" y="214" width="301" height="24" /><rect class="rule" x="24" y="214" width="301" height="24" />
+    <text x="34" y="230" class="ink blk">Title · specs</text><text x="315" y="230" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="24" y="242" width="301" height="24" /><rect class="rule" x="24" y="242" width="301" height="24" />
+    <text x="34" y="258" class="ink blk">Studio</text><text x="315" y="258" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface2" x="24" y="270" width="301" height="24" /><rect class="accentStroke" x="24" y="270" width="301" height="24" />
+    <rect class="accent" x="24" y="270" width="3" height="24" />
+    <text x="34" y="286" class="accent blk" font-weight="600">Overview — moved</text><text x="315" y="286" class="accent scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="24" y="298" width="301" height="24" /><rect class="rule" x="24" y="298" width="301" height="24" />
+    <text x="34" y="314" class="ink blk">Tags</text><text x="315" y="314" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="24" y="326" width="301" height="24" /><rect class="rule" x="24" y="326" width="301" height="24" />
+    <text x="34" y="342" class="ink blk">Films · People</text><text x="315" y="342" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="24" y="354" width="301" height="24" /><rect class="rule" x="24" y="354" width="301" height="24" />
+    <text x="34" y="370" class="ink blk">Metadata — 3-across</text><text x="315" y="370" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="24" y="382" width="301" height="24" /><rect class="gateOwner" x="24" y="382" width="301" height="24" />
+    <text x="34" y="398" class="ink blk">Manage</text><text x="315" y="398" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface" x="24" y="410" width="301" height="24" /><rect class="gateOwner" x="24" y="410" width="301" height="24" />
+    <text x="34" y="426" class="ink blk">Completeness</text><text x="315" y="426" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface2" x="24" y="442" width="301" height="28" /><rect class="window" x="24" y="442" width="301" height="28" />
+    <text x="34" y="460" class="accent blk" font-weight="600">More with … — centred</text><text x="315" y="460" class="accent scope" text-anchor="end">WINDOW 5072</text>
+
+    <rect class="surface2" x="24" y="478" width="301" height="24" /><rect class="accentStroke" x="24" y="478" width="301" height="24" />
+    <rect class="accent" x="24" y="478" width="3" height="24" />
+    <text x="34" y="494" class="accent blk" font-weight="600">File — moved, 7-across</text><text x="315" y="494" class="accent scope" text-anchor="end">STAGE · OWNER</text>
+
+    <rect class="surface" x="24" y="506" width="301" height="24" /><rect class="gateOwner" x="24" y="506" width="301" height="24" />
+    <text x="34" y="522" class="ink blk">Enrichment data: …</text><text x="315" y="522" class="muted scope" text-anchor="end">STAGE · OWNER</text>
+  </g>
+
+  <!-- ============ DESKTOP BLOCK STACK ============ -->
+  <g>
+    <rect class="surface" x="350" y="186" width="301" height="24" /><rect class="rule" x="350" y="186" width="301" height="24" />
+    <text x="360" y="202" class="ink blk">Player</text><text x="641" y="202" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="350" y="214" width="301" height="24" /><rect class="rule" x="350" y="214" width="301" height="24" />
+    <text x="360" y="230" class="ink blk">Title · specs</text><text x="641" y="230" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="350" y="242" width="301" height="24" /><rect class="rule" x="350" y="242" width="301" height="24" />
+    <text x="360" y="258" class="ink blk">Studio</text><text x="641" y="258" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface2" x="350" y="270" width="301" height="24" /><rect class="accentStroke" x="350" y="270" width="301" height="24" />
+    <rect class="accent" x="350" y="270" width="3" height="24" />
+    <text x="360" y="286" class="accent blk" font-weight="600">Overview — moved</text><text x="641" y="286" class="accent scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="350" y="298" width="301" height="24" /><rect class="rule" x="350" y="298" width="301" height="24" />
+    <text x="360" y="314" class="ink blk">Tags</text><text x="641" y="314" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="350" y="326" width="301" height="24" /><rect class="rule" x="350" y="326" width="301" height="24" />
+    <text x="360" y="342" class="ink blk">Films · People</text><text x="641" y="342" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="350" y="354" width="301" height="24" /><rect class="rule" x="350" y="354" width="301" height="24" />
+    <text x="360" y="370" class="ink blk">Metadata — 2-across</text><text x="641" y="370" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="350" y="382" width="301" height="24" /><rect class="gateOwner" x="350" y="382" width="301" height="24" />
+    <text x="360" y="398" class="ink blk">Manage</text><text x="641" y="398" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface" x="350" y="410" width="301" height="24" /><rect class="gateOwner" x="350" y="410" width="301" height="24" />
+    <text x="360" y="426" class="ink blk">Completeness</text><text x="641" y="426" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface2" x="350" y="442" width="301" height="28" /><rect class="window" x="350" y="442" width="301" height="28" />
+    <text x="360" y="460" class="accent blk" font-weight="600">More with … — left</text><text x="641" y="460" class="accent scope" text-anchor="end">STAGE 1872</text>
+
+    <rect class="surface2" x="350" y="478" width="301" height="24" /><rect class="accentStroke" x="350" y="478" width="301" height="24" />
+    <rect class="accent" x="350" y="478" width="3" height="24" />
+    <text x="360" y="494" class="accent blk" font-weight="600">File — moved, 5-across</text><text x="641" y="494" class="accent scope" text-anchor="end">STAGE · OWNER</text>
+
+    <rect class="surface" x="350" y="506" width="301" height="24" /><rect class="gateOwner" x="350" y="506" width="301" height="24" />
+    <text x="360" y="522" class="ink blk">Enrichment data: …</text><text x="641" y="522" class="muted scope" text-anchor="end">STAGE · OWNER</text>
+  </g>
+
+  <!-- ============ PIXEL BLOCK STACK ============ -->
+  <g>
+    <rect class="surface" x="676" y="186" width="300" height="24" /><rect class="rule" x="676" y="186" width="300" height="24" />
+    <text x="686" y="202" class="ink blk">Player</text><text x="966" y="202" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="676" y="214" width="300" height="24" /><rect class="rule" x="676" y="214" width="300" height="24" />
+    <text x="686" y="230" class="ink blk">Title · specs</text><text x="966" y="230" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface" x="676" y="242" width="300" height="24" /><rect class="rule" x="676" y="242" width="300" height="24" />
+    <text x="686" y="258" class="ink blk">Studio</text><text x="966" y="258" class="muted scope" text-anchor="end">SUBJECT</text>
+
+    <rect class="surface2" x="676" y="270" width="300" height="24" /><rect class="accentStroke" x="676" y="270" width="300" height="24" />
+    <rect class="accent" x="676" y="270" width="3" height="24" />
+    <text x="686" y="286" class="accent blk" font-weight="600">Overview — moved</text><text x="966" y="286" class="accent scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface2" x="676" y="298" width="300" height="24" /><rect class="accentStroke" x="676" y="298" width="300" height="24" />
+    <rect class="accent" x="676" y="298" width="3" height="24" />
+    <text x="686" y="314" class="accent blk" font-weight="600">Tags — now above shelves</text><text x="966" y="314" class="accent scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface2" x="676" y="326" width="300" height="24" /><rect class="accentStroke" x="676" y="326" width="300" height="24" />
+    <rect class="accent" x="676" y="326" width="3" height="24" />
+    <text x="686" y="342" class="accent blk" font-weight="600">Films · People — likewise</text><text x="966" y="342" class="accent scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="676" y="354" width="300" height="24" /><rect class="rule" x="676" y="354" width="300" height="24" />
+    <text x="686" y="370" class="ink blk">Metadata — 1-across</text><text x="966" y="370" class="muted scope" text-anchor="end">RAIL</text>
+
+    <rect class="surface" x="676" y="382" width="300" height="24" /><rect class="gateOwner" x="676" y="382" width="300" height="24" />
+    <text x="686" y="398" class="ink blk">Manage</text><text x="966" y="398" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface" x="676" y="410" width="300" height="24" /><rect class="gateOwner" x="676" y="410" width="300" height="24" />
+    <text x="686" y="426" class="ink blk">Completeness</text><text x="966" y="426" class="muted scope" text-anchor="end">RAIL · OWNER</text>
+
+    <rect class="surface2" x="676" y="442" width="300" height="28" /><rect class="window" x="676" y="442" width="300" height="28" />
+    <text x="686" y="460" class="accent blk" font-weight="600">More with … — left</text><text x="966" y="460" class="accent scope" text-anchor="end">364</text>
+
+    <rect class="surface2" x="676" y="478" width="300" height="24" /><rect class="accentStroke" x="676" y="478" width="300" height="24" />
+    <rect class="accent" x="676" y="478" width="3" height="24" />
+    <text x="686" y="494" class="accent blk" font-weight="600">File — moved, 1-across</text><text x="966" y="494" class="accent scope" text-anchor="end">STAGE · OWNER</text>
+
+    <rect class="surface" x="676" y="506" width="300" height="24" /><rect class="gateOwner" x="676" y="506" width="300" height="24" />
+    <text x="686" y="522" class="ink blk">Enrichment data: …</text><text x="966" y="522" class="muted scope" text-anchor="end">STAGE · OWNER</text>
+  </g>
+
+  <!-- ============ LEGEND ============ -->
+  <line x1="24" y1="552" x2="976" y2="552" class="rule" />
+  <g>
+    <rect class="accent" x="24" y="566" width="3" height="14" />
+    <rect class="accentStroke" x="24" y="566" width="120" height="14" />
+    <text x="152" y="577" class="muted" font-size="10">changed by this issue</text>
+
+    <rect class="gateOwner" x="300" y="566" width="120" height="14" />
+    <text x="428" y="577" class="muted" font-size="10">owner-only (effectiveOwner)</text>
+
+    <rect class="window" x="600" y="566" width="120" height="14" />
+    <text x="728" y="577" class="muted" font-size="10">breaks max-w-stage, window-scoped</text>
+  </g>
+
+  <text x="24" y="608" class="ink" font-size="11" font-weight="600">Visitor differences</text>
+  <text x="24" y="624" class="muted" font-size="10">Metadata renders values only — no SourceBadge, no Enrich, no writeback. Manage, Completeness, File and Enrichment data do not render at all.</text>
+  <text x="24" y="638" class="muted" font-size="10">Tags, Films, People and the shelves are unchanged from owner. Block order is identical in both roles; only the owner-gated blocks drop out.</text>
+
+  <text x="24" y="664" class="ink" font-size="11" font-weight="600">Free win on one column</text>
+  <text x="24" y="680" class="muted" font-size="10">Moving the shelves out of the subject column lifts Tags, Films and People above them in DOM order below lg — the old stack put the recommendation</text>
+  <text x="24" y="692" class="muted" font-size="10">shelves ahead of the entity links on every phone. No order-* needed: visual and focus order still match the DOM.</text>
+
+  <text x="24" y="718" class="ink" font-size="11" font-weight="600">Cost of the unconditional overview rule</text>
+  <text x="24" y="734" class="muted" font-size="10">On one column the synopsis now reads after the studio card rather than directly under the title. Accepted as the price of one rule instead of two: the</text>
+  <text x="24" y="746" class="muted" font-size="10">viewport-conditional version could not be a second render (#field-overview is a deep link), so it needed a named-areas restructure of the shared stage-grid.</text>
+</svg>
