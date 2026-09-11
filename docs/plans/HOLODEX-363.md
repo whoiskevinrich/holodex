@@ -16,12 +16,12 @@ with three options drawn at ultrawide, 4K desktop and Pixel 7 Pro. The owner cho
 enrichment dumps, and the More-with shelves span the window rather than the stage. Done means all
 three land, three-skin, owner and visitor, at all three viewports, with no horizontal page scroll.
 
-**Two of the three decisions key off one threshold, so it is named once.** 2648px =
+**Exactly one rule is viewport-conditional, and it owns the threshold alone.** 2648px =
 `--container-stage` (2600) + `main`'s 48px padding. Below it the stage fills the window and there is
 no gutter, so "stage width" and "window width" are the same pixel and any justification-or-breakout
-rule is a no-op; at or above it the stage stops growing, gutters open, the overview relocates to the
-rail and the shelf centres. Writing `2648` twice — once for the shelf, once for the overview — is
-the failure mode this note exists to prevent.
+rule is a no-op; at or above it the stage stops growing, gutters open and the shelf box centres.
+The first spec had the overview move keyed to the same number; it no longer is, so 2648 belongs to
+the shelf and must not be promoted into a page-wide breakpoint.
 
 **The shelf rule was already implemented, and that is why it kept being re-decided.**
 `.video-grid.stage-aligned` in `app.css` is exactly "left-justified under the cap, centred when
@@ -48,22 +48,32 @@ becomes `… studio → tags → films/people → metadata → shelves → file+
 objection to the rejected "collapse to one column" option, resolved as a side effect of a different
 decision. No `order-*` anywhere; visual and focus order still match the DOM.
 
-**The overview move is the expensive part, and the reason this carries an ADR.**
-`#field-overview` is a deep-link anchor, and the codebase already guards this hazard for
-`#field-actors` ("rendered in exactly one branch below, so the id is never duplicated"), so the
-viewport-conditional move **cannot** be a second render behind a media query. It has to be CSS
-placement — the two column wrapper `<div>`s become one flat grid with named areas so the block can be
-*placed* into the rail. That restructures `stage-grid`, which the film detail page shares.
+**The overview move was the expensive part until the owner made it unconditional.** Specced first
+as "ultrawide only", it could not have been a second render — `#field-overview` is a deep-link
+anchor and the codebase already guards that hazard for `#field-actors` — so it would have had to be
+CSS placement: the two column wrappers collapsed into one flat grid with named areas, restructuring
+`stage-grid`, which the film detail page shares. That carried the ADR. **"The overview moves to the
+second column" as a flat statement deletes all of it**: the block is simply the rail's first child,
+`stage-grid` is untouched, and the anchor is unique by construction. `needs-adr` cleared. The cost
+is one line of DOM order on phones — the synopsis now reads after the studio card.
+
+**It also put the media page in conflict with the film page, which had answered the same question
+the other way.** `films/[id]` renders its description as `ExpandableText` in the header and gates
+the whole `Details` section owner-only, reasoned in a comment as "the description a visitor wants
+already renders in the header above". Coherent alone, incoherent once the sibling page does the
+opposite. The owner's call is to generalise rather than accept the split:
+[HOLODEX-364](HOLODEX-364.md) moves the film page onto the same rule, and the column contract now
+lives in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so that work inherits it.
 
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: no new capability or changed requirement. Every element already
   exists with the same semantics; this changes where three of them sit and who sees one of them
-- [ ] architecture `architecture` — **required.** The named-area restructure of `stage-grid` is
-  cross-cutting: the film detail page shares the primitive. ADR must cover the named-area contract,
-  what the film page inherits, and whether it gets the same overview behaviour or opts out.
-  Claim the number with `node scripts/adr-claims.mjs --reserve media-detail-stage-layout` — do not
-  pick by eye
+- [~] architecture `architecture` — n/a **as of the unconditional overview rule**. It was required
+  while the move was viewport-conditional, because that forced a named-area restructure of
+  `stage-grid`, a primitive the film detail page shares. An unconditional move is a DOM relocation:
+  no grid change, nothing for the film page to inherit structurally. No ADR number was claimed, so
+  none needs releasing
 - [x] design `design-handoff` —
   [media-detail-stage-layout-handoff.md](../design/media-detail-stage-layout-handoff.md) + two
   committed SVGs: [block order and width scope](../design/media-detail-stage-layout-mockup.svg)
@@ -73,10 +83,13 @@ placement — the two column wrapper `<div>`s become one flat grid with named ar
 - [~] backend — n/a: frontend-only. The resolver already returns the fields; no endpoint, gate or
   payload changes. Visitors were already served the resolved fields by the API — only the template
   withheld them
-- [ ] frontend — three moves in `web/src/routes/media/[id]/+page.svelte`, one class on
-  `RelatedShelf.svelte`, and the `stage-grid` named-area restructure in `app.css`
+- [ ] frontend — three moves in `web/src/routes/media/[id]/+page.svelte` (File to the bottom,
+  overview into the rail, Metadata un-gated for visitors), the shelves lifted out of the
+  `max-w-stage` article, and one class on `RelatedShelf.svelte`. **No `app.css` structural change** —
+  `stage-grid` is untouched
 - [ ] testing `testing-strategy` — geometry rungs for shelf overhang symmetry above the cap and
-  left-alignment below it, plus a `#field-overview` uniqueness assertion at every viewport. Folds
+  left-alignment below it, a `#field-overview` uniqueness assertion at every viewport, and an
+  overflow check on the overview in the 397px rail at the narrowest two-column width (1024). Folds
   into [HOLODEX-359](HOLODEX-359.md)'s harness work rather than standing up a second one
 - [~] security `security-review` — n/a: no auth, access or infrastructure change. Re-exposing
   resolved field values to visitors is a template gate, not an access-control one; `file_path`,
@@ -84,19 +97,18 @@ placement — the two column wrapper `<div>`s become one flat grid with named ar
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] **Confirm the overview-move scope before writing the ADR.** The owner said "for Ultrawide
-   only, put the comments/overview above the tags in the second column" while answering the *visitor*
-   rail question. Drawn for owner **and** visitor, on the reasoning that branching on viewport *and*
-   role yields four arrangements to QA instead of two and the spare 1073px is there either way.
-   Narrowing it to visitors is a change to the placement rule, not the mechanism — but it changes the
-   ADR, so settle it first.
-2. [ ] [M] ADR for the `stage-grid` named-area restructure (gate above). Blocks the overview move;
-   does **not** block decisions 1 and 2, which are independent and could land first.
-3. [ ] [S] Verify `width: fit-content` against `overflow-x: auto` on `RelatedShelf` live. If the
+1. [ ] [M] **Implement.** Nothing is gated any more — the design is settled, the ADR is gone and all
+   three decisions are independent of each other. Suggested order: File to the bottom (smallest,
+   self-contained), then the shelves out of the article, then the overview + visitor Metadata
+   together since they share the rail.
+2. [ ] [S] Verify `width: fit-content` against `overflow-x: auto` on `RelatedShelf` live. If the
    flex-scroller case does not match the grid case, the shelf needs its own declaration instead of
    sharing `.video-grid.stage-aligned` — decide that before generalising the class.
-4. [ ] [S] Restate the shelves' vertical rhythm at their new call site. Leaving `max-w-stage` also
+3. [ ] [S] Restate the shelves' vertical rhythm at their new call site. Leaving `max-w-stage` also
    leaves the article's `space-y-6`, so the gap above and below the band has to be explicit.
+4. [ ] [S] [HOLODEX-364](HOLODEX-364.md) — film page onto the same overview rule, after this merges.
+   Watch the header/banner `-mb-14` overlap: the header loses a block, so how much band shows
+   changes.
 5. [ ] [—] Sweep this issue **with its epic** ([HOLODEX-12](https://whoiskevinrich.atlassian.net/browse/HOLODEX-12)):
    CI transitions only the branch's own key, so a child of an epic never moves on its own. To
    `In Review` when the PR is marked ready, to `Done` on merge.
@@ -105,6 +117,33 @@ placement — the two column wrapper `<div>`s become one flat grid with named ar
    either a fresh PR or a cherry-pick onto a live branch before it is lost.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-10 (later) · one sentence deleted the ADR
+- skills: design-handoff
+- the owner's "maybe it would be easier to say the overview moves to the second column as a general
+  statement" removed the single most expensive item in this ticket. Everything that made the move
+  hard was the *viewport condition*, not the move: `#field-overview` is a deep-link anchor, so a
+  media-query branch could not be a second render, so it had to be CSS placement, so `stage-grid`
+  had to become named areas, so a primitive shared with the film page changed, so it needed an ADR.
+  Unconditional, it is a DOM relocation. **architecture gate → n/a, `needs-adr` cleared, no ADR
+  number was ever claimed so none needs releasing.**
+- checked before agreeing, which is what caught the real cost: `films/[id]` already answers this
+  question the other way and says so in a comment — description in the header for all roles, whole
+  `Details` section owner-only, "the description a visitor wants already renders in the header
+  above". Adopting the rule on the media page alone would have left two pages sharing `stage-grid`
+  and disagreeing about it. Owner chose to generalise: [HOLODEX-364](HOLODEX-364.md) filed.
+- measure checked rather than asserted: the rail gives the overview ~52 characters per line at the
+  narrowest two-column width (1024 → 397px rail), ~100 at 1920 and ~140 at ultrawide, against 73 /
+  140 / 200 in the subject column. So the rail is the better measure wide and the *worse* one narrow
+  — recorded in the handoff as a simplicity win, explicitly not a typographic one, so nobody later
+  defends it on grounds that do not hold.
+- the column contract went to [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) rather
+  than into the video components doc: it is a route-level decision about which zone holds what, and
+  it auto-loads for whoever opens either detail page next. The stage-cap/width-scope rule stays in
+  the video doc and the two cross-reference.
+- handoff: design gate green, all three decisions unblocked and mutually independent, nothing
+  implemented. Next session just builds — start with File, it is the smallest and touches nothing
+  else.
 
 ### 2026-09-10 · critique to approved design; no implementation yet
 - skills: design-critique, design-handoff

@@ -5,7 +5,8 @@
 **Owner:** Project owner
 **Date:** 2026-09-10
 **Spec:** none — rearrangement and re-gating of existing elements; no new behavior surface
-**ADR:** required (`needs-adr`) for the `stage-grid` named-areas restructure, see §5
+**ADR:** none — see §5. An earlier revision of this handoff required one; the unconditional
+overview rule removed the need.
 **Branch/PR:** `HOLODEX-363-media-detail-stage-layout`
 
 ## Overview
@@ -16,9 +17,6 @@ Three layout decisions for `web/src/routes/media/[id]/+page.svelte`, arrived at 
 out a visitor is left with Tags and People in a column built to hold six blocks — roughly 70%
 empty, and at ultrawide that empty column is 1073px wide.
 
-Two of the three decisions turn out to be viewport-conditional, and both key off the **same**
-threshold, so it is named once rather than duplicated as two magic numbers.
-
 ![Block order and width scope, owner and visitor, at three viewports](media-detail-stage-layout-mockup.svg)
 
 ## The threshold
@@ -27,11 +25,12 @@ threshold, so it is named once rather than duplicated as two magic numbers.
 
 - **Below it** the stage fills the window; there is no gutter. "Stage width" and "window width"
   are the same pixel, so any rule phrased as justification or breakout is a no-op.
-- **At or above it** the stage stops growing, gutters open either side, the overview relocates to
-  the rail, and the shelf centres.
+- **At or above it** the stage stops growing and gutters open either side.
 
-Implement as one named thing — a custom media feature or a single `@media (width >= 2648px)`
-block referenced by both rules. Do not hand-write `2648` twice.
+**Exactly one rule keys off this: the shelf justification in §2.** An earlier revision made the
+overview move viewport-conditional too, and the threshold was shared. That is no longer the case —
+§3's overview rule is unconditional — so this number belongs to the shelf alone and should not be
+generalised into a page-wide breakpoint.
 
 ## 1. File joins the enrichment group
 
@@ -89,11 +88,12 @@ not re-decided per component.
 The shelves currently live in the subject column. Below `lg`, `stage-grid` collapses to one column
 and the rail stacks under the subject in DOM order, so today a phone shows
 `… studio → shelves → tags → films/people → metadata`. Moving the shelves to a sibling band
-*after* the grid makes it `… studio → tags → films/people → metadata → shelves → file+enrichment`,
-lifting the entity links above the recommendation shelves at no extra cost. Visual and focus order
-still match the DOM — no `order-*` anywhere.
+*after* the grid lifts the entity links above the recommendation shelves at no extra cost. Visual
+and focus order still match the DOM — no `order-*` anywhere.
 
-## 3. Visitor rail regains read-only field values
+## 3. Visitor rail regains read-only field values, and the overview moves into it
+
+### 3a. Read-only values for visitors
 
 Reverses the owner-only re-gate of the Metadata section made in
 [`media-detail-reorder-handoff.md`](media-detail-reorder-handoff.md) §2 (the comment at
@@ -111,16 +111,37 @@ They **do** get each value's `ProvenanceBadge`, consistent with the rest of the 
 idiom already used at the Tags, Studio and Overview blocks — `{#if isOwner || hasValue}` — rather
 than a bare `{#if isOwner}`.
 
-### And, above the threshold only: the overview moves into the rail
+### 3b. The overview moves to the rail — unconditionally
 
-Above 2648px the overview relocates to the **top of the rail, above Tags**. Below it, the overview
-stays where it is, under the header meta line in the subject column.
+The overview block relocates to the **top of the rail, above Tags**. At every viewport, for both
+roles. No media query, no viewport branch.
 
-**Applies to owner and visitor both.** This was decided inside the visitor-rail question and could
-have meant visitors only; it is drawn for both because branching the layout on viewport *and* role
-gives four arrangements to QA instead of two, and the spare 1073px of rail is there either way.
-Confirm before implementing — narrowing it to visitors is a small change to the placement rule,
-not to the mechanism.
+Below `lg` the grid is one column and the rail stacks under the subject in DOM order, so the rule
+still reads correctly there: the overview simply becomes the first block after Studio rather than
+sitting between the meta line and Studio. That is the one visible cost — on a phone the synopsis is
+separated from the title by the studio card. Accepted as the price of one rule instead of two.
+
+**Why the rail is the right home.** `stage-grid`'s 320px rail floor was chosen, in HOLODEX-331, as
+"where a field label, its value and its `SourceBadge` chip row still fit on one line". The
+overview's owner rendering *is* a `SourceBadge`. The rail was already sized for this block.
+
+**What this does not change.** The overview stays its own block above Tags — it does **not** go back
+into the Metadata field list. The `media-detail-entity-ux` reasoning that "the synopsis reads as page
+content, not as a data-management row" survives; only its column changes.
+
+### 3c. Divergence from the film detail page — being resolved, not accepted
+
+`films/[id]/+page.svelte` currently does the opposite: the description renders as `ExpandableText`
+in the header (subject column, all roles) and the whole "Details" section is owner-only, reasoned in
+a comment as *"the description a visitor wants already renders in the header above, and everything
+else here exists to serve editing decisions."* Both pages share `stage-grid`.
+
+The owner's call is to **generalise, as a follow-on**: the media page changes here, and
+**HOLODEX-364** moves the film page's description into its rail on the same rule — which also means
+un-gating that part of `Details` for visitors exactly as §3a does here, and re-checking the
+header/banner `-mb-14` overlap once the header loses a block. The column contract itself is recorded
+in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so the film work inherits it rather
+than re-deriving it. Do not treat this handoff as licence to leave the two pages disagreeing.
 
 ## 4. Measured tracks
 
@@ -129,37 +150,45 @@ not to the mechanism.
 
 | Viewport | CSS px | Subject | Rail | Shelf | Metadata `field-grid` | File `field-grid` | Overview |
 |---|---|---|---|---|---|---|---|
-| Ultrawide 5120×1440 | 5120×1440 @100% | 1503 | 1073 | 5072, centred | 3-across | 8-across | **in rail** |
-| Desktop 4K @200% | 1920×1080 | 1078 | 770 | 1872, left | 2-across | 5-across | in subject |
-| Desktop 4K @150% | 2560×1440 | 1451 | 1037 | 2512, left | 3-across | 7-across | in subject |
-| Pixel 7 Pro | 412×892 @DPR 3.5 | 364 (one col) | — | 364, left | 1-across | 1-across | in subject |
+| Ultrawide 5120×1440 | 5120×1440 @100% | 1503 | 1073 | 5072, centred | 3-across | 8-across | in rail |
+| Desktop 4K @200% | 1920×1080 | 1078 | 770 | 1872, left | 2-across | 5-across | in rail |
+| Desktop 4K @150% | 2560×1440 | 1451 | 1037 | 2512, left | 3-across | 7-across | in rail |
+| Narrowest two-column | 1024×768 | 555 | 397 | 976, left | 1-across | 2-across | in rail |
+| Pixel 7 Pro | 412×892 @DPR 3.5 | 364 (one col) | — | 364, left | 1-across | 1-across | in stack |
 
 Gutter is 1260px each side at ultrawide and zero everywhere else in this table.
 `field-grid` is `repeat(auto-fit, minmax(min(320px, 100%), 1fr))`; column counts above are
 `floor((container − 32px of p-4) / 320)`.
 
-## 5. Why this needs an ADR
+**Measure check.** As prose, the overview reads at roughly 52 characters per line in a 397px rail,
+100 at 770px and 140 at 1073px. The subject column would give 73, 140 and 200 respectively. So the
+rail is the better measure at wide viewports and the worse one at the narrow end of two-column —
+this is a simplicity win, not a typographic one, and should not be argued as the latter.
 
-The overview relocation **cannot be a second render**. `#field-overview` is a deep-link anchor, and
-the codebase already guards this exact hazard for `#field-actors` ("rendered in exactly one branch
-below, so the id is never duplicated"). Rendering the overview twice behind a media query would
-duplicate the id and break the anchor.
+## 5. Why this no longer needs an ADR
 
-So it has to be CSS *placement*: the two column wrapper `<div>`s become one flat grid with named
-areas, and the overview block is placed into the rail column above the threshold. That restructures
-`stage-grid`, which is **shared with the film detail page** — a cross-cutting change to a layout
-primitive, which is the `/architecture` row of the change-routing table. The ADR should cover the
-named-area contract, what the film page inherits, and whether the film page gets the same
-overview behaviour or opts out.
+An earlier revision made the overview move viewport-conditional. That could not be a second render:
+`#field-overview` is a deep-link anchor, and the codebase already guards this exact hazard for
+`#field-actors` ("rendered in exactly one branch below, so the id is never duplicated"). A
+media-query branch would have duplicated the id, so the move would have had to be CSS *placement* —
+collapsing the two column wrappers into one flat grid with named areas, restructuring `stage-grid`,
+which the film detail page shares. That is a cross-cutting change to a layout primitive, and it is
+what carried the `needs-adr` label.
+
+**Making the rule unconditional removes all of it.** The overview is simply the rail column's first
+child. `stage-grid` is untouched, the film page inherits nothing new from this change, and
+`#field-overview` renders exactly once by construction. No ADR; `needs-adr` cleared.
 
 ## 6. States and edge cases
 
 | Element | Case | Behavior |
 |---|---|---|
+| Overview | absent | nothing renders; Tags becomes the rail's first block |
+| Overview | present, one line | no expand chevron (fixed in #319, `ExpandableText` gates on `clamps`) |
+| Overview | owner | renders `SourceBadge`, as today — the chip row the 320px rail floor was sized for |
+| Overview | visitor | renders `ExpandableText`, as today |
 | Metadata (visitor) | no resolved fields | section does not render at all — no empty heading |
 | Metadata (visitor) | 1 field at ultrawide | one row, 3-across grid, two empty tracks; acceptable — do not special-case |
-| Overview | absent | nothing renders in either position; Tags becomes the rail's first block |
-| Overview | present, one line | no expand chevron (fixed in #319, `ExpandableText` gates on `clamps`) |
 | Shelf | fewer cards than fill the stage | box pinned to stage by `min-width`, cards left-justified |
 | Shelf | no items | `RelatedShelf` self-omits; the band renders nothing and contributes no gap |
 | File / Enrichment | visitor | neither renders; the page ends after the shelf band |
@@ -167,14 +196,13 @@ overview behaviour or opts out.
 
 ## 7. Accessibility
 
-- **Focus order must continue to match visual order.** The one-column branch relies on DOM order,
-  so the shelf band's new position is a focus-order change too — that is the intended improvement,
-  not a regression.
-- **The overview relocation must not change focus order relative to the visible layout.** With
-  named-area placement the DOM order is fixed while the visual position moves, so above the
-  threshold the overview will be reached in subject-column sequence while appearing in the rail.
-  **This is the one real a11y risk in this change** — measure it, and if the divergence is material,
-  prefer moving the whole rail earlier in the DOM over an `order-*` patch.
+- **Focus order continues to match visual order everywhere.** Both moves in this change are DOM
+  moves, not CSS repositioning, so the two orders stay locked together. The earlier named-areas
+  approach would have decoupled them above the threshold; that risk is gone with it.
+- **The shelf band's new position is a focus-order change on one column** — Tags, Films and People
+  are now reached before the recommendation shelves. That is the intended improvement, not a
+  regression.
+- **`#field-overview` must appear exactly once** at every viewport and in both roles. Assert it.
 - No new interactive elements. The visitor Metadata list is non-interactive text plus
   `ProvenanceBadge`, so it adds no tab stops.
 
@@ -185,7 +213,8 @@ Skin coverage per `.claude/rules/frontend-theming.md` — all three skins, no ha
 ### Setup
 
 1.1 Seed the HOLODEX-342 stress fixture and open a video with 3+ resolved fields, 3 tags,
-2 people, 1 studio and a sibling for the More-with shelf. `[smoke]`
+2 people, 1 studio, an overview long enough to clamp, and a sibling for the More-with shelf.
+`[smoke]`
 
 ### Smoke
 
@@ -193,7 +222,8 @@ Skin coverage per `.claude/rules/frontend-theming.md` — all three skins, no ha
 immediately above the first `Enrichment data:` disclosure. `[smoke]`
 2.2 Visitor view, desktop: Metadata renders with values and `ProvenanceBadge`, and with no
 `SourceBadge`, no `Enrich`, no `Refresh all`, no `Write decisions to file`. `[smoke]`
-2.3 No horizontal page scroll at 320, 412, 768, 1024, 1920, 2560, 5120. `[smoke]`
+2.3 The overview appears at the top of the rail, above Tags, in both roles. `[smoke]`
+2.4 No horizontal page scroll at 320, 412, 768, 1024, 1920, 2560, 5120. `[smoke]`
 
 ### Agent
 
@@ -203,9 +233,10 @@ with the player's left edge (compare `getBoundingClientRect().left`). `[agent]`
 `[agent]`
 3.3 At 5120 with many shelf cards: shelf box is wider than 2600, and its left and right overhang
 past the stage edges are equal to within 1px. `[agent]`
-3.4 At 5120: the overview's computed position is inside the rail column and above Tags; at 2560 it
-is inside the subject column. `[agent]`
-3.5 `#field-overview` appears exactly once in the DOM at every viewport. `[agent]`
+3.4 `#field-overview` appears exactly once in the DOM at 412, 1024, 1920 and 5120, in both roles,
+and its computed `left` places it in the rail column at every two-column width. `[agent]`
+3.5 At 1024 (narrowest two-column) the overview does not overflow its 397px track — no horizontal
+scroll, and `scrollWidth === clientWidth` on the rail. `[agent]`
 3.6 Tab order from the player reaches Tags before the More-with shelves at 412px. `[agent]`
 3.7 File's `field-grid` computes 8 columns at 5120 and 1 at 412. `[agent]`
 
@@ -223,5 +254,6 @@ drift to the middle of the screen. `[human]`
 the page, overhanging evenly on both sides. `[human]`
 4.5 Sign out (or switch to visitor view) and reload. You should still see the field values —
 year, runtime and so on — but no buttons for changing or fetching them. `[human]`
-4.6 Repeat 4.1–4.5 in each of the three skins, then on the phone. On the phone the tags and people
-should come before the "More with …" rows. `[human]`
+4.6 Shrink the window until the page becomes a single column. The synopsis should now read just
+after the studio card, and the tags and people should come before the "More with …" rows. `[human]`
+4.7 Repeat 4.1–4.6 in each of the three skins, then on the phone. `[human]`
