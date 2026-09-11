@@ -1314,7 +1314,7 @@
 							{/if}
 						</h2>
 						{#if overviewField.values[0]?.trim()}
-							<ExpandableText text={overviewField.values[0]} tone="muted" chevronLabel="overview" />
+							<ExpandableText text={overviewField.values[0]} chevronLabel="overview" />
 						{/if}
 					</section>
 				{/if}

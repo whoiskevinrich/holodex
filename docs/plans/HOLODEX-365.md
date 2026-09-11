@@ -3,7 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-365
 status: in-progress
-release_note: The media page's Overview now reads the same for the owner as for a visitor — small muted prose, clamped with the expand chevron — with a pencil beside the heading that opens the source editor.
+release_note: Long text — the media Overview, a person's Bio, a film's description — now reads the same everywhere and for everyone (small muted prose, clamped with the expand chevron), and the media Overview gains a pencil beside the heading that opens the source editor.
 ---
 
 # HOLODEX-365 · Media detail Overview — owner view matches visitor typography
@@ -32,6 +32,19 @@ bio has the same gap, and the page-level `outOfSyncCount(resolved)` still counts
 owner is still told, just not on the block. Not re-adding it here; if it turns out to matter it is
 a `SourceEditModal` concern, not a media-page one.
 
+**Then the owner asked the wider question, and two rules came out of it.** Where does the drift
+come from, and what stops the next one? Not file separation — both views were five lines apart in
+one file. The owner branch delegated the *value* to a control that renders it in its own typography.
+So (1) `routes/CLAUDE.md`'s control-gate rule now says it outright: the value's rendering sits
+outside the owner branch, and a control that renders the value itself (`SourceBadge`) cannot be the
+owner branch of a visitor-visible field. And (2) the "one look for prose" mechanism already existed
+— `ExpandableText` — but had a `tone` knob defaulting to ink that only the media page set, so the
+Person bio and film description were ink. The knob is gone; all three sites are muted. That
+supersedes the HOLODEX-303 handoff's `text-ink` for the bio body (noted in its token table).
+[HOLODEX-366](https://whoiskevinrich.atlassian.net/browse/HOLODEX-366) files the harness
+assertion that would have caught this: owner/visitor computed typography identical for every
+`#field-*` value.
+
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: no new capability. Same field, same decision model, same values;
@@ -42,7 +55,10 @@ a `SourceEditModal` concern, not a media-page one.
   [mockup](../design/person-detail-bio-header-mockup.svg), which names Video overview as this
   follow-up. No new mockup: the heading-pencil + modal is that design applied to its second field
 - [~] backend — n/a
-- [x] frontend — `media/[id]/+page.svelte`: `h2` becomes a flex row with the owner-only pencil,
+- [x] design — the bio handoff's token table records the `text-ink` → `text-muted` supersession
+- [x] frontend — `ExpandableText` loses its `tone` prop (always muted); Person bio and film
+  description flip to match, verified live on person 42 (14px / 22.75px, prose colour == eyebrow
+  colour). `media/[id]/+page.svelte`: `h2` becomes a flex row with the owner-only pencil,
   `ExpandableText` is the single rendering, `SourceEditModal` mounted at the page root behind
   `overviewEditOpen`; the "candidate follow-up" notes in `SourceEditModal.svelte` and
   `curation/CLAUDE.md` flipped to match. Verified live on `backend-films` video 210 (447-char overview, file + TMDB):
@@ -60,7 +76,10 @@ a `SourceEditModal` concern, not a media-page one.
    is green. That is the act that moves this ticket to In Review.
 2. [ ] [S] [HOLODEX-364](HOLODEX-364.md) (film page onto the media page's overview rule) now has a
    second thing to inherit: the film `description` is the other `long_text`-shaped field rendered
-   as `ExpandableText` for visitors and `SourceBadge` for owners. Same fix applies.
+   as `ExpandableText` for visitors and `SourceBadge` for owners — the exact split this issue
+   fixed. Same fix applies, and `routes/CLAUDE.md` now says why.
+3. [ ] [S] [HOLODEX-366](https://whoiskevinrich.atlassian.net/browse/HOLODEX-366) — the harness
+   parity assertion. Acceptance is "reverting this issue's Overview change fails the run".
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -73,5 +92,11 @@ a `SourceEditModal` concern, not a media-page one.
 - pencil markup copied from the Person page's `pencilIcon` snippet rather than extracted — it is
   the second inline copy (`CurationChip`/`EntityImageSlot` carry the same path too); a shared icon
   is a reasonable follow-up but not this change's.
-- handoff: implementation is complete and live-verified; the PR is Draft only pending the owner's
-  eyeball, then mark ready.
+- **second pass, from the owner's aside on stopping the next drift.** Three options offered, all
+  three taken: drop `tone` (done — the Person bio is now muted; the handoff's token table says
+  so), write the two rules down (done — `routes/CLAUDE.md` gate rule sharpened, `shared/CLAUDE.md`
+  `ExpandableText` row now says "no exceptions, no styling props"), file the parity assertion
+  (HOLODEX-366, ticket only). Declined for now: extracting a `LongTextField` — at two call sites
+  the prop count would exceed the duplication; the third (HOLODEX-364) is the trigger.
+- handoff: implementation is complete and live-verified on media 210 and person 42; the PR is
+  Draft only pending the owner's eyeball, then mark ready.

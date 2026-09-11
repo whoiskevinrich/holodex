@@ -41563,7 +41563,7 @@
       "node_kind": "heading",
       "norm_label": "page-bottom audit group",
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L45"
+      "source_location": "L56"
     },
     {
       "id": "web_src_routes_claude_routes",
@@ -41611,7 +41611,7 @@
       "node_kind": "heading",
       "norm_label": "where the reasoning lives",
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L57"
+      "source_location": "L68"
     },
     {
       "id": "web_src_routes_claude_width_scope",
@@ -41623,7 +41623,7 @@
       "node_kind": "heading",
       "norm_label": "width scope",
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L51"
+      "source_location": "L62"
     },
     {
       "id": "docs_design_entity_identity_qa_checklist",
@@ -71791,7 +71791,7 @@
       "frontmatter": {
         "key": "HOLODEX-365",
         "status": "in-progress",
-        "release_note": "The media page&#x27;s Overview now reads the same for the owner as for a visitor \u2014 small muted prose, clamped with the expand chevron \u2014 with a pencil beside the heading that opens the source editor."
+        "release_note": "Long text \u2014 the media Overview, a person&#x27;s Bio, a film&#x27;s description \u2014 now reads the same everywhere and for everyone (small muted prose, clamped with the expand chevron), and the media Overview gains a pencil beside the heading that opens the source editor."
       },
       "node_kind": "page",
       "norm_label": "holodex-365.md",
@@ -71820,7 +71820,7 @@
       "node_kind": "heading",
       "norm_label": "2026-09-11 \u00b7 built and verified in one pass",
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L67"
+      "source_location": "L86"
     },
     {
       "id": "docs_plans_holodex_365_gates_definition_of_done",
@@ -71832,7 +71832,7 @@
       "node_kind": "heading",
       "norm_label": "gates \u2014 definition of done",
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L35"
+      "source_location": "L48"
     },
     {
       "id": "docs_plans_holodex_365_holodex_365_media_detail_overview_owner_view_matches_visitor_typography",
@@ -71856,7 +71856,7 @@
       "node_kind": "heading",
       "norm_label": "session log \u2014 append-only (cap: last 8 sessions; older \u2192 archive/)",
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L65"
+      "source_location": "L84"
     },
     {
       "id": "docs_plans_holodex_365_up_next_ordered_position_priority",
@@ -71868,7 +71868,7 @@
       "node_kind": "heading",
       "norm_label": "up next \u2014 ordered (position = priority)",
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L57"
+      "source_location": "L73"
     },
     {
       "id": "docs_design_age_in_media_qa_checklist",
@@ -194632,7 +194632,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L35",
+      "source_location": "L48",
       "weight": 1.0
     },
     {
@@ -194643,7 +194643,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L57",
+      "source_location": "L73",
       "weight": 1.0
     },
     {
@@ -194654,7 +194654,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L65",
+      "source_location": "L84",
       "weight": 1.0
     },
     {
@@ -194665,7 +194665,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/plans/HOLODEX-365.md",
-      "source_location": "L67",
+      "source_location": "L86",
       "weight": 1.0
     },
     {
@@ -231867,7 +231867,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L45",
+      "source_location": "L56",
       "weight": 1.0
     },
     {
@@ -231878,7 +231878,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L51",
+      "source_location": "L62",
       "weight": 1.0
     },
     {
@@ -231889,7 +231889,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L57",
+      "source_location": "L68",
       "weight": 1.0
     },
     {
@@ -252789,7 +252789,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "web/src/routes/CLAUDE.md",
-      "source_location": "L54",
+      "source_location": "L65",
       "weight": 1.0
     },
     {
@@ -278769,5 +278769,5 @@
       "source_file": ".claude/CLAUDE.md"
     }
   ],
-  "built_at_commit": "4f49d29acae4bd508c3e53e27cdafad40e574e9a"
+  "built_at_commit": "ee0355106ada9779fb7511a8de2e413d6ddfa27c"
 }

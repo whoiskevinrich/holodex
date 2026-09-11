@@ -2274,9 +2274,9 @@
     "semantic_hash": ""
   },
   "web/src/routes/media/[id]/+page.svelte": {
-    "mtime": 1789141945.8272338,
-    "seen": 1789142273.501396,
-    "ast_hash": "6053883f2ed5bdb768786f97c68d5c7d",
+    "mtime": 1789143682.0054257,
+    "seen": 1789143806.3262186,
+    "ast_hash": "1068485bf493223e267fb47f5d70bada",
     "semantic_hash": ""
   },
   "web/src/routes/owner/+layout.svelte": {
@@ -3660,9 +3660,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/shared/CLAUDE.md": {
-    "mtime": 1788830023.9373207,
-    "seen": 1789142273.5018501,
-    "ast_hash": "f01618cd3318fa94767612c39c0e4ca4",
+    "mtime": 1789143682.0063968,
+    "seen": 1789143806.326735,
+    "ast_hash": "24fa50c33d2454bf9cbe423052c087d5",
     "semantic_hash": ""
   },
   "web/src/lib/components/sort/CLAUDE.md": {
@@ -5568,9 +5568,9 @@
     "semantic_hash": ""
   },
   "docs/design/person-detail-bio-header-handoff.md": {
-    "mtime": 1788571891.1811614,
-    "seen": 1789142273.5016236,
-    "ast_hash": "b1d8f80d13bf35095f508f70e8f7081b",
+    "mtime": 1789143717.8447554,
+    "seen": 1789143806.3264666,
+    "ast_hash": "8b59cddf324205bcdfaf2138cbe2d61f",
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-194.md": {
@@ -5742,9 +5742,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/shared/ExpandableText.svelte": {
-    "mtime": 1789092204.724325,
-    "seen": 1789142273.5013287,
-    "ast_hash": "b130b51a36404c4842a517f3f3b1e954",
+    "mtime": 1789143682.0054257,
+    "seen": 1789143806.3261366,
+    "ast_hash": "c8529ad4503dc3b827e116f1c1580a08",
     "semantic_hash": ""
   },
   "web/src/lib/components/sort/DensitySlider.svelte": {
@@ -6264,15 +6264,15 @@
     "semantic_hash": ""
   },
   "docs/plans/HOLODEX-365.md": {
-    "mtime": 1789142233.1269567,
-    "seen": 1789142273.5017457,
-    "ast_hash": "791595573c0c92089f560e509c28f3c8",
+    "mtime": 1789143778.4839008,
+    "seen": 1789143806.3266118,
+    "ast_hash": "167f87efe94fc855ca267c29a78abbf0",
     "semantic_hash": ""
   },
   "web/src/routes/CLAUDE.md": {
-    "mtime": 1789087612.9403281,
-    "seen": 1789142273.5018542,
-    "ast_hash": "7f02513149116564a21d3d176f939a8c",
+    "mtime": 1789143682.0063968,
+    "seen": 1789143806.3267403,
+    "ast_hash": "068a5279baba34f9c9d6193b8b184829",
     "semantic_hash": ""
   },
   "docs/design/manage-split-button-mockup.svg": {
