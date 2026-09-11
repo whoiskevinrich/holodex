@@ -96,17 +96,16 @@
 	const isOwner = $derived(activity.effectiveOwner);
 
 	// A film has no `name` beyond baseline (no rename in v1 — ADR-089 D3 keeps it that
-	// way), so only fields beyond `name` gate the Details section — same "hide the whole
-	// section, don't show an empty box" rule. The owner also gets the section when a
-	// film-capable provider exists but nothing has resolved yet, or there would be no
-	// way to reach the Enrich control on an unenriched film.
-	const replaceFields = $derived(resolved.filter((f) => f.canonical !== 'name'));
-	const hasDetails = $derived(replaceFields.length > 0);
-	// The description is the rail's first block (HOLODEX-364, the media page's Overview
-	// rule from HOLODEX-363), not a Details row, so the Details list skips it. The gate
-	// above is unchanged on purpose: a film whose only resolved field is the description
-	// still needs Details for the owner's Enrich chips.
-	const detailFields = $derived(replaceFields.filter((f) => f.canonical !== 'description'));
+	// way), and the description is the rail's first block (HOLODEX-364, the media page's
+	// Overview rule from HOLODEX-363), not a Details row — so only the fields left over
+	// gate the Details section: same "hide the whole section, don't show an empty box"
+	// rule. The owner also gets the section when a film-capable provider exists but
+	// nothing has resolved yet, or there would be no way to reach the Enrich control on
+	// an unenriched film.
+	const detailFields = $derived(
+		resolved.filter((f) => f.canonical !== 'name' && f.canonical !== 'description')
+	);
+	const hasDetails = $derived(detailFields.length > 0);
 	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
 	// Description edit modal (HOLODEX-364, the media Overview pattern from HOLODEX-365) —
 	// owner-only pencil in the section heading opens this; SourceEditModal owns its own
