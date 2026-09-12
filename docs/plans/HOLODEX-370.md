@@ -71,7 +71,7 @@ pointing at the existing Revert, and Revert gains the confirmation the provider 
 
 1. [ ] [—] **Remove the stale `blocks` link** HOLODEX-370 → HOLODEX-367 in Jira by hand (the MCP
    has no delete-link tool); the `relates` link is already in place.
-2. [ ] [—] Mark the PR ready when the owner has eyeballed the notice; CI moves this to In Review.
+2. [x] [—] PR #326 marked ready 2026-09-11 after the owner eyeballed the notice; CI moves this to In Review.
 3. [ ] [M] If per-provider revert is ever wanted: file *per-field snapshot revert + `batch_id` on
    `file_writebacks`* — the prerequisite this issue deliberately did not build.
 
@@ -82,4 +82,4 @@ pointing at the existing Revert, and Revert gains the confirmation the provider 
 - Explored before coding and found auto-apply never writes to the file — corrected the ticket,
   downgraded blocks → relates, offered three scopes with tradeoffs; owner chose detect-and-point.
   Built backend + frontend + specs + tests in one pass; QA'd three skins live.
-- Handoff: PR open; the only manual step left is deleting the stale `blocks` link in Jira.
+- Handoff: PR #326 ready for review, CI green (10 checks); the only manual step left is deleting the stale `blocks` link in Jira.
