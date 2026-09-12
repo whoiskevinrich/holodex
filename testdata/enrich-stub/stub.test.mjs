@@ -75,3 +75,32 @@ test('namespaceOf refuses an id with no colon rather than truncating it', () => 
 	assert.throws(() => stub.namespaceOf('nocolon'), /has no ":"/);
 	assert.equal(stub.namespaceOf('a:b:c'), 'a', 'splits on the FIRST colon');
 });
+
+// ADR-095 D6 / contract §5: searched[] is what the picker's "Searched" caption and the
+// batch path's activity row render, so the stub must stay inside the caps it hands out
+// as a worked example — ten entries, none empty, and the cascade the contract describes
+// (filename first when core sent one, then the query, then a fields fallback).
+test('searchedFor leads with the basename, then the query, then a fields fallback', () => {
+	const got = stub.searchedFor({
+		query: 'Acme Pictures Ada Lovelace 2023',
+		filename: '[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4',
+		fields: { studio: ['Acme Pictures'], actors: ['Ada Lovelace'], director: ['Alan Turing'] }
+	});
+	assert.deepEqual(got, [
+		'[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4',
+		'Acme Pictures Ada Lovelace 2023',
+		'Ada Lovelace Alan Turing Acme Pictures'
+	]);
+});
+
+test('searchedFor without structured hints is just the query', () => {
+	assert.deepEqual(stub.searchedFor({ query: 'plain' }), ['plain']);
+});
+
+test('the stressed cascade is exactly the §5 cap with a ~600-char second entry', () => {
+	const got = stub.searchedFor({ query: 'stress', filename: 'a.mp4' });
+	assert.equal(got.length, 10);
+	assert.equal(got[0], 'a.mp4');
+	assert.equal(got[1].length, 600); // regardless of how short the query is
+	assert.ok(got.every((s) => s.length > 0));
+});

@@ -5,6 +5,7 @@
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { toMessage, isHttpUrl } from '$lib/format';
+	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
 
 	let {
@@ -19,7 +20,13 @@
 	}: {
 		entityName: string;
 		provider: string;
-		resolve: (provider: string, query: string) => Promise<{ candidates: EnrichCandidate[] }>;
+		/** `searched` (ADR-095 D6) is what the provider actually asked upstream, in issue
+		 *  order — only the video resolver returns it; the person/studio/film callers'
+		 *  `{ candidates }` still satisfies this shape unchanged. */
+		resolve: (
+			provider: string,
+			query: string
+		) => Promise<{ candidates: EnrichCandidate[]; searched?: string[] }>;
 		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
 		dismiss: (provider: string) => Promise<unknown>;
 		onclose: () => void;
@@ -36,6 +43,11 @@
 	// svelte-ignore state_referenced_locally
 	let query = $state(entityName);
 	let candidates = $state<EnrichCandidate[]>([]);
+	// The last response's searched[] (ADR-095 D6) and the "+N more" disclosure. Both
+	// describe the LAST response, so both reset the moment the owner edits the box
+	// (onInput) and again with every new response (search).
+	let searched = $state<string[]>([]);
+	let showAll = $state(false);
 	let active = $state(0);
 	let loading = $state(false);
 	let applying = $state(false);
@@ -46,6 +58,10 @@
 	let trigger: HTMLElement | null = null;
 
 	const listId = 'enrich-candidates';
+	const searchedListId = 'enrich-searched';
+	// Hidden while loading / on error / under two characters — the same branches the
+	// status line takes, so the caption never describes a response the line doesn't.
+	const caption = $derived(searchedCaption(searched, { loading, error, query }));
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null; // the Enrich button
@@ -85,6 +101,10 @@
 	function onInput() {
 		clearTimeout(timer);
 		const q = query.trim();
+		// The caption describes the last response, not the current text: gone at once,
+		// before the debounce, and back with the next response.
+		searched = [];
+		showAll = false;
 		if (q.length < 2) {
 			candidates = [];
 			return;
@@ -105,6 +125,8 @@
 			const res = await resolve(provider, q);
 			if (id !== searchId) return;
 			candidates = res.candidates ?? [];
+			searched = res.searched ?? []; // same stale-response guard as candidates
+			showAll = false;
 			active = 0;
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
@@ -253,6 +275,40 @@
 				No matches for "{query.trim()}".
 			{/if}
 		</p>
+
+		<!-- "Searched …" (ADR-095 D6, HOLODEX-369): what the provider actually asked
+		     upstream, in the same slot in every state — its own <p>, never inside the
+		     aria-live line (ten queries are not an announcement). First entry inline in
+		     ink (the query is the content; muted at 12px is the contrast floor), the
+		     rest behind "+N more"; the list repeats the first entry because it is the
+		     complete record and the line is the summary. -->
+		{#if caption}
+			<p class="mt-1 flex items-baseline gap-2 text-xs text-muted">
+				<span class="shrink-0">Searched</span>
+				<span class="min-w-0 truncate text-ink" title={caption.first}>{caption.first}</span>
+				{#if caption.more > 0}
+					<button
+						type="button"
+						onclick={() => (showAll = !showAll)}
+						aria-expanded={showAll}
+						aria-controls={searchedListId}
+						class="btn-quiet shrink-0 px-1 text-xs underline decoration-dotted"
+					>
+						{moreLabel(caption.more, showAll)}
+					</button>
+				{/if}
+			</p>
+			{#if caption.more > 0 && showAll}
+				<ol
+					id={searchedListId}
+					class="mt-1 max-h-24 shrink-0 overflow-y-auto pl-5 text-xs text-ink marker:text-muted"
+				>
+					{#each caption.entries as entry, i (i)}
+						<li class="truncate" title={entry}>{entry}</li>
+					{/each}
+				</ol>
+			{/if}
+		{/if}
 
 		<ul id={listId} role="listbox" aria-label="Candidates" class="mt-2 flex-1 overflow-y-auto">
 			{#each candidates as c, i (c.external_id)}

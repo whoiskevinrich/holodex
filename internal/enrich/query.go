@@ -8,6 +8,7 @@ package enrich
 import (
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // queryTokenNames is the fixed vocabulary a search_pattern/preferred_search_pattern/
@@ -114,55 +115,122 @@ func sanitizeTitle(s string) string {
 	return stripped
 }
 
-// SanitizeTitle exposes sanitizeTitle for the one other raw-title call site outside
-// this package: refresh-all's automated hint builder (internal/api's
-// enrichQueryHint), which has no per-provider pattern context to render against but
-// still owes the same unconditional D4 floor-tier cleanup.
-func SanitizeTitle(s string) string { return sanitizeTitle(s) }
+// dateTokenRe matches one whitespace-delimited date token the residue rule strips
+// (ADR-095 D5): a bare YYYY, or a YYYY-MM-DD / YY.MM.DD / DD.MM.YY style triple with
+// either "-" or "." as the separator. Anchored — it is applied to a whole token, so
+// "2023-08-01" is one date and "Agent 007" is not.
+var dateTokenRe = regexp.MustCompile(`^(?:\d{4}|\d{4}[-.]\d{2}[-.]\d{2}|\d{2}[-.]\d{2}[-.]\d{2}|\d{2}[-.]\d{2}[-.]\d{4})$`)
 
-// tokenValue resolves one token's substitution value from fields, or "" if the
-// underlying data is absent — the caller (renderPattern) decides whether that empty
-// value drops the token (optional) or fails the whole tier (required).
-func tokenValue(name string, fields QueryFields) string {
+// wordTokens splits s into lower-cased runs of Unicode letters/digits — the unit the
+// residue rule compares on, so "Lovelace's" and "Lovelace" share the word "lovelace".
+func wordTokens(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+// titleIsRedundant is the ADR-095 D5 residue rule: it reports whether every word of
+// the (already sanitized) title is accounted for by the resolved studio, ANY resolved
+// performer (actors + director — all of them, not the {performers} top-3), or a date
+// token — i.e. whether the title would only repeat what the other tokens already say.
+// has is the set of token names in the tier being rendered: a word is only "already
+// said" by a token that is actually IN this pattern, so "{title} {year?}" never loses
+// its studio/cast words to a rule about tokens it does not render (the lossless
+// invariant holds exactly: every word dropped is present in the query from the token
+// that matched it). Case-insensitive because the upstream folds case (Probe 2) and
+// because a lossless comparison wants that floor. Content-based, not
+// provenance-based: there is no stem-vs-tag marker on a title (ADR-093), and the
+// rule fires just the same when a title legitimately equals its cast — nothing is
+// lost then either. All-or-nothing: one word of residue keeps the WHOLE title,
+// duplication included (the spec's honest example) — rewriting a title down to its
+// residue would be a lossy guess at what it "really" is.
+func titleIsRedundant(title string, fields QueryFields, has map[string]bool) bool {
+	known := map[string]bool{}
+	var sources []string
+	if has["studio"] {
+		sources = append(sources, fields.Studio)
+	}
+	if has["performers"] {
+		sources = append(sources, fields.Performers...)
+	}
+	for _, src := range sources {
+		for _, w := range wordTokens(src) {
+			known[w] = true
+		}
+	}
+	for _, part := range strings.Fields(title) {
+		if has["year"] && dateTokenRe.MatchString(part) {
+			continue
+		}
+		for _, w := range wordTokens(part) {
+			if !known[w] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// tokenValue resolves one token's substitution value from fields. present is false
+// when the underlying data is absent — the caller (renderPattern) decides whether
+// that drops the token (optional) or fails the whole tier (required). A present
+// token may still render EMPTY: a {title} whose every word the residue rule
+// (titleIsRedundant, judged against the other tokens in `has` — this tier's token
+// set) accounts for is rendered-empty, not missing — it must not fail a required
+// token through to the sanitized-title floor, which would resend exactly the
+// duplication the rule exists to prevent (ADR-095 D5).
+func tokenValue(name string, fields QueryFields, has map[string]bool) (val string, present bool) {
 	switch name {
 	case "studio":
-		return strings.TrimSpace(fields.Studio)
+		val = strings.TrimSpace(fields.Studio)
 	case "title":
-		return sanitizeTitle(strings.TrimSpace(fields.Title))
+		val = sanitizeTitle(strings.TrimSpace(fields.Title))
+		if val != "" && titleIsRedundant(val, fields, has) {
+			return "", true
+		}
 	case "performers":
 		top := fields.Performers
 		if len(top) > performersCap {
 			top = top[:performersCap]
 		}
-		return strings.Join(top, " ")
+		val = strings.Join(top, " ")
 	case "year":
-		return yearRe.FindString(strings.TrimSpace(fields.ReleaseDate))
+		val = yearRe.FindString(strings.TrimSpace(fields.ReleaseDate))
 	default:
-		return "" // unreachable: parseQueryPattern already rejects unknown names
+		return "", false // unreachable: parseQueryPattern already rejects unknown names
 	}
+	return val, val != ""
 }
 
 // renderPattern renders one precedence tier. ok is false when the pattern itself is
 // malformed (parseQueryPattern), or when a required (non-"?") token has no value —
 // per ADR-080 D3, that failure drops the WHOLE tier, it never renders with a gap
 // where the missing token would have been. An optional token with no value is simply
-// omitted. ok is also false for a pattern that renders zero non-empty tokens (e.g.
-// every token in it was optional and absent).
+// omitted, as is a present-but-rendered-empty one (the residue rule). ok is also
+// false for a pattern that renders zero non-empty tokens (e.g. every token in it was
+// optional and absent, or its only token was a residue-empty title — that falls to
+// the floor, where a lone title has nothing to be redundant with).
 func renderPattern(pattern string, fields QueryFields) (string, bool) {
 	tokens, ok := parseQueryPattern(pattern)
 	if !ok {
 		return "", false
 	}
+	has := make(map[string]bool, len(tokens))
+	for _, t := range tokens {
+		has[t.name] = true
+	}
 	parts := make([]string, 0, len(tokens))
 	for _, t := range tokens {
-		val := tokenValue(t.name, fields)
-		if val == "" {
+		val, present := tokenValue(t.name, fields, has)
+		if !present {
 			if t.optional {
 				continue
 			}
 			return "", false
 		}
-		parts = append(parts, val)
+		if val != "" {
+			parts = append(parts, val)
+		}
 	}
 	if len(parts) == 0 {
 		return "", false

@@ -16,6 +16,11 @@ mechanism — three-tier precedence, token grammar, sanitizer, wire-contract-unc
 **Design handoff**: [configurable-provider-search-patterns-handoff.md](../design/configurable-provider-search-patterns-handoff.md)
 (confirms zero `EnrichPicker.svelte` diff; pins the exact seeded-string content per scenario, incl.
 the empty-sanitization fallback; specs the optional P1 transparency caption)
+**Amended 2026-09-11** by [ADR-095](../architecture/ADR-095-structured-resolve-hints.md) /
+[HOLODEX-367](https://whoiskevinrich.atlassian.net/browse/HOLODEX-367): FR6–FR9 below (residue rule,
+`query_source`, structured hints on both paths, the "Searched: …" caption), AC-12–AC-18, and the
+narrowed AC-10. The original Non-Goal "structured `hint.fields` over the wire" and P2-a are
+**superseded** — the evidence ADR-080 D1 asked for arrived. Everything else in this spec stands.
 
 **Depends on** (all shipped):
 - the provider sidecar contract, `GET /describe` / `POST /resolve` ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
@@ -68,9 +73,11 @@ added, nothing curated yet), forcing the owner to hand-edit the search box every
 - **A settings UI for this config.** Lives in `metadata-sources.yaml` only, like every other provider
   knob (`base_url`, `asset_hosts`, `enabled`). *(Why: consistency with existing provider config; no UI
   exists for any of those today either.)*
-- **Structured `hint.fields` over the wire.** Core renders one opaque string; providers don't receive
-  field-level query control. *(Why: one provider exists today; a protocol change isn't justified until
-  a second provider actually wants field-level control — see ADR-080 D1.)*
+- ~~**Structured `hint.fields` over the wire.** Core renders one opaque string; providers don't receive
+  field-level query control.~~ *(Why it was a non-goal: one provider existed; a protocol change wasn't
+  justified until a second provider wanted field-level control — ADR-080 D1.)* **Superseded 2026-09-11:**
+  a partner provider brought that evidence; structured hints are now FR8 (ADR-095). The one flattened
+  `hint.query` string still ships unchanged — the hints ride alongside it, opt-in.
 - **Full scene-release-tag parsing in the sanitizer** (codecs, sources, encoder groups like `x264`,
   `WEB-DL`). Only punctuation and resolution/quality tokens are stripped. *(Why: matches the concrete
   ask; F48/ADR-067's filename **extraction** already owns real structured parsing — once a file goes
@@ -181,17 +188,134 @@ the owner can still freely retype the box; this changes the seeded default only.
   box is seeded with it and auto-searches on open exactly as today's title-seeded flow does (F22.5b's
   existing auto-search-on-open behavior is unaffected).
 
+#### FR6 — Residue rule: `{title}` renders empty when it is only the other tokens *(ADR-095 D5)*
+
+At FR3 render time, and only there, tokenize the FR4-sanitized title (case-insensitive, Unicode word
+tokens) and strip every token that equals a token of the resolved studio, of any resolved performer
+(`actors` + `director`, **all** of them, not just the `{performers}` top-3), or a date token
+(`YYYY`, `YYYY-MM-DD`, `YY.MM.DD`, `DD.MM.YY`) — **but only against the tokens the tier being
+rendered actually contains**: studio words count only when the pattern has `{studio}`, performer
+words only with `{performers}`, dates only with `{year}` *(settled in HOLODEX-368's code review —
+a content-only rule turned `{title} {year?}` into a bare year for a stem-titled file, losing the
+studio and cast from a query nothing else would carry them in)*. If no Unicode alphanumeric residue
+remains, the `{title}` / `{title?}` token renders **empty for this pass**. This is the fix for a
+fresh file whose `title` *is* its filename stem repeating the studio and every performer twice in
+the rendered query, and it is lossless exactly: every word dropped is present in the query from the
+token that matched it.
+
+**A residue-empty `{title}` is rendered-empty, not missing.** It does **not** trip FR3's
+required-token tier failure — if it did, the tier would fall through to FR4's title-only floor and
+send exactly the duplication the rule removes. The rule therefore lives inside the token's render,
+below the required/optional check. It does not apply to the floor tier (a lone title has nothing to be
+redundant with) and does not touch FR8's `hint.fields`.
+
+- **Given** `{studio} {title} {performers} {year}`, studio `Acme Pictures`, actors `Ada Lovelace`,
+  release date `2023-08-01`, and a sanitized title `Acme Pictures Ada Lovelace 2023-08-01`,
+  **then** the render is `Acme Pictures Ada Lovelace 2023` — the title contributed nothing, and
+  nothing was lost.
+- **Given** the same pattern and a title `Acme Pictures Ada Lovelace The Engine`, **then** the render
+  is `Acme Pictures Acme Pictures Ada Lovelace The Engine Ada Lovelace 2023` — residue (`The Engine`)
+  exists, so the **whole** title is kept, duplication included. The rule is all-or-nothing; it never
+  rewrites the title down to its residue (that would be a lossy guess at what the title "really" is).
+  A provider that wants the decomposition gets it from FR8's `hint.fields`, not from a cleverer blob.
+- **Given** a *required* `{title}` that renders empty by residue, **then** the pattern still renders
+  from its other tokens — the tier is **not** skipped.
+- **Given** a title `acme pictures ada lovelace` (lowercase) against studio `Acme Pictures`, **then**
+  it renders empty — matching is case-insensitive.
+- **Given** `{title} {year?}` and the same stem-titled video, **then** the title renders **in full**
+  — that tier has no `{studio}` or `{performers}` token to have already said those words.
+
+#### FR7 — `hint.query_source`: is the query Holodex's render or the owner's? *(ADR-095 D4)*
+
+`enrichVideoResolve` derives `"pattern"` | `"user"` **server-side, never from the client**: it
+re-renders the provider's query through `Source.BuildQuery` from the same resolved fields in the
+same handler call and compares to the submitted string — equal → `"pattern"`, else `"user"`. FR4's
+sanitized-title floor counts as `"pattern"`. The batch path (FR8) is always `"pattern"`. It is sent
+only to a provider that opted into any structured hint (FR8) — a provider that didn't sees no new
+key at all.
+
+- **Given** the owner opens Enrich and searches without touching the seeded box, **then** the
+  provider receives `query_source: "pattern"`.
+- **Given** the owner edits the box — even by one character — **then** `"user"`.
+- **Given** the owner edits a field on the page between page load and search so the re-render no
+  longer matches the seeded string, **then** `"user"` — the conservative reading either way, since a
+  `"user"` query is issued first and verbatim (contract §4.10). Documented, not defended against.
+- **Given** the client sends its own `query_source` in the request body, **then** it is ignored —
+  the value is derived, never trusted.
+
+#### FR8 — Structured hints, opt-in, on both paths *(ADR-095 D1–D3, D8)*
+
+A provider that lists `"fields"` and/or `"filename"` in `/describe.resolve_hints` receives, next to
+the unchanged `hint.query`: `hint.fields` (the five search fields `title`/`studio`/`actors`/
+`director`/`release_date` ∩ its advertised `fields` — never `overview`, `tagline`, `homepage`,
+`external_provider_id`, `poster_url` or any other canonical key; resolved values, `/enrich`-shaped,
+as-is) and/or `hint.filename` (`filepath.Base` of the media path, verbatim, no
+sanitizer, never a directory component). Wire semantics, caps and the provider's obligations are the
+provider contract's ([§4.10](metadata-provider-contract.md#410-structured-resolve-hints-describeresolve_hints));
+this spec owns the Holodex-side behavior:
+
+- **Manifest gate.** A provider that does not list a hint key never receives it. A provider with no
+  `resolve_hints` at all receives a request **byte-identical** to pre-ADR-095.
+- **Operator deny, `filename` only, default allow.** `metadata-sources.yaml` gains a per-source
+  boolean that withholds `hint.filename` from that provider even when it opted in. Default allow —
+  an off default would silently cut recall for every provider with a filename matcher.
+- **Both paths.** The interactive picker (`enrichVideoResolve`) **and** refresh-all's
+  `enrichQueryHint` build the full hint. The batch fan-out (`refreshOneProvider`) builds its hint
+  **per provider, inside the goroutine** — which also gives the batch path the FR1–FR3 pattern render
+  it never had (ADR-080 AI5's disclosed scope trim is closed). This is the path with no owner present
+  to retype the query.
+
+- **Given** a provider with `resolve_hints: ["filename"]` and the operator's deny unset, **then**
+  `hint.filename` is the basename with extension, brackets, parens and commas intact.
+- **Given** the same provider with the operator's deny set, **then** the key is absent (not empty).
+- **Given** a provider with `resolve_hints: ["fields"]` that advertises `fields: ["title", "studio"]`,
+  and a video with resolved `title`, `studio` and `actors`, **then** `hint.fields` carries `title`
+  and `studio` only — `actors` was not advertised.
+- **Given** a provider that advertises `fields: ["title", "overview", "homepage"]` and a video with
+  all three resolved, **then** `hint.fields` carries `title` only — `overview` and `homepage` are
+  outside the search vocabulary regardless of what the provider advertises.
+- **Given** a video with a standing decision preferring provider X's `studio`, **then** `hint.fields.studio`
+  is X's value — resolved, post-decision.
+- **Given** refresh-all across two providers with different patterns, **then** each receives its own
+  FR1–FR3 render, not one shared string.
+
+#### FR9 — "Searched: …" caption from `searched[]` *(ADR-095 D6; replaces P1-a)*
+
+Holodex decodes the optional `searched: string[]` on the `/resolve` response (first 10 entries,
+each capped at 4096 chars, control characters stripped — the `candidates[].label` treatment) and:
+
+- **Interactive:** the picker shows one muted line under the input listing what the provider
+  actually asked upstream, in order. Shown whenever `searched[]` is non-empty — including on a
+  no-results outcome, which is where it earns its place. Absent when the provider sent none. This
+  replaces the never-built P1-a ("Built from search pattern") — *what was searched* answers the
+  owner's real question once a provider may issue several queries.
+- **Batch:** the enrich-run activity entry (`job_runs.detail`, F22.6b) records the entries — the only
+  trace an unattended run leaves. A basename a provider echoes back is not a filesystem path; the
+  detail column's no-path invariant holds.
+
+Design gate: [HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369) — the stressed
+state at 10 entries and the three-skin QA are the handoff's to pin. **Shipped second**: FR6–FR8 land
+without it; a provider may emit `searched[]` before Holodex reads it (unknown response keys are
+already ignored).
+
+- **Given** a resolve returns candidates and `searched: ["…mp4", "Acme Pictures Ada Lovelace"]`,
+  **then** the caption lists both, in that order, under the input.
+- **Given** a resolve returns zero candidates and a non-empty `searched[]`, **then** the "no results"
+  state still shows the caption.
+- **Given** a resolve response with no `searched` key, **then** no caption and no empty slot.
+- **Given** 12 entries, **then** the caption shows the first 10.
+
 ### Nice-to-Have (P1)
 
-- **P1-a** — a small caption under the search box when the seeded value differs from the raw title
-  (e.g. "Built from search pattern"), giving the owner visibility into why the box isn't just the
-  title. *Not required — the existing "type to search" affordance already lets the owner see and edit
-  the seeded value; this is pure transparency polish.*
+- ~~**P1-a** — a small caption under the search box when the seeded value differs from the raw title
+  (e.g. "Built from search pattern").~~ **Replaced by FR9** (2026-09-11): the slot now shows what the
+  provider *searched* (`searched[]`), which is the more useful transparency once a provider may issue
+  several upstream queries. Never built in its original form.
 
 ### Future Considerations (P2)
 
-- **P2-a** — structured `hint.fields` over the wire (ADR-080 D1 Option B), if a second provider wants
-  field-level query control instead of a pre-formatted string.
+- ~~**P2-a** — structured `hint.fields` over the wire (ADR-080 D1 Option B), if a second provider wants
+  field-level query control instead of a pre-formatted string.~~ **Promoted to FR8** (ADR-095).
 - **P2-b** — literal decoration in patterns (parens, brackets, custom separators) if real operator
   demand shows up.
 - **P2-c** — Person/Studio pattern support, contingent on those models gaining studio/year/performer-
@@ -227,10 +351,30 @@ the owner can still freely retype the box; this changes the seeded default only.
     unsanitized title — the search box is never seeded blank.
 9. `EnrichPicker.svelte`'s diff for this feature is zero — the component's own file is unchanged;
    only what its `entityName` prop receives changes.
-10. `POST /resolve`'s request body shape is unchanged (`{entity_type, hint: {query, external_ids}}`) —
-    verified against `providers/tmdb/` with no sidecar-side changes required.
+10. `POST /resolve`'s request body shape is unchanged (`{entity_type, hint: {query, external_ids}}`)
+    **for any provider that does not list `resolve_hints`** — verified against `providers/tmdb/` with
+    no sidecar-side changes required. *(Narrowed 2026-09-11 by ADR-095: a provider that opts in
+    receives the FR7/FR8 keys in addition; `hint.query` itself is unchanged for everyone.)*
 11. An instance with `metadata-sources.yaml` unchanged from before this feature (no new keys) behaves
     identically to today for pattern tiers 1–3, and gains only FR4's sanitized-floor improvement.
+12. *(FR6)* With `{studio} {title} {performers} {year}` and a title that is exactly studio +
+    performers + date, the render contains each of those once — and the render still happens even
+    though `{title}` is required and contributed nothing.
+13. *(FR6)* A title with any residue beyond studio/performers/date is rendered **in full** — the rule
+    is all-or-nothing, never a partial rewrite; and the check is case-insensitive.
+14. *(FR7)* `query_source` is `"pattern"` when the submitted query equals the server's own re-render
+    (including the sanitized-title floor) and `"user"` otherwise; a client-supplied value is ignored;
+    the batch path always sends `"pattern"`.
+15. *(FR8)* A provider without `resolve_hints` receives a byte-identical request to pre-ADR-095
+    (golden); one with `["fields"]` receives only advertised keys **from the five-field search
+    vocabulary** with resolved values (an advertised `overview` is never sent); one with
+    `["filename"]` receives the verbatim basename, and nothing when the operator deny is set.
+16. *(FR8)* Refresh-all builds a distinct hint per provider — a two-provider fan-out with different
+    patterns sends two different `hint.query` strings, each with its own opted-in keys.
+17. *(FR9)* A non-empty `searched[]` renders as one caption line under the picker input, in issue
+    order, first 10 entries, on both the results and the no-results states; absent otherwise.
+18. *(FR9)* On the batch path the entries land in the enrich-run activity detail, sanitized and
+    capped like candidate labels.
 
 ---
 
@@ -257,6 +401,24 @@ the owner can still freely retype the box; this changes the seeded default only.
 - **Security** (feeds `/security-review`) — an adversarial `preferred_search_pattern` from a provider
   (oversized string, control characters, an absurd number of tokens) is sanitized/bounded on ingest and
   cannot cause a resource or injection issue when rendered into the outbound `hint.query`.
+- **Residue rule (FR6)** — table-driven: exact duplication → empty; any residue → full title kept;
+  case folding; each date-token shape; Unicode residue (a non-ASCII word survives); required `{title}`
+  residue-empty does **not** fall the tier through (assert the render, not the floor); floor tier is
+  untouched; the **lossless invariant** as a property — every token of the input title appears in the
+  final render or was matched by another token.
+- **`query_source` (FR7)** — equal → `"pattern"`; one-char edit → `"user"`; floor → `"pattern"`;
+  client-supplied value ignored; a field edited between render and submit → `"user"`.
+- **Manifest gating + deny (FR8)** — golden: no `resolve_hints` ⇒ byte-identical request body;
+  `["fields"]` ⇒ advertised keys only, **∩ the five search fields** (a provider advertising
+  `overview`/`homepage` never receives them), resolved values (a standing decision changes the
+  value sent);
+  `["filename"]` ⇒ `filepath.Base` only (a path with directories never leaks a component); deny set ⇒
+  key absent; unknown list entries ignored.
+- **Batch path (FR8)** — two providers, two patterns, two different hints; the shared-hint regression
+  from ADR-080 AI5 is guarded by asserting per-provider `hint.query` inside the fan-out.
+- **`searched[]` ingest (FR9)** — >10 entries truncated to 10; an entry >4096 chars truncated; control
+  characters stripped; missing key ⇒ nil, not empty slice; recorded into `job_runs.detail` on the
+  batch path without a directory separator ever appearing.
 
 ---
 

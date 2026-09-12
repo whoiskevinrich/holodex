@@ -246,7 +246,34 @@ function describeFor(persona, origin) {
     const path = persona.slug ? `/p/${persona.slug}` : '';
     body.brand_icon = { url: `${origin}${path}/icon.png` };
   }
+  // ADR-095 D1: a persona that lists resolve_hints receives hint.fields /
+  // hint.filename / hint.query_source on video resolves; one that doesn't gets the
+  // pre-ADR-095 request byte-for-byte — both shapes are worth having on the wire.
+  if (persona.resolveHints) body.resolve_hints = persona.resolveHints;
   return body;
+}
+
+// searchedFor is the ADR-095 D6 searched[] a persona reports on a VIDEO resolve
+// (contract §2.3: video only): what it "asked upstream", in issue order. It leads
+// with the basename when core sent one (§4.10: a filename matcher goes first), then
+// the query, then a performers + studio fallback composed from hint.fields — so the
+// picker's "Searched" caption shows the three-query cascade the contract describes.
+// A query containing the word "stress" returns the §5 cap of ten entries with a
+// ~600-character second entry, for the caption's stressed state (QA §1.2c).
+function searchedFor(hint) {
+  const fields = hint.fields || {};
+  const cascade = [];
+  if (hint.filename) cascade.push(hint.filename);
+  if (hint.query) cascade.push(hint.query);
+  const people = [...(fields.actors || []), ...(fields.director || [])];
+  const studio = (fields.studio || [])[0];
+  if (people.length || studio) cascade.push([...people, studio].filter(Boolean).join(' '));
+  if (/\bstress\b/i.test(hint.query || '')) {
+    const unit = `${hint.query} `;
+    const long = unit.repeat(Math.ceil(600 / unit.length)).slice(0, 600);
+    return [cascade[0] || hint.query, long, ...Array.from({ length: 8 }, (_, i) => `${hint.query} fallback ${i + 3}`)];
+  }
+  return cascade;
 }
 
 function readBody(req) {
@@ -273,7 +300,7 @@ function route(path) {
 
 // Exported so the conformance test can check the persona table without binding a port;
 // the server only starts when this file is run directly, not when it is required.
-module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor };
+module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor, searchedFor };
 
 if (require.main !== module) return;
 
@@ -328,11 +355,14 @@ http
       // The legacy persona keeps its substring gate so the no-results path stays
       // reachable; the stress personas answer anything, because the fixture's
       // entities are not named after a real person.
+      // searched[] rides every video reply — a hit or a miss — since the miss is
+      // where the caption earns its place (F54 FR9).
+      const searched = body.entity_type === 'video' ? searchedFor(body.hint || {}) : undefined;
       if (persona === LEGACY) {
         const hit = q.length >= 2 && 'hayao miyazaki'.includes(q);
-        return res.end(JSON.stringify({ candidates: hit ? candidatesFor(persona, q) : [] }));
+        return res.end(JSON.stringify({ candidates: hit ? candidatesFor(persona, q) : [], searched }));
       }
-      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query) }));
+      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query), searched }));
     }
 
     if (endpoint === '/enrich') {

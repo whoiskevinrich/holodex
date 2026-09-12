@@ -39,13 +39,13 @@ func (h *Handlers) filmEnrichResolve(w http.ResponseWriter, r *http.Request) {
 	if !h.enrichDismissedCheck(w, r, model.EnrichEntityFilm, id, body.Provider) {
 		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityFilm, enrich.Hint{Query: body.Query})
+	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityFilm, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.log.Warn("film enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
 }
 
 // filmEnrichApply fetches and stores provider enrichment for a film. Unlike the video

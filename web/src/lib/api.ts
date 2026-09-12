@@ -677,12 +677,15 @@ export const api = {
 	enrichClear: (personId: number, provider: string) =>
 		sendAuthed<Record<string, never>>('DELETE', `/people/${personId}/enrich/${encodeURIComponent(provider)}`),
 
-	// Video/film enrichment (F26). All owner-gated.
+	// Video/film enrichment (F26). All owner-gated. `searched` is the provider's own
+	// record of the upstream queries it issued (ADR-095 D6, video only) — absent when
+	// it sent none; the picker renders it as the "Searched …" caption.
 	enrichVideoResolve: (videoId: number, provider: string, query: string) =>
-		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/media/${videoId}/enrich/resolve`, {
-			provider,
-			query
-		}),
+		sendAuthed<{ candidates: EnrichCandidate[]; searched?: string[] }>(
+			'POST',
+			`/media/${videoId}/enrich/resolve`,
+			{ provider, query }
+		),
 
 	enrichVideoApply: (videoId: number, provider: string, externalId: string) =>
 		sendAuthed<{ enriched: EnrichedField[] }>('POST', `/media/${videoId}/enrich`, {

@@ -27,7 +27,7 @@ type resolveCounter struct {
 	n *int
 }
 
-func (c *resolveCounter) Resolve(ctx context.Context, entityType string, hint enrich.Hint) ([]enrich.Candidate, error) {
+func (c *resolveCounter) Resolve(ctx context.Context, entityType string, hint enrich.Hint) (enrich.ResolveResult, error) {
 	*c.n++
 	return c.Fake.Resolve(ctx, entityType, hint)
 }

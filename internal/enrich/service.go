@@ -242,26 +242,28 @@ func verifyProtocol(m Manifest) error {
 
 // verifiedClient resolves an enabled provider (the SSRF allowlist), checks it
 // supports the entity type, and verifies its protocol version — the shared
-// preamble for every provider action.
-func (s *Service) verifiedClient(ctx context.Context, provider, entityType string) (ProviderClient, error) {
+// preamble for every provider action. The Source and the just-fetched Manifest come
+// back with the client so Resolve can gate ADR-095's structured hints against the
+// provider's current opt-in rather than a cache that may not be warm yet.
+func (s *Service) verifiedClient(ctx context.Context, provider, entityType string) (Source, ProviderClient, Manifest, error) {
 	src, c, err := s.client(provider)
 	if err != nil {
-		return nil, err
+		return Source{}, nil, Manifest{}, err
 	}
 	if !src.Supports(entityType) {
-		return nil, fmt.Errorf("provider %q does not support %q", provider, entityType)
+		return Source{}, nil, Manifest{}, fmt.Errorf("provider %q does not support %q", provider, entityType)
 	}
 	m, err := c.Describe(ctx)
 	if err != nil {
-		return nil, err
+		return Source{}, nil, Manifest{}, err
 	}
 	if err := verifyProtocol(m); err != nil {
-		return nil, err
+		return Source{}, nil, Manifest{}, err
 	}
 	s.persistFieldHints(ctx, provider, m)
 	s.persistPreferredPattern(provider, m)
 	s.persistLinkTemplates(ctx, provider, m)
-	return c, nil
+	return src, c, m, nil
 }
 
 // DescribeProvider fetches and protocol-verifies a provider's /describe manifest
@@ -453,18 +455,23 @@ func (s *Service) BuildProviderLink(ctx context.Context, namespace, entityKind, 
 }
 
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
-// embedded external ids (deterministic path) and/or a name query (fallback). The
-// caller always confirms a candidate before Enrich — nothing is applied here.
-func (s *Service) Resolve(ctx context.Context, provider, entityType string, hint Hint) ([]Candidate, error) {
-	c, err := s.verifiedClient(ctx, provider, entityType)
+// embedded external ids (deterministic path) and/or a name query (fallback), plus
+// ADR-095's structured keys, which gateHint trims to what this provider's manifest
+// opted into (and the operator allowed) before the call. The caller always confirms
+// a candidate before Enrich — nothing is applied here. The result's Searched is the
+// provider's own report of what it asked upstream, sanitized like candidate labels.
+func (s *Service) Resolve(ctx context.Context, provider, entityType string, hint Hint) (ResolveResult, error) {
+	src, c, m, err := s.verifiedClient(ctx, provider, entityType)
 	if err != nil {
-		return nil, err
+		return ResolveResult{}, err
 	}
-	cands, err := c.Resolve(ctx, entityType, hint)
+	res, err := c.Resolve(ctx, entityType, gateHint(hint, src, m))
 	if err != nil {
-		return nil, err
+		return ResolveResult{}, err
 	}
-	return sanitizeCandidates(cands), nil
+	res.Candidates = sanitizeCandidates(res.Candidates)
+	res.Searched = sanitizeSearched(res.Searched)
+	return res, nil
 }
 
 // ExistingMatch returns the external id a provider was last confirmed against for
@@ -492,7 +499,7 @@ func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64,
 // runEnrich is the core fetch → sanitize → store → re-read; Enrich wraps it with
 // activity-history recording.
 func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
-	c, err := s.verifiedClient(ctx, provider, entityType)
+	_, c, _, err := s.verifiedClient(ctx, provider, entityType)
 	if err != nil {
 		return nil, err
 	}
@@ -865,20 +872,7 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 // only: no filesystem path, env value, or token (the no-secrets invariant,
 // ADR-028); on error the raw provider error is omitted (it can include base_url).
 func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, enrichErr error) {
-	now := time.Now()
-	run := model.JobRun{
-		Kind:       model.JobKindEnrich,
-		Trigger:    model.TriggerManual,
-		Status:     model.JobStatusOK,
-		StartedAt:  started,
-		FinishedAt: now,
-		DurationMs: now.Sub(started).Milliseconds(),
-		// Attribution (ADR-071): the same entity the detail line names, as
-		// columns, so "what touched person #18?" is a query rather than a
-		// substring search. Ids only — no new information leaves the process.
-		EntityType: entityType,
-		EntityID:   entityID,
-	}
+	run := newEnrichRun(started, entityType, entityID)
 	if enrichErr != nil {
 		run.Status = model.JobStatusErr
 		run.Errors = 1
@@ -891,6 +885,47 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 		}
 		run.Detail = fmt.Sprintf("%s → %s #%d (%d %s)", provider, entityType, entityID, n, field)
 	}
+	s.recordRun(run)
+}
+
+// RecordSearched appends an unattended (refresh-all) resolve pass to the activity
+// history when the provider reported what it searched (ADR-095 D6) — the only trace
+// a no-owner-present run leaves of the queries actually tried. Called by the batch
+// path only; the interactive picker shows searched[] directly. The detail keeps the
+// F22.6b no-path invariant: a basename a provider echoes back is not a path, and the
+// same basename already renders on the owner's media page.
+func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult) {
+	if len(res.Searched) == 0 {
+		return
+	}
+	run := newEnrichRun(started, entityType, entityID)
+	run.Detail = fmt.Sprintf("%s → %s #%d (%d candidates) · searched: %s",
+		provider, entityType, entityID, len(res.Candidates), strings.Join(res.Searched, " · "))
+	s.recordRun(run)
+}
+
+// newEnrichRun is the JobRun skeleton every enrich-kind activity entry shares.
+func newEnrichRun(started time.Time, entityType string, entityID int64) model.JobRun {
+	now := time.Now()
+	return model.JobRun{
+		Kind:       model.JobKindEnrich,
+		Trigger:    model.TriggerManual,
+		Status:     model.JobStatusOK,
+		StartedAt:  started,
+		FinishedAt: now,
+		DurationMs: now.Sub(started).Milliseconds(),
+		// Attribution (ADR-071): the same entity the detail line names, as
+		// columns, so "what touched person #18?" is a query rather than a
+		// substring search. Ids only — no new information leaves the process.
+		EntityType: entityType,
+		EntityID:   entityID,
+	}
+}
+
+// recordRun writes one activity entry best-effort on a detached context — a
+// recording failure is logged, never returned, and a cancelled request context
+// (the case the history most needs to capture) still records.
+func (s *Service) recordRun(run model.JobRun) {
 	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := s.repo.RecordJobRun(recCtx, run); err != nil {
