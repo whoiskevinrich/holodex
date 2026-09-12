@@ -146,10 +146,10 @@ export async function settle(page) {
 /**
  * PREPARATIONS are the named steps an assertion may request before measurement.
  *
- * A named registry rather than arbitrary per-assertion code: there are exactly two
- * subtrees on this app that exist only after an interaction, both of them folds, and
- * spelling them out here means an assertion stays a declaration. Each is idempotent —
- * running it on a page that is already open must not close it.
+ * A named registry rather than arbitrary per-assertion code: the subtrees on this app
+ * that exist only after an interaction are few (two folds, a role switch, one dialog),
+ * and spelling them out here means an assertion stays a declaration. Each is
+ * idempotent — running it on a page that is already open must not close it.
  *
  * @type {Record<string, (page: import('playwright').Page, arg: string) => Promise<void>>}
  */
@@ -198,6 +198,42 @@ export const PREPARATIONS = {
 			null,
 			{ timeout: 5000 }
 		);
+	},
+	// The fourth kind of hidden subtree is a dialog. The Enrich picker exists only after
+	// the owner clicks a provider's chip, and its "Searched" caption (ADR-095 D6,
+	// HOLODEX-369) exists only after a /resolve response carried `searched[]` — so the
+	// stressed state the caption's handoff pins (ten entries expanded, the <ol> scrolling
+	// inside its cap while the dialog stays under 80vh) was unreachable by any assertion
+	// (HOLODEX-372). This opens the picker for one provider (the argument; `flood` by
+	// default — the stub persona that opts into every resolve hint), types a query the
+	// enrich stub answers with its ten-entry cascade (`searchedFor` in
+	// testdata/enrich-stub/stub.js keys on the word "stress"), and expands "+9 more".
+	//
+	// Idempotent by the same rule as the folds: every step is conditional on the state it
+	// would produce not already holding, and every wait is on that state. `fill` fires the
+	// input event the picker debounces on, so the caption clears at once and comes back
+	// with the stressed response. The toggle wait is on its "+9 more" label (or "show
+	// less", already expanded), not on any toggle: the picker fires a seeded search on
+	// mount whose two-entry "+1 more" can land in the same window, and its stale-response
+	// guard discards that reply only if it arrives AFTER the fill — one that arrived
+	// before is a real toggle for the wrong list.
+	'enrich-picker-open': async (page, provider) => {
+		const name = provider || 'flood';
+		if ((await page.locator('#enrich-searched').count()) === 0) {
+			const dialog = page.locator('[role="dialog"][aria-labelledby="enrich-title"]');
+			if ((await dialog.count()) === 0) {
+				const chip = page.locator(`button[title="Enrich from ${name}"]`);
+				await chip.waitFor({ state: 'attached', timeout: 10000 });
+				await chip.click();
+				await dialog.waitFor({ state: 'attached', timeout: 5000 });
+			}
+			const box = dialog.locator('input[role="combobox"]');
+			await box.fill('stress');
+			const toggle = dialog.locator('button[aria-controls="enrich-searched"]', { hasText: /\+9 more|show less/ });
+			await toggle.waitFor({ state: 'attached', timeout: 10000 });
+			if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+		}
+		await page.waitForSelector('#enrich-searched li:nth-child(10)', { state: 'attached', timeout: 5000 });
 	}
 };
 

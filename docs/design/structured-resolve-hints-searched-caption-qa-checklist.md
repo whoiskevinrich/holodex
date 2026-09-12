@@ -43,7 +43,7 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 
 ## §3 Agent — live `[agent]`
 
-- **3.1** `[agent]` Response (c) expanded: `<ol>` scrolls (scrollHeight > clientHeight), the dialog's
+- **3.1** `[smoke]` *(was `[agent]`; automated by HOLODEX-372 — `cd web && npm run geometry --only searched-list-scrolls-inside-its-cap …`, five assertions under `enrich-picker-open:flood`)* Response (c) expanded: `<ol>` scrolls (scrollHeight > clientHeight), the dialog's
   total height does not exceed 80 vh, the candidates `<ul>` is still laid out (not squeezed to 0).
 - **3.2** `[agent]` The 600-char entry: inline line and its `<li>` both have `title` equal to the
   full string and render on one line (`getBoundingClientRect().height` ≈ one text line).

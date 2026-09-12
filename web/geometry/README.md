@@ -61,7 +61,7 @@ adding.
 | `expect` | `{ min }`, `{ max }`, or both. Inclusive. |
 | `applies` | `each` (default) bounds every match; `count` bounds how many matched. |
 | `atLeast` | Matches required before the assertion means anything. Default 1. |
-| `prepare` | `metadata-fold`, `source-badge:<field>` — subtrees that exist only after an interaction. |
+| `prepare` | `metadata-fold`, `source-badge:<field>`, `visitor-view`, `enrich-picker-open:<provider>` — subtrees that exist only after an interaction (two folds, the role switch, and the Enrich picker opened on the stub's ten-entry `searched[]` cascade). |
 | `requires` | `{why, met(manifest)}` — skip, with the reason printed, when the fixture is the wrong shape. |
 | `blockedBy` | A filed, unfixed ticket. Reported but does not fail the run. |
 
