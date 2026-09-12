@@ -126,7 +126,8 @@ provider loudly.
   "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
   "asset_kinds": ["photo"],
   "brand_icon": { "url": "https://<name>.example/brand-icon.png" },
-  "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}"
+  "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}",
+  "resolve_hints": ["fields", "filename"]
 }
 ```
 
@@ -143,6 +144,7 @@ provider loudly.
 | `field_hints` | object | optional | Per-field presentation hints (label / render mode / order) for **non-canonical** advertised keys, so they render first-class with **no** per-operator config — see [§4.7](#47-field-render-hints-describefield_hints). Keyed by field key; omit entirely if you have none. Additive (unknown key, ignored by older Holodex) |
 | `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
 | `preferred_search_pattern` | string | optional | **`video` only.** A search-query shape you'd like Holodex to build `/resolve`'s `hint.query` from instead of the raw/sanitized title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). Consulted only when the *operator* hasn't configured their own override for you (operator config always wins). Malformed/unparseable → ignored (logged on the Holodex side), never an error to you. Omit if you have no opinion — the sanitized-title fallback already applies unconditionally either way. Additive (unknown key, ignored by older Holodex) |
+| `resolve_hints` | string[] | optional | **`video` only.** The structured `/resolve` hint keys you want **in addition to** `hint.query` — any of `"fields"`, `"filename"` — see [§4.10](#410-structured-resolve-hints-describeresolve_hints). Holodex sends `hint.fields` only if you list `"fields"`, `hint.filename` only if you list `"filename"` (and the operator hasn't denied it), and `hint.query_source` alongside either. **Omit it and your `/resolve` request is byte-for-byte what it is today** — this is the opt-in that lets the request body grow without a protocol bump, because [§2.3](#23-post-resolve--identity-match-disambiguation) makes no unknown-key promise for requests. Unknown entries ignored, known ones honored. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -170,12 +172,30 @@ owner to confirm.
 { "entity_type": "person", "hint": { "query": "Ada Lovelace", "external_ids": ["wikidata:Q7259"] } }
 ```
 
+For a `video` provider that advertised `resolve_hints: ["fields", "filename"]` ([§2.2](#22-get-describe--capability-manifest)),
+the same request carries three more optional `hint` keys ([§4.10](#410-structured-resolve-hints-describeresolve_hints)):
+
+```json
+{
+  "entity_type": "video",
+  "hint": {
+    "query": "Acme Pictures Ada Lovelace 2023",
+    "query_source": "pattern",
+    "fields": { "studio": ["Acme Pictures"], "actors": ["Ada Lovelace"], "release_date": ["2023-08-01"] },
+    "filename": "[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4"
+  }
+}
+```
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `entity_type` | string | yes | `"person"`, `"video"`, `"studio"`, or `"film"` — whichever you advertised in `entity_types` (see [§3](#3-entity-types-and-matching)) |
 | `hint` | object | yes | The identity input |
 | `hint.query` | string | optional | Free-text name to search (the dominant path for People). Omitted/empty when only IDs are given. **For `video`:** the content may be a shaped query built from `studio`/`title`/`performers`/`year` rather than a bare title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). The field shape itself never changes — it's always this one string either way |
 | `hint.external_ids` | string[] | optional | Namespace-qualified IDs (e.g. `"wikidata:Q7259"`) for a deterministic path. **Note:** Holodex's v1 People flow sends only `query` (from the owner's search box). Implement the `external_ids` path for forward compatibility, but `query` is what v1 exercises |
+| `hint.query_source` | string | optional | **`video` only; present only if you listed anything in `resolve_hints`.** `"pattern"` — `hint.query` is the string Holodex rendered (a [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern) pattern or the sanitized-title floor); `"user"` — the owner typed or edited it. **A `"user"` query MUST be issued first, verbatim** — see [§4.10](#410-structured-resolve-hints-describeresolve_hints). Derived Holodex-side, never client-asserted |
+| `hint.fields` | object | optional | **`video` only; present only if you listed `"fields"`.** `{ "<canonical key>": [values…] }` — the same shape as your own `/enrich` response `fields` ([§2.4](#24-post-enrich--fetch-fields)). Keys are canonical video fields ([§4.2a](#42a-canonical-fields--videomedia)) **∩ the `fields` you advertised** — you are never sent a key you didn't say you understand. Values are the video's **resolved** values (after the owner's standing decisions and edits), sent **as-is** — no sanitizer, no de-duplication against `query`; every surviving value of a multi-valued field. **Porting note:** [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern)'s `{performers}` token is `actors` + `director` merged; here they arrive as two separate keys. Omitted when nothing intersects |
+| `hint.filename` | string | optional | **`video` only; present only if you listed `"filename"` and the operator hasn't denied it.** The media file's **basename, verbatim** — extension included, brackets/parens/commas intact, **no** sanitizer pass, never a directory component. Exactly the input a filename matcher wants (the punctuation Holodex strips from `query` is what such a matcher consumes). Also the one input a wrong match written back to the file **cannot** poison — Holodex never renames media. Omitted when denied |
 
 **Response `200`:**
 
@@ -190,7 +210,8 @@ owner to confirm.
       "disambiguation": "Mathematician · 1815–1852",
       "profile_url": "https://acme.example/people/998211-ada-lovelace"
     }
-  ]
+  ],
+  "searched": ["[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4", "Acme Pictures Ada Lovelace"]
 }
 ```
 
@@ -203,6 +224,7 @@ owner to confirm.
 | `candidates[].confidence` | number | optional | 0–1 score, provider-native and non-normalized — see the auto-apply note above: a lone candidate at/above `0.85` applies without owner confirmation, so a well-calibrated score now has a real behavioral effect, not just display |
 | `candidates[].disambiguation` | string | optional | Short distinguishing line to separate same-named entities. Sanitized/capped by Holodex |
 | `candidates[].profile_url` | string | optional | Absolute link to your own page for this candidate (e.g. a person/company profile page), so the owner can verify a match against your richer page instead of the picker's three-field summary (F47/RD6). Rendered as a "view source ↗" link, opened in a new tab, when present. **Must be `http`/`https`** — Holodex scheme-validates server-side and silently drops any other scheme or a malformed URL before it reaches the client (no error, the candidate itself is still usable). Omit if you have none — don't send an empty string |
+| `searched` | string[] | optional | **`video` only.** The queries you actually issued upstream, **in the order you issued them** — the owner sees these as a "Searched: …" line under the picker, and on Holodex's unattended refresh path they are the only record of what was tried. Include every attempt, hits or not (a `"user"` query first, then any `fields` fallback — [§4.10](#410-structured-resolve-hints-describeresolve_hints)). Caps in [§5](#5-non-functional-requirements): ≤ 10 entries, ≤ 4096 chars each, no newlines; sanitized like `label`. Omit when empty. **Not** gated by `resolve_hints` — Holodex ignores unknown response keys, so you may emit it before Holodex reads it |
 
 ### 2.4 `POST /enrich` — fetch fields
 
@@ -871,12 +893,65 @@ still only ever receive the one flattened `hint.query` string ([§2.3](#23-post-
 | Required token, no value | The **whole pattern** is skipped for that render — Holodex falls back to its next tier (an operator override, if the operator set one for you, then their fleet-wide default, then the sanitized-title floor). It never sends a query with a gap where your required token would have been |
 | Unknown token name | Your whole `preferred_search_pattern` is ignored (logged Holodex-side) — never an error response to you, and it doesn't affect anything else about your provider |
 | **Operator override always wins** | If the operator configures their own `search_pattern` for you in `metadata-sources.yaml`, it outranks this key entirely — you may still advertise a sensible default for operators who configure nothing |
+| **Residue rule** ([ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D5) | `{title}` / `{title?}` renders **empty** when, after stripping every word that matches the resolved studio, any resolved performer, or a date token (case-insensitive, tokenized), no Unicode alphanumeric residue is left — i.e. the title was only the other tokens, which happens whenever a fresh file's title *is* its filename stem. Lossless: every dropped word is already in the query from the token that matched it. An empty-by-residue `{title}` **does not** count as a missing required token — the pattern still renders (it would otherwise fall through to the title-only floor and resend the duplication). Applies to this render only, never to `hint.fields` |
 
 **Practical guidance:** advertise this if your search index is meaningfully better with a shaped query than a
 bare title — for example, disambiguating common titles by studio or year. If a bare title search already
 works well for you, omitting this key is a completely valid, fully conformant choice — the title Holodex
 sends is never worse than what it sent before this feature (bracket/resolution cleanup is unconditional
 either way).
+
+### 4.10 Structured resolve hints (`/describe.resolve_hints`)
+
+> **Status: additive extension** ([ADR-095](../architecture/ADR-095-structured-resolve-hints.md),
+> HOLODEX-367). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
+> that omits it receives a `/resolve` request **byte-for-byte identical** to today's. **No protocol bump.**
+> **`video` entity only.** The `searched[]` response key ([§2.3](#23-post-resolve--identity-match-disambiguation))
+> is the companion on the response side and needs no opt-in.
+
+[§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern) gives you a shaped `hint.query`,
+but it is one undelimited string: you cannot tell where the studio ends and the title begins, so you
+cannot, say, drop the title and retry on studio + performers after a miss. And a title that is really a
+release filename (`[Studio] Title (Person, date) 1080p`) reaches you with its brackets stripped —
+which is exactly the grammar a filename matcher keys on. If your upstream can use either, ask for it:
+
+```json
+{
+  "provider": "acme",
+  "protocol_version": 1,
+  "entity_types": ["video"],
+  "fields": ["title", "studio", "actors", "director", "release_date"],
+  "resolve_hints": ["fields", "filename"]
+}
+```
+
+| You list | Holodex adds to `hint` | Notes |
+|---|---|---|
+| `"fields"` | `fields` — `{ "<canonical key>": [values…] }` | Only keys you advertised in `fields`; the video's resolved values, **as-is**. `{performers}` in §4.9 = `actors` + `director`; here they are separate |
+| `"filename"` | `filename` — the basename, verbatim | Brackets, parens, commas and extension intact; never a directory. **The operator may deny this per provider** (default: allowed) — then the key is simply absent, so never require it |
+| either | `query_source` — `"pattern"` \| `"user"` | Whether `hint.query` is Holodex's render or the owner's own typing |
+
+**What you owe in return.** Holodex enforces none of this; it is what a conformant provider does with
+the extra inputs:
+
+| Obligation | Detail |
+|---|---|
+| **`"user"` query first** | When `query_source` is `"user"`, issue `hint.query` **first and verbatim**. The owner typed it; it outranks anything Holodex composed. Only after a *miss* may you try something else |
+| **Miss** | *No candidates surfaced* — your upstream returned nothing **or** every hit was gated out by your own scoring. Both count; a hit you discarded is still a miss from the owner's side |
+| **Fallback MAY use `fields`** | After a miss you MAY compose a query from `fields` — e.g. studio + performers with the title dropped. Nothing obliges you to; a single well-aimed query is fine |
+| **Route `filename` and `fields` separately** | They are not interchangeable: a bracketed basename is unsearchable as free text and a composed string is not a filename. If your upstream has a filename/release matcher, send `filename` there and composed terms to search. *Which* endpoint is yours to decide — the contract only explains why both keys exist |
+| **Report in `searched[]`** | Every upstream query you issued, in order, hits or not — see [§2.3](#23-post-resolve--identity-match-disambiguation) and the caps in [§5](#5-non-functional-requirements). This is how the owner (and Holodex's activity log on the unattended path) learns what was actually tried |
+
+**Why `filename` is the one input you can trust.** `fields` and `query` carry the video's *resolved*
+values — after the owner's decisions and after any values a provider wrote back into the file. A wrong
+match, once written back, becomes what every later resolve searches for. Holodex never renames media,
+so the basename is the release's original identity regardless of what has since been written into its
+tags. If you have a filename matcher, lead with it.
+
+**Practical guidance:** list `"filename"` if your upstream has any release/filename matcher — in the
+partner probe that motivated this section, three real bracketed filenames matched rank-1 as the sole hit
+through such a matcher and got zero hits as free text. List `"fields"` if you want to retry on a subset
+after a miss. Omitting `resolve_hints` entirely remains fully conformant.
 
 ---
 
@@ -890,6 +965,7 @@ truncated.
 | **Per-call latency** | Answer each request well under **8 s** (Holodex's hard timeout). Budget upstream calls accordingly |
 | **Response body size** | Keep every response under **1 MiB** (Holodex reads at most 1 MiB). Trim long text; cap candidate lists |
 | **Candidate count** | Return a small ranked list (≤ ~10). Holodex hard-caps at **25** |
+| **`searched[]` entries** | ≤ **10** per `/resolve` response (Holodex keeps the first 10); each ≤ **4096 chars**, **no newlines** (control chars stripped, truncated beyond — same treatment as `candidates[].label`). Omit the key when you issued nothing. [§4.10](#410-structured-resolve-hints-describeresolve_hints) |
 | **Values per field** | ≤ **50** per field (Holodex cap); realistically 1–few |
 | **Field count** | ≤ **40** fields (Holodex cap); v1 person set is ~6 |
 | **Value length** | Each value ≤ **4096 chars** (Holodex truncates beyond). Prefer trimming text yourself on a clean boundary |

@@ -24,9 +24,11 @@ story's to settle.
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` — F54 spec: replace the P1-a caption slot with "Searched: …"; ACs for
-  `query_source` derivation and the residue rule. Contract text
-  (`metadata-provider-contract.md` §2.2 / §2.3 / §4.9 / §5) ships in this same PR.
+- [/] spec `write-spec` — contract text landed (`metadata-provider-contract.md` §2.2 row +
+  example, §2.3 three `hint.*` rows + video example + `searched[]`, §4.9 residue row, **new §4.10**
+  deep-dive with the opt-in table / miss definition / provider obligations, §5 caps row). Still
+  open: F54 spec — replace the P1-a caption slot with "Searched: …"; ACs for `query_source`
+  derivation and the residue rule.
 - [/] architecture `architecture` — ADR-095 drafted (D1–D8), indexed in `README.md`; number was
   reserved via `adr-claims.mjs` before drafting
 - [ ] design `design-handoff` — the picker caption (HOLODEX-369): one muted line under the input,
@@ -44,10 +46,8 @@ story's to settle.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [M] Contract text: §2.2 `resolve_hints` row + example; §2.3 three `hint.*` rows, the
-   porting note, `searched[]` on the response; §4.9 residue rule row; §5 caps + miss definition +
-   "user query first". Same Draft PR.
-2. [ ] [S] F54 spec edit (gate 1).
+1. [x] [M] Contract text — §2.2 / §2.3 / §4.9 / new §4.10 / §5, in PR #327.
+2. [ ] [S] F54 spec edit (gate 1's remaining half).
 3. [ ] [M] `/design-handoff` for HOLODEX-369 (gate 3) — can run in parallel with 368.
 4. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
    branch's key).
@@ -59,5 +59,13 @@ story's to settle.
 - Folded the provider's filename-matcher probe into the epic (verbatim basename, default-allow
   load-bearing, batch path too), marked HOLODEX-370 landed, fired In Progress, branched off main
   as `HOLODEX-367-structured-resolve-hints`. Drafted ADR-095 (D1–D8) and the README row.
-- Handoff: ADR-095 is on the branch in a Draft PR; contract text (§2.2/2.3/4.9/5) is the next
+- Handoff: ADR-095 is on the branch in Draft PR #327; contract text (§2.2/2.3/4.9/5) is the next
   thing to write, in the same PR.
+
+### 2026-09-11 · contract text written
+- skills: —
+- Wrote the provider-contract text for ADR-095: rows in §2.2/§2.3/§4.9/§5 and a new §4.10
+  deep-dive in the §4.7–4.9 house style (a §4.10 was my call — the miss definition and the
+  provider's obligations wanted a home, and §5 is a caps table). Ticked ADR-095 AI 1–2.
+- Handoff: PR #327 now carries ADR + contract text; next is the F54 spec edit (caption slot →
+  "Searched: …", ACs for `query_source` + residue), then `/design-handoff` for HOLODEX-369.

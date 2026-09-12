@@ -18,7 +18,8 @@ poisoned by a wrong match and `filename` cannot) · [ADR-066](ADR-066-enrichment
 entry `searched[]` is recorded into on the batch path).
 **Contract:** [metadata provider contract](../specs/metadata-provider-contract.md) §2.2 (`/describe`
 gains `resolve_hints`) / §2.3 (`/resolve` request gains three optional `hint` keys, response gains
-`searched[]`) / §4.9 (residue rule) / §5 (`searched[]` caps, miss definition).
+`searched[]`) / §4.9 (residue rule) / §4.10 (new deep-dive: the opt-in, the miss definition, the
+provider's obligations) / §5 (`searched[]` caps).
 **Spec:** [Configurable provider search patterns (F54)](../specs/configurable-provider-search-patterns.md)
 (the P1-a caption slot this replaces).
 **Issue:** [HOLODEX-367](https://whoiskevinrich.atlassian.net/browse/HOLODEX-367) (epic) ·
@@ -374,12 +375,13 @@ decoder's existing rule.
 
 ## Action Items
 
-1. [ ] ADR-095 recorded; add to `docs/architecture/README.md`.
-2. [ ] Provider-contract spec (`docs/specs/metadata-provider-contract.md`): §2.2 `resolve_hints` row +
+1. [x] ADR-095 recorded; add to `docs/architecture/README.md`.
+2. [x] Provider-contract spec (`docs/specs/metadata-provider-contract.md`): §2.2 `resolve_hints` row +
    example; §2.3 request table rows for `hint.fields` / `hint.filename` / `hint.query_source`, the
-   porting note (`{performers}` vs. `actors`+`director`), and `searched[]` on the response; §4.9
-   residue rule row; §5 `searched[]` caps + the miss definition + the "user query first" obligation.
-   Same Draft PR as this ADR (ADR-069).
+   porting note (`{performers}` vs. `actors`+`director`), a video request example, and `searched[]`
+   on the response; §4.9 residue rule row; new §4.10 deep-dive in the §4.7–4.9 style (opt-in table,
+   the miss definition, "user query first", route-separately, report-in-`searched[]`, why `filename`
+   is the trustworthy input); §5 `searched[]` caps row. Same Draft PR as this ADR (ADR-069).
 3. [ ] `/write-spec` — F54 spec: replace the P1-a caption slot with the "Searched: …" caption;
    acceptance criteria for `query_source` derivation and the residue rule.
 4. [ ] `/design-handoff` — the caption ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)):
