@@ -155,8 +155,9 @@ acme → video #412 (0 candidates) · searched: [Acme Pictures] Ada Lovelace (20
 - Tests: there is no `EnrichPicker` test file (this repo has no component-test harness — the
   handoff assumed one), so the state table lives in a pure helper, `web/src/lib/searchedCaption.ts`
   (`searchedCaption`, `moreLabel`), with the §2 smoke cases in `searchedCaption.test.ts`; the DOM /
-  a11y / geometry items were verified live (§3, HOLODEX-369 worklog entry) and the stressed-state
-  geometry assertion is [HOLODEX-372](https://whoiskevinrich.atlassian.net/browse/HOLODEX-372).
+  a11y items were verified live (§3, HOLODEX-369 worklog entry); the stressed-state geometry is
+  five §12 harness assertions under the `enrich-picker-open` preparation
+  ([HOLODEX-372](https://whoiskevinrich.atlassian.net/browse/HOLODEX-372)).
 - `<ol>` carries `shrink-0`: under `max-h-[80vh]` flex pressure the list would otherwise be the
   first thing squeezed (measured 49px of its 96px cap with 25 candidates at 800px tall) — the cap
   is the design; the candidates `<ul>` is `flex-1` and scrolls anyway.

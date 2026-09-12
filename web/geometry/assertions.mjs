@@ -38,6 +38,19 @@ import { METRICS } from './evaluate.mjs';
  *   and a *pass* is reported as news — the marker has gone stale.
  */
 
+/**
+ * The one prepared state the stressed-caption assertions share (HOLODEX-372): the
+ * Enrich picker open for `flood` on an un-enriched video, the stub's ten-entry
+ * `searched[]` cascade expanded. One page is enough — the video is only the host and
+ * the stressed thing is the caption — and `namespaces === 0` is the property that
+ * guarantees the provider's chip still opens a picker (a linked provider's chip is
+ * "Refresh" and opens nothing). Shared so the five cannot drift onto different pages.
+ */
+const stressedPicker = {
+	when: (e) => e.entity === 'video' && e.dimension === 'enrich' && (e.axes.video?.namespaces ?? 0) === 0,
+	prepare: ['enrich-picker-open:flood']
+};
+
 /** @type {Assertion[]} */
 export const ASSERTIONS = [
 	{
@@ -141,6 +154,77 @@ export const ASSERTIONS = [
 		measure: 'height',
 		expect: { min: 24 },
 		blockedBy: 'HOLODEX-357'
+	},
+
+	// --- The Enrich picker's "Searched" caption, stressed (ADR-095 D6, HOLODEX-369/372) ---
+	//
+	// Five invariants over one prepared state (`stressedPicker`, above the table) — the
+	// picker open on an un-enriched video, the stub's ten-entry `searched[]` cascade
+	// expanded. Each is its own entry because an assertion bounds one metric; together
+	// they are the handoff's stressed-state row and the §11 gap HOLODEX-372 closed.
+	{
+		key: 'searched-list-scrolls-inside-its-cap',
+		finds:
+			'The expanded "Searched" list growing with its entries instead of scrolling. Ten ' +
+			'4KB queries rendered in full would eat the dialog; the handoff caps the <ol> at ' +
+			'max-h-24 and scrolls it. Measured as overflow because a list that fits has ' +
+			'nothing to prove — the stub sends ten rows and ten rows do not fit in 96px.',
+		...stressedPicker,
+		selector: '#enrich-searched',
+		measure: 'overflowY',
+		expect: { min: 1 }
+	},
+	{
+		key: 'searched-list-holds-its-cap',
+		finds:
+			'The <ol> at any height but its cap. `max-h-24` is 96px and `shrink-0` keeps it ' +
+			'there: with ten rows to show the list is exactly 96px in every cell. Taller means ' +
+			'the cap was dropped; shorter means the list is being squeezed by the dialog’s flex ' +
+			'column again — HOLODEX-369 measured 49px of the 96 before `shrink-0`, and a ' +
+			'ceiling-only bound passes that squeeze (mutation-tested: without either class the ' +
+			'flex algorithm lands the list at 46–68px, under the ceiling on every cell).',
+		...stressedPicker,
+		selector: '#enrich-searched',
+		measure: 'height',
+		expect: { min: 96, max: 96 }
+	},
+	{
+		key: 'enrich-dialog-content-fits-its-cap',
+		finds:
+			'The picker dialog overflowing its own max-h-[80vh] box once the caption list is ' +
+			'open — content taller than the dialog with nothing scrolling it. The dialog is a ' +
+			'flex column whose candidates <ul> is the flex-1 scroller; if the list stops ' +
+			'shrinking, or the <ol> stops being capped, the overflow lands here. 80vh is a ' +
+			'per-cell number, so the bound is on the dialog’s own overflow rather than its height.',
+		...stressedPicker,
+		selector: '[role="dialog"][aria-labelledby="enrich-title"]',
+		measure: 'overflowY',
+		expect: { max: 0 }
+	},
+	{
+		key: 'candidates-list-survives-the-caption',
+		finds:
+			'The candidates listbox squeezed to nothing under the expanded caption — the ' +
+			'picker’s whole purpose gone to make room for a footnote. The <ol> carries shrink-0 ' +
+			'so it never takes more than its cap, and flood answers with 25 candidates, so the ' +
+			'listbox has plenty to show; two rows (~80px) is the floor below which it is not ' +
+			'a usable list.',
+		...stressedPicker,
+		selector: '#enrich-candidates',
+		measure: 'height',
+		expect: { min: 80 }
+	},
+	{
+		key: 'enrich-picker-does-not-widen-the-page',
+		finds:
+			'A 600-character searched entry pushing the document sideways. Every rendered ' +
+			'entry is `truncate`d with the full string in `title`; if either the inline line ' +
+			'or an <li> loses that, the fixed-position dialog cannot contain it and the ' +
+			'page scrolls horizontally in every skin.',
+		...stressedPicker,
+		selector: ':document',
+		measure: 'overflowX',
+		expect: { max: 0 }
 	},
 
 	{

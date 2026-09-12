@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-367
-status: in-progress
+status: done
 release_note: Providers that ask for it now receive the video's resolved fields and its raw filename alongside the search query, so they can match a release directly and fall back to a performers + studio search when the title misses; the search query no longer repeats the studio and cast when the title is only those words; and the picker can show what a provider actually searched.
 ---
 
@@ -84,7 +84,10 @@ story's to settle.
 6b. [x] [S] PR #327 marked **ready for review** 2026-09-11 (all gates green).
 7. [x] [—] HOLODEX-368/369 swept to **In Review** by hand alongside the epic (CI moves only the
    branch's key). HOLODEX-372 (geometry preparation) stays To Do — not a gate.
-8. [ ] [—] On merge: sweep HOLODEX-368/369 to **Done** by hand (CI moves only 367).
+8. [x] [—] #327 squash-merged 2026-09-11 as `1a1d63a`; HOLODEX-367/368/369 swept to **Done** by hand
+   (CI skips Epics and never moves children). `Released` follows the next `v*` tag.
+9. [x] [S] HOLODEX-372 — §12 `enrich-picker-open` preparation + five caption assertions, on a
+   stacked branch off this one (`HOLODEX-372-enrich-picker-geometry`, its own PR based on #327).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -132,6 +135,19 @@ story's to settle.
   preparation that doesn't exist yet.
 - Handoff: one gate left on PR #327 — `/security-review` (raw basename to opted-in providers) —
   then mark ready. Nothing in the PR is code; the review is of the ADR/contract posture.
+
+### 2026-09-11 · HOLODEX-372 — the caption's stressed state in the geometry harness
+- skills: code-review
+- Added the `enrich-picker-open:<provider>` preparation (dialog, not fold: click the chip, `fill`
+  "stress", expand `+9 more`, idempotent on every step) and five assertions on the `enrich/00` rung
+  (`namespaces === 0` is the property that keeps flood's chip a picker). Full matrix 729 passed /
+  27 known-open / 1 skipped, 630 loads, 153s. **Mutation-tested and it mattered:** the first cut
+  bounded the `<ol>` at `<= 96` and passed with `shrink-0` removed (flex lands it at 46–68px) —
+  the exact regression HOLODEX-369 fixed. The cap is now asserted as `>= 96 and <= 96`. Stacked
+  branch off the epic's branch because the assertions need 369's caption; PR based on #327.
+- Handoff: #327 merged (`1a1d63a`), epic + both stories Done in Jira. #328 (HOLODEX-372) rebased onto
+  main with `--force-with-lease` (squash orphaned its base) and is the only open PR — 1 commit, 7
+  files; CI moves 372 on its own. Nothing else to build on this epic.
 
 ### 2026-09-11 · HOLODEX-369 built (picker caption)
 - skills: code-review
