@@ -364,6 +364,7 @@ video. Design: [media-page-extraction-handoff.md](../design/media-page-extractio
 | F48.9b | A "Revert" action on a completed batch restores every snapshotted field to its prior value via an inverse write | Byte-for-byte match to the pre-write value on the affected field(s) |
 | F48.9c | Revert itself is a normal writeback job (goes through the same queue, is itself snapshotted) | A revert can be re-reverted (redo), no special-cased write path |
 | F48.9d | Revert is available from the activity history entry for the original write | Owner doesn't need to hunt for the batch id manually |
+| F48.9e | Revert confirms before it runs, and the confirmation says what a snapshot restore costs: every field in the batch returns to its pre-write value, so any edit made to those fields *after* the write — the owner's own included — is lost (HOLODEX-370) | `ConfirmDialog` with Cancel focused; the copy names the later-edits-lost consequence and that the revert is itself revertible |
 
 ### F48.10 — Security
 

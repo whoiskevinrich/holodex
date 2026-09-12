@@ -4,6 +4,7 @@
 	import { formatAgo, formatDurMs, toMessage } from '$lib/format';
 	import { api } from '$lib/api';
 	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 
 	let { runs }: { runs: JobRun[] } = $props();
 
@@ -26,12 +27,18 @@
 	}
 	let reverts = $state<Record<number, RevertStatus>>({});
 
+	// Revert confirms first (HOLODEX-370): a snapshot restores every field in the
+	// batch to its pre-write value, so an owner edit made *after* that write is lost
+	// too — the dialog says so before the click lands.
+	let confirmRevert = $state<JobRun | null>(null);
+
 	// A reverted batch's own Revert control disappears (nothing to re-revert from
 	// this button) — the revert itself lands as a new job run with its own batch
 	// id, which gets its own Revert button on the next history refresh (F48.9c).
 	async function revert(r: JobRun) {
 		const id = batchId(r);
 		if (!id || reverts[r.id]?.state === 'reverting') return;
+		confirmRevert = null;
 		reverts = { ...reverts, [r.id]: { state: 'reverting' } };
 		try {
 			await api.revertWritebackBatch(id);
@@ -93,7 +100,7 @@
 											<span class="shrink-0 text-xs text-warn" role="alert">{reverts[r.id].error}</span>
 										{:else}
 											<button
-												onclick={() => revert(r)}
+												onclick={() => (confirmRevert = r)}
 												disabled={reverts[r.id]?.state === 'reverting'}
 												aria-busy={reverts[r.id]?.state === 'reverting'}
 												class="btn-ghost shrink-0 px-2.5 py-1.5 text-xs"
@@ -110,4 +117,24 @@
 			</tbody>
 		</table>
 	</div>
+{/if}
+
+{#if confirmRevert}
+	{@const target = confirmRevert}
+	<ConfirmDialog
+		title="Revert this write?"
+		confirmLabel="Revert"
+		onconfirm={() => revert(target)}
+		oncancel={() => (confirmRevert = null)}
+	>
+		{#snippet body()}
+			<p>
+				Every field this batch wrote goes back to the value the file held just before the write.
+			</p>
+			<p>
+				Any change made to those fields since then — including your own edits — is lost. The
+				revert is itself a write, so it can be reverted from this list afterwards.
+			</p>
+		{/snippet}
+	</ConfirmDialog>
 {/if}

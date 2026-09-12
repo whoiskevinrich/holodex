@@ -690,8 +690,14 @@ export const api = {
 			external_id: externalId
 		}),
 
+	// written_back (HOLODEX-370): the provider's values were once written into the
+	// file, which Clear never touches — the caller tells the owner where the batch
+	// Revert lives.
 	enrichVideoClear: (videoId: number, provider: string) =>
-		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/enrich/${encodeURIComponent(provider)}`),
+		sendAuthed<{ written_back?: boolean }>(
+			'DELETE',
+			`/media/${videoId}/enrich/${encodeURIComponent(provider)}`
+		),
 
 	// Studio (company) enrichment (F38 S3). Mirrors the person enrich trio; all
 	// owner-gated. Studios have no file → no writeback and no relink (a studio-entity
@@ -931,8 +937,9 @@ export const api = {
 
 	// Records a durable "not matched" verdict for one (entity, provider) — EnrichPicker's
 	// "None of these match" (RD4). Blocks a future /resolve for the pair until undismissed.
+	// written_back (HOLODEX-370) is only ever true for a video — see enrichVideoClear.
 	enrichDismiss: (kind: EnrichEntityKind, id: number, provider: string) =>
-		sendAuthed<Record<string, never>>(
+		sendAuthed<{ written_back?: boolean }>(
 			'POST',
 			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/${encodeURIComponent(provider)}/dismiss`
 		),

@@ -261,14 +261,25 @@ entity-kind parameter, matching today's `enrich/resolve` · `enrich` · `enrich/
 GET    /owner/enrich-queue                                        → {rows:[{entity_type,entity_id,name,providers:[{provider,state}]}]}
                                                                        state: 'unreviewed' | 'auto_applied' | 'needs_review' | 'not_matched'
 
-POST   /people|studios|media/{id}/enrich/{provider}/dismiss        → 204  (records not-matched, RD4)
+POST   /people|studios|media/{id}/enrich/{provider}/dismiss        → 200 {written_back}  (records not-matched, RD4)
 DELETE /people|studios|media/{id}/enrich/{provider}/dismiss        → 204  (Try again — clears the verdict)
 POST   /people|studios|media/{id}/enrich/{provider}/refresh        → 200 {enriched}   (direct apply w/ stored external_id, RD7 — 400 if not linked)
 POST   /people|studios|media/{id}/enrich/refresh-all               → 200 {results:[{provider,status,enriched?}]}   (RD8 — status: 'refreshed'|'auto_applied'|'needs_review'|'no_candidates')
 ```
 
-Existing `enrich/resolve`, `enrich` (apply), and `enrich/{provider}` (DELETE, clear) are unchanged;
-`/resolve`'s response gains the optional `profile_url` field on each candidate (P1-1).
+Existing `enrich/resolve` and `enrich` (apply) are unchanged; `/resolve`'s response gains the
+optional `profile_url` field on each candidate (P1-1).
+
+**`written_back` (HOLODEX-370).** Dismiss, and `DELETE /media/{id}/enrich/{provider}` (clear, now
+`200 {written_back}` for media only), report whether any `file_writebacks` audit row on the video
+is attributed to the provider — an exact `<provider>:` prefix on the row's `source`, which is the
+resolver's winning-source token the "Write decisions to file" dialog sends. Neither action touches
+the file: a provider's values, once written, are re-extracted as the file-layer baseline and stay
+visible after the DB rows are gone. The flag is detection only — the audit table carries no batch
+id, and a batch can hold fields from several sources, so a per-provider revert would need a
+per-field snapshot revert that does not exist. When true, the media page shows an inline notice
+pointing the owner at the batch Revert under Status → Recent jobs → Log. Person, studio and film
+have no file; their dismiss returns `written_back: false` and their clear stays `204`.
 
 ## Success Metrics
 

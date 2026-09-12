@@ -143,6 +143,12 @@
 	let refreshing = $state(false);
 	let refreshStatus = $state<{ tone: 'muted' | 'warn'; text: string } | null>(null);
 
+	// HOLODEX-370: the provider whose values Clear / "None of these match" just dropped
+	// from the DB but which the file still carries (written_back on the response). Clear
+	// and Dismiss never touch the file, so re-extract keeps showing those values until
+	// the owner reverts the write batch from Status → Recent jobs → Log.
+	let writtenBackProvider = $state('');
+
 	// Video↔tag attach/detach (F50, ADR-075 P0-8) — the owner-only add/remove chips.
 	// tagAddOpen reveals the add-tag input (a UI-only toggle, not a mutation).
 	// tagJustAdded remembers the tag the last successful add resolved to, so "Use
@@ -891,6 +897,7 @@
 		error = '';
 		playFailed = false;
 		refreshStatus = null; // a freshly-opened item starts with no refresh outcome
+		writtenBackProvider = '';
 		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
 		// A pending title-collision verdict is scoped to the video that produced it — carrying
 		// it across navigation would let "Save anyway" commit the old value onto the new id.
@@ -1050,8 +1057,10 @@
 	async function clearProvider(p: string) {
 		enrichBusy = p;
 		enrichError = '';
+		writtenBackProvider = '';
 		try {
-			await api.enrichVideoClear(id, p);
+			const res = await api.enrichVideoClear(id, p);
+			if (res.written_back) writtenBackProvider = p;
 			// Refetch so the resolved chips drop this provider's candidates too, not just
 			// the raw disclosure — clearing removes it as an adoptable source (F36).
 			await reloadDetail();
@@ -1795,6 +1804,13 @@
 						{#if enrichError}
 							<p class="text-xs text-warn">{enrichError}</p>
 						{/if}
+						{#if writtenBackProvider}
+							<p class="text-xs text-warn" aria-live="polite">
+								Values from {writtenBackProvider} were also written into this file earlier, so the file
+								still carries them. To undo that write, revert its batch under
+								<a href="/owner/status" class="text-accent hover:underline">Status → Recent jobs → Log</a>.
+							</p>
+						{/if}
 						{#if refreshStatus}
 							<p
 								class="text-xs {refreshStatus.tone === 'warn' ? 'text-warn' : 'text-muted'}"
@@ -2159,7 +2175,11 @@
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
-			dismiss={(prov) => api.enrichDismiss('video', id, prov)}
+			dismiss={async (prov) => {
+				const res = await api.enrichDismiss('video', id, prov);
+				writtenBackProvider = res.written_back ? prov : '';
+				return res;
+			}}
 			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>

@@ -67,7 +67,9 @@ func (h *Handlers) enrichUndismiss(entityType string) http.HandlerFunc {
 
 // enrichDismissalAction is the shared dismiss/undismiss handler shape (RD4): resolve
 // the entity, then run action (DismissEnrichment or UndismissEnrichment) against the
-// path's provider. verb only labels the error context on failure.
+// path's provider. verb labels the error context on failure and picks the response:
+// a dismiss answers 200 with the written_back flag (HOLODEX-370) since the owner
+// may be walking away from values the file still carries; an undismiss is 204.
 func (h *Handlers) enrichDismissalAction(entityType, verb string, action func(ctx context.Context, entityType string, id int64, provider string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := pathID(w, r)
@@ -80,6 +82,10 @@ func (h *Handlers) enrichDismissalAction(entityType, verb string, action func(ct
 		provider := chi.URLParam(r, "provider")
 		if err := action(r.Context(), entityType, id, provider); err != nil {
 			h.fail(w, verb+" enrichment", err)
+			return
+		}
+		if verb == "dismiss" {
+			writeJSON(w, http.StatusOK, map[string]any{"written_back": h.providerWrittenBack(r, entityType, id, provider)})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
