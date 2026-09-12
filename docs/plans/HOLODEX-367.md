@@ -47,9 +47,15 @@ story's to settle.
   per-provider batch hints, `searched[]` caps + no-path detail), §5 caption row (supersedes the F54
   P1 clause; stressed state = §12 geometry assertion), six Critical invariants, §9 adversarial
   block, §11 gap entry (three traps named). Written ahead of implementation — nothing automated yet
-- [ ] security `security-review` — raw basename leaves the box for opted-in providers: opt-in +
-  deny layering, `filepath.Base` only, `fields` ⊆ what the blob already sent, `searched[]` ingest
-  sanitized/capped, `job_runs.detail` no-path invariant
+- [x] security `security-review` — on the ADR/contract posture (docs-only PR). **One finding,
+  fixed in-PR:** D2's "canonical keys ∩ advertised" would have sent `overview`/`tagline` (owner
+  free text) and `homepage`/`external_provider_id`/`poster_url` (cross-provider ids) to an
+  opted-in provider; `hint.fields` is now bounded to the five §4.9 search fields — ADR, contract
+  §2.3/§4.10, F54 FR8/AC-15, testing-strategy row + invariant + §9 case, README row all amended.
+  Confirmed clean: opt-in + deny layering, `Base()` only, `/admin/activity/*` under `requireOwner`
+  + `redactFileMetadataForVisitor` keep basenames owner-only, `searched[]` on the existing
+  `SanitizeValue` perimeter, SSRF allowlist unchanged, `query_source` server-derived. **Re-review
+  owed on HOLODEX-368's code diff.**
 
 ## Up next — ordered (position = priority)
 
@@ -57,15 +63,16 @@ story's to settle.
 2. [x] [S] F54 spec edit — FR6–FR9, AC-12–18, in PR #327.
 3. [x] [M] `/design-handoff` for HOLODEX-369 — in PR #327.
 4. [x] [M] `/testing-strategy` — in PR #327.
-5. [ ] [M] `/security-review` — raw basename to opted-in providers (opt-in + deny layering,
-   `Base()` only, `searched[]` ingest caps, `job_runs.detail` no-path).
-6. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
+5. [x] [M] `/security-review` — design posture, in PR #327 (finding fixed in-PR).
+6. [ ] [M] Build HOLODEX-368 (request side) on this branch; then HOLODEX-369 (caption). Re-run
+   `/security-review` on the code diff before marking the PR ready.
+7. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
    branch's key).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-11 · epic refreshed from the filename probe, ADR-095 drafted
-- skills: architecture, design-handoff, testing-strategy
+- skills: architecture, design-handoff, testing-strategy, security-review
 - Folded the provider's filename-matcher probe into the epic (verbatim basename, default-allow
   load-bearing, batch path too), marked HOLODEX-370 landed, fired In Progress, branched off main
   as `HOLODEX-367-structured-resolve-hints`. Drafted ADR-095 (D1–D8) and the README row.
@@ -108,3 +115,16 @@ story's to settle.
   preparation that doesn't exist yet.
 - Handoff: one gate left on PR #327 — `/security-review` (raw basename to opted-in providers) —
   then mark ready. Nothing in the PR is code; the review is of the ADR/contract posture.
+
+### 2026-09-11 · security review of the design
+- skills: security-review
+- Reviewed the posture, not code (docs-only PR). Found that D2's `hint.fields` = "canonical keys ∩
+  advertised" widened outbound data past the §4.9 blob the ADR claimed to match — a provider
+  advertising `overview` would receive the owner's own free text (a file's `Comment` tag), and
+  `homepage`/`external_provider_id`/`poster_url` would leak which other providers the owner uses.
+  Bounded `hint.fields` to the five §4.9 source fields across ADR, contract, F54, testing strategy,
+  README. Verified the basename claims against code: `/admin/activity/*` is inside `requireOwner`,
+  `redactFileMetadataForVisitor` keeps file identity owner-only.
+- Handoff: all seven design gates green on PR #327, which stays **Draft** — it is the epic's one
+  PR and still owes the implementation (HOLODEX-368 then 369). Next session: build 368 on this
+  branch, `/code-review high --fix`, re-run `/security-review` on the real diff.

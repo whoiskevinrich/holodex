@@ -126,8 +126,14 @@ values are already what the §4.9 blob sends today, just delimited.
 Shape mirrors the `/enrich` response's `fields` object — `{ "<canonical key>": [values…] }` — so the
 vocabulary is one a provider already speaks:
 
-- **Keys:** canonical keys (§4.2a) **∩** the provider's own advertised `/describe.fields`. A provider
-  is never sent a key it did not say it understands.
+- **Keys:** the **search vocabulary** — `title`, `studio`, `actors`, `director`, `release_date` (the
+  five canonical fields §4.9's tokens are rendered from) — **∩** the provider's own advertised
+  `/describe.fields`. A provider is never sent a key it did not say it understands, and never a key
+  outside this list: `overview`, `tagline`, `homepage`, `external_provider_id`, `poster_url` and the
+  rest of §4.2a are **not** search inputs, and the first two can carry the owner's own free text
+  (a file's `Comment` tag, a curated synopsis) while the last three would tell provider A which
+  other providers the owner uses. *(Security review, 2026-09-11 — the first draft said "canonical
+  keys ∩ advertised", which silently widened what leaves the box beyond the §4.9 blob.)*
 - **Values:** the field's **resolved** values — post-decision, post-curation (ADR-051/052), the same
   `resolver.ResolvedField` slice `buildVideoQueries` already reads. Multi-valued fields carry every
   surviving value; nothing is capped to §4.9's `performersCap` here, because the point of structure is
@@ -321,6 +327,11 @@ exactly the providers that wanted it.
 operator can deny per source, and the default is allow because the alternative silently loses the
 recall the whole ADR exists for. The security review (Action Item 7) is scoped to this exact tension.
 
+**What leaves the box.** `hint.fields` is bounded to the five §4.9 source fields precisely so the
+claim "nothing the blob did not already send" stays *exact*: the blob is rendered from those five
+and nothing else. Widening the list later (e.g. `original_title`) is a deliberate contract change
+with its own review, not a convenience.
+
 **Poisonable vs. unpoisonable inputs.** `fields` follows the owner's decisions and can be poisoned by
 a written-back wrong match; `filename` ignores the owner's decisions and cannot be. Sending both is
 deliberate — the provider gets one input that reflects curation and one that reflects the original
@@ -407,9 +418,19 @@ decoder's existing rule.
    `Manifest.ResolveHints`; `Source` deny flag; `Hint{Fields, Filename, QuerySource}`; residue rule
    in `query.go`; `enrichVideoResolve` derives `query_source`; `enrichQueryHint`/`refreshOneProvider`
    build per-provider hints; `searched[]` decoded and recorded into `job_runs.detail`.
-7. [ ] `/security-review` before merge — new outbound data: the raw basename to opted-in providers.
-   Confirm: opt-in + operator deny layering; `filepath.Base` only, never a directory component;
-   `fields` carries nothing the §4.9 blob did not already send; `searched[]` ingest is sanitized and
-   capped like `candidates[].label`; the activity-detail no-path invariant holds.
+7. [x] `/security-review` (2026-09-11, on the ADR/contract posture — the PR is docs-only) — **one
+   finding, fixed in the same PR:** D2 as first drafted sent *any* canonical field the provider
+   advertised, which would have put `overview`/`tagline` (owner free text: a file's `Comment` tag,
+   a curated synopsis) and `homepage`/`external_provider_id`/`poster_url` (cross-provider
+   identifiers) on the wire to an opted-in provider — wider than the §4.9 blob the ADR claimed to
+   match. D2 now bounds `hint.fields` to the five §4.9 source fields. Confirmed clean: opt-in +
+   operator deny layering; `filepath.Base` only (a basename cannot carry a separator; the
+   `/admin/activity/*` routes that show `job_runs.detail` sit inside `requireOwner`, and
+   `redactFileMetadataForVisitor` already keeps file identity owner-only, so a basename in the
+   detail row discloses nothing a visitor can reach); `searched[]` rides the existing
+   `sanitizeCandidates`/`SanitizeValue` perimeter (control chars stripped, 4096 cap); every new key
+   goes only to a `base_url` on the existing SSRF allowlist; `query_source` is derived server-side,
+   so a client cannot promote its own text to "pattern" or demote the render to "user". Re-review
+   is owed when HOLODEX-368's diff exists — this sign-off is on the design, not on code.
 8. [ ] **Implementation — caption** ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)),
    after the design gate.

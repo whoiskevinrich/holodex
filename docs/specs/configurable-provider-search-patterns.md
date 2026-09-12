@@ -238,8 +238,10 @@ key at all.
 #### FR8 — Structured hints, opt-in, on both paths *(ADR-095 D1–D3, D8)*
 
 A provider that lists `"fields"` and/or `"filename"` in `/describe.resolve_hints` receives, next to
-the unchanged `hint.query`: `hint.fields` (resolved canonical values ∩ its advertised `fields`,
-`/enrich`-shaped, as-is) and/or `hint.filename` (`filepath.Base` of the media path, verbatim, no
+the unchanged `hint.query`: `hint.fields` (the five search fields `title`/`studio`/`actors`/
+`director`/`release_date` ∩ its advertised `fields` — never `overview`, `tagline`, `homepage`,
+`external_provider_id`, `poster_url` or any other canonical key; resolved values, `/enrich`-shaped,
+as-is) and/or `hint.filename` (`filepath.Base` of the media path, verbatim, no
 sanitizer, never a directory component). Wire semantics, caps and the provider's obligations are the
 provider contract's ([§4.10](metadata-provider-contract.md#410-structured-resolve-hints-describeresolve_hints));
 this spec owns the Holodex-side behavior:
@@ -261,6 +263,9 @@ this spec owns the Holodex-side behavior:
 - **Given** a provider with `resolve_hints: ["fields"]` that advertises `fields: ["title", "studio"]`,
   and a video with resolved `title`, `studio` and `actors`, **then** `hint.fields` carries `title`
   and `studio` only — `actors` was not advertised.
+- **Given** a provider that advertises `fields: ["title", "overview", "homepage"]` and a video with
+  all three resolved, **then** `hint.fields` carries `title` only — `overview` and `homepage` are
+  outside the search vocabulary regardless of what the provider advertises.
 - **Given** a video with a standing decision preferring provider X's `studio`, **then** `hint.fields.studio`
   is X's value — resolved, post-decision.
 - **Given** refresh-all across two providers with different patterns, **then** each receives its own
@@ -353,7 +358,8 @@ already ignored).
     (including the sanitized-title floor) and `"user"` otherwise; a client-supplied value is ignored;
     the batch path always sends `"pattern"`.
 15. *(FR8)* A provider without `resolve_hints` receives a byte-identical request to pre-ADR-095
-    (golden); one with `["fields"]` receives only advertised keys with resolved values; one with
+    (golden); one with `["fields"]` receives only advertised keys **from the five-field search
+    vocabulary** with resolved values (an advertised `overview` is never sent); one with
     `["filename"]` receives the verbatim basename, and nothing when the operator deny is set.
 16. *(FR8)* Refresh-all builds a distinct hint per provider — a two-provider fan-out with different
     patterns sends two different `hint.query` strings, each with its own opted-in keys.
@@ -395,7 +401,9 @@ already ignored).
 - **`query_source` (FR7)** — equal → `"pattern"`; one-char edit → `"user"`; floor → `"pattern"`;
   client-supplied value ignored; a field edited between render and submit → `"user"`.
 - **Manifest gating + deny (FR8)** — golden: no `resolve_hints` ⇒ byte-identical request body;
-  `["fields"]` ⇒ advertised keys only, resolved values (a standing decision changes the value sent);
+  `["fields"]` ⇒ advertised keys only, **∩ the five search fields** (a provider advertising
+  `overview`/`homepage` never receives them), resolved values (a standing decision changes the
+  value sent);
   `["filename"]` ⇒ `filepath.Base` only (a path with directories never leaks a component); deny set ⇒
   key absent; unknown list entries ignored.
 - **Batch path (FR8)** — two providers, two patterns, two different hints; the shared-hint regression
