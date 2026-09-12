@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-367
-status: in-progress
+status: done
 release_note: Providers that ask for it now receive the video's resolved fields and its raw filename alongside the search query, so they can match a release directly and fall back to a performers + studio search when the title misses; the search query no longer repeats the studio and cast when the title is only those words; and the picker can show what a provider actually searched.
 ---
 
@@ -84,8 +84,8 @@ story's to settle.
 6b. [x] [S] PR #327 marked **ready for review** 2026-09-11 (all gates green).
 7. [x] [—] HOLODEX-368/369 swept to **In Review** by hand alongside the epic (CI moves only the
    branch's key). HOLODEX-372 (geometry preparation) stays To Do — not a gate.
-8. [ ] [—] On merge of #327: sweep HOLODEX-367/368/369 to **Done** by hand (CI skips Epics and never
-   moves children).
+8. [x] [—] #327 squash-merged 2026-09-11 as `1a1d63a`; HOLODEX-367/368/369 swept to **Done** by hand
+   (CI skips Epics and never moves children). `Released` follows the next `v*` tag.
 9. [x] [S] HOLODEX-372 — §12 `enrich-picker-open` preparation + five caption assertions, on a
    stacked branch off this one (`HOLODEX-372-enrich-picker-geometry`, its own PR based on #327).
 
@@ -145,8 +145,9 @@ story's to settle.
   bounded the `<ol>` at `<= 96` and passed with `shrink-0` removed (flex lands it at 46–68px) —
   the exact regression HOLODEX-369 fixed. The cap is now asserted as `>= 96 and <= 96`. Stacked
   branch off the epic's branch because the assertions need 369's caption; PR based on #327.
-- Handoff: two PRs open — #327 (epic, ready) and the 372 stack on top. Merge #327 first; the 372 PR
-  retargets to main on its own. Sweep 367/368/369 to Done on merge, 372 when its PR merges.
+- Handoff: #327 merged (`1a1d63a`), epic + both stories Done in Jira. #328 (HOLODEX-372) rebased onto
+  main with `--force-with-lease` (squash orphaned its base) and is the only open PR — 1 commit, 7
+  files; CI moves 372 on its own. Nothing else to build on this epic.
 
 ### 2026-09-11 · HOLODEX-369 built (picker caption)
 - skills: code-review
