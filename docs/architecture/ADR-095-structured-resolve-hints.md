@@ -382,8 +382,11 @@ decoder's existing rule.
    on the response; §4.9 residue rule row; new §4.10 deep-dive in the §4.7–4.9 style (opt-in table,
    the miss definition, "user query first", route-separately, report-in-`searched[]`, why `filename`
    is the trustworthy input); §5 `searched[]` caps row. Same Draft PR as this ADR (ADR-069).
-3. [ ] `/write-spec` — F54 spec: replace the P1-a caption slot with the "Searched: …" caption;
-   acceptance criteria for `query_source` derivation and the residue rule.
+3. [x] `/write-spec` — [F54 spec](../specs/configurable-provider-search-patterns.md) amended: FR6
+   (residue rule, incl. rendered-empty ≠ missing and the all-or-nothing example), FR7
+   (`query_source` derivation), FR8 (structured hints, manifest gate, operator deny, both paths),
+   FR9 ("Searched: …" caption from `searched[]`, replacing the never-built P1-a); AC-12–18; AC-10
+   narrowed to non-opted-in providers; P2-a promoted; test notes per FR.
 4. [ ] `/design-handoff` — the caption ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)):
    one muted line under the picker input, the stressed state for ≤ 10 entries, three skins.
 5. [ ] `/testing-strategy` — residue-rule table (lossless invariant: every dropped word present

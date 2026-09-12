@@ -24,11 +24,12 @@ story's to settle.
 
 ## Gates — definition of done
 
-- [/] spec `write-spec` — contract text landed (`metadata-provider-contract.md` §2.2 row +
-  example, §2.3 three `hint.*` rows + video example + `searched[]`, §4.9 residue row, **new §4.10**
-  deep-dive with the opt-in table / miss definition / provider obligations, §5 caps row). Still
-  open: F54 spec — replace the P1-a caption slot with "Searched: …"; ACs for `query_source`
-  derivation and the residue rule.
+- [x] spec `write-spec` — contract text (`metadata-provider-contract.md` §2.2 row + example, §2.3
+  three `hint.*` rows + video example + `searched[]`, §4.9 residue row, **new §4.10** deep-dive
+  with the opt-in table / miss definition / provider obligations, §5 caps row) **and** the F54 spec
+  amendment (FR6 residue rule incl. the honest all-or-nothing example, FR7 `query_source`, FR8
+  structured hints on both paths, FR9 "Searched: …" caption replacing P1-a; AC-12–18; AC-10
+  narrowed; P2-a promoted; test notes per FR)
 - [/] architecture `architecture` — ADR-095 drafted (D1–D8), indexed in `README.md`; number was
   reserved via `adr-claims.mjs` before drafting
 - [ ] design `design-handoff` — the picker caption (HOLODEX-369): one muted line under the input,
@@ -47,7 +48,7 @@ story's to settle.
 ## Up next — ordered (position = priority)
 
 1. [x] [M] Contract text — §2.2 / §2.3 / §4.9 / new §4.10 / §5, in PR #327.
-2. [ ] [S] F54 spec edit (gate 1's remaining half).
+2. [x] [S] F54 spec edit — FR6–FR9, AC-12–18, in PR #327.
 3. [ ] [M] `/design-handoff` for HOLODEX-369 (gate 3) — can run in parallel with 368.
 4. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
    branch's key).
@@ -69,3 +70,13 @@ story's to settle.
   provider's obligations wanted a home, and §5 is a caps table). Ticked ADR-095 AI 1–2.
 - Handoff: PR #327 now carries ADR + contract text; next is the F54 spec edit (caption slot →
   "Searched: …", ACs for `query_source` + residue), then `/design-handoff` for HOLODEX-369.
+
+### 2026-09-11 · F54 spec amended
+- skills: write-spec (by hand — the spec exists; amended in place rather than a new doc)
+- Added FR6–FR9 + AC-12–18 to F54, narrowed AC-10, struck the superseded Non-Goal / P1-a / P2-a
+  with pointers. Caught my own wrong example while writing: the residue rule is all-or-nothing, so
+  a title *with* residue keeps its duplication — the spec now shows that render honestly and says
+  why (decomposition is FR8's job, not a cleverer blob). Spec gate closed.
+- Handoff: PR #327 = ADR-095 + contract §2.2/2.3/4.9/4.10/5 + F54 FR6–FR9. Next:
+  `/design-handoff` for HOLODEX-369 (caption), then testing strategy + security review, then
+  mark ready. Backend story HOLODEX-368 can start any time — its spec is complete.
