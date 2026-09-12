@@ -116,8 +116,8 @@ additive idiom as ADR-056's `field_hints` and ADR-080's `preferred_search_patter
 a strictly-decoding provider.
 
 **Operator deny, `filename` only, default allow.** `enrich.Source` gains a per-source boolean in
-`metadata-sources.yaml` (e.g. `send_filename: false`) that withholds `hint.filename` from that provider
-even when it opts in. Default **allow**, per the Forces: the deny exists for operators who don't want
+`metadata-sources.yaml` — `send_filename: false` (settled in HOLODEX-368; unset means allow) — that
+withholds `hint.filename` from that provider even when it opts in. Default **allow**, per the Forces: the deny exists for operators who don't want
 basenames leaving the box, not as a fleet posture. There is no operator deny for `fields` — those
 values are already what the §4.9 blob sends today, just delimited.
 
@@ -174,11 +174,15 @@ submit, so the re-render differs) classifies as `"user"` — benign: the provide
 
 At §4.9 render time — and **only** there — tokenize the sanitized title (case-insensitive, Unicode
 word tokens) and strip every token that matches the resolved studio, any resolved performer, or any
-date token (`YYYY`, `YYYY-MM-DD`, `YY.MM.DD` and the like). If **no Unicode alphanumeric residue**
-remains, the `{title}` / `{title?}` token renders empty for this pass. Lossless by construction: every
-word dropped is already present in the query from the token that matched it. Provenance-independent:
-it keys on content, not on whether `file:title` came from a tag or a stem, because there is no such
-marker (ADR-093).
+date token (`YYYY`, `YYYY-MM-DD`, `YY.MM.DD` and the like) — judged against the tokens **in the tier
+being rendered**: studio words only when the pattern has `{studio}`, performer words only with
+`{performers}`, dates only with `{year}`. If **no Unicode alphanumeric residue** remains, the
+`{title}` / `{title?}` token renders empty for this pass. Lossless by construction: every word
+dropped is already present in the query from the token that matched it — which is exactly why the
+rule is pattern-aware (*HOLODEX-368 code review: a content-only rule rendered `{title} {year?}` as a
+bare year for a stem-titled file, dropping words no other token in that query carried*).
+Provenance-independent: it keys on content, not on whether `file:title` came from a tag or a stem,
+because there is no such marker (ADR-093).
 
 **A residue-dropped `{title}` is *rendered-empty*, not *missing*.** It does not trip ADR-080 D3's
 required-token failure and fall the tier through — if it did, the tier would collapse to the
@@ -414,10 +418,14 @@ decoder's existing rule.
    state is a §12 geometry assertion); six Critical invariants; a §9 adversarial block; a §11 gap
    entry naming the three traps (golden edited to pass, the two rejected residue variants, the
    missing `enrich-picker-open` harness preparation).
-6. [ ] **Implementation — request side** ([HOLODEX-368](https://whoiskevinrich.atlassian.net/browse/HOLODEX-368)):
-   `Manifest.ResolveHints`; `Source` deny flag; `Hint{Fields, Filename, QuerySource}`; residue rule
-   in `query.go`; `enrichVideoResolve` derives `query_source`; `enrichQueryHint`/`refreshOneProvider`
-   build per-provider hints; `searched[]` decoded and recorded into `job_runs.detail`.
+6. [x] **Implementation — request side** ([HOLODEX-368](https://whoiskevinrich.atlassian.net/browse/HOLODEX-368)):
+   `Manifest.ResolveHints`; `Source.SendFilename` deny flag; `Hint{Fields, Filename, QuerySource}`;
+   residue rule in `query.go`; `enrichVideoResolve` derives `query_source`;
+   `enrichQueryHint`/`refreshOneProvider` build per-provider hints; `searched[]` decoded
+   (`ResolveResult`) and recorded into `job_runs.detail`. One implementation note: the gate lives
+   in `Service.Resolve` (`gateHint`), against the manifest the same call just fetched — the api
+   layer builds the full hint unconditionally, so there is no cold-cache window where an opted-in
+   provider's first resolve after boot goes out ungated-down.
 7. [x] `/security-review` (2026-09-11, on the ADR/contract posture — the PR is docs-only) — **one
    finding, fixed in the same PR:** D2 as first drafted sent *any* canonical field the provider
    advertised, which would have put `overview`/`tagline` (owner free text: a file's `Comment` tag,

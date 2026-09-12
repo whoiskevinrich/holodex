@@ -193,9 +193,15 @@ the owner can still freely retype the box; this changes the seeded default only.
 At FR3 render time, and only there, tokenize the FR4-sanitized title (case-insensitive, Unicode word
 tokens) and strip every token that equals a token of the resolved studio, of any resolved performer
 (`actors` + `director`, **all** of them, not just the `{performers}` top-3), or a date token
-(`YYYY`, `YYYY-MM-DD`, `YY.MM.DD`, `DD.MM.YY`). If no Unicode alphanumeric residue remains, the
-`{title}` / `{title?}` token renders **empty for this pass**. This is the fix for a fresh file whose
-`title` *is* its filename stem repeating the studio and every performer twice in the rendered query.
+(`YYYY`, `YYYY-MM-DD`, `YY.MM.DD`, `DD.MM.YY`) — **but only against the tokens the tier being
+rendered actually contains**: studio words count only when the pattern has `{studio}`, performer
+words only with `{performers}`, dates only with `{year}` *(settled in HOLODEX-368's code review —
+a content-only rule turned `{title} {year?}` into a bare year for a stem-titled file, losing the
+studio and cast from a query nothing else would carry them in)*. If no Unicode alphanumeric residue
+remains, the `{title}` / `{title?}` token renders **empty for this pass**. This is the fix for a
+fresh file whose `title` *is* its filename stem repeating the studio and every performer twice in
+the rendered query, and it is lossless exactly: every word dropped is present in the query from the
+token that matched it.
 
 **A residue-empty `{title}` is rendered-empty, not missing.** It does **not** trip FR3's
 required-token tier failure — if it did, the tier would fall through to FR4's title-only floor and
@@ -216,6 +222,8 @@ redundant with) and does not touch FR8's `hint.fields`.
   from its other tokens — the tier is **not** skipped.
 - **Given** a title `acme pictures ada lovelace` (lowercase) against studio `Acme Pictures`, **then**
   it renders empty — matching is case-insensitive.
+- **Given** `{title} {year?}` and the same stem-titled video, **then** the title renders **in full**
+  — that tier has no `{studio}` or `{performers}` token to have already said those words.
 
 #### FR7 — `hint.query_source`: is the query Holodex's render or the owner's? *(ADR-095 D4)*
 

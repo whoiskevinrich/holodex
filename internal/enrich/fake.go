@@ -20,6 +20,16 @@ type Fake struct {
 	Studios  map[string]FakePerson // keyed by external id (e.g. "tmdb:10342")
 	Films    map[string]FakePerson // keyed by external id (e.g. "tmdb:129")
 	Calls    int                   // number of network-equivalent calls made
+	// ResolveHints / ExtraFields shape the /describe manifest for ADR-095 tests:
+	// the resolve_hints opt-in list, and extra advertised field keys (the canned
+	// Fields list is person/studio-shaped and names none of the video search keys).
+	ResolveHints []string
+	ExtraFields  []string
+	// Searched is echoed back on every Resolve as the provider's searched[] reply
+	// (ADR-095 D6); LastHint records the hint the most recent Resolve received, AFTER
+	// the Service's gate — what a real provider would have seen on the wire.
+	Searched []string
+	LastHint Hint
 }
 
 // FakePerson is one canned upstream record (used for people, studios, and video
@@ -110,21 +120,23 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		ProtocolVersion: p,
 		EntityTypes:     []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityFilm},
 		IDNamespaces:    []string{"tmdb", "imdb"},
-		Fields:          []string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"},
+		Fields:          append([]string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"}, f.ExtraFields...),
 		AssetKinds:      []string{"photo", "logo", "poster"},
+		ResolveHints:    f.ResolveHints,
 	}, nil
 }
 
-func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) ([]Candidate, error) {
+func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (ResolveResult, error) {
 	f.Calls++
+	f.LastHint = hint
 	records := f.records(entityType)
 	// Embedded-id path: echo back any provided id as a strong match.
 	for _, id := range hint.ExternalIDs {
 		if p, ok := records[id]; ok {
-			return []Candidate{{
+			return ResolveResult{Candidates: []Candidate{{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
 				Confidence: 1, ProfileURL: p.ProfileURL,
-			}}, nil
+			}}, Searched: f.Searched}, nil
 		}
 	}
 	// Name-search fallback: substring match on the canned labels.
@@ -138,7 +150,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) ([]Candi
 			})
 		}
 	}
-	return out, nil
+	return ResolveResult{Candidates: out, Searched: f.Searched}, nil
 }
 
 func (f *Fake) Enrich(_ context.Context, entityType, externalID string) (EnrichResult, error) {

@@ -37,9 +37,14 @@ story's to settle.
   side-by-side mockup; caption is its own `<p>` under the aria-live status line in every state,
   ink for the query / muted for the label, `<ol>` `max-h-24` scrolling at 10 entries, toggle joins
   the existing tab trap unchanged, batch path = `searched:` prefix on the existing detail line
-- [ ] backend — HOLODEX-368: `Manifest.ResolveHints`, `Source` deny flag, `Hint{Fields, Filename,
-  QuerySource}`, residue rule in `query.go`, `query_source` derived in `enrichVideoResolve`,
-  per-provider hints inside `refreshOneProvider`, `searched[]` decoded → `job_runs.detail`
+- [x] backend — HOLODEX-368: `Manifest.ResolveHints`, `Source.SendFilename` (`send_filename: false`,
+  default allow), `Hint{Fields, Filename, QuerySource}`, `ResolveResult{Candidates, Searched}`,
+  the manifest gate `gateHint` inside `Service.Resolve` (against the manifest the same call fetched
+  — no cold-cache window), residue rule in `query.go` (**pattern-aware**, see 2026-09-11 log),
+  `query_source` derived in `enrichVideoResolve`, per-provider hints via `enrichQueryHint`'s
+  `hintFor(provider)` inside the fan-out, `searched[]` sanitized → interactive response +
+  `job_runs.detail` on the batch path (`RecordSearched`). Wire golden + gate + residue + both-path
+  tests; `/code-review high --fix` + `/security-review` (clean) run on the diff
 - [ ] frontend — HOLODEX-369: caption from `searched[]`
 - [x] testing `testing-strategy` — `docs/testing-strategy.md`: §4 row (manifest-gate golden vs the
   ADR-080 golden, deny + explicit default-allow, `fields` ∩ advertised, `Base()` verbatim,
@@ -54,8 +59,10 @@ story's to settle.
   §2.3/§4.10, F54 FR8/AC-15, testing-strategy row + invariant + §9 case, README row all amended.
   Confirmed clean: opt-in + deny layering, `Base()` only, `/admin/activity/*` under `requireOwner`
   + `redactFileMetadataForVisitor` keep basenames owner-only, `searched[]` on the existing
-  `SanitizeValue` perimeter, SSRF allowlist unchanged, `query_source` server-derived. **Re-review
-  owed on HOLODEX-368's code diff.**
+  `SanitizeValue` perimeter, SSRF allowlist unchanged, `query_source` server-derived. **Re-reviewed
+  on HOLODEX-368's code diff (2026-09-11): clean** — one Low candidate (`fields.title` = stem for an
+  untagged file under `send_filename: false`) filtered as by-design (D1 scopes the deny to
+  `filename`; the same stem words already ride `hint.query`; example config says so).
 
 ## Up next — ordered (position = priority)
 
@@ -64,8 +71,11 @@ story's to settle.
 3. [x] [M] `/design-handoff` for HOLODEX-369 — in PR #327.
 4. [x] [M] `/testing-strategy` — in PR #327.
 5. [x] [M] `/security-review` — design posture, in PR #327 (finding fixed in-PR).
-6. [ ] [M] Build HOLODEX-368 (request side) on this branch; then HOLODEX-369 (caption). Re-run
-   `/security-review` on the code diff before marking the PR ready.
+6. [x] [M] Build HOLODEX-368 (request side) on this branch — in PR #327; `/security-review` re-run
+   on the code diff (clean).
+6a. [ ] [M] Build HOLODEX-369 (caption) on this branch — `EnrichPicker.svelte` reads `searched[]`
+   from the resolve response (already emitted), per the design handoff + QA checklist; `api.ts`
+   type gains `searched?: string[]`.
 7. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
    branch's key).
 
@@ -115,6 +125,23 @@ story's to settle.
   preparation that doesn't exist yet.
 - Handoff: one gate left on PR #327 — `/security-review` (raw basename to opted-in providers) —
   then mark ready. Nothing in the PR is code; the review is of the ADR/contract posture.
+
+### 2026-09-11 · HOLODEX-368 built (request side)
+- skills: code-review, security-review
+- Implemented ADR-095 D1–D5 + D8 and the `searched[]` decode (D6 request-side half). Design calls
+  that were mine: the opt-in gate lives in `Service.Resolve` against the just-fetched manifest
+  (not a lazily-warmed cache like `preferredPatterns`) so an opted-in provider's first resolve
+  after boot is already structured; the batch path records a `(N candidates) · searched: …`
+  enrich-kind activity row **only** when the provider emitted `searched[]` (no new rows for
+  providers that don't); `SanitizeTitle` export removed (its only caller was the old batch hint).
+  `/code-review high --fix` found one real gap — the content-based residue rule turned
+  `{title} {year?}` into a bare year for a stem-titled file — owner chose **pattern-aware**
+  (strip studio words only with `{studio}` in the tier, performers only with `{performers}`,
+  dates only with `{year}`); FR6, ADR-095 D5, contract §4.9 and the testing-strategy row amended
+  in the same push. `/security-review` on the code diff: clean.
+- Handoff: PR #327 (still Draft) now carries the full request side; the provider can opt in
+  today. Next: HOLODEX-369 — the picker caption — then mark the PR ready and sweep 368/369 with
+  the epic.
 
 ### 2026-09-11 · security review of the design
 - skills: security-review

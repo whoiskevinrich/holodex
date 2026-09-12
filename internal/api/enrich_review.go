@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -151,7 +152,7 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			writeError(w, http.StatusServiceUnavailable, "enrichment unavailable")
 			return
 		}
-		hint, ok := h.enrichQueryHint(w, r, entityType, id)
+		hintFor, ok := h.enrichQueryHint(w, r, entityType, id)
 		if !ok {
 			return
 		}
@@ -188,7 +189,9 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			go func(i int, name string) {
 				defer wg.Done()
 				externalID, isLinked := linked[name]
-				res, skip := h.refreshOneProvider(r, entityType, id, name, hint, externalID, isLinked)
+				// Per-provider hint, built inside the goroutine (ADR-095 D8): each
+				// provider gets its own ADR-080 render and its own opted-in keys.
+				res, skip := h.refreshOneProvider(r, entityType, id, name, hintFor(name), externalID, isLinked)
 				changed := !skip && (res.Status == "refreshed" || res.Status == "auto_applied")
 				outcomes[i] = outcome{res: res, skip: skip, changed: changed}
 			}(i, src.Name)
@@ -247,10 +250,15 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 		return refreshAllResult{}, true // RD4: never re-resolved until an explicit "Try again"
 	}
 
-	cands, err := h.enrich.Resolve(ctx, provider, entityType, hint)
+	started := time.Now()
+	res, err := h.enrich.Resolve(ctx, provider, entityType, hint)
 	if err != nil {
 		return noCandidates("refresh-all resolve failed", err)
 	}
+	// The only trace an unattended resolve leaves of what was actually tried
+	// (ADR-095 D6) — a no-op when the provider reported nothing.
+	h.enrich.RecordSearched(started, provider, entityType, id, res)
+	cands := res.Candidates
 	if strong, ok := enrich.SingleStrongMatch(cands); ok {
 		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, strong.ExternalID, h.auth.authorized(r))
 		if err != nil {
@@ -334,48 +342,55 @@ func (h *Handlers) enrichEntityLookup(w http.ResponseWriter, r *http.Request, en
 	}
 }
 
-// enrichQueryHint resolves an entity (404/409 on failure) and builds the /resolve hint
-// refresh-all uses for an unlinked provider — the entity's own name, plus (video only)
-// any embedded IMDb id (videoHint, shared with enrichVideoResolve). One hint is shared
-// across every provider in the fan-out (enrichRefreshAll), so this deliberately does
-// not render a per-provider pattern (ADR-080 D2) the way getMedia's enrich_queries
-// does for the interactive picker — only the video's title is known here, common to
-// every provider. It does still owe the D4 sanitizer, which has no config gate and
-// applies to "the raw-title floor tier... wherever it is used": a fresh, un-enriched
-// video's title is exactly the case D4 exists for, and refresh-all is exactly the kind
-// of automated, no-owner-review call that should never send the literal messy title.
-func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entityType string, id int64) (enrich.Hint, bool) {
+// enrichQueryHint resolves an entity (404/409 on failure) and returns the builder of
+// the /resolve hint refresh-all sends an unlinked provider, keyed by provider name.
+// Person/studio/film hints are the entity's own name, the same for every provider.
+// A video's hint is built PER PROVIDER (ADR-095 D8): the provider's own ADR-080
+// render of the video's resolved fields (providerQuery — the same chain the
+// interactive picker is seeded from, closing ADR-080 AI5's shared-title scope trim),
+// query_source "pattern" (nobody typed it), any embedded IMDb id, and the structured
+// keys videoHint always builds — the batch path is the one with no owner present to
+// retype the query, so it is where a better-aimed hint matters most. The resolve
+// happens once, here; only the render is per provider.
+func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entityType string, id int64) (hintFor func(provider string) enrich.Hint, ok bool) {
+	same := func(hint enrich.Hint) func(string) enrich.Hint {
+		return func(string) enrich.Hint { return hint }
+	}
 	switch entityType {
 	case model.EnrichEntityPerson:
 		p, err := h.repo.GetPerson(r.Context(), id)
 		if err != nil {
 			h.personLookupError(w, err)
-			return enrich.Hint{}, false
+			return nil, false
 		}
-		return enrich.Hint{Query: p.Name}, true
+		return same(enrich.Hint{Query: p.Name}), true
 	case model.EnrichEntityStudio:
 		s, err := h.repo.GetStudio(r.Context(), id)
 		if err != nil {
 			h.studioLookupError(w, err)
-			return enrich.Hint{}, false
+			return nil, false
 		}
-		return enrich.Hint{Query: s.Name}, true
+		return same(enrich.Hint{Query: s.Name}), true
 	case model.EnrichEntityVideo:
-		v, _, err := h.repo.GetVideo(r.Context(), id)
+		v, resolved, err := h.videoResolveInputs(r.Context(), id)
 		if err != nil {
 			h.videoLookupError(w, err)
-			return enrich.Hint{}, false
+			return nil, false
 		}
-		return videoHint(v, enrich.SanitizeTitle(v.Title)), true
+		fields := queryFieldsFrom(v, resolved)
+		return func(provider string) enrich.Hint {
+			src, _ := h.enrich.Store().Current().ByName(provider)
+			return videoHint(v, resolved, h.providerQuery(src, fields), enrich.QuerySourcePattern)
+		}, true
 	case model.EnrichEntityFilm:
 		f, err := h.repo.GetFilm(r.Context(), id)
 		if err != nil {
 			h.filmLookupError(w, err)
-			return enrich.Hint{}, false
+			return nil, false
 		}
-		return enrich.Hint{Query: f.Name}, true
+		return same(enrich.Hint{Query: f.Name}), true
 	default:
 		writeError(w, http.StatusBadRequest, "unknown entity type")
-		return enrich.Hint{}, false
+		return nil, false
 	}
 }

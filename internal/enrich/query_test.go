@@ -185,3 +185,150 @@ func TestSourceBuildQuery_WireContractUnaffectedByPatternChoice(t *testing.T) {
 		t.Errorf("BuildQuery must never populate anything beyond Query")
 	}
 }
+
+// ADR-095 D5 / F54 FR6: the residue rule. A {title} whose every word the resolved
+// studio, ANY resolved performer, or a date token already accounts for renders
+// EMPTY — and the tier still renders from its other tokens (rendered-empty is not
+// missing; a required {title} must not fall the tier through to the floor, which
+// would resend exactly the duplication the rule removes). One word of residue keeps
+// the WHOLE title, duplication included — all-or-nothing, never a rewrite.
+func TestSourceBuildQuery_ResidueRule(t *testing.T) {
+	pattern := "{studio} {title} {performers} {year}"
+	base := QueryFields{
+		Studio:      "Acme Pictures",
+		Performers:  []string{"Ada Lovelace", "Grace Hopper", "Alan Turing", "Edsger Dijkstra"}, // 4 > performersCap
+		ReleaseDate: "2023-08-01",
+	}
+	cases := []struct {
+		name  string
+		title string
+		want  string
+	}{
+		{
+			"the spec's worked example: exactly studio + performer + ISO date renders empty",
+			"Acme Pictures Ada Lovelace 2023-08-01",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"residue keeps the WHOLE title, duplication included (all-or-nothing)",
+			"Acme Pictures Ada Lovelace The Engine",
+			"Acme Pictures Acme Pictures Ada Lovelace The Engine Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"case-insensitive: a lowercase stem still matches",
+			"acme pictures ada lovelace",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"strips against ALL performers, not the {performers} top-3",
+			"Edsger Dijkstra Acme Pictures",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"bare YYYY date token",
+			"Acme Pictures 2023",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"YY.MM.DD date token",
+			"Acme Pictures Grace Hopper 23.08.01",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"DD.MM.YYYY date token",
+			"Ada Lovelace 01.08.2023",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"punctuation-only leftovers are not residue (the story's 'MyStudio MyPerformer -')",
+			"Acme Pictures Ada Lovelace -",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"a possessive is residue: 'Lovelace's' leaves an 's' the cast does not cover",
+			"Ada Lovelace's Big Day",
+			"Acme Pictures Ada Lovelace's Big Day Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"a non-ASCII word is residue",
+			"Acme Pictures Ada Lovelace Übung",
+			"Acme Pictures Acme Pictures Ada Lovelace Übung Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"a number that is not a date shape is residue (Agent 007 stays)",
+			"Acme Pictures 007",
+			"Acme Pictures Acme Pictures 007 Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+		{
+			"the D4 sanitizer runs first: brackets, commas and 1080p are not residue",
+			"[Acme Pictures] Ada Lovelace, Grace Hopper (2023-08-01) 1080p",
+			"Acme Pictures Ada Lovelace Grace Hopper Alan Turing 2023",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := base
+			f.Title = c.title
+			if got := (Source{SearchPattern: pattern}).BuildQuery(f, "", ""); got != c.want {
+				t.Errorf("BuildQuery(title=%q)\n got %q\nwant %q", c.title, got, c.want)
+			}
+		})
+	}
+}
+
+// A residue-empty REQUIRED {title} does not fail the tier: the render still happens
+// from the other tokens (assert the render, not the floor), and the optional form
+// behaves identically.
+func TestSourceBuildQuery_ResidueEmptyRequiredTitleDoesNotFallThrough(t *testing.T) {
+	f := QueryFields{Studio: "Acme", Title: "Acme Ada", Performers: []string{"Ada"}, ReleaseDate: "2019"}
+	for _, pattern := range []string{"{studio} {title} {performers}", "{studio} {title?} {performers}"} {
+		// The floor would be the sanitized title "Acme Ada" — the duplicated form the
+		// rule exists to prevent; the render "Acme Ada" from studio+performers is the
+		// same string by coincidence, so assert through a default pattern that differs.
+		if got := (Source{SearchPattern: pattern}).BuildQuery(f, "", "{year}"); got != "Acme Ada" {
+			t.Errorf("pattern %q: got %q, want the tier render %q (not the {year} fallback)", pattern, got, "Acme Ada")
+		}
+	}
+	// A pattern whose ONLY token is a residue-empty title has nothing to render and
+	// falls through as before — to the floor, where a lone title is never redundant.
+	if got := (Source{SearchPattern: "{title}"}).BuildQuery(f, "", ""); got != "Acme Ada" {
+		t.Errorf("{title}-only: got %q, want the sanitized-title floor %q", got, "Acme Ada")
+	}
+}
+
+// The residue rule never touches the floor tier: with no pattern configured at all
+// the sanitized title is sent even when it is exactly the studio + performers.
+func TestSourceBuildQuery_ResidueRuleSkipsFloor(t *testing.T) {
+	f := QueryFields{Studio: "Acme", Title: "Acme Ada", Performers: []string{"Ada"}}
+	if got := (Source{}).BuildQuery(f, "", ""); got != "Acme Ada" {
+		t.Errorf("floor: got %q, want %q", got, "Acme Ada")
+	}
+}
+
+// With no studio/performers resolved at all, an ordinary stem is all residue and
+// renders in full — the rule only ever removes words another token already says.
+func TestSourceBuildQuery_ResidueRuleNothingToBeRedundantWith(t *testing.T) {
+	f := QueryFields{Title: "Some Stem 2023", ReleaseDate: "2023"}
+	if got := (Source{SearchPattern: "{studio?} {title} {year?}"}).BuildQuery(f, "", ""); got != "Some Stem 2023 2023" {
+		t.Errorf("got %q, want %q", got, "Some Stem 2023 2023")
+	}
+}
+
+// The rule is judged against the tokens IN the tier being rendered (code review of
+// HOLODEX-368): a pattern without {studio}/{performers} never loses those words from
+// the title, because nothing else in that query would carry them — the lossless
+// invariant holds exactly, not just for the four-token pattern.
+func TestSourceBuildQuery_ResidueRuleIsPatternAware(t *testing.T) {
+	f := QueryFields{Studio: "Acme", Title: "Acme Ada 2023-08-01", Performers: []string{"Ada"}, ReleaseDate: "2023-08-01"}
+	cases := []struct{ pattern, want string }{
+		{"{title} {year?}", "Acme Ada 2023-08-01 2023"},                   // no studio/performers token: nothing to be redundant with
+		{"{studio} {title}", "Acme Acme Ada 2023-08-01"},                  // "Ada" and the date have no token here => residue => whole title
+		{"{studio} {title} {performers}", "Acme Acme Ada 2023-08-01 Ada"}, // the date alone is residue without {year}
+		{"{studio} {title} {performers} {year}", "Acme Ada 2023"},
+	}
+	for _, c := range cases {
+		if got := (Source{SearchPattern: c.pattern}).BuildQuery(f, "", ""); got != c.want {
+			t.Errorf("pattern %q: got %q, want %q", c.pattern, got, c.want)
+		}
+	}
+}

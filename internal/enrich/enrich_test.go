@@ -166,8 +166,8 @@ func TestHTTPClientContract(t *testing.T) {
 	if m, err := c.Describe(ctx); err != nil || m.ProtocolVersion != 1 {
 		t.Fatalf("describe: %+v err=%v", m, err)
 	}
-	if cands, err := c.Resolve(ctx, "person", Hint{Query: "x"}); err != nil || len(cands) != 1 {
-		t.Fatalf("resolve: %v err=%v", cands, err)
+	if res, err := c.Resolve(ctx, "person", Hint{Query: "x"}); err != nil || len(res.Candidates) != 1 {
+		t.Fatalf("resolve: %v err=%v", res, err)
 	}
 	if res, err := c.Enrich(ctx, "person", "tmdb:1"); err != nil || len(res.Fields["bio"]) != 1 {
 		t.Fatalf("enrich: %+v err=%v", res, err)
@@ -203,10 +203,11 @@ func TestServiceResolveEnrichClear(t *testing.T) {
 	svc, _ := newSvc(t, NewFake("fake"))
 	ctx := context.Background()
 
-	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityPerson, Hint{Query: "miyazaki"})
+	res, err := svc.Resolve(ctx, "fake", model.EnrichEntityPerson, Hint{Query: "miyazaki"})
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
+	cands := res.Candidates
 	if len(cands) != 1 || cands[0].ExternalID != "tmdb:608" {
 		t.Fatalf("candidates = %+v", cands)
 	}
@@ -259,10 +260,11 @@ func TestServiceResolveSanitizesProfileURL(t *testing.T) {
 	svc, _ := newSvc(t, fake)
 	ctx := context.Background()
 
-	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityPerson, Hint{Query: "match"})
+	res, err := svc.Resolve(ctx, "fake", model.EnrichEntityPerson, Hint{Query: "match"})
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
+	cands := res.Candidates
 	got := map[string]string{}
 	for _, c := range cands {
 		got[c.ExternalID] = c.ProfileURL
@@ -282,10 +284,11 @@ func TestServiceStudioEnrich(t *testing.T) {
 	svc, _ := newSvc(t, NewFake("fake"))
 	ctx := context.Background()
 
-	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityStudio, Hint{Query: "ghibli"})
+	res, err := svc.Resolve(ctx, "fake", model.EnrichEntityStudio, Hint{Query: "ghibli"})
 	if err != nil {
 		t.Fatalf("resolve studio: %v", err)
 	}
+	cands := res.Candidates
 	if len(cands) != 1 || cands[0].ExternalID != "tmdb:10342" {
 		t.Fatalf("candidates = %+v", cands)
 	}
@@ -328,10 +331,11 @@ func TestServiceFilmEnrich(t *testing.T) {
 	svc, _ := newSvc(t, NewFake("fake"))
 	ctx := context.Background()
 
-	cands, err := svc.Resolve(ctx, "fake", model.EnrichEntityFilm, Hint{Query: "spirited"})
+	res, err := svc.Resolve(ctx, "fake", model.EnrichEntityFilm, Hint{Query: "spirited"})
 	if err != nil {
 		t.Fatalf("resolve film: %v", err)
 	}
+	cands := res.Candidates
 	if len(cands) != 1 || cands[0].ExternalID != "tmdb:129" {
 		t.Fatalf("candidates = %+v", cands)
 	}

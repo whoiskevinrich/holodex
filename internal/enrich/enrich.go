@@ -48,6 +48,19 @@ type Source struct {
 	// the {name}/{name?} grammar. Validated at config-load time by parse(); an
 	// unknown token name drops just this value (logged, provider unaffected).
 	SearchPattern string `yaml:"search_pattern"`
+	// SendFilename is the operator's per-source deny for hint.filename (ADR-095 D1):
+	// `send_filename: false` withholds the media basename from this provider even
+	// when its /describe opts into it. A pointer so "unset" is distinguishable from
+	// an explicit false — unset means ALLOW. The default is the recall-preserving
+	// one on purpose: the deny exists for an operator who doesn't want basenames
+	// leaving the box, not as a fleet posture. Read through FilenameAllowed.
+	SendFilename *bool `yaml:"send_filename"`
+}
+
+// FilenameAllowed reports whether the operator permits hint.filename for this source
+// (ADR-095 D1) — true unless `send_filename: false` was set explicitly.
+func (s Source) FilenameAllowed() bool {
+	return s.SendFilename == nil || *s.SendFilename
 }
 
 // Supports reports whether the source advertises an entity type (case-insensitive).
@@ -254,6 +267,15 @@ type Manifest struct {
 	// Untrusted provider input; validated (ValidateLinkTemplate) and cached by the
 	// Service on every /describe, same posture as FieldHints/PreferredSearchPattern.
 	LinkTemplates map[string]map[string]string `json:"link_templates,omitempty"`
+	// ResolveHints is the provider's opt-in to ADR-095's structured /resolve hints —
+	// any of ResolveHintFields / ResolveHintFilename. Holodex sends hint.fields only to
+	// a provider that lists "fields", hint.filename only to one that lists "filename",
+	// and hint.query_source with either; a provider that omits the key receives a
+	// request byte-identical to pre-ADR-095 (§2.3 promises nothing about unknown
+	// request keys, so this is the only honest way to add them without a protocol
+	// bump). Unknown entries are ignored — same additive posture as FieldHints /
+	// PreferredSearchPattern. Video only; gated in Service.Resolve (gateHint).
+	ResolveHints []string `json:"resolve_hints,omitempty"`
 }
 
 // IconRef is a single provider-level image reference — currently only the brand icon
@@ -330,9 +352,44 @@ func sanitizeHintLabel(s string) string {
 
 // Hint is the identity input to a resolve call: embedded external ids (the
 // deterministic path) and/or a free-text name query (the fallback).
+//
+// Fields, Filename and QuerySource are ADR-095's structured hints (video only).
+// Callers populate them unconditionally; Service.Resolve gates each against the
+// provider's /describe.resolve_hints opt-in and the operator's Source.SendFilename
+// deny (gateHint) before anything reaches the wire, so a provider that did not ask
+// receives exactly the pre-ADR-095 request.
 type Hint struct {
 	Query       string   `json:"query,omitempty"`
 	ExternalIDs []string `json:"external_ids,omitempty"`
+	// Fields carries the video's RESOLVED values (post-decision, post-curation) for
+	// the SearchFieldKeys vocabulary, /enrich-shaped ({canonical: [values…]}), as-is —
+	// no sanitizer, no redundancy filtering, every surviving value (no performersCap):
+	// the point of structure is that the provider decides what to use (D2).
+	Fields map[string][]string `json:"fields,omitempty"`
+	// Filename is the media basename verbatim — extension, brackets, parens and
+	// commas intact, never a directory component (D3). The one input a written-back
+	// wrong match cannot poison: Holodex never renames media.
+	Filename string `json:"filename,omitempty"`
+	// QuerySource is QuerySourcePattern when Query is Holodex's own ADR-080 render and
+	// QuerySourceUser when the owner typed it — derived server-side, never trusted
+	// from the client (D4).
+	QuerySource string `json:"query_source,omitempty"`
+}
+
+// Hint.QuerySource values (ADR-095 D4).
+const (
+	QuerySourcePattern = "pattern"
+	QuerySourceUser    = "user"
+)
+
+// ResolveResult is a provider's `POST /resolve` reply: the ranked candidates plus,
+// optionally, the upstream queries it actually issued (ADR-095 D6, contract §2.3).
+// Searched is nil when the provider omitted the key — callers render nothing, not an
+// empty slot. Not gated by resolve_hints: the decoder ignores unknown response keys,
+// so a provider may emit it before Holodex reads it.
+type ResolveResult struct {
+	Candidates []Candidate `json:"candidates"`
+	Searched   []string    `json:"searched,omitempty"`
 }
 
 // Candidate is one ranked match from `POST /resolve`. Confidence stays
@@ -411,6 +468,6 @@ type Asset struct {
 // (client.go) is the production impl; tests inject a fake.
 type ProviderClient interface {
 	Describe(ctx context.Context) (Manifest, error)
-	Resolve(ctx context.Context, entityType string, hint Hint) ([]Candidate, error)
+	Resolve(ctx context.Context, entityType string, hint Hint) (ResolveResult, error)
 	Enrich(ctx context.Context, entityType, externalID string) (EnrichResult, error)
 }

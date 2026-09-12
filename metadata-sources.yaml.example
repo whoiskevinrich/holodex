@@ -47,6 +47,16 @@
 #                 not any pattern is configured, the plain title fallback is always
 #                 sanitized (bracket/comma punctuation and 720p/1080p/4k-style
 #                 resolution tokens stripped) — that part has no on/off switch.
+#   send_filename
+#                 (video only, ADR-095) set to false to withhold the media file's
+#                 basename from this provider even when its /describe opts into
+#                 receiving it (resolve_hints: ["filename"]). Default: allowed —
+#                 a provider with a filename/release matcher gets far better recall
+#                 from the raw bracketed basename than from any composed query, so
+#                 the deny is for operators who don't want basenames leaving the
+#                 box, not a fleet posture. Only the basename is ever sent, never a
+#                 directory. A provider that doesn't opt in receives nothing either
+#                 way; this flag has no effect on hint.fields.
 
 sources:
   - name: tmdb
@@ -55,6 +65,7 @@ sources:
     asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait + studio-logo downloads
     enabled: false
     # search_pattern: "{studio?} {title?} {performers?} {year?}"
+    # send_filename: false
 
 # default_search_pattern applies to any enabled, video-capable provider above that sets
 # neither its own search_pattern nor advertises a preferred_search_pattern via /describe

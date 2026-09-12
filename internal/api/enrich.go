@@ -1,14 +1,17 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"path/filepath"
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
@@ -19,14 +22,98 @@ import (
 var imdbPathRe = regexp.MustCompile(`\{imdb-(tt\d+)\}`)
 
 // videoHint builds a /resolve hint for a video: the given query plus, if the video's
-// path carries an embedded IMDb id, that id as a deterministic external-id hint.
-// Shared by enrichVideoResolve and refresh-all's enrichQueryHint (enrich_review.go).
-func videoHint(v *model.Video, query string) enrich.Hint {
-	hint := enrich.Hint{Query: query}
+// path carries an embedded IMDb id, that id as a deterministic external-id hint —
+// and ADR-095's structured hints, built unconditionally here: the resolved values of
+// the five search fields (D2, as-is), the media basename (D3, verbatim — never a
+// directory component), and querySource (D4). Whether any of those actually reach
+// the provider is enrich.Service.Resolve's call, against the provider's manifest
+// opt-in and the operator's deny; this builder does not know or care. Shared by
+// enrichVideoResolve and refresh-all's enrichQueryHint (enrich_review.go).
+func videoHint(v *model.Video, resolved []resolver.ResolvedField, query, querySource string) enrich.Hint {
+	hint := enrich.Hint{
+		Query:       query,
+		Fields:      searchFieldValues(v, resolved),
+		Filename:    filepath.Base(v.FilePath),
+		QuerySource: querySource,
+	}
 	if m := imdbPathRe.FindStringSubmatch(v.FilePath); m != nil {
 		hint.ExternalIDs = []string{"imdb:" + m[1]}
 	}
 	return hint
+}
+
+// searchFieldValues projects a video's resolved fields onto hint.fields' vocabulary
+// (enrich.SearchFieldKeys): every surviving value of each, /enrich-shaped. The title
+// falls back to the raw video title when no mapping resolved one — the same
+// baseline queryFieldsFrom renders the {title} token from.
+func searchFieldValues(v *model.Video, resolved []resolver.ResolvedField) map[string][]string {
+	out := map[string][]string{}
+	for _, key := range enrich.SearchFieldKeys {
+		if vals := resolvedValues(resolved, key); len(vals) > 0 {
+			out[key] = vals
+		}
+	}
+	if len(out["title"]) == 0 && v.Title != "" {
+		out["title"] = []string{v.Title}
+	}
+	return out
+}
+
+// videoResolveInputs fetches a video and resolves the five search fields
+// (enrich.SearchFieldKeys) the /resolve hint and the ADR-080 query render both read —
+// the same mapped-field resolve the link derivation (relinkVideoPeople) runs, so the
+// values sent to a provider are exactly the ones the owner's decisions and curation
+// produced. A missing/soft-deleted video is repo.ErrNotFound (videoLookupError → 404);
+// no mapping configured resolves nothing, and callers fall back to the raw title.
+func (h *Handlers) videoResolveInputs(ctx context.Context, id int64) (*model.Video, []resolver.ResolvedField, error) {
+	rc, err := h.loadRelinkContext(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rc == nil {
+		return nil, nil, repo.ErrNotFound
+	}
+	if h.mappings == nil {
+		return rc.video, nil, nil
+	}
+	m := h.mappings.Current()
+	var fields []mapping.Field
+	for _, key := range enrich.SearchFieldKeys {
+		if f, ok := m.ByCanonical(key); ok {
+			fields = append(fields, f)
+		}
+	}
+	resolved := resolver.Resolve(rc.video, rc.extra, enrichmentFromRows(rc.enrRows), curationFromRows(rc.curRows),
+		fields, h.resolveOptions(decisionsFromRows(rc.decRows)))
+	return rc.video, resolved, nil
+}
+
+// queryFieldsFrom translates a video's resolved fields into BuildQuery's input
+// (ADR-080 D3): top-precedence studio/title/release_date, the full uncapped
+// actors-then-director list as performers. The raw video title stands in when no
+// mapping resolved one.
+func queryFieldsFrom(v *model.Video, resolved []resolver.ResolvedField) enrich.QueryFields {
+	title := firstResolvedValue(resolved, "title")
+	if title == "" {
+		title = v.Title
+	}
+	return enrich.QueryFields{
+		Studio:      firstResolvedValue(resolved, "studio"),
+		Title:       title,
+		Performers:  append(resolvedValues(resolved, "actors"), resolvedValues(resolved, "director")...),
+		ReleaseDate: firstResolvedValue(resolved, "release_date"),
+	}
+}
+
+// providerQuery renders one provider's /resolve search query from fields through
+// its ADR-080 D2 precedence chain (operator search_pattern → cached /describe
+// preference → fleet default → sanitized-title floor). The one render every path
+// shares: the picker seed (buildVideoQueries), the query_source comparison
+// (enrichVideoResolve) and the batch hint (enrichQueryHint) — so "pattern" vs "user"
+// is decided against the same string the picker was seeded with.
+func (h *Handlers) providerQuery(src enrich.Source, fields enrich.QueryFields) string {
+	preferred, _ := h.enrich.PreferredSearchPattern(src.Name)
+	return src.BuildQuery(fields, preferred, h.enrich.Store().Current().DefaultSearchPattern())
 }
 
 // buildVideoQueries computes, per enabled video-capable provider, the seeded
@@ -42,24 +129,13 @@ func (h *Handlers) buildVideoQueries(v *model.Video, resolved []resolver.Resolve
 	if h.enrich == nil {
 		return nil
 	}
-	title := firstResolvedValue(resolved, "title")
-	if title == "" {
-		title = v.Title
-	}
-	fields := enrich.QueryFields{
-		Studio:      firstResolvedValue(resolved, "studio"),
-		Title:       title,
-		Performers:  append(resolvedValues(resolved, "actors"), resolvedValues(resolved, "director")...),
-		ReleaseDate: firstResolvedValue(resolved, "release_date"),
-	}
-	defaultPattern := h.enrich.Store().Current().DefaultSearchPattern()
+	fields := queryFieldsFrom(v, resolved)
 	out := map[string]string{}
 	for _, src := range h.enrich.Store().Current().Enabled() {
 		if !src.Supports(model.EnrichEntityVideo) {
 			continue
 		}
-		preferred, _ := h.enrich.PreferredSearchPattern(src.Name)
-		out[src.Name] = src.BuildQuery(fields, preferred, defaultPattern)
+		out[src.Name] = h.providerQuery(src, fields)
 	}
 	return out
 }
@@ -165,13 +241,13 @@ func (h *Handlers) enrichResolve(w http.ResponseWriter, r *http.Request) {
 	if !h.enrichDismissedCheck(w, r, model.EnrichEntityPerson, id, body.Provider) {
 		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityPerson, enrich.Hint{Query: body.Query})
+	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityPerson, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.log.Warn("enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
 }
 
 // enrichApply fetches the chosen record and stores it in the shadow layer,
@@ -250,6 +326,8 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "enrichment unavailable")
 		return
 	}
+	// The body carries no query_source: ADR-095 D4 derives it server-side below and
+	// a client-supplied value is ignored by construction (it is never decoded).
 	var body struct {
 		Provider string `json:"provider"`
 		Query    string `json:"query"`
@@ -257,7 +335,7 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	v, _, err := h.repo.GetVideo(r.Context(), id)
+	v, resolved, err := h.videoResolveInputs(r.Context(), id)
 	if err != nil {
 		h.videoLookupError(w, err)
 		return
@@ -265,13 +343,25 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	if !h.enrichDismissedCheck(w, r, model.EnrichEntityVideo, id, body.Provider) {
 		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, body.Query))
+	// query_source (ADR-095 D4): re-render this provider's query from the same
+	// resolved slice, in this same call, and compare — equal means the owner searched
+	// the seeded string untouched (the sanitized-title floor included; it is a render
+	// too), anything else is the owner's own text. An unknown provider renders from a
+	// zero Source and then fails in Resolve as it always has.
+	src, _ := h.enrich.Store().Current().ByName(body.Provider)
+	querySource := enrich.QuerySourceUser
+	if body.Query == h.providerQuery(src, queryFieldsFrom(v, resolved)) {
+		querySource = enrich.QuerySourcePattern
+	}
+	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, resolved, body.Query, querySource))
 	if err != nil {
 		h.log.Warn("video enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+	// ResolveResult marshals as {"candidates": […], "searched": […]} — searched
+	// omitted when the provider sent none, so the picker renders nothing (HOLODEX-369).
+	writeJSON(w, http.StatusOK, res)
 }
 
 // enrichVideoApply fetches and stores film enrichment for a video (F26).
@@ -377,13 +467,13 @@ func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
 	if !h.enrichDismissedCheck(w, r, model.EnrichEntityStudio, id, body.Provider) {
 		return
 	}
-	cands, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
+	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.log.Warn("studio enrich resolve failed", "provider", body.Provider, "err", err)
 		writeError(w, http.StatusBadGateway, "provider lookup failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
 }
 
 // enrichStudioApply fetches and stores company enrichment for a studio (F38 S3).

@@ -61,15 +61,11 @@ func (c *httpClient) Describe(ctx context.Context) (Manifest, error) {
 	return m, err
 }
 
-func (c *httpClient) Resolve(ctx context.Context, entityType string, hint Hint) ([]Candidate, error) {
+func (c *httpClient) Resolve(ctx context.Context, entityType string, hint Hint) (ResolveResult, error) {
 	body := map[string]any{"entity_type": entityType, "hint": hint}
-	var out struct {
-		Candidates []Candidate `json:"candidates"`
-	}
-	if err := c.do(ctx, http.MethodPost, "/resolve", body, &out); err != nil {
-		return nil, err
-	}
-	return out.Candidates, nil
+	var out ResolveResult
+	err := c.do(ctx, http.MethodPost, "/resolve", body, &out)
+	return out, err
 }
 
 func (c *httpClient) Enrich(ctx context.Context, entityType, externalID string) (EnrichResult, error) {
