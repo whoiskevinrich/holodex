@@ -81,9 +81,10 @@ story's to settle.
 6. [x] [M] Build HOLODEX-368 (request side) on this branch — in PR #327; `/security-review` re-run
    on the code diff (clean).
 6a. [x] [M] Build HOLODEX-369 (caption) on this branch — in PR #327.
-6b. [ ] [S] Mark PR #327 **ready for review** (all gates green; the act that moves 367 to In Review).
-7. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
+6b. [x] [S] PR #327 marked **ready for review** 2026-09-11 (all gates green).
+7. [x] [—] HOLODEX-368/369 swept to **In Review** by hand alongside the epic (CI moves only the
    branch's key). HOLODEX-372 (geometry preparation) stays To Do — not a gate.
+8. [ ] [—] On merge: sweep HOLODEX-368/369 to **Done** by hand (CI moves only 367).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -145,8 +146,8 @@ story's to settle.
   to HOLODEX-372 rather than leave it as a comment. Live batch check: refresh-all across four stub
   providers wrote four `searched:` rows, each with its own render (flood got `{studio?} {title}` +
   the basename; the others the sanitized floor), no path separator on the Activity log.
-- Handoff: every gate on PR #327 is green — **mark it ready for review** (that fires In Review on
-  367), then sweep 368/369 to In Review by hand. HOLODEX-372 is the only loose end and is not a gate.
+- Handoff: PR #327 is **ready for review**; 368/369 swept to In Review by hand. Nothing left to
+  build — on merge, sweep 368/369 to Done. HOLODEX-372 is the only loose end and is not a gate.
 
 ### 2026-09-11 · HOLODEX-368 built (request side)
 - skills: code-review, security-review
