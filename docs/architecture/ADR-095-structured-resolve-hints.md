@@ -440,5 +440,7 @@ decoder's existing rule.
    goes only to a `base_url` on the existing SSRF allowlist; `query_source` is derived server-side,
    so a client cannot promote its own text to "pattern" or demote the render to "user". Re-review
    is owed when HOLODEX-368's diff exists — this sign-off is on the design, not on code.
-8. [ ] **Implementation — caption** ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)),
-   after the design gate.
+8. [x] **Implementation — caption** ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)):
+   `EnrichPicker.svelte` block per the handoff, state table in `web/src/lib/searchedCaption.ts`;
+   the enrich stub emits `searched[]` and two personas opt into `resolve_hints`. Stressed-state
+   geometry assertion deferred to HOLODEX-372.

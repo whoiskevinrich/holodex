@@ -152,4 +152,15 @@ acme → video #412 (0 candidates) · searched: [Acme Pictures] Ada Lovelace (20
 - `EnrichPicker.svelte`: one `let searched = $state<string[]>([])` + one `let showAll = $state(false)`;
   set from the response in `search()` (respecting the stale-response guard already there), cleared
   in `onInput`. The block is ~15 lines of markup between the status `<p>` and the `<ul>`.
-- Tests: the existing picker tests gain the states in the QA checklist §2 — no new test harness.
+- Tests: there is no `EnrichPicker` test file (this repo has no component-test harness — the
+  handoff assumed one), so the state table lives in a pure helper, `web/src/lib/searchedCaption.ts`
+  (`searchedCaption`, `moreLabel`), with the §2 smoke cases in `searchedCaption.test.ts`; the DOM /
+  a11y / geometry items were verified live (§3, HOLODEX-369 worklog entry) and the stressed-state
+  geometry assertion is [HOLODEX-372](https://whoiskevinrich.atlassian.net/browse/HOLODEX-372).
+- `<ol>` carries `shrink-0`: under `max-h-[80vh]` flex pressure the list would otherwise be the
+  first thing squeezed (measured 49px of its 96px cap with 25 candidates at 800px tall) — the cap
+  is the design; the candidates `<ul>` is `flex-1` and scrolls anyway.
+- The enrich stub (`testdata/enrich-stub`) emits `searched[]` on every video resolve (`searchedFor`:
+  basename → query → fields fallback; a query containing `stress` returns the ten-entry cascade with
+  a 600-char second entry), and `flood` / `twins` opt into `resolve_hints`, so all three wire shapes
+  are reachable from `metadata-sources.yaml` alone.

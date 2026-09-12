@@ -45,7 +45,14 @@ story's to settle.
   `hintFor(provider)` inside the fan-out, `searched[]` sanitized → interactive response +
   `job_runs.detail` on the batch path (`RecordSearched`). Wire golden + gate + residue + both-path
   tests; `/code-review high --fix` + `/security-review` (clean) run on the diff
-- [ ] frontend — HOLODEX-369: caption from `searched[]`
+- [x] frontend — HOLODEX-369: caption from `searched[]` — `EnrichPicker.svelte` block per the handoff
+  (own `<p>` under the aria-live line, first entry in ink + `+N more` → capped scrolling `<ol>`,
+  hidden at once on input, reset per response, same stale guard as candidates), state table in
+  `web/src/lib/searchedCaption.ts` (+13 vitest cases), `api.ts` type gains `searched?`; enrich stub
+  emits `searched[]` + `flood`/`twins` opt into `resolve_hints`. Live-QA'd all three skins at
+  1280×800 (colours = `--muted`/`--ink`, contrast ≥ 4.67, stressed `<ol>` 96px scrolling, dialog ≤
+  80vh, no overflow, batch row on the Activity log with no path separator). §12 assertion →
+  HOLODEX-372
 - [x] testing `testing-strategy` — `docs/testing-strategy.md`: §4 row (manifest-gate golden vs the
   ADR-080 golden, deny + explicit default-allow, `fields` ∩ advertised, `Base()` verbatim,
   `query_source` derived/never trusted, residue table incl. the residue-present duplicated render,
@@ -73,11 +80,10 @@ story's to settle.
 5. [x] [M] `/security-review` — design posture, in PR #327 (finding fixed in-PR).
 6. [x] [M] Build HOLODEX-368 (request side) on this branch — in PR #327; `/security-review` re-run
    on the code diff (clean).
-6a. [ ] [M] Build HOLODEX-369 (caption) on this branch — `EnrichPicker.svelte` reads `searched[]`
-   from the resolve response (already emitted), per the design handoff + QA checklist; `api.ts`
-   type gains `searched?: string[]`.
+6a. [x] [M] Build HOLODEX-369 (caption) on this branch — in PR #327.
+6b. [ ] [S] Mark PR #327 **ready for review** (all gates green; the act that moves 367 to In Review).
 7. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
-   branch's key).
+   branch's key). HOLODEX-372 (geometry preparation) stays To Do — not a gate.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -125,6 +131,22 @@ story's to settle.
   preparation that doesn't exist yet.
 - Handoff: one gate left on PR #327 — `/security-review` (raw basename to opted-in providers) —
   then mark ready. Nothing in the PR is code; the review is of the ADR/contract posture.
+
+### 2026-09-11 · HOLODEX-369 built (picker caption)
+- skills: code-review
+- Built the caption exactly to the handoff. Two calls that were mine: (1) the handoff assumed an
+  `EnrichPicker` test file that does not exist (no component harness here), so the state table is a
+  pure `searchedCaption.ts` helper with vitest, and the DOM/a11y/skin/stressed items were measured
+  live via `javascript_tool` (the stub gained a `searchedFor` cascade + a `stress` ten-entry mode
+  for it, and `flood`/`twins` opt into `resolve_hints` so every wire shape is reachable); (2) added
+  `shrink-0` to the expanded `<ol>` — under 80vh flex pressure it was the first thing squeezed
+  (49px of its 96px cap), and the cap is the design. `/code-review high --fix`: one finding (stub's
+  stressed entry short for short queries), fixed. Deferred the §12 `enrich-picker-open` preparation
+  to HOLODEX-372 rather than leave it as a comment. Live batch check: refresh-all across four stub
+  providers wrote four `searched:` rows, each with its own render (flood got `{studio?} {title}` +
+  the basename; the others the sanitized floor), no path separator on the Activity log.
+- Handoff: every gate on PR #327 is green — **mark it ready for review** (that fires In Review on
+  367), then sweep 368/369 to In Review by hand. HOLODEX-372 is the only loose end and is not a gate.
 
 ### 2026-09-11 · HOLODEX-368 built (request side)
 - skills: code-review, security-review
