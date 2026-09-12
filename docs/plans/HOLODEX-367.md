@@ -41,9 +41,12 @@ story's to settle.
   QuerySource}`, residue rule in `query.go`, `query_source` derived in `enrichVideoResolve`,
   per-provider hints inside `refreshOneProvider`, `searched[]` decoded → `job_runs.detail`
 - [ ] frontend — HOLODEX-369: caption from `searched[]`
-- [ ] testing `testing-strategy` — residue lossless invariant + rendered-empty-not-missing;
-  `query_source` race → `"user"`; byte-identical request for a provider without `resolve_hints`
-  (golden); deny flag; `Base()` only; batch per-provider; `searched[]` caps
+- [x] testing `testing-strategy` — `docs/testing-strategy.md`: §4 row (manifest-gate golden vs the
+  ADR-080 golden, deny + explicit default-allow, `fields` ∩ advertised, `Base()` verbatim,
+  `query_source` derived/never trusted, residue table incl. the residue-present duplicated render,
+  per-provider batch hints, `searched[]` caps + no-path detail), §5 caption row (supersedes the F54
+  P1 clause; stressed state = §12 geometry assertion), six Critical invariants, §9 adversarial
+  block, §11 gap entry (three traps named). Written ahead of implementation — nothing automated yet
 - [ ] security `security-review` — raw basename leaves the box for opted-in providers: opt-in +
   deny layering, `filepath.Base` only, `fields` ⊆ what the blob already sent, `searched[]` ingest
   sanitized/capped, `job_runs.detail` no-path invariant
@@ -53,8 +56,7 @@ story's to settle.
 1. [x] [M] Contract text — §2.2 / §2.3 / §4.9 / new §4.10 / §5, in PR #327.
 2. [x] [S] F54 spec edit — FR6–FR9, AC-12–18, in PR #327.
 3. [x] [M] `/design-handoff` for HOLODEX-369 — in PR #327.
-4. [ ] [M] `/testing-strategy` — fold the F54 per-FR test notes + the QA checklist §2 smoke items
-   into `docs/testing-strategy.md`.
+4. [x] [M] `/testing-strategy` — in PR #327.
 5. [ ] [M] `/security-review` — raw basename to opted-in providers (opt-in + deny layering,
    `Base()` only, `searched[]` ingest caps, `job_runs.detail` no-path).
 6. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
@@ -63,7 +65,7 @@ story's to settle.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-11 · epic refreshed from the filename probe, ADR-095 drafted
-- skills: architecture, design-handoff
+- skills: architecture, design-handoff, testing-strategy
 - Folded the provider's filename-matcher probe into the epic (verbatim basename, default-allow
   load-bearing, batch path too), marked HOLODEX-370 landed, fired In Progress, branched off main
   as `HOLODEX-367-structured-resolve-hints`. Drafted ADR-095 (D1–D8) and the README row.
@@ -96,3 +98,13 @@ story's to settle.
   `[smoke]/[agent]/[human]` QA checklist. Design gate closed.
 - Handoff: two gates left on PR #327 — `/testing-strategy` and `/security-review` — then mark
   ready. HOLODEX-368 (request side) and HOLODEX-369 (caption) are both spec+design complete.
+
+### 2026-09-11 · testing strategy
+- skills: testing-strategy
+- Extended `docs/testing-strategy.md` in the five places the F54 plan lives (date line, §4, §5,
+  Critical invariants, §9, §11). The §11 entry names the traps: the ADR-080 golden must not be
+  edited to make the opted-in golden pass; both rejected residue variants have plausible tests, so
+  the table asserts the duplicated render; the caption's stressed state needs a §12 harness
+  preparation that doesn't exist yet.
+- Handoff: one gate left on PR #327 — `/security-review` (raw basename to opted-in providers) —
+  then mark ready. Nothing in the PR is code; the review is of the ADR/contract posture.

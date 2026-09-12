@@ -394,12 +394,15 @@ decoder's existing rule.
    state, tab-order inside the existing trap, batch-path detail-line format;
    [SVG mockup](../design/structured-resolve-hints-searched-caption-mockup.svg) +
    [QA checklist](../design/structured-resolve-hints-searched-caption-qa-checklist.md) committed.
-5. [ ] `/testing-strategy` — residue-rule table (lossless invariant: every dropped word present
-   elsewhere in the render; required `{title}` residue-dropped does **not** fall the tier through;
-   date-token shapes; case folding; Unicode residue); `query_source` derivation incl. the race
-   classifying as `"user"`; manifest gating (a provider without `resolve_hints` gets a byte-identical
-   request — golden test); operator deny; `filename` is `Base()` only; batch path renders per
-   provider; `searched[]` ingest caps and sanitization.
+5. [x] `/testing-strategy` — [`docs/testing-strategy.md`](../testing-strategy.md): §4 backend row
+   (manifest-gate golden against the ADR-080 golden, operator deny incl. the default-allow assertion,
+   `fields` ∩ advertised with a field the video has and the provider lacks, `Base()` verbatim,
+   `query_source` derivation incl. client-supplied ignored, residue table incl. the residue-present
+   *duplicated* render, per-provider batch hints inside the fan-out, `searched[]` ingest caps and
+   the no-path detail); §5 frontend row for the caption (supersedes the F54 row's P1 clause; stressed
+   state is a §12 geometry assertion); six Critical invariants; a §9 adversarial block; a §11 gap
+   entry naming the three traps (golden edited to pass, the two rejected residue variants, the
+   missing `enrich-picker-open` harness preparation).
 6. [ ] **Implementation — request side** ([HOLODEX-368](https://whoiskevinrich.atlassian.net/browse/HOLODEX-368)):
    `Manifest.ResolveHints`; `Source` deny flag; `Hint{Fields, Filename, QuerySource}`; residue rule
    in `query.go`; `enrichVideoResolve` derives `query_source`; `enrichQueryHint`/`refreshOneProvider`
