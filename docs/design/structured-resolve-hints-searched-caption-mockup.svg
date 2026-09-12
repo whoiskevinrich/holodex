@@ -1,0 +1,123 @@
+<svg viewBox="0 0 960 1180" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .panel { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .field { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentMark { stroke: #e8a33d; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+      .label { font-size: 11px; letter-spacing: 0.06em; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .xs { font-size: 12px; }
+      .sm { font-size: 14px; }
+      .dotted { text-decoration: underline dotted; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="1180" />
+
+  <text x="24" y="34" class="title ink" font-size="17">Enrich picker &#8212; "Searched" caption from /resolve searched[]</text>
+  <text x="24" y="54" class="muted xs">Skin 1 (Cin&#233;math&#232;que). Gold dashed outline marks what this change adds. HOLODEX-369 / ADR-095 D6 / F54 FR9.</text>
+
+  <!-- ===== 1. NO RESULTS, TWO QUERIES ===== -->
+  <text x="24" y="92" class="label muted">1 &#183; NO RESULTS &#8212; THE STATE THAT EARNS THE CAPTION (2 QUERIES, COLLAPSED)</text>
+  <rect x="24" y="104" width="512" height="216" class="panel" rx="2" />
+  <text x="40" y="132" class="title ink" font-size="17">Enrich from acme</text>
+  <text x="514" y="131" class="muted sm">&#10005;</text>
+  <rect x="40" y="146" width="480" height="30" class="field" rx="2" />
+  <text x="52" y="166" class="ink sm">Acme Pictures Ada Lovelace 2023</text>
+  <text x="40" y="198" class="muted xs">No matches for "Acme Pictures Ada Lovelace 2023".</text>
+  <!-- caption -->
+  <rect x="36" y="206" width="488" height="22" class="accentMark" rx="2" />
+  <text x="40" y="221" class="xs"><tspan class="muted">Searched</tspan><tspan class="ink" dx="6">[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4</tspan><tspan class="muted dotted" dx="8">+1 more</tspan></text>
+  <text x="40" y="252" class="muted xs">&#8595; first query always visible, one line, truncated; full text in title=</text>
+  <text x="40" y="270" class="muted xs">&#8595; "+N more" is a &lt;button&gt; with aria-expanded; absent when there is one query</text>
+  <text x="40" y="288" class="muted xs">&#8595; own &lt;p&gt; under the aria-live status line &#8212; same slot in every state</text>
+  <text x="40" y="306" class="muted xs">&#8595; hidden while loading / on error / &lt; 2 chars / after the owner edits the box</text>
+
+  <!-- ===== 2. RESULTS, ONE QUERY ===== -->
+  <text x="24" y="336" class="label muted">2 &#183; RESULTS &#8212; ONE QUERY, NO TOGGLE; SAME SLOT, LIST PUSHES DOWN ONE LINE</text>
+  <rect x="24" y="348" width="512" height="300" class="panel" rx="2" />
+  <text x="40" y="376" class="title ink" font-size="17">Enrich from acme</text>
+  <text x="514" y="375" class="muted sm">&#10005;</text>
+  <rect x="40" y="390" width="480" height="30" class="field" rx="2" />
+  <text x="52" y="410" class="ink sm">Acme Pictures Ada Lovelace 2023</text>
+  <text x="40" y="442" class="muted xs">2 matches &#8212; Tab or &#8593;/&#8595; to choose, then click or press Enter to apply</text>
+  <rect x="36" y="450" width="488" height="22" class="accentMark" rx="2" />
+  <text x="40" y="465" class="xs"><tspan class="muted">Searched</tspan><tspan class="ink" dx="6">[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4</tspan></text>
+  <line x1="40" y1="484" x2="520" y2="484" class="rule" />
+  <text x="40" y="506" class="ink sm">Ada Lovelace: The Engine</text>
+  <text x="520" y="506" class="accent xs" text-anchor="end">strong match</text>
+  <text x="40" y="524" class="muted xs">Acme Pictures &#183; 2023</text>
+  <line x1="40" y1="536" x2="520" y2="536" class="rule" />
+  <text x="40" y="558" class="ink sm">The Engine (director's cut)</text>
+  <text x="520" y="558" class="muted xs" text-anchor="end">possible</text>
+  <text x="40" y="576" class="muted xs">Acme Pictures &#183; 2024</text>
+  <line x1="40" y1="588" x2="520" y2="588" class="rule" />
+  <text x="40" y="618" class="muted xs">None of these match</text>
+  <text x="40" y="640" class="muted xs">&#8595; with results the caption is secondary; it stays put so the owner learns one place to look</text>
+
+  <!-- ===== 3. STRESSED, TEN QUERIES, EXPANDED ===== -->
+  <text x="560" y="92" class="label muted">3 &#183; STRESSED &#8212; TEN QUERIES, EXPANDED</text>
+  <rect x="560" y="104" width="376" height="330" class="panel" rx="2" />
+  <text x="576" y="132" class="title ink" font-size="17">Enrich from acme</text>
+  <text x="914" y="131" class="muted sm">&#10005;</text>
+  <rect x="576" y="146" width="344" height="30" class="field" rx="2" />
+  <text x="588" y="166" class="ink sm">Ada's Engine</text>
+  <text x="576" y="198" class="muted xs">No matches for "Ada's Engine".</text>
+  <rect x="572" y="206" width="352" height="22" class="accentMark" rx="2" />
+  <text x="576" y="221" class="xs"><tspan class="muted">Searched</tspan><tspan class="ink" dx="6">Ada's Engine</tspan><tspan class="muted dotted" dx="8">show less</tspan></text>
+  <!-- expanded list, capped height with scrollbar -->
+  <rect x="572" y="234" width="352" height="96" class="accentMark" rx="2" />
+  <text x="580" y="252" class="xs"><tspan class="muted">1.</tspan><tspan class="ink" dx="6">Ada's Engine</tspan></text>
+  <text x="580" y="270" class="xs"><tspan class="muted">2.</tspan><tspan class="ink" dx="6">[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.m&#8230;</tspan></text>
+  <text x="580" y="288" class="xs"><tspan class="muted">3.</tspan><tspan class="ink" dx="6">Acme Pictures Ada Lovelace</tspan></text>
+  <text x="580" y="306" class="xs"><tspan class="muted">4.</tspan><tspan class="ink" dx="6">Acme Pictures Ada Lovelace 2023</tspan></text>
+  <text x="580" y="324" class="xs"><tspan class="muted">5.</tspan><tspan class="ink" dx="6">Ada Lovelace 2023</tspan></text>
+  <rect x="916" y="238" width="4" height="40" fill="#2a2622" rx="2" />
+  <text x="576" y="356" class="muted xs">&#8595; &lt;ol&gt; capped at ~4&#189; rows (max-h) and scrolls inside</text>
+  <text x="576" y="374" class="muted xs">&#8595; each row one line, truncated, full text in title=</text>
+  <text x="576" y="392" class="muted xs">&#8595; the dialog's own max-h-[80vh] + flex-1 listbox stay intact</text>
+  <text x="576" y="410" class="muted xs">&#8595; first entry repeats in the list on purpose: the list is the</text>
+  <text x="576" y="426" class="muted xs">   complete record in issue order; the inline line is the summary</text>
+
+  <!-- ===== 4. TAB ORDER ===== -->
+  <text x="560" y="474" class="label muted">4 &#183; TAB ORDER INSIDE THE TRAP (only when +N more exists)</text>
+  <rect x="560" y="486" width="376" height="150" class="panel" rx="2" />
+  <text x="576" y="512" class="ink xs">1&#183; search box</text>
+  <text x="576" y="534" class="xs"><tspan class="accent">2&#183; "+N more" toggle</tspan><tspan class="muted" dx="8">new tab stop, only with &#8805; 2 queries</tspan></text>
+  <text x="576" y="556" class="ink xs">3&#183; active result row (roving tabindex)</text>
+  <text x="576" y="578" class="ink xs">4&#183; None of these match</text>
+  <text x="576" y="600" class="ink xs">5&#183; &#10005; close</text>
+  <text x="576" y="624" class="muted xs">trapTab already collects input, button, [tabindex="0"] &#8212; unchanged</text>
+
+  <!-- ===== 5. COPY + TOKENS ===== -->
+  <text x="24" y="690" class="label muted">5 &#183; COPY AND TOKENS &#8212; NOTHING NEW</text>
+  <rect x="24" y="702" width="912" height="190" class="panel" rx="2" />
+  <text x="40" y="728" class="xs"><tspan class="muted">label</tspan><tspan class="ink" dx="24">"Searched"</tspan><tspan class="muted" dx="24">text-xs text-muted &#8212; the picker's own status-line idiom, one line below it</tspan></text>
+  <text x="40" y="750" class="xs"><tspan class="muted">query</tspan><tspan class="ink" dx="24">verbatim entry</tspan><tspan class="muted" dx="24">text-xs text-ink truncate, title={entry} &#8212; content, so ink not muted (contrast)</tspan></text>
+  <text x="40" y="772" class="xs"><tspan class="muted">toggle</tspan><tspan class="ink" dx="20">"+{n} more" / "show less"</tspan><tspan class="muted" dx="24">btn-quiet px-1 text-xs, aria-expanded, aria-controls=&#8594;the &lt;ol&gt;; underline-dotted via the class</tspan></text>
+  <text x="40" y="794" class="xs"><tspan class="muted">list</tspan><tspan class="ink" dx="30">&lt;ol&gt; 1&#8230;N</tspan><tspan class="muted" dx="24">mt-1 pl-5 text-xs text-ink max-h-24 overflow-y-auto; markers text-muted via marker:text-muted</tspan></text>
+  <text x="40" y="816" class="xs"><tspan class="muted">absent</tspan><tspan class="ink" dx="14">no searched key / empty</tspan><tspan class="muted" dx="24">render nothing &#8212; no empty slot, no "Searched &#8212;"</tspan></text>
+  <text x="40" y="846" class="muted xs">No new tokens. No new component. No icon. No dismiss control. Skins 2/3 differ only by the tokens' own values (font-ui is mono there,</text>
+  <text x="40" y="864" class="muted xs">which suits a filename); QA all three. Reduced motion: none to reduce &#8212; expand/collapse is an instant DOM toggle, no transition.</text>
+
+  <!-- ===== 6. BATCH PATH ===== -->
+  <text x="24" y="924" class="label muted">6 &#183; BATCH PATH &#8212; THE ACTIVITY DETAIL ROW (JobHistory.svelte), NO NEW MARKUP</text>
+  <rect x="24" y="936" width="912" height="120" class="panel" rx="2" />
+  <text x="40" y="962" class="ink xs">enrich</text>
+  <text x="140" y="962" class="ink xs">acme &#8594; video #412</text>
+  <text x="520" y="962" class="ink xs">completed</text>
+  <line x1="40" y1="972" x2="920" y2="972" class="rule" />
+  <rect x="36" y="978" width="880" height="22" class="accentMark" rx="2" />
+  <text x="40" y="993" class="muted xs">acme &#8594; video #412 (0 candidates) &#183; searched: [Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4 &#183; Acme Pictures Ada Lovelace</text>
+  <text x="40" y="1024" class="muted xs">&#8595; existing free-text detail line, existing text-xs text-muted &lt;p&gt;; entries joined with " &#183; " after a "searched:" prefix, in issue order</text>
+  <text x="40" y="1042" class="muted xs">&#8595; a basename is not a path (the no-path invariant on job_runs.detail holds); the same basename already renders on the media page</text>
+
+  <text x="24" y="1100" class="muted xs">Decisions (all on ADR-095 D6 / FR9): first-query-inline over collapsed-only &#8212; the no-results state is where the owner wants the answer, and a click there is a tax;</text>
+  <text x="24" y="1118" class="muted xs">under the status line, not the footer &#8212; the footer isn't rendered on no-results, and the caption must never move between states; ink for the query, muted for the label &#8212;</text>
+  <text x="24" y="1136" class="muted xs">the query is the content and text-muted at 12px is already the floor of the picker's contrast budget; out of aria-live &#8212; announcing ten queries on every search is noise.</text>
+</svg>

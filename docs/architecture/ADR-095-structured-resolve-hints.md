@@ -387,8 +387,13 @@ decoder's existing rule.
    (`query_source` derivation), FR8 (structured hints, manifest gate, operator deny, both paths),
    FR9 ("Searched: …" caption from `searched[]`, replacing the never-built P1-a); AC-12–18; AC-10
    narrowed to non-opted-in providers; P2-a promoted; test notes per FR.
-4. [ ] `/design-handoff` — the caption ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)):
-   one muted line under the picker input, the stressed state for ≤ 10 entries, three skins.
+4. [x] `/design-handoff` — [the caption](../design/structured-resolve-hints-searched-caption-handoff.md)
+   ([HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369)): first query inline +
+   `+N more` disclosure (chosen over collapsed-only from a two-option mockup), own `<p>` under the
+   aria-live status line in every state, `<ol>` capped and scrolling for the 10-entry stressed
+   state, tab-order inside the existing trap, batch-path detail-line format;
+   [SVG mockup](../design/structured-resolve-hints-searched-caption-mockup.svg) +
+   [QA checklist](../design/structured-resolve-hints-searched-caption-qa-checklist.md) committed.
 5. [ ] `/testing-strategy` — residue-rule table (lossless invariant: every dropped word present
    elsewhere in the render; required `{title}` residue-dropped does **not** fall the tier through;
    date-token shapes; case folding; Unicode residue); `query_source` derivation incl. the race

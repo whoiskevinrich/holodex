@@ -32,8 +32,11 @@ story's to settle.
   narrowed; P2-a promoted; test notes per FR)
 - [/] architecture `architecture` — ADR-095 drafted (D1–D8), indexed in `README.md`; number was
   reserved via `adr-claims.mjs` before drafting
-- [ ] design `design-handoff` — the picker caption (HOLODEX-369): one muted line under the input,
-  stressed state at 10 entries, three skins, SVG committed
+- [x] design `design-handoff` — `structured-resolve-hints-searched-caption-handoff.md` + SVG mockup +
+  QA checklist. Option A (first query inline + `+N more`) chosen over collapsed-only from a
+  side-by-side mockup; caption is its own `<p>` under the aria-live status line in every state,
+  ink for the query / muted for the label, `<ol>` `max-h-24` scrolling at 10 entries, toggle joins
+  the existing tab trap unchanged, batch path = `searched:` prefix on the existing detail line
 - [ ] backend — HOLODEX-368: `Manifest.ResolveHints`, `Source` deny flag, `Hint{Fields, Filename,
   QuerySource}`, residue rule in `query.go`, `query_source` derived in `enrichVideoResolve`,
   per-provider hints inside `refreshOneProvider`, `searched[]` decoded → `job_runs.detail`
@@ -49,14 +52,18 @@ story's to settle.
 
 1. [x] [M] Contract text — §2.2 / §2.3 / §4.9 / new §4.10 / §5, in PR #327.
 2. [x] [S] F54 spec edit — FR6–FR9, AC-12–18, in PR #327.
-3. [ ] [M] `/design-handoff` for HOLODEX-369 (gate 3) — can run in parallel with 368.
-4. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
+3. [x] [M] `/design-handoff` for HOLODEX-369 — in PR #327.
+4. [ ] [M] `/testing-strategy` — fold the F54 per-FR test notes + the QA checklist §2 smoke items
+   into `docs/testing-strategy.md`.
+5. [ ] [M] `/security-review` — raw basename to opted-in providers (opt-in + deny layering,
+   `Base()` only, `searched[]` ingest caps, `job_runs.detail` no-path).
+6. [ ] [—] When the PR is marked ready: sweep HOLODEX-368/369 with the epic (CI moves only the
    branch's key).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-11 · epic refreshed from the filename probe, ADR-095 drafted
-- skills: architecture
+- skills: architecture, design-handoff
 - Folded the provider's filename-matcher probe into the epic (verbatim basename, default-allow
   load-bearing, batch path too), marked HOLODEX-370 landed, fired In Progress, branched off main
   as `HOLODEX-367-structured-resolve-hints`. Drafted ADR-095 (D1–D8) and the README row.
@@ -80,3 +87,12 @@ story's to settle.
 - Handoff: PR #327 = ADR-095 + contract §2.2/2.3/4.9/4.10/5 + F54 FR6–FR9. Next:
   `/design-handoff` for HOLODEX-369 (caption), then testing strategy + security review, then
   mark ready. Backend story HOLODEX-368 can start any time — its spec is complete.
+
+### 2026-09-11 · design handoff for the caption
+- skills: design-handoff
+- Mocked two mechanisms side by side (first-query-inline + "+N more" vs collapsed-only) grounded in
+  `EnrichPicker.svelte`'s status-line idiom; owner picked A. Wrote the handoff, the SVG (three
+  states + tab order + tokens + batch row, geometry-checked in the browser), and a numbered
+  `[smoke]/[agent]/[human]` QA checklist. Design gate closed.
+- Handoff: two gates left on PR #327 — `/testing-strategy` and `/security-review` — then mark
+  ready. HOLODEX-368 (request side) and HOLODEX-369 (caption) are both spec+design complete.
