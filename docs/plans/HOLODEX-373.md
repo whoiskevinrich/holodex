@@ -25,9 +25,11 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` — one spec for the epic; RDs for the five decisions plus the edition tag
-  key per container, the filename grammar (Plex `{edition-X}` strict), and curation-on-name
-  semantics per kind
+- [x] spec `write-spec` — `docs/specs/entity-identity-card.md` (F60), RD1–RD12. Settled in the
+  pass: edition writeback key is `Edition` on **both** backends (Matroska `EDITION`, exiftool
+  `QuickTime:Edition` — native, verified on 13.59); `Subtitle` rejected because it's already the
+  tagline's key (`tags.go:101`); filename edition follows the F48 auto-apply rule, no special case;
+  film alias routing needs a year match or a unique nameKey, else queue
 - [ ] architecture `architecture` — ADR for external-id unification + edition-as-field +
   curation-on-name; amendment notes on ADR-051 (name was the excluded field) and ADR-061
   (films, composite nameKey). Number via `node scripts/adr-claims.mjs`, never by eye
@@ -45,9 +47,10 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Kevin ratifies OQ1 / OQ2 in the handoff (panel 3 and panel 4 of the mockup)
-2. [ ] [S] `/write-spec` for the epic (clears `needs-spec`)
-3. [ ] [S] `/architecture` (clears `needs-adr`)
+1. [x] [—] OQ1 = deep link, OQ2 = keep 378 — ratified 2026-09-12
+2. [x] [S] `/write-spec` — landed, `needs-spec` cleared
+3. [ ] [S] `/architecture` (clears `needs-adr`) — external-id unification + edition-as-field +
+   curation-on-name; amendment notes on ADR-051 and ADR-061; `node scripts/adr-claims.mjs` first
 4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles
    (`cut|edition|extended|unrated|remaster`) before sizing 377
 5. [ ] [M] 374 handle — start here; zero schema
@@ -57,9 +60,11 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-12 · brainstorm → epic → design handoff
+### 2026-09-12 · brainstorm → epic → design handoff → spec
+- skills: product-brainstorming, design-handoff, write-spec
 
 Skills: `/product-management:product-brainstorming`, `/design:design-handoff`. Created the Jira
 tree (373 + 374–378, sibling 379). Branch renamed `HOLODEX-373-entity-identity-card`, epic In
-Progress. Design gate landed with two open questions for the owner. Handoff: **nothing is coded
-or specced; next session starts with OQ1/OQ2 then `/write-spec`.**
+Progress. Design gate landed; Kevin ratified OQ1 (deep link) and OQ2 (keep 378); spec gate landed
+(F60, RD1–RD12). Handoff: **nothing is coded; next is `/architecture` on the same Draft PR, then
+374.**
