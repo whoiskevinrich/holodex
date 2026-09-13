@@ -408,6 +408,14 @@ type Candidate struct {
 	// the picker (F47, RD6/P1-1). sanitizeCandidates drops anything that isn't
 	// http(s) before this ever reaches an API response — it becomes an `href`.
 	ProfileURL string `json:"profile_url,omitempty"`
+	// Detail is the provider's optional per-record summary (F61, contract §2.3):
+	// short verbatim lines the picker reveals behind a toggle so the owner can tell
+	// apart same-label candidates (one release catalogued once per outlet).
+	// Presentation only — never stored, never written back; the only durable trace
+	// is the auto-applied candidate's lines on the unattended resolve entry
+	// (RecordSearched). sanitizeCandidates bounds it (sanitizeDetail); nil when the
+	// provider omitted the key or sent [].
+	Detail []string `json:"detail,omitempty"`
 }
 
 // StrongMatchThreshold is the auto-apply confidence cutoff (ADR-066 D1) — the sole

@@ -198,6 +198,10 @@ The interactive picker path does **not** log `detail` — the owner saw it and c
 - **Given** a refresh-all resolve returns a lone strong candidate **without** `detail` and the
   provider sent no `searched[]`, **when** it auto-applies, **then** no resolve entry is written
   (unchanged from today; the apply itself is logged as it is now).
+- **Given** a refresh-all resolve returns a lone strong candidate with `detail` **and the apply
+  then fails** (provider error on `/enrich`), **when** the entry is written, **then** it carries
+  `searched[]` only — no `applied:` segment — and the enrich job's own `(failed)` entry records
+  the failure. The audit line never claims a binding that didn't happen.
 - **Given** the entry is written, **when** rendered in System Activity, **then** it contains no
   file path (F22.6b no-path invariant holds — `detail` is provider text about the provider's
   record, and the sanitizer has already run).

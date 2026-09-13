@@ -36,24 +36,33 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   the Searched caption's `.btn-quiet` dotted-underline idiom) chosen over an info glyph from a
   side-by-side mockup — zero new components or icons; lines `text-xs text-muted` behind
   `border-l border-rule`, in-flow inside the `<li>`; expansion state keyed by `external_id`
-- [ ] backend — `Candidate.Detail []string` (`internal/enrich/enrich.go`), `sanitizeDetail` sibling
-  of `sanitizeSearched` with its own 8/256 caps, wired into the resolve sanitizer loop;
-  `RecordSearched` learns the applied candidate (FR5); `Fake` gains per-candidate `Detail`
+- [x] backend — `Candidate.Detail []string` (`enrich.go`), `sanitizeDetail` beside
+  `sanitizeSearched` (8 entries / 256 bytes on a rune boundary, `[]`→nil), wired into
+  `sanitizeCandidates`; `RecordSearched(…, applied *Candidate)` writes on searched[] **or** applied
+  detail, `· applied: <label> — <lines · joined>`; refresh-all passes `applied` **only after
+  `Enrich` succeeds** (code-review finding: a failed apply must not log "applied:"); `Fake` gains
+  `FakePerson.Detail` + `EnrichErr`. Tests: `candidate_detail_test.go` (sanitizer table, wire
+  ingest, RecordSearched matrix), `TestEnrichRefreshAll_AppliedDetailLogged`,
+  `TestEnrichRefreshAll_FailedApplyNotLoggedAsApplied`. `go test ./...` green (26 pkgs)
 - [ ] frontend — `EnrichPicker.svelte`: toggle-button glyph trailing `view source ↗`, inline
   expansion, per-row state reset on new response, label-collision auto-expand; `EnrichCandidate`
   type; three-skin QA via computed styles
 - [ ] testing `testing-strategy` — per the spec's Test Notes: sanitizer table test, refresh-all
   audit entry (applied / needs_review / no-entry), picker toggle + keyboard + collision, geometry
   (collapsed height parity, no clipping at 25), stub fixture with four same-label records
-- [~] security `security-review` — n/a unless the implementation touches the SSRF perimeter (it
-  must not — `detail` is rendered text, never fetched). Confirm at the backend gate
+- [~] security `security-review` — n/a, confirmed at the backend gate: `detail` is text through
+  the same sanitizer path as `label`/`searched[]`; nothing fetched, no perimeter change, no auth
+  or access change
 
 ## Up next — ordered (position = priority)
 
 1. [x] [S] Draft PR #333 opened with the spec gate; gate-status checkboxes mirror Jira.
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared in Jira.
-3. [ ] [M] Backend FR1/FR2/FR5 + tests (`sanitizeDetail`, `RecordSearched` learns the applied
-   candidate, `Fake.Detail`), then frontend FR3/FR4 + tests + three-skin QA per the checklist's §3.
+3. [x] [M] Backend FR1/FR2/FR5 + tests landed.
+3a. [ ] [M] Frontend FR3/FR4: `EnrichCandidate.detail?`, `collisionOpen()` beside
+   `searchedCaption.ts`, toggle + `<ul>` in `EnrichPicker.svelte`, tests per checklist §2.3–2.7,
+   2.9–2.10, then three-skin QA per §3. Also give `testdata/enrich-stub/stub.js` a four-same-label
+   video fixture with `detail` (checklist §1.2a) so §3 can run against a real sidecar.
 4. [ ] [S] `/testing-strategy`, then mark the PR ready → CI fires In Review.
 5. [ ] [—] Tell the provider side the merged contract text matches the proposal so they can emit
    `detail` on every candidate (the audit path needs it on lone candidates too).
@@ -61,7 +70,7 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-13 · proposal reviewed, decisions locked, spec + contract amendment written
-- skills: write-spec, design-handoff; maintainer review of the provider proposal with a
+- skills: write-spec, design-handoff, code-review (high --fix); maintainer review of the provider proposal with a, code-review
   three-state mockup (show_widget) to settle Q2/Q4, then a toggle-variant mockup for the handoff
 - Reviewed the proposal against the decoder, sanitizer, picker row, and refresh-all path; answered
   the four open questions (verbatim / toggle + inline / audit-log in v1 / auto-expand on
@@ -69,5 +78,7 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   the §2.3 + §5 contract rows.
 - Committed the spec gate, opened Draft PR #333, then ran `/design-handoff`: text toggle chosen
   over glyph; handoff doc, four-panel SVG, and QA checklist committed; spec FR3/P1-a/AC synced.
-- Handoff: spec + design gates green on PR #333; next is the backend (FR1/FR2/FR5) — start with
-  `sanitizeDetail` beside `sanitizeSearched` and the `RecordSearched` signature change.
+- Backend gate built and reviewed in the same session: `/code-review high --fix` found the
+  applied-before-Enrich ordering bug; fixed with a failure-path test. Graph updated.
+- Handoff: spec + design + backend gates green on PR #333; next is the frontend (FR3/FR4) per
+  the handoff's Implementation notes, then `/testing-strategy`.

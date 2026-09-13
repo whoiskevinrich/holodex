@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -316,5 +317,109 @@ func TestEnrichRefreshAll_PerProviderHintsAndSearched(t *testing.T) {
 	}
 	if searchedRuns[0].EntityType != model.EnrichEntityVideo || searchedRuns[0].EntityID != vid {
 		t.Errorf("run attribution = %+v", searchedRuns[0])
+	}
+}
+
+// F61 FR5 / AC-9: on refresh-all the resolve activity entry carries the
+// auto-applied candidate's detail lines — written on detail alone when the provider
+// sent no searched[] — while a needs_review outcome adds no `applied:` segment and an
+// applied candidate without detail (and no searched[]) leaves no resolve entry at all.
+func TestEnrichRefreshAll_AppliedDetailLogged(t *testing.T) {
+	detail := []string{"Studio: Outlet B › Network X", "Record: 28 tags · synopsis · 3 images"}
+	// studioed renders "Acme Pictures Ada Lovelace 2023": one substring hit at 0.9 ⇒ auto-apply.
+	studioed := optedIn("studioed", nil, nil)
+	studioed.People = map[string]enrich.FakePerson{
+		"tmdb:1": {Label: "Acme Pictures Ada Lovelace 2023 — Outlet B", Detail: detail, Fields: map[string][]string{"bio": {"x"}}},
+	}
+	// titled renders "Acme Pictures Ada Lovelace 2023-08-01 2023": lone hit, no detail, no searched.
+	titled := optedIn("titled", nil, nil)
+	titled.People = map[string]enrich.FakePerson{
+		"tmdb:2": {Label: "Acme Pictures Ada Lovelace 2023-08-01 2023 — Outlet A", Fields: map[string][]string{"bio": {"x"}}},
+	}
+	// denied renders the floor "Acme Pictures Ada Lovelace 2023-08-01": two hits ⇒ needs_review.
+	denied := optedIn("denied", nil, nil)
+	denied.Searched = []string{"Acme Pictures Ada Lovelace 2023-08-01"}
+	denied.People = map[string]enrich.FakePerson{
+		"tmdb:3": {Label: "Acme Pictures Ada Lovelace 2023-08-01 — Outlet B", Detail: detail},
+		"tmdb:4": {Label: "Acme Pictures Ada Lovelace 2023-08-01 — Outlet C", Detail: detail},
+	}
+	srv, r, vid := hintServer(t, "s3cret", map[string]*enrich.Fake{"studioed": studioed, "titled": titled, "denied": denied})
+
+	code, body := postTok(t, srv.URL+"/api/v1/media/"+itoa(vid)+"/enrich/refresh-all", "s3cret", nil)
+	if code != http.StatusOK {
+		t.Fatalf("refresh-all = %d, want 200: %v", code, body)
+	}
+
+	runs, err := r.ListJobRuns(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byProvider := map[string]string{}
+	for _, run := range runs {
+		if !strings.Contains(run.Detail, "searched:") && !strings.Contains(run.Detail, "applied:") {
+			continue
+		}
+		name := run.Detail[:strings.Index(run.Detail, " →")]
+		if prev, dup := byProvider[name]; dup {
+			t.Fatalf("%s wrote two resolve entries: %q and %q", name, prev, run.Detail)
+		}
+		byProvider[name] = run.Detail
+	}
+	want := map[string]string{
+		"studioed": "studioed → video #" + itoa(vid) + " (1 candidates) · applied: Acme Pictures Ada Lovelace 2023 — Outlet B — Studio: Outlet B › Network X · Record: 28 tags · synopsis · 3 images",
+		"denied":   "denied → video #" + itoa(vid) + " (2 candidates) · searched: Acme Pictures Ada Lovelace 2023-08-01",
+	}
+	for name, w := range want {
+		if got := byProvider[name]; got != w {
+			t.Errorf("%s detail\n got %q\nwant %q", name, got, w)
+		}
+	}
+	if got, ok := byProvider["titled"]; ok {
+		t.Errorf("titled applied without detail and sent no searched[] ⇒ no resolve entry, got %q", got)
+	}
+	for _, d := range byProvider {
+		if strings.ContainsAny(d, `/\`) {
+			t.Errorf("detail carries a path separator: %q", d)
+		}
+	}
+}
+
+// F61 FR5, review finding: a lone strong candidate whose apply then FAILS must not
+// leave an `applied:` segment — the resolve entry keeps searched[] only, and the
+// enrich job's own "(failed)" entry records the failure.
+func TestEnrichRefreshAll_FailedApplyNotLoggedAsApplied(t *testing.T) {
+	titled := optedIn("titled", nil, nil)
+	titled.Searched = []string{"Acme Pictures Ada Lovelace 2023-08-01 2023"}
+	titled.EnrichErr = errors.New("upstream 503")
+	titled.People = map[string]enrich.FakePerson{
+		"tmdb:2": {Label: "Acme Pictures Ada Lovelace 2023-08-01 2023 — Outlet A",
+			Detail: []string{"Studio: Outlet A", "Record: 16 tags"}},
+	}
+	srv, r, vid := hintServer(t, "s3cret", map[string]*enrich.Fake{"titled": titled})
+
+	if code, body := postTok(t, srv.URL+"/api/v1/media/"+itoa(vid)+"/enrich/refresh-all", "s3cret", nil); code != http.StatusOK {
+		t.Fatalf("refresh-all = %d, want 200: %v", code, body)
+	}
+	runs, err := r.ListJobRuns(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resolveEntry, failed string
+	for _, run := range runs {
+		switch {
+		case strings.Contains(run.Detail, "applied:"):
+			t.Errorf("failed apply logged as applied: %q", run.Detail)
+		case strings.HasPrefix(run.Detail, "titled →") && strings.Contains(run.Detail, "searched:"):
+			resolveEntry = run.Detail
+		case strings.HasPrefix(run.Detail, "titled →") && strings.Contains(run.Detail, "(failed)"):
+			failed = run.Detail
+		}
+	}
+	want := "titled → video #" + itoa(vid) + " (1 candidates) · searched: Acme Pictures Ada Lovelace 2023-08-01 2023"
+	if resolveEntry != want {
+		t.Errorf("resolve entry\n got %q\nwant %q", resolveEntry, want)
+	}
+	if failed == "" {
+		t.Errorf("no (failed) enrich entry among %d runs", len(runs))
 	}
 }

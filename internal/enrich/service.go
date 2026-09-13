@@ -889,18 +889,28 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 }
 
 // RecordSearched appends an unattended (refresh-all) resolve pass to the activity
-// history when the provider reported what it searched (ADR-095 D6) — the only trace
-// a no-owner-present run leaves of the queries actually tried. Called by the batch
-// path only; the interactive picker shows searched[] directly. The detail keeps the
-// F22.6b no-path invariant: a basename a provider echoes back is not a path, and the
-// same basename already renders on the owner's media page.
-func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult) {
-	if len(res.Searched) == 0 {
+// history when the provider reported what it searched (ADR-095 D6) or when the
+// candidate it auto-applied carried detail lines (F61 FR5) — the only trace a
+// no-owner-present run leaves of the queries actually tried and of which record it
+// bound. applied is the SingleStrongMatch candidate when one applied, else nil.
+// Called by the batch path only; the interactive picker shows both directly. The
+// detail keeps the F22.6b no-path invariant: a basename a provider echoes back is
+// not a path, and detail lines are the provider's text about its own record.
+func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult, applied *Candidate) {
+	withDetail := applied != nil && len(applied.Detail) > 0
+	if len(res.Searched) == 0 && !withDetail {
 		return
 	}
 	run := newEnrichRun(started, entityType, entityID)
-	run.Detail = fmt.Sprintf("%s → %s #%d (%d candidates) · searched: %s",
-		provider, entityType, entityID, len(res.Candidates), strings.Join(res.Searched, " · "))
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s → %s #%d (%d candidates)", provider, entityType, entityID, len(res.Candidates))
+	if len(res.Searched) > 0 {
+		b.WriteString(" · searched: " + strings.Join(res.Searched, " · "))
+	}
+	if withDetail {
+		b.WriteString(" · applied: " + applied.Label + " — " + strings.Join(applied.Detail, " · "))
+	}
+	run.Detail = b.String()
 	s.recordRun(run)
 }
 
@@ -1050,6 +1060,7 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].Namespace = strings.TrimSpace(in[i].Namespace)
 		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
 		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
+		in[i].Detail = sanitizeDetail(in[i].Detail)
 	}
 	return in
 }

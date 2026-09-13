@@ -255,17 +255,23 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 	if err != nil {
 		return noCandidates("refresh-all resolve failed", err)
 	}
-	// The only trace an unattended resolve leaves of what was actually tried
-	// (ADR-095 D6) — a no-op when the provider reported nothing.
-	h.enrich.RecordSearched(started, provider, entityType, id, res)
 	cands := res.Candidates
+	// The only trace an unattended resolve leaves of what was actually tried
+	// (ADR-095 D6) and of which record it bound (F61 FR5) — a no-op when the
+	// provider reported neither. `applied` is passed only once the apply has
+	// actually succeeded: a failed Enrich records the resolve without it (and
+	// its own "(failed)" entry), so the audit line never claims a binding that
+	// didn't happen.
 	if strong, ok := enrich.SingleStrongMatch(cands); ok {
 		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, strong.ExternalID, h.auth.authorized(r))
 		if err != nil {
+			h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
 			return noCandidates("refresh-all auto-apply failed", err)
 		}
+		h.enrich.RecordSearched(started, provider, entityType, id, res, &strong)
 		return refreshAllResult{Provider: provider, Status: "auto_applied", Enriched: fields}, false
 	}
+	h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
 	if len(cands) == 0 {
 		return refreshAllResult{Provider: provider, Status: "no_candidates"}, false
 	}

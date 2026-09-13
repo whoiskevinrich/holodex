@@ -4,7 +4,10 @@
 // is the one place that decides what leaves the box.
 package enrich
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // /describe.resolve_hints vocabulary (ADR-095 D1, contract §4.10).
 const (
@@ -23,6 +26,14 @@ var SearchFieldKeys = []string{"title", "studio", "actors", "director", "release
 // maxSearched caps a provider's searched[] reply (contract §5) — Holodex keeps the
 // first N, in issue order.
 const maxSearched = 10
+
+// maxDetail / maxDetailLen cap a candidate's detail[] (contract §5, F61): the first
+// 8 lines, each ≤ 256 bytes — deliberately far below maxFieldLen. This is a reveal,
+// not a page; a line that needs more should be a profile_url.
+const (
+	maxDetail    = 8
+	maxDetailLen = 256
+)
 
 // gateHint applies the ADR-095 D1 opt-in and operator deny to a caller-built hint,
 // returning what may go on the wire to this provider: Fields only when the manifest
@@ -87,6 +98,31 @@ func sanitizeSearched(in []string) []string {
 		in = in[:maxSearched]
 	}
 	out := SanitizeValues(in)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// sanitizeDetail bounds an untrusted candidates[].detail reply (contract §5, F61):
+// first maxDetail entries, each through SanitizeValue (control characters stripped,
+// newlines collapsed — one entry is one rendered line) then cut to maxDetailLen on
+// a rune boundary, empty entries dropped. Nil in ⇒ nil out, and [] ⇒ nil, so the
+// client never sees an empty list.
+func sanitizeDetail(in []string) []string {
+	if len(in) > maxDetail {
+		in = in[:maxDetail]
+	}
+	out := SanitizeValues(in)
+	for i, v := range out {
+		if len(v) > maxDetailLen {
+			v = v[:maxDetailLen]
+			for !utf8.ValidString(v) {
+				v = v[:len(v)-1]
+			}
+			out[i] = strings.TrimSpace(v)
+		}
+	}
 	if len(out) == 0 {
 		return nil
 	}

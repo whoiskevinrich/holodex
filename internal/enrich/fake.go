@@ -30,14 +30,18 @@ type Fake struct {
 	// the Service's gate — what a real provider would have seen on the wire.
 	Searched []string
 	LastHint Hint
+	// EnrichErr, when set, makes every Enrich fail with it — the unattended
+	// auto-apply failure path (F61 FR5: a failed apply must not log "applied:").
+	EnrichErr error
 }
 
 // FakePerson is one canned upstream record (used for people, studios, and video
 // alike — a label plus fields/assets/people is all the contract needs).
 type FakePerson struct {
 	Label          string
-	Disambiguation string // the picker hint (entity-appropriate: known-for, origin country, …)
-	ProfileURL     string // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
+	Disambiguation string   // the picker hint (entity-appropriate: known-for, origin country, …)
+	ProfileURL     string   // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
+	Detail         []string // optional revealable record summary (F61, contract §2.3 candidates[].detail)
 	Fields         map[string][]string
 	Assets         []Asset          // optional image assets (F25) the enrich response carries
 	People         []ProviderPerson // structured video credits (F32, contract §4.5)
@@ -135,7 +139,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 		if p, ok := records[id]; ok {
 			return ResolveResult{Candidates: []Candidate{{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 1, ProfileURL: p.ProfileURL,
+				Confidence: 1, ProfileURL: p.ProfileURL, Detail: p.Detail,
 			}}, Searched: f.Searched}, nil
 		}
 	}
@@ -146,7 +150,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 		if q != "" && strings.Contains(strings.ToLower(p.Label), q) {
 			out = append(out, Candidate{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL,
+				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL, Detail: p.Detail,
 			})
 		}
 	}
@@ -155,6 +159,9 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 
 func (f *Fake) Enrich(_ context.Context, entityType, externalID string) (EnrichResult, error) {
 	f.Calls++
+	if f.EnrichErr != nil {
+		return EnrichResult{}, f.EnrichErr
+	}
 	p, ok := f.records(entityType)[externalID]
 	if !ok {
 		return EnrichResult{}, fmt.Errorf("unknown record %q", externalID)
