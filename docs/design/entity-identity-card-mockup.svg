@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="790" viewBox="0 0 900 790" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Entity identity card — reference chip, edition field, full-film pills, and the Display-as split</title>
+  <desc>Four panels. One: an entity header whose meta line ends in a copyable kind:id reference chip. Two: the media page Edition field row at rest and expanded into the SourceBadge chip row with a custom-value input. Three: the film page Full film list with an edition pill per file and a dashed Set edition link on a file that has none. Four: a person header where the docked pencil renames in files while a badge line beneath the name opens the display-name decision.</desc>
+
+  <rect width="900" height="790" fill="#0c0a09"/>
+
+  <!-- ─────────── 1. Header meta line: reference chip (HOLODEX-374) ─────────── -->
+  <text x="30" y="30" fill="#e8a33d" font-size="11" letter-spacing="1.2">1 — META LINE: REFERENCE CHIP, EVERY ENTITY PAGE (374)</text>
+  <rect x="30" y="42" width="520" height="140" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+
+  <rect x="46" y="60" width="58" height="76" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="75" y="102" fill="#9b9082" font-size="9" text-anchor="middle">HEADSHOT</text>
+
+  <text x="118" y="84" fill="#f3ece1" font-size="20" font-weight="600" font-family="'Fraunces Variable', serif">Nia Okafor</text>
+  <rect x="236" y="70" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="244" y="82" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+
+  <text x="118" y="112" fill="#9b9082" font-size="11">14 videos · 2019–2024 · </text>
+  <rect x="245" y="99" width="94" height="20" rx="10" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="255" y="113" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">person:1234</text>
+  <rect x="324" y="103" width="12" height="12" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+  <rect x="327" y="100" width="12" height="12" rx="2" fill="#181310" stroke="#9b9082" stroke-width="1"/>
+
+  <text x="118" y="140" fill="#9b9082" font-size="9">click or Enter copies "person:1234" · chip reads "Copied" for 1.5 s · visitors see it too</text>
+  <text x="118" y="156" fill="#9b9082" font-size="9">same slot on studio / tag / film / media pages — last item of the existing meta line</text>
+
+  <circle cx="530" cy="62" r="10" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="530" y="66" fill="#e8a33d" font-size="11" text-anchor="middle">1</text>
+
+  <!-- ─────────── 2. Media page: Edition row (HOLODEX-377) ─────────── -->
+  <text x="30" y="214" fill="#e8a33d" font-size="11" letter-spacing="1.2">2 — MEDIA PAGE: EDITION FIELD ROW, AT REST THEN EXPANDED (377)</text>
+  <rect x="30" y="226" width="520" height="270" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="46" y="252" fill="#9b9082" font-size="11" letter-spacing="1.2">AT REST — owner view = visitor view + badge</text>
+  <text x="46" y="276" fill="#9b9082" font-size="11">Release date:</text>
+  <text x="140" y="276" fill="#f3ece1" font-size="12">1982-06-25</text>
+  <rect x="212" y="264" width="34" height="16" rx="8" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="229" y="275" fill="#9b9082" font-size="9" text-anchor="middle">file</text>
+
+  <text x="46" y="302" fill="#9b9082" font-size="11">Edition:</text>
+  <text x="140" y="302" fill="#f3ece1" font-size="12">Final Cut</text>
+  <rect x="200" y="290" width="72" height="16" rx="8" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="236" y="301" fill="#9b9082" font-size="9" text-anchor="middle">file · name</text>
+  <text x="282" y="302" fill="#9b9082" font-size="9">← the badge is the affordance; click expands</text>
+
+  <line x1="46" y1="318" x2="534" y2="318" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="46" y="340" fill="#9b9082" font-size="11" letter-spacing="1.2">EXPANDED — radiogroup, staged selection, explicit Confirm</text>
+  <text x="46" y="364" fill="#9b9082" font-size="11">Edition:</text>
+  <text x="140" y="364" fill="#f3ece1" font-size="12">Final Cut</text>
+
+  <rect x="140" y="376" width="132" height="26" rx="13" fill="#181310" stroke="#e8a33d" stroke-width="1.5"/>
+  <text x="152" y="393" fill="#f3ece1" font-size="11">Final Cut</text>
+  <text x="212" y="393" fill="#9b9082" font-size="9">file · name</text>
+
+  <rect x="280" y="376" width="150" height="26" rx="6" fill="#0c0a09" stroke="#2a2622" stroke-width="1"/>
+  <text x="290" y="393" fill="#9b9082" font-size="11">Director's Cut</text>
+  <text x="396" y="393" fill="#9b9082" font-size="9">custom</text>
+  <text x="440" y="393" fill="#9b9082" font-size="9">no chip for an absent tag</text>
+
+  <rect x="140" y="412" width="64" height="24" rx="6" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="172" y="428" fill="#e8a33d" font-size="11" text-anchor="middle">Confirm</text>
+  <rect x="212" y="412" width="56" height="24" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="240" y="428" fill="#9b9082" font-size="11" text-anchor="middle">Cancel</text>
+
+  <text x="46" y="458" fill="#9b9082" font-size="9">Typed values are curated (DB only). The file's tag is written by Write to file…, never here.</text>
+  <text x="46" y="474" fill="#9b9082" font-size="9">The badge renders even when the file has ONE candidate — the custom chip is always present.</text>
+
+  <circle cx="530" cy="246" r="10" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="530" y="250" fill="#e8a33d" font-size="11" text-anchor="middle">2</text>
+
+  <!-- ─────────── 3. Film page: Full film list (HOLODEX-377) ─────────── -->
+  <text x="30" y="528" fill="#e8a33d" font-size="11" letter-spacing="1.2">3 — FILM PAGE: FULL FILM LIST, EDITION PILL PER FILE (377)</text>
+  <rect x="30" y="540" width="520" height="220" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="46" y="566" fill="#9b9082" font-size="11" letter-spacing="1.2">FULL FILM</text>
+
+  <rect x="46" y="578" width="488" height="34" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="58" y="599" fill="#f3ece1" font-size="12">Blade Runner (1982) {edition-Final Cut}.mkv</text>
+  <rect x="346" y="587" width="56" height="18" rx="9" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="374" y="599" fill="#9b9082" font-size="9" text-anchor="middle">Final Cut</text>
+  <rect x="408" y="587" width="30" height="18" rx="4" fill="#e8a33d"/>
+  <text x="423" y="599" fill="#0c0a09" font-size="9" font-weight="600" text-anchor="middle">4K</text>
+  <rect x="444" y="585" width="82" height="22" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="485" y="599" fill="#9b9082" font-size="9" text-anchor="middle">Write to file…</text>
+
+  <rect x="46" y="620" width="488" height="34" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="58" y="641" fill="#f3ece1" font-size="12">Blade Runner 1982 1080p.mkv</text>
+  <rect x="318" y="629" width="72" height="18" rx="9" fill="none" stroke="#9b9082" stroke-width="1" stroke-dasharray="3 2"/>
+  <text x="354" y="641" fill="#e8a33d" font-size="9" text-anchor="middle">+ Set edition</text>
+  <rect x="396" y="629" width="42" height="18" rx="4" fill="#e8a33d"/>
+  <text x="417" y="641" fill="#0c0a09" font-size="9" font-weight="600" text-anchor="middle">1080p</text>
+  <rect x="444" y="627" width="82" height="22" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="485" y="641" fill="#9b9082" font-size="9" text-anchor="middle">Write to file…</text>
+
+  <text x="46" y="678" fill="#9b9082" font-size="9">pill = the file's resolved Edition, read-only here · "Set edition" is a link to /media/{id}#field-edition</text>
+  <text x="46" y="694" fill="#9b9082" font-size="9">with the row auto-expanded (panel 2) · visitors see the pill, not the link</text>
+  <text x="46" y="718" fill="#9b9082" font-size="9">Stressed state: two files, neither with an edition → two dashed links, nothing else changes.</text>
+  <text x="46" y="734" fill="#9b9082" font-size="9">Long edition ("Theatrical Cut, Remastered 2007") → pill truncates at 18ch with a title tooltip.</text>
+
+  <circle cx="530" cy="560" r="10" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="530" y="564" fill="#e8a33d" font-size="11" text-anchor="middle">3</text>
+
+  <!-- ─────────── 4. Header: Display as vs Rename in files (HOLODEX-378) ─────────── -->
+  <text x="580" y="30" fill="#e8a33d" font-size="11" letter-spacing="1.2">4 — HEADER: TWO VERBS (378)</text>
+  <rect x="580" y="42" width="290" height="454" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="596" y="68" fill="#9b9082" font-size="11" letter-spacing="1.2">AT REST — decision standing</text>
+  <text x="596" y="98" fill="#f3ece1" font-size="20" font-weight="600" font-family="'Fraunces Variable', serif">Robert Downey Jr.</text>
+  <rect x="784" y="84" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="792" y="96" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+  <text x="806" y="96" fill="#9b9082" font-size="9">rename in files</text>
+
+  <text x="596" y="120" fill="#9b9082" font-size="11">In files as</text>
+  <text x="656" y="120" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">robert downey jr</text>
+  <rect x="762" y="108" width="52" height="16" rx="8" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="788" y="119" fill="#9b9082" font-size="9" text-anchor="middle">tmdb</text>
+  <text x="820" y="120" fill="#9b9082" font-size="9">← display as</text>
+
+  <text x="596" y="146" fill="#9b9082" font-size="9">"In files as" line appears only when display ≠ canonical.</text>
+  <text x="596" y="160" fill="#9b9082" font-size="9">Badge = the name field's SourceBadge (ADR-051 chip row).</text>
+
+  <line x1="596" y1="176" x2="854" y2="176" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="596" y="198" fill="#9b9082" font-size="11" letter-spacing="1.2">BADGE EXPANDED — pick the display source</text>
+  <rect x="596" y="212" width="140" height="26" rx="13" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="606" y="229" fill="#f3ece1" font-size="11">robert downey jr</text>
+  <text x="706" y="229" fill="#9b9082" font-size="9">file</text>
+
+  <rect x="596" y="246" width="152" height="26" rx="13" fill="#181310" stroke="#e8a33d" stroke-width="1.5"/>
+  <text x="606" y="263" fill="#f3ece1" font-size="11">Robert Downey Jr.</text>
+  <text x="716" y="263" fill="#9b9082" font-size="9">tmdb</text>
+
+  <rect x="596" y="280" width="152" height="26" rx="6" fill="#0c0a09" stroke="#2a2622" stroke-width="1"/>
+  <text x="606" y="297" fill="#9b9082" font-size="11">Custom…</text>
+  <text x="716" y="297" fill="#9b9082" font-size="9">custom</text>
+
+  <rect x="596" y="316" width="64" height="24" rx="6" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="628" y="332" fill="#e8a33d" font-size="11" text-anchor="middle">Confirm</text>
+  <rect x="668" y="316" width="56" height="24" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="696" y="332" fill="#9b9082" font-size="11" text-anchor="middle">Cancel</text>
+
+  <text x="596" y="362" fill="#9b9082" font-size="9">Changes how the name is shown. Never touches the</text>
+  <text x="596" y="376" fill="#9b9082" font-size="9">file, aliases, search, or writeback.</text>
+
+  <line x1="596" y1="392" x2="854" y2="392" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="596" y="414" fill="#9b9082" font-size="11" letter-spacing="1.2">PENCIL — the existing rename, unchanged</text>
+  <rect x="596" y="426" width="200" height="26" rx="6" fill="#0c0a09" stroke="#e8a33d" stroke-width="1"/>
+  <text x="606" y="443" fill="#f3ece1" font-size="11">Robert Downey Jr.</text>
+  <text x="596" y="470" fill="#9b9082" font-size="9">Changes the name itself; old spelling becomes an alias;</text>
+  <text x="596" y="484" fill="#9b9082" font-size="9">offers Write to file. (NameEditControl, as today.)</text>
+
+  <circle cx="850" cy="62" r="10" fill="#181310" stroke="#e8a33d" stroke-width="1"/>
+  <text x="850" y="66" fill="#e8a33d" font-size="11" text-anchor="middle">4</text>
+
+  <!-- ─────────── Legend ─────────── -->
+  <text x="580" y="528" fill="#e8a33d" font-size="11" letter-spacing="1.2">NOT NEW SURFACE</text>
+  <rect x="580" y="540" width="290" height="220" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="596" y="566" fill="#f3ece1" font-size="11">375 · entity_external_ids — no UI change.</text>
+  <text x="596" y="582" fill="#9b9082" font-size="9">The existing external-id badge (ADR-083) reads the new table.</text>
+  <text x="596" y="608" fill="#f3ece1" font-size="11">376 · films in the spine — AliasPanel, reused.</text>
+  <text x="596" y="624" fill="#9b9082" font-size="9">Mounts under the film header exactly as on studios/[id].</text>
+  <text x="596" y="640" fill="#9b9082" font-size="9">Provider alternative titles land as "also known as" rows.</text>
+  <text x="596" y="666" fill="#f3ece1" font-size="11">Writeback dialog — one new row.</text>
+  <text x="596" y="682" fill="#9b9082" font-size="9">Edition appears in WritebackFormDialog's field list like</text>
+  <text x="596" y="696" fill="#9b9082" font-size="9">any other canonical field; no bespoke control.</text>
+  <text x="596" y="722" fill="#f3ece1" font-size="11">Tokens only.</text>
+  <text x="596" y="738" fill="#9b9082" font-size="9">Mockup drawn in Cinémathèque; QA all three skins.</text>
+</svg>
