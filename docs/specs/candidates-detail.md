@@ -16,8 +16,10 @@ that makes this safe is [§2.3](metadata-provider-contract.md#23-post-resolve--i
 "Holodex ignores unknown response keys".
 **Contract amendment**: [metadata-provider-contract.md](metadata-provider-contract.md) §2.3
 (response example + field row) and §5 (caps row) — amended in the same change as this spec.
-**Design handoff**: `docs/design/candidates-detail-handoff.md` (pending — the three-state mockup
-below is the input)
+**Design handoff**: [candidates-detail-handoff.md](../design/candidates-detail-handoff.md) +
+[mockup](../design/candidates-detail-mockup.svg) + [QA checklist](../design/candidates-detail-qa-checklist.md)
+(2026-09-13: text toggle chosen over an info glyph — the picker's existing `.btn-quiet`
+dotted-underline idiom, zero new components or icons)
 **Origin**: a proposal from the partner video provider's implementer, reviewed and accepted
 2026-09-13. The provider already emits the studio chain in `disambiguation` when duplicates
 collide and tie-breaks equal confidences on catalogue richness; this spec gives that invisible
@@ -119,7 +121,7 @@ Caps, mirroring the `searched[]` row in §5:
   **then** the client receives 8 lines, the long one truncated to 256 chars with the newline
   stripped, and the candidate is otherwise unaffected (label, confidence, `profile_url` intact).
 - **Given** a candidate carries `"detail": []`, **when** decoded, **then** it is treated as absent:
-  no glyph, no `detail` key on the wire to the client.
+  no toggle, no `detail` key on the wire to the client.
 - **Given** a provider predating this spec (no `detail` anywhere), **when** any resolve happens,
   **then** the response and the picker are byte-for-byte what they are today.
 
@@ -134,31 +136,32 @@ its **own** per-entry cap — `SanitizeValue`'s 4096 is the field-value cap, not
 - **Given** the sanitizer runs, **when** any other candidate key is inspected, **then** its
   treatment is unchanged (regression guard on the existing loop).
 
-#### FR3 — Picker reveal: toggle glyph, inline expansion
+#### FR3 — Picker reveal: text toggle, inline expansion
 
-A candidate row with a non-empty `detail` shows a **toggle button** (info glyph) trailing the
-`confidence` badge and the `view source ↗` link, so the row's existing left-to-right reading order
-is preserved. Activating it expands the lines **inline beneath the row** (the row grows; nothing
-floats, nothing is clipped by the listbox's scroll container). Activating again collapses. The
-glyph is a real button: reachable by Tab inside the existing focus trap, toggled by Enter/Space,
-tapped on touch, and it stops propagation so toggling never confirms the candidate. Its
-`aria-expanded` tracks the state and `aria-controls` names the lines' container. Hover on the glyph
-is *not* a mechanism — it may show a tooltip-style hint, but reveal is by activation only.
+A candidate row with a non-empty `detail` shows a **toggle button** — the text `details` /
+`hide details` in the picker's existing `.btn-quiet` dotted-underline idiom (the Searched
+caption's `+N more`) — trailing the `view source ↗` link on the row's actions line, so the row's
+existing reading order is preserved. Activating it expands the lines **inline beneath the row**
+(the row grows; nothing floats, nothing is clipped by the listbox's scroll container). Activating
+again collapses. The toggle is a real button: reachable by Tab inside the existing focus trap,
+toggled by Enter/Space, tapped on touch, and it stops propagation so toggling never confirms the
+candidate. Its `aria-expanded` tracks the state and `aria-controls` names the lines' container;
+its visible text is its accessible name. Hover is *not* a mechanism — reveal is by activation only.
 
-A row with no `detail` shows no glyph and is unchanged.
+A row with no `detail` shows no toggle and is unchanged.
 
 - **Given** a candidate with `detail`, **when** the picker renders, **then** the row is the same
-  height as a row without `detail`, plus one glyph in the actions line.
-- **Given** the owner activates the glyph (click, tap, Enter, or Space), **when** the lines expand,
+  height as a row without `detail`, plus one `details` toggle on the actions line.
+- **Given** the owner activates the toggle (click, tap, Enter, or Space), **when** the lines expand,
   **then** they render beneath the row as one visual line per entry, verbatim, in provider order,
   muted against the row's `label`, and the candidate is **not** confirmed.
-- **Given** the lines are expanded, **when** the owner activates the glyph again, **then** they collapse.
+- **Given** the lines are expanded, **when** the owner activates the toggle again (now `hide details`), **then** they collapse.
 - **Given** the lines are expanded on row 2, **when** the owner uses ↑/↓ to move the active row,
   **then** row 2's expansion state is preserved (state is per row, per response).
 - **Given** a new search runs, **when** new candidates arrive, **then** every row starts collapsed
   (subject to FR4) — expansion state does not leak across responses.
 - **Given** a row is expanded, **when** the owner presses Enter with the *row* focused (not the
-  glyph), **then** the candidate confirms exactly as today — the glyph does not intercept row keys.
+  toggle), **then** the candidate confirms exactly as today — the toggle does not intercept row keys.
 
 #### FR4 — Auto-expand on label collision
 
@@ -172,7 +175,7 @@ toggle still works on auto-expanded rows.
 - **Given** two candidates "harbor lights" and "Harbor  Lights", **when** the picker renders,
   **then** they count as a collision (normalized) and both expand.
 - **Given** two same-labelled candidates where only one carries `detail`, **when** the picker
-  renders, **then** that one expands and the other has no glyph.
+  renders, **then** that one expands and the other has no toggle.
 - **Given** all candidates have distinct labels, **when** the picker renders, **then** nothing is
   auto-expanded even if every candidate carries `detail`.
 
@@ -210,11 +213,11 @@ is not a writeback input. The only durable trace is the FR5 activity-log line.
 
 ### Nice-to-Have (P1)
 
-#### P1-a — Collapsed-state hint on the glyph
+#### P1-a — Line count in the collapsed toggle
 
-`title`/`aria-label` on the glyph reads `Show details (3 lines)` / `Hide details`, so a
-screen-reader owner knows what the button does before activating it. Cheap; do it with FR3 if the
-design handoff agrees on copy.
+The closed toggle may read `details (3)` so the owner knows how much is behind it before opening.
+The design handoff settled the base copy as `details` / `hide details`; the count is an optional
+refinement, cheap to add with FR3 — skip it if it reads as noise in the monospace skins.
 
 ### Future Considerations (P2)
 
@@ -237,9 +240,9 @@ design handoff agrees on copy.
 3. The contract carries the new §2.3 row (with the example JSON showing `detail`) and the new §5
    caps row, and states: entity-agnostic, additive, omit-when-empty, verbatim, not stored.
 4. A row with `detail` is the same height as one without until revealed; the only visible
-   addition is one glyph trailing the `view source ↗` link (or the confidence badge when there is
-   no link).
-5. The glyph is a button: Tab reaches it inside the modal's focus trap, Enter/Space/click/tap
+   addition is one `details` text toggle trailing the `view source ↗` link (alone on the actions
+   line when there is no link).
+5. The toggle is a button: Tab reaches it inside the modal's focus trap, Enter/Space/click/tap
    toggle it, toggling never confirms the candidate, `aria-expanded` and `aria-controls` are
    correct, and the row's own Enter/Space still confirm.
 6. Expanded lines render inline beneath the row, verbatim, one per entry, and are never clipped by
@@ -252,7 +255,7 @@ design handoff agrees on copy.
    `applied: <label> — <lines · joined>`; a `needs_review` or `no_candidates` outcome adds nothing;
    the entry still contains no file path.
 10. No `detail` text is stored in `entity_enrichment`, returned from `/enrich`, or sent to writeback.
-11. All three skins: the glyph, the expanded lines, and the auto-expanded state use tokens only
+11. All three skins: the toggle, the expanded lines, and the auto-expanded state use tokens only
     (`text-muted`, `text-accent`, `bg-surface-2`, `border-*`) and read correctly in each skin.
 
 ## Test Notes (for `/testing-strategy`)
@@ -266,12 +269,12 @@ design handoff agrees on copy.
   `detail` → activity entry contains `applied: … — …`; four equal candidates → entry unchanged;
   lone strong candidate without `detail` and no `searched[]` → no resolve entry; assert the
   no-path invariant on the rendered detail string.
-- **Picker (`EnrichPicker.svelte`, vitest + testing-library)** — glyph absent without `detail`;
-  glyph present, `aria-expanded=false`, lines not in DOM; click/Enter/Space toggle; toggle does not
+- **Picker (`EnrichPicker.svelte`, vitest + testing-library)** — toggle absent without `detail`;
+  toggle present, `aria-expanded=false`, lines not in DOM; click/Enter/Space toggle; toggle does not
   call `confirm`; row Enter still confirms with lines expanded; state preserved across ↑/↓; reset on
   new response; collision normalization (`harbor lights` vs `Harbor  Lights`); mixed group (one
   with `detail`, one without); all-distinct → none expanded. The existing roving-tabindex and
-  focus-trap tests must still pass with the glyph as an extra tab stop.
+  focus-trap tests must still pass with the toggle as an extra tab stop.
 - **Geometry** — a row with `detail` collapsed has the same `offsetHeight` as one without;
   expanded lines at 25 candidates are inside the `<ul>`'s scroll box (no clipping); three-skin
   contrast on the muted lines against `bg-surface-2` for the active row (use the computed-style
@@ -294,8 +297,9 @@ Folded from the maintainer review of the provider's proposal (2026-09-13):
 
 ## Open Questions
 
-- **(design, non-blocking)** Glyph choice and expanded-lines typography — settled in the design
-  handoff against the three-state mockup; FR3/FR4 fix the behaviour, not the pixels.
+- ~~(design) Toggle choice and expanded-lines typography~~ — **settled 2026-09-13** in the design
+  handoff: text toggle in the existing `.btn-quiet` idiom; lines `text-xs text-muted` behind a
+  `border-l border-rule` indent.
 - **(engineering, non-blocking)** Whether `RecordSearched` takes the applied candidate as a
   parameter or is split into resolve-entry + applied-segment — implementation's call; FR5 fixes
   the entry's content and when it is written.

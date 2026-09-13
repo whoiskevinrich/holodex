@@ -30,9 +30,12 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   (`metadata-provider-contract.md` §2.3 example + `candidates[].detail` row, §5 caps row)
 - [~] architecture `architecture` — n/a: additive optional response key, no seam touched, no
   migration; `profile_url` (F47/RD6) precedent. Revisit only if P2-c (thumbnail) ever returns
-- [ ] design `design-handoff` — three-state mockup (collapsed / one toggled / auto-expanded on
-  collision) rendered in-session 2026-09-13; must be committed as SVG in `docs/design/` with the
-  handoff doc; settles glyph, expanded-line typography, P1-a copy
+- [x] design `design-handoff` — `candidates-detail-handoff.md` + `candidates-detail-mockup.svg`
+  (four panels: collapsed / one toggled / collision auto-expanded / activity row) + numbered,
+  verifier-tagged `candidates-detail-qa-checklist.md`. **Text toggle** (`details` / `hide details`,
+  the Searched caption's `.btn-quiet` dotted-underline idiom) chosen over an info glyph from a
+  side-by-side mockup — zero new components or icons; lines `text-xs text-muted` behind
+  `border-l border-rule`, in-flow inside the `<li>`; expansion state keyed by `external_id`
 - [ ] backend — `Candidate.Detail []string` (`internal/enrich/enrich.go`), `sanitizeDetail` sibling
   of `sanitizeSearched` with its own 8/256 caps, wired into the resolve sanitizer loop;
   `RecordSearched` learns the applied candidate (FR5); `Fake` gains per-candidate `Detail`
@@ -47,11 +50,10 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [S] Open the **Draft PR** with this spec + contract amendment (spec gate lands first per
-   ADR-069); gate-status checkboxes in the PR body mirror Jira.
-2. [ ] [M] `/design-handoff` — commit the three-state mockup as SVG next to
-   `docs/design/candidates-detail-handoff.md`; clear `needs-design` in Jira when it lands.
-3. [ ] [M] Backend FR1/FR2/FR5 + tests, then frontend FR3/FR4 + tests + three-skin QA.
+1. [x] [S] Draft PR #333 opened with the spec gate; gate-status checkboxes mirror Jira.
+2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared in Jira.
+3. [ ] [M] Backend FR1/FR2/FR5 + tests (`sanitizeDetail`, `RecordSearched` learns the applied
+   candidate, `Fake.Detail`), then frontend FR3/FR4 + tests + three-skin QA per the checklist's §3.
 4. [ ] [S] `/testing-strategy`, then mark the PR ready → CI fires In Review.
 5. [ ] [—] Tell the provider side the merged contract text matches the proposal so they can emit
    `detail` on every candidate (the audit path needs it on lone candidates too).
@@ -59,11 +61,13 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-13 · proposal reviewed, decisions locked, spec + contract amendment written
-- skills: write-spec; maintainer review of the provider proposal with a three-state mockup
-  (show_widget) to settle Q2/Q4
+- skills: write-spec, design-handoff; maintainer review of the provider proposal with a
+  three-state mockup (show_widget) to settle Q2/Q4, then a toggle-variant mockup for the handoff
 - Reviewed the proposal against the decoder, sanitizer, picker row, and refresh-all path; answered
   the four open questions (verbatim / toggle + inline / audit-log in v1 / auto-expand on
   collision); created HOLODEX-380, renamed the branch, fired In Progress; wrote the F61 spec and
   the §2.3 + §5 contract rows.
-- Handoff: spec gate green and uncommitted on `HOLODEX-380-candidates-detail`; next is commit +
-  Draft PR, then `/design-handoff` with the SVG.
+- Committed the spec gate, opened Draft PR #333, then ran `/design-handoff`: text toggle chosen
+  over glyph; handoff doc, four-panel SVG, and QA checklist committed; spec FR3/P1-a/AC synced.
+- Handoff: spec + design gates green on PR #333; next is the backend (FR1/FR2/FR5) — start with
+  `sanitizeDetail` beside `sanitizeSearched` and the `RecordSearched` signature change.
