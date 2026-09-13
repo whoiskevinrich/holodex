@@ -44,9 +44,17 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   `FakePerson.Detail` + `EnrichErr`. Tests: `candidate_detail_test.go` (sanitizer table, wire
   ingest, RecordSearched matrix), `TestEnrichRefreshAll_AppliedDetailLogged`,
   `TestEnrichRefreshAll_FailedApplyNotLoggedAsApplied`. `go test ./...` green (26 pkgs)
-- [ ] frontend — `EnrichPicker.svelte`: toggle-button glyph trailing `view source ↗`, inline
-  expansion, per-row state reset on new response, label-collision auto-expand; `EnrichCandidate`
-  type; three-skin QA via computed styles
+- [x] frontend — `EnrichCandidate.detail?`; pure `candidateDetail.ts` (`collisionOpen`,
+  `hasDetail`, `detailLabel`, `normalizeLabel`) + 9 unit tests; `EnrichPicker.svelte`: `open`
+  map keyed by `external_id`, reseeded per response / dropped on edit, `details`/`hide details`
+  `.btn-quiet` toggle on a **baseline flex actions line** (an inline-block button in the bare
+  `<li>` added a descent gap — 74.5px vs the 66.6px one text line should cost; the flex row fixed
+  parity), `<ul>` in flow, `sourceLink` snippet so no-detail rows keep their exact DOM; stub
+  `flood`/`twins` carry `detail` (caps + collision + mixed). **Live QA against the stub, all
+  three skins:** 7/8 twins rows open on render, row 8 no toggle; toggle collapses without
+  confirming; state survives ↑/↓; toggle is a trap stop; flood 25 rows all collapsed, 8-line
+  and 256-char rows inside the scroller, dialog overflow 0; line contrast on the active row
+  4.71 / 5.47 / 5.88 (Broadcast / Brutalist / Cinémathèque), fonts inherit each skin
 - [ ] testing `testing-strategy` — per the spec's Test Notes: sanitizer table test, refresh-all
   audit entry (applied / needs_review / no-entry), picker toggle + keyboard + collision, geometry
   (collapsed height parity, no clipping at 25), stub fixture with four same-label records
@@ -59,10 +67,13 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 1. [x] [S] Draft PR #333 opened with the spec gate; gate-status checkboxes mirror Jira.
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared in Jira.
 3. [x] [M] Backend FR1/FR2/FR5 + tests landed.
-3a. [ ] [M] Frontend FR3/FR4: `EnrichCandidate.detail?`, `collisionOpen()` beside
-   `searchedCaption.ts`, toggle + `<ul>` in `EnrichPicker.svelte`, tests per checklist §2.3–2.7,
-   2.9–2.10, then three-skin QA per §3. Also give `testdata/enrich-stub/stub.js` a four-same-label
-   video fixture with `detail` (checklist §1.2a) so §3 can run against a real sidecar.
+3a. [x] [M] Frontend FR3/FR4 landed with stub fixtures and live three-skin QA.
+3b. [ ] [S] `/testing-strategy` must reconcile the QA checklist's §2.4–2.7 / 2.9–2.10 `[smoke]`
+   items with reality: no component harness exists, so those are `[agent]` live items (done this
+   session) unless a geometry assertion is added — `stressedPicker` prepares `flood`, whose rows
+   now carry `detail`, so a collapsed-row-height-parity assertion is one entry away.
+3c. [ ] [—] QA §4.6 (touch hit target) is the one `[human]` item still open: the toggle has no
+   vertical padding on purpose (parity); say if it needs `py-1`.
 4. [ ] [S] `/testing-strategy`, then mark the PR ready → CI fires In Review.
 5. [ ] [—] Tell the provider side the merged contract text matches the proposal so they can emit
    `detail` on every candidate (the audit path needs it on lone candidates too).
@@ -80,5 +91,7 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   over glyph; handoff doc, four-panel SVG, and QA checklist committed; spec FR3/P1-a/AC synced.
 - Backend gate built and reviewed in the same session: `/code-review high --fix` found the
   applied-before-Enrich ordering bug; fixed with a failure-path test. Graph updated.
-- Handoff: spec + design + backend gates green on PR #333; next is the frontend (FR3/FR4) per
-  the handoff's Implementation notes, then `/testing-strategy`.
+- Frontend built, `/code-review high --fix` clean, verified live on `backend-stub` + `web` +
+  `enrich-stub` (launch entries added to the gitignored launch.json) across all three skins.
+- Handoff: spec + design + backend + frontend gates green on PR #333; next is
+  `/testing-strategy` (reconcile the checklist's harness-less smoke items), then mark ready.

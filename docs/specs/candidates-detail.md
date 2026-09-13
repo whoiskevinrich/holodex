@@ -273,12 +273,13 @@ refinement, cheap to add with FR3 — skip it if it reads as noise in the monosp
   `detail` → activity entry contains `applied: … — …`; four equal candidates → entry unchanged;
   lone strong candidate without `detail` and no `searched[]` → no resolve entry; assert the
   no-path invariant on the rendered detail string.
-- **Picker (`EnrichPicker.svelte`, vitest + testing-library)** — toggle absent without `detail`;
-  toggle present, `aria-expanded=false`, lines not in DOM; click/Enter/Space toggle; toggle does not
-  call `confirm`; row Enter still confirms with lines expanded; state preserved across ↑/↓; reset on
-  new response; collision normalization (`harbor lights` vs `Harbor  Lights`); mixed group (one
-  with `detail`, one without); all-distinct → none expanded. The existing roving-tabindex and
-  focus-trap tests must still pass with the toggle as an extra tab stop.
+- **Picker — pure helper (`web/src/lib/candidateDetail.ts`, vitest)** — this repo has no
+  component-test harness (see `searchedCaption.ts`), so the label-collision rule, the
+  toggle-presence rule (`[]` ≡ absent) and the toggle copy live in a pure module with unit
+  tests; the component's DOM behaviour is verified live against the stub per the QA checklist
+  §3 (toggle absent without `detail`; `aria-expanded`; click/Enter/Space toggle without
+  confirming; row Enter still confirms; state preserved across ↑/↓; reset on new response;
+  collision fixtures; the toggle as an extra tab stop inside the trap).
 - **Geometry** — a row with `detail` collapsed has the same `offsetHeight` as one without;
   expanded lines at 25 candidates are inside the `<ul>`'s scroll box (no clipping); three-skin
   contrast on the muted lines against `bg-surface-2` for the active row (use the computed-style

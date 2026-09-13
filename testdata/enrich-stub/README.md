@@ -108,6 +108,12 @@ a resolve. Open any entity's enrich picker against `flood` or `twins`:
 - `twins` returns 8 candidates with the **same label**, differing only in
   `disambiguation` (one pair is a genuine exact duplicate, so even the tiebreaker ties).
 
+Both also carry `candidates[].detail` (F61, HOLODEX-380), the two halves of the picker's
+reveal rule: `flood`'s labels are distinct, so every row shows a `details` toggle and starts
+**collapsed** (row 1 has the 8-line cap, row 2 one 256-char line); `twins` is a label
+collision, so seven rows open on first render — the eighth carries no `detail` at all, the
+mixed case (a toggle-less member of an open group).
+
 Both stay below the `0.85` auto-apply threshold on purpose: a *lone* candidate at or above
 it is applied without the picker ever opening, which would skip the list they exist to
 stress.
