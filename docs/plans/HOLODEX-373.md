@@ -93,7 +93,8 @@ covers 85% of marked files, so the loose-pattern near-miss question stays deferr
 renaming them is cheaper than a parser). Keywords: remaster 41 · extended 29 · cut 27 · director
 17 · unrated 15 · edition 11 · theatrical 9 · imax 7. Only **3 title groups hold >1 edition** (5
 hold >1 file) — edition is overwhelmingly a descriptor on a single file, not a sibling
-disambiguator. Sizing consequences for 377: (a) first F48 extraction run yields ~141 exact
+disambiguator. Kevin eyeballed the `bare` row: a few real, all filename problems to rename, not
+a parser gap — **spec OQ "loose patterns in this epic?" resolved: no; RD7 stands.** Sizing consequences for 377: (a) first F48 extraction run yields ~141 exact
 `filename:edition` candidates — the auto-apply flag decides whether that is 141 review rows at
 once; (b) writeback of `Edition` to the 311 MP4s is a full-file rewrite each (XMP via exiftool),
 MKVs are in-place via mkvpropedit; (c) the multi-edition film page state matters for 3 films.

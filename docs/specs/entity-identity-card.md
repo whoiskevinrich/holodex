@@ -369,8 +369,10 @@ Personal-server scale — these are checks, not dashboards.
   RD8. No spike needed.
 - **(engineering, non-blocking)** Whether `entity_enrichment.external_id` is dropped in 375's
   migration or a follow-up once every reader is moved — decide by the size of the reader diff.
-- **(owner, non-blocking)** Whether the near-miss queue should get loose edition patterns in this
-  epic (P1) or wait for probe evidence.
+- ~~**(owner, non-blocking)** Whether the near-miss queue should get loose edition patterns in this
+  epic (P1) or wait for probe evidence.~~ **Resolved 2026-09-14 by the filename probe: not in this
+  epic.** 141 of 166 marked files already use strict `{edition-X}`; the ≤25 loose ones are filename
+  problems the owner renames, not a parser gap. RD7 stands as written.
 
 ## Timeline / routing
 
