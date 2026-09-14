@@ -1276,6 +1276,16 @@
 				{/if}
 
 				<header class="space-y-2">
+					<!-- Title + edition (F60 RD6, owner ruling): the edition reads beside the title when
+					     it fits and drops beneath it when it doesn't — never truncated, never squeezing
+					     the title. NameEditControl's own heading row is deliberately non-wrapping
+					     (HOLODEX-356: the name breaks words, the pencil stays docked), so the wrap happens
+					     out here: the title control is a shrinkable flex item (`min-w-0`, its h1 still
+					     breaks words), the pill is `shrink-0` so it wraps to its own line instead of
+					     stealing width, and `max-w-full` + `wrap-anywhere` keep a value wider than the
+					     viewport wrapping inside the pill rather than widening the page. -->
+					<div class="flex flex-wrap items-center gap-2">
+						<div class="min-w-0 max-w-full">
 					{#key id}
 						<NameEditControl
 							id="field-title"
@@ -1286,14 +1296,6 @@
 							headingClass="skin-title text-2xl font-semibold text-ink"
 							pencilAlwaysVisible
 						>
-							{#snippet trailing()}
-								{#if editionValue}
-									<span
-										class="inline-block max-w-[18ch] shrink-0 truncate rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
-										title={editionValue}>{editionValue}</span
-									>
-								{/if}
-							{/snippet}
 							{#snippet verdict(c, resolve)}
 								<CollisionOfferCard
 									video={c}
@@ -1307,6 +1309,14 @@
 							{/snippet}
 						</NameEditControl>
 					{/key}
+						</div>
+						{#if editionValue}
+							<span
+								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
+								>{editionValue}</span
+							>
+						{/if}
+					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 						<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
 						<span>{video.width}×{video.height}</span>

@@ -16,7 +16,7 @@
   <text x="170" y="107" fill="#9b9082" font-size="10" text-anchor="middle">Director's Edition</text>
   <rect x="232" y="95" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622" stroke-width="1"/>
   <text x="240" y="107" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
-  <text x="264" y="107" fill="#9b9082" font-size="9">← pill in NameEditControl's trailing slot, before the pencil · 18ch truncation + title tooltip · display only</text>
+  <text x="264" y="107" fill="#9b9082" font-size="9">← beside the title when it fits; on narrow screens it drops beneath the title, never truncated · display only</text>
   <text x="58" y="122" fill="#9b9082" font-size="8.5">4K · 3840×2160 · 2:35:24 · 2021 · video:8</text>
 
   <!-- A1 three resting provenances, side by side -->

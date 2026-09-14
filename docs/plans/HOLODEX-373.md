@@ -124,7 +124,11 @@ the `edition` block. Later in the session Kevin reviewed the as-built figure and
 title on both pages: the film row's pill now sits directly after the file title (resolution +
 Write button stay right-aligned) and the media header shows the same read-only pill in
 `NameEditControl`'s `trailing` slot before the pencil; the Metadata row remains the curation
-mount. Figure + handoff §2–§3 as-built table updated. Follow-up in the same session: Kevin ruled on the two open calls — A for the helper line;
+mount. Then "wrap vs. truncate on narrow screens": the header pill is uncapped — it drops
+beneath the title at phone width and a too-wide value wraps inside the pill (`shrink-0` +
+`max-w-full wrap-anywhere` in a media-page flex-wrap row; `NameEditControl`'s `trailing` slot
+was tried first and squeezed the title to one letter per line — its row is non-wrapping by
+design). Figure + handoff §2–§3 as-built table updated. Follow-up in the same session: Kevin ruled on the two open calls — A for the helper line;
 and since editions sit on media and most have none, `edition` became a `CriticalityOptional`
 facet (listed for the deep link, never scored or queued) so a library's score doesn't fall
 when the field is declared. Handoff: **377 shipped, Draft PR #332 updated; next is 378 (Low,
