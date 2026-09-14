@@ -159,7 +159,9 @@ Each row in `films/[id]/+page.svelte:641-670` gains a pill **directly beside the
 the video's resolved `edition`. The video summary payload the film page already receives carries
 `edition` (resolved value only — the film page never needs the candidates).
 
-Truncate at 18 characters with the full value in `title`. Visitors and owners see the same pill.
+~~Truncate at 18 characters with the full value in `title`.~~ **Never truncated** (owner ruling
+2026-09-14): the title group wraps, so a pill that doesn't fit beside the title drops beneath it,
+and a value wider than the row wraps inside the pill. Visitors and owners see the same pill.
 
 ### 3b. Set edition — the missing-value affordance
 
@@ -183,7 +185,7 @@ The cost is one navigation; the benefit is one curation mount. Owner to ratify.
 | Two full-film files, neither with an edition | Two dashed links. Nothing else changes — no banner, no "which is which?" prompt. The list is already the prompt. |
 | One file, no edition | One dashed link. Not an error; most films have one file. |
 | Edition set on some, not others | Mixed pills and links, same row shape. |
-| Very long edition | 18-char truncation + `title`. |
+| Very long edition | Wraps beneath the title, then inside the pill — never truncated. |
 | Edition present but identical on two files | Two identical pills — genuinely the owner's problem to fix via Set edition; do not dedupe or warn. |
 
 ## §2–§3 as built (HOLODEX-377, 2026-09-14)
@@ -199,7 +201,7 @@ components and supersedes them where they differ. "Director's Edition" on both p
 | A · at rest | The one Edition row in its three provenances — container tag (`file`), filename marker (`filename`), typed value (`custom` + `file out of sync`). Owner and visitor see the same value and badge; only the owner's badge is clickable. | Badge labels are `ProvenanceBadge`'s real ones (`file` / `filename` / `custom`), not the drafted "file · name" / "file · tag". |
 | A · landed | Arriving via `/media/{id}#field-edition`: row scrolled into view, badge expanded, chip row = `— · file` (the F37 blank-pin), the filename candidate selected, `+ Custom`, Confirm / Cancel. | The blank-pin chip **stays** (§2c corrected). A file with neither tag nor marker nor decision has no row at all, so the landing renders one from its completeness facet — `— · file` and `+ Custom` only — and Confirm makes it real. |
 | A · write | The `Write decisions to file…` dialog line: `Edition · custom → Edition, was: —`. | No helper line under the row (owner ruling, §2c). |
-| B · owner | Full film rows: the pill sits **directly beside the file's title**, resolution and `Write to file…` stay right-aligned; `+ Set edition` dashed link in that same slot on a file with none; 18ch truncation with the full value in `title`. Mixed states share one row shape. | Pill moved from the resolution side to the title side (owner ruling 2026-09-14): the edition is a property of *this file*, so it travels with the file's name. |
+| B · owner | Full film rows: the pill sits **directly beside the file's title**, resolution and `Write to file…` stay right-aligned; `+ Set edition` dashed link in that same slot on a file with none. **Never truncated:** the title group wraps, so a long pill drops beneath the title and a value wider than the row wraps inside the pill. Mixed states share one row shape. | Pill moved from the resolution side to the title side, and the 18ch truncation dropped (owner rulings 2026-09-14): the edition is a property of *this file*, so it travels with the file's name, whole. |
 | B · visitor | Same pill, beside the title; no link, no `Write to file…`. | As above. |
 
 Not visible in the figure but part of the same build: `edition` is an **optional** completeness

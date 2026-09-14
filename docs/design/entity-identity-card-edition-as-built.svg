@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <title>Edition as built (HOLODEX-377) — "Director's Edition" on the media detail and film detail pages</title>
-  <desc>Two panels drawn from the shipped components. Panel A, the media detail page: the header with the edition pill directly beside the title, then the Metadata grid's Edition row in its three resting provenances (container tag, filename marker, typed custom value with the out-of-sync pill), then the row as it lands from the film page's deep link — expanded, with the blank file chip, the filename candidate selected and the Custom opener — and the Write-to-file dialog line. Panel B, the film detail page's Full film list: one file with a Director's Edition pill directly beside its title, one with no edition showing the dashed Set edition link in that same slot, one with a long edition truncated at eighteen characters, and the visitor rendering with pills but no link or write button.</desc>
+  <desc>Two panels drawn from the shipped components. Panel A, the media detail page: the header with the edition pill directly beside the title, then the Metadata grid's Edition row in its three resting provenances (container tag, filename marker, typed custom value with the out-of-sync pill), then the row as it lands from the film page's deep link — expanded, with the blank file chip, the filename candidate selected and the Custom opener — and the Write-to-file dialog line. Panel B, the film detail page's Full film list: one file with a Director's Edition pill directly beside its title, one with no edition showing the dashed Set edition link in that same slot, one with a long edition wrapped beneath its title, and the visitor rendering with pills but no link or write button.</desc>
 
   <rect width="900" height="900" fill="#0c0a09"/>
 
@@ -132,18 +132,18 @@
   <rect x="426" y="725" width="90" height="22" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
   <text x="471" y="739" fill="#9b9082" font-size="9" text-anchor="middle">Write to file…</text>
 
-  <rect x="46" y="760" width="480" height="34" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <rect x="46" y="760" width="480" height="52" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
   <text x="58" y="781" fill="#f3ece1" font-size="12">Dune</text>
-  <rect x="96" y="769" width="108" height="18" rx="9" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-  <text x="150" y="781" fill="#9b9082" font-size="9" text-anchor="middle">Director's Edition,…</text>
+  <rect x="58" y="788" width="252" height="18" rx="9" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="184" y="800" fill="#9b9082" font-size="9" text-anchor="middle">Director's Edition, Remastered 2007 Anniversary</text>
   <rect x="384" y="769" width="36" height="18" rx="4" fill="#e8a33d"/>
   <text x="402" y="781" fill="#1a1206" font-size="9" font-weight="600" text-anchor="middle">FHD</text>
   <rect x="426" y="767" width="90" height="22" rx="6" fill="#181310" stroke="#2a2622" stroke-width="1"/>
   <text x="471" y="781" fill="#9b9082" font-size="9" text-anchor="middle">Write to file…</text>
 
-  <text x="46" y="818" fill="#9b9082" font-size="9">row 1: the file's resolved edition, read-only pill directly beside the title · row 2: no edition + owner →</text>
-  <text x="46" y="832" fill="#9b9082" font-size="9">dashed link to /media/{id}#field-edition (panel A, landed) · row 3: "Director's Edition, Remastered" truncated</text>
-  <text x="46" y="846" fill="#9b9082" font-size="9">at 18ch with the full value in the title tooltip. Three files with mixed states share one row shape — no banner.</text>
+  <text x="46" y="830" fill="#9b9082" font-size="9">row 1: the file's resolved edition, read-only pill directly beside the title · row 2: no edition + owner →</text>
+  <text x="46" y="844" fill="#9b9082" font-size="9">dashed link to /media/{id}#field-edition (panel A, landed) · row 3: a long edition is never truncated — it drops</text>
+  <text x="46" y="858" fill="#9b9082" font-size="9">beneath the title and wraps inside the row; resolution and Write to file… keep the title line. One row shape, no banner.</text>
 
   <!-- visitor column -->
   <line x1="544" y1="654" x2="544" y2="862" stroke="#2a2622" stroke-width="1"/>

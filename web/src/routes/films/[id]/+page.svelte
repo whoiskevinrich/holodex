@@ -804,14 +804,19 @@
 										     offers the dashed "+ Set edition" deep link — the media page lands with the
 										     field's badge expanded, one curation mount for the whole app. Visitors see
 										     an empty slot. -->
-										<span class="flex min-w-0 flex-1 items-center gap-2">
+										<!-- The title group wraps on its own (owner ruling, same rule as the media
+										     header): the pill is never truncated — it drops beneath the title when the
+										     two don't fit, and a value wider than the row wraps inside the pill.
+										     `shrink-0` keeps it from taking width from the title; the title itself keeps
+										     its own truncation. -->
+										<span class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 											<a href={`/media/${fv.video.id}`} class="min-w-0 truncate text-sm text-ink hover:text-accent">
 												{fv.video.title}
 											</a>
 											{#if fv.edition}
 												<span
-													class="inline-block max-w-[18ch] shrink-0 truncate rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
-													title={fv.edition}>{fv.edition}</span
+													class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+													>{fv.edition}</span
 												>
 											{:else if isOwner}
 												<a
