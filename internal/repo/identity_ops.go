@@ -40,8 +40,8 @@ type entityIdentity struct {
 }
 
 // idMove names a table + column whose reference to the merged entity is repointed
-// onto the survivor (studio_external_ids, so a merged studio's provider identity
-// keeps resolving to the survivor — matching the migration-0022 fold). excludeSelf
+// onto the survivor (tags.parent_tag_id; provider ids ride the polymorphic
+// entity_external_ids step below instead, ADR-096 D2). excludeSelf
 // skips the row whose id equals the survivor itself — needed for a self-referential
 // FK (tags.parent_tag_id, F50 P0-11): otherwise a survivor that was itself a child
 // of the loser would have its own parent_tag_id set to canonicalID = canonicalID.
@@ -70,14 +70,9 @@ var entityIdentityByType = map[string]entityIdentity{
 		// there.
 		moveAssocSQL: `INSERT OR IGNORE INTO video_people (video_id, person_id, role)
 			SELECT video_id, ?, role FROM video_people WHERE person_id = ?`,
-		// person_external_ids (migration 0038, F32/ADR-055): mirrors studio's idMoves
-		// entry below — a merged person's provider identity repoints onto the survivor
-		// instead of cascade-deleting with the loser, so a re-enrich still id-matches.
-		idMoves: []idMove{{"person_external_ids", "person_id", false}},
 	},
 	model.EnrichEntityStudio: {
 		table: "studios", assoc: "video_studios", assocFK: "studio_id",
-		idMoves: []idMove{{"studio_external_ids", "studio_id", false}},
 	},
 	model.EntityTag: {
 		table: "tags", assoc: "video_tags", assocFK: "tag_id",
@@ -396,9 +391,7 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		{"move associations", moveAssocSQL, []any{canonicalID, mergedID}},
 		{"clear merged associations", `DELETE FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`, []any{mergedID}},
 	}
-	// 1b. Repoint any extra id references (studio external ids) onto the survivor so
-	//     provider identity keeps resolving there; OR IGNORE drops a duplicate the
-	//     survivor already owns (the FK-cascade delete below then clears the loser's).
+	// 1b. Repoint any extra id references (tags.parent_tag_id) onto the survivor.
 	for _, mv := range cfg.idMoves {
 		stmt := `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`
 		args := []any{canonicalID, mergedID}
@@ -424,6 +417,11 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		steps = append(steps, identityStep{"move " + mv.table, stmt, args})
 	}
 	steps = append(steps, []identityStep{
+		// 1c. Provider identity follows the survivor (ADR-054/055, one table for every
+		//     kind since ADR-096 D2) so a re-enrich / rescan still id-matches there; OR
+		//     IGNORE leaves an id the survivor already owns, and the loser's leftover is
+		//     cleared by the *_ad_external_ids trigger on delete.
+		{"repoint external ids", `UPDATE OR IGNORE entity_external_ids SET entity_id = ? WHERE entity_type = ? AND entity_id = ?`, []any{canonicalID, entityType, mergedID}},
 		// 2. Preserve a prior merge chain: re-point merged's aliases, drop collisions.
 		{"repoint aliases", `UPDATE OR IGNORE entity_aliases SET entity_id = ? WHERE entity_type = ? AND entity_id = ?`, []any{canonicalID, entityType, mergedID}},
 		{"drop collided aliases", `DELETE FROM entity_aliases WHERE entity_type = ? AND entity_id = ?`, []any{entityType, mergedID}},

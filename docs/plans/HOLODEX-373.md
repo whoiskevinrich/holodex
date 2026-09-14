@@ -45,7 +45,10 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 - [/] backend — 374 done: `internal/model/ref.go` (kinds + `Ref()` + `MarshalJSON` on the five
   entities, so `ref` rides every list/detail/nested payload from one place), `internal/api/ref.go`
   (`ParseRef` + `RefKindError`; `urlParamID` reads the route's kind off the chi pattern, nested ids
-  by param name), MCP `get_video` accepts a ref + every result carries `ref`. 375–378 open
+  by param name), MCP `get_video` accepts a ref + every result carries `ref`. 375 done: migration
+  0046 `entity_external_ids` (fold + 4 cleanup triggers), `resolveOrCreateByName` id-first for
+  every kind, `Enrich` records the adopted id as identity (person/studio/tag/film), merge repoints
+  the polymorphic row, `GetFilmByExternalID`; memo column kept → HOLODEX-382. 376–378 open
 - [/] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
   (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
   glyph ≥4.9:1 on Broadcast. 375–378 open
@@ -61,11 +64,25 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    (`cut|edition|extended|unrated|remaster`) before sizing 377
 5. [x] [M] 374 handle — shipped 2026-09-13 (tests: parser table, 5 entity routes + nested,
    kind mismatch 400, list/nested `ref`, MCP)
-6. [ ] [M] 375 external-id unification — the F23 precedence test is the first thing to write
-7. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
+6. [x] [M] 375 external-id unification — shipped 2026-09-13 (precedence test written first)
+7. [ ] [M] 376 films into the spine — `canonicalTable('film')`, composite `filmKey`, alias year
+   rule (RD4), `RenameEntity` for films; 375 left `identityQueryByType` at three kinds on purpose
+8. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-13 · 375 external-id unification — coded, tested
+- skills: code-review
+Precedence test first (`TestResolvePrecedence_ExternalIDBeatsNameKey`: an exact nameKey match for
+entity B loses to entity A's id — stronger than the existing convergence test), then migration
+0046 with an up+down fold test. One scope call, made not asked: **the re-enrich memo column
+stays.** Reader diff was larger than ADR-096 assumed — it also serves *video* refresh (video is
+not in D2's type set) and is keyed by provider, not namespace. Filed HOLODEX-382 with the finding.
+`Enrich` now records the adopted id for the four kinds, so the ADR-083 badge newly appears for
+picker-enriched people/studios (noted in the spec). `identityQueryByType` deliberately still
+builds three kinds — film resolve is 376's. Handoff: **next is 376 (films into the spine); 375
+Jira stays In Progress until the epic sweep; Draft PR #332 stays Draft.**
 
 ### 2026-09-13 · 374 reference handle — coded, tested, live-QA'd
 - skills: code-review

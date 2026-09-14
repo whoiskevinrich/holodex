@@ -185,16 +185,22 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - [x] Given `GET /people/1234` and `GET /people/person:1234`, the bodies are byte-identical.
 
 **375 — External ids**
-- [ ] Migration: `entity_external_ids` created; `person_external_ids` + `studio_external_ids`
-  folded in and dropped; per-kind AFTER DELETE cleanup triggers; `entity_enrichment.external_id`
-  dropped after readers move.
-- [ ] `resolveOrCreateByName` / `identityQueryByType` consult `entity_external_ids` for all four
-  kinds; `externalIDTable()`'s person/studio special-casing is gone.
-- [ ] Film enrichment adoption records the matched provider id; `GetFilmByExternalID` exists and
-  re-enrich uses it.
-- [ ] Given a person with `tmdb:6384` and a file whose person tag is spelled differently, when the
-  library rescans, then no new person row is created and the link lands on the existing person.
-- [ ] The ADR-083 external-id badge reads the new table with no visible change.
+- [x] Migration 0046: `entity_external_ids` created; `person_external_ids` + `studio_external_ids`
+  folded in and dropped; per-kind AFTER DELETE cleanup triggers (`TestMigration0046FoldsExternalIDsUpAndDown`).
+  `entity_enrichment.external_id` is **kept** — it also serves *video* re-enrich, which has no row
+  in the four-kind table, and is keyed by provider rather than namespace; its drop is
+  [HOLODEX-382](https://whoiskevinrich.atlassian.net/browse/HOLODEX-382).
+- [x] `resolveOrCreateByName` consults `entity_external_ids` for every kind; `externalIDTable()`'s
+  person/studio special-casing is gone (`externalIDSelect` / `externalIDAttach` constants).
+- [x] Every adoption (`Enrich`) for person/studio/tag/film records the adopted `<provider>:<id>` as
+  the entity's identity row (`TestEnrichRecordsIdentityExternalID`); `GetFilmByExternalID` exists.
+  Re-enrich still reads the memo (see HOLODEX-382).
+- [x] Given a person with `tmdb:137` and a file whose person tag exactly spells a *different*
+  person's name but carries `tmdb:137`, when the library rescans, then no new row is created and
+  the link lands on the id's owner (`TestResolvePrecedence_ExternalIDBeatsNameKey`, person + studio).
+- [x] The ADR-083 external-id badge reads the new table with no visible change for scan-linked
+  ids. **Visible consequence:** a person/studio enriched via the picker (no video sidecar) now
+  gets its badge too, because adoption records the identity row.
 
 **376 — Films in the spine**
 - [ ] `entity_aliases`, `entity_keep_separate`, `entity_alias_suppressions`,

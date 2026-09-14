@@ -8,8 +8,8 @@ import (
 )
 
 // ExternalLink is one badge-ready outbound link for a person/studio detail response
-// (HOLODEX-266, ADR-083): a read-only projection of person_external_ids/
-// studio_external_ids (ADR-054/055), one entry per stored external id (D3 — no
+// (HOLODEX-266, ADR-083): a read-only projection of entity_external_ids
+// (ADR-054/055, one table for every kind since ADR-096 D2), one entry per stored external id (D3 — no
 // "primary" selection, unlike video's single resolved badge). URL is empty when no
 // provider currently advertises a link_templates entry for this (namespace, entity
 // kind) — the degraded state the design handoff (docs/design/provider-link-badge-
@@ -54,7 +54,7 @@ func namespaceLabel(namespace string) string {
 }
 
 // externalLinksForEntity projects a person/studio's stored external ids
-// (person_external_ids/studio_external_ids, ADR-054/055) into badge-ready
+// (entity_external_ids, ADR-054/055/096) into badge-ready
 // ExternalLinks (HOLODEX-266, ADR-083): one entry per stored id (D3), namespace
 // split from the "<namespace>:<id>" value (ADR-082's value shape), with the outbound
 // URL built server-side from whichever provider currently advertises a

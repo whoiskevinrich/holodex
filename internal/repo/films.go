@@ -403,6 +403,22 @@ func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
 	return &f, nil
 }
 
+// GetFilmByExternalID resolves a namespace-qualified provider id ("tmdb:603") to the
+// film that owns it (entity_external_ids, ADR-096 D2) -- the "find film by TMDB id"
+// lookup that did not exist before F60. (nil, nil) when no film carries the id, so a
+// caller can fall through to name matching without an error branch.
+func (r *Repo) GetFilmByExternalID(ctx context.Context, externalID string) (*model.Film, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx, externalIDSelect, model.EnrichEntityFilm, externalID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("film by external id: %w", err)
+	}
+	return r.GetFilm(ctx, id)
+}
+
 // SearchFilms returns films whose name FTS-matches query (films_fts, migration
 // 0043), name-sorted -- the video→film picker's small-scale (low hundreds) name
 // search (spec: "results by film name, poster, and year"). An empty query matches

@@ -791,7 +791,7 @@ export interface PersonDetailResponse {
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
-	// entry per stored person_external_ids row (0..N), read-only, visitor-visible.
+	// entry per stored entity_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	// Owner-gated: the key is absent entirely for a visitor, not null.
@@ -810,7 +810,7 @@ export interface StudioDetailResponse {
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
-	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
+	// entry per stored entity_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	// Owner-gated: the key is absent entirely for a visitor, not null. AliasPanel is
