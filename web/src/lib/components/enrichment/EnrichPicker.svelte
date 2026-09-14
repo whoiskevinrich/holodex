@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import { toMessage, isHttpUrl } from '$lib/format';
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
+	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
 
 	let {
@@ -48,6 +49,10 @@
 	// (onInput) and again with every new response (search).
 	let searched = $state<string[]>([]);
 	let showAll = $state(false);
+	// Per-row `detail` reveal (F61, HOLODEX-380), keyed by external_id so it survives
+	// ↑/↓ moving `active`. Describes the LAST response like `searched`: rebuilt from
+	// the label-collision rule with every response, dropped when the box is edited.
+	let open = $state<Record<string, boolean>>({});
 	let active = $state(0);
 	let loading = $state(false);
 	let applying = $state(false);
@@ -105,6 +110,7 @@
 		// before the debounce, and back with the next response.
 		searched = [];
 		showAll = false;
+		open = {};
 		if (q.length < 2) {
 			candidates = [];
 			return;
@@ -127,6 +133,7 @@
 			candidates = res.candidates ?? [];
 			searched = res.searched ?? []; // same stale-response guard as candidates
 			showAll = false;
+			open = collisionOpen(candidates); // same-label rows start open (handoff FR4)
 			active = 0;
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
@@ -141,6 +148,7 @@
 			if (id !== searchId) return;
 			error = toMessage(e);
 			candidates = [];
+			open = {};
 		} finally {
 			if (id === searchId) loading = false;
 		}
@@ -210,6 +218,16 @@
 	function focusOption(i: number) {
 		active = i;
 		dialogEl?.querySelector<HTMLElement>(`#enrich-opt-${i}`)?.focus();
+	}
+
+	// The `details` toggle lives inside the row's role=option, like `view source ↗`:
+	// its click and its Enter/Space must never reach the row's confirm handlers.
+	function toggleDetail(e: Event, c: EnrichCandidate) {
+		e.stopPropagation();
+		open[c.external_id] = !open[c.external_id];
+	}
+	function onDetailKey(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
 	}
 
 	function matchLabel(c: EnrichCandidate): { text: string; accent: boolean } {
@@ -313,6 +331,7 @@
 		<ul id={listId} role="listbox" aria-label="Candidates" class="mt-2 flex-1 overflow-y-auto">
 			{#each candidates as c, i (c.external_id)}
 				{@const m = matchLabel(c)}
+				{@const hasLink = !!c.profile_url && isHttpUrl(c.profile_url)}
 				<!-- Roving tabindex: the active row is the lone tab stop; Tab/↑/↓ reach it,
 				     Enter/Space/click apply. -->
 				<li
@@ -335,7 +354,7 @@
 					{#if c.disambiguation}
 						<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
 					{/if}
-					{#if c.profile_url && isHttpUrl(c.profile_url)}
+					{#snippet sourceLink()}
 						<a
 							href={c.profile_url}
 							target="_blank"
@@ -346,6 +365,37 @@
 						>
 							view source ↗
 						</a>
+					{/snippet}
+					{#if hasDetail(c)}
+						<!-- `detail` reveal (F61, HOLODEX-380): the Searched caption's "+N more" idiom
+						     on the row's actions line — a baseline-aligned flex row like the caption's,
+						     so the inline-block button adds one text line and no descent gap. Lines
+						     expand in flow beneath the row so they scroll with it and never float or
+						     clip. Verbatim, one per entry. A row without detail keeps its exact DOM. -->
+						<div class="flex items-baseline gap-2">
+							{#if hasLink}{@render sourceLink()}{/if}
+							<button
+								type="button"
+								onclick={(e) => toggleDetail(e, c)}
+								onkeydown={onDetailKey}
+								aria-expanded={!!open[c.external_id]}
+								aria-controls="enrich-detail-{i}"
+								class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
+									? 'text-ink'
+									: ''}"
+							>
+								{detailLabel(!!open[c.external_id])}
+							</button>
+						</div>
+						{#if open[c.external_id]}
+							<ul id="enrich-detail-{i}" class="mt-1 border-l border-rule pl-2 text-xs text-muted">
+								{#each c.detail ?? [] as line, j (j)}
+									<li class="truncate" title={line}>{line}</li>
+								{/each}
+							</ul>
+						{/if}
+					{:else if hasLink}
+						{@render sourceLink()}
 					{/if}
 				</li>
 			{/each}

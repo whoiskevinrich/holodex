@@ -196,7 +196,16 @@ function candidatesFor(persona, query) {
       candidate(`flood:${100 + i}`, {
         label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
         confidence: Number((WEAK - i * 0.01).toFixed(2)),
-        disambiguation: `Result ${i + 1} of 30 · flooded list`
+        disambiguation: `Result ${i + 1} of 30 · flooded list`,
+        // F61 candidates[].detail on DISTINCT labels: every row carries a toggle and
+        // every row starts collapsed — the "zero cost when unneeded" half of the rule.
+        // Eight lines on row 1 and one 256-char line on row 2 are the §5 caps exactly.
+        detail:
+          i === 0
+            ? Array.from({ length: 8 }, (_, k) => `Line ${k + 1}: flood record ${100 + i}`)
+            : i === 1
+              ? [`Record: ${'x'.repeat(248)}`]
+              : [`Record: ${30 - i} tags · synopsis`]
       })
     );
   }
@@ -215,7 +224,16 @@ function candidatesFor(persona, query) {
       candidate(`twins:${200 + i}`, {
         label: 'Hayao Miyazaki',
         confidence: WEAK,
-        disambiguation: d
+        disambiguation: d,
+        // F61 candidates[].detail on a LABEL COLLISION: eight same-label rows, so the
+        // picker opens every one on first render (handoff FR4). The Studio line is the
+        // disambiguation's third segment; the Record line is the completeness tiebreak
+        // the proposal's provider sorts by, made visible. Row 7 is the no-detail member
+        // of a collision group — the mixed case (QA §1.2c): no toggle, nothing opens.
+        detail:
+          i === 7
+            ? undefined
+            : [`Studio: ${d.split(' · ')[2]}`, `Record: ${28 - i * 3} tags · synopsis · ${3 - (i % 3)} images`]
       })
     );
   }

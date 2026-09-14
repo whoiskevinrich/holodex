@@ -208,7 +208,8 @@ the same request carries three more optional `hint` keys ([§4.10](#410-structur
       "label": "Ada Lovelace",
       "confidence": 0.97,
       "disambiguation": "Mathematician · 1815–1852",
-      "profile_url": "https://acme.example/people/998211-ada-lovelace"
+      "profile_url": "https://acme.example/people/998211-ada-lovelace",
+      "detail": ["Known for: Analytical Engine notes", "Record: 4 images · biography"]
     }
   ],
   "searched": ["[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4", "Acme Pictures Ada Lovelace"]
@@ -224,6 +225,7 @@ the same request carries three more optional `hint` keys ([§4.10](#410-structur
 | `candidates[].confidence` | number | optional | 0–1 score, provider-native and non-normalized — see the auto-apply note above: a lone candidate at/above `0.85` applies without owner confirmation, so a well-calibrated score now has a real behavioral effect, not just display |
 | `candidates[].disambiguation` | string | optional | Short distinguishing line to separate same-named entities. Sanitized/capped by Holodex |
 | `candidates[].profile_url` | string | optional | Absolute link to your own page for this candidate (e.g. a person/company profile page), so the owner can verify a match against your richer page instead of the picker's three-field summary (F47/RD6). Rendered as a "view source ↗" link, opened in a new tab, when present. **Must be `http`/`https`** — Holodex scheme-validates server-side and silently drops any other scheme or a malformed URL before it reaches the client (no error, the candidate itself is still usable). Omit if you have none — don't send an empty string |
+| `candidates[].detail` | string[] | optional | **Revealable record summary (F61).** Short lines the owner can expand to compare candidates the one-line `disambiguation` can't separate — the case this exists for is one release catalogued once per distribution outlet (same label, date, cast; different outlet chain, tag count, image set), where the owner is choosing *which record to bind to*, not *which is the video*. Each entry is one display line, conventionally `Key: value`; Holodex renders it **verbatim** (no prefix parsing), collapsed behind a toggle on the row, and **auto-expanded when two or more candidates share a label**. Entity-agnostic. Caps in [§5](#5-non-functional-requirements): ≤ 8 entries, ≤ 256 chars each, no newlines; sanitized like `label`. **Omit when empty — never send `[]`.** Supplements `disambiguation`, never replaces it — keep the one-line summary populated. Presentation only: not stored, not written back; on Holodex's unattended refresh path the **auto-applied** candidate's lines are copied into the activity log so the match can be audited, so emit `detail` on every candidate, not only when your response has duplicates. Additive — an older Holodex ignores the key, so you may emit it before Holodex reads it |
 | `searched` | string[] | optional | **`video` only.** The queries you actually issued upstream, **in the order you issued them** — the owner sees these as a "Searched: …" line under the picker, and on Holodex's unattended refresh path they are the only record of what was tried. Include every attempt, hits or not (a `"user"` query first, then any `fields` fallback — [§4.10](#410-structured-resolve-hints-describeresolve_hints)). Caps in [§5](#5-non-functional-requirements): ≤ 10 entries, ≤ 4096 chars each, no newlines; sanitized like `label`. Omit when empty. **Not** gated by `resolve_hints` — Holodex ignores unknown response keys, so you may emit it before Holodex reads it |
 
 ### 2.4 `POST /enrich` — fetch fields
@@ -966,6 +968,7 @@ truncated.
 | **Response body size** | Keep every response under **1 MiB** (Holodex reads at most 1 MiB). Trim long text; cap candidate lists |
 | **Candidate count** | Return a small ranked list (≤ ~10). Holodex hard-caps at **25** |
 | **`searched[]` entries** | ≤ **10** per `/resolve` response (Holodex keeps the first 10); each ≤ **4096 chars**, **no newlines** (control chars stripped, truncated beyond — same treatment as `candidates[].label`). Omit the key when you issued nothing. [§4.10](#410-structured-resolve-hints-describeresolve_hints) |
+| **`candidates[].detail` entries** | ≤ **8** per candidate (Holodex keeps the first 8); each ≤ **256 chars**, **no newlines** (control chars stripped, truncated beyond — same treatment as `candidates[].label`). Deliberately far below the 4096-char value cap: this is a reveal, not a page — a line that needs more should be a `profile_url`. Omit the key when empty; `[]` is tolerated as absent. [§2.3](#23-post-resolve--identity-match-disambiguation) |
 | **Values per field** | ≤ **50** per field (Holodex cap); realistically 1–few |
 | **Field count** | ≤ **40** fields (Holodex cap); v1 person set is ~6 |
 | **Value length** | Each value ≤ **4096 chars** (Holodex truncates beyond). Prefer trimming text yourself on a clean boundary |

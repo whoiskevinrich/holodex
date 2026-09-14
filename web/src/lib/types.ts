@@ -641,6 +641,12 @@ export interface EnrichCandidate {
 	// convention for any provider-supplied URL — belt and suspenders). Absent when
 	// the provider doesn't offer one.
 	profile_url?: string;
+	// detail is the provider's optional per-record summary (F61, contract §2.3):
+	// short verbatim lines the picker reveals behind a `details` toggle so the owner
+	// can tell apart same-label candidates. Server-capped (8 lines × 256 chars, no
+	// newlines) and never `[]` — absent when the provider sent none. Presentation
+	// only; never stored or written back.
+	detail?: string[];
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
