@@ -48,10 +48,18 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   by param name), MCP `get_video` accepts a ref + every result carries `ref`. 375 done: migration
   0046 `entity_external_ids` (fold + 4 cleanup triggers), `resolveOrCreateByName` id-first for
   every kind, `Enrich` records the adopted id as identity (person/studio/tag/film), merge repoints
-  the polymorphic row, `GetFilmByExternalID`; memo column kept → HOLODEX-382. 376–378 open
+  the polymorphic row, `GetFilmByExternalID`; memo column kept → HOLODEX-382. 376 done:
+  migration 0047 (`ux_films_namekey` + film cleanup triggers), film in every spine registry
+  (`canonicalTable`, alias-key map, merge config w/ scene-number-safe `moveAssocSQL`, review
+  junction + seed), `CreateFilm` = film resolve-or-create per RD4 + `queueFilmSameTitle` (also on
+  rename), year-aware `RenameEntity` collision, film identity routes under the films gate,
+  `EntityRef.Year`, TMDB sidecar emits film `aliases`. 377–378 open
 - [/] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
   (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
-  glyph ≥4.9:1 on Broadcast. 375–378 open
+  glyph ≥4.9:1 on Broadcast. 376 done: `EntityKind` + `'film'` (api base, pickers, duplicates
+  page/banner), film page title `NameEditControl` + `MergeOfferCard` verdict + near-miss advisory
+  (studio wiring verbatim) + `AliasPanel` in the rail; `refLabel()` shows a film's year on every
+  identity card. 3-skin QA'd live (verdict card + panel on all three). 377–378 open
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — new writeback tag key, new mutation surface on `name`
 
@@ -65,12 +73,30 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 5. [x] [M] 374 handle — shipped 2026-09-13 (tests: parser table, 5 entity routes + nested,
    kind mismatch 400, list/nested `ref`, MCP)
 6. [x] [M] 375 external-id unification — shipped 2026-09-13 (precedence test written first)
-7. [ ] [M] 376 films into the spine — `canonicalTable('film')`, composite `filmKey`, alias year
-   rule (RD4), `RenameEntity` for films; 375 left `identityQueryByType` at three kinds on purpose
+7. [x] [M] 376 films into the spine — shipped 2026-09-14 (tests: composite-key collision,
+   alias-with-year routing, ambiguous no-year → queue, rename keeps alias + queues same-title,
+   cleanup trigger, provider aliases, film merge; API: routes gated, 409 conflict carries year)
+7b. [ ] [S] Seed `same-title` pairs for films that pre-date 0047 (only create/rename queue them
+   today) — file as a HOLODEX follow-up if Kevin wants the backfill
 8. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-14 · 376 films into the spine — coded, tested, live-QA'd
+- skills: code-review
+Explore-agent change map first (no CHECK constraints to widen — 0047 is index + triggers only),
+then the repo registries, `CreateFilm` as the film resolve path (films are never scanner-created,
+so RD4's alias-year rule has exactly one home), and the studio page's rename/near-miss/alias
+wiring copied onto the film page. Two calls made, not asked: **film merge is real** (a
+`MergeOfferCard` verdict with no merge behind it would be a dead end — scene-number collisions
+fall to NULL, never a dropped link) and **`EntityRef` gained `year`** so a "Dune ↔ Dune"
+review pair is tellable apart. Aliases stay year-less (ADR-096's "alias APIs carry a year" did
+not materialise; noted in the ADR checklist). Code-review found rename-onto-same-title wasn't
+queueing → `queueFilmSameTitle` shared by create and rename. Live: renamed film:1, collision
+verdict, alias add + conflict, Duplicates row with years, three skins. Handoff: **next is 377
+(edition) — run the prod probe (up-next 4) first; 376 Jira stays In Progress until the epic
+sweep; Draft PR #332 stays Draft.**
 
 ### 2026-09-13 · 375 external-id unification — coded, tested
 - skills: code-review

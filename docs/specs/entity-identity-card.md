@@ -202,15 +202,23 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   ids. **Visible consequence:** a person/studio enriched via the picker (no video sidecar) now
   gets its badge too, because adoption records the identity row.
 
-**376 — Films in the spine**
-- [ ] `entity_aliases`, `entity_keep_separate`, `entity_alias_suppressions`,
+**376 — Films in the spine** — shipped 2026-09-14 (migration 0047)
+- [x] `entity_aliases`, `entity_keep_separate`, `entity_alias_suppressions`,
   `identity_review_queue` accept `entity_type='film'`; cleanup trigger on `films`.
-- [ ] `ux_films_namekey` unique index on `(lower(trim(name)), year)`.
-- [ ] `RenameEntity` supports film; `canonicalTable('film')` returns `films`; old spelling → alias.
-- [ ] Alias routing per RD4; the ambiguous no-year case queues.
-- [ ] Provider alternative titles land as `source='provider'` aliases; `AliasPanel` mounts on the
+- [x] `ux_films_namekey` unique index on `(lower(trim(name)), year)`.
+- [x] `RenameEntity` supports film; `canonicalTable('film')` returns `films`; old spelling → alias.
+- [x] Alias routing per RD4 lives in `CreateFilm` (films are never scanner-created, so it is the
+  one film resolve path); the ambiguous no-year case, a year that disagrees, and a rename onto a
+  same-title/other-year film all queue a non-fuzzy `same-title` review pair. Aliases themselves
+  carry no year — the alias-key is unique per kind — so the year test is applied at routing time,
+  and a same-title alias add is a plain (year-blind) conflict the owner resolves.
+- [x] Provider alternative titles land as `source='provider'` aliases (the TMDB sidecar emits
+  `original_title` + `alternative_titles` as `aliases` for `film`); `AliasPanel` mounts on the
   film page.
-- [ ] `NameEditControl` on the film title with `MergeOfferCard` as the verdict.
+- [x] `NameEditControl` on the film title with `MergeOfferCard` as the verdict. Film merge moves
+  scenes across; a scene number the survivor already uses falls to NULL rather than losing the
+  link. Film refs (review pairs, near-miss, picker, conflict card) carry `year` so two same-title
+  films read apart.
 
 **377 — Edition**
 - [ ] `metadata-mappings.yaml.example` gains `edition` per RD6; the registry labels it "Edition".

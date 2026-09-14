@@ -294,8 +294,11 @@ Won't Do.
    `identityQueryByType`; `GetFilmByExternalID`; ADR-083 projection reads the new table. **The F23
    precedence test first.** Decide in-PR whether `entity_enrichment.external_id` drops in the same
    migration.
-3. [ ] **376** `ux_films_namekey`; film in the 0022 type set + trigger; `canonicalTable('film')`;
+3. [x] **376** `ux_films_namekey`; film in the 0022 type set + trigger; `canonicalTable('film')`;
    year-aware alias routing + queue on ambiguity; `AliasPanel` + `NameEditControl` on the film page.
+   (Shipped 2026-09-14, migration 0047. The "film-side alias APIs carry a year" consequence did
+   not materialise: aliases stay year-less and the year rule is applied where a title is routed —
+   `CreateFilm` — so the route config needed only a film branch, no new request shape.)
 4. [ ] **377** mapping row (+ `.example`); extractor surfaces `Edition` for MKV/WebM/MP4/MOV; F48
    `{edition-X}` parser; `formatMap` rows (`Edition` / `XMP-prism:Edition`); `SourceBadge` renders for
    curatable single-source fields (+ `curation/CLAUDE.md`); video summary carries `edition`; film-page
