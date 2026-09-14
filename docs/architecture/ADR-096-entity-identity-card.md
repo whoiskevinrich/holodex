@@ -159,6 +159,18 @@ ADR-093's tri-state `in_sync` and its startup WARN cover it with no new mechanis
 consumer is Holodex itself — Plex and Jellyfin read editions from filenames alone — so XMP is
 acceptable; `Subtitle` was rejected because it is already the tagline's key (`tags.go:101`).
 
+**Completeness — revisits ADR-081 D1 (2026-09-14).** ADR-081 gives `FieldDef.Criticality` three
+values: `""` (excluded, not listed), `critical`, `nice_to_have`. Edition needs a fourth,
+**`optional`**: the facet is *listed* — tier, label, and a `curatable` flag (true for a plain-text
+replace field) — but carries no weight, never counts as missing, and never enters the remediation
+queue or the breakdown panel. Two reasons. First, on the requesting library editions sit on media
+rather than films and most files have none; a `nice_to_have` facet would have marked most of the
+library incomplete and filled the queue with rows no provider can answer. Second, the media page's
+`#field-<canonical>` landing needs *something* that says the field exists and is curatable when the
+resolver has dropped it for being empty and undecided — the facet is the only payload that does,
+so it must stay listed. ADR-081 D1's "everything else stays `""`" rule is otherwise unchanged;
+`optional` is reserved for fields that are legitimately empty on most entities.
+
 Two UI consequences, both reuse: the media page renders edition through the generic field row and
 `SourceBadge`; and `SourceBadge` must render its badge for **any curatable field, not only
 multi-source ones** — a filename-only edition would otherwise have no affordance for a custom value.

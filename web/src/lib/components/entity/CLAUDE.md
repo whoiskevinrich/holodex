@@ -25,3 +25,13 @@ into another, and the shared video-list body for an entity's detail page.
 | `TagLinkChip.svelte` | Reusable tag display (HOLODEX-292): linked name + provenance suffix (`·file`/`·manual`/`·provider`) + optional remove control, one chip per tag. Owner vs. read-only is decided by whether the caller passes `onremove` (no separate `isOwner` boolean). Replaces three previously-inconsistent inline chip styles the Media (owner and visitor branches disagreed with each other) and Film detail pages each grew independently; both now share the same `rounded-full border-rule bg-surface-2` shape. The add-tag control itself (search/create popover) stays a separate component, `TagPicker.svelte` (HOLODEX-287/ADR-088) — this component owns only the per-tag chip, not the "+ Add tag" affordance. |
 | `RefChip.svelte` | Copyable `kind:id` reference handle (F60 RD1 / HOLODEX-374): a `btn-pill` mono chip mounted as the **last item of each detail page's existing meta line** (people/studios via `EntityVideoMeta`'s `ref` prop; tags, films and media inline). Click/Enter copies, "Copied" for 1.5 s with an `aria-live` announcement; a rejected clipboard API selects the text in place instead of silently doing nothing. Visible to visitors — a ref is not a mutation. Takes the payload's `ref` string as-is and never parses or builds one; only `internal/api/ref.go` splits on the colon. |
 | `SearchResultsPanel.svelte` | Grouped/tabbed search results (NS1/NS5, HOLODEX-249) — the All/People/Videos/Studios/Tags tab row + capped result rows, roving tabindex. Shared by the nav box's live-typing dropdown (`variant="dropdown"`) and `/search`'s page body (`variant="page"`), per "reuse, don't fork." Spans video results too, not just person/studio/tag. `showResults=false` (NS2) renders only the tab row — used while a scoped page (Media/People/Studios/Tags) is filtering its own grid in place, so the owner can still tap another tab to preview it without the results body doubling what the page is already showing. |
+
+## Rules
+
+- **`NameEditControl`'s `trailing` slot is for content that never needs to wrap** (a flag row, a
+  short badge). Its at-rest heading row is deliberately `flex` *without* `flex-wrap` — HOLODEX-356:
+  the name breaks words and the pencil stays docked — so anything in that slot can only take width
+  *from* the heading; a wrapping pill there squeezed a four-letter title to one letter per line at
+  375px (HOLODEX-377). Content that should drop beneath the title when it doesn't fit goes in a
+  flex-wrap row the *page* owns around the control (media page's edition pill is the model: the
+  control in a `min-w-0 max-w-full` item, the pill `shrink-0 max-w-full wrap-anywhere`).

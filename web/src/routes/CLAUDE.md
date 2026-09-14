@@ -53,6 +53,18 @@ visitor-visible block use the `SourceEditModal` pattern, which separates the dec
 display. Long prose in particular is always `ExpandableText`
 (`web/src/lib/components/shared/CLAUDE.md`).
 
+## `#field-<canonical>` deep links land ready to edit
+
+A `/media/{id}#field-<canonical>` landing (the film page's "+ Set edition", the completeness
+queue's rows) expands that field's `SourceBadge` and scrolls the row into view — on a fresh load
+once the article has rendered, and on a same-page hash change from `afterNavigate`. Two
+consequences to keep intact: the hidden `#field-*` anchors for missing facets stay (a link must
+never 404 into nothing), and a *missing* facet that is `curatable` renders as an empty
+`SourceBadge` row instead of a hidden anchor, so the owner has somewhere to type — the resolver
+drops empty undecided fields, so the completeness facet is the only payload that knows the field
+exists. Confirming a Custom value makes it a real row. Never synthesise that row for a facet that
+isn't `curatable` (an image or merge field would get the wrong editor).
+
 ## Page-bottom audit group
 
 `File` and the `Enrichment data:` disclosures are one owner-only group at the very bottom, in that
