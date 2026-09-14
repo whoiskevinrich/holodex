@@ -236,8 +236,11 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - [x] Media page renders the Edition row via the generic field row; `SourceBadge` renders per RD12.
 - [x] `formatMap` gains `edition` per RD8; `WritebackFormDialog` lists it; read-back reports
   `in_sync` after a write + re-extract (round trip pinned on generated MKV + MP4 samples).
-- [x] Video summary payload carries resolved `edition`; film page Full-film rows render the pill;
-  empty + owner → "+ Set edition" link per RD11; landing auto-expands the badge. **Found in
+- [x] Video summary payload carries resolved `edition`; film page Full-film rows render the pill
+  **directly beside the file's title**, and the media page shows the same read-only pill beside its
+  h1 when a value exists (owner ruling 2026-09-14: the edition appears near the title on both pages;
+  the Metadata row stays the curation mount); empty + owner → "+ Set edition" link per RD11 in the
+  same slot; landing auto-expands the badge. **Found in
   build:** a file with no tag, no marker and no decision has no `edition` row at all (the
   resolver drops empty undecided fields), so the link needed a landing — the media page now
   renders a deep-linked *missing* field as an empty curatable row from its completeness facet

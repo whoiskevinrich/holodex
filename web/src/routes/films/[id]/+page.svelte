@@ -798,25 +798,29 @@
 									<li
 										class="flex flex-wrap items-center justify-between gap-2 rounded-theme border border-rule bg-surface px-3 py-2"
 									>
-										<a href={`/media/${fv.video.id}`} class="min-w-0 flex-1 truncate text-sm text-ink hover:text-accent">
-											{fv.video.title}
-										</a>
-										<!-- Edition pill (F60 RD6/RD11, handoff §3): the file's resolved edition, read-only
-										     here. Empty + owner offers the dashed "+ Set edition" deep link — the media
-										     page lands with the field's badge expanded, one curation mount for the whole
-										     app. Visitors see an empty slot. -->
-										{#if fv.edition}
-											<span
-												class="inline-block max-w-[18ch] truncate rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
-												title={fv.edition}>{fv.edition}</span
-											>
-										{:else if isOwner}
-											<a
-												href={`/media/${fv.video.id}#field-edition`}
-												class="rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
-												>+ Set edition</a
-											>
-										{/if}
+										<!-- Title + edition travel together (F60 RD6/RD11, handoff §3 as built): the
+										     edition is a property of this file, so its pill sits directly beside the
+										     title rather than out by the resolution pill. Read-only here; empty + owner
+										     offers the dashed "+ Set edition" deep link — the media page lands with the
+										     field's badge expanded, one curation mount for the whole app. Visitors see
+										     an empty slot. -->
+										<span class="flex min-w-0 flex-1 items-center gap-2">
+											<a href={`/media/${fv.video.id}`} class="min-w-0 truncate text-sm text-ink hover:text-accent">
+												{fv.video.title}
+											</a>
+											{#if fv.edition}
+												<span
+													class="inline-block max-w-[18ch] shrink-0 truncate rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+													title={fv.edition}>{fv.edition}</span
+												>
+											{:else if isOwner}
+												<a
+													href={`/media/${fv.video.id}#field-edition`}
+													class="shrink-0 rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
+													>+ Set edition</a
+												>
+											{/if}
+										</span>
 										{#if fv.video.width > 0}
 											<span class="rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"
 												>{resolutionBucket(fv.video.width)}</span

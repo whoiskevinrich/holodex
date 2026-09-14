@@ -120,7 +120,11 @@ facet, gated by a new `curatable` flag (code-review caught that ungated it would
 editor to `poster_url`). Two design deviations recorded in the handoff: the `— · file` chip stays
 (it is the F37 blank-pin, the handoff's "never renders empty sources" was wrong), and the §2c
 helper line was not built. Testbed: Dune (1984) has two real editions; local films mapping got
-the `edition` block. Follow-up in the same session: Kevin ruled on the two open calls — A for the helper line;
+the `edition` block. Later in the session Kevin reviewed the as-built figure and moved the edition next to the
+title on both pages: the film row's pill now sits directly after the file title (resolution +
+Write button stay right-aligned) and the media header shows the same read-only pill in
+`NameEditControl`'s `trailing` slot before the pencil; the Metadata row remains the curation
+mount. Figure + handoff §2–§3 as-built table updated. Follow-up in the same session: Kevin ruled on the two open calls — A for the helper line;
 and since editions sit on media and most have none, `edition` became a `CriticalityOptional`
 facet (listed for the deep link, never scored or queued) so a library's score doesn't fall
 when the field is declared. Handoff: **377 shipped, Draft PR #332 updated; next is 378 (Low,

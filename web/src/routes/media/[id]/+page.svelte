@@ -226,6 +226,10 @@
 		resolved.filter((f) => !f.auto_registered && !METADATA_ELSEWHERE.includes(f.canonical))
 	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
+	// Edition (F60 RD6) reads next to the title when present — a read-only pill in the header,
+	// visitors included. The Metadata row stays the curation mount (SourceBadge, deep-link
+	// landing); this is display only, the same pill the film page's Full film rows carry.
+	const editionValue = $derived(resolved.find((f) => f.canonical === 'edition')?.values[0]?.trim() ?? '');
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
 	// Overview edit modal (HOLODEX-365, the Person-bio pattern from HOLODEX-303) — owner-only
 	// pencil in the section heading opens this; SourceEditModal owns its own staged-selection/
@@ -1282,6 +1286,14 @@
 							headingClass="skin-title text-2xl font-semibold text-ink"
 							pencilAlwaysVisible
 						>
+							{#snippet trailing()}
+								{#if editionValue}
+									<span
+										class="inline-block max-w-[18ch] shrink-0 truncate rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
+										title={editionValue}>{editionValue}</span
+									>
+								{/if}
+							{/snippet}
 							{#snippet verdict(c, resolve)}
 								<CollisionOfferCard
 									video={c}

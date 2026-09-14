@@ -154,8 +154,8 @@ MKV/WebM `EDITION`, MP4/MOV `XMP-prism:Edition` — both read back as `Edition`.
 
 ### 3a. Pill
 
-Each row in `films/[id]/+page.svelte:641-670` gains a pill **between the title and the resolution
-pill**: `rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted`, text =
+Each row in `films/[id]/+page.svelte:641-670` gains a pill **directly beside the title** (built
+2026-09-14 — the pre-build draft placed it next to the resolution pill; see §2–§3 as built): `rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted`, text =
 the video's resolved `edition`. The video summary payload the film page already receives carries
 `edition` (resolved value only — the film page never needs the candidates).
 
@@ -195,11 +195,12 @@ components and supersedes them where they differ. "Director's Edition" on both p
 
 | Panel | What it shows | Where it differs from the pre-build figure |
 |---|---|---|
+| A · header | The edition reads **directly beside the title** when present — a read-only pill in `NameEditControl`'s `trailing` slot, before the pencil, 18ch truncation with the full value in `title`. Owner and visitor alike. | New (owner ruling 2026-09-14: "the edition, when present, should appear near the Title"). The Metadata row below stays the curation mount; the header pill is display only. |
 | A · at rest | The one Edition row in its three provenances — container tag (`file`), filename marker (`filename`), typed value (`custom` + `file out of sync`). Owner and visitor see the same value and badge; only the owner's badge is clickable. | Badge labels are `ProvenanceBadge`'s real ones (`file` / `filename` / `custom`), not the drafted "file · name" / "file · tag". |
 | A · landed | Arriving via `/media/{id}#field-edition`: row scrolled into view, badge expanded, chip row = `— · file` (the F37 blank-pin), the filename candidate selected, `+ Custom`, Confirm / Cancel. | The blank-pin chip **stays** (§2c corrected). A file with neither tag nor marker nor decision has no row at all, so the landing renders one from its completeness facet — `— · file` and `+ Custom` only — and Confirm makes it real. |
 | A · write | The `Write decisions to file…` dialog line: `Edition · custom → Edition, was: —`. | No helper line under the row (owner ruling, §2c). |
-| B · owner | Full film rows: pill between title and resolution; `+ Set edition` dashed link on a file with none; 18ch truncation with the full value in `title`. Mixed states share one row shape. | As designed. |
-| B · visitor | Same pill, same slot; no link, no `Write to file…`. | As designed. |
+| B · owner | Full film rows: the pill sits **directly beside the file's title**, resolution and `Write to file…` stay right-aligned; `+ Set edition` dashed link in that same slot on a file with none; 18ch truncation with the full value in `title`. Mixed states share one row shape. | Pill moved from the resolution side to the title side (owner ruling 2026-09-14): the edition is a property of *this file*, so it travels with the file's name. |
+| B · visitor | Same pill, beside the title; no link, no `Write to file…`. | As above. |
 
 Not visible in the figure but part of the same build: `edition` is an **optional** completeness
 facet — listed so the landing row can be built, never scored, never queued (owner ruling, since on
