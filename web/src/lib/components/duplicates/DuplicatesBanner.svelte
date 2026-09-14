@@ -10,8 +10,8 @@
 	let { entityType }: { entityType: EntityKind } = $props();
 
 	const isOwner = $derived(activity.effectiveOwner);
-	const plural: Record<EntityKind, string> = { person: 'people', studio: 'studios', tag: 'tags' };
-	const singular: Record<EntityKind, string> = { person: 'person', studio: 'studio', tag: 'tag' };
+	const plural: Record<EntityKind, string> = { person: 'people', studio: 'studios', tag: 'tags', film: 'films' };
+	const singular: Record<EntityKind, string> = { person: 'person', studio: 'studio', tag: 'tag', film: 'film' };
 
 	let count = $state(0);
 	const noun = $derived(count === 1 ? singular[entityType] : plural[entityType]);

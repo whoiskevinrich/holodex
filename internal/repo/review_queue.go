@@ -171,7 +171,8 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 		names := entityNamesUnion(table, et)
 		q := fmt.Sprintf(`
 			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation,
-			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END
+			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END,
+			       %[9]s, %[10]s
 			FROM identity_review_queue q
 			JOIN %[1]s la ON la.id = q.id_lo
 			JOIN %[1]s lb ON lb.id = q.id_hi
@@ -195,17 +196,20 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 			              ELSE 2 END,
 			         la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
 			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"),
-			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList)
+			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList,
+			refYearExpr(et, "la"), refYearExpr(et, "lb"))
 		rows, err := r.db.QueryContext(ctx, q, et, et)
 		if err != nil {
 			return nil, fmt.Errorf("list review pairs (%s): %w", et, err)
 		}
 		for rows.Next() {
 			p := ReviewPair{EntityType: et}
-			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind); err != nil {
+			var yearA, yearB sql.NullInt64
+			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind, &yearA, &yearB); err != nil {
 				rows.Close()
 				return nil, err
 			}
+			p.A.Year, p.B.Year = int(yearA.Int64), int(yearB.Int64)
 			out = append(out, p)
 		}
 		rows.Close()
@@ -214,6 +218,15 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 		}
 	}
 	return out, nil
+}
+
+// refYearExpr is the EntityRef.Year column for one side of a pair — the film's year
+// (composite key, HOLODEX-376), NULL for every other kind.
+func refYearExpr(entityType, alias string) string {
+	if entityType == model.EnrichEntityFilm {
+		return alias + ".year"
+	}
+	return "NULL"
 }
 
 // reviewCountExpr is the active-video count subquery for one side of a pair (matching
@@ -280,22 +293,24 @@ func (r *Repo) NearMiss(ctx context.Context, entityType string, selfID int64, na
 	}
 	jn := reviewJunction[entityType]
 	var ref model.EntityRef
+	var year sql.NullInt64
 	err := r.db.QueryRowContext(ctx, fmt.Sprintf(`
-		SELECT e.id, e.name, %s
+		SELECT e.id, e.name, %s, %s
 		FROM %s e
 		WHERE e.id <> ? AND %s = %s AND %s <> %s
 		  AND NOT EXISTS (SELECT 1 FROM entity_keep_separate ks WHERE ks.entity_type = ?
 		                  AND ks.id_lo = min(e.id, ?) AND ks.id_hi = max(e.id, ?))
 		ORDER BY e.name COLLATE NOCASE LIMIT 1`,
-		reviewCountExpr(jn, "e.id"), table,
+		reviewCountExpr(jn, "e.id"), refYearExpr(entityType, "e"), table,
 		looseKeyExpr("e.name"), looseKeyExpr("?"),
 		nameKeyExpr(entityType, "e.name"), nameKeyExpr(entityType, "?")),
-		selfID, name, name, entityType, selfID, selfID).Scan(&ref.ID, &ref.Name, &ref.VideoCount)
+		selfID, name, name, entityType, selfID, selfID).Scan(&ref.ID, &ref.Name, &ref.VideoCount, &year)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("near-miss (%s): %w", entityType, err)
 	}
+	ref.Year = int(year.Int64)
 	return &ref, nil
 }

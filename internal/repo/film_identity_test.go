@@ -150,9 +150,23 @@ func TestRenameFilmKeepsOldTitleAsAlias(t *testing.T) {
 	domu := mustCreateFilm(t, r, "Domu", 1988)
 	tetsuo := mustCreateFilm(t, r, "Tetsuo", 1989)
 
-	// The key is composite: a title already used under ANOTHER year is free …
+	// The key is composite: a title already used under ANOTHER year is free — but the
+	// pair is queued for the owner, exactly as a same-title create is.
 	if cid, err := r.RenameEntity(ctx, model.EnrichEntityFilm, tetsuo, "Akira"); cid != 0 || err != nil {
 		t.Fatalf("rename onto a same-title/other-year name = (%d, %v), want free", cid, err)
+	}
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("pairs: %v", err)
+	}
+	var withTetsuo int
+	for _, p := range pairs {
+		if p.EntityType == model.EnrichEntityFilm && (p.A.ID == tetsuo || p.B.ID == tetsuo) && p.Variation == "same-title" {
+			withTetsuo++
+		}
+	}
+	if withTetsuo != 2 {
+		t.Fatalf("renamed film is in %d same-title pairs, want 2 (the 1988 and 2019 Akiras)", withTetsuo)
 	}
 	// … while the same title under the SAME year collides, naming the occupant.
 	if cid, err := r.RenameEntity(ctx, model.EnrichEntityFilm, domu, "akira"); !errors.Is(err, repo.ErrNameTaken) || cid != f {

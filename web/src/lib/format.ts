@@ -59,6 +59,13 @@ export function tagCount(n: number): string {
 
 // aliasHint is NameEditControl's `hint` copy for Person/Studio/Tag (HOLODEX-269) — the
 // old name is kept as an alias on rename, so search and future scans still match it.
+// refLabel names an identity ref for a card/row: a film carries its year so two
+// same-title films (a legitimate pair, HOLODEX-376) read apart; every other kind is
+// just its name.
+export function refLabel(e: { name: string; year?: number }): string {
+	return e.year ? `${e.name} (${e.year})` : e.name;
+}
+
 export function aliasHint(name: string): string {
 	return `“${name}” is kept as an alias — search and future scans still match it.`;
 }

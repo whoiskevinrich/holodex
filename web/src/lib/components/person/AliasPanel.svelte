@@ -33,7 +33,7 @@
 		onmerged: () => void;
 	} = $props();
 
-	// The EntityKind values ('person' | 'studio' | 'tag') are themselves the singular noun.
+	// The EntityKind values ('person' | 'studio' | 'tag' | 'film') are themselves the singular noun.
 	const noun = $derived(entityType);
 	// ...but only two of the three pluralize by suffix, and `person` is the one this panel
 	// is used on most.

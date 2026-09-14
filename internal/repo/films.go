@@ -273,15 +273,10 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 	if err != nil {
 		return 0, fmt.Errorf("create film: %w", err)
 	}
-	for _, c := range candidates {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
-			SELECT 'film', min(?1, ?2), max(?1, ?2), 'same-title'
-			WHERE NOT EXISTS (SELECT 1 FROM entity_keep_separate ks
-			                  WHERE ks.entity_type = 'film' AND ks.id_lo = min(?1, ?2) AND ks.id_hi = max(?1, ?2))`,
-			id, c.id); err != nil {
-			return 0, fmt.Errorf("create film: queue same-title pair: %w", err)
-		}
+	// Every candidate skipped above is exactly the same-title set queueFilmSameTitle
+	// finds again (the new row is excluded as self).
+	if err := queueFilmSameTitle(ctx, tx, id, name); err != nil {
+		return 0, err
 	}
 	if err := FlagNearMiss(ctx, tx, model.EnrichEntityFilm, id); err != nil {
 		return 0, err
@@ -290,6 +285,30 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 		return 0, fmt.Errorf("commit create film: %w", err)
 	}
 	return id, nil
+}
+
+// queueFilmSameTitle records a 'same-title' review pair between filmID and every OTHER
+// film that answers to `name` — by canonical title or alias, under any year (RD4's
+// "otherwise the name goes to the near-miss queue, never auto-routed"). The pair is
+// the non-fuzzy kind: it stays until the owner merges or keeps separate, because two
+// same-title films are not a spelling near-miss ListReviewPairs could re-validate
+// away. Kept-separate pairs are skipped; idempotent. Runs on create (CreateFilm) and on
+// a film rename (RenameEntity), the two moments a film acquires a title.
+func queueFilmSameTitle(ctx context.Context, ex execer, filmID int64, name string) error {
+	nameKey := nameKeyExpr(model.EnrichEntityFilm, "?2")
+	_, err := ex.ExecContext(ctx, `
+		INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+		SELECT 'film', min(o.id, ?1), max(o.id, ?1), 'same-title'
+		FROM (SELECT id FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+`
+		      UNION SELECT entity_id FROM entity_aliases WHERE entity_type = 'film' AND alias_key = `+nameKey+`) o
+		WHERE o.id <> ?1
+		  AND NOT EXISTS (SELECT 1 FROM entity_keep_separate ks
+		                  WHERE ks.entity_type = 'film' AND ks.id_lo = min(o.id, ?1) AND ks.id_hi = max(o.id, ?1))`,
+		filmID, name)
+	if err != nil {
+		return fmt.Errorf("queue same-title film pair: %w", err)
+	}
+	return nil
 }
 
 // FillFilmYear sets films.year from a provider-derived release year, but ONLY when

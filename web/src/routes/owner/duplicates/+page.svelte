@@ -15,15 +15,15 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	// Optional ?type= filter (person|studio|tag) from a deep-link; invalid/absent shows all.
+	// Optional ?type= filter (person|studio|tag|film) from a deep-link; invalid/absent shows all.
 	const typeFilter = $derived.by(() => {
 		const t = page.url.searchParams.get('type');
-		return t === 'person' || t === 'studio' || t === 'tag' ? (t as EntityKind) : null;
+		return t === 'person' || t === 'studio' || t === 'tag' || t === 'film' ? (t as EntityKind) : null;
 	});
 
 	// Group headings, tags first (the API already orders rows this way).
-	const groupLabel: Record<EntityKind, string> = { tag: 'Tags', studio: 'Studios', person: 'People' };
-	const groupOrder: EntityKind[] = ['tag', 'studio', 'person'];
+	const groupLabel: Record<EntityKind, string> = { tag: 'Tags', studio: 'Studios', person: 'People', film: 'Films' };
+	const groupOrder: EntityKind[] = ['tag', 'studio', 'person', 'film'];
 
 	const shown = $derived(typeFilter ? pairs.filter((p) => p.entity_type === typeFilter) : pairs);
 	const groups = $derived(groupByKind(shown, groupOrder, (p) => p.entity_type));

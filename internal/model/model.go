@@ -122,6 +122,10 @@ type EntityRef struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// Year disambiguates a film ref (HOLODEX-376): two films may legitimately share a
+	// title, so a review pair / near-miss / picker row needs it to be tellable apart.
+	// Zero for every other kind.
+	Year int `json:"year,omitempty"`
 }
 
 // Person image roles (F25, ADR-038). The three "core" roles are single-slot per

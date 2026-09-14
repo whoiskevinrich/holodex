@@ -76,8 +76,10 @@ func TestFilmIdentityEndpoints(t *testing.T) {
 	}
 
 	// Near-miss look-alike for the owner's title control (case-fold/punctuation).
-	if code, body := getJSONTok(t, base+"/near-miss?name=superman%20returns!", "s3cret"); code != http.StatusOK || body["near_miss"] == nil {
-		t.Errorf("near-miss = %d %v, want 200 with a match", code, body)
+	code, body = getJSONTok(t, base+"/near-miss?name=superman%20returns!", "s3cret")
+	nm, _ := body["near_miss"].(map[string]any)
+	if code != http.StatusOK || nm == nil || nm["year"] != float64(2006) {
+		t.Errorf("near-miss = %d %v, want 200 with a match carrying the film's year", code, body)
 	}
 
 	// Merge: the loser's scenes and title follow the survivor.
@@ -105,12 +107,33 @@ func TestFilmIdentityEndpoints(t *testing.T) {
 		t.Errorf("survivor aliases after merge = %v, want the loser's title alongside the two earlier ones", film["aliases"])
 	}
 
+	// The same-title pair queued at creation (1980 vs 2006) carries each side's year so
+	// the Duplicates tab can tell two "Superman II"s apart.
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("pairs: %v", err)
+	}
+	var filmPairs int
+	for _, p := range pairs {
+		if p.EntityType != model.EnrichEntityFilm {
+			continue
+		}
+		filmPairs++
+		if p.A.Year != 1980 || p.B.Year != 2006 {
+			t.Errorf("film review pair years = %d/%d, want 1980/2006", p.A.Year, p.B.Year)
+		}
+	}
+	if filmPairs != 1 {
+		t.Errorf("film review pairs = %d, want 1", filmPairs)
+	}
+
 	// The Duplicates tab accepts film pairs (dismiss = keep separate).
 	code, _ = postTok(t, srv.URL+"/api/v1/owner/duplicates/dismiss", "s3cret",
 		map[string]any{"entity_type": model.EnrichEntityFilm, "id_a": s1980, "id_b": s2006})
 	if code != http.StatusNoContent {
 		t.Errorf("dismiss film pair = %d, want 204", code)
 	}
+
 	if kept, err := r.IsKeptSeparate(ctx, model.EnrichEntityFilm, s1980, s2006); err != nil || !kept {
 		t.Errorf("kept separate = (%v, %v), want true", kept, err)
 	}

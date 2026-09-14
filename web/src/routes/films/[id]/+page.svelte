@@ -1,20 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket, releaseYear, providerFromWinningSource } from '$lib/format';
+	import {
+		toMessage,
+		resolutionBucket,
+		releaseYear,
+		providerFromWinningSource,
+		aliasHint,
+		videoCount
+	} from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, providerOf } from '$lib/f36';
 	import type {
 		DecisionSource,
 		EnrichSource,
+		EntityRef,
 		Film,
 		FilmBilledCredit,
 		FilmYearCollision,
 		FilmDetailResponse,
 		FilmVideo,
 		Person,
+		PersonAlias,
 		ResolvedField,
+		SkippedAlias,
 		Studio,
 		Tag,
 		Video
@@ -38,6 +48,8 @@
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
+	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -45,7 +57,8 @@
 	// the film's videos (RD2/RD3), not editable chips, so they route through plain links,
 	// not SourceSelect. The Details section (release_date) mirrors Studio's
 	// SourceBadge/`baselineKey='record'` pattern exactly, and since F59/HOLODEX-309 so does
-	// its enrichment header row — films still have no rename/aliases (HOLODEX-281 deferred).
+	// its enrichment header row. Since HOLODEX-376 (ADR-096 D3) the title renames and
+	// carries aliases over the shared identity spine, exactly as Studio's does.
 	// The description is not a Details row: it is the rail's first block, rendered once for
 	// both roles (HOLODEX-364; see descriptionField).
 	// The poster (HOLODEX-280,
@@ -53,6 +66,17 @@
 	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
 	// dedicated Images section; the `thumb` role had no consumer, so it was dropped.
 	let film = $state<Film | null>(null);
+	// Other titles on the identity spine (HOLODEX-376), bound into AliasPanel; a rename
+	// keeps the old title as one (RD5) so the old spelling still routes on create.
+	let aliases = $state<PersonAlias[]>([]);
+	let skippedAliases = $state<SkippedAlias[]>([]);
+	// Title-rename verdict (MergeOfferCard) + the advisory near-miss after a saved
+	// rename — the studio page's wiring, verbatim.
+	let renameMergeBusy = $state(false);
+	let renameMergeError = $state('');
+	let nearMiss = $state<EntityRef | null>(null);
+	let nearMissBusy = $state(false);
+	let nearMissError = $state('');
 	let resolved = $state<ResolvedField[]>([]);
 	let scenes = $state<FilmVideo[]>([]);
 	let fullFilms = $state<FilmVideo[]>([]);
@@ -93,13 +117,73 @@
 		return { ok: true };
 	}
 
+	// Title rename over the identity spine (HOLODEX-376, spec RD5): the composite key
+	// means only a same-title film of the SAME year collides; that verdict is the
+	// MergeOfferCard below. The year is not touched here — it has its own control.
+	async function commitRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+		const res = await api.renameEntity('film', id, value);
+		if (res.conflict) return { conflict: res.conflict };
+		await reloadDetail();
+		// Advisory-only fuzzy look-alike check — must never block the rename that saved.
+		try {
+			nearMiss = (await api.nearMiss('film', id, value)).near_miss;
+		} catch {
+			nearMiss = null;
+		}
+		return { ok: true };
+	}
+
+	async function mergeRenameConflict(mergeConflict: EntityRef, resolve: () => void) {
+		renameMergeBusy = true;
+		renameMergeError = '';
+		try {
+			await api.mergeEntities('film', id, mergeConflict.id);
+			resolve();
+			await reloadDetail();
+		} catch (e) {
+			renameMergeError = toMessage(e);
+		} finally {
+			renameMergeBusy = false;
+		}
+	}
+
+	async function mergeNearMiss() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.mergeEntities('film', id, nearMiss.id);
+			nearMiss = null;
+			await reloadDetail();
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
+		}
+	}
+
+	async function keepNearMissSeparate() {
+		if (!nearMiss) return;
+		nearMissBusy = true;
+		nearMissError = '';
+		try {
+			await api.dismissDuplicate('film', id, nearMiss.id);
+			nearMiss = null;
+		} catch (e) {
+			nearMissError = toMessage(e);
+		} finally {
+			nearMissBusy = false;
+		}
+	}
+
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
 
-	// A film has no `name` beyond baseline (no rename in v1 — ADR-089 D3 keeps it that
-	// way), and the description is the rail's first block (HOLODEX-364, the media page's
-	// Overview rule from HOLODEX-363), not a Details row — so only the fields left over
-	// gate the Details section: same "hide the whole section, don't show an empty box"
+	// `name` is an identity column, not a Details row (its rename lives on the title's
+	// NameEditControl), and the description is the rail's first block (HOLODEX-364, the
+	// media page's Overview rule from HOLODEX-363), not a Details row — so only the
+	// fields left over gate the Details section: same "hide the whole section, don't
+	// show an empty box"
 	// rule. The owner also gets the section when a film-capable provider exists but
 	// nothing has resolved yet, or there would be no way to reach the Enrich control on
 	// an unenriched film.
@@ -164,6 +248,8 @@
 
 	function applyDetail(res: FilmDetailResponse) {
 		film = res.film;
+		aliases = res.film.aliases ?? [];
+		skippedAliases = res.skipped_aliases ?? [];
 		resolved = res.resolved ?? [];
 		scenes = res.scenes ?? [];
 		fullFilms = res.full_films ?? [];
@@ -389,7 +475,57 @@
 						     no text rung in the geometry fixture, so nothing guards this — measured by hand
 						     at 768px: +251px before, 0 after. -->
 						<div class="min-w-0 flex-1 space-y-2">
-							<h1 class="skin-title break-words text-2xl font-semibold text-ink">{film.name}</h1>
+							<!-- Title rename (HOLODEX-376): the docked-pencil control Person/Studio/Tag
+							     share, with the same-title/same-year collision as its MergeOfferCard
+							     verdict (the studio wiring). The old title is kept as an alias. -->
+							<NameEditControl
+								name={film.name}
+								{isOwner}
+								onCommit={commitRename}
+								label="film"
+								headingClass="skin-title break-words text-2xl font-semibold text-ink"
+								hint={aliasHint(film.name)}
+							>
+								{#snippet verdict(c: EntityRef, resolve: () => void)}
+									<MergeOfferCard
+										noun="film"
+										entityName={film?.name ?? ''}
+										conflict={c}
+										busy={renameMergeBusy}
+										error={renameMergeError}
+										onmerge={() => mergeRenameConflict(c, resolve)}
+										onkeepseparate={() => {
+											renameMergeError = '';
+											resolve();
+										}}
+									/>
+								{/snippet}
+							</NameEditControl>
+							{#if nearMiss}
+								<!-- Non-blocking near-miss: the rename already saved; an advisory nudge,
+								     distinct from the blocking same-title/same-year conflict above. -->
+								<div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
+									<p class="text-sm text-ink">
+										Saved. Looks a lot like <span class="font-semibold">{nearMiss.name}</span>
+										({videoCount(nearMiss.video_count ?? 0)}) — merge them?
+									</p>
+									<div class="flex flex-wrap items-center gap-2">
+										<button onclick={mergeNearMiss} disabled={nearMissBusy} class="btn-accent px-3 py-1.5 text-sm">
+											Yes, merge them in
+										</button>
+										<button
+											onclick={keepNearMissSeparate}
+											disabled={nearMissBusy}
+											class="btn-ghost px-3 py-1.5 text-sm"
+										>
+											No, keep separate
+										</button>
+									</div>
+									{#if nearMissError}
+										<p class="text-sm text-warn">{nearMissError}</p>
+									{/if}
+								</div>
+							{/if}
 
 							<!-- Year (F59/HOLODEX-317). Reuses the Media page's edit affordance rather than
 							     imitating it — this page previously hand-rolled `name-edit-row`/
@@ -520,6 +656,19 @@
 							{/if}
 						</section>
 					{/if}
+
+					<!-- Other titles (HOLODEX-376): core identity, so the panel reads above the
+					     Details/enrichment shadow, as on the studio page (F43 handoff §1). Rename
+					     lives on the header's NameEditControl; this panel keeps add-alias/merge. -->
+					<AliasPanel
+						entityType="film"
+						entityId={id}
+						entityName={film.name}
+						bind:aliases
+						{isOwner}
+						{skippedAliases}
+						onmerged={() => reloadDetail()}
+					/>
 
 					<!-- Tags — read-only union per RD2/RD3 above, but rendered through the same
 					     section markup (heading + TagLinkChip wrap) as the Media detail page's

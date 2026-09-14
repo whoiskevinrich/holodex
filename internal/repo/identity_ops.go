@@ -565,6 +565,13 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	if err := flagNearMissForName(ctx, tx, entityType, id, oldName); err != nil {
 		return 0, err
 	}
+	// A film renamed onto a title another film already holds under a different year
+	// is legal (composite key) but never silent: queue the pair (RD4), as create does.
+	if entityType == model.EnrichEntityFilm {
+		if err := queueFilmSameTitle(ctx, tx, id, newName); err != nil {
+			return 0, err
+		}
+	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit rename: %w", err)
