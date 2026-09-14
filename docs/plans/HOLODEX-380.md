@@ -55,9 +55,15 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   confirming; state survives ↑/↓; toggle is a trap stop; flood 25 rows all collapsed, 8-line
   and 256-char rows inside the scroller, dialog overflow 0; line contrast on the active row
   4.71 / 5.47 / 5.88 (Broadcast / Brutalist / Cinémathèque), fonts inherit each skin
-- [ ] testing `testing-strategy` — per the spec's Test Notes: sanitizer table test, refresh-all
-  audit entry (applied / needs_review / no-entry), picker toggle + keyboard + collision, geometry
-  (collapsed height parity, no clipping at 25), stub fixture with four same-label records
+- [x] testing `testing-strategy` — `docs/testing-strategy.md`: header entry, §4 backend row, §5
+  picker row (live measurements recorded as the record), three Critical-invariants bullets
+  (`applied:` ⇒ success; `detail` is presentation/verbatim/never `[]`; collapsed row = one line),
+  §10 adversarial block, §11 gaps, §12.4 row, §12.5 gap. **New §12 assertion**
+  `collapsed-detail-row-costs-one-line` (`#enrich-opt-2` height ∈ [60, 68] under the existing
+  `flood` preparation) — 9/9 pass, **mutation-tested** (bare `<div>` actions line ⇒ 76px in every
+  cell), the five existing picker assertions re-run green. QA checklist §2 annotated with the
+  harness reconciliation. Found on the way: the **full** matrix crashes the Vite dev server
+  (`0xC0000409`) — filed HOLODEX-381; `--only` runs are reliable
 - [~] security `security-review` — n/a, confirmed at the backend gate: `detail` is text through
   the same sanitizer path as `label`/`searched[]`; nothing fetched, no perimeter change, no auth
   or access change
@@ -68,20 +74,18 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared in Jira.
 3. [x] [M] Backend FR1/FR2/FR5 + tests landed.
 3a. [x] [M] Frontend FR3/FR4 landed with stub fixtures and live three-skin QA.
-3b. [ ] [S] `/testing-strategy` must reconcile the QA checklist's §2.4–2.7 / 2.9–2.10 `[smoke]`
-   items with reality: no component harness exists, so those are `[agent]` live items (done this
-   session) unless a geometry assertion is added — `stressedPicker` prepares `flood`, whose rows
-   now carry `detail`, so a collapsed-row-height-parity assertion is one entry away.
+3b. [x] [S] `/testing-strategy` reconciled the checklist and added the parity assertion.
 3c. [ ] [—] QA §4.6 (touch hit target) is the one `[human]` item still open: the toggle has no
    vertical padding on purpose (parity); say if it needs `py-1`.
-4. [ ] [S] `/testing-strategy`, then mark the PR ready → CI fires In Review.
+4. [ ] [S] Mark PR #333 ready → CI fires In Review. Every routing-table gate is green; §4.6
+   (touch target) is a QA item for the reviewer, not a gate.
 5. [ ] [—] Tell the provider side the merged contract text matches the proposal so they can emit
    `detail` on every candidate (the audit path needs it on lone candidates too).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-13 · proposal reviewed, decisions locked, spec + contract amendment written
-- skills: write-spec, design-handoff, code-review (high --fix); maintainer review of the provider proposal with a, code-review
+- skills: write-spec, design-handoff, code-review (high --fix ×2), testing-strategy; maintainer review of the provider proposal with a, code-review, testing-strategy
   three-state mockup (show_widget) to settle Q2/Q4, then a toggle-variant mockup for the handoff
 - Reviewed the proposal against the decoder, sanitizer, picker row, and refresh-all path; answered
   the four open questions (verbatim / toggle + inline / audit-log in v1 / auto-expand on
@@ -93,5 +97,7 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   applied-before-Enrich ordering bug; fixed with a failure-path test. Graph updated.
 - Frontend built, `/code-review high --fix` clean, verified live on `backend-stub` + `web` +
   `enrich-stub` (launch entries added to the gitignored launch.json) across all three skins.
-- Handoff: spec + design + backend + frontend gates green on PR #333; next is
-  `/testing-strategy` (reconcile the checklist's harness-less smoke items), then mark ready.
+- Testing gate: strategy doc updated, one mutation-tested geometry assertion added, HOLODEX-381
+  filed for the full-matrix Vite crash.
+- Handoff: all gates green on PR #333; mark ready is the remaining step. Open for the owner:
+  QA §4.6 touch target on the `details` toggle (decide `py-1` or not — the §12 bound moves with it).

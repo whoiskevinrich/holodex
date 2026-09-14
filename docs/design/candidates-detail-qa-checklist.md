@@ -31,6 +31,13 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 
 ## §2 Smoke — `[smoke]`
 
+> **Reconciled 2026-09-13 (testing gate).** This repo has no component-test harness, so
+> 2.4–2.7 and 2.10 could not be automated as written — they ran as live `[agent]` items
+> against the stub (results in `docs/testing-strategy.md` §5) and the rule behind them is
+> `candidateDetail.ts`'s unit tests (2.3). 2.9's first half is the §12 geometry assertion
+> `collapsed-detail-row-costs-one-line` (mutation-tested); its second half was measured live.
+> Tags below are left as the target for a future harness.
+
 - **2.1** `[smoke]` `sanitizeDetail` table test: under-cap passthrough; 12 → 8 entries; 400 → 256
   chars; `\n`, `\r`, `\x1b` stripped; `[]` → nil; nil → nil. Existing candidate-sanitizer test
   still covers `label` / `disambiguation` / `profile_url` unchanged.
