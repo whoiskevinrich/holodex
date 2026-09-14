@@ -45,19 +45,12 @@
 		baselineKey?: string;
 	} = $props();
 
+	// The badge renders for every field this component is mounted on, single-source included
+	// (F60 RD12). Earlier it hid itself unless 2+ sources were on offer, which left a field with
+	// one candidate — a filename-only edition, a tag-only anything — with no way to type a custom
+	// value at all. Mounting SourceBadge is the page's "this field is curatable" call; the badge
+	// is that call's affordance, and the Custom chip is always a second choice.
 	const chips = $derived(sourceChips(field, baselineKey));
-	// "2+ sources" means more than one distinct value/source is actually on offer — the
-	// trailing Custom opener never counts on its own (nothing chosen yet), but a committed
-	// manual literal does (it IS a second source alongside the baseline). Single-source
-	// fields get no badge at all — nothing to decide (handoff "Single candidate source" row).
-	const hasCustomValue = $derived(chips.find((c) => c.key === 'custom')?.value.trim() !== '');
-	// A provider whose value agrees with the baseline folds into the baseline chip
-	// (f36.ts sourceChips) rather than becoming its own row — so chip *count* alone
-	// undercounts. chips[0] is always the anchored baseline chip; a folded agreement
-	// pushes onto its `sources`, so length > 1 there also means "2+ sources on offer".
-	const isMultiSource = $derived(
-		chips.filter((c) => c.key !== 'custom').length > 1 || hasCustomValue || chips[0].sources.length > 1
-	);
 
 	// selection resolves the committed key + whether it's an RD6 implicit winner in one walk
 	// (shared with SourceSelect via f36.ts). The badge's provider icon reflects whichever
@@ -223,24 +216,20 @@
 	     break-word` deliberately does not reduce min-content, which is why the row still overflowed
 	     at 375px with both `max-w-full` and `break-words` applied. `anywhere` does reduce it. Kept
 	     on the span rather than the wrapper so it does not inherit into the provider chip row. -->
-	{#if !isMultiSource}
-		<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
-	{:else}
-		<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
-		<button
-			type="button"
-			bind:this={badgeEl}
-			aria-expanded={expanded}
-			aria-label={`${field.label} — from ${badgeProvider || (selectedChip.manual ? 'a custom value' : baselineKey)}, click to change source`}
-			onclick={() => {
-				if (busy) return; // a Confirm is in flight — don't collapse mid-request (F56 Open Questions)
-				expanded ? close() : open();
-			}}
-			class="inline-flex rounded-full align-middle transition-colors duration-150 hover:ring-1 hover:ring-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-		>
-			<ProvenanceBadge provider={badgeProvider} label={badgeProvider} manual={selectedChip.manual} />
-		</button>
-	{/if}
+	<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
+	<button
+		type="button"
+		bind:this={badgeEl}
+		aria-expanded={expanded}
+		aria-label={`${field.label} — from ${badgeProvider || (selectedChip.manual ? 'a custom value' : baselineKey)}, click to change source`}
+		onclick={() => {
+			if (busy) return; // a Confirm is in flight — don't collapse mid-request (F56 Open Questions)
+			expanded ? close() : open();
+		}}
+		class="inline-flex rounded-full align-middle transition-colors duration-150 hover:ring-1 hover:ring-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+	>
+		<ProvenanceBadge provider={badgeProvider} label={badgeProvider} manual={selectedChip.manual} />
+	</button>
 
 	{#if expanded}
 		<div

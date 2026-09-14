@@ -107,6 +107,10 @@
 	afterNavigate(({ type }) => {
 		cameFromInApp = type !== 'enter';
 		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between videos
+		// A same-page hash change (/media/8 → /media/8#field-edition) re-fetches nothing, so the
+		// load effect's own call never fires; on a fresh entry this runs before the rows exist
+		// and the load effect's call does the scrolling.
+		if (!loading) void expandDeepLinkedField();
 	});
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
@@ -258,6 +262,29 @@
 	// zero values is deliberately retained so its pin stays changeable
 	// (internal/resolver/resolver.go), and that field reports tier `missing`. So it is tested,
 	// not listed.
+	// A `#field-<canonical>` deep link to a field the resolver dropped for having no value and
+	// no decision (F60 RD11 — the film page's "+ Set edition"; the completeness queue's
+	// "missing" rows link the same way) still needs somewhere for the owner to land. The
+	// completeness facets already name every such field, so the row renders empty and
+	// curatable from that: SourceBadge over an empty baseline plus the Custom chip. Confirming
+	// a value creates the standing decision, after which the resolver keeps the field itself.
+	const deepLinkedMissing = $derived.by((): ResolvedField | null => {
+		if (!isOwner || !completeness) return null;
+		const m = /^#field-([\w-]+)$/.exec($page.url.hash);
+		if (!m) return null;
+		const facet = completeness.facets.find(
+			(f) => f.canonical === m[1] && f.tier === 'missing' && f.curatable
+		);
+		if (!facet || canonicalResolved.some((f) => f.canonical === facet.canonical)) return null;
+		return {
+			canonical: facet.canonical,
+			label: facet.label,
+			values: [],
+			candidates: [{ source: 'file', value: '' }],
+			decision: { source: 'file', standing: false }
+		};
+	});
+
 	function hasPageAnchor(canonical: string): boolean {
 		// Must mirror the Overview section's own gate exactly (it is owner-only here, so the
 		// isOwner term is implied): the section renders for a replace field regardless of
@@ -929,7 +956,10 @@
 				if (!cancelled) error = toMessage(e);
 			})
 			.finally(() => {
-				if (!cancelled) loading = false;
+				if (cancelled) return;
+				loading = false;
+				// After `loading` flips: the field rows only exist once the article renders.
+				if (!error) void expandDeepLinkedField();
 			});
 		return () => (cancelled = true);
 	});
@@ -943,6 +973,19 @@
 				.catch(() => {});
 		}
 	});
+
+	// `/media/{id}#field-<canonical>` lands with that field's SourceBadge already expanded
+	// (F60 RD11 — the film page's "+ Set edition" link; the completeness queue's rows deep-link
+	// the same way), so the owner is one Confirm from done. Runs once the detail has rendered:
+	// afterNavigate's reset() has fired by then, and a key no mounted badge listens on (visitor,
+	// merge field) expands nothing. scrollIntoView because the hash was set before the row existed.
+	async function expandDeepLinkedField() {
+		const m = /^#field-([\w-]+)$/.exec(location.hash);
+		if (!m) return;
+		await tick();
+		expandedField.expand(m[1]);
+		document.getElementById(`field-${m[1]}`)?.scrollIntoView({ block: 'center' });
+	}
 
 	// reloadDetail re-fetches the detail so resolved[] reflects new enrichment or
 	// curation (the resolver re-runs server-side on each GET). Non-fatal on error.
@@ -1830,7 +1873,7 @@
 							style="max-height: {metadataListOpen ? '6000px' : '0px'}"
 							inert={!metadataListOpen}
 						>
-						{#if visibleResolved.length || extraFields.length}
+						{#if visibleResolved.length || extraFields.length || deepLinkedMissing}
 						<dl class="field-grid gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
 							{#each visibleResolved as f (f.canonical)}
 								{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
@@ -1891,6 +1934,17 @@
 								{/if}
 								<PromotedFieldEdit {isOwner} field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
 							{/each}
+							{#if deepLinkedMissing}
+								{@const df = deepLinkedMissing}
+								<!-- Empty, deep-linked replace field (see deepLinkedMissing): the same row shape
+								     as the default branch above, with nothing to show but the badge. -->
+								<div id={`field-${df.canonical}`}>
+									<dt class="mb-1 text-muted">{df.label}:</dt>
+									<dd>
+										<SourceBadge field={df} decide={(s, mv) => decideField(df.canonical, s, mv)} />
+									</dd>
+								</div>
+							{/if}
 
 							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
 							<AutoFieldRows
@@ -1997,7 +2051,7 @@
 
 				{#if isOwner && completeness}
 					{#each completeness.facets as cf (cf.canonical)}
-						{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical)}
+						{#if cf.tier === 'missing' && !canonicalResolved.some((f) => f.canonical === cf.canonical) && !hasPageAnchor(cf.canonical) && deepLinkedMissing?.canonical !== cf.canonical}
 							<div id={`field-${cf.canonical}`} class="hidden" aria-hidden="true"></div>
 						{/if}
 					{/each}

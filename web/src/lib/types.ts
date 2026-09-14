@@ -883,6 +883,9 @@ export interface FilmVideo {
 	video: Video;
 	scene_number: number | null;
 	is_full_film: boolean;
+	// Resolved edition of a full-film file (F60 RD6), stamped by the API for full-film
+	// rows only. The film page renders it as a pill; it never resolves edition itself.
+	edition?: string;
 }
 
 // FilmAttachment is one film a video is linked to — the "Also in: X" badge on the
@@ -991,6 +994,9 @@ export interface CompletenessFacet {
 	label: string;
 	criticality: string;
 	tier: 'missing' | 'provider' | 'curated';
+	// Plain-text replace field the owner can set from nothing (F60 RD11) — the media page
+	// renders a missing curatable facet as an empty SourceBadge row when deep-linked.
+	curatable?: boolean;
 	not_applicable?: boolean;
 	actionable?: boolean;
 	provider?: string;

@@ -113,3 +113,27 @@ func TestComplete_MergeFieldMissingIsNeverActionable(t *testing.T) {
 		t.Errorf("Facets = %+v, want one missing, non-actionable facet", got.Facets)
 	}
 }
+
+// F60 RD11: only a plain-text replace field is Curatable — the shape the media
+// page hands to an empty SourceBadge row when deep-linked. Image, long-text and
+// merge fields have their own editors and must never be synthesised that way.
+func TestComplete_CuratableIsPlainTextReplaceOnly(t *testing.T) {
+	fields := []mapping.Field{
+		fld("edition"),
+		fld("tagline"),
+		{Canonical: "genres", Merge: true},
+		{Canonical: "actors", Multi: true},
+		fld("poster_url"), // registry display image_url
+		fld("overview"),   // registry display long_text
+	}
+	got := Complete(fields, nil, nil)
+	want := map[string]bool{"edition": true, "tagline": true, "genres": false, "actors": false, "poster_url": false, "overview": false}
+	for _, f := range got.Facets {
+		if f.Curatable != want[f.Canonical] {
+			t.Errorf("%s: Curatable = %v, want %v", f.Canonical, f.Curatable, want[f.Canonical])
+		}
+	}
+	if len(got.Facets) != len(want) {
+		t.Fatalf("got %d facets, want %d", len(got.Facets), len(want))
+	}
+}

@@ -801,6 +801,22 @@
 										<a href={`/media/${fv.video.id}`} class="min-w-0 flex-1 truncate text-sm text-ink hover:text-accent">
 											{fv.video.title}
 										</a>
+										<!-- Edition pill (F60 RD6/RD11, handoff §3): the file's resolved edition, read-only
+										     here. Empty + owner offers the dashed "+ Set edition" deep link — the media
+										     page lands with the field's badge expanded, one curation mount for the whole
+										     app. Visitors see an empty slot. -->
+										{#if fv.edition}
+											<span
+												class="inline-block max-w-[18ch] truncate rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+												title={fv.edition}>{fv.edition}</span
+											>
+										{:else if isOwner}
+											<a
+												href={`/media/${fv.video.id}#field-edition`}
+												class="rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
+												>+ Set edition</a
+											>
+										{/if}
 										{#if fv.video.width > 0}
 											<span class="rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"
 												>{resolutionBucket(fv.video.width)}</span
