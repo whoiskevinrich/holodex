@@ -46,20 +46,23 @@ will find it.
   name the cause; `web/geometry/README.md`: Node ≥ 24.16.0 prerequisite on Windows
 - [x] testing `testing-strategy` — §12.5 gap rewritten as the diagnosis + the Node floor;
   47/47 vitest (pure halves) green; new path exercised live on the buggy Node twice (runs 4
-  and 5: exit 2, the diagnostic, nothing scored)
+  and 5: exit 2, the diagnostic, nothing scored); **full matrix green on Node 24.19.0**
+  (run 6: 738 passed / 0 errored, exit 0)
 - [~] security `security-review` — n/a: dev-time test harness, no auth/access/infra change
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [testing] Run the full matrix on Node ≥ 24.16.0 to close the loop (expected: 9/9 cells,
-   `exit 0` or genuine layout verdicts; the six picker assertions need the `enrich-stub`
-   profile on :9100) — `cd web && npm run geometry`
-2. [ ] [—] §12 intro still says "Three skins × two viewport widths — 234 checks" (it is three
-   widths / 765 checks since HOLODEX-363); stale, not this ticket's — `docs/testing-strategy.md`
+1. [ ] [—] nothing open — merge closes the ticket
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-14 · root-caused, harness stops on a dead server, docs
+### 2026-09-14 · root-caused, harness stops on a dead server, docs, confirmed on Node 24.19
 - skills: code-review
-- handoff: PR open; the only open item is a confirming full-matrix run on Node ≥ 24.16.0 (not
-  installed here — v24.15.0 is the sole Node on the machine).
+- Kevin upgraded to Node 24.19.0 (libuv 1.52.1) and the full matrix ran green for the first
+  time: 738 passed / 0 errored, 639 loads, 9 cells, 136 s, exit 0. His first attempt hit
+  preflight instead — `backend-amv` (gated, films off) was on :7800, not `backend-stress`;
+  the answer was the right profile, not a token env var (the stress profile is default-open
+  by design). Docs now invoke `npm --prefix web run geometry` from the root so a failed
+  preflight cannot strand a PowerShell in `web/`; §12 intro corrected to three widths / 765
+  checks / ~2½ min.
+- handoff: PR #334 ready; nothing open.

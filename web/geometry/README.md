@@ -6,19 +6,20 @@ fixture](../../testdata/stressseed/README.md), across three skins and three view
 ```bash
 # 0. once per machine — `npm ci` installs no browser binaries (playwright ships no
 #    install script), and the harness only discovers that after preflight has passed.
-#    In a subshell so the whole block stays paste-able from the repository root.
-(cd web && npx playwright install chromium)
+npm --prefix web exec -- playwright install chromium
 
 # 1. seed the fixture
 go run ./testdata/stressseed
 
-# 2. start the `backend-stress` and `web` launch profiles
+# 2. start the `backend-stress`, `enrich-stub` and `web` launch profiles
 
-# 3. measure
-cd web && npm run geometry
-npm run geometry -- --list                          # what would be measured, and where
-npm run geometry -- --only person-tiles-stay-legible
-npm run geometry -- --skin brutalist --width narrow --headed
+# 3. measure — every line runs from the repository root and leaves your shell there.
+#    (`cd web && npm run geometry` works too, but a failing preflight then strands you in
+#    web/, and PowerShell has no `( … )` subshell to undo that.)
+npm --prefix web run geometry
+npm --prefix web run geometry -- --list             # what would be measured, and where
+npm --prefix web run geometry -- --only person-tiles-stay-legible
+npm --prefix web run geometry -- --skin brutalist --width narrow --headed
 ```
 
 Exit code 0 means every invariant holds. Anything else names what broke and where.

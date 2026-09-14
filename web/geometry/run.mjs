@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // The geometry assertion harness (HOLODEX-349).
 //
-//   cd web && npm run geometry
+//   npm --prefix web run geometry -- <flags>     (from the repository root; no cd)
 //
 // Measures the running stress fixture against the invariants in `assertions.mjs`,
-// across three skins and two viewport widths, and exits non-zero when one is broken.
+// across three skins and three viewport widths, and exits non-zero when one is broken.
 //
-// Prerequisites, all checked before anything is measured:
+// Prerequisites; 1–4 are checked before anything is measured:
 //   1. `npx playwright install chromium`   — once per machine; `npm ci` does not do it
 //   2. `go run ./testdata/stressseed`      — seeds the fixture and writes the manifest
 //   3. the `backend-stress` launch profile — serves it on :7800
 //   4. the `web` launch profile            — the dev server on :5173, proxying /api
+//      (on Windows, Node ≥ 24.16.0 — see README.md and the ServerGone message below)
+//   5. the `enrich-stub` launch profile    — :9100; not preflighted, but the six
+//      Enrich-picker assertions report `error` rather than pass without it
 //
 // See README.md for the shape of an assertion and docs/testing-strategy.md for when
 // writing one is the right move.

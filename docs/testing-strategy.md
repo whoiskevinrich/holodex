@@ -2334,14 +2334,16 @@ automated frontend coverage in this repo that exercises rendered geometry rather
 pure logic.
 
 ```bash
-(cd web && npx playwright install chromium)   # once per machine; `npm ci` does not
+npm --prefix web exec -- playwright install chromium   # once per machine; `npm ci` does not
 go run ./testdata/stressseed        # seed; writes data/stress/manifest.json
-# start the `backend-stress` and `web` launch profiles
-cd web && npm run geometry
+# start the `backend-stress`, `enrich-stub` and `web` launch profiles
+npm --prefix web run geometry       # from the root; a failed preflight leaves you here
 ```
 
-Three skins × two viewport widths (1440 and 768) — 234 checks in ~45s at the current
-table. Exit 0 means every invariant holds. Full reference: `web/geometry/README.md`.
+Three skins × three viewport widths (1440, 1024 and 768) — 765 checks over ~640 page loads
+in ~2½ min at the current table. Exit 0 means every invariant holds; 2 means it could not run
+(a prerequisite, including the server dying mid-run — §12.5). Full reference:
+`web/geometry/README.md`.
 
 ### 12.1 What it asserts, and why not screenshots
 
@@ -2481,6 +2483,8 @@ outlives its marker is the same failure one level up.
   [nodejs/node#62561](https://github.com/nodejs/node/pull/62561)) — a silent `0xC0000409`
   fastfail. The dev proxy opens one outbound connection per `/api` request, so ~640 page loads
   hit it reliably (reproduced 4/4, after 150, 150, 208 and 487 loads — anywhere in the run;
-  ran clean under a debugger, whose slowdown changes the timing) while `--only` runs do not. The runner now stops
-  at the first refused connection and exits 2 naming this, instead of reporting the remaining
-  matrix as ~600 `error` rows.
+  ran clean under a debugger, whose slowdown changes the timing) while `--only` runs do not.
+  The runner now stops at the first refused connection and exits 2 naming this, instead of
+  reporting the remaining matrix as ~600 `error` rows. Confirmed 2026-09-14 on Node 24.19.0
+  (libuv 1.52.1): the full matrix completed, 738 passed / 0 errored, exit 0 — the harness's
+  first green full run.
