@@ -221,17 +221,25 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   films read apart.
 
 **377 — Edition**
-- [ ] `metadata-mappings.yaml.example` gains `edition` per RD6; the registry labels it "Edition".
-- [ ] Extractor surfaces the `Edition` container tag as the `file` baseline for MKV/WebM/MP4/MOV.
-- [ ] F48 filename parser recognises `{edition-<text>}` per RD7 and emits `filename:edition`.
-- [ ] Media page renders the Edition row via the generic field row; `SourceBadge` renders per RD12.
-- [ ] `formatMap` gains `edition` per RD8; `WritebackFormDialog` lists it; read-back reports
-  `in_sync` after a write + re-extract.
-- [ ] Video summary payload carries resolved `edition`; film page Full-film rows render the pill;
-  empty + owner → "+ Set edition" link per RD11; landing auto-expands the badge.
-- [ ] Given a file with tag `Edition=Final Cut` and filename `{edition-Theatrical}`, the resolved
+- [x] `metadata-mappings.yaml.example` gains `edition` per RD6; the registry labels it "Edition".
+- [x] Extractor surfaces the `Edition` container tag as the `file` baseline for MKV/WebM/MP4/MOV
+  (no extractor change: every unclassified exiftool key already lands in the file layer, MKV's
+  `-und` suffix stripped — pinned with an `Edition-und` case).
+- [x] F48 filename parser recognises `{edition-<text>}` per RD7 and emits `filename:edition`.
+  The marker is **lifted out of the stem before pattern matching**, so a marked file still
+  matches the library's patterns and the marker alone is a match when none fit.
+- [x] Media page renders the Edition row via the generic field row; `SourceBadge` renders per RD12.
+- [x] `formatMap` gains `edition` per RD8; `WritebackFormDialog` lists it; read-back reports
+  `in_sync` after a write + re-extract (round trip pinned on generated MKV + MP4 samples).
+- [x] Video summary payload carries resolved `edition`; film page Full-film rows render the pill;
+  empty + owner → "+ Set edition" link per RD11; landing auto-expands the badge. **Found in
+  build:** a file with no tag, no marker and no decision has no `edition` row at all (the
+  resolver drops empty undecided fields), so the link needed a landing — the media page now
+  renders a deep-linked *missing* field as an empty curatable row from its completeness facet
+  (`curatable`: plain-text replace fields only); confirming a value makes it a real row.
+- [x] Given a file with tag `Edition=Final Cut` and filename `{edition-Theatrical}`, the resolved
   edition is `Final Cut` with provenance `file · tag`.
-- [ ] Given a file with neither, when the owner types "Director's Cut" and confirms, then the value
+- [x] Given a file with neither, when the owner types "Director's Cut" and confirms, then the value
   persists as a curated decision and the film page pill reads "Director's Cut".
 
 **378 — Display name**

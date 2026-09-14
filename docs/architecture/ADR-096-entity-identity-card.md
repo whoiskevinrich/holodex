@@ -299,10 +299,15 @@ Won't Do.
    (Shipped 2026-09-14, migration 0047. The "film-side alias APIs carry a year" consequence did
    not materialise: aliases stay year-less and the year rule is applied where a title is routed —
    `CreateFilm` — so the route config needed only a film branch, no new request shape.)
-4. [ ] **377** mapping row (+ `.example`); extractor surfaces `Edition` for MKV/WebM/MP4/MOV; F48
+4. [x] **377** mapping row (+ `.example`); extractor surfaces `Edition` for MKV/WebM/MP4/MOV; F48
    `{edition-X}` parser; `formatMap` rows (`Edition` / `XMP-prism:Edition`); `SourceBadge` renders for
    curatable single-source fields (+ `curation/CLAUDE.md`); video summary carries `edition`; film-page
-   pill + deep link. Round-trip test on **both** containers.
+   pill + deep link. Round-trip test on **both** containers. (Shipped 2026-09-14. Two things the
+   design did not foresee: the F48 marker has to be *lifted* out of the stem before the `^…$`
+   patterns run, or `{title}` swallows it; and a file with neither tag nor marker has no `edition`
+   row for the deep link to land on — the media page now renders a deep-linked missing field as an
+   empty curatable row from its completeness facet, gated by a new `curatable` flag so image /
+   long-text / merge fields are never synthesised that way.)
 5. [ ] **378** lift the three rejections for person/studio/film; "In files as" line + badge; pencil
    prefills canonical; writeback payload carries canonical; search indexes resolved + canonical + aliases.
 6. [ ] Spec RD9 / P0 §378 and the design handoff §4d: strike Tag (this ADR's D5).

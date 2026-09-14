@@ -53,15 +53,26 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   (`canonicalTable`, alias-key map, merge config w/ scene-number-safe `moveAssocSQL`, review
   junction + seed), `CreateFilm` = film resolve-or-create per RD4 + `queueFilmSameTitle` (also on
   rename), year-aware `RenameEntity` collision, film identity routes under the films gate,
-  `EntityRef.Year`, TMDB sidecar emits film `aliases`. 377–378 open
+  `EntityRef.Year`, TMDB sidecar emits film `aliases`. 377 done: F48 lifts `{edition-X}` out of
+  the stem before pattern matching (marker alone = a match), `edition` TierHigh, registry +
+  `.example` row, `formatMap` `Edition` / `XMP-prism:Edition`, `videoEdition` stamps full-film
+  rows through the pure resolver, `FacetScore.Curatable`. 378 open
 - [/] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
   (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
   glyph ≥4.9:1 on Broadcast. 376 done: `EntityKind` + `'film'` (api base, pickers, duplicates
   page/banner), film page title `NameEditControl` + `MergeOfferCard` verdict + near-miss advisory
   (studio wiring verbatim) + `AliasPanel` in the rail; `refLabel()` shows a film's year on every
-  identity card. 3-skin QA'd live (verdict card + panel on all three). 377–378 open
-- [ ] testing `testing-strategy`
-- [ ] security `security-review` — new writeback tag key, new mutation surface on `name`
+  identity card. 3-skin QA'd live (verdict card + panel on all three). 377 done: film-page
+  edition pill + dashed `+ Set edition` deep link, `#field-<canonical>` landing expands the
+  badge (fresh load + same-page hash), a deep-linked *missing* curatable field renders as an
+  empty SourceBadge row, `SourceBadge` badge always renders (RD12, `curation/CLAUDE.md`).
+  3-skin QA'd live (pill 4.7–6.0:1, link 8.7–16.8:1; visitor sees pills, no link). 378 open
+- [/] testing `testing-strategy` — 374/375/376/377 rows landed (`docs/testing-strategy.md`);
+  378's row lands with 378
+- [/] security `security-review` — run 2026-09-14 over the whole branch through 377: no findings
+  (argv shape unchanged for the new keys, refs kind-checked off the route pattern, film mutations
+  under `requireOwner`, `edition` to visitors is a resolved value not file metadata). Re-run once
+  378 adds the `name` decision surface
 
 ## Up next — ordered (position = priority)
 
@@ -78,6 +89,12 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 7. [x] [M] 376 films into the spine — shipped 2026-09-14 (tests: composite-key collision,
    alias-with-year routing, ambiguous no-year → queue, rename keeps alias + queues same-title,
    cleanup trigger, provider aliases, film merge; API: routes gated, 409 conflict carries year)
+7c. [x] [M] 377 edition — shipped 2026-09-14 (tests: marker lift table, tier, tag > filename,
+   `Edition-und`, MKV+MP4 round trip `-tags integration`, film payload, `Curatable`)
+7d. [ ] [—] Kevin: decide the §2c helper line ("Typed values are curated. Use Write to file…") —
+   deliberately not built (see handoff §2c); and whether the live prod `metadata-mappings.yaml`
+   gets the `edition` block now (the local films testbed mapping already has it)
+7e. [ ] [L] 378 display-as — kill criterion per the epic; prod probe first?
 7b. [ ] [S] Seed `same-title` pairs for films that pre-date 0047 (only create/rename queue them
    today) — file as a HOLODEX follow-up if Kevin wants the backfill
 8. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
@@ -85,8 +102,26 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
+- skills: code-review (2 findings, both fixed), security-review (clean)
+Explore-agent change map, then backend test-first: the F48 patterns are `^…$` full-stem matches,
+so RD7's "anywhere in the basename" meant **lifting** `{edition-X}` out of the stem before
+matching — otherwise `{title}` swallows the marker (the test showed it). `edition` = TierHigh so
+a lone marker (0.30 + 0.50) clears the flag-gated auto-apply and a tag conflict never does; no
+special rule. Extractor needed nothing (unclassified keys already land in the file layer).
+Integration test round-trips a written edition on generated MKV + MP4 through the real
+extractor. Live QA found the real gap: a file with **no tag, no marker, no decision has no
+`edition` row at all** (resolver drops it), so RD11's deep link had nowhere to land — the media
+page now renders a deep-linked missing field as an empty curatable row from its completeness
+facet, gated by a new `curatable` flag (code-review caught that ungated it would hand a text
+editor to `poster_url`). Two design deviations recorded in the handoff: the `— · file` chip stays
+(it is the F37 blank-pin, the handoff's "never renders empty sources" was wrong), and the §2c
+helper line was not built. Testbed: Dune (1984) has two real editions; local films mapping got
+the `edition` block. Handoff: **377 shipped, Draft PR #332 updated; next is 378 (Low, kill
+criterion) — or mark the PR ready and sweep 374–377 to In Review if 378 is cut.**
+
 ### 2026-09-14 · prod probe (filenames) — 377 sized
-- skills: none (`scripts/probe-edition-filenames.mjs`, counts only)
+- skills: none (`scripts/probe-edition-filenames.mjs`, counts only), code-review, security-review
 1253 video files (930 mkv · 311 mp4 · 10 avi · 2 m4v). **166 (13.2%) carry an edition marker: 141
 strict Plex `{edition-X}`, 2 dash, 23 bare, 0 parenthesised** — RD7's strict grammar already
 covers 85% of marked files, so the loose-pattern near-miss question stays deferred (≤25 files;

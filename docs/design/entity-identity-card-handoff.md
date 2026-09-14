@@ -131,12 +131,17 @@ applies to every other single-source curatable field too — record it in `curat
 | filename candidate | value · `file · name` | `{edition-X}` parsed |
 | custom | text input, placeholder `Director's Cut` | always (2b) |
 
-Empty candidates are **not** shown as "— · file · tag" chips (the brainstorm mockup drew one; the
-existing chip row never renders empty sources and neither should this). Confirm / Cancel exactly
-as `SourceBadge` today; `use:dismissable` on outside click / Esc.
+No *new* empty chip is drawn for edition. **Corrected in build (2026-09-14):** the existing chip
+row does render one empty chip — the anchored baseline `— · file` — and that is the F37 RD3
+blank-pin, a deliberate choice that stays. So a filename-only edition reads `— · file` ·
+`Theatrical · filename` · `Custom`. Confirm / Cancel exactly as `SourceBadge` today;
+`use:dismissable` on outside click / Esc.
 
-Helper line under the row (`text-xs text-muted`): *Typed values are curated. Use Write to file… to
-store it in the file's tag.*
+~~Helper line under the row (`text-xs text-muted`): *Typed values are curated. Use Write to file… to
+store it in the file's tag.*~~ **Not built:** §2a says edition is a canonical field and nothing
+more, and the generic field row has no per-field helper precedent — a helper keyed on one
+canonical inside that loop is the special case the row exists to avoid. Reopen if the
+out-of-sync pill (which the row already shows after a custom value) proves insufficient.
 
 ### 2d. Writeback
 
@@ -160,7 +165,8 @@ Truncate at 18 characters with the full value in `title`. Visitors and owners se
 
 When `edition` is empty **and** the viewer is the owner, the pill slot shows a dashed link:
 `rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent`, text
-**+ Set edition**, `href="/media/{id}#field-edition?expand=1"`. Landing there opens the row with
+**+ Set edition**, `href="/media/{id}#field-edition"` (built as spec RD11's bare hash — landing on
+any `#field-<canonical>` expands that field, no query flag). Landing there opens the row with
 the badge already expanded (`expandedField` store, `SourceBadge.svelte:34`), so the owner is one
 Confirm from done. Visitors see an empty slot, not the link.
 
