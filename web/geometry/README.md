@@ -23,6 +23,16 @@ npm run geometry -- --skin brutalist --width narrow --headed
 
 Exit code 0 means every invariant holds. Anything else names what broke and where.
 
+**On Windows, run the `web` dev server on Node 24.16.0 or later.** Node 24.0–24.15 bundle
+a libuv whose TCP-connect path overruns a stack buffer at random
+([libuv#5106](https://github.com/libuv/libuv/issues/5106), fixed in
+[Node 24.16.0](https://github.com/nodejs/node/pull/62561)); the Vite dev proxy opens one
+outbound connection per `/api` request, so the full matrix's ~640 page loads reliably kill
+the server partway through — it exits `0xC0000409` with no output — while a `--only` run
+makes too few connections to hit it (HOLODEX-381). The harness stops at the first refused
+connection and exits 2 with this diagnosis rather than scoring the rest of the matrix as
+errors.
+
 ## Why this and not screenshots
 
 Spec [D6](../../docs/specs/stress-fixture.md). The owner looks at the fixture and says

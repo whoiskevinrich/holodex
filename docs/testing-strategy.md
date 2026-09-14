@@ -2473,4 +2473,14 @@ outlives its marker is the same failure one level up.
   browser tooling now exists, but the ~10 E2E *flows* in §6 remain unautomated. This
   harness measures layout on pages; it does not drive user journeys.
 - **The image dimensions have no assertion at all**, deliberately — see §12.2.
-- **The full matrix can crash the Vite dev server** (2026-09-13, twice, native exit `0xC0000409`, no output). `--only <key>` runs are reliable; a full run that reports hundreds of `ERR_CONNECTION_REFUSED` is this, not a layout regression — restart `web` and re-run the affected keys. Filed separately.
+- **The `web` dev server needs Node ≥ 24.16.0 on Windows** (HOLODEX-381). The "full matrix
+  crashes Vite" gap recorded on 2026-09-13 was not the harness and not Vite: Node 24.0–24.15
+  bundle libuv 1.51.0, whose Windows TCP-connect path calls `RtlGetVersion()` on an
+  uninitialised `OSVERSIONINFOW` and overruns the `/GS` stack cookie at random
+  ([libuv#5106](https://github.com/libuv/libuv/issues/5106), fixed in Node 24.16.0 via
+  [nodejs/node#62561](https://github.com/nodejs/node/pull/62561)) — a silent `0xC0000409`
+  fastfail. The dev proxy opens one outbound connection per `/api` request, so ~640 page loads
+  hit it reliably (reproduced 4/4, after 150, 150, 208 and 487 loads — anywhere in the run;
+  ran clean under a debugger, whose slowdown changes the timing) while `--only` runs do not. The runner now stops
+  at the first refused connection and exits 2 naming this, instead of reporting the remaining
+  matrix as ~600 `error` rows.
