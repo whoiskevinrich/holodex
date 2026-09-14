@@ -63,6 +63,7 @@ export interface DuplicatePair {
 
 export interface Person {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
 	video_count?: number;
 	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
@@ -119,6 +120,7 @@ export interface PersonImageSet {
 
 export interface Tag {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
 	video_count?: number;
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
@@ -174,6 +176,7 @@ export interface DeniedTag {
 // derived identity (video_studios follows the resolved studio field, no rename/merge).
 export interface Studio {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
 	video_count?: number;
 	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
@@ -198,6 +201,7 @@ export interface ExtraMetadata {
 
 export interface Video {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
 	file_size: number;
 	title: string;
@@ -820,6 +824,7 @@ export interface StudioDetailResponse {
 // collisions across different releases are the common case), not a bare unique name.
 export interface Film {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
 	year?: number;
 	video_count?: number;

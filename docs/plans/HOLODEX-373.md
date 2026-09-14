@@ -42,8 +42,13 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   `SourceBadge` only renders the badge when multi-source, so a filename-only edition would have no
   curation affordance (§2b). **OQ1** deep-link vs inline Set edition, **OQ2** the 378 go/no-go —
   both need Kevin
-- [ ] backend
-- [ ] frontend
+- [/] backend — 374 done: `internal/model/ref.go` (kinds + `Ref()` + `MarshalJSON` on the five
+  entities, so `ref` rides every list/detail/nested payload from one place), `internal/api/ref.go`
+  (`ParseRef` + `RefKindError`; `urlParamID` reads the route's kind off the chi pattern, nested ids
+  by param name), MCP `get_video` accepts a ref + every result carries `ref`. 375–378 open
+- [/] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
+  (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
+  glyph ≥4.9:1 on Broadcast. 375–378 open
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — new writeback tag key, new mutation surface on `name`
 
@@ -54,12 +59,25 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 3. [x] [S] `/architecture` — ADR-096 landed, `needs-adr` cleared
 4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles
    (`cut|edition|extended|unrated|remaster`) before sizing 377
-5. [ ] [M] 374 handle — start here; zero schema
+5. [x] [M] 374 handle — shipped 2026-09-13 (tests: parser table, 5 entity routes + nested,
+   kind mismatch 400, list/nested `ref`, MCP)
 6. [ ] [M] 375 external-id unification — the F23 precedence test is the first thing to write
 7. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-13 · 374 reference handle — coded, tested, live-QA'd
+- skills: code-review
+Zero schema. Design choice worth knowing: `ref` is emitted by `MarshalJSON` on the model structs
+(derived from `id`), not a repo-populated column — nothing anonymously embeds an entity, so the
+alias-type pattern is safe and nested payloads (Video.People, Film cast, search) get it free.
+Route kind is read off `chi.RouteContext(r).RoutePattern()` — first entity collection segment —
+rather than threading a kind through ~70 `pathID` call sites; non-entity routes (categories,
+writeback jobs) stay bare-only. `/code-review high` clean. Screenshots time out (known) — QA is
+computed-style. 374 Jira: In Progress; tests gate ticked. Handoff: **next is 375 — write the
+F23 precedence test first (`entity_external_ids` consulted before nameKey/alias), then the
+migration. Draft PR #332 stays Draft.**
 
 ### 2026-09-13 · tag casing is policy
 Kevin: "I'd prefer tags always be lower case." Reframed 0034 from regret to policy across ADR-096

@@ -352,7 +352,12 @@
 					{/if}
 				</div>
 			{/if}
-			<EntityVideoMeta count={videos.length} links={externalLinks} entityName={studio?.name ?? ''} />
+			<EntityVideoMeta
+				count={videos.length}
+				links={externalLinks}
+				entityName={studio?.name ?? ''}
+				ref={studio?.ref}
+			/>
 		{/snippet}
 
 		{#snippet detail()}

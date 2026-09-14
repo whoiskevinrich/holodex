@@ -38,6 +38,7 @@
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
+	import RefChip from '$lib/components/entity/RefChip.svelte';
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
@@ -1259,6 +1260,7 @@
 						{#if formatYear(video.recorded_at)}
 							<span>·</span><span>{formatYear(video.recorded_at)}</span>
 						{/if}
+						<RefChip ref={video.ref} />
 					</div>
 				</header>
 

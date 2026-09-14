@@ -176,13 +176,13 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 ### Must-have (P0)
 
 **374 — Reference**
-- [ ] Every entity JSON payload (person, studio, tag, film, video — detail *and* list items) carries
+- [x] Every entity JSON payload (person, studio, tag, film, video — detail *and* list items) carries
   `ref`.
-- [ ] Every `{id}` route segment and every MCP tool id argument accepts a ref; kind mismatch → 400
+- [x] Every `{id}` route segment and every MCP tool id argument accepts a ref; kind mismatch → 400
   with a body naming the expected kind.
-- [ ] `RefChip` mounted as the last item of the meta line on all five detail pages (handoff §1a);
+- [x] `RefChip` mounted as the last item of the meta line on all five detail pages (handoff §1a);
   click/Enter copies; "Copied" for 1.5 s; `aria-live`; clipboard-denied fallback selects the text.
-- [ ] Given `GET /people/1234` and `GET /people/person:1234`, the bodies are byte-identical.
+- [x] Given `GET /people/1234` and `GET /people/person:1234`, the bodies are byte-identical.
 
 **375 — External ids**
 - [ ] Migration: `entity_external_ids` created; `person_external_ids` + `studio_external_ids`
