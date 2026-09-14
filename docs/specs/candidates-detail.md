@@ -151,7 +151,8 @@ its visible text is its accessible name. Hover is *not* a mechanism — reveal i
 A row with no `detail` shows no toggle and is unchanged.
 
 - **Given** a candidate with `detail`, **when** the picker renders, **then** the row is the same
-  height as a row without `detail`, plus one `details` toggle on the actions line.
+  height as a row without `detail`, plus one actions line carrying the `details` toggle (24 px:
+  the toggle has `py-1` for a touch target — QA §4.6, decided 2026-09-13).
 - **Given** the owner activates the toggle (click, tap, Enter, or Space), **when** the lines expand,
   **then** they render beneath the row as one visual line per entry, verbatim, in provider order,
   muted against the row's `label`, and the candidate is **not** confirmed.
@@ -221,7 +222,8 @@ is not a writeback input. The only durable trace is the FR5 activity-log line.
 
 The closed toggle may read `details (3)` so the owner knows how much is behind it before opening.
 The design handoff settled the base copy as `details` / `hide details`; the count is an optional
-refinement, cheap to add with FR3 — skip it if it reads as noise in the monospace skins.
+refinement, cheap to add with FR3 — skip it if it reads as noise in the monospace skins. (Not
+built in v1.)
 
 ### Future Considerations (P2)
 

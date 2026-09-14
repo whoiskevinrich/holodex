@@ -115,8 +115,9 @@ the dev server on fixture (a) unless you ask for another.
   the list to the bottom. Every line is inside the list; no tooltip or popup appears anywhere; the
   very long line ends with `…` and hovering it shows the full text.
 - **4.6** `[human]` **Touch.** On a phone-width window (or a touch device), tap `details` — it
-  opens without selecting the row. Tapping the row itself still selects it. If you find `details`
-  too small to hit reliably, say so — the handoff allows `py-1` on the button to enlarge it.
+  opens without selecting the row. Tapping the row itself still selects it. **Decided
+  2026-09-13:** the toggle carries `py-1` (24 px target); the §12 assertion bounds the row at
+  [70, 76] so the padding cannot silently disappear.
 - **4.7** `[human]` **All three skins.** Switch skin (owner menu) and repeat 4.2 once per skin:
   the lines are readable against the highlighted row's background, the dotted underline is
   visible, and in the two monospace skins the `Key: value` lines line up like a table.

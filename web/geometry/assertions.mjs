@@ -227,27 +227,31 @@ export const ASSERTIONS = [
 		expect: { max: 0 }
 	},
 
-	// --- A candidate's `detail` toggle costs one text line and nothing more (F61, HOLODEX-380) ---
+	// --- A candidate's `detail` toggle costs one actions line and nothing more (F61, HOLODEX-380) ---
 	//
 	// Rides the same prepared state: `flood`'s labels are distinct, so every row carries a
 	// `details` toggle and every row starts collapsed. The first cut put an inline-block
 	// <button> straight into the <li> and it sat on the baseline with its own descent gap —
 	// 74.5px where one 16px line should have made the row 66.6px. The fix is a baseline-
-	// aligned flex actions line; this is the number that fix moved.
+	// aligned flex actions line; the toggle then gained `py-1` for a 24px touch target (QA
+	// §4.6, the owner's call), which is the actions line's height now. This is the number
+	// both changes moved.
 	{
 		key: 'collapsed-detail-row-costs-one-line',
 		finds:
-			'A collapsed candidate row growing past the one text line its `details` toggle is ' +
+			'A collapsed candidate row growing past the one actions line its `details` toggle is ' +
 			'allowed to add — the "zero cost when unneeded" half of the reveal rule. The row ' +
-			'is label (20px) + disambiguation (16px) + actions line (16px) + py-2 (16px); 68 ' +
-			'is that sum and the ceiling. The floor catches the opposite regression: a row ' +
-			'with `detail` but no actions line (toggle missing) is ~51px. Row 3 rather than ' +
-			'row 1 because row 1 is the active row and row 2 carries the 256-char line — ' +
-			'neither changes the collapsed height, and a plain row proves the rule alone.',
+			'is label (20px) + disambiguation (16px) + the toggle’s line (16px text + py-1 = ' +
+			'24px) + py-2 (16px); 76 is that sum and the ceiling. The floor catches two ' +
+			'opposite regressions: the toggle losing its py-1 (66.6px, the touch target gone) ' +
+			'and a row with `detail` but no actions line at all (~51px, the toggle missing). ' +
+			'Row 3 rather than row 1 because row 1 is the active row and row 2 carries the ' +
+			'256-char line — neither changes the collapsed height, and a plain row proves the ' +
+			'rule alone.',
 		...stressedPicker,
 		selector: '#enrich-opt-2',
 		measure: 'height',
-		expect: { min: 60, max: 68 }
+		expect: { min: 70, max: 76 }
 	},
 
 	{

@@ -380,7 +380,7 @@
 								onkeydown={onDetailKey}
 								aria-expanded={!!open[c.external_id]}
 								aria-controls="enrich-detail-{i}"
-								class="btn-quiet px-1 text-xs underline decoration-dotted {open[c.external_id]
+								class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
 									? 'text-ink'
 									: ''}"
 							>

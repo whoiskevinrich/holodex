@@ -77,8 +77,9 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 3b. [x] [S] `/testing-strategy` reconciled the checklist and added the parity assertion.
 3c. [ ] [—] QA §4.6 (touch hit target) is the one `[human]` item still open: the toggle has no
    vertical padding on purpose (parity); say if it needs `py-1`.
-4. [ ] [S] Mark PR #333 ready → CI fires In Review. Every routing-table gate is green; §4.6
-   (touch target) is a QA item for the reviewer, not a gate.
+4. [x] [S] PR #333 marked ready 2026-09-13 → CI fired In Review.
+4a. [x] [S] §4.6 ruled: `py-1` on the toggle (24 px target). Row = 76; §12 bound re-based to
+   [70, 76] and mutation-tested both ways (drop `py-1` ⇒ 68, bare actions line ⇒ 77).
 5. [ ] [—] Tell the provider side the merged contract text matches the proposal so they can emit
    `detail` on every candidate (the audit path needs it on lone candidates too).
 
@@ -99,5 +100,7 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   `enrich-stub` (launch entries added to the gitignored launch.json) across all three skins.
 - Testing gate: strategy doc updated, one mutation-tested geometry assertion added, HOLODEX-381
   filed for the full-matrix Vite crash.
-- Handoff: all gates green on PR #333; mark ready is the remaining step. Open for the owner:
-  QA §4.6 touch target on the `details` toggle (decide `py-1` or not — the §12 bound moves with it).
+- PR marked ready (In Review). Owner ruled §4.6: `py-1` added; every doc that pinned the 66.6/68
+  numbers re-based to 76 (handoff, spec AC, checklist, strategy §5/§12/invariants, assertion).
+- Handoff: nothing open on the branch. Merge moves 380 to Done; HOLODEX-381 (full geometry
+  matrix crashes Vite) is the one follow-up filed out of this work.

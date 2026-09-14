@@ -15,7 +15,7 @@ toggle on the Searched caption ([structured-resolve-hints-searched-caption-hando
 **Mockup**: ![Candidate detail mockup](candidates-detail-mockup.svg)
 **QA**: [candidates-detail-qa-checklist.md](candidates-detail-qa-checklist.md)
 **Jira**: [HOLODEX-380](https://whoiskevinrich.atlassian.net/browse/HOLODEX-380) (story) ·
-Draft PR [#333](https://github.com/whoiskevinrich/holodex/pull/333)
+PR [#333](https://github.com/whoiskevinrich/holodex/pull/333)
 
 ---
 
@@ -45,7 +45,8 @@ the row, and — for the case the field exists for — rows that share a label o
 `underline decoration-dotted`, exactly the Searched caption's `+N more`. The lines are a `<ul>` of
 `text-xs text-muted` with `border-l border-rule` as the indent — the same rule color the search
 field's border uses. State is expressed by the toggle's own text color (`text-muted` closed →
-`text-ink` open), not by a new class. Skins 2/3 differ only by their token values (`font-ui` is
+`text-ink` open), not by a new class. The one deliberate departure from the caption's `+N more`
+is `py-1` on the toggle — a 24 px touch target (see Keyboard and accessibility). Skins 2/3 differ only by their token values (`font-ui` is
 monospace there, which suits `Key: value` lines).
 
 ---
@@ -116,11 +117,13 @@ closed regardless of whether they carry `detail`.
   button, expanded" → the list. Nothing is announced on toggle beyond the state change.
 - Auto-expanded rows are not announced as such; they simply are open. The `aria-live` status line
   ("4 matches for …") is unchanged.
-- Touch: the toggle is a text button with the row's `py-2`; the hit area is the button's box,
-  which at `text-xs` is ~16 px tall. Acceptable because it is adjacent to nothing else on its
-  line except `view source ↗` with `gap-2`, and a mis-tap on the row itself confirms — so the
-  toggle should get `py-1` to reach ~24 px without changing the row's collapsed height (the
-  actions line already has that slack). QA item 4.6 measures this.
+- Touch: the toggle carries `py-1`, so its box is 24 px tall (16 px `text-xs` line + 4 + 4) —
+  the WCAG 2.2 minimum target, and the owner's call on QA item 4.6 (2026-09-13). The actions
+  line is therefore 24 px, not a bare 16 px text line: a collapsed row with `detail` is
+  20 + 16 + 24 + 16 = 76 px against 52 px for a row with neither link nor `detail`. That is the
+  cost the "one actions line" rule allows and the §12 assertion bounds ([70, 76]); a mis-tap
+  below the toggle lands on the row's own `py-2` and confirms, which is why the target needed
+  to be real.
 
 ## Responsive
 
