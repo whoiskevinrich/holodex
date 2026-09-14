@@ -68,7 +68,7 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 1. [x] [—] OQ1 = deep link, OQ2 = keep 378 — ratified 2026-09-12
 2. [x] [S] `/write-spec` — landed, `needs-spec` cleared
 3. [x] [S] `/architecture` — ADR-096 landed, `needs-adr` cleared
-4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles before sizing 377 —
+4. [x] [—] Run the read-only prod probe for edition-bearing full-film titles before sizing 377 —
    a filename crawler, not SQL (the prod library isn't in a Holodex DB yet):
    `node scripts/probe-edition-filenames.mjs <media dir>` (anonymized counts; `--show N` prints
    names, keep out of pastes). Paste the counts into the next session log
@@ -84,6 +84,19 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-14 · prod probe (filenames) — 377 sized
+- skills: none (`scripts/probe-edition-filenames.mjs`, counts only)
+1253 video files (930 mkv · 311 mp4 · 10 avi · 2 m4v). **166 (13.2%) carry an edition marker: 141
+strict Plex `{edition-X}`, 2 dash, 23 bare, 0 parenthesised** — RD7's strict grammar already
+covers 85% of marked files, so the loose-pattern near-miss question stays deferred (≤25 files;
+renaming them is cheaper than a parser). Keywords: remaster 41 · extended 29 · cut 27 · director
+17 · unrated 15 · edition 11 · theatrical 9 · imax 7. Only **3 title groups hold >1 edition** (5
+hold >1 file) — edition is overwhelmingly a descriptor on a single file, not a sibling
+disambiguator. Sizing consequences for 377: (a) first F48 extraction run yields ~141 exact
+`filename:edition` candidates — the auto-apply flag decides whether that is 141 review rows at
+once; (b) writeback of `Edition` to the 311 MP4s is a full-file rewrite each (XMP via exiftool),
+MKVs are in-place via mkvpropedit; (c) the multi-edition film page state matters for 3 films.
 
 ### 2026-09-14 · 376 films into the spine — coded, tested, live-QA'd
 - skills: code-review
