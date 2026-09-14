@@ -81,8 +81,9 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - **An "alternate cut of" relation between films.** Superman II and The Richard Donner Cut are two
   films because TMDB says so; linking them is a later, separate feature.
 - **Renaming files** to carry `{edition-X}`. Holodex writes tags, never filenames.
-- **Reversing tag lowercasing** (migration 0034) — a storage regret, tracked as
-  [HOLODEX-379](https://whoiskevinrich.atlassian.net/browse/HOLODEX-379), sibling of the epic.
+- **Reversing tag lowercasing** (migration 0034). Tags are **always lowercase by owner policy**;
+  [HOLODEX-379](https://whoiskevinrich.atlassian.net/browse/HOLODEX-379), which proposed undoing
+  it, is closed Won't Do.
 - **A display-name column.** Display is a decision (RD9), not a field.
 - **Refs on list cards / grids.** Detail pages only in v1; cards already link to the detail page.
 - **A provider source for edition.** TMDB has no edition concept; `edition` has file sources only.
@@ -128,7 +129,8 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - **RD9 — Display name = a source decision on `name`, for Person, Studio and Film.** Lift the
   per-kind rejection (`person_decisions.go:117`, `studio_fields.go:103`, `film_fields.go:236`). **Tag
   is excluded** — ADR-096 D5 upholds ADR-061's scoping call that tags carry the identity spine and
-  not the field-resolution model; the tag casing need is HOLODEX-379. `name` becomes an
+  not the field-resolution model — and tags are always lowercase by policy, which a per-tag
+  display decision would defeat. `name` becomes an
   ordinary resolved field with sources: file baseline (the canonical column), each provider's
   spelling, custom. The **rendered** name is the resolved value. The **canonical** column is
   untouched by any decision and remains the file / writeback / identity / alias-routing truth.

@@ -17,8 +17,8 @@ covered by the proposal at all and reshaped it.
 **Locked (see the epic for rationale):** film = the work as the provider defines it, edition =
 a property of the file; edition is an ordinary resolved video field (container tag > filename,
 curation, writeback via the tag — never rename files); `kind:id` reference handle, slugs cut;
-one `entity_external_ids` table; display name = curation on `name`, no column. Tag lowercasing
-(0034) is a storage regret, not display — HOLODEX-379, outside the epic.
+one `entity_external_ids` table; display name = curation on `name` for Person/Studio/Film only.
+**Tags are always lowercase by Kevin's policy** (0034 is deliberate) — HOLODEX-379 closed Won't Do.
 
 **Stories, in shipping order:** 374 handle (High) → 375 external-id unification (High) → 376
 films into the spine → 377 edition → 378 display-as (Low; kill criterion in the handoff).
@@ -60,6 +60,10 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-13 · tag casing is policy
+Kevin: "I'd prefer tags always be lower case." Reframed 0034 from regret to policy across ADR-096
+D5, spec, handoff; HOLODEX-379 → Won't Do. Strengthens D5's tag exclusion.
 
 ### 2026-09-13 · ADR-096
 `/architecture` → ADR-096 (D1 reference, D2 external ids, D3 Film composite key, D4 edition, D5

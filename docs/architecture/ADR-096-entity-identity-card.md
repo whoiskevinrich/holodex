@@ -184,9 +184,11 @@ glance (OQ2); the kill criterion — a first-time reader picks the wrong verb �
 
 **Tag is excluded.** The spec's first draft included it; this ADR upholds ADR-061's scoping call
 instead: tags carry the identity spine and **not** the field-resolution model, because a tag's name
-*is* the entity and the decision machinery would be ceremony. The tag-side need that motivated it —
-storage lowercasing since 0034 — is a storage regret with its own fix (HOLODEX-379: stop lowercasing;
-`ux_tags_namekey` already makes identity case-insensitive), not a display-name use case.
+*is* the entity and the decision machinery would be ceremony. And the one tag-side case that was
+floated as a motivation — casing, lowercased in storage since migration 0034 — is **policy, not a
+regret**: the owner's rule is that tags are always lowercase. A display-name decision on a tag would
+be a way to defeat that rule one tag at a time. HOLODEX-379 (which proposed reversing 0034) is closed
+Won't Do.
 
 ## Options Considered
 
@@ -232,7 +234,7 @@ storage lowercasing since 0034 — is a storage regret with its own fix (HOLODEX
 | **A. Decision on `name` (chosen)** — file / provider / custom sources | None — ADR-051 as-is | Yes — pick `tmdb` in the chip row | ✅ |
 | B. `display_name` column + owner text box | A third name (canonical / display / key) with its own writeback/search/alias questions | No — retype it | ✗ |
 | C. Curation-only (custom source, no provider chips) | None | No | ✗ — half of A for the same cost |
-| D. Include Tag | Gives tags the field-resolution model ADR-061 deliberately withheld | — | ✗ — HOLODEX-379 is the tag fix |
+| D. Include Tag | Gives tags the field-resolution model ADR-061 deliberately withheld; would let per-tag display defeat the always-lowercase rule | — | ✗ |
 
 ## Trade-off Analysis
 

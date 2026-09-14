@@ -218,7 +218,7 @@ other four stories don't depend on it.
 ### 4d. Tags and films
 
 Tags: **excluded** — ADR-096 D5 upholds ADR-061's rule that tags carry the identity spine only, never
-the field-resolution model; the tag casing need is HOLODEX-379. Films: the
+the field-resolution model, and tags are always lowercase by owner policy (0034). Films: the
 film title has **no** `NameEditControl` today (`films/[id]/+page.svelte:391`, rename is a 376
 deliverable) — 378 for films is gated on 376 landing the pencil first.
 
@@ -230,7 +230,7 @@ deliverable) — 378 for films is gated on 376 landing the pencil first.
   F43 S2) mounts under the film header exactly as on `studios/[id]/+page.svelte:363`; provider
   alternative titles land as `source='provider'` rows. `NameEditControl` on the film title
   reuses the studio wiring with `MergeOfferCard` as the verdict.
-- Slugs, a Release/Version sub-entity, file renaming, tag lowercasing (HOLODEX-379) — set aside
+- Slugs, a Release/Version sub-entity, file renaming, un-lowercasing tags (policy: always lowercase) — set aside
   by the epic.
 
 ## 6. Accessibility
