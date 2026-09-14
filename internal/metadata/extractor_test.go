@@ -51,7 +51,8 @@ func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 		"Comment-und":      "a note", // no canonical field → Extra under the canonical key
 		"SeasonNumber-und": "2",      // unmapped → Extra as "SeasonNumber" (file:<Key>-addressable)
 		"EpisodeSort-und":  "5",
-		"CRC-32":           "deadbeef", // digit guard: must NOT be stripped to "CRC"
+		"Edition-und":      "Final Cut", // F60 RD8: the EDITION SimpleTag lands as bare "Edition"
+		"CRC-32":           "deadbeef",  // digit guard: must NOT be stripped to "CRC"
 	}
 	ex := mapExiftool(raw)
 
@@ -74,14 +75,15 @@ func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 		"Comment":      "a note",
 		"SeasonNumber": "2",
 		"EpisodeSort":  "5",
+		"Edition":      "Final Cut",
 		"CRC-32":       "deadbeef",
 	} {
 		if extra[key] != want {
 			t.Errorf("Extra[%q] = %q, want %q (all extra: %+v)", key, extra[key], want, ex.Extra)
 		}
 	}
-	if len(ex.Extra) != 4 {
-		t.Errorf("extra = %+v, want 4 entries", ex.Extra)
+	if len(ex.Extra) != 5 {
+		t.Errorf("extra = %+v, want 5 entries", ex.Extra)
 	}
 }
 

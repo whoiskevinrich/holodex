@@ -226,3 +226,59 @@ func TestMatchFirst_NoPatternMatches(t *testing.T) {
 		t.Fatalf("MatchFirst = (%#v, %v), want (nil, false)", fields, ok)
 	}
 }
+
+// F60 RD7: the Plex `{edition-<text>}` marker is lifted out of the stem before
+// pattern matching, so an edition-bearing file still matches the library's
+// ordinary patterns and the marker itself is a candidate on its own.
+func TestMatchFirst_EditionMarker(t *testing.T) {
+	patterns, err := extract.CompileAll([]string{"{title} ({year})"})
+	if err != nil {
+		t.Fatalf("CompileAll error: %v", err)
+	}
+	tests := []struct {
+		name     string
+		filename string
+		want     map[string][]string
+		wantOK   bool
+	}{
+		{
+			name:     "trailing marker, pattern still matches the rest",
+			filename: "Blade Runner (1982) {edition-Final Cut}.mkv",
+			want:     map[string][]string{"title": {"Blade Runner"}, "release_date": {"1982"}, "edition": {"Final Cut"}},
+			wantOK:   true,
+		},
+		{
+			name:     "marker anywhere in the stem, text trimmed, case preserved",
+			filename: "Blade Runner {edition- director's CUT } (1982).mkv",
+			want:     map[string][]string{"title": {"Blade Runner"}, "release_date": {"1982"}, "edition": {"director's CUT"}},
+			wantOK:   true,
+		},
+		{
+			name:     "marker alone is a match even when no pattern fits",
+			filename: "totally unstructured {edition-Theatrical}.mp4",
+			want:     map[string][]string{"edition": {"Theatrical"}},
+			wantOK:   true,
+		},
+		{
+			name:     "empty marker emits nothing and is not a match",
+			filename: "totally unstructured {edition-}.mp4",
+			wantOK:   false,
+		},
+		{
+			name:     "loose forms are not parsed (RD7 strict grammar)",
+			filename: "Blade Runner (1982) - Final Cut.mkv",
+			wantOK:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, ok := extract.MatchFirst(patterns, tt.filename, "")
+			if ok != tt.wantOK {
+				t.Fatalf("MatchFirst ok = %v, want %v (fields %#v)", ok, tt.wantOK, fields)
+			}
+			if tt.wantOK && !reflect.DeepEqual(fields, tt.want) {
+				t.Fatalf("MatchFirst fields = %#v, want %#v", fields, tt.want)
+			}
+		})
+	}
+}

@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 )
 
 // Film entity endpoints (F56, ADR-085). Reads are public, gated on films_enabled at
@@ -107,6 +109,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		setThumbnailURL(&fv.Video)
 		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
+			fv.Edition = h.videoEdition(r.Context(), fv.Video.ID)
 			fullFilms = append(fullFilms, fv)
 		} else {
 			scenes = append(scenes, fv)
@@ -157,6 +160,47 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		body["skipped_aliases"] = skipped
 	}
 	writeJSON(w, http.StatusOK, body)
+}
+
+// videoEdition resolves one full-film file's edition (F60 RD6) through the same
+// pure resolver GET /media/{id} uses, so the film page's pill reads exactly what
+// the media page shows — container tag, filename candidate, or a standing
+// decision. A film has one to a few full-film files, so the per-video reads are
+// cheap; any failure degrades to an empty pill with a warning, never a 500.
+func (h *Handlers) videoEdition(ctx context.Context, videoID int64) string {
+	if h.mappings == nil {
+		return ""
+	}
+	field, ok := h.mappings.Current().ByCanonical("edition")
+	if !ok {
+		return ""
+	}
+	v, extra, err := h.repo.GetVideo(ctx, videoID)
+	if err != nil {
+		h.log.Warn("edition: load video", "id", videoID, "err", err)
+		return ""
+	}
+	enrichRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: enrichment", "id", videoID, "err", err)
+		return ""
+	}
+	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: curation", "id", videoID, "err", err)
+		return ""
+	}
+	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: decisions", "id", videoID, "err", err)
+		return ""
+	}
+	resolved := resolver.Resolve(v, extra, enrichmentFromRows(enrichRows), curationFromRows(curRows),
+		[]mapping.Field{field}, h.resolveOptions(decisionsFromRows(decRows)))
+	if len(resolved) == 0 || len(resolved[0].Values) == 0 {
+		return ""
+	}
+	return resolved[0].Values[0]
 }
 
 // createFilm handles POST /films (owner-gated): {name, year}. name is required;

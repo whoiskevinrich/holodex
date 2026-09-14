@@ -112,6 +112,13 @@ var KnownFields = []FieldDef{
 		Criticality: CriticalityNiceToHave,
 	},
 	{
+		Canonical:   "edition",
+		Label:       "Edition",
+		Display:     "",
+		Description: "The cut this file holds (Theatrical, Director's Cut, Final Cut). A file fact, never a film property (F60 RD6).",
+		Criticality: CriticalityNiceToHave,
+	},
+	{
 		Canonical:   "runtime",
 		Label:       "Runtime (min)",
 		Display:     "",

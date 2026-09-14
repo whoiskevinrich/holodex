@@ -8,12 +8,15 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"holodex/internal/api"
+	"holodex/internal/cache"
 	"holodex/internal/db"
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -21,6 +24,13 @@ import (
 // filmServer wires a real repo with films_enabled on and two seeded videos, for
 // exercising the film API layer end-to-end (F56, ADR-085).
 func filmServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64, int64) {
+	t.Helper()
+	return filmServerWith(t, token, nil)
+}
+
+// filmServerWith is filmServer with a hook to configure the handlers before the
+// server starts (e.g. wire a mappings store).
+func filmServerWith(t *testing.T, token string, configure func(*api.Handlers)) (*httptest.Server, *repo.Repo, int64, int64) {
 	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
@@ -50,6 +60,9 @@ func filmServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int64
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetAuth(api.NewAuth(token), false)
 	h.SetFilmsEnabled(true)
+	if configure != nil {
+		configure(h)
+	}
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 	return srv, r, v1, v2
@@ -482,5 +495,62 @@ func TestBulkAttachFilmVideosUnnumbered(t *testing.T) {
 		if fv.SceneNumber != nil {
 			t.Errorf("scene number = %v, want nil (unnumbered)", *fv.SceneNumber)
 		}
+	}
+}
+
+// TestGetFilm_FullFilmCarriesEdition: the film page never resolves edition itself
+// (F60 RD6); the full-film row carries the value the resolver would show on the
+// media page -- the container tag here -- and scenes carry nothing.
+func TestGetFilm_FullFilmCarriesEdition(t *testing.T) {
+	dir := t.TempDir()
+	mpath := filepath.Join(dir, "metadata-mappings.yaml")
+	yaml := "fields:\n" +
+		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
+		"  - canonical: edition\n    label: Edition\n    sources: [Edition, filename:edition]\n"
+	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := mapping.NewStore(mpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, r, v1, _ := filmServerWith(t, "tok", func(h *api.Handlers) {
+		h.SetMetadataFields(store, cache.Noop{})
+	})
+	full, err := r.UpsertVideo(t.Context(), &model.Video{
+		FilePath: "/m/full {edition-Theatrical}.mkv", FileSize: 1, Title: "Full",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, []model.ExtraMetadata{{SourceKey: "Edition", Value: "Final Cut"}})
+	if err != nil {
+		t.Fatalf("seed full-film video: %v", err)
+	}
+	filmID, err := r.CreateFilm(t.Context(), "Edition Test", 1982)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(t.Context(), filmID, v1, nil, false); err != nil {
+		t.Fatalf("attach scene: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(t.Context(), filmID, full, nil, true); err != nil {
+		t.Fatalf("attach full film: %v", err)
+	}
+
+	resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(filmID))
+	if err != nil {
+		t.Fatalf("get film: %v", err)
+	}
+	defer resp.Body.Close()
+	var detail struct {
+		Scenes    []repo.FilmVideo `json:"scenes"`
+		FullFilms []repo.FilmVideo `json:"full_films"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		t.Fatalf("decode film detail: %v", err)
+	}
+	if len(detail.FullFilms) != 1 || detail.FullFilms[0].Edition != "Final Cut" {
+		t.Fatalf("full film edition: got %+v, want the container tag value", detail.FullFilms)
+	}
+	if len(detail.Scenes) != 1 || detail.Scenes[0].Edition != "" {
+		t.Fatalf("scenes must not carry an edition, got %+v", detail.Scenes)
 	}
 }

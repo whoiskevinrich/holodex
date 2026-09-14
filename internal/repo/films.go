@@ -549,6 +549,10 @@ type FilmVideo struct {
 	Video       model.Video `json:"video"`
 	SceneNumber *int64      `json:"scene_number"`
 	IsFullFilm  bool        `json:"is_full_film"`
+	// Edition is the file's resolved edition (F60 RD6: Theatrical, Final Cut…),
+	// stamped by the API layer for full-film rows only — like Video.ThumbnailURL,
+	// it is not a column. The film page renders it; it never resolves it itself.
+	Edition string `json:"edition,omitempty"`
 }
 
 // FilmVideos returns every video attached to a film, scenes first (ordered by scene
