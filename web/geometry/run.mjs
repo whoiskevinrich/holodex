@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // The geometry assertion harness (HOLODEX-349).
 //
-//   cd web && npm run geometry
+//   npm --prefix web run geometry -- <flags>     (from the repository root; no cd)
 //
 // Measures the running stress fixture against the invariants in `assertions.mjs`,
-// across three skins and two viewport widths, and exits non-zero when one is broken.
+// across three skins and three viewport widths, and exits non-zero when one is broken.
 //
-// Prerequisites, all checked before anything is measured:
+// Prerequisites; 1–4 are checked before anything is measured:
 //   1. `npx playwright install chromium`   — once per machine; `npm ci` does not do it
 //   2. `go run ./testdata/stressseed`      — seeds the fixture and writes the manifest
 //   3. the `backend-stress` launch profile — serves it on :7800
 //   4. the `web` launch profile            — the dev server on :5173, proxying /api
+//      (on Windows, Node ≥ 24.16.0 — see README.md and the ServerGone message below)
+//   5. the `enrich-stub` launch profile    — :9100; not preflighted, but the six
+//      Enrich-picker assertions report `error` rather than pass without it
 //
 // See README.md for the shape of an assertion and docs/testing-strategy.md for when
 // writing one is the right move.
@@ -257,6 +260,22 @@ try {
 	process.exit(2);
 }
 
+// A server that stops answering mid-run is a prerequisite failure like the ones preflight
+// catches, and it is caught here rather than scored: every load after it would be an
+// `error` row, and a report reading "609 errored" looks like the layout collapsed when
+// nothing was measured at all. A partial matrix cannot tell that apart from a regression,
+// so the run stops at the first refused connection and exits 2 with nothing reported.
+// (Declared before the loop, not hoisted: `visit` throws it while the loop is running.)
+class ServerGone extends Error {
+	/** @param {string} url @param {string} cell */
+	constructor(url, cell) {
+		super('net::ERR_CONNECTION_REFUSED');
+		this.url = url;
+		this.cell = cell;
+	}
+}
+/** @type {ServerGone | undefined} */
+let gone;
 try {
 	for (const cell of cells) {
 		const { context, page } = await open(browser, cell);
@@ -280,8 +299,31 @@ try {
 		}
 		process.stderr.write(' done\n');
 	}
+} catch (err) {
+	if (!(err instanceof ServerGone)) throw err;
+	gone = err;
 } finally {
 	await browser.close();
+}
+if (gone) {
+	// The one way this has actually happened (HOLODEX-381): the Vite dev server itself
+	// died, silently, with exit 0xC0000409. That is libuv#5106 — Node 24.0–24.15 bundle a
+	// libuv whose Windows TCP-connect path overruns a stack buffer at random, and the dev
+	// proxy opens one outbound connection per /api request, so ~640 page loads is enough
+	// to hit it while a `--only` run is not. Fixed in Node 24.16.0.
+	// `process.exitCode`, not `process.exit()`, for the same reason as the report below:
+	// stderr to a pipe is asynchronous on Windows, and the upgrade hint is the part worth
+	// not truncating. The report block is skipped, so nothing else prints.
+	console.error(
+		`\n${values.base} stopped answering after ${pageLoads} page loads ` +
+			`(${gone.message} at ${gone.url}, cell ${gone.cell}).\n` +
+			`  The app under test died mid-run, so nothing is reported: a partial matrix cannot tell ` +
+			`a layout regression from an absent server.\n` +
+			`  If the \`web\` dev server exited with 0xC0000409 (3221226505) and no output on Windows, ` +
+			`that is libuv#5106 in Node 24.0–24.15 — upgrade Node to 24.16.0 or later ` +
+			`(\`node --version\`; see web/geometry/README.md).`
+	);
+	process.exitCode = 2;
 }
 
 /**
@@ -298,6 +340,9 @@ async function visit(page, url, cell, group, preparations) {
 		await goto(page, `${values.base}${url}`, cell.skin);
 		await prepare(page, preparations);
 	} catch (err) {
+		const message = /** @type {Error} */ (err).message;
+		// A refused connection on localhost is not a slow page: the server is gone.
+		if (message.includes('ERR_CONNECTION_REFUSED')) throw new ServerGone(url, cell.key);
 		for (const t of group) {
 			results.push({
 				assertion: t.assertion,
@@ -305,7 +350,7 @@ async function visit(page, url, cell, group, preparations) {
 				label: t.label,
 				cell: cell.key,
 				status: 'error',
-				detail: `could not reach a measurable state: ${/** @type {Error} */ (err).message}`
+				detail: `could not reach a measurable state: ${message}`
 			});
 		}
 		return;
@@ -317,18 +362,20 @@ async function visit(page, url, cell, group, preparations) {
 	}
 }
 
-// Whether a `blockedBy` marker has gone stale is decided once, over the whole run —
-// and only when the run actually was the whole matrix.
-const final = reconcileBlocked(results, { complete: wholeMatrix });
-console.log(
-	render(final, {
-		cells: cells.length,
-		pages: pageLoads,
-		elapsedMs: Date.now() - started,
-		reconciled: wholeMatrix
-	})
-);
-// `process.exitCode`, not `process.exit()`: stdout to a pipe or a file is asynchronous,
-// and exiting outright can truncate a long report mid-line. Setting the code lets node
-// drain and exit on its own.
-process.exitCode = exitCode(final);
+if (!gone) {
+	// Whether a `blockedBy` marker has gone stale is decided once, over the whole run —
+	// and only when the run actually was the whole matrix.
+	const final = reconcileBlocked(results, { complete: wholeMatrix });
+	console.log(
+		render(final, {
+			cells: cells.length,
+			pages: pageLoads,
+			elapsedMs: Date.now() - started,
+			reconciled: wholeMatrix
+		})
+	);
+	// `process.exitCode`, not `process.exit()`: stdout to a pipe or a file is asynchronous,
+	// and exiting outright can truncate a long report mid-line. Setting the code lets node
+	// drain and exit on its own.
+	process.exitCode = exitCode(final);
+}
