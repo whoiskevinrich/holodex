@@ -91,9 +91,12 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    cleanup trigger, provider aliases, film merge; API: routes gated, 409 conflict carries year)
 7c. [x] [M] 377 edition — shipped 2026-09-14 (tests: marker lift table, tier, tag > filename,
    `Edition-und`, MKV+MP4 round trip `-tags integration`, film payload, `Curatable`)
-7d. [ ] [—] Kevin: decide the §2c helper line ("Typed values are curated. Use Write to file…") —
-   deliberately not built (see handoff §2c); and whether the live prod `metadata-mappings.yaml`
-   gets the `edition` block now (the local films testbed mapping already has it)
+7d. [x] [—] Kevin ruled 2026-09-14: §2c helper line stays unbuilt (A — "I plan to rework that
+   system soonish"; no follow-up filed for the conditional variant). Prod mapping: editions
+   live mostly on media, most have none → `edition` became a `CriticalityOptional` facet (listed,
+   never scored/queued), so adding the block to prod has no score/queue side effect; the only
+   remaining consideration is `EXTRACTION_AUTO_APPLY_ENABLED` (≈141 file writes if on). Kevin
+   adds the block when ready
 7e. [ ] [L] 378 display-as — kill criterion per the epic; prod probe first?
 7b. [ ] [S] Seed `same-title` pairs for films that pre-date 0047 (only create/rename queue them
    today) — file as a HOLODEX follow-up if Kevin wants the backfill
@@ -117,8 +120,11 @@ facet, gated by a new `curatable` flag (code-review caught that ungated it would
 editor to `poster_url`). Two design deviations recorded in the handoff: the `— · file` chip stays
 (it is the F37 blank-pin, the handoff's "never renders empty sources" was wrong), and the §2c
 helper line was not built. Testbed: Dune (1984) has two real editions; local films mapping got
-the `edition` block. Handoff: **377 shipped, Draft PR #332 updated; next is 378 (Low, kill
-criterion) — or mark the PR ready and sweep 374–377 to In Review if 378 is cut.**
+the `edition` block. Follow-up in the same session: Kevin ruled on the two open calls — A for the helper line;
+and since editions sit on media and most have none, `edition` became a `CriticalityOptional`
+facet (listed for the deep link, never scored or queued) so a library's score doesn't fall
+when the field is declared. Handoff: **377 shipped, Draft PR #332 updated; next is 378 (Low,
+kill criterion) — or mark the PR ready and sweep 374–377 to In Review if 378 is cut.**
 
 ### 2026-09-14 · prod probe (filenames) — 377 sized
 - skills: none (`scripts/probe-edition-filenames.mjs`, counts only), code-review, security-review

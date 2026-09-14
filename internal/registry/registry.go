@@ -70,6 +70,12 @@ const (
 const (
 	CriticalityCritical   = "critical"
 	CriticalityNiceToHave = "nice_to_have"
+	// CriticalityOptional (F60 RD6): the facet is emitted — so the SPA knows the
+	// field exists, its label and whether it is curatable — but carries no
+	// weight, never counts as missing and never enters the remediation queue or
+	// breakdown panel. For fields that are legitimately empty on most entities
+	// (an edition on a file that has no edition), where "missing" is not a gap.
+	CriticalityOptional = "optional"
 )
 
 // KnownFields is the full canonical field registry. Order is documentation order;
@@ -116,7 +122,7 @@ var KnownFields = []FieldDef{
 		Label:       "Edition",
 		Display:     "",
 		Description: "The cut this file holds (Theatrical, Director's Cut, Final Cut). A file fact, never a film property (F60 RD6).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // most files have no edition, and that is not a gap
 	},
 	{
 		Canonical:   "runtime",

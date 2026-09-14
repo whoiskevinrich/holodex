@@ -129,6 +129,12 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 			facets = append(facets, fs)
 			continue
 		}
+		if def.Criticality == registry.CriticalityOptional {
+			// Listed for the SPA (label, tier, Curatable — the deep-linked empty
+			// row needs them) but never scored, counted as missing or actionable.
+			facets = append(facets, fs)
+			continue
+		}
 
 		weight := criticalityWeight(def.Criticality)
 		weightSum += weight

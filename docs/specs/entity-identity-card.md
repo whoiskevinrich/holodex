@@ -113,6 +113,11 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - **RD6 — Edition is a canonical video field**, `replace`, single-value, manual allowed, sources in
   precedence order: container tag `Edition` (baseline) → `filename:edition` (F48 candidate). No
   provider source. It renders through the generic field row + `SourceBadge`; no new component.
+  **Edition is an `optional` completeness facet** (ruled 2026-09-14): most files have no edition
+  and that is the correct state, not a gap — the facet is listed (so the deep-linked empty row
+  knows the field exists) but carries no weight, never counts as missing and never enters the
+  remediation queue or breakdown panel. Declaring `edition` in a library's mapping is therefore
+  free of score/queue side effects.
 - **RD7 — Filename grammar is strict Plex** in v1: `{edition-<text>}` anywhere in the basename,
   `<text>` trimmed, case preserved. Looser forms (`(Director's Cut)`, `- Final Cut`) are **not**
   parsed; they may be added to the near-miss queue by a later pattern. An exact match is

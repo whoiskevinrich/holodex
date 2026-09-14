@@ -307,7 +307,9 @@ Won't Do.
    patterns run, or `{title}` swallows it; and a file with neither tag nor marker has no `edition`
    row for the deep link to land on — the media page now renders a deep-linked missing field as an
    empty curatable row from its completeness facet, gated by a new `curatable` flag so image /
-   long-text / merge fields are never synthesised that way.)
+   long-text / merge fields are never synthesised that way. Owner ruling 2026-09-14: edition is a
+   `CriticalityOptional` facet — listed, never scored/queued — because on the requesting library
+   most media legitimately has none.)
 5. [ ] **378** lift the three rejections for person/studio/film; "In files as" line + badge; pencil
    prefills canonical; writeback payload carries canonical; search indexes resolved + canonical + aliases.
 6. [ ] Spec RD9 / P0 §378 and the design handoff §4d: strike Tag (this ADR's D5).
