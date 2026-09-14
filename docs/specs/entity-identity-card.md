@@ -7,7 +7,7 @@ decision layer; no new subsystem
 **Date**: 2026-09-12
 **Feature block**: **F60** — every entity (Person, Studio, Tag, Film — and Video) carries one uniform,
 *surfaced* identity: a copyable `kind:id` **reference**, one **external-id** store consulted before
-name, membership in the ADR-061 **name-identity spine**, and (for Person/Studio/Tag/Film) a
+name, membership in the ADR-061 **name-identity spine**, and (for Person/Studio/Film) a
 **display name** that is an ordinary ADR-051 decision on `name`. Files carry an **edition** as an
 ordinary resolved video field.
 
@@ -41,8 +41,8 @@ stories [374](https://whoiskevinrich.atlassian.net/browse/HOLODEX-374) reference
 - F56/F59 films ([films-entity.md](films-entity.md), [film-provider-enrichment-ux.md](film-provider-enrichment-ux.md)) —
   the entity being brought into the spine.
 
-**ADR**: pending (`/architecture`) — external-id unification, edition-as-field, curation-on-name;
-amendment notes on ADR-051 (name was the one excluded field) and ADR-061 (Film, composite nameKey).
+**ADR**: [ADR-096](../architecture/ADR-096-entity-identity-card.md) — D1 reference · D2 external ids ·
+D3 Film in the spine · D4 edition · D5 display name (revisits ADR-061's entity set and ADR-051's `name` exclusion).
 **Design**: [entity-identity-card-handoff.md](../design/entity-identity-card-handoff.md) +
 [mockup](../design/entity-identity-card-mockup.svg) — ratified 2026-09-12 (OQ1 deep link, OQ2 keep 378).
 
@@ -125,8 +125,10 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   date). The only consumer of an MP4 edition tag is Holodex itself — no player reads one — so XMP
   is acceptable. `Subtitle` was considered and rejected: it is already the tagline's key
   (`tags.go:101`). ADR-093's startup WARN names the key if the live mappings file lacks it.
-- **RD9 — Display name = a source decision on `name`.** Lift the per-kind rejection
-  (`person_decisions.go:117`, `studio_fields.go:103`, `film_fields.go:236`, tags). `name` becomes an
+- **RD9 — Display name = a source decision on `name`, for Person, Studio and Film.** Lift the
+  per-kind rejection (`person_decisions.go:117`, `studio_fields.go:103`, `film_fields.go:236`). **Tag
+  is excluded** — ADR-096 D5 upholds ADR-061's scoping call that tags carry the identity spine and
+  not the field-resolution model; the tag casing need is HOLODEX-379. `name` becomes an
   ordinary resolved field with sources: file baseline (the canonical column), each provider's
   spelling, custom. The **rendered** name is the resolved value. The **canonical** column is
   untouched by any decision and remains the file / writeback / identity / alias-routing truth.
@@ -217,7 +219,7 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   persists as a curated decision and the film page pill reads "Director's Cut".
 
 **378 — Display name**
-- [ ] The rejection of source decisions on `name` is lifted for person, studio, tag, film.
+- [ ] The rejection of source decisions on `name` is lifted for person, studio, film (not tag — RD9).
 - [ ] The rendered name on each detail page is the resolved `name`; the "In files as" line + badge
   appear only when resolved ≠ canonical (RD10).
 - [ ] Search matches canonical, resolved, and aliases.
@@ -280,8 +282,8 @@ The film page never resolves edition itself; it renders the value the video summ
 `name` is resolved like any replace field. The canonical column is the `file` baseline source. The
 resolver output for `name` is what headers, cards, and search-result rows render. Nothing else
 reads the resolved value: alias routing, nameKey, `RenameEntity`, writeback, and the MCP
-`name` field all read the canonical column. Tags: sources are file + custom only. Films: gated on
-376 landing `NameEditControl` on the title.
+`name` field all read the canonical column. Tags are out (RD9). Films: gated on 376 landing
+`NameEditControl` on the title.
 
 ## Data model
 

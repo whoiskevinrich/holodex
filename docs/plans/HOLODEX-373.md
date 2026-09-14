@@ -32,7 +32,7 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   as `Edition`); `Subtitle` rejected because it's already the
   tagline's key (`tags.go:101`); filename edition follows the F48 auto-apply rule, no special case;
   film alias routing needs a year match or a unique nameKey, else queue
-- [ ] architecture `architecture` — ADR for external-id unification + edition-as-field +
+- [/] architecture `architecture` — ADR for external-id unification + edition-as-field +
   curation-on-name; amendment notes on ADR-051 (name was the excluded field) and ADR-061
   (films, composite nameKey). Number via `node scripts/adr-claims.mjs`, never by eye
 - [x] design `design-handoff` — `docs/design/entity-identity-card-handoff.md` +
@@ -51,8 +51,7 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 1. [x] [—] OQ1 = deep link, OQ2 = keep 378 — ratified 2026-09-12
 2. [x] [S] `/write-spec` — landed, `needs-spec` cleared
-3. [ ] [S] `/architecture` (clears `needs-adr`) — external-id unification + edition-as-field +
-   curation-on-name; amendment notes on ADR-051 and ADR-061; `node scripts/adr-claims.mjs` first
+3. [x] [S] `/architecture` — ADR-096 landed, `needs-adr` cleared
 4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles
    (`cut|edition|extended|unrated|remaster`) before sizing 377
 5. [ ] [M] 374 handle — start here; zero schema
@@ -62,7 +61,14 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-13 · ADR-096
+`/architecture` → ADR-096 (D1 reference, D2 external ids, D3 Film composite key, D4 edition, D5
+display name — **Tag excluded**, upholding ADR-061). All three pre-implementation gates green.
+Handoff: **next is code — 374 first (zero schema), then 375 with the precedence test first. Draft PR
+#332 stays Draft until testing + security gates close on the implementation.**
+
 ### 2026-09-13 · open-question check — no spikes needed
+- skills: architecture
 Kevin asked whether the spec's open questions need spikes. Ran the one factual check instead:
 generated MKV + MP4 samples, wrote an edition tag, read back with exiftool. MKV `EDITION` →
 `Matroska:Edition` ✓. **`QuickTime:Edition` is not writable** (RD8 corrected to

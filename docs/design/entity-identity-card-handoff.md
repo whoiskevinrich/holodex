@@ -8,8 +8,7 @@
 **Owner:** Kevin Rich
 **Date:** 2026-09-12
 **Spec:** [entity-identity-card.md](../specs/entity-identity-card.md) (F60, RD1–RD12)
-**ADR:** pending (`/architecture`, `needs-adr`) — the design below assumes the epic's five locked
-decisions; if the ADR changes one, this doc is superseded, not patched.
+**ADR:** [ADR-096](../architecture/ADR-096-entity-identity-card.md) — D5 struck Tag from §4 (see 4d).
 **Builds on:** [entity-identity-handoff.md](entity-identity-handoff.md) (F43 — AliasPanel,
 EntityPicker) · [field-source-of-truth-handoff.md](field-source-of-truth-handoff.md) (ADR-051
 chip row) · [film-enrichment-handoff.md](film-enrichment-handoff.md) (F59 film header)
@@ -218,7 +217,8 @@ other four stories don't depend on it.
 
 ### 4d. Tags and films
 
-Tags: same badge on the tag hero; the only realistic sources are file and custom. Films: the
+Tags: **excluded** — ADR-096 D5 upholds ADR-061's rule that tags carry the identity spine only, never
+the field-resolution model; the tag casing need is HOLODEX-379. Films: the
 film title has **no** `NameEditControl` today (`films/[id]/+page.svelte:391`, rename is a 376
 deliverable) — 378 for films is gated on 376 landing the pencil first.
 
