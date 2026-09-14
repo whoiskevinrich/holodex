@@ -26,8 +26,10 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 ## Gates — definition of done
 
 - [x] spec `write-spec` — `docs/specs/entity-identity-card.md` (F60), RD1–RD12. Settled in the
-  pass: edition writeback key is `Edition` on **both** backends (Matroska `EDITION`, exiftool
-  `QuickTime:Edition` — native, verified on 13.59); `Subtitle` rejected because it's already the
+  pass: edition writeback key is `Edition` on **both** backends (Matroska `EDITION`; MP4/MOV
+  `XMP-prism:Edition` — **`QuickTime:Edition` is NOT writable**, the 09-12 "verified" claim was a
+  bad `-listw` check; corrected 09-13 with a real write+read on generated samples, both read back
+  as `Edition`); `Subtitle` rejected because it's already the
   tagline's key (`tags.go:101`); filename edition follows the F48 auto-apply rule, no special case;
   film alias routing needs a year match or a unique nameKey, else queue
 - [ ] architecture `architecture` — ADR for external-id unification + edition-as-field +
@@ -59,6 +61,13 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-13 · open-question check — no spikes needed
+Kevin asked whether the spec's open questions need spikes. Ran the one factual check instead:
+generated MKV + MP4 samples, wrote an edition tag, read back with exiftool. MKV `EDITION` →
+`Matroska:Edition` ✓. **`QuickTime:Edition` is not writable** (RD8 corrected to
+`XMP-prism:Edition`, which round-trips). The other two questions are judgment calls made at
+implementation time. Handoff: **next is `/architecture`.**
 
 ### 2026-09-12 · brainstorm → epic → design handoff → spec
 - skills: product-brainstorming, design-handoff, write-spec

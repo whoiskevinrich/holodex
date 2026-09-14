@@ -117,11 +117,14 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   parsed; they may be added to the near-miss queue by a later pattern. An exact match is
   high-confidence and follows the **F48 auto-apply flag** like every other `filename:` candidate —
   no special rule for edition.
-- **RD8 — Writeback key = `Edition` on both backends.** Matroska/WebM: `EDITION` in the GENERAL
-  tag block via mkvpropedit. MP4/MOV: `QuickTime:Edition` via exiftool (a native ItemList/Keys tag
-  — verified against exiftool 13.59). `Subtitle` was considered and rejected: it is already the
-  tagline's key (`tags.go:101`). The read-back key is `Edition`; ADR-093's startup WARN names it
-  if the live mappings file lacks it.
+- **RD8 — Writeback key = `Edition` on both backends; read-back key `Edition`.** Matroska/WebM:
+  `EDITION` SimpleTag in the GENERAL block via mkvpropedit — exiftool reads it back as
+  `Matroska:Edition` (verified 2026-09-13 on a generated sample). MP4/MOV: there is **no** writable
+  QuickTime/ItemList/Keys edition atom; exiftool's `Edition` resolves to **`XMP-prism:Edition`**,
+  an XMP packet it embeds in the container, and reads it back as `Edition` (verified on the same
+  date). The only consumer of an MP4 edition tag is Holodex itself — no player reads one — so XMP
+  is acceptable. `Subtitle` was considered and rejected: it is already the tagline's key
+  (`tags.go:101`). ADR-093's startup WARN names the key if the live mappings file lacks it.
 - **RD9 — Display name = a source decision on `name`.** Lift the per-kind rejection
   (`person_decisions.go:117`, `studio_fields.go:103`, `film_fields.go:236`, tags). `name` becomes an
   ordinary resolved field with sources: file baseline (the canonical column), each provider's
@@ -265,10 +268,10 @@ every entity result.
 
 | Layer | Key / grammar | Notes |
 |---|---|---|
-| File baseline | container tag `Edition` | MKV/WebM GENERAL `EDITION`; MP4/MOV `QuickTime:Edition` |
+| File baseline | container tag `Edition` | MKV/WebM GENERAL `EDITION`; MP4/MOV `XMP-prism:Edition` — both read back as `Edition` |
 | Candidate | `filename:edition` from `{edition-<text>}` | F48 routing, auto-apply per flag + confidence |
 | Decision | curated custom value | ADR-051; DB only |
-| Writeback | `formatMap[*]["edition"] = "Edition"` (Matroska/WebM) · `"QuickTime:Edition"` (MP4) | one WriteBatch per file, atomic — non-negotiable |
+| Writeback | `formatMap[*]["edition"] = "Edition"` (Matroska/WebM) · `"XMP-prism:Edition"` (MP4/MOV) | one WriteBatch per file, atomic — non-negotiable |
 
 The film page never resolves edition itself; it renders the value the video summary carries.
 
@@ -343,9 +346,9 @@ Personal-server scale — these are checks, not dashboards.
 
 ## Open Questions
 
-- **(engineering, non-blocking)** Does exiftool surface an unknown Matroska SimpleTag named
-  `EDITION` as `Edition` on read, or does the extractor need an explicit tag-name map entry? Verify
-  on the testbed before wiring the mapping; ADR-093's startup WARN is the safety net either way.
+- ~~Does exiftool surface a Matroska `EDITION` SimpleTag as `Edition` on read?~~ **Resolved
+  2026-09-13: yes** (`Matroska:Edition`); and the MP4 write key is `XMP-prism:Edition`, folded into
+  RD8. No spike needed.
 - **(engineering, non-blocking)** Whether `entity_enrichment.external_id` is dropped in 375's
   migration or a follow-up once every reader is moved — decide by the size of the reader diff.
 - **(owner, non-blocking)** Whether the near-miss queue should get loose edition patterns in this

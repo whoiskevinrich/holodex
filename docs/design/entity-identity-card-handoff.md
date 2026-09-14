@@ -1,13 +1,13 @@
 # Design handoff — Entity identity card (F60)
 
-**Status:** Proposed — awaiting owner ratification of OQ1–OQ2 below
+**Status:** Ratified 2026-09-12 — OQ1 = deep link, OQ2 = keep 378
 **Epic:** [HOLODEX-373](https://whoiskevinrich.atlassian.net/browse/HOLODEX-373) · stories with UI:
 [374](https://whoiskevinrich.atlassian.net/browse/HOLODEX-374) reference chip ·
 [377](https://whoiskevinrich.atlassian.net/browse/HOLODEX-377) edition ·
 [378](https://whoiskevinrich.atlassian.net/browse/HOLODEX-378) Display as
 **Owner:** Kevin Rich
 **Date:** 2026-09-12
-**Spec:** pending (`/write-spec`, `needs-spec` on the epic)
+**Spec:** [entity-identity-card.md](../specs/entity-identity-card.md) (F60, RD1–RD12)
 **ADR:** pending (`/architecture`, `needs-adr`) — the design below assumes the epic's five locked
 decisions; if the ADR changes one, this doc is superseded, not patched.
 **Builds on:** [entity-identity-handoff.md](entity-identity-handoff.md) (F43 — AliasPanel,
@@ -143,8 +143,8 @@ store it in the file's tag.*
 
 `WritebackFormDialog` (`writeback/WritebackFormDialog.svelte`) lists Edition like any other
 field — no bespoke control. Writing it sets the container tag; on the next re-extract the tag
-becomes the `file · tag` candidate and out-ranks the filename. The tag key per container is a spec
-detail (MKV free-form `EDITION`; MP4/MOV need a QuickTime key — coordinate with HOLODEX-217).
+becomes the `file · tag` candidate and out-ranks the filename. Tag keys are fixed by spec RD8:
+MKV/WebM `EDITION`, MP4/MOV `XMP-prism:Edition` — both read back as `Edition`.
 
 ## 3. Full-film list — film page (HOLODEX-377)
 
