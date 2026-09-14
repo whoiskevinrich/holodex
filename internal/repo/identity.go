@@ -33,6 +33,8 @@ func canonicalTable(entityType string) string {
 		return "studios"
 	case model.EntityTag:
 		return "tags"
+	case model.EnrichEntityFilm:
+		return "films"
 	default:
 		return ""
 	}

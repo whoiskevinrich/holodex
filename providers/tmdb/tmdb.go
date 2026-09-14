@@ -195,6 +195,14 @@ type movieDetails struct {
 	PosterPath          string              `json:"poster_path"`
 	BackdropPath        string              `json:"backdrop_path"`
 	ProductionCompanies []productionCompany `json:"production_companies"`
+	// Appended by fetchMovieDetails (append_to_response=alternative_titles): the
+	// regional / release titles a film is also known by, film's counterpart of a
+	// person's also_known_as (HOLODEX-376).
+	AlternativeTitles struct {
+		Titles []struct {
+			Title string `json:"title"`
+		} `json:"titles"`
+	} `json:"alternative_titles"`
 }
 
 // movieCredits holds the cast and crew from /3/movie/{id}/credits.
@@ -463,9 +471,32 @@ func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]cand
 func (c *tmdbClient) fetchMovieDetails(ctx context.Context, id int) (movieDetails, error) {
 	var det movieDetails
 	err := c.get(ctx, fmt.Sprintf("/3/movie/%d", id), url.Values{
-		"language": {c.language},
+		"language":           {c.language},
+		"append_to_response": {"alternative_titles"},
 	}, &det)
 	return det, err
+}
+
+// movieAliases collects a film's other titles — original_title (when it differs) then
+// every alternative title — trimmed, de-duplicated case-insensitively, and never
+// equal to the primary title itself.
+func movieAliases(det movieDetails) []string {
+	title := strings.TrimSpace(det.Title)
+	seen := map[string]bool{strings.ToLower(title): true}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[strings.ToLower(s)] {
+			return
+		}
+		seen[strings.ToLower(s)] = true
+		out = append(out, s)
+	}
+	add(det.OriginalTitle)
+	for _, t := range det.AlternativeTitles.Titles {
+		add(t.Title)
+	}
+	return out
 }
 
 func (c *tmdbClient) fetchMovieCredits(ctx context.Context, id int) (movieCredits, error) {
@@ -542,6 +573,15 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits, entityType
 	}
 	if ot := strings.TrimSpace(det.OriginalTitle); ot != "" && ot != strings.TrimSpace(det.Title) {
 		fields["original_title"] = []string{ot}
+	}
+	// Film only: the original title plus TMDB's alternative titles become `aliases`,
+	// the same key a person's also_known_as rides, so the core lands them as
+	// source='provider' aliases on the film's identity spine (HOLODEX-376, ADR-096
+	// D3). A video has no alias spine, so the key would be dead weight there.
+	if entityType == "film" {
+		if aliases := movieAliases(det); len(aliases) > 0 {
+			fields["aliases"] = aliases
+		}
 	}
 	if det.Status != "" {
 		fields["status"] = []string{det.Status}

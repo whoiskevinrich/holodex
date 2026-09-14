@@ -26,8 +26,9 @@ import (
 // videos, assembled separately (film_videos.go's filmCast/filmTags/filmStudios).
 
 // filmScalarFields are the provider-backed replace film fields, in registry
-// documentation order. name is synthesized separately (baseline-backed, read-only
-// -- no rename in v1).
+// documentation order. name is synthesized separately (baseline-backed; not a
+// decision surface -- a rename goes through POST /films/{id}/rename on the identity
+// spine, HOLODEX-376).
 var filmScalarFields = []string{"description", "release_date"}
 
 // filmFields synthesizes the []mapping.Field for film resolution, mirroring
@@ -143,8 +144,8 @@ func filmFieldByCanonical(canonical string) (mapping.Field, bool) {
 
 // mountFilmDecisions registers the owner-gated film per-field decision
 // surface (F56, ADR-085 §7), mirroring mountStudioDecisions. DB-only — a film
-// has no file, so there is no writeback and no rename here (name is
-// baseline-backed and read-only in v1, same as studio).
+// has no file, so there is no writeback and no rename here (name is an identity
+// column: POST /films/{id}/rename, mounted from mountFilms, same as studio).
 func (h *Handlers) mountFilmDecisions(r chi.Router) {
 	r.Put("/films/{id}/fields/{canonical}/decision", h.setFilmFieldDecision)
 	r.Delete("/films/{id}/fields/{canonical}/decision", h.clearFilmFieldDecision)
@@ -234,7 +235,7 @@ func (h *Handlers) filmReplaceField(w http.ResponseWriter, canonical string) (ma
 		return mapping.Field{}, false
 	}
 	if f.Canonical == "name" {
-		writeError(w, http.StatusBadRequest, "film name is read-only in this release")
+		writeError(w, http.StatusBadRequest, "film name is not a decision field; rename it via POST /films/{id}/rename")
 		return mapping.Field{}, false
 	}
 	return f, true

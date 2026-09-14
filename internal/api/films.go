@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -23,6 +24,14 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	// The owner's direct year edit (F59/HOLODEX-317). Separate from the field-decision
 	// surface below because films.year is an identity column, not a resolved field.
 	r.Put("/films/{id}/year", h.setFilmYear)
+	// Film name-identity — alias/merge/rename over the shared spine (HOLODEX-376,
+	// ADR-096 D3), the film branch of the studio/tag route config. No writeback: a
+	// film's title lives in no embedded tag.
+	h.mountEntityIdentity(r, identityRoutes{
+		entityType: model.EnrichEntityFilm, noun: "film", respKey: "film", base: "films",
+		get: func(ctx context.Context, id int64) (any, error) { return h.repo.GetFilm(ctx, id) },
+	})
+	r.Get("/films/{id}/near-miss", h.entityNearMiss(model.EnrichEntityFilm))
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)
@@ -132,7 +141,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	// fetched above against the scene union, storing nothing. See film_cast.go.
 	billedAbsent, billedTotal := h.filmBilledCast(r.Context(), enrichRows, cast)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	body := map[string]any{
 		"film":           f,
 		"resolved":       resolved,
 		"scenes":         scenes,
@@ -143,7 +152,11 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		"credited_roles": credited,
 		"billed_absent":  billedAbsent,
 		"billed_total":   billedTotal,
-	})
+	}
+	if skipped := h.skippedAliases(r, model.EnrichEntityFilm, id, authorized); len(skipped) > 0 {
+		body["skipped_aliases"] = skipped
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // createFilm handles POST /films (owner-gated): {name, year}. name is required;

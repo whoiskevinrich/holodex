@@ -766,9 +766,10 @@ func imageBackedEntityType(entityType string) bool {
 // aliasEntityType reports whether entityType rides the entity_aliases identity spine
 // with an owner-facing Aliases panel, and so can receive a provider's alternate names
 // (HOLODEX-306, spec F58 RD8). Tag is on the spine but has no panel and no provider
-// alias source (F43 RD7); video and film are not name-identity entities at all.
+// alias source (F43 RD7); video is not a name-identity entity at all. Film joined the
+// spine in HOLODEX-376 (ADR-096 D3): its provider alternative titles land here too.
 func aliasEntityType(entityType string) bool {
-	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio
+	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio || entityType == model.EnrichEntityFilm
 }
 
 // identityEntityType reports whether entityType has a row in entity_external_ids

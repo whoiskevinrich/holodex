@@ -364,6 +364,9 @@ type Film struct {
 	// role has no image (the SPA renders its fallback).
 	PosterURL string `json:"poster_url,omitempty"`
 	BannerURL string `json:"banner_url,omitempty"`
+	// Aliases are the film's other titles on the shared identity spine (HOLODEX-376,
+	// ADR-096 D3) — owner-curated or provider alternative titles — each searchable.
+	Aliases []EntityAlias `json:"aliases,omitempty"`
 	// ImageVersions holds the film_images row id per filled role (the ?v= cache
 	// buster) — internal; the API layer turns it into the URLs above via
 	// setFilmImageURLs. Absent role = no image. Mirrors Studio.ImageVersions.

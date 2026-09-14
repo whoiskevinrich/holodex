@@ -28,9 +28,9 @@ import (
 // the merge/conflict bodies.
 type identityRoutes struct {
 	entityType string
-	noun       string // "studio" | "tag" — used in error/conflict text
-	respKey    string // JSON key for the merged entity ("studio" | "tag")
-	base       string // route base ("studios" | "tags")
+	noun       string // "studio" | "tag" | "film" — used in error/conflict text
+	respKey    string // JSON key for the merged entity ("studio" | "tag" | "film")
+	base       string // route base ("studios" | "tags" | "films")
 	get        func(ctx context.Context, id int64) (any, error)
 	// writebackField is the canonical embedded-tag field a completed merge of
 	// this entity type propagates to (F48.8, ADR-067) — "" means a merge of

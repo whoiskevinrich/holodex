@@ -235,7 +235,13 @@ func TestFillFilmYear(t *testing.T) {
 		t.Fatalf("year after second fill = %d, want an unchanged 1988", got)
 	}
 
-	// A different film with the same name collides only on the taken year.
+	// A different, year-less film with the same name collides only on the taken year.
+	// Under RD4 (HOLODEX-376) a year-less create routes to the one film answering to
+	// the title, so a second same-title film has to exist first — then the year-less
+	// create is ambiguous and makes a third film (queued for review, never routed).
+	if _, err := r.CreateFilm(ctx, "Akira", 2019); err != nil {
+		t.Fatalf("create 2019: %v", err)
+	}
 	other, err := r.CreateFilm(ctx, "Akira", 0)
 	if err != nil {
 		t.Fatalf("create other: %v", err)
@@ -401,7 +407,12 @@ func TestSetFilmYear_OverwritesWhereFillDoesNot(t *testing.T) {
 		t.Fatalf("owner set did not overwrite: %d", got)
 	}
 
-	// Both still refuse to duplicate (name, year).
+	// Both still refuse to duplicate (name, year). (A year-less "Akira" routes to the
+	// one existing film under RD4, so a second yeared film comes first — see
+	// TestFillFilmYear.)
+	if _, err := r.CreateFilm(ctx, "Akira", 2019); err != nil {
+		t.Fatalf("create 2019: %v", err)
+	}
 	other, err := r.CreateFilm(ctx, "Akira", 0)
 	if err != nil {
 		t.Fatalf("create other: %v", err)

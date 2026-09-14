@@ -23,11 +23,12 @@ var reviewJunction = map[string][2]string{
 	model.EnrichEntityPerson: {"video_people", "person_id"},
 	model.EnrichEntityStudio: {"video_studios", "studio_id"},
 	model.EntityTag:          {"video_tags", "tag_id"},
+	model.EnrichEntityFilm:   {"film_videos", "film_id"},
 }
 
 // reviewEntityOrder lists the entity types tags-first (they dominate the queue) — the
 // grouped read follows it.
-var reviewEntityOrder = []string{model.EntityTag, model.EnrichEntityStudio, model.EnrichEntityPerson}
+var reviewEntityOrder = []string{model.EntityTag, model.EnrichEntityStudio, model.EnrichEntityPerson, model.EnrichEntityFilm}
 
 // ReviewPair is one flagged possible-duplicate pair (F43 S5): the two entities (id +
 // name + active-video count), the variation kind that made them a near-miss, and the

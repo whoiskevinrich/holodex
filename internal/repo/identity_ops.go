@@ -87,6 +87,24 @@ var entityIdentityByType = map[string]entityIdentity{
 			WHERE video_tags.source = '` + fieldsource.File + `'`,
 		idMoves: []idMove{{"tags", "parent_tag_id", true}},
 	},
+	model.EnrichEntityFilm: {
+		table: "films", assoc: "film_videos", assocFK: "film_id",
+		// film_videos is an owner assertion with a scene number (F56, ADR-085):
+		// PK (film_id, video_id) de-dupes the union, but UNIQUE(film_id, scene_number)
+		// would make OR IGNORE silently drop a loser's link whose number the survivor
+		// already uses. Keep the link and let the number fall to NULL (an unnumbered
+		// scene) instead — the owner re-numbers; a lost membership is not recoverable.
+		moveAssocSQL: `INSERT OR IGNORE INTO film_videos (film_id, video_id, scene_number, is_full_film, created_at)
+			SELECT ?1, fv.video_id,
+			       CASE WHEN fv.scene_number IS NOT NULL AND EXISTS (
+			                SELECT 1 FROM film_videos w WHERE w.film_id = ?1 AND w.scene_number = fv.scene_number)
+			            THEN NULL ELSE fv.scene_number END,
+			       fv.is_full_film, fv.created_at
+			FROM film_videos fv WHERE fv.film_id = ?2`,
+		// Cast/crew and images follow the survivor; a role the survivor already has is
+		// left to cascade away with the loser (PK (film_id, person_id, role)).
+		idMoves: []idMove{{"film_people_roles", "film_id", false}, {"film_images", "film_id", false}},
+	},
 }
 
 // entityAliasKeyByType holds, per entity type, the SQL predicate matching an alias by
@@ -94,8 +112,8 @@ var entityIdentityByType = map[string]entityIdentity{
 // entity type, then the raw (trimmed) name. Precomputed so nameKeyExpr's per-entity
 // rule (tag also folds internal whitespace) has one source of truth.
 var entityAliasKeyByType = func() map[string]string {
-	m := make(map[string]string, 3)
-	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag} {
+	m := make(map[string]string, 4)
+	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag, model.EnrichEntityFilm} {
 		m[et] = `entity_type = ? AND alias_key = ` + nameKeyExpr(et, "?")
 	}
 	return m
@@ -503,10 +521,19 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	if oldName == newName {
 		return 0, nil // no-op: nothing to rename, nothing to alias
 	}
+	// The film key is composite (ADR-096 D3): a rename only collides with a film of the
+	// same title AND the same year — the year itself stays untouched here (RD5; it has
+	// its own control, SetFilmYear).
+	conflictSQL := `SELECT id FROM ` + table + ` WHERE ` + nameKeyExpr(entityType, "name") + ` = ` + nameKeyExpr(entityType, "?") + ` AND id <> ?`
+	if entityType == model.EnrichEntityFilm {
+		conflictSQL += ` AND year IS (SELECT year FROM films WHERE id = ?)`
+	}
+	conflictArgs := []any{newName, id}
+	if entityType == model.EnrichEntityFilm {
+		conflictArgs = append(conflictArgs, id)
+	}
 	var cid int64
-	switch err := tx.QueryRowContext(ctx,
-		`SELECT id FROM `+table+` WHERE `+nameKeyExpr(entityType, "name")+` = `+nameKeyExpr(entityType, "?")+` AND id <> ?`,
-		newName, id).Scan(&cid); {
+	switch err := tx.QueryRowContext(ctx, conflictSQL, conflictArgs...).Scan(&cid); {
 	case err == nil:
 		return cid, ErrNameTaken
 	case !errors.Is(err, sql.ErrNoRows):

@@ -13,11 +13,12 @@ import (
 
 // Films (F56, ADR-085): the first entity whose video membership (film_videos) is an
 // owner ASSERTION, not a value derived from resolved fields -- see FilmAttachment's
-// doc comment below. Name+year is the identity key (UNIQUE(name, year), migration
-// 0043); films are deliberately NOT part of the shared alias/merge identity spine
-// (F43) that person/studio/tag ride -- a title collision across different
-// releases/years is the common, legitimate case here, not a scanner-driven duplicate
-// to fold away.
+// doc comment below. Films ride the shared alias/merge identity spine (F43) since
+// HOLODEX-376 (ADR-096 D3), on a COMPOSITE key: filmKey = (lower(trim(name)), year),
+// ux_films_namekey (migration 0047). A title collision across different years is the
+// common, legitimate case here (Superman II 1980 / 2006), so a same-title/other-year
+// pair is never folded by the resolve path -- it is queued for the owner (RD4), the
+// "detect + prompt, never auto-merge homonyms" posture ADR-061 took for people.
 
 // FilmAttachment is one video's link to a film (F56, ADR-085 §4) -- read to inject
 // synthetic "film:<id>" resolver-source candidates at the getMedia call site. Unlike
@@ -188,11 +189,18 @@ const filmSelectCols = `f.id, f.name, f.year,
 	(SELECT COUNT(*) FROM film_videos fv JOIN videos v ON v.id = fv.video_id
 	 WHERE fv.film_id = f.id AND fv.is_full_film = 0 AND v.active = 1 AND v.deleted_at IS NULL)`
 
-// CreateFilm inserts a new film. A pre-existing (name, year COLLATE NOCASE) match
-// returns that film's id with ErrFilmExists rather than creating a duplicate --
-// name+year is films' whole identity key, so this is CreateFilm's equivalent of the
-// identity-spine's resolve-or-create, without the alias/merge machinery films don't
-// use (see the package doc comment above).
+// CreateFilm is films' resolve-or-create (ADR-096 D3 / spec RD4), the film-shaped
+// counterpart of resolveOrCreateByName. A `year` of 0 means "no year given". In order:
+//
+//  1. filmKey match -- same title (nameKey) AND the same year -> that film, ErrFilmExists.
+//  2. Alias routing: the title matches another film's canonical name or one of its
+//     aliases under a DIFFERENT year. Routes there only when the request carries no
+//     year and exactly one film answers to the title (the alias-key is unique per kind,
+//     so an alias hit is always exactly one); with a year that disagrees, or with two
+//     same-title films and no year to pick between them, nothing is auto-routed.
+//  3. Otherwise insert. Every same-title film skipped in step 2 is queued for the owner
+//     as a 'same-title' review pair (never folded silently -- Superman II 1980 / 2006
+//     are two films), alongside the loose near-miss flag every kind gets on create.
 func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -201,9 +209,16 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	nameKey := nameKeyExpr(model.EnrichEntityFilm, "?")
 	var existing int64
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id FROM films WHERE name = ? COLLATE NOCASE AND year IS ?`,
+	err = tx.QueryRowContext(ctx,
+		`SELECT id FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+` AND year IS ?`,
 		name, nullableYear(year)).Scan(&existing)
 	switch {
 	case err == nil:
@@ -212,11 +227,69 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 		return 0, fmt.Errorf("check film exists: %w", err)
 	}
 
-	res, err := r.db.ExecContext(ctx, `INSERT INTO films (name, year) VALUES (?, ?)`, name, nullableYear(year))
+	// Same-title films under any other year: canonical name ∪ alias (step 2).
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, year FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+`
+		UNION
+		SELECT f.id, f.year FROM entity_aliases a JOIN films f ON f.id = a.entity_id
+		WHERE a.entity_type = 'film' AND a.alias_key = `+nameKey,
+		name, name)
+	if err != nil {
+		return 0, fmt.Errorf("check film aliases: %w", err)
+	}
+	type sameTitle struct {
+		id   int64
+		year int
+	}
+	var candidates []sameTitle
+	for rows.Next() {
+		var c sameTitle
+		var y sql.NullInt64
+		if err := rows.Scan(&c.id, &y); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("check film aliases: %w", err)
+		}
+		c.year = int(y.Int64)
+		candidates = append(candidates, c)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("check film aliases: %w", err)
+	}
+	for _, c := range candidates {
+		if year != 0 && c.year == year {
+			return c.id, ErrFilmExists // an alias under the requested year
+		}
+	}
+	if year == 0 && len(candidates) == 1 {
+		return candidates[0].id, ErrFilmExists
+	}
+
+	res, err := tx.ExecContext(ctx, `INSERT INTO films (name, year) VALUES (?, ?)`, name, nullableYear(year))
 	if err != nil {
 		return 0, fmt.Errorf("create film: %w", err)
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("create film: %w", err)
+	}
+	for _, c := range candidates {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+			SELECT 'film', min(?1, ?2), max(?1, ?2), 'same-title'
+			WHERE NOT EXISTS (SELECT 1 FROM entity_keep_separate ks
+			                  WHERE ks.entity_type = 'film' AND ks.id_lo = min(?1, ?2) AND ks.id_hi = max(?1, ?2))`,
+			id, c.id); err != nil {
+			return 0, fmt.Errorf("create film: queue same-title pair: %w", err)
+		}
+	}
+	if err := FlagNearMiss(ctx, tx, model.EnrichEntityFilm, id); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit create film: %w", err)
+	}
+	return id, nil
 }
 
 // FillFilmYear sets films.year from a provider-derived release year, but ONLY when
@@ -400,6 +473,9 @@ func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
 		return nil, err
 	}
 	f.ImageVersions = versions[id]
+	if f.Aliases, err = r.AliasesForEntity(ctx, model.EnrichEntityFilm, id); err != nil {
+		return nil, err
+	}
 	return &f, nil
 }
 

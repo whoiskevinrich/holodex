@@ -980,3 +980,25 @@ func TestDescribeAssetKindsCoverEveryEmittedKind(t *testing.T) {
 		}
 	}
 }
+
+// Film aliases (HOLODEX-376, ADR-096 D3): original_title + alternative_titles ride the
+// `aliases` key a person's also_known_as already uses — film only, de-duplicated
+// case-insensitively, never the primary title itself. A video has no alias spine.
+func TestBuildMovieEnrichResponse_FilmAliases(t *testing.T) {
+	det := movieDetails{ID: 1, Title: "Superman II", OriginalTitle: "Superman II: The Adventure Continues"}
+	det.AlternativeTitles.Titles = []struct {
+		Title string `json:"title"`
+	}{{"Superman 2"}, {" superman ii "}, {"SUPERMAN 2"}, {""}, {"Superman II: The Adventure Continues"}}
+
+	film := buildMovieEnrichResponse(det, movieCredits{}, "film")
+	want := []string{"Superman II: The Adventure Continues", "Superman 2"}
+	if got := film.Fields["aliases"]; !slices.Equal(got, want) {
+		t.Errorf("film aliases = %v, want %v", got, want)
+	}
+	if got := buildMovieEnrichResponse(det, movieCredits{}, "video").Fields["aliases"]; got != nil {
+		t.Errorf("video must not emit aliases, got %v", got)
+	}
+	if got := buildMovieEnrichResponse(movieDetails{Title: "Dune"}, movieCredits{}, "film").Fields["aliases"]; got != nil {
+		t.Errorf("no other titles must mean no aliases key, got %v", got)
+	}
+}
