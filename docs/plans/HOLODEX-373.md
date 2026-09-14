@@ -68,8 +68,10 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
 1. [x] [—] OQ1 = deep link, OQ2 = keep 378 — ratified 2026-09-12
 2. [x] [S] `/write-spec` — landed, `needs-spec` cleared
 3. [x] [S] `/architecture` — ADR-096 landed, `needs-adr` cleared
-4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles
-   (`cut|edition|extended|unrated|remaster`) before sizing 377
+4. [ ] [—] Run the read-only prod probe for edition-bearing full-film titles before sizing 377 —
+   a filename crawler, not SQL (the prod library isn't in a Holodex DB yet):
+   `node scripts/probe-edition-filenames.mjs <media dir>` (anonymized counts; `--show N` prints
+   names, keep out of pastes). Paste the counts into the next session log
 5. [x] [M] 374 handle — shipped 2026-09-13 (tests: parser table, 5 entity routes + nested,
    kind mismatch 400, list/nested `ref`, MCP)
 6. [x] [M] 375 external-id unification — shipped 2026-09-13 (precedence test written first)
