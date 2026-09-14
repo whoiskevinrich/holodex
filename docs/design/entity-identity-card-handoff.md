@@ -186,6 +186,25 @@ The cost is one navigation; the benefit is one curation mount. Owner to ratify.
 | Very long edition | 18-char truncation + `title`. |
 | Edition present but identical on two files | Two identical pills — genuinely the owner's problem to fix via Set edition; do not dedupe or warn. |
 
+## §2–§3 as built (HOLODEX-377, 2026-09-14)
+
+Panels 2 and 3 of the figure above are the pre-build design; this figure is drawn from the shipped
+components and supersedes them where they differ. "Director's Edition" on both pages, every state:
+
+![Edition as built — media detail row and film detail pills](entity-identity-card-edition-as-built.svg)
+
+| Panel | What it shows | Where it differs from the pre-build figure |
+|---|---|---|
+| A · at rest | The one Edition row in its three provenances — container tag (`file`), filename marker (`filename`), typed value (`custom` + `file out of sync`). Owner and visitor see the same value and badge; only the owner's badge is clickable. | Badge labels are `ProvenanceBadge`'s real ones (`file` / `filename` / `custom`), not the drafted "file · name" / "file · tag". |
+| A · landed | Arriving via `/media/{id}#field-edition`: row scrolled into view, badge expanded, chip row = `— · file` (the F37 blank-pin), the filename candidate selected, `+ Custom`, Confirm / Cancel. | The blank-pin chip **stays** (§2c corrected). A file with neither tag nor marker nor decision has no row at all, so the landing renders one from its completeness facet — `— · file` and `+ Custom` only — and Confirm makes it real. |
+| A · write | The `Write decisions to file…` dialog line: `Edition · custom → Edition, was: —`. | No helper line under the row (owner ruling, §2c). |
+| B · owner | Full film rows: pill between title and resolution; `+ Set edition` dashed link on a file with none; 18ch truncation with the full value in `title`. Mixed states share one row shape. | As designed. |
+| B · visitor | Same pill, same slot; no link, no `Write to file…`. | As designed. |
+
+Not visible in the figure but part of the same build: `edition` is an **optional** completeness
+facet — listed so the landing row can be built, never scored, never queued (owner ruling, since on
+the requesting library most media has no edition and that is not a gap).
+
 ## 4. Display as — entity headers (HOLODEX-378)
 
 ### 4a. Model
