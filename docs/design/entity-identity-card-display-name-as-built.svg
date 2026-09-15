@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <title>Display name as built (HOLODEX-378) — the person hero in its four states, and a search row</title>
-  <desc>Panel A, the person detail hero drawn from the shipped components, four states: owner with no decision standing (heading, docked pencil, and a quiet Display as… link beneath); owner after clicking that link (the name field's SourceBadge chip row open in place — record, tmdb, Custom, Confirm, Cancel — with the helper copy under it); owner with a decision standing (the heading shows the provider spelling, beneath it the line In files as, the canonical spelling in monospace, and the tmdb badge); and the visitor view of that same person (heading and the In files as line, no badge, no link, no pencil). Panel B, the nav search dropdown's People row for that person labelled with the display spelling; a note that pickers still show and send the canonical name.</desc>
+  <desc>Panel A, the person detail hero drawn from the shipped components, four states: owner with no decision standing (heading, docked pencil, and beneath them a quiet link naming the provider spelling on offer: Display as Ana Keßler (tmdb)…); owner after clicking that link (the name field's SourceBadge chip row open in place — record, tmdb, Custom, Confirm, Cancel — with the helper copy under it); owner with a decision standing (the heading shows the provider spelling, beneath it the line In files as, the canonical spelling in monospace, and the tmdb badge); and the visitor view of that same person (heading and the In files as line, no badge, no link, no pencil). Panel B, the nav search dropdown's People row for that person labelled with the display spelling; a note that pickers still show and send the canonical name.</desc>
 
   <rect width="900" height="560" fill="#0c0a09"/>
 
@@ -15,8 +15,8 @@
   <rect x="246" y="90" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622"/>
   <text x="254" y="102" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
   <text x="268" y="102" fill="#9b9082" font-size="9">Rename this person</text>
-  <text x="114" y="126" fill="#9b9082" font-size="11">Display as…</text>
-  <text x="200" y="126" fill="#9b9082" font-size="9">← .btn-quiet, owner only</text>
+  <text x="114" y="126" fill="#9b9082" font-size="11">Display as Ana Keßler (tmdb)…</text>
+  <text x="290" y="126" fill="#9b9082" font-size="9">← .btn-quiet, owner only; names the spelling on offer (QA 4.3)</text>
   <text x="114" y="144" fill="#9b9082" font-size="11">0 videos · person:1</text>
 
   <!-- A2 owner, link clicked -->

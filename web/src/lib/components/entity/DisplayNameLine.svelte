@@ -17,6 +17,7 @@
 	import { tick, untrack } from 'svelte';
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import { expandedField } from '$lib/expandedField.svelte';
+	import { isProviderSource, providerOf } from '$lib/f36';
 	import SourceBadge from '../curation/SourceBadge.svelte';
 
 	let {
@@ -39,6 +40,20 @@
 	const display = $derived(field?.values[0] ?? '');
 	const differs = $derived(display !== '' && display !== canonical);
 	const open = $derived(expandedField.isOpen('name'));
+
+	// The link names the first provider spelling that differs from the record — "Display
+	// as Ana Keßler (tmdb)…" — so a reader with no context can see another spelling is on
+	// offer at all. QA 4.3's first pass (2026-09-15) reached for the provider's Refresh
+	// button instead: at rest nothing else on the page says a second spelling exists.
+	// With no such candidate the link stays the bare "Display as…" (Custom is still there).
+	const offer = $derived(
+		(field?.candidates ?? []).find(
+			(c) => isProviderSource(c.source) && c.value.trim() !== '' && c.value !== canonical
+		)
+	);
+	const linkLabel = $derived(
+		offer ? `Display as ${offer.value} (${offer.provider || providerOf(offer.source)})…` : 'Display as…'
+	);
 
 	let lineEl = $state<HTMLDivElement | null>(null);
 	let linkEl = $state<HTMLButtonElement | null>(null);
@@ -83,6 +98,6 @@
 		class="btn-quiet mt-1 text-xs"
 		onclick={() => expandedField.expand('name')}
 	>
-		Display as…
+		{linkLabel}
 	</button>
 {/if}

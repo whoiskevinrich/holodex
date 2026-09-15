@@ -112,8 +112,9 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    side-by-side mockup). **Kill criterion QA 4.3 is still Kevin's to run** (handoff §8 4.3 /
    as-built §4): if the pencil-vs-badge split doesn't read, revert the 378 commit — the other
    four stories don't depend on it
-7f. [ ] [—] Kevin runs handoff QA 4.3 (the 378 go/no-go). Pass → mark #332 ready (In Review
-   sweep, item 8). Fail → `git revert` the 378 commit, close 378 Won't Do, then mark ready
+7f. [x] [—] QA 4.3 run 2026-09-15: half-fail on the first pass (rename read; "change how it
+   looks" → tmdb Refresh), pass on the re-run once the two verbs were stated in lay terms; the
+   link now names the offered spelling. 378 stays; #332 marked ready
 7g. [ ] [S] File the follow-up story: `display_name` on list cards / cast tiles / link cards
    (option B of the 2026-09-15 scope ruling) — only if 378 survives 4.3
 7b. [ ] [S] Seed `same-title` pairs for films that pre-date 0047 (only create/rename queue them
@@ -151,7 +152,10 @@ canonical + unchanged submit is a no-op; search `keßl`/`kessler` both return th
 studio custom; visitor sees line only; 3 skins + 375px. No component harness in `web/`, so
 those are the evidence (handoff QA 3.6). Handoff: **378 shipped, Draft PR #332 updated; next is
 Kevin's QA 4.3 go/no-go — pass → mark ready + sweep 374–378 to In Review; fail → revert the 378
-commit and close it Won't Do.**
+commit and close it Won't Do.** Later the same day: 4.3 run. First pass reached for the tmdb
+Refresh button for "change how it looks" (the adoption layer, not precedence) — at rest nothing
+said another spelling existed. Re-run with the verbs in plain terms passed. One-line fix: the
+quiet link names the offered spelling. **PR #332 marked ready; 373–378 swept to In Review.**
 
 ### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
 - skills: code-review (2 findings, both fixed), security-review (clean)

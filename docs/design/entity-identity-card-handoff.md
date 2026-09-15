@@ -259,7 +259,7 @@ components and supersedes it where they differ:
 
 | State | What it shows | Where it differs from panel 4 |
 |---|---|---|
-| A1 · owner, no decision | Heading + docked pencil exactly as before; beneath, a quiet **Display as…** link (`.btn-quiet text-xs`), owner only. | As designed (§4c's "same slot" link). |
+| A1 · owner, no decision | Heading + docked pencil exactly as before; beneath, a quiet link (`.btn-quiet text-xs`), owner only, that **names the spelling on offer**: `Display as Ana Keßler (tmdb)…` when a provider spelling differs from the record, bare `Display as…` otherwise. | §4c's "same slot" link, with the copy change from QA 4.3: the first pass reached for the provider's Refresh button, because at rest nothing said a second spelling existed. |
 | A2 · link clicked | The name field's `SourceBadge` mounts **already expanded** in the link's slot: `record` / provider spelling / `Custom` chips, Confirm / Cancel, and the helper copy under it. Focus hands from the link to the badge; dismissing hands it back. | Helper copy rewritten: search **does** match the display spelling (spec §378, ADR-096 D5), so it reads "Changes how the name is shown here and in search. Files, aliases, and writeback keep the record spelling." |
 | A3 · decision standing | h1 = resolved spelling; `In files as <canonical, mono> <badge>`. The badge renders **without repeating the value** (`SourceBadge showValue={false}`) — the heading already shows it. Pencil prefills canonical (`NameEditControl editValue`). | Films read **On record as** — a title is owner-asserted, never read from a file. Studios read "In files as" like people (the record comes from file tags). |
 | A4 · visitor | Heading + the "In files as" line; no badge, no link, no pencil — a content line, not a control (routes rule). | Panel 4 drew the owner only. |
@@ -357,6 +357,11 @@ not body text — but check Broadcast, whose muted is the lightest).
   file. Without reading any help text: which control would you use to *change how the name looks
   without touching the file*, and which to *rename the person for real*? If you hesitate, tell
   the agent — that's the signal to cut 378.
+  **Run 2026-09-15 — pass, after one iteration.** First pass: pencil = rename (right); "change how
+  it looks" → the tmdb Refresh button (wrong — the adoption layer). Diagnosis: at rest nothing on
+  the page said another spelling existed, and "Display as…" didn't say what. Re-run with the two
+  verbs stated in plain terms: straight to Display as. Fix shipped: the link names the offered
+  spelling (`Display as Ana Keßler (tmdb)…`). 378 stays.
 
 ## Open questions for the owner
 
