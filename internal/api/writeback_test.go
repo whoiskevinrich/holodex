@@ -30,7 +30,10 @@ import (
 // capturing WriteBatchFunc, so tests can drive the actual POST /media/{id}/writeback
 // mixed-batch behavior (HOLODEX-216) and the GET /media/{id} write_target stamping
 // end to end.
-func syncWritebackServer(t *testing.T) (srv *httptest.Server, vid int64, r *repo.Repo, written *[]writeback.FieldWrite) {
+//
+// extraFields are additional YAML field entries appended to the mapping (already
+// indented under `fields:`), for tests that need a canonical beyond title/director.
+func syncWritebackServer(t *testing.T, extraFields ...string) (srv *httptest.Server, vid int64, r *repo.Repo, written *[]writeback.FieldWrite) {
 	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
@@ -53,7 +56,8 @@ func syncWritebackServer(t *testing.T) (srv *httptest.Server, vid int64, r *repo
 	mpath := filepath.Join(dir, "metadata-mappings.yaml")
 	yaml := "fields:\n" +
 		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
-		"  - canonical: director\n    label: Director\n    sources: [tmdb:director]\n"
+		"  - canonical: director\n    label: Director\n    sources: [tmdb:director]\n" +
+		strings.Join(extraFields, "")
 	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -462,5 +466,53 @@ func TestEnqueueWriteback_ClearsPriorFailedForVideo(t *testing.T) {
 	_, otherStatus := getMediaWritebackStatus(t, srv.URL, otherID, "")
 	if !otherStatus.Failed {
 		t.Errorf("other video's status = %+v, want Failed=true — untouched by this video's enqueue", otherStatus)
+	}
+}
+
+// TestWriteback_PersonDisplayNameNeverReachesFile pins the F60 RD9 invariant that
+// a display decision on a person's name is DB-only: the video's resolved `actors`
+// (what the writeback dialog submits) still carries the canonical spelling after the
+// decision, and the tag write receives that spelling. The display name is a fact
+// about the person page, never about the file (HOLODEX-378).
+func TestWriteback_PersonDisplayNameNeverReachesFile(t *testing.T) {
+	srv, vid, r, written := syncWritebackServer(t,
+		"  - canonical: actors\n    label: Actors\n    sources: [Artist]\n")
+	ctx := context.Background()
+	v, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	if _, err := r.UpsertVideo(ctx, v, []model.ExtraMetadata{{SourceKey: "Artist", Value: "Alice"}}); err != nil {
+		t.Fatalf("seed file tag: %v", err)
+	}
+	linkPeople(t, r, vid, "Alice")
+	pid, _, err := r.PersonIDByName(ctx, "Alice")
+	if err != nil {
+		t.Fatalf("person id: %v", err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, pid, "name", "manual", "Alicia Example"); err != nil {
+		t.Fatalf("display decision: %v", err)
+	}
+
+	actors := resolvedField(t, srv, vid, "actors")
+	vals, _ := actors["values"].([]any)
+	if len(vals) != 1 || vals[0] != "Alice" {
+		t.Fatalf("resolved actors after the person's display decision = %v, want [Alice]", vals)
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"fields": []map[string]any{{"field": "actors", "values": []string{vals[0].(string)}, "source": actors["winning_source"]}},
+	})
+	resp, err := http.Post(srv.URL+"/api/v1/media/"+strconv.FormatInt(vid, 10)+"/writeback",
+		"application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("POST writeback: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("writeback status = %d, want 200", resp.StatusCode)
+	}
+	if len(*written) != 1 || len((*written)[0].Values) != 1 || (*written)[0].Values[0] != "Alice" {
+		t.Fatalf("written = %+v, want the canonical spelling Alice", *written)
 	}
 }

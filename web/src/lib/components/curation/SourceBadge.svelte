@@ -38,11 +38,17 @@
 	let {
 		field,
 		decide,
-		baselineKey = 'file'
+		baselineKey = 'file',
+		showValue = true
 	}: {
 		field: ResolvedField;
 		decide: (source: DecisionSource, manualValue?: string) => Promise<void>;
 		baselineKey?: string;
+		// Omit the resting value span (the badge + chip row still render). For the one
+		// mount where the value is already on screen as the page heading — the name
+		// field's "In files as" line (F60 RD10, HOLODEX-378) — so the display spelling is
+		// not printed twice. Every field-list mount keeps the default.
+		showValue?: boolean;
 	} = $props();
 
 	// The badge renders for every field this component is mounted on, single-source included
@@ -216,7 +222,9 @@
 	     break-word` deliberately does not reduce min-content, which is why the row still overflowed
 	     at 375px with both `max-w-full` and `break-words` applied. `anywhere` does reduce it. Kept
 	     on the span rather than the wrapper so it does not inherit into the provider chip row. -->
-	<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
+	{#if showValue}
+		<span class="wrap-anywhere {field.values.join(', ') ? 'text-ink' : 'text-muted'}">{field.values.join(', ') || '—'}</span>
+	{/if}
 	<button
 		type="button"
 		bind:this={badgeEl}

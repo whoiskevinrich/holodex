@@ -58,11 +58,13 @@
 		films: '/films'
 	};
 
+	// Rows label with the display spelling when a name decision stands (F60 RD9) — it
+	// is what matched. The href still keys on id; nothing here sends `name` back.
 	function personRow(p: Person): RowItem {
-		return { id: `p${p.id}`, label: p.name, sub: `${p.video_count ?? 0}`, href: `/people/${p.id}` };
+		return { id: `p${p.id}`, label: p.display_name ?? p.name, sub: `${p.video_count ?? 0}`, href: `/people/${p.id}` };
 	}
 	function studioRow(s: Studio): RowItem {
-		return { id: `s${s.id}`, label: s.name, sub: `${s.video_count ?? 0}`, href: `/studios/${s.id}` };
+		return { id: `s${s.id}`, label: s.display_name ?? s.name, sub: `${s.video_count ?? 0}`, href: `/studios/${s.id}` };
 	}
 	function tagRow(t: Tag): RowItem {
 		return { id: `t${t.id}`, label: t.name, sub: `${t.video_count ?? 0}`, href: `/tags/${t.id}` };
@@ -71,7 +73,7 @@
 		return { id: `v${v.id}`, label: v.title, sub: '', href: `/media/${v.id}` };
 	}
 	function filmRow(f: Film): RowItem {
-		return { id: `f${f.id}`, label: f.name, sub: f.year ? String(f.year) : '', href: `/films/${f.id}`, thumb: true };
+		return { id: `f${f.id}`, label: f.display_name ?? f.name, sub: f.year ? String(f.year) : '', href: `/films/${f.id}`, thumb: true };
 	}
 
 	// Per-tab cap: tight (3) when "All" is sharing screen space across up to 4 groups,

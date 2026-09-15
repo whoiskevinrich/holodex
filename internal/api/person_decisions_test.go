@@ -216,12 +216,14 @@ func TestPersonDecisionAPI_Validation(t *testing.T) {
 	srv, _, pid := personDecisionServer(t, "")
 	fields := srv.URL + "/api/v1/people/" + itoa(pid) + "/fields/"
 
-	// name never pins (RD1) — the rename flow is the only name mutation.
-	if code := sendDecision(t, http.MethodPut, fields+"name/decision", "", map[string]string{"source": "provider:tmdb"}); code != 400 {
-		t.Errorf("name decision: want 400, got %d", code)
+	// name pins too (F60 RD9, HOLODEX-378): the decision is the display spelling;
+	// the rename flow stays the only mutation of the canonical column
+	// (TestPersonNameDisplayDecision).
+	if code := sendDecision(t, http.MethodPut, fields+"name/decision", "", map[string]string{"source": "provider:tmdb"}); code != 204 {
+		t.Errorf("name decision: want 204, got %d", code)
 	}
-	if code := sendDecision(t, http.MethodDelete, fields+"name/decision", "", nil); code != 400 {
-		t.Errorf("name decision clear: want 400, got %d", code)
+	if code := sendDecision(t, http.MethodDelete, fields+"name/decision", "", nil); code != 204 {
+		t.Errorf("name decision clear: want 204, got %d", code)
 	}
 	// A field outside the synthesized person schema 404s before any other check — which
 	// now includes a promoted merge field like `nicknames`, since personFieldByCanonical
@@ -453,5 +455,95 @@ func TestPersonMerge_DropsDecisionsAndCuration(t *testing.T) {
 	}
 	if rows, _ := r.CurationForEntity(ctx, model.EnrichEntityPerson, alice); len(rows) != 1 {
 		t.Errorf("canonical curation must survive: %+v", rows)
+	}
+}
+
+// --- Display name (F60 RD9/RD10, HOLODEX-378) ---------------------------------------
+
+// TestPersonNameDisplayDecision pins the display-name contract end to end: a
+// decision on `name` changes what resolves (the header) and nothing else — the
+// canonical column is untouched (rename stays the only mutation of it), search
+// matches canonical, display, and alias spellings and its rows carry the display
+// spelling beside the canonical `name` (pickers send `name` back for linking, so it
+// must stay canonical), and clearing the decision restores canonical everywhere.
+func TestPersonNameDisplayDecision(t *testing.T) {
+	srv, r, pid := personDecisionServer(t, "")
+	ctx := context.Background()
+	fields := srv.URL + "/api/v1/people/" + itoa(pid) + "/fields/"
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityPerson, pid, "Ally B"); err != nil {
+		t.Fatalf("seed alias: %v", err)
+	}
+
+	canonical := func(t *testing.T) string {
+		t.Helper()
+		p, err := r.GetPerson(ctx, pid)
+		if err != nil {
+			t.Fatalf("get person: %v", err)
+		}
+		return p.Name
+	}
+	// searchPerson returns the one person row GET /search?q= yields (fails on 0 or 2+).
+	searchPerson := func(t *testing.T, q string) map[string]any {
+		t.Helper()
+		code, body := getJSON(t, srv.URL+"/api/v1/search?q="+q)
+		if code != http.StatusOK {
+			t.Fatalf("search %q = %d", q, code)
+		}
+		people, _ := body["people"].([]any)
+		if len(people) != 1 {
+			t.Fatalf("search %q people = %v, want exactly one", q, people)
+		}
+		return people[0].(map[string]any)
+	}
+
+	// 1. Provider spelling as the display name.
+	if code := sendDecision(t, http.MethodPut, fields+"name/decision", "", map[string]string{"source": "provider:tmdb"}); code != 204 {
+		t.Fatalf("provider name decision: %d", code)
+	}
+	name, _ := personResolvedField(t, srv, pid, "name")
+	if name["values"].([]any)[0] != "Alicia Example" || name["winning_source"] != "tmdb:name" {
+		t.Errorf("resolved name should be the provider spelling: %v", name)
+	}
+	if got := canonical(t); got != "Alice" {
+		t.Fatalf("person.name after display decision = %q, want canonical Alice", got)
+	}
+	if body := getPersonBody(t, srv, pid); body["person"].(map[string]any)["name"] != "Alice" {
+		t.Errorf("detail payload person.name must stay canonical, got %v", body["person"])
+	}
+	for _, q := range []string{"alicia", "alice", "ally"} { // display, canonical, alias
+		row := searchPerson(t, q)
+		if row["name"] != "Alice" || row["display_name"] != "Alicia Example" {
+			t.Errorf("search %q row = %v, want name=Alice display_name=Alicia Example", q, row)
+		}
+	}
+
+	// 2. A custom spelling.
+	if code := sendDecision(t, http.MethodPut, fields+"name/decision", "", map[string]string{"source": "manual", "manual_value": "Alice Q. Example"}); code != 204 {
+		t.Fatalf("manual name decision: %d", code)
+	}
+	name, _ = personResolvedField(t, srv, pid, "name")
+	if name["values"].([]any)[0] != "Alice Q. Example" {
+		t.Errorf("resolved name should be the custom spelling: %v", name)
+	}
+	if row := searchPerson(t, "q.+example"); row["display_name"] != "Alice Q. Example" {
+		t.Errorf("custom spelling must be searchable: %v", row)
+	}
+	if got := canonical(t); got != "Alice" {
+		t.Fatalf("person.name after custom decision = %q, want Alice", got)
+	}
+
+	// 3. Clearing restores canonical: the header and the search row.
+	if code := sendDecision(t, http.MethodDelete, fields+"name/decision", "", nil); code != 204 {
+		t.Fatalf("clear name decision: %d", code)
+	}
+	name, _ = personResolvedField(t, srv, pid, "name")
+	if name["values"].([]any)[0] != "Alice" || name["winning_source"] != "record:name" {
+		t.Errorf("resolved name after clear should be canonical: %v", name)
+	}
+	if row := searchPerson(t, "alice"); row["display_name"] != nil {
+		t.Errorf("search row after clear must omit display_name, got %v", row)
+	}
+	if code, body := getJSON(t, srv.URL+"/api/v1/search?q=alicia"); code != http.StatusOK || len(body["people"].([]any)) != 0 {
+		t.Errorf("a cleared display spelling must no longer match: %v", body["people"])
 	}
 }

@@ -76,6 +76,13 @@ type Person struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// HeadshotVersion is the headshot image id (== its ?v= cache-buster) on the
 	// people-list read, so the list avatar URL changes when the headshot does (e.g.
 	// after enrichment) instead of serving the stale cached image (F25.29). 0 = no
@@ -292,6 +299,13 @@ type Studio struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
 	// Populated on the studio-detail read; omitted (nil) elsewhere.
 	Aliases []EntityAlias `json:"aliases,omitempty"`
@@ -361,6 +375,13 @@ type Film struct {
 	Name       string `json:"name"`
 	Year       int    `json:"year,omitempty"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// PosterURL/BannerURL are serving URLs for the film's self-hosted image roles
 	// (F56/HOLODEX-280, ADR-086; banner added by F59/ADR-089 D4):
 	// /api/v1/films/{id}/images/{role}?v={id} when that role's slot is filled —

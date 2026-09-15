@@ -69,6 +69,9 @@ export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	video_count?: number;
 	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
 	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
@@ -182,6 +185,9 @@ export interface Studio {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	video_count?: number;
 	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
 	// page header), poster (no consumer yet). Each is independently owner-editable
@@ -830,6 +836,9 @@ export interface Film {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	year?: number;
 	video_count?: number;
 	// Self-hosted poster image (F56/HOLODEX-280, ADR-086; edited in the header,

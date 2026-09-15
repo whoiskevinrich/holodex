@@ -26,16 +26,18 @@ import (
 // videos, assembled separately (film_videos.go's filmCast/filmTags/filmStudios).
 
 // filmScalarFields are the provider-backed replace film fields, in registry
-// documentation order. name is synthesized separately (baseline-backed; not a
-// decision surface -- a rename goes through POST /films/{id}/rename on the identity
-// spine, HOLODEX-376).
+// documentation order. name is synthesized separately: record baseline plus each
+// provider's `title` spelling (the sidecar's film title key, ADR-086 §3) so a
+// display decision can pick it (F60 RD9); a rename still goes through
+// POST /films/{id}/rename on the identity spine (HOLODEX-376).
 var filmScalarFields = []string{"description", "release_date"}
 
 // filmFields synthesizes the []mapping.Field for film resolution, mirroring
 // studioFields.
 func filmFields(providers []string) []mapping.Field {
 	fields := make([]mapping.Field, 0, len(filmScalarFields)+1)
-	fields = append(fields, filmField("name", []mapping.Source{{Namespace: "file", Key: "name"}}))
+	fields = append(fields, filmField("name",
+		append([]mapping.Source{{Namespace: "file", Key: "name"}}, providerSources(providers, "title")...)))
 	for _, canonical := range filmScalarFields {
 		fields = append(fields, filmField(canonical, providerSources(providers, canonical)))
 	}
@@ -144,8 +146,9 @@ func filmFieldByCanonical(canonical string) (mapping.Field, bool) {
 
 // mountFilmDecisions registers the owner-gated film per-field decision
 // surface (F56, ADR-085 §7), mirroring mountStudioDecisions. DB-only — a film
-// has no file, so there is no writeback and no rename here (name is an identity
-// column: POST /films/{id}/rename, mounted from mountFilms, same as studio).
+// has no file, so there is no writeback; rename is POST /films/{id}/rename
+// (mounted from mountFilms). A decision on name (F60 RD9) is the display
+// spelling only — the canonical column stays the identity/alias truth.
 func (h *Handlers) mountFilmDecisions(r chi.Router) {
 	r.Put("/films/{id}/fields/{canonical}/decision", h.setFilmFieldDecision)
 	r.Delete("/films/{id}/fields/{canonical}/decision", h.clearFilmFieldDecision)
@@ -226,16 +229,13 @@ func (h *Handlers) filmDecisionTarget(w http.ResponseWriter, r *http.Request) (i
 }
 
 // filmReplaceField resolves a canonical name against the synthesized film
-// schema and confirms a decision may target it: unknown -> 404, name -> 400
-// (baseline-backed identity, read-only in v1). Mirrors studioReplaceField.
+// schema and confirms a decision may target it: unknown -> 404. name is an
+// ordinary replace field here (F60 RD9): its decision picks the display
+// spelling. Mirrors studioReplaceField.
 func (h *Handlers) filmReplaceField(w http.ResponseWriter, canonical string) (mapping.Field, bool) {
 	f, ok := filmFieldByCanonical(canonical)
 	if !ok {
 		writeError(w, http.StatusNotFound, "unknown field")
-		return mapping.Field{}, false
-	}
-	if f.Canonical == "name" {
-		writeError(w, http.StatusBadRequest, "film name is not a decision field; rename it via POST /films/{id}/rename")
 		return mapping.Field{}, false
 	}
 	return f, true

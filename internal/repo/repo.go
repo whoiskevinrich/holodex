@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1455,6 +1456,35 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			}
 		}
 	}
+	// Display spellings (F60 RD9, HOLODEX-378): the row shows what a standing name
+	// decision selects, and an entity whose display spelling — but not its canonical
+	// name or an alias — matches still surfaces.
+	disp, extra, err := r.displayNameMatches(ctx, model.EnrichEntityPerson, "name", q, seen, limit-len(res.People))
+	if err != nil {
+		return res, err
+	}
+	for i := range res.People {
+		res.People[i].DisplayName = disp[res.People[i].ID]
+	}
+	if len(extra) > 0 {
+		er, err := r.db.QueryContext(ctx, `SELECT id, name FROM people WHERE id IN (`+placeholders(len(extra))+`)`, toAnySlice(extra)...)
+		if err != nil {
+			return res, fmt.Errorf("search people by display name: %w", err)
+		}
+		defer er.Close()
+		for er.Next() {
+			var p model.Person
+			if err := er.Scan(&p.ID, &p.Name); err != nil {
+				return res, err
+			}
+			p.DisplayName = disp[p.ID]
+			seen[p.ID] = struct{}{}
+			res.People = append(res.People, p)
+		}
+		if err := er.Err(); err != nil {
+			return res, err
+		}
+	}
 
 	// Videos: title matches first, then the media of any matched person (incl. alias
 	// matches) so searching a person's name OR alias returns their library — the merge
@@ -1514,15 +1544,42 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		return res, fmt.Errorf("search studios: %w", err)
 	}
 	defer sr.Close()
+	seenS := make(map[int64]struct{})
 	for sr.Next() {
 		var s model.Studio
 		if err := sr.Scan(&s.ID, &s.Name); err != nil {
 			return res, err
 		}
+		seenS[s.ID] = struct{}{}
 		res.Studios = append(res.Studios, s)
 	}
 	if err := sr.Err(); err != nil {
 		return res, err
+	}
+	dispS, extraS, err := r.displayNameMatches(ctx, model.EnrichEntityStudio, "name", q, seenS, limit-len(res.Studios))
+	if err != nil {
+		return res, err
+	}
+	for i := range res.Studios {
+		res.Studios[i].DisplayName = dispS[res.Studios[i].ID]
+	}
+	if len(extraS) > 0 {
+		er, err := r.db.QueryContext(ctx, `SELECT id, name FROM studios WHERE id IN (`+placeholders(len(extraS))+`)`, toAnySlice(extraS)...)
+		if err != nil {
+			return res, fmt.Errorf("search studios by display name: %w", err)
+		}
+		defer er.Close()
+		for er.Next() {
+			var s model.Studio
+			if err := er.Scan(&s.ID, &s.Name); err != nil {
+				return res, err
+			}
+			s.DisplayName = dispS[s.ID]
+			res.Studios = append(res.Studios, s)
+		}
+		if err := er.Err(); err != nil {
+			return res, err
+		}
 	}
 
 	// Films: FTS name matches, a new entity group gated on filmsEnabled (F56/
@@ -1534,8 +1591,64 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			return res, err // SearchFilms already wraps with its own "search films: " context
 		}
 		res.Films = films
+		seenF := make(map[int64]struct{}, len(films))
+		for _, f := range films {
+			seenF[f.ID] = struct{}{}
+		}
+		// The film title's provider spelling is stored under `title` (ADR-086 §3).
+		dispF, extraF, err := r.displayNameMatches(ctx, model.EnrichEntityFilm, "title", q, seenF, limit-len(res.Films))
+		if err != nil {
+			return res, err
+		}
+		for i := range res.Films {
+			res.Films[i].DisplayName = dispF[res.Films[i].ID]
+		}
+		if len(extraF) > 0 {
+			fr, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id IN (`+placeholders(len(extraF))+`)`, toAnySlice(extraF)...)
+			if err != nil {
+				return res, fmt.Errorf("search films by display name: %w", err)
+			}
+			defer fr.Close()
+			more, err := scanFilms(fr)
+			if err != nil {
+				return res, err
+			}
+			if err := r.attachFilmImages(ctx, more); err != nil {
+				return res, err
+			}
+			for _, f := range more {
+				f.DisplayName = dispF[f.ID]
+				res.Films = append(res.Films, f)
+			}
+		}
 	}
 	return res, nil
+}
+
+// displayNameMatches is Search's display-spelling leg for one entity kind: the
+// spellings selected by standing name decisions (for overlaying onto rows already
+// found) plus the ids — not yet seen, capped at room, id-ordered for stable output —
+// whose spelling matches the query.
+func (r *Repo) displayNameMatches(ctx context.Context, entityType, providerKey, q string, seen map[int64]struct{}, room int) (map[int64]string, []int64, error) {
+	disp, err := r.DisplayNames(ctx, entityType, providerKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	var extra []int64
+	for id, v := range disp {
+		if _, dup := seen[id]; dup || !matchesDisplayQuery(v, q) {
+			continue
+		}
+		extra = append(extra, id)
+	}
+	slices.Sort(extra)
+	if room < 0 {
+		room = 0
+	}
+	if len(extra) > room {
+		extra = extra[:room]
+	}
+	return disp, extra, nil
 }
 
 // ---------------------------------------------------------------------------

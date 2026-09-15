@@ -32,6 +32,7 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import { expandedField } from '$lib/expandedField.svelte';
 	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
@@ -48,6 +49,7 @@
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 
@@ -190,6 +192,11 @@
 	const detailFields = $derived(
 		resolved.filter((f) => f.canonical !== 'name' && f.canonical !== 'description')
 	);
+	// The title renders the resolved name — a display decision may pick the provider's
+	// title or a custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical
+	// column, which stays half the (name, year) identity key.
+	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	const displayName = $derived(nameField?.values[0] || film?.name || '');
 	const hasDetails = $derived(detailFields.length > 0);
 	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
 	// Description edit modal (HOLODEX-364, the media Overview pattern from HOLODEX-365) —
@@ -271,6 +278,7 @@
 	}
 
 	$effect(() => {
+		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between films
 		load(id);
 	});
 
@@ -479,7 +487,8 @@
 							     share, with the same-title/same-year collision as its MergeOfferCard
 							     verdict (the studio wiring). The old title is kept as an alias. -->
 							<NameEditControl
-								name={film.name}
+								name={displayName}
+								editValue={film.name}
 								{isOwner}
 								onCommit={commitRename}
 								label="film"
@@ -501,6 +510,13 @@
 									/>
 								{/snippet}
 							</NameEditControl>
+							<DisplayNameLine
+								field={nameField}
+								canonical={film.name}
+								{isOwner}
+								decide={(s, mv) => decideField('name', s, mv)}
+								prefix="On record as"
+							/>
 							{#if nearMiss}
 								<!-- Non-blocking near-miss: the rename already saved; an advisory nudge,
 								     distinct from the blocking same-title/same-year conflict above. -->
