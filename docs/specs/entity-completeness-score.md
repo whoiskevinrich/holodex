@@ -137,7 +137,8 @@ Every scored facet has a **criticality weight** and, per entity, a **source tier
 |---|---|---|
 | Critical | 3 | The entity is meaningfully incomplete without it. |
 | Nice-to-have | 1 | Improves the entity but isn't load-bearing. |
-| *(excluded)* | — | Not scored at all — see "Excluded fields" below. |
+| Optional | — | **Listed, never scored** (F60 RD6, ADR-096 D4, 2026-09-14): the facet is in the payload with its tier, label and `curatable` flag — so a deep link can render an empty curatable row for it — but adds nothing to Σ(weight), never counts as missing, and never enters the remediation queue or the breakdown panel. For fields that are legitimately empty on most entities (`edition`: most files have no edition, and that is not a gap). |
+| *(excluded)* | — | Not scored at all and not listed — see "Excluded fields" below. |
 
 | Tier | Value | Meaning |
 |---|---|---|

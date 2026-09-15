@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -82,9 +81,8 @@ func (h *Handlers) detachVideoTag(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tagID, err := strconv.ParseInt(chi.URLParam(r, "tagID"), 10, 64)
-	if err != nil || tagID <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid tag id")
+	tagID, ok := urlParamID(w, r, "tagID")
+	if !ok {
 		return
 	}
 	switch err := h.repo.DetachTagFromVideo(r.Context(), id, tagID); {

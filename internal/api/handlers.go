@@ -1365,13 +1365,20 @@ func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	return urlParamID(w, r, "id")
 }
 
-// urlParamID parses a named chi path param as a positive int64, writing 400 and
-// returning false otherwise. Routes that nest two ids (e.g. film_videos.go's
-// {filmId}/{videoId}) name them explicitly; pathID is the single-{id} shorthand.
+// urlParamID parses a named chi path param as a positive int64 or a `kind:id`
+// ref of the route's entity kind (F60 RD1, ref.go), writing 400 and returning
+// false otherwise; a kind mismatch names the expected kind. Routes that nest two
+// ids (e.g. film_videos.go's {filmId}/{videoId}) name them explicitly; pathID is
+// the single-{id} shorthand.
 func urlParamID(w http.ResponseWriter, r *http.Request, param string) (int64, bool) {
-	id, err := strconv.ParseInt(chi.URLParam(r, param), 10, 64)
-	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid "+param)
+	id, err := ParseRef(routeKind(r, param), chi.URLParam(r, param))
+	if err != nil {
+		msg := "invalid " + param
+		var kindErr *RefKindError
+		if errors.As(err, &kindErr) {
+			msg = kindErr.Error()
+		}
+		writeError(w, http.StatusBadRequest, msg)
 		return 0, false
 	}
 	return id, true

@@ -248,3 +248,37 @@ func TestResolve_NoBaselineSource_UndecidedStaysInSync(t *testing.T) {
 		t.Errorf("undecided field must read in sync by construction, got %v", got[0].InSync)
 	}
 }
+
+// F60 RD6: edition is an ordinary replace field whose baseline is the container
+// tag and whose only candidate is the F48 filename marker. The tag wins by
+// default (file-first), the filename value is offered as a candidate, and a
+// custom decision overrides both — no edition-specific code in the resolver.
+func TestResolve_Edition_TagBeatsFilename(t *testing.T) {
+	fields := []mapping.Field{stubField("edition", false, "Edition", "filename:edition")}
+	extra := []model.ExtraMetadata{{SourceKey: "Edition", Value: "Final Cut"}}
+	enr := resolver.Enrichment{"filename": {"edition": {"Theatrical"}}}
+
+	got := resolver.Resolve(testVideo, extra, enr, nil, fields, resolver.Options{})
+	if len(got) != 1 || len(got[0].Values) != 1 || got[0].Values[0] != "Final Cut" {
+		t.Fatalf("container tag must win over the filename marker, got %+v", got)
+	}
+	if got[0].WinningSource != "file:Edition" {
+		t.Errorf("provenance = %q, want file:Edition", got[0].WinningSource)
+	}
+	if len(got[0].Candidates) != 2 {
+		t.Errorf("both sources must be offered as candidates, got %+v", got[0].Candidates)
+	}
+
+	// Filename-only file: the candidate is the value, still curatable (RD12 is the
+	// SPA's half of that promise).
+	only := resolver.Resolve(testVideo, nil, enr, nil, fields, resolver.Options{})
+	if len(only) != 1 || only[0].Values[0] != "Theatrical" || only[0].WinningSource != "filename:edition" {
+		t.Fatalf("filename-only edition must resolve from the marker, got %+v", only)
+	}
+
+	// Owner types a custom value: it persists as a decision and wins.
+	custom := resolver.Resolve(testVideo, extra, enr, nil, fields, decide("edition", "manual", "Director's Cut"))
+	if len(custom) != 1 || custom[0].Values[0] != "Director's Cut" {
+		t.Fatalf("custom decision must win, got %+v", custom)
+	}
+}

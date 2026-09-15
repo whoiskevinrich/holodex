@@ -23,7 +23,7 @@
 	} = $props();
 
 	// Per-entity noun for the confirm copy — the only textual delta across the three.
-	const NOUNS: Record<EntityKind, string> = { person: 'person', studio: 'studio', tag: 'tag' };
+	const NOUNS: Record<EntityKind, string> = { person: 'person', studio: 'studio', tag: 'tag', film: 'film' };
 	const noun = $derived(NOUNS[kind]);
 
 	// The survivor defaults to the first selected until the owner picks another via the radios.

@@ -1096,10 +1096,10 @@ sources:
 	// Both credited people resolved by external_id, and the headshot landed on the
 	// same person id resolveOrCreate returned (not some other/new row).
 	var pittID, fincherID int64
-	if err := database.QueryRow(`SELECT person_id FROM person_external_ids WHERE external_id = ?`, "tmdb:287").Scan(&pittID); err != nil {
+	if err := database.QueryRow(`SELECT entity_id FROM entity_external_ids WHERE entity_type = 'person' AND external_id = ?`, "tmdb:287").Scan(&pittID); err != nil {
 		t.Fatalf("brad pitt not resolved by external id: %v", err)
 	}
-	if err := database.QueryRow(`SELECT person_id FROM person_external_ids WHERE external_id = ?`, "tmdb:7467").Scan(&fincherID); err != nil {
+	if err := database.QueryRow(`SELECT entity_id FROM entity_external_ids WHERE entity_type = 'person' AND external_id = ?`, "tmdb:7467").Scan(&fincherID); err != nil {
 		t.Fatalf("david fincher not resolved by external id: %v", err)
 	}
 	if pitt.personID != pittID {
@@ -1514,5 +1514,81 @@ func TestEnrichSurvivesAliasWriteFailure(t *testing.T) {
 	}
 	if len(fields) == 0 {
 		t.Fatal("enrichment returned no fields; the alias step swallowed the pass")
+	}
+}
+
+// TestEnrichRecordsIdentityExternalID proves ADR-096 D2's "one fact, one place": adopting
+// a provider record for a person or a film records the adopted "<provider>:<id>" in
+// entity_external_ids (so a later scan credit or GetFilmByExternalID resolves to this
+// entity), while a video adoption records nothing there — videos have no identity row
+// and keep only the re-enrich memo.
+func TestEnrichRecordsIdentityExternalID(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:287"] = FakePerson{Label: "Brad Pitt", Fields: map[string][]string{"bio": {"x"}}}
+	fake.Films["tmdb:603"] = FakePerson{Label: "The Matrix", Fields: map[string][]string{"overview": {"x"}}}
+	fake.People["tmdb:550"] = FakePerson{Label: "Fight Club", Fields: map[string][]string{"title": {"Fight Club"}}}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [person, studio, video, film]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewServiceWithClient(store, r, slog.New(slog.NewTextHandler(io.Discard, nil)), func(Source) ProviderClient { return fake })
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, &model.Video{FilePath: "/m/a.mkv", Title: "A"}, nil)
+	if err != nil {
+		t.Fatalf("upsert video: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, vid, []repo.PersonRoleName{{Name: "Brad Pitt", Role: "actor"}}, nil); err != nil {
+		t.Fatalf("link person: %v", err)
+	}
+	pid, ok, err := r.LookupEntityIDByName(ctx, model.EnrichEntityPerson, "Brad Pitt")
+	if err != nil || !ok {
+		t.Fatalf("person id: (%v, %v)", ok, err)
+	}
+	film, err := r.CreateFilm(ctx, "The Matrix", 1999)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+
+	for _, c := range []struct {
+		kind string
+		id   int64
+		ext  string
+	}{{model.EnrichEntityPerson, pid, "tmdb:287"}, {model.EnrichEntityFilm, film, "tmdb:603"}, {model.EnrichEntityVideo, vid, "tmdb:550"}} {
+		if _, err := svc.Enrich(ctx, c.kind, c.id, "fake", c.ext, false); err != nil {
+			t.Fatalf("enrich %s: %v", c.kind, err)
+		}
+	}
+
+	if ids, err := r.ExternalIDsForEntity(ctx, model.EnrichEntityPerson, pid); err != nil || len(ids) != 1 || ids[0] != "tmdb:287" {
+		t.Errorf("person identity ids = (%v, %v), want [tmdb:287]", ids, err)
+	}
+	if got, err := r.GetFilmByExternalID(ctx, "tmdb:603"); err != nil || got == nil || got.ID != film {
+		t.Errorf("GetFilmByExternalID after adoption = (%+v, %v), want film %d", got, err, film)
+	}
+	var videoRows int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM entity_external_ids WHERE entity_type = 'video'`).Scan(&videoRows); err != nil {
+		t.Fatal(err)
+	}
+	if videoRows != 0 {
+		t.Errorf("video identity rows = %d, want 0 (videos keep only the memo)", videoRows)
+	}
+	// The re-enrich memo is unchanged by the identity row: ExistingMatch still answers.
+	if m, ok, err := svc.ExistingMatch(ctx, model.EnrichEntityFilm, film, "fake"); err != nil || !ok || m != "tmdb:603" {
+		t.Errorf("ExistingMatch(film) = (%q, %v, %v), want tmdb:603", m, ok, err)
 	}
 }

@@ -72,6 +72,9 @@ var fieldTiers = map[string]Tier{
 	"people": TierHigh,
 	"studio": TierHigh,
 	"movie":  TierHigh, // non-entity rubric (no Movie entity yet, HOLODEX-191) but high-stakes threshold
+	// F60 RD7: a strict `{edition-X}` marker is an exact convention, so a lone
+	// filename value (0.30 + 0.50) clears the tier and a tag conflict never does.
+	"edition": TierHigh,
 
 	"title":        TierMedium,
 	"release_date": TierMedium,

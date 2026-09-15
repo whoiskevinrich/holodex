@@ -60,6 +60,7 @@ func TestAutoApplyThreshold(t *testing.T) {
 		{"people", 0.80},
 		{"studio", 0.80},
 		{"movie", 0.80},
+		{"edition", 0.80},
 		{"title", 0.70},
 		{"release_date", 0.70},
 		{"comment", 0.40},

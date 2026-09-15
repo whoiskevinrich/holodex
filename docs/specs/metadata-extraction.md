@@ -235,7 +235,7 @@ entity to resolve against, so the weight redistributes into two components:
 
 | Tier | Fields | `AutoApplyThreshold` |
 |---|---|---|
-| High-stakes | People, Studio, Movie | 0.80 |
+| High-stakes | People, Studio, Movie, Edition | 0.80 |
 | Medium-stakes | Title, Release Date | 0.70 |
 | Low-stakes | Comment, Genre/Tags, Scene Number | 0.40 |
 
@@ -470,7 +470,7 @@ Two cross-cutting decisions need to be recorded:
    candidates in the review queue; never itself satisfies the auto-apply gate. Exact-match
    auto-apply reuses F43's existing loose-key detector rather than introducing a new algorithm for
    that tier.
-4. **Thresholds — hardcoded for v1.** High 0.80 (People/Studio/Movie), Medium 0.70 (Title/Release
+4. **Thresholds — hardcoded for v1.** High 0.80 (People/Studio/Movie/Edition), Medium 0.70 (Title/Release
    Date), Low 0.40 (Comment/Genre/Scene Number). Not owner-configurable; revisit only if wrong in
    practice.
 5. **Manual-edit precedence — one-time import.** A field with an existing manual override always
@@ -482,8 +482,11 @@ Two cross-cutting decisions need to be recorded:
    simplicity; reopens ADR-041's deferred non-goal (see Architecture impact).
 9. **Review queue placement — new "Extraction" tab**, parallel to Duplicates and Enrichment, not
    folded into either.
-10. **Field tiers** — High: People, Studio, Movie. Medium: Title, Release Date. Low: Comment,
-    Genre/Tags, Scene Number.
+10. **Field tiers** — High: People, Studio, Movie, Edition. Medium: Title, Release Date. Low: Comment,
+    Genre/Tags, Scene Number. Edition (F60 RD7, added 2026-09-14) is High on the non-entity rubric:
+    a strict `{edition-X}` marker is an exact convention, so a lone filename value (0.30 + 0.50)
+    clears the tier and a conflicting container tag (0 + 0.50) never does — no edition-specific rule.
+    The marker is lifted out of the stem before the `^…$` patterns run; the marker alone is a match.
 11. **Movie/Scene Number/Genre as entities — deferred**, tracked in
     [HOLODEX-191](https://whoiskevinrich.atlassian.net/browse/HOLODEX-191).
 

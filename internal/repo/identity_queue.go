@@ -59,6 +59,8 @@ WITH names(et, eid, nm) AS (
     UNION ALL SELECT 'studio', entity_id, alias FROM entity_aliases WHERE entity_type = 'studio'
     UNION ALL SELECT 'tag', id, name FROM tags
     UNION ALL SELECT 'tag', entity_id, alias FROM entity_aliases WHERE entity_type = 'tag'
+    UNION ALL SELECT 'film', id, name FROM films
+    UNION ALL SELECT 'film', entity_id, alias FROM entity_aliases WHERE entity_type = 'film'
 ),
 keyed(et, eid, hkey, lkey, wskey) AS (
     SELECT et, eid,

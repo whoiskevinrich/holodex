@@ -27,6 +27,7 @@
 	import { filmsRow } from '$lib/filmsRow.svelte';
 	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
@@ -97,8 +98,13 @@
 		return resolved.some((f) => (f.candidates ?? []).some((c) => providerOf(c.source) === p));
 	}
 
+	// The heading renders the resolved name — a display decision may pick a provider or
+	// custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical column.
+	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	let nameControl = $state<NameEditControl | null>(null);
+	const displayName = $derived(nameField?.values[0] || studio?.name || '');
 	// Replace fields other than `name` that have a value or (for the owner) a candidate.
-	// `name` is read-only identity — never a chip row.
+	// `name` is never a chip row here — its SourceBadge lives on DisplayNameLine under the heading.
 	const replaceFields = $derived(
 		resolved.filter(
 			(f) =>
@@ -305,7 +311,9 @@
 			     identity; the old name is kept as an alias so re-derivation (RelinkVideoStudios)
 			     survives (RD6). -->
 			<NameEditControl
-				name={studio?.name ?? ''}
+				bind:this={nameControl}
+				name={displayName}
+				editValue={studio?.name ?? ''}
 				{isOwner}
 				onCommit={commitStudioRename}
 				label="studio"
@@ -327,6 +335,14 @@
 					/>
 				{/snippet}
 			</NameEditControl>
+			<DisplayNameLine
+				field={nameField}
+				canonical={studio?.name ?? ''}
+				{isOwner}
+				decide={(s, mv) => decideField('name', s, mv)}
+				onRename={() => nameControl?.open()}
+				renameLabel="Rename this studio"
+			/>
 			{#if nearMiss}
 				<!-- Non-blocking near-miss (P1-5): the rename already saved; this is an advisory
 				     nudge, distinct from the blocking exact-name conflict above (mirrors AliasPanel). -->
@@ -352,7 +368,11 @@
 					{/if}
 				</div>
 			{/if}
-			<EntityVideoMeta count={videos.length} links={externalLinks} entityName={studio?.name ?? ''} />
+			<EntityVideoMeta
+				count={videos.length}
+				links={externalLinks}
+				entityName={studio?.name ?? ''}
+			/>
 		{/snippet}
 
 		{#snippet detail()}

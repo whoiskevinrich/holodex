@@ -8,7 +8,7 @@
 	// results, Enter/Space/click pick, Esc closes. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { toMessage, videoCount } from '$lib/format';
+	import { toMessage, videoCount, refLabel } from '$lib/format';
 	import type { EntityKind, EntityRef } from '$lib/types';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
@@ -30,7 +30,8 @@
 	const NOUNS: Record<EntityKind, { one: string; many: string }> = {
 		person: { one: 'person', many: 'people' },
 		studio: { one: 'studio', many: 'studios' },
-		tag: { one: 'tag', many: 'tags' }
+		tag: { one: 'tag', many: 'tags' },
+		film: { one: 'film', many: 'films' }
 	};
 	const noun = $derived(NOUNS[entityType]);
 
@@ -59,7 +60,8 @@
 	const LIST: Record<EntityKind, () => Promise<{ items: EntityRef[] }>> = {
 		person: () => api.listPeople('name'),
 		studio: () => api.listStudios('name'),
-		tag: () => api.listTags('name')
+		tag: () => api.listTags('name'),
+		film: () => api.listFilms()
 	};
 
 	onMount(() => {
@@ -172,7 +174,7 @@
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<span class="truncate text-sm text-ink">{e.name}</span>
+					<span class="truncate text-sm text-ink">{refLabel(e)}</span>
 					<span class="shrink-0 text-xs text-muted">{videoCount(e.video_count ?? 0)}</span>
 				</li>
 			{/each}
@@ -180,7 +182,7 @@
 	{:else}
 		<!-- Step 2: informed confirm -->
 		<p class="text-sm text-ink">
-			Merge <span class="font-semibold">{selected.name}</span> ({videoCount(selected.video_count ?? 0)})
+			Merge <span class="font-semibold">{refLabel(selected)}</span> ({videoCount(selected.video_count ?? 0)})
 			into <span class="font-semibold">{canonicalName}</span>?
 		</p>
 		<p class="mt-2 text-xs text-muted">

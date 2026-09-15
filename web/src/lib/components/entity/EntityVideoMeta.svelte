@@ -7,11 +7,8 @@
 	// (HOLODEX-266, ADR-083 DD1) appended after a `·` separator. Shared by EntityVideos'
 	// own default title block (studio/tag) and the person page's `hero` snippet, which
 	// renders its own title/portrait layout but wants this identical meta row beneath it.
-	let {
-		count,
-		links,
-		entityName
-	}: { count: number; links: ExternalLink[]; entityName: string } = $props();
+	let { count, links, entityName }: { count: number; links: ExternalLink[]; entityName: string } =
+		$props();
 
 	const sortedLinks = $derived(sortExternalLinks(links));
 </script>

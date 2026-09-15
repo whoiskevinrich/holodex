@@ -196,8 +196,8 @@ func TestReconcileVideoPeople_ExternalIDDedup(t *testing.T) {
 	}
 }
 
-// TestReconcileVideoPeople_ExternalIDCascade proves person_external_ids' ON DELETE
-// CASCADE (migration 0038): hard-deleting the person row removes its external-id row
+// TestReconcileVideoPeople_ExternalIDCascade proves the people_ad_external_ids cleanup
+// trigger (migration 0046, formerly 0038's FK cascade): hard-deleting the person row removes its external-id row
 // too, so a later reconcile for the same provider id is not silently orphaned onto a
 // nonexistent person — it creates a fresh one. Hard delete bypasses the orphan grace
 // period (there is no repo method for it; mirrors TestPersonAliasesDeleteScopeAndCascade's
@@ -430,9 +430,9 @@ func TestMergePersons_DedupesSameRoleLinkAtMergeTime(t *testing.T) {
 	}
 }
 
-// TestMergePersons_RepointsExternalID proves person_external_ids' idMove
+// TestMergePersons_RepointsExternalID proves the entity_external_ids repoint step
 // (identity_ops.go, F32/ADR-055): merging two people repoints the LOSER's provider id
-// onto the survivor instead of losing it to person_external_ids' ON DELETE CASCADE
+// onto the survivor instead of losing it to the loser's delete-cleanup trigger
 // when the loser row is deleted. A later reconcile carrying that same id must resolve
 // to the survivor, not create a third person.
 func TestMergePersons_RepointsExternalID(t *testing.T) {

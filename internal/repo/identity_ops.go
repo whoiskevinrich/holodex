@@ -40,8 +40,8 @@ type entityIdentity struct {
 }
 
 // idMove names a table + column whose reference to the merged entity is repointed
-// onto the survivor (studio_external_ids, so a merged studio's provider identity
-// keeps resolving to the survivor — matching the migration-0022 fold). excludeSelf
+// onto the survivor (tags.parent_tag_id; provider ids ride the polymorphic
+// entity_external_ids step below instead, ADR-096 D2). excludeSelf
 // skips the row whose id equals the survivor itself — needed for a self-referential
 // FK (tags.parent_tag_id, F50 P0-11): otherwise a survivor that was itself a child
 // of the loser would have its own parent_tag_id set to canonicalID = canonicalID.
@@ -70,14 +70,9 @@ var entityIdentityByType = map[string]entityIdentity{
 		// there.
 		moveAssocSQL: `INSERT OR IGNORE INTO video_people (video_id, person_id, role)
 			SELECT video_id, ?, role FROM video_people WHERE person_id = ?`,
-		// person_external_ids (migration 0038, F32/ADR-055): mirrors studio's idMoves
-		// entry below — a merged person's provider identity repoints onto the survivor
-		// instead of cascade-deleting with the loser, so a re-enrich still id-matches.
-		idMoves: []idMove{{"person_external_ids", "person_id", false}},
 	},
 	model.EnrichEntityStudio: {
 		table: "studios", assoc: "video_studios", assocFK: "studio_id",
-		idMoves: []idMove{{"studio_external_ids", "studio_id", false}},
 	},
 	model.EntityTag: {
 		table: "tags", assoc: "video_tags", assocFK: "tag_id",
@@ -92,6 +87,24 @@ var entityIdentityByType = map[string]entityIdentity{
 			WHERE video_tags.source = '` + fieldsource.File + `'`,
 		idMoves: []idMove{{"tags", "parent_tag_id", true}},
 	},
+	model.EnrichEntityFilm: {
+		table: "films", assoc: "film_videos", assocFK: "film_id",
+		// film_videos is an owner assertion with a scene number (F56, ADR-085):
+		// PK (film_id, video_id) de-dupes the union, but UNIQUE(film_id, scene_number)
+		// would make OR IGNORE silently drop a loser's link whose number the survivor
+		// already uses. Keep the link and let the number fall to NULL (an unnumbered
+		// scene) instead — the owner re-numbers; a lost membership is not recoverable.
+		moveAssocSQL: `INSERT OR IGNORE INTO film_videos (film_id, video_id, scene_number, is_full_film, created_at)
+			SELECT ?1, fv.video_id,
+			       CASE WHEN fv.scene_number IS NOT NULL AND EXISTS (
+			                SELECT 1 FROM film_videos w WHERE w.film_id = ?1 AND w.scene_number = fv.scene_number)
+			            THEN NULL ELSE fv.scene_number END,
+			       fv.is_full_film, fv.created_at
+			FROM film_videos fv WHERE fv.film_id = ?2`,
+		// Cast/crew and images follow the survivor; a role the survivor already has is
+		// left to cascade away with the loser (PK (film_id, person_id, role)).
+		idMoves: []idMove{{"film_people_roles", "film_id", false}, {"film_images", "film_id", false}},
+	},
 }
 
 // entityAliasKeyByType holds, per entity type, the SQL predicate matching an alias by
@@ -99,8 +112,8 @@ var entityIdentityByType = map[string]entityIdentity{
 // entity type, then the raw (trimmed) name. Precomputed so nameKeyExpr's per-entity
 // rule (tag also folds internal whitespace) has one source of truth.
 var entityAliasKeyByType = func() map[string]string {
-	m := make(map[string]string, 3)
-	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag} {
+	m := make(map[string]string, 4)
+	for _, et := range []string{model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag, model.EnrichEntityFilm} {
 		m[et] = `entity_type = ? AND alias_key = ` + nameKeyExpr(et, "?")
 	}
 	return m
@@ -396,9 +409,7 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		{"move associations", moveAssocSQL, []any{canonicalID, mergedID}},
 		{"clear merged associations", `DELETE FROM ` + cfg.assoc + ` WHERE ` + cfg.assocFK + ` = ?`, []any{mergedID}},
 	}
-	// 1b. Repoint any extra id references (studio external ids) onto the survivor so
-	//     provider identity keeps resolving there; OR IGNORE drops a duplicate the
-	//     survivor already owns (the FK-cascade delete below then clears the loser's).
+	// 1b. Repoint any extra id references (tags.parent_tag_id) onto the survivor.
 	for _, mv := range cfg.idMoves {
 		stmt := `UPDATE OR IGNORE ` + mv.table + ` SET ` + mv.fk + ` = ? WHERE ` + mv.fk + ` = ?`
 		args := []any{canonicalID, mergedID}
@@ -424,6 +435,11 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		steps = append(steps, identityStep{"move " + mv.table, stmt, args})
 	}
 	steps = append(steps, []identityStep{
+		// 1c. Provider identity follows the survivor (ADR-054/055, one table for every
+		//     kind since ADR-096 D2) so a re-enrich / rescan still id-matches there; OR
+		//     IGNORE leaves an id the survivor already owns, and the loser's leftover is
+		//     cleared by the *_ad_external_ids trigger on delete.
+		{"repoint external ids", `UPDATE OR IGNORE entity_external_ids SET entity_id = ? WHERE entity_type = ? AND entity_id = ?`, []any{canonicalID, entityType, mergedID}},
 		// 2. Preserve a prior merge chain: re-point merged's aliases, drop collisions.
 		{"repoint aliases", `UPDATE OR IGNORE entity_aliases SET entity_id = ? WHERE entity_type = ? AND entity_id = ?`, []any{canonicalID, entityType, mergedID}},
 		{"drop collided aliases", `DELETE FROM entity_aliases WHERE entity_type = ? AND entity_id = ?`, []any{entityType, mergedID}},
@@ -505,10 +521,19 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	if oldName == newName {
 		return 0, nil // no-op: nothing to rename, nothing to alias
 	}
+	// The film key is composite (ADR-096 D3): a rename only collides with a film of the
+	// same title AND the same year — the year itself stays untouched here (RD5; it has
+	// its own control, SetFilmYear).
+	conflictSQL := `SELECT id FROM ` + table + ` WHERE ` + nameKeyExpr(entityType, "name") + ` = ` + nameKeyExpr(entityType, "?") + ` AND id <> ?`
+	if entityType == model.EnrichEntityFilm {
+		conflictSQL += ` AND year IS (SELECT year FROM films WHERE id = ?)`
+	}
+	conflictArgs := []any{newName, id}
+	if entityType == model.EnrichEntityFilm {
+		conflictArgs = append(conflictArgs, id)
+	}
 	var cid int64
-	switch err := tx.QueryRowContext(ctx,
-		`SELECT id FROM `+table+` WHERE `+nameKeyExpr(entityType, "name")+` = `+nameKeyExpr(entityType, "?")+` AND id <> ?`,
-		newName, id).Scan(&cid); {
+	switch err := tx.QueryRowContext(ctx, conflictSQL, conflictArgs...).Scan(&cid); {
 	case err == nil:
 		return cid, ErrNameTaken
 	case !errors.Is(err, sql.ErrNoRows):
@@ -539,6 +564,13 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	}
 	if err := flagNearMissForName(ctx, tx, entityType, id, oldName); err != nil {
 		return 0, err
+	}
+	// A film renamed onto a title another film already holds under a different year
+	// is legal (composite key) but never silent: queue the pair (RD4), as create does.
+	if entityType == model.EnrichEntityFilm {
+		if err := queueFilmSameTitle(ctx, tx, id, newName); err != nil {
+			return 0, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

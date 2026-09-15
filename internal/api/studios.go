@@ -21,7 +21,7 @@ import (
 
 // studioScalarFields are the provider-backed replace studio fields, in registry
 // documentation order. name is synthesized separately (the only baseline-backed
-// field, read-only — no rename in v1, RD4/RD5). These are the fields the TMDB
+// field; a decision on it is the display spelling, F60 RD9). These are the fields the TMDB
 // company enrichment slice (S3) populates; before enrichment they resolve empty and
 // the detail page hides the Details section. logo is NOT here (F51, ADR-079): it
 // moved off the resolved-field model onto the studio_images asset-slot model,
@@ -29,11 +29,13 @@ import (
 var studioScalarFields = []string{"description", "country", "website"}
 
 // studioFields synthesizes the []mapping.Field for studio resolution: name (record
-// baseline only — no provider name candidates, studio has no rename) then the scalar
-// registry fields (record baseline + one candidate per provider). No merge field.
+// baseline + one candidate per provider, so a display decision can pick a provider
+// spelling, F60 RD9) then the scalar registry fields (record baseline + one candidate
+// per provider). No merge field.
 func studioFields(providers []string) []mapping.Field {
 	fields := make([]mapping.Field, 0, len(studioScalarFields)+1)
-	fields = append(fields, studioField("name", []mapping.Source{{Namespace: "file", Key: "name"}}))
+	fields = append(fields, studioField("name",
+		append([]mapping.Source{{Namespace: "file", Key: "name"}}, providerSources(providers, "name")...)))
 	for _, canonical := range studioScalarFields {
 		fields = append(fields, studioField(canonical, providerSources(providers, canonical)))
 	}

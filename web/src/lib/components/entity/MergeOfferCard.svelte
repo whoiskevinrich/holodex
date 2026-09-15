@@ -4,7 +4,7 @@
 	// the owner picks "same entity" (merge in) or "different entity" (keep separate). Presentational
 	// only — the caller owns busy/error state and the merge/keep-separate calls themselves, so this
 	// stays reusable from both AliasPanel's alias-add flow and NameEditControl's rename flow.
-	import { videoCount } from '$lib/format';
+	import { videoCount, refLabel } from '$lib/format';
 	import type { EntityRef } from '$lib/types';
 
 	let {
@@ -28,7 +28,7 @@
 
 <div class="space-y-2 rounded-theme border border-rule bg-surface-2 p-3" aria-live="polite">
 	<p class="text-sm text-ink">
-		<span class="font-semibold">{conflict.name}</span> ({videoCount(conflict.video_count ?? 0)})
+		<span class="font-semibold">{refLabel(conflict)}</span> ({videoCount(conflict.video_count ?? 0)})
 		is already a separate {noun}. Are they the same as {entityName}?
 	</p>
 	<div class="flex flex-wrap items-center gap-2">

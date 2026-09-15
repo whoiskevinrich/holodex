@@ -87,6 +87,16 @@ title, the Film year.
 → [`web/src/lib/components/entity/CLAUDE.md`](../../web/src/lib/components/entity/CLAUDE.md)
 `NameEditControl` row; [unified-name-edit-handoff.md](../design/unified-name-edit-handoff.md)
 
+**Display as / Rename in files.** The two verbs on a Person/Studio/Film heading (F60 RD10).
+*Display as* is the name field's chip row on `DisplayNameLine` — the "In files as `<canonical>`"
+line under the heading, shown only when the resolved spelling differs (a quiet **Display as…**
+link stands in for it when no decision is standing). *Rename in files* is the docked pencil,
+unchanged, prefilled with the canonical value — and, once a decision stands, the record spelling
+on the "In files as" line opens that same form. Two existing affordances, no new buttons; the
+canonical column is never written by a display decision.
+→ [entity-identity-card-handoff.md §4](../design/entity-identity-card-handoff.md);
+[ADR-096](../architecture/ADR-096-entity-identity-card.md) D5
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.
@@ -126,6 +136,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "are the owner and visitor view using the same component now?" | **decision / display separation** | the answer is about *where the value renders*, not which control the owner has |
 | "co-locate owner and visitor views in the same file to reduce divergence" | **drift**, and the *owner branch* rule | co-location does not prevent drift; one unconditional rendering of the value does |
 | "a reuse mechanism for long prose — biographies, comments, descriptions" | **long prose** + **enforcement by subtraction** | the mechanism existed; it had a knob — the fix is removing the knob, not adding a component |
+| "where should the display name render — headers + search, or every surface?" (2026-09-15) | **display name** = *headers + search* | the heading and the search row read the resolved `name`; cards, tiles, link cards and pickers keep the canonical column — a `display_name` on cards is its own story, not a widening of this one |
 
 ## Saying it
 

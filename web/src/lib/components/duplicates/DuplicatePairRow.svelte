@@ -6,7 +6,7 @@
 	// the two verdicts: Merge (pick which name survives, fold the other in) and Keep
 	// separate (records keep-separate — the pair never re-surfaces; the row fades out).
 	// Tokens only; QA 3 skins.
-	import { videoCount, toMessage } from '$lib/format';
+	import { videoCount, toMessage, refLabel } from '$lib/format';
 	import type { DuplicatePair } from '$lib/types';
 
 	let {
@@ -72,13 +72,13 @@
 <div
 	class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-rule px-3 py-2.5 text-sm"
 	role="group"
-	aria-label={`Possible duplicate: ${pair.a.name} and ${pair.b.name}`}
+	aria-label={`Possible duplicate: ${refLabel(pair.a)} and ${refLabel(pair.b)}`}
 >
 	<div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-		<span class="truncate text-ink">{pair.a.name}</span>
+		<span class="truncate text-ink">{refLabel(pair.a)}</span>
 		<span class="shrink-0 text-xs text-muted">{videoCount(pair.a.video_count ?? 0)}</span>
 		<span aria-hidden="true" class="shrink-0 text-muted">↔</span>
-		<span class="truncate text-ink">{pair.b.name}</span>
+		<span class="truncate text-ink">{refLabel(pair.b)}</span>
 		<span class="shrink-0 text-xs text-muted">{videoCount(pair.b.video_count ?? 0)}</span>
 		<span class="shrink-0 text-xs text-muted">· {pair.variation}</span>
 		{#if matchKindLabel[pair.match_kind]}
@@ -100,10 +100,10 @@
 		{#if choosing}
 			<span class="text-xs text-muted">Keep:</span>
 			<button onclick={() => doMerge(pair.a.id, pair.b.id)} disabled={busy} class={PILL_ACTION}>
-				{pair.a.name}
+				{refLabel(pair.a)}
 			</button>
 			<button onclick={() => doMerge(pair.b.id, pair.a.id)} disabled={busy} class={PILL_ACTION}>
-				{pair.b.name}
+				{refLabel(pair.b)}
 			</button>
 			<button onclick={() => (choosing = false)} disabled={busy} class={TOGGLE}> Cancel </button>
 		{:else}

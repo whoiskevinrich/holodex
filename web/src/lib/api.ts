@@ -69,7 +69,8 @@ const BASE = '/api/v1';
 const ENTITY_BASE: Record<EntityKind, string> = {
 	person: 'people',
 	studio: 'studios',
-	tag: 'tags'
+	tag: 'tags',
+	film: 'films'
 };
 
 // The REST base segment for each enrichment entity (F47, ADR-066) — 'video' rides
@@ -843,7 +844,7 @@ export const api = {
 
 	// Editor near-miss soft-warning lookup (F43 P1-5). Owner-gated read: a candidate name
 	// → the fuzzy near-miss entity (loose-key match, not an exact collision, not
-	// kept-separate) or null. kind is 'studio' | 'tag'.
+	// kept-separate) or null. kind is 'studio' | 'tag' | 'film'.
 	nearMiss: (kind: Exclude<EntityKind, 'person'>, id: number, name: string) =>
 		getAuthed<{ near_miss: EntityRef | null }>(
 			`/${ENTITY_BASE[kind]}/${id}/near-miss?name=${encodeURIComponent(name)}`

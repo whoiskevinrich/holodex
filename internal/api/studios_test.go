@@ -223,9 +223,10 @@ func TestStudioDecisionAuth(t *testing.T) {
 	}
 	sid := itoa(lst.Items[0].ID)
 
-	// name is read-only → 400.
-	if code := sendDecision(t, http.MethodPut, srv.URL+"/api/v1/studios/"+sid+"/fields/name/decision", "", map[string]string{"source": "record"}); code != http.StatusBadRequest {
-		t.Errorf("name decision = %d, want 400", code)
+	// name pins too (F60 RD9, HOLODEX-378) — the display spelling; the record chip
+	// resolves to the canonical column, so this is a standing no-op.
+	if code := sendDecision(t, http.MethodPut, srv.URL+"/api/v1/studios/"+sid+"/fields/name/decision", "", map[string]string{"source": "record"}); code != http.StatusNoContent {
+		t.Errorf("name decision = %d, want 204", code)
 	}
 	// unknown field → 404.
 	if code := sendDecision(t, http.MethodPut, srv.URL+"/api/v1/studios/"+sid+"/fields/nope/decision", "", map[string]string{"source": "record"}); code != http.StatusNotFound {

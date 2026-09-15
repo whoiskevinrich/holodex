@@ -76,6 +76,13 @@ type Person struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// HeadshotVersion is the headshot image id (== its ?v= cache-buster) on the
 	// people-list read, so the list avatar URL changes when the headshot does (e.g.
 	// after enrichment) instead of serving the stale cached image (F25.29). 0 = no
@@ -122,6 +129,10 @@ type EntityRef struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// Year disambiguates a film ref (HOLODEX-376): two films may legitimately share a
+	// title, so a review pair / near-miss / picker row needs it to be tellable apart.
+	// Zero for every other kind.
+	Year int `json:"year,omitempty"`
 }
 
 // Person image roles (F25, ADR-038). The three "core" roles are single-slot per
@@ -288,6 +299,13 @@ type Studio struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
 	// Populated on the studio-detail read; omitted (nil) elsewhere.
 	Aliases []EntityAlias `json:"aliases,omitempty"`
@@ -357,6 +375,13 @@ type Film struct {
 	Name       string `json:"name"`
 	Year       int    `json:"year,omitempty"`
 	VideoCount int    `json:"video_count,omitempty"`
+	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
+	// on search results (the row must show what matched); omitted elsewhere, where
+	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// on every payload: pickers send it back for linking, and it is the
+	// identity / alias / writeback truth.
+	DisplayName string `json:"display_name,omitempty"`
 	// PosterURL/BannerURL are serving URLs for the film's self-hosted image roles
 	// (F56/HOLODEX-280, ADR-086; banner added by F59/ADR-089 D4):
 	// /api/v1/films/{id}/images/{role}?v={id} when that role's slot is filled —
@@ -364,6 +389,9 @@ type Film struct {
 	// role has no image (the SPA renders its fallback).
 	PosterURL string `json:"poster_url,omitempty"`
 	BannerURL string `json:"banner_url,omitempty"`
+	// Aliases are the film's other titles on the shared identity spine (HOLODEX-376,
+	// ADR-096 D3) — owner-curated or provider alternative titles — each searchable.
+	Aliases []EntityAlias `json:"aliases,omitempty"`
 	// ImageVersions holds the film_images row id per filled role (the ?v= cache
 	// buster) — internal; the API layer turns it into the URLs above via
 	// setFilmImageURLs. Absent role = no image. Mirrors Studio.ImageVersions.

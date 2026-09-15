@@ -91,7 +91,7 @@ func (h *Handlers) remediationQueue(ctx context.Context) ([]FacetGroup, error) {
 	// addRow skips resolved/not-applicable facets and files everything else
 	// into its facet group, split candidate-ready vs needs-research.
 	addRow := func(f resolver.FacetScore, row QueueRow) {
-		if f.Tier != resolver.TierMissing || f.NotApplicable {
+		if f.Tier != resolver.TierMissing || f.NotApplicable || f.Criticality == registry.CriticalityOptional {
 			return
 		}
 		g, ok := groups[f.Canonical]

@@ -48,7 +48,7 @@ func TestNameKeyConvergencePerson(t *testing.T) {
 }
 
 // TestExternalIDsForEntity proves the HOLODEX-266/ADR-083 badge-projection read: a
-// person's attached external id (person_external_ids, ADR-055/F32) round-trips as
+// person's attached external id (entity_external_ids, ADR-096 D2) round-trips as
 // the same namespace-qualified string it was attached with, and an entity with none
 // yet reads back empty rather than erroring.
 func TestExternalIDsForEntity(t *testing.T) {
@@ -89,9 +89,10 @@ func TestExternalIDsForEntity(t *testing.T) {
 		t.Fatalf("external ids for unenriched person = %v, want empty", ids2)
 	}
 
-	// A tag has no external-id table — nil, not an error.
-	if ids3, err := r.ExternalIDsForEntity(ctx, model.EntityTag, 1); err != nil || ids3 != nil {
-		t.Fatalf("external ids for tag = (%v, %v), want (nil, nil)", ids3, err)
+	// A tag with no attached id reads back empty too (tags share the table since
+	// ADR-096 D2; see TestEntityExternalIDs_FilmAndTag for the attached case).
+	if ids3, err := r.ExternalIDsForEntity(ctx, model.EntityTag, 1); err != nil || len(ids3) != 0 {
+		t.Fatalf("external ids for tag = (%v, %v), want empty", ids3, err)
 	}
 }
 
@@ -218,4 +219,121 @@ func contains(ss []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// TestResolvePrecedence_ExternalIDBeatsNameKey is the F60 RD3 / F23 invariant, stated
+// as precedence rather than convergence (TestReconcileVideoPeople_ExternalIDDedup only
+// proves an id-carrying spelling *converges*): when a file's spelling is an EXACT
+// nameKey match for entity B but carries entity A's provider id, the link lands on A.
+// Step 1 of resolveOrCreateByName (external id) must run before step 2 (nameKey), for
+// every kind that has provider identity — otherwise a merge or a provider link is
+// undone by the next rescan. One polymorphic table (ADR-096 D2) serves both kinds.
+func TestResolvePrecedence_ExternalIDBeatsNameKey(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	a, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	b, _ := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil)
+	c, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
+
+	// Person: A "Denis Villeneuve" owns tmdb:137; B "Dennis Villeneuve" is a distinct,
+	// id-less person whose name the third file spells exactly.
+	if err := r.ReconcileVideoPeople(ctx, a, []repo.PersonRoleName{{Name: "Denis Villeneuve", Role: "director"}},
+		map[string]string{"Denis Villeneuve": "tmdb:137"}); err != nil {
+		t.Fatalf("reconcile a: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, b, []repo.PersonRoleName{{Name: "Dennis Villeneuve", Role: "director"}}, nil); err != nil {
+		t.Fatalf("reconcile b: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, c, []repo.PersonRoleName{{Name: "Dennis Villeneuve", Role: "director"}},
+		map[string]string{"Dennis Villeneuve": "tmdb:137"}); err != nil {
+		t.Fatalf("reconcile c: %v", err)
+	}
+	if n := peopleCount(t, r); n != 2 {
+		t.Fatalf("people = %d, want 2 (no third row from the id-carrying rescan)", n)
+	}
+	denis, dennis := personIDByName(t, r, "Denis Villeneuve"), personIDByName(t, r, "Dennis Villeneuve")
+	people, _ := r.PeopleForVideos(ctx, []int64{c})
+	if len(people[c]) != 1 || people[c][0].ID != denis {
+		t.Fatalf("video c people = %+v, want the id owner %d (not the nameKey match %d)", people, denis, dennis)
+	}
+
+	// Studio: same shape over the same table.
+	if err := r.ReconcileVideoStudios(ctx, a, []string{"Warner Bros."}, map[string]string{"Warner Bros.": "tmdb:174"}); err != nil {
+		t.Fatalf("studios a: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, b, []string{"Warner Brothers"}, nil); err != nil {
+		t.Fatalf("studios b: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, c, []string{"Warner Brothers"}, map[string]string{"Warner Brothers": "tmdb:174"}); err != nil {
+		t.Fatalf("studios c: %v", err)
+	}
+	studios, err := r.ListStudios(ctx, false)
+	if err != nil {
+		t.Fatalf("list studios: %v", err)
+	}
+	if len(studios) != 2 {
+		t.Fatalf("studios = %+v, want 2", studios)
+	}
+	wb := studioIDByName(t, r, "Warner Bros.")
+	got, _ := r.StudiosForVideos(ctx, []int64{c})
+	if len(got[c]) != 1 || got[c][0].ID != wb {
+		t.Fatalf("video c studios = %+v, want the id owner %d", got, wb)
+	}
+}
+
+// TestEntityExternalIDs_FilmAndTag proves the two kinds ADR-096 D2 adds to the
+// external-id store: AttachExternalID/ExternalIDsForEntity round-trip for film and
+// tag, GetFilmByExternalID resolves the provider id, an id is unique per kind but not
+// across kinds (PK is (entity_type, external_id)), and the per-kind AFTER DELETE
+// trigger removes a film's ids with the film (no FK cascade on a polymorphic table).
+func TestEntityExternalIDs_FilmAndTag(t *testing.T) {
+	r, database := newRepoDB(t)
+	ctx := context.Background()
+
+	film, err := r.CreateFilm(ctx, "The Matrix", 1999)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if err := r.AttachExternalID(ctx, model.EnrichEntityFilm, film, "tmdb:603"); err != nil {
+		t.Fatalf("attach film id: %v", err)
+	}
+	// Idempotent: the same pair again is a no-op, not a PK error.
+	if err := r.AttachExternalID(ctx, model.EnrichEntityFilm, film, "tmdb:603"); err != nil {
+		t.Fatalf("re-attach film id: %v", err)
+	}
+	got, err := r.GetFilmByExternalID(ctx, "tmdb:603")
+	if err != nil || got == nil || got.ID != film {
+		t.Fatalf("GetFilmByExternalID = (%+v, %v), want film %d", got, err, film)
+	}
+	if got, err := r.GetFilmByExternalID(ctx, "tmdb:999"); err != nil || got != nil {
+		t.Fatalf("GetFilmByExternalID(unknown) = (%+v, %v), want (nil, nil)", got, err)
+	}
+
+	// The same id string under another kind is a different row (unique per kind).
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"matrix"}), nil); err != nil {
+		t.Fatalf("upsert video: %v", err)
+	}
+	var tagID int64
+	if err := database.QueryRow(`SELECT id FROM tags WHERE name = 'matrix'`).Scan(&tagID); err != nil {
+		t.Fatalf("tag id: %v", err)
+	}
+	if err := r.AttachExternalID(ctx, model.EntityTag, tagID, "tmdb:603"); err != nil {
+		t.Fatalf("attach tag id: %v", err)
+	}
+	ids, err := r.ExternalIDsForEntity(ctx, model.EntityTag, tagID)
+	if err != nil || len(ids) != 1 || ids[0] != "tmdb:603" {
+		t.Fatalf("tag external ids = (%v, %v), want [tmdb:603]", ids, err)
+	}
+
+	// Cleanup trigger: deleting the film drops its ids; the tag's row is untouched.
+	if _, err := database.ExecContext(ctx, `DELETE FROM films WHERE id = ?`, film); err != nil {
+		t.Fatalf("delete film: %v", err)
+	}
+	if got, err := r.GetFilmByExternalID(ctx, "tmdb:603"); err != nil || got != nil {
+		t.Fatalf("film id survived film delete: (%+v, %v)", got, err)
+	}
+	if ids, _ := r.ExternalIDsForEntity(ctx, model.EntityTag, tagID); len(ids) != 1 {
+		t.Fatalf("tag external ids after film delete = %v, want [tmdb:603]", ids)
+	}
 }

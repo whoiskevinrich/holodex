@@ -29,7 +29,8 @@
 		pencilAlwaysVisible = false,
 		as = 'h1',
 		editLabel,
-		placeholder
+		placeholder,
+		editValue
 	}: {
 		name: string;
 		isOwner: boolean;
@@ -51,6 +52,13 @@
 		// has to delete before typing. Callers whose value cannot be empty omit it and are
 		// unaffected.
 		placeholder?: string;
+		// The value the edit form opens with, when it is not the resting text. Person/
+		// Studio/Film headings render the *resolved* name — a display decision may pick a
+		// provider or custom spelling (F60 RD9) — while the pencil renames the canonical
+		// record, so the input must prefill canonical and "unchanged" is judged against it
+		// (RD10: the pencil is "Rename in files", never "edit the display"). Defaults to
+		// `name`; callers whose heading is the canonical value omit it.
+		editValue?: string;
 		// Optional anchor id for deep links (e.g. the completeness queue's #field-title) —
 		// applied to the root wrapper since the rendered element differs by editing state.
 		id?: string;
@@ -80,8 +88,18 @@
 		Promise.resolve().then(() => pencil?.focus());
 	}
 
+	// Opens the rename form from outside the control (bind:this + open()). The one caller
+	// is DisplayNameLine (HOLODEX-378): when a display decision stands, the record spelling
+	// on its "In files as" line is the visible trigger for a rename — the docked pencil is
+	// hover-revealed and, next to a heading that is no longer the record spelling, was not
+	// found (QA 4.3 follow-up). Same form, same prefill (`editValue`), same commit path.
+	export function open() {
+		if (!isOwner || editing || busy) return;
+		startEdit();
+	}
+
 	function startEdit() {
-		value = name;
+		value = editValue ?? name;
 		error = '';
 		// A prior rename's collision offer (if any) is no longer relevant to this fresh
 		// edit — leaving it set would let a stale MergeOfferCard be actioned against the
@@ -106,7 +124,7 @@
 		e.preventDefault();
 		const next = value.trim();
 		if (!next || busy) return;
-		if (next === name) {
+		if (next === (editValue ?? name)) {
 			closeEdit();
 			return;
 		}
