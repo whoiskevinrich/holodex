@@ -24,3 +24,25 @@ into another, and the shared video-list body for an entity's detail page.
 | `StudioPicker.svelte` | Studio relationship-edit popover (HOLODEX-271): docked-pencil affordance replacing `SourceSelect`'s Studio radiogroup on the video detail page — known-candidate chips (via `sourceChips`), full-library search, and an inline create-fallback, all committing through the video detail page's `decideStudio`/`saveStudioAnyway` functions (`media/[id]/+page.svelte`), which call `PUT /media/{id}/fields/studio/decision`. Runs the same HOLODEX-270 collision check as Title (via its caller-supplied `decide`) and shows `CollisionOfferCard` through the same generic verdict-snippet mechanism `NameEditControl` uses. The trigger itself branches on the caller-supplied `hasStudio` (HOLODEX-289): the docked pencil once a studio is linked, or a `+ Add studio` text CTA (matching Tags' `+ Add tag`) when none is — a bare pencil floating with no linked name for visual anchor was undiscoverable. |
 | `TagLinkChip.svelte` | Reusable tag display (HOLODEX-292): linked name + provenance suffix (`·file`/`·manual`/`·provider`) + optional remove control, one chip per tag. Owner vs. read-only is decided by whether the caller passes `onremove` (no separate `isOwner` boolean). Replaces three previously-inconsistent inline chip styles the Media (owner and visitor branches disagreed with each other) and Film detail pages each grew independently; both now share the same `rounded-full border-rule bg-surface-2` shape. The add-tag control itself (search/create popover) stays a separate component, `TagPicker.svelte` (HOLODEX-287/ADR-088) — this component owns only the per-tag chip, not the "+ Add tag" affordance. |
 | `SearchResultsPanel.svelte` | Grouped/tabbed search results (NS1/NS5, HOLODEX-249) — the All/People/Videos/Studios/Tags tab row + capped result rows, roving tabindex. Shared by the nav box's live-typing dropdown (`variant="dropdown"`) and `/search`'s page body (`variant="page"`), per "reuse, don't fork." Spans video results too, not just person/studio/tag. `showResults=false` (NS2) renders only the tab row — used while a scoped page (Media/People/Studios/Tags) is filtering its own grid in place, so the owner can still tap another tab to preview it without the results body doubling what the page is already showing. |
+
+## Rules
+
+### Frame follows source aspect, never config or role name
+
+Never cover-crop an image into a frame its source can't fill. An image's aspect ratio is a
+property of the *bytes*, not of the role it was stored under or a config flag the viewer set.
+This has been decided twice, both times after shipping the defect (HOLODEX-385/386, 2026-09-15):
+
+- `card_layout: poster` forced *video* cards (scene thumbnails — frame grabs, inherently
+  wide) into a 2:3 frame. Only ever looked right when the thumbnail was secretly the film's
+  cover art. Removed by HOLODEX-385; the films index owns poster-shaped cards.
+- A provider sidecar emitted the film *poster* under the `banner` kind; `EntityImageSlot`
+  `fit="cover"` in an 8:3 band then showed a cropped slice of portrait art. HOLODEX-386 refuses
+  a portrait image for the landscape role at ingest rather than removing the band.
+
+So: `fit="cover"` is for a slot whose ratio *deliberately* differs from art of a *known*
+aspect (a ~16:9 backdrop in an 8:3 band). If the source aspect is not guaranteed by a check
+upstream — ingest refusal, upload validation, or a `naturalWidth`/`naturalHeight` gate —
+use `contain`, or don't render the frame at all. Don't add a layout flag to paper over a
+mismatch; fix the source or the gate. When a frame has nothing that fits it, render nothing
+(F25.30's "no band when empty") rather than a plate or a crop.
