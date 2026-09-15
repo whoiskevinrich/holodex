@@ -187,7 +187,7 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - [x] Every `{id}` route segment and every MCP tool id argument accepts a ref; kind mismatch → 400
   with a body naming the expected kind.
 - [~] `RefChip` mounted as the last item of the meta line on all five detail pages (handoff §1a) —
-  **shipped `9deff21`, removed `<this commit>` by owner ruling** ("not useful, and not what
+  **shipped `9deff21`, removed `2c239bc` by owner ruling** ("not useful, and not what
   should have been implemented"). The UI has no reference surface; the handle lives in the API.
 - [x] Given `GET /people/1234` and `GET /people/person:1234`, the bodies are byte-identical.
 
