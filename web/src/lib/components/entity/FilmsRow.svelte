@@ -16,12 +16,20 @@
 			{#each films as f (f.id)}
 				<li class="w-20 shrink-0">
 					<a href={`/films/${f.id}`} class="block space-y-1 text-ink" title={f.name}>
+						<!-- HOLODEX-383: same defect as HOLODEX-318 on the films index — this drew
+						     the monogram unconditionally, so a film with a poster showed art on
+						     /films and a letter here. `poster_url` is populated on the list read
+						     (types.ts), so the monogram is the empty state, not the default. -->
 						<div
 							class="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
 						>
-							<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
-								>{monogram(f.name)}</span
-							>
+							{#if f.poster_url}
+								<img src={f.poster_url} alt="" loading="lazy" class="h-full w-full object-cover" />
+							{:else}
+								<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
+									>{monogram(f.name)}</span
+								>
+							{/if}
 						</div>
 						<span class="line-clamp-2 text-xs text-muted hover:text-accent">{f.name}</span>
 					</a>
