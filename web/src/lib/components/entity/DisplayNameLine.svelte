@@ -1,11 +1,17 @@
 <script lang="ts">
 	// The name field's curation line under a Person/Studio/Film heading (F60 RD10,
-	// HOLODEX-378). The heading renders the *resolved* name; this line renders only when
-	// that differs from the canonical column — "In files as <canonical>" for everyone,
-	// plus the name field's SourceBadge (the "Display as" verb) for the owner — so the
-	// at-rest header is unchanged and visitor/owner views stay identical (HOLODEX-268).
-	// With no decision standing the owner gets a quiet "Display as…" link in the same
-	// slot, which opens the badge's chip row in place.
+	// HOLODEX-378). The heading renders the *resolved* name; this line is **owner-only**
+	// and renders only when that differs from the canonical column — "In files as
+	// <canonical>" plus the name field's SourceBadge (the "Display as" verb). Visitors
+	// see the heading alone (owner ruling 2026-09-15: "they don't need to know about the
+	// files"). This is not the routes rule's content gate: the record spelling is the
+	// context for two owner controls, not a value the entity shows the world — the
+	// visitor-facing value is the resolved name in the heading. With no decision
+	// standing the owner gets a quiet "Display as…" link in the same slot, which opens
+	// the badge's chip row in place.
+	//
+	// `field` is always present when this renders for the owner; the `else` branch with no
+	// decision is the same owner. Visitors never mount anything from this component.
 	//
 	// Two verbs, two existing affordances (handoff §4c): the badge here changes a
 	// per-field decision (DB only); the docked pencil on the heading is "Rename in files"
@@ -87,12 +93,12 @@
 	});
 </script>
 
-{#if field && (differs || (isOwner && open))}
+{#if field && isOwner && (differs || open)}
 	<div bind:this={lineEl} class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
 		{#if differs}
 			<span>
 				{prefix}
-				{#if isOwner && onRename}
+				{#if onRename}
 					<button
 						type="button"
 						aria-label={`${renameLabel} — in files as ${canonical}`}
@@ -106,14 +112,12 @@
 				{/if}
 			</span>
 		{/if}
-		{#if isOwner}
-			<SourceBadge {field} baselineKey="record" showValue={false} {decide} />
-			{#if open}
-				<p class="w-full">
-					Changes how the name is shown here and in search. Files, aliases, and writeback keep
-					the record spelling.
-				</p>
-			{/if}
+		<SourceBadge {field} baselineKey="record" showValue={false} {decide} />
+		{#if open}
+			<p class="w-full">
+				Changes how the name is shown here and in search. Files, aliases, and writeback keep
+				the record spelling.
+			</p>
 		{/if}
 	</div>
 {:else if field && isOwner}

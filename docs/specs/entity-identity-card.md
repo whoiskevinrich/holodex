@@ -254,6 +254,8 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 - [x] The rejection of source decisions on `name` is lifted for person, studio, film (not tag — RD9).
 - [x] The rendered name on each detail page is the resolved `name`; the "In files as" line + badge
   appear only when resolved ≠ canonical (RD10).
+  As built: the line is owner-only — a visitor sees the resolved heading alone (owner ruling
+  2026-09-15).
 - [x] Search matches canonical, resolved, and aliases.
 - [x] Given a standing display decision, when the owner opens the rename pencil, then the input is
   prefilled with the canonical value; when a writeback batch is built, the payload carries the

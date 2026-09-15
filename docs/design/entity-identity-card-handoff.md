@@ -262,8 +262,11 @@ components and supersedes it where they differ:
 | A1 · owner, no decision | Heading + docked pencil exactly as before; beneath, a quiet link (`.btn-quiet text-xs`), owner only, that **names the spelling on offer**: `Display as Ana Keßler (tmdb)…` when a provider spelling differs from the record, bare `Display as…` otherwise. | §4c's "same slot" link, with the copy change from QA 4.3: the first pass reached for the provider's Refresh button, because at rest nothing said a second spelling existed. |
 | A2 · link clicked | The name field's `SourceBadge` mounts **already expanded** in the link's slot: `record` / provider spelling / `Custom` chips, Confirm / Cancel, and the helper copy under it. Focus hands from the link to the badge; dismissing hands it back. | Helper copy rewritten: search **does** match the display spelling (spec §378, ADR-096 D5), so it reads "Changes how the name is shown here and in search. Files, aliases, and writeback keep the record spelling." |
 | A3 · decision standing | h1 = resolved spelling; `In files as <canonical, mono> <badge>`. The badge renders **without repeating the value** (`SourceBadge showValue={false}`) — the heading already shows it. Pencil prefills canonical (`NameEditControl editValue`). **For the owner the record spelling on the line is itself the rename trigger** — dotted-underlined, `aria-label="Rename this person — in files as Ana Kessler"`, opens the same rename form (`NameEditControl.open()`), prefilled and selected. | Films read **On record as** — a title is owner-asserted, never read from a file. Studios read "In files as" like people (the record comes from file tags). The trigger is a QA 4.3 follow-up (owner, 2026-09-15): with a decision standing the docked pencil is hover-hidden beside a heading that no longer shows the record spelling, so there was no visible way to change what the files say. Owner chose the value-as-trigger over an always-visible pencil. |
-| A4 · visitor | Heading + the "In files as" line; no badge, no link, no pencil — a content line, not a control (routes rule). | Panel 4 drew the owner only. |
+| A4 · visitor | **Heading only.** No line, no badge, no link, no pencil. | Panel 4 drew the owner only. First cut showed visitors the "In files as" line as content; owner ruling 2026-09-15: "they don't need to know about the files" — the record spelling is context for two owner controls, not a value the entity shows the world. The visitor-facing value is the resolved name. |
 | B · search row | The nav search row labels with `display_name ?? name`; canonical, display and alias spellings all match. | New: the row is the one list surface in scope. **Pickers keep the canonical name** — they send `name` back for linking. |
+
+`DisplayNameLine` is therefore owner-only end to end; the routes rule's "value renders once,
+unconditionally" is satisfied by the heading.
 
 Scope ruling (2026-09-15, options rendered side by side): **headers + search only.** List cards,
 cast tiles, link cards and pickers keep the canonical name; a `display_name` on cards is a
@@ -338,8 +341,8 @@ not body text — but check Broadcast, whose muted is the lightest).
   the TMDB spelling; the pencil still opens rename with the **canonical** value prefilled.
 - **3.5** [agent] Contrast per §7 in all three skins via computed styles; no horizontal overflow
   at 375px on the media page with a 40-character custom edition.
-- **3.6** [agent] Display name (378): visitor sees the h1 in the display spelling and the "In files
-  as" line with no badge/link/pencil; owner with no decision sees the **Display as…** link and
+- **3.6** [agent] Display name (378): visitor sees the h1 in the display spelling and nothing
+  beneath it (no "In files as" line, badge, link or pencil); owner with no decision sees the **Display as…** link and
   clicking it opens the chip row with focus on the badge; confirming `record` restores canonical,
   removes the line and returns focus to the link; `/search?q=<display>` returns the row with
   `display_name`; a 70-character unbroken canonical does not scroll the page at 375px.

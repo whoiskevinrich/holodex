@@ -160,7 +160,9 @@ way to change the name written to files" — the docked pencil is hover-only and
 heading that no longer shows the record spelling. Kevin chose the value-as-trigger: the record
 spelling on the "In files as" line opens the rename form (`NameEditControl.open()` exported;
 `DisplayNameLine onRename`). Live-checked: click → form prefilled + selected, Escape closes;
-visitor sees plain text. **PR #332 marked ready; 373–378 swept to In Review.**
+visitor sees plain text. Third ruling: the "In files as" line is **owner-only** — "they don't
+need to know about the files" — visitors get the resolved heading alone. **PR #332 marked ready;
+373–378 swept to In Review.**
 
 ### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
 - skills: code-review (2 findings, both fixed), security-review (clean)
