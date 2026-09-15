@@ -202,6 +202,12 @@ regret**: the owner's rule is that tags are always lowercase. A display-name dec
 be a way to defeat that rule one tag at a time. HOLODEX-379 (which proposed reversing 0034) is closed
 Won't Do.
 
+Film's provider spelling is the sidecar's `title` key (ADR-086 §3), so a film `name` candidate is
+`<provider>:title`. [ADR-089](ADR-089-film-enrichment-field-vocabulary.md) D3 kept film `name`
+baseline-only because a provider source then meant an ungated rename of half the `(name, year)` key;
+D5 admits the provider spelling as a *display* candidate only — the column is never written by a
+decision — so D3's rule now binds the column, not the candidate list.
+
 ## Options Considered
 
 ### D1 — the handle
@@ -299,9 +305,9 @@ Won't Do.
 
 ## Action Items
 
-1. [ ] **374** `internal/api/ref.go` parser + `ref` on every entity payload + MCP arg decoder; `RefChip`
+1. [x] **374** `internal/api/ref.go` parser + `ref` on every entity payload + MCP arg decoder; `RefChip`
    mounted per the handoff §1a; tests for kind mismatch (400) and byte-identical bodies.
-2. [ ] **375** migration (number assigned against `origin/main` at commit time — 0045 was latest on
+2. [x] **375** migration (number assigned against `origin/main` at commit time — 0045 was latest on
    2026-09-12): `entity_external_ids`, fold, drop; generalise `resolveOrCreateByName` /
    `identityQueryByType`; `GetFilmByExternalID`; ADR-083 projection reads the new table. **The F23
    precedence test first.** Decide in-PR whether `entity_enrichment.external_id` drops in the same
@@ -322,9 +328,15 @@ Won't Do.
    long-text / merge fields are never synthesised that way. Owner ruling 2026-09-14: edition is a
    `CriticalityOptional` facet — listed, never scored/queued — because on the requesting library
    most media legitimately has none.)
-5. [ ] **378** lift the three rejections for person/studio/film; "In files as" line + badge; pencil
+5. [x] **378** lift the three rejections for person/studio/film; "In files as" line + badge; pencil
    prefills canonical; writeback payload carries canonical; search indexes resolved + canonical + aliases.
-6. [ ] Spec RD9 / P0 §378 and the design handoff §4d: strike Tag (this ADR's D5).
-7. [ ] Add the ADR-096 row to `README.md`; note in ADR-061's index row that its entity set is revisited here.
-8. [ ] `/testing-strategy` per slice; `/security-review` on the implementation diff (new writeback key,
+   (Shipped 2026-09-15. Scope ruling: the resolved name renders on the three detail headings and the
+   search row only — cards, tiles and pickers keep the canonical column; search rows carry
+   `display_name` *beside* `name` because the pickers read the same endpoint and send `name` back.
+   Search matches the display spelling through a narrow SQL mirror of the decided-replace rule rather
+   than an index. Film's provider spelling is the sidecar's `title` key. The handoff QA 4.3 kill
+   criterion is still the owner's to run.)
+6. [x] Spec RD9 / P0 §378 and the design handoff §4d: strike Tag (this ADR's D5).
+7. [x] Add the ADR-096 row to `README.md`; note in ADR-061's index row that its entity set is revisited here.
+8. [x] `/testing-strategy` per slice; `/security-review` on the implementation diff (new writeback key,
    new mutation surface on `name`, film identity routes).

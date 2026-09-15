@@ -251,14 +251,14 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   persists as a curated decision and the film page pill reads "Director's Cut".
 
 **378 — Display name**
-- [ ] The rejection of source decisions on `name` is lifted for person, studio, film (not tag — RD9).
-- [ ] The rendered name on each detail page is the resolved `name`; the "In files as" line + badge
+- [x] The rejection of source decisions on `name` is lifted for person, studio, film (not tag — RD9).
+- [x] The rendered name on each detail page is the resolved `name`; the "In files as" line + badge
   appear only when resolved ≠ canonical (RD10).
-- [ ] Search matches canonical, resolved, and aliases.
-- [ ] Given a standing display decision, when the owner opens the rename pencil, then the input is
+- [x] Search matches canonical, resolved, and aliases.
+- [x] Given a standing display decision, when the owner opens the rename pencil, then the input is
   prefilled with the canonical value; when a writeback batch is built, the payload carries the
   canonical value.
-- [ ] Given the owner clears the decision, the header returns to the canonical spelling and the
+- [x] Given the owner clears the decision, the header returns to the canonical spelling and the
   "In files as" line disappears.
 
 ### Should-have (P1)
@@ -316,6 +316,15 @@ resolver output for `name` is what headers, cards, and search-result rows render
 reads the resolved value: alias routing, nameKey, `RenameEntity`, writeback, and the MCP
 `name` field all read the canonical column. Tags are out (RD9). Films: gated on 376 landing
 `NameEditControl` on the title.
+
+As built (2026-09-15): the rendered surfaces are the three detail headings and the search-result
+row — list cards, cast tiles, link cards and pickers keep the canonical name (owner scope ruling;
+cards are a follow-up if 378 survives QA 4.3). Search results carry `display_name` beside the
+canonical `name` rather than replacing it, because the pickers read the same endpoint and send
+`name` back for linking. Search matches the display spelling through a narrow SQL mirror of the
+resolver's decided-replace rule (`repo.DisplayNames`), pinned to the resolved payload by test. The
+film's provider spelling lives under the sidecar's `title` key (ADR-086 §3), so film `name`
+candidates are `<provider>:title`.
 
 ## Data model
 

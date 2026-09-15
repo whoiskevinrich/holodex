@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Display name as built (HOLODEX-378) — the person hero in its four states, and a search row</title>
+  <desc>Panel A, the person detail hero drawn from the shipped components, four states: owner with no decision standing (heading, docked pencil, and a quiet Display as… link beneath); owner after clicking that link (the name field's SourceBadge chip row open in place — record, tmdb, Custom, Confirm, Cancel — with the helper copy under it); owner with a decision standing (the heading shows the provider spelling, beneath it the line In files as, the canonical spelling in monospace, and the tmdb badge); and the visitor view of that same person (heading and the In files as line, no badge, no link, no pencil). Panel B, the nav search dropdown's People row for that person labelled with the display spelling; a note that pickers still show and send the canonical name.</desc>
+
+  <rect width="900" height="560" fill="#0c0a09"/>
+
+  <!-- ─────────── A. Person hero, four states ─────────── -->
+  <text x="30" y="30" fill="#e8a33d" font-size="11" letter-spacing="1.2">A — PERSON HERO: DISPLAY AS vs RENAME IN FILES, AS BUILT (378)</text>
+  <rect x="30" y="42" width="840" height="380" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+
+  <!-- A1 owner, no decision -->
+  <text x="46" y="68" fill="#9b9082" font-size="11" letter-spacing="1.2">A1 · OWNER, NO DECISION</text>
+  <rect x="46" y="80" width="56" height="56" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="114" y="106" fill="#f3ece1" font-size="22" font-weight="600" font-family="'Fraunces Variable', serif">Ana Kessler</text>
+  <rect x="246" y="90" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="254" y="102" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+  <text x="268" y="102" fill="#9b9082" font-size="9">Rename this person</text>
+  <text x="114" y="126" fill="#9b9082" font-size="11">Display as…</text>
+  <text x="200" y="126" fill="#9b9082" font-size="9">← .btn-quiet, owner only</text>
+  <text x="114" y="144" fill="#9b9082" font-size="11">0 videos · person:1</text>
+
+  <!-- A2 owner, link clicked -->
+  <text x="466" y="68" fill="#9b9082" font-size="11" letter-spacing="1.2">A2 · OWNER, DISPLAY AS… CLICKED</text>
+  <rect x="466" y="80" width="56" height="56" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="534" y="106" fill="#f3ece1" font-size="22" font-weight="600" font-family="'Fraunces Variable', serif">Ana Kessler</text>
+  <rect x="666" y="90" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="674" y="102" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+  <rect x="534" y="114" width="34" height="16" rx="8" fill="#181310" stroke="#e8a33d"/>
+  <text x="551" y="125" fill="#9b9082" font-size="9" text-anchor="middle">file</text>
+  <rect x="534" y="138" width="104" height="18" rx="9" fill="#181310" stroke="#2a2622"/>
+  <text x="586" y="150" fill="#f3ece1" font-size="10" text-anchor="middle">Ana Kessler · record</text>
+  <rect x="644" y="138" width="98" height="18" rx="9" fill="#181310" stroke="#2a2622"/>
+  <text x="693" y="150" fill="#f3ece1" font-size="10" text-anchor="middle">Ana Keßler · tmdb</text>
+  <rect x="748" y="138" width="54" height="18" rx="9" fill="#181310" stroke="#2a2622" stroke-dasharray="3 2"/>
+  <text x="775" y="150" fill="#9b9082" font-size="10" text-anchor="middle">Custom</text>
+  <rect x="534" y="164" width="52" height="18" rx="4" fill="#e8a33d"/>
+  <text x="560" y="176" fill="#1a1206" font-size="10" text-anchor="middle">Confirm</text>
+  <text x="596" y="176" fill="#9b9082" font-size="10">Cancel</text>
+  <text x="534" y="198" fill="#9b9082" font-size="9">Changes how the name is shown here and in search.</text>
+  <text x="534" y="210" fill="#9b9082" font-size="9">Files, aliases, and writeback keep the record spelling.</text>
+
+  <!-- A3 owner, decision standing -->
+  <text x="46" y="248" fill="#9b9082" font-size="11" letter-spacing="1.2">A3 · OWNER, DECISION STANDING</text>
+  <rect x="46" y="260" width="56" height="56" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="114" y="286" fill="#f3ece1" font-size="22" font-weight="600" font-family="'Fraunces Variable', serif">Ana Keßler</text>
+  <rect x="240" y="270" width="16" height="16" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="248" y="282" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
+  <text x="262" y="282" fill="#9b9082" font-size="9">prefills “Ana Kessler”</text>
+  <text x="114" y="306" fill="#9b9082" font-size="11">In files as</text>
+  <text x="174" y="306" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Ana Kessler</text>
+  <rect x="254" y="294" width="40" height="16" rx="8" fill="#181310" stroke="#e8a33d"/>
+  <text x="274" y="305" fill="#9b9082" font-size="9" text-anchor="middle">tmdb</text>
+  <text x="302" y="306" fill="#9b9082" font-size="9">← the badge, no value repeated</text>
+  <text x="114" y="326" fill="#9b9082" font-size="11">0 videos · person:1</text>
+
+  <!-- A4 visitor -->
+  <text x="466" y="248" fill="#9b9082" font-size="11" letter-spacing="1.2">A4 · VISITOR, SAME PERSON</text>
+  <rect x="466" y="260" width="56" height="56" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="534" y="286" fill="#f3ece1" font-size="22" font-weight="600" font-family="'Fraunces Variable', serif">Ana Keßler</text>
+  <text x="534" y="306" fill="#9b9082" font-size="11">In files as</text>
+  <text x="594" y="306" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Ana Kessler</text>
+  <text x="680" y="306" fill="#9b9082" font-size="9">← no badge, no link, no pencil</text>
+  <text x="534" y="326" fill="#9b9082" font-size="11">0 videos · person:1</text>
+
+  <text x="46" y="362" fill="#9b9082" font-size="9">Films read “On record as” (a title is owner-asserted, never read from a file). Studios read “In files as”, like people.</text>
+  <text x="46" y="376" fill="#9b9082" font-size="9">Confirming the record chip leaves a standing record decision (the F37 blank-pin): resolved = canonical, the line goes, the link returns.</text>
+  <text x="46" y="390" fill="#9b9082" font-size="9">Focus hands across the swap: link → badge on open, badge → link on close.</text>
+  <text x="46" y="404" fill="#9b9082" font-size="9">List cards, cast tiles, link cards and pickers keep the canonical name (scope ruling 2026-09-15; cards are a follow-up).</text>
+
+  <!-- ─────────── B. Search row ─────────── -->
+  <text x="30" y="452" fill="#e8a33d" font-size="11" letter-spacing="1.2">B — NAV SEARCH: THE ROW SHOWS WHAT MATCHED</text>
+  <rect x="30" y="464" width="840" height="76" rx="10" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="46" y="488" fill="#9b9082" font-size="9" letter-spacing="1.2">PEOPLE</text>
+  <rect x="46" y="496" width="400" height="26" rx="4" fill="#181310" stroke="#2a2622"/>
+  <text x="58" y="513" fill="#f3ece1" font-size="12">Ana Keßler</text>
+  <text x="430" y="513" fill="#9b9082" font-size="10" text-anchor="end">0</text>
+  <text x="462" y="505" fill="#9b9082" font-size="9">“keßl”, “kessler” and any alias all land here; the label is display_name ?? name.</text>
+  <text x="462" y="519" fill="#9b9082" font-size="9">Person/Studio pickers use the same endpoint and keep showing — and sending — the canonical name.</text>
+</svg>

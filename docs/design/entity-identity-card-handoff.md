@@ -250,6 +250,28 @@ the field-resolution model, and tags are always lowercase by owner policy (0034)
 film title has **no** `NameEditControl` today (`films/[id]/+page.svelte:391`, rename is a 376
 deliverable) — 378 for films is gated on 376 landing the pencil first.
 
+## §4 as built (HOLODEX-378, 2026-09-15)
+
+Panel 4 of the figure above is the pre-build design; this figure is drawn from the shipped
+components and supersedes it where they differ:
+
+![Display name as built — person hero in four states, and a search row](entity-identity-card-display-name-as-built.svg)
+
+| State | What it shows | Where it differs from panel 4 |
+|---|---|---|
+| A1 · owner, no decision | Heading + docked pencil exactly as before; beneath, a quiet **Display as…** link (`.btn-quiet text-xs`), owner only. | As designed (§4c's "same slot" link). |
+| A2 · link clicked | The name field's `SourceBadge` mounts **already expanded** in the link's slot: `record` / provider spelling / `Custom` chips, Confirm / Cancel, and the helper copy under it. Focus hands from the link to the badge; dismissing hands it back. | Helper copy rewritten: search **does** match the display spelling (spec §378, ADR-096 D5), so it reads "Changes how the name is shown here and in search. Files, aliases, and writeback keep the record spelling." |
+| A3 · decision standing | h1 = resolved spelling; `In files as <canonical, mono> <badge>`. The badge renders **without repeating the value** (`SourceBadge showValue={false}`) — the heading already shows it. Pencil prefills canonical (`NameEditControl editValue`). | Films read **On record as** — a title is owner-asserted, never read from a file. Studios read "In files as" like people (the record comes from file tags). |
+| A4 · visitor | Heading + the "In files as" line; no badge, no link, no pencil — a content line, not a control (routes rule). | Panel 4 drew the owner only. |
+| B · search row | The nav search row labels with `display_name ?? name`; canonical, display and alias spellings all match. | New: the row is the one list surface in scope. **Pickers keep the canonical name** — they send `name` back for linking. |
+
+Scope ruling (2026-09-15, options rendered side by side): **headers + search only.** List cards,
+cast tiles, link cards and pickers keep the canonical name; a `display_name` on cards is a
+follow-up story if 378 survives QA 4.3. Confirming the `record` chip leaves a standing record
+decision (the F37 blank-pin) — resolved = canonical, the line goes, the link returns. A decided
+provider with no stored spelling drops the resolved row (resolver rule), so the page falls back to
+canonical and shows no line; a re-enrich restores it.
+
 ## 5. Out of scope / no new surface
 
 - **375 external-id unification** — the ADR-083 external-id badge reads the new table; no visual
@@ -316,6 +338,11 @@ not body text — but check Broadcast, whose muted is the lightest).
   the TMDB spelling; the pencil still opens rename with the **canonical** value prefilled.
 - **3.5** [agent] Contrast per §7 in all three skins via computed styles; no horizontal overflow
   at 375px on the media page with a 40-character custom edition.
+- **3.6** [agent] Display name (378): visitor sees the h1 in the display spelling and the "In files
+  as" line with no badge/link/pencil; owner with no decision sees the **Display as…** link and
+  clicking it opens the chip row with focus on the badge; confirming `record` restores canonical,
+  removes the line and returns focus to the link; `/search?q=<display>` returns the row with
+  `display_name`; a 70-character unbroken canonical does not scroll the page at 375px.
 
 ### §4 Human
 

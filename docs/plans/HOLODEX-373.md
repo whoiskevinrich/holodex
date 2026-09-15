@@ -32,7 +32,7 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   as `Edition`); `Subtitle` rejected because it's already the
   tagline's key (`tags.go:101`); filename edition follows the F48 auto-apply rule, no special case;
   film alias routing needs a year match or a unique nameKey, else queue
-- [/] architecture `architecture` — ADR for external-id unification + edition-as-field +
+- [x] architecture `architecture` — ADR for external-id unification + edition-as-field +
   curation-on-name; amendment notes on ADR-051 (name was the excluded field) and ADR-061
   (films, composite nameKey). Number via `node scripts/adr-claims.mjs`, never by eye
 - [x] design `design-handoff` — `docs/design/entity-identity-card-handoff.md` +
@@ -42,7 +42,7 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   `SourceBadge` only renders the badge when multi-source, so a filename-only edition would have no
   curation affordance (§2b). **OQ1** deep-link vs inline Set edition, **OQ2** the 378 go/no-go —
   both need Kevin
-- [/] backend — 374 done: `internal/model/ref.go` (kinds + `Ref()` + `MarshalJSON` on the five
+- [x] backend — 374 done: `internal/model/ref.go` (kinds + `Ref()` + `MarshalJSON` on the five
   entities, so `ref` rides every list/detail/nested payload from one place), `internal/api/ref.go`
   (`ParseRef` + `RefKindError`; `urlParamID` reads the route's kind off the chi pattern, nested ids
   by param name), MCP `get_video` accepts a ref + every result carries `ref`. 375 done: migration
@@ -56,8 +56,13 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   `EntityRef.Year`, TMDB sidecar emits film `aliases`. 377 done: F48 lifts `{edition-X}` out of
   the stem before pattern matching (marker alone = a match), `edition` TierHigh, registry +
   `.example` row, `formatMap` `Edition` / `XMP-prism:Edition`, `videoEdition` stamps full-film
-  rows through the pure resolver, `FacetScore.Curatable`. 378 open
-- [/] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
+  rows through the pure resolver, `FacetScore.Curatable`. 378 done: the three `name` guards
+  lifted (decision = display spelling, column untouched), studio/film `name` gains provider
+  candidates (film under the sidecar's `title` key), `model.*.DisplayName`
+  (`display_name,omitempty`, search rows only — pickers send `name` back), `repo.DisplayNames`
+  (narrow SQL mirror of the decided-replace rule) + a display-spelling leg in `Search` for all
+  three kinds
+- [x] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
   (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
   glyph ≥4.9:1 on Broadcast. 376 done: `EntityKind` + `'film'` (api base, pickers, duplicates
   page/banner), film page title `NameEditControl` + `MergeOfferCard` verdict + near-miss advisory
@@ -66,13 +71,19 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   edition pill + dashed `+ Set edition` deep link, `#field-<canonical>` landing expands the
   badge (fresh load + same-page hash), a deep-linked *missing* curatable field renders as an
   empty SourceBadge row, `SourceBadge` badge always renders (RD12, `curation/CLAUDE.md`).
-  3-skin QA'd live (pill 4.7–6.0:1, link 8.7–16.8:1; visitor sees pills, no link). 378 open
-- [/] testing `testing-strategy` — 374/375/376/377 rows landed (`docs/testing-strategy.md`);
-  378's row lands with 378
-- [/] security `security-review` — run 2026-09-14 over the whole branch through 377: no findings
+  3-skin QA'd live (pill 4.7–6.0:1, link 8.7–16.8:1; visitor sees pills, no link). 378 done:
+  `DisplayNameLine.svelte` under the three headings ("In files as" / film "On record as" +
+  `SourceBadge showValue={false}`; quiet `Display as…` link when nothing stands; focus hands
+  across the link↔badge swap), `NameEditControl editValue` prefills canonical, search rows
+  label `display_name ?? name`; film page now resets `expandedField` on nav. 3-skin QA'd live
+  (muted 4.9–6.3:1, mono 16–19:1; visitor sees the line, no control; no overflow at 375px)
+- [x] testing `testing-strategy` — 374/375/376/377/378 rows landed (`docs/testing-strategy.md`)
+- [x] security `security-review` — run 2026-09-14 over the whole branch through 377: no findings
   (argv shape unchanged for the new keys, refs kind-checked off the route pattern, film mutations
-  under `requireOwner`, `edition` to visitors is a resolved value not file metadata). Re-run once
-  378 adds the `name` decision surface
+  under `requireOwner`, `edition` to visitors is a resolved value not file metadata). Re-run
+  2026-09-15 over the 378 diff: no findings (guards were 400 shape checks inside `requireOwner`,
+  a `name` decision writes only `field_source_decisions`, search leg is bound params + Go-side
+  matching, `display_name` exposes only what the resolved `name` row already shows visitors)
 
 ## Up next — ordered (position = priority)
 
@@ -97,13 +108,50 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
    never scored/queued), so adding the block to prod has no score/queue side effect; the only
    remaining consideration is `EXTRACTION_AUTO_APPLY_ENABLED` (≈141 file writes if on). Kevin
    adds the block when ready
-7e. [ ] [L] 378 display-as — kill criterion per the epic; prod probe first?
+7e. [x] [L] 378 display-as — shipped 2026-09-15 (headers + search scope, Kevin's ruling from a
+   side-by-side mockup). **Kill criterion QA 4.3 is still Kevin's to run** (handoff §8 4.3 /
+   as-built §4): if the pencil-vs-badge split doesn't read, revert the 378 commit — the other
+   four stories don't depend on it
+7f. [ ] [—] Kevin runs handoff QA 4.3 (the 378 go/no-go). Pass → mark #332 ready (In Review
+   sweep, item 8). Fail → `git revert` the 378 commit, close 378 Won't Do, then mark ready
+7g. [ ] [S] File the follow-up story: `display_name` on list cards / cast tiles / link cards
+   (option B of the 2026-09-15 scope ruling) — only if 378 survives 4.3
 7b. [ ] [S] Seed `same-title` pairs for films that pre-date 0047 (only create/rename queue them
    today) — file as a HOLODEX follow-up if Kevin wants the backfill
 8. [ ] [—] On PR ready: sweep 374–378 to In Review by hand with the epic; on merge, sweep to Done
    (CI moves only the branch's key — an epic-keyed branch moves nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-15 · 378 display-as — coded, tested, live-QA'd, security-reviewed
+- skills: code-review (1 finding, fixed), security-review (clean)
+Explore-agent trace first: `name` was already a synthesised resolved field on all three kinds and
+the resolver honours a `name` decision generically — the only blocker was the 400 guard in each
+handler, and every writeback / alias / MCP reader takes the canonical column. The one fork that
+changed the backend shape was *where the resolved name renders*: Kevin asked for context and
+options, ruled **headers + search** off a side-by-side mockup (cards/tiles/pickers stay
+canonical; a `display_name`-on-cards story is a follow-up if 378 survives). Two hazards found on
+the way and designed around: the pickers read `/search` and send `name` back for linking, so
+search rows carry `display_name` *beside* a canonical `name` rather than replacing it; and
+film's provider spelling is stored under the sidecar's `title` key, so film `name` candidates
+are `<provider>:title` — the ADR-089 D3 guard test (name baseline-only) was retargeted to
+assert that shape, with ADR-096 D5 recording why D3 now binds the column, not the candidate
+list. Search matches the display spelling through `repo.DisplayNames`, a narrow SQL mirror of
+the resolver's decided-replace rule (manual literal, or the decided provider's stored spelling;
+`file` and unmatched-provider rows omitted — the resolver drops those, so the page falls back
+to canonical), pinned to the resolved payload by the API test. Frontend: `DisplayNameLine`
+(entity/, shared by the three pages) renders "In files as `<canonical>`" only when resolved ≠
+canonical — a content line visitors see — with the name field's `SourceBadge` (`showValue`
+off, the heading already shows the value) for the owner, and a quiet `Display as…` link when
+nothing stands; `NameEditControl editValue` keeps the pencil prefilled with canonical. Helper
+copy rewritten from the handoff draft because search *does* match the display spelling. Live
+QA on 7810/5174 with seeded `tmdb` spellings: provider pick → h1 + line; pencil prefill
+canonical + unchanged submit is a no-op; search `keßl`/`kessler` both return the row labelled
+`Ana Keßler`; record-chip confirm → line gone, link back with focus; film "On record as";
+studio custom; visitor sees line only; 3 skins + 375px. No component harness in `web/`, so
+those are the evidence (handoff QA 3.6). Handoff: **378 shipped, Draft PR #332 updated; next is
+Kevin's QA 4.3 go/no-go — pass → mark ready + sweep 374–378 to In Review; fail → revert the 378
+commit and close it Won't Do.**
 
 ### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
 - skills: code-review (2 findings, both fixed), security-review (clean)
