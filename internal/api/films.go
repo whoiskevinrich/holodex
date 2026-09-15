@@ -1,14 +1,17 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 )
 
 // Film entity endpoints (F56, ADR-085). Reads are public, gated on films_enabled at
@@ -23,6 +26,14 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	// The owner's direct year edit (F59/HOLODEX-317). Separate from the field-decision
 	// surface below because films.year is an identity column, not a resolved field.
 	r.Put("/films/{id}/year", h.setFilmYear)
+	// Film name-identity — alias/merge/rename over the shared spine (HOLODEX-376,
+	// ADR-096 D3), the film branch of the studio/tag route config. No writeback: a
+	// film's title lives in no embedded tag.
+	h.mountEntityIdentity(r, identityRoutes{
+		entityType: model.EnrichEntityFilm, noun: "film", respKey: "film", base: "films",
+		get: func(ctx context.Context, id int64) (any, error) { return h.repo.GetFilm(ctx, id) },
+	})
+	r.Get("/films/{id}/near-miss", h.entityNearMiss(model.EnrichEntityFilm))
 	h.mountFilmVideos(r)
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)
@@ -98,6 +109,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		setThumbnailURL(&fv.Video)
 		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
+			fv.Edition = h.videoEdition(r.Context(), fv.Video.ID)
 			fullFilms = append(fullFilms, fv)
 		} else {
 			scenes = append(scenes, fv)
@@ -132,7 +144,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	// fetched above against the scene union, storing nothing. See film_cast.go.
 	billedAbsent, billedTotal := h.filmBilledCast(r.Context(), enrichRows, cast)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	body := map[string]any{
 		"film":           f,
 		"resolved":       resolved,
 		"scenes":         scenes,
@@ -143,7 +155,52 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		"credited_roles": credited,
 		"billed_absent":  billedAbsent,
 		"billed_total":   billedTotal,
-	})
+	}
+	if skipped := h.skippedAliases(r, model.EnrichEntityFilm, id, authorized); len(skipped) > 0 {
+		body["skipped_aliases"] = skipped
+	}
+	writeJSON(w, http.StatusOK, body)
+}
+
+// videoEdition resolves one full-film file's edition (F60 RD6) through the same
+// pure resolver GET /media/{id} uses, so the film page's pill reads exactly what
+// the media page shows — container tag, filename candidate, or a standing
+// decision. A film has one to a few full-film files, so the per-video reads are
+// cheap; any failure degrades to an empty pill with a warning, never a 500.
+func (h *Handlers) videoEdition(ctx context.Context, videoID int64) string {
+	if h.mappings == nil {
+		return ""
+	}
+	field, ok := h.mappings.Current().ByCanonical("edition")
+	if !ok {
+		return ""
+	}
+	v, extra, err := h.repo.GetVideo(ctx, videoID)
+	if err != nil {
+		h.log.Warn("edition: load video", "id", videoID, "err", err)
+		return ""
+	}
+	enrichRows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: enrichment", "id", videoID, "err", err)
+		return ""
+	}
+	curRows, err := h.repo.CurationForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: curation", "id", videoID, "err", err)
+		return ""
+	}
+	decRows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		h.log.Warn("edition: decisions", "id", videoID, "err", err)
+		return ""
+	}
+	resolved := resolver.Resolve(v, extra, enrichmentFromRows(enrichRows), curationFromRows(curRows),
+		[]mapping.Field{field}, h.resolveOptions(decisionsFromRows(decRows)))
+	if len(resolved) == 0 || len(resolved[0].Values) == 0 {
+		return ""
+	}
+	return resolved[0].Values[0]
 }
 
 // createFilm handles POST /films (owner-gated): {name, year}. name is required;

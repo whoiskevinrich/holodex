@@ -74,6 +74,12 @@ type FacetScore struct {
 	// design handoff DD7) can render a ProvenanceBadge naming the resolved
 	// source instead of a bare "Provider" label.
 	Provider string `json:"provider,omitempty"`
+	// Curatable marks a plain-text replace field — single-value, default display —
+	// the owner can set from nothing. The media page's `#field-<canonical>` deep
+	// link renders a missing curatable facet as an empty SourceBadge row (F60
+	// RD11); image, url, long-text and merge fields have their own editors and
+	// are never synthesised that way.
+	Curatable bool `json:"curatable,omitempty"`
 }
 
 // Complete computes the completeness score and actionability signal for one
@@ -110,14 +116,22 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 		}
 		rf := byCanonical[f.Canonical] // zero value (WinningSource=="") when never resolved
 		t := classifyTier(rf.WinningSource)
+		_, display := LabelAndDisplay(f)
 		fs := FacetScore{
 			Canonical:   f.Canonical,
 			Label:       def.Label,
 			Criticality: def.Criticality,
 			Tier:        t.name,
+			Curatable:   !f.Multi && !f.Merge && display == "",
 		}
 		if notApplicable[f.Canonical] {
 			fs.NotApplicable = true
+			facets = append(facets, fs)
+			continue
+		}
+		if def.Criticality == registry.CriticalityOptional {
+			// Listed for the SPA (label, tier, Curatable — the deep-linked empty
+			// row needs them) but never scored, counted as missing or actionable.
 			facets = append(facets, fs)
 			continue
 		}

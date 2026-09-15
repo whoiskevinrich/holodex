@@ -33,29 +33,23 @@ func canonicalTable(entityType string) string {
 		return "studios"
 	case model.EntityTag:
 		return "tags"
+	case model.EnrichEntityFilm:
+		return "films"
 	default:
 		return ""
 	}
 }
 
-// externalIDCols names the join table + FK column an entity type's provider ids live
-// in (mirrors idMove's table+fk shape, identity_ops.go). Declared literally per case —
-// like canonicalTable, rather than derived from entityType by string concatenation —
-// so the naming is one source of truth instead of an assumed convention re-derived at
-// each of externalSelect's and attachInsert's build sites below. ok is false for an
-// entity type with no external identity (tags).
-type externalIDCols struct{ table, idColumn string }
-
-func externalIDTable(entityType string) (externalIDCols, bool) {
-	switch entityType {
-	case model.EnrichEntityStudio:
-		return externalIDCols{table: "studio_external_ids", idColumn: "studio_id"}, true // ADR-054
-	case model.EnrichEntityPerson:
-		return externalIDCols{table: "person_external_ids", idColumn: "person_id"}, true // ADR-055, F32
-	default:
-		return externalIDCols{}, false
-	}
-}
+// Provider identity lives in the one polymorphic entity_external_ids table (migration
+// 0046, ADR-096 D2) for every kind — person, studio, tag, film — keyed by entity_type,
+// so the resolve and attach statements below are kind-agnostic constants rather than
+// per-kind table lookups. external_id is the namespace-qualified "<provider>:<id>"
+// string (ADR-082's value shape) and is unique PER KIND (the PK), which is the de-dup
+// guarantee: an id owns exactly one entity of its kind.
+const (
+	externalIDSelect = `SELECT entity_id FROM entity_external_ids WHERE entity_type = ? AND external_id = ?`
+	externalIDAttach = `INSERT OR IGNORE INTO entity_external_ids (entity_type, entity_id, external_id) VALUES (?, ?, ?)`
+)
 
 // nameKeyExpr returns the SQLite expression that normalizes `col` to the entity's
 // identity key (ADR-061 D2 / RD2): person & studio fold case + edge whitespace; tag
@@ -72,11 +66,9 @@ func nameKeyExpr(entityType, col string) string {
 
 // identityQueries holds the per-entity resolve SQL. Built once at init from
 // canonicalTable + nameKeyExpr, so the scan hot path (resolveOrCreateByName, called
-// per person/tag/studio per video) does zero per-call string formatting — externalSelect
-// AND attachInsert both get this treatment (not just the read side), since a non-empty
-// externalID exercises both on every call. Both are empty for an entity type with no
-// external-id table (tags).
-type identityQueries struct{ canonicalSelect, aliasSelect, insert, externalSelect, attachInsert string }
+// per person/tag/studio per video) does zero per-call string formatting. The
+// external-id statements need no per-kind build (externalIDSelect/externalIDAttach).
+type identityQueries struct{ canonicalSelect, aliasSelect, insert string }
 
 var identityQueryByType = func() map[string]identityQueries {
 	m := make(map[string]identityQueries, 3)
@@ -86,10 +78,6 @@ var identityQueryByType = func() map[string]identityQueries {
 			canonicalSelect: fmt.Sprintf(`SELECT id FROM %s WHERE %s = %s`, table, nameKeyExpr(et, "name"), nameKeyExpr(et, "?")),
 			aliasSelect:     fmt.Sprintf(`SELECT entity_id FROM entity_aliases WHERE entity_type = ? AND alias_key = %s LIMIT 1`, nameKeyExpr(et, "?")),
 			insert:          fmt.Sprintf(`INSERT INTO %s (name) VALUES (?)`, table),
-		}
-		if cols, ok := externalIDTable(et); ok {
-			q.externalSelect = fmt.Sprintf(`SELECT %s FROM %s WHERE external_id = ?`, cols.idColumn, cols.table)
-			q.attachInsert = fmt.Sprintf(`INSERT OR IGNORE INTO %s (%s, external_id) VALUES (?, ?)`, cols.table, cols.idColumn)
 		}
 		m[et] = q
 	}
@@ -142,8 +130,7 @@ func (r *Repo) LookupEntityIDByName(ctx context.Context, entityType, name string
 // a merged-away name routes through the alias table so a merge survives a re-scan /
 // link re-derivation. Runs inside the caller's transaction; writeMu serialization +
 // the canonical nameKey unique index make the select-then-insert race-free. externalID
-// is honored only for entity types with an external-id table (externalIDTable); empty
-// for name-only entities (tags) or when no id is known.
+// is empty when no id is known (name-only scan credits).
 func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, externalID string) (int64, error) {
 	q, ok := identityQueryByType[entityType]
 	if !ok {
@@ -172,11 +159,13 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 		}
 	}
 
-	// 1. External-id first (studio ADR-054, person ADR-055/F32): a provider id owns
-	// exactly one entity.
-	if externalID != "" && q.externalSelect != "" {
+	// 1. External-id first (studio ADR-054, person ADR-055/F32, all kinds ADR-096 D2):
+	// a provider id owns exactly one entity of its kind. This step precedes the
+	// nameKey/alias steps so a merge or provider link survives a rescan whose
+	// spelling exactly names a different entity (TestResolvePrecedence_*).
+	if externalID != "" {
 		var id int64
-		switch err := tx.QueryRowContext(ctx, q.externalSelect, externalID).Scan(&id); {
+		switch err := tx.QueryRowContext(ctx, externalIDSelect, entityType, externalID).Scan(&id); {
 		case err == nil:
 			return id, nil
 		case !errors.Is(err, sql.ErrNoRows):
@@ -191,7 +180,7 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if id, ok, err := lookupByNameKey(ctx, tx, q, entityType, name); err != nil {
 		return 0, err
 	} else if ok {
-		return id, attachExternalID(ctx, tx, entityType, q.attachInsert, id, externalID)
+		return id, attachExternalID(ctx, tx, entityType, id, externalID)
 	}
 
 	// 3b. Length cap (tags only, ADR-075 item 11): the rename/alias HTTP handlers
@@ -229,7 +218,7 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if err := FlagNearMiss(ctx, tx, entityType, id); err != nil {
 		return 0, err
 	}
-	return id, attachExternalID(ctx, tx, entityType, q.attachInsert, id, externalID)
+	return id, attachExternalID(ctx, tx, entityType, id, externalID)
 }
 
 // queryRower is the read slice both *sql.Tx (inside resolveOrCreateByName's
@@ -261,20 +250,31 @@ func lookupByNameKey(ctx context.Context, qr queryRower, q identityQueries, enti
 	return 0, false, nil
 }
 
-// attachExternalID records external_id → entity idempotently via the precomputed
-// attachInsert (identityQueries.attachInsert, "" for an entity type with no
-// external-id table — tags); a no-op when externalID is empty. INSERT OR IGNORE: the
-// external_id PK means an id already owned by another entity is left where it is —
-// the id-first lookup in resolveOrCreateByName would already have returned that
-// owner, so this only ever records a genuinely new (id, entity) pair.
-func attachExternalID(ctx context.Context, tx *sql.Tx, entityType, attachInsert string, id int64, externalID string) error {
-	if externalID == "" || attachInsert == "" {
+// attachExternalID records external_id → entity idempotently; a no-op when
+// externalID is empty. INSERT OR IGNORE: the per-kind PK means an id already owned by
+// another entity of that kind is left where it is — the id-first lookup in
+// resolveOrCreateByName would already have returned that owner, so this only ever
+// records a genuinely new (id, entity) pair.
+func attachExternalID(ctx context.Context, tx execer, entityType string, id int64, externalID string) error {
+	if externalID == "" {
 		return nil
 	}
-	if _, err := tx.ExecContext(ctx, attachInsert, id, externalID); err != nil {
+	if _, err := tx.ExecContext(ctx, externalIDAttach, entityType, id, externalID); err != nil {
 		return fmt.Errorf("attach %s external id: %w", entityType, err)
 	}
 	return nil
+}
+
+// AttachExternalID records a provider id for an entity of any kind outside the scan
+// path — the enrich service calls it once a provider record has been adopted for a
+// person/studio/tag/film (ADR-096 D2: the identity row and the "which id did we enrich
+// against" memo are the same fact). Idempotent; an id already owned by another entity
+// of that kind is left where it is (see attachExternalID). Not for videos, which have
+// no row in entity_external_ids.
+func (r *Repo) AttachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return attachExternalID(ctx, r.db, entityType, entityID, externalID)
 }
 
 // ExactEntityMatch reports whether name resolves to an existing Person/Studio
@@ -294,19 +294,16 @@ func (r *Repo) ExactEntityMatch(ctx context.Context, entityType, name string) (i
 	return lookupByNameKey(ctx, r.db, q, entityType, name)
 }
 
-// ExternalIDsForEntity returns every namespace-qualified external id
-// (person_external_ids/studio_external_ids, ADR-054/055) stored for a person/studio
-// — the read source for the HOLODEX-266/ADR-083 provider-link badge projection.
-// Each value is already "<namespace>:<id>" (ADR-082's value shape, shared with the
-// video _person_external_ids/_studio_external_ids enrichment sidecars). Empty, not
-// an error, for an entity type with no external-id table (tags).
+// ExternalIDsForEntity returns every namespace-qualified external id stored for an
+// entity of any kind (entity_external_ids, ADR-096 D2) — the read source for the
+// HOLODEX-266/ADR-083 provider-link badge projection. Each value is already
+// "<namespace>:<id>" (ADR-082's value shape, shared with the video
+// _person_external_ids/_studio_external_ids enrichment sidecars). Empty, not an
+// error, for an entity with no ids.
 func (r *Repo) ExternalIDsForEntity(ctx context.Context, entityType string, entityID int64) ([]string, error) {
-	cols, ok := externalIDTable(entityType)
-	if !ok {
-		return nil, nil
-	}
 	rows, err := r.db.QueryContext(ctx,
-		fmt.Sprintf(`SELECT external_id FROM %s WHERE %s = ?`, cols.table, cols.idColumn), entityID)
+		`SELECT external_id FROM entity_external_ids WHERE entity_type = ? AND entity_id = ? ORDER BY external_id`,
+		entityType, entityID)
 	if err != nil {
 		return nil, fmt.Errorf("external ids for %s: %w", entityType, err)
 	}

@@ -95,6 +95,14 @@ fields:
       - filename:release_date   # candidate: parsed year from a filename pattern (F48)
       - tmdb:release_date
 
+  - canonical: edition
+    sources:
+      - Edition                 # file tag — the baseline, and the read-back for the
+                                # Edition writeback (Matroska/WebM EDITION, MP4
+                                # XMP-prism:Edition — both read back as Edition).
+      - filename:edition        # candidate: strict Plex `{edition-<text>}` marker (F60 RD7)
+                                # No provider source: edition is a file fact, never a film property.
+
   - canonical: runtime
     sources:
       - tmdb:runtime

@@ -14,7 +14,16 @@ source selection, read-only auto-registered field rows, and the promote-to-canon
 | `MappedFacets.svelte` | Loads the mapped-facet list and lets the browse page bind selected values per canonical facet. |
 | `PromoteFieldEditor.svelte` | Shared inline editor driving promote/edit/de-promote of a non-canonical field (label/render/group/order). |
 | `PromotedFieldEdit.svelte` | Owner-only Edit/Remove-promotion affordance on an already-promoted field row; opens `PromoteFieldEditor` in edit mode. |
-| `SourceBadge.svelte` | Tier-2 per-field source-of-truth control (F56) — collapsed `ProvenanceBadge` at rest, click-to-expand `CurationChip` radio row with staged (not auto-committing) selection + explicit Confirm/Cancel. Used on Video (Metadata fields), Person (all replace fields but name and bio), and Studio (all replace fields but name). |
+| `SourceBadge.svelte` | Tier-2 per-field source-of-truth control (F56) — collapsed `ProvenanceBadge` at rest, click-to-expand `CurationChip` radio row with staged (not auto-committing) selection + explicit Confirm/Cancel. Used on Video (Metadata fields), Person (all replace fields but bio), Studio and Film (all replace fields). The `name` field's mount is `entity/DisplayNameLine.svelte` (HOLODEX-378), which passes `showValue={false}` — the only mount that omits the resting value span, because the page heading already renders it; every field-list mount keeps the default. |
 | `SourceEditModal.svelte` | Tier-2 per-field source-of-truth control, modal variant (HOLODEX-303) — same staged-then-Confirm contract as `SourceBadge`, but a `ConfirmDialog`-chrome modal with one full-width radio row per candidate source plus an inline Custom textarea, instead of an inline chip row. Standard pattern for `long_text` fields going forward (chip-expand doesn't work for paragraph-length values): used by the Person page's header bio, the Video page's Overview block (HOLODEX-365) and the Film page's Description block (HOLODEX-364), each behind an owner-only pencil in the heading. |
-| `SourceSelect.svelte` | Per-field source-of-truth control (F36) — one row of source-tagged, single-select value chips plus a Custom chip and "file out of sync" warning. Kept alive only for the two Tier-1 fields it still owns: Person's `onadopt`-intercepted name and Video's Studio field (Tier-1 per spec, pending HOLODEX-271's relationship popover). `SourceBadge` supersedes it everywhere else. |
+| `SourceSelect.svelte` | Per-field source-of-truth control (F36) — one row of source-tagged, single-select value chips plus a Custom chip and "file out of sync" warning. Kept alive only for the one Tier-1 field it still owns: Video's Studio field (Tier-1 per spec, pending HOLODEX-271's relationship popover) — the Person name moved to `NameEditControl` (HOLODEX-269) and its display decision to `DisplayNameLine` (HOLODEX-378). `SourceBadge` supersedes it everywhere else. |
 | `UrlValueList.svelte` | Renders a `url`-display field's values as scheme-gated links, with optional hostname-only text and a leading provider brand icon. |
+
+## Rules
+
+- **`SourceBadge` renders its badge for every field it is mounted on, single-source included**
+  (F60 RD12, HOLODEX-377). It used to hide itself unless 2+ sources were on offer, which left a
+  field with exactly one candidate — a filename-only edition, a tag-only anything — with no way to
+  type a custom value. Mounting the component is the page's "this field is curatable" decision;
+  don't add a second gate inside it. The empty `—` baseline chip in the row is the F37 RD3
+  blank-pin and stays.

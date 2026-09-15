@@ -14,8 +14,9 @@ import (
 // mountStudioDecisions registers the owner-gated studio source-of-truth surface
 // (F38, RD5): per-field decisions and value-level curation mirroring the person
 // endpoints. Mounted inside the requireOwner group. All DB-only — a studio has no
-// file, so there is no writeback and no rename (RD4: studio names are derived
-// identity, corrected by editing the underlying video field, not renamed here).
+// file, so there is no writeback; rename lives on the identity spine (F43). A
+// decision on name (F60 RD9) is the display spelling only — the canonical column
+// stays the identity/alias/relink truth.
 // After a decision/curation change the affected studio's video links are unchanged;
 // it is the *video's* studio field that drives links, relinked on the media path.
 func (h *Handlers) mountStudioDecisions(r chi.Router) {
@@ -27,8 +28,8 @@ func (h *Handlers) mountStudioDecisions(r chi.Router) {
 
 // setStudioFieldDecision records a standing decision pinning a studio replace field
 // to a source (F38). Payload vocabulary is record | manual | provider:<name> (RD5 —
-// "record" stores the internal "file" token); name is rejected (read-only identity);
-// a provider pick must be currently matched. DB-only.
+// "record" stores the internal "file" token); a provider pick must be currently
+// matched. name pins too (F60 RD9 — the display spelling). DB-only.
 func (h *Handlers) setStudioFieldDecision(w http.ResponseWriter, r *http.Request) {
 	id, field, ok := h.studioDecisionTarget(w, r)
 	if !ok {
@@ -92,16 +93,13 @@ func (h *Handlers) studioDecisionTarget(w http.ResponseWriter, r *http.Request) 
 }
 
 // studioReplaceField resolves a canonical name against the synthesized studio schema
-// and confirms a decision may target it: unknown → 404, name → 400 (read-only
-// identity, RD5), merge → 400 (no merge fields in v1, but guarded for parity).
+// and confirms a decision may target it: unknown → 404, merge → 400 (no merge
+// fields in v1, but guarded for parity). name is an ordinary replace field here
+// (F60 RD9): its decision picks the display spelling.
 func (h *Handlers) studioReplaceField(w http.ResponseWriter, canonical string) (mapping.Field, bool) {
 	f, ok := studioFieldByCanonical(canonical)
 	if !ok {
 		writeError(w, http.StatusNotFound, "unknown field")
-		return mapping.Field{}, false
-	}
-	if f.Canonical == "name" {
-		writeError(w, http.StatusBadRequest, "studio name is read-only; edit the studio field on its videos instead")
 		return mapping.Field{}, false
 	}
 	if f.Multi {

@@ -29,6 +29,13 @@ var tokenFields = map[string]string{
 
 var tokenRe = regexp.MustCompile(`\{(\w+)\}`)
 
+// editionMarkerRe is the strict Plex edition grammar (F60 RD7): `{edition-<text>}`
+// anywhere in the stem. Looser forms ("- Final Cut", "(Director's Cut)") are
+// deliberately not parsed. The marker is lifted out of the stem before pattern
+// matching (see MatchFirst) so it neither breaks a `^...$` pattern nor gets
+// swallowed into a neighbouring {title}.
+var editionMarkerRe = regexp.MustCompile(`\s*\{edition-([^{}]*)\}\s*`)
+
 // nonPersonShapeRes are value shapes that are never a person name — a
 // misparse of some other field (year, date, resolution, a bare index/take
 // number) into the {people} position, not a name. bareYearRe (HOLODEX-196 #3)
@@ -181,13 +188,35 @@ func (p *Pattern) Match(filenameStem, delimiter string) (fields map[string][]str
 // file that matches none of them yields ok=false and falls through to tag-only
 // resolution unchanged.
 func MatchFirst(patterns []*Pattern, filename, delimiter string) (fields map[string][]string, ok bool) {
-	stem := stemOf(filename)
+	stem, edition := liftEdition(stemOf(filename))
 	for _, p := range patterns {
 		if fields, ok := p.Match(stem, delimiter); ok {
+			if edition != "" {
+				fields["edition"] = []string{edition}
+			}
 			return fields, true
 		}
 	}
+	if edition != "" {
+		// The marker is a recognised convention on its own (F60 RD7): a file no
+		// pattern fits still yields its edition rather than falling through.
+		return map[string][]string{"edition": {edition}}, true
+	}
 	return nil, false
+}
+
+// liftEdition removes the first `{edition-<text>}` marker from stem, returning
+// the stem with the marker (and the whitespace around it) collapsed to a single
+// space, plus the trimmed edition text. An empty marker is removed but yields
+// no edition.
+func liftEdition(stem string) (rest, edition string) {
+	loc := editionMarkerRe.FindStringSubmatchIndex(stem)
+	if loc == nil {
+		return stem, ""
+	}
+	edition = strings.TrimSpace(stem[loc[2]:loc[3]])
+	rest = strings.TrimSpace(stem[:loc[0]] + " " + stem[loc[1]:])
+	return rest, edition
 }
 
 // stemOf returns the filename's base name with its extension removed, matching

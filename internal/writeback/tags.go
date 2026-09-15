@@ -100,6 +100,7 @@ var formatMap = map[string]map[string]string{
 		"overview":          "Comment",   // plot summary → COMMENT tag
 		"tagline":           "Subtitle",  // short tagline → SUBTITLE (avoids Comment collision)
 		"release_date":      "Year",      // year/date → YEAR tag
+		"edition":           "Edition",   // cut → EDITION tag (F60 RD8)
 		"genres":            "Genre",
 		"original_language": "Language",
 		"actors":            "Artist",    // cast → ARTIST tag, comma-delimited
@@ -110,6 +111,7 @@ var formatMap = map[string]map[string]string{
 		"overview":          "Comment",
 		"tagline":           "Subtitle",
 		"release_date":      "Year",
+		"edition":           "Edition",
 		"genres":            "Genre",
 		"original_language": "Language",
 		"actors":            "Artist",
@@ -120,6 +122,7 @@ var formatMap = map[string]map[string]string{
 		"overview":          "QuickTime:Comment",
 		"tagline":           "QuickTime:Keywords",
 		"release_date":      "QuickTime:Year",
+		"edition":           "XMP-prism:Edition", // no writable QuickTime edition atom; exiftool reads the XMP packet back as Edition (F60 RD8)
 		"genres":            "QuickTime:Genre",
 		"original_language": "QuickTime:MediaLanguage",
 		"actors":            "QuickTime:Artist",

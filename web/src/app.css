@@ -28,6 +28,8 @@
 	--color-logo-plate-ink: var(--logo-plate-ink);
 	--font-display: var(--font-display);
 	--font-ui: var(--font-ui);
+	/* System mono stack for identifiers (the record spelling on the "In files as" line, F60) — every skin inherits it. */
+	--font-mono: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
 	--radius-theme: var(--radius);
 }
 

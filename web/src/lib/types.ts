@@ -20,9 +20,10 @@ export interface SkippedAlias {
 	conflict_id: number;
 }
 
-// EntityKind names the three identity entities that share the alias/merge/rename
-// spine (F43, ADR-061). Maps to the REST base (people | studios | tags) in the client.
-export type EntityKind = 'person' | 'studio' | 'tag';
+// EntityKind names the four identity entities that share the alias/merge/rename
+// spine (F43, ADR-061; film since HOLODEX-376, ADR-096 D3). Maps to the REST base
+// (people | studios | tags | films) in the client.
+export type EntityKind = 'person' | 'studio' | 'tag' | 'film';
 
 // EntityRef is the minimal shape Person/Studio/Tag all satisfy — used by the generic
 // identity surfaces (F43): the merge-picker rows and the collision/conflict card, and
@@ -31,6 +32,9 @@ export interface EntityRef {
 	id: number;
 	name: string;
 	video_count?: number;
+	// Film only (HOLODEX-376): two films may share a title, so a ref needs its year to
+	// be tellable apart. Render through refLabel().
+	year?: number;
 }
 
 // VideoCollisionRef is the minimal shape the composite-key collision 409 body returns for the
@@ -53,7 +57,7 @@ export interface DuplicatePair {
 	entity_type: EntityKind;
 	a: EntityRef;
 	b: EntityRef;
-	variation: string; // 'internal-whitespace' | 'punctuation'
+	variation: string; // 'internal-whitespace' | 'punctuation' | 'provider-alias' | 'same-title' (film)
 	// 'canonical': both names collide directly (strong — likely the same entity typed
 	// twice). 'mixed': one side needs an alias. 'alias': ONLY an alias on each side
 	// collides — the weakest signal, since aliases on distinct entities coincide far
@@ -63,7 +67,11 @@ export interface DuplicatePair {
 
 export interface Person {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	video_count?: number;
 	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
 	// list refreshes when the headshot changes (e.g. after enrichment) instead of showing
@@ -119,6 +127,7 @@ export interface PersonImageSet {
 
 export interface Tag {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
 	video_count?: number;
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
@@ -174,7 +183,11 @@ export interface DeniedTag {
 // derived identity (video_studios follows the resolved studio field, no rename/merge).
 export interface Studio {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	video_count?: number;
 	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
 	// page header), poster (no consumer yet). Each is independently owner-editable
@@ -198,6 +211,7 @@ export interface ExtraMetadata {
 
 export interface Video {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
 	file_size: number;
 	title: string;
@@ -793,7 +807,7 @@ export interface PersonDetailResponse {
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
-	// entry per stored person_external_ids row (0..N), read-only, visitor-visible.
+	// entry per stored entity_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	// Owner-gated: the key is absent entirely for a visitor, not null.
@@ -812,7 +826,7 @@ export interface StudioDetailResponse {
 	// like getMedia's enrich_queries — null for a visitor.
 	completeness?: Completeness | null;
 	// external_links is the HOLODEX-266/ADR-083 provider-link badge projection — one
-	// entry per stored studio_external_ids row (0..N), read-only, visitor-visible.
+	// entry per stored entity_external_ids row (0..N), read-only, visitor-visible.
 	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	// Owner-gated: the key is absent entirely for a visitor, not null. AliasPanel is
@@ -826,7 +840,11 @@ export interface StudioDetailResponse {
 // collisions across different releases are the common case), not a bare unique name.
 export interface Film {
 	id: number;
+	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
+	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	display_name?: string;
 	year?: number;
 	video_count?: number;
 	// Self-hosted poster image (F56/HOLODEX-280, ADR-086; edited in the header,
@@ -839,6 +857,9 @@ export interface Film {
 	// the consumer-less `thumb` role vacated in HOLODEX-307. Detail read only — the
 	// films index shows posters, not banners.
 	banner_url?: string;
+	// aliases are the film's other titles on the identity spine (HOLODEX-376): owner-
+	// curated or provider alternative titles. Detail read only.
+	aliases?: PersonAlias[];
 }
 
 // A withheld films.year fill (F59/ADR-089 D3). Returned on the film enrich-apply
@@ -877,6 +898,9 @@ export interface FilmVideo {
 	video: Video;
 	scene_number: number | null;
 	is_full_film: boolean;
+	// Resolved edition of a full-film file (F60 RD6), stamped by the API for full-film
+	// rows only. The film page renders it as a pill; it never resolves edition itself.
+	edition?: string;
 }
 
 // FilmAttachment is one film a video is linked to — the "Also in: X" badge on the
@@ -910,6 +934,8 @@ export interface FilmDetailResponse {
 	// empty/0 with no provider cast, so an unenriched film renders as it always did.
 	billed_absent?: FilmBilledCredit[] | null;
 	billed_total?: number;
+	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
+	skipped_aliases?: SkippedAlias[];
 }
 
 // One video's outcome from POST /films/{id}/studio/cascade's best-effort per-video
@@ -983,6 +1009,9 @@ export interface CompletenessFacet {
 	label: string;
 	criticality: string;
 	tier: 'missing' | 'provider' | 'curated';
+	// Plain-text replace field the owner can set from nothing (F60 RD11) — the media page
+	// renders a missing curatable facet as an empty SourceBadge row when deep-linked.
+	curatable?: boolean;
 	not_applicable?: boolean;
 	actionable?: boolean;
 	provider?: string;

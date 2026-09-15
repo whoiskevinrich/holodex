@@ -132,7 +132,7 @@ func (s *Server) register(m *mcpserver.MCPServer) {
 
 	m.AddTool(mcp.NewTool("get_video",
 		mcp.WithDescription("Fetch full metadata for one video by id, including file path, technical stream details, people, and tags."),
-		mcp.WithString("id", mcp.Required(), mcp.Description("Video id")),
+		mcp.WithString("id", mcp.Required(), mcp.Description("Video id, bare (`42`) or as the `video:42` reference every result carries")),
 	), s.getVideo)
 
 	m.AddTool(mcp.NewTool("list_people",
@@ -236,9 +236,9 @@ func (s *Server) getVideo(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if err != nil {
 		return mcp.NewToolResultError("id is required"), nil
 	}
-	id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64)
-	if err != nil || id <= 0 {
-		return mcp.NewToolResultError("invalid id"), nil
+	id, err := api.ParseRef(model.KindVideo, idStr)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 	v, extra, err := s.repo.GetVideo(ctx, id)
 	if errors.Is(err, repo.ErrNotFound) {
@@ -260,7 +260,7 @@ func (s *Server) listPeople(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 		return nil, err
 	}
 	counts := mapSlice(people, func(p model.Person) namedCount {
-		return namedCount{ID: p.ID, Name: p.Name, VideoCount: p.VideoCount}
+		return namedCount{ID: p.ID, Ref: model.Ref(model.KindPerson, p.ID), Name: p.Name, VideoCount: p.VideoCount}
 	})
 	return jsonResult(filterNamed(counts, req.GetString("query", "")))
 }
@@ -271,7 +271,7 @@ func (s *Server) listTags(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		return nil, err
 	}
 	counts := mapSlice(tags, func(t model.Tag) namedCount {
-		return namedCount{ID: t.ID, Name: t.Name, VideoCount: t.VideoCount}
+		return namedCount{ID: t.ID, Ref: model.Ref(model.KindTag, t.ID), Name: t.Name, VideoCount: t.VideoCount}
 	})
 	return jsonResult(filterNamed(counts, req.GetString("query", "")))
 }
@@ -280,6 +280,7 @@ func (s *Server) listTags(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 
 type searchItem struct {
 	ID           string   `json:"id"`
+	Ref          string   `json:"ref"`
 	Title        string   `json:"title"`
 	DurationSec  int      `json:"duration_sec"`
 	Resolution   string   `json:"resolution"`
@@ -298,17 +299,20 @@ type searchResponse struct {
 
 type idName struct {
 	ID   string `json:"id"`
+	Ref  string `json:"ref"`
 	Name string `json:"name"`
 }
 
 type namedCount struct {
 	ID         int64  `json:"id"`
+	Ref        string `json:"ref"`
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count"`
 }
 
 type videoDetail struct {
 	ID           string                `json:"id"`
+	Ref          string                `json:"ref"`
 	Title        string                `json:"title"`
 	FilePath     string                `json:"file_path"`
 	FileSize     int64                 `json:"file_size"`
@@ -331,6 +335,7 @@ type videoDetail struct {
 func toSearchItem(v *model.Video) searchItem {
 	item := searchItem{
 		ID:           strconv.FormatInt(v.ID, 10),
+		Ref:          model.Ref(model.KindVideo, v.ID),
 		Title:        v.Title,
 		DurationSec:  v.Duration,
 		Resolution:   string(metadata.ClassifyResolution(v.Width)),
@@ -344,9 +349,14 @@ func toSearchItem(v *model.Video) searchItem {
 	return item
 }
 
+func toIDName(kind model.Kind, id int64, name string) idName {
+	return idName{ID: strconv.FormatInt(id, 10), Ref: model.Ref(kind, id), Name: name}
+}
+
 func toVideoDetail(v *model.Video, extra []model.ExtraMetadata) videoDetail {
 	d := videoDetail{
 		ID:           strconv.FormatInt(v.ID, 10),
+		Ref:          model.Ref(model.KindVideo, v.ID),
 		Title:        v.Title,
 		FilePath:     v.FilePath,
 		FileSize:     v.FileSize,
@@ -359,8 +369,8 @@ func toVideoDetail(v *model.Video, extra []model.ExtraMetadata) videoDetail {
 		BitrateKbps:  v.BitrateKbps,
 		Container:    v.Container,
 		IndexedAt:    v.IndexedAt.UTC().Format(time.RFC3339),
-		People:       mapSlice(v.People, func(p model.Person) idName { return idName{ID: strconv.FormatInt(p.ID, 10), Name: p.Name} }),
-		Tags:         mapSlice(v.Tags, func(t model.Tag) idName { return idName{ID: strconv.FormatInt(t.ID, 10), Name: t.Name} }),
+		People:       mapSlice(v.People, func(p model.Person) idName { return toIDName(model.KindPerson, p.ID, p.Name) }),
+		Tags:         mapSlice(v.Tags, func(t model.Tag) idName { return toIDName(model.KindTag, t.ID, t.Name) }),
 		Metadata:     extra,
 		ThumbnailURL: thumbnailURL(v),
 	}

@@ -245,3 +245,43 @@ func TestListPeopleAndTags(t *testing.T) {
 		t.Errorf("tags by count = %+v", tags)
 	}
 }
+
+// get_video takes the `video:N` reference every result carries as well as a
+// bare id; a foreign kind is rejected naming the expected one (F60 RD1).
+func TestGetVideoAcceptsRef(t *testing.T) {
+	s, r := newTestServer(t)
+	seed(t, r, "/m/a.mp4", "Clip", 90, 1920, []string{"Alice"}, []string{"demo"})
+
+	bare := resultText(t, call(t, s.getVideo, map[string]any{"id": "1"}))
+	ref := resultText(t, call(t, s.getVideo, map[string]any{"id": "video:1"}))
+	if bare != ref {
+		t.Errorf("ref body differs from bare body\nbare: %s\nref:  %s", bare, ref)
+	}
+	var d videoDetail
+	if err := json.Unmarshal([]byte(bare), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Ref != "video:1" || len(d.People) != 1 || d.People[0].Ref != "person:1" || len(d.Tags) != 1 || d.Tags[0].Ref != "tag:1" {
+		t.Errorf("detail refs = %q people=%+v tags=%+v", d.Ref, d.People, d.Tags)
+	}
+
+	res := call(t, s.getVideo, map[string]any{"id": "person:1"})
+	if !res.IsError || resultText(t, res) != "expected a video ref, got person:1" {
+		t.Errorf("person:1 → %+v", res)
+	}
+
+	var items []namedCount
+	if err := json.Unmarshal([]byte(resultText(t, call(t, s.listPeople, map[string]any{}))), &items); err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Ref != "person:1" {
+		t.Errorf("list_people = %+v, want ref person:1", items)
+	}
+	var search searchResponse
+	if err := json.Unmarshal([]byte(resultText(t, call(t, s.searchVideos, map[string]any{}))), &search); err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) != 1 || search.Results[0].Ref != "video:1" {
+		t.Errorf("search_videos = %+v, want ref video:1", search.Results)
+	}
+}

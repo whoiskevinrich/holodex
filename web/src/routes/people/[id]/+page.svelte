@@ -43,6 +43,7 @@
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 	import { providerFromWinningSource, calculatedFrom } from '$lib/format';
 
@@ -127,6 +128,13 @@
 		);
 	}
 
+	// The heading renders the resolved name — a display decision may pick a provider or
+	// custom spelling (F60 RD9, HOLODEX-378) — and falls back to the canonical column when
+	// the row is absent. DisplayNameLine carries the name field's own SourceBadge, so
+	// `name` stays out of the field list below.
+	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	let nameControl = $state<NameEditControl | null>(null);
+	const displayName = $derived(nameField?.values[0] || person?.name || '');
 	// Field partitions (F37 handoff): the replace fields, then the merge fields ("Also
 	// known as"). Name is excluded (rendered via NameEditControl in the hero, HOLODEX-269),
 	// as is a field with no value and no candidates; visitors additionally see only fields
@@ -516,7 +524,9 @@
 					{/if}
 					<div class="min-w-0 flex-1 pb-1">
 						<NameEditControl
-							name={person?.name ?? ''}
+							bind:this={nameControl}
+							name={displayName}
+							editValue={person?.name ?? ''}
 							{isOwner}
 							onCommit={commitPersonRename}
 							label="person"
@@ -541,6 +551,14 @@
 								/>
 							{/snippet}
 						</NameEditControl>
+						<DisplayNameLine
+							field={nameField}
+							canonical={person?.name ?? ''}
+							{isOwner}
+							decide={(s, mv) => decideField('name', s, mv)}
+							onRename={() => nameControl?.open()}
+							renameLabel="Rename this person"
+						/>
 						<EntityVideoMeta
 							count={videos.length}
 							links={externalLinks}

@@ -25,7 +25,7 @@ import (
 // name survives RelinkVideoStudios re-derivation), then create. `externalID` is
 // namespace-qualified ("tmdb:174") or empty. Any id in hand is attached to the
 // resolved studio. Runs inside the caller's transaction; the nameKey unique index +
-// studio_external_ids PK + writeMu serialization make the select-then-insert race-free.
+// entity_external_ids PK + writeMu serialization make the select-then-insert race-free.
 func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name, externalID string) (int64, error) {
 	return resolveOrCreateByName(ctx, tx, model.EnrichEntityStudio, name, externalID)
 }

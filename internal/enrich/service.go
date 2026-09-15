@@ -34,6 +34,9 @@ type EnrichRepo interface {
 	UpsertEnrichment(ctx context.Context, entityType string, entityID int64, provider, externalID string, fields map[string][]string) error
 	EnrichmentForEntity(ctx context.Context, entityType string, entityID int64) ([]repo.EnrichmentRow, error)
 	MatchExternalID(ctx context.Context, entityType string, entityID int64, provider string) (string, bool, error)
+	// AttachExternalID records the adopted provider id as the entity's identity row
+	// (entity_external_ids, ADR-096 D2) for person/studio/tag/film — never video.
+	AttachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error
 	DeleteEnrichmentByProvider(ctx context.Context, entityType string, entityID int64, provider string) (int64, error)
 	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
 	// effort — a recording failure never fails the enrichment.
@@ -556,6 +559,18 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, err
 	}
+	// The adopted id is also the entity's identity (ADR-096 D2): record it so a later
+	// scan credit / film lookup carrying the same "<namespace>:<id>" resolves to this
+	// entity. Videos have no identity row (their id stays the re-enrich memo above);
+	// an id that is not namespace-qualified is skipped. Best-effort like the alias
+	// write below: the shadow rows are already committed, so a failed identity row
+	// must not turn a stored pass into a 500.
+	if identityEntityType(entityType) && identityShaped(externalID) {
+		if err := s.repo.AttachExternalID(ctx, entityType, entityID, externalID); err != nil {
+			slog.Warn("attach external id", "entity_type", entityType, "entity_id", entityID,
+				"external_id", externalID, "err", err)
+		}
+	}
 	// Best-effort on purpose, alongside the asset download below: one awkward alternate
 	// name must never cost the entity the bio, birthdate, and photo this pass already
 	// stored. Collisions are not errors at all — ApplyProviderAliases queues those for
@@ -751,9 +766,24 @@ func imageBackedEntityType(entityType string) bool {
 // aliasEntityType reports whether entityType rides the entity_aliases identity spine
 // with an owner-facing Aliases panel, and so can receive a provider's alternate names
 // (HOLODEX-306, spec F58 RD8). Tag is on the spine but has no panel and no provider
-// alias source (F43 RD7); video and film are not name-identity entities at all.
+// alias source (F43 RD7); video is not a name-identity entity at all. Film joined the
+// spine in HOLODEX-376 (ADR-096 D3): its provider alternative titles land here too.
 func aliasEntityType(entityType string) bool {
-	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio
+	return entityType == model.EnrichEntityPerson || entityType == model.EnrichEntityStudio || entityType == model.EnrichEntityFilm
+}
+
+// identityEntityType reports whether entityType has a row in entity_external_ids
+// (ADR-096 D2's type set) — every enrichable kind except video.
+func identityEntityType(entityType string) bool {
+	return entityType != model.EnrichEntityVideo
+}
+
+// identityShaped reports whether externalID is a namespace-qualified "<ns>:<id>"
+// with both halves present — the only shape entity_external_ids stores (ADR-082) and
+// the badge projection (api.externalLinksForEntity) can read back.
+func identityShaped(externalID string) bool {
+	ns, id, ok := strings.Cut(externalID, ":")
+	return ok && ns != "" && id != ""
 }
 
 // downloadAssets fetches provider image assets through the SSRF-guarded asset client

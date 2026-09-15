@@ -20,7 +20,8 @@ import (
 // the media endpoints, plus the identity rename (RD1). Mounted inside the
 // requireOwner group in Mount. Decisions/curation are DB-only; rename is the
 // one identity mutation — it feeds search FTS and scan routing via the F23
-// alias, never a decision row.
+// alias. A decision on name (F60 RD9, ADR-096 D5) is the display spelling only:
+// the canonical column stays the identity/alias/writeback truth.
 func (h *Handlers) mountPersonDecisions(r chi.Router) {
 	r.Put("/people/{id}/fields/{canonical}/decision", h.setPersonFieldDecision)
 	r.Delete("/people/{id}/fields/{canonical}/decision", h.clearPersonFieldDecision)
@@ -31,9 +32,9 @@ func (h *Handlers) mountPersonDecisions(r chi.Router) {
 
 // setPersonFieldDecision records a standing decision pinning a person replace
 // field to a source (F37 P0-3). The payload vocabulary is record | manual |
-// provider:<name> (RD4 — "record" stores the internal "file" token); name is
-// rejected (RD1 — identity materializes via rename, it never pins); a provider
-// pick must be currently matched. DB-only, like the media path.
+// provider:<name> (RD4 — "record" stores the internal "file" token); a provider
+// pick must be currently matched. name pins too (F60 RD9 — the display spelling;
+// the canonical column is untouched). DB-only, like the media path.
 func (h *Handlers) setPersonFieldDecision(w http.ResponseWriter, r *http.Request) {
 	id, field, ok := h.personDecisionTarget(w, r)
 	if !ok {
@@ -100,8 +101,8 @@ func (h *Handlers) personDecisionTarget(w http.ResponseWriter, r *http.Request) 
 
 // personReplaceField resolves a canonical name against the synthesized person
 // schema and confirms a decision may target it: computed → 400 (F45, ADR-063 §D3 —
-// a derived field is never adoptable), unknown → 404, name → 400 (RD1 — no decision
-// row ever exists for name), merge (aliases) → 400.
+// a derived field is never adoptable), unknown → 404, merge (aliases) → 400. name is
+// an ordinary replace field here (F60 RD9): its decision picks the display spelling.
 func (h *Handlers) personReplaceField(w http.ResponseWriter, canonical string) (mapping.Field, bool) {
 	// A computed field is source-less and read-only: reject a pin explicitly rather
 	// than relying on it being absent from the synthesized schema (structural guard).
@@ -112,10 +113,6 @@ func (h *Handlers) personReplaceField(w http.ResponseWriter, canonical string) (
 	f, ok := personFieldByCanonical(canonical)
 	if !ok {
 		writeError(w, http.StatusNotFound, "unknown field")
-		return mapping.Field{}, false
-	}
-	if f.Canonical == "name" {
-		writeError(w, http.StatusBadRequest, "name has no source decision; rename the person instead")
 		return mapping.Field{}, false
 	}
 	if f.Multi {

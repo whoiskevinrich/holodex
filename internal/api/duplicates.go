@@ -74,7 +74,7 @@ func (h *Handlers) dismissDuplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validEntityType(body.EntityType) {
-		writeError(w, http.StatusBadRequest, "entity_type must be person, studio, or tag")
+		writeError(w, http.StatusBadRequest, "entity_type must be person, studio, tag, or film")
 		return
 	}
 	if body.IDA <= 0 || body.IDB <= 0 || body.IDA == body.IDB {
@@ -88,11 +88,11 @@ func (h *Handlers) dismissDuplicate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// validEntityType guards the untrusted entity_type against the three named entities —
+// validEntityType guards the untrusted entity_type against the four named entities —
 // the same set canonicalTable accepts, so a bad value can't reach a repo query.
 func validEntityType(t string) bool {
 	switch t {
-	case model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag:
+	case model.EnrichEntityPerson, model.EnrichEntityStudio, model.EntityTag, model.EnrichEntityFilm:
 		return true
 	default:
 		return false
