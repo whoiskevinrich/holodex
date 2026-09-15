@@ -187,7 +187,17 @@ Numbered `section.item`; tagged by verifier. Three skins each.
 - 9.10 `[human]` Drag the density slider. The posters should shrink and grow in step with the
   cards, never lagging or jumping.
 
-## 10. Scope
+## 10. Resolved decisions
+
+Both were put to the owner on 2026-09-15 with side-by-side renderings (density 4 and 6 for
+sizing; media-detail chips next to the person-page row for the component question).
+
+| # | Decision | Chosen | Rejected because |
+|---|---|---|---|
+| D1 | Shelf sizing | **Derived from the grid** (§3a) | A fixed 80px tile is level with the frames at exactly one density and taller at every density the app ships — it fails the "same height" ask everywhere but there. |
+| D2 | One poster-tile component or two | **Separate; link HOLODEX-296** | Folding into 296 now turns a three-file change into a three-surface one (media-detail Films+People chips, film-page Cast via the shared `PeopleGrid`), and would land the hover lift on surfaces that didn't ask for it. |
+
+## 11. Scope
 
 **In:** §3–§6 on `FilmsRow`, the `app.css` rename, the four rename sites.
 

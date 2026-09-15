@@ -49,5 +49,6 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
 
 ### 2026-09-15 · design gate
 - skills: design-handoff
+- decisions: D1 grid-derived sizing, D2 separate from 296 — both put to Kevin with side-by-side renders, both taken as recommended; recorded in handoff §10, 296 linked in Jira
 - handoff: HOLODEX-384 created + In Progress; branch renamed; handoff doc + SVG committed;
   Draft PR open. Next session starts at Up-next 1 — nothing in code has changed yet.
