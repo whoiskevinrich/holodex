@@ -43,6 +43,13 @@ codebase already had the pattern:
 
 ## 1. Reference chip — every entity page (HOLODEX-374)
 
+> **Removed after shipping (owner ruling 2026-09-15):** "It's not useful and isn't what should
+> have been implemented in the first place." `RefChip.svelte` is deleted and no page renders a
+> `kind:id` handle; the `ref` field on every API/MCP payload (§1d) stays — that is the
+> you↔agent handle the epic asked for. §1a–§1c below are kept as the record of what was built and
+> why it was pulled; do not re-mount a chip without a new ruling. `--font-mono` (§1b) stays: 378's
+> "In files as" line uses it.
+
 ### 1a. Placement
 
 The chip is the **last item of the existing meta line** under the name. There is no shared header
@@ -328,9 +335,9 @@ not body text — but check Broadcast, whose muted is the lightest).
 
 ### §3 Agent live QA
 
-- **3.1** [agent] Ref chip present on all five page kinds; click → clipboard contains the ref;
-  label reads "Copied" then restores (use `javascript_tool` to read `navigator.clipboard` after a
-  user-gesture click).
+- **3.1** [agent] ~~Ref chip present on all five page kinds; click → clipboard contains the ref~~
+  — chip removed (§1 note). Check instead that no page renders a `kind:id` string and that
+  `GET /people/1` still carries `ref`.
 - **3.2** [agent] Media page: Edition row at rest shows value + `file · name` badge; expanded row
   shows one file chip + custom input, no empty-source chip; Confirm on a typed value → badge reads
   `custom`; reload → persists.
@@ -349,9 +356,8 @@ not body text — but check Broadcast, whose muted is the lightest).
 
 ### §4 Human
 
-- **4.1** [human] Open any person page. Under the name, at the end of the small grey line, there's
-  a pill like `person:1234`. Click it. It should say "Copied" for a moment. Paste somewhere — you
-  get exactly that text. Looks right = the pill is quiet, doesn't compete with the name.
+- **4.1** [human] ~~The `person:1234` pill~~ — removed by owner ruling 2026-09-15 ("not useful");
+  nothing to check.
 - **4.2** [human] Open a film with two full-film files. One row has a small label like "Final
   Cut" before the resolution badge; the other has a dashed "+ Set edition". Click it — you land on
   that file's page with the Edition row already open. Type "Theatrical", Confirm. Go back to the

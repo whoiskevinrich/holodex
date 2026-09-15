@@ -8,7 +8,6 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
-	import RefChip from '$lib/components/entity/RefChip.svelte';
 	import { filmsRow } from '$lib/filmsRow.svelte';
 	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
@@ -431,12 +430,7 @@
 					{/if}
 				</div>
 			{/if}
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-				<span>{videoCount(videos.length)}</span>
-				{#if tag}
-					<RefChip ref={tag.ref} />
-				{/if}
-			</div>
+			<p class="text-sm text-muted">{videoCount(videos.length)}</p>
 		{/snippet}
 
 		{#snippet detail()}

@@ -372,7 +372,6 @@
 				count={videos.length}
 				links={externalLinks}
 				entityName={studio?.name ?? ''}
-				ref={studio?.ref}
 			/>
 		{/snippet}
 

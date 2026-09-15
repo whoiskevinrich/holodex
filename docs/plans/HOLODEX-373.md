@@ -62,9 +62,9 @@ films into the spine → 377 edition → 378 display-as (Low; kill criterion in 
   (`display_name,omitempty`, search rows only — pickers send `name` back), `repo.DisplayNames`
   (narrow SQL mirror of the decided-replace rule) + a display-spelling leg in `Search` for all
   three kinds
-- [x] frontend — 374 done: `RefChip.svelte` + `--font-mono` token, mounted on all five pages
-  (people/studios via `EntityVideoMeta`'s `ref` prop). 3-skin QA by computed style: text ≈17:1,
-  glyph ≥4.9:1 on Broadcast. 376 done: `EntityKind` + `'film'` (api base, pickers, duplicates
+- [x] frontend — 374: `RefChip.svelte` + `--font-mono` token, mounted on all five pages, then
+  **removed 2026-09-15 by owner ruling** ("not useful, not what should have been implemented");
+  `ref` stays on API/MCP payloads, `--font-mono` stays for 378. 376 done: `EntityKind` + `'film'` (api base, pickers, duplicates
   page/banner), film page title `NameEditControl` + `MergeOfferCard` verdict + near-miss advisory
   (studio wiring verbatim) + `AliasPanel` in the rail; `refLabel()` shows a film's year on every
   identity card. 3-skin QA'd live (verdict card + panel on all three). 377 done: film-page
@@ -162,7 +162,10 @@ spelling on the "In files as" line opens the rename form (`NameEditControl.open(
 `DisplayNameLine onRename`). Live-checked: click → form prefilled + selected, Escape closes;
 visitor sees plain text. Third ruling: the "In files as" line is **owner-only** — "they don't
 need to know about the files" — visitors get the resolved heading alone. **PR #332 marked ready;
-373–378 swept to In Review.**
+373–378 swept to In Review.** Then: "remove the `person:1` pill — not useful, not what should
+have been implemented in the first place" → `RefChip` deleted from all five pages and the
+component removed; the API/MCP `ref` (374's other half) untouched. Spec/handoff/ADR/CLAUDE.md
+record the reversal so it isn't re-mounted.
 
 ### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
 - skills: code-review (2 findings, both fixed), security-review (clean)

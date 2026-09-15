@@ -563,7 +563,6 @@
 							count={videos.length}
 							links={externalLinks}
 							entityName={person?.name ?? ''}
-							ref={person?.ref}
 						/>
 					</div>
 					</div>

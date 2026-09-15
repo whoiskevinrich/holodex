@@ -306,7 +306,10 @@ decision — so D3's rule now binds the column, not the candidate list.
 ## Action Items
 
 1. [x] **374** `internal/api/ref.go` parser + `ref` on every entity payload + MCP arg decoder; `RefChip`
-   mounted per the handoff §1a; tests for kind mismatch (400) and byte-identical bodies.
+   mounted per the handoff §1a; tests for kind mismatch (400) and byte-identical bodies. (The chip
+   was removed again 2026-09-15 by owner ruling — "not useful, not what should have been
+   implemented"; D1's decision stands for the API/MCP handle, which is the you↔agent case that
+   motivated it. The page has no reference surface.)
 2. [x] **375** migration (number assigned against `origin/main` at commit time — 0045 was latest on
    2026-09-12): `entity_external_ids`, fold, drop; generalise `resolveOrCreateByName` /
    `identityQueryByType`; `GetFilmByExternalID`; ADR-083 projection reads the new table. **The F23

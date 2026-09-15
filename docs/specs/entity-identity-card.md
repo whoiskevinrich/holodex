@@ -169,8 +169,9 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   for real*, so that I never rename by accident.
 
 **Visitor**
-- As a visitor, I want the reference chip and the edition pill visible so that I can report
-  exactly which entity or file I mean.
+- As a visitor, I want the edition pill visible so that I can report exactly which file I mean.
+  (A reference *chip* was shipped and then removed — owner ruling 2026-09-15: not useful on the
+  page; the `ref` stays on every API/MCP payload as the agent-facing handle.)
 
 **Agent / MCP client**
 - As an agent, I want every entity payload to carry `ref` and every entity-taking tool to accept
@@ -185,8 +186,9 @@ enrichment — and the film cases produce wrong data, not just awkward data.
   `ref`.
 - [x] Every `{id}` route segment and every MCP tool id argument accepts a ref; kind mismatch → 400
   with a body naming the expected kind.
-- [x] `RefChip` mounted as the last item of the meta line on all five detail pages (handoff §1a);
-  click/Enter copies; "Copied" for 1.5 s; `aria-live`; clipboard-denied fallback selects the text.
+- [~] `RefChip` mounted as the last item of the meta line on all five detail pages (handoff §1a) —
+  **shipped `9deff21`, removed `<this commit>` by owner ruling** ("not useful, and not what
+  should have been implemented"). The UI has no reference surface; the handle lives in the API.
 - [x] Given `GET /people/1234` and `GET /people/person:1234`, the bodies are byte-identical.
 
 **375 — External ids**
@@ -265,8 +267,8 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 
 ### Should-have (P1)
 
-- [ ] `--font-mono` token in `app.css` `@theme inline` so the chip renders in a monospace stack
-  across skins (374 decides; falls back to `font-ui`).
+- [x] `--font-mono` token in `app.css` `@theme inline` — added by 374 for the chip; kept after the
+  chip's removal because 378's "In files as" line renders the record spelling in it.
 - [ ] Edition suggestion list in the custom input (Theatrical · Director's Cut · Extended · Unrated
   · Final Cut · Remastered) — a hint, never a constraint.
 - [ ] Near-miss pattern for loose edition forms feeding the queue (RD7's second half).
@@ -372,7 +374,7 @@ No endpoint changes its auth posture; all mutations stay behind `requireOwner`.
 ## UI
 
 Fully specified in the [design handoff](../design/entity-identity-card-handoff.md); summary:
-`RefChip` (new, §1), Edition row = generic field row + `SourceBadge` (§2), Full-film pill + dashed
+(§1's `RefChip` was removed after shipping — owner ruling), Edition row = generic field row + `SourceBadge` (§2), Full-film pill + dashed
 Set-edition link (§3), "In files as" line + name `SourceBadge` (§4). Three-skin QA per handoff §8.
 
 ## Success Metrics

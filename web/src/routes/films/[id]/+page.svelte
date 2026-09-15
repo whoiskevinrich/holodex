@@ -42,7 +42,6 @@
 	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
-	import RefChip from '$lib/components/entity/RefChip.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
@@ -594,9 +593,6 @@
 							{#if isOwner && yearDiffersFromRelease}
 								<p class="text-xs text-muted">Release date says {releaseDateYear}.</p>
 							{/if}
-							<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-								<RefChip ref={film.ref} />
-							</div>
 
 						<!-- Studio — gated exactly like the Media page's studio row
 						     (`media/[id]/+page.svelte`: `{#if isOwner || studioField?.values?.length}`).
