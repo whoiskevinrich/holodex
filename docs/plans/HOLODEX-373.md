@@ -155,7 +155,12 @@ Kevin's QA 4.3 go/no-go — pass → mark ready + sweep 374–378 to In Review; 
 commit and close it Won't Do.** Later the same day: 4.3 run. First pass reached for the tmdb
 Refresh button for "change how it looks" (the adoption layer, not precedence) — at rest nothing
 said another spelling existed. Re-run with the verbs in plain terms passed. One-line fix: the
-quiet link names the offered spelling. **PR #332 marked ready; 373–378 swept to In Review.**
+quiet link names the offered spelling. Second finding from the same run, A3 state: "I don't see a
+way to change the name written to files" — the docked pencil is hover-only and sits beside a
+heading that no longer shows the record spelling. Kevin chose the value-as-trigger: the record
+spelling on the "In files as" line opens the rename form (`NameEditControl.open()` exported;
+`DisplayNameLine onRename`). Live-checked: click → form prefilled + selected, Escape closes;
+visitor sees plain text. **PR #332 marked ready; 373–378 swept to In Review.**
 
 ### 2026-09-14 · 377 edition — coded, tested, live-QA'd, security-reviewed
 - skills: code-review (2 findings, both fixed), security-review (clean)

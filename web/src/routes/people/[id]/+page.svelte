@@ -133,6 +133,7 @@
 	// the row is absent. DisplayNameLine carries the name field's own SourceBadge, so
 	// `name` stays out of the field list below.
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	let nameControl = $state<NameEditControl | null>(null);
 	const displayName = $derived(nameField?.values[0] || person?.name || '');
 	// Field partitions (F37 handoff): the replace fields, then the merge fields ("Also
 	// known as"). Name is excluded (rendered via NameEditControl in the hero, HOLODEX-269),
@@ -523,6 +524,7 @@
 					{/if}
 					<div class="min-w-0 flex-1 pb-1">
 						<NameEditControl
+							bind:this={nameControl}
 							name={displayName}
 							editValue={person?.name ?? ''}
 							{isOwner}
@@ -554,6 +556,8 @@
 							canonical={person?.name ?? ''}
 							{isOwner}
 							decide={(s, mv) => decideField('name', s, mv)}
+							onRename={() => nameControl?.open()}
+							renameLabel="Rename this person"
 						/>
 						<EntityVideoMeta
 							count={videos.length}

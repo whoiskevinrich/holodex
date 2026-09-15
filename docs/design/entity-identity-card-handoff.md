@@ -261,7 +261,7 @@ components and supersedes it where they differ:
 |---|---|---|
 | A1 · owner, no decision | Heading + docked pencil exactly as before; beneath, a quiet link (`.btn-quiet text-xs`), owner only, that **names the spelling on offer**: `Display as Ana Keßler (tmdb)…` when a provider spelling differs from the record, bare `Display as…` otherwise. | §4c's "same slot" link, with the copy change from QA 4.3: the first pass reached for the provider's Refresh button, because at rest nothing said a second spelling existed. |
 | A2 · link clicked | The name field's `SourceBadge` mounts **already expanded** in the link's slot: `record` / provider spelling / `Custom` chips, Confirm / Cancel, and the helper copy under it. Focus hands from the link to the badge; dismissing hands it back. | Helper copy rewritten: search **does** match the display spelling (spec §378, ADR-096 D5), so it reads "Changes how the name is shown here and in search. Files, aliases, and writeback keep the record spelling." |
-| A3 · decision standing | h1 = resolved spelling; `In files as <canonical, mono> <badge>`. The badge renders **without repeating the value** (`SourceBadge showValue={false}`) — the heading already shows it. Pencil prefills canonical (`NameEditControl editValue`). | Films read **On record as** — a title is owner-asserted, never read from a file. Studios read "In files as" like people (the record comes from file tags). |
+| A3 · decision standing | h1 = resolved spelling; `In files as <canonical, mono> <badge>`. The badge renders **without repeating the value** (`SourceBadge showValue={false}`) — the heading already shows it. Pencil prefills canonical (`NameEditControl editValue`). **For the owner the record spelling on the line is itself the rename trigger** — dotted-underlined, `aria-label="Rename this person — in files as Ana Kessler"`, opens the same rename form (`NameEditControl.open()`), prefilled and selected. | Films read **On record as** — a title is owner-asserted, never read from a file. Studios read "In files as" like people (the record comes from file tags). The trigger is a QA 4.3 follow-up (owner, 2026-09-15): with a decision standing the docked pencil is hover-hidden beside a heading that no longer shows the record spelling, so there was no visible way to change what the files say. Owner chose the value-as-trigger over an always-visible pencil. |
 | A4 · visitor | Heading + the "In files as" line; no badge, no link, no pencil — a content line, not a control (routes rule). | Panel 4 drew the owner only. |
 | B · search row | The nav search row labels with `display_name ?? name`; canonical, display and alias spellings all match. | New: the row is the one list surface in scope. **Pickers keep the canonical name** — they send `name` back for linking. |
 
@@ -361,7 +361,9 @@ not body text — but check Broadcast, whose muted is the lightest).
   it looks" → the tmdb Refresh button (wrong — the adoption layer). Diagnosis: at rest nothing on
   the page said another spelling existed, and "Display as…" didn't say what. Re-run with the two
   verbs stated in plain terms: straight to Display as. Fix shipped: the link names the offered
-  spelling (`Display as Ana Keßler (tmdb)…`). 378 stays.
+  spelling (`Display as Ana Keßler (tmdb)…`). 378 stays. Follow-up from the same run: in the
+  decision-standing state the owner saw "no way to change the name written to files" (the pencil
+  is hover-only) — the record spelling on the "In files as" line is now the rename trigger.
 
 ## Open questions for the owner
 

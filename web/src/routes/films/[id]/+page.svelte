@@ -196,6 +196,7 @@
 	// title or a custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical
 	// column, which stays half the (name, year) identity key.
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
+	let nameControl = $state<NameEditControl | null>(null);
 	const displayName = $derived(nameField?.values[0] || film?.name || '');
 	const hasDetails = $derived(detailFields.length > 0);
 	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
@@ -487,6 +488,7 @@
 							     share, with the same-title/same-year collision as its MergeOfferCard
 							     verdict (the studio wiring). The old title is kept as an alias. -->
 							<NameEditControl
+								bind:this={nameControl}
 								name={displayName}
 								editValue={film.name}
 								{isOwner}
@@ -515,6 +517,8 @@
 								canonical={film.name}
 								{isOwner}
 								decide={(s, mv) => decideField('name', s, mv)}
+								onRename={() => nameControl?.open()}
+								renameLabel="Rename this film"
 								prefix="On record as"
 							/>
 							{#if nearMiss}

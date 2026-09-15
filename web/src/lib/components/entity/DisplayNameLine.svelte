@@ -9,7 +9,11 @@
 	//
 	// Two verbs, two existing affordances (handoff §4c): the badge here changes a
 	// per-field decision (DB only); the docked pencil on the heading is "Rename in files"
-	// and prefills canonical (NameEditControl `editValue`). No new buttons.
+	// and prefills canonical (NameEditControl `editValue`). No new buttons — but once a
+	// decision stands the record spelling on this line is itself the owner's trigger for
+	// that same rename form (`onRename` → NameEditControl.open()): the pencil is
+	// hover-revealed beside a heading that no longer shows the record spelling, and QA 4.3's
+	// follow-up found no visible way to change what the files say.
 	//
 	// `field` is the resolved `name` row. The resolver drops it when a decided provider
 	// has no stored spelling; the page then renders canonical and this line renders
@@ -25,12 +29,19 @@
 		canonical,
 		isOwner,
 		decide,
+		onRename,
+		renameLabel = 'Rename',
 		prefix = 'In files as'
 	}: {
 		field: ResolvedField | undefined;
 		canonical: string;
 		isOwner: boolean;
 		decide: (source: DecisionSource, manualValue?: string) => Promise<void>;
+		// Opens the heading's rename form (the page passes `() => nameControl.open()`);
+		// with it, the record spelling on the line is a button for the owner.
+		onRename?: () => void;
+		// Accessible name for that button, e.g. "Rename this person".
+		renameLabel?: string;
 		// "In files as" for the kinds whose record spelling comes from file tags
 		// (person, studio); a film's title is owner-asserted, never read from a file, so
 		// it passes "On record as".
@@ -79,7 +90,21 @@
 {#if field && (differs || (isOwner && open))}
 	<div bind:this={lineEl} class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
 		{#if differs}
-			<span>{prefix} <span class="wrap-anywhere font-mono text-ink">{canonical}</span></span>
+			<span>
+				{prefix}
+				{#if isOwner && onRename}
+					<button
+						type="button"
+						aria-label={`${renameLabel} — in files as ${canonical}`}
+						onclick={onRename}
+						class="wrap-anywhere font-mono text-ink underline decoration-dotted underline-offset-2 hover:text-accent focus-visible:text-accent"
+					>
+						{canonical}
+					</button>
+				{:else}
+					<span class="wrap-anywhere font-mono text-ink">{canonical}</span>
+				{/if}
+			</span>
 		{/if}
 		{#if isOwner}
 			<SourceBadge {field} baselineKey="record" showValue={false} {decide} />

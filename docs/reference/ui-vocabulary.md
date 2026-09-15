@@ -91,7 +91,8 @@ title, the Film year.
 *Display as* is the name field's chip row on `DisplayNameLine` — the "In files as `<canonical>`"
 line under the heading, shown only when the resolved spelling differs (a quiet **Display as…**
 link stands in for it when no decision is standing). *Rename in files* is the docked pencil,
-unchanged, prefilled with the canonical value. Two existing affordances, no new buttons; the
+unchanged, prefilled with the canonical value — and, once a decision stands, the record spelling
+on the "In files as" line opens that same form. Two existing affordances, no new buttons; the
 canonical column is never written by a display decision.
 → [entity-identity-card-handoff.md §4](../design/entity-identity-card-handoff.md);
 [ADR-096](../architecture/ADR-096-entity-identity-card.md) D5

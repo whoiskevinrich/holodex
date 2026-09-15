@@ -88,6 +88,16 @@
 		Promise.resolve().then(() => pencil?.focus());
 	}
 
+	// Opens the rename form from outside the control (bind:this + open()). The one caller
+	// is DisplayNameLine (HOLODEX-378): when a display decision stands, the record spelling
+	// on its "In files as" line is the visible trigger for a rename — the docked pencil is
+	// hover-revealed and, next to a heading that is no longer the record spelling, was not
+	// found (QA 4.3 follow-up). Same form, same prefill (`editValue`), same commit path.
+	export function open() {
+		if (!isOwner || editing || busy) return;
+		startEdit();
+	}
+
 	function startEdit() {
 		value = editValue ?? name;
 		error = '';

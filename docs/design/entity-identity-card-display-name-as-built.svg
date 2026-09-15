@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <title>Display name as built (HOLODEX-378) — the person hero in its four states, and a search row</title>
-  <desc>Panel A, the person detail hero drawn from the shipped components, four states: owner with no decision standing (heading, docked pencil, and beneath them a quiet link naming the provider spelling on offer: Display as Ana Keßler (tmdb)…); owner after clicking that link (the name field's SourceBadge chip row open in place — record, tmdb, Custom, Confirm, Cancel — with the helper copy under it); owner with a decision standing (the heading shows the provider spelling, beneath it the line In files as, the canonical spelling in monospace, and the tmdb badge); and the visitor view of that same person (heading and the In files as line, no badge, no link, no pencil). Panel B, the nav search dropdown's People row for that person labelled with the display spelling; a note that pickers still show and send the canonical name.</desc>
+  <desc>Panel A, the person detail hero drawn from the shipped components, four states: owner with no decision standing (heading, docked pencil, and beneath them a quiet link naming the provider spelling on offer: Display as Ana Keßler (tmdb)…); owner after clicking that link (the name field's SourceBadge chip row open in place — record, tmdb, Custom, Confirm, Cancel — with the helper copy under it); owner with a decision standing (the heading shows the provider spelling, beneath it the line In files as, the canonical spelling in monospace — for the owner a dotted-underlined button that opens the rename form — and the tmdb badge); and the visitor view of that same person (heading and the In files as line, no badge, no link, no pencil). Panel B, the nav search dropdown's People row for that person labelled with the display spelling; a note that pickers still show and send the canonical name.</desc>
 
   <rect width="900" height="560" fill="#0c0a09"/>
 
@@ -47,10 +47,10 @@
   <text x="248" y="282" fill="#9b9082" font-size="9" text-anchor="middle">✎</text>
   <text x="262" y="282" fill="#9b9082" font-size="9">prefills “Ana Kessler”</text>
   <text x="114" y="306" fill="#9b9082" font-size="11">In files as</text>
-  <text x="174" y="306" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Ana Kessler</text>
+  <text x="174" y="306" fill="#f3ece1" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-decoration="underline" style="text-decoration-style: dotted">Ana Kessler</text>
   <rect x="254" y="294" width="40" height="16" rx="8" fill="#181310" stroke="#e8a33d"/>
   <text x="274" y="305" fill="#9b9082" font-size="9" text-anchor="middle">tmdb</text>
-  <text x="302" y="306" fill="#9b9082" font-size="9">← the badge, no value repeated</text>
+  <text x="302" y="306" fill="#9b9082" font-size="9">← spelling = rename trigger (owner); badge, no value repeated</text>
   <text x="114" y="326" fill="#9b9082" font-size="11">0 videos · person:1</text>
 
   <!-- A4 visitor -->
