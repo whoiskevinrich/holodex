@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"holodex/internal/db"
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -434,6 +435,9 @@ type recordingSink struct {
 	suppress map[string]struct{}
 	locked   map[string]struct{} // core roles the owner set by hand (F33, ADR-049)
 	existing map[string]struct{} // asset URLs already stored (F34/ADR-050 URL fast-path)
+	// refuse is the error StoreAsset returns for a role instead of recording it — the
+	// real sink's typed refusals (HOLODEX-386), keyed by role.
+	refuse map[string]error
 }
 
 type storedAsset struct {
@@ -448,6 +452,9 @@ type storedAsset struct {
 }
 
 func (s *recordingSink) StoreAsset(_ context.Context, entityType string, personID int64, role, provider, externalID, url string, raw []byte, overCap bool) error {
+	if err, ok := s.refuse[role]; ok {
+		return err
+	}
 	s.stored = append(s.stored, storedAsset{entityType, personID, role, provider, externalID, url, len(raw), overCap})
 	return nil
 }
@@ -602,6 +609,85 @@ func TestEnrichDownloadsFilmAssets(t *testing.T) {
 	}
 	if len(sink2.stored) != 0 {
 		t.Errorf("stored %d assets for a locked poster, want 0", len(sink2.stored))
+	}
+}
+
+// A film banner the sink refuses for being portrait (HOLODEX-386) is not a failure:
+// the run still succeeds, the poster still stores, and the refusal lands on the
+// activity row — one clause naming the dimensions, counted as Skipped — so an absent
+// banner is explainable rather than silent (ADR-090 posture) — and noted once per
+// role, so a provider listing many portrait backdrops cannot grow the row. The role
+// stays open: a
+// later, landscape banner in the provider's preference order still fills it.
+func TestEnrichRecordsRefusedFilmBanner(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("rawimagebytes"))
+	}))
+	defer origin.Close()
+
+	fake := NewFake("fake")
+	rec := fake.Films["tmdb:129"]
+	rec.Assets = []Asset{
+		{Kind: "poster", URL: origin.URL + "/poster.jpg"},
+		{Kind: "backdrop", URL: origin.URL + "/portrait.jpg"},  // the poster re-emitted under the banner kind
+		{Kind: "backdrop", URL: origin.URL + "/portrait2.jpg"}, // a second one: refused too, but noted once
+	}
+	fake.Films["tmdb:129"] = rec
+
+	svc, r := newSvc(t, fake)
+	sink := &recordingSink{refuse: map[string]error{
+		model.FilmImageBanner: &filmimage.PortraitBannerError{Width: 1000, Height: 1500},
+	}}
+	svc.SetImageSink(sink)
+	svc.newAssetGet = func(Source) assetFetcher { return passthroughFetcher{} }
+
+	ctx := context.Background()
+	if _, err := svc.Enrich(ctx, model.EnrichEntityFilm, 4, "fake", "tmdb:129", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	if len(sink.stored) != 1 || sink.stored[0].role != model.FilmImagePoster {
+		t.Fatalf("stored = %+v, want the poster only", sink.stored)
+	}
+
+	runs, err := r.ListJobRuns(ctx, 5)
+	if err != nil {
+		t.Fatalf("list job runs: %v", err)
+	}
+	var job *model.JobRun
+	for i := range runs {
+		if runs[i].Kind == model.JobKindEnrich {
+			job = &runs[i]
+			break
+		}
+	}
+	if job == nil {
+		t.Fatal("no kind=enrich job recorded")
+	}
+	if job.Status != model.JobStatusOK || job.Errors != 0 {
+		t.Errorf("status = %q errors = %d, want a successful run — a refused banner is not a failure", job.Status, job.Errors)
+	}
+	if !strings.Contains(job.Detail, " · banner skipped: 1000×1500 is portrait, banner role requires landscape") {
+		t.Errorf("detail = %q, want the refusal with its dimensions", job.Detail)
+	}
+	if strings.Count(job.Detail, "banner skipped") != 1 {
+		t.Errorf("detail = %q, want exactly one banner clause for two refused backdrops", job.Detail)
+	}
+	if job.Skipped != 1 {
+		t.Errorf("skipped = %d, want 1", job.Skipped)
+	}
+
+	// The same run with a landscape banner records nothing extra and stores both.
+	sink2 := &recordingSink{}
+	svc.SetImageSink(sink2)
+	if _, err := svc.Enrich(ctx, model.EnrichEntityFilm, 4, "fake", "tmdb:129", false); err != nil {
+		t.Fatalf("enrich (landscape): %v", err)
+	}
+	if len(sink2.stored) != 2 {
+		t.Fatalf("stored %d assets, want poster + banner: %+v", len(sink2.stored), sink2.stored)
+	}
+	runs, _ = r.ListJobRuns(ctx, 5)
+	if len(runs) == 0 || strings.Contains(runs[0].Detail, "skipped") || runs[0].Skipped != 0 {
+		t.Errorf("landscape run = %+v, want no skip clause", runs)
 	}
 }
 

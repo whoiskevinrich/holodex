@@ -3,6 +3,7 @@ package imagesink
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/personimage"
 	"holodex/internal/repo"
@@ -266,5 +268,43 @@ func TestSinkUnsupportedEntityType(t *testing.T) {
 	sink := New(&fakePersonRepo{}, t.TempDir(), 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
 	if err := sink.StoreAsset(context.Background(), "video", 1, "poster", "p", "x", "", jpegBytes(t, 10, 10), false); err == nil {
 		t.Fatal("expected an error for an unsupported entity type")
+	}
+}
+
+// A portrait (or square) image offered under the film banner role is refused before
+// any row or file is written, and the error is the typed refusal the enrich loop
+// turns into an activity-log line (HOLODEX-386). A landscape banner and a portrait
+// poster both still store: the rule is banner-only.
+func TestSinkRefusesPortraitFilmBanner(t *testing.T) {
+	fr := &fakeFilmRepo{}
+	dir := t.TempDir()
+	sink := New(&fakePersonRepo{}, t.TempDir(), 0, &fakeStudioRepo{}, t.TempDir(), 0, fr, dir, 0)
+	ctx := context.Background()
+
+	for _, dims := range [][2]int{{100, 150}, {64, 64}} {
+		err := sink.StoreAsset(ctx, model.EnrichEntityFilm, 4, model.FilmImageBanner, "fake", "tmdb:129", "u", jpegBytes(t, dims[0], dims[1]), false)
+		var portrait *filmimage.PortraitBannerError
+		if !errors.As(err, &portrait) {
+			t.Fatalf("%dx%d banner: err = %v, want *filmimage.PortraitBannerError", dims[0], dims[1], err)
+		}
+		if portrait.Width != dims[0] || portrait.Height != dims[1] {
+			t.Errorf("refusal carries %dx%d, want %dx%d", portrait.Width, portrait.Height, dims[0], dims[1])
+		}
+	}
+	if len(fr.inserts) != 0 {
+		t.Fatalf("a refused banner reached the repo: %+v", fr.inserts)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Fatalf("a refused banner reached disk: %v", entries)
+	}
+
+	if err := sink.StoreAsset(ctx, model.EnrichEntityFilm, 4, model.FilmImageBanner, "fake", "tmdb:129", "u", jpegBytes(t, 300, 100), false); err != nil {
+		t.Fatalf("landscape banner: %v", err)
+	}
+	if err := sink.StoreAsset(ctx, model.EnrichEntityFilm, 4, model.FilmImagePoster, "fake", "tmdb:129", "u", jpegBytes(t, 100, 150), false); err != nil {
+		t.Fatalf("portrait poster: %v", err)
+	}
+	if len(fr.inserts) != 2 || fr.inserts[0].Role != model.FilmImageBanner || fr.inserts[1].Role != model.FilmImagePoster {
+		t.Fatalf("inserts = %+v, want the landscape banner then the poster", fr.inserts)
 	}
 }
