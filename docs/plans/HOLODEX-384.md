@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-384
-status: in-progress
+status: in-review
 depends-on: []
 release_note: The film posters below a person, studio or tag's videos are now the same height as the video cards above them and lift forward on hover, the way the person's headshot does.
 ---
@@ -41,7 +41,7 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
   border + caption, 150ms — all three skins. `.media-lift--static` and the reduced-motion gate
   confirmed present in the served stylesheet (`@layer components`). Harness rung NOT added —
   the invariant is an equality between two elements the geometry harness can't express →
-  HOLODEX-395; recorded in `docs/testing-strategy.md` §11. Human items §9.8–9.10 still open.
+  HOLODEX-395; recorded in `docs/testing-strategy.md` §11. Human items §9.8–9.10 passed by Kevin 2026-09-16.
 - [~] security `security-review` — n/a: no auth/access/infra surface
 
 ## Up next — ordered (position = priority)
@@ -49,8 +49,7 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
 <!-- Numbered queue. Position is the priority — no P1/P2 tags. Each item: [gate] one-liner — file path.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue. -->
 
-1. [ ] [human] Kevin runs handoff §9.8–9.10 on `backend-films-wide` (local launch profile,
-   `CARD_LAYOUT=wide`) → `/people/1`; pass → mark PR #336 ready (fires In Review)
+1. [ ] [—] nothing open on the branch — merge closes the ticket (CI fires Done)
 2. [ ] [testing] → HOLODEX-395 relative geometry measure + the §9.2 rung (separate ticket)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -71,3 +70,7 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
   numbers in the testing gate above. Added a gitignored `backend-films-wide` launch profile
   (same testbed, `CARD_LAYOUT=wide`) — the committed profile pins poster layout. Filed
   HOLODEX-395 for the harness gap. PR stays Draft pending Kevin's §9.8–9.10.
+
+### 2026-09-16 · human QA pass → ready for review
+- skills: none
+- handoff: Kevin passed §9.8–9.10; PR #336 marked ready (In Review). Nothing open on the branch.
