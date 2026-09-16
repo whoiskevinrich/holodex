@@ -2281,6 +2281,7 @@ Then BOTH 'writing to file' and 'out of sync' are present (RD6)
 
 ## 11. Known Gaps & Open Questions
 
+- **HOLODEX-384 entity Films row height match**: the invariant is "film poster height == `.video-frame` height" — a comparison between two elements, which the geometry harness (`web/geometry/assertions.mjs`, fixed `{min,max}` bounds only) cannot express. Verified live 2026-09-16 (densities 2/4/8, wide + poster layout, three skins, 375px; numbers in `docs/plans/HOLODEX-384.md`) but has no rung. Not a silent gap: HOLODEX-395 adds a relative measure and the rung.
 - **Browser codec coverage**: real playback depends on browser/codec; E2E asserts the *delivery* (206/range), not decode of every codec — codec matrix is manual/non-goal (transcoding out of scope).
 - **Filesystem watcher** (inotify/FSEvents/Windows) is OS-specific; CI validates the Linux container path only — note this explicitly (no silent gap).
 - **50k perf dataset**: confirm target hardware profile for the CI perf runner so thresholds are meaningful.

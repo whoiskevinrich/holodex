@@ -54,7 +54,7 @@ inputs with a container query:
 
 ```
 section          container-type: inline-size
---cols           the same `cols` VideoGrid renders with (pass as a prop or a CSS var on EntityVideos)
+--cols           the same `cols` VideoGrid renders with (`effectiveDensity()`, set inline on the section)
 --card-w         calc((100cqw − (var(--cols) − 1) · 1rem) / var(--cols))     ← 1rem = VideoGrid's gap-4
 poster height    calc(var(--card-w) · 9 / 16)                                 (wide layout)
                  var(--card-w)                                                (poster layout: 2:3 frames)
@@ -70,9 +70,13 @@ each other* on a page with no video grid in play. Here the only thing to align w
 directly above, and the grid is density-driven. A fixed width would be right at exactly one
 density.
 
-**Stage-aligned grids** (HOLODEX-331 §9.6, `stageAligned`): the column width there is measured,
-not computed. `VideoGrid` already knows it (`tracks`); expose it the same way as `--cols` — the
-shelf consumes a `--card-w` it's handed, and only computes one from `--cols` when it isn't.
+**Stage-aligned grids** (HOLODEX-331 §9.6, `stageAligned`) do not arise here: `EntityVideos`
+never sets that mode (it is the film page's Scenes list only), so the entity grid is always
+`repeat(cols, minmax(0,1fr))` under `gap-4` and the formula above is exact. `FilmsRow` therefore
+reads `effectiveDensity()` and `activity.cardLayout` itself — nothing is threaded through
+`EntityVideos`. *(Implementation note, 2026-09-16: the first draft of this section planned to
+hand a measured `--card-w` down from `EntityVideos`; reading the source showed there is no
+measured width on this surface to hand down.)*
 
 ### 3b. Caption block
 
@@ -86,7 +90,12 @@ tile is ~3/8 the width of a card, two-line wraps are the common case, not the ed
 The shelf stays `overflow-x: auto` (a person with 30 films must scroll, not wrap into a second
 grid). A scaled child is clipped by a scroll container on the axis it isn't scrolling, so:
 
-- `<ul>` gets `py-2 -my-2` — 8px of room for the 6% lift without moving the row.
+- `<ul>` gets padding of `--lift-slack` = 6% of the tile width on every edge (a fixed 8px only
+  covered tiles under ~270px; a density-2 poster-layout tile is ~900px tall and overshoots by
+  ~28px per side), with the side and bottom slack handed back as negative margins so the tiles
+  stay on the grid's left edge and the row's footprint doesn't grow. The top padding doubles as
+  the heading gap (a negative *top* margin would collapse against the heading's margin and pull
+  the tiles into it).
 - Horizontal clipping on the first/last tile is accepted: the lift is 2–3px per side at these
   sizes and the tile's inner edge is what the eye reads.
 
@@ -97,7 +106,7 @@ grid). A scaled child is clipped by a scroll container on the axis it isn't scro
 | `FilmsRow.svelte` | `<li>`: `w-20` → sized per §3a; add the lift hook class. Poster frame: add `border border-rule` (keep `rounded-theme bg-logo-plate`). Caption: `text-xs text-muted` → `VideoCard`'s title block. Keep `title={f.name}`, `loading="lazy"`, the monogram empty state, and the "render nothing when empty" rule. |
 | `app.css` | Rename `.person-hero-media` → `.media-lift` (and `--static` → `.media-lift--static`); no value changes. |
 | `PersonBanner.svelte`, `people/[id]/+page.svelte` | Class rename only (4 sites). |
-| `EntityVideos.svelte` | Pass `cols` (and the stage-aligned `--card-w` when present) down to the footer, or set them as CSS vars on the wrapping `<section>`. |
+| `EntityVideos.svelte` | Unchanged — see §3a: the grid here is never stage-aligned, so `FilmsRow` reads the density and layout itself. |
 
 No new component. No new prop on `FilmsRow`'s public surface beyond what sizing needs.
 

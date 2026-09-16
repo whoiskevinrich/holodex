@@ -27,28 +27,47 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
 - [~] architecture `architecture` — n/a
 - [x] design `design-handoff` — `docs/design/entity-films-row-handoff.md` + committed SVG mockup
 - [~] backend — n/a
-- [ ] frontend — `FilmsRow.svelte` (sizing via container query on `--cols`/`--card-w`, frame
-  chrome, caption block, lift hook, `py-2 -my-2` on the `<ul>`), `app.css` (`.person-hero-media`
-  → `.media-lift`, `--static` variant kept), `PersonBanner.svelte` + `people/[id]/+page.svelte`
-  (4 rename sites), `EntityVideos.svelte` (hand `cols` / stage-aligned width to the footer)
-- [ ] testing `testing-strategy` — handoff §9: geometry equality at density 4 and 8 in both
-  layouts (9.2–9.4), hover computed-style + reduced-motion (9.5), banner still static (9.6),
-  400px overflow rung (9.7); three-skin QA
+- [x] frontend — `FilmsRow.svelte` (reads `effectiveDensity()` + `activity.cardLayout` itself;
+  `.films-shelf` size container, frame chrome, VideoCard caption block, `.media-lift` hook,
+  `--lift-slack` padding on the `<ul>` — 6% of tile width, code-review caught the fixed 8px clipping tall tiles), `app.css` (`.person-hero-media` → `.media-lift` + `--static`
+  kept; new `.films-shelf` sizing block), `PersonBanner.svelte` + `people/[id]/+page.svelte`
+  (4 rename sites). `EntityVideos` untouched — its grid is never stage-aligned, so there was
+  nothing to thread down.
+- [x] testing `testing-strategy` — `npm run check` 0 errors. Live on `backend-films` (person 1
+  "QA Actor", 4 videos curated on, 2 films): **poster h == `.video-frame` h** at cols 2 / 4
+  (8 tier-capped to 4 at 1280px) in poster layout (900.575/900.6, 438.375/438.375) and cols 4
+  in wide layout (166.5/166.5, tile w 111 = 296·3/8); caption blocks 44/44; tile h == card h;
+  375px → cols 1, 184.03/184.05, no horizontal overflow. Hover: `matrix(1.06…)`, z 5, accent
+  border + caption, 150ms — all three skins. `.media-lift--static` and the reduced-motion gate
+  confirmed present in the served stylesheet (`@layer components`). Harness rung NOT added —
+  the invariant is an equality between two elements the geometry harness can't express →
+  HOLODEX-395; recorded in `docs/testing-strategy.md` §11. Human items §9.8–9.10 still open.
 - [~] security `security-review` — n/a: no auth/access/infra surface
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] `EntityVideos` → expose `cols` (and the stage-aligned measured track width)
-   to the footer as CSS vars — `web/src/lib/components/entity/EntityVideos.svelte`
-2. [ ] [frontend] `FilmsRow` sizing + chrome + caption + lift hook — `FilmsRow.svelte`
-3. [ ] [frontend] rename `.person-hero-media` → `.media-lift` — `app.css` + 4 sites
-4. [ ] [testing] handoff §9.2–9.7 as a geometry check; three-skin QA on `backend-films`
-5. [ ] [handoff] mark PR ready → In Review
+<!-- Numbered queue. Position is the priority — no P1/P2 tags. Each item: [gate] one-liner — file path.
+     ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue. -->
+
+1. [ ] [human] Kevin runs handoff §9.8–9.10 on `backend-films-wide` (local launch profile,
+   `CARD_LAYOUT=wide`) → `/people/1`; pass → mark PR #336 ready (fires In Review)
+2. [ ] [testing] → HOLODEX-395 relative geometry measure + the §9.2 rung (separate ticket)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-16 · session
+- skills: code-review
 
 ### 2026-09-15 · design gate
 - skills: design-handoff
 - decisions: D1 grid-derived sizing, D2 separate from 296 — both put to Kevin with side-by-side renders, both taken as recommended; recorded in handoff §10, 296 linked in Jira
 - handoff: HOLODEX-384 created + In Progress; branch renamed; handoff doc + SVG committed;
   Draft PR open. Next session starts at Up-next 1 — nothing in code has changed yet.
+
+### 2026-09-16 · frontend + live verification
+- skills: code-review high --fix (1 fixed: proportional lift slack; 1 documented: size container = stacking context)
+- handoff: frontend gate closed in one pass; `EntityVideos` threading dropped after reading the
+  source (never stage-aligned). Verified live at 3 densities × 2 layouts × 3 skins + 375px; all
+  numbers in the testing gate above. Added a gitignored `backend-films-wide` launch profile
+  (same testbed, `CARD_LAYOUT=wide`) — the committed profile pins poster layout. Filed
+  HOLODEX-395 for the harness gap. PR stays Draft pending Kevin's §9.8–9.10.
