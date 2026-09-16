@@ -2223,6 +2223,18 @@ When POST /films/{id}/images/{role} processes it
 Then personimage.Normalize rejects it (the same guard every other image upload in the codebase
      passes through) and the request fails without writing to disk — no new decode path
 
+Given a film whose banner (or poster) slot holds ONLY a provider-sourced row (source
+     "provider:tmdb", written by enrichment — no upload row) and its file on disk
+When the owner's DELETE /films/{id}/images/{role} runs (HOLODEX-388)
+Then the provider row AND its file are gone, GET .../images/{role} is 404, and Film.ImageVersions
+     no longer carries the role — before the fix the handler deleted only source='upload', so the
+     DELETE returned an idempotent 204 while filmImageVersions kept serving the provider banner
+
+Given a film whose slot holds BOTH an upload row and a provider row for one role
+When the owner's DELETE /films/{id}/images/{role} runs once
+Then the role is empty (404) — one Remove clears the whole slot rather than peeling the upload
+     back to reveal the provider image, which would make the × need two clicks to empty a role
+
 Given no imagesink.Sink dispatch entry exists yet for entityType "film" (deliberately deferred
      to HOLODEX-284, the future enrichment ticket — no provider writer exists in this ticket)
 When a film is enriched via any existing provider flow

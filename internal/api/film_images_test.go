@@ -12,12 +12,14 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"holodex/internal/api"
 	"holodex/internal/db"
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -28,7 +30,16 @@ import (
 // studio_images_test.go (same package).
 func filmImageServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Repo, fid int64) {
 	t.Helper()
+	srv, r, fid, _ = filmImageServerDir(t, token)
+	return srv, r, fid
+}
+
+// filmImageServerDir is filmImageServer plus the on-disk image directory, for tests
+// that seed a provider-sourced file directly instead of going through the upload route.
+func filmImageServerDir(t *testing.T, token string) (srv *httptest.Server, r *repo.Repo, fid int64, imageDir string) {
+	t.Helper()
 	dir := t.TempDir()
+	imageDir = filepath.Join(dir, "film-images")
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -40,7 +51,7 @@ func filmImageServer(t *testing.T, token string) (srv *httptest.Server, r *repo.
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetFilmsEnabled(true)
-	h.SetFilmImages(filepath.Join(dir, "film-images"), 5<<20, 1000)
+	h.SetFilmImages(imageDir, 5<<20, 1000)
 	h.SetAuth(api.NewAuth(token), false)
 	srv = httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
@@ -49,7 +60,7 @@ func filmImageServer(t *testing.T, token string) (srv *httptest.Server, r *repo.
 	if err != nil {
 		t.Fatalf("seed film: %v", err)
 	}
-	return srv, r, fid
+	return srv, r, fid, imageDir
 }
 
 // uploadFilmImage POSTs a multipart image for a role and returns the response code
@@ -161,6 +172,83 @@ func TestFilmImage_UploadServeDelete(t *testing.T) {
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("%s after delete = %d, want 404", role, resp.StatusCode)
 		}
+	}
+}
+
+// TestFilmImage_DeleteClearsProviderRow reproduces HOLODEX-388: the owner's Remove on
+// a banner that came from enrichment (source "provider:tmdb", no upload row) must
+// actually clear the slot. Before the fix the handler deleted only the upload row, so
+// the DELETE was a 204 no-op and the provider banner kept serving. The second half
+// covers the upload-over-provider pair — one Remove empties the role, it does not peel
+// the upload back to reveal the provider image.
+func TestFilmImage_DeleteClearsProviderRow(t *testing.T) {
+	srv, r, fid, dir := filmImageServerDir(t, "tok")
+	ctx := context.Background()
+	role := model.FilmImageBanner
+	url := srv.URL + "/api/v1/films/" + itoa(fid) + "/images/" + role
+
+	insertProvider := func() int64 {
+		t.Helper()
+		id, err := r.ReplaceFilmImage(ctx, repo.FilmImageInsert{
+			FilmID: fid, Role: role, Source: "provider:tmdb", Provider: "tmdb", ExternalID: "129",
+			Width: 16, Height: 6,
+		})
+		if err != nil {
+			t.Fatalf("insert provider image: %v", err)
+		}
+		if err := filmimage.Store(dir, fid, id, solidJPEG(t, 16, 6)); err != nil {
+			t.Fatalf("store provider file: %v", err)
+		}
+		return id
+	}
+	del := func() {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodDelete, url, nil)
+		req.Header.Set(api.AdminTokenHeader, "tok")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("delete: %v", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("delete = %d, want 204", resp.StatusCode)
+		}
+	}
+	served := func() int {
+		t.Helper()
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatalf("get: %v", err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+
+	// Provider-only slot — the reported case.
+	providerID := insertProvider()
+	if served() != http.StatusOK {
+		t.Fatal("provider banner should serve before delete")
+	}
+	del()
+	if code := served(); code != http.StatusNotFound {
+		t.Fatalf("banner after delete = %d, want 404 (provider row survived)", code)
+	}
+	if _, err := os.Stat(filmimage.ImagePath(dir, fid, providerID)); !os.IsNotExist(err) {
+		t.Fatalf("provider file still on disk: %v", err)
+	}
+	f, _ := r.GetFilm(ctx, fid)
+	if _, ok := f.ImageVersions[role]; ok {
+		t.Fatal("ImageVersions still carries the banner role")
+	}
+
+	// Upload + provider pair — one Remove clears both.
+	insertProvider()
+	if code, _ := uploadFilmImage(t, srv, "tok", fid, role, solidJPEG(t, 16, 6)); code != http.StatusCreated {
+		t.Fatalf("upload = %d, want 201", code)
+	}
+	del()
+	if code := served(); code != http.StatusNotFound {
+		t.Fatalf("banner after paired delete = %d, want 404", code)
 	}
 }
 

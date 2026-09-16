@@ -14,11 +14,12 @@ import (
 // thumb roles, shaped after studio_images (F51, ADR-079) with one deliberate
 // difference carried from migration 0043's schema comment: UNIQUE is (film_id, role,
 // source), not (film_id, role) alone, so an uploaded image and a provider-sourced
-// image for the same role can coexist as distinct rows. Every function here is
-// therefore scoped by source, not just role — this ticket only ever passes
-// model.FilmImageSourceUpload; a provider-sourced writer/reader is HOLODEX-284's
-// scope. Writes take writeMu like the rest of the write path; reads are unlocked
-// (WAL).
+// image for the same role can coexist as distinct rows. Every writer here is
+// therefore scoped by source, not just role — the owner upload path passes
+// model.FilmImageSourceUpload, the enrichment sink a "provider:<name>" source. The one
+// role-wide operation is DeleteFilmImageRole, the owner's Remove, which clears every
+// source at once (HOLODEX-388). Writes take writeMu like the rest of the write path;
+// reads are unlocked (WAL).
 
 // FilmImage is one stored image for a film.
 type FilmImage struct {
@@ -147,6 +148,51 @@ func (r *Repo) DeleteFilmImage(ctx context.Context, filmID int64, role, source s
 		return fmt.Errorf("delete film image: %w", err)
 	}
 	return nil
+}
+
+// DeleteFilmImageRole clears the film's whole slot for one role — every source's row,
+// upload and provider alike — and returns the removed row ids so the caller can drop
+// their files. This is the owner's "Remove" (HOLODEX-388): DeleteFilmImage's
+// per-source form is the enrichment writer's tool, and pointing the owner's Remove at
+// the upload row alone made it a silent no-op whenever the displayed image was a
+// provider row that filmImageVersions kept serving. Idempotent — an empty slot
+// returns no ids and no error.
+func (r *Repo) DeleteFilmImageRole(ctx context.Context, filmID int64, role string) ([]int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	rows, err := tx.QueryContext(ctx,
+		`SELECT id FROM film_images WHERE film_id = ? AND role = ?`, filmID, role)
+	if err != nil {
+		return nil, fmt.Errorf("list film image role: %w", err)
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM film_images WHERE film_id = ? AND role = ?`, filmID, role); err != nil {
+		return nil, fmt.Errorf("delete film image role: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit delete film image role: %w", err)
+	}
+	return ids, nil
 }
 
 // LockedFilmImageRoles returns the set of roles whose current image the owner set by
