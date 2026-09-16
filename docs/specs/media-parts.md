@@ -263,6 +263,12 @@ This is a single-owner library; metrics are acceptance, not analytics.
   tiebreak needs either a correlated subquery on the file-layer `PartNumber`/`DiskNumber` row
   (ignores filename candidates and decisions) or a materialised resolved-part column maintained
   at decision/scan time. If neither is cheap, the P1 stays open and `v.id` order stands.
+  **Ruled 2026-09-16 at the payload step: neither is cheap enough — the P1 stays open.** The
+  payload resolves `part` after the page is fetched (one batch pass per list), so it cannot feed
+  `ORDER BY`; a correlated subquery would be a second precedence implementation in SQL that drifts
+  from ADR-051 the first time a decision or filename candidate disagrees with the tag, and a
+  materialised column is a data-model change that reopens the ADR gate this story deliberately
+  has none of. `v.id` order stands; files scanned in name order still land right.
 - ~~**OQ3 (design)** — Pill wording~~ **Resolved 2026-09-16**: "Part N" everywhere, one shared
   `partBadgeLabel` helper (handoff §5); the long form fits beside the duration badge even at the
   16-column tier, so no per-surface abbreviation.

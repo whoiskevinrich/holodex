@@ -21,7 +21,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 - [x] spec `write-spec` — [docs/specs/media-parts.md](../specs/media-parts.md) (RD1–RD10; OQ1/OQ2 engineering, OQ3 design)
 - [~] architecture `architecture` — n/a: a canonical field is mapping config, as edition was (ADR-096 D4)
 - [x] design `design-handoff` — [docs/design/media-parts-handoff.md](../design/media-parts-handoff.md) + [SVG](../design/media-parts-mockup.svg); card slot = bottom-left duration-style, "Part N" everywhere, no film-page "+ Set part"
-- [ ] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload
+- [x] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload (`part` on `model.Video`, batch pass on every list surface + both queues)
 - [ ] frontend — media header pill + "+ Set part" row, film list pill, `VideoCard` marker, queue-row marker, writeback dialog
 - [ ] testing `testing-strategy` — strategy row landed in [docs/testing-strategy.md](../../docs/testing-strategy.md) (2026-09-16, target coverage); flips when the named tests exist: lifter cases (RD4 incl. rejected bodies), loader rejection (*new*), MKV+MP4 round trip incl. `PART_NUMBER` replace, list-path `part` incl. container-tag-only, triplet-enrich invariance, three-skin QA
 - [~] security `security-review` — n/a: no auth/access/infra change; one more `formatMap` row in an existing perimeter
@@ -30,17 +30,15 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 
 1. [ ] [backend] ~~OQ1~~ resolved (extractor, `ordinalKeys`); OQ2: whether the title-sort tiebreak
    (P1) is cheap — decide at the payload step (#2), which is the same lever
-2. [ ] [backend] **payload gap** (found by testing-strategy): `applyBrowseTitles` passes `extra=nil`
-   and walks `Browse` fields only, so a container-tag-only `part` (`PART_NUMBER`, MP4 `disk`) is invisible on
-   cards/queue rows. Put `part` on `model.Video`, fill it with one batch pass that loads just
-   `part`'s `file:` keys (no migration; a materialised column would reopen the ADR gate and is
-   OQ2's lever, not this one). `FilmVideo.Video` then carries it to scene cards too — stamp full-film
-   **and** scene rows, unlike edition.
+2. [x] [backend] **payload gap** — DONE: `model.Video.Part` + `partsFor`/`applyParts`
+   (`internal/api/parts.go`), key-scoped batch loads, wired into every list surface, both queues and
+   the detail `video` object; scene **and** full-film rows stamped. OQ2 ruled: P1 stays open (spec).
 3. [ ] [backend] implement P0 per spec, in the edition-PR order — **mapping + lifter DONE**
    (registry `part` + `FieldDef.FileOnly`, loader rejects `<provider>:part`, example mapping, marker
    table lifts both markers, `part` TierHigh); **extractor DONE** (`ordinalKeys` normalisation +
    `PartNumber-und` pin); **formatMap DONE** (`PART_NUMBER` / `QuickTime:DiskNumber`, `readKey` folds
-   `_`, replace-not-append pinned, round trip green on real MKV+MP4); **remaining: payload (#2)**
+   `_`, replace-not-append pinned, round trip green on real MKV+MP4); **payload DONE** (#2) — backend
+   gate complete
 4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
 5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -91,3 +89,15 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   `in_sync` order-dependent); `TestPartRoundTrip_BothContainers` (`-tags integration`) passes
   locally on real ffmpeg+exiftool (MKV via the ffmpeg fallback — no mkvpropedit here; CI has it).
   Next: payload — `part` on `model.Video` + batch load of its `file:` keys on the list path (#2).
+
+### 2026-09-16 · backend: payload (gate closed)
+- skills: code-review (high --fix — one finding, fixed: detail `video` object also carries `part`)
+- handoff: `model.Video.Part` stamped by `partsFor`/`applyParts` (`internal/api/parts.go`) — one
+  batch pass through the real resolver; `ExtraMetadataForVideosByKey` + `EnrichmentForVideosField`
+  are key-scoped variants of loaders that already existed (the strategy row's "no batch loader"
+  was wrong — F55 had one; the list path just never called it). Wired: browse, completeness sort,
+  search, related, person/tag/studio, film scenes **and** full films, film candidates, enrich
+  queue (video rows), extraction queue, media detail. Six API tests over a triplet fixture
+  (tag / filename / decision / none). OQ2 ruled in the spec: P1 tiebreak stays open. Not touched:
+  `videoEdition` is still N+1 per full-film file (pre-existing). Next: frontend (RD9 surfaces,
+  `partBadgeLabel`, `types.ts` `part?` on Video/EnrichQueueRow/ExtractionQueueRow).
