@@ -36,6 +36,24 @@ var tokenRe = regexp.MustCompile(`\{(\w+)\}`)
 // swallowed into a neighbouring {title}.
 var editionMarkerRe = regexp.MustCompile(`\s*\{edition-([^{}]*)\}\s*`)
 
+// partMarkerRe is the strict part grammar (HOLODEX-389 RD4): `{part-N}`, N one or
+// more ASCII digits with at least one non-zero, so `{part-0}`, `{part-}`,
+// `{part-two}` and `{part-2of3}` are not markers — they stay in the stem and the
+// file visibly fails to parse rather than silently dropping what the owner wrote.
+var partMarkerRe = regexp.MustCompile(`\s*\{part-(0*[1-9][0-9]*)\}\s*`)
+
+// markers are the `{key-…}` conventions lifted out of the stem before pattern
+// matching, each at most once, in any order. norm turns the captured body into
+// the emitted value; an empty result emits nothing.
+var markers = []struct {
+	field string
+	re    *regexp.Regexp
+	norm  func(string) string
+}{
+	{"edition", editionMarkerRe, strings.TrimSpace},
+	{"part", partMarkerRe, func(s string) string { return strings.TrimLeft(s, "0") }}, // {part-02} → 2
+}
+
 // nonPersonShapeRes are value shapes that are never a person name — a
 // misparse of some other field (year, date, resolution, a bare index/take
 // number) into the {people} position, not a name. bareYearRe (HOLODEX-196 #3)
@@ -188,35 +206,48 @@ func (p *Pattern) Match(filenameStem, delimiter string) (fields map[string][]str
 // file that matches none of them yields ok=false and falls through to tag-only
 // resolution unchanged.
 func MatchFirst(patterns []*Pattern, filename, delimiter string) (fields map[string][]string, ok bool) {
-	stem, edition := liftEdition(stemOf(filename))
+	stem, lifted := liftMarkers(stemOf(filename))
 	for _, p := range patterns {
 		if fields, ok := p.Match(stem, delimiter); ok {
-			if edition != "" {
-				fields["edition"] = []string{edition}
+			for k, v := range lifted {
+				fields[k] = []string{v}
 			}
 			return fields, true
 		}
 	}
-	if edition != "" {
-		// The marker is a recognised convention on its own (F60 RD7): a file no
-		// pattern fits still yields its edition rather than falling through.
-		return map[string][]string{"edition": {edition}}, true
+	if len(lifted) > 0 {
+		// A marker is a recognised convention on its own (F60 RD7, HOLODEX-389
+		// RD4): a file no pattern fits still yields its markers rather than
+		// falling through.
+		fields = make(map[string][]string, len(lifted))
+		for k, v := range lifted {
+			fields[k] = []string{v}
+		}
+		return fields, true
 	}
 	return nil, false
 }
 
-// liftEdition removes the first `{edition-<text>}` marker from stem, returning
-// the stem with the marker (and the whitespace around it) collapsed to a single
-// space, plus the trimmed edition text. An empty marker is removed but yields
-// no edition.
-func liftEdition(stem string) (rest, edition string) {
-	loc := editionMarkerRe.FindStringSubmatchIndex(stem)
-	if loc == nil {
-		return stem, ""
+// liftMarkers removes the first occurrence of each marker from stem, returning
+// the stem with every marker (and the whitespace around it) collapsed to a
+// single space, plus the normalised value per field. A marker whose value
+// normalises to empty is removed but emits nothing.
+func liftMarkers(stem string) (rest string, lifted map[string]string) {
+	rest = stem
+	for _, m := range markers {
+		loc := m.re.FindStringSubmatchIndex(rest)
+		if loc == nil {
+			continue
+		}
+		if v := m.norm(rest[loc[2]:loc[3]]); v != "" {
+			if lifted == nil {
+				lifted = make(map[string]string, len(markers))
+			}
+			lifted[m.field] = v
+		}
+		rest = strings.TrimSpace(rest[:loc[0]] + " " + rest[loc[1]:])
 	}
-	edition = strings.TrimSpace(stem[loc[2]:loc[3]])
-	rest = strings.TrimSpace(stem[:loc[0]] + " " + stem[loc[1]:])
-	return rest, edition
+	return rest, lifted
 }
 
 // stemOf returns the filename's base name with its extension removed, matching

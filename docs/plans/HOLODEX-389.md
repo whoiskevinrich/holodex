@@ -36,9 +36,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    `part`'s `file:` keys (no migration; a materialised column would reopen the ADR gate and is
    OQ2's lever, not this one). `FilmVideo.Video` then carries it to scene cards too — stamp full-film
    **and** scene rows, unlike edition.
-3. [ ] [backend] implement P0 per spec, in the edition-PR order (mapping → lifter → formatMap → payload);
-   the loader's `<provider>:part` rejection is new behaviour (`parseSources` validates nothing today)
-   and wants a registry-level file-only fact on the `FieldDef`
+3. [ ] [backend] implement P0 per spec, in the edition-PR order — **mapping + lifter DONE**
+   (registry `part` + `FieldDef.FileOnly`, loader rejects `<provider>:part`, example mapping, marker
+   table lifts both markers, `part` TierHigh); **remaining: extractor OQ1 normalisation → formatMap
+   (`PART_NUMBER`/`disk`) + round-trip test → payload (#2)**
 4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
 5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -49,7 +50,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-16 · brainstorm + spec + design handoff
-- skills: product-brainstorming, write-spec, design-handoff
+- skills: product-brainstorming, write-spec, design-handoff, code-review
 - handoff: Draft PR #340 on `HOLODEX-389-media-parts` carries spec + handoff + SVG; every
   design ruling is locked (ordinal-only, strict `{part-N}`, `disk` atom for MP4, manual set via
   generic chip with no validation, no grouping, bottom-left duration-style card badge, "Part N"
@@ -63,3 +64,12 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   replace-not-append, list-path container-tag-only `part`). The list-path finding is a backend design input
   (Up next #2), not a test-only note. Handoff §2.2–2.4 are agent QA, not smoke — `web/` has no
   component harness. No code yet.
+
+### 2026-09-16 · backend: mapping + lifter
+- skills: code-review (high --fix, clean)
+- handoff: first backend commit — registry `part` (optional, `FileOnly`), loader rejection with
+  `TestLoadRejectsProviderSourceOnFileOnlyField` + `TestExampleMappingNoSharedFileSource`, example
+  mapping (`PartNumber`, `DiskNumber`, `filename:part`; episode loses `PartNumber`), `liftEdition` →
+  `liftMarkers` table with `TestMatchFirst_PartMarker` (13 cases; note a bad `{part-…}` beside a good
+  `{edition-…}` still emits edition alone — RD7's "marker is a match on its own" wins). Next:
+  extractor normalisation (OQ1) → formatMap → payload batch load.
