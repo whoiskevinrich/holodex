@@ -39,7 +39,8 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 3. [ ] [backend] implement P0 per spec, in the edition-PR order — **mapping + lifter DONE**
    (registry `part` + `FieldDef.FileOnly`, loader rejects `<provider>:part`, example mapping, marker
    table lifts both markers, `part` TierHigh); **extractor DONE** (`ordinalKeys` normalisation +
-   `PartNumber-und` pin); **remaining: formatMap (`PART_NUMBER`/`disk`) + round-trip test → payload (#2)**
+   `PartNumber-und` pin); **formatMap DONE** (`PART_NUMBER` / `QuickTime:DiskNumber`, `readKey` folds
+   `_`, replace-not-append pinned, round trip green on real MKV+MP4); **remaining: payload (#2)**
 4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
 5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -80,3 +81,13 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   leading integer, zeros dropped, non-numeric untouched, other keys verbatim
   (`TestMapExiftoolOrdinalKeys`); `PartNumber-und` pinned in the lang-suffix test. The ADR-067
   snapshot keeps the raw value on purpose (revert fidelity). Next: formatMap + round trip.
+
+### 2026-09-16 · backend: formatMap
+- skills: code-review (high --fix, clean)
+- handoff: `part` → `PART_NUMBER` (Matroska/WebM) and `QuickTime:DiskNumber` (MP4); `readKey`
+  now folds underscores so `TestExampleMappingCoversWriteTargets` sees `PartNumber` as the
+  read-back of `PART_NUMBER` (exiftool CamelCases SimpleTag names); `TestMergeTagsXML_ReplacesPartNumber`
+  pins one `PART_NUMBER` after a part write (a foreign target-30 copy is dropped — two would make
+  `in_sync` order-dependent); `TestPartRoundTrip_BothContainers` (`-tags integration`) passes
+  locally on real ffmpeg+exiftool (MKV via the ffmpeg fallback — no mkvpropedit here; CI has it).
+  Next: payload — `part` on `model.Video` + batch load of its `file:` keys on the list path (#2).

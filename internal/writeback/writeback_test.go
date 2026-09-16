@@ -233,6 +233,45 @@ func TestMergeTagsXML(t *testing.T) {
 	}
 }
 
+// TestMergeTagsXML_ReplacesPartNumber pins the other half of the PART_NUMBER story
+// (HOLODEX-389 RD5): TestMergeTagsXML proves a foreign PART_NUMBER survives a write
+// to some other tag; this proves a write to `part` REPLACES it rather than adding a
+// second Simple beside it. Two PART_NUMBERs would make exiftool's read-back
+// order-dependent and in_sync (ADR-093) a coin flip. The foreign copy sat on a
+// targeted Tag, so that Tag is dropped whole once emptied (Matroska requires a
+// Simple per Tag) and the survivor lands on the untargeted Tag Holodex writes.
+func TestMergeTagsXML_ReplacesPartNumber(t *testing.T) {
+	const existing = `<?xml version="1.0"?>
+<!DOCTYPE Tags SYSTEM "matroskatags.dtd">
+<Tags>
+<Tag>
+<Targets />
+<Simple><Name>ARTIST</Name><String>Prior Artist</String></Simple>
+</Tag>
+<Tag>
+<Targets><TargetTypeValue>30</TargetTypeValue></Targets>
+<Simple><Name>PART_NUMBER</Name><String>3</String></Simple>
+</Tag>
+</Tags>`
+
+	got, err := mergeTagsXML(existing, []FieldWrite{{TagName: "PART_NUMBER", Values: []string{"2"}}})
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+	if n := strings.Count(got, "<Name>PART_NUMBER</Name>"); n != 1 {
+		t.Fatalf("PART_NUMBER appears %d times, want exactly 1:\n%s", n, got)
+	}
+	if !strings.Contains(got, "<Name>PART_NUMBER</Name><String>2</String>") {
+		t.Errorf("new value not written:\n%s", got)
+	}
+	if strings.Contains(got, "<String>3</String>") || strings.Contains(got, "TargetTypeValue") {
+		t.Errorf("foreign PART_NUMBER (or its emptied Tag) survived a part write:\n%s", got)
+	}
+	if !strings.Contains(got, "<Name>ARTIST</Name><String>Prior Artist</String>") {
+		t.Errorf("unrelated tag lost:\n%s", got)
+	}
+}
+
 // TestMergeTagsXML_NoExisting covers a file with no tags at all — the merge
 // should produce a plain single-Tag document.
 func TestMergeTagsXML_NoExisting(t *testing.T) {
