@@ -222,6 +222,12 @@ func (s *Sink) storeFilmAsset(ctx context.Context, filmID int64, role, provider,
 	if err != nil {
 		return fmt.Errorf("normalize asset: %w", err)
 	}
+	// A portrait image under the banner role is refused, not stored (HOLODEX-386).
+	// Returned unwrapped so the enrich loop can errors.As it into an activity-log line
+	// rather than a generic "asset store failed" warning.
+	if err := filmimage.CheckRoleAspect(role, w, h); err != nil {
+		return err
+	}
 	_, err = ReplaceFilmImageFile(ctx, s.filmRepo, s.filmDir, repo.FilmImageInsert{
 		FilmID: filmID, Role: role, Source: filmImageSourceProvider(provider),
 		Provider: provider, ExternalID: externalID,

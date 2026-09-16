@@ -48,5 +48,6 @@ func (s *Service) ReEnrich(ctx context.Context, entityType string, entityID int6
 	// cap bypass (HOLODEX-174) is inert here today. Left true rather than plumbed
 	// from an actual auth check because refresh.Service has no request/auth
 	// awareness to derive it from; revisit if ReEnrich ever gains a person caller.
-	return s.runEnrich(ctx, entityType, entityID, provider, externalID, true)
+	fields, _, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, true)
+	return fields, err
 }

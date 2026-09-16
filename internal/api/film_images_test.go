@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"holodex/internal/api"
@@ -48,8 +52,9 @@ func filmImageServer(t *testing.T, token string) (srv *httptest.Server, r *repo.
 	return srv, r, fid
 }
 
-// uploadFilmImage POSTs a multipart image for a role and returns the response code.
-func uploadFilmImage(t *testing.T, srv *httptest.Server, token string, fid int64, role string, raw []byte) int {
+// uploadFilmImage POSTs a multipart image for a role and returns the response code
+// and body (the body carries the plain-language reason on a 400).
+func uploadFilmImage(t *testing.T, srv *httptest.Server, token string, fid int64, role string, raw []byte) (int, string) {
 	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
@@ -76,17 +81,41 @@ func uploadFilmImage(t *testing.T, srv *httptest.Server, token string, fid int64
 		t.Fatalf("do upload: %v", err)
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode
+	out, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(out)
+}
+
+// solidJPEG encodes a solid w×h JPEG — tinyJPEG with the dimensions chosen by the
+// caller, so a test can build the landscape the banner role requires and the
+// portrait it refuses (HOLODEX-386) from one helper.
+func solidJPEG(t *testing.T, w, h int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x * 16), G: uint8(y * 32), B: 128, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, nil); err != nil {
+		t.Fatalf("encode test jpeg: %v", err)
+	}
+	return buf.Bytes()
 }
 
 // TestFilmImage_UploadServeDelete is the owner happy path for both roles: an upload
 // normalizes and stores the bytes, the serve route streams them with an immutable
-// cache, and delete removes the slot.
+// cache, and delete removes the slot. The banner gets a landscape file because the
+// role refuses anything else (HOLODEX-386, pinned separately below).
 func TestFilmImage_UploadServeDelete(t *testing.T) {
 	srv, _, fid := filmImageServer(t, "tok")
-	jpg := tinyJPEG(t)
+	files := map[string][]byte{
+		model.FilmImagePoster: tinyJPEG(t),
+		model.FilmImageBanner: solidJPEG(t, 16, 6),
+	}
 
 	for _, role := range []string{model.FilmImagePoster, model.FilmImageBanner} {
+		jpg := files[role]
 		// No image yet → 404.
 		resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(fid) + "/images/" + role)
 		if err != nil {
@@ -97,7 +126,7 @@ func TestFilmImage_UploadServeDelete(t *testing.T) {
 			t.Fatalf("%s before upload = %d, want 404", role, resp.StatusCode)
 		}
 
-		if code := uploadFilmImage(t, srv, "tok", fid, role, jpg); code != http.StatusCreated {
+		if code, _ := uploadFilmImage(t, srv, "tok", fid, role, jpg); code != http.StatusCreated {
 			t.Fatalf("upload %s = %d, want 201", role, code)
 		}
 
@@ -142,11 +171,11 @@ func TestFilmImage_ReplaceAdvancesVersion(t *testing.T) {
 	srv, r, fid := filmImageServer(t, "tok")
 	jpg := tinyJPEG(t)
 
-	if code := uploadFilmImage(t, srv, "tok", fid, model.FilmImagePoster, jpg); code != http.StatusCreated {
+	if code, _ := uploadFilmImage(t, srv, "tok", fid, model.FilmImagePoster, jpg); code != http.StatusCreated {
 		t.Fatalf("upload 1 = %d", code)
 	}
 	before, _ := r.GetFilm(context.Background(), fid)
-	if code := uploadFilmImage(t, srv, "tok", fid, model.FilmImagePoster, jpg); code != http.StatusCreated {
+	if code, _ := uploadFilmImage(t, srv, "tok", fid, model.FilmImagePoster, jpg); code != http.StatusCreated {
 		t.Fatalf("upload 2 = %d", code)
 	}
 	after, _ := r.GetFilm(context.Background(), fid)
@@ -179,7 +208,7 @@ func TestFilmImage_MutationsRequireOwner(t *testing.T) {
 	srv, _, fid := filmImageServer(t, "tok")
 	jpg := tinyJPEG(t)
 
-	if code := uploadFilmImage(t, srv, "", fid, model.FilmImagePoster, jpg); code != http.StatusUnauthorized {
+	if code, _ := uploadFilmImage(t, srv, "", fid, model.FilmImagePoster, jpg); code != http.StatusUnauthorized {
 		t.Fatalf("unauthenticated upload = %d, want 401", code)
 	}
 	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/films/"+itoa(fid)+"/images/"+model.FilmImagePoster, nil)
@@ -212,7 +241,7 @@ func TestFilmImage_MutationsRequireOwner(t *testing.T) {
 func TestFilmImage_InvalidRole(t *testing.T) {
 	srv, _, fid := filmImageServer(t, "tok")
 	for _, role := range []string{"thumb", "sidecar"} {
-		if code := uploadFilmImage(t, srv, "tok", fid, role, tinyJPEG(t)); code != http.StatusBadRequest {
+		if code, _ := uploadFilmImage(t, srv, "tok", fid, role, tinyJPEG(t)); code != http.StatusBadRequest {
 			t.Fatalf("upload role %q = %d, want 400", role, code)
 		}
 		resp, err := http.Get(srv.URL + "/api/v1/films/" + itoa(fid) + "/images/" + role)
@@ -223,5 +252,44 @@ func TestFilmImage_InvalidRole(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("get role %q = %d, want 400", role, resp.StatusCode)
 		}
+	}
+}
+
+// TestFilmImage_BannerRequiresLandscape — the banner role renders cover-fit into an
+// 8:3 band, so a square or portrait upload is refused with the dimensions in the
+// message and nothing stored (HOLODEX-386). The poster role is untouched: it still
+// takes the same square file.
+func TestFilmImage_BannerRequiresLandscape(t *testing.T) {
+	srv, r, fid := filmImageServer(t, "tok")
+
+	for _, tc := range []struct {
+		name string
+		raw  []byte
+		want string
+	}{
+		{"square", tinyJPEG(t), "8×8 is portrait"},
+		{"portrait", solidJPEG(t, 10, 15), "10×15 is portrait"},
+	} {
+		code, body := uploadFilmImage(t, srv, "tok", fid, model.FilmImageBanner, tc.raw)
+		if code != http.StatusBadRequest {
+			t.Fatalf("%s banner upload = %d, want 400", tc.name, code)
+		}
+		if !strings.Contains(body, "banner refused: "+tc.want) {
+			t.Errorf("%s banner 400 body = %q, want the dimensions in a plain-language reason", tc.name, body)
+		}
+	}
+	film, err := r.GetFilm(context.Background(), fid)
+	if err != nil {
+		t.Fatalf("get film: %v", err)
+	}
+	if _, stored := film.ImageVersions[model.FilmImageBanner]; stored {
+		t.Fatalf("a refused banner was stored: %+v", film.ImageVersions)
+	}
+
+	if code, body := uploadFilmImage(t, srv, "tok", fid, model.FilmImageBanner, solidJPEG(t, 16, 6)); code != http.StatusCreated {
+		t.Fatalf("landscape banner upload = %d (%s), want 201", code, body)
+	}
+	if code, body := uploadFilmImage(t, srv, "tok", fid, model.FilmImagePoster, tinyJPEG(t)); code != http.StatusCreated {
+		t.Fatalf("square poster upload = %d (%s), want 201 — the rule is banner-only", code, body)
 	}
 }

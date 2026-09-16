@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode"
 
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
@@ -494,21 +495,21 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // rather than inferring it.
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
 	started := time.Now()
-	fields, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, bypassGalleryCap)
-	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), err)
+	fields, notes, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, bypassGalleryCap)
+	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), notes, err)
 	return fields, err
 }
 
 // runEnrich is the core fetch → sanitize → store → re-read; Enrich wraps it with
 // activity-history recording.
-func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
+func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, []string, error) {
 	_, c, _, err := s.verifiedClient(ctx, provider, entityType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	res, err := c.Enrich(ctx, entityType, externalID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	fields := sanitizeFields(res.Fields)
 	// HOLODEX-258: unlike _person_external_ids (synthesized by core below, never
@@ -557,7 +558,7 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	delete(fields, model.ProviderAliasesField)
 
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// The adopted id is also the entity's identity (ADR-096 D2): record it so a later
 	// scan credit / film lookup carrying the same "<namespace>:<id>" resolves to this
@@ -588,8 +589,10 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// Download any image assets the provider returned (F25/ADR-038, entity-generic
 	// since F51/ADR-079: person and studio). Best-effort — a failed fetch/normalize is
 	// logged and skipped, never failing the field enrichment that already succeeded.
+	// The notes it returns are the owner-visible refusals for the activity row.
+	var notes []string
 	if s.images != nil && imageBackedEntityType(entityType) && len(res.Assets) > 0 {
-		s.downloadAssets(ctx, entityType, entityID, provider, externalID, res.Assets, bypassGalleryCap)
+		notes = s.downloadAssets(ctx, entityType, entityID, provider, externalID, res.Assets, bypassGalleryCap)
 	} else if !imageBackedEntityType(entityType) && len(res.Assets) > 0 {
 		// No image sink for any other entity type (e.g. video) — its asset-worthy
 		// values must come back as a plain field (`fields["poster_url"]`), not an
@@ -606,7 +609,8 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	if entityType == model.EnrichEntityVideo {
 		s.resolvePeopleCredits(ctx, provider, people)
 	}
-	return s.Fields(ctx, entityType, entityID)
+	resolved, err := s.Fields(ctx, entityType, entityID)
+	return resolved, notes, err
 }
 
 // maxPeopleCredits caps a video enrich response's people[] (contract §4.5's own ~50
@@ -795,8 +799,10 @@ func identityShaped(externalID string) bool {
 // bypassGalleryCap is set (owner/admin enrichment run, HOLODEX-174), in which case a
 // cap hit is treated as a per-asset skip rather than a role-wide stop, so later
 // assets still get a shot at the store. A studio has no gallery role, so the cap
-// branch never triggers for it.
-func (s *Service) downloadAssets(ctx context.Context, entityType string, entityID int64, provider, externalID string, assets []Asset, bypassGalleryCap bool) {
+// branch never triggers for it. The returned notes are owner-facing refusals for the
+// activity row (HOLODEX-386): a provider asset the store turned away on purpose, as
+// opposed to a fetch/normalize failure, which is a log line only.
+func (s *Service) downloadAssets(ctx context.Context, entityType string, entityID int64, provider, externalID string, assets []Asset, bypassGalleryCap bool) (notes []string) {
 	src, ok := s.store.Current().ByName(provider)
 	if !ok { // unreachable after verifiedClient, but keep the allowlist explicit
 		return
@@ -861,8 +867,15 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 			continue
 		}
 		if err := s.images.StoreAsset(ctx, entityType, entityID, role, provider, externalID, a.URL, raw, bypassGalleryCap); err != nil {
+			var portrait *filmimage.PortraitBannerError
 			if errors.Is(err, repo.ErrGalleryFull) {
 				done[role] = true // cap reached; skip remaining gallery assets
+			} else if errors.As(err, &portrait) {
+				// A portrait image under the banner role is refused, not failed
+				// (HOLODEX-386): surface it on the activity row so the missing banner is
+				// explainable, and leave the role open — a later, landscape banner in the
+				// provider's preference order can still fill it.
+				notes = append(notes, "banner skipped: "+portrait.Error())
 			} else {
 				s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
 			}
@@ -892,6 +905,7 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 			}
 		}
 	}
+	return notes
 }
 
 // recordEnrichJob appends the enrich pass to the 30-day activity history (F22.6b).
@@ -901,7 +915,10 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 // cancelled request context. The detail carries provider + entity + field count
 // only: no filesystem path, env value, or token (the no-secrets invariant,
 // ADR-028); on error the raw provider error is omitted (it can include base_url).
-func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, enrichErr error) {
+// notes are the asset refusals downloadAssets reports (HOLODEX-386) — each one is a
+// ` · `-joined clause on the detail line, RecordSearched's idiom, and counted as
+// Skipped so the row reads as "stored less than offered" at a glance.
+func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, notes []string, enrichErr error) {
 	run := newEnrichRun(started, entityType, entityID)
 	if enrichErr != nil {
 		run.Status = model.JobStatusErr
@@ -914,6 +931,10 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 			field = "field"
 		}
 		run.Detail = fmt.Sprintf("%s → %s #%d (%d %s)", provider, entityType, entityID, n, field)
+		if len(notes) > 0 {
+			run.Detail += " · " + strings.Join(notes, " · ")
+			run.Skipped = len(notes)
+		}
 	}
 	s.recordRun(run)
 }

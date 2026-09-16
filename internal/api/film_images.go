@@ -141,6 +141,13 @@ func (h *Handlers) uploadFilmImage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// The banner role renders cover-fit into an 8:3 band, so a portrait upload is
+	// refused with the dimensions rather than stored as a cropped slice (HOLODEX-386;
+	// the same rule the enrichment sink applies to a provider's banner asset).
+	if err := filmimage.CheckRoleAspect(role, iw, ih); err != nil {
+		writeError(w, http.StatusBadRequest, "banner refused: "+err.Error())
+		return
+	}
 	// The replace/store/cleanup sequence is shared with a future enrichment asset path
 	// (internal/imagesink.ReplaceFilmImageFile) — only Source differs.
 	imgID, err := imagesink.ReplaceFilmImageFile(r.Context(), h.repo, h.filmImageDir,

@@ -235,6 +235,23 @@ backend already shipped.)*
   `EntityImageSlot` owning upload/replace/remove for **both** roles. Acceptance: three-skin QA with
   banner-only, poster-only, both, and neither.
 
+- **P0-10a — The banner role refuses a portrait image at ingest (HOLODEX-386).** The band renders
+  `fit="cover"` into 8:3, so a portrait or square image under the `banner`/`backdrop` kind would show a
+  cropped slice — the defect a sidecar emitting its *poster* URL under the banner kind produces
+  (observed 2026-09-15; contract §4.3 says `~16:9`, but sidecars are third-party, so core must not
+  trust the kind alone). Rule: **frame follows source aspect, never config or role name**
+  (`web/src/lib/components/entity/CLAUDE.md`). Both ingest paths check the decoded dimensions the
+  normaliser already returns and refuse `width <= height` for the banner role, nothing stored: the
+  enrichment sink turns the refusal into one clause on the enrich activity row (`· banner skipped:
+  1000×1500 is portrait, banner role requires landscape`, counted as `skipped`) so an absent banner is
+  explainable, never silent (ADR-090 posture); the owner upload returns 400 with the same sentence.
+  The role stays open for a later landscape asset in the provider's preference order. Poster and every
+  other role accept any aspect; Person's banner is out of scope (separate path, no defect observed).
+  The header needs no change — the existing `{#if film.banner_url}` gate renders the no-band header.
+  Design: [film-banner-landscape-guard-handoff.md](../design/film-banner-landscape-guard-handoff.md)
+  (option C). Acceptance: a portrait banner asset stores nothing and the activity row names its
+  dimensions; a landscape one stores; a portrait banner upload is 400 with the dimensions in the body.
+
 - **P0-11 — Correct the provider-facing docs.** `metadata-provider-contract.md` §3 asserts film
   enrichment is not live (false since ADR-086); §4.3's film table calls `poster` the only planned
   film asset kind (to be revisited under P0-8). `tmdb-provider.md` lists three entity types, says a

@@ -11,7 +11,12 @@
 // gets byte-for-byte the same hardening as a person portrait or studio image.
 package filmimage
 
-import "holodex/internal/entityimage"
+import (
+	"fmt"
+
+	"holodex/internal/entityimage"
+	"holodex/internal/model"
+)
 
 // ImagePath is the on-disk location for one of a film's images (ADR-014):
 // {dir}/{filmID}/{imageID}.jpg. Both ids are server-assigned integers, never a
@@ -33,4 +38,28 @@ func Store(dir string, filmID, imageID int64, data []byte) error {
 // source of truth and is removed separately.
 func Remove(dir string, filmID, imageID int64) error {
 	return entityimage.Remove(dir, filmID, imageID)
+}
+
+// PortraitBannerError reports a film banner refused because the image is not
+// landscape (HOLODEX-386). The banner role renders `fit="cover"` into an 8:3 band, so
+// a portrait (or square) image would show a cropped slice of poster art — the defect a
+// sidecar emitting its poster URL under the `banner` kind produces. Both ingest paths
+// (provider assets via imagesink, owner upload via api) refuse it at the door and each
+// reports in its own idiom — an activity-log line vs. a 400 — so the type carries the
+// dimensions rather than a fixed message.
+type PortraitBannerError struct{ Width, Height int }
+
+func (e *PortraitBannerError) Error() string {
+	return fmt.Sprintf("%d×%d is portrait, banner role requires landscape", e.Width, e.Height)
+}
+
+// CheckRoleAspect enforces the per-role aspect rule on an already-decoded image before
+// it is stored: the banner role must be strictly wider than tall ("frame follows source
+// aspect, never config or role name" — web/src/lib/components/entity/CLAUDE.md). Every
+// other role accepts any aspect.
+func CheckRoleAspect(role string, width, height int) error {
+	if role == model.FilmImageBanner && width <= height {
+		return &PortraitBannerError{Width: width, Height: height}
+	}
+	return nil
 }
