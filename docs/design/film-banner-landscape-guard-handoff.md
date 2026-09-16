@@ -1,8 +1,8 @@
 # Film banner landscape guard — design handoff
 
-**Ticket:** HOLODEX-386 · **Status:** awaiting owner approval of option C · **Date:** 2026-09-15
+**Ticket:** HOLODEX-386 · **Status:** option C approved by the owner 2026-09-16 · **Date:** 2026-09-15
 
-## Decision under review
+## Decision
 
 The film detail header's `banner` role (F59/ADR-089 D4) renders `fit="cover"` into an
 `aspect-[8/3]` band. A provider sidecar emitted the film *poster* under the `banner` kind
