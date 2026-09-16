@@ -74,3 +74,9 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
 ### 2026-09-16 · human QA pass → ready for review
 - skills: none
 - handoff: Kevin passed §9.8–9.10; PR #336 marked ready (In Review). Nothing open on the branch.
+
+### 2026-09-16 · post-ready code-review medium --fix
+- skills: code-review medium --fix (1 fixed: horizontal slack capped at the 24px gutter —
+  poster layout tiles > 400px wide pushed the shelf past the viewport, a HOLODEX-356 regression)
+- handoff: verified via `vite build` output (ports 7800/5173 held by another session); PR
+  #336 updated in place, still In Review. Nothing open on the branch.

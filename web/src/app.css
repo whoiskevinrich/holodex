@@ -574,6 +574,11 @@
 	   `--lift-slack` is the padding the `<ul>` (a scroll container, so it clips on every edge)
 	   reserves for the 6% `.media-lift` scale: 6% of the tile width covers 3% of a 2:3 tile's
 	   height plus its caption at every size, where a fixed 8px only covered tiles under ~270px.
+	   Horizontally that slack is handed back as negative margins, which must never exceed the
+	   page gutter (`<main class="px-6">`, +layout.svelte) or the shelf's box pokes past the
+	   viewport and the page gains horizontal scroll (the HOLODEX-356 rung) — so `--lift-slack-x`
+	   caps it at 1.5rem. Update that cap if the gutter ever changes. Vertical slack is
+	   unbounded; nothing above or below it is edge-sensitive.
 	   Note `container-type` implies layout containment, so the section is its own stacking
 	   context — the lift's z-index orders tiles against each other, not against anything
 	   outside the shelf; nothing outside needs it today. */
@@ -582,6 +587,7 @@
 		--card-w: calc((100cqw - (var(--cols) - 1) * 1rem) / var(--cols));
 		--film-w: calc(var(--card-w) * 9 / 16 * 2 / 3);
 		--lift-slack: calc(var(--film-w) * 0.06);
+		--lift-slack-x: min(var(--lift-slack), 1.5rem);
 	}
 	.films-shelf[data-layout='poster'] {
 		--film-w: var(--card-w);

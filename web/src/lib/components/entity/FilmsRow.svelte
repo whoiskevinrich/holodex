@@ -31,8 +31,11 @@
 		     The negative side/bottom margins hand that space back so the tiles still sit on
 		     the grid's left edge and the row's footprint doesn't grow; the top padding doubles
 		     as the heading gap (no `space-y` here — a negative top margin would collapse
-		     against it and pull the tiles into the heading). -->
-		<ul class="-mx-(--lift-slack) -mb-(--lift-slack) flex gap-3 overflow-x-auto p-(--lift-slack)">
+		     against it and pull the tiles into the heading). The side slack is the gutter-capped
+		     `--lift-slack-x` so the shelf's box never pokes past the viewport. -->
+		<ul
+			class="-mx-(--lift-slack-x) -mb-(--lift-slack) flex gap-3 overflow-x-auto px-(--lift-slack-x) py-(--lift-slack)"
+		>
 			{#each films as f (f.id)}
 				<li class="media-lift group w-(--film-w) shrink-0">
 					<a href={`/films/${f.id}`} class="block text-ink" title={f.name}>

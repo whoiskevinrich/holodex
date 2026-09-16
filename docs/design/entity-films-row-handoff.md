@@ -96,8 +96,12 @@ grid). A scaled child is clipped by a scroll container on the axis it isn't scro
   stay on the grid's left edge and the row's footprint doesn't grow. The top padding doubles as
   the heading gap (a negative *top* margin would collapse against the heading's margin and pull
   the tiles into it).
-- Horizontal clipping on the first/last tile is accepted: the lift is 2–3px per side at these
-  sizes and the tile's inner edge is what the eye reads.
+- The *horizontal* slack is additionally capped at the page gutter (`--lift-slack-x` =
+  `min(--lift-slack, 1.5rem)`, matching `<main class="px-6">`): a negative margin larger than
+  the gutter pushes the shelf's box past the viewport and gives the page horizontal scroll —
+  which happens in poster layout at every single-column width ≥ 448px and two-column width
+  ≥ ~900px. Above the cap the first/last tile's lift is clipped by a few px on its outer side;
+  accepted, the tile's inner edge is what the eye reads.
 
 ## 4. Components
 
