@@ -20,7 +20,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 
 - [x] spec `write-spec` — [docs/specs/media-parts.md](../specs/media-parts.md) (RD1–RD10; OQ1/OQ2 engineering, OQ3 design)
 - [~] architecture `architecture` — n/a: a canonical field is mapping config, as edition was (ADR-096 D4)
-- [ ] design `design-handoff` — `media-parts-handoff.md` + committed SVG; owns the `VideoCard` slot (RD9) and pill wording (OQ3)
+- [x] design `design-handoff` — [docs/design/media-parts-handoff.md](../design/media-parts-handoff.md) + [SVG](../design/media-parts-mockup.svg); card slot = bottom-left duration-style, "Part N" everywhere, no film-page "+ Set part"
 - [ ] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload
 - [ ] frontend — media header pill + "+ Set part" row, film list pill, `VideoCard` marker, queue-row marker, writeback dialog
 - [ ] testing `testing-strategy` — lifter cases (RD4 incl. rejected bodies), MKV+MP4 round trip, triplet-enrich invariance, three-skin QA
@@ -28,17 +28,19 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] `/design-handoff` — card slot (poster-corner pill lean) + wording, grounded in `VideoCard`; commit SVG
-2. [ ] [backend] OQ1: decide where `2 of 3` → `2` normalises (recommend extractor); OQ2: whether the
+1. [ ] [backend] OQ1: decide where `2 of 3` → `2` normalises (recommend extractor); OQ2: whether the
    title-sort tiebreak (P1) is cheap — if not, leave it open and say so
-3. [ ] [backend] implement P0 per spec, in the edition-PR order (mapping → lifter → formatMap → payload)
-4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
-5. [ ] [jira] clear `needs-design` when the handoff lands; mark PR ready → In Review fires
+2. [ ] [backend] implement P0 per spec, in the edition-PR order (mapping → lifter → formatMap → payload)
+3. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
+4. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
+5. [ ] [jira] mark PR ready → In Review fires
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-16 · brainstorm + spec
-- skills: product-brainstorming, write-spec
-- handoff: Draft PR open on `HOLODEX-389-media-parts` with the spec only; owner rulings locked
-  (ordinal-only, strict `{part-N}`, `disk` atom for MP4, manual set via generic chip with no
-  validation, no grouping). Next is the design handoff — no code yet.
+### 2026-09-16 · brainstorm + spec + design handoff
+- skills: product-brainstorming, write-spec, design-handoff
+- handoff: Draft PR #340 on `HOLODEX-389-media-parts` carries spec + handoff + SVG; every
+  design ruling is locked (ordinal-only, strict `{part-N}`, `disk` atom for MP4, manual set via
+  generic chip with no validation, no grouping, bottom-left duration-style card badge, "Part N"
+  everywhere, no film-page "+ Set part"). Gates left: backend, frontend, testing. No code yet —
+  start at the mapping example + lifter, in the edition-PR order.

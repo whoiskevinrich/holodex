@@ -27,8 +27,10 @@ edition template; no new subsystem
 
 **ADR**: none — a canonical field is mapping config, exactly as edition was (ADR-096 D4 covered
 the *pattern*; this spec instantiates it once more).
-**Design**: `media-parts-handoff.md` (pending, `/design-handoff`) — owns the card-slot decision
-(RD9) and the three-skin QA.
+**Design**: [media-parts-handoff.md](../design/media-parts-handoff.md) +
+[mockup](../design/media-parts-mockup.svg) — ratified 2026-09-16: card slot = bottom-left corner,
+duration-style (RD9); wording = "Part N" everywhere via `partBadgeLabel` (OQ3); no "+ Set part"
+link on the film page.
 
 ---
 
@@ -114,9 +116,9 @@ the resolver model.
   page: the same read-only pill slot edition uses beside the h1 (the Metadata row remains the
   curation mount). Film page full-film list: beside the edition pill. **Browse/search
   `VideoCard`: `part` earns a card slot that edition never had** — the grid is where the triplet
-  appears. The brainstorm's lean is a poster-corner pill (survives title truncation at the dense
-  8-column tier); the design handoff decides pill-on-poster vs meta-line suffix and the exact
-  wording (`Pt 2` vs `Part 2`). Owner queue rows that name a video by title (`/owner/enrichment`,
+  appears. Ratified in the handoff: the **bottom-left poster corner** (the one free corner — top-left is
+  the resolution bucket, top-right the scene badge, bottom-right the duration), in the duration
+  badge's neutral treatment; label "Part N" on every surface via a shared `partBadgeLabel`. Owner queue rows that name a video by title (`/owner/enrichment`,
   the F48 review queue) show the same marker beside the title.
 - **RD10 — Enrichment is untouched.** No dedupe, no propagation, no "already applied" check.
 
@@ -259,9 +261,9 @@ This is a single-owner library; metrics are acceptance, not analytics.
   tiebreak needs either a correlated subquery on the file-layer `PartNumber`/`DiskNumber` row
   (ignores filename candidates and decisions) or a materialised resolved-part column maintained
   at decision/scan time. If neither is cheap, the P1 stays open and `v.id` order stands.
-- **OQ3 (design, non-blocking)** — Pill wording: `Pt 2` (compact, fits the 8-column tier) vs
-  `Part 2` (matches the field label). Handoff decides; the media header and film list can afford
-  the long form even if the card takes the short one.
+- ~~**OQ3 (design)** — Pill wording~~ **Resolved 2026-09-16**: "Part N" everywhere, one shared
+  `partBadgeLabel` helper (handoff §5); the long form fits beside the duration badge even at the
+  16-column tier, so no per-surface abbreviation.
 
 ## Timeline / routing
 
