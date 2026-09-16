@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Film detail header: three backdrop options</title>
+  <desc id="d">A: today, an 8:3 band cover-cropping portrait poster art. B: no band, the poster is the hero. C: band only when the source is landscape, falling back to B otherwise. Option C was chosen.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2c2c2a; }
+    .cap { font-size: 12px; fill: #5f5e5a; }
+    .ttl { font-size: 12px; font-weight: 600; }
+    .meta { font-size: 10px; fill: #5f5e5a; }
+    .note { font-size: 10px; fill: #888780; }
+    .lbl { font-size: 10px; fill: #f1efe8; }
+    .panel { fill: #ffffff; stroke: #d3d1c7; stroke-width: 1; }
+    .plate { fill: #f1efe8; }
+    .line { fill: #e6e4dc; }
+  </style>
+
+  <!-- A: today -->
+  <text x="12" y="18" class="cap">A · today (8:3 band, cover-crop)</text>
+  <rect x="12" y="28" width="224" height="250" rx="8" class="panel"/>
+  <rect x="24" y="40" width="200" height="75" rx="4" fill="#b4b2a9"/>
+  <rect x="86" y="40" width="76" height="75" fill="#888780" stroke="#f1efe8" stroke-dasharray="3 2"/>
+  <text x="124" y="82" text-anchor="middle" class="lbl">poster, cropped</text>
+  <rect x="24" y="90" width="200" height="25" fill="#ffffff" opacity="0.55"/>
+  <rect x="24" y="92" width="36" height="54" rx="3" fill="#5f5e5a"/>
+  <text x="68" y="128" class="ttl">Film title</text>
+  <text x="68" y="142" class="meta">2019 · Studio</text>
+  <rect x="24" y="160" width="160" height="6" rx="3" class="line"/>
+  <rect x="24" y="172" width="120" height="6" rx="3" class="line"/>
+  <text x="24" y="262" class="note">portrait source forced into a landscape frame</text>
+
+  <!-- B: no band -->
+  <text x="248" y="18" class="cap">B · no band (poster is the hero)</text>
+  <rect x="248" y="28" width="224" height="250" rx="8" class="panel"/>
+  <rect x="260" y="40" width="48" height="72" rx="3" fill="#5f5e5a"/>
+  <text x="318" y="54" class="ttl">Film title</text>
+  <text x="318" y="68" class="meta">2019 · Studio</text>
+  <rect x="318" y="80" width="140" height="6" rx="3" class="line"/>
+  <rect x="318" y="92" width="110" height="6" rx="3" class="line"/>
+  <rect x="260" y="128" width="160" height="6" rx="3" class="line"/>
+  <rect x="260" y="140" width="120" height="6" rx="3" class="line"/>
+  <rect x="260" y="152" width="130" height="6" rx="3" class="line"/>
+  <text x="260" y="262" class="note">today's visitor render when banner_url is empty</text>
+
+  <!-- C: chosen -->
+  <text x="484" y="18" class="cap">C · band only if source is landscape</text>
+  <rect x="484" y="28" width="224" height="250" rx="8" fill="#ffffff" stroke="#534ab7" stroke-width="2"/>
+  <rect x="496" y="40" width="200" height="75" rx="4" fill="#7f77dd"/>
+  <text x="596" y="82" text-anchor="middle" font-size="10" fill="#eeedfe">real 16:9 still</text>
+  <rect x="496" y="90" width="200" height="25" fill="#ffffff" opacity="0.55"/>
+  <rect x="496" y="92" width="36" height="54" rx="3" fill="#5f5e5a"/>
+  <text x="540" y="128" class="ttl">Film title</text>
+  <text x="540" y="142" class="meta">2019 · Studio</text>
+  <rect x="496" y="160" width="160" height="6" rx="3" class="line"/>
+  <rect x="496" y="172" width="120" height="6" rx="3" class="line"/>
+  <text x="496" y="250" class="note">portrait source → refused at ingest → renders as B</text>
+  <text x="496" y="262" font-size="10" font-weight="600" fill="#534ab7">chosen (HOLODEX-386)</text>
+</svg>

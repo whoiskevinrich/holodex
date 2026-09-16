@@ -35,3 +35,23 @@ into another, and the shared video-list body for an entity's detail page.
   375px (HOLODEX-377). Content that should drop beneath the title when it doesn't fit goes in a
   flex-wrap row the *page* owns around the control (media page's edition pill is the model: the
   control in a `min-w-0 max-w-full` item, the pill `shrink-0 max-w-full wrap-anywhere`).
+
+### Frame follows source aspect, never config or role name
+
+Never cover-crop an image into a frame its source can't fill. An image's aspect ratio is a
+property of the *bytes*, not of the role it was stored under or a config flag the viewer set.
+This has been decided twice, both times after shipping the defect (HOLODEX-385/386, 2026-09-15):
+
+- `card_layout: poster` forced *video* cards (scene thumbnails — frame grabs, inherently
+  wide) into a 2:3 frame. Only ever looked right when the thumbnail was secretly the film's
+  cover art. Removed by HOLODEX-385; the films index owns poster-shaped cards.
+- A provider sidecar emitted the film *poster* under the `banner` kind; `EntityImageSlot`
+  `fit="cover"` in an 8:3 band then showed a cropped slice of portrait art. HOLODEX-386 refuses
+  a portrait image for the landscape role at ingest rather than removing the band.
+
+So: `fit="cover"` is for a slot whose ratio *deliberately* differs from art of a *known*
+aspect (a ~16:9 backdrop in an 8:3 band). If the source aspect is not guaranteed by a check
+upstream — ingest refusal, upload validation, or a `naturalWidth`/`naturalHeight` gate —
+use `contain`, or don't render the frame at all. Don't add a layout flag to paper over a
+mismatch; fix the source or the gate. When a frame has nothing that fits it, render nothing
+(F25.30's "no band when empty") rather than a plate or a crop.
