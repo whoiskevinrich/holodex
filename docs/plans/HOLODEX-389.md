@@ -28,8 +28,8 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] OQ1: decide where `2 of 3` → `2` normalises (recommend extractor); OQ2: whether the
-   title-sort tiebreak (P1) is cheap — if not, leave it open and say so
+1. [ ] [backend] ~~OQ1~~ resolved (extractor, `ordinalKeys`); OQ2: whether the title-sort tiebreak
+   (P1) is cheap — decide at the payload step (#2), which is the same lever
 2. [ ] [backend] **payload gap** (found by testing-strategy): `applyBrowseTitles` passes `extra=nil`
    and walks `Browse` fields only, so a container-tag-only `part` (`PART_NUMBER`, MP4 `disk`) is invisible on
    cards/queue rows. Put `part` on `model.Video`, fill it with one batch pass that loads just
@@ -38,8 +38,8 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    **and** scene rows, unlike edition.
 3. [ ] [backend] implement P0 per spec, in the edition-PR order — **mapping + lifter DONE**
    (registry `part` + `FieldDef.FileOnly`, loader rejects `<provider>:part`, example mapping, marker
-   table lifts both markers, `part` TierHigh); **remaining: extractor OQ1 normalisation → formatMap
-   (`PART_NUMBER`/`disk`) + round-trip test → payload (#2)**
+   table lifts both markers, `part` TierHigh); **extractor DONE** (`ordinalKeys` normalisation +
+   `PartNumber-und` pin); **remaining: formatMap (`PART_NUMBER`/`disk`) + round-trip test → payload (#2)**
 4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
 5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -73,3 +73,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   `liftMarkers` table with `TestMatchFirst_PartMarker` (13 cases; note a bad `{part-…}` beside a good
   `{edition-…}` still emits edition alone — RD7's "marker is a match on its own" wins). Next:
   extractor normalisation (OQ1) → formatMap → payload batch load.
+
+### 2026-09-16 · backend: extractor
+- skills: code-review (high --fix, clean)
+- handoff: OQ1 resolved in the extractor — `ordinalKeys` (`PartNumber`, `DiskNumber`) store the
+  leading integer, zeros dropped, non-numeric untouched, other keys verbatim
+  (`TestMapExiftoolOrdinalKeys`); `PartNumber-und` pinned in the lang-suffix test. The ADR-067
+  snapshot keeps the raw value on purpose (revert fidelity). Next: formatMap + round trip.

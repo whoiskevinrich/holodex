@@ -252,10 +252,12 @@ This is a single-owner library; metrics are acceptance, not analytics.
 
 ## Open Questions
 
-- **OQ1 (engineering, non-blocking)** — Where does the `2 of 3` → `2` normalisation for foreign
-  MP4 `DiskNumber` values live: the extractor (container-agnostic key post-processing, like the
-  `-und` strip) or the mapping (a per-source `normalize:` that does not exist yet)? Recommend the
-  extractor — one line, no new mapping vocabulary — unless a second field wants the same thing.
+- ~~**OQ1 (engineering, non-blocking)** — Where does the `2 of 3` → `2` normalisation for foreign
+  MP4 `DiskNumber` values live~~ **Resolved 2026-09-16: the extractor.** `mapExiftool` keeps an
+  `ordinalKeys` set (`PartNumber`, `DiskNumber`) whose stored value is the leading integer with
+  leading zeros dropped; no leading integer → untouched; no other key is affected. The ADR-067
+  pre-write snapshot still records the raw `2 of 3` so a revert restores what was there; `in_sync`
+  comes from the post-write re-extract and sees the bare ordinal.
 - **OQ2 (engineering, blocks P1 only)** — The browse sort is a column sort
   (`v.title COLLATE NOCASE, v.id`, `repo.go:349`); `part` is a resolved value, not a column. The
   tiebreak needs either a correlated subquery on the file-layer `PartNumber`/`DiskNumber` row
