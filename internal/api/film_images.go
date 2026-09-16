@@ -159,9 +159,13 @@ func (h *Handlers) uploadFilmImage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"id": imgID, "version": imgID})
 }
 
-// deleteFilmImage removes a film's uploaded image for one role: the row, then the
-// file (best-effort — a left-behind file is harmless, the index is the source of
-// truth). Idempotent — deleting an already-empty slot is 204, not 404.
+// deleteFilmImage clears a film's image slot for one role: every row for the role
+// (upload and provider-sourced alike — film_images' UNIQUE(film_id, role, source)
+// lets both exist, and deleting only the upload row left a provider banner in place
+// with a 204, HOLODEX-388), then the files (best-effort — a left-behind file is
+// harmless, the index is the source of truth). Clearing the slot also unlocks it for
+// the next enrich to refill, the same "delete unlocks" rule deleteStudioImage follows.
+// Idempotent — deleting an already-empty slot is 204, not 404.
 func (h *Handlers) deleteFilmImage(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -171,17 +175,15 @@ func (h *Handlers) deleteFilmImage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	existing, err := h.repo.GetFilmImage(r.Context(), id, role, model.FilmImageSourceUpload)
-	if err != nil && !errors.Is(err, repo.ErrNotFound) {
-		h.fail(w, "get film image", err)
-		return
-	}
-	if err := h.repo.DeleteFilmImage(r.Context(), id, role, model.FilmImageSourceUpload); err != nil {
+	removed, err := h.repo.DeleteFilmImageRole(r.Context(), id, role)
+	if err != nil {
 		h.fail(w, "delete film image", err)
 		return
 	}
-	if h.filmImageDir != "" && existing.ID != 0 {
-		_ = filmimage.Remove(h.filmImageDir, id, existing.ID)
+	if h.filmImageDir != "" {
+		for _, imageID := range removed {
+			_ = filmimage.Remove(h.filmImageDir, id, imageID)
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
