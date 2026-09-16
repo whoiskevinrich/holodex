@@ -23,7 +23,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 - [x] design `design-handoff` — [docs/design/media-parts-handoff.md](../design/media-parts-handoff.md) + [SVG](../design/media-parts-mockup.svg); card slot = bottom-left duration-style, "Part N" everywhere, no film-page "+ Set part"
 - [ ] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload
 - [ ] frontend — media header pill + "+ Set part" row, film list pill, `VideoCard` marker, queue-row marker, writeback dialog
-- [ ] testing `testing-strategy` — strategy row landed in [docs/testing-strategy.md](../../docs/testing-strategy.md) (2026-09-16, target coverage); flips when the named tests exist: lifter cases (RD4 incl. rejected bodies), loader rejection (*new*), MKV+MP4 round trip incl. `PART_NUMBER` replace, list-path `part` incl. tag-only, triplet-enrich invariance, three-skin QA
+- [ ] testing `testing-strategy` — strategy row landed in [docs/testing-strategy.md](../../docs/testing-strategy.md) (2026-09-16, target coverage); flips when the named tests exist: lifter cases (RD4 incl. rejected bodies), loader rejection (*new*), MKV+MP4 round trip incl. `PART_NUMBER` replace, list-path `part` incl. container-tag-only, triplet-enrich invariance, three-skin QA
 - [~] security `security-review` — n/a: no auth/access/infra change; one more `formatMap` row in an existing perimeter
 
 ## Up next — ordered (position = priority)
@@ -31,7 +31,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 1. [ ] [backend] OQ1: decide where `2 of 3` → `2` normalises (recommend extractor); OQ2: whether the
    title-sort tiebreak (P1) is cheap — if not, leave it open and say so
 2. [ ] [backend] **payload gap** (found by testing-strategy): `applyBrowseTitles` passes `extra=nil`
-   and walks `Browse` fields only, so a tag-only `part` (`PART_NUMBER`, MP4 `disk`) is invisible on
+   and walks `Browse` fields only, so a container-tag-only `part` (`PART_NUMBER`, MP4 `disk`) is invisible on
    cards/queue rows. Put `part` on `model.Video`, fill it with one batch pass that loads just
    `part`'s `file:` keys (no migration; a materialised column would reopen the ADR gate and is
    OQ2's lever, not this one). `FilmVideo.Video` then carries it to scene cards too — stamp full-film
@@ -41,7 +41,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    and wants a registry-level file-only fact on the `FieldDef`
 4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
 5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
-6. [ ] [jira] mark PR ready → In Review fires
+6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
+   container-tag rung is gap-shaped until #2 lands) + handoff §3 rects as geometry-harness
+   assertions; demo generator items `{part-N}.mp4` + `-metadata disk=2` for the real-scan path
+7. [ ] [jira] mark PR ready → In Review fires
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -57,6 +60,6 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 - skills: testing-strategy
 - handoff: strategy row added beside the edition row (§4 table, line ~222) — every test is the
   edition test with the field swapped except three *new* ones (loader rejection, `PART_NUMBER`
-  replace-not-append, list-path tag-only `part`). The list-path finding is a backend design input
+  replace-not-append, list-path container-tag-only `part`). The list-path finding is a backend design input
   (Up next #2), not a test-only note. Handoff §2.2–2.4 are agent QA, not smoke — `web/` has no
   component harness. No code yet.
