@@ -652,6 +652,12 @@
 		font-size: 0.6rem;
 		color: var(--muted);
 	}
+	/* HOLODEX-389: the part badge takes the poster's one free corner, which is the
+	   counter's. A fact outranks a flourish, so on a card that has a part the counter
+	   steps up to sit above the badge instead of being covered by it. */
+	[data-theme='brutalist'] .video-frame:has(> .part-badge)::before {
+		bottom: 2.1rem;
+	}
 
 	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced).
 	   .people-poster-grid (F55) shares this table rather than a second copy. */

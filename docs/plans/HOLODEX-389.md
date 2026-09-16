@@ -39,8 +39,11 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    `PartNumber-und` pin); **formatMap DONE** (`PART_NUMBER` / `QuickTime:DiskNumber`, `readKey` folds
    `_`, replace-not-append pinned, round trip green on real MKV+MP4); **payload DONE** (#2) — backend
    gate complete
-4. [ ] [frontend] surfaces per RD9; QA all three skins at the 8-column tier
-5. [ ] [frontend] `partBadgeLabel` helper + `video/CLAUDE.md` table row; queue-row payload needs `part` (handoff §4 backend note)
+4. [ ] [frontend] surfaces per RD9 — **`VideoCard` DONE** (3 skins × 8/16 cols measured live);
+   remaining: media header pill + "+ Set part" row, film full-film pill, `EnrichQueueRow` +
+   extraction-queue row pills, `WritebackFormDialog` check
+5. [x] [frontend] `partBadgeLabel` helper + Vitest + `video/CLAUDE.md` rows; `types.ts` `part?` on
+   `Video` / `EnrichQueueRow` / `ExtractionQueueRow`
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
    container-tag rung is gap-shaped until #2 lands) + handoff §3 rects as geometry-harness
    assertions; demo generator items `{part-N}.mp4` + `-metadata disk=2` for the real-scan path
@@ -101,3 +104,15 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   (tag / filename / decision / none). OQ2 ruled in the spec: P1 tiebreak stays open. Not touched:
   `videoEdition` is still N+1 per full-film file (pre-existing). Next: frontend (RD9 surfaces,
   `partBadgeLabel`, `types.ts` `part?` on Video/EnrichQueueRow/ExtractionQueueRow).
+
+### 2026-09-16 · frontend: types + helper + VideoCard
+- skills: code-review (high --fix, clean)
+- handoff: `types.ts` `part?`, `partBadge.ts` + test, `VideoCard` bottom-left badge per handoff §1a.
+  **Found in QA:** the Brutalist reel counter (`::before`, `left .45rem bottom .35rem`) sits in the
+  badge's corner — fixed in `app.css` with `:has(> .part-badge)` stepping the counter to
+  `bottom: 2.1rem` (first `:has()` in the file; old Firefox degrades to counter-under-badge).
+  Measured live on all three skins at 8 and 16 columns: badge/duration never intersect (≥76px
+  gap at 180px cards), 7px counter clearance, style identical to duration. Throwaway testbed:
+  gitignored `backend-parts` launch entry → `%TEMP%/parts-media` (3× `{part-N}.mp4`, one
+  `disk=2` MP4, one plain) + `%TEMP%/parts-data`, example mapping, auto-apply on — the
+  container-tag-only file resolves `part=2` end to end. Next: media header + film row + queues.
