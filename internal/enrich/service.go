@@ -835,7 +835,8 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 		existingURLs = nil
 	}
 	fetcher := s.newAssetGet(src)
-	done := make(map[string]bool) // role → filled (core roles) or capped (extra)
+	done := make(map[string]bool)  // role → filled (core roles) or capped (extra)
+	noted := make(map[string]bool) // role → a refusal already on the activity row (HOLODEX-386)
 	// The portrait we stored as the headshot, kept so an empty poster can be seeded from
 	// it after the loop (F25.29, person only) — provider profiles are 2:3, a natural
 	// poster. Nothing about a studio logo implies a poster, so studio skips this seed.
@@ -874,8 +875,13 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 				// A portrait image under the banner role is refused, not failed
 				// (HOLODEX-386): surface it on the activity row so the missing banner is
 				// explainable, and leave the role open — a later, landscape banner in the
-				// provider's preference order can still fill it.
-				notes = append(notes, "banner skipped: "+portrait.Error())
+				// provider's preference order can still fill it. One note per role (the
+				// first refusal), so a provider listing many portrait backdrops cannot
+				// grow the row without bound — res.Assets has no count cap.
+				if !noted[role] {
+					noted[role] = true
+					notes = append(notes, "banner skipped: "+portrait.Error())
+				}
 			} else {
 				s.log.Warn("asset store failed", "provider", provider, "kind", a.Kind, "err", err)
 			}

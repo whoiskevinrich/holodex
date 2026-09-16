@@ -615,7 +615,9 @@ func TestEnrichDownloadsFilmAssets(t *testing.T) {
 // A film banner the sink refuses for being portrait (HOLODEX-386) is not a failure:
 // the run still succeeds, the poster still stores, and the refusal lands on the
 // activity row — one clause naming the dimensions, counted as Skipped — so an absent
-// banner is explainable rather than silent (ADR-090 posture). The role stays open: a
+// banner is explainable rather than silent (ADR-090 posture) — and noted once per
+// role, so a provider listing many portrait backdrops cannot grow the row. The role
+// stays open: a
 // later, landscape banner in the provider's preference order still fills it.
 func TestEnrichRecordsRefusedFilmBanner(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -627,7 +629,8 @@ func TestEnrichRecordsRefusedFilmBanner(t *testing.T) {
 	rec := fake.Films["tmdb:129"]
 	rec.Assets = []Asset{
 		{Kind: "poster", URL: origin.URL + "/poster.jpg"},
-		{Kind: "backdrop", URL: origin.URL + "/portrait.jpg"}, // the poster re-emitted under the banner kind
+		{Kind: "backdrop", URL: origin.URL + "/portrait.jpg"},  // the poster re-emitted under the banner kind
+		{Kind: "backdrop", URL: origin.URL + "/portrait2.jpg"}, // a second one: refused too, but noted once
 	}
 	fake.Films["tmdb:129"] = rec
 
@@ -665,6 +668,9 @@ func TestEnrichRecordsRefusedFilmBanner(t *testing.T) {
 	}
 	if !strings.Contains(job.Detail, " · banner skipped: 1000×1500 is portrait, banner role requires landscape") {
 		t.Errorf("detail = %q, want the refusal with its dimensions", job.Detail)
+	}
+	if strings.Count(job.Detail, "banner skipped") != 1 {
+		t.Errorf("detail = %q, want exactly one banner clause for two refused backdrops", job.Detail)
 	}
 	if job.Skipped != 1 {
 		t.Errorf("skipped = %d, want 1", job.Skipped)
