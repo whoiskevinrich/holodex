@@ -1,6 +1,6 @@
 # ADR-038: Person images — on-disk store, typed real-or-placeholder serving, shared ingest normalization
 
-**Status**: Proposed
+**Status**: Proposed — §2 step 3 (single JPEG output) **revisited by [ADR-097](ADR-097-alpha-preserving-image-normalization.md)**: a non-opaque image now re-encodes to PNG, and the `{id}.jpg` layout became `{id}.jpg|.png` derived from the bytes
 **Date**: 2026-06-16
 **Deciders**: Project owner
 **Relates to**: spec [People Images (F25)](../specs/people-images.md); extends [ADR-009](ADR-009-thumbnail-strategy.md) (on-disk image store), [ADR-014](ADR-014-configuration-and-data-layout.md) (data layout), [ADR-015](ADR-015-media-file-serving.md) (serving discipline), [ADR-016](ADR-016-database-migrations.md) (migrations), [ADR-030](ADR-030-access-control-gating-seam.md) (owner gate — reused, **not** changed), [ADR-033](ADR-033-metadata-source-plugins.md) (enrichment providers & asset URLs), [ADR-013](ADR-013-metadata-field-mapping.md) (canonical field vocabulary — adds `gender`), [ADR-021](ADR-021-frontend-theming-and-skins.md)/[ADR-025](ADR-025-tailwind-v4-css-first.md) (skins/tokens).

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"holodex/internal/entityimage"
 	"holodex/internal/personimage"
 	"holodex/internal/providericon"
 	"holodex/internal/repo"
@@ -101,7 +102,12 @@ func (h *Handlers) serveProviderIcon(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get provider icon", err)
 		return
 	}
-	f, err := os.Open(providericon.ImagePath(h.providerIconDir, icon.ID))
+	path, err := providericon.Find(h.providerIconDir, icon.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "icon not available")
+		return
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "icon not available")
 		return
@@ -114,7 +120,7 @@ func (h *Handlers) serveProviderIcon(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Type", entityimage.ContentType(path))
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
