@@ -130,7 +130,7 @@ is owner-only at every mount site, no new condition is added.
 **P0-5 — `?` sheet.** `?` (Shift+/) toggles a `[role="dialog"]` sheet rendered from `+layout.svelte`:
 a **Page** group listing `hotkeys` entries as `<kbd>key</kbd> label`, and a static **Navigation**
 group (`Ctrl/⌘ K` focus search · `/` focus search · `← → ↑ ↓` move between cards · `Esc` clear
-filters / close). Escape or `?` closes it; focus returns to the opener.
+filters / close). Escape, `?` or a backdrop click closes it; focus returns to the opener. Centered modal on the `ConfirmDialog` surface (design RD: A over a corner card).
 - [ ] On a page with no registered keys the Page group reads "No page shortcuts here" and the Navigation group still renders.
 - [ ] The sheet is itself a `[role="dialog"]`, so while open `e`/`f` are guarded by RD6.
 - [ ] The typing guard applies: `?` inside an input types a question mark.
@@ -169,7 +169,7 @@ The `?` check precedes the dialog check so `?` can close its own sheet. The regi
 - **Buttons**: unchanged visually. The action only adds `aria-keyshortcuts` and the `(e)` /
   `(f)` title suffix. Focus ring on fire is the existing `focus-visible` treatment.
 - **`?` sheet**: a small centered panel on the same surface/border tokens as `ConfirmDialog`,
-  `<kbd>` styled with `bg-surface-2 border-line rounded-theme px-1.5 font-mono text-xs`. Two
+  `<kbd>` styled with `bg-surface-2 border-rule rounded-theme px-1.5 font-mono text-xs`. Two
   labelled groups. Exact layout, empty state and stressed state (8+ entries) in the design handoff.
 
 ## Success Metrics

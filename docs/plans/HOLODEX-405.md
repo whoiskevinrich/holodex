@@ -17,7 +17,7 @@ button**, so the button's existence is the gate and the next hotkey is one attri
 
 - [x] spec `write-spec` — `docs/specs/hotkeys.md` (F62), RD1–RD8 locked from the 2026-09-16 brainstorm
 - [~] architecture `architecture` — n/a: frontend-local action + module store; no data model or cross-cutting decision
-- [ ] design `design-handoff` — the `?` sheet (layout, empty state, 8+ stressed state, dismissal) + committed SVG
+- [x] design `design-handoff` — `docs/design/hotkeys-handoff.md` + `hotkeys-sheet.svg`: centered modal (A) on the ConfirmDialog surface, empty + 9-key two-column states, numbered three-skin QA
 - [~] backend — n/a
 - [ ] frontend — `lib/actions/hotkey.svelte.ts` + listener/sheet in `+layout.svelte` + two `use:hotkey` attributes
 - [ ] testing `testing-strategy` — §5 rows: registry + RD6 guard matrix (Vitest), sheet component row
@@ -25,13 +25,13 @@ button**, so the button's existence is the gate and the next hotkey is one attri
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/design-handoff` for the `?` sheet — one mockup, three-skin, committed as SVG
+1. [x] [—] `/design-handoff` for the `?` sheet — one mockup, three-skin, committed as SVG
 2. [ ] [—] Implement per spec P0-1…P0-5; P1-1 (live sheet entries) if cheap
 3. [ ] [—] Three-skin QA + `/code-review high --fix`; mark PR ready → Jira In Review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-16 · brainstorm → story → spec
-- skills: product-brainstorming, write-spec
-- handoff: HOLODEX-405 filed + In Progress; branch renamed `HOLODEX-405-ux-hotkeys`; spec landed,
-  Draft PR open. Next is the design handoff for the `?` sheet — no code yet.
+- skills: product-brainstorming, write-spec, design-handoff
+- handoff: HOLODEX-405 filed + In Progress; branch renamed `HOLODEX-405-ux-hotkeys`; spec + design
+  handoff landed (sheet = centered modal, A), Draft PR #343 open. Next is the code — no code yet.
