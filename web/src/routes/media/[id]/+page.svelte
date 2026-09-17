@@ -31,6 +31,7 @@
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
+	import { hotkey } from '$lib/actions/hotkey.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
@@ -1733,6 +1734,7 @@
 										</span>
 									{/if}
 									<button
+										use:hotkey={'f'}
 										onclick={() => (writebackOpen = true)}
 										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
 										title="Write decided field values to the file tags"

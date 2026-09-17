@@ -113,7 +113,7 @@ whose `e.key` matches a registered key it applies RD6's guards, then `preventDef
 - [ ] Given `EnrichPicker` (or any `[role="dialog"]`) is open, when `e` is pressed, then nothing fires.
 - [ ] Given a closer handler called `preventDefault()` on the keydown, then the listener does nothing.
 - [ ] Given Ctrl/Alt/Meta is held, then the listener does nothing (Shift is allowed so `?` works).
-- [ ] Given Refresh all is `disabled` (refreshing), when `e` is pressed, then no second refresh starts.
+- [ ] Given Refresh all is `disabled` (refreshing), when `e` is pressed, then no second refresh starts. (Chrome drops focus when a focused button flips to `disabled`, so the ring yields to the "Refreshing…" label — same as a mouse click.)
 
 **P0-3 — `e` → Refresh all.** `use:hotkey={'e'}` on the Refresh all button in
 `EnrichProviderChips.svelte`. Because the button is inside `{#if providers.length > 0}` and the row
@@ -127,12 +127,12 @@ is owner-only at every mount site, no new condition is added.
 - [ ] Any other page, or `canWriteback` false: `f` is a no-op.
 - [ ] With the `<video>` focused, `f` toggles fullscreen and the dialog does not open.
 
-**P0-5 — `?` sheet.** `?` (Shift+/) toggles a `[role="dialog"]` sheet rendered from `+layout.svelte`:
-a **Page** group listing `hotkeys` entries as `<kbd>key</kbd> label`, and a static **Navigation**
+**P0-5 — `?` sheet.** `?` (Shift+/) toggles a `[role="dialog"][data-hotkey-sheet]` sheet rendered from `+layout.svelte`:
+a **Page** group listing `hotkeys` rows (one per key, sorted by key) as `<kbd>key</kbd> label`, and a static **Navigation**
 group (`Ctrl/⌘ K` focus search · `/` focus search · `← → ↑ ↓` move between cards · `Esc` clear
 filters / close). Escape, `?` or a backdrop click closes it; focus returns to the opener. Centered modal on the `ConfirmDialog` surface (design RD: A over a corner card).
 - [ ] On a page with no registered keys the Page group reads "No page shortcuts here" and the Navigation group still renders.
-- [ ] The sheet is itself a `[role="dialog"]`, so while open `e`/`f` are guarded by RD6.
+- [ ] The sheet is itself a `[role="dialog"]`, so while open `e`/`f` are guarded by RD6; `?` while *another* dialog is open does nothing (the sheet never stacks).
 - [ ] The typing guard applies: `?` inside an input types a question mark.
 - [ ] Tokens-only styling; passes three-skin QA.
 
