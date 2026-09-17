@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 330" width="720" height="330" role="img" aria-labelledby="t d">
+  <title id="t">Keyboard shortcuts sheet (F62): default, empty page group, and stressed page group</title>
+  <desc id="d">Three states of the ? sheet in the Cinémathèque skin. Left: media detail with two page keys (e Refresh all, f Write decisions to file) above a static Navigation group. Middle: a page with no registered keys shows "No page shortcuts here" and the Navigation group still renders. Right: nine page keys flow into two columns so the panel never scrolls. Centered modal on a dimmed backdrop, ConfirmDialog surface.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #f3ece1; }
+    .cap { font-size: 12px; fill: #5f5e5a; }
+    .h { font-size: 12px; font-weight: 600; }
+    .grp { font-size: 9px; fill: #9b9082; letter-spacing: 0.3px; }
+    .lbl { font-size: 10px; }
+    .mut { font-size: 10px; fill: #9b9082; }
+    .emp { font-size: 10px; fill: #9b9082; font-style: italic; }
+    .kbd { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 9px; fill: #f3ece1; }
+    .vp { fill: #0c0a09; stroke: #d3d1c7; stroke-width: 1; }
+    .dim { fill: #000000; opacity: 0.5; }
+    .sheet { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+    .key { fill: #181310; stroke: #2a2622; stroke-width: 1; }
+    .hover { fill: #181310; }
+    .acc { fill: #e8a33d; }
+    .page { font-size: 10px; fill: #9b9082; }
+  </style>
+
+  <!-- A · default: media detail, two page keys -->
+  <text x="12" y="18" class="cap">A · media detail: two page keys + navigation</text>
+  <rect x="12" y="28" width="224" height="290" rx="8" class="vp"/>
+  <text x="24" y="46" class="page">Holodex   Browse   People   Films</text>
+  <line x1="12" y1="54" x2="236" y2="54" stroke="#2a2622"/>
+  <text x="24" y="72" class="page">Fury Road · Metadata</text>
+  <rect x="24" y="80" width="56" height="14" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="52" y="90" text-anchor="middle" class="lbl" style="fill:#e8a33d;font-size:8px">Refresh all</text>
+  <rect x="12" y="28" width="224" height="290" rx="8" class="dim"/>
+  <rect x="34" y="88" width="180" height="200" rx="2" class="sheet"/>
+  <text x="46" y="106" class="h">Keyboard shortcuts</text>
+  <text x="46" y="124" class="grp">THIS PAGE</text>
+  <rect x="42" y="129" width="164" height="16" rx="2" class="hover"/>
+  <rect x="46" y="131" width="14" height="12" rx="2" class="key"/><text x="53" y="140" text-anchor="middle" class="kbd">e</text>
+  <text x="66" y="140" class="lbl">Refresh all</text>
+  <rect x="46" y="149" width="14" height="12" rx="2" class="key"/><text x="53" y="158" text-anchor="middle" class="kbd">f</text>
+  <text x="66" y="158" class="lbl">Write decisions to file</text>
+  <text x="46" y="180" class="grp">NAVIGATION</text>
+  <rect x="46" y="187" width="14" height="12" rx="2" class="key"/><text x="53" y="196" text-anchor="middle" class="kbd">⌘</text>
+  <rect x="62" y="187" width="14" height="12" rx="2" class="key"/><text x="69" y="196" text-anchor="middle" class="kbd">K</text>
+  <text x="82" y="196" class="lbl">Focus search</text>
+  <rect x="46" y="205" width="14" height="12" rx="2" class="key"/><text x="53" y="214" text-anchor="middle" class="kbd">/</text>
+  <text x="66" y="214" class="lbl">Focus search</text>
+  <rect x="46" y="223" width="14" height="12" rx="2" class="key"/><text x="53" y="232" text-anchor="middle" class="kbd">←</text>
+  <rect x="62" y="223" width="14" height="12" rx="2" class="key"/><text x="69" y="232" text-anchor="middle" class="kbd">→</text>
+  <text x="82" y="232" class="lbl">Move between cards</text>
+  <rect x="46" y="241" width="22" height="12" rx="2" class="key"/><text x="57" y="250" text-anchor="middle" class="kbd">Esc</text>
+  <text x="74" y="250" class="lbl">Close · clear filters</text>
+  <rect x="46" y="266" width="14" height="12" rx="2" class="key"/><text x="53" y="275" text-anchor="middle" class="kbd">?</text>
+  <text x="202" y="275" text-anchor="end" class="mut">toggles this sheet</text>
+
+  <!-- B · empty page group -->
+  <text x="248" y="18" class="cap">B · no page keys (browse, visitor view)</text>
+  <rect x="248" y="28" width="224" height="290" rx="8" class="vp"/>
+  <text x="260" y="46" class="page">Holodex   Browse   People   Films</text>
+  <line x1="248" y1="54" x2="472" y2="54" stroke="#2a2622"/>
+  <rect x="248" y="28" width="224" height="290" rx="8" class="dim"/>
+  <rect x="270" y="100" width="180" height="176" rx="2" class="sheet"/>
+  <text x="282" y="118" class="h">Keyboard shortcuts</text>
+  <text x="282" y="136" class="grp">THIS PAGE</text>
+  <text x="282" y="152" class="emp">No page shortcuts here</text>
+  <text x="282" y="174" class="grp">NAVIGATION</text>
+  <rect x="282" y="181" width="14" height="12" rx="2" class="key"/><text x="289" y="190" text-anchor="middle" class="kbd">⌘</text>
+  <rect x="298" y="181" width="14" height="12" rx="2" class="key"/><text x="305" y="190" text-anchor="middle" class="kbd">K</text>
+  <text x="318" y="190" class="lbl">Focus search</text>
+  <rect x="282" y="199" width="14" height="12" rx="2" class="key"/><text x="289" y="208" text-anchor="middle" class="kbd">/</text>
+  <text x="302" y="208" class="lbl">Focus search</text>
+  <rect x="282" y="217" width="14" height="12" rx="2" class="key"/><text x="289" y="226" text-anchor="middle" class="kbd">←</text>
+  <rect x="298" y="217" width="14" height="12" rx="2" class="key"/><text x="305" y="226" text-anchor="middle" class="kbd">→</text>
+  <text x="318" y="226" class="lbl">Move between cards</text>
+  <rect x="282" y="235" width="22" height="12" rx="2" class="key"/><text x="293" y="244" text-anchor="middle" class="kbd">Esc</text>
+  <text x="310" y="244" class="lbl">Close · clear filters</text>
+  <rect x="282" y="256" width="14" height="12" rx="2" class="key"/><text x="289" y="265" text-anchor="middle" class="kbd">?</text>
+  <text x="438" y="265" text-anchor="end" class="mut">toggles this sheet</text>
+
+  <!-- C · stressed: nine page keys → two columns -->
+  <text x="484" y="18" class="cap">C · nine page keys → two columns, no scroll</text>
+  <rect x="484" y="28" width="224" height="290" rx="8" class="vp"/>
+  <text x="496" y="46" class="page">Holodex   Browse   People   Films</text>
+  <line x1="484" y1="54" x2="708" y2="54" stroke="#2a2622"/>
+  <rect x="484" y="28" width="224" height="290" rx="8" class="dim"/>
+  <rect x="494" y="70" width="204" height="236" rx="2" class="sheet"/>
+  <text x="506" y="88" class="h">Keyboard shortcuts</text>
+  <text x="506" y="106" class="grp">THIS PAGE</text>
+  <!-- column 1 -->
+  <rect x="506" y="112" width="14" height="12" rx="2" class="key"/><text x="513" y="121" text-anchor="middle" class="kbd">e</text><text x="525" y="121" class="lbl">Refresh all</text>
+  <rect x="506" y="128" width="14" height="12" rx="2" class="key"/><text x="513" y="137" text-anchor="middle" class="kbd">f</text><text x="525" y="137" class="lbl">Write to file</text>
+  <rect x="506" y="144" width="14" height="12" rx="2" class="key"/><text x="513" y="153" text-anchor="middle" class="kbd">r</text><text x="525" y="153" class="lbl">Regenerate</text>
+  <rect x="506" y="160" width="14" height="12" rx="2" class="key"/><text x="513" y="169" text-anchor="middle" class="kbd">p</text><text x="525" y="169" class="lbl">Add person</text>
+  <rect x="506" y="176" width="14" height="12" rx="2" class="key"/><text x="513" y="185" text-anchor="middle" class="kbd">s</text><text x="525" y="185" class="lbl">Set studio</text>
+  <!-- column 2 -->
+  <rect x="604" y="112" width="14" height="12" rx="2" class="key"/><text x="611" y="121" text-anchor="middle" class="kbd">t</text><text x="623" y="121" class="lbl">Edit tags</text>
+  <rect x="604" y="128" width="14" height="12" rx="2" class="key"/><text x="611" y="137" text-anchor="middle" class="kbd">l</text><text x="623" y="137" class="lbl">Link film</text>
+  <rect x="604" y="144" width="14" height="12" rx="2" class="key"/><text x="611" y="153" text-anchor="middle" class="kbd">d</text><text x="623" y="153" class="lbl">Move to trash</text>
+  <rect x="604" y="160" width="14" height="12" rx="2" class="key"/><text x="611" y="169" text-anchor="middle" class="kbd">x</text><text x="623" y="169" class="lbl">Extract</text>
+  <text x="506" y="208" class="grp">NAVIGATION</text>
+  <rect x="506" y="214" width="14" height="12" rx="2" class="key"/><text x="513" y="223" text-anchor="middle" class="kbd">⌘</text>
+  <rect x="522" y="214" width="14" height="12" rx="2" class="key"/><text x="529" y="223" text-anchor="middle" class="kbd">K</text><text x="541" y="223" class="lbl">Focus search</text>
+  <rect x="604" y="214" width="14" height="12" rx="2" class="key"/><text x="611" y="223" text-anchor="middle" class="kbd">/</text><text x="623" y="223" class="lbl">Focus search</text>
+  <rect x="506" y="230" width="14" height="12" rx="2" class="key"/><text x="513" y="239" text-anchor="middle" class="kbd">←</text>
+  <rect x="522" y="230" width="14" height="12" rx="2" class="key"/><text x="529" y="239" text-anchor="middle" class="kbd">→</text><text x="541" y="239" class="lbl">Between cards</text>
+  <rect x="604" y="230" width="22" height="12" rx="2" class="key"/><text x="615" y="239" text-anchor="middle" class="kbd">Esc</text><text x="631" y="239" class="lbl">Close · clear</text>
+  <rect x="506" y="282" width="14" height="12" rx="2" class="key"/><text x="513" y="291" text-anchor="middle" class="kbd">?</text>
+  <text x="686" y="291" text-anchor="end" class="mut">toggles this sheet</text>
+</svg>

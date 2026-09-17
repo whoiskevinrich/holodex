@@ -47,15 +47,18 @@ type ReadbackGap struct {
 }
 
 // readKey normalizes a formatMap tag to the `file:` source key that reads it back: drop
-// any exiftool group prefix ("QuickTime:Title" → "Title") and fold case, matching how
-// internal/metadata canonicalizes a tag into extra_metadata and how the resolver looks a
-// file: source up. "Title" folds to "title", which is also the `file:title` alias for
-// videos.title (mapping.Source.IsFileTitle) — the same key whichever way it is read.
+// any exiftool group prefix ("QuickTime:Title" → "Title"), fold case, and drop
+// underscores — exiftool reports a Matroska SimpleTag by CamelCasing its name
+// ("PART_NUMBER" → "PartNumber"), so the written spelling and the read-back key differ
+// only by them. This matches how internal/metadata canonicalizes a tag into
+// extra_metadata and how the resolver looks a file: source up. "Title" folds to "title",
+// which is also the `file:title` alias for videos.title (mapping.Source.IsFileTitle) —
+// the same key whichever way it is read.
 func readKey(tag string) string {
 	if i := strings.LastIndex(tag, ":"); i >= 0 {
 		tag = tag[i+1:]
 	}
-	return strings.ToLower(strings.TrimSpace(tag))
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(tag)), "_", "")
 }
 
 // ReadbackGaps returns the replace fields in the mapping that writeback can write but

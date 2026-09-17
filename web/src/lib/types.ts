@@ -227,6 +227,7 @@ export interface Video {
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
+	part?: string; // resolved part ordinal within a multi-file media, API-stamped on every summary (HOLODEX-389)
 	people?: Person[];
 	tags?: Tag[];
 }
@@ -711,6 +712,7 @@ export interface EnrichQueueRow {
 	entity_type: EnrichEntityKind;
 	entity_id: number;
 	name: string;
+	part?: string; // video rows only: resolved part, so three parts of one media read apart (HOLODEX-389)
 	providers: EnrichQueueProviderState[];
 }
 
@@ -759,6 +761,7 @@ export interface ExtractionQueueRow {
 	id: number;
 	video_id: number;
 	video_title: string;
+	part?: string; // resolved part beside the title (HOLODEX-389)
 	file_path: string;
 	field_key: string;
 	filename_value: string;

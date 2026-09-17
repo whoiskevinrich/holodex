@@ -22,6 +22,9 @@ type EnrichQueueRow struct {
 	EntityID   int64                      `json:"entity_id"`
 	Name       string                     `json:"name"`
 	Providers  []EnrichQueueProviderState `json:"providers"`
+	// Part is the video's resolved part (HOLODEX-389 RD9), stamped by the API
+	// handler on video rows so three parts of one media read apart in the queue.
+	Part string `json:"part,omitempty"`
 }
 
 // EnrichQueueProviderState is one row's per-provider status (RD9 — never a single

@@ -11,6 +11,7 @@
 		sortExternalLinks
 	} from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, providerOf } from '$lib/f36';
 	import type {
@@ -866,6 +867,16 @@
 													href={`/media/${fv.video.id}#field-edition`}
 													class="shrink-0 rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
 													>+ Set edition</a
+												>
+											{/if}
+											<!-- Part (HOLODEX-389 RD9) after edition, and deliberately no "+ Set part"
+											     twin of the link above: most files have no part and never will, so a dashed
+											     link on every row would be chrome for a rare fact — part is set from the
+											     media page's Metadata row (design handoff §3). -->
+											{#if fv.video.part}
+												<span
+													class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+													>{partBadgeLabel(fv.video.part)}</span
 												>
 											{/if}
 										</span>

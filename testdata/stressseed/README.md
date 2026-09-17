@@ -42,6 +42,13 @@ one that does not. The single escape hatch is `noEmptyRung`, a stated reason, an
 legitimate reason is that the *app* cannot reach the empty state either — see the derived
 kinds below.
 
+The `part` dimension (block 1000, HOLODEX-389) is the one video dimension whose rungs share
+a title on purpose: it seeds three files of one media whose only part source is the
+container tag — the source the list path never used to load — so `/?sort=title_asc` shows
+the identical triplet the field exists to tell apart. The value goes in as the tag only;
+the filename and decision sources are the API tests' job (`internal/api/parts_test.go`), and
+the seeder has no scanner to lift a marker with (D1).
+
 ## Derived kinds are addressed above the pool, not below it
 
 A person, studio and tag each has a detail page where its **name is the `h1`**, so the text

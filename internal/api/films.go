@@ -115,6 +115,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 			scenes = append(scenes, fv)
 		}
 	}
+	h.applyPartsToFilmVideos(r.Context(), scenes, fullFilms)
 
 	cast, err := h.repo.FilmCast(r.Context(), id)
 	if err != nil {

@@ -499,6 +499,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	if h.mappings != nil {
 		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
 	}
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
@@ -587,6 +588,7 @@ func (h *Handlers) listMediaByCompleteness(w http.ResponseWriter, r *http.Reques
 	if h.mappings != nil {
 		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
 	}
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": limit, "offset": f.Offset,
@@ -830,6 +832,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// append (as an earlier draft did) leaves append-only rows permanently
 			// unwritable in the dialog regardless of whether they actually have a mapping.
 			h.markWriteTargets(resolved, v.Container)
+			// The summary's `part` (HOLODEX-389) rides the same model.Video the lists
+			// stamp, so the detail's `video` object carries it too rather than only
+			// the resolved[] row — one field, present on every payload of the type.
+			if rf, ok := resolvedByCanonical(resolved, "part"); ok && len(rf.Values) > 0 {
+				v.Part = rf.Values[0]
+			}
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
@@ -920,6 +928,7 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 	for _, shelf := range []*repo.RelatedShelf{related.Person, related.Tag} {
 		if shelf != nil {
 			h.prepareThumbnails(shelf.Items)
+			h.applyPartsTo(r.Context(), shelf.Items)
 			redactFileMetadataForVisitors(shelf.Items, isOwner)
 		}
 	}
@@ -1251,6 +1260,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	authorized := h.auth.authorized(r)
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.personResolve(r, id, p)
 	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
@@ -1340,6 +1350,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "tag videos", err)
 		return
 	}
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, map[string]any{"tag": t, "items": items, "total": total})
 }
@@ -1354,6 +1365,7 @@ func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {
 	if h.metrics != nil {
 		h.metrics.ObserveSearch(time.Since(start))
 	}
+	h.applyPartsTo(r.Context(), res.Videos)
 	redactFileMetadataForVisitors(res.Videos, h.auth.authorized(r))
 	writeJSON(w, http.StatusOK, res)
 }

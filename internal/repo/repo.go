@@ -792,14 +792,33 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 // read that skipped this would misreport them as missing rather than curated.
 // Missing keys mean no extra metadata for that video.
 func (r *Repo) ExtraMetadataForVideos(ctx context.Context, ids []int64) (map[int64][]model.ExtraMetadata, error) {
+	return r.extraMetadataForVideos(ctx, ids, nil)
+}
+
+// ExtraMetadataForVideosByKey is ExtraMetadataForVideos narrowed to the given
+// source keys, for a list-path resolve of one file-tag-sourced field (HOLODEX-389
+// `part`): the caller wants two keys per video, not the whole tag set.
+func (r *Repo) ExtraMetadataForVideosByKey(ctx context.Context, ids []int64, keys []string) (map[int64][]model.ExtraMetadata, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return r.extraMetadataForVideos(ctx, ids, keys)
+}
+
+func (r *Repo) extraMetadataForVideos(ctx context.Context, ids []int64, keys []string) (map[int64][]model.ExtraMetadata, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	q := `
 		SELECT video_id, source_key, value
 		FROM video_metadata
-		WHERE video_id IN (`+placeholders(len(ids))+`)
-		ORDER BY video_id, source_key`, toAnySlice(ids)...)
+		WHERE video_id IN (` + placeholders(len(ids)) + `)`
+	args := toAnySlice(ids)
+	if len(keys) > 0 {
+		q += ` AND source_key IN (` + placeholders(len(keys)) + `)`
+		args = append(args, toAnySlice(keys)...)
+	}
+	rows, err := r.db.QueryContext(ctx, q+` ORDER BY video_id, source_key`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("extra metadata for videos: %w", err)
 	}

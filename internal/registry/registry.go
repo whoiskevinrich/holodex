@@ -58,6 +58,11 @@ type FieldDef struct {
 	// automatic exclusion, reusing the invariant ADR-063 already established for
 	// age/age_at_death rather than re-deriving it here.
 	Criticality string
+	// FileOnly marks a file fact (HOLODEX-389 RD2): a mapping may source it from the
+	// file layer (a bare/`file:` tag) or the F48 filename parser only. The mapping
+	// loader rejects a provider-namespaced source for it at load time — "no provider
+	// source" is enforced, not merely left out of the example.
+	FileOnly bool
 }
 
 // EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
@@ -123,6 +128,14 @@ var KnownFields = []FieldDef{
 		Display:     "",
 		Description: "The cut this file holds (Theatrical, Director's Cut, Final Cut). A file fact, never a film property (F60 RD6).",
 		Criticality: CriticalityOptional, // most files have no edition, and that is not a gap
+	},
+	{
+		Canonical:   "part",
+		Label:       "Part",
+		Display:     "",
+		Description: "This file's ordinal within a multi-file media (1, 2, 3). A file fact, never a film or provider property (HOLODEX-389 RD1).",
+		Criticality: CriticalityOptional, // most files have no part, and that is not a gap
+		FileOnly:    true,
 	},
 	{
 		Canonical:   "runtime",

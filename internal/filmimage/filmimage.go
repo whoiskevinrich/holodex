@@ -1,12 +1,12 @@
 // Package filmimage is the film-facing entry point for a film's self-hosted images
-// (F56/HOLODEX-280, ADR-086; poster/thumb roles). ImagePath/Store/Remove delegate to
+// (F56/HOLODEX-280, ADR-086; poster/thumb roles). Find/Store/Remove delegate to
 // internal/entityimage (HOLODEX-286), which owns the actual disk layout shared with
 // personimage/studioimage — this package exists so call sites keep asking "the film
 // image package" for a film path, not a generic one, and so the disk-storage
 // implementation detail can move without touching any caller.
 //
 // It deliberately does NOT reimplement the untrusted-bytes normalization — that
-// security spine (sniff-decode, decompression-bomb guard, re-encode-to-JPEG metadata
+// security spine (sniff-decode, decompression-bomb guard, re-encode metadata
 // strip) lives once in personimage.Normalize/Hash and is reused here, so a film image
 // gets byte-for-byte the same hardening as a person portrait or studio image.
 package filmimage
@@ -18,15 +18,15 @@ import (
 	"holodex/internal/model"
 )
 
-// ImagePath is the on-disk location for one of a film's images (ADR-014):
-// {dir}/{filmID}/{imageID}.jpg. Both ids are server-assigned integers, never a
-// request value, so path traversal is structurally impossible (the ADR-038 rule).
-// The per-film subdir is NOT created here — Store creates it.
-func ImagePath(dir string, filmID, imageID int64) string {
-	return entityimage.Path(dir, filmID, imageID)
+// Find is the on-disk location for one of a film's images (ADR-014):
+// {dir}/{filmID}/{imageID}.jpg or .png (ADR-097). Both ids are server-assigned integers,
+// never a request value, so path traversal is structurally impossible (the ADR-038
+// rule). A missing file errors with os.ErrNotExist.
+func Find(dir string, filmID, imageID int64) (string, error) {
+	return entityimage.Find(dir, filmID, imageID)
 }
 
-// Store writes normalized JPEG bytes to ImagePath via a temp file + rename so a
+// Store writes normalized JPEG/PNG bytes to their id-named path via a temp file + rename so a
 // reader never sees a torn file. The caller has already inserted the DB row, so
 // imageID is the authoritative, server-assigned name.
 func Store(dir string, filmID, imageID int64, data []byte) error {

@@ -63,6 +63,10 @@ The curated set (`items.mjs`, ~18 titles) must, in aggregate:
 - **R4** — include a diacritic title (e.g. "Amélie en Hiver") to demonstrate FTS folding (ADR-017).
 - **R5** — span a range of years (2008–2024) so the year filter is meaningful.
 - **R6** — use only **fictional** titles, people, and studios (no third-party IP).
+- **R7** (HOLODEX-389) — include one media stored as several files, so the part badge has a
+  real subject: "Live at the Observatory" as three files sharing a title, two carrying the
+  `{part-N}` filename marker and one carrying only the iTunes `disk` atom, so a scan
+  exercises the lifter, the container-tag baseline and the identical-triplet surface.
 
 ## Acceptance criteria
 
