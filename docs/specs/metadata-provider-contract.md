@@ -127,7 +127,10 @@ provider loudly.
   "asset_kinds": ["photo"],
   "brand_icon": { "url": "https://<name>.example/brand-icon.png" },
   "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}",
-  "resolve_hints": ["fields", "filename"]
+  "resolve_hints": ["fields", "filename"],
+  "link_templates": {
+    "<name>": { "person": "https://<name>.example/person/{id}" }
+  }
 }
 ```
 
@@ -145,6 +148,7 @@ provider loudly.
 | `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
 | `preferred_search_pattern` | string | optional | **`video` only.** A search-query shape you'd like Holodex to build `/resolve`'s `hint.query` from instead of the raw/sanitized title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). Consulted only when the *operator* hasn't configured their own override for you (operator config always wins). Malformed/unparseable → ignored (logged on the Holodex side), never an error to you. Omit if you have no opinion — the sanitized-title fallback already applies unconditionally either way. Additive (unknown key, ignored by older Holodex) |
 | `resolve_hints` | string[] | optional | **`video` only.** The structured `/resolve` hint keys you want **in addition to** `hint.query` — any of `"fields"`, `"filename"` — see [§4.10](#410-structured-resolve-hints-describeresolve_hints). Holodex sends `hint.fields` only if you list `"fields"`, `hint.filename` only if you list `"filename"` (and the operator hasn't denied it), and `hint.query_source` alongside either. **Omit it and your `/resolve` request is byte-for-byte what it is today** — this is the opt-in that lets the request body grow without a protocol bump, because [§2.3](#23-post-resolve--identity-match-disambiguation) makes no unknown-key promise for requests. Unknown entries ignored, known ones honored. Additive (unknown key, ignored by older Holodex) |
+| `link_templates` | object | optional | How a namespace-qualified external id becomes an **outbound link** — `{ "<namespace>": { "<entity kind>": "<http(s) URL template with exactly one {id}>" } }`, entity kinds `person` / `studio` / `film` / `video` — see [§4.11](#411-outbound-link-templates-describelink_templates). Keyed by **namespace**, not provider, so you may declare templates for a foreign namespace you emit (e.g. `imdb`). Feeds the provider link badge on entity pages; without it every pill for your ids renders as plain "known to `<name>`" text. Invalid entries are dropped **per entry** (never the whole manifest). Omit if you have no public page per id. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -955,6 +959,52 @@ partner probe that motivated this section, three real bracketed filenames matche
 through such a matcher and got zero hits as free text. List `"fields"` if you want to retry on a subset
 after a miss. Omitting `resolve_hints` entirely remains fully conformant.
 
+### 4.11 Outbound link templates (`/describe.link_templates`)
+
+> **Status: additive extension** ([ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md) D2,
+> HOLODEX-266; coverage widened to film + video by [F63](provider-link-badge-coverage.md), HOLODEX-391).
+> **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider that omits it
+> stays fully conformant, and an older Holodex that doesn't parse it is unaffected. **No protocol bump.**
+
+Every external id you emit ([§4.1](#41-external-ids-and-namespaces)) is shown on the entity's page as a
+provider pill. With a template for that id's namespace and entity kind, the pill is a link to your page for
+the entity; without one it is plain "known to `<name>`" text. Declare the templates once, per namespace:
+
+```json
+{
+  "provider": "tmdb",
+  "protocol_version": 1,
+  "entity_types": ["person", "video", "studio", "film"],
+  "id_namespaces": ["tmdb", "imdb"],
+  "link_templates": {
+    "tmdb": {
+      "person": "https://www.themoviedb.org/person/{id}",
+      "studio": "https://www.themoviedb.org/company/{id}",
+      "film":   "https://www.themoviedb.org/movie/{id}",
+      "video":  "https://www.themoviedb.org/movie/{id}"
+    },
+    "imdb": {
+      "person": "https://www.imdb.com/name/{id}/",
+      "film":   "https://www.imdb.com/title/{id}/",
+      "video":  "https://www.imdb.com/title/{id}/"
+    }
+  }
+}
+```
+
+| Rule | Detail |
+|---|---|
+| Shape | `{ "<namespace>": { "<entity kind>": "<template>" } }`. Entity kinds: `person`, `studio`, `film`, `video`. Namespace and kind keys are trimmed and lower-cased on ingest |
+| Template | An absolute **`http://` or `https://`** URL containing **exactly one** `{id}` token and no other brace token; ≤ 512 chars. Holodex substitutes the bare id (`tt0137523`, `287` — the part after `<namespace>:`) — put any trailing slash or path you need in the template itself |
+| Validation | Per **entry**: an entry that fails the rules above is dropped and logged Holodex-side; the rest of the map — and the rest of the manifest — is unaffected. Never an error response to you |
+| Namespace-keyed | A namespace is a shared identity space across providers ([§4.1](#41-external-ids-and-namespaces)), so its link is provider-independent. Declare templates for every namespace you emit ids in — including foreign ones (TMDB emits `imdb:` ids, so it declares `imdb`). If two providers declare the same namespace, the most recently read `/describe` wins that namespace |
+| Not carried here | The namespace's display **label** (`IMDb`, `TMDB`) — Holodex owns a small lookup for that; and the brand icon, which is [§4.8](#48-provider-brand-icon-describebrand_icon) |
+| Interaction with fields | Once you declare a template, **do not also emit your own page as a `website` / `homepage` field value** — the page would be linked twice. Those canonical keys mean the entity's *own* official site ([§4.2](#42-canonical-fields), [§4.2a](#42a-canonical-fields--videomedia)); omit them when upstream has none rather than substituting your page |
+
+**Practical guidance:** if your upstream has a stable public page per id, declare a template — it is the
+whole difference between a verification link and dead text on every entity you enrich. Re-read on every
+`/describe`, so adding one to a running provider needs no re-enrich on the Holodex side.
+
 ---
 
 ## 5. Non-functional requirements
@@ -1051,7 +1101,10 @@ GET /describe
   "entity_types": ["person"],
   "id_namespaces": ["acme"],
   "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
-  "asset_kinds": ["photo"]
+  "asset_kinds": ["photo"],
+  "link_templates": {
+    "acme": { "person": "https://acme.example/people/{id}" }
+  }
 }
 ```
 
@@ -1239,6 +1292,9 @@ truth if a clarification is needed:
 - **ADR-039** — Provider asset URLs ([`docs/architecture/ADR-039-provider-asset-urls.md`](../architecture/ADR-039-provider-asset-urls.md)):
   the asset object schema, `asset_kinds` advertisement, and the operator-configured
   `asset_hosts` download allowlist this section ([§4.3](#43-assets)) specifies.
+- **ADR-083** — Provider link badge ([`docs/architecture/ADR-083-provider-link-badge-person-studio.md`](../architecture/ADR-083-provider-link-badge-person-studio.md))
+  and **F63** ([`docs/specs/provider-link-badge-coverage.md`](provider-link-badge-coverage.md)):
+  the `link_templates` manifest key ([§4.11](#411-outbound-link-templates-describelink_templates)) and the badge it feeds.
 - **Worked example** — TMDB provider spec ([`docs/specs/tmdb-provider.md`](tmdb-provider.md)):
   this same contract mapped onto a real upstream (TMDB), with a concrete field-mapping table.
 - **Reference stub** — `testdata/enrich-stub/` (Node, dependency-free): the worked contract

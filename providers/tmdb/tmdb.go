@@ -68,6 +68,12 @@ type describeResponse struct {
 	// (TMDB's own logo is SVG, which Holodex's raster ingest rejects) rather than
 	// shipping a brittle default. Additive — an older Holodex ignores it.
 	BrandIcon *iconRef `json:"brand_icon,omitempty"`
+	// LinkTemplates declares how a namespace-qualified external id becomes an
+	// outbound link (Holodex contract §4.11, ADR-083 D2): namespace -> entity kind ->
+	// https template with exactly one "{id}". Keyed by namespace, so the foreign
+	// `imdb` ids this provider emits get a link too. Additive — an older Holodex
+	// ignores it.
+	LinkTemplates map[string]map[string]string `json:"link_templates,omitempty"`
 }
 
 // iconRef is a single provider-level image reference (the brand icon, §4.8).
@@ -191,6 +197,7 @@ type movieDetails struct {
 	Tagline             string              `json:"tagline"`
 	OriginalLanguage    string              `json:"original_language"`
 	Status              string              `json:"status"`
+	Homepage            string              `json:"homepage"`
 	IMDbID              string              `json:"imdb_id"`
 	PosterPath          string              `json:"poster_path"`
 	BackdropPath        string              `json:"backdrop_path"`
@@ -564,10 +571,13 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits, entityType
 	if v := strings.TrimSpace(det.Tagline); v != "" {
 		fields["tagline"] = []string{v}
 	}
-	// The "Website" link points to this movie's TMDB page, not det.Homepage (the
-	// studio's official/marketing site — often short-lived or region-gated). TMDB is
-	// the provider's own durable record and the more useful destination.
-	fields["homepage"] = []string{tmdbMovieURL(det.ID, det.Title)}
+	// homepage is the film's own website (det.Homepage), omitted when TMDB has none.
+	// It used to be overwritten with the movie's TMDB page; that link now comes from
+	// the `tmdb` link template advertised in /describe (F63, HOLODEX-391), so
+	// emitting it here too would put the same TMDB link on the page twice.
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["homepage"] = []string{v}
+	}
 	if det.OriginalLanguage != "" {
 		fields["original_language"] = []string{det.OriginalLanguage}
 	}

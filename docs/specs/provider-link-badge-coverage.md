@@ -114,8 +114,8 @@ visitor/owner rule for entity data points):
   http(s) only, invalid entries dropped per-entry (not per-manifest), namespace-keyed so a
   provider may declare templates for a foreign namespace it emits (`imdb`). Additive; unknown
   key ignored by older Holodex.
-  - [ ] The row and subsection exist, cross-linked, with a TMDB-shaped example.
-  - [ ] The `/describe` reference example in §8 includes a `link_templates` block.
+  - [x] The row and subsection exist, cross-linked, with a TMDB-shaped example.
+  - [x] The `/describe` reference example in §8 includes a `link_templates` block.
 
 - **P0-2 · TMDB sidecar declares templates** (HOLODEX-391). `providers/tmdb` `/describe` emits:
   `tmdb` → person `https://www.themoviedb.org/person/{id}`, studio
@@ -127,7 +127,7 @@ visitor/owner rule for entity data points):
     core deploy and no re-enrich.
   - Given a video whose winning `external_provider_id` is `imdb:tt0133093`, then its link is
     `https://www.imdb.com/title/tt0133093/`.
-  - [ ] Templates pass `enrich.ValidateLinkTemplate`; a sidecar unit test asserts the manifest
+  - [x] Templates pass `enrich.ValidateLinkTemplate`; a sidecar unit test asserts the manifest
     shape.
 
 - **P0-3 · TMDB sidecar stops overriding `homepage`** (HOLODEX-391). The video/film `homepage`
@@ -137,7 +137,7 @@ visitor/owner rule for entity data points):
     header pill shows TMDB — one TMDB link on the page.
   - Given a film TMDB has no homepage for, then the `Homepage` row is absent (no empty value, no
     fallback to the TMDB page).
-  - [ ] Previously-stored `homepage` values are **not** migrated; they refresh on the next enrich.
+  - [x] Previously-stored `homepage` values are **not** migrated; they refresh on the next enrich.
     Documented in the release note.
 
 - **P0-4 · Contract: `_source_url` on `/enrich`** (HOLODEX-392). A provider may include a

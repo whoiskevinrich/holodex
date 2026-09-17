@@ -30,8 +30,9 @@ media placement) · testing-strategy § (pending)
 
 1. [ ] [—] ask Kevin: does the production provider return a per-item URL on `/enrich` (blocking for HOLODEX-392's consumer, not for core)
 2. [ ] [architecture] ADR for `_source_url` storage + precedence — `node scripts/adr-claims.mjs` first — `docs/architecture/ADR-0XX-provider-source-url-fallback.md`
-3. [ ] [backend] HOLODEX-391: `providers/tmdb` declares `link_templates` + drops the `homepage` override — `providers/tmdb/tmdb.go` (~L55 manifest, ~L566 homepage)
-4. [ ] [spec] contract §2.2 `link_templates` row + §4 subsection + §8 example (P0-1); `_source_url` subsection after the ADR (P0-4) — `docs/specs/metadata-provider-contract.md`
+3. [x] [backend] HOLODEX-391: `providers/tmdb` declares `link_templates` + drops the `homepage` override — `providers/tmdb/tmdb.go` (~L55 manifest, ~L566 homepage)
+4. [x] [spec] contract §2.2 `link_templates` row + §4.11 subsection + §8 example (P0-1) — `docs/specs/metadata-provider-contract.md`
+4b. [ ] [spec] contract `_source_url` subsection after the ADR (P0-4) — `docs/specs/metadata-provider-contract.md`
 5. [ ] [design] extend the handoff with film + media header placement, SVG mockup committed — `docs/design/provider-link-badge-handoff.md`
 6. [ ] [backend] HOLODEX-392: `_source_url` ingest + `BuildProviderLink` per-pill fallback — `internal/enrich/service.go`, `internal/api/external_links.go`
 7. [ ] [backend] HOLODEX-393/394: `getFilm` + `getVideo` project `external_links` — `internal/api/films.go`, `internal/api/handlers.go`
@@ -41,5 +42,9 @@ media placement) · testing-strategy § (pending)
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-16 · brainstorm → epic + 4 stories → spec
-- skills: product-brainstorming, write-spec
+- skills: product-brainstorming, write-spec, code-review
 - handoff: F63 spec landed with RD1–RD9 locked (header-pill placement for media was mockup-ruled this session); nothing coded. Next is the ADR (`_source_url` storage) — but HOLODEX-391 (sidecar templates) is independent of it and is the whole visible fix for person/studio, so it can go first if Kevin wants a quick win.
+
+### 2026-09-16 · HOLODEX-391 sidecar templates + homepage unwind
+- skills: code-review
+- handoff: HOLODEX-391 shipped on the epic branch (391 In Progress in Jira; swept by hand with the epic). Sidecar `/describe` now emits `link_templates` for `tmdb` (person/studio/film/video) + `imdb` (person/film/video), `homepage` = TMDB's own `homepage` or omitted; contract §2.2 row + §4.11 + §8 example + tmdb-provider.md mapping updated; P0-1/P0-2/P0-3 boxes ticked in the F63 spec. Not migrated: stored `homepage` values (RD5). Next is the ADR (`_source_url`), then 392. Pre-existing gofmt hit in `providers/tmdb/main.go` left alone (not this change).
