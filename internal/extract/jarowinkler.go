@@ -125,6 +125,11 @@ func classifyAgreement(filenameJoined, tagJoined string) Agreement {
 // (multi-word vs. single-word); non-entity fields use a coarse length
 // heuristic — a v1 approximation, since the spec doesn't define "structured/
 // complete" numerically (subject to empirical tuning, ADR-067 Action Item 4).
+// The length floor is for text fragments ("Hi", "ab"); a bare integer is as
+// specific as a value gets however short it is (HOLODEX-389: a `{part-N}`
+// ordinal is one or two digits, and under the floor a lone marker scored
+// 0.30 + 0.25 = 0.55, never clearing its tier and queueing a review for every
+// file that used the convention exactly).
 func classifySpecificity(value string, entity bool) Specificity {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -136,10 +141,19 @@ func classifySpecificity(value string, entity bool) Specificity {
 		}
 		return SpecificityPartial
 	}
-	if utf8.RuneCountInString(trimmed) < 3 {
+	if utf8.RuneCountInString(trimmed) < 3 && !isDigits(trimmed) {
 		return SpecificityPartial
 	}
 	return SpecificityFull
+}
+
+func isDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // BestFuzzyMatch ranks name against every candidate (id -> name) by

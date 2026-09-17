@@ -98,6 +98,13 @@
 			untrack(() => {
 				stagedKey = selection.key;
 				stagedCustomValue = field.decision?.source === 'manual' ? (field.decision.manual_value ?? '') : '';
+				// An empty curatable row (the F60 RD11 deep-link landing: no value, no chip worth
+				// picking) has exactly one useful action, so open the Custom input straight away.
+				// A chip labelled "Custom" reads as a choice, not as "type here" — the owner could
+				// not find where to enter a part (HOLODEX-389 human QA 4.3).
+				if (field.values.length === 0 && chips.every((c) => c.key === 'custom' || !c.value)) {
+					startCustom();
+				}
 			});
 		} else {
 			stagedKey = null;

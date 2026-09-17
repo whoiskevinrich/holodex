@@ -10,6 +10,7 @@
 	// Animation/Motion table). Tokens only.
 	import { toMessage } from '$lib/format';
 	import ProviderStatusChip from './ProviderStatusChip.svelte';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import EnrichPicker from './EnrichPicker.svelte';
 	import type { EnrichCandidate, EnrichedField, EnrichQueueProviderState, EnrichQueueRow } from '$lib/types';
 
@@ -96,7 +97,17 @@
 	aria-label={`${row.name}: enrichment status`}
 >
 	<div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-		<a {href} class="truncate text-ink hover:underline" title={row.name}>{row.name}</a>
+		<!-- Title + part pill share one min-w-0 flex so the title truncates and the pill
+		     never does (HOLODEX-389, design handoff §4): three parts of one media are
+		     otherwise an identical triplet in this list. -->
+		<span class="flex min-w-0 items-center gap-2">
+			<a {href} class="min-w-0 truncate text-ink hover:underline" title={row.name}>{row.name}</a>
+			{#if row.part}
+				<span class="shrink-0 rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+					>{partBadgeLabel(row.part)}</span
+				>
+			{/if}
+		</span>
 		{#each row.providers as p (p.provider)}
 			<ProviderStatusChip provider={p.provider} state={p.state} reviewed={reviewed.has(p.provider)} />
 		{/each}

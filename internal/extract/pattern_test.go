@@ -282,3 +282,98 @@ func TestMatchFirst_EditionMarker(t *testing.T) {
 		})
 	}
 }
+
+func TestMatchFirst_PartMarker(t *testing.T) {
+	patterns, err := extract.CompileAll([]string{"{title} ({year})"})
+	if err != nil {
+		t.Fatalf("CompileAll error: %v", err)
+	}
+	base := map[string][]string{"title": {"Live at Budokan"}, "release_date": {"1978"}}
+	with := func(extra map[string][]string) map[string][]string {
+		out := map[string][]string{}
+		for k, v := range base {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+	tests := []struct {
+		name     string
+		filename string
+		want     map[string][]string
+		wantOK   bool
+	}{
+		{
+			name:     "trailing marker, pattern still matches the rest",
+			filename: "Live at Budokan (1978) {part-2}.mkv",
+			want:     with(map[string][]string{"part": {"2"}}),
+			wantOK:   true,
+		},
+		{
+			name:     "leading zeros normalised (RD4)",
+			filename: "Live at Budokan (1978) {part-02}.mkv",
+			want:     with(map[string][]string{"part": {"2"}}),
+			wantOK:   true,
+		},
+		{
+			name:     "marker inside the stem, pattern still matches",
+			filename: "Live at Budokan {part-3} (1978).mkv",
+			want:     with(map[string][]string{"part": {"3"}}),
+			wantOK:   true,
+		},
+		{
+			name:     "marker alone is a match even when no pattern fits",
+			filename: "totally unstructured {part-1}.mp4",
+			want:     map[string][]string{"part": {"1"}},
+			wantOK:   true,
+		},
+		{
+			name:     "edition then part, both lifted",
+			filename: "Live at Budokan (1978) {edition-Extended} {part-2}.mkv",
+			want:     with(map[string][]string{"edition": {"Extended"}, "part": {"2"}}),
+			wantOK:   true,
+		},
+		{
+			name:     "part then edition, both lifted",
+			filename: "Live at Budokan (1978) {part-2} {edition-Extended}.mkv",
+			want:     with(map[string][]string{"edition": {"Extended"}, "part": {"2"}}),
+			wantOK:   true,
+		},
+		{
+			name:     "both markers, no pattern fits, both still emitted",
+			filename: "unstructured {part-2} {edition-Extended}.mkv",
+			want:     map[string][]string{"edition": {"Extended"}, "part": {"2"}},
+			wantOK:   true,
+		},
+		// RD4: a body that is not digits is not a marker. It stays in the stem, so the
+		// `^…$` pattern no longer fits and the file visibly fails rather than
+		// silently dropping what the owner wrote.
+		{name: "NofM body is rejected, not dropped", filename: "Live at Budokan (1978) {part-2of3}.mkv", wantOK: false},
+		{name: "empty body is rejected", filename: "Live at Budokan (1978) {part-}.mkv", wantOK: false},
+		{name: "word body is rejected", filename: "Live at Budokan (1978) {part-two}.mkv", wantOK: false},
+		{name: "zero is rejected", filename: "Live at Budokan (1978) {part-0}.mkv", wantOK: false},
+		{name: "all-zeros is rejected", filename: "Live at Budokan (1978) {part-00}.mkv", wantOK: false},
+		{
+			// Edition lifts and is a match on its own; the bad part literal stays in
+			// the stem, so the pattern fails and neither title nor part is emitted.
+			name:     "a bad part marker does not poison the edition marker",
+			filename: "Live at Budokan (1978) {edition-Extended} {part-2of3}.mkv",
+			want:     map[string][]string{"edition": {"Extended"}},
+			wantOK:   true,
+		},
+		{name: "loose forms are not parsed", filename: "Live at Budokan (1978) - pt2.mkv", wantOK: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, ok := extract.MatchFirst(patterns, tt.filename, "")
+			if ok != tt.wantOK {
+				t.Fatalf("MatchFirst ok = %v, want %v (fields %#v)", ok, tt.wantOK, fields)
+			}
+			if tt.wantOK && !reflect.DeepEqual(fields, tt.want) {
+				t.Fatalf("MatchFirst fields = %#v, want %#v", fields, tt.want)
+			}
+		})
+	}
+}

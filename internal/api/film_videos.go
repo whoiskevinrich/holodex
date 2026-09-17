@@ -78,6 +78,7 @@ func (h *Handlers) filmVideoCandidates(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "film video candidates attachments", err)
 		return
 	}
+	h.applyPartsTo(r.Context(), videos)
 	items := make([]filmVideoCandidate, len(videos))
 	for i, v := range videos {
 		attached := attachedByVideo[v.ID]

@@ -194,6 +194,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	authorized := h.auth.authorized(r)
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.studioResolved(r, id, s)
 	var completeness *resolver.Completeness

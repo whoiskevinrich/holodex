@@ -50,6 +50,7 @@ func (h *Handlers) enrichQueue(w http.ResponseWriter, r *http.Request) {
 	if rows == nil {
 		rows = []repo.EnrichQueueRow{}
 	}
+	h.applyPartsToEnrichQueue(r.Context(), rows)
 	writeJSON(w, http.StatusOK, map[string]any{"rows": rows})
 }
 

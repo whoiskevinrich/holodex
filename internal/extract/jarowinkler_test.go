@@ -74,6 +74,9 @@ func TestClassifySpecificity(t *testing.T) {
 		{"entity garbled", "   ", true, SpecificityGarbled},
 		{"non-entity structured", "The Great Movie", false, SpecificityFull},
 		{"non-entity partial (too short)", "Hi", false, SpecificityPartial},
+		{"non-entity bare integer is full however short (HOLODEX-389 part ordinal)", "2", false, SpecificityFull},
+		{"non-entity two-digit ordinal", "12", false, SpecificityFull},
+		{"non-entity short non-digit stays partial", "2a", false, SpecificityPartial},
 		{"non-entity garbled (empty)", "", false, SpecificityGarbled},
 	}
 	for _, tt := range tests {

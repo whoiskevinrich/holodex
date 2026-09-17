@@ -3,6 +3,7 @@ package mapping
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"holodex/internal/model"
@@ -75,5 +76,54 @@ func TestStoreReload(t *testing.T) {
 	}
 	if len(s.Current().Fields()) != 2 {
 		t.Errorf("after reload fields = %d, want 2", len(s.Current().Fields()))
+	}
+}
+
+// TestLoadRejectsProviderSourceOnFileOnlyField pins HOLODEX-389 RD2: `part` is a
+// file fact, so a provider-namespaced source is a config error at load time —
+// not silently accepted and not merely absent from the example.
+func TestLoadRejectsProviderSourceOnFileOnlyField(t *testing.T) {
+	_, err := parse([]byte("fields:\n  - canonical: part\n    sources: [PartNumber, filename:part, tmdb:part]\n"))
+	if err == nil {
+		t.Fatal("parse accepted tmdb:part on a file-only field")
+	}
+	for _, want := range []string{`"part"`, `"tmdb"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %s", err, want)
+		}
+	}
+	// The allowed shapes still load: bare tag, explicit file:, and the filename parser.
+	m, err := parse([]byte("fields:\n  - canonical: part\n    sources: [PartNumber, file:DiskNumber, filename:part]\n"))
+	if err != nil {
+		t.Fatalf("file-only sources rejected: %v", err)
+	}
+	if got := len(m.Fields()[0].ParsedSources); got != 3 {
+		t.Fatalf("parsed sources = %d, want 3", got)
+	}
+}
+
+// TestExampleMappingNoSharedFileSource pins HOLODEX-389 RD3: one container tag
+// never feeds two fields. `PartNumber` moved from the (commented-out) episode
+// example to `part`; un-commenting episode with it still listed would silently
+// reclaim the tag, and this is what catches that.
+func TestExampleMappingNoSharedFileSource(t *testing.T) {
+	m, err := Load(filepath.Join("..", "..", "metadata-mappings.yaml.example"))
+	if err != nil {
+		t.Fatalf("load example mapping: %v", err)
+	}
+	owner := map[string]string{}
+	for _, f := range m.Fields() {
+		for _, s := range f.ParsedSources {
+			if s.Namespace != "file" {
+				continue
+			}
+			if prev, dup := owner[s.Key]; dup && prev != f.Canonical {
+				t.Errorf("file tag %q is a source for both %q and %q", s.Key, prev, f.Canonical)
+			}
+			owner[s.Key] = f.Canonical
+		}
+	}
+	if owner["PartNumber"] != "part" {
+		t.Errorf("PartNumber is owned by %q, want part", owner["PartNumber"])
 	}
 }

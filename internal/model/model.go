@@ -67,6 +67,11 @@ type Video struct {
 	// PosterUploaded reports whether the current poster is an owner upload (F52) —
 	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
 	PosterUploaded bool `json:"poster_uploaded,omitempty"`
+	// Part is this file's resolved ordinal within a multi-file media (HOLODEX-389
+	// RD9) — stamped by the API layer on every list/summary payload (like
+	// ThumbnailURL), not a column: its baseline is a container tag in video_metadata
+	// and the pure resolver is the only thing that may merge it.
+	Part string `json:"part,omitempty"`
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`

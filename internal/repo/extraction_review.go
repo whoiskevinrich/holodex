@@ -159,6 +159,7 @@ type ExtractionQueueRow struct {
 	ID                  int64                 `json:"id"`
 	VideoID             int64                 `json:"video_id"`
 	VideoTitle          string                `json:"video_title"`
+	Part                string                `json:"part,omitempty"` // resolved part, API-stamped (HOLODEX-389 RD9)
 	FilePath            string                `json:"file_path"`
 	FieldKey            string                `json:"field_key"`
 	FilenameValue       string                `json:"filename_value"`
