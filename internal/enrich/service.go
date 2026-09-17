@@ -467,6 +467,13 @@ func (s *Service) SourceURLs(ctx context.Context, entityType string, entityID in
 	if err != nil {
 		return nil, err
 	}
+	return SourceURLsFromRows(rows), nil
+}
+
+// SourceURLsFromRows is SourceURLs over rows the caller already holds — getMedia
+// fetches an entity's enrichment once for the resolver and the per-provider table,
+// and the video pill (ADR-098 D4) reads the same rows rather than a third time.
+func SourceURLsFromRows(rows []repo.EnrichmentRow) map[string]string {
 	out := map[string]string{}
 	for _, row := range rows {
 		if row.FieldKey != model.SourceURLField || len(row.Values) == 0 || row.Values[0] == "" {
@@ -474,7 +481,7 @@ func (s *Service) SourceURLs(ctx context.Context, entityType string, entityID in
 		}
 		out[strings.ToLower(row.Provider)] = row.Values[0]
 	}
-	return out, nil
+	return out
 }
 
 // ProviderLink is the per-pill precedence of ADR-098 D3:

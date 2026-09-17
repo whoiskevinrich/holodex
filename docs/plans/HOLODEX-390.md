@@ -20,8 +20,8 @@ media placement) · testing-strategy § (pending)
 - [x] spec `write-spec` → `docs/specs/provider-link-badge-coverage.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-098-provider-source-url-fallback.md` — `_source_url` storage + per-pill precedence, amends ADR-083 D2
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md` §5 — film DD4 (year line via `trailing`, ruled 2026-09-17) + media DD5 (RD7, after the year); mockup `provider-link-badge-film-media-mockup.svg`
-- [ ] backend — `_source_url` ingest + `BuildProviderLink` fallback (392 ✓); `getFilm` (393 ✓) / `getVideo` (394) project `external_links`
-- [ ] frontend — mount `ProviderLinkBadge` on film (393 ✓, three skins QA'd) + media (394) headers
+- [x] backend — `_source_url` ingest + `BuildProviderLink` fallback (392 ✓); `getFilm` (393 ✓) / `getVideo` (394 ✓) project `external_links`
+- [x] frontend — mount `ProviderLinkBadge` on film (393 ✓, three skins QA'd) + media (394 ✓, three skins QA'd) headers
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — stored provider URL is an outbound href; http(s)-only at ingest
 
@@ -35,12 +35,19 @@ media placement) · testing-strategy § (pending)
 5. [x] [design] extend the handoff with film + media header placement, SVG mockup committed — `docs/design/provider-link-badge-handoff.md` §5
 6. [x] [backend] HOLODEX-392: `_source_url` ingest + `Service.SourceURLs`/`ProviderLink` per-pill fallback — `internal/enrich/service.go`, `internal/api/external_links.go`
 7. [x] [backend] HOLODEX-393: `getFilm` projects `external_links` — `internal/api/films.go`
-7b. [ ] [backend] HOLODEX-394: `getVideo` projects `external_links` from the resolver's winning `external_provider_id` via `ProviderLink` (ADR-098 D4) — `internal/api/handlers.go`
+7b. [x] [backend] HOLODEX-394: `getVideo` projects `external_links` from the resolver's winning `external_provider_id` via `ProviderLink` (ADR-098 D4) — `internal/api/external_links.go` `externalLinksForVideo`
 8. [x] [frontend] HOLODEX-393: badge on the film year line — `web/src/routes/films/[id]/+page.svelte`
-8b. [ ] [frontend] HOLODEX-394: badge after the year on the media meta row (handoff DD5) — `web/src/routes/media/[id]/+page.svelte` (~L1319 meta line)
+8b. [x] [frontend] HOLODEX-394: badge after the year on the media meta row (handoff DD5) — `web/src/routes/media/[id]/+page.svelte`
+8c. [ ] [testing] close the testing gate — §4/§5 rows are written for 391–394; run `/testing-strategy` as the formal pass (or confirm the rows suffice) and tick the gate
+8d. [ ] [security] `/security-review` — stored provider URL is an outbound href; http(s)-only at ingest (`validHTTPURL`), `isHttpUrl` gate in `ProviderLinkBadge`
+8e. [ ] [—] mark PR #344 ready for review once 8c/8d are green (fires the epic's In Review via the sweep below, not CI)
 9. [ ] [—] sweep children 391–394 by hand with the epic (epic-keyed branch → CI fires nothing): In Review on ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-17 · HOLODEX-394 media badge (backend + frontend)
+- skills: code-review (one style finding, fixed)
+- handoff: HOLODEX-394 shipped on the epic branch (394 In Progress in Jira; swept by hand with the epic). ADR-098 D4 implemented as `externalLinksForVideo` in `external_links.go`: the resolver's winning `external_provider_id` (`Values[0]`, `<ns>:<id>`) → one `ExternalLink` via the same `ProviderLink` precedence keyed on the value's namespace; `Service.SourceURLs` split into `SourceURLsFromRows` so `getMedia` reads the stored `_source_url` off the enrichment rows it already fetched (no extra round-trip); `external_links` is `null` when the field has no value (spec P0-7 text corrected from "empty array" to match person/studio/film). `TestExternalLinks_Video` table-drives template / own stored page / foreign-namespace stored page (RD3) / file-layer degraded / no value — the env now wires a mapping store (`fake:external_provider_id, file:ExternalId`). Frontend: `MediaDetailResponse.external_links` typed, `externalLinks` state set in `applyMediaDetail`, `· [pill]` appended after the year on the header meta row (DD5). Live QA on backend-films (Aladdin, TMDB-enriched, wins `imdb:tt0103639` → linked IMDb pill via the sidecar's `imdb/video` template): one 24px line in all three skins, pill text = year color (AA 4.9/5.7/6.3), no-value video's row byte-identical (six spans, no trailing `·`), 375px wraps per segment with no horizontal overflow. Spec P0-7/P0-8 ticked; testing-strategy §4/§5 rows extended. **Next:** testing gate (8c) + security gate (8d), then mark #344 ready and sweep 391–394 + the epic to In Review.
 
 ### 2026-09-17 · HOLODEX-393 film badge (design gate + code)
 - skills: design-handoff (§5 by hand: DD4 film / DD5 media, SVG committed), code-review

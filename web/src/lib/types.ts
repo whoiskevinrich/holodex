@@ -441,6 +441,11 @@ export interface MediaDetailResponse {
 	// every writeback.WriteBatch failure embeds absolute filesystem paths, the same
 	// class of exposure FilePath/codecs are already redacted for on this response.
 	writeback_status?: VideoWritebackStatus;
+	// external_links is the provider-link badge projection for video (HOLODEX-394,
+	// ADR-098 D4): 0 or 1 entry, built from the resolver's winning external_provider_id
+	// rather than entity_external_ids (video has no identity rows). Read-only,
+	// visitor-visible; null when the field has no value.
+	external_links?: ExternalLink[] | null;
 }
 
 export interface VideoWritebackStatus {

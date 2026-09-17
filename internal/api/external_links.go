@@ -5,6 +5,11 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"holodex/internal/enrich"
+	"holodex/internal/model"
+	"holodex/internal/repo"
+	"holodex/internal/resolver"
 )
 
 // ExternalLink is one badge-ready outbound link for a person/studio detail response
@@ -103,4 +108,33 @@ func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string
 		out = append(out, link)
 	}
 	return out, nil
+}
+
+// externalLinksForVideo is the video half of the projection (HOLODEX-394, ADR-098
+// D4): video has no identity rows, so its one pill is the resolver's winning
+// external_provider_id — a "<namespace>:<id>" scalar (ADR-082) — with the URL built
+// by the same ProviderLink precedence as person/studio/film, keyed on that value's
+// namespace. A winner from the file layer whose namespace no provider templates
+// renders degraded (label, no URL) — the identity signal always renders (F63 P0-7).
+// enrichRows are the rows getMedia already fetched; the stored _source_url map is
+// read from them rather than from the store a second time. Nil when the field has
+// no value, so the meta line stays byte-identical to today.
+func (h *Handlers) externalLinksForVideo(ctx context.Context, resolved []resolver.ResolvedField, enrichRows []repo.EnrichmentRow) []ExternalLink {
+	field, ok := resolvedByCanonical(resolved, "external_provider_id")
+	if !ok || len(field.Values) == 0 {
+		return nil
+	}
+	namespace, id, ok := strings.Cut(field.Values[0], ":")
+	if !ok || namespace == "" || id == "" {
+		return nil
+	}
+	namespace = strings.ToLower(namespace)
+	link := ExternalLink{Namespace: namespace, Label: namespaceLabel(namespace)}
+	if h.enrich != nil {
+		stored := enrich.SourceURLsFromRows(enrichRows)
+		if u, ok := h.enrich.ProviderLink(ctx, namespace, model.EnrichEntityVideo, id, stored); ok {
+			link.URL = u
+		}
+	}
+	return []ExternalLink{link}
 }

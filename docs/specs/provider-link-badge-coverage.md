@@ -184,21 +184,24 @@ visitor/owner rule for entity data points):
 
 - **P0-7 · Media page badge** (HOLODEX-394). `getVideo` projects `external_links` as a single-
   element array built from the resolver's winning `external_provider_id` (label from the
-  namespace, URL via P0-5 with the winning source's provider), or an empty array when the field
-  has no value. The media page appends ` · [pill]` to the header meta line after the year, exactly
+  namespace, URL via P0-5 with the winning source's provider), or `null` when the field has no
+  value (the person/studio/film contract the page's `?? []` already tolerates). The media page appends ` · [pill]` to the header meta line after the year, exactly
   as `EntityVideoMeta` does — **owner ruling 2026-09-16**, chosen over linking the Metadata grid's
   `External ID` chip. The chip in the Metadata grid is unchanged.
-  - Given a video whose winning `external_provider_id` came from a provider with a `video`
-    template, then the header shows one linked pill.
-  - Given the winner came from the file layer (`file:` source) with a namespace no provider
+  - [x] Given a video whose winning `external_provider_id` came from a provider with a `video`
+    template, then the header shows one linked pill — `TestExternalLinks_Video`.
+  - [x] Given the winner came from the file layer (`file:` source) with a namespace no provider
     templates, then the pill renders degraded ("known to IMDb") — **owner ruling 2026-09-16**:
     the identity signal always renders, matching person/studio.
-  - Given `external_provider_id` has no value, then the meta line is byte-identical to today.
+  - [x] Given `external_provider_id` has no value, then the meta line is byte-identical to today.
   - Under a provider that treats the media file as the canonical unit, the pill opens that file's
     own page; under TMDB it opens the film's — the provider's `video` template decides.
 
 - **P0-8 · Three-skin QA** on the film and media headers, per `.claude/rules/frontend-theming.md`;
   the pill's tokens are already skin-safe (ADR-083 handoff), so this is placement + wrap only.
+  - [x] Film (2026-09-17, HOLODEX-393) and media (2026-09-17, HOLODEX-394): one line at desktop
+    width in all three skins, pill text = the year's muted color (AA 4.9 / 5.7 / 6.3), no
+    horizontal overflow at 375px (the row wraps per segment as it already did for the year).
 
 ### Should-have (P1)
 
