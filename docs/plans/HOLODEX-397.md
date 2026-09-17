@@ -20,20 +20,27 @@ a fixed-height, aspect-following plate (`h-12 min-w-12 max-w-48`); name and coun
 - [x] design `design-handoff` — options B + logo-first approved 2026-09-16:
   `docs/design/studio-logo-link-card-handoff.md` + `studio-logo-link-card-mockup.svg`;
   HOLODEX-290 handoff carries a supersession note
-- [ ] frontend — `StudioLinkCard.svelte` per handoff §2 (one file; call sites unchanged)
-- [x] testing `testing-strategy` — row added (design gate); QA per handoff §11 once implemented
+- [x] frontend — `StudioLinkCard.svelte` per handoff §2 (one file; call sites unchanged); entity
+  `CLAUDE.md` row updated
+- [x] testing `testing-strategy` — row added; §11 agent QA (11.1–11.10) passed 2026-09-17 against
+  synthetic 5:1 / 12:1 / portrait / square / both / icon-only / none studios; human 11.11–11.13 open
 - [~] security `security-review` — n/a: no auth/access/infra change
 - [~] backend — n/a: `logo_url` already populated at both call sites
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Implement handoff §2 in `web/src/lib/components/entity/StudioLinkCard.svelte`;
-   update the `StudioLinkCard` row in `web/src/lib/components/entity/CLAUDE.md`
-2. [ ] [—] Run handoff §11 (11.1 smoke, 11.2–11.10 agent via `javascript_tool`, 11.11–11.13 human)
-3. [ ] [—] Mark the Draft PR ready (fires In Review); on merge, HOLODEX-397 → Done via CI
-4. [ ] [—] HOLODEX-399 (studio hero draws its own logo) is filed, not started — separate branch
+1. [ ] [—] Human QA 11.11–11.13 `[human]`: film + media page in all three skins with a real TMDB
+   logo; phone-width wrap with two logo studios (this test DB has no video with two studios)
+2. [ ] [—] On merge, HOLODEX-397 → Done via CI (branch-keyed; PR marked ready → In Review)
+3. [ ] [—] HOLODEX-399 (studio hero draws its own logo) is filed, not started — separate branch
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-17 · implemented, agent-QA'd
+- skills: code-review high --fix (1 low finding, fixed: `??` → `||`)
+- handoff: `StudioLinkCard` now draws logo → icon → monogram in an `h-12 min-w-12 max-w-48` plate;
+  all seven image branches measured in the driven browser across three skins, no overflow at 375px.
+  PR marked ready. Only the human skin look (11.11–11.13) remains.
 
 ### 2026-09-16 · design gate
 - skills: design-handoff

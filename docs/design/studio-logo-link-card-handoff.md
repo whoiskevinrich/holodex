@@ -60,7 +60,7 @@ the precedence above. `poster_url` stays unconsumed here.
 	// … existing imports …
 	let { studio }: { studio: Studio } = $props();
 	// Logo first — it is the role enrichment fills; icon is the list well's square.
-	const image = $derived(studio.logo_url ?? studio.icon_url);
+	const image = $derived(studio.logo_url || studio.icon_url);
 </script>
 
 <a href={`/studios/${studio.id}`} class="flex items-center gap-3 hover:text-accent">
@@ -88,7 +88,7 @@ What changed versus HOLODEX-290's markup, and nothing else:
 
 | Before | After | Why |
 |---|---|---|
-| `studio.icon_url` everywhere | `image = logo_url ?? icon_url` | §1 precedence |
+| `studio.icon_url` everywhere | `image = logo_url || icon_url` | §1 precedence |
 | plate `h-12 w-12` | plate `h-12 min-w-12 max-w-48`, `w-12` only on the monogram branch | Width follows the image; the monogram keeps its square |
 | img `h-full w-full object-contain p-1` | img `h-full w-auto max-w-full object-contain p-1` | `w-auto` lets the image's aspect set the plate width; `max-w-full` + the plate's `max-w-48` cap it, and `object-contain` letterboxes anything that hits the cap |
 | dashed border when `!icon_url` | dashed border when `!image` | Dashed still means "no image at all" — an icon-only studio gets a solid frame as before |
