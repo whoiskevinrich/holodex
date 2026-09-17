@@ -402,7 +402,7 @@ vocabulary rather than your source's native names. The recommended v1 **person**
 | `bio` | Short biography / description | single | Plain text. Trim to a sane length on a clean boundary (Holodex caps 4096 chars/value) |
 | `birthdate` | Date of birth | single | `YYYY-MM-DD` preferred (partial dates acceptable if that is all you have) |
 | `nationality` | Nationality / country | single or few | Plain text (e.g. `"British"`, or a place of birth `"London, England, United Kingdom"`). Omit if you cannot derive it confidently. **Flag hint (HOLODEX-139):** Holodex derives a small country flag beside the person's name from this value, so **put the country last** in a place-of-birth string (it reads the segment after the final comma) — a plain nationality word (`"French"`) or bare country (`"Japan"`) also works. Unrecognized values simply render no flag |
-| `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text |
+| `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text. The entity's **own** site — never your provider page for it; omit when upstream has none. Your page belongs to the link badge ([§4.11](#411-outbound-link-templates-describelink_templates) / [§4.12](#412-provider-source-url-_source_url)), and emitting it here too links it twice |
 | `aliases` | Alternate / native-script names | multi | One name per array element. Include native-script forms (e.g. CJK) directly — feeds Holodex's Person aliases store |
 | `photo` | Portrait | — | **Not a `fields` entry** — emit as an `assets[]` entry with `kind: "photo"` and advertise it in `asset_kinds` (see [§4.3](#43-assets)) |
 
@@ -447,7 +447,7 @@ Rules:
 | `genres` | Genre list | multi | One genre per array element |
 | `status` | Release status | single | Plain text (e.g. `"Released"`) |
 | `original_language` | Original language | single | ISO 639-1 code preferred (e.g. `"en"`) |
-| `homepage` | Official/home page | single | Absolute URL, `render: url` |
+| `homepage` | Official/home page | single | Absolute URL, `render: url`. The title's **own** site — never your provider page for it; omit when upstream has none (see the `website` rule in [§4.2](#42-canonical-fields)) |
 | `external_provider_id` | External metadata-provider identifier | single | Namespace-qualified `"<provider>:<id>"`, e.g. `"imdb:tt1160419"` — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | Poster / cover art | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry.** Holodex downloads it on writeback and embeds it as the file's cover art (see [§4.3](#43-assets) for why `assets[]` doesn't apply here) |
 | `actors` | Cast (flat text) | multi | One name per element, billing order first. Prefer the structured [`people[]`](#45-video-credits--per-person-castcrew-with-headshots) shape instead if you want headshots/Person linking |
@@ -465,7 +465,7 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 |---|---|---|---|
 | `description` | Studio description | single | Plain text |
 | `country` | Country of origin | single | Plain text or ISO country code |
-| `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning, different entity) |
+| `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning and same never-your-own-page rule, different entity) |
 
 > **`logo` is not a `fields` key.** As of the F51/ADR-079 image-slot generalization, a studio's
 > logo is an **asset** — emit it as `{ "kind": "logo", "url": "…" }` in `assets[]` (see
