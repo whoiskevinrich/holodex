@@ -12,6 +12,12 @@
 // `res` drives the encoded pixel dimensions (and therefore the resolution badge,
 // width-based per ADR-012). `durSec` drives the duration badge. `art` selects the
 // generated key-art treatment (see poster.mjs).
+//
+// Media parts (HOLODEX-389): `filename` overrides the output name when the file itself
+// has to carry a convention — a `{part-N}` marker the scanner's lifter reads — and
+// `part` writes the iTunes `disk` atom, the container-tag source. Between them the
+// three "Live at the Observatory" files exercise every path a real library takes:
+// two by filename, one by tag only, all three the same title until the badge.
 
 export const RES_DIMS = {
 	SD: { w: 854, h: 480 },
@@ -203,5 +209,39 @@ export const items = [
 		res: '4K',
 		durSec: dur(1, 14, 6),
 		art: 'horizon'
+	},
+	{
+		slug: 'observatory-part-1',
+		filename: 'Live at the Observatory {part-1}',
+		title: 'Live at the Observatory',
+		people: ['Nadia Okonkwo'],
+		tags: ['Concert'],
+		year: 2022,
+		res: 'FHD',
+		durSec: dur(0, 58, 41),
+		art: 'rings'
+	},
+	{
+		slug: 'observatory-part-2',
+		filename: 'Live at the Observatory {part-2}',
+		title: 'Live at the Observatory',
+		people: ['Nadia Okonkwo'],
+		tags: ['Concert'],
+		year: 2022,
+		res: 'FHD',
+		durSec: dur(1, 2, 17),
+		art: 'rings'
+	},
+	{
+		// Tag only, no marker: the container-tag-only case the list path never loaded.
+		slug: 'observatory-part-3',
+		title: 'Live at the Observatory',
+		part: 3,
+		people: ['Nadia Okonkwo'],
+		tags: ['Concert'],
+		year: 2022,
+		res: 'FHD',
+		durSec: dur(0, 47, 3),
+		art: 'rings'
 	}
 ];

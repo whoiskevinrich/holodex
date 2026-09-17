@@ -45,9 +45,9 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 4a. [x] [design] missing-part affordance — **ruled A** (header link); spec RD8 + handoff §2a/4.3 updated
 5. [x] [frontend] `partBadgeLabel` helper + Vitest + `video/CLAUDE.md` rows; `types.ts` `part?` on
    `Video` / `EnrichQueueRow` / `ExtractionQueueRow`
-6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
-   container-tag rung is gap-shaped until #2 lands) + handoff §3 rects as geometry-harness
-   assertions; demo generator items `{part-N}.mp4` + `-metadata disk=2` for the real-scan path
+6. [x] [fixture] seeder `part` dimension (block 1000, tag-only, shared title) + 4 harness
+   assertions green (9 cells each) + demo items scanned live to 1/2/3. Narrowed: two-rect
+   checks stay hand-measured (probe has no such metric); source matrix cut to the tag
 7. [ ] [jira] mark PR ready → In Review fires; on merge sweep **HOLODEX-398** (fixed on this branch, `2dc1bf6`) to Done by hand
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -163,3 +163,16 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   of the title on the same line, focused, Enter → pill; the fold/landing fix stays for the film
   page's "+ Set edition" and the queue deep links. Spec RD8 + handoff §2a/4.3 updated.
   Remaining: Kevin re-runs 4.3; fixture step (#6); mark PR ready; sweep 398 on merge.
+
+### 2026-09-16 · fixture step (#6)
+- skills: code-review (high --fix)
+- handoff: 4.3 passed on re-run (inline editor). Seeder: `spec.part`, dimension `part` (block
+  1000, rungs 00/01/02/12, `ownsTitle` so the rungs are the triplet), `fixtureFields.part` via
+  `loadFileField("part", PartNumber)`, `upsertVideo(..., part)`, manifest `axes.video.part`,
+  `encodeName` `part=`, seeder `mappings.yaml` + test harness YAMLs declare `part`, tests
+  `TestPartRungsAreATripletOnOneTitle` + refusal case; suite 97s green. Harness: four `part-*`
+  assertions, all green across 9 cells; `/?q=` deep link is broken (HOLODEX-404 filed) so the
+  grid pair addresses `/?sort=title_asc`. Demo: three Observatory items (`filename` override,
+  `-metadata disc=N` — `disk` is silently dropped by ffmpeg), real scan → 1/2/3. Local-only:
+  `backend-stress` + `enrich-stub` profiles added to this worktree's gitignored launch.json.
+  Remaining: mark PR ready → In Review; sweep 398 on merge.

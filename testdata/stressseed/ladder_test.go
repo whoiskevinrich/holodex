@@ -180,6 +180,9 @@ func TestRungsVaryExactlyOneAxis(t *testing.T) {
 			if got.scenes != base.scenes {
 				differing = append(differing, "scenes")
 			}
+			if got.part != base.part {
+				differing = append(differing, "part")
+			}
 			// A rung may equal the baseline on its own axis (people=02 would),
 			// so "more than one" is the violation, not "not exactly one".
 			if len(differing) > 1 {
@@ -550,6 +553,10 @@ const testMappingsYAML = `fields:
     label: Overview
     sources:
       - Comment
+  - canonical: part
+    label: Part
+    sources:
+      - PartNumber
   - canonical: tagline
     label: Tagline
     sources:
@@ -666,6 +673,7 @@ func TestLoadFields_RefusesAMappingThatCannotCarryTheLadder(t *testing.T) {
 		actors   = "  - canonical: actors\n    multi: true\n    sources:\n      - Cast\n"
 		studio   = "  - canonical: studio\n    multi: true\n    sources:\n      - Publisher\n"
 		overview = "  - canonical: overview\n    sources:\n      - Comment\n"
+		part     = "  - canonical: part\n    sources:\n      - PartNumber\n"
 	)
 	cases := map[string]struct {
 		body   string
@@ -708,6 +716,11 @@ func TestLoadFields_RefusesAMappingThatCannotCarryTheLadder(t *testing.T) {
 			body: "fields:\n" + actors + studio +
 				"  - canonical: overview\n    multi: true\n    sources:\n      - Comment\n",
 			blames: "overview",
+		},
+		// The part ladder (HOLODEX-389) writes a container tag; a mapping without a
+		// file: source for `part` would seed rows the list path never resolves.
+		"part not mapped at all": {
+			body: "fields:\n" + actors + studio + overview, blames: "part",
 		},
 	}
 	for name, tc := range cases {
@@ -963,6 +976,59 @@ func TestOverviewCarriesTheTextPalette(t *testing.T) {
 			t.Errorf("media %d (text=%s) has overview rows %q, want exactly one carrying "+
 				"the variant", e.ID, v.key, got)
 		}
+	}
+}
+
+// TestPartRungsAreATripletOnOneTitle pins HOLODEX-389's fixture contract: every part
+// rung shares the baseline title (the identical-triplet bug class the field exists
+// for), the value lands in the file layer as exactly one container-tag row under the
+// mapping's key — the source the list path historically never loaded — and the
+// empty rung writes nothing rather than a blank.
+func TestPartRungsAreATripletOnOneTitle(t *testing.T) {
+	entries, database := seed(t)
+	ff := testFields(t)
+
+	byVariant := map[string]entry{}
+	for _, e := range entries {
+		if e.Dimension == "part" {
+			byVariant[e.Variant] = e
+		}
+	}
+	want := map[string]string{"00": "", "01": "1", "02": "2", "12": "12"}
+	if len(byVariant) != len(want) {
+		t.Fatalf("part dimension produced variants %v, want %v", byVariant, want)
+	}
+	titles := map[string]bool{}
+	for variant, value := range want {
+		e, ok := byVariant[variant]
+		if !ok {
+			t.Fatalf("the part dimension produced no entity for the %q rung", variant)
+		}
+		var title string
+		if err := database.QueryRow(`SELECT title FROM videos WHERE id = ?`, e.ID).Scan(&title); err != nil {
+			t.Fatalf("read title of %d: %v", e.ID, err)
+		}
+		titles[title] = true
+
+		got := overviewRows(t, database, e.ID, ff.part.fileKey)
+		if value == "" {
+			if len(got) != 0 {
+				t.Errorf("media %d (part=00) wrote part rows %q — the empty rung must be absent, not blank", e.ID, got)
+			}
+			if e.Axes.Video == nil || e.Axes.Video.Part != "" {
+				t.Errorf("media %d (part=00) manifest axes %+v, want no part", e.ID, e.Axes.Video)
+			}
+			continue
+		}
+		if len(got) != 1 || got[0] != value {
+			t.Errorf("media %d (part=%s) has %s rows %q, want exactly one carrying %q", e.ID, variant, ff.part.fileKey, got, value)
+		}
+		if e.Axes.Video == nil || e.Axes.Video.Part != value {
+			t.Errorf("media %d (part=%s) manifest axes %+v, want part %q", e.ID, variant, e.Axes.Video, value)
+		}
+	}
+	if len(titles) != 1 {
+		t.Errorf("part rungs carry %d distinct titles %v, want exactly one — the triplet is the point", len(titles), titles)
 	}
 }
 

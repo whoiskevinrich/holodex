@@ -1383,7 +1383,7 @@
 						{/if}
 						{#if partValue}
 							<span
-								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
+								class="part-pill inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
 								>{partBadgeLabel(partValue)}</span
 							>
 						{:else if isOwner}
