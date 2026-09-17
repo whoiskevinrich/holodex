@@ -39,9 +39,13 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    `PartNumber-und` pin); **formatMap DONE** (`PART_NUMBER` / `QuickTime:DiskNumber`, `readKey` folds
    `_`, replace-not-append pinned, round trip green on real MKV+MP4); **payload DONE** (#2) — backend
    gate complete
-4. [ ] [frontend] surfaces per RD9 — **`VideoCard` DONE** (3 skins × 8/16 cols measured live);
-   remaining: media header pill + "+ Set part" row, film full-film pill, `EnrichQueueRow` +
+4. [ ] [frontend] surfaces per RD9 — **`VideoCard`, media header pill, film full-film pill DONE**
+   (3 skins, 375px wrap, four-corner scene card all measured live); remaining: `EnrichQueueRow` +
    extraction-queue row pills, `WritebackFormDialog` check
+4a. [ ] [design] **missing-part affordance gap** (found in QA): the "+ Set part" empty row is the
+   F60 deep-link landing (`deepLinkedMissing`, `#field-part` only); edition reaches it via the film
+   page link, part has none by handoff §3, and `optional` facets never enter the queue (RD7) — so a
+   file with NO part has no UI path to set one. Kevin to rule (options mocked up in session)
 5. [x] [frontend] `partBadgeLabel` helper + Vitest + `video/CLAUDE.md` rows; `types.ts` `part?` on
    `Video` / `EnrichQueueRow` / `ExtractionQueueRow`
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -116,3 +120,13 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   gitignored `backend-parts` launch entry → `%TEMP%/parts-media` (3× `{part-N}.mp4`, one
   `disk=2` MP4, one plain) + `%TEMP%/parts-data`, example mapping, auto-apply on — the
   container-tag-only file resolves `part=2` end to end. Next: media header + film row + queues.
+
+### 2026-09-16 · frontend: media header + film row
+- skills: code-review (high --fix, clean)
+- handoff: header pill after edition (`partValue` mirrors `editionValue`), film full-film pill after
+  the edition pill/link, no "+ Set part" link (handoff §3). Live on all three skins: pill order,
+  identical style, 375px wrap with no overflow, Metadata row chips `— · file / 2 · filename /
+  Custom` and no provider chip, `#field-part` deep link lands with file + Custom chips, film rows
+  `title · edition · Part N · SD`, scene card four corners disjoint. **Gap found** (Up next 4a): no
+  UI path to `#field-part` for a file with no part. Testbed gained `{edition-Extended} {part-2}`
+  and film 1 (full: 2, 6, 3 · scene: 5). Next: queue rows, then the 4a ruling.

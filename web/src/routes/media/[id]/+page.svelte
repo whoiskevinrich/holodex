@@ -43,6 +43,7 @@
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
@@ -229,6 +230,9 @@
 	// visitors included. The Metadata row stays the curation mount (SourceBadge, deep-link
 	// landing); this is display only, the same pill the film page's Full film rows carry.
 	const editionValue = $derived(resolved.find((f) => f.canonical === 'edition')?.values[0]?.trim() ?? '');
+	// Part (HOLODEX-389 RD9) is the same read-only pill, after edition: "which cut", then
+	// "which slice". Set from the Metadata row's chips, never here.
+	const partValue = $derived(resolved.find((f) => f.canonical === 'part')?.values[0]?.trim() ?? '');
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
 	// Overview edit modal (HOLODEX-365, the Person-bio pattern from HOLODEX-303) — owner-only
 	// pencil in the section heading opens this; SourceEditModal owns its own staged-selection/
@@ -1313,6 +1317,12 @@
 							<span
 								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
 								>{editionValue}</span
+							>
+						{/if}
+						{#if partValue}
+							<span
+								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
+								>{partBadgeLabel(partValue)}</span
 							>
 						{/if}
 					</div>
