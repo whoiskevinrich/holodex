@@ -141,3 +141,16 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   Pre-existing, filed separately: the deep-link landing's auto-expand doesn't fire for the
   synthesised empty row (edition too). Remaining: three-skin QA sweep §4 human items, fixture step
   (#6), mark PR ready.
+
+### 2026-09-16 · human QA pass — two findings fixed
+- skills: code-review (high --fix)
+- handoff: Kevin's pass failed 4.3 ("could not find where to enter the part") and 4.6 (search
+  results showed no part). Root cause of 4.3 was NOT what HOLODEX-398 guessed: the deep-link
+  row lands inside the Metadata fold (collapsed at rest, `inert` when closed, HOLODEX-320) — so
+  the F60 "+ Set edition" link was broken too — and SvelteKit never runs `afterNavigate` for a
+  same-page hash change, so the page's own branch for it was dead. Fixed: landing opens the
+  fold, keys on `$page.url.hash`, an empty row opens its Custom input (SourceBadge), focus handed
+  to it after SvelteKit's focus reset. 4.6: `SearchResultsPanel` video rows put "Part N" in the
+  `sub` slot. **Lesson recorded in the strategy row:** every DOM-existence measurement was
+  fooled by the fold — assert `elementFromPoint` + `activeElement`, not presence. HOLODEX-398
+  re-scoped to the fold and closed by this push. Remaining: fixture step (#6), mark PR ready.

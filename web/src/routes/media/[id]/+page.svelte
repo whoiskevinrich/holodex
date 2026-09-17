@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
@@ -107,10 +107,19 @@
 	afterNavigate(({ type }) => {
 		cameFromInApp = type !== 'enter';
 		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between videos
-		// A same-page hash change (/media/8 → /media/8#field-edition) re-fetches nothing, so the
-		// load effect's own call never fires; on a fresh entry this runs before the rows exist
-		// and the load effect's call does the scrolling.
-		if (!loading) void expandDeepLinkedField();
+	});
+
+	// SvelteKit does not run afterNavigate for a same-page hash change (/media/8 →
+	// /media/8#field-part — the header's "+ Set part" link), and that navigation
+	// re-fetches nothing, so the deep-link landing keys on the hash itself. It also
+	// fires once on entry when `loading` flips, where the load effect's own call has
+	// already done the work — expand + scrollIntoView are idempotent.
+	$effect(() => {
+		const hash = $page.url.hash;
+		if (!hash || loading) return;
+		// untrack: the landing's own reads (hasPageAnchor → overviewField) must not become
+		// dependencies, or a reloadDetail() after Confirm would re-expand the badge just closed.
+		untrack(() => void expandDeepLinkedField());
 	});
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
@@ -989,9 +998,21 @@
 	async function expandDeepLinkedField() {
 		const m = /^#field-([\w-]+)$/.exec(location.hash);
 		if (!m) return;
+		// Every field row that is not anchored elsewhere on the page lives inside the Metadata
+		// fold, which is collapsed at rest for the owner and `inert` while closed — so the
+		// link must open the fold first, or it scrolls to a clipped row nothing can focus
+		// (HOLODEX-389 human QA 4.3: "could not find where to enter the part"; the film
+		// page's "+ Set edition" had landed the same way since the fold arrived).
+		if (!hasPageAnchor(m[1])) metadataExpanded = true;
 		await tick();
 		expandedField.expand(m[1]);
-		document.getElementById(`field-${m[1]}`)?.scrollIntoView({ block: 'center' });
+		const row = document.getElementById(`field-${m[1]}`);
+		row?.scrollIntoView({ block: 'center' });
+		// An empty row opens its Custom input on expand (SourceBadge), but SvelteKit's own
+		// post-navigation focus reset runs after that mount and leaves focus on <body>, so
+		// hand it to the input once the reset has had its frame — the owner lands typing.
+		await tick();
+		requestAnimationFrame(() => row?.querySelector<HTMLInputElement>('input')?.focus());
 	}
 
 	// reloadDetail re-fetches the detail so resolved[] reflects new enrichment or
