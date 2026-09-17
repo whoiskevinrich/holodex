@@ -154,3 +154,12 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   `sub` slot. **Lesson recorded in the strategy row:** every DOM-existence measurement was
   fooled by the fold — assert `elementFromPoint` + `activeElement`, not presence. HOLODEX-398
   re-scoped to the fold and closed by this push. Remaining: fixture step (#6), mark PR ready.
+
+### 2026-09-16 · human QA pass 2 — 4.3 re-ruled: the control lives at the click
+- handoff: 4.6 passed; 4.3 failed again ("no control near Set part that is editable or
+  obvious") — the deep link scrolled the owner away from where they clicked. Re-ruled: "+ Set
+  part" is now a button that swaps in place for an inline number input (Enter commits via
+  `decideField('part','manual')`, Escape/blur cancels, error inline). Verified: input 46px right
+  of the title on the same line, focused, Enter → pill; the fold/landing fix stays for the film
+  page's "+ Set edition" and the queue deep links. Spec RD8 + handoff §2a/4.3 updated.
+  Remaining: Kevin re-runs 4.3; fixture step (#6); mark PR ready; sweep 398 on merge.

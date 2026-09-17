@@ -242,6 +242,47 @@
 	// Part (HOLODEX-389 RD9) is the same read-only pill, after edition: "which cut", then
 	// "which slice". Set from the Metadata row's chips, never here.
 	const partValue = $derived(resolved.find((f) => f.canonical === 'part')?.values[0]?.trim() ?? '');
+	// Inline "+ Set part" editor in the header pill slot (RD8 found-in-build, human QA 4.3).
+	// Enter commits a manual decision through decideField — the same call the Metadata
+	// row's Custom chip makes — so the pill and the chip row agree; Escape/blur cancels.
+	let partEditing = $state(false);
+	let partDraft = $state('');
+	let partBusy = $state(false);
+	let partError = $state('');
+	function startPart() {
+		partDraft = '';
+		partError = '';
+		partEditing = true;
+	}
+	function cancelPart() {
+		partEditing = false;
+		partError = '';
+	}
+	async function commitPart() {
+		const v = partDraft.trim();
+		if (!v) {
+			cancelPart();
+			return;
+		}
+		partBusy = true;
+		try {
+			await decideField('part', 'manual', v);
+			partEditing = false;
+		} catch (e) {
+			partError = toMessage(e); // stays open for a retry
+		} finally {
+			partBusy = false;
+		}
+	}
+	function onPartKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			void commitPart();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			cancelPart();
+		}
+	}
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
 	// Overview edit modal (HOLODEX-365, the Person-bio pattern from HOLODEX-303) — owner-only
 	// pencil in the section heading opens this; SourceEditModal owns its own staged-selection/
@@ -1348,13 +1389,34 @@
 						{:else if isOwner}
 							<!-- The empty Part row is the F60 deep-link landing (deepLinkedMissing) and
 							     `optional` facets never enter the completeness queue (RD7), so without this
-							     a file with no part has no route to set one. Owner ruling 2026-09-16: the
-							     film page's "+ Set edition" idiom, in the slot the pill takes once set. -->
-							<a
-								href={`/media/${video.id}#field-part`}
-								class="shrink-0 rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
-								>+ Set part</a
-							>
+							     a file with no part has no route to set one. Owner ruling 2026-09-16, twice:
+							     first the film page's dashed-link idiom deep-linking to the row, then — human
+							     QA 4.3, "no control near the link that is editable" — the control itself, in
+							     the slot the pill takes once set: click, type, Enter. Same decision the chip
+							     row's Custom makes; the Metadata row remains for everything else. -->
+							{#if partEditing}
+								<!-- svelte-ignore a11y_autofocus -->
+								<input
+									bind:value={partDraft}
+									autofocus
+									inputmode="numeric"
+									aria-label="Part number"
+									placeholder="Part number"
+									disabled={partBusy}
+									onkeydown={onPartKey}
+									onblur={() => {
+										if (!partBusy) cancelPart();
+									}}
+									class="w-28 shrink-0 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+								/>
+								{#if partError}<span class="text-xs text-warn">{partError}</span>{/if}
+							{:else}
+								<button
+									type="button"
+									class="shrink-0 rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
+									onclick={startPart}>+ Set part</button
+								>
+							{/if}
 						{/if}
 					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">

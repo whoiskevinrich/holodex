@@ -98,12 +98,15 @@ Same slot, same class, same read-only rule as the edition pill (F60 handoff §2,
 - `partValue` is derived exactly as `editionValue`
   (`resolved.find(f => f.canonical === 'part')?.values[0]?.trim() ?? ''`).
 - Visitor and owner render the same pill (parity); no pencil, no badge, no link.
-- **No part + owner (ruled 2026-09-16, option A):** the slot renders a dashed
-  `+ Set part` link to `/media/{id}#field-part` — the film page's `+ Set edition` idiom
-  (`rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent`). The empty
-  Part row is the F60 deep-link landing and renders only on that hash, and `optional` facets
-  never reach the completeness queue, so without this link a file with no part had no route to
-  set one. Visitors see nothing in the slot.
+- **No part + owner (ruled 2026-09-16, twice):** the slot renders a dashed `+ Set part`
+  **button** (`rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent`,
+  the film page's `+ Set edition` look) that swaps in place for an inline input (`w-28`,
+  `rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted`,
+  the SourceBadge Custom input's classes, placeholder "Part number", `inputmode=numeric`,
+  autofocus). Enter commits a manual decision (`decideField('part','manual',v)`), Escape/blur
+  cancels, a thrown error shows inline in `text-warn` and keeps the input open. First ruling was
+  a deep link to `#field-part`; the human pass rejected it — a control has to be where the owner
+  clicked, not a scroll away inside the Metadata fold. Visitors see nothing in the slot.
 
 ### 2b. Metadata row — the curation mount
 
@@ -262,11 +265,11 @@ header.
   Metadata → Part: the row shows "2" with a "filename" provenance tag; clicking the row opens
   the chip row with a file chip, a filename chip, and a custom entry — and no provider chip.
 - 4.3 `[human]` Open a video with no part as the owner: beside the title is a dashed
-  "+ Set part" link. Click it: the Metadata section opens, the page scrolls to an empty "Part"
-  row, and a text field is already waiting with the cursor in it — type the number, Enter,
-  Confirm. As a visitor neither the link nor the row exists. *(First human pass failed here:
-  the row landed inside the collapsed, inert Metadata fold and the text field only appeared
-  after clicking a chip labelled "Custom" — both fixed 2026-09-16.)*
+  "+ Set part". Click it: it becomes a small text field right there, cursor in it — type the
+  number, Enter. The field becomes the "Part N" pill. Escape (or clicking away) puts the
+  "+ Set part" back. As a visitor nothing is in that slot. *(Two human passes failed here: a
+  deep link into the Metadata fold landed in a collapsed, inert section, then a control that
+  was a scroll away from the click still wasn't obvious — the control now lives at the click.)*
 - 4.4 `[human]` Open the film these are attached to: each full-film row shows the title, then
   the edition pill (if any), then "Part N", then the resolution chip and running time. There is
   no "+ Set part" link on rows without a part (there *is* a "+ Set edition" — that asymmetry is
