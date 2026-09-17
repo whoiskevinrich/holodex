@@ -1324,6 +1324,16 @@
 								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
 								>{partBadgeLabel(partValue)}</span
 							>
+						{:else if isOwner}
+							<!-- The empty Part row is the F60 deep-link landing (deepLinkedMissing) and
+							     `optional` facets never enter the completeness queue (RD7), so without this
+							     a file with no part has no route to set one. Owner ruling 2026-09-16: the
+							     film page's "+ Set edition" idiom, in the slot the pill takes once set. -->
+							<a
+								href={`/media/${video.id}#field-part`}
+								class="shrink-0 rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
+								>+ Set part</a
+							>
 						{/if}
 					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">

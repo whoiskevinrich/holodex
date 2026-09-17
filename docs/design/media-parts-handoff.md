@@ -98,6 +98,12 @@ Same slot, same class, same read-only rule as the edition pill (F60 handoff §2,
 - `partValue` is derived exactly as `editionValue`
   (`resolved.find(f => f.canonical === 'part')?.values[0]?.trim() ?? ''`).
 - Visitor and owner render the same pill (parity); no pencil, no badge, no link.
+- **No part + owner (ruled 2026-09-16, option A):** the slot renders a dashed
+  `+ Set part` link to `/media/{id}#field-part` — the film page's `+ Set edition` idiom
+  (`rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent`). The empty
+  Part row is the F60 deep-link landing and renders only on that hash, and `optional` facets
+  never reach the completeness queue, so without this link a file with no part had no route to
+  set one. Visitors see nothing in the slot.
 
 ### 2b. Metadata row — the curation mount
 
@@ -255,8 +261,9 @@ header.
   "Part 2", in that order, in the muted text colour. They are not clickable. Scroll to
   Metadata → Part: the row shows "2" with a "filename" provenance tag; clicking the row opens
   the chip row with a file chip, a filename chip, and a custom entry — and no provider chip.
-- 4.3 `[human]` Open a video with no part as the owner: the Metadata section shows an empty
-  "Part" row you can type into ("+ Set part" style). As a visitor the row is absent.
+- 4.3 `[human]` Open a video with no part as the owner: beside the title is a dashed
+  "+ Set part" link; clicking it scrolls to an empty "Part" row in Metadata you can type into
+  (expand the badge → Custom). As a visitor neither the link nor the row exists.
 - 4.4 `[human]` Open the film these are attached to: each full-film row shows the title, then
   the edition pill (if any), then "Part N", then the resolution chip and running time. There is
   no "+ Set part" link on rows without a part (there *is* a "+ Set edition" — that asymmetry is

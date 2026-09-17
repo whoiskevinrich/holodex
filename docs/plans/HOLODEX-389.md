@@ -22,7 +22,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 - [~] architecture `architecture` — n/a: a canonical field is mapping config, as edition was (ADR-096 D4)
 - [x] design `design-handoff` — [docs/design/media-parts-handoff.md](../design/media-parts-handoff.md) + [SVG](../design/media-parts-mockup.svg); card slot = bottom-left duration-style, "Part N" everywhere, no film-page "+ Set part"
 - [x] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload (`part` on `model.Video`, batch pass on every list surface + both queues)
-- [ ] frontend — media header pill + "+ Set part" row, film list pill, `VideoCard` marker, queue-row marker, writeback dialog
+- [x] frontend — media header pill + owner "+ Set part" link, film list pill, `VideoCard` marker, both queue-row markers, writeback dialog lists `part`; three skins measured live per surface
 - [ ] testing `testing-strategy` — strategy row landed in [docs/testing-strategy.md](../../docs/testing-strategy.md) (2026-09-16, target coverage); flips when the named tests exist: lifter cases (RD4 incl. rejected bodies), loader rejection (*new*), MKV+MP4 round trip incl. `PART_NUMBER` replace, list-path `part` incl. container-tag-only, triplet-enrich invariance, three-skin QA
 - [~] security `security-review` — n/a: no auth/access/infra change; one more `formatMap` row in an existing perimeter
 
@@ -39,13 +39,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
    `PartNumber-und` pin); **formatMap DONE** (`PART_NUMBER` / `QuickTime:DiskNumber`, `readKey` folds
    `_`, replace-not-append pinned, round trip green on real MKV+MP4); **payload DONE** (#2) — backend
    gate complete
-4. [ ] [frontend] surfaces per RD9 — **`VideoCard`, media header pill, film full-film pill DONE**
-   (3 skins, 375px wrap, four-corner scene card all measured live); remaining: `EnrichQueueRow` +
-   extraction-queue row pills, `WritebackFormDialog` check
-4a. [ ] [design] **missing-part affordance gap** (found in QA): the "+ Set part" empty row is the
-   F60 deep-link landing (`deepLinkedMissing`, `#field-part` only); edition reaches it via the film
-   page link, part has none by handoff §3, and `optional` facets never enter the queue (RD7) — so a
-   file with NO part has no UI path to set one. Kevin to rule (options mocked up in session)
+4. [x] [frontend] surfaces per RD9 — `VideoCard`, media header pill (+ owner "+ Set part" link),
+   film full-film pill, enrich-queue row pill, extraction-queue group-heading pill; writeback
+   dialog lists `part` (`write_target` + `in_sync` verified live) — **frontend gate complete**
+4a. [x] [design] missing-part affordance — **ruled A** (header link); spec RD8 + handoff §2a/4.3 updated
 5. [x] [frontend] `partBadgeLabel` helper + Vitest + `video/CLAUDE.md` rows; `types.ts` `part?` on
    `Video` / `EnrichQueueRow` / `ExtractionQueueRow`
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
@@ -130,3 +127,17 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   `title · edition · Part N · SD`, scene card four corners disjoint. **Gap found** (Up next 4a): no
   UI path to `#field-part` for a file with no part. Testbed gained `{edition-Extended} {part-2}`
   and film 1 (full: 2, 6, 3 · scene: 5). Next: queue rows, then the 4a ruling.
+
+### 2026-09-16 · frontend: header link (A) + queue rows — frontend gate closed
+- skills: code-review (high --fix)
+- handoff: option A shipped (owner-only dashed "+ Set part" → `#field-part`; visitor sees nothing);
+  `EnrichQueueRow` pill as `shrink-0` sibling of the truncating title (375px: title ellipsis, pill
+  whole); extraction queue names the video in a per-group `<h3>`, so `groupByVideo` carries `part`
+  and the heading renders the pill (+ Vitest). **Found in build (RD6a):** `classifySpecificity`
+  rated 1–2 digit values partial → every `{part-N}` queued a review row; bare integers are now
+  full specificity, pinned by `TestProcess_PartMarker_RoutesLikeEdition`. Live on a fresh scan: 4
+  marker files auto-applied silently, only the tag-vs-filename conflict queued; the auto-apply
+  writeback landed `disk=2` in the MP4 and re-extracted as the file baseline with `in_sync: true`.
+  Pre-existing, filed separately: the deep-link landing's auto-expand doesn't fire for the
+  synthesised empty row (edition too). Remaining: three-skin QA sweep §4 human items, fixture step
+  (#6), mark PR ready.
