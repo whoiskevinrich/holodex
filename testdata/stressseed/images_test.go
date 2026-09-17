@@ -347,9 +347,15 @@ func storedFiles(t *testing.T, database *sql.DB, targets imageTargets, e entry) 
 		if err := rows.Scan(&imageID, &role); err != nil {
 			t.Fatalf("scan %s: %v", table, err)
 		}
-		// entityimage.Path is what all three wrappers delegate to, so this is the
-		// same arithmetic the writer used without going through the writer.
-		out = append(out, storedImage{role: role, path: entityimage.Path(dir, e.ID, imageID)})
+		// entityimage.Find is what all three wrappers delegate to, so this is the
+		// same lookup the reader uses without going through the reader. A row whose
+		// file is absent (a rung that asserts nothing) keeps the .jpg path so the
+		// caller's os.Stat still reports it missing.
+		path, err := entityimage.Find(dir, e.ID, imageID)
+		if err != nil {
+			path = entityimage.Path(dir, e.ID, imageID, ".jpg")
+		}
+		out = append(out, storedImage{role: role, path: path})
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate %s: %v", table, err)
