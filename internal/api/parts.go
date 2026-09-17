@@ -26,6 +26,23 @@ func (h *Handlers) partsFor(ctx context.Context, ids []int64) (map[int64]string,
 	if !ok {
 		return nil, nil
 	}
+	// The enrich queue hands over the whole library, and every id becomes one bound
+	// parameter in each batch's IN (...) — so chunk well under SQLite's variable
+	// ceiling rather than let a large library turn every pill off with one failed query.
+	const chunk = 500
+	if len(ids) > chunk {
+		out := make(map[int64]string, len(ids))
+		for start := 0; start < len(ids); start += chunk {
+			part, err := h.partsFor(ctx, ids[start:min(start+chunk, len(ids))])
+			if err != nil {
+				return nil, err
+			}
+			for id, v := range part {
+				out[id] = v
+			}
+		}
+		return out, nil
+	}
 	var fileKeys []string
 	for _, s := range field.ParsedSources {
 		if s.Namespace == "file" {
