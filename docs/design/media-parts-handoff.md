@@ -262,8 +262,11 @@ header.
   Metadata → Part: the row shows "2" with a "filename" provenance tag; clicking the row opens
   the chip row with a file chip, a filename chip, and a custom entry — and no provider chip.
 - 4.3 `[human]` Open a video with no part as the owner: beside the title is a dashed
-  "+ Set part" link; clicking it scrolls to an empty "Part" row in Metadata you can type into
-  (expand the badge → Custom). As a visitor neither the link nor the row exists.
+  "+ Set part" link. Click it: the Metadata section opens, the page scrolls to an empty "Part"
+  row, and a text field is already waiting with the cursor in it — type the number, Enter,
+  Confirm. As a visitor neither the link nor the row exists. *(First human pass failed here:
+  the row landed inside the collapsed, inert Metadata fold and the text field only appeared
+  after clicking a chip labelled "Custom" — both fixed 2026-09-16.)*
 - 4.4 `[human]` Open the film these are attached to: each full-film row shows the title, then
   the edition pill (if any), then "Part N", then the resolution chip and running time. There is
   no "+ Set part" link on rows without a part (there *is* a "+ Set edition" — that asymmetry is
@@ -271,5 +274,7 @@ header.
 - 4.5 `[human]` Open Owner → Enrichment: the three queue rows read "Live at Budokan · Part 1",
   "· Part 2", "· Part 3". Narrow the window: the title truncates with an ellipsis and the pill
   stays whole.
-- 4.6 `[human]` Search for "Budokan": the result cards carry the same corner badge as the browse
-  grid.
+- 4.6 `[human]` Type "Budokan" in the header search: each video result reads "Live at Budokan
+  · Part N" — the part as muted text after the title, where people show a count and films a
+  year. The browse grid filtered by the same query carries the corner badge. *(First human pass
+  expected the part in the results list; added 2026-09-16.)*
