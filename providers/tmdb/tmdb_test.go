@@ -219,9 +219,10 @@ func TestTMDBEnrich(t *testing.T) {
 	if len(res.Fields["aliases"]) == 0 {
 		t.Error("aliases field missing")
 	}
-	// website is the person's TMDB page (not their personal site).
-	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/person/608-hayao-miyazaki" {
-		t.Errorf("website = %v, want [https://www.themoviedb.org/person/608-hayao-miyazaki]", got)
+	// website is the person's own site, never the TMDB page — that link is the
+	// badge's, via link_templates (F63, HOLODEX-391).
+	if got := res.Fields["website"]; len(got) != 1 || got[0] != "https://www.ghibli.jp/" {
+		t.Errorf("website = %v, want [https://www.ghibli.jp/]", got)
 	}
 	// Expect: headshot (first profile) + gallery (second profile) + banner (first backdrop).
 	if len(res.Assets) < 3 {
@@ -523,15 +524,16 @@ func TestTMDBEnrichStudio(t *testing.T) {
 	}
 }
 
-func TestTMDBEnrichStudioWebsiteFallback(t *testing.T) {
+func TestTMDBEnrichStudioNoWebsite(t *testing.T) {
 	c := clientWith(fakeTMDB(t))
 	res, err := c.enrich(context.Background(), "tmdb:9999", "studio")
 	if err != nil {
 		t.Fatalf("enrich studio: %v", err)
 	}
-	// No homepage → website falls back to the durable TMDB company page.
-	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/company/9999-bare-films" {
-		t.Errorf("website = %v, want the TMDB company page fallback", got)
+	// No homepage → website omitted; the TMDB company page is the badge's link via
+	// link_templates, no longer a field fallback (F63 P0-3).
+	if got, ok := res.Fields["website"]; ok {
+		t.Errorf("website = %v, want omitted when TMDB has no homepage", got)
 	}
 	// No logo_path → no logo field (nothing to render).
 	if _, ok := res.Fields["logo"]; ok {
@@ -647,6 +649,11 @@ func TestBuildEnrichResponseFallsBackToProfilePath(t *testing.T) {
 	if res.Assets[0].Kind != "headshot" {
 		t.Errorf("assets[0].kind = %q, want headshot", res.Assets[0].Kind)
 	}
+	// No homepage on TMDB → website omitted, not filled with the TMDB person page
+	// (F63 P0-3: that link belongs to the badge).
+	if got, ok := res.Fields["website"]; ok {
+		t.Errorf("website = %v, want omitted when TMDB has none", got)
+	}
 }
 
 func TestBuildEnrichResponseSkipsEmptyFilePath(t *testing.T) {
@@ -747,7 +754,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
 		case r.URL.Path == "/3/person/608":
-			io.WriteString(w, `{"id":608,"name":"Hayao Miyazaki","biography":"Japanese filmmaker and co-founder of Studio Ghibli.","birthday":"1941-01-05","place_of_birth":"Bunkyō, Tokyo, Japan","profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","also_known_as":["宮崎駿","Miyazaki Hayao"]}`) //nolint:errcheck
+			io.WriteString(w, `{"id":608,"name":"Hayao Miyazaki","biography":"Japanese filmmaker and co-founder of Studio Ghibli.","birthday":"1941-01-05","place_of_birth":"Bunkyō, Tokyo, Japan","profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","homepage":"https://www.ghibli.jp/","also_known_as":["宮崎駿","Miyazaki Hayao"]}`) //nolint:errcheck
 		case r.URL.Path == "/3/person/608/images":
 			io.WriteString(w, `{"profiles":[{"file_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","aspect_ratio":0.667,"vote_average":5.4},{"file_path":"/secondprofile.jpg","aspect_ratio":0.667,"vote_average":4.8}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/person/608/tagged_images":
@@ -781,7 +788,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/company/10342":
 			io.WriteString(w, `{"id":10342,"name":"Studio Ghibli","description":"Studio Ghibli is a Japanese animation film studio.","homepage":"https://www.ghibli.jp","logo_path":"/eS79pslnoLbjIeoBIkjfgDkD2LN.png","origin_country":"JP"}`) //nolint:errcheck
 		case r.URL.Path == "/3/company/9999":
-			// A company with no homepage or logo — website falls back to the TMDB page.
+			// A company with no homepage or logo — website is omitted (F63).
 			io.WriteString(w, `{"id":9999,"name":"Bare Films","description":"A studio with no homepage.","origin_country":"US"}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/company/"):
 			http.NotFound(w, r)

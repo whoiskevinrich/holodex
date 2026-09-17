@@ -139,6 +139,10 @@ visitor/owner rule for entity data points):
     fallback to the TMDB page).
   - [x] Previously-stored `homepage` values are **not** migrated; they refresh on the next enrich.
     Documented in the release note.
+  - **Same rule for `website`** (owner ruling 2026-09-17, folded into HOLODEX-391): the person
+    `website` field carries the person's own `homepage` or is omitted — never the TMDB person
+    page — and the studio `website` field drops its TMDB-company-page fallback. Both were the
+    same double-link once the pill links; stored values likewise refresh on the next enrich.
 
 - **P0-4 · Contract: `_source_url` on `/enrich`** (HOLODEX-392). A provider may include a
   `_source_url` key in the `/enrich` response: the absolute http(s) URL of **its own page** for the

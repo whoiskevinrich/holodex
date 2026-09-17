@@ -155,6 +155,7 @@ type personDetails struct {
 	Deathday           string   `json:"deathday"`
 	PlaceOfBirth       string   `json:"place_of_birth"`
 	ProfilePath        string   `json:"profile_path"`
+	Homepage           string   `json:"homepage"`
 	AlsoKnownAs        []string `json:"also_known_as"`
 	KnownForDepartment string   `json:"known_for_department"`
 }
@@ -930,9 +931,13 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	if pob := strings.TrimSpace(det.PlaceOfBirth); pob != "" {
 		fields["nationality"] = []string{pob}
 	}
-	// The "Website" link points to this person's TMDB page, not det.Homepage (their
-	// personal/agency site — often stale or absent). TMDB is the durable record.
-	fields["website"] = []string{tmdbPersonURL(det.ID, det.Name)}
+	// website is the person's own site (det.Homepage — rarely set upstream), omitted
+	// when TMDB has none. It used to be overwritten with the TMDB person page; that
+	// link now comes from the `tmdb` link template advertised in /describe (F63,
+	// HOLODEX-391), so emitting it here too would link TMDB twice on the person page.
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["website"] = []string{v}
+	}
 	var aliases []string
 	for _, a := range det.AlsoKnownAs {
 		if a = strings.TrimSpace(a); a != "" {
@@ -1116,12 +1121,11 @@ func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
 	if v := strings.TrimSpace(det.OriginCountry); v != "" {
 		fields["country"] = []string{v}
 	}
-	// Prefer the company's official homepage; fall back to its durable TMDB page when
-	// absent (mirrors the person/movie website behaviour — a link is always present).
+	// website is the company's official homepage, omitted when absent. The TMDB
+	// company page used to be the fallback; it is now the badge's link via the
+	// `tmdb` link template (F63, HOLODEX-391) — same rule as person/film.
 	if v := strings.TrimSpace(det.Homepage); v != "" {
 		fields["website"] = []string{v}
-	} else {
-		fields["website"] = []string{tmdbEntityURL("company", det.ID, det.Name)}
 	}
 	var assets []assetEntry
 	if det.LogoPath != "" {
