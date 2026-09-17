@@ -289,7 +289,8 @@ backend already shipped.)*
 - **P1-2**: **Provider link badge on films.** `ProviderLinkBadge` is already entity-agnostic;
   [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md)'s `LinkTemplates` map is
   keyed by entity kind and needs a `film` key. Deferred only because it is orthogonal to the field
-  vocabulary.
+  vocabulary. **Picked up by [provider-link-badge-coverage.md](provider-link-badge-coverage.md)
+  (F63, HOLODEX-393) as its P0-6.**
 - **P1-3**: **Success toast after a film enrich**, inheriting whatever HOLODEX-86 ships.
 
 ### Future considerations (P2)
