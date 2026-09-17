@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"holodex/internal/entityimage"
 	"holodex/internal/personimage"
 )
 
@@ -48,11 +49,17 @@ func (h *Handlers) parseImageUpload(w http.ResponseWriter, r *http.Request, maxB
 	return norm, iw, ih, true
 }
 
-// serveEntityImageFile streams an on-disk image JPEG with a long immutable cache,
-// 404 on any failure to open or stat it. Distinct from handlers.go's
+// serveEntityImageFile streams an on-disk image (JPEG or PNG, ADR-097 — the
+// Content-Type follows the extension) with a long immutable cache, 404 on any
+// failure to look it up, open, or stat it. findErr is the entity package's Find
+// result so a caller can pass the lookup straight through. Distinct from handlers.go's
 // (h *Handlers) serveImageFile, an unrelated older helper for video thumbnail/poster
 // candidate-fallback serving with different cache/visibility semantics.
-func serveEntityImageFile(w http.ResponseWriter, r *http.Request, path string) {
+func serveEntityImageFile(w http.ResponseWriter, r *http.Request, path string, findErr error) {
+	if findErr != nil {
+		writeError(w, http.StatusNotFound, "image not available")
+		return
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "image not available")
@@ -66,6 +73,6 @@ func serveEntityImageFile(w http.ResponseWriter, r *http.Request, path string) {
 	}
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Type", entityimage.ContentType(path))
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }

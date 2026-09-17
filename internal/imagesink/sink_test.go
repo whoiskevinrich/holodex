@@ -165,7 +165,11 @@ func TestSinkStoreAsset_Person_Normalizes(t *testing.T) {
 		t.Errorf("unexpected rollback: %v", fr.deletes)
 	}
 
-	stored, err := os.ReadFile(personimage.ImagePath(dir, 7, fr.nextID))
+	storedPath, err := personimage.Find(dir, 7, fr.nextID)
+	if err != nil {
+		t.Fatalf("find stored asset: %v", err)
+	}
+	stored, err := os.ReadFile(storedPath)
 	if err != nil {
 		t.Fatalf("read stored asset: %v", err)
 	}
@@ -232,7 +236,11 @@ func TestSinkStoreAsset_Studio_Normalizes(t *testing.T) {
 		c.Provider != "tmdb" || c.ExternalID != "tmdb:10342" || c.Width != 100 || c.Height != 40 {
 		t.Errorf("insert provenance/dims = %+v", c)
 	}
-	stored, err := os.ReadFile(studioimage.ImagePath(dir, 3, sr.nextID))
+	storedPath, err := studioimage.Find(dir, 3, sr.nextID)
+	if err != nil {
+		t.Fatalf("find stored asset: %v", err)
+	}
+	stored, err := os.ReadFile(storedPath)
 	if err != nil {
 		t.Fatalf("read stored asset: %v", err)
 	}

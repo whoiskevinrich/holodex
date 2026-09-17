@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"holodex/internal/entityimage"
 	"holodex/internal/model"
 )
 
@@ -62,8 +63,83 @@ func pngBytes(t *testing.T, w, h int) []byte {
 	return buf.Bytes()
 }
 
+// transparentPNGBytes is a w×h PNG whose background is fully transparent white with a
+// single opaque red pixel in the middle — the shape of a logo exported from an SVG.
+func transparentPNGBytes(t *testing.T, w, h int) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.NRGBA{0xff, 0xff, 0xff, 0x00})
+		}
+	}
+	img.Set(w/2, h/2, color.NRGBA{0xff, 0x00, 0x00, 0xff})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode source png: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestNormalizeKeepsTransparencyAsPNG (ADR-097): a non-opaque image is re-encoded to
+// PNG so the alpha survives — the transparent corner stays transparent and the opaque
+// pixel keeps its colour — and entityimage.Ext routes it to .png.
+func TestNormalizeKeepsTransparencyAsPNG(t *testing.T) {
+	out, w, h, err := Normalize(transparentPNGBytes(t, 40, 30), 0)
+	if err != nil {
+		t.Fatalf("normalize transparent png: %v", err)
+	}
+	if w != 40 || h != 30 {
+		t.Errorf("dims = %dx%d, want 40x30", w, h)
+	}
+	img, format, err := image.Decode(bytes.NewReader(out))
+	if err != nil || format != "png" {
+		t.Fatalf("output format = %q err=%v, want png", format, err)
+	}
+	if _, _, _, a := img.At(0, 0).RGBA(); a != 0 {
+		t.Errorf("corner alpha = %d, want 0 (transparency lost)", a)
+	}
+	if r, _, _, a := img.At(20, 15).RGBA(); r>>8 != 0xff || a>>8 != 0xff {
+		t.Errorf("centre pixel = r%d a%d, want opaque red", r>>8, a>>8)
+	}
+	if got := entityimage.Ext(out); got != ".png" {
+		t.Errorf("Ext = %q, want .png", got)
+	}
+}
+
+// TestNormalizeTransparentDownscaleStaysPNG: the alpha decision is made on the image
+// that is actually encoded, so a transparent source that is downscaled still lands as
+// PNG (downscale rebuilds the pixels into a fresh RGBA).
+func TestNormalizeTransparentDownscaleStaysPNG(t *testing.T) {
+	out, w, h, err := Normalize(transparentPNGBytes(t, 400, 200), 100)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if w != 100 || h != 50 {
+		t.Errorf("dims = %dx%d, want 100x50", w, h)
+	}
+	if _, format, err := image.DecodeConfig(bytes.NewReader(out)); err != nil || format != "png" {
+		t.Errorf("output format = %q err=%v, want png", format, err)
+	}
+}
+
+// TestNormalizeJPEGFlattensTransparency: the JPEG-only entry point (video posters,
+// whose storage slot is {id}.jpg) keeps the hardening but flattens alpha.
+func TestNormalizeJPEGFlattensTransparency(t *testing.T) {
+	out, _, _, err := NormalizeJPEG(transparentPNGBytes(t, 40, 30), 0)
+	if err != nil {
+		t.Fatalf("normalize jpeg: %v", err)
+	}
+	if _, format, err := image.DecodeConfig(bytes.NewReader(out)); err != nil || format != "jpeg" {
+		t.Errorf("output format = %q err=%v, want jpeg", format, err)
+	}
+	if got := entityimage.Ext(out); got != ".jpg" {
+		t.Errorf("Ext = %q, want .jpg", got)
+	}
+}
+
 func TestNormalizeReencodesToJPEG(t *testing.T) {
-	// A PNG in → a JPEG out (the format is normalized regardless of input type).
+	// An opaque PNG in → a JPEG out (the format is normalized regardless of input type).
 	out, w, h, err := Normalize(pngBytes(t, 120, 80), 0)
 	if err != nil {
 		t.Fatalf("normalize png: %v", err)

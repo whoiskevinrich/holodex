@@ -112,7 +112,8 @@ func (h *Handlers) serveFilmImage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get film image", err)
 		return
 	}
-	serveEntityImageFile(w, r, filmimage.ImagePath(h.filmImageDir, id, img.ID))
+	path, err := filmimage.Find(h.filmImageDir, id, img.ID)
+	serveEntityImageFile(w, r, path, err)
 }
 
 // uploadFilmImage ingests a multipart upload (`image` file) for one role, normalizes
