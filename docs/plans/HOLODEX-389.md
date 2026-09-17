@@ -48,7 +48,7 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 6. [ ] [fixture] stress seeder `part` dimension (source × value rungs + same-title triplet; the
    container-tag rung is gap-shaped until #2 lands) + handoff §3 rects as geometry-harness
    assertions; demo generator items `{part-N}.mp4` + `-metadata disk=2` for the real-scan path
-7. [ ] [jira] mark PR ready → In Review fires
+7. [ ] [jira] mark PR ready → In Review fires; on merge sweep **HOLODEX-398** (fixed on this branch, `2dc1bf6`) to Done by hand
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
