@@ -93,6 +93,8 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetEnrichment(svc)
+	// Films ride the same projection (HOLODEX-393); the flag only mounts the routes.
+	h.SetFilmsEnabled(true)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
@@ -257,6 +259,51 @@ func TestExternalLinks_Studio(t *testing.T) {
 		t.Fatal("imdb badge missing")
 	} else if _, present := lm["url"]; present {
 		t.Errorf("imdb badge url = %v, want omitted (no imdb/studio template declared)", lm["url"])
+	}
+}
+
+// TestExternalLinks_Film is HOLODEX-393 (F63 P0-6): getFilm projects the film's
+// stored ids through the same externalLinksForEntity path as person and studio —
+// one pill per id, linked when a film template exists for the namespace, label-only
+// otherwise — and a film with no ids projects no entries (null, the person/studio
+// contract the page already tolerates), so the header meta line stays byte-identical.
+func TestExternalLinks_Film(t *testing.T) {
+	env := newExternalLinksEnv(t, map[string]map[string]string{
+		"tmdb": {"film": "https://tmdb.example/movie/{id}"},
+	})
+	ctx := context.Background()
+	fid, err := env.repo.CreateFilm(ctx, "Badge Film", 1999)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	for _, ext := range []string{"tmdb:603", "imdb:tt0133093"} {
+		if err := env.repo.AttachExternalID(ctx, "film", fid, ext); err != nil {
+			t.Fatalf("attach %s: %v", ext, err)
+		}
+	}
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/films/"+itoa(fid))
+	links, _ := body["external_links"].([]any)
+	if len(links) != 2 {
+		t.Fatalf("external_links = %v, want 2 entries", body["external_links"])
+	}
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["tmdb"]; lm == nil || lm["url"] != "https://tmdb.example/movie/603" {
+		t.Errorf("tmdb badge = %v", lm)
+	}
+	if lm, ok := byProvider["imdb"]; !ok {
+		t.Fatal("imdb badge missing")
+	} else if _, present := lm["url"]; present {
+		t.Errorf("imdb badge url = %v, want omitted (no imdb/film template declared)", lm["url"])
+	}
+
+	bare, err := env.repo.CreateFilm(ctx, "Bare Film", 2001)
+	if err != nil {
+		t.Fatalf("create bare film: %v", err)
+	}
+	_, body = getJSON(t, env.srv.URL+"/api/v1/films/"+itoa(bare))
+	if got, _ := body["external_links"].([]any); len(got) != 0 {
+		t.Errorf("bare film external_links = %v, want none", body["external_links"])
 	}
 }
 

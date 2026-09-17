@@ -934,6 +934,9 @@ export interface FilmDetailResponse {
 	// empty/0 with no provider cast, so an unenriched film renders as it always did.
 	billed_absent?: FilmBilledCredit[] | null;
 	billed_total?: number;
+	// external_links is the provider-link badge projection (HOLODEX-393, F63 P0-6) —
+	// the same read-only 0..N shape person and studio carry.
+	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	skipped_aliases?: SkippedAlias[];
 }

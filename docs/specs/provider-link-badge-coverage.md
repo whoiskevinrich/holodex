@@ -173,12 +173,14 @@ visitor/owner rule for entity data points):
 
 - **P0-6 · Film page badge** (HOLODEX-393). `getFilm` projects `external_links` through the same
   `externalLinksForEntity` path person and studio use; the film page mounts `ProviderLinkBadge`
-  in its header meta line (the `EntityVideoMeta` pattern). Resolves
+  on its header meta line — the **year line**, via `NameEditControl`'s `trailing` slot
+  ([handoff DD4](../design/provider-link-badge-handoff.md), ruled 2026-09-17: the film has no
+  video-count line, so the year is its passive-metadata line). Resolves
   [film-provider-enrichment-ux.md](film-provider-enrichment-ux.md) P1-2.
-  - Given a film adopted from TMDB with an IMDb id, then the film header shows `IMDb` and `TMDB`
-    pills, alphabetical by label (ADR-083 DD3 order).
-  - Given a film with no external ids, then no pill and no trailing separator render.
-  - [ ] Visible to visitors when ids exist; no owner gate on the badge.
+  - [x] Given a film adopted from TMDB with an IMDb id, then the film header shows `IMDb` and
+    `TMDB` pills, alphabetical by label (ADR-083 DD3 order) — `TestExternalLinks_Film`.
+  - [x] Given a film with no external ids, then no pill and no trailing separator render.
+  - [x] Visible to visitors when ids exist; no owner gate on the badge.
 
 - **P0-7 · Media page badge** (HOLODEX-394). `getVideo` projects `external_links` as a single-
   element array built from the resolver's winning `external_provider_id` (label from the
@@ -262,8 +264,10 @@ This is an owner-facing single-user surface; the metrics are correctness, not ad
 - ~~**[architecture]** Where the stored `_source_url` lives~~ **Resolved by
   [ADR-098](../architecture/ADR-098-provider-source-url-fallback.md) D1:** a reserved `_`-prefixed
   key in `fields`, stored as an ordinary `entity_enrichment` row — no migration.
-- **[design]** Film header: the film page has a banner/poster header (F59) rather than the
-  person page's portrait hero — the handoff decides which line the pills join.
+- ~~**[design]** Film header: the film page has a banner/poster header (F59) rather than the
+  person page's portrait hero — the handoff decides which line the pills join.~~ **Resolved by
+  handoff DD4 (2026-09-17):** the year line, through `NameEditControl`'s `trailing` slot; a
+  dedicated pill line was rejected.
 
 ## Timeline Considerations
 
