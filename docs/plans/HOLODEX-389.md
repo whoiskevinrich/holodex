@@ -48,7 +48,8 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 6. [x] [fixture] seeder `part` dimension (block 1000, tag-only, shared title) + 4 harness
    assertions green (9 cells each) + demo items scanned live to 1/2/3. Narrowed: two-rect
    checks stay hand-measured (probe has no such metric); source matrix cut to the tag
-7. [ ] [jira] mark PR ready → In Review fires; on merge sweep **HOLODEX-398** (fixed on this branch, `2dc1bf6`) to Done by hand
+7. [x] [jira] PR #340 marked ready 2026-09-16 → In Review fires via CI
+8. [ ] [jira] on merge: sweep **HOLODEX-398** (fixed on this branch, `2dc1bf6`) to Done by hand
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -176,3 +177,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
   `-metadata disc=N` — `disk` is silently dropped by ffmpeg), real scan → 1/2/3. Local-only:
   `backend-stress` + `enrich-stub` profiles added to this worktree's gitignored launch.json.
   Remaining: mark PR ready → In Review; sweep 398 on merge.
+
+### 2026-09-16 · ready for review
+- skills: —
+- handoff: every gate green, human QA 4.1–4.6 passed, PR #340 body and Jira 389 rewritten to the
+  shipped state, PR marked ready (In Review fires from CI). Only #8 remains: sweep HOLODEX-398
+  to Done by hand when #340 merges. Local-only leftovers in this worktree: gitignored
+  `backend-parts` / `backend-stress` / `enrich-stub` launch profiles and `data/stress`.
