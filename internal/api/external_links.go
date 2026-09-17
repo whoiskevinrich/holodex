@@ -67,7 +67,9 @@ func namespaceLabel(namespace string) string {
 // the namespace is that provider (ADR-098 D3) — empty when neither applies.
 // Read-only: never touches the resolver or F55 completeness scoring (D1). h.enrich
 // may be nil (enrichment disabled) — every id then renders label-only, no links.
-func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string, entityID int64) ([]ExternalLink, error) {
+// enrichRows are the entity's enrichment rows when the caller already fetched them
+// (getFilm); nil reads them here, once, for the stored _source_url map.
+func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string, entityID int64, enrichRows []repo.EnrichmentRow) ([]ExternalLink, error) {
 	ids, err := h.repo.ExternalIDsForEntity(ctx, entityType, entityID)
 	if err != nil {
 		return nil, err
@@ -80,7 +82,9 @@ func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string
 	// ADR-083 D2's "degrades, never breaks" — so it logs instead of failing the call.
 	var stored map[string]string
 	if h.enrich != nil {
-		if stored, err = h.enrich.SourceURLs(ctx, entityType, entityID); err != nil {
+		if enrichRows != nil {
+			stored = enrich.SourceURLsFromRows(enrichRows)
+		} else if stored, err = h.enrich.SourceURLs(ctx, entityType, entityID); err != nil {
 			h.log.Warn("stored provider source urls", "entity_type", entityType, "id", entityID, "err", err)
 		}
 	}

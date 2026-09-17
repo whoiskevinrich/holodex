@@ -148,7 +148,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	// HOLODEX-393 (F63 P0-6): the provider-link badge projection, the same
 	// best-effort path person and studio take — a lookup failure logs and serves
 	// the page with no badges rather than failing it.
-	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityFilm, id)
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityFilm, id, enrichRows)
 	if linksErr != nil {
 		h.log.Warn("external links for film detail", "id", id, "err", linksErr)
 	}

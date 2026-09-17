@@ -1287,7 +1287,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	}
 	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
 	// lookup failure logs and serves the page with no badges rather than failing it.
-	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityPerson, id)
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityPerson, id, nil)
 	if linksErr != nil {
 		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
 	}
