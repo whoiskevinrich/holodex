@@ -465,7 +465,7 @@
 				     header there, a deliberate mobile tradeoff). The row itself carries `relative`
 				     so it (and every child, including the bio column) paints above the banner
 				     (a positioned z-index:0 element) in the overhang band — the same stacking trick
-				     `.person-hero-media` already gives the avatar. Without it, the bio's top lines
+				     `.media-lift` already gives the avatar. Without it, the bio's top lines
 				     were unreadable: an unpositioned element paints under a positioned z-index:0
 				     sibling regardless of DOM order. -->
 				<div
@@ -483,7 +483,7 @@
 						     identity badge on its lower-left corner (the bg-bg padding stands in for a
 						     separating ring so the badge reads as its own layer over the poster art). -->
 						<div class="relative shrink-0">
-							<div class="person-hero-media">
+							<div class="media-lift">
 								<PersonImageFrame
 									personId={id}
 									role="poster"
@@ -496,7 +496,7 @@
 								{@render editBtn('poster', 'right-1 top-1')}
 							</div>
 							<div class="absolute -bottom-2 -left-2 rounded-theme bg-bg p-0.5">
-								<div class="person-hero-media" id="field-photo-upload">
+								<div class="media-lift" id="field-photo-upload">
 									<PersonImageFrame
 										personId={id}
 										role="headshot"
@@ -510,7 +510,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="person-hero-media shrink-0" id="field-photo-upload">
+						<div class="media-lift shrink-0" id="field-photo-upload">
 							<PersonImageFrame
 								personId={id}
 								role="headshot"
