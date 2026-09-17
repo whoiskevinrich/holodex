@@ -25,6 +25,9 @@ type Fake struct {
 	// Fields list is person/studio-shaped and names none of the video search keys).
 	ResolveHints []string
 	ExtraFields  []string
+	// LinkTemplates is advertised verbatim on /describe (ADR-083 D2) so ProviderLink's
+	// template-first precedence (ADR-098 D3) is testable in-process.
+	LinkTemplates map[string]map[string]string
 	// Searched is echoed back on every Resolve as the provider's searched[] reply
 	// (ADR-095 D6); LastHint records the hint the most recent Resolve received, AFTER
 	// the Service's gate — what a real provider would have seen on the wire.
@@ -127,6 +130,7 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		Fields:          append([]string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"}, f.ExtraFields...),
 		AssetKinds:      []string{"photo", "logo", "poster"},
 		ResolveHints:    f.ResolveHints,
+		LinkTemplates:   f.LinkTemplates,
 	}, nil
 }
 

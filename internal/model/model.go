@@ -478,8 +478,8 @@ func SplitJoined(joined string) []string {
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
 // persisted in entity_enrichment like any other field but is never displayed
 // (FieldsFromRows skips it) and never resolved (it is not a mapped canonical field).
-// It carries plumbing the core consumes directly. See StudioExternalIDsField and
-// ADR-054.
+// It carries plumbing the core consumes directly. See StudioExternalIDsField,
+// PersonExternalIDsField and SourceURLField, and ADR-054.
 const InternalFieldPrefix = "_"
 
 // StudioExternalIDsField is the wire field-key a video provider uses to hand per
@@ -498,6 +498,14 @@ const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 // RelinkVideoPeople's caller can recover a name→external_id map the same way studio
 // already does. Same self-describing "<namespace>:<id> <name>" value shape.
 const PersonExternalIDsField = InternalFieldPrefix + "person_external_ids"
+
+// SourceURLField is the wire field-key a provider returns its own page URL for the
+// enriched entity under (contract §4.12, ADR-098 D1) — the per-pill fallback the
+// provider badge uses when the provider declared no link_templates entry for its
+// namespace. Single-valued: ingest keeps the first http(s) value (ADR-098 D2). Stored
+// as an ordinary entity_enrichment row so it is cleared with the provider's other rows;
+// the InternalFieldPrefix keeps it out of every field list and the resolver.
+const SourceURLField = InternalFieldPrefix + "source_url"
 
 // ProviderAliasesField is the wire field-key a provider returns alternate names under
 // (TMDB maps `also_known_as` onto it). Deliberately not internal-prefixed: it is a

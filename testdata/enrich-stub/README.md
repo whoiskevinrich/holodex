@@ -38,6 +38,12 @@ because two places render a provider name with no truncation and no max-width �
 expanded chip's `·{provenance}` suffix (`CurationChip.svelte`) and the owner's
 per-provider action chips (`EnrichProviderChips.svelte`).
 
+The provider badge's two link branches (ADR-098 D3) are split across two personas: **`alpha`
+declares `link_templates`** (`/describe`, contract §4.11) and **`bravo` returns `_source_url`**
+(`/enrich`, §4.12). Adopt an `alpha` candidate on a person and its pill links through the
+template; adopt `bravo` and the pill links to the stored page; any other persona's pill renders
+degraded (no href). No persona does both — the template would win and the URL be dead weight.
+
 Values inside a group are **all distinct on purpose**: the chip row folds by *value*
 (`web/src/lib/f36.ts`), so five providers that agreed would render as one chip and teach
 nothing. Two tests assert it.

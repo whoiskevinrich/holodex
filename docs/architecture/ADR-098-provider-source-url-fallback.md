@@ -194,14 +194,16 @@ in production for no reader-visible gain. The fallback is proven by `internal/en
 
 ## Action Items
 
-- [ ] **HOLODEX-392** — D1/D2 ingest reshaping in `Service.Enrich` next to `_studio_external_ids`;
-  D3 `ProviderLink` on the Service; `externalLinksForEntity` + the video projection consume it. Unit
-  tests: three precedence branches × both projection paths (`external_links_test.go`); malformed
-  `_source_url` drops without failing the enrich; omitted key leaves a prior row; `Clear` removes it.
-- [x] Contract §4.12 + §8 example. · [ ] `docs/testing-strategy.md` row (F63 P0-4, testing gate).
-- [ ] `testdata/enrich-stub/` returns `_source_url` for one persona; `link_templates` for another, so
-  both branches are visible in a local QA run.
-- [ ] `model.InternalFieldPrefix` doc-comment lists `_source_url` with the other sidecar keys.
+- [x] **HOLODEX-392** — D1/D2 ingest reshaping in `Service.Enrich` next to `_studio_external_ids`;
+  D3 as `Service.SourceURLs` (one row read per request) + `Service.ProviderLink(…, stored)` (per
+  pill); `externalLinksForEntity` consumes it. Unit tests: three precedence branches
+  (`source_url_test.go`, `external_links_test.go`); malformed `_source_url` drops without failing
+  the enrich; omitted key leaves a prior row; `Clear` removes it. · [ ] the video projection
+  (HOLODEX-394, D4) calls the same `ProviderLink`.
+- [x] Contract §4.12 + §8 example. · [x] `docs/testing-strategy.md` row (F63 P0-4, testing gate).
+- [x] `testdata/enrich-stub/` returns `_source_url` for one persona (`bravo`); `link_templates` for
+  another (`alpha`), so both branches are visible in a local QA run.
+- [x] `model.InternalFieldPrefix` doc-comment lists `_source_url` with the other sidecar keys.
 - [x] ~~Confirm with the partner video provider that its `/enrich` can return a per-item URL~~ —
   **owner ruling 2026-09-17 (F63 RD10):** it should, per entity, on every `/enrich`; contract §4.12
   is the implementation target for that sidecar (downstream repo, refreshed post-merge).

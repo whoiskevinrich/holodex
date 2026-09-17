@@ -268,7 +268,18 @@ function describeFor(persona, origin) {
   // hint.filename / hint.query_source on video resolves; one that doesn't gets the
   // pre-ADR-095 request byte-for-byte — both shapes are worth having on the wire.
   if (persona.resolveHints) body.resolve_hints = persona.resolveHints;
+  // ADR-083 D2 / contract §4.11: the template-first branch of the provider badge.
+  if (persona.linkTemplates) body.link_templates = persona.linkTemplates;
   return body;
+}
+
+// enrichFor is the /enrich body: the persona's values, plus its own page as the
+// _source_url sidecar (contract §4.12, ADR-098 D1) when it has one — the fallback
+// branch of the provider badge, for a persona that declares no link template.
+function enrichFor(persona) {
+  const fields = { ...(persona.values || {}) };
+  if (persona.sourceUrl) fields._source_url = [persona.sourceUrl];
+  return { fields };
 }
 
 // searchedFor is the ADR-095 D6 searched[] a persona reports on a VIDEO resolve
@@ -318,7 +329,7 @@ function route(path) {
 
 // Exported so the conformance test can check the persona table without binding a port;
 // the server only starts when this file is run directly, not when it is required.
-module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor, searchedFor };
+module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, enrichFor, namespaceOf, idNamespaceFor, searchedFor };
 
 if (require.main !== module) return;
 
@@ -384,7 +395,7 @@ http
     }
 
     if (endpoint === '/enrich') {
-      return res.end(JSON.stringify({ fields: persona.values || {} }));
+      return res.end(JSON.stringify(enrichFor(persona)));
     }
 
     res.statusCode = 404;

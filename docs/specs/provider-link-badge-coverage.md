@@ -150,8 +150,9 @@ visitor/owner rule for entity data points):
   never curatable). Holodex validates the scheme at ingest and drops anything else silently (same
   posture as `candidates[].profile_url`). Stored per `(entity_type, entity_id, provider)` next to
   the enrichment row; storage shape is the ADR's call.
-  - [x] Contract §4.12 subsection + §8 example. · [ ] `docs/testing-strategy.md` row (testing gate).
-  - [ ] A non-http(s) or malformed `_source_url` is dropped and the rest of the enrich succeeds.
+  - [x] Contract §4.12 subsection + §8 example. · [x] `docs/testing-strategy.md` row (testing gate).
+  - [x] A non-http(s) or malformed `_source_url` is dropped and the rest of the enrich succeeds
+    (`TestEnrichSourceURL_OmittedKeepsMalformedClears`).
 
 - **P0-5 · Per-pill link precedence** (HOLODEX-392). For a pill with namespace `ns` on an entity
   enriched by provider `p`:
@@ -165,8 +166,10 @@ visitor/owner rule for entity data points):
     pill renders degraded, not linked to the `acme` URL.
   - Given both a template and a stored URL for `ns == p`, then the template wins (provider
     declared it; core built it).
-  - [ ] Unit tests in `internal/api/external_links_test.go` cover all three branches for both
-    projection paths.
+  - [x] Unit tests cover all three branches for the person/studio/film projection
+    (`TestProviderLink_Precedence`, `TestExternalLinks_SourceURLFallback`,
+    `TestExternalLinks_TemplateBeatsSourceURL`) · [ ] video's single resolved pill rides the
+    same `ProviderLink` when HOLODEX-394 projects it.
 
 - **P0-6 · Film page badge** (HOLODEX-393). `getFilm` projects `external_links` through the same
   `externalLinksForEntity` path person and studio use; the film page mounts `ProviderLinkBadge`

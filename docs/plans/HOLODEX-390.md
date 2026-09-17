@@ -33,12 +33,16 @@ media placement) · testing-strategy § (pending)
 4. [x] [spec] contract §2.2 `link_templates` row + §4.11 subsection + §8 example (P0-1) — `docs/specs/metadata-provider-contract.md`
 4b. [x] [spec] contract §4.12 `_source_url` subsection + §8 example (P0-4, shape fixed by ADR-098 D1/D2) — `docs/specs/metadata-provider-contract.md`
 5. [ ] [design] extend the handoff with film + media header placement, SVG mockup committed — `docs/design/provider-link-badge-handoff.md`
-6. [ ] [backend] HOLODEX-392: `_source_url` ingest + `BuildProviderLink` per-pill fallback — `internal/enrich/service.go`, `internal/api/external_links.go`
+6. [x] [backend] HOLODEX-392: `_source_url` ingest + `Service.SourceURLs`/`ProviderLink` per-pill fallback — `internal/enrich/service.go`, `internal/api/external_links.go`
 7. [ ] [backend] HOLODEX-393/394: `getFilm` + `getVideo` project `external_links` — `internal/api/films.go`, `internal/api/handlers.go`
 8. [ ] [frontend] mount the badge on film + media headers — `web/src/routes/films/[id]`, `web/src/routes/media/[id]/+page.svelte` (~L1319 meta line)
 9. [ ] [—] sweep children 391–394 by hand with the epic (epic-keyed branch → CI fires nothing): In Review on ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-17 · HOLODEX-392 `_source_url` ingest + per-pill fallback
+- skills: code-review (one finding, fixed: a failed `SourceURLs` read now degrades to template-only instead of dropping every pill)
+- handoff: HOLODEX-392 shipped on the epic branch (392 In Progress in Jira; swept by hand with the epic). ADR-098 D1–D3 implemented: `model.SourceURLField`; `runEnrich` reshapes `_source_url` next to `_studio_external_ids` (first http(s) value, garbage clears, absence leaves alone); D3 split into `Service.SourceURLs` (one `EnrichmentForEntity` read per request, keyed by provider) + `Service.ProviderLink(ns, kind, id, stored)` — not the ADR's single-function sketch, so its "once per request" note holds; `externalLinksForEntity` consumes it. `Fake.LinkTemplates` added for in-process precedence tests. Tests: `internal/enrich/source_url_test.go` (ingest ×2, precedence table) + two end-to-end cases in `external_links_test.go` (env fake gained `/enrich`). Stub: `alpha` declares `link_templates`, `bravo` returns `_source_url` (stub.test.mjs asserts never both). Testing-strategy §4 row + invariant written by hand; the testing gate stays open for 393/394 + frontend. **D4 (video) is HOLODEX-394's** — `getVideo` must call the same `ProviderLink` with the winning source's namespace. Next: #5 design extension (film + media header placement, SVG committed), then 393/394.
 
 ### 2026-09-17 · website unwind folded into 391 → ADR-098
 - skills: code-review, architecture (evaluate pass on the draft — every codebase claim verified)

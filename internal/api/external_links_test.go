@@ -27,6 +27,7 @@ import (
 type externalLinksEnv struct {
 	repo *repo.Repo
 	srv  *httptest.Server
+	svc  *enrich.Service
 }
 
 func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]string) *externalLinksEnv {
@@ -58,6 +59,15 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 		case "/resolve":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"candidates": []any{}})
+		case "/enrich":
+			// Always hands core the provider's own page for the entity (contract
+			// §4.12, ADR-098 D1) so the _source_url fallback tests below can exercise
+			// the real ingest path rather than writing the row directly.
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"fields": map[string]any{
+				"bio":         []string{"Enriched."},
+				"_source_url": []string{"https://fake.example/pages/miyazaki"},
+			}})
 		default:
 			http.NotFound(w, req)
 		}
@@ -86,7 +96,69 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	return &externalLinksEnv{repo: r, srv: srv}
+	return &externalLinksEnv{repo: r, srv: srv, svc: svc}
+}
+
+// seedSourceURLPerson creates a person carrying a foreign "other:1" id (attached
+// through the video-credit reconcile, like any provider-emitted foreign id) and then
+// enriches it through the fake provider, which attaches "fake:1" as the identity row
+// and stores the provider's _source_url — the two-pill shape ADR-098 D3 rules on.
+func seedSourceURLPerson(t *testing.T, env *externalLinksEnv) int64 {
+	t.Helper()
+	ctx := context.Background()
+	vid := seedVideo(t, env.repo, "/m/source-url.mkv", "Source URL Clip")
+	if err := env.repo.ReconcileVideoPeople(ctx, vid,
+		[]repo.PersonRoleName{{Name: "Source Url", Role: "actor"}},
+		map[string]string{"Source Url": "other:1"}); err != nil {
+		t.Fatalf("attach other id: %v", err)
+	}
+	pid, _, err := env.repo.PersonIDByName(ctx, "Source Url")
+	if err != nil {
+		t.Fatalf("lookup person: %v", err)
+	}
+	if _, err := env.svc.Enrich(ctx, "person", pid, "fake", "fake:1", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	return pid
+}
+
+// TestExternalLinks_SourceURLFallback is ADR-098 D3's fallback branch end to end:
+// the provider declared no template for its own namespace, so its pill links to the
+// stored _source_url — while the foreign "other" pill on the same person stays
+// degraded (F63 RD3: a stored page backs only its own provider's pill).
+func TestExternalLinks_SourceURLFallback(t *testing.T) {
+	env := newExternalLinksEnv(t, nil)
+	pid := seedSourceURLPerson(t, env)
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/people/"+itoa(pid))
+	links, _ := body["external_links"].([]any)
+	if len(links) != 2 {
+		t.Fatalf("external_links = %v, want 2 entries", body["external_links"])
+	}
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["fake"]; lm == nil || lm["url"] != "https://fake.example/pages/miyazaki" {
+		t.Errorf("fake badge = %v, want the stored _source_url", lm)
+	}
+	if lm := byProvider["other"]; lm == nil || lm["url"] != nil {
+		t.Errorf("other badge = %v, want degraded (no url) — a foreign namespace never takes the provider's stored page", lm)
+	}
+}
+
+// TestExternalLinks_TemplateBeatsSourceURL is ADR-098 D3's first branch: with a
+// template declared for the provider's own namespace, the template renders and the
+// stored _source_url (also present) is dead weight.
+func TestExternalLinks_TemplateBeatsSourceURL(t *testing.T) {
+	env := newExternalLinksEnv(t, map[string]map[string]string{
+		"fake": {"person": "https://fake.example/person/{id}"},
+	})
+	pid := seedSourceURLPerson(t, env)
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/people/"+itoa(pid))
+	links, _ := body["external_links"].([]any)
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["fake"]; lm == nil || lm["url"] != "https://fake.example/person/1" {
+		t.Errorf("fake badge = %v, want the template URL over the stored _source_url", lm)
+	}
 }
 
 // linksByProvider indexes an external_links JSON array by its "provider" key, so
