@@ -232,3 +232,32 @@ func TestProcess_MultiValueEntityField_WeakestLinkGate(t *testing.T) {
 		t.Fatal("a multi-value entity field with any unresolved value must not auto-apply")
 	}
 }
+
+// TestProcess_PartMarker_RoutesLikeEdition pins HOLODEX-389 RD6 at the routing
+// level: a lone strict `{part-N}` ordinal clears TierHigh and auto-applies with no
+// review row (the value is one or two digits, which the specificity floor once
+// rated partial — 0.55, never applying), while a container-tag conflict never does.
+func TestProcess_PartMarker_RoutesLikeEdition(t *testing.T) {
+	enq := &fakeEnqueuer{}
+	rev := &fakeReviewStore{}
+	d := Deps{Queue: enq, Reviews: rev, AutoApplyEnabled: true}
+
+	out, err := Process(context.Background(), d, FieldExtraction{VideoID: 1, Field: "part", FilenameValues: []string{"2"}})
+	if err != nil || out != OutcomeAutoApplied {
+		t.Fatalf("lone {part-2}: Process() = %v, %v; want OutcomeAutoApplied", out, err)
+	}
+	if len(rev.upserts) != 0 {
+		t.Fatalf("lone {part-2} must not queue a review, got %+v", rev.upserts)
+	}
+
+	out, err = Process(context.Background(), d, FieldExtraction{VideoID: 2, Field: "part", FilenameValues: []string{"3"}, TagValues: []string{"1"}})
+	if err != nil || out != OutcomeQueued {
+		t.Fatalf("tag conflict: Process() = %v, %v; want OutcomeQueued", out, err)
+	}
+	if len(rev.upserts) != 1 || rev.upserts[0].FilenameValue != "3" || rev.upserts[0].TagValue != "1" {
+		t.Fatalf("tag conflict must queue filename 3 vs tag 1, got %+v", rev.upserts)
+	}
+	if len(enq.calls) != 1 {
+		t.Fatalf("only the lone marker may enqueue a write, got %d calls", len(enq.calls))
+	}
+}

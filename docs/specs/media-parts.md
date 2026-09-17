@@ -111,7 +111,21 @@ the resolver model.
   "+ Set part" empty curatable row edition uses (F60 RD11/RD12 found-in-build). **No
   validation** on the custom chip — owner ruling 2026-09-16: the strict grammar is a filename
   rule, and adding the first per-field validator to the generic chip for one field is not worth
-  it. The pill renders whatever was typed.
+  it. The pill renders whatever was typed. **Found in build 2026-09-16:** the empty curatable row
+  is the F60 deep-link landing — it renders only on `#field-part` — and since `optional` facets
+  never enter the completeness queue (RD7) and the film page gets no "+ Set part" link (RD9), a
+  file with no part had no route to it. **Ruled (option A):** the media header renders an
+  owner-only dashed "+ Set part" link to `#field-part` in the slot the pill occupies once set —
+  the film page's "+ Set edition" idiom, on one page. Visitors see nothing.
+- **RD6a — found in build 2026-09-16, F48 scoring:** `classifySpecificity` rated any non-entity
+  value under three runes as *partial*, so a one- or two-digit ordinal scored 0.30 + 0.25 = 0.55
+  and never cleared TierHigh — every `{part-N}` file queued a review row even though the value
+  was applied. A bare integer is now *full* specificity (the length floor is for text fragments);
+  no part-specific branch. The one other field with digit values, `scene_number` (TierLow, 0.40),
+  now scores a lone marker 0.80 instead of 0.55 (applied either way) and a tag conflict 0.50
+  instead of 0.25 — which auto-applies, as every other full-specificity TierLow conflict already
+  does; it can only arise if an operator declares a container-tag source for `scene_number`, and
+  the example declares none.
 - **RD9 — Display: a pill, beside the title, on every surface that shows the triplet.** Media
   page: the same read-only pill slot edition uses beside the h1 (the Metadata row remains the
   curation mount). Film page full-film list: beside the edition pill. **Browse/search
