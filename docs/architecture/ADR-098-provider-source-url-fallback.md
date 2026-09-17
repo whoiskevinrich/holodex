@@ -198,9 +198,10 @@ in production for no reader-visible gain. The fallback is proven by `internal/en
   D3 `ProviderLink` on the Service; `externalLinksForEntity` + the video projection consume it. Unit
   tests: three precedence branches × both projection paths (`external_links_test.go`); malformed
   `_source_url` drops without failing the enrich; omitted key leaves a prior row; `Clear` removes it.
-- [ ] Contract §4.12 + §8 example; `docs/testing-strategy.md` row (F63 P0-4 checkboxes).
+- [x] Contract §4.12 + §8 example. · [ ] `docs/testing-strategy.md` row (F63 P0-4, testing gate).
 - [ ] `testdata/enrich-stub/` returns `_source_url` for one persona; `link_templates` for another, so
   both branches are visible in a local QA run.
 - [ ] `model.InternalFieldPrefix` doc-comment lists `_source_url` with the other sidecar keys.
-- [ ] Confirm with the partner video provider that its `/enrich` can return a per-item URL (open
-  question carried on the HOLODEX-390 worklog) — blocks that provider's pill, not core.
+- [x] ~~Confirm with the partner video provider that its `/enrich` can return a per-item URL~~ —
+  **owner ruling 2026-09-17 (F63 RD10):** it should, per entity, on every `/enrich`; contract §4.12
+  is the implementation target for that sidecar (downstream repo, refreshed post-merge).

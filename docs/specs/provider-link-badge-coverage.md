@@ -150,7 +150,7 @@ visitor/owner rule for entity data points):
   never curatable). Holodex validates the scheme at ingest and drops anything else silently (same
   posture as `candidates[].profile_url`). Stored per `(entity_type, entity_id, provider)` next to
   the enrichment row; storage shape is the ADR's call.
-  - [ ] Contract §4 subsection + §8 example; `docs/testing-strategy.md` row.
+  - [x] Contract §4.12 subsection + §8 example. · [ ] `docs/testing-strategy.md` row (testing gate).
   - [ ] A non-http(s) or malformed `_source_url` is dropped and the rest of the enrich succeeds.
 
 - **P0-5 · Per-pill link precedence** (HOLODEX-392). For a pill with namespace `ns` on an entity
@@ -248,16 +248,17 @@ This is an owner-facing single-user surface; the metrics are correctness, not ad
 | RD7 | Media badge = **header pill after the year**, not the Metadata chip | spec 2026-09-16 (mockup-backed) |
 | RD8 | Degraded pill still renders on film/video (ADR-083 D2 parity) | spec 2026-09-16 |
 | RD9 | TMDB sidecar uses **templates only**; it does not also emit `_source_url` | spec 2026-09-16 |
+| RD10 | The production video provider **returns `_source_url` per entity on every `/enrich`** (its pages are item-keyed, not template-shaped); contract §4.12 is its implementation target | owner 2026-09-17 |
+| RD11 | `_source_url` rides the `_` sidecar field channel and is stored as an `entity_enrichment` row — no new table, no migration | ADR-098 D1, 2026-09-17 |
 
 ## Open Questions
 
-- **[owner, blocking for HOLODEX-392]** Does the production provider return a per-item URL on
-  `/enrich` today, or only `profile_url` on `/resolve`? If only the latter, its sidecar needs a
-  change before P0-4 has a consumer; core work is unaffected.
-- **[architecture, resolved by the ADR]** Where the stored `_source_url` lives — a column on
-  `entity_enrichment` (per provider row, needs a migration) vs. a reserved key inside the stored
-  fields blob (no migration, but a field-shaped thing that is not a field). The ADR decides; the
-  contract semantics above hold either way.
+- ~~**[owner]** Does the production provider return a per-item URL on `/enrich`?~~ **Resolved
+  2026-09-17 → RD10:** it should, per entity, on every `/enrich`; contract §4.12 is what its sidecar
+  implements against. Core is unaffected either way.
+- ~~**[architecture]** Where the stored `_source_url` lives~~ **Resolved by
+  [ADR-098](../architecture/ADR-098-provider-source-url-fallback.md) D1:** a reserved `_`-prefixed
+  key in `fields`, stored as an ordinary `entity_enrichment` row — no migration.
 - **[design]** Film header: the film page has a banner/poster header (F59) rather than the
   person page's portrait hero — the handoff decides which line the pills join.
 

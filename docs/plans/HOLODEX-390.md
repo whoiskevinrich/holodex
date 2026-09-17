@@ -27,11 +27,11 @@ media placement) · testing-strategy § (pending)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] ask Kevin: does the production provider return a per-item URL on `/enrich` (blocking for HOLODEX-392's consumer, not for core)
+1. [x] [—] ask Kevin: does the production provider return a per-item URL on `/enrich` — **yes, it should, per entity on every `/enrich` (RD10, 2026-09-17)**; its sidecar implements contract §4.12
 2. [x] [architecture] ADR-098 for `_source_url` storage + precedence — `docs/architecture/ADR-098-provider-source-url-fallback.md`
 3. [x] [backend] HOLODEX-391: `providers/tmdb` declares `link_templates` + drops the `homepage` override — `providers/tmdb/tmdb.go` (~L55 manifest, ~L566 homepage)
 4. [x] [spec] contract §2.2 `link_templates` row + §4.11 subsection + §8 example (P0-1) — `docs/specs/metadata-provider-contract.md`
-4b. [ ] [spec] contract §4.12 `_source_url` subsection + §8 example (P0-4, shape fixed by ADR-098 D1/D2) — `docs/specs/metadata-provider-contract.md`
+4b. [x] [spec] contract §4.12 `_source_url` subsection + §8 example (P0-4, shape fixed by ADR-098 D1/D2) — `docs/specs/metadata-provider-contract.md`
 5. [ ] [design] extend the handoff with film + media header placement, SVG mockup committed — `docs/design/provider-link-badge-handoff.md`
 6. [ ] [backend] HOLODEX-392: `_source_url` ingest + `BuildProviderLink` per-pill fallback — `internal/enrich/service.go`, `internal/api/external_links.go`
 7. [ ] [backend] HOLODEX-393/394: `getFilm` + `getVideo` project `external_links` — `internal/api/films.go`, `internal/api/handlers.go`
@@ -42,7 +42,7 @@ media placement) · testing-strategy § (pending)
 
 ### 2026-09-17 · website unwind folded into 391 → ADR-098
 - skills: code-review, architecture (evaluate pass on the draft — every codebase claim verified)
-- handoff: ADR-098 written + indexed (README row; ADR-083 index status annotated "D2 fallback added by ADR-098"). Decisions: `_source_url` rides the `_` sidecar field channel (`fields._source_url`, stored as an `entity_enrichment` row — no table, no migration), ingest mirrors HOLODEX-258 (garbage overwrites, absence leaves alone), precedence `template ?? (ns == provider ? stored : ∅) ?? degraded` with the row looked up by `provider = namespace` (that equality is RD3), TMDB templates-only. Earlier this session: person `website` + studio fallback unwound into HOLODEX-391 (`f164337`). Next: contract §4.12 (4b), then HOLODEX-392 implements D1–D4. Still open: does the partner video provider return a per-item URL on `/enrich` (ADR-098 action item 5).
+- handoff: ADR-098 written + indexed (README row; ADR-083 index status annotated "D2 fallback added by ADR-098"). Decisions: `_source_url` rides the `_` sidecar field channel (`fields._source_url`, stored as an `entity_enrichment` row — no table, no migration), ingest mirrors HOLODEX-258 (garbage overwrites, absence leaves alone), precedence `template ?? (ns == provider ? stored : ∅) ?? degraded` with the row looked up by `provider = namespace` (that equality is RD3), TMDB templates-only. Earlier this session: person `website` + studio fallback unwound into HOLODEX-391 (`f164337`). Kevin then ruled the open question: the production video provider **should return `_source_url` per entity on every `/enrich`** (RD10) — contract §4.12 written as its implementation target, §8 example + §4.2 sidecar list updated, spec open questions closed (RD10/RD11). Next: HOLODEX-392 implements ADR-098 D1–D4 (`Service.Enrich` reshaping next to `_studio_external_ids`, `ProviderLink` on the Service, both projections); testing-strategy row rides the testing gate.
 
 ### 2026-09-16 · brainstorm → epic + 4 stories → spec
 - skills: product-brainstorming, write-spec, code-review
