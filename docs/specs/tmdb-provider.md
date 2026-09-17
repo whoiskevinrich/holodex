@@ -27,10 +27,10 @@ calls to enrich local entities with data the media files do not carry. This spec
 > poster is a **`fields` entry**, a film's poster is an **`assets[]` entry**. Historical prose
 > below that says "film" while describing `entity_type: "video"` means *movie*.
 
-- **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites, aliases, and a portrait photo.
-- **Movies / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the movie's TMDB page), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)** — as flat text fields, plus the same cast/crew as a structured **`people[]`** array with provider ids and headshots (F32, `credits: true`). The poster is a **`fields`** entry (`poster_url`) here — there is no video image sink.
+- **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites (the person's own site, when TMDB has one — never the TMDB page, which the provider badge links via `link_templates`, F63), aliases, and a portrait photo.
+- **Movies / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's own website, when TMDB has one — the TMDB page itself is reached through `link_templates`, F63), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)** — as flat text fields, plus the same cast/crew as a structured **`people[]`** array with provider ids and headshots (F32, `credits: true`). The poster is a **`fields`** entry (`poster_url`) here — there is no video image sink.
 - **Films** (`entity_type: "film"`, F56/[ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — the same TMDB movie lookup as `video`, re-shaped for the Film entity by an entity-type-aware remap rather than a second response builder: `overview` becomes **`description`**, and the poster is routed to an **`assets[]`** entry (`kind: "poster"`) instead of `poster_url`. A film additionally gets the movie's `backdrop_path` as a **`banner`** asset (F59/[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4) — the one key `video` does not receive, since a video has no image sink. Every other key is shared with `video`. Holodex resolves only `description` and `release_date`, and reads `actors` back at display time to show the cast billed on the release but absent from the owner's scenes; see [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) for why title/studio/director are stored but not applied.
-- **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, and `website` (the company homepage, TMDB page as fallback). Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a downloaded **`assets[]`** entry (`kind: "logo"`) as of F51/[ADR-079](../architecture/ADR-079-studio-image-roles.md) — **not** a `fields` image URL; a `fields["logo"]` value is silently dropped.
+- **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, and `website` (the company homepage, omitted when absent — the TMDB company page is the badge's link via `link_templates`, F63). Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a downloaded **`assets[]`** entry (`kind: "logo"`) as of F51/[ADR-079](../architecture/ADR-079-studio-image-roles.md) — **not** a `fields` image URL; a `fields["logo"]` value is silently dropped.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
 
@@ -316,7 +316,7 @@ Map TMDB person fields → canonical `fields` (each value an array of strings):
 | `birthdate` | `birthday` | `YYYY-MM-DD` string as TMDB returns it. Omit if null |
 | `nationality` | `place_of_birth` | Pass `place_of_birth` as-is (e.g. `"Tokyo, Japan"` or `"Bunkyo, Tokyo, Japan"`). Do not attempt country extraction — it is lossy and Holodex operators can read the full value. Omit if null |
 | `deathdate` | `deathday` | `YYYY-MM-DD` string as TMDB returns it. Omit if null. Canonical key is `deathdate` |
-| `website` | `homepage` | TMDB person details rarely include `homepage`; include only when present and non-empty |
+| `website` | `homepage` | TMDB person details rarely include `homepage`; include only when present and non-empty. Never substitute the TMDB person page — that link is the provider badge's via `/describe.link_templates` (F63/HOLODEX-391) |
 | `aliases` | `also_known_as` | Array → array of strings directly. Include the native-script name (e.g. `宮崎駿`) as TMDB provides it. Feeds Holodex's Person aliases store |
 | `photo` | `profile_path` | **Not a `fields` entry.** Emit as an `assets[]` entry with `kind: "photo"` (see [§4.3](#43-person-photos--asset-urls)) |
 | `known_for_department` | `known_for_department` | Use inside `disambiguation` string, not as a standalone field |
@@ -395,7 +395,7 @@ Map the responses → canonical `fields` (each value an array of strings):
 | `runtime` | details `runtime` | Integer minutes, serialized as a string (e.g. `"139"`). Omit if 0 |
 | `genres` | details `genres[].name` | Multi-value — one element per genre (drop empty names) |
 | `tagline` | details `tagline` | Single value, trimmed. Omit if empty |
-| `homepage` | *(derived)* the movie's **TMDB page** URL — `https://www.themoviedb.org/movie/{id}-{slug}` | **Not** TMDB's `homepage` field. TMDB `homepage` is the studio's own marketing site (often short-lived or region-gated); the film's TMDB page is the provider's durable record and the more useful destination. Always emitted (the id resolves even when the title slug is empty) |
+| `homepage` | details `homepage` | The film's own website; omitted when TMDB has none (never substituted with the TMDB page — that link is the provider badge's, via `/describe.link_templates`, F63/HOLODEX-391; emitting it here too would link TMDB twice on the media page). Values stored before F63 are not migrated; they refresh on the next enrich |
 | `original_language` | details `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
 | `original_title` | details `original_title` | Emitted **only** when non-empty and different from `title` (avoid redundancy) |
 | `status` | details `status` | e.g. `"Released"`. Omit if empty |
@@ -483,7 +483,7 @@ Map the response → canonical `fields` (each value an array of strings):
 |---|---|---|
 | `description` | details `description` | Single value. Trim to ≤4000 chars at a sentence boundary. **Often empty upstream** — omit when so |
 | `country` | details `origin_country` | e.g. `"US"`. Omit if empty |
-| `website` | details `homepage`, else *(derived)* the company's TMDB page `https://www.themoviedb.org/company/{id}-{slug}` | Prefer the official homepage; fall back to the durable TMDB page so a link is always present (mirrors the person/movie website behaviour). Always emitted |
+| `website` | details `homepage` | The company's official site; omitted when absent. The TMDB company page is no longer a fallback here — it is the provider badge's link via `/describe.link_templates` (F63/HOLODEX-391) |
 | `logo` | details `logo_path` | **Text `image_url` field** (not an asset). Absolute URL `https://image.tmdb.org/t/p/original` + `logo_path`. Holodex renders it as an `<img>`. Omit when `logo_path` is null |
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.

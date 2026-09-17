@@ -7,7 +7,8 @@
 		releaseYear,
 		providerFromWinningSource,
 		aliasHint,
-		videoCount
+		videoCount,
+		sortExternalLinks
 	} from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { partBadgeLabel } from '$lib/components/video/partBadge';
@@ -17,6 +18,7 @@
 		DecisionSource,
 		EnrichSource,
 		EntityRef,
+		ExternalLink,
 		Film,
 		FilmBilledCredit,
 		FilmYearCollision,
@@ -33,6 +35,7 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
 	import { expandedField } from '$lib/expandedField.svelte';
 	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
@@ -68,6 +71,12 @@
 	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
 	// dedicated Images section; the `thumb` role had no consumer, so it was dropped.
 	let film = $state<Film | null>(null);
+	// Provider-link pills (HOLODEX-393, F63 P0-6): one per stored external id, joined
+	// to the year line below — the film's passive-metadata line, as person's video
+	// count and media's meta row are theirs. Sorted here so DD3's alphabetical order
+	// holds regardless of the payload's row order.
+	let externalLinks = $state<ExternalLink[]>([]);
+	const sortedLinks = $derived(sortExternalLinks(externalLinks));
 	// Other titles on the identity spine (HOLODEX-376), bound into AliasPanel; a rename
 	// keeps the old title as one (RD5) so the old spelling still routes on create.
 	let aliases = $state<PersonAlias[]>([]);
@@ -266,6 +275,7 @@
 		studios = res.studios ?? [];
 		billedAbsent = res.billed_absent ?? [];
 		billedTotal = res.billed_total ?? 0;
+		externalLinks = res.external_links ?? [];
 	}
 
 	function load(current: number) {
@@ -565,6 +575,23 @@
 								onCommit={commitYear}
 								id="field-year"
 							>
+								<!-- Provider pills ride the year line (F63 handoff DD4): `1999 · IMDb TMDB`,
+								     the film's reading of "join the entity's passive metadata line" —
+								     person appends to its video count, media to its meta row after the
+								     year. `trailing` puts them between the value and the docked pencil,
+								     exactly where the person title's nationality flags sit; the inner
+								     flex-wrap lets 3+ pills wrap inside the non-wrapping name-edit-row.
+								     Nothing renders — no separator either — when the film has no ids. -->
+								{#snippet trailing()}
+									{#if sortedLinks.length}
+										<span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+											<span aria-hidden="true">·</span>
+											{#each sortedLinks as link (link.provider)}
+												<ProviderLinkBadge {link} entityName={film?.name ?? ''} />
+											{/each}
+										</span>
+									{/if}
+								{/snippet}
 								{#snippet verdict(c: FilmYearCollision, resolve: () => void)}
 									<div class="mt-2 space-y-2 rounded-theme border border-rule bg-surface p-3">
 										<p class="text-sm text-ink">

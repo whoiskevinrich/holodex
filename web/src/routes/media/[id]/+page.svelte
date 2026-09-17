@@ -4,7 +4,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -30,6 +30,7 @@
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
+	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import { hotkey } from '$lib/actions/hotkey.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
@@ -70,6 +71,9 @@
 	// Studio entities linked to this video (F38): the resolved studio value links to its
 	// /studios/{id} page; the link always matches the displayed value (RD1).
 	let studios = $state<Studio[]>([]);
+	// Provider-link badge (HOLODEX-394, ADR-098 D4): 0 or 1 pill from the resolver's
+	// winning external_provider_id, mounted on the header meta row (handoff DD5).
+	let externalLinks = $state<ExternalLink[]>([]);
 	// Films this video is attached to (F56, design handoff §3a) — read-only badge (scene
 	// number or "Full film") + owner-only detach; asserted links, so no relink/prune ever
 	// touches these regardless of films_enabled state (ADR-085).
@@ -555,6 +559,7 @@
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 		writebackStatus = res.writeback_status ?? { pending: false, failed: false };
+		externalLinks = res.external_links ?? [];
 	}
 
 	// Poll while a write is pending (ADR-091, HOLODEX-323, spec R2.5): reacts to
@@ -1427,6 +1432,16 @@
 						<span>{formatDuration(video.duration_sec)}</span>
 						{#if formatYear(video.recorded_at)}
 							<span>·</span><span>{formatYear(video.recorded_at)}</span>
+						{/if}
+						<!-- Provider link badge after the year (F63 P0-7, handoff DD5): the same
+						     `· [pill]` fragment EntityVideoMeta appends to a person's video count.
+						     Video resolves 0 or 1 pill; nothing renders — no separator either —
+						     when external_provider_id has no value. -->
+						{#if externalLinks.length}
+							<span aria-hidden="true">·</span>
+							{#each externalLinks as link (link.provider)}
+								<ProviderLinkBadge {link} entityName={displayTitle} />
+							{/each}
 						{/if}
 					</div>
 				</header>

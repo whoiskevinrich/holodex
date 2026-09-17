@@ -769,6 +769,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	var resolved []resolver.ResolvedField
 	var enriched []model.EnrichedField
 	var mfields []mapping.Field
+	var links []ExternalLink
 	if h.mappings != nil {
 		m := h.mappings.Current()
 		fields = m.Resolve(extra)
@@ -840,6 +841,9 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			if h.enrich != nil {
 				enriched = h.enrich.FieldsFromRows(enrichRows)
 			}
+			// HOLODEX-394 (F63 P0-7, ADR-098 D4): the header pill from the winning
+			// external_provider_id, over the enrichment rows fetched above.
+			links = h.externalLinksForVideo(r.Context(), resolved, enrichRows)
 		}
 	} else if h.enrich != nil {
 		enriched = h.videoEnrichment(r, id)
@@ -898,6 +902,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		"enrich_queries":   enrichQueries,
 		"completeness":     completeness,
 		"writeback_status": wbStatus,
+		"external_links":   links,
 	})
 }
 
@@ -1282,7 +1287,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	}
 	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
 	// lookup failure logs and serves the page with no badges rather than failing it.
-	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityPerson, id)
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityPerson, id, nil)
 	if linksErr != nil {
 		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
 	}

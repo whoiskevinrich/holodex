@@ -20,7 +20,12 @@
     "",
     "icon is an RGB triple the stub renders as a solid PNG, or null for no",
     "brand_icon at all (the ProviderIcon monogram fallback). candidates and fault",
-    "name behaviours implemented in stub.js."
+    "name behaviours implemented in stub.js.",
+    "",
+    "linkTemplates goes out verbatim as /describe.link_templates (contract §4.11);",
+    "sourceUrl is returned as the _source_url sidecar on /enrich (§4.12). alpha has",
+    "the first, bravo the second, so both branches of the provider-badge precedence",
+    "(ADR-098 D3: template, else own stored page, else degraded) are one click away."
   ],
   "personas": [
     {
@@ -28,6 +33,7 @@
       "name": "alpha",
       "group": "precedence",
       "icon": [198, 64, 60],
+      "linkTemplates": { "alpha": { "person": "https://example.com/alpha/person/{id}" } },
       "values": {
         "bio": ["Japanese filmmaker and co-founder of Studio Ghibli."],
         "birthdate": ["1941-01-05"],
@@ -42,6 +48,7 @@
       "name": "bravo",
       "group": "precedence",
       "icon": [58, 122, 196],
+      "sourceUrl": "https://example.com/bravo/pages/hayao-miyazaki",
       "values": {
         "bio": ["Animator, director and manga artist. Retired (repeatedly)."],
         "birthdate": ["1941-01-06"],

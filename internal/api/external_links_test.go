@@ -11,10 +11,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"holodex/internal/api"
+	"holodex/internal/cache"
 	"holodex/internal/db"
 	"holodex/internal/enrich"
+	"holodex/internal/mapping"
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -27,6 +31,7 @@ import (
 type externalLinksEnv struct {
 	repo *repo.Repo
 	srv  *httptest.Server
+	svc  *enrich.Service
 }
 
 func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]string) *externalLinksEnv {
@@ -58,6 +63,15 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 		case "/resolve":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"candidates": []any{}})
+		case "/enrich":
+			// Always hands core the provider's own page for the entity (contract
+			// §4.12, ADR-098 D1) so the _source_url fallback tests below can exercise
+			// the real ingest path rather than writing the row directly.
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"fields": map[string]any{
+				"bio":         []string{"Enriched."},
+				"_source_url": []string{"https://fake.example/pages/miyazaki"},
+			}})
 		default:
 			http.NotFound(w, req)
 		}
@@ -83,10 +97,89 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetEnrichment(svc)
+	// Films ride the same projection (HOLODEX-393); the flag only mounts the routes.
+	h.SetFilmsEnabled(true)
+	// Video's pill comes off the resolver (HOLODEX-394, ADR-098 D4), so getMedia
+	// needs a mapping that resolves external_provider_id — provider shadow first,
+	// then the file tag — for TestExternalLinks_Video.
+	mpath := filepath.Join(dir, "metadata-mappings.yaml")
+	mappingsYAML := "fields:\n" +
+		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
+		"  - canonical: external_provider_id\n    label: External ID\n    sources: [fake:external_provider_id, file:ExternalId]\n"
+	if err := os.WriteFile(mpath, []byte(mappingsYAML), 0o644); err != nil {
+		t.Fatalf("write mappings: %v", err)
+	}
+	mappings, err := mapping.NewStore(mpath)
+	if err != nil {
+		t.Fatalf("load mappings: %v", err)
+	}
+	h.SetMetadataFields(mappings, cache.Noop{})
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	return &externalLinksEnv{repo: r, srv: srv}
+	return &externalLinksEnv{repo: r, srv: srv, svc: svc}
+}
+
+// seedSourceURLPerson creates a person carrying a foreign "other:1" id (attached
+// through the video-credit reconcile, like any provider-emitted foreign id) and then
+// enriches it through the fake provider, which attaches "fake:1" as the identity row
+// and stores the provider's _source_url — the two-pill shape ADR-098 D3 rules on.
+func seedSourceURLPerson(t *testing.T, env *externalLinksEnv) int64 {
+	t.Helper()
+	ctx := context.Background()
+	vid := seedVideo(t, env.repo, "/m/source-url.mkv", "Source URL Clip")
+	if err := env.repo.ReconcileVideoPeople(ctx, vid,
+		[]repo.PersonRoleName{{Name: "Source Url", Role: "actor"}},
+		map[string]string{"Source Url": "other:1"}); err != nil {
+		t.Fatalf("attach other id: %v", err)
+	}
+	pid, _, err := env.repo.PersonIDByName(ctx, "Source Url")
+	if err != nil {
+		t.Fatalf("lookup person: %v", err)
+	}
+	if _, err := env.svc.Enrich(ctx, "person", pid, "fake", "fake:1", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	return pid
+}
+
+// TestExternalLinks_SourceURLFallback is ADR-098 D3's fallback branch end to end:
+// the provider declared no template for its own namespace, so its pill links to the
+// stored _source_url — while the foreign "other" pill on the same person stays
+// degraded (F63 RD3: a stored page backs only its own provider's pill).
+func TestExternalLinks_SourceURLFallback(t *testing.T) {
+	env := newExternalLinksEnv(t, nil)
+	pid := seedSourceURLPerson(t, env)
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/people/"+itoa(pid))
+	links, _ := body["external_links"].([]any)
+	if len(links) != 2 {
+		t.Fatalf("external_links = %v, want 2 entries", body["external_links"])
+	}
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["fake"]; lm == nil || lm["url"] != "https://fake.example/pages/miyazaki" {
+		t.Errorf("fake badge = %v, want the stored _source_url", lm)
+	}
+	if lm := byProvider["other"]; lm == nil || lm["url"] != nil {
+		t.Errorf("other badge = %v, want degraded (no url) — a foreign namespace never takes the provider's stored page", lm)
+	}
+}
+
+// TestExternalLinks_TemplateBeatsSourceURL is ADR-098 D3's first branch: with a
+// template declared for the provider's own namespace, the template renders and the
+// stored _source_url (also present) is dead weight.
+func TestExternalLinks_TemplateBeatsSourceURL(t *testing.T) {
+	env := newExternalLinksEnv(t, map[string]map[string]string{
+		"fake": {"person": "https://fake.example/person/{id}"},
+	})
+	pid := seedSourceURLPerson(t, env)
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/people/"+itoa(pid))
+	links, _ := body["external_links"].([]any)
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["fake"]; lm == nil || lm["url"] != "https://fake.example/person/1" {
+		t.Errorf("fake badge = %v, want the template URL over the stored _source_url", lm)
+	}
 }
 
 // linksByProvider indexes an external_links JSON array by its "provider" key, so
@@ -185,6 +278,51 @@ func TestExternalLinks_Studio(t *testing.T) {
 		t.Fatal("imdb badge missing")
 	} else if _, present := lm["url"]; present {
 		t.Errorf("imdb badge url = %v, want omitted (no imdb/studio template declared)", lm["url"])
+	}
+}
+
+// TestExternalLinks_Film is HOLODEX-393 (F63 P0-6): getFilm projects the film's
+// stored ids through the same externalLinksForEntity path as person and studio —
+// one pill per id, linked when a film template exists for the namespace, label-only
+// otherwise — and a film with no ids projects no entries (null, the person/studio
+// contract the page already tolerates), so the header meta line stays byte-identical.
+func TestExternalLinks_Film(t *testing.T) {
+	env := newExternalLinksEnv(t, map[string]map[string]string{
+		"tmdb": {"film": "https://tmdb.example/movie/{id}"},
+	})
+	ctx := context.Background()
+	fid, err := env.repo.CreateFilm(ctx, "Badge Film", 1999)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	for _, ext := range []string{"tmdb:603", "imdb:tt0133093"} {
+		if err := env.repo.AttachExternalID(ctx, "film", fid, ext); err != nil {
+			t.Fatalf("attach %s: %v", ext, err)
+		}
+	}
+
+	_, body := getJSON(t, env.srv.URL+"/api/v1/films/"+itoa(fid))
+	links, _ := body["external_links"].([]any)
+	if len(links) != 2 {
+		t.Fatalf("external_links = %v, want 2 entries", body["external_links"])
+	}
+	byProvider := linksByProvider(t, links)
+	if lm := byProvider["tmdb"]; lm == nil || lm["url"] != "https://tmdb.example/movie/603" {
+		t.Errorf("tmdb badge = %v", lm)
+	}
+	if lm, ok := byProvider["imdb"]; !ok {
+		t.Fatal("imdb badge missing")
+	} else if _, present := lm["url"]; present {
+		t.Errorf("imdb badge url = %v, want omitted (no imdb/film template declared)", lm["url"])
+	}
+
+	bare, err := env.repo.CreateFilm(ctx, "Bare Film", 2001)
+	if err != nil {
+		t.Fatalf("create bare film: %v", err)
+	}
+	_, body = getJSON(t, env.srv.URL+"/api/v1/films/"+itoa(bare))
+	if got, _ := body["external_links"].([]any); len(got) != 0 {
+		t.Errorf("bare film external_links = %v, want none", body["external_links"])
 	}
 }
 
@@ -304,5 +442,93 @@ func TestExternalLinks_MalformedIDSkipped(t *testing.T) {
 	links, _ := body["external_links"].([]any)
 	if len(links) != 0 {
 		t.Fatalf("external_links = %v, want empty (malformed id skipped)", body["external_links"])
+	}
+}
+
+// TestExternalLinks_Video covers ADR-098 D4 end to end: the media page's single
+// pill is the resolver's winning external_provider_id, linked through the same
+// per-pill precedence as the entity kinds — template, else the winning provider's
+// own stored _source_url, else degraded — and absent entirely when the field has
+// no value (F63 P0-7: the meta line stays byte-identical).
+func TestExternalLinks_Video(t *testing.T) {
+	env := newExternalLinksEnv(t, map[string]map[string]string{
+		"tmdb": {"video": "https://tmdb.example/movie/{id}"},
+	})
+	ctx := context.Background()
+
+	cases := []struct {
+		name     string
+		path     string
+		extra    []model.ExtraMetadata
+		enriched map[string][]string // fake provider's shadow rows, nil for none
+		wantNS   string
+		wantURL  string // "" = degraded (url omitted)
+	}{
+		{
+			name:     "provider value with a template",
+			path:     "/m/templated.mkv",
+			enriched: map[string][]string{"external_provider_id": {"tmdb:603"}},
+			wantNS:   "tmdb", wantURL: "https://tmdb.example/movie/603",
+		},
+		{
+			name: "provider value falls back to its own stored _source_url",
+			path: "/m/stored.mkv",
+			enriched: map[string][]string{
+				"external_provider_id": {"fake:99"},
+				model.SourceURLField:   {"https://fake.example/videos/99"},
+			},
+			wantNS: "fake", wantURL: "https://fake.example/videos/99",
+		},
+		{
+			name: "a stored page never backs a foreign namespace (RD3)",
+			path: "/m/foreign.mkv",
+			enriched: map[string][]string{
+				"external_provider_id": {"other:7"},
+				model.SourceURLField:   {"https://fake.example/videos/7"},
+			},
+			wantNS: "other", wantURL: "",
+		},
+		{
+			name:   "file-layer winner with no template renders degraded",
+			path:   "/m/file.mkv",
+			extra:  []model.ExtraMetadata{{SourceKey: "ExternalId", Value: "imdb:tt0133093"}},
+			wantNS: "imdb", wantURL: "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			vid, err := env.repo.UpsertVideo(ctx, &model.Video{
+				FilePath: tc.path, FileSize: 1, Title: "Clip",
+				FileMtime: time.Now().UTC().Truncate(time.Second),
+			}, tc.extra)
+			if err != nil {
+				t.Fatalf("seed video: %v", err)
+			}
+			if tc.enriched != nil {
+				if err := env.repo.UpsertEnrichment(ctx, "video", vid, "fake", "fake:x", tc.enriched); err != nil {
+					t.Fatalf("upsert enrichment: %v", err)
+				}
+			}
+			_, body := getJSON(t, env.srv.URL+"/api/v1/media/"+itoa(vid))
+			links, _ := body["external_links"].([]any)
+			if len(links) != 1 {
+				t.Fatalf("external_links = %v, want exactly one pill", body["external_links"])
+			}
+			lm := linksByProvider(t, links)[tc.wantNS]
+			if lm == nil {
+				t.Fatalf("pill namespace = %v, want %q", links, tc.wantNS)
+			}
+			if got, present := lm["url"]; tc.wantURL == "" && present {
+				t.Errorf("url = %v, want omitted (degraded)", got)
+			} else if tc.wantURL != "" && got != tc.wantURL {
+				t.Errorf("url = %v, want %q", got, tc.wantURL)
+			}
+		})
+	}
+
+	bare := seedVideo(t, env.repo, "/m/bare.mkv", "Bare Clip")
+	_, body := getJSON(t, env.srv.URL+"/api/v1/media/"+itoa(bare))
+	if got, _ := body["external_links"].([]any); len(got) != 0 {
+		t.Errorf("bare video external_links = %v, want none", body["external_links"])
 	}
 }

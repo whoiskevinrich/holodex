@@ -458,6 +458,52 @@ func (s *Service) BuildProviderLink(ctx context.Context, namespace, entityKind, 
 	return BuildLink(tmpl, id), true
 }
 
+// SourceURLs reads an entity's stored provider page URLs (ADR-098 D2, contract
+// §4.12), keyed by lowercased provider name — one read per request, shared by every
+// pill ProviderLink then builds for that entity. A provider whose row was cleared to
+// empty (it last sent garbage) is absent from the map.
+func (s *Service) SourceURLs(ctx context.Context, entityType string, entityID int64) (map[string]string, error) {
+	rows, err := s.repo.EnrichmentForEntity(ctx, entityType, entityID)
+	if err != nil {
+		return nil, err
+	}
+	return SourceURLsFromRows(rows), nil
+}
+
+// SourceURLsFromRows is SourceURLs over rows the caller already holds — getMedia
+// fetches an entity's enrichment once for the resolver and the per-provider table,
+// and the video pill (ADR-098 D4) reads the same rows rather than a third time.
+func SourceURLsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	out := map[string]string{}
+	for _, row := range rows {
+		if row.FieldKey != model.SourceURLField || len(row.Values) == 0 || row.Values[0] == "" {
+			continue
+		}
+		out[strings.ToLower(row.Provider)] = row.Values[0]
+	}
+	return out
+}
+
+// ProviderLink is the per-pill precedence of ADR-098 D3:
+// template(namespace, kind) ?? stored[namespace] ?? degraded. stored is the entity's
+// SourceURLs map, keyed by provider — looking it up by the pill's namespace is what
+// confines a provider's stored page to its own pill (F63 RD3): a TMDB row is keyed
+// "tmdb", so the "imdb" pill on the same entity can only ever take an imdb template.
+// ok is false in the degraded state (no template, no own-provider URL) — the badge
+// still renders, just without an href.
+func (s *Service) ProviderLink(ctx context.Context, namespace, entityKind, id string, stored map[string]string) (link string, ok bool) {
+	if link, ok = s.BuildProviderLink(ctx, namespace, entityKind, id); ok {
+		return link, true
+	}
+	if id == "" {
+		return "", false
+	}
+	if u := stored[strings.ToLower(strings.TrimSpace(namespace))]; u != "" {
+		return u, true
+	}
+	return "", false
+}
+
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
 // embedded external ids (deterministic path) and/or a name query (fallback), plus
 // ADR-095's structured keys, which gateHint trims to what this provider's manifest
@@ -525,6 +571,12 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// since UpsertEnrichment never deletes a key merely absent from this map).
 	if raw, ok := fields[model.StudioExternalIDsField]; ok {
 		fields[model.StudioExternalIDsField] = sanitizeStudioExternalIDs(raw)
+	}
+	// ADR-098 D2: the provider's own page URL (contract §4.12) rides the same sidecar
+	// channel with the same raw/ok rule — sent-but-garbage overwrites (clears a stale
+	// row), omitted leaves the last good URL alone. Single-valued: first http(s) survivor.
+	if raw, ok := fields[model.SourceURLField]; ok {
+		fields[model.SourceURLField] = sanitizeSourceURL(raw)
 	}
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
 	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
@@ -652,6 +704,20 @@ func sanitizePeople(in []ProviderPerson) []ProviderPerson {
 		out = append(out, p)
 	}
 	return out
+}
+
+// sanitizeSourceURL reduces a provider's _source_url values (ADR-098 D2) to at most
+// one absolute http(s) URL — the first that passes validHTTPURL — or an empty slice
+// when none does. It becomes an outbound href on the entity page, never dialed
+// server-side, so the posture is sanitizeProfileURL's: a bad value is dropped, never
+// an error.
+func sanitizeSourceURL(values []string) []string {
+	for _, v := range values {
+		if u := sanitizeProfileURL(v); u != "" {
+			return []string{u}
+		}
+	}
+	return []string{}
 }
 
 // sanitizeStudioExternalIDs rejects any _studio_external_ids value whose id token (the text
