@@ -725,6 +725,14 @@ authored-identity guard**. Maps to the [F40 design handoff](design/person-media-
   removing `director` from the marked set (or a `peopleKeys` tag with no mapped field) trips the guard —
   proving it catches a dropped source. Backfill is **idempotent** (second pass = 0 changes) and ordered
   migrate → backfill → serve (the `''` default never surfaces a wrong role).
+- **First-import link from embedded tags (RD9 (d)/(e), HOLODEX-408/409, cardinal)**:
+  `TestFirstImportLinksPeopleFromEmbeddedTags` (`internal/metadata/people_link_e2e_test.go`) drives
+  the **real** scanner → `UpsertVideo` → `RelinkVideoEntity` with an `Extractor` fake whose output is
+  exiftool-shaped JSON parsed by the real `mapExiftool` (exposed via `export_test.go`) — the seam every
+  earlier relink test skipped by seeding the `Artist` row into `extra` by hand, which real extraction
+  never produced. Asserts `Artist: "A, B"` + `Cast: "C,D"` + `Director` on a fresh scan yield five
+  distinct `video_people` rows under a mapping that **omits** `multi: true`. Mutation-tested both ways:
+  dropping the `Extra` append → `[]` linked; dropping the forced-`multi` → `["A, B"]` as one person.
 - **Canonical-name round-trip (P0-7/P0-11, cardinal)**: writeback flattens resolved `actors` → `Artist`
   (comma-delimited) and `studio` → `Publisher` using each entity's **canonical** name; a re-scan
   `splitMulti`-splits `Artist` back and the reconcile re-links **exactly the same** person set — **no

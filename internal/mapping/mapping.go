@@ -110,7 +110,15 @@ func parse(data []byte) (*Mappings, error) {
 			}
 		}
 		f.ParsedSources = parseSources(f.Sources)
-		if registry.Lookup(f.Canonical).FileOnly {
+		def := registry.Lookup(f.Canonical)
+		// A person-typed field (registry.PersonTypedFields, ADR-072) is a set by
+		// definition: video_people is derived from its resolved values, so a
+		// comma-joined name must always split. Force merge-mode instead of trusting
+		// an optional `multi: true` in the YAML (HOLODEX-409).
+		if def.EntityKind == registry.EntityKindPerson {
+			f.Multi = true
+		}
+		if def.FileOnly {
 			for _, s := range f.ParsedSources {
 				if s.Namespace != "file" && s.Namespace != filenameNamespace {
 					return nil, fmt.Errorf("parse metadata mappings: field %q is a file fact and "+

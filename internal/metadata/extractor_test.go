@@ -33,9 +33,22 @@ func TestMapExiftool(t *testing.T) {
 	if !ex.HasCoverArt {
 		t.Errorf("HasCoverArt should be true for CoverArt key")
 	}
-	// Publisher is captured; FileSize/CoverArt are excluded from Extra.
-	if len(ex.Extra) != 1 || ex.Extra[0].SourceKey != "Publisher" || ex.Extra[0].Value != "UGC" {
-		t.Errorf("extra = %+v", ex.Extra)
+	// Publisher is captured; FileSize/CoverArt are excluded from Extra. The
+	// person tag is captured verbatim as well (HOLODEX-408): video_people is
+	// derived from the resolved actors field, whose file:Artist source reads
+	// video_metadata — ex.People alone never reaches the resolver.
+	extra := map[string]string{}
+	for _, e := range ex.Extra {
+		extra[e.SourceKey] = e.Value
+	}
+	want := map[string]string{"Publisher": "UGC", "Artist": "Audrey Tautou, Mathieu Kassovitz"}
+	if len(ex.Extra) != len(want) {
+		t.Errorf("extra = %+v, want %d entries", ex.Extra, len(want))
+	}
+	for k, v := range want {
+		if extra[k] != v {
+			t.Errorf("Extra[%q] = %q, want %q", k, extra[k], v)
+		}
 	}
 }
 
@@ -78,14 +91,15 @@ func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 		"EpisodeSort":  "5",
 		"Edition":      "Final Cut",
 		"PartNumber":   "2",
+		"Artist":       "Alex Morgan", // person tags land in Extra too (HOLODEX-408)
 		"CRC-32":       "deadbeef",
 	} {
 		if extra[key] != want {
 			t.Errorf("Extra[%q] = %q, want %q (all extra: %+v)", key, extra[key], want, ex.Extra)
 		}
 	}
-	if len(ex.Extra) != 6 {
-		t.Errorf("extra = %+v, want 6 entries", ex.Extra)
+	if len(ex.Extra) != 7 {
+		t.Errorf("extra = %+v, want 7 entries", ex.Extra)
 	}
 }
 
