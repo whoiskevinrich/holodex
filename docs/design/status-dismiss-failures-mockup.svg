@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" width="760" height="560" font-family="Archivo, Helvetica, Arial, sans-serif">
+<title>Recent failures callout on /owner/status: current, proposed dismiss controls, stressed, and quiet states (HOLODEX-416, Cinémathèque skin)</title>
+<rect width="760" height="560" fill="#15110e"/>
+
+<text x="20" y="26" font-size="12" fill="#9b9082">A · Today — no mechanism</text>
+<rect x="20" y="38" width="350" height="112" rx="2" fill="#15110e" stroke="#e2603f"/>
+<text x="32" y="58" font-size="10" font-weight="600" letter-spacing="1" fill="#e2603f">4 RECENT FAILURES</text>
+<text x="32" y="80" font-size="13" fill="#f3ece1">enrich <tspan font-size="11" fill="#9b9082">2h ago   provider timeout after 30s</tspan></text>
+<text x="32" y="100" font-size="13" fill="#f3ece1">writeback <tspan font-size="11" fill="#9b9082">yesterday   cover.jpg: undecodable attached pic</tspan></text>
+<text x="32" y="120" font-size="13" fill="#f3ece1">scan <tspan font-size="11" fill="#9b9082">3d ago   /media/unmounted: no such file</tspan></text>
+<text x="32" y="140" font-size="13" fill="#f3ece1">enrich <tspan font-size="11" fill="#9b9082">5d ago   401 from provider</tspan></text>
+<text x="20" y="176" font-size="10" letter-spacing="1" fill="#9b9082">JOB</text>
+<text x="200" y="176" font-size="10" letter-spacing="1" fill="#9b9082" text-anchor="end">ERRORS</text>
+<line x1="20" y1="182" x2="370" y2="182" stroke="#2a2622"/>
+<text x="20" y="200" font-size="12" fill="#f3ece1">enrich</text><text x="200" y="200" font-size="12" fill="#e2603f" text-anchor="end">2</text>
+<text x="20" y="220" font-size="12" fill="#f3ece1">writeback</text><text x="200" y="220" font-size="12" fill="#e2603f" text-anchor="end">1</text>
+<text x="20" y="240" font-size="12" fill="#f3ece1">scan</text><text x="200" y="240" font-size="12" fill="#e2603f" text-anchor="end">1</text>
+
+<text x="390" y="26" font-size="12" fill="#9b9082">B · Proposed (owner) — per-row Dismiss + Dismiss all</text>
+<rect x="390" y="38" width="350" height="112" rx="2" fill="#15110e" stroke="#e2603f"/>
+<text x="402" y="58" font-size="10" font-weight="600" letter-spacing="1" fill="#e2603f">4 RECENT FAILURES</text>
+<text x="728" y="58" font-size="11" fill="#9b9082" text-anchor="end" text-decoration="underline">Dismiss all 4</text>
+<text x="402" y="80" font-size="13" fill="#f3ece1">enrich <tspan font-size="11" fill="#9b9082">2h ago   provider timeout</tspan></text>
+<rect x="672" y="68" width="56" height="18" rx="2" fill="none" stroke="#2a2622"/><text x="700" y="81" font-size="11" fill="#9b9082" text-anchor="middle">Dismiss</text>
+<text x="402" y="100" font-size="13" fill="#f3ece1">writeback <tspan font-size="11" fill="#9b9082">yesterday   cover.jpg: undecodable</tspan></text>
+<rect x="672" y="88" width="56" height="18" rx="2" fill="#181310" stroke="#2a2622"/><text x="700" y="101" font-size="11" fill="#f3ece1" text-anchor="middle">Dismiss</text>
+<text x="402" y="120" font-size="13" fill="#f3ece1">scan <tspan font-size="11" fill="#9b9082">3d ago   /media/unmounted</tspan></text>
+<text x="700" y="121" font-size="11" fill="#9b9082" text-anchor="middle">Dismissing…</text>
+<text x="402" y="140" font-size="13" fill="#f3ece1">enrich <tspan font-size="11" fill="#9b9082">5d ago   401 from provider</tspan></text>
+<rect x="672" y="128" width="56" height="18" rx="2" fill="none" stroke="#2a2622"/><text x="700" y="141" font-size="11" fill="#9b9082" text-anchor="middle">Dismiss</text>
+<text x="390" y="170" font-size="11" fill="#9b9082">row 2 = hover (bg-surface-2, ink label) · row 3 = in flight (border drops, label stays)</text>
+
+<text x="20" y="286" font-size="12" fill="#9b9082">C · Stressed at 360px — 73 failures, list capped at 50, long detail</text>
+<rect x="20" y="298" width="320" height="150" rx="2" fill="#15110e" stroke="#e2603f"/>
+<text x="32" y="318" font-size="10" font-weight="600" letter-spacing="1" fill="#e2603f">73 RECENT FAILURES <tspan font-weight="400" letter-spacing="0" fill="#9b9082">· showing the most recent 50</tspan></text>
+<text x="328" y="336" font-size="11" fill="#9b9082" text-anchor="end" text-decoration="underline">Dismiss all 73</text>
+<text x="32" y="358" font-size="13" fill="#f3ece1">writeback <tspan font-size="11" fill="#9b9082">2h ago</tspan></text>
+<text x="32" y="374" font-size="11" fill="#9b9082">ffmpeg: Invalid data found when processing input</text>
+<text x="32" y="388" font-size="11" fill="#9b9082">/media/library/studio/2019/very-long-file-name-</text>
+<text x="32" y="402" font-size="11" fill="#9b9082">with-many-words.mp4</text>
+<rect x="272" y="392" width="56" height="18" rx="2" fill="none" stroke="#2a2622"/><text x="300" y="405" font-size="11" fill="#9b9082" text-anchor="middle">Dismiss</text>
+<text x="32" y="424" font-size="13" fill="#f3ece1">writeback <tspan font-size="11" fill="#9b9082">2h ago   ffmpeg: Invalid data…</tspan></text>
+<rect x="272" y="412" width="56" height="18" rx="2" fill="none" stroke="#2a2622"/><text x="300" y="425" font-size="11" fill="#9b9082" text-anchor="middle">Dismiss</text>
+<text x="32" y="442" font-size="11" fill="#9b9082">… 48 more</text>
+
+<text x="390" y="286" font-size="12" fill="#9b9082">D · After Dismiss all — Summary quiet, Log keeps the record</text>
+<text x="390" y="312" font-size="10" letter-spacing="1" fill="#9b9082">JOB</text>
+<text x="560" y="312" font-size="10" letter-spacing="1" fill="#9b9082" text-anchor="end">ERRORS</text>
+<text x="600" y="312" font-size="10" letter-spacing="1" fill="#9b9082">STATUS</text>
+<line x1="390" y1="318" x2="740" y2="318" stroke="#2a2622"/>
+<text x="390" y="336" font-size="12" fill="#f3ece1">enrich</text><text x="560" y="336" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<rect x="600" y="325" width="40" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="620" y="336" font-size="10" fill="#9b9082" text-anchor="middle">error</text>
+<text x="390" y="356" font-size="12" fill="#f3ece1">writeback</text><text x="560" y="356" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<rect x="600" y="345" width="52" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="626" y="356" font-size="10" fill="#9b9082" text-anchor="middle">success</text>
+<text x="390" y="376" font-size="12" fill="#f3ece1">scan</text><text x="560" y="376" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<rect x="600" y="365" width="52" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="626" y="376" font-size="10" fill="#9b9082" text-anchor="middle">success</text>
+<text x="390" y="408" font-size="11" fill="#9b9082">Log tab — rows unchanged, one new marker</text>
+<line x1="390" y1="416" x2="740" y2="416" stroke="#2a2622"/>
+<text x="390" y="434" font-size="12" fill="#9b9082">2h ago</text><text x="450" y="434" font-size="12" fill="#f3ece1">enrich</text>
+<rect x="540" y="423" width="40" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="560" y="434" font-size="10" fill="#9b9082" text-anchor="middle">error</text>
+<text x="588" y="434" font-size="11" fill="#9b9082">· dismissed</text>
+<text x="390" y="454" font-size="12" fill="#9b9082">1h ago</text><text x="450" y="454" font-size="12" fill="#f3ece1">writeback</text>
+<rect x="540" y="443" width="52" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="566" y="454" font-size="10" fill="#9b9082" text-anchor="middle">success</text>
+
+<text x="20" y="500" font-size="11" fill="#9b9082">Decisions: D1 per-row + Dismiss all N · D2 dismissed runs leave the callout and the Errors count · D3 no confirm · D4 job_run_dismissals table, job_runs immutable</text>
+<text x="20" y="518" font-size="11" fill="#9b9082">Not in v1: undo, Log filter, auto-dismiss on next success. Owner-only; visitors see today's callout with server-side-excluded counts.</text>
+</svg>
