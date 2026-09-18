@@ -96,7 +96,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   mutation passed. `aspect-[2/3]` dropped on a pictured row is NOT caught (the image supplies the
   2:3) — recorded in the `finds` text and §12.5, not claimed. F61's stale §10 figures (60–68 /
   74–76) corrected to the re-based numbers
-- [ ] security `security-review` — the allowlist now gates a second browser-rendered surface;
+- [x] security `security-review` — the allowlist now gates a second browser-rendered surface;
   confirm `sanitizeCandidates` is upstream of every resolve handler (person, video, film, studio)
   and that nothing is fetched server-side
 
@@ -104,15 +104,29 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 
 1. [x] [S] Draft PR #346 opened with the spec gate; `needs-spec` cleared.
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared.
-2a. [ ] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48.
+2a. [x] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48 — Kevin kept 40 × 60 (2026-09-17).
 3. [x] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
 4. [x] [M] Frontend FR3 + stub personas + three-skin QA.
 5. [x] [S] `/testing-strategy` landed (three §12 assertions, all mutation-tested).
-5a. [ ] [S] `/security-review`, clear `needs-security-review`.
+5a. [x] [S] `/security-review`, clear `needs-security-review`.
 6. [ ] [S] Mark ready → CI fires In Review. Post-merge: contract-sync note lands downstream in the
    sidecar repo via its contract-watch skill (never from this branch).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-17 · security review, §4.6 decided, mark ready
+- skills: security-review (identification subagent; zero findings ≥ Medium, so no filter pass)
+- `/security-review` clean: `sanitizeImageURL` → `assetHostAllowed` is exact-host + scheme-checked
+  (userinfo / port / suffix / `javascript:` / control-char cases all fail closed), sits at the one
+  `Service.Resolve` chokepoint above all five resolve handlers, nothing is fetched server-side,
+  `image_url` never reaches the activity log, and the only sink is a plain `<img src>` binding
+  with `referrerpolicy="no-referrer"`. `needs-security-review` cleared.
+- QA §4.6 settled from a live-measured show_widget mockup (three skins, both sizes): 32 × 48 lets
+  the 52 px text stack set the row again (68 px full / 36 px sparse) and thins a wide logo's
+  letterbox to ~13 px; Kevin kept 40 × 60, so the `[76, 76]` equality stands.
+- Handoff: every gate green; PR #346 marked ready → CI fires In Review. Nothing is open on the
+  branch. Post-merge, the contract-sync note lands downstream in the sidecar repo via its
+  contract-watch skill — never from here.
 
 ### 2026-09-17 · design handoff
 - skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean), code-review, testing-strategy

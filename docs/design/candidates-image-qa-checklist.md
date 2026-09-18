@@ -119,4 +119,6 @@ Items are numbered `section.item`.
   three.
 - **4.6** `[human]` Does the 76 px row feel too tall on the 25-candidate list? Say if the slot
   should drop to 32 × 48 (the text stack would then set the height) — the spec chose 40 × 60 for
-  face legibility; this is the one number open to taste.
+  face legibility; this is the one number open to taste. **Decided 2026-09-17: keep 40 × 60** — reviewed
+  both sizes side by side in three skins; 32 × 48 hands row height back to the text stack and
+  thins a wide logo's letterbox to ~13 px.
