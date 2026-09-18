@@ -27,11 +27,13 @@ saw at that URL is the one it keeps.
   regenerate / cover-art, so the grid rode `no-cache` revalidation alone, which `ServeContent`
   resolves at 1s (same-second overwrite → 304, old bytes). Falls back to the video mtime when the
   file can't be stat'd; poster token falls back to the thumbnail's as `servePoster` does.
-  `no-cache` header kept as the belt to that brace
+  `no-cache` header kept as the belt to that brace; the completeness queue's video rows now get
+  the same versioned `thumbnail_url` (they shipped empty, so the SPA fell back to the bare route)
 - [x] frontend — `PeopleGrid.svelte` passes `version={p.poster_version}` to `PersonPoster`
 - [x] testing `testing-strategy` — `TestDetailCastPosterVersion` (0 → id → advances on replace,
   mutation-checked: fails without the fix) + `TestMediaImageURLsVersionOffImageFileMtime`
-  (same-second overwrite advances the token; mutation-checked); rows added to
+  (same-second overwrite advances the token; mutation-checked) +
+  `TestRemediationQueue_VideoRowThumbnailURL` (mutation-checked); rows added to
   `docs/testing-strategy.md`; live repro on `/media/1` before (red pinned at `?skin=…`) and after
   (`&v=2` blue, `&v=3` green); browse-grid `thumbnail_url` token verified to change on poster upload
 - [~] security `security-review` — n/a
@@ -53,6 +55,8 @@ saw at that URL is the one it keeps.
   logo upload verified live (`v=1` → `v=2`, pixel flipped); video poster upload verified on the
   browse grid (`no-cache` revalidated). Person poster reproduced stale on the media Cast grid, fixed
   at the two payload sites + the grid prop, pinned by a repo test.
-- Owner: "harden the media path too" → image-file-mtime `?v=` token (second push on #353).
+- Owner: "harden the media path too" → image-file-mtime `?v=` token (second push on #353); then
+  "fix the completeness queue thumbnail_url too" → `setThumbnailURL` per queue video (third push;
+  live: all 138 video rows versioned).
 - handoff: person fix + media hardening shipped and live-verified; PR #353 ready for review (Jira
   In Review via CI); Studio / Film await the owner's re-check on the real instance.
