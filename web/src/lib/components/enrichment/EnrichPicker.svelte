@@ -7,11 +7,12 @@
 	import { toMessage, isHttpUrl, monogram } from '$lib/format';
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
 	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
-	import { showThumb } from '$lib/candidateImage';
-	import type { EnrichCandidate, EnrichedField } from '$lib/types';
+	import { SLOT_CLASS, showThumb, slotShape } from '$lib/candidateImage';
+	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '$lib/types';
 
 	let {
 		entityName,
+		entityType,
 		provider,
 		resolve,
 		apply,
@@ -21,6 +22,11 @@
 		ondismissed
 	}: {
 		entityName: string;
+		/** The kind being matched — decides the candidate slot's box (HOLODEX-414): a
+		 *  person/film row draws a 2:3 portrait, a video row a 16:9 landscape (the provider
+		 *  sends a backdrop), a studio row a 2:1 logo box. Required: a mount that forgets it
+		 *  is a type error, not a silently-portrait picker. */
+		entityType: EnrichEntityKind;
 		provider: string;
 		/** `searched` (ADR-095 D6) is what the provider actually asked upstream, in issue
 		 *  order — only the video resolver returns it; the person/studio/film callers'
@@ -355,15 +361,18 @@
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<!-- Candidate thumbnail (F64, HOLODEX-406): FilmsRow's 2:3 plate idiom at w-10,
-					     object-contain because a candidate image's aspect is not gated at ingest
-					     (enrichment/CLAUDE.md rule) — a portrait fills, a wide logo letterboxes. The
-					     slot is always present so every row's text starts at the same x; it is
-					     decorative (the label carries the name), not a tab stop, and has no handler
-					     of its own — clicking it is clicking the row. -->
+					<!-- Candidate thumbnail (F64, HOLODEX-406): FilmsRow's plate idiom, object-contain
+					     because a candidate image's aspect is not gated at ingest (enrichment/CLAUDE.md
+					     rule) — the intended image fills, anything else letterboxes. The box is
+					     kind-shaped but always 60 tall (HOLODEX-414, SLOT_CLASS), so within one picker
+					     every row's text starts at the same x; it is decorative (the label carries the
+					     name), not a tab stop, and has no handler of its own — clicking it is clicking
+					     the row. -->
 					<div
 						aria-hidden="true"
-						class="flex aspect-[2/3] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+						class="flex shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate {SLOT_CLASS[
+							slotShape(entityType)
+						]}"
 					>
 						{#if showThumb(c, !!failed[c.external_id])}
 							<img

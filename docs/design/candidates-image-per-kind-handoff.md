@@ -118,15 +118,15 @@ of the accessibility tree; the label carries the name.
 
 | Width | Portrait text block | Landscape text block | Logo text block |
 |---|---|---|---|
-| ≥ 640 (dialog 512, inner 480, row inner 456) | 404 px | 336 px | 324 px |
-| 375 (dialog 343, inner 311, row inner 287) | 235 px | 167 px | 155 px |
+| ≥ 640 (dialog 512 − 2 border − 32 `p-4`; row − 24 `px-3` − 2 `border-l-2` = 452) | 400 px | 332 px | 320 px |
+| 375 (dialog 343; row inner 283 — **measured 2026-09-18**) | 231 px | 163 px | 151 px |
 
 No breakpoint-specific slot size — one size per kind everywhere. At 375 the media and studio
-label lines get tight (155 px holds "Lumen Films" + "95% match"; a long film title truncates
-earlier than it did). Accepted: the picker is a modal the owner opens deliberately, and the
-match-strength text stays `shrink-0` so the number never truncates. QA §4.4 asks a human whether
-155 px is too tight on a phone; if so the answer is a `sm:` step on the two wide classes, not a
-different height.
+label lines get tight: measured on the studio picker, "Hayao Miyazaki" got **61 px** before its
+ellipsis beside an 82 px "Possible match" (a long film title truncates earlier than it did).
+Accepted for now: the picker is a modal the owner opens deliberately, and the match-strength text
+stays `shrink-0` so the number never truncates. QA §4.4 asks a human whether that is too tight on
+a phone; if so the answer is a `sm:` step on the two wide classes, not a different height.
 
 ## Edge cases
 
@@ -172,17 +172,18 @@ different height.
 - **Frontend**: `EnrichPicker` prop + slot classes; `slotShape` / `SLOT_CLASS` in
   `candidateImage.ts`; five mounts pass `entityType` (`media`/`films`/`people`/`studios`
   `+page.svelte` as a literal, `EnrichQueueRow` from `row.entity_type`).
-- **Stub** (`testdata/enrich-stub/`): `solidPng(w, h, rgb)` is already rectangular; add a
-  `/p/<slug>/thumb/wide-N.png` rendition (e.g. 300 × 169) and give the `twins` persona a
-  video-kind variant whose rows walk backdrop · poster-in-landscape-box · none, so QA §3 can
-  measure the letterbox against a real sidecar. The existing `wide` 64 × 16 logo row covers the
-  studio letterbox.
+- **Stub** (`testdata/enrich-stub/`): `solidPng(w, h, rgb)` is already rectangular; a
+  `/p/<slug>/thumb/landscape-N.png` rendition (300 × 169) and the `twins` persona reads the
+  request's `entity_type` — for `video` its rows walk backdrop ×4 · poster-in-landscape-box ·
+  404 · foreign · none, so QA §3 can measure the letterbox against a real sidecar. The existing
+  `wide` 64 × 16 logo row covers the studio letterbox. No new persona.
 - **Geometry harness** (`web/geometry/assertions.mjs`): `candidate-slot-is-40-wide-on-every-row`
-  becomes per-kind — the `flood` persona runs on the studio page, so on that page the slot is
-  **120** wide; add a video-page run for 108 if the stress seed exposes a video picker. The
-  76 px row floor assertions are unchanged (height is constant). Consider asserting the slot's
-  `offsetWidth` equals the class's px exactly (40 / 108 / 120) so the aspect-borrow trap can't
-  regress if someone reintroduces `aspect-*`.
+  becomes `candidate-slot-is-108-wide-on-every-row` — the stressed picker
+  (`enrich-picker-open:flood`) opens on a **video** page, so its slot is the `landscape` kind.
+  The bound stays exact (not a minimum) so an `aspect-*` regression is caught. The 76 px row
+  floor assertion is unchanged and, with an explicit `h-15`, now also catches the slot losing
+  its height (the `h-full` image balloons the row). The 40 and 120 widths have no stressed
+  picker to run under; they are verified live (QA §3).
 - **Rule to record** in `web/src/lib/components/enrichment/CLAUDE.md`, next to the F64 rule: *the
   candidate slot's box is kind-shaped (portrait / landscape / logo) but always 60 px tall; add a
   kind by adding a `SlotShape`, never by branching in the template.*

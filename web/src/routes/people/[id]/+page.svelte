@@ -806,6 +806,7 @@
 
 {#if pickerProvider}
 	<EnrichPicker
+		entityType="person"
 		entityName={person?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}

@@ -15,10 +15,11 @@ list covers only what the shape change adds or alters.
   studio page reaches the logo box and the media page the landscape box; the person page needs
   a seeded person (the AMV testbed has none — use `backend-stress` after `go run
   ./testdata/stressseed`).
-- **1.2** `[agent]` Stub renditions (`testdata/enrich-stub/`): `/p/<slug>/thumb/wide-N.png` at
-  300 × 169 for the backdrop rows; the existing `portrait-N` (40 × 60 **and** the 80 × 120 trap
-  size) and `wide` (64 × 16 logo) stay. A video-kind `twins` variant walks backdrop · poster ·
-  none.
+- **1.2** `[agent]` Stub renditions (`testdata/enrich-stub/`): `/p/<slug>/thumb/landscape-N.png`
+  at 300 × 169 for the backdrop rows; the existing `portrait-N` (80 × 120, the trap size) and
+  `wide` (64 × 16 logo) stay. **As built:** no new persona — `twins` reads the request's
+  `entity_type` and, for `video`, pictures rows 0–3 with `landscape-N` and row 4 with a
+  portrait (the poster fallback); rows 5–7 (404 · foreign · none) are unchanged.
 
 ## §2 Smoke — `[smoke]`
 
@@ -33,10 +34,12 @@ list covers only what the shape change adds or alters.
   the three shapes to `w-10 h-15` / `w-27 h-15` / `w-30 h-15`.
 - **2.4** `[smoke]` `npm run check`: every `<EnrichPicker` mount passes `entityType`; removing
   it from one mount is a type error (verify once by hand, do not commit the mutation).
-- **2.5** `[smoke]` Geometry harness: `candidate-slot-is-40-wide-on-every-row` re-based to the
-  page's kind (studio page → **120**), with an exact `offsetWidth` assertion rather than a
-  lower bound so an `aspect-*` regression that lets the img widen the box is caught; the 76 px
-  row-floor assertions unchanged and still passing.
+- **2.5** `[smoke]` Geometry harness: `candidate-slot-is-40-wide-on-every-row` re-keyed to
+  `candidate-slot-is-108-wide-on-every-row` — the stressed picker opens on a **video** page
+  (`landscape`, `w-27`); exact bound, not a minimum, so an `aspect-*` regression is caught. The
+  76 px row-floor assertions unchanged and still passing. **As run 2026-09-18:** 27/27 across the
+  9 skin/width cells; dropping `w-27` fails the width assertion on all 9, dropping `h-15` fails
+  the row floor on all 9.
 
 ## §3 Agent — live, all three skins — `[agent]`
 
@@ -58,7 +61,7 @@ list covers only what the shape change adds or alters.
 - **3.7** `[agent]` Every collapsed row is 76 px on all four kinds; F61 `details` expansion still
   grows downward with the slot top == label top.
 - **3.8** `[agent]` Wire check (`/media/{id}/enrich/resolve` against the stub): the video row's
-  `image_url` points at the `wide-N` rendition, the poster-fallback row at `portrait-N`; the
+  `image_url` points at the `landscape-N` rendition, the poster-fallback row at `portrait-N`; the
   film page's resolve for the same stub title points at `portrait-N`.
 - **3.9** `[agent]` Three skins (`[data-theme]` = cinematheque / broadcast / brutalist): plate
   radius 2 / 0 / 0 on the 108 and 120 boxes, monogram contrast on plate unchanged from F64's

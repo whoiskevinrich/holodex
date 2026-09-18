@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { showThumb } from './candidateImage';
+import { SLOT_CLASS, showThumb, slotShape } from './candidateImage';
 
 // F64 slot rule (design handoff "Content spec"): image when the server let an
 // http(s) image_url through and the <img> has not errored; monogram otherwise.
@@ -30,5 +30,28 @@ describe('showThumb', () => {
 			false,
 		);
 		expect(showThumb({ image_url: '' }, false)).toBe(false);
+	});
+});
+
+// HOLODEX-414: the slot's box follows the entity kind — always 60 tall, width by shape.
+describe('slotShape', () => {
+	it('gives person and film the 2:3 portrait (headshot / poster)', () => {
+		expect(slotShape('person')).toBe('portrait');
+		expect(slotShape('film')).toBe('portrait');
+	});
+	it('gives video the landscape box (the provider sends a backdrop)', () => {
+		expect(slotShape('video')).toBe('landscape');
+	});
+	it('gives studio the logo box', () => {
+		expect(slotShape('studio')).toBe('logo');
+	});
+	it('maps every shape to an explicit width and the shared 60px height, never an aspect class', () => {
+		expect(SLOT_CLASS.portrait).toBe('w-10 h-15');
+		expect(SLOT_CLASS.landscape).toBe('w-27 h-15');
+		expect(SLOT_CLASS.logo).toBe('w-30 h-15');
+		for (const cls of Object.values(SLOT_CLASS)) {
+			expect(cls).not.toMatch(/aspect-/);
+			expect(cls).toMatch(/\bh-15\b/);
+		}
 	});
 });

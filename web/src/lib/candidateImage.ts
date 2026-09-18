@@ -3,6 +3,7 @@
 // <img> that fired `error`) and asks this module which branch the slot renders, so
 // the rule is unit-testable without a DOM (this repo has no component-test harness).
 import { isHttpUrl } from '$lib/format';
+import type { EnrichEntityKind } from '$lib/types';
 
 /** The slice of a candidate the slot reads. */
 export interface ImageCandidate {
@@ -20,3 +21,36 @@ export interface ImageCandidate {
 export function showThumb(c: ImageCandidate, failed: boolean): boolean {
 	return !failed && !!c.image_url && isHttpUrl(c.image_url);
 }
+
+/** The slot's box shape — one per entity kind the picker can be opened for (HOLODEX-414). */
+export type SlotShape = 'portrait' | 'landscape' | 'logo';
+
+/**
+ * Which box a picker's candidate slot draws, by the entity being matched: a person or
+ * film row compares against a headshot / poster (2:3), a video row against the file's
+ * own landscape thumbnail (so the provider sends a backdrop), a studio row against a
+ * logo. Adding a kind means adding a shape here — never an `{#if}` in the template.
+ */
+export function slotShape(entityType: EnrichEntityKind): SlotShape {
+	switch (entityType) {
+		case 'video':
+			return 'landscape';
+		case 'studio':
+			return 'logo';
+		default:
+			return 'portrait';
+	}
+}
+
+/**
+ * Explicit width AND height per shape, always 60 px tall so every collapsed row is
+ * 76 px in every picker. Deliberately not `aspect-*`: an aspect box with a `w-full`
+ * `<img>` inside can borrow the image's natural width (a w300 backdrop is 300 px), and
+ * the geometry harness asserts the slot's px exactly. 108 (not 106.67) for 16:9 keeps
+ * that assertion integer; the image `object-contain`s with a sub-pixel plate sliver.
+ */
+export const SLOT_CLASS: Record<SlotShape, string> = {
+	portrait: 'w-10 h-15',
+	landscape: 'w-27 h-15',
+	logo: 'w-30 h-15'
+};

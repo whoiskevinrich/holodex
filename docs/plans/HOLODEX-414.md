@@ -44,22 +44,40 @@ security-review gate.
   film search, by-tmdb-id and by-imdb-id for both kinds; fixtures carry `backdrop_path` on all
   three movie responses. **Mutation-tested**: dropping the `entityType == "video"` guard fails
   all three film paths. `go test ./providers/tmdb` green; `/code-review high` clean
-- [ ] frontend — `slotShape` / `SLOT_CLASS` in `candidateImage.ts` + vitest; `EnrichPicker`
-  `entityType` prop + slot classes; five mounts; stub `wide-N` rendition + video `twins`;
-  `enrichment/CLAUDE.md` rule
-- [ ] testing `testing-strategy` — per-kind slot width assertion (exact `offsetWidth`), row floor
-  unchanged; `docs/testing-strategy.md` entries beside F64's
+- [x] frontend — `slotShape` / `SLOT_CLASS` in `candidateImage.ts` (+4 vitest); `EnrichPicker`
+  required `entityType` prop, slot `{SLOT_CLASS[slotShape(entityType)]}` replacing
+  `aspect-[2/3] w-10`; five mounts (four pages as literals, `EnrichQueueRow` from
+  `row.entity_type`) — dropping the prop from one mount is a `npm run check` error (verified);
+  stub `landscape-N` 300 × 169 rendition, `twins` reads `entity_type` (video → backdrops ×4 +
+  poster fallback, no new persona); `enrichment/CLAUDE.md` rule. **Live QA against the stub
+  (backend-stub :7802 / web-stub :5174 — 7800/5173 belong to another chat):** media picker
+  108 × 60 on all 8 rows, label x parity, backdrops fill, poster letterboxes, 404/foreign/none →
+  monogram, 76 floor on the no-detail row; studio picker 120 × 60, 64 × 16 wordmark → 120 × 30
+  letterboxed; three skins contrast 12.17 / 13.02 / 15.27, radius 2 / 0 / 0 (F64's numbers);
+  375 px: no overflow, slot intact, text block **151** (studio) — the name gets 61 px before its
+  ellipsis → §4.4 human call. Hidden-tab gotcha: `getBoundingClientRect` reads the frozen 0.98
+  entrance transform and lazy images never load — use `offsetWidth` and flip `loading` to eager
+- [x] testing `testing-strategy` — `candidate-slot-is-40-wide-on-every-row` →
+  `candidate-slot-is-108-wide-on-every-row` (the stressed picker is a VIDEO page, not the
+  studio page the handoff first assumed); 27/27 across 9 cells; **mutation-tested**: no `w-27`
+  → width fails ×9, no `h-15` → row floor fails ×9 (the pair covers both axes);
+  `docs/testing-strategy.md` §4 invariant, §12 rows, and a new HOLODEX-414 Given/When/Then block
 - [~] security `security-review` — n/a unless `asset_hosts` widens (it does not)
-- [ ] `/code-review high --fix` before each commit; three-skin QA per the checklist §3
+- [x] `/code-review high --fix` before each commit (clean ×3); three-skin QA per the checklist §3
 - [ ] PR: Draft now (design gate landed), ready when the gates above are green; Jira
-  `needs-design` cleared on this push, `needs-spec` cleared when the spec edit lands
+  `needs-design` cleared on this push, `needs-spec` cleared when the spec edit lands.
+  **All gates green as of the frontend push — merge main, then mark ready** (see
+  `feedback-merge-main-before-marking-ready`)
 
 ## Up next
 
-1. Frontend (`candidateImage.ts` + vitest, `EnrichPicker` prop + classes, five mounts,
-   `enrichment/CLAUDE.md` rule), stub `wide-N` rendition + video `twins` persona.
-2. Geometry harness per-kind exact width + `docs/testing-strategy.md` entries; three-skin QA §3.
-3. Human QA §4.4 (375 px) decides whether a `sm:` step on the two wide classes is needed.
+1. Merge `origin/main` into the branch, re-run `go test ./providers/tmdb`, `npm run check`,
+   vitest; then `gh pr ready 352` (fires In Review).
+2. Human QA §4.1–4.5 on the real testbed (backend-films + provider-tmdb): does the still help;
+   does the poster-fallback read as "poster only"; §4.4 at 375 px — 61 px of name on the studio
+   picker; if too tight, a `sm:` step on `landscape`/`logo` widths, not a shorter slot.
+3. Post-merge, downstream: the sidecar repo's contract-sync note for §2.3's per-kind shape
+   guidance (never from this branch).
 
 ## Session log
 
@@ -73,3 +91,9 @@ security-review gate.
   (clean). Handoff: spec and sidecar gates green, `needs-spec` cleared; next session starts at
   the frontend — `slotShape`/`SLOT_CLASS` in `candidateImage.ts`, the `entityType` prop, five
   mounts, stub `wide-N` 300 × 169 rendition + video `twins`, then the geometry assertion.
+- **2026-09-18 (3)** — frontend + stub + harness + testing strategy. Skills: `/code-review high
+  --fix` (clean). Live QA on media + studio pickers, three skins, 375 px. Handoff: **every gate
+  is green**; next session merges main and marks PR #352 ready, then hands §4 to Kevin.
+
+### 2026-09-18 · session
+- skills: code-review
