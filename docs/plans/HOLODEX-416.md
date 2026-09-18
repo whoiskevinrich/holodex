@@ -17,9 +17,9 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
 - [x] spec `write-spec` — Q4 resolved + P0-7 in `docs/specs/job-history-digest-and-search.md`
   (2026-09-18): two owner endpoints, digest excludes dismissed runs + `kinds[].last_dismissed`,
   history carries `dismissed_at`; D5 added to the handoff + SVG panel E
-- [ ] architecture `architecture` — **ADR-100** (reserved via `adr-claims.mjs --reserve
-  job-run-dismissals`): `job_run_dismissals (job_run_id PK, dismissed_at)` keeps `job_runs`
-  immutable (ADR-091 posture); retention sweep cascades
+- [x] architecture `architecture` — [ADR-100](../architecture/ADR-100-job-run-dismissals.md)
+  (2026-09-18): `job_run_dismissals (job_run_id PK REFERENCES job_runs ON DELETE CASCADE,
+  dismissed_at)`; sweep cascades via FK, not code; digest `LEFT JOIN` + bare-column `last_dismissed`
 - [x] design `design-handoff` — `docs/design/status-dismiss-failures-handoff.md` +
   `status-dismiss-failures-mockup.svg`; D1–D4 locked 2026-09-18 from the inline mockup
 - [ ] backend — migration → `repo.DismissJobRun` / `DismissJobFailures` → `POST
@@ -34,9 +34,9 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] ADR-100 via `/architecture` (number already reserved) — decide sweep cascade: FK
-   `ON DELETE CASCADE` vs explicit delete in `SweepJobRuns`
-2. [ ] [—] Backend, then frontend, then three-skin QA on the Cinémathèque + two other skins
+1. [ ] [—] Backend per ADR-100 action items 1–6 (migration number at merge time — `0048` is
+   HOLODEX-412's), then frontend, then three-skin QA
+2. [ ] [—] `docs/testing-strategy.md` row (ADR-100 item 7) + testing gate
 3. [ ] [—] Mark PR ready once every gate above is `[x]` — that fires In Review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -58,3 +58,13 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   ADR-100 reserved.
 - handoff: spec gate green; next session writes ADR-100 (sweep-cascade mechanism is its one
   open choice), then backend.
+
+### 2026-09-18 · ADR
+- skills: architecture
+- ADR-100 written + indexed. Cascade decided **by FK** (`foreign_keys(ON)` is on the DSN and
+  0035–0037 already rely on it; 0024's triggers were forced by a polymorphic parent). Four
+  options weighed; per-kind watermark rejected on D1 but noted as a future snooze shape. D3's
+  `last_dismissed` rides the same bare-column-with-`MAX` rule as `last_status` — the test must
+  pin both.
+- handoff: all pre-implementation gates green; next session starts the backend at the migration
+  (take the number at merge time).
