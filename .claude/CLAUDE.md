@@ -210,11 +210,14 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 ## Conventions
 
 - ADRs are immutable decisions — **supersede** rather than rewrite. Index: `docs/architecture/README.md`.
-- **Never pick an ADR number by eye.** "Highest on main + 1" collides with whatever is in flight on
-  another branch — PR #257 hit this three times running. Run `node scripts/adr-claims.mjs`, which
-  derives the claim set from every local and remote branch, prints the next free number, flags
-  existing collisions (exit 1), and refreshes the gitignored `.adr-claims` file at the **main**
-  worktree root. If the ADR will not be pushed immediately, hold the number with
+- **Never pick an ADR number — or a feature number (`F##`) — by eye.** "Highest on main + 1"
+  collides with whatever is in flight on another branch — PR #257 hit this three times running
+  for ADRs, and HOLODEX-390/406 both took F63. Run `node scripts/adr-claims.mjs` (ADRs) or
+  `node scripts/feature-claims.mjs` (features — before writing a spec's `# Spec: … (F##)` H1,
+  i.e. at `/write-spec`'s scaffold step). Each derives the claim set from every local and
+  remote branch, prints the next free number, flags in-flight collisions (exit 1), and
+  refreshes its gitignored `.adr-claims` / `.feature-claims` file at the **main** worktree
+  root. If the ADR/spec will not be pushed immediately, hold the number with
   `--reserve <slug>` so a parallel session in another worktree does not take it.
 - Specs live in `docs/specs/`; the testing strategy in `docs/testing-strategy.md`.
 - Keep the ADR index and spec cross-references up to date when adding either.
