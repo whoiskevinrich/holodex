@@ -24,6 +24,9 @@
 #                 (ADR-039). The sidecar's own base_url host is always implicitly
 #                 allowed. Any listed host requires https. Example: TMDB serves
 #                 portraits from image.tmdb.org, a different host from its sidecar.
+#                 The same list gates what the owner's browser may render straight
+#                 from the provider: picker candidate thumbnails (F64) and
+#                 render:image_url fields (ADR-056) hot-link only to these hosts.
 #                 This same allowlist gates a provider's brand_icon (ADR-059): a
 #                 provider that advertises a brand icon in /describe must serve it
 #                 from its base_url host or a host listed here, or core refuses it
@@ -62,7 +65,7 @@ sources:
   - name: tmdb
     base_url: http://holodex-tmdb:9100
     entity_types: [person, video, studio, film]
-    asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait + studio-logo downloads
+    asset_hosts: [image.tmdb.org]   # TMDB CDN host for portrait + studio-logo downloads and picker thumbnails
     enabled: false
     # search_pattern: "{studio?} {title?} {performers?} {year?}"
     # send_filename: false

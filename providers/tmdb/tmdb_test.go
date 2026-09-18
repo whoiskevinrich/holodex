@@ -202,6 +202,59 @@ func TestTMDBResolveProfileURL(t *testing.T) {
 	}
 }
 
+// F64 (HOLODEX-406): every candidate builder emits image_url at the w185 rendition
+// of the match's own image path — person profile_path, movie poster_path, company
+// logo_path — and omits the key when the path is empty. Never `original`: Holodex
+// does not download this one, the owner's browser does.
+func TestTMDBResolveImageURL(t *testing.T) {
+	srv := fakeTMDB(t)
+	c := clientWith(srv)
+	ctx := context.Background()
+
+	person, err := c.resolve(ctx, hintBody{Query: "Hayao Miyazaki"}, "person")
+	if err != nil || len(person) == 0 {
+		t.Fatalf("resolve person: cands=%v err=%v", person, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/akhpeJSfFKMValElDDjsKi2jryl.jpg"; person[0].ImageURL != want {
+		t.Errorf("person search image_url = %q, want %q", person[0].ImageURL, want)
+	}
+	byID, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"tmdb:608"}}, "person")
+	if err != nil || len(byID) == 0 {
+		t.Fatalf("resolve person by id: cands=%v err=%v", byID, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/akhpeJSfFKMValElDDjsKi2jryl.jpg"; byID[0].ImageURL != want {
+		t.Errorf("person by-id image_url = %q, want %q", byID[0].ImageURL, want)
+	}
+
+	movie, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "video")
+	if err != nil || len(movie) < 2 {
+		t.Fatalf("resolve movie: cands=%v err=%v", movie, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"; movie[0].ImageURL != want {
+		t.Errorf("movie search image_url = %q, want %q", movie[0].ImageURL, want)
+	}
+	if movie[1].ImageURL != "" {
+		t.Errorf("movie without poster_path must omit image_url, got %q", movie[1].ImageURL)
+	}
+
+	studio, err := c.resolve(ctx, hintBody{Query: "Studio Ghibli"}, "studio")
+	if err != nil || len(studio) == 0 {
+		t.Fatalf("resolve studio: cands=%v err=%v", studio, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/eS79pslnoLbjIeoBIkjfgDkD2LN.png"; studio[0].ImageURL != want {
+		t.Errorf("studio search image_url = %q, want %q", studio[0].ImageURL, want)
+	}
+
+	// The wire shape: present as `image_url`, absent (not "") when there is none.
+	raw, _ := json.Marshal(movie)
+	if !strings.Contains(string(raw), `"image_url":"https://image.tmdb.org/t/p/w185/`) {
+		t.Errorf("image_url missing from the JSON candidate: %s", raw)
+	}
+	if strings.Contains(string(raw), `"image_url":""`) {
+		t.Errorf("an empty image_url must be omitted, not sent as \"\": %s", raw)
+	}
+}
+
 func TestTMDBEnrich(t *testing.T) {
 	srv := fakeTMDB(t)
 	c := clientWith(srv)
@@ -749,7 +802,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/search/person":
 			q := r.URL.Query().Get("query")
 			if strings.Contains(strings.ToLower(q), "miyazaki") {
-				io.WriteString(w, `{"results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"known_for_department":"Directing","known_for":[{"title":"Spirited Away","release_date":"2001-07-20"}]}]}`) //nolint:errcheck
+				io.WriteString(w, `{"results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","known_for_department":"Directing","known_for":[{"title":"Spirited Away","release_date":"2001-07-20"}]}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
@@ -764,7 +817,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/search/movie":
 			q := r.URL.Query().Get("query")
 			if strings.Contains(strings.ToLower(q), "fight club") {
-				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1}]}`) //nolint:errcheck
+				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"},{"id":551,"title":"Fight Club (fan cut)","release_date":"2004-01-01","popularity":1.2}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}

@@ -101,6 +101,11 @@ type candidate struct {
 	// scheme-validates it server-side before ever rendering it as a link, so this
 	// sidecar just emits the real themoviedb.org URL.
 	ProfileURL string `json:"profile_url,omitempty"`
+	// ImageURL is the list-row thumbnail (F64, contract §2.3): the match's
+	// profile_path / poster_path / logo_path at TMDB's w185 rendition. Holodex
+	// renders it in the picker straight from image.tmdb.org — the host operators
+	// already allowlist for this provider's assets — and never stores it.
+	ImageURL string `json:"image_url,omitempty"`
 }
 
 type assetEntry struct {
@@ -139,6 +144,7 @@ type tmdbPerson struct {
 	Popularity         float64    `json:"popularity"`
 	KnownForDepartment string     `json:"known_for_department"`
 	KnownFor           []knownFor `json:"known_for"`
+	ProfilePath        string     `json:"profile_path"`
 }
 
 type knownFor struct {
@@ -176,6 +182,7 @@ type movieSearchEntry struct {
 	Title       string  `json:"title"`
 	ReleaseDate string  `json:"release_date"`
 	Popularity  float64 `json:"popularity"`
+	PosterPath  string  `json:"poster_path"`
 }
 
 type movieGenre struct {
@@ -292,6 +299,7 @@ func (c *tmdbClient) resolvePerson(ctx context.Context, h hintBody) ([]candidate
 				Namespace:  "tmdb",
 				Label:      det.Name,
 				Confidence: 1.0,
+				ImageURL:   tmdbThumbURL(det.ProfilePath),
 			}}, nil
 		case "imdb":
 			cands, err := c.findByIMDB(ctx, val)
@@ -351,6 +359,7 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 				Confidence:     1.0,
 				Disambiguation: movieDisambiguate(det),
 				ProfileURL:     tmdbMovieURL(det.ID, det.Title),
+				ImageURL:       tmdbThumbURL(det.PosterPath),
 			}}, nil
 		case "imdb":
 			cands, err := c.findMovieByIMDB(ctx, val)
@@ -392,6 +401,7 @@ func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidat
 			Confidence:     rankConfidence(i, p.Popularity),
 			Disambiguation: disambiguate(p),
 			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
+			ImageURL:       tmdbThumbURL(p.ProfilePath),
 		})
 	}
 	return out, nil
@@ -415,6 +425,7 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 			Confidence:     0.95,
 			Disambiguation: disambiguate(p),
 			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
+			ImageURL:       tmdbThumbURL(p.ProfilePath),
 		})
 	}
 	return out, nil
@@ -445,6 +456,7 @@ func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]can
 			Confidence:     rankConfidence(i, m.Popularity),
 			Disambiguation: movieYear(m.ReleaseDate),
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
+			ImageURL:       tmdbThumbURL(m.PosterPath),
 		})
 	}
 	return out, nil
@@ -471,6 +483,7 @@ func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]cand
 			Confidence:     0.95,
 			Disambiguation: dis,
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
+			ImageURL:       tmdbThumbURL(m.PosterPath),
 		})
 	}
 	return out, nil
@@ -732,6 +745,17 @@ func buildPeopleCredits(credits movieCredits) []personCredit {
 // joins a TMDB image path.
 func tmdbImageURL(path string) string {
 	return "https://image.tmdb.org/t/p/original" + path
+}
+
+// tmdbThumbURL builds the list-row rendition of a TMDB image path for a
+// candidate's image_url (F64): w185 is the smallest TMDB size that still reads at
+// the picker's 40×60 box on a 2× display, and it is never downloaded by Holodex —
+// only the owner's browser pays for it. Empty path → empty (the key is omitted).
+func tmdbThumbURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return "https://image.tmdb.org/t/p/w185" + path
 }
 
 // headshotFor builds a people[] headshot asset from a TMDB profile_path, or nil when
@@ -1051,6 +1075,7 @@ func (c *tmdbClient) resolveStudio(ctx context.Context, h hintBody) ([]candidate
 			Confidence:     1.0,
 			Disambiguation: det.OriginCountry,
 			ProfileURL:     tmdbEntityURL("company", det.ID, det.Name),
+			ImageURL:       tmdbThumbURL(det.LogoPath),
 		}}, nil
 	}
 	if h.Query == "" {
@@ -1083,6 +1108,7 @@ func (c *tmdbClient) searchCompany(ctx context.Context, query string) ([]candida
 			Confidence:     rankConfidence(i, 0),
 			Disambiguation: co.OriginCountry,
 			ProfileURL:     tmdbEntityURL("company", co.ID, co.Name),
+			ImageURL:       tmdbThumbURL(co.LogoPath),
 		})
 	}
 	return out, nil

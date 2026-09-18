@@ -667,6 +667,12 @@ export interface EnrichCandidate {
 	// newlines) and never `[]` — absent when the provider sent none. Presentation
 	// only; never stored or written back.
 	detail?: string[];
+	// image_url is the provider's optional list-row thumbnail (F64, contract §2.3):
+	// a portrait, poster, or logo the picker shows in a fixed 2:3 slot beside the
+	// label. Server-gated to the provider's asset-host allowlist (the same gate as a
+	// render:image_url field, ADR-056) and absent — never "" — when there is none or
+	// it was refused. Rendered by the browser, never fetched or stored by Holodex.
+	image_url?: string;
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the

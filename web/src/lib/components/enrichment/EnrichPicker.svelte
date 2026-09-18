@@ -4,9 +4,10 @@
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage, isHttpUrl } from '$lib/format';
+	import { toMessage, isHttpUrl, monogram } from '$lib/format';
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
 	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
+	import { showThumb } from '$lib/candidateImage';
 	import type { EnrichCandidate, EnrichedField } from '$lib/types';
 
 	let {
@@ -53,6 +54,10 @@
 	// ↑/↓ moving `active`. Describes the LAST response like `searched`: rebuilt from
 	// the label-collision rule with every response, dropped when the box is edited.
 	let open = $state<Record<string, boolean>>({});
+	// Per-row thumbnail failure (F64, HOLODEX-406): an <img> that fired `error` falls
+	// back to the monogram. Same lifecycle as `open` — describes the LAST response,
+	// so a retried query that returns a good image shows it again.
+	let failed = $state<Record<string, boolean>>({});
 	let active = $state(0);
 	let loading = $state(false);
 	let applying = $state(false);
@@ -111,6 +116,7 @@
 		searched = [];
 		showAll = false;
 		open = {};
+		failed = {};
 		if (q.length < 2) {
 			candidates = [];
 			return;
@@ -134,6 +140,7 @@
 			searched = res.searched ?? []; // same stale-response guard as candidates
 			showAll = false;
 			open = collisionOpen(candidates); // same-label rows start open (handoff FR4)
+			failed = {};
 			active = 0;
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
@@ -149,6 +156,7 @@
 			error = toMessage(e);
 			candidates = [];
 			open = {};
+			failed = {};
 		} finally {
 			if (id === searchId) loading = false;
 		}
@@ -343,60 +351,86 @@
 					onkeydown={(e) => onOptionKey(e, i)}
 					onfocus={() => (active = i)}
 					onmouseenter={() => (active = i)}
-					class="cursor-pointer rounded-theme border-l-2 px-3 py-2 {i === active
+					class="flex cursor-pointer items-start gap-3 rounded-theme border-l-2 px-3 py-2 {i === active
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<div class="flex items-center justify-between gap-2">
-						<span class="truncate text-sm text-ink">{c.label}</span>
-						<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
-					</div>
-					{#if c.disambiguation}
-						<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
-					{/if}
-					{#snippet sourceLink()}
-						<a
-							href={c.profile_url}
-							target="_blank"
-							rel="noopener noreferrer"
-							onclick={(e) => e.stopPropagation()}
-							aria-label={`View ${c.label} on ${provider}'s site (opens in a new tab)`}
-							class="text-xs text-accent hover:underline"
-						>
-							view source ↗
-						</a>
-					{/snippet}
-					{#if hasDetail(c)}
-						<!-- `detail` reveal (F61, HOLODEX-380): the Searched caption's "+N more" idiom
-						     on the row's actions line — a baseline-aligned flex row like the caption's,
-						     so the inline-block button adds one text line and no descent gap. Lines
-						     expand in flow beneath the row so they scroll with it and never float or
-						     clip. Verbatim, one per entry. A row without detail keeps its exact DOM. -->
-						<div class="flex items-baseline gap-2">
-							{#if hasLink}{@render sourceLink()}{/if}
-							<button
-								type="button"
-								onclick={(e) => toggleDetail(e, c)}
-								onkeydown={onDetailKey}
-								aria-expanded={!!open[c.external_id]}
-								aria-controls="enrich-detail-{i}"
-								class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
-									? 'text-ink'
-									: ''}"
-							>
-								{detailLabel(!!open[c.external_id])}
-							</button>
-						</div>
-						{#if open[c.external_id]}
-							<ul id="enrich-detail-{i}" class="mt-1 border-l border-rule pl-2 text-xs text-muted">
-								{#each c.detail ?? [] as line, j (j)}
-									<li class="truncate" title={line}>{line}</li>
-								{/each}
-							</ul>
+					<!-- Candidate thumbnail (F64, HOLODEX-406): FilmsRow's 2:3 plate idiom at w-10,
+					     object-contain because a candidate image's aspect is not gated at ingest
+					     (enrichment/CLAUDE.md rule) — a portrait fills, a wide logo letterboxes. The
+					     slot is always present so every row's text starts at the same x; it is
+					     decorative (the label carries the name), not a tab stop, and has no handler
+					     of its own — clicking it is clicking the row. -->
+					<div
+						aria-hidden="true"
+						class="flex aspect-[2/3] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+					>
+						{#if showThumb(c, !!failed[c.external_id])}
+							<img
+								src={c.image_url}
+								alt=""
+								loading="lazy"
+								decoding="async"
+								referrerpolicy="no-referrer"
+								onerror={() => (failed[c.external_id] = true)}
+								class="h-full w-full object-contain"
+							/>
+						{:else}
+							<span class="font-display text-sm font-semibold text-logo-plate-ink">{monogram(c.label)}</span>
 						{/if}
-					{:else if hasLink}
-						{@render sourceLink()}
-					{/if}
+					</div>
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center justify-between gap-2">
+							<span class="truncate text-sm text-ink">{c.label}</span>
+							<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
+						</div>
+						{#if c.disambiguation}
+							<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
+						{/if}
+						{#snippet sourceLink()}
+							<a
+								href={c.profile_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={(e) => e.stopPropagation()}
+								aria-label={`View ${c.label} on ${provider}'s site (opens in a new tab)`}
+								class="text-xs text-accent hover:underline"
+							>
+								view source ↗
+							</a>
+						{/snippet}
+						{#if hasDetail(c)}
+							<!-- `detail` reveal (F61, HOLODEX-380): the Searched caption's "+N more" idiom
+							     on the row's actions line — a baseline-aligned flex row like the caption's,
+							     so the inline-block button adds one text line and no descent gap. Lines
+							     expand in flow beneath the row so they scroll with it and never float or
+							     clip. Verbatim, one per entry. A row without detail keeps its exact DOM. -->
+							<div class="flex items-baseline gap-2">
+								{#if hasLink}{@render sourceLink()}{/if}
+								<button
+									type="button"
+									onclick={(e) => toggleDetail(e, c)}
+									onkeydown={onDetailKey}
+									aria-expanded={!!open[c.external_id]}
+									aria-controls="enrich-detail-{i}"
+									class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
+										? 'text-ink'
+										: ''}"
+								>
+									{detailLabel(!!open[c.external_id])}
+								</button>
+							</div>
+							{#if open[c.external_id]}
+								<ul id="enrich-detail-{i}" class="mt-1 border-l border-rule pl-2 text-xs text-muted">
+									{#each c.detail ?? [] as line, j (j)}
+										<li class="truncate" title={line}>{line}</li>
+									{/each}
+								</ul>
+							{/if}
+						{:else if hasLink}
+							{@render sourceLink()}
+						{/if}
+					</div>
 				</li>
 			{/each}
 		</ul>

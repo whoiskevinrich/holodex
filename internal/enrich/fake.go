@@ -45,6 +45,7 @@ type FakePerson struct {
 	Disambiguation string   // the picker hint (entity-appropriate: known-for, origin country, …)
 	ProfileURL     string   // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
 	Detail         []string // optional revealable record summary (F61, contract §2.3 candidates[].detail)
+	ImageURL       string   // optional list-row thumbnail (F64, contract §2.3 candidates[].image_url); tests may set a foreign host
 	Fields         map[string][]string
 	Assets         []Asset          // optional image assets (F25) the enrich response carries
 	People         []ProviderPerson // structured video credits (F32, contract §4.5)
@@ -143,7 +144,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 		if p, ok := records[id]; ok {
 			return ResolveResult{Candidates: []Candidate{{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 1, ProfileURL: p.ProfileURL, Detail: p.Detail,
+				Confidence: 1, ProfileURL: p.ProfileURL, Detail: p.Detail, ImageURL: p.ImageURL,
 			}}, Searched: f.Searched}, nil
 		}
 	}
@@ -154,7 +155,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 		if q != "" && strings.Contains(strings.ToLower(p.Label), q) {
 			out = append(out, Candidate{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL, Detail: p.Detail,
+				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL, Detail: p.Detail, ImageURL: p.ImageURL,
 			})
 		}
 	}
