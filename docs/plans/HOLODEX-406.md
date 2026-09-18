@@ -132,7 +132,8 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   this branch was in flight, so this feature is **F64** now — 53 references renumbered on the
   branch's own lines only (main's HOLODEX-390 F63 lines untouched). Commit subjects still say
   F63; history is not rewritten. Lesson: check `git grep F6x origin/main` before choosing a
-  feature number, exactly as `adr-claims.mjs` does for ADRs.
+  feature number, exactly as `adr-claims.mjs` does for ADRs. Filed as
+  [HOLODEX-407](https://whoiskevinrich.atlassian.net/browse/HOLODEX-407) (F-number claims tooling).
 - **In Review was hand-fired**, not by CI: `gh pr ready` ran while the PR was still CONFLICTING
   against main, and GitHub drops `pull_request` events it cannot compute a merge commit for —
   jira-sync never saw `ready_for_review`. Merge main *before* marking ready, next time.
