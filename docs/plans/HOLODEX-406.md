@@ -41,13 +41,23 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   `enrichment/CLAUDE.md`. Flagged for the testing gate: the slot sets a 76 px row floor that masks
   F61's `py-1` mutation in `collapsed-detail-row-costs-one-line` — re-base to equality or assert
   the text block; add an x-offset parity assertion (AC4)
-- [ ] backend — `Candidate.ImageURL`, `image_url` step in `sanitizeCandidates` calling
-  `Service.ImageURLAllowed`; `Fake` gains `ImageURL`; sanitizer table (the riskiest-assumption
-  test: foreign host / suffix-spoof / scheme / malformed / `""` all cleared) + one resolve-handler
-  round-trip each for person and film
-- [ ] sidecar — `providers/tmdb` maps `profile_path` / `poster_path` / `logo_path` → `image_url`
-  at `w185`; omit on null; unit test on the builders; operator docs note the picker renders from
-  `image.tmdb.org`
+- [x] backend — `Candidate.ImageURL` (`enrich.go`), `sanitizeImageURL` beside
+  `sanitizeProfileURL` calling `assetHostAllowed` (the core `Service.ImageURLAllowed` wraps —
+  one gate, one more caller); `sanitizeCandidates` now takes the `Source`; over-cap **cleared,
+  not truncated**; `Fake` gains `FakePerson.ImageURL`. Tests: `candidate_image_test.go` — the
+  16-row riskiest-assumption table (base/asset host kept; http-on-CDN, foreign, suffix- and
+  prefix-spoof, ftp/javascript/data, protocol-relative, relative, malformed, empty, over-cap all
+  cleared; control chars stripped) + `TestServiceResolveGatesImageURL` (**mutation-tested**: gate
+  removed ⇒ foreign host survives), + `TestEnrichVideoResolve_ImageURLGatedOnTheWire` in
+  `internal/api` (own host round-trips; foreign host's key is **absent** from the JSON). Person
+  and film handlers pass `res.Candidates` through unchanged, so the video handler test is the
+  wire proof for all four. `go test ./...` green (26 pkgs); `/code-review high` clean
+- [x] sidecar — `tmdbThumbURL` (w185, empty→empty) beside `tmdbImageURL`; `candidate.ImageURL`
+  `omitempty`; `tmdbPerson.ProfilePath` + `movieSearchEntry.PosterPath` added (search results
+  never decoded them); wired into all 8 builders (person search/find/by-id, movie
+  search/find/by-id, company search/by-id). `TestTMDBResolveImageURL` covers person (search +
+  by-id), movie (with and without poster → key absent, asserted on the JSON), studio.
+  `metadata-sources.yaml.example` now says `asset_hosts` also gates browser-rendered images
 - [ ] frontend — `EnrichCandidate.image_url?`; 40 × 60 slot on every `<li>`, `<img alt=""
   loading="lazy" referrerpolicy="no-referrer">` `object-contain` on `bg-logo-plate`, monogram on
   absent **and** on `error`, top-aligned; pure helper + vitest; stub personas covering the four
@@ -64,7 +74,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 1. [x] [S] Draft PR #346 opened with the spec gate; `needs-spec` cleared.
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared.
 2a. [ ] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48.
-3. [ ] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
+3. [x] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
 4. [ ] [M] Frontend FR3 + stub personas + three-skin QA.
 5. [ ] [S] `/testing-strategy`, then `/security-review`, clear `needs-security-review`.
 6. [ ] [S] Mark ready → CI fires In Review. Post-merge: contract-sync note lands downstream in the
@@ -73,7 +83,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-17 · design handoff
-- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions)
+- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean)
 - Settled the open design question from the source, not a card: `FilmsRow`'s 2:3 tile is the
   slot shape; `ProviderIcon`'s plate is a square inline icon. One deviation — `object-contain`
   — because `entity/CLAUDE.md` says frames follow source aspect unless ingest gates it.
@@ -84,8 +94,13 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   struck through; `enrichment/CLAUDE.md` gains the ungated-aspect rule.
 - Found on the way: the 76 px row floor neutralises the F61 assertion's `py-1` mutation —
   noted for `/testing-strategy`.
-- Handoff: spec + design gates green on Draft PR #346. Next: backend FR1/FR2 + sidecar FR4
-  (sanitizer table first), then frontend FR3 against the new stub personas.
+- Backend + sidecar built in the same session: `sanitizeImageURL` + 16-row table +
+  service/API round-trips (gate mutation-tested); TMDB emits `image_url` at w185 from all 8
+  builders. `go test ./...` green, `/code-review high --fix` no findings.
+- Handoff: spec, design, backend, sidecar gates green on Draft PR #346. Next: frontend FR3
+  (`EnrichCandidate.image_url?`, the 40×60 slot, per-row `failed` map, `faces`/`broken`/`logos`
+  stub personas, three-skin QA by computed style), then `/testing-strategy` (re-base the F61
+  `py-1` assertion) and `/security-review`.
 
 ### 2026-09-16 → 17 · brainstorm, story filed, spec + contract amendment written
 - skills: product-brainstorming (Explore subagent for the picker/contract/perimeter facts, three-option

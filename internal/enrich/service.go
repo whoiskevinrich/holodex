@@ -473,7 +473,7 @@ func (s *Service) Resolve(ctx context.Context, provider, entityType string, hint
 	if err != nil {
 		return ResolveResult{}, err
 	}
-	res.Candidates = sanitizeCandidates(res.Candidates)
+	res.Candidates = sanitizeCandidates(src, res.Candidates)
 	res.Searched = sanitizeSearched(res.Searched)
 	return res, nil
 }
@@ -1106,7 +1106,9 @@ func sanitizeFields(in map[string][]string) map[string][]string {
 	return out
 }
 
-func sanitizeCandidates(in []Candidate) []Candidate {
+// sanitizeCandidates bounds every candidate a provider returned. src is the
+// provider's registry entry — the image_url gate needs its asset-host allowlist.
+func sanitizeCandidates(src Source, in []Candidate) []Candidate {
 	if len(in) > maxCandidates {
 		in = in[:maxCandidates]
 	}
@@ -1118,8 +1120,26 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
 		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
 		in[i].Detail = sanitizeDetail(in[i].Detail)
+		in[i].ImageURL = sanitizeImageURL(src, in[i].ImageURL)
 	}
 	return in
+}
+
+// sanitizeImageURL bounds a candidate's provider-supplied image_url (F63, contract
+// §2.3): it becomes an <img src> in the owner's browser, so it must pass the very
+// gate a render:image_url field value passes — assetHostAllowed, i.e. checkHost's
+// scheme + allowlist + https-off-base policy (ADR-039/ADR-056). Anything else is
+// cleared rather than erroring; the candidate stays usable behind a monogram. An
+// over-cap URL is cleared, not truncated — a truncated image URL is never useful.
+func sanitizeImageURL(src Source, raw string) string {
+	if len(raw) > maxFieldLen {
+		return ""
+	}
+	raw = SanitizeValue(raw)
+	if raw == "" || !assetHostAllowed(src, raw) {
+		return ""
+	}
+	return raw
 }
 
 // sanitizeProfileURL bounds a candidate's provider-supplied profile_url (F47,

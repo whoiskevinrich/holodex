@@ -1518,7 +1518,7 @@ func TestSanitizeCandidatesAutoApply(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := sanitizeCandidates([]Candidate{{ExternalID: "a", Confidence: tt.confidence}})
+			out := sanitizeCandidates(Source{Name: "fake", BaseURL: "http://fake:9100"}, []Candidate{{ExternalID: "a", Confidence: tt.confidence}})
 			if got := out[0].AutoApply; got != tt.want {
 				t.Errorf("AutoApply = %v, want %v", got, tt.want)
 			}
