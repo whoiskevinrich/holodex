@@ -7,7 +7,7 @@
 **Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
 **Realizes**: F55 (new). Builds on the extraction-queue UX precedent ([HOLODEX-199](https://whoiskevinrich.atlassian.net/browse/HOLODEX-199)) — its deliberate deferral of bulk-apply directly informs this feature's queue design (§ Scope).
 **Architecture**: [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, and the `imdb_id` → `external_provider_id` rename), [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id), and [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) (F65 — supersedes ADR-081 D3 + D4: required-band score, separate extras, a materialized store with trigger-fed invalidation, and the owner-only list field the ring badge rides).
-**Design handoff**: [entity-completeness-handoff.md](../design/entity-completeness-handoff.md) (F55 — queue, panel, browse sort/filter) and, for F65, `docs/design/completeness-ring-badge-handoff.md` (to be produced — the card ring badge and its overfill, three skins; `needs-design` on HOLODEX-412).
+**Design handoff**: [entity-completeness-handoff.md](../design/entity-completeness-handoff.md) (F55 — queue, panel, browse sort/filter) and, for F65, [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md) (the card ring badge, its overfill, the row placement on `/people` + `/studios`, three skins).
 
 ---
 
@@ -525,8 +525,9 @@ Suggested internal build order (informal, non-gating — engineering may reseque
 - [x] This amendment.
 - [x] **ADR** — [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) (supersedes
       ADR-081 D3 + D4).
-- [ ] **Design handoff** — `docs/design/completeness-ring-badge-handoff.md` + committed SVG (ring
-      geometry, overfill, empty/`null` states, three skins). (`needs-design` on HOLODEX-412.)
+- [x] **Design handoff** — [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md)
+      + [completeness-ring-badge-mockup.svg](../design/completeness-ring-badge-mockup.svg) (ring geometry,
+      overfill, empty/`null` states, card + row placement, three-skin QA). Landed 2026-09-18.
 - [ ] **Testing strategy** — F65 block: band formulas and `null` rules against § Worked examples,
       composite sort order, visitor redaction of `completeness`, trigger-coverage enumeration, detail
       self-heal.
