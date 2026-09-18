@@ -226,15 +226,45 @@ func TestTMDBResolveImageURL(t *testing.T) {
 		t.Errorf("person by-id image_url = %q, want %q", byID[0].ImageURL, want)
 	}
 
+	// Movie hits serve two entities (HOLODEX-414): a video row gets the w300
+	// backdrop (poster when the title has none), a film row always the w185 poster.
+	const backdrop = "https://image.tmdb.org/t/p/w300/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"
+	const poster = "https://image.tmdb.org/t/p/w185/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
 	movie, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "video")
-	if err != nil || len(movie) < 2 {
+	if err != nil || len(movie) < 3 {
 		t.Fatalf("resolve movie: cands=%v err=%v", movie, err)
 	}
-	if want := "https://image.tmdb.org/t/p/w185/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"; movie[0].ImageURL != want {
-		t.Errorf("movie search image_url = %q, want %q", movie[0].ImageURL, want)
+	if movie[0].ImageURL != backdrop {
+		t.Errorf("video search image_url = %q, want the backdrop %q", movie[0].ImageURL, backdrop)
 	}
 	if movie[1].ImageURL != "" {
-		t.Errorf("movie without poster_path must omit image_url, got %q", movie[1].ImageURL)
+		t.Errorf("movie with neither path must omit image_url, got %q", movie[1].ImageURL)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/remaster_poster.jpg"; movie[2].ImageURL != want {
+		t.Errorf("video hit without a backdrop falls back to the poster: got %q, want %q", movie[2].ImageURL, want)
+	}
+	film, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "film")
+	if err != nil || len(film) < 1 {
+		t.Fatalf("resolve film: cands=%v err=%v", film, err)
+	}
+	if film[0].ImageURL != poster {
+		t.Errorf("film search image_url = %q, want the poster %q", film[0].ImageURL, poster)
+	}
+	for _, tc := range []struct{ entity, want string }{{"video", backdrop}, {"film", poster}} {
+		byTMDB, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"tmdb:550"}}, tc.entity)
+		if err != nil || len(byTMDB) != 1 {
+			t.Fatalf("resolve %s by tmdb id: cands=%v err=%v", tc.entity, byTMDB, err)
+		}
+		if byTMDB[0].ImageURL != tc.want {
+			t.Errorf("%s by-id image_url = %q, want %q", tc.entity, byTMDB[0].ImageURL, tc.want)
+		}
+		byIMDB, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"imdb:tt0137523"}}, tc.entity)
+		if err != nil || len(byIMDB) != 1 {
+			t.Fatalf("resolve %s by imdb id: cands=%v err=%v", tc.entity, byIMDB, err)
+		}
+		if byIMDB[0].ImageURL != tc.want {
+			t.Errorf("%s by-imdb image_url = %q, want %q", tc.entity, byIMDB[0].ImageURL, tc.want)
+		}
 	}
 
 	studio, err := c.resolve(ctx, hintBody{Query: "Studio Ghibli"}, "studio")
@@ -247,7 +277,7 @@ func TestTMDBResolveImageURL(t *testing.T) {
 
 	// The wire shape: present as `image_url`, absent (not "") when there is none.
 	raw, _ := json.Marshal(movie)
-	if !strings.Contains(string(raw), `"image_url":"https://image.tmdb.org/t/p/w185/`) {
+	if !strings.Contains(string(raw), `"image_url":"https://image.tmdb.org/t/p/w300/`) {
 		t.Errorf("image_url missing from the JSON candidate: %s", raw)
 	}
 	if strings.Contains(string(raw), `"image_url":""`) {
@@ -817,7 +847,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/search/movie":
 			q := r.URL.Query().Get("query")
 			if strings.Contains(strings.ToLower(q), "fight club") {
-				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"},{"id":551,"title":"Fight Club (fan cut)","release_date":"2004-01-01","popularity":1.2}]}`) //nolint:errcheck
+				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"},{"id":551,"title":"Fight Club (fan cut)","release_date":"2004-01-01","popularity":1.2},{"id":552,"title":"Fight Club (remaster)","release_date":"2019-10-15","popularity":0.9,"poster_path":"/remaster_poster.jpg"}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
@@ -828,7 +858,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			// flat-actors path, ADR-055).
 			io.WriteString(w, `{"cast":[{"id":287,"name":"Brad Pitt","order":0,"profile_path":"/cckcYc2v0yh1tc9QjRelptcOBko.jpg"},{"id":819,"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"id":7467,"name":"David Fincher","job":"Director","profile_path":"/dcBHejOcOdghH0itOws5dc4tXvw.jpg"},{"id":11284,"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/movie/550":
-			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","homepage":"http://www.foxmovies.com/movies/fight-club","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
+			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","homepage":"http://www.foxmovies.com/movies/fight-club","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
 			http.NotFound(w, r)
 		case r.URL.Path == "/3/search/company":
@@ -849,7 +879,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			if strings.Contains(r.URL.Path, "nm0594503") {
 				io.WriteString(w, `{"person_results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"known_for_department":"Directing","known_for":[]}],"movie_results":[]}`) //nolint:errcheck
 			} else if strings.Contains(r.URL.Path, "tt0137523") {
-				io.WriteString(w, `{"person_results":[],"movie_results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1}]}`) //nolint:errcheck
+				io.WriteString(w, `{"person_results":[],"movie_results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"person_results":[],"movie_results":[]}`) //nolint:errcheck
 			}

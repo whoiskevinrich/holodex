@@ -31,12 +31,19 @@ security-review gate.
   fallback / monogram · studio wordmark / symbol · slot anatomy with px) + verifier-tagged
   `candidates-image-per-kind-qa-checklist.md`; supersession pointer added atop the 406 handoff.
   Mockup reviewed inline by Kevin before any of it was written (A + poster fallback chosen).
-- [ ] spec `write-spec` — amend `docs/specs/candidates-image.md` FR3 (kind-shaped box) + FR4
-  (sidecar rendition per kind) and the contract §2.3 `image_url` row (shape guidance per
-  `entity_type`; video → landscape still, poster if none)
+- [x] spec `write-spec` — amended `docs/specs/candidates-image.md`: header amendment note, FR3
+  (kind-shaped box table, required `entityType` prop, explicit `w-* h-15`), FR4 (rendition per
+  `entity_type` table + video/film Given/When/Then), AC4/7/9, sidecar + geometry test notes,
+  Resolved Decisions 7–9 (kind-shaped · height locked · poster fallback); contract §2.3
+  `image_url` row now carries shape guidance per `entity_type` and target widths (185 / 300)
 - [~] architecture `architecture` — n/a: presentation rule + one sidecar field; no seam
-- [ ] sidecar — `resolveMovie(ctx, h, entityType)`; `BackdropPath` on `movieSearchEntry` and the
-  find result; `movieThumbURL(entityType, backdrop, poster)`; `TestTMDBResolveImageURL` rows
+- [x] sidecar — `resolveMovie` / `searchMovie` / `findMovieByIMDB` take `entityType`;
+  `movieSearchEntry.BackdropPath` (the find result reuses that struct; `movieDetails` already had
+  it); `movieThumbURL(entityType, backdrop, poster)` — video → w300 backdrop else w185 poster,
+  film → poster. `TestTMDBResolveImageURL`: search (backdrop · neither · poster-only fallback),
+  film search, by-tmdb-id and by-imdb-id for both kinds; fixtures carry `backdrop_path` on all
+  three movie responses. **Mutation-tested**: dropping the `entityType == "video"` guard fails
+  all three film paths. `go test ./providers/tmdb` green; `/code-review high` clean
 - [ ] frontend — `slotShape` / `SLOT_CLASS` in `candidateImage.ts` + vitest; `EnrichPicker`
   `entityType` prop + slot classes; five mounts; stub `wide-N` rendition + video `twins`;
   `enrichment/CLAUDE.md` rule
@@ -49,9 +56,9 @@ security-review gate.
 
 ## Up next
 
-1. Spec + contract amendment (`/write-spec` edit, not a new spec — this is F64's FR3/FR4).
-2. Sidecar, then frontend, then geometry harness — in that order so the stub can serve the
-   landscape rendition before the picker expects it.
+1. Frontend (`candidateImage.ts` + vitest, `EnrichPicker` prop + classes, five mounts,
+   `enrichment/CLAUDE.md` rule), stub `wide-N` rendition + video `twins` persona.
+2. Geometry harness per-kind exact width + `docs/testing-strategy.md` entries; three-skin QA §3.
 3. Human QA §4.4 (375 px) decides whether a `sm:` step on the two wide classes is needed.
 
 ## Session log
@@ -61,3 +68,8 @@ security-review gate.
   picked A + poster fallback via cards. Wrote the handoff, SVG, QA checklist, 406 supersession
   note. Handoff: design gate is green; next session starts at the spec/contract edit, then
   the sidecar `resolveMovie` signature change.
+
+- **2026-09-18 (2)** — spec + sidecar. Skills: `/write-spec` (edit), `/code-review high --fix`
+  (clean). Handoff: spec and sidecar gates green, `needs-spec` cleared; next session starts at
+  the frontend — `slotShape`/`SLOT_CLASS` in `candidateImage.ts`, the `entityType` prop, five
+  mounts, stub `wide-N` 300 × 169 rendition + video `twins`, then the geometry assertion.
