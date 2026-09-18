@@ -1,6 +1,6 @@
 # Spec: Job History — Digest, Pagination, and Entity Search (F21.3b)
 
-**Status**: Shipped — reduced scope. P0-1–P0-3 and the digest half of P0-5 shipped ([HOLODEX-205](https://whoiskevinrich.atlassian.net/browse/HOLODEX-205)/[207](https://whoiskevinrich.atlassian.net/browse/HOLODEX-207)/[210](https://whoiskevinrich.atlassian.net/browse/HOLODEX-210), PRs #160/#163/#166). P0-4 and P0-6 dropped 2026-07-29 (Q1 answered "fixed" — see Open Questions). P1 entry points not started, non-blocking.
+**Status**: Shipped — reduced scope. P0-1–P0-3 and the digest half of P0-5 shipped ([HOLODEX-205](https://whoiskevinrich.atlassian.net/browse/HOLODEX-205)/[207](https://whoiskevinrich.atlassian.net/browse/HOLODEX-207)/[210](https://whoiskevinrich.atlassian.net/browse/HOLODEX-210), PRs #160/#163/#166). P0-4 and P0-6 dropped 2026-07-29 (Q1 answered "fixed" — see Open Questions). P1 entry points not started, non-blocking. **Extended 2026-09-18** by P0-7 (dismiss addressed failures — Q4 answered; [HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416), PR #354).
 **Phase**: Post–Phase 3 (extends F21 System Activity)
 **Owner**: Project owner
 **Date**: 2026-07-22
@@ -10,6 +10,7 @@
 
 **New ADRs required**:
 - **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
+- **[ADR-100](../architecture/ADR-100-job-run-dismissals.md) (P0-7)** — Job-run dismissals as a sibling table. Records why a dismissal is a `job_run_dismissals (job_run_id PK, dismissed_at)` row rather than a column on `job_runs` (the audit-row posture 0028 and ADR-091 assume), and how the retention sweep keeps a dismissal from outliving its run. Number reserved via `scripts/adr-claims.mjs` on 2026-09-18.
 
 ---
 
@@ -115,6 +116,22 @@ Consecutive runs sharing `(kind, status, and — for enrich — provider)` withi
 - [ ] ~~Expanding an entry reveals its member runs without an additional fetch beyond the current page~~
 - [ ] ~~A failed run is never absorbed into a successful rollup~~
 
+**P0-7 — Dismiss addressed failures** *(added 2026-09-18 — answers Q4; [HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416); design: [status-dismiss-failures-handoff.md](../design/status-dismiss-failures-handoff.md))*
+The owner marks a failed run as handled and it leaves the digest — the `Recent failures` callout and the per-kind `errors` count — while the Log tab keeps the run as the audit record. Dismissal is a separate `job_run_dismissals (job_run_id PK, dismissed_at)` row; `job_runs` is never updated ([ADR-100](../architecture/ADR-100-job-run-dismissals.md)).
+
+- [ ] `POST /admin/activity/runs/{id}/dismiss` records a dismissal for one run and answers `200 {dismissed: true}`; a second call for the same run — or a call for a run that is not an error — is a no-op `200 {dismissed: false}`, never a 409 or 404 (two tabs, or a row already swept, cost the owner nothing)
+- [ ] `POST /admin/activity/failures/dismiss` with `{days}` (the digest's window parameter, same 30-day clamp) records a dismissal for every **undismissed error run in that window** — including runs beyond the digest's `digestFailureCap` — and answers `200 {dismissed: n}`; the window is evaluated server-side at request time, so a failure that starts after the call is not dismissed and surfaces on the next digest read
+- [ ] `GET /admin/activity/digest` excludes dismissed runs from **both** `failures` and `kinds[].errors` (D2); `last_status` stays the newest run's status, dismissed or not, and `kinds[]` gains `last_dismissed: bool` — true when that newest run is a dismissed error (D5)
+- [ ] `GET /admin/activity/history` returns every run, dismissed or not, and adds `dismissed_at` (RFC 3339) to a dismissed one; the `status=error` filter still matches a dismissed error run
+- [ ] Both endpoints sit inside the existing `requireOwner` group and answer 401 without the token; a visitor's digest already excludes dismissed runs server-side, so no visitor-side gating is needed beyond hiding the controls
+- [ ] The retention sweep (`jobRunRetentionDays`) never leaves a dismissal row whose run is gone — asserted by a repo test that sweeps a dismissed run and finds both rows absent
+- [ ] Digest UI: each callout row carries a **Dismiss** control and the callout header a **Dismiss all N** control, `N = sum(kinds[].errors)` — never the capped list length (D1); neither asks for confirmation (D3); a successful row dismiss removes the row and decrements that kind's `errors` locally without a refetch, and a successful Dismiss all unmounts the callout and zeroes every `kinds[].errors`; a failed call leaves the row and raises the existing toast (`Couldn't dismiss — try again`)
+- [ ] Digest Status cell: a kind whose newest run is a dismissed error shows the `error` badge **muted** (`--rule`/`--muted` in place of `--warn`) followed by the same `· dismissed` marker the Log uses — the newest run did fail and the owner has handled it (D5, chosen 2026-09-18 over "badge stays warn" and "badge follows the newest undismissed run"); a later failure of that kind returns the badge to `--warn` because it is a new, undismissed run
+- [ ] Log UI: a dismissed run shows a `· dismissed` marker after its status badge; Revert, where offered, is unaffected — no Log filter, no undo, and no auto-dismiss in v1 (see the extension's non-goals, below)
+- [ ] Controls render only for the owner; the digest, callout, and Log marker are QA'd in Cinémathèque, Broadcast, and Brutalist
+
+*Non-goals of this extension:* undo / un-dismiss (the Log is the record; a slip costs nothing and the owner can wait for the 30-day sweep), a Log-tab filter on dismissed state, auto-dismissing a failure when a later run of the same kind succeeds (a later pass does not mean *that* failure was addressed), and a dismissal surviving the run's retention sweep.
+
 ### Nice-to-Have (P1)
 
 **P1-1 — Entity search entry point.** A control on `/owner/status` to look up an entity by name and filter the log to it, rather than only arriving pre-filtered from elsewhere. *(See open question Q3.)*
@@ -145,10 +162,18 @@ Consecutive runs sharing `(kind, status, and — for enrich — provider)` withi
 
 Index: `(entity_type, entity_id)`. No foreign key — `job_runs` is an audit table and must survive deletion of what it describes.
 
+**Dismissals** (P0-7, one migration, additive — [ADR-100](../architecture/ADR-100-job-run-dismissals.md)):
+
+| Table | Columns | Notes |
+|---|---|---|
+| `job_run_dismissals` | `job_run_id INTEGER PRIMARY KEY`, `dismissed_at TEXT NOT NULL` | Sibling of `enrichment_dismissals`; `job_runs` gains no column. The retention sweep removes a dismissal with its run (mechanism chosen in ADR-100). |
+
 **Endpoints** (both owner-gated, unchanged):
 
-- `GET /admin/activity/digest` → per-kind aggregate + failed runs in the window.
-- `GET /admin/activity/history` → `?cursor=&limit=&kind=&status=&entity_type=&entity_id=&days=` → `{runs: [...], next_cursor: string|null}`. `days` retains its existing 30-day clamp.
+- `GET /admin/activity/digest` → per-kind aggregate + failed runs in the window. **Excludes dismissed runs** from `failures` and `kinds[].errors`; `kinds[].last_dismissed` is true when the newest run is a dismissed error (P0-7).
+- `GET /admin/activity/history` → `?cursor=&limit=&kind=&status=&entity_type=&entity_id=&days=` → `{runs: [...], next_cursor: string|null}`. `days` retains its existing 30-day clamp. Every run is returned; a dismissed one carries `dismissed_at` (P0-7).
+- `POST /admin/activity/runs/{id}/dismiss` → `{dismissed: bool}` — `false` when already dismissed or not an error run (P0-7).
+- `POST /admin/activity/failures/dismiss` `{days}` → `{dismissed: n}` — every undismissed error run in the window, capped-list or not (P0-7).
 
 ---
 
@@ -182,8 +207,10 @@ Too tight and a bulk writeback fragments into many entries; too loose and unrela
 **Q3 — How is entity search reached? [design, blocking P1-1]**
 Two shapes: a search box on the status page that resolves a typed name to an entity, or a "view history" affordance on video/person/studio pages that deep-links into a pre-filtered log. The second is cheaper and matches where the question is actually asked ("what happened to *this*"), but only works if you already have the entity open. Not blocking P0 — the API filter lands either way.
 
-**Q4 — Does the digest's failure list need its own window? [design, non-blocking]**
+**Q4 — Does the digest's failure list need its own window? [design, non-blocking] — ANSWERED 2026-09-18: no; it needs a dismiss**
 Failures across a full 30 days may be too noisy after a bad batch, or exactly right. Default to the full window and revisit.
+
+**Resolution:** after two months of use the window was the wrong lever. The noise is not *old* failures but *handled* ones — a bad batch stays in the callout and keeps the per-kind Errors column `text-warn` for 30 days after it was fixed, and a new failure hides among them. A shorter window would hide unhandled failures just as readily. The fix is a per-run dismissal (P0-7): the owner clears what they have addressed, the digest goes quiet, and the Log keeps every run. Design decisions D1–D4 are locked in the [handoff](../design/status-dismiss-failures-handoff.md), D5 (muted badge + `· dismissed` when a kind's newest run is a dismissed error) was added at spec time; the storage decision is [ADR-100](../architecture/ADR-100-job-run-dismissals.md).
 
 **Q5 — Page size for the log? [engineering, non-blocking]**
 50 is the assumed default. Worth confirming against the collapsed-row count once rollup exists — 50 *rolled-up* entries may represent far more runs than intended.
@@ -199,6 +226,7 @@ No external deadline. Actual phasing, as shipped:
 3. **Digest** (P0-3, digest half of P0-5) — [HOLODEX-210](https://whoiskevinrich.atlassian.net/browse/HOLODEX-210), PR #166, merged 2026-07-23. Done independently of Q1, on the triage goal.
 4. **Paginated log + adjacency rollup** (P0-4, P0-6) — **dropped 2026-07-29.** Q1 answered "ungating alone fixed it" after a week of real use (digest fast, Log tab rarely opened), so these would be polish for a problem the render gate was causing, not the row-volume problem they were designed against.
 5. **Entry points** (P1, gated on Q3) — not started; optional, non-blocking.
+6. **Dismiss addressed failures** (P0-7) — [HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416), PR #354, in progress 2026-09-18. The answer to Q4, two months after the digest shipped; one additive migration, two owner endpoints, a digest `LEFT JOIN`.
 
 Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps 4 stopped exactly where the spec said it should if Q1 came back "fixed."
 
@@ -212,3 +240,12 @@ Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps
 - [/] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated for attribution + digest; keyset-cursor and rollup-boundary cases no longer needed (scope dropped); the frontend component-test harness gap (HOLODEX-203 up-next item 4) is unrelated pre-existing debt, still open
 - [x] **Security review** — not required; endpoints stay within the existing `requireOwner` group and no auth surface changes
 - [x] **Three-skin QA** — Cinémathèque, Broadcast, Brutalist (digest + error states, per HOLODEX-205/210)
+
+**P0-7 extension ([HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416), PR #354):**
+
+- [x] **Spec** — this section + Q4 resolved (2026-09-18)
+- [ ] **[ADR-100](../architecture/ADR-100-job-run-dismissals.md)** — `job_run_dismissals` sibling table, retention cascade
+- [x] **Design handoff** — [`status-dismiss-failures-handoff.md`](../design/status-dismiss-failures-handoff.md) + SVG mockup (2026-09-18)
+- [ ] **Testing strategy** — digest exclusion, owner gate, double-dismiss no-op, sweep cascade, component row-leaves-and-count-decrements
+- [x] **Security review** — not required; both endpoints stay inside the existing `requireOwner` group, input is a path id and the digest's `days`
+- [ ] **Three-skin QA** — callout controls + Log marker

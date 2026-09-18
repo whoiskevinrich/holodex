@@ -8,7 +8,7 @@ callout in `web/src/lib/components/activity/JobDigest.svelte`, plus a one-marker
 `job_runs` as the audit record).
 **Status:** approved 2026-09-18 — all four decisions below were taken from the inline mockup.
 
-![Recent failures callout: current, proposed, stressed, and quiet states](status-dismiss-failures-mockup.svg)
+![Recent failures callout: current, proposed, stressed, quiet, and dismissed-latest-run states](status-dismiss-failures-mockup.svg)
 
 ## Overview
 
@@ -26,6 +26,7 @@ failure or for the whole window, without touching the audit record.
 | D2 | Scope | Dismissed runs leave the callout **and** the per-kind `errors` count | Otherwise the Errors column stays `text-warn` after everything is handled and the page never quiets. The Log tab keeps every run. |
 | D3 | Confirm | None, for both controls | Matches the queue-row Dismiss idiom (`ExtractionQueueRow`): immediate, row-clearing. Nothing is deleted — the Log is the record — so a slip costs nothing. |
 | D4 | Persistence | New `job_run_dismissals (job_run_id PK, dismissed_at)` | Sibling of `enrichment_dismissals`; `job_runs` stays immutable as 0028 / ADR-091 assume. Recorded in the ADR (gate). |
+| D5 | Status badge when a kind's **newest** run is a dismissed error | **Muted** `error` badge + `· dismissed` marker (added at spec time, 2026-09-18) | `last_status` is the newest run's fact and must not lie — an older `ok` standing in for a failed run was rejected — but a warn badge that outlives its dismissal keeps the page from quieting. Muting it and reusing the Log's marker says both things: it failed, and it is handled. A later failure of the kind is a new undismissed run, so the badge returns to `--warn` on its own. |
 
 Deliberately **not** in v1: undo / undismiss (the Log row is the recovery path — "it's in the
 Log" is the answer, not a toast), a "dismissed" filter on the Log, auto-dismiss on a later
@@ -69,6 +70,13 @@ enrich   2h ago   provider timeout after 30s ......................... [ Dismiss
 `<JobStatusBadge status="error" /> <span class="text-xs text-muted">· dismissed</span>`. No
 button, no row change. Requires `dismissed_at?: string` on `JobRun` in `types.ts`.
 
+**Digest Status cell (D5)** — when `k.last_dismissed` is true the badge renders muted:
+`rounded-theme border border-rule px-1.5 py-0.5 text-[10px] font-semibold text-muted` (the
+`error` badge's shape with `--rule`/`--muted` in place of `--warn`), followed by the same
+`<span class="text-xs text-muted">· dismissed</span>` as the Log. Add a `muted` prop to
+`JobStatusBadge` rather than a second component so the two tabs cannot drift. Requires
+`last_dismissed: boolean` on `JobKindDigest` in `types.ts`.
+
 ## Design tokens used
 
 | Token / class | Usage |
@@ -98,6 +106,8 @@ the two others in `app.css` `[data-skin]` blocks) — the warn hue differs per s
 | Dismiss all | Error | Toast as above; nothing changes |
 | Callout | 0 failures | Absent (existing behaviour) |
 | Per-kind Errors cell | 0 after dismissal | `text-muted` (existing conditional class) |
+| Per-kind Status cell | Newest run is a dismissed error | Muted `error` badge + `· dismissed` (D5); set `last_dismissed` locally when the dismissed row's `started_at` equals the kind's `last_run`, so no refetch is needed |
+| Per-kind Status cell | A newer failure arrives | Warn `error` badge again — the newest run is undismissed |
 | Log row | Dismissed | `· dismissed` marker after the status badge; Revert (if any) unaffected |
 | Visitor | Any | No buttons rendered; counts already exclude dismissed runs server-side |
 
@@ -162,8 +172,9 @@ pages). `prefers-reduced-motion` therefore has nothing to gate.
 | `POST` | `/admin/activity/failures/dismiss` | `{ "days": 30 }` (same window param as the digest) | `{ "dismissed": n }` |
 
 Both under `requireOwner`. `GET /admin/activity/digest` excludes dismissed runs from both
-`kinds[].errors` and `failures`. `GET /admin/activity/history` returns every run and adds
-`dismissed_at` when set.
+`kinds[].errors` and `failures`, and adds `last_dismissed: bool` to each `kinds[]` entry (true
+when the newest run is a dismissed error — D5). `GET /admin/activity/history` returns every
+run and adds `dismissed_at` when set.
 
 ## Implementation notes
 

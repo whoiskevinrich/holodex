@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" width="760" height="560" font-family="Archivo, Helvetica, Arial, sans-serif">
-<title>Recent failures callout on /owner/status: current, proposed dismiss controls, stressed, and quiet states (HOLODEX-416, Cinémathèque skin)</title>
-<rect width="760" height="560" fill="#15110e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 650" width="760" height="650" font-family="Archivo, Helvetica, Arial, sans-serif">
+<title>Recent failures callout on /owner/status: current, proposed dismiss controls, stressed, quiet, and dismissed-latest-run states (HOLODEX-416, Cinémathèque skin)</title>
+<rect width="760" height="650" fill="#15110e"/>
 
 <text x="20" y="26" font-size="12" fill="#9b9082">A · Today — no mechanism</text>
 <rect x="20" y="38" width="350" height="112" rx="2" fill="#15110e" stroke="#e2603f"/>
@@ -49,7 +49,7 @@
 <text x="600" y="312" font-size="10" letter-spacing="1" fill="#9b9082">STATUS</text>
 <line x1="390" y1="318" x2="740" y2="318" stroke="#2a2622"/>
 <text x="390" y="336" font-size="12" fill="#f3ece1">enrich</text><text x="560" y="336" font-size="12" fill="#9b9082" text-anchor="end">0</text>
-<rect x="600" y="325" width="40" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="620" y="336" font-size="10" fill="#9b9082" text-anchor="middle">error</text>
+<rect x="600" y="325" width="40" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="620" y="336" font-size="10" fill="#9b9082" text-anchor="middle">error</text><text x="648" y="336" font-size="11" fill="#9b9082">· dismissed</text>
 <text x="390" y="356" font-size="12" fill="#f3ece1">writeback</text><text x="560" y="356" font-size="12" fill="#9b9082" text-anchor="end">0</text>
 <rect x="600" y="345" width="52" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="626" y="356" font-size="10" fill="#9b9082" text-anchor="middle">success</text>
 <text x="390" y="376" font-size="12" fill="#f3ece1">scan</text><text x="560" y="376" font-size="12" fill="#9b9082" text-anchor="end">0</text>
@@ -62,6 +62,24 @@
 <text x="390" y="454" font-size="12" fill="#9b9082">1h ago</text><text x="450" y="454" font-size="12" fill="#f3ece1">writeback</text>
 <rect x="540" y="443" width="52" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="566" y="454" font-size="10" fill="#9b9082" text-anchor="middle">success</text>
 
-<text x="20" y="500" font-size="11" fill="#9b9082">Decisions: D1 per-row + Dismiss all N · D2 dismissed runs leave the callout and the Errors count · D3 no confirm · D4 job_run_dismissals table, job_runs immutable</text>
-<text x="20" y="518" font-size="11" fill="#9b9082">Not in v1: undo, Log filter, auto-dismiss on next success. Owner-only; visitors see today's callout with server-side-excluded counts.</text>
+<text x="20" y="500" font-size="12" fill="#9b9082">E · D5 — kind whose newest run is a dismissed error (Status column)</text>
+<text x="20" y="522" font-size="10" letter-spacing="1" fill="#9b9082">JOB</text>
+<text x="200" y="522" font-size="10" letter-spacing="1" fill="#9b9082" text-anchor="end">ERRORS</text>
+<text x="230" y="522" font-size="10" letter-spacing="1" fill="#9b9082">STATUS</text>
+<line x1="20" y1="528" x2="370" y2="528" stroke="#2a2622"/>
+<text x="20" y="546" font-size="12" fill="#f3ece1">writeback</text><text x="200" y="546" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<rect x="230" y="535" width="40" height="15" rx="8" fill="none" stroke="#2a2622"/><text x="250" y="546" font-size="10" font-weight="600" fill="#9b9082" text-anchor="middle">error</text>
+<text x="276" y="546" font-size="11" fill="#9b9082">· dismissed</text>
+<text x="20" y="566" font-size="12" fill="#f3ece1">enrich</text><text x="200" y="566" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<text x="230" y="566" font-size="12" fill="#9b9082">ok</text>
+<text x="390" y="500" font-size="12" fill="#9b9082">…an hour later, writeback fails again — new undismissed run</text>
+<line x1="390" y1="528" x2="740" y2="528" stroke="#2a2622"/>
+<text x="390" y="546" font-size="12" fill="#f3ece1">writeback</text><text x="570" y="546" font-size="12" fill="#e2603f" text-anchor="end">1</text>
+<rect x="600" y="535" width="40" height="15" rx="8" fill="none" stroke="#e2603f"/><text x="620" y="546" font-size="10" font-weight="600" fill="#e2603f" text-anchor="middle">error</text>
+<text x="390" y="566" font-size="12" fill="#f3ece1">enrich</text><text x="570" y="566" font-size="12" fill="#9b9082" text-anchor="end">0</text>
+<text x="600" y="566" font-size="12" fill="#9b9082">ok</text>
+
+<text x="20" y="600" font-size="11" fill="#9b9082">Decisions: D1 per-row + Dismiss all N · D2 dismissed runs leave the callout and the Errors count · D3 no confirm · D4 job_run_dismissals table, job_runs immutable</text>
+<text x="20" y="618" font-size="11" fill="#9b9082">D5 muted error badge + · dismissed when the newest run is a dismissed error (rejected: badge stays warn; badge follows newest undismissed run — an old ok standing in for a failure).</text>
+<text x="20" y="636" font-size="11" fill="#9b9082">Not in v1: undo, Log filter, auto-dismiss on next success. Owner-only; visitors see today's callout with server-side-excluded counts.</text>
 </svg>
