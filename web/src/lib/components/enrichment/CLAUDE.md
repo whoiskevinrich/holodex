@@ -12,3 +12,16 @@ provenance/brand-icon system, and the enrichment review queue row.
 | `ProviderIcon.svelte` | Provider brand glyph: the self-hosted icon when cached, else a themed monogram fallback. |
 | `ProviderLinkBadge.svelte` | One outbound provider-link pill (HOLODEX-266, ADR-083 D2/D3) for a person/studio/video's stored external id — a clickable `<a>` when the provider declared a link template, else a non-interactive "known to" `<span>`. Shared by `EntityVideos` (studio) and the person page's own header. |
 | `ProviderStatusChip.svelte` | Read-only sibling of `EnrichProviderChips` for queue rows — same chip shell, no button/menu, just a state label. |
+
+## Rules
+
+### Ungated-aspect image slots use the 2:3 plate with `object-contain`
+
+A thumbnail whose source aspect Holodex does **not** enforce at ingest — a `/resolve`
+`candidates[].image_url` (F63), any provider-hot-linked render — sits in the `FilmsRow` tile
+idiom (`aspect-[2/3] rounded-theme bg-logo-plate overflow-hidden`, monogram `font-display
+font-semibold text-logo-plate-ink`) with **`object-contain`**, so a wide logo letterboxes and a
+portrait fills. `object-cover` is reserved for roles whose aspect ingest guards (film
+banner/poster, HOLODEX-386). Same rule as `entity/CLAUDE.md` "Frame follows source aspect";
+recorded here because the picker is where it was decided the second time. Handoff:
+`docs/design/candidates-image-handoff.md`.

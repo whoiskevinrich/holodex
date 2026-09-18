@@ -17,8 +17,9 @@ rule applied to one more surface. No new decision, no new perimeter.
 **Contract amendment**: [metadata-provider-contract.md](metadata-provider-contract.md) §2.3
 (response example + field row), §5 (caps row), §6 (S7 note), §8 (example) — amended in the same
 change as this spec.
-**Design handoff**: `docs/design/candidates-image-handoff.md` + committed SVG mockup (pending —
-`needs-design`).
+**Design handoff**: [candidates-image-handoff.md](../design/candidates-image-handoff.md) +
+[candidates-image-mockup.svg](../design/candidates-image-mockup.svg) +
+[candidates-image-qa-checklist.md](../design/candidates-image-qa-checklist.md).
 **Supersedes**: the F61 non-goal "an inline thumbnail / `thumbnail_url` on candidates"
 ([candidates-detail.md](candidates-detail.md) Non-Goals, P2-c). F61 set it aside because it "would
 be the first candidate-level field Holodex has to *fetch* through the SSRF perimeter". This spec
@@ -257,9 +258,12 @@ Folded from the brainstorm (2026-09-16):
 
 ## Open Questions
 
-- **(design, blocking the design gate)** Exact plate treatment for the monogram — reuse
-  `ProviderIcon`'s monogram plate verbatim, or the `FilmsRow` poster-or-monogram idiom? Same
-  tokens either way; settle in the design handoff with the committed SVG.
+- ~~(design) Exact plate treatment for the monogram — `ProviderIcon` or `FilmsRow` idiom?~~ —
+  **settled 2026-09-17** in the design handoff: the `FilmsRow` 2:3 tile (`aspect-[2/3]
+  rounded-theme bg-logo-plate` + `font-display text-sm font-semibold text-logo-plate-ink`
+  monogram) at `w-10`, with `object-contain` in place of `FilmsRow`'s `object-cover` because the
+  candidate image's aspect is not gated upstream (`entity/CLAUDE.md` rule). `ProviderIcon`'s
+  plate is a square, size-driven inline icon — the wrong shape.
 - **(engineering, non-blocking)** Whether the `error` → monogram swap is a `$state` flag per row or
   a CSS `:has()` trick — implementation's call; AC5 fixes the outcome.
 

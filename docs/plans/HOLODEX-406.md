@@ -31,9 +31,16 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   S7 note, §8 example)
 - [~] architecture `architecture` — n/a: additive optional response key + an existing gate
   (ADR-056 `ImageURLAllowed`) gaining one caller; no seam, no migration, no new config key
-- [ ] design `design-handoff` — `candidates-image-handoff.md` + committed SVG: the row with an
-  image / monogram / F61-expanded / studio logo letterboxed, all three skins; settle the one open
-  design question (which monogram-plate idiom — `ProviderIcon` or `FilmsRow`)
+- [x] design `design-handoff` — `candidates-image-handoff.md` + `candidates-image-mockup.svg`
+  (four panels: person rows with/without image · F61-expanded film row, thumb pinned top · studio
+  logo letterboxed + 404→monogram · slot anatomy) + numbered, verifier-tagged
+  `candidates-image-qa-checklist.md`. **Idiom settled: `FilmsRow`'s 2:3 plate** (`w-10
+  aspect-[2/3] rounded-theme bg-logo-plate` + `font-display text-sm font-semibold
+  text-logo-plate-ink` monogram) with `object-contain` per `entity/CLAUDE.md`'s
+  frame-follows-source-aspect rule; `ProviderIcon`'s square inline plate rejected. Rule recorded in
+  `enrichment/CLAUDE.md`. Flagged for the testing gate: the slot sets a 76 px row floor that masks
+  F61's `py-1` mutation in `collapsed-detail-row-costs-one-line` — re-base to equality or assert
+  the text block; add an x-offset parity assertion (AC4)
 - [ ] backend — `Candidate.ImageURL`, `image_url` step in `sanitizeCandidates` calling
   `Service.ImageURLAllowed`; `Fake` gains `ImageURL`; sanitizer table (the riskiest-assumption
   test: foreign host / suffix-spoof / scheme / malformed / `""` all cleared) + one resolve-handler
@@ -54,9 +61,9 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [S] Open the Draft PR with the spec gate; gate-status checkboxes mirror Jira (`needs-spec`
-   cleared on push).
-2. [ ] [M] `/design-handoff` — SVG committed, monogram-plate idiom settled, `needs-design` cleared.
+1. [x] [S] Draft PR #346 opened with the spec gate; `needs-spec` cleared.
+2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared.
+2a. [ ] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48.
 3. [ ] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
 4. [ ] [M] Frontend FR3 + stub personas + three-skin QA.
 5. [ ] [S] `/testing-strategy`, then `/security-review`, clear `needs-security-review`.
@@ -64,6 +71,21 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
    sidecar repo via its contract-watch skill (never from this branch).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-17 · design handoff
+- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions)
+- Settled the open design question from the source, not a card: `FilmsRow`'s 2:3 tile is the
+  slot shape; `ProviderIcon`'s plate is a square inline icon. One deviation — `object-contain`
+  — because `entity/CLAUDE.md` says frames follow source aspect unless ingest gates it.
+- Committed `candidates-image-mockup.svg` (960 × 1040, Cinémathèque, gold dashed = new),
+  `candidates-image-handoff.md` (placement markup, content/state tables, a11y, responsive at
+  512 / 343 px, edge cases, implementation notes), and the QA checklist (§1 personas `faces` /
+  `broken` / `logos` / `flood` / `hostile`; 6 smoke, 14 agent, 6 human). Spec's open question
+  struck through; `enrichment/CLAUDE.md` gains the ungated-aspect rule.
+- Found on the way: the 76 px row floor neutralises the F61 assertion's `py-1` mutation —
+  noted for `/testing-strategy`.
+- Handoff: spec + design gates green on Draft PR #346. Next: backend FR1/FR2 + sidecar FR4
+  (sanitizer table first), then frontend FR3 against the new stub personas.
 
 ### 2026-09-16 → 17 · brainstorm, story filed, spec + contract amendment written
 - skills: product-brainstorming (Explore subagent for the picker/contract/perimeter facts, three-option
