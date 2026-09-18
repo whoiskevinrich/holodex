@@ -45,5 +45,5 @@ saw at that URL is the one it keeps.
   logo upload verified live (`v=1` → `v=2`, pixel flipped); video poster upload verified on the
   browse grid (`no-cache` revalidated). Person poster reproduced stale on the media Cast grid, fixed
   at the two payload sites + the grid prop, pinned by a repo test.
-- handoff: fix shipped and live-verified; PR open; the other three kinds await the owner's
+- handoff: fix shipped and live-verified; PR #353 ready for review (Jira In Review via CI); the other three kinds await the owner's
   re-check on the real instance.
