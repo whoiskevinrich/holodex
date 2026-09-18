@@ -58,10 +58,28 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   search/find/by-id, company search/by-id). `TestTMDBResolveImageURL` covers person (search +
   by-id), movie (with and without poster → key absent, asserted on the JSON), studio.
   `metadata-sources.yaml.example` now says `asset_hosts` also gates browser-rendered images
-- [ ] frontend — `EnrichCandidate.image_url?`; 40 × 60 slot on every `<li>`, `<img alt=""
-  loading="lazy" referrerpolicy="no-referrer">` `object-contain` on `bg-logo-plate`, monogram on
-  absent **and** on `error`, top-aligned; pure helper + vitest; stub personas covering the four
-  slot states; three-skin QA by computed style (screenshots time out on this picker)
+- [x] frontend — `EnrichCandidate.image_url?` (`types.ts`); pure `candidateImage.ts`
+  (`showThumb`: http(s) `image_url` and not failed — `isHttpUrl` belt-and-suspenders like
+  `profile_url`) + 4 vitest cases; `EnrichPicker.svelte`: `<li>` → `flex items-start gap-3`,
+  `aria-hidden` slot `w-10 aspect-[2/3] bg-logo-plate overflow-hidden` first child with
+  `<img alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" object-contain>` or
+  the `FilmsRow` monogram span, per-row `failed` map (the `open`-map lifecycle, reset on edit /
+  response / error), F61 internals wrapped byte-for-byte in `div.min-w-0.flex-1`. Stub: rectangular
+  `solidPng`, `/p/<slug>/thumb/{portrait-N,wide}.png` route (anything else 404), `twins` rows walk
+  every slot state (4 portraits · wide · 404 · foreign host · no key), `flood` all 25 pictured.
+  **Live QA on the studio page (AMV testbed has no people; same shared picker), all three skins:**
+  8/8 rows one slot 40 × 60, portraits `naturalWidth/Height` 40/60, wide logo 64/16 in the same
+  box with `object-fit: contain`; rows 5 (404), 6 (foreign) and 7 (no key) on the monogram `H`;
+  the wire (`/studios/1/enrich/resolve`) carries `image_url` on rows 0–5 and **no key** on 6–7;
+  label x = 98.4 on every row; slot top == label top before and after F61 expand, expanded `<ul>`
+  left == label left; no slot tab stop (`trapTab` list unchanged), slot has no handler — clicking
+  the image applied the candidate and neither `/thumb/` nor `image_url` appears in the page after;
+  `flood` 25 rows all exactly **76 px** (F61 bound [70, 76] still holds, no-detail row 7 also 76),
+  last row inside the scroll box, dialog overflow 0, all 25 thumbs requested at render (Chrome's
+  lazy margin covers the list — recorded, not asserted); monogram-on-plate contrast 12.17 / 13.02
+  / 15.27 (Cinémathèque / Broadcast / Brutalist), radius 2 / 0 / 0, `font-display` per skin;
+  375 px: dialog 343, text block 232, label truncates, match text visible, h-scroll 0.
+  `npm run check` 0 errors, vitest 298/298, `/code-review high --fix` one stale comment fixed
 - [ ] testing `testing-strategy` — header entry, §4 backend row, §5 picker row, invariants
   (rendered-not-fetched; column always present; collapsed-row parity with and without image), a
   §12 assertion on text-block x-offset parity
@@ -75,7 +93,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 2. [x] [M] `/design-handoff` landed (handoff + SVG + QA checklist); `needs-design` cleared.
 2a. [ ] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48.
 3. [x] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
-4. [ ] [M] Frontend FR3 + stub personas + three-skin QA.
+4. [x] [M] Frontend FR3 + stub personas + three-skin QA.
 5. [ ] [S] `/testing-strategy`, then `/security-review`, clear `needs-security-review`.
 6. [ ] [S] Mark ready → CI fires In Review. Post-merge: contract-sync note lands downstream in the
    sidecar repo via its contract-watch skill (never from this branch).
@@ -83,7 +101,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-17 · design handoff
-- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean)
+- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean), code-review
 - Settled the open design question from the source, not a card: `FilmsRow`'s 2:3 tile is the
   slot shape; `ProviderIcon`'s plate is a square inline icon. One deviation — `object-contain`
   — because `entity/CLAUDE.md` says frames follow source aspect unless ingest gates it.
@@ -97,10 +115,15 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 - Backend + sidecar built in the same session: `sanitizeImageURL` + 16-row table +
   service/API round-trips (gate mutation-tested); TMDB emits `image_url` at w185 from all 8
   builders. `go test ./...` green, `/code-review high --fix` no findings.
-- Handoff: spec, design, backend, sidecar gates green on Draft PR #346. Next: frontend FR3
-  (`EnrichCandidate.image_url?`, the 40×60 slot, per-row `failed` map, `faces`/`broken`/`logos`
-  stub personas, three-skin QA by computed style), then `/testing-strategy` (re-base the F61
-  `py-1` assertion) and `/security-review`.
+- Frontend built and verified live (studio page, three skins, mobile) — the four slot states
+  live on the existing `twins` rows instead of three new personas (no registry churn). QA
+  checklist §1.2 / §3.6 / §3.11 reconciled with what was measured; screenshots worked this time.
+- Handoff: spec, design, backend, sidecar, frontend gates green on Draft PR #346. Next:
+  `/testing-strategy` — header entry, §4/§5 rows, invariants, re-base
+  `collapsed-detail-row-costs-one-line` (76 px floor masks `py-1`) + an x-offset parity
+  assertion — then `/security-review` (clear the label), then mark ready. Local
+  `.claude/launch.json` gained `backend-stub` (AMV media, stress `sources.yaml`, `data/stub`) and
+  `enrich-stub` — gitignored, per-worktree.
 
 ### 2026-09-16 → 17 · brainstorm, story filed, spec + contract amendment written
 - skills: product-brainstorming (Explore subagent for the picker/contract/perimeter facts, three-option

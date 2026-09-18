@@ -14,17 +14,25 @@ Items are numbered `section.item`.
   sidecar configured for `person` and `studio`, its own host in `asset_hosts`. Owner view on — the
   picker is owner-only. **Verify the served bundle matches this worktree** (curl the dev server,
   grep for `image_url`) — a worktree with no local `.claude/launch.json` silently previews `main`.
-- **1.2** `[agent]` Stub personas, selectable by query text:
-  (a) **faces** — four person candidates all labelled `Chris Evans`: image on the stub's own host;
-  image on the stub's `asset_hosts` entry; image on `img.other.example` (must arrive stripped); no
-  `image_url` key. Each with `disambiguation` + `profile_url`, two with `detail`;
-  (b) **broken** — one candidate whose `image_url` is on the stub's host but the path returns 404;
-  (c) **logos** — two studio candidates, one with a wide (≈ 4:1) logo, one with none;
-  (d) **flood** — the existing 25-candidate F61 persona, now every candidate carrying an image;
-  (e) **hostile** — `image_url` values: `ftp://…`, `javascript:alert(1)`, `""`, `not a url`,
-  `https://stub.example.evil.example/x.jpg` (suffix spoof), a 5000-char URL.
+- **1.2** `[agent]` Stub personas (`testdata/enrich-stub/`). **As built:** rather than three new
+  personas (each needs `personas.json` + `sources.yaml` + seeder registration), every slot state
+  rides the existing adoption personas —
+  (a) **twins** (eight same-label rows): rows 0–3 a portrait each on the stub's own host
+  (`/p/twins/thumb/portrait-N.png`, 40 × 60, colour from the id); row 4 a wide 64 × 16 "logo"
+  (`/thumb/wide.png`); row 5 `/thumb/missing.png` (the stub 404s it); row 6
+  `https://img.other.example/…` (core must strip it); row 7 no key (also F61's no-detail member);
+  (b) **flood** — the 25-candidate F61 persona, every row pictured;
+  (c) **hostile** values (`ftp://`, `javascript:`, `""`, malformed, suffix spoof, over-cap) are
+  the Go sanitizer table (2.1) — the stub does not need to emit them.
 
 ## §2 Smoke — `[smoke]`
+
+> **Reconciled 2026-09-17 (frontend gate).** 2.1–2.4 and 2.6 are Go tests
+> (`internal/enrich/candidate_image_test.go`, `internal/api/enrich_hints_test.go`,
+> `providers/tmdb/tmdb_test.go`); 2.5 is `web/src/lib/candidateImage.test.ts`. §3 ran live
+> against the stub on the studio page (the AMV testbed has no people; the picker is shared, so
+> the surface is the same) in all three skins — results in `docs/plans/HOLODEX-406.md` and
+> `docs/testing-strategy.md` §5 once the testing gate lands.
 
 - **2.1** `[smoke]` `sanitizeCandidates` table: base host kept; `asset_hosts` entry kept; foreign
   host cleared; suffix-spoof cleared; `ftp:` / `javascript:` cleared; malformed cleared; `""`
@@ -58,9 +66,10 @@ Items are numbered `section.item`.
   `collapsed-detail-row-costs-one-line` (see the handoff's implementation note on re-basing it).
 - **3.5** `[agent]` `broken`: after the 404 (await `img.complete` / the `error` event), the row
   shows the monogram and no `<img>`; `document.querySelector('img[src*="404path"]')` is null.
-- **3.6** `[agent]` `logos`: the wide logo `<img>` `naturalWidth/naturalHeight` ≈ 4 and its
-  rendered box is 40 wide with rendered height < 60 (letterboxed); the plate `bg-logo-plate` is
-  visible above and below (computed background on the wrapper, not the img).
+- **3.6** `[agent]` `twins` row 4: the wide logo `<img>` has `naturalWidth/naturalHeight` = 64/16
+  while its element box is the full 40 × 60 and computed `object-fit: contain` — the painted
+  image letterboxes inside the box, so the plate `bg-logo-plate` (computed background on the
+  wrapper, not the img) shows above and below.
 - **3.7** `[agent]` F61 interplay: on a `faces` row with `detail`, click `details` — the dialog
   stays open, the `<ul>` appears **inside the text block** (its left edge ≥ the label's x), the
   slot's `y` is unchanged (pinned to the label line), the row grows by the lines' height only.
@@ -71,9 +80,10 @@ Items are numbered `section.item`.
   label does (same handler, same result).
 - **3.10** `[agent]` New response resets state: with `broken` showing the monogram, retype a
   query that returns the same candidate with a good path — the row shows the image again.
-- **3.11** `[agent]` `flood`: 25 rows all have slots; at most the rows in / near the viewport
-  have requested their image (network log count < 25 immediately after render); scroll to the
-  last row — inside the `<ul>` scroll box, dialog overflow 0.
+- **3.11** `[agent]` `flood`: 25 rows all have slots and `loading="lazy"`; scroll to the last
+  row — inside the `<ul>` scroll box, dialog overflow 0. (How many thumbs the browser requests at
+  render is its lazy-load threshold's call, not ours — Chrome's ~1250 px margin covers the whole
+  1900 px list on a tall viewport; record the count, don't assert it.)
 - **3.12** `[agent]` **Three skins** (`[data-theme]` = cinematheque / broadcast / brutalist):
   monogram contrast `text-logo-plate-ink` on `bg-logo-plate` ≥ 4.5 : 1 in each; plate corner
   radius = 2 / 0 / 0 px; the plate reads the same on the active row (`bg-surface-2` behind it)

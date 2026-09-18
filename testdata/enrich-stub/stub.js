@@ -80,22 +80,22 @@ function pngChunk(type, data) {
   return Buffer.concat([len, typed, crc]);
 }
 
-// solidPng renders a size×size truecolour PNG in one flat colour.
-function solidPng(size, [r, g, b]) {
-  const stride = size * 3 + 1; // one filter byte per scanline
-  const raw = Buffer.alloc(size * stride);
-  for (let y = 0; y < size; y++) {
+// solidPng renders a width×height truecolour PNG in one flat colour.
+function solidPng(width, height, [r, g, b]) {
+  const stride = width * 3 + 1; // one filter byte per scanline
+  const raw = Buffer.alloc(height * stride);
+  for (let y = 0; y < height; y++) {
     const o = y * stride;
     raw[o] = 0; // filter: none
-    for (let x = 0; x < size; x++) {
+    for (let x = 0; x < width; x++) {
       raw[o + 1 + x * 3] = r;
       raw[o + 2 + x * 3] = g;
       raw[o + 3 + x * 3] = b;
     }
   }
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; // bit depth
   ihdr[9] = 2; // colour type: truecolour
   return Buffer.concat([
@@ -174,6 +174,28 @@ function namespaceOf(externalID) {
   return externalID.slice(0, colon);
 }
 
+// Candidate thumbnails (F63, contract §2.3 candidates[].image_url)
+//
+// Served from the persona's own path prefix like the brand icon, because the same
+// ADR-039 allowlist gates them: core keeps an image_url only when its host is the
+// provider's base_url host (or an operator asset_hosts entry) — so a thumb on this
+// stub's host reaches the picker and one on `img.other.example` (below) must not.
+// Two shapes: a 2:3 portrait (fills the picker's 40×60 box) and a 4:1 wide "logo"
+// (letterboxes in it). The colour is derived from the id so eight same-label rows
+// are eight visibly different faces. Any other name is a 404 — the QA row whose
+// image errors out and falls back to the monogram.
+const THUMB = /^\/thumb\/(portrait-(\d+)|wide)\.png$/;
+function thumbPng(name) {
+  const m = THUMB.exec(name);
+  if (!m) return null;
+  if (m[1] === 'wide') return solidPng(64, 16, [138, 47, 47]);
+  const n = Number(m[2]);
+  return solidPng(40, 60, [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)]);
+}
+function thumbURL(persona, origin, name) {
+  return `${origin}/p/${persona.slug}/thumb/${name}.png`;
+}
+
 // candidate builds one candidate with its namespace derived from the id rather than
 // written beside it, so the pair cannot be edited apart. That divergence is the whole
 // defect this shape exists to prevent, and a hand-written second copy of the prefix
@@ -190,13 +212,19 @@ function idNamespaceFor(persona) {
   return namespaceOf(candidatesFor(persona, '')[0].external_id);
 }
 
-function candidatesFor(persona, query) {
+// origin is this stub's own `http://host:port` (from the request), which the F63
+// thumbnails need to be absolute URLs on the allowlisted host. The conformance test
+// calls without one; it only reads ids and namespaces.
+function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
   if (persona.candidates === 'flood') {
     return Array.from({ length: 30 }, (_, i) =>
       candidate(`flood:${100 + i}`, {
         label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
         confidence: Number((WEAK - i * 0.01).toFixed(2)),
         disambiguation: `Result ${i + 1} of 30 · flooded list`,
+        // F63: every row pictured, so the 25-row list exercises lazy loading and the
+        // row-height floor at once (QA §3.11).
+        image_url: thumbURL(persona, origin, `portrait-${100 + i}`),
         // F61 candidates[].detail on DISTINCT labels: every row carries a toggle and
         // every row starts collapsed — the "zero cost when unneeded" half of the rule.
         // Eight lines on row 1 and one 256-char line on row 2 are the §5 caps exactly.
@@ -220,11 +248,27 @@ function candidatesFor(persona, query) {
       'Composer · 1950 · unaffiliated',
       'Director · 1941 · Studio Ghibli' // a genuine duplicate: even the tiebreaker ties
     ];
+    // F63 candidates[].image_url — every slot state in one same-label list (QA §1.2):
+    // rows 0–3 a portrait each (four visibly different faces behind one name), row 4
+    // a wide 4:1 "logo" that must letterbox, row 5 a path this stub 404s (→ monogram
+    // via onerror), row 6 a foreign host core must strip before the browser sees it,
+    // row 7 no key at all (the pre-F63 provider, also the no-detail member).
+    const thumbs = [
+      thumbURL(persona, origin, 'portrait-200'),
+      thumbURL(persona, origin, 'portrait-201'),
+      thumbURL(persona, origin, 'portrait-202'),
+      thumbURL(persona, origin, 'portrait-203'),
+      thumbURL(persona, origin, 'wide'),
+      thumbURL(persona, origin, 'missing'),
+      'https://img.other.example/miyazaki-206.jpg',
+      undefined
+    ];
     return where.map((d, i) =>
       candidate(`twins:${200 + i}`, {
         label: 'Hayao Miyazaki',
         confidence: WEAK,
         disambiguation: d,
+        image_url: thumbs[i],
         // F61 candidates[].detail on a LABEL COLLISION: eight same-label rows, so the
         // picker opens every one on first render (handoff FR4). The Studio line is the
         // disambiguation's third segment; the Record line is the completeness tiebreak
@@ -333,8 +377,19 @@ http
       return res.end(JSON.stringify({ error: 'unknown persona', known: [...BY_SLUG.keys()] }));
     }
 
+    if (persona !== LEGACY && endpoint.startsWith('/thumb/')) {
+      const png = thumbPng(endpoint);
+      if (!png) {
+        res.statusCode = 404;
+        return res.end();
+      }
+      res.setHeader('content-type', 'image/png');
+      res.setHeader('content-length', png.length);
+      return res.end(png);
+    }
+
     if (endpoint === '/icon.png' && persona.icon) {
-      const png = solidPng(64, persona.icon);
+      const png = solidPng(64, 64, persona.icon);
       res.setHeader('content-type', 'image/png');
       res.setHeader('content-length', png.length);
       return res.end(png);
@@ -380,7 +435,8 @@ http
         const hit = q.length >= 2 && 'hayao miyazaki'.includes(q);
         return res.end(JSON.stringify({ candidates: hit ? candidatesFor(persona, q) : [], searched }));
       }
-      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query), searched }));
+      const origin = `http://${req.headers.host || `${HOST}:${PORT}`}`;
+      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query, origin), searched }));
     }
 
     if (endpoint === '/enrich') {

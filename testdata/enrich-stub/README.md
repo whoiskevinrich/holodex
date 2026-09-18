@@ -29,7 +29,7 @@ server. `TestShippedSourcesRegisterEveryPersona` keeps the last two in step.
 | group | personas | what it exercises |
 |---|---|---|
 | `precedence` | `alpha` `bravo` `charlie` `delta` `stress-provider-with-a-very-long-name-40` | ADR-090 **layer 2** — five namespaces with *different* values for the same field, so the ADR-051 `SourceBadge` chip row has something to choose between |
-| `adoption` | `flood` `twins` | ADR-090 **layer 1** — `EnrichPicker` candidate lists |
+| `adoption` | `flood` `twins` | ADR-090 **layer 1** — `EnrichPicker` candidate lists. Both carry F63 `image_url` thumbnails served from `/p/<slug>/thumb/…png`; `twins` walks every slot state (portrait · wide logo · 404 · foreign host · no key) |
 | `fault` | `slow` `boom` `garbage` | loading and error states, on demand |
 
 Two personas carry a deliberate deformity: **`charlie` advertises no `brand_icon`**, so the
