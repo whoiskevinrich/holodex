@@ -19,7 +19,7 @@ import (
 // registry id), not a foreign key — providers are not a DB table.
 
 // ProviderIcon is one stored provider brand icon (the on-disk bytes are at
-// providericon.ImagePath(dir, ID)). ID doubles as the ?v= cache-buster: a refresh is
+// providericon.Find(dir, ID)). ID doubles as the ?v= cache-buster: a refresh is
 // delete + insert, so a replaced icon gets a new id and the browser re-fetches past the
 // immutable cache (ADR-059 §2).
 type ProviderIcon struct {

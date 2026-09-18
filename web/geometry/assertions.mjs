@@ -237,7 +237,7 @@ export const ASSERTIONS = [
 	// §4.6, the owner's call), which is the actions line's height now. This is the number
 	// both changes moved.
 	//
-	// F63 (HOLODEX-406) then put a 40×60 thumbnail slot beside the text block, so a row is
+	// F64 (HOLODEX-406) then put a 40×60 thumbnail slot beside the text block, so a row is
 	// now max(text stack, 60) + py-2 and 76 is a floor as well as a ceiling — the bound
 	// became an equality. That floor also swallowed one of the two mutations this used to
 	// catch (a toggle without `py-1` makes the text stack 52, and the slot still holds the
@@ -276,7 +276,7 @@ export const ASSERTIONS = [
 		expect: { min: 60, max: 60 }
 	},
 
-	// --- Every candidate row starts its text at the same x (F63, HOLODEX-406) ---
+	// --- Every candidate row starts its text at the same x (F64, HOLODEX-406) ---
 	//
 	// The design handoff's alignment rule: the thumbnail slot is always present and always
 	// the same size, so the label of a pictured row and the label of a monogram row share
@@ -318,6 +318,70 @@ export const ASSERTIONS = [
 		applies: 'count',
 		expect: { max: 200 },
 		blockedBy: 'HOLODEX-354'
+	},
+
+	// --- Media parts (HOLODEX-389). The part ladder seeds three files of one media
+	// whose only part source is the container tag — the source the list path never
+	// used to load — under one shared title, so the browse grid filtered to that
+	// title is the identical-triplet surface the field exists for. Addressed by
+	// `sort=title_asc`: the ladder's "Stress baseline" titles sort ahead of every
+	// coordinate-encoded `STRESS …` name and the breadth pool's `stress bulk …`, so
+	// the whole triplet lands on page one. (`/?q=` would be the natural address, but
+	// that deep link renders "No videos match" today — HOLODEX-404.) What the harness
+	// can express is presence and box size per element; the two-rect checks the
+	// design handoff asks for (badge vs duration, badge vs Brutalist reel counter)
+	// need a metric the probe does not have and were measured by hand instead
+	// (docs/design/media-parts-handoff.md §3, worklog HOLODEX-389).
+	{
+		key: 'part-badge-reaches-the-grid',
+		finds:
+			'Fewer part badges on the browse grid than the part ladder seeded — the ' +
+			'container-tag-only regression: the list path resolved parts from the filename ' +
+			'candidate and decisions but never loaded the file layer, so a part that lived ' +
+			'only as PartNumber/DiskNumber drew nothing on the card.',
+		urls: ['/?sort=title_asc'],
+		selector: '.video-grid .part-badge',
+		applies: 'count',
+		atLeast: 3,
+		expect: { min: 3 }
+	},
+
+	{
+		key: 'part-badge-is-a-real-box',
+		finds:
+			'A part badge collapsed or inflated: it shares the duration badge\'s text-xs + ' +
+			'py-0.5 treatment, so its box is the duration badge\'s box on every skin — a ' +
+			'height outside that band means the two no longer read as a pair along the ' +
+			'bottom edge, or a skin override reached one and not the other.',
+		urls: ['/?sort=title_asc'],
+		selector: '.video-grid .part-badge',
+		measure: 'height',
+		atLeast: 3,
+		expect: { min: 18, max: 26 }
+	},
+
+	{
+		key: 'part-pill-beside-the-title',
+		finds:
+			'The header part pill missing on a video the ladder gave a part, or rendered ' +
+			'twice. Exactly one: the slot shows the pill when a value exists and the owner ' +
+			'"+ Set part" control when it does not, never both.',
+		when: (e) => e.entity === 'video' && !!e.axes.video?.part,
+		selector: '.part-pill',
+		applies: 'count',
+		expect: { min: 1, max: 1 }
+	},
+
+	{
+		key: 'part-pill-holds-two-digits',
+		finds:
+			'The header pill clipping or wrapping "Part 12": the pill is shrink-0 + ' +
+			'wrap-anywhere in the title row, so a two-digit ordinal must still be one line ' +
+			'at every width.',
+		when: (e) => e.entity === 'video' && e.axes.video?.part === '12',
+		selector: '.part-pill',
+		measure: 'height',
+		expect: { min: 18, max: 26 }
 	}
 ];
 

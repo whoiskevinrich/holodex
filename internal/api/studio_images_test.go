@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -247,5 +248,67 @@ func TestStudioImage_InvalidRole(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("get invalid role = %d, want 400", resp.StatusCode)
+	}
+}
+
+// tinyTransparentPNG is an 8×8 PNG with a fully transparent background and one opaque
+// red pixel — the shape of a logo exported from an SVG.
+func tinyTransparentPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 8, 8))
+	img.Set(4, 4, color.NRGBA{R: 255, A: 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode test png: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestStudioImage_TransparentLogoKeepsAlpha (HOLODEX-396, ADR-097): a transparent
+// logo upload is stored as PNG and served as image/png with its alpha intact —
+// nothing paints a background under it. Delete then clears the .png like a .jpg.
+func TestStudioImage_TransparentLogoKeepsAlpha(t *testing.T) {
+	srv, _, sid := studioImageServer(t, "tok")
+
+	if code := uploadStudioImage(t, srv, "tok", sid, model.StudioImageLogo, tinyTransparentPNG(t)); code != http.StatusCreated {
+		t.Fatalf("upload = %d, want 201", code)
+	}
+	resp, err := http.Get(srv.URL + "/api/v1/studios/" + itoa(sid) + "/images/logo")
+	if err != nil {
+		t.Fatalf("get logo: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("get logo = %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "image/png" {
+		t.Fatalf("content-type = %q, want image/png", ct)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	img, format, err := image.Decode(bytes.NewReader(body))
+	if err != nil || format != "png" {
+		t.Fatalf("served format = %q err=%v, want png", format, err)
+	}
+	if _, _, _, a := img.At(0, 0).RGBA(); a != 0 {
+		t.Fatalf("corner alpha = %d, want 0 (a background was painted in)", a)
+	}
+	if r, _, _, a := img.At(4, 4).RGBA(); r>>8 != 255 || a>>8 != 255 {
+		t.Fatalf("centre pixel = r%d a%d, want opaque red", r>>8, a>>8)
+	}
+
+	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/studios/"+itoa(sid)+"/images/logo", nil)
+	req.Header.Set(api.AdminTokenHeader, "tok")
+	delResp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	delResp.Body.Close()
+	if delResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete = %d, want 204", delResp.StatusCode)
+	}
+	after, _ := http.Get(srv.URL + "/api/v1/studios/" + itoa(sid) + "/images/logo")
+	after.Body.Close()
+	if after.StatusCode != http.StatusNotFound {
+		t.Fatalf("after delete = %d, want 404", after.StatusCode)
 	}
 }

@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { formatDuration, resolutionBucket } from '$lib/format';
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 
 	let {
 		video,
@@ -82,6 +83,15 @@
 			>
 				{formatDuration(video.duration_sec)}
 			</span>
+			{#if video.part}
+				<!-- Part badge (HOLODEX-389, design handoff §1): the free bottom-left corner, in
+				     the duration badge's neutral treatment so the two read as a pair of facts along
+				     the bottom edge rather than a second accent badge. Not interactive, so it stays
+				     inside the <a> like duration — the media page row is the only edit mount (RD8). -->
+				<span class="part-badge absolute bottom-1.5 left-1.5 z-[2] rounded-theme bg-black/70 px-1.5 py-0.5 text-xs text-ink">
+					{partBadgeLabel(video.part)}
+				</span>
+			{/if}
 			{#if video.width > 0}
 				<span
 					class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-xs ring-1 ring-black/20"

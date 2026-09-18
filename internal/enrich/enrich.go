@@ -417,7 +417,7 @@ type Candidate struct {
 	// provider omitted the key or sent [].
 	Detail []string `json:"detail,omitempty"`
 	// ImageURL is the provider's optional list-row thumbnail for this candidate
-	// (F63, contract §2.3): a portrait, poster, or logo the picker renders in a
+	// (F64, contract §2.3): a portrait, poster, or logo the picker renders in a
 	// fixed 2:3 slot. Rendered by the owner's browser, never fetched or stored —
 	// so sanitizeCandidates keeps it only when its host passes the same
 	// asset-host allowlist that gates a render:image_url field (ADR-056/ADR-039);

@@ -30,7 +30,7 @@
   <rect class="bg" width="960" height="1040" />
 
   <text x="24" y="34" class="title ink" font-size="17">Enrich picker &#8212; candidate thumbnail from /resolve candidates[].image_url</text>
-  <text x="24" y="54" class="muted xs">Skin 1 (Cin&#233;math&#232;que). Gold dashed outline marks what this change adds. HOLODEX-406 / F63 FR3.</text>
+  <text x="24" y="54" class="muted xs">Skin 1 (Cin&#233;math&#232;que). Gold dashed outline marks what this change adds. HOLODEX-406 / F64 FR3.</text>
 
   <!-- ===== 1. PERSON: THREE SAME-LABEL ROWS, ONE WITHOUT AN IMAGE ===== -->
   <text x="24" y="92" class="label muted">1 &#183; PERSON &#8212; THREE SAME-LABEL CANDIDATES; ROW 3 HAS NO image_url (MONOGRAM, COLUMN KEPT)</text>

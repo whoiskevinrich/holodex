@@ -6,7 +6,7 @@ status: in-progress
 release_note: The Enrich picker now shows each candidate's picture — a headshot, poster, or studio logo — beside its name, so same-named people and same-title films can be told apart at a glance. Providers that don't send one get a monogram in the same spot.
 ---
 
-# HOLODEX-406 · F63 — `candidates[].image_url`: candidate thumbnail in the resolve picker
+# HOLODEX-406 · F64 — `candidates[].image_url`: candidate thumbnail in the resolve picker
 
 Brainstormed 2026-09-16 from "make the People, Media, and Film pickers support an image". The
 facts reshaped it: there is **one** shared `EnrichPicker.svelte` (person, media, film **and**
@@ -25,7 +25,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` — `docs/specs/candidates-image.md` (F63: FR1–FR4, P2-a/b, AC 1–11, test
+- [x] spec `write-spec` — `docs/specs/candidates-image.md` (F64: FR1–FR4, P2-a/b, AC 1–11, test
   notes per surface, Resolved Decisions table) **and** the contract amendment
   (`metadata-provider-contract.md` §2.3 example + `candidates[].image_url` row, §5 caps row, §6
   S7 note, §8 example)
@@ -124,6 +124,15 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 - QA §4.6 settled from a live-measured show_widget mockup (three skins, both sizes): 32 × 48 lets
   the 52 px text stack set the row again (68 px full / 36 px sparse) and thins a wide logo's
   letterbox to ~13 px; Kevin kept 40 × 60, so the `[76, 76]` equality stands.
+- Merged `origin/main` (10 commits, #329–#345). Two real conflicts: `types.ts` — this branch had
+  been reformatted wholesale (2-space, double quotes) by a stray Prettier run, so it was rebuilt
+  from main + the one `image_url` block, and the two new `candidateImage*.ts` files were restyled
+  to the repo's tabs + single quotes; `testing-strategy.md` — both §11 bullets kept. Then the
+  **feature number collided**: #344 (HOLODEX-390, provider link badges) took F63 on main while
+  this branch was in flight, so this feature is **F64** now — 53 references renumbered on the
+  branch's own lines only (main's HOLODEX-390 F63 lines untouched). Commit subjects still say
+  F63; history is not rewritten. Lesson: check `git grep F6x origin/main` before choosing a
+  feature number, exactly as `adr-claims.mjs` does for ADRs.
 - Handoff: every gate green; PR #346 marked ready → CI fires In Review. Nothing is open on the
   branch. Post-merge, the contract-sync note lands downstream in the sidecar repo via its
   contract-watch skill — never from here.
@@ -164,7 +173,7 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 - Filed HOLODEX-406 with the gate-status checklist and `needs-spec` / `needs-design` /
   `needs-security-review`; renamed the branch to `HOLODEX-406-picker-candidate-thumb`; fired
   In Progress.
-- Wrote `docs/specs/candidates-image.md` (F63) and the four contract edits (§2.3 row + example,
+- Wrote `docs/specs/candidates-image.md` (F64) and the four contract edits (§2.3 row + example,
   §5 caps row, §6 S7 note, §8 example).
 - Handoff: spec gate green, nothing else built. Next session opens the Draft PR (if this one
   didn't) and runs `/design-handoff` — the monogram-plate idiom is the one design question open.

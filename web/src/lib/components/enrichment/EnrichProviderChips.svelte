@@ -6,6 +6,7 @@
 	// per-provider controls tucked into a ⋯ overflow menu once linked (F47 S4,
 	// ADR-066 RD7/RD8). Shared by the person, media, and studio detail pages. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';
+	import { hotkey } from '$lib/actions/hotkey.svelte';
 	import { providers as providerDir } from '$lib/providers.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 
@@ -153,6 +154,7 @@
 		     new container, so it wraps together with the chips on narrow widths. -->
 		<button
 			type="button"
+			use:hotkey={'e'}
 			onclick={onrefreshall}
 			disabled={refreshingAll}
 			class="btn-accent {pad} {txt}"

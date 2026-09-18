@@ -1,10 +1,10 @@
-# Spec: Candidate thumbnail in the resolve picker (F63)
+# Spec: Candidate thumbnail in the resolve picker (F64)
 
 **Status**: Draft
 **Phase**: Phase 3 follow-up (enrichment quality)
 **Owner**: Project owner
 **Date**: 2026-09-17
-**Feature block**: **F63** — a `/resolve` candidate may carry `image_url`, a small thumbnail the
+**Feature block**: **F64** — a `/resolve` candidate may carry `image_url`, a small thumbnail the
 picker renders in a fixed 2:3 box at the left of every row so the owner can tell same-named
 candidates apart at a glance. Hot-linked from an allowlisted provider host through the render-time
 gate ADR-056 already established for `image_url` field hints; never fetched, never stored.
@@ -84,7 +84,7 @@ candidate contract carries no image, so the owner reads three text fields or cli
 ## Users & Value
 
 - **Owner, resolving a person.** Opens Enrich on "Chris Evans", sees three same-label rows. Today:
-  reads `Actor · Captain America` / `Presenter · Top Gear` / `Crew`. With F63: sees the face, clicks
+  reads `Actor · Captain America` / `Presenter · Top Gear` / `Crew`. With F64: sees the face, clicks
   the right row without reading. The value is speed and confidence on the entity type where text
   disambiguation is weakest.
 - **Owner, resolving a film or a video against a film.** Year already does most of the work in
@@ -123,7 +123,7 @@ returned from `/enrich`.
 `sanitizeCandidates` (`internal/enrich/service.go`) gains an `image_url` step beside the
 `profile_url` scheme check: parse → scheme `http`/`https` → `Service.ImageURLAllowed(host)` (the
 ADR-056 check, itself `assetHostAllowed` over the source's allowlist) → keep or clear. It is the
-**same function** the field-render gate calls; F63 adds a caller, not a rule. The `Fake` provider
+**same function** the field-render gate calls; F64 adds a caller, not a rule. The `Fake` provider
 gains an `ImageURL` per candidate so API tests can drive it.
 
 - **Given** the allowlist for source `acme` is `{acme.example, cdn.acme.example}`, **when** a
@@ -169,7 +169,7 @@ structure (label + match strength, `disambiguation`, actions line, F61 `detail` 
 `providers/tmdb` maps the search result's image path to `image_url` with the existing
 `tmdbImageURL` builder at the **`w185`** rendition (not `original`): person `profile_path`, movie
 `poster_path`, company `logo_path`. Omitted when the path is null. The provider's docs for
-operators already tell them to allowlist `image.tmdb.org`; F63 adds a sentence noting the picker
+operators already tell them to allowlist `image.tmdb.org`; F64 adds a sentence noting the picker
 now renders from it too.
 
 - **Given** a TMDB person search hit with a `profile_path`, **when** the sidecar builds the
@@ -192,7 +192,7 @@ None. The scope is deliberately one column and one field.
 
 1. A `/resolve` candidate with an allowlisted `image_url` reaches the picker unchanged; one on a
    non-allowlisted host, with a bad scheme, malformed, or empty, reaches the picker with the key
-   absent; a pre-F63 provider's response renders byte-for-byte as today except for the monogram
+   absent; a pre-F64 provider's response renders byte-for-byte as today except for the monogram
    column.
 2. The gate is `Service.ImageURLAllowed` — the same function ADR-056's `gateImageURL` calls —
    invoked from `sanitizeCandidates`; no second allowlist, no new config key.

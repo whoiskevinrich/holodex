@@ -1,4 +1,4 @@
-# Design Handoff: Candidate thumbnail in the Enrich picker (HOLODEX-406 / F63)
+# Design Handoff: Candidate thumbnail in the Enrich picker (HOLODEX-406 / F64)
 
 **Spec**: [candidates-image.md](../specs/candidates-image.md) FR3 (row slot), FR1/FR2 (what may
 reach the row) ·
@@ -65,7 +65,7 @@ into the store.
 | Slot state | When | Renders |
 |---|---|---|
 | **Image** | `c.image_url` present (server already dropped non-allowlisted / bad-scheme / malformed / `""`) and the `<img>` has not errored | `<img>` `object-contain` on `bg-logo-plate`. A 2:3 portrait fills the box; a wide logo letterboxes, centred, plate visible above and below |
-| **Monogram** | `c.image_url` absent (pre-F63 provider, provider omitted it, or Holodex stripped it) | `monogram(c.label)` — first character upper-cased, `?` for empty — in `font-display text-sm font-semibold text-logo-plate-ink` on the plate |
+| **Monogram** | `c.image_url` absent (pre-F64 provider, provider omitted it, or Holodex stripped it) | `monogram(c.label)` — first character upper-cased, `?` for empty — in `font-display text-sm font-semibold text-logo-plate-ink` on the plate |
 | **Monogram (after error)** | `<img>` fired `error` (404, refused decode, offline) | Same monogram branch; the broken-image glyph never shows |
 | **Loading** | Bytes not yet arrived | The plate alone (the box is sized by `w-10 aspect-[2/3]` before the request, so there is no layout shift). No skeleton, no spinner — a 60 px thumb does not earn one |
 

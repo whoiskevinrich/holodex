@@ -115,6 +115,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 			scenes = append(scenes, fv)
 		}
 	}
+	h.applyPartsToFilmVideos(r.Context(), scenes, fullFilms)
 
 	cast, err := h.repo.FilmCast(r.Context(), id)
 	if err != nil {
@@ -144,6 +145,14 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	// fetched above against the scene union, storing nothing. See film_cast.go.
 	billedAbsent, billedTotal := h.filmBilledCast(r.Context(), enrichRows, cast)
 
+	// HOLODEX-393 (F63 P0-6): the provider-link badge projection, the same
+	// best-effort path person and studio take — a lookup failure logs and serves
+	// the page with no badges rather than failing it.
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityFilm, id, enrichRows)
+	if linksErr != nil {
+		h.log.Warn("external links for film detail", "id", id, "err", linksErr)
+	}
+
 	body := map[string]any{
 		"film":           f,
 		"resolved":       resolved,
@@ -155,6 +164,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		"credited_roles": credited,
 		"billed_absent":  billedAbsent,
 		"billed_total":   billedTotal,
+		"external_links": links,
 	}
 	if skipped := h.skippedAliases(r, model.EnrichEntityFilm, id, authorized); len(skipped) > 0 {
 		body["skipped_aliases"] = skipped

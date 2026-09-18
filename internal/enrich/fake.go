@@ -25,6 +25,9 @@ type Fake struct {
 	// Fields list is person/studio-shaped and names none of the video search keys).
 	ResolveHints []string
 	ExtraFields  []string
+	// LinkTemplates is advertised verbatim on /describe (ADR-083 D2) so ProviderLink's
+	// template-first precedence (ADR-098 D3) is testable in-process.
+	LinkTemplates map[string]map[string]string
 	// Searched is echoed back on every Resolve as the provider's searched[] reply
 	// (ADR-095 D6); LastHint records the hint the most recent Resolve received, AFTER
 	// the Service's gate — what a real provider would have seen on the wire.
@@ -42,7 +45,7 @@ type FakePerson struct {
 	Disambiguation string   // the picker hint (entity-appropriate: known-for, origin country, …)
 	ProfileURL     string   // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
 	Detail         []string // optional revealable record summary (F61, contract §2.3 candidates[].detail)
-	ImageURL       string   // optional list-row thumbnail (F63, contract §2.3 candidates[].image_url); tests may set a foreign host
+	ImageURL       string   // optional list-row thumbnail (F64, contract §2.3 candidates[].image_url); tests may set a foreign host
 	Fields         map[string][]string
 	Assets         []Asset          // optional image assets (F25) the enrich response carries
 	People         []ProviderPerson // structured video credits (F32, contract §4.5)
@@ -128,6 +131,7 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		Fields:          append([]string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"}, f.ExtraFields...),
 		AssetKinds:      []string{"photo", "logo", "poster"},
 		ResolveHints:    f.ResolveHints,
+		LinkTemplates:   f.LinkTemplates,
 	}, nil
 }
 

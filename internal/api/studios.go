@@ -194,6 +194,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	authorized := h.auth.authorized(r)
+	h.applyPartsTo(r.Context(), items)
 	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.studioResolved(r, id, s)
 	var completeness *resolver.Completeness
@@ -217,7 +218,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 	}
 	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
 	// lookup failure logs and serves the page with no badges rather than failing it.
-	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityStudio, id)
+	links, linksErr := h.externalLinksForEntity(r.Context(), model.EnrichEntityStudio, id, nil)
 	if linksErr != nil {
 		h.log.Warn("external links for studio detail", "id", id, "err", linksErr)
 	}

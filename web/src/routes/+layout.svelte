@@ -10,6 +10,8 @@
 	import { dismissable } from '$lib/actions/dismissable';
 	import ActivityIndicator from '$lib/components/activity/ActivityIndicator.svelte';
 	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
+	import HotkeySheet from '$lib/components/shared/HotkeySheet.svelte';
+	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '$lib/actions/hotkey.svelte';
 
 	let { children } = $props();
 
@@ -67,6 +69,30 @@
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
+	});
+
+	// Page-scoped hotkeys (F62): the one window listener for every `use:hotkey` button
+	// plus the `?` sheet. Bubble phase, so a closer handler that preventDefault()s wins
+	// (HOLODEX-249); the rest of the guard order is in `guardKeydown`.
+	let sheetOpen = $state(false);
+	$effect(() => {
+		function onHotkey(e: KeyboardEvent) {
+			const key = guardKeydown(
+				e,
+				document.querySelector('[role="dialog"]:not([data-hotkey-sheet])') !== null,
+				sheetOpen
+			);
+			if (!key) return;
+			e.preventDefault();
+			if (key === SHEET_KEY) {
+				sheetOpen = !sheetOpen;
+				return;
+			}
+			const entry = hotkeys.find(key);
+			if (entry) fire(entry);
+		}
+		window.addEventListener('keydown', onHotkey);
+		return () => window.removeEventListener('keydown', onHotkey);
 	});
 
 	function closeBox() {
@@ -434,6 +460,10 @@
      (auto-reveal on owner-only routes, F29 P0-6); the switch announces its own
      manual flips via aria-checked. -->
 <p class="sr-only" role="status" aria-live="polite">{adminMode.announcement}</p>
+
+{#if sheetOpen}
+	<HotkeySheet onclose={() => (sheetOpen = false)} />
+{/if}
 
 <main class="px-6 py-6">
 	{@render children()}

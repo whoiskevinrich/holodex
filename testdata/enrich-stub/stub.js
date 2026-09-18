@@ -174,7 +174,7 @@ function namespaceOf(externalID) {
   return externalID.slice(0, colon);
 }
 
-// Candidate thumbnails (F63, contract §2.3 candidates[].image_url)
+// Candidate thumbnails (F64, contract §2.3 candidates[].image_url)
 //
 // Served from the persona's own path prefix like the brand icon, because the same
 // ADR-039 allowlist gates them: core keeps an image_url only when its host is the
@@ -215,7 +215,7 @@ function idNamespaceFor(persona) {
   return namespaceOf(candidatesFor(persona, '')[0].external_id);
 }
 
-// origin is this stub's own `http://host:port` (from the request), which the F63
+// origin is this stub's own `http://host:port` (from the request), which the F64
 // thumbnails need to be absolute URLs on the allowlisted host. The conformance test
 // calls without one; it only reads ids and namespaces.
 function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
@@ -225,7 +225,7 @@ function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
         label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
         confidence: Number((WEAK - i * 0.01).toFixed(2)),
         disambiguation: `Result ${i + 1} of 30 · flooded list`,
-        // F63: every row pictured, so the 25-row list exercises lazy loading and the
+        // F64: every row pictured, so the 25-row list exercises lazy loading and the
         // row-height floor at once (QA §3.11).
         image_url: thumbURL(persona, origin, `portrait-${100 + i}`),
         // F61 candidates[].detail on DISTINCT labels: every row carries a toggle and
@@ -251,11 +251,11 @@ function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
       'Composer · 1950 · unaffiliated',
       'Director · 1941 · Studio Ghibli' // a genuine duplicate: even the tiebreaker ties
     ];
-    // F63 candidates[].image_url — every slot state in one same-label list (QA §1.2):
+    // F64 candidates[].image_url — every slot state in one same-label list (QA §1.2):
     // rows 0–3 a portrait each (four visibly different faces behind one name), row 4
     // a wide 4:1 "logo" that must letterbox, row 5 a path this stub 404s (→ monogram
     // via onerror), row 6 a foreign host core must strip before the browser sees it,
-    // row 7 no key at all (the pre-F63 provider, also the no-detail member).
+    // row 7 no key at all (the pre-F64 provider, also the no-detail member).
     const thumbs = [
       thumbURL(persona, origin, 'portrait-200'),
       thumbURL(persona, origin, 'portrait-201'),
@@ -315,7 +315,18 @@ function describeFor(persona, origin) {
   // hint.filename / hint.query_source on video resolves; one that doesn't gets the
   // pre-ADR-095 request byte-for-byte — both shapes are worth having on the wire.
   if (persona.resolveHints) body.resolve_hints = persona.resolveHints;
+  // ADR-083 D2 / contract §4.11: the template-first branch of the provider badge.
+  if (persona.linkTemplates) body.link_templates = persona.linkTemplates;
   return body;
+}
+
+// enrichFor is the /enrich body: the persona's values, plus its own page as the
+// _source_url sidecar (contract §4.12, ADR-098 D1) when it has one — the fallback
+// branch of the provider badge, for a persona that declares no link template.
+function enrichFor(persona) {
+  const fields = { ...(persona.values || {}) };
+  if (persona.sourceUrl) fields._source_url = [persona.sourceUrl];
+  return { fields };
 }
 
 // searchedFor is the ADR-095 D6 searched[] a persona reports on a VIDEO resolve
@@ -365,7 +376,7 @@ function route(path) {
 
 // Exported so the conformance test can check the persona table without binding a port;
 // the server only starts when this file is run directly, not when it is required.
-module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor, searchedFor };
+module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, enrichFor, namespaceOf, idNamespaceFor, searchedFor };
 
 if (require.main !== module) return;
 
@@ -443,7 +454,7 @@ http
     }
 
     if (endpoint === '/enrich') {
-      return res.end(JSON.stringify({ fields: persona.values || {} }));
+      return res.end(JSON.stringify(enrichFor(persona)));
     }
 
     res.statusCode = 404;

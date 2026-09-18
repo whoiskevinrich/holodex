@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -30,7 +30,9 @@
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
 	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
+	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
+	import { hotkey } from '$lib/actions/hotkey.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
 	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
@@ -43,6 +45,7 @@
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
 	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
@@ -68,6 +71,9 @@
 	// Studio entities linked to this video (F38): the resolved studio value links to its
 	// /studios/{id} page; the link always matches the displayed value (RD1).
 	let studios = $state<Studio[]>([]);
+	// Provider-link badge (HOLODEX-394, ADR-098 D4): 0 or 1 pill from the resolver's
+	// winning external_provider_id, mounted on the header meta row (handoff DD5).
+	let externalLinks = $state<ExternalLink[]>([]);
 	// Films this video is attached to (F56, design handoff §3a) — read-only badge (scene
 	// number or "Full film") + owner-only detach; asserted links, so no relink/prune ever
 	// touches these regardless of films_enabled state (ADR-085).
@@ -106,10 +112,19 @@
 	afterNavigate(({ type }) => {
 		cameFromInApp = type !== 'enter';
 		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between videos
-		// A same-page hash change (/media/8 → /media/8#field-edition) re-fetches nothing, so the
-		// load effect's own call never fires; on a fresh entry this runs before the rows exist
-		// and the load effect's call does the scrolling.
-		if (!loading) void expandDeepLinkedField();
+	});
+
+	// SvelteKit does not run afterNavigate for a same-page hash change (/media/8 →
+	// /media/8#field-part — the header's "+ Set part" link), and that navigation
+	// re-fetches nothing, so the deep-link landing keys on the hash itself. It also
+	// fires once on entry when `loading` flips, where the load effect's own call has
+	// already done the work — expand + scrollIntoView are idempotent.
+	$effect(() => {
+		const hash = $page.url.hash;
+		if (!hash || loading) return;
+		// untrack: the landing's own reads (hasPageAnchor → overviewField) must not become
+		// dependencies, or a reloadDetail() after Confirm would re-expand the badge just closed.
+		untrack(() => void expandDeepLinkedField());
 	});
 
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
@@ -229,6 +244,50 @@
 	// visitors included. The Metadata row stays the curation mount (SourceBadge, deep-link
 	// landing); this is display only, the same pill the film page's Full film rows carry.
 	const editionValue = $derived(resolved.find((f) => f.canonical === 'edition')?.values[0]?.trim() ?? '');
+	// Part (HOLODEX-389 RD9) is the same read-only pill, after edition: "which cut", then
+	// "which slice". Set from the Metadata row's chips, never here.
+	const partValue = $derived(resolved.find((f) => f.canonical === 'part')?.values[0]?.trim() ?? '');
+	// Inline "+ Set part" editor in the header pill slot (RD8 found-in-build, human QA 4.3).
+	// Enter commits a manual decision through decideField — the same call the Metadata
+	// row's Custom chip makes — so the pill and the chip row agree; Escape/blur cancels.
+	let partEditing = $state(false);
+	let partDraft = $state('');
+	let partBusy = $state(false);
+	let partError = $state('');
+	function startPart() {
+		partDraft = '';
+		partError = '';
+		partEditing = true;
+	}
+	function cancelPart() {
+		partEditing = false;
+		partError = '';
+	}
+	async function commitPart() {
+		const v = partDraft.trim();
+		if (!v) {
+			cancelPart();
+			return;
+		}
+		partBusy = true;
+		try {
+			await decideField('part', 'manual', v);
+			partEditing = false;
+		} catch (e) {
+			partError = toMessage(e); // stays open for a retry
+		} finally {
+			partBusy = false;
+		}
+	}
+	function onPartKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			void commitPart();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			cancelPart();
+		}
+	}
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
 	// Overview edit modal (HOLODEX-365, the Person-bio pattern from HOLODEX-303) — owner-only
 	// pencil in the section heading opens this; SourceEditModal owns its own staged-selection/
@@ -500,6 +559,7 @@
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 		writebackStatus = res.writeback_status ?? { pending: false, failed: false };
+		externalLinks = res.external_links ?? [];
 	}
 
 	// Poll while a write is pending (ADR-091, HOLODEX-323, spec R2.5): reacts to
@@ -985,9 +1045,21 @@
 	async function expandDeepLinkedField() {
 		const m = /^#field-([\w-]+)$/.exec(location.hash);
 		if (!m) return;
+		// Every field row that is not anchored elsewhere on the page lives inside the Metadata
+		// fold, which is collapsed at rest for the owner and `inert` while closed — so the
+		// link must open the fold first, or it scrolls to a clipped row nothing can focus
+		// (HOLODEX-389 human QA 4.3: "could not find where to enter the part"; the film
+		// page's "+ Set edition" had landed the same way since the fold arrived).
+		if (!hasPageAnchor(m[1])) metadataExpanded = true;
 		await tick();
 		expandedField.expand(m[1]);
-		document.getElementById(`field-${m[1]}`)?.scrollIntoView({ block: 'center' });
+		const row = document.getElementById(`field-${m[1]}`);
+		row?.scrollIntoView({ block: 'center' });
+		// An empty row opens its Custom input on expand (SourceBadge), but SvelteKit's own
+		// post-navigation focus reset runs after that mount and leaves focus on <body>, so
+		// hand it to the input once the reset has had its frame — the owner lands typing.
+		await tick();
+		requestAnimationFrame(() => row?.querySelector<HTMLInputElement>('input')?.focus());
 	}
 
 	// reloadDetail re-fetches the detail so resolved[] reflects new enrichment or
@@ -1315,6 +1387,43 @@
 								>{editionValue}</span
 							>
 						{/if}
+						{#if partValue}
+							<span
+								class="part-pill inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
+								>{partBadgeLabel(partValue)}</span
+							>
+						{:else if isOwner}
+							<!-- The empty Part row is the F60 deep-link landing (deepLinkedMissing) and
+							     `optional` facets never enter the completeness queue (RD7), so without this
+							     a file with no part has no route to set one. Owner ruling 2026-09-16, twice:
+							     first the film page's dashed-link idiom deep-linking to the row, then — human
+							     QA 4.3, "no control near the link that is editable" — the control itself, in
+							     the slot the pill takes once set: click, type, Enter. Same decision the chip
+							     row's Custom makes; the Metadata row remains for everything else. -->
+							{#if partEditing}
+								<!-- svelte-ignore a11y_autofocus -->
+								<input
+									bind:value={partDraft}
+									autofocus
+									inputmode="numeric"
+									aria-label="Part number"
+									placeholder="Part number"
+									disabled={partBusy}
+									onkeydown={onPartKey}
+									onblur={() => {
+										if (!partBusy) cancelPart();
+									}}
+									class="w-28 shrink-0 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+								/>
+								{#if partError}<span class="text-xs text-warn">{partError}</span>{/if}
+							{:else}
+								<button
+									type="button"
+									class="shrink-0 rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
+									onclick={startPart}>+ Set part</button
+								>
+							{/if}
+						{/if}
 					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 						<span class="rounded-theme bg-accent px-2 py-0.5 text-accent-ink">{resolutionBucket(video.width)}</span>
@@ -1323,6 +1432,16 @@
 						<span>{formatDuration(video.duration_sec)}</span>
 						{#if formatYear(video.recorded_at)}
 							<span>·</span><span>{formatYear(video.recorded_at)}</span>
+						{/if}
+						<!-- Provider link badge after the year (F63 P0-7, handoff DD5): the same
+						     `· [pill]` fragment EntityVideoMeta appends to a person's video count.
+						     Video resolves 0 or 1 pill; nothing renders — no separator either —
+						     when external_provider_id has no value. -->
+						{#if externalLinks.length}
+							<span aria-hidden="true">·</span>
+							{#each externalLinks as link (link.provider)}
+								<ProviderLinkBadge {link} entityName={displayTitle} />
+							{/each}
 						{/if}
 					</div>
 				</header>
@@ -1733,6 +1852,7 @@
 										</span>
 									{/if}
 									<button
+										use:hotkey={'f'}
 										onclick={() => (writebackOpen = true)}
 										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
 										title="Write decided field values to the file tags"

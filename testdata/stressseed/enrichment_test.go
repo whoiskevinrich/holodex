@@ -159,6 +159,9 @@ func TestEnrichPlanRefusesAMappingWithNoProviderSources(t *testing.T) {
   - canonical: overview
     sources:
       - Comment
+  - canonical: part
+    sources:
+      - PartNumber
 `
 	_, err := loadFields(writeMappings(t, "no-providers", body), testPersonasPath(t), demands(ladder))
 	if err == nil {

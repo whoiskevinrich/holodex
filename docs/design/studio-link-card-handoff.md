@@ -37,6 +37,10 @@ table this is a UX/component change → `/design-handoff` + `/testing-strategy` 
 The attached wireframe (`Logo` box + name + `Videos: {n}`) was explicitly rough — its own
 annotation flags "Logo" as mislabeled. Three things it left ambiguous, resolved here:
 
+> **Superseded 2026-09-16 (HOLODEX-397):** the "Which image role" row below is replaced by
+> [studio-logo-link-card-handoff.md](studio-logo-link-card-handoff.md) — the card now draws
+> `logo_url` → `icon_url` → monogram in a fixed-height, aspect-following plate. The other rows stand.
+
 | Question | Decision | Why |
 |---|---|---|
 | Video count text | `{n} video`/`{n} videos` via the existing `videoCount()` helper (`$lib/format`) | Matches every other video-count line in the app (`EntityVideoMeta`, `StudioPicker`'s search rows, the studio near-miss line) — a literal `Videos: {n}` would be a fourth, inconsistent format. |

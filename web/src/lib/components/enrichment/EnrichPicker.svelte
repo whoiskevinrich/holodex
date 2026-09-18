@@ -54,7 +54,7 @@
 	// ↑/↓ moving `active`. Describes the LAST response like `searched`: rebuilt from
 	// the label-collision rule with every response, dropped when the box is edited.
 	let open = $state<Record<string, boolean>>({});
-	// Per-row thumbnail failure (F63, HOLODEX-406): an <img> that fired `error` falls
+	// Per-row thumbnail failure (F64, HOLODEX-406): an <img> that fired `error` falls
 	// back to the monogram. Same lifecycle as `open` — describes the LAST response,
 	// so a retried query that returns a good image shows it again.
 	let failed = $state<Record<string, boolean>>({});
@@ -355,7 +355,7 @@
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<!-- Candidate thumbnail (F63, HOLODEX-406): FilmsRow's 2:3 plate idiom at w-10,
+					<!-- Candidate thumbnail (F64, HOLODEX-406): FilmsRow's 2:3 plate idiom at w-10,
 					     object-contain because a candidate image's aspect is not gated at ingest
 					     (enrichment/CLAUDE.md rule) — a portrait fills, a wide logo letterboxes. The
 					     slot is always present so every row's text starts at the same x; it is

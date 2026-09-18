@@ -1,12 +1,12 @@
-// Per-candidate thumbnail slot state for the Enrich picker (F63, HOLODEX-406).
+// Per-candidate thumbnail slot state for the Enrich picker (F64, HOLODEX-406).
 // Pure, like candidateDetail.ts: the component keeps a per-row `failed` map (an
 // <img> that fired `error`) and asks this module which branch the slot renders, so
 // the rule is unit-testable without a DOM (this repo has no component-test harness).
-import { isHttpUrl } from "$lib/format";
+import { isHttpUrl } from '$lib/format';
 
 /** The slice of a candidate the slot reads. */
 export interface ImageCandidate {
-  image_url?: string;
+	image_url?: string;
 }
 
 /**
@@ -18,5 +18,5 @@ export interface ImageCandidate {
  * broken-image glyph.
  */
 export function showThumb(c: ImageCandidate, failed: boolean): boolean {
-  return !failed && !!c.image_url && isHttpUrl(c.image_url);
+	return !failed && !!c.image_url && isHttpUrl(c.image_url);
 }

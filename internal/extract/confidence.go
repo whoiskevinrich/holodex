@@ -75,6 +75,8 @@ var fieldTiers = map[string]Tier{
 	// F60 RD7: a strict `{edition-X}` marker is an exact convention, so a lone
 	// filename value (0.30 + 0.50) clears the tier and a tag conflict never does.
 	"edition": TierHigh,
+	// HOLODEX-389 RD6: `{part-N}` is the same kind of exact convention as edition.
+	"part": TierHigh,
 
 	"title":        TierMedium,
 	"release_date": TierMedium,

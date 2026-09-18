@@ -97,10 +97,11 @@ var formatMap = map[string]map[string]string{
 	"Matroska": {
 		"title":             "Title",
 		"original_title":    "OriginalMediaType",
-		"overview":          "Comment",   // plot summary → COMMENT tag
-		"tagline":           "Subtitle",  // short tagline → SUBTITLE (avoids Comment collision)
-		"release_date":      "Year",      // year/date → YEAR tag
-		"edition":           "Edition",   // cut → EDITION tag (F60 RD8)
+		"overview":          "Comment",     // plot summary → COMMENT tag
+		"tagline":           "Subtitle",    // short tagline → SUBTITLE (avoids Comment collision)
+		"release_date":      "Year",        // year/date → YEAR tag
+		"edition":           "Edition",     // cut → EDITION tag (F60 RD8)
+		"part":              "PART_NUMBER", // ordinal → PART_NUMBER tag, read back as PartNumber (HOLODEX-389 RD5)
 		"genres":            "Genre",
 		"original_language": "Language",
 		"actors":            "Artist",    // cast → ARTIST tag, comma-delimited
@@ -112,6 +113,7 @@ var formatMap = map[string]map[string]string{
 		"tagline":           "Subtitle",
 		"release_date":      "Year",
 		"edition":           "Edition",
+		"part":              "PART_NUMBER",
 		"genres":            "Genre",
 		"original_language": "Language",
 		"actors":            "Artist",
@@ -122,7 +124,8 @@ var formatMap = map[string]map[string]string{
 		"overview":          "QuickTime:Comment",
 		"tagline":           "QuickTime:Keywords",
 		"release_date":      "QuickTime:Year",
-		"edition":           "XMP-prism:Edition", // no writable QuickTime edition atom; exiftool reads the XMP packet back as Edition (F60 RD8)
+		"edition":           "XMP-prism:Edition",    // no writable QuickTime edition atom; exiftool reads the XMP packet back as Edition (F60 RD8)
+		"part":              "QuickTime:DiskNumber", // the iTunes `disk` atom (HOLODEX-389 RD5); a bare ordinal reads back bare
 		"genres":            "QuickTime:Genre",
 		"original_language": "QuickTime:MediaLanguage",
 		"actors":            "QuickTime:Artist",

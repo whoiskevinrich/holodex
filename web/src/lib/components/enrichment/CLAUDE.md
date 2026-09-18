@@ -18,7 +18,7 @@ provenance/brand-icon system, and the enrichment review queue row.
 ### Ungated-aspect image slots use the 2:3 plate with `object-contain`
 
 A thumbnail whose source aspect Holodex does **not** enforce at ingest — a `/resolve`
-`candidates[].image_url` (F63), any provider-hot-linked render — sits in the `FilmsRow` tile
+`candidates[].image_url` (F64), any provider-hot-linked render — sits in the `FilmsRow` tile
 idiom (`aspect-[2/3] rounded-theme bg-logo-plate overflow-hidden`, monogram `font-display
 font-semibold text-logo-plate-ink`) with **`object-contain`**, so a wide logo letterboxes and a
 portrait fills. `object-cover` is reserved for roles whose aspect ingest guards (film

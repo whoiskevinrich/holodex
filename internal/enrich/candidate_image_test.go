@@ -8,7 +8,7 @@ import (
 	"holodex/internal/model"
 )
 
-// F63 (HOLODEX-406): candidates[].image_url is rendered by the owner's browser as an
+// F64 (HOLODEX-406): candidates[].image_url is rendered by the owner's browser as an
 // <img src>, so it passes exactly the gate a render:image_url field value passes —
 // assetHostAllowed over the provider's {base_url host} ∪ asset_hosts allowlist. This
 // table is the riskiest-assumption test for the feature: that the allowlist is the

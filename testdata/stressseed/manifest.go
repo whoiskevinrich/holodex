@@ -71,6 +71,10 @@ type videoAxes struct {
 	// mapping gains a provider source.
 	Namespaces int      `json:"namespaces"`
 	Enrichable []string `json:"enrichable,omitempty"`
+
+	// Part is the seeded ordinal (HOLODEX-389), present only on the rungs that
+	// carry one so an assertion can select "every video with a part".
+	Part string `json:"part,omitempty"`
 }
 
 type filmAxes struct {
@@ -127,7 +131,7 @@ func axesOf(dim dimension, s spec, enrichable []string) axes {
 		a.Film = &filmAxes{Cast: s.cast, Scenes: s.scenes}
 	default:
 		v := &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key,
-			Namespaces: s.namespaces}
+			Namespaces: s.namespaces, Part: s.part}
 		// Only when there is a conflict to look at. Listing the enrichable fields on
 		// every video would claim each of them carries competing values, which is
 		// false for every rung but this dimension's.

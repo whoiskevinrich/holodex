@@ -424,7 +424,7 @@ func TestEnrichRefreshAll_FailedApplyNotLoggedAsApplied(t *testing.T) {
 	}
 }
 
-// F63 (HOLODEX-406): the resolve handlers pass res.Candidates through untouched, so
+// F64 (HOLODEX-406): the resolve handlers pass res.Candidates through untouched, so
 // the image_url gate must already have run in Service.Resolve. Over the wire: a
 // candidate whose image is on the provider's base_url host carries `image_url`; one
 // on a foreign host arrives without the key at all (omitempty after clearing), not

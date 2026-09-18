@@ -127,7 +127,10 @@ provider loudly.
   "asset_kinds": ["photo"],
   "brand_icon": { "url": "https://<name>.example/brand-icon.png" },
   "preferred_search_pattern": "{studio?} {title?} {performers?} {year?}",
-  "resolve_hints": ["fields", "filename"]
+  "resolve_hints": ["fields", "filename"],
+  "link_templates": {
+    "<name>": { "person": "https://<name>.example/person/{id}" }
+  }
 }
 ```
 
@@ -145,6 +148,7 @@ provider loudly.
 | `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
 | `preferred_search_pattern` | string | optional | **`video` only.** A search-query shape you'd like Holodex to build `/resolve`'s `hint.query` from instead of the raw/sanitized title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). Consulted only when the *operator* hasn't configured their own override for you (operator config always wins). Malformed/unparseable → ignored (logged on the Holodex side), never an error to you. Omit if you have no opinion — the sanitized-title fallback already applies unconditionally either way. Additive (unknown key, ignored by older Holodex) |
 | `resolve_hints` | string[] | optional | **`video` only.** The structured `/resolve` hint keys you want **in addition to** `hint.query` — any of `"fields"`, `"filename"` — see [§4.10](#410-structured-resolve-hints-describeresolve_hints). Holodex sends `hint.fields` only if you list `"fields"`, `hint.filename` only if you list `"filename"` (and the operator hasn't denied it), and `hint.query_source` alongside either. **Omit it and your `/resolve` request is byte-for-byte what it is today** — this is the opt-in that lets the request body grow without a protocol bump, because [§2.3](#23-post-resolve--identity-match-disambiguation) makes no unknown-key promise for requests. Unknown entries ignored, known ones honored. Additive (unknown key, ignored by older Holodex) |
+| `link_templates` | object | optional | How a namespace-qualified external id becomes an **outbound link** — `{ "<namespace>": { "<entity kind>": "<http(s) URL template with exactly one {id}>" } }`, entity kinds `person` / `studio` / `film` / `video` — see [§4.11](#411-outbound-link-templates-describelink_templates). Keyed by **namespace**, not provider, so you may declare templates for a foreign namespace you emit (e.g. `imdb`). Feeds the provider link badge on entity pages; without it every pill for your ids renders as plain "known to `<name>`" text. Invalid entries are dropped **per entry** (never the whole manifest). Omit if you have no public page per id. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
 
@@ -227,7 +231,7 @@ the same request carries three more optional `hint` keys ([§4.10](#410-structur
 | `candidates[].disambiguation` | string | optional | Short distinguishing line to separate same-named entities. Sanitized/capped by Holodex |
 | `candidates[].profile_url` | string | optional | Absolute link to your own page for this candidate (e.g. a person/company profile page), so the owner can verify a match against your richer page instead of the picker's three-field summary (F47/RD6). Rendered as a "view source ↗" link, opened in a new tab, when present. **Must be `http`/`https`** — Holodex scheme-validates server-side and silently drops any other scheme or a malformed URL before it reaches the client (no error, the candidate itself is still usable). Omit if you have none — don't send an empty string |
 | `candidates[].detail` | string[] | optional | **Revealable record summary (F61).** Short lines the owner can expand to compare candidates the one-line `disambiguation` can't separate — the case this exists for is one release catalogued once per distribution outlet (same label, date, cast; different outlet chain, tag count, image set), where the owner is choosing *which record to bind to*, not *which is the video*. Each entry is one display line, conventionally `Key: value`; Holodex renders it **verbatim** (no prefix parsing), collapsed behind a toggle on the row, and **auto-expanded when two or more candidates share a label**. Entity-agnostic. Caps in [§5](#5-non-functional-requirements): ≤ 8 entries, ≤ 256 chars each, no newlines; sanitized like `label`. **Omit when empty — never send `[]`.** Supplements `disambiguation`, never replaces it — keep the one-line summary populated. Presentation only: not stored, not written back; on Holodex's unattended refresh path the **auto-applied** candidate's lines are copied into the activity log so the match can be audited, so emit `detail` on every candidate, not only when your response has duplicates. Additive — an older Holodex ignores the key, so you may emit it before Holodex reads it |
-| `candidates[].image_url` | string | optional | **Candidate thumbnail (F63).** Absolute `https`/`http` URL to one small **raster** rendition suitable for a list row — a person portrait, a poster, a logo (the ~2:3 search-result renditions you already serve are the intended shape; the row letterboxes anything else). Holodex renders it in a fixed 2:3 box at the left of the picker row and shows a monogram when it is absent. **Rendered, not fetched:** the browser loads it straight from your host, so the host must be your `base_url` host or one the operator listed in `asset_hosts` ([§4.7](#47-field-render-hints-describefield_hints) gate, [§6](#6-security-requirements) S7) — a URL on any other host, a non-`http(s)` scheme, a malformed URL, or `""` is **silently dropped** server-side (the candidate stays usable). Entity-agnostic. Presentation only: not stored, not written back, not returned from `/enrich`, never an image adoption — `assets[]` on `/enrich` remains the only path into the store. Pick the rendition yourself (Holodex sends no size hint); omit when you have none. Additive — an older Holodex ignores the key |
+| `candidates[].image_url` | string | optional | **Candidate thumbnail (F64).** Absolute `https`/`http` URL to one small **raster** rendition suitable for a list row — a person portrait, a poster, a logo (the ~2:3 search-result renditions you already serve are the intended shape; the row letterboxes anything else). Holodex renders it in a fixed 2:3 box at the left of the picker row and shows a monogram when it is absent. **Rendered, not fetched:** the browser loads it straight from your host, so the host must be your `base_url` host or one the operator listed in `asset_hosts` ([§4.7](#47-field-render-hints-describefield_hints) gate, [§6](#6-security-requirements) S7) — a URL on any other host, a non-`http(s)` scheme, a malformed URL, or `""` is **silently dropped** server-side (the candidate stays usable). Entity-agnostic. Presentation only: not stored, not written back, not returned from `/enrich`, never an image adoption — `assets[]` on `/enrich` remains the only path into the store. Pick the rendition yourself (Holodex sends no size hint); omit when you have none. Additive — an older Holodex ignores the key |
 | `searched` | string[] | optional | **`video` only.** The queries you actually issued upstream, **in the order you issued them** — the owner sees these as a "Searched: …" line under the picker, and on Holodex's unattended refresh path they are the only record of what was tried. Include every attempt, hits or not (a `"user"` query first, then any `fields` fallback — [§4.10](#410-structured-resolve-hints-describeresolve_hints)). Caps in [§5](#5-non-functional-requirements): ≤ 10 entries, ≤ 4096 chars each, no newlines; sanitized like `label`. Omit when empty. **Not** gated by `resolve_hints` — Holodex ignores unknown response keys, so you may emit it before Holodex reads it |
 
 ### 2.4 `POST /enrich` — fetch fields
@@ -400,7 +404,7 @@ vocabulary rather than your source's native names. The recommended v1 **person**
 | `bio` | Short biography / description | single | Plain text. Trim to a sane length on a clean boundary (Holodex caps 4096 chars/value) |
 | `birthdate` | Date of birth | single | `YYYY-MM-DD` preferred (partial dates acceptable if that is all you have) |
 | `nationality` | Nationality / country | single or few | Plain text (e.g. `"British"`, or a place of birth `"London, England, United Kingdom"`). Omit if you cannot derive it confidently. **Flag hint (HOLODEX-139):** Holodex derives a small country flag beside the person's name from this value, so **put the country last** in a place-of-birth string (it reads the segment after the final comma) — a plain nationality word (`"French"`) or bare country (`"Japan"`) also works. Unrecognized values simply render no flag |
-| `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text |
+| `website` | Official/home page | single or few | Absolute URL string. Holodex stores it as text. The entity's **own** site — never your provider page for it; omit when upstream has none. Your page belongs to the link badge ([§4.11](#411-outbound-link-templates-describelink_templates) / [§4.12](#412-provider-source-url-_source_url)), and emitting it here too links it twice |
 | `aliases` | Alternate / native-script names | multi | One name per array element. Include native-script forms (e.g. CJK) directly — feeds Holodex's Person aliases store |
 | `photo` | Portrait | — | **Not a `fields` entry** — emit as an `assets[]` entry with `kind: "photo"` and advertise it in `asset_kinds` (see [§4.3](#43-assets)) |
 
@@ -422,8 +426,10 @@ Rules:
   displayable field: Holodex persists it in the shadow store like any other field but **never
   renders it** in the UI and **never resolves it** into a canonical value. You **MUST NOT** coin
   your own `_`-prefixed keys — emit only the ones this contract defines, exactly as specified,
-  and a provider that omits them stays fully conformant. v1 defines one: **`_studio_external_ids`**
-  for studio de-dup — see [§4.6](#46-studio-external-ids-_studio_external_ids).
+  and a provider that omits them stays fully conformant. Two are defined: **`_studio_external_ids`**
+  for studio de-dup — see [§4.6](#46-studio-external-ids-_studio_external_ids) — and
+  **`_source_url`**, your own page for the entity you just enriched — see
+  [§4.12](#412-provider-source-url-_source_url).
 
 ### 4.2a Canonical fields — video/media
 
@@ -443,7 +449,7 @@ Rules:
 | `genres` | Genre list | multi | One genre per array element |
 | `status` | Release status | single | Plain text (e.g. `"Released"`) |
 | `original_language` | Original language | single | ISO 639-1 code preferred (e.g. `"en"`) |
-| `homepage` | Official/home page | single | Absolute URL, `render: url` |
+| `homepage` | Official/home page | single | Absolute URL, `render: url`. The title's **own** site — never your provider page for it; omit when upstream has none (see the `website` rule in [§4.2](#42-canonical-fields)) |
 | `external_provider_id` | External metadata-provider identifier | single | Namespace-qualified `"<provider>:<id>"`, e.g. `"imdb:tt1160419"` — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | Poster / cover art | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry.** Holodex downloads it on writeback and embeds it as the file's cover art (see [§4.3](#43-assets) for why `assets[]` doesn't apply here) |
 | `actors` | Cast (flat text) | multi | One name per element, billing order first. Prefer the structured [`people[]`](#45-video-credits--per-person-castcrew-with-headshots) shape instead if you want headshots/Person linking |
@@ -461,7 +467,7 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 |---|---|---|---|
 | `description` | Studio description | single | Plain text |
 | `country` | Country of origin | single | Plain text or ISO country code |
-| `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning, different entity) |
+| `website` | Official/home page | single | Absolute URL (shared canonical key with the person `website` field — same meaning and same never-your-own-page rule, different entity) |
 
 > **`logo` is not a `fields` key.** As of the F51/ADR-079 image-slot generalization, a studio's
 > logo is an **asset** — emit it as `{ "kind": "logo", "url": "…" }` in `assets[]` (see
@@ -957,6 +963,89 @@ partner probe that motivated this section, three real bracketed filenames matche
 through such a matcher and got zero hits as free text. List `"fields"` if you want to retry on a subset
 after a miss. Omitting `resolve_hints` entirely remains fully conformant.
 
+### 4.11 Outbound link templates (`/describe.link_templates`)
+
+> **Status: additive extension** ([ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md) D2,
+> HOLODEX-266; coverage widened to film + video by [F63](provider-link-badge-coverage.md), HOLODEX-391).
+> **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider that omits it
+> stays fully conformant, and an older Holodex that doesn't parse it is unaffected. **No protocol bump.**
+
+Every external id you emit ([§4.1](#41-external-ids-and-namespaces)) is shown on the entity's page as a
+provider pill. With a template for that id's namespace and entity kind, the pill is a link to your page for
+the entity; without one it is plain "known to `<name>`" text. Declare the templates once, per namespace:
+
+```json
+{
+  "provider": "tmdb",
+  "protocol_version": 1,
+  "entity_types": ["person", "video", "studio", "film"],
+  "id_namespaces": ["tmdb", "imdb"],
+  "link_templates": {
+    "tmdb": {
+      "person": "https://www.themoviedb.org/person/{id}",
+      "studio": "https://www.themoviedb.org/company/{id}",
+      "film":   "https://www.themoviedb.org/movie/{id}",
+      "video":  "https://www.themoviedb.org/movie/{id}"
+    },
+    "imdb": {
+      "person": "https://www.imdb.com/name/{id}/",
+      "film":   "https://www.imdb.com/title/{id}/",
+      "video":  "https://www.imdb.com/title/{id}/"
+    }
+  }
+}
+```
+
+| Rule | Detail |
+|---|---|
+| Shape | `{ "<namespace>": { "<entity kind>": "<template>" } }`. Entity kinds: `person`, `studio`, `film`, `video`. Namespace and kind keys are trimmed and lower-cased on ingest |
+| Template | An absolute **`http://` or `https://`** URL containing **exactly one** `{id}` token and no other brace token; ≤ 512 chars. Holodex substitutes the bare id (`tt0137523`, `287` — the part after `<namespace>:`) — put any trailing slash or path you need in the template itself |
+| Validation | Per **entry**: an entry that fails the rules above is dropped and logged Holodex-side; the rest of the map — and the rest of the manifest — is unaffected. Never an error response to you |
+| Namespace-keyed | A namespace is a shared identity space across providers ([§4.1](#41-external-ids-and-namespaces)), so its link is provider-independent. Declare templates for every namespace you emit ids in — including foreign ones (TMDB emits `imdb:` ids, so it declares `imdb`). If two providers declare the same namespace, the most recently read `/describe` wins that namespace |
+| Not carried here | The namespace's display **label** (`IMDb`, `TMDB`) — Holodex owns a small lookup for that; and the brand icon, which is [§4.8](#48-provider-brand-icon-describebrand_icon) |
+| Interaction with fields | Once you declare a template, **do not also emit your own page as a `website` / `homepage` field value** — the page would be linked twice. Those canonical keys mean the entity's *own* official site ([§4.2](#42-canonical-fields), [§4.2a](#42a-canonical-fields--videomedia)); omit them when upstream has none rather than substituting your page |
+
+**Practical guidance:** if your upstream has a stable public page per id, declare a template — it is the
+whole difference between a verification link and dead text on every entity you enrich. Re-read on every
+`/describe`, so adding one to a running provider needs no re-enrich on the Holodex side. If your pages
+are **not** a function of the id alone, return the page per entity instead — [§4.12](#412-provider-source-url-_source_url).
+
+### 4.12 Provider source URL (`_source_url`)
+
+> **Status: additive extension** ([ADR-098](../architecture/ADR-098-provider-source-url-fallback.md),
+> [F63](provider-link-badge-coverage.md), HOLODEX-392). **Backward compatible and opt-in:** an
+> [internal sidecar](#42-canonical-fields) key inside `/enrich`'s `fields`; a provider that omits it stays
+> fully conformant, and an older Holodex stores it as an inert row it never shows. **No protocol bump.**
+> **All entity types.**
+
+[§4.11](#411-outbound-link-templates-describelink_templates) covers a provider whose page URL is a
+function of `(namespace, entity kind, id)`. When it is not — your pages are keyed on the *item* you
+matched, or carry a slug Holodex cannot derive — return the page itself, per entity, as one more
+`fields` entry on the `/enrich` response:
+
+```json
+{
+  "fields": {
+    "title": ["Blade Runner"],
+    "release_date": ["1982-06-25"],
+    "_source_url": ["https://acme.example/items/blade-runner-1982-final-cut"]
+  }
+}
+```
+
+| Rule | Detail |
+|---|---|
+| Meaning | The absolute URL of **your own page for the entity you just enriched** — the page a person would open to verify the match. Not the entity's official site (that is `website` / `homepage`, [§4.2](#42-canonical-fields)), not a search result, not your API |
+| Shape | A `fields` key, so the value is an **array** like every other field — **one element**. Extra elements are ignored (first survivor wins) |
+| Validation | Absolute `http://` or `https://` with a host, after the standard value sanitizer ([§2.4](#24-post-enrich--fetch-fields)). Anything else — `javascript:`, a relative path, an empty string — is **dropped silently**; the rest of the enrich lands unaffected. Never an error response to you |
+| Storage & lifecycle | Kept per `(entity, provider)` alongside your other rows; **replaced** on every enrich that sends it; **left as-is** on an enrich that omits it (the additive shadow store — omit rather than send empty if you have no page this time); removed when the owner clears your provider from the entity. Never rendered as a field, never resolved, never curated, never written back |
+| What it feeds | The provider badge on the entity page: for the pill whose namespace **is your provider id**, Holodex links to `link_templates[ns][kind]` if you declared one, else this URL, else renders the pill degraded (no href). It **never** backs a pill for a *foreign* namespace you emit (an `imdb:` id you returned still links only through an `imdb` template) |
+| With `link_templates` | Declare a template **or** return `_source_url`, not both for the same namespace — the template wins whenever it exists, so a per-item URL alongside it is dead weight. The reference TMDB sidecar declares templates only |
+
+**Practical guidance:** the video provider is **expected** to return this on every `/enrich` — it is what
+makes the media page's provider pill a link. Return the canonical, shareable form of the page (no session
+tokens, no tracking parameters); it is shown to visitors as-is.
+
 ---
 
 ## 5. Non-functional requirements
@@ -995,7 +1084,7 @@ truncated.
 | S4 | **Treat upstream data as untrusted.** Validate types, coerce to the contract shapes, drop unexpected fields, and keep values within the caps in [§5](#5-non-functional-requirements). (Holodex also sanitizes on its side — strips control characters, caps lengths/counts — but do not rely solely on that; defense in depth) |
 | S5 | **Bounded responses.** Keep every response under 1 MiB and cap list sizes, so Holodex's 1 MiB read never truncates a body mid-JSON |
 | S6 | **Minimal surface.** Expose only the four contract endpoints. Reject unknown paths/methods. Do not add a debug/proxy/exec endpoint to the same service |
-| S7 | **Asset URLs point only at allowlisted hosts.** Holodex downloads `assets[].url` through the same SSRF perimeter as the API: it fetches **only** a host that is your `base_url` host **or** one the operator listed in `asset_hosts` for your source — trust comes from operator config, never from your response. The URL must be **directly fetchable** (no cross-host redirect) and use **`https` for any cross-host host** (`http` only for your own internal `base_url` host). Holodex caps the body (16 MiB), bounds dimensions, sniffs the type, and re-encodes/strips metadata. See [§4.3](#43-assets) The same allowlist gates `candidates[].image_url` (F63) and `render: image_url` field values ([§4.7](#47-field-render-hints-describefield_hints)) — those are **rendered by the owner's browser**, not downloaded, and a value on a non-allowlisted host is dropped / degraded rather than fetched |
+| S7 | **Asset URLs point only at allowlisted hosts.** Holodex downloads `assets[].url` through the same SSRF perimeter as the API: it fetches **only** a host that is your `base_url` host **or** one the operator listed in `asset_hosts` for your source — trust comes from operator config, never from your response. The URL must be **directly fetchable** (no cross-host redirect) and use **`https` for any cross-host host** (`http` only for your own internal `base_url` host). Holodex caps the body (16 MiB), bounds dimensions, sniffs the type, and re-encodes/strips metadata. See [§4.3](#43-assets) The same allowlist gates `candidates[].image_url` (F64) and `render: image_url` field values ([§4.7](#47-field-render-hints-describefield_hints)) — those are **rendered by the owner's browser**, not downloaded, and a value on a non-allowlisted host is dropped / degraded rather than fetched |
 | S8 | **No credentials in asset URLs.** An `assets[].url` must be fetchable **anonymously** — never embed your upstream API key, token, or signing secret. (Signed CDN URLs that are valid at enrich time are fine; Holodex fetches promptly and stores its own copy.) |
 | S9 | **Assets are raster images only.** Emit JPEG/PNG (or WebP/GIF); **never** SVG/HTML/PDF or other markup/vector formats — Holodex rejects them as an unsafe parse/script surface |
 
@@ -1054,7 +1143,10 @@ GET /describe
   "entity_types": ["person"],
   "id_namespaces": ["acme"],
   "fields": ["bio", "birthdate", "nationality", "website", "aliases"],
-  "asset_kinds": ["photo"]
+  "asset_kinds": ["photo"],
+  "link_templates": {
+    "acme": { "person": "https://acme.example/people/{id}" }
+  }
 }
 ```
 
@@ -1102,7 +1194,8 @@ Content-Type: application/json
     "bio": ["English mathematician and writer, known for her work on Babbage's Analytical Engine; regarded as the first computer programmer."],
     "birthdate": ["1815-12-10"],
     "nationality": ["British"],
-    "aliases": ["Augusta Ada King", "Ada Byron", "Countess of Lovelace"]
+    "aliases": ["Augusta Ada King", "Ada Byron", "Countess of Lovelace"],
+    "_source_url": ["https://acme.example/people/998211"]
   },
   "assets": [
     { "kind": "photo", "url": "https://cdn.example.org/portraits/ada-lovelace.jpg" }
@@ -1110,7 +1203,10 @@ Content-Type: application/json
 }
 ```
 
-(`website` is omitted because the source had none — omit rather than send empty.)
+(`website` is omitted because the source had none — omit rather than send empty. `_source_url` is the
+provider's own page for this person, [§4.12](#412-provider-source-url-_source_url) — here it is
+redundant with the `link_templates` entry in the `/describe` example above, which wins; a provider
+declares one or the other.)
 
 ---
 
@@ -1243,6 +1339,11 @@ truth if a clarification is needed:
 - **ADR-039** — Provider asset URLs ([`docs/architecture/ADR-039-provider-asset-urls.md`](../architecture/ADR-039-provider-asset-urls.md)):
   the asset object schema, `asset_kinds` advertisement, and the operator-configured
   `asset_hosts` download allowlist this section ([§4.3](#43-assets)) specifies.
+- **ADR-083** — Provider link badge ([`docs/architecture/ADR-083-provider-link-badge-person-studio.md`](../architecture/ADR-083-provider-link-badge-person-studio.md))
+  and **F63** ([`docs/specs/provider-link-badge-coverage.md`](provider-link-badge-coverage.md)):
+  the `link_templates` manifest key ([§4.11](#411-outbound-link-templates-describelink_templates)) and the badge it feeds.
+- **ADR-098** — Provider source URL ([`docs/architecture/ADR-098-provider-source-url-fallback.md`](../architecture/ADR-098-provider-source-url-fallback.md)):
+  the `_source_url` sidecar ([§4.12](#412-provider-source-url-_source_url)) and its precedence behind templates.
 - **Worked example** — TMDB provider spec ([`docs/specs/tmdb-provider.md`](tmdb-provider.md)):
   this same contract mapped onto a real upstream (TMDB), with a concrete field-mapping table.
 - **Reference stub** — `testdata/enrich-stub/` (Node, dependency-free): the worked contract

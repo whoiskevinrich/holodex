@@ -141,7 +141,7 @@ func seedBreadthVideos(ctx context.Context, r *repo.Repo, ff fixtureFields, imag
 			tags:    []string{bulkName("tag", i)},
 		}
 		name := bulkName("video", i)
-		id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/bulk/%04d.mp4", i+1), name, l, name)
+		id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/bulk/%04d.mp4", i+1), name, l, name, "")
 		if err != nil {
 			return nil, fmt.Errorf("bulk video %d: %w", i+1, err)
 		}

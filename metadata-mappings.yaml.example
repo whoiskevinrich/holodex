@@ -103,6 +103,16 @@ fields:
       - filename:edition        # candidate: strict Plex `{edition-<text>}` marker (F60 RD7)
                                 # No provider source: edition is a file fact, never a film property.
 
+  - canonical: part
+    sources:
+      - PartNumber              # file tag — Matroska/WebM PART_NUMBER: the baseline, and the
+                                # read-back for the part writeback (HOLODEX-389 RD5).
+      - DiskNumber              # file tag — MP4/MOV iTunes `disk` atom; a foreign "2 of 3"
+                                # reads as its leading integer.
+      - filename:part           # candidate: strict `{part-N}` marker, digits only (RD4)
+                                # No provider source, ever: part is a file fact, and the loader
+                                # rejects `<provider>:part` rather than merely omitting it.
+
   - canonical: runtime
     sources:
       - tmdb:runtime
@@ -195,7 +205,7 @@ fields:
   #   filterable: true
   # - canonical: episode
   #   label: Episode
-  #   sources: [EpisodeSort, PartNumber, EpisodeNumber]
+  #   sources: [EpisodeSort, EpisodeNumber]   # PartNumber is claimed by `part` (RD3)
 
   # ============================ Person entity fields ============================
 
