@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -65,6 +66,18 @@ func seedVideo(t *testing.T, r *repo.Repo, extra ...model.ExtraMetadata) int64 {
 	return id
 }
 
+// bandsOf renders (Required, Extras) as "50/null" — the spec's worked-example
+// column pair — so an assertion reads as the two v2 numbers, never a blend.
+func bandsOf(c resolver.Completeness) string {
+	f := func(p *int) string {
+		if p == nil {
+			return "null"
+		}
+		return strconv.Itoa(*p)
+	}
+	return f(c.Required) + "/" + f(c.Extras)
+}
+
 func facetByCanonical(facets []resolver.FacetScore, canonical string) (resolver.FacetScore, bool) {
 	for _, f := range facets {
 		if f.Canonical == canonical {
@@ -77,8 +90,8 @@ func facetByCanonical(facets []resolver.FacetScore, canonical string) (resolver.
 // TestCompletenessForVideos_ScoresCriticalFacets covers the four Critical video
 // facets (title, poster_url, actors, studio, per registry.go): title and studio
 // resolve from file baseline/tags (curated tier), poster_url and actors are left
-// unset (missing tier) — score should land at exactly 50 (2 of 4 equally-weighted
-// critical facets curated).
+// unset (missing tier) — required lands at exactly 50 (2 of 4 critical facets
+// present) and extras is null: the fixture maps no nice_to_have facet (F65).
 func TestCompletenessForVideos_ScoresCriticalFacets(t *testing.T) {
 	h, r := newCompletenessHandlers(t)
 	ctx := context.Background()
@@ -93,8 +106,8 @@ func TestCompletenessForVideos_ScoresCriticalFacets(t *testing.T) {
 		t.Fatalf("videos = %d, want 1", len(out))
 	}
 	got := out[0].Completeness
-	if got.Score != 50 {
-		t.Errorf("score = %d, want 50", got.Score)
+	if b := bandsOf(got); b != "50/null" {
+		t.Errorf("required/extras = %s, want 50/null", b)
 	}
 	if f, ok := facetByCanonical(got.Facets, "title"); !ok || f.Tier != resolver.TierCurated {
 		t.Errorf("title facet = %+v, want curated", f)
@@ -127,10 +140,10 @@ func TestCompletenessForVideos_NotApplicableExcluded(t *testing.T) {
 		t.Fatalf("completenessForVideos: %v", err)
 	}
 	got := out[0].Completeness
-	// title + studio curated, poster_url missing, actors excluded: 2 of 3 scored
-	// critical facets curated → round(100*2/3) = 67.
-	if got.Score != 67 {
-		t.Errorf("score = %d, want 67", got.Score)
+	// title + studio present, poster_url missing, actors excluded: 2 of 3
+	// applicable critical facets present → round(100*2/3) = 67.
+	if b := bandsOf(got); b != "67/null" {
+		t.Errorf("required/extras = %s, want 67/null", b)
 	}
 	f, ok := facetByCanonical(got.Facets, "actors")
 	if !ok || !f.NotApplicable {
@@ -154,17 +167,17 @@ func TestCompletenessForPeople_PhotoInjection(t *testing.T) {
 		t.Fatalf("person id: ok=%v err=%v", ok, err)
 	}
 
-	out, err := h.completenessForPeople(ctx)
+	out, err := h.completenessForPeople(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForPeople: %v", err)
 	}
 	if len(out) != 1 {
 		t.Fatalf("people = %d, want 1", len(out))
 	}
-	// No headshot yet: photo scores missing, so score is 0 (bio/birthdate/
-	// nationality/alternate_names/photo all unresolved).
-	if out[0].Completeness.Score != 0 {
-		t.Errorf("score before headshot = %d, want 0", out[0].Completeness.Score)
+	// No headshot yet: photo (the only critical person facet) is missing, so
+	// required is 0; bio/birthdate (the extras) are unresolved too.
+	if b := bandsOf(out[0].Completeness); b != "0/0" {
+		t.Errorf("required/extras before headshot = %s, want 0/0", b)
 	}
 	if f, ok := facetByCanonical(out[0].Completeness.Facets, "photo"); !ok || f.Tier != resolver.TierMissing {
 		t.Errorf("photo facet before headshot = %+v, want missing", f)
@@ -177,15 +190,15 @@ func TestCompletenessForPeople_PhotoInjection(t *testing.T) {
 		t.Fatalf("insert headshot: %v", err)
 	}
 
-	out, err = h.completenessForPeople(ctx)
+	out, err = h.completenessForPeople(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForPeople after headshot: %v", err)
 	}
-	// Scored facets are bio/birthdate/nationality/aliases (nice-to-have, weight 1
-	// each) plus photo (critical, weight 3); photo now curated:
-	// (0+0+0+0+3)/(1+1+1+1+3) = 3/7 → round(42.86) = 43.
-	if out[0].Completeness.Score != 43 {
-		t.Errorf("score after headshot = %d, want 43", out[0].Completeness.Score)
+	// photo now present: required 100 (1 of 1 critical). extras stays 0 —
+	// bio/birthdate are still missing, and nationality/alternate_names are
+	// optional (F65 RD4), so they sit in neither band.
+	if b := bandsOf(out[0].Completeness); b != "100/0" {
+		t.Errorf("required/extras after headshot = %s, want 100/0", b)
 	}
 	if f, ok := facetByCanonical(out[0].Completeness.Facets, "photo"); !ok || f.Tier != resolver.TierCurated {
 		t.Errorf("photo facet after headshot = %+v, want curated", f)
@@ -211,16 +224,17 @@ func TestCompletenessForStudios_BrandingImageInjection(t *testing.T) {
 	}
 	sid := studios[0].ID
 
-	out, err := h.completenessForStudios(ctx)
+	out, err := h.completenessForStudios(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForStudios: %v", err)
 	}
 	if len(out) != 1 {
 		t.Fatalf("studios = %d, want 1", len(out))
 	}
-	// No image yet: description/country/branding_image all missing → score 0.
-	if out[0].Completeness.Score != 0 {
-		t.Errorf("score before image = %d, want 0", out[0].Completeness.Score)
+	// No image yet: a studio has no critical facet, so required is null (never
+	// a vacuous 100 — ADR-099 D1) and extras, its ring, is 0.
+	if b := bandsOf(out[0].Completeness); b != "null/0" {
+		t.Errorf("required/extras before image = %s, want null/0", b)
 	}
 	if f, ok := facetByCanonical(out[0].Completeness.Facets, "branding_image"); !ok || f.Tier != resolver.TierMissing {
 		t.Errorf("branding_image facet before image = %+v, want missing", f)
@@ -233,19 +247,15 @@ func TestCompletenessForStudios_BrandingImageInjection(t *testing.T) {
 		t.Fatalf("insert studio image: %v", err)
 	}
 
-	out, err = h.completenessForStudios(ctx)
+	out, err = h.completenessForStudios(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForStudios after image: %v", err)
 	}
-	// branding_image now curated: (0+0+1+0)/(1+1+1+1) = 1/4 → 25.
-	//
-	// The denominator went 3→4 in F58 (ADR-088 D7): retiring the `aliases` field
-	// removed one scored facet and added the synthetic `alternate_names` one, and the
-	// studio (which never had `aliases` mapped) simply gains a facet. Re-derived
-	// deliberately here rather than nudged until green — the arithmetic is the point of
-	// the assertion.
-	if out[0].Completeness.Score != 25 {
-		t.Errorf("score after image = %d, want 25", out[0].Completeness.Score)
+	// branding_image now present: with description/country demoted to optional
+	// (F65 RD4) it is the only studio extra, so extras is 1/1 → 100 and the
+	// studio's ring is full ("has branding art").
+	if b := bandsOf(out[0].Completeness); b != "null/100" {
+		t.Errorf("required/extras after image = %s, want null/100", b)
 	}
 	if f, ok := facetByCanonical(out[0].Completeness.Facets, "branding_image"); !ok || f.Tier != resolver.TierCurated {
 		t.Errorf("branding_image facet after image = %+v, want curated", f)
@@ -281,7 +291,7 @@ func TestCompleteness_AlternateNamesFacet(t *testing.T) {
 		t.Fatalf("person id: ok=%v err=%v", ok, err)
 	}
 
-	out, err := h.completenessForPeople(ctx)
+	out, err := h.completenessForPeople(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForPeople: %v", err)
 	}
@@ -299,7 +309,7 @@ func TestCompleteness_AlternateNamesFacet(t *testing.T) {
 		[]string{"Miyazaki Hayao"}); err != nil {
 		t.Fatalf("apply provider aliases: %v", err)
 	}
-	out, err = h.completenessForPeople(ctx)
+	out, err = h.completenessForPeople(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForPeople after alias: %v", err)
 	}
@@ -323,7 +333,7 @@ func TestCompletenessForStudios_AlternateNamesFacet(t *testing.T) {
 		t.Fatalf("studios = %v err=%v", studios, err)
 	}
 
-	out, err := h.completenessForStudios(ctx)
+	out, err := h.completenessForStudios(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForStudios: %v", err)
 	}
@@ -334,7 +344,7 @@ func TestCompletenessForStudios_AlternateNamesFacet(t *testing.T) {
 	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityStudio, studios[0].ID, "Ghibli"); err != nil {
 		t.Fatalf("add alias: %v", err)
 	}
-	out, err = h.completenessForStudios(ctx)
+	out, err = h.completenessForStudios(ctx, repo.NamedListFilter{})
 	if err != nil {
 		t.Fatalf("completenessForStudios after alias: %v", err)
 	}

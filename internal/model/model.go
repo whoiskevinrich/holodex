@@ -75,6 +75,18 @@ type Video struct {
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`
+	// Completeness is the owner-only ring-badge payload (F65.5, ADR-099 D5),
+	// attached to list items from the materialized store; absent for a visitor.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+}
+
+// CompletenessSummary is the two completeness bands a list item carries for the
+// owner (F65.5, ADR-099 D5): required is the ring, extras its overfill. Either is
+// nil when its band has no applicable facet (ADR-099 D1's null rule — a studio
+// has no required band). Read from entity_completeness, never computed inline.
+type CompletenessSummary struct {
+	Required *int `json:"required"`
+	Extras   *int `json:"extras"`
 }
 
 type Person struct {
@@ -107,6 +119,8 @@ type Person struct {
 	// two Person entries sharing the same ID. Omitted elsewhere (people-list, person
 	// detail), same convention as HeadshotVersion/PosterVersion above.
 	Role string `json:"role,omitempty"`
+	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
 }
 
 // EntityAlias is one alternate name for a named entity — person, studio, or tag —
@@ -329,6 +343,8 @@ type Studio struct {
 	// setStudioImageURLs. Absent role = no image. Mirrors the old LogoVersion field,
 	// generalized to a map across three roles instead of one int.
 	ImageVersions map[string]int64 `json:"-"`
+	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
 }
 
 // Film image roles (F56/HOLODEX-280, ADR-086): poster is the self-hosted portrait

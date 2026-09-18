@@ -69,11 +69,11 @@ func (h *Handlers) remediationQueue(ctx context.Context) ([]FacetGroup, error) {
 	}()
 	go func() {
 		defer wg.Done()
-		people, errPeople = h.completenessForPeople(ctx)
+		people, errPeople = h.completenessForPeople(ctx, repo.NamedListFilter{})
 	}()
 	go func() {
 		defer wg.Done()
-		studios, errStudios = h.completenessForStudios(ctx)
+		studios, errStudios = h.completenessForStudios(ctx, repo.NamedListFilter{})
 	}()
 	wg.Wait()
 	if errVideos != nil {

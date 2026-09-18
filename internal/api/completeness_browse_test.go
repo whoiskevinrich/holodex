@@ -28,6 +28,14 @@ import (
 //   - "Full": title + studio + poster_url + actors — highest score.
 func completenessBrowseServer(t *testing.T, token string) *httptest.Server {
 	t.Helper()
+	srv, _ := completenessBrowseServerWithRepo(t, token)
+	return srv
+}
+
+// completenessBrowseServerWithRepo is completenessBrowseServer plus the repo,
+// for tests that mutate inputs or the store behind the running server (F65).
+func completenessBrowseServerWithRepo(t *testing.T, token string) (*httptest.Server, *repo.Repo) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -77,7 +85,7 @@ func completenessBrowseServer(t *testing.T, token string) *httptest.Server {
 	h.SetAuth(api.NewAuth(token), false)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
-	return srv
+	return srv, r
 }
 
 // mediaTitles extracts the ordered titles from a /media list response body.
@@ -180,9 +188,9 @@ func TestCompletenessFacets(t *testing.T) {
 
 // TestListPeople_CompletenessSort_OwnerGated and TestListStudios_..._OwnerGated
 // cover the same F55.5/F55.6 owner-gate requirement on the other two browse
-// endpoints — completenessForVideos' HTTP-level coverage above already
-// exercises the shared isMissingAll/sortByScore/summarizeFacets helpers, so
-// these stay scoped to the security-critical gating behavior.
+// endpoints — the store-backed sort/filter behavior is covered by
+// completeness_store_test.go, so these stay scoped to the security-critical
+// gating behavior.
 func TestListPeople_CompletenessSort_OwnerGated(t *testing.T) {
 	srv, r := identityServer(t, "secret")
 	vid := seedStudioVideo(t, r, "/m/p.mkv", "Acme")
