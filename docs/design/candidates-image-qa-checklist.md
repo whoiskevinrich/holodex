@@ -18,7 +18,7 @@ Items are numbered `section.item`.
   personas (each needs `personas.json` + `sources.yaml` + seeder registration), every slot state
   rides the existing adoption personas —
   (a) **twins** (eight same-label rows): rows 0–3 a portrait each on the stub's own host
-  (`/p/twins/thumb/portrait-N.png`, 40 × 60, colour from the id); row 4 a wide 64 × 16 "logo"
+  (`/p/twins/thumb/portrait-N.png`, 80 × 120 so the slot cannot borrow the image’s own size, colour from the id); row 4 a wide 64 × 16 "logo"
   (`/thumb/wide.png`); row 5 `/thumb/missing.png` (the stub 404s it); row 6
   `https://img.other.example/…` (core must strip it); row 7 no key (also F61's no-detail member);
   (b) **flood** — the 25-candidate F61 persona, every row pictured;
@@ -52,6 +52,14 @@ Items are numbered `section.item`.
   writeback payload, or an activity-log line (grep the Fake-driven API tests' outputs).
 
 ## §3 Agent — live, all three skins — `[agent]`
+
+> **Reconciled 2026-09-17 (testing gate).** 3.3 (x-offset parity) is the §12 assertion
+> `candidate-slot-is-40-wide-on-every-row` — asserted by construction (every slot 40 wide), since
+> the harness has no cross-element metric; 3.4 (height parity) is `collapsed-detail-row-costs-one-line`
+> re-based to the equality 76 plus the new `collapsed-detail-text-block-costs-one-line` (60), both
+> mutation-tested. 3.1–3.2, 3.5–3.10 and 3.12–3.14 were measured live on `twins`/`flood` and the
+> numbers are the record in `docs/testing-strategy.md` §5. The harness sees only pictured rows
+> (`flood`); the monogram rows are live-only (§12.5).
 
 - **3.1** `[agent]` `faces`: every row has exactly one `[aria-hidden="true"]` slot as the `<li>`'s
   first child, `getBoundingClientRect()` width 40 ± 0.5 and height 60 ± 0.5, on every row.

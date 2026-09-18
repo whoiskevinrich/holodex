@@ -80,9 +80,22 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   / 15.27 (Cinémathèque / Broadcast / Brutalist), radius 2 / 0 / 0, `font-display` per skin;
   375 px: dialog 343, text block 232, label truncates, match text visible, h-scroll 0.
   `npm run check` 0 errors, vitest 298/298, `/code-review high --fix` one stale comment fixed
-- [ ] testing `testing-strategy` — header entry, §4 backend row, §5 picker row, invariants
-  (rendered-not-fetched; column always present; collapsed-row parity with and without image), a
-  §12 assertion on text-block x-offset parity
+- [x] testing `testing-strategy` — `docs/testing-strategy.md`: header entry, §4 backend row
+  (16-row gate table, mutation-tested service round-trip, wire shape, sidecar), §5 picker row (the
+  live twins/flood/three-skin/375 px numbers as the record), three Critical-invariants bullets
+  (rendered-never-fetched-never-stored; slot always 40 × 60; broken image → monogram), §10
+  adversarial block, §11 gaps, §12.4 rows, §12.5 gap. **Geometry harness**:
+  `collapsed-detail-row-costs-one-line` re-based to the equality **[76, 76]** (the slot makes 76 a
+  floor); new `collapsed-detail-text-block-costs-one-line` (**60**, exact — restores the `py-1`
+  sensitivity the floor swallowed); new `candidate-slot-is-40-wide-on-every-row` (`applies: each`,
+  `atLeast: 25` — x-offset parity by construction, the harness has no cross-element metric). All
+  three 9/9, every other picker assertion re-run green (63 loads). **Mutation runs**: `py-1`
+  dropped ⇒ text-block fails, row passes (as predicted); bare `<div>` actions line ⇒ row 77 fails;
+  `w-10` dropped ⇒ slot assertion fails — **but only after the stub's portraits went from 40 × 60
+  to 80 × 120**: a thumb the exact size of its slot let the box borrow the image's width and the
+  mutation passed. `aspect-[2/3]` dropped on a pictured row is NOT caught (the image supplies the
+  2:3) — recorded in the `finds` text and §12.5, not claimed. F61's stale §10 figures (60–68 /
+  74–76) corrected to the re-based numbers
 - [ ] security `security-review` — the allowlist now gates a second browser-rendered surface;
   confirm `sanitizeCandidates` is upstream of every resolve handler (person, video, film, studio)
   and that nothing is fetched server-side
@@ -94,14 +107,15 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 2a. [ ] [—] QA §4.6 is the one `[human]` taste call: 40 × 60 slot (76 px rows) vs 32 × 48.
 3. [x] [M] Backend + sidecar gates (FR1/FR2/FR4) with the sanitizer table.
 4. [x] [M] Frontend FR3 + stub personas + three-skin QA.
-5. [ ] [S] `/testing-strategy`, then `/security-review`, clear `needs-security-review`.
+5. [x] [S] `/testing-strategy` landed (three §12 assertions, all mutation-tested).
+5a. [ ] [S] `/security-review`, clear `needs-security-review`.
 6. [ ] [S] Mark ready → CI fires In Review. Post-merge: contract-sync note lands downstream in the
    sidecar repo via its contract-watch skill (never from this branch).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-17 · design handoff
-- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean), code-review
+- skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean), code-review, testing-strategy
 - Settled the open design question from the source, not a card: `FilmsRow`'s 2:3 tile is the
   slot shape; `ProviderIcon`'s plate is a square inline icon. One deviation — `object-contain`
   — because `entity/CLAUDE.md` says frames follow source aspect unless ingest gates it.
@@ -118,12 +132,13 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
 - Frontend built and verified live (studio page, three skins, mobile) — the four slot states
   live on the existing `twins` rows instead of three new personas (no registry churn). QA
   checklist §1.2 / §3.6 / §3.11 reconciled with what was measured; screenshots worked this time.
-- Handoff: spec, design, backend, sidecar, frontend gates green on Draft PR #346. Next:
-  `/testing-strategy` — header entry, §4/§5 rows, invariants, re-base
-  `collapsed-detail-row-costs-one-line` (76 px floor masks `py-1`) + an x-offset parity
-  assertion — then `/security-review` (clear the label), then mark ready. Local
-  `.claude/launch.json` gained `backend-stub` (AMV media, stress `sources.yaml`, `data/stub`) and
-  `enrich-stub` — gitignored, per-worktree.
+- Testing gate: strategy doc updated across §4/§5/invariants/§10/§11/§12; harness re-based +
+  two assertions added, four mutations run. Found on the way: the stub's 40 × 60 portraits were
+  the slot's own size and masked the `w-10` mutation — now 80 × 120 with the reason in `stub.js`.
+  Seeded `data/stress` and added `backend-stress` to the local launch.json for the harness.
+- Handoff: six gates green on Draft PR #346; only `/security-review` (clear the label) and mark
+  ready remain. Local `.claude/launch.json` gained `backend-stub`, `enrich-stub`, `backend-stress`
+  — gitignored, per-worktree.
 
 ### 2026-09-16 → 17 · brainstorm, story filed, spec + contract amendment written
 - skills: product-brainstorming (Explore subagent for the picker/contract/perimeter facts, three-option

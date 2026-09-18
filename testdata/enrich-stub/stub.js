@@ -181,16 +181,19 @@ function namespaceOf(externalID) {
 // provider's base_url host (or an operator asset_hosts entry) — so a thumb on this
 // stub's host reaches the picker and one on `img.other.example` (below) must not.
 // Two shapes: a 2:3 portrait (fills the picker's 40×60 box) and a 4:1 wide "logo"
-// (letterboxes in it). The colour is derived from the id so eight same-label rows
-// are eight visibly different faces. Any other name is a 404 — the QA row whose
-// image errors out and falls back to the monogram.
+// (letterboxes in it). The portrait is 80×120, deliberately NOT the box's own 40×60:
+// a thumb the exact size of its slot would let the slot lose its `w-10` and still
+// measure 40 wide from the image's intrinsic size, which is precisely the regression
+// the geometry harness's slot-width assertion exists to catch. The colour is derived
+// from the id so eight same-label rows are eight visibly different faces. Any other
+// name is a 404 — the QA row whose image errors out and falls back to the monogram.
 const THUMB = /^\/thumb\/(portrait-(\d+)|wide)\.png$/;
 function thumbPng(name) {
   const m = THUMB.exec(name);
   if (!m) return null;
   if (m[1] === 'wide') return solidPng(64, 16, [138, 47, 47]);
   const n = Number(m[2]);
-  return solidPng(40, 60, [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)]);
+  return solidPng(80, 120, [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)]);
 }
 function thumbURL(persona, origin, name) {
   return `${origin}/p/${persona.slug}/thumb/${name}.png`;

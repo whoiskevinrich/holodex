@@ -236,22 +236,70 @@ export const ASSERTIONS = [
 	// aligned flex actions line; the toggle then gained `py-1` for a 24px touch target (QA
 	// §4.6, the owner's call), which is the actions line's height now. This is the number
 	// both changes moved.
+	//
+	// F63 (HOLODEX-406) then put a 40×60 thumbnail slot beside the text block, so a row is
+	// now max(text stack, 60) + py-2 and 76 is a floor as well as a ceiling — the bound
+	// became an equality. That floor also swallowed one of the two mutations this used to
+	// catch (a toggle without `py-1` makes the text stack 52, and the slot still holds the
+	// row at 76), which is why the text block gets its own assertion right after.
 	{
 		key: 'collapsed-detail-row-costs-one-line',
 		finds:
 			'A collapsed candidate row growing past the one actions line its `details` toggle is ' +
 			'allowed to add — the "zero cost when unneeded" half of the reveal rule. The row ' +
-			'is label (20px) + disambiguation (16px) + the toggle’s line (16px text + py-1 = ' +
-			'24px) + py-2 (16px); 76 is that sum and the ceiling. The floor catches two ' +
-			'opposite regressions: the toggle losing its py-1 (66.6px, the touch target gone) ' +
-			'and a row with `detail` but no actions line at all (~51px, the toggle missing). ' +
-			'Row 3 rather than row 1 because row 1 is the active row and row 2 carries the ' +
-			'256-char line — neither changes the collapsed height, and a plain row proves the ' +
-			'rule alone.',
+			'is max(label 20px + disambiguation 16px + the toggle’s line 24px, the 60px ' +
+			'thumbnail slot) + py-2 (16px) = 76, and both stacks land on 60 by design, so 76 ' +
+			'is the exact height. Above it: the actions line regaining a descent gap (77, ' +
+			'mutation-tested) or the slot growing with its image. Below it: the row losing ' +
+			'`py-2`. Not caught here: the slot losing `aspect-[2/3]` on a pictured row — the ' +
+			'image’s own 2:3 still makes it 60 tall; only a monogram row would show that, and ' +
+			'`flood` has none (§12.5). Row 3 rather than row 1 because row 1 is the active row and row 2 carries ' +
+			'the 256-char line — neither changes the collapsed height, and a plain row proves ' +
+			'the rule alone.',
 		...stressedPicker,
 		selector: '#enrich-opt-2',
 		measure: 'height',
-		expect: { min: 70, max: 76 }
+		expect: { min: 76, max: 76 }
+	},
+	{
+		key: 'collapsed-detail-text-block-costs-one-line',
+		finds:
+			'The text block of a collapsed candidate row drifting off its three lines — the ' +
+			'half of the F61 rule the 60px thumbnail floor can no longer see from the row’s ' +
+			'own height. Label (20px) + disambiguation (16px) + the toggle’s line (16px text + ' +
+			'py-1 = 24px) = 60 exactly. A toggle without `py-1` lands it at 52 (the 24px touch ' +
+			'target gone, QA §4.6); a bare <div> actions line lands it at 61 (the descent gap ' +
+			'back).',
+		...stressedPicker,
+		selector: '#enrich-opt-2 > div.min-w-0',
+		measure: 'height',
+		expect: { min: 60, max: 60 }
+	},
+
+	// --- Every candidate row starts its text at the same x (F63, HOLODEX-406) ---
+	//
+	// The design handoff's alignment rule: the thumbnail slot is always present and always
+	// the same size, so the label of a pictured row and the label of a monogram row share
+	// one left edge. The harness bounds one metric on one selector and has no cross-element
+	// x comparison, so the parity is asserted by construction — every slot in the list is
+	// exactly 40px wide (the `<li>` is `flex items-start gap-3`, so text x = slot width +
+	// 12 on every row). `applies: each` over all 25 `flood` rows; `atLeast: 25` so a
+	// selector that stops matching cannot pass vacuously. Mutation-tested: dropping `w-10`
+	// leaves the aspect box to take its image’s intrinsic width and every row fails — which
+	// is only true because the stub’s portraits are 80×120, not the slot’s own 40×60 (a
+	// thumb the size of its box masked this mutation on the first run; stub.js says why).
+	{
+		key: 'candidate-slot-is-40-wide-on-every-row',
+		finds:
+			'A candidate row whose thumbnail slot is not exactly 40px wide — the slot ' +
+			'shrinking, growing with its image, or collapsing on a monogram row — which ' +
+			'shifts that row’s label off the x every other row uses.',
+		...stressedPicker,
+		selector: '[role="listbox"] > li > div[aria-hidden="true"]',
+		applies: 'each',
+		atLeast: 25,
+		measure: 'width',
+		expect: { min: 40, max: 40 }
 	},
 
 	{
