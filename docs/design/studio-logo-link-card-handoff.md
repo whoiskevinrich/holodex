@@ -1,6 +1,9 @@
 # Design handoff: StudioLinkCard draws the studio logo
 
-**Status:** Approved (options B + logo-first, 2026-09-16)
+**Status:** Approved (options B + logo-first, 2026-09-16); **revised 2026-09-18** — the logo
+state draws **no plate**, and a **wordmark logo drops the name caption** (aspect rule)
+([HOLODEX-411](https://whoiskevinrich.atlassian.net/browse/HOLODEX-411), see §1 "Plate under a
+logo" and "Name beside a logo")
 **Story:** [HOLODEX-397](https://whoiskevinrich.atlassian.net/browse/HOLODEX-397) (child of F51, HOLODEX-246)
 **Owner:** Project owner
 **Date:** 2026-09-16
@@ -44,7 +47,13 @@ Presented as inline mockups and chosen 2026-09-16:
 |---|---|---|
 | Card shape when a logo exists | **B — logo plate + name.** The plate becomes fixed-height / auto-width; name and video count stay beside it. *Rejected C — logo replaces the name* | A symbol-only logo (no wordmark) would leave the studio unnamed on the page; keeping the name means one card shape for every studio, and the two pages keep sharing one component. |
 | Precedence when both `logo_url` and `icon_url` exist | **Logo first:** `logo_url` → `icon_url` → monogram | The detail pages have the horizontal room a logo wants; `icon` remains the role for the `/studios` list well, which is sized for a square. Matches the ask. |
+| Plate under a logo (HOLODEX-411, 2026-09-18) | **None — the logo sits bare on the page background.** No `bg-logo-plate`, no `border-rule`; the 48px box, aspect clamp and `p-1` inset are unchanged. Icon and monogram keep the plate. *Rejected: frame-only (border, no fill); no plate + a light `drop-shadow` halo* | Logos are transparent marks; on the dark skins the light plate read as a cream box floating on black (owner's testbed look, 11.11). The plate stays where it earns its keep — under an arbitrary square icon or the monogram. Known cost: a dark-on-transparent mark reads faint on a dark skin; the name beside it is the fallback label, and the halo was judged fussier than the problem. |
+| Name beside a logo (HOLODEX-411, 2026-09-18) | **Aspect rule — a wide logo (natural width ≥ 2 × height) is a wordmark and renders alone**; its name + count move to the image `alt` and the link `title` (`"{name} · {n} videos"`). A squarer logo (a symbol mark), the icon state and the monogram keep name + count beside the image. The decision is read from the loaded image's natural size, so nothing renders beside a logo until it has loaded (no caption flash on a wordmark); a failed load shows the name. *Rejected: A — always caption (a wordmark says the name twice); B — logo only for every logo (a symbol-only studio would be unnamed, the objection that ruled out C above)* | Owner's testbed look after the plate change: the wordmark plus the caption reads as the same name twice, and the count is a preview of a page one click away. The aspect rule removes the echo where it exists without giving up 397's "never unnamed" guarantee, with a mechanism rather than a per-studio setting. Failure mode is a two-line stacked wordmark (reads square, keeps a redundant caption) — degrades to today's look, never to "unnamed". |
 | Plate aspect | **Follows the source** — fixed 48px height, width from the image's own aspect, clamped to `[48px, 192px]` | `web/src/lib/components/entity/CLAUDE.md`, "Frame follows source aspect, never config or role name": a wordmark cover-cropped into a square is unreadable, and `CheckRoleAspect` guarantees nothing about the `logo` role's aspect. Mirrors `ProviderIcon`'s existing fixed-height / `max-width: 4×` treatment for provider wordmarks. |
+
+![HOLODEX-411 plate options on the Cinémathèque skin: A current cream plate, B no plate (chosen), C frame only — each with a light and a dark mark](studio-logo-no-plate-mockup.svg)
+
+![HOLODEX-411 caption options: A logo + name + count, B logo only (symbol-only studio unnamed), C aspect rule (chosen) — each with a wordmark and a symbol mark](studio-logo-caption-mockup.svg)
 
 Supersession: HOLODEX-290's row "`icon_url` only, monogram fallback — **not** `logo_url` …
 `logo_url`/`poster_url` stay reserved for the studio detail page's own header" is replaced by
@@ -61,26 +70,53 @@ the precedence above. `poster_url` stays unconsumed here.
 	let { studio }: { studio: Studio } = $props();
 	// Logo first — it is the role enrichment fills; icon is the list well's square.
 	const image = $derived(studio.logo_url || studio.icon_url);
+	// A logo sits bare on the page background (HOLODEX-411); icon/monogram keep the plate.
+	const bare = $derived(Boolean(studio.logo_url));
+	// Aspect rule (HOLODEX-411): a wide logo is a wordmark and renders without the caption.
+	let wordmark = $state<boolean | null>(null); // null until the logo has loaded
+	let img = $state<HTMLImageElement | undefined>();
+	const showName = $derived(!bare || wordmark === false);
+	function decide() {
+		if (!img) return;
+		wordmark = img.naturalHeight > 0 && img.naturalWidth >= 2 * img.naturalHeight;
+	}
+	$effect(() => {
+		wordmark = null;
+		if (bare && image && img?.complete && img.naturalWidth > 0) decide(); // cached image
+	});
 </script>
 
-<a href={`/studios/${studio.id}`} class="flex items-center gap-3 hover:text-accent">
+<a
+	href={`/studios/${studio.id}`}
+	class="flex items-center gap-3 hover:text-accent"
+	title={showName ? undefined : `${studio.name} · ${videoCount(studio.video_count ?? 0)}`}
+>
 	<span
-		class="flex h-12 min-w-12 max-w-48 shrink-0 items-center justify-center overflow-hidden rounded-theme border border-rule bg-logo-plate {image
+		class="flex h-12 min-w-12 max-w-48 shrink-0 items-center justify-center overflow-hidden rounded-theme {bare
 			? ''
-			: 'w-12 border-dashed'}"
+			: 'border border-rule bg-logo-plate'} {image ? '' : 'w-12 border-dashed'}"
 	>
 		{#if image}
-			<img src={image} alt="" class="h-full w-auto max-w-full object-contain p-1" />
+			<img
+				bind:this={img}
+				src={image}
+				alt={showName ? '' : studio.name}
+				class="h-full w-auto max-w-full object-contain p-1"
+				onload={decide}
+				onerror={() => (wordmark = false)}
+			/>
 		{:else}
 			<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true">
 				{monogram(studio.name)}
 			</span>
 		{/if}
 	</span>
-	<span class="min-w-0">
-		<span class="block truncate text-ink">{studio.name}</span>
-		<span class="block text-xs text-muted">{videoCount(studio.video_count ?? 0)}</span>
-	</span>
+	{#if showName}
+		<span class="min-w-0">
+			<span class="block truncate text-ink group-hover:text-accent">{studio.name}</span>
+			<span class="block text-xs text-muted">{videoCount(studio.video_count ?? 0)}</span>
+		</span>
+	{/if}
 </a>
 ```
 
@@ -92,6 +128,8 @@ What changed versus HOLODEX-290's markup, and nothing else:
 | plate `h-12 w-12` | plate `h-12 min-w-12 max-w-48`, `w-12` only on the monogram branch | Width follows the image; the monogram keeps its square |
 | img `h-full w-full object-contain p-1` | img `h-full w-auto max-w-full object-contain p-1` | `w-auto` lets the image's aspect set the plate width; `max-w-full` + the plate's `max-w-48` cap it, and `object-contain` letterboxes anything that hits the cap |
 | dashed border when `!icon_url` | dashed border when `!image` | Dashed still means "no image at all" — an icon-only studio gets a solid frame as before |
+| plate `border border-rule bg-logo-plate` always | only when `!logo_url` (HOLODEX-411) | The logo state has no plate at all; the box keeps its size so the row's rhythm is unchanged |
+| name + count always; img `alt=""` | name + count only when `showName`; `alt={studio.name}` and a link `title` when hidden (HOLODEX-411) | A wordmark renders alone; the `<a>` keeps its accessible name through the `alt`, and hover still reveals name + count |
 
 **Sizing semantics** (Tailwind v4, `@theme inline` — all existing utilities, no new tokens):
 
@@ -125,8 +163,8 @@ squeezing (§7). The visitor "resolved-but-unlinked studio" plain-text branch on
 
 | Token | Usage |
 |---|---|
-| `bg-logo-plate` / `text-logo-plate-ink` | Plate background (the light neutral plate exists precisely so arbitrary brand marks read on dark skins) / monogram text |
-| `border-rule` | Plate border — solid when any image is drawn, dashed when none |
+| `bg-logo-plate` / `text-logo-plate-ink` | Plate background on the icon and monogram states only (HOLODEX-411 — a logo draws no plate) / monogram text |
+| `border-rule` | Plate border — solid on the icon state, dashed on the monogram state, absent on the logo state |
 | `text-ink`, `text-muted`, `text-accent` | Name / count / hover, unchanged |
 | `font-display` | Monogram, unchanged |
 | `rounded-theme` | Plate corners (2px Cinémathèque, 0 Broadcast/Brutalist) |
@@ -138,7 +176,9 @@ stays empty.
 
 | State | Behavior |
 |---|---|
-| Logo set (any aspect) | Plate width = aspect × 48px, clamped `[48, 192]`; `object-contain p-1`; solid `border-rule` |
+| Logo set, wide (natural w ≥ 2h — a wordmark) | Box width = aspect × 48px, clamped `[48, 192]`; `object-contain p-1`; **no plate, no border, no caption** — `alt={name}`, link `title="{name} · {n} videos"` (HOLODEX-411) |
+| Logo set, squarer (a symbol mark) | Same bare box; name + count beside it as before |
+| Logo loading / failed | No caption until the natural size is known; on `error` the name + count render (the broken image is the only sign) |
 | No logo, icon set | Identical to today: 48×48 plate, icon `object-contain p-1`, solid border |
 | Neither | Identical to today: 48×48 dashed plate, `monogram(studio.name)` |
 | Hover / focus | Unchanged — whole link turns `text-accent`; the plate does not change |
@@ -197,7 +237,8 @@ with **both** logo and icon. Link at least two of them to the same video and the
 
 **Agent (driven browser, `getBoundingClientRect` + computed styles — no screenshots, per the
 three-skin QA reference)**
-- 11.2 `[agent]` Wide-logo card on `/media/{id}`: plate height 48, width in `(48, 192]`, `<img>` computed `object-fit: contain`, plate `border-style: solid`.
+- 11.2 `[agent]` Wide-logo card on `/media/{id}`: box height 48, width in `(48, 192]`, `<img>` computed `object-fit: contain`, box `background-color` transparent (`rgba(0, 0, 0, 0)`) and `border-width: 0px` (HOLODEX-411 — Tailwind's preflight leaves `border-style: solid`, so assert the width, not the style). The `<a>` has **one** child (no caption), `img[alt]` equals the studio name, `a[title]` is `"{name} · {n} video(s)"`; sampled every 150ms from navigation, the caption never appears (cached image included).
+- 11.2b `[agent]` Square logo (upload a 300×300 PNG): same bare box at 48×48, caption present (`<a>` has two children), `img[alt=""]`, no `a[title]`.
 - 11.3 `[agent]` Same studio on `/films/{id}`: plate width identical to 11.2 (same URL, same clamp).
 - 11.4 `[agent]` Both-logo-and-icon studio: `<img src>` ends in `/images/logo?v=` — logo wins.
 - 11.5 `[agent]` Icon-only studio: plate 48×48, `<img src>` ends in `/images/icon?v=`, border solid.
@@ -205,9 +246,9 @@ three-skin QA reference)**
 - 11.7 `[agent]` 12:1 logo (upload a 1200×100 PNG): plate width exactly 192, `<img>` naturalWidth/naturalHeight ratio preserved (rendered width ≤ 184 after inset).
 - 11.8 `[agent]` Viewport 375px, two wide-logo studios on one video: row height ≥ 2 × 48 + 12 (wrapped), `document.documentElement.scrollWidth === clientWidth` (no horizontal overflow).
 - 11.9 `[agent]` One `<a>` per card; `img[alt=""]`; tab order unchanged versus a build from `main`.
-- 11.10 `[agent]` Repeat 11.2 and 11.6 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: plate `background-color` equals that skin's `--logo-plate`; `border-radius` 2px / 0 / 0.
+- 11.10 `[agent]` Repeat 11.2, 11.5 and 11.6 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: the logo box stays transparent in every skin; the icon/monogram plate `background-color` equals that skin's `--logo-plate`; `border-radius` 2px / 0 / 0.
 
 **Human**
-- 11.11 `[human]` Open a film whose studio has a TMDB logo, in each of the three skins (top-right skin switcher). The studio row under the year should show the logo on a light plate at the same height as before, with the studio name and video count beside it — not a monogram, not a squashed or cropped logo. The plate should look like it belongs to the row (same height as a 48px poster thumb), not like a banner.
+- 11.11 `[human]` Open a film whose studio has a TMDB logo, in each of the three skins (top-right skin switcher). The studio row under the year should show the logo sitting directly on the page background — no light box behind it, no frame around it — at the same height as before, with the studio name and video count beside it; not a monogram, not a squashed or cropped logo. It should look like a mark on the page (same height as a 48px poster thumb), not like a badge or a banner.
 - 11.12 `[human]` Open the same studio's video on `/media/{id}`. The card should be pixel-identical to 11.11 (same plate width), sitting beside the studio pencil (owner) exactly where it was.
 - 11.13 `[human]` Narrow the window to phone width on a video with two logo-bearing studios. The two cards should stack on separate lines with nothing cut off and no sideways scroll.
