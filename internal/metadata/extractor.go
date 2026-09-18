@@ -280,6 +280,14 @@ func mapExiftool(m map[string]any) Extracted {
 			}
 		case peopleKeys.has(ck):
 			ex.People = append(ex.People, splitMulti(val)...)
+			// A person tag ALSO lands in Extra (video_metadata). Since ADR-072 the
+			// scanner no longer writes video_people from ex.People; links are derived
+			// from the resolved actors/director fields, whose file sources
+			// (file:Artist, file:Director, …) read video_metadata — so a person tag
+			// kept out of Extra could never link (HOLODEX-408).
+			if v := strings.TrimSpace(val); v != "" {
+				ex.Extra = append(ex.Extra, model.ExtraMetadata{SourceKey: ck, Value: v})
+			}
 		case tagKeys.has(ck):
 			ex.Tags = append(ex.Tags, splitMulti(val)...)
 		case dateKeys.has(ck):
