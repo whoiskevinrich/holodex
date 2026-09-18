@@ -15,7 +15,7 @@ import (
 // snapshot the caller records immediately before invoking WriteBatch. A tag
 // with no current value (or that exiftool doesn't report at all) reads back
 // as "" — the field simply had nothing before this write, matching the
-// snapshot table's "'' if previously absent" contract.
+// snapshot table's `"" if previously absent` contract.
 //
 // Image fields (cover art / attachments) are skipped: there is no text value
 // to snapshot for a binary tag, and cover art already has its own detection
