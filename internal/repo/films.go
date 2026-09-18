@@ -810,9 +810,17 @@ func (r *Repo) FilmCast(ctx context.Context, filmID int64) ([]model.Person, erro
 		return nil, fmt.Errorf("film cast: %w", err)
 	}
 	defer rows.Close()
-	return scanFilmUnionRows(rows, func(id int64, name string) model.Person {
+	cast, err := scanFilmUnionRows(rows, func(id int64, name string) model.Person {
 		return model.Person{ID: id, Name: name}
 	})
+	if err != nil {
+		return nil, err
+	}
+	// poster_version feeds the Cast grid's ?v= cache-buster — see GetVideo.
+	if err := r.attachPersonImageVersions(ctx, cast); err != nil {
+		return nil, err
+	}
+	return cast, nil
 }
 
 // FilmTags returns the read-only set union of tags across every video attached to a

@@ -81,7 +81,9 @@
 				<li class="curation-chip group relative w-20 shrink-0">
 					<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
 						<div class="rounded-theme transition group-hover:opacity-90">
-							<PersonPoster personId={p.id} name={p.name} />
+							<!-- poster_version is the ?v= cache-buster: the image route is served
+							     immutable, so a versionless URL would pin the first poster forever. -->
+							<PersonPoster personId={p.id} name={p.name} version={p.poster_version} />
 						</div>
 						<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
 					</a>

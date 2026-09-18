@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"holodex/internal/api"
 	"holodex/internal/db"
@@ -245,5 +246,81 @@ func TestGetMediaExposesPosterURL(t *testing.T) {
 	}
 	if !strings.Contains(posterURL, "/media/"+itoa(id)+"/poster") || !strings.Contains(posterURL, "?v=") {
 		t.Errorf("unexpected poster_url %q", posterURL)
+	}
+}
+
+// thumbnail_url / poster_url carry the served image file's own mtime as ?v=
+// (HOLODEX-415), so the URL changes whenever the bytes do — including an overwrite
+// inside the same second as the previous write, the case a video-mtime token plus
+// no-cache revalidation could not distinguish (ServeContent compares Last-Modified
+// at one-second granularity and answered 304 with the old bytes). The poster
+// token falls back to the thumbnail's when no poster file exists, as servePoster
+// itself falls back to the thumbnail file.
+func TestMediaImageURLsVersionOffImageFileMtime(t *testing.T) {
+	srv, r, thumbDir := thumbServer(t, &stubThumbs{enabled: true})
+	id := seedThumbVideo(t, r, "/m/a.mkv")
+	if err := r.SetThumbnailState(context.Background(), id, "generated"); err != nil {
+		t.Fatal(err)
+	}
+	urls := func() (thumb, poster string) {
+		t.Helper()
+		_, body := getJSON(t, srv.URL+"/api/v1/media/"+itoa(id))
+		video := body["video"].(map[string]any)
+		return video["thumbnail_url"].(string), video["poster_url"].(string)
+	}
+	version := func(u string) string {
+		t.Helper()
+		i := strings.Index(u, "?v=")
+		if i < 0 {
+			t.Fatalf("no ?v= in %q", u)
+		}
+		return u[i+3:]
+	}
+
+	// No file on disk yet: the token falls back to the video's mtime, and poster == thumb.
+	thumb0, poster0 := urls()
+	if version(thumb0) != version(poster0) {
+		t.Fatalf("poster token %q should fall back to the thumbnail's %q", poster0, thumb0)
+	}
+
+	thumbPath := filepath.Join(thumbDir, itoa(id)+".jpg")
+	base := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	if err := os.WriteFile(thumbPath, []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(thumbPath, base, base); err != nil {
+		t.Fatal(err)
+	}
+	thumb1, poster1 := urls()
+	if version(thumb1) == version(thumb0) {
+		t.Fatalf("thumbnail token did not change once the file existed: %q", thumb1)
+	}
+	if version(poster1) != version(thumb1) {
+		t.Fatalf("poster token %q should track the thumbnail's %q with no poster file", poster1, thumb1)
+	}
+
+	// Overwrite within the same second: the token must still advance.
+	if err := os.Chtimes(thumbPath, base, base.Add(500*time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	thumb2, _ := urls()
+	if version(thumb2) == version(thumb1) {
+		t.Fatalf("same-second overwrite left the thumbnail token unchanged: %q", thumb2)
+	}
+
+	// A poster file gets its own token, independent of the thumbnail's.
+	posterPath := filepath.Join(thumbDir, itoa(id)+"-poster.jpg")
+	if err := os.WriteFile(posterPath, []byte("p"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(posterPath, base, base.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	thumb3, poster3 := urls()
+	if version(thumb3) != version(thumb2) {
+		t.Fatalf("writing the poster changed the thumbnail token: %q -> %q", thumb2, thumb3)
+	}
+	if version(poster3) == version(thumb3) {
+		t.Fatalf("poster token %q should be its own file's mtime, not the thumbnail's", poster3)
 	}
 }

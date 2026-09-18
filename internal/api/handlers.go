@@ -690,19 +690,38 @@ func redactWritebackStatusForVisitor(status *repo.VideoWritebackStatus, isOwner 
 	status.Error = ""
 }
 
-func setThumbnailURL(v *model.Video) {
+func (h *Handlers) setThumbnailURL(v *model.Video) {
 	v.PosterUploaded = v.ThumbnailState == model.ThumbnailUploaded
 	if !model.HasThumbnailImage(v.ThumbnailState) {
 		return
 	}
-	// Guard against a zero-value mtime, which would render a large negative token.
-	// Indexed videos always carry an mtime; fall back to 0 only for safety.
-	var ver int64
+	// The ?v= token is the served image file's own mtime (nanoseconds), so the URL
+	// changes whenever the bytes do — a poster upload, a regenerate, or extracted
+	// cover art all overwrite {id}.jpg / {id}-poster.jpg in place. Versioning off
+	// the video's mtime (as before HOLODEX-415) left the URL identical across every
+	// one of those, so the grid depended entirely on no-cache revalidation, which
+	// http.ServeContent resolves at one-second granularity: an overwrite in the same
+	// second as the cached Last-Modified answered 304 with the old bytes. Fall back
+	// to the video's mtime when the file can't be stat'd (the state says an image
+	// exists, so this is the rare in-flight or out-of-band case), and the poster
+	// falls back to the thumbnail exactly as servePoster does.
+	var fallback int64
 	if !v.FileMtime.IsZero() {
-		ver = v.FileMtime.Unix()
+		fallback = v.FileMtime.Unix()
 	}
-	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, ver)
-	v.PosterURL = fmt.Sprintf("/api/v1/media/%d/poster?v=%d", v.ID, ver)
+	thumbVer := imageVersion(thumbnail.ThumbPath(h.thumbDir, v.ID), fallback)
+	posterVer := imageVersion(thumbnail.PosterPath(h.thumbDir, v.ID), thumbVer)
+	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, thumbVer)
+	v.PosterURL = fmt.Sprintf("/api/v1/media/%d/poster?v=%d", v.ID, posterVer)
+}
+
+// imageVersion is the file's mtime in nanoseconds, or fallback when it can't be stat'd.
+func imageVersion(path string, fallback int64) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fallback
+	}
+	return info.ModTime().UnixNano()
 }
 
 // prepareThumbnails sets the serving URL on each video and enqueues never-attempted
@@ -711,7 +730,7 @@ func setThumbnailURL(v *model.Video) {
 func (h *Handlers) prepareThumbnails(videos []model.Video) {
 	var pending []int64
 	for i := range videos {
-		setThumbnailURL(&videos[i])
+		h.setThumbnailURL(&videos[i])
 		if videos[i].ThumbnailState == model.ThumbnailNone {
 			pending = append(pending, videos[i].ID)
 		}
@@ -735,7 +754,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get media", err)
 		return
 	}
-	setThumbnailURL(v)
+	h.setThumbnailURL(v)
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
@@ -1017,8 +1036,10 @@ func (h *Handlers) serveImageFile(w http.ResponseWriter, r *http.Request, id int
 	}
 	// no-cache so the browser always revalidates. http.ServeContent sets Last-Modified
 	// and handles If-Modified-Since, so unchanged images return 304 (no bytes
-	// transferred). max-age=86400 would pin a stale frame-grab for a day after a
-	// writeback or regenerate — the grid has no URL version parameter to bust with.
+	// transferred). The ?v= the model emits (setThumbnailURL) is the file's own mtime
+	// and changes on every overwrite, so a long max-age would be safe in principle —
+	// no-cache stays as the belt to that brace, for any write path that reaches the
+	// file without going through a handler that re-reads the model.
 	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
