@@ -133,9 +133,12 @@ the thumb is layer-1 identity evidence (ADR-090), never an image adoption.
   branch's own lines only (main's HOLODEX-390 F63 lines untouched). Commit subjects still say
   F63; history is not rewritten. Lesson: check `git grep F6x origin/main` before choosing a
   feature number, exactly as `adr-claims.mjs` does for ADRs.
-- Handoff: every gate green; PR #346 marked ready → CI fires In Review. Nothing is open on the
-  branch. Post-merge, the contract-sync note lands downstream in the sidecar repo via its
-  contract-watch skill — never from here.
+- **In Review was hand-fired**, not by CI: `gh pr ready` ran while the PR was still CONFLICTING
+  against main, and GitHub drops `pull_request` events it cannot compute a merge commit for —
+  jira-sync never saw `ready_for_review`. Merge main *before* marking ready, next time.
+- Handoff: every gate green; PR #346 is ready for review (CI running on 9c7be71), HOLODEX-406 In
+  Review. Nothing is open on the branch. On merge, CI fires Done. Post-merge, the contract-sync
+  note lands downstream in the sidecar repo via its contract-watch skill — never from here.
 
 ### 2026-09-17 · design handoff
 - skills: design-handoff (Explore subagent for the two plate idioms + F61 handoff conventions), code-review (high --fix, clean), code-review, testing-strategy
