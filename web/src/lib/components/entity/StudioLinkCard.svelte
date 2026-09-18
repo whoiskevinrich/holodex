@@ -11,13 +11,17 @@
 	// fills; the icon is the /studios list well's square. The plate follows the image's own
 	// aspect — fixed height, width clamped to [48px, 192px] — never a cover-crop.
 	const image = $derived(studio.logo_url || studio.icon_url);
+	// A logo sits bare on the page background (HOLODEX-411): logos are transparent marks, and
+	// the light plate read as a cream box floating on the dark skins. The icon and monogram
+	// fallbacks keep the plate — it exists so an arbitrary square mark has something to sit on.
+	const bare = $derived(Boolean(studio.logo_url));
 </script>
 
 <a href={`/studios/${studio.id}`} class="flex items-center gap-3 hover:text-accent">
 	<span
-		class="flex h-12 max-w-48 min-w-12 shrink-0 items-center justify-center overflow-hidden rounded-theme border border-rule bg-logo-plate {image
+		class="flex h-12 max-w-48 min-w-12 shrink-0 items-center justify-center overflow-hidden rounded-theme {bare
 			? ''
-			: 'w-12 border-dashed'}"
+			: 'border border-rule bg-logo-plate'} {image ? '' : 'w-12 border-dashed'}"
 	>
 		{#if image}
 			<img src={image} alt="" class="h-full w-auto max-w-full object-contain p-1" />
