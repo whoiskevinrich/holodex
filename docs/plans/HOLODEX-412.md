@@ -27,7 +27,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Draft PR (`gh pr create --draft`) with the ADR + this worklog; Gate-status checkboxes mirrored from HOLODEX-412
+1. [x] [—] Draft PR #350 open with the ADR + this worklog; Gate-status checkboxes mirrored from HOLODEX-412
 2. [ ] [—] `/write-spec` amendment — decide the demoted-facet list (media TMDB-shaped extras + person/studio picks) with Kevin
 3. [ ] [—] `/design-handoff` — ring badge SVG + three-skin QA checklist
 4. [ ] [—] Backend per ADR-099 action items 2–6, then frontend
@@ -39,6 +39,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 - skills: product-brainstorming, architecture
 - handoff: decisions locked via cards (required-only + extras overfill, binary tier, O2 ring
   always-on in owner mode, materialize, registry-level Optional); HOLODEX-412 filed + In Progress;
-  branch renamed `HOLODEX-412-completeness-score-v2` and fast-forwarded to main; ADR-099 written.
+  branch renamed `HOLODEX-412-completeness-score-v2` and fast-forwarded to main; ADR-099 written;
+  Draft PR #350 open.
   Trigger-fed dirty set was the ADR's own call (answers ADR-081 D3's staleness objection) — Kevin
   chose "materialize", not the mechanism; confirm it reads right before the spec.
