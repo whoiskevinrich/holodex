@@ -23,6 +23,8 @@
 		stagedKey = $bindable(),
 		stagedCustomValue = $bindable(''),
 		disabled = false,
+		baselineKey = 'file',
+		baselinePlaceholder,
 		onstage
 	}: {
 		field: ResolvedField;
@@ -33,6 +35,12 @@
 		stagedKey: string | null;
 		stagedCustomValue?: string;
 		disabled?: boolean;
+		baselineKey?: string;
+		// What the baseline chip reads as when its value is empty. Default (undefined) is
+		// CurationChip's em-dash, "no value"; the writeback dialog passes "not read back" for a
+		// field whose file tag is written but never read back (ADR-093), so the chip never
+		// claims the file is empty when it is merely unknown.
+		baselinePlaceholder?: string;
 		// Fires after every staged change (chip, arrow key, committed Custom draft) so an
 		// embedding row can react — the dialog promotes a matching row to will-write here.
 		onstage?: () => void;
@@ -187,7 +195,8 @@
 					checked: stagedKey === chip.key,
 					tabindex: stagedKey === chip.key ? 0 : -1,
 					onselect: () => stage(chip),
-					pending: selection.pending && stagedKey === selection.key
+					pending: selection.pending && stagedKey === selection.key,
+					placeholder: chip.key === baselineKey ? baselinePlaceholder : undefined
 				}}
 			/>
 		{/if}

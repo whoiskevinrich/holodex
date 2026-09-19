@@ -9,7 +9,11 @@
 	// written, an undecided provider value is written only once the owner picks it here
 	// (picking is the confirm — there is no checkbox and no "select all"), an undecided row
 	// nobody touched is never written, and a field with nothing to decide here (image_url,
-	// merge) is listed read-only and never written. The write itself is fire-and-forget
+	// merge) is listed read-only and never written. The dialog is the cockpit for the GOLDEN
+	// RECORD — Holodex's own truth for the video — of which only the mapped subset reaches the
+	// file: an unmapped field (no file tag for this container) still gets the chooser, and its
+	// pick is saved in Holodex alone; the gutter names which destination Write will touch
+	// (file arrow / system cylinder / nothing). The write itself is fire-and-forget
 	// (ADR-091): this dialog is a pre-flight confirm step that closes the instant the
 	// write is *enqueued*, not once it lands — outcome (pending/failed) is a page-level
 	// signal near the Metadata section, not this dialog's job to poll or display. Focus
@@ -25,7 +29,16 @@
 		sourceChips,
 		type SourceChip
 	} from '$lib/f36';
-	import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue, willWrite } from '$lib/writebackCockpit';
+	import {
+		isBlankCustom,
+		isCockpitRow,
+		isUnverifiable,
+		needsDecision,
+		rowClass,
+		savesDecisionOnly,
+		stagedValue,
+		willWrite
+	} from '$lib/writebackCockpit';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
 	import SourceRadioList from '../curation/SourceRadioList.svelte';
@@ -125,38 +138,25 @@
 		return rowClass(row.field, rowValue(row)) === 'matches';
 	}
 
-	// A Custom pick with nothing typed yet. SourceRadioList stages `custom` the moment its
-	// textarea takes focus (the SourceEditModal idiom), so a row can sit on an empty literal —
-	// that is "nothing chosen yet", never "write an empty tag" or "decide manual:''" (the modal
-	// refuses the same state at Save). Excluded from the count, the write and the decision.
-	function blankCustom(row: Row): boolean {
-		return isCockpitRow(row.field) && row.stagedKey === 'custom' && row.stagedCustomValue.trim() === '';
+	function stagedOf(row: Row) {
+		return { staged: { key: row.stagedKey, custom: row.stagedCustomValue }, touched: row.touched };
 	}
 
 	// The one predicate behind the footer count and submit()'s write set (pure: willWrite).
 	function rowWillWrite(row: Row): boolean {
-		return willWrite(row.field, rowValue(row), {
-			staged: { key: row.stagedKey, custom: row.stagedCustomValue },
-			touched: row.touched
-		});
+		return willWrite(row.field, rowValue(row), stagedOf(row));
 	}
 
 	// writeCount is recomputed from the LIVE staged picks, so the footer never promises a
 	// field submit() will skip (a row staged back onto the file value drops out immediately).
 	const writeCount = $derived(rows.filter(rowWillWrite).length);
 
-	// A row the owner re-pointed at the FILE value: it matches the file, so there is nothing
-	// to write and no checkbox — but the pick is still a decision (pin the baseline), and
-	// dropping it would leave the old provider/manual decision standing with the page still
-	// reading "out of sync". These ride along with a write, or save on their own when nothing
-	// is written.
+	// Rows whose pick is saved in Holodex but never reaches the file (pure: savesDecisionOnly):
+	// an unmapped field the owner decided here, or a mapped row re-pointed at the file's own
+	// value. Both are golden-record edits; dropping them would leave the old decision standing
+	// (and the page reading "out of sync"). They ride along with a write, or save on their own.
 	function rowDecisionOnly(row: Row): boolean {
-		return (
-			isCockpitRow(row.field) &&
-			row.chooserOpen &&
-			rowMatchesFile(row) &&
-			needsDecision(row.field, row.chips, { key: row.stagedKey, custom: row.stagedCustomValue })
-		);
+		return savesDecisionOnly(row.field, row.chips, rowValue(row), stagedOf(row));
 	}
 	const decisionOnlyCount = $derived(rows.filter(rowDecisionOnly).length);
 
@@ -165,15 +165,15 @@
 	// hiding anything — expanding or Select all brings them back at full contrast. Splitting on
 	// leadRow() means the first group is exactly the set that writes on open.
 	//
-	// Row order within undecided (R4.4): writable-and-differing first, then a field that
-	// already matches the file, then the rows nothing can be done with here — no decision
-	// model (image_url/merge) or no tag mapping at all — sorted on the row's ORIGINAL
-	// (open-time) value rather than the live one, so a row never jumps position while the
-	// owner is mid-pick.
+	// Row order within undecided (R4.4): mapped-and-differing first, then unmapped rows (still
+	// decidable here — the decision lands in Holodex alone), then rows that already match the
+	// file, then the rows nothing can be done with here (image_url/merge) — sorted on the row's
+	// ORIGINAL (open-time) value rather than the live one, so a row never jumps position while
+	// the owner is mid-pick.
 	function rowTier(row: Row): number {
-		if (!isCockpitRow(row.field)) return 2;
+		if (!isCockpitRow(row.field)) return 3;
 		const cls = rowClass(row.field, row.originalValue);
-		return cls === 'unwritable' ? 2 : cls === 'matches' ? 1 : 0;
+		return cls === 'matches' ? 2 : cls === 'unwritable' ? 1 : 0;
 	}
 	// leadRow: writes on open — a standing decision the file lags (by the row's open-time
 	// value). This is needsWriteback() plus the decided rows whose sync state is UNKNOWN
@@ -269,7 +269,7 @@
 	// decision (RD5, HOLODEX-403) — and merge (multi) rows never carry a decision (RD1;
 	// the resolver ignores one outright, so creating it would be a misleading ghost row).
 	async function ensureDecision(row: Row) {
-		if (blankCustom(row)) return;
+		if (isBlankCustom(stagedOf(row).staged)) return;
 		if (!needsDecision(row.field, row.chips, { key: row.stagedKey, custom: row.stagedCustomValue })) return;
 		const chip = row.chips.find((c) => c.key === row.stagedKey);
 		if (!chip) return;
@@ -288,7 +288,7 @@
 		const checkedRows = rows.filter(rowWillWrite);
 
 		// Decisions to record: every written row that needs one (ensureDecision decides), plus
-		// the re-pointed-to-file rows (rowDecisionOnly).
+		// the system-only rows (rowDecisionOnly: unmapped, or re-pointed at the file value).
 		const decisionRows = rows.filter((r) => isCockpitRow(r.field) && (rowWillWrite(r) || rowDecisionOnly(r)));
 
 		// Every written row is a cockpit row (willWrite), so each writes exactly its staged
@@ -301,8 +301,8 @@
 
 		try {
 			await Promise.all(decisionRows.map(ensureDecision));
-			// Nothing to write (only re-pointed-to-file decisions): skip the enqueue — an empty
-			// writeback would be a no-op job. The caller's reload still picks up the decisions.
+			// Nothing to write (system-only decisions): skip the enqueue — an empty writeback
+			// would be a no-op job. The caller's reload still picks up the decisions.
 			if (checkedRows.length > 0) await writeback(videoId, { fields });
 			// Fire-and-forget (ADR-091): the 202 means the job is durably queued, not that
 			// anything has been written yet. Close immediately — the caller reloads to pick
@@ -419,8 +419,8 @@
 				disabled={busy}
 				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-bg disabled:opacity-60"
 			>Cancel</button>
-			<!-- Decisions ride along with a write unlabelled; when there is nothing to write the
-			     button says what it will actually do instead of promising "Write 0 fields". -->
+			<!-- The button names both destinations when both are touched, and never promises
+			     "Write 0 fields" when only Holodex changes. -->
 			<button
 				onclick={submit}
 				disabled={busy || (writeCount === 0 && decisionOnlyCount === 0)}
@@ -428,6 +428,8 @@
 			>
 				{#if busy}
 					{writeCount > 0 ? 'Writing…' : 'Saving…'}
+				{:else if writeCount > 0 && decisionOnlyCount > 0}
+					Write {writeCount} field{writeCount === 1 ? '' : 's'}, save {decisionOnlyCount} decision{decisionOnlyCount === 1 ? '' : 's'}
 				{:else if writeCount === 0 && decisionOnlyCount > 0}
 					Save {decisionOnlyCount} decision{decisionOnlyCount === 1 ? '' : 's'}
 				{:else}
@@ -443,6 +445,12 @@
      long_text (the page's own chip-row vs. pencil+modal split, handoff §2). Both stage into the
      row; onStaged() promotes a matching row to will-write the moment the pick differs. -->
 {#snippet chooser(row: Row)}
+	<!-- ADR-093: a field whose tag is written but never read back has an always-empty file
+	     candidate. The baseline chip says "not read back" rather than "—" so it never claims
+	     the file is empty when it is merely unknown; the gutter still reads "will be written"
+	     — the write happens, it just cannot be confirmed later. No warning line: this is a
+	     property of the mapping (the server logs which read-back key to add), not of the row. -->
+	{@const unverifiable = isUnverifiable(row.field)}
 	{#if row.field.display === 'long_text'}
 		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
 			<SourceRadioList
@@ -451,6 +459,7 @@
 				bind:stagedKey={row.stagedKey}
 				bind:stagedCustomValue={row.stagedCustomValue}
 				disabled={busy}
+				baselinePlaceholder={unverifiable ? 'Not read back from this file' : 'No value'}
 				onstage={() => onStaged(row)}
 			/>
 		</div>
@@ -463,16 +472,10 @@
 				bind:stagedKey={row.stagedKey}
 				bind:stagedCustomValue={row.stagedCustomValue}
 				disabled={busy}
+				baselinePlaceholder={unverifiable ? 'not read back' : undefined}
 				onstage={() => onStaged(row)}
 			/>
 		</div>
-	{/if}
-	{#if isUnverifiable(row.field)}
-		<!-- ADR-093: no file read-back source for this field, so the dialog can never report
-		     "=" for it later. Still writable — the checkbox is honest — just unverifiable. -->
-		<p class="mt-1 text-xs text-warn">
-			Can't verify — {row.field.write_target} isn't read back from this file.
-		</p>
 	{/if}
 {/snippet}
 
@@ -488,27 +491,60 @@
 				     recomputed per render rather than reading the frozen in_sync snapshot that
 				     needsWriteback() groups rows by. -->
 				{@const matchesFile = rowMatchesFile(row)}
+				{@const toFile = rowWillWrite(row)}
+				{@const toSystem = rowDecisionOnly(row)}
 				<!-- No dimming for an unchecked row: the group heading above already says these are
 				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
 				     The checkbox carries the state; the label stays legible. -->
 				<div class="flex items-start gap-3">
-					<!-- Gutter glyph — there is no checkbox anywhere; deciding is the check action.
-					     Each tier has its own glyph, no two ever mean the same thing: ⊖ "no file tag
-					     for this container" (also: nothing to decide here — image_url/merge); = "matches
-					     the file, nothing to write"; an arrow-into-bar "will be written" (a standing
-					     decision, or a chip the owner picked here); a hollow circle "undecided — pick a
-					     source to write it". Static glyphs rather than disabled checkboxes on purpose:
-					     a box that can never be checked reads as broken, a glyph reads as information. -->
+					<!-- Gutter glyph = what Write will do to this row. There is no checkbox anywhere;
+					     deciding is the check action. Arrow-into-bar: written to the FILE (a standing
+					     decision, or a chip the owner picked here). Cylinder: saved in HOLODEX only —
+					     the field has no file tag for this container, or the pick is the file's own
+					     value. = matches the file, nothing to do. ⊖ nothing to do and nothing to decide
+					     here (image_url/merge), or an unmapped field already decided. Hollow circle:
+					     undecided — pick a source. Static glyphs rather than disabled checkboxes on
+					     purpose: a box that can never be checked reads as broken, a glyph reads as
+					     information. Which data CAN reach the file is on the header line (→ tag, or
+					     "no file tag for this container"), independent of the gutter. -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-						{#if !writable || !cockpit}
-							<!-- No file-tag mapping for this container (HOLODEX-216), or nothing to decide
-							     here (image_url / merge): shown, never written from this dialog. -->
+						{#if !cockpit}
 							<svg
 								class="h-4 w-4 text-muted"
 								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
 								role="img"
 							>
-								<title>{writable ? 'Nothing to decide here — not written from this dialog' : "No file tag for this container — can't be written"}</title>
+								<title>Nothing to decide here — not written from this dialog</title>
+								<circle cx="12" cy="12" r="9" />
+								<path stroke-linecap="round" d="M7 12h10" />
+							</svg>
+						{:else if toFile}
+							<svg
+								class="h-4 w-4 text-accent"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>Will be written to the file</title>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" />
+							</svg>
+						{:else if toSystem}
+							<svg
+								class="h-4 w-4 text-accent"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>{writable ? 'Decision saved in Holodex — the file already has this value' : 'Decision saved in Holodex — no file tag for this container'}</title>
+								<ellipse cx="12" cy="6" rx="7" ry="3" />
+								<path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+								<path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" />
+							</svg>
+						{:else if !writable && row.field.decision?.standing}
+							<svg
+								class="h-4 w-4 text-muted"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>Decided in Holodex — no file tag for this container, nothing to do</title>
 								<circle cx="12" cy="12" r="9" />
 								<path stroke-linecap="round" d="M7 12h10" />
 							</svg>
@@ -521,22 +557,13 @@
 								<title>Matches the file — nothing to write</title>
 								<path stroke-linecap="round" d="M6 9h12M6 15h12" />
 							</svg>
-						{:else if cockpit && rowWillWrite(row)}
-							<svg
-								class="h-4 w-4 text-accent"
-								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
-								role="img"
-							>
-								<title>Will be written to the file</title>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" />
-							</svg>
 						{:else}
 							<svg
 								class="h-4 w-4 text-muted"
 								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
 								role="img"
 							>
-								<title>Undecided — pick a source to write it</title>
+								<title>{writable ? 'Undecided — pick a source to write it' : 'Undecided — pick a source to decide it in Holodex'}</title>
 								<circle cx="12" cy="12" r="6" />
 							</svg>
 						{/if}
@@ -553,8 +580,13 @@
 							{/if}
 							{#if writable}
 								<span class="text-[0.65rem] text-muted">→ {row.field.write_target}</span>
+							{:else if cockpit}
+								<!-- Which data can reach the file lives here, on every row (HOLODEX-216 made
+								     the target visible; the owner asked for the inverse to be just as
+								     visible): unmapped for this container, decidable here all the same. -->
+								<span class="text-[0.65rem] text-muted">no file tag for this container</span>
 							{/if}
-							{#if writable && matchesFile && cockpit}
+							{#if matchesFile && cockpit}
 								<!-- The "=" tier is collapsed, not dead (handoff §1): `change` opens the same
 								     chooser a differing row shows; a non-file pick promotes the row. -->
 								<button
@@ -568,7 +600,7 @@
 							{/if}
 						</div>
 
-						{#if !writable}
+						{#if !writable && !cockpit}
 							<p class="text-xs text-muted">
 								{rowValue(row) || '—'}
 								<span class="block">No file tag for this container — can't be written.</span>

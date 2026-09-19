@@ -72,6 +72,24 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 	return false;
 }
 
+// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
+// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
+// reaches the file: a field with a `write_target` for this container. The dialog therefore
+// has two destinations per row — the file (willWrite) and the system alone
+// (savesDecisionOnly) — and its gutter names which one Write will touch.
+
+// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
+// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
+// reaches the file: a field with a `write_target` for this container. The dialog therefore
+// has two destinations per row — the file (willWrite) and the system alone
+// (savesDecisionOnly) — and its gutter names which one Write will touch.
+
+// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
+// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
+// reaches the file: a field with a `write_target` for this container. The dialog therefore
+// has two destinations per row — the file (willWrite) and the system alone
+// (savesDecisionOnly) — and its gutter names which one Write will touch.
+
 // willWrite is the single gate behind the dialog's footer count and its write set. A row is
 // written when it is writable, differs from the file, carries a value, AND is decided — either
 // standing before the dialog opened, or `touched` (the owner picked a chip in this dialog;
@@ -87,6 +105,28 @@ export function willWrite(
 ): boolean {
 	if (!isCockpitRow(field)) return false;
 	if (rowClass(field, value) !== 'write') return false;
-	if (opts.staged.key === 'custom' && opts.staged.custom.trim() === '') return false;
+	if (isBlankCustom(opts.staged)) return false;
 	return !!field.decision?.standing || opts.touched;
+}
+
+// isBlankCustom: a Custom pick with nothing typed — "nothing chosen yet", never a value.
+export function isBlankCustom(staged: StagedPick): boolean {
+	return staged.key === 'custom' && staged.custom.trim() === '';
+}
+
+// savesDecisionOnly: Write will record this row's pick in Holodex but write nothing to the
+// file — the row is touched and its pick differs from the standing decision (needsDecision),
+// yet it cannot or need not reach the file: no file tag for this container (unmapped), or the
+// pick IS the file's own value (a re-point to the baseline). Deciding an unmapped field here is
+// the point of the cockpit — the decision is part of the golden record whether or not the file
+// can carry it. An untouched row never saves anything.
+export function savesDecisionOnly(
+	field: ResolvedField,
+	chips: SourceChip[],
+	value: string,
+	opts: { staged: StagedPick; touched: boolean }
+): boolean {
+	if (!isCockpitRow(field) || !opts.touched || isBlankCustom(opts.staged)) return false;
+	if (willWrite(field, value, opts)) return false;
+	return needsDecision(field, chips, opts.staged);
 }

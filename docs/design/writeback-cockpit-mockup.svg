@@ -1,6 +1,6 @@
 <svg width="900" height="640" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <title>Writeback cockpit mockup (HOLODEX-400)</title>
-<desc>Left: the writeback dialog today — every differing row is a seeded free-text input with a "was:" line, so the owner sees only the winner. Right: the cockpit — a differing row renders the field's candidate chooser (chip row for short fields, stacked radio rows for long text) and the Write button commits the staged pick as the decision. There are no checkboxes and no Select all: a standing decision that lags the file always writes (arrow glyph), an undecided row writes only once the owner picks a chip (hollow circle until then), a row that matches the file collapses to the "=" tier with a quiet "change" toggle, an unverifiable row says so, an unwritable row is unchanged; image_url and merge rows are read-only (nothing to decide here yet).</desc>
+<desc>Left: the writeback dialog today — every differing row is a seeded free-text input with a "was:" line, so the owner sees only the winner. Right: the cockpit — a differing row renders the field's candidate chooser (chip row for short fields, stacked radio rows for long text) and the Write button commits the staged pick as the decision. There are no checkboxes and no Select all: a standing decision that lags the file always writes (arrow glyph), an undecided row writes only once the owner picks a chip (hollow circle until then), a row that matches the file collapses to the "=" tier with a quiet "change" toggle, a field that is written but not read back shows "not read back" on its file chip instead of a warning, an unmapped field keeps its chooser and its pick is saved in Holodex only (cylinder glyph, "no file tag for this container" on the header); image_url and merge rows are read-only (nothing to decide here yet).</desc>
 <rect width="900" height="640" fill="#f4f2ee"/>
 
 <!-- ============ LEFT: TODAY ============ -->
@@ -108,22 +108,31 @@
 <text x="494" y="344" font-size="11" font-weight="600" fill="#6b655b">Tagline</text>
 <text x="538" y="344" font-size="9" fill="#2f6fed">·tmdb</text>
 <text x="566" y="344" font-size="9" fill="#8a8478">→ Subtitle</text>
-<rect x="494" y="354" width="52" height="20" rx="10" fill="none" stroke="#c9c3b8"/>
+<rect x="494" y="354" width="86" height="20" rx="10" fill="none" stroke="#c9c3b8"/>
 <circle cx="506" cy="364" r="3.5" fill="none" stroke="#6b655b" stroke-width="1.4"/>
-<text x="514" y="368" font-size="11" fill="#8a8478">— <tspan font-size="9">·file</tspan></text>
-<rect x="552" y="354" width="150" height="20" rx="10" fill="#e9f0ff" stroke="#2f6fed" stroke-dasharray="3 2"/>
-<circle cx="564" cy="364" r="3.5" fill="none" stroke="#2f6fed" stroke-width="1.6"/>
-<text x="572" y="368" font-size="11" fill="#1d1a16">Justice wears a mask <tspan font-size="9" fill="#2f6fed">·tmdb</tspan></text>
-<rect x="708" y="354" width="66" height="20" rx="10" fill="none" stroke="#c9c3b8" stroke-dasharray="3 2"/>
-<circle cx="720" cy="364" r="3.5" fill="none" stroke="#6b655b" stroke-width="1.4"/>
-<text x="728" y="368" font-size="11" fill="#6b655b">Custom…</text>
-<text x="494" y="390" font-size="10" fill="#a66a1f">Can't verify — Subtitle isn't read back from this file.</text>
+<text x="514" y="368" font-size="11" fill="#8a8478">not read back <tspan font-size="9">·file</tspan></text>
+<rect x="586" y="354" width="150" height="20" rx="10" fill="#e9f0ff" stroke="#2f6fed" stroke-dasharray="3 2"/>
+<circle cx="598" cy="364" r="3.5" fill="none" stroke="#2f6fed" stroke-width="1.6"/>
+<text x="606" y="368" font-size="11" fill="#1d1a16">Justice wears a mask <tspan font-size="9" fill="#2f6fed">·tmdb</tspan></text>
+<rect x="742" y="354" width="66" height="20" rx="10" fill="none" stroke="#c9c3b8" stroke-dasharray="3 2"/>
+<circle cx="754" cy="364" r="3.5" fill="none" stroke="#6b655b" stroke-width="1.4"/>
+<text x="762" y="368" font-size="11" fill="#6b655b">Custom…</text>
 
-<!-- Director row: unwritable -->
-<circle cx="478" cy="412" r="5.5" fill="none" stroke="#8a8478" stroke-width="1.4"/><path d="M475 412 h6" stroke="#8a8478" stroke-width="1.4"/>
-<text x="494" y="416" font-size="11" font-weight="600" fill="#6b655b">Director</text>
-<text x="542" y="416" font-size="9" fill="#2f6fed">·tmdb</text>
-<text x="494" y="431" font-size="10" fill="#8a8478">R. Okafor <tspan>— no file tag for this container, can't be written</tspan></text>
+
+<!-- Runtime row: unmapped, decided here → saved in Holodex only -->
+<ellipse cx="478" cy="404" rx="5" ry="2" fill="none" stroke="#2f6fed" stroke-width="1.4"/><path d="M473 404 v8 c0 1.2 2.2 2 5 2 s5 -0.8 5 -2 v-8 M473 408 c0 1.2 2.2 2 5 2 s5 -0.8 5 -2" fill="none" stroke="#2f6fed" stroke-width="1.4"/>
+<text x="494" y="410" font-size="11" font-weight="600" fill="#6b655b">Runtime</text>
+<text x="540" y="410" font-size="9" fill="#2f6fed">·tmdb</text>
+<text x="568" y="410" font-size="9" fill="#8a8478">no file tag for this container</text>
+<rect x="494" y="418" width="52" height="20" rx="10" fill="none" stroke="#c9c3b8"/>
+<circle cx="506" cy="428" r="3.5" fill="none" stroke="#6b655b" stroke-width="1.4"/>
+<text x="514" y="432" font-size="11" fill="#8a8478">— <tspan font-size="9">·file</tspan></text>
+<rect x="552" y="418" width="82" height="20" rx="10" fill="#e9f0ff" stroke="#2f6fed"/>
+<circle cx="564" cy="428" r="3.5" fill="#2f6fed"/>
+<text x="572" y="432" font-size="11" fill="#1d1a16">155 <tspan font-size="9" fill="#2f6fed">·tmdb</tspan></text>
+<rect x="640" y="418" width="66" height="20" rx="10" fill="none" stroke="#c9c3b8" stroke-dasharray="3 2"/>
+<circle cx="652" cy="428" r="3.5" fill="none" stroke="#6b655b" stroke-width="1.4"/>
+<text x="660" y="432" font-size="11" fill="#6b655b">Custom…</text>
 
 <!-- undecided disclosure -->
 <line x1="472" y1="448" x2="860" y2="448" stroke="#e6e1d8"/>
@@ -135,13 +144,13 @@
 <rect x="720" y="493" width="56" height="20" rx="4" fill="none" stroke="#d9d4cb"/>
 <text x="748" y="507" font-size="11" fill="#1d1a16" text-anchor="middle">Cancel</text>
 <rect x="782" y="493" width="78" height="20" rx="4" fill="#2f6fed"/>
-<text x="821" y="507" font-size="11" fill="#ffffff" text-anchor="middle">Write 2 fields</text>
+<text x="821" y="507" font-size="10" fill="#ffffff" text-anchor="middle">Write 2, save 1</text>
 
 <!-- legend -->
 <text x="472" y="540" font-size="10" fill="#8a8478">● filled dot = staged pick · dashed ring = RD6 pending winner (undecided). Picking a chip — the pending</text>
 <text x="472" y="554" font-size="10" fill="#8a8478">one included — is the confirm; Write records it as the decision, then enqueues one atomic write.</text>
-<text x="472" y="576" font-size="10" fill="#8a8478">Gutter: ↧ will write (decided) · ○ undecided, pick to write · = matches file (change opens chooser) · ⊖ no tag.</text>
-<text x="472" y="590" font-size="10" fill="#8a8478">No checkbox, no Select all. Amber = in_sync unknown (ADR-093). image_url / merge rows: ⊖ read-only until 403 / 401.</text>
+<text x="472" y="576" font-size="10" fill="#8a8478">Gutter = what Write does: ↧ to the file · cylinder = saved in Holodex only (unmapped, or re-pointed at the file) ·</text>
+<text x="472" y="590" font-size="10" fill="#8a8478">○ undecided · = matches file · ⊖ nothing to do. Header says → tag or "no file tag". "not read back" = ADR-093, no warning.</text>
 
 <text x="24" y="630" font-size="9" fill="#a39d92">Schematic — colours are illustrative; the component uses tokens only (bg-surface, text-ink, text-muted, border-rule, accent, warn). QA all three skins.</text>
 </svg>

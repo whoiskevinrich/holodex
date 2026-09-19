@@ -36,7 +36,17 @@
 		// dot + aria-checked (+ accent border), never colour alone.
 		// pending (HOLODEX-245): the checked chip is an RD6 implicit winner, not a standing
 		// decision — rendered with a dashed ring + hollow dot instead of the filled decided look.
-		radio?: { key: string; checked: boolean; tabindex: number; onselect: () => void; pending?: boolean };
+		// placeholder (HOLODEX-400): what an EMPTY value reads as in radio mode — the default
+		// em-dash means "no value"; a field whose file tag is not read back passes "not read
+		// back" so the baseline chip never claims the file is empty when it is merely unknown.
+		radio?: {
+			key: string;
+			checked: boolean;
+			tabindex: number;
+			onselect: () => void;
+			pending?: boolean;
+			placeholder?: string;
+		};
 		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
 		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
 		// block, so an owner caller must still supply them.
@@ -92,7 +102,7 @@
 		data-seg={radio.key}
 		aria-checked={radio.checked}
 		tabindex={radio.tabindex}
-		aria-label={`${item.value || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
+		aria-label={`${item.value || radio.placeholder || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
 		title={item.value || undefined}
 		onclick={radio.onselect}
 		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
@@ -105,7 +115,7 @@
 				: 'border-current'}"
 			aria-hidden="true"
 		></span>
-		<span class="max-w-[14rem] truncate {radio.checked ? 'text-ink' : ''}">{item.value || '—'}</span>
+		<span class="max-w-[14rem] truncate {radio.checked ? 'text-ink' : ''}">{item.value || radio.placeholder || '—'}</span>
 		<span class="{isProvider ? 'text-accent' : 'text-muted'} shrink-0 text-[0.65rem]"
 			>·{provenance}{pending ? ', pending' : ''}</span
 		>

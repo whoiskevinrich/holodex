@@ -25,12 +25,12 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
   (2026-09-18); vocabulary term **applied vs. on file** + two translations added to
   `docs/reference/ui-vocabulary.md`
 - [~] backend — n/a
-- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / U / M / ? / ⊖), **no checkbox anywhere**, no Select all (`willWrite`: cockpit ∧ standing ∨ touched; image_url/merge read-only), staged picks, Write =
+- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (F / S / U / M / D / ⊖), **no checkbox anywhere**, no Select all (`willWrite` / `savesDecisionOnly`; image_url/merge read-only), two destinations in the gutter (`↧` file / cylinder Holodex), unmapped rows decidable, `not read back` file chip, staged picks, Write =
   Confirm via `needsDecision`, `focusables()` excludes `tabIndex === -1`; lifted
   `curation/SourceChipRow.svelte` (from `SourceBadge`, which still keeps its own copy) and
   `curation/SourceRadioList.svelte` (from `SourceEditModal`, now rewired to it); pure helpers in
   `web/src/lib/writebackCockpit.ts`; both component `CLAUDE.md` tables updated (2026-09-18)
-- [x] testing `testing-strategy` — `writebackCockpit.test.ts` (20 cases) + live `[agent]` pass on
+- [x] testing `testing-strategy` — `writebackCockpit.test.ts` (25 cases) + live `[agent]` pass on
   `backend-films` (Dune, TMDB): 2 decision PUTs + 1 writeback POST for 3 checked rows, none for the
   untouched decided row; Tab lands on the checked chip; three-skin contrast all ≥ 4.5:1 (row in
   `docs/testing-strategy.md`)
@@ -45,6 +45,16 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
    before the human QA so a wrong `=` row is recognised as theirs, not this PR's
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-19 · golden record, two destinations
+- skills: —
+- handoff: Kevin — "golden record" = system source of truth, mapped subset reaches the file; "if
+  it isn't written to file the icon shouldn't be a down arrow". Cylinder gutter glyph = saved in
+  Holodex only; unmapped fields get the chooser; header says `→ tag` / `no file tag for this
+  container`; red "Can't verify" line replaced by `not read back` on the file chip. Pure
+  `savesDecisionOnly` (+5 tests, 319 total); live-verified (one runtime decision PUT, writeback
+  with the 4 mapped fields). Vocab: **golden record** + two translations. Remaining: Kevin's skin
+  look (§9.11–9.12) → `gh pr ready`.
 
 ### 2026-09-18 (c) · atomic write, no checkboxes
 - skills: code-review high --fix (prior)

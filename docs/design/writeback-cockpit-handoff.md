@@ -72,6 +72,34 @@ So the dialog has **no per-row checkbox and no Select all** on cockpit rows:
   of the checkboxes, not all of them"): **the poster cannot be written from this dialog until
   HOLODEX-403 gives it a chooser**, and merge fields until HOLODEX-401.
 
+### The golden record has two destinations (owner, 2026-09-19)
+
+> "The system source of truth, with a subset of data that CAN be written back to the file's
+> metadata (Title, People/artist, tags/genre) and some data that CANNOT because it isn't mapped
+> (tagline). This modal should make it clear which data is available, which data can and cannot
+> be written to a file, and what the current decision is for each property."
+
+The dialog is the cockpit for the **golden record** — Holodex's own resolved truth for the
+video — of which only the *mapped* subset (a `write_target` for this container) reaches the
+file. Three things every row therefore states, in three fixed places:
+
+| Question | Where | How |
+|---|---|---|
+| What data is available? | the chooser | one chip / row per candidate source, Custom last |
+| Can it reach the file? | the header line | `→ {write_target}` — or `no file tag for this container` |
+| What is the current decision? | the highlighted chip | filled dot (standing / picked here) · dashed ring (RD6 pending, undecided) |
+
+And the **gutter says what Write will do to the row**, with two destinations: `↧` to the file
+(the decision rides along if new), a **cylinder** to Holodex only (an unmapped field the owner
+decided here, or a mapped row re-pointed at the file's own value), `=` / `⊖` / `○` nothing.
+An unmapped field **gets the chooser like any other** — its decision is part of the golden
+record whether or not the file can carry it; previously such rows had no control at all.
+
+The "Can't verify" line is gone. A field that is written but not read back (ADR-093) is still
+`↧` — the write happens — and its **file chip reads `not read back`** instead of `—`, so the
+baseline never claims the file is empty when it is merely unknown. That is a property of the
+mapping (the server logs which read-back key to add), not a warning on the row.
+
 ### What does *not* change
 
 - The decided / undecided split and the disclosure line (HOLODEX-213). The lead group is now
@@ -97,21 +125,23 @@ Replace-field rows fall into one of four classes. The class is derived from thre
 dialog already computes: `isWritable(field)`, `rowMatchesFile(row)` (live staged value vs. the
 `·file` candidate), and `field.in_sync`.
 
-| Class | Condition | Gutter | Body | Written? |
-|---|---|---|---|---|
-| **W · will write** | writable ∧ staged value ≠ on-file value ∧ (standing decision ∨ owner picked a chip here) | `↧` arrow-into-bar glyph, `text-accent` | header + **chooser (expanded)** | yes — always, atomically |
-| **U · undecided** | writable ∧ staged value ≠ on-file value ∧ no standing decision ∧ untouched | `○` hollow circle, `text-muted` | header + **chooser (expanded)**, pending chip dashed | no — picking a chip turns it into **W** |
-| **M · matches file** | writable ∧ staged value = on-file value | `=` glyph | header + value + "— matches the file" + quiet **change** toggle | no (a re-point to file is a decision-only save, §3) |
-| **? · unverifiable** | writable ∧ `in_sync === undefined` | as **W** or **U** | as **W**/**U**, plus an amber note under the chooser | as **W**/**U** |
-| **⊖ · unwritable** | `!isWritable(field)` | `⊖` glyph | unchanged (value + "no file tag for this container") | no |
-| `image_url` / merge | non-cockpit — nothing to decide here | `⊖` glyph, title "Nothing to decide here — not written from this dialog" | HOLODEX-245 comparison (read-only, "Enriched") / value + `on file:` line, plus the note | no — HOLODEX-403 / 401 |
+The gutter is **what Write will do to the row**; the header line is **whether the field can
+reach the file**; the chooser is the same on every cockpit row.
 
-`?` is a **W**/**U** row with a note, not a sixth gutter glyph: it *can* be written; what is
-missing is the read-back that would let the row report `=` later (ADR-093). A *decided* `?` row
-is **W** and leads the dialog — and, because its file candidate is always empty, it will read
-as "will write" on every open until the mapping gains a read-back source (the server WARNs
-which key to add at startup). Copy: `Can't verify — {write_target} isn't read back from this
-file.` in `text-warn`, `text-xs`.
+| Class | Condition | Gutter | Header destination | Body | On Write |
+|---|---|---|---|---|---|
+| **F · to file** | mapped ∧ staged ≠ on-file ∧ (standing decision ∨ picked here) | `↧` arrow-into-bar, `text-accent` | `→ {write_target}` | **chooser (expanded)** | written (decision saved first if new) |
+| **S · to system** | picked here ∧ pick ≠ standing ∧ (unmapped ∨ pick = on-file value) | **cylinder**, `text-accent` | `→ {tag}` or `no file tag for this container` | **chooser** | decision saved in Holodex; nothing written |
+| **U · undecided** | no standing decision ∧ untouched (mapped or not) | `○` hollow circle, `text-muted` | either | **chooser (expanded)**, pending chip dashed | nothing — picking a chip turns it into **F** or **S** |
+| **M · matches file** | mapped ∧ staged = on-file value | `=` | `→ {tag}` | value + "— matches the file" + quiet **change** | nothing (a re-point becomes **S**) |
+| **D · decided, unmapped** | unmapped ∧ standing decision ∧ untouched | `⊖` | `no file tag for this container` | **chooser** (collapsed unless it differs — same rule as everywhere) | nothing — already in Holodex, can't reach the file |
+| `image_url` / merge | non-cockpit — nothing to decide here | `⊖`, title "Nothing to decide here — not written from this dialog" | `→ {tag}` if mapped | HOLODEX-245 comparison (read-only) / value + `on file:` line, plus the note | nothing — HOLODEX-403 / 401 |
+
+**Not read back (ADR-093).** A mapped field whose tag is never read back has an always-empty
+file candidate. It is **F** (or **U**) like any other — the write happens — and its **file chip
+reads `not read back`** (`baselinePlaceholder`; stacked rows: `Not read back from this file`)
+instead of `—`. No warning line. A decided such row leads the dialog on every open until the
+mapping gains a read-back source; the server WARNs which key to add at startup.
 
 **M → W promotion.** The `=` tier is the collapsed state, not a dead end (owner's call, 2026-09-18:
 "expandable on demand"). A quiet `change` toggle (`.btn-quiet`, `text-xs`, `aria-expanded`,
@@ -161,8 +191,9 @@ separable, duplicating ≤ 40 lines is acceptable for this story, with the extra
 Nothing in the dialog hits the network until `submit()`. Chip clicks and arrow keys **stage**
 locally (as `SourceBadge` does before Confirm); Cancel/Escape/backdrop discard every staged pick.
 
-On submit, for each row that will write (`willWrite`: cockpit ∧ writable ∧ differs ∧ carries a
-value ∧ (standing decision ∨ touched)):
+On submit, for each row that will write (`willWrite`: cockpit ∧ mapped ∧ differs ∧ carries a
+value ∧ (standing decision ∨ touched)), plus each system-only row (`savesDecisionOnly`: cockpit
+∧ touched ∧ pick ≠ standing ∧ not writing — unmapped, or re-pointed at the file value):
 
 1. **Decide** when needed — generalize `ensureDecision(row)` from "create if none standing" to:
    `decide(canonical, chip.decisionSource, customValue?)` **iff** no standing decision **or** the
@@ -182,13 +213,12 @@ Two rules added at implementation (2026-09-18, from `/code-review`):
   the textarea takes focus (the `SourceEditModal` idiom), so a row can sit on an empty literal.
   It is excluded from the count, the write and the decision — never `values: []` or
   `manual:''`. (The modal refuses the same state at Save.)
-- **Re-pointing a row at the `·file` chip is still a decision.** That row matches the file, so
-  there is nothing to write and no checkbox — but the pick pins the baseline, and dropping it
-  would leave the old provider/manual decision standing with the page still reading "out of
-  sync". Such rows ride along with a write; when nothing is written the button reads
-  **`Save N decision(s)`**, stays enabled, and submit records the decisions without enqueuing
-  an empty job. An unchecked, differing row is still left alone: the checkbox means "act on
-  this one".
+- **A system-only pick is still a decision.** An unmapped field the owner decided here, or a
+  mapped row re-pointed at the `·file` chip: nothing to write, but the pick is part of the
+  golden record, and dropping it would leave the old decision standing (and the page reading
+  "out of sync"). Such rows ride along with a write — the button then reads **`Write N
+  fields, save M decisions`** — or save on their own as **`Save M decision(s)`**, without
+  enqueuing an empty job.
 
 This closes [HOLODEX-219](https://whoiskevinrich.atlassian.net/browse/HOLODEX-219) as a side
 effect: an undecided provider value can no longer be written without recording the decision,
@@ -216,7 +246,11 @@ No new tokens. No hardcoded values.
 |---|---|
 | **M** row | `{value} — matches the file` |
 | **M** toggle | `change` (collapsed) / `close` (expanded) — sentence case, no punctuation |
-| Footer, nothing to write but decisions staged | `Save {n} decision{s}` (busy: `Saving…`) |
+| Footer, writes and system-only picks | `Write {n} field{s}, save {m} decision{s}` |
+| Footer, nothing to write but decisions staged | `Save {m} decision{s}` (busy: `Saving…`) |
+| Header, unmapped field | `no file tag for this container` (in place of `→ {tag}`) |
+| File chip, not read back | `not read back` (chip row) · `Not read back from this file` (stacked) |
+| Gutter titles | `Will be written to the file` · `Decision saved in Holodex — no file tag for this container` / `— the file already has this value` · `Undecided — pick a source to write it` / `… to decide it in Holodex` · `Decided in Holodex — no file tag for this container, nothing to do` · `Matches the file — nothing to write` · `Nothing to decide here — not written from this dialog` |
 | `?` note | `Can't verify — {write_target} isn't read back from this file.` |
 | Empty `·file` chip | `—` (existing placeholder) |
 | Custom opener | `Custom…` (chip) / `Write your own…` (textarea placeholder) |
@@ -260,10 +294,13 @@ No new tokens. No hardcoded values.
 
 | Element | State | Behaviour |
 |---|---|---|
-| W row | standing decision, untouched | `↧`; submit writes, no decide |
-| W row | staged ≠ current selection | `↧`; submit decides then writes |
+| F row | standing decision, untouched | `↧`; submit writes, no decide |
+| F row | staged ≠ current selection | `↧`; submit decides then writes |
 | U row | RD6 pending winner, untouched | `○`, dashed ring; **not** written, **not** decided |
-| U → W | any chip picked, the pending one included | `↧`; submit decides (`provider:<x>` / `file` / `manual`) then writes (HOLODEX-219) |
+| U → F | mapped, any chip picked (the pending one included) | `↧`; submit decides (`provider:<x>` / `file` / `manual`) then writes (HOLODEX-219) |
+| U → S | unmapped, any chip picked | cylinder; submit decides, writes nothing |
+| M → S | `change`, re-pointed at a non-file chip → differs → **F**; re-pointed back at file with a standing non-file decision → **S** | cylinder; submit decides, writes nothing |
+| D row | unmapped, decided, untouched | `⊖`; nothing |
 | W row | staged Custom, empty draft (chip row) | previous staged pick stays; nothing changes |
 | M row | collapsed | `=` glyph, value line, `change` |
 | M row | expanded, staged = file | chooser open, still `=`; toggle reads `close` — also the state a W row lands in when demoted, so the chooser never disappears under the owner. If the field was decided elsewhere, this is a decision-only row: counted in `Save N decisions`, decided on submit, not written |
@@ -318,14 +355,18 @@ Numbered `section.item`; tagged by verifier; grouped by tag.
   on a stacked-rows U row by clicking its already-checked radio. Press Write: a `PUT …/decision`
   for exactly those rows precedes the writeback; an untouched U row is neither written nor
   decided.
+- 9.3b `[agent]` An unmapped field (`no file tag for this container` on the header) has a chooser.
+  Pick its provider chip: `○` → cylinder, footer `Write N fields, save 1 decision`. Write: one
+  `PUT …/decision` for it, and it is **absent** from the writeback payload.
+- 9.3c `[agent]` A mapped field with no read-back (`in_sync` absent): no red line anywhere; its
+  file chip reads `not read back` (stacked: `Not read back from this file`); gutter `↧`.
 - 9.4 `[agent]` Custom: type a value, blur → staged Custom; clear it and blur → previous pick
   restored. Submit → `PUT …/decision` with `manual` + the value, then `POST …/writeback` with
   `values: [<value>]` (single element, no comma split).
 - 9.5 `[agent]` Open with only untouched U rows and no decided-lagging rows: footer disabled
   (`Write 0 fields to file`) — nothing is ever written by default.
 - 9.6 `[agent]` Already-decided row, untouched, submit → **no** `decision` call.
-- 9.7 `[agent]` Field with `in_sync === undefined` and a differing provider value: checkbox,
-  not pre-checked, chooser open, `text-warn` note naming the `write_target`.
+- 9.7 `[agent]` `rg 'text-warn' WritebackFormDialog.svelte` finds only the enqueue-error line.
 - 9.8 `[agent]` Keyboard: first focus lands on the lead row's checked chip; Tab from it lands on
   the next row's checked chip, **not** on an unchecked chip; Shift+Tab from the first focusable wraps to the footer's last button; arrow
   keys inside a radiogroup stage without leaving the group; Escape in a Custom textarea closes

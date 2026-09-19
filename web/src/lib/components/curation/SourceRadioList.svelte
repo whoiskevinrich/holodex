@@ -14,6 +14,8 @@
 		stagedKey = $bindable(),
 		stagedCustomValue = $bindable(''),
 		disabled = false,
+		baselineKey = 'file',
+		baselinePlaceholder = 'No value',
 		onstage
 	}: {
 		field: ResolvedField;
@@ -21,6 +23,10 @@
 		stagedKey: string | null;
 		stagedCustomValue?: string;
 		disabled?: boolean;
+		baselineKey?: string;
+		// What the baseline row reads as when its value is empty ("No value" by default; the
+		// writeback dialog passes "Not read back from this file" for an ADR-093 field).
+		baselinePlaceholder?: string;
 		// Fires after every staged change (radio pick, Custom focus, Custom edit).
 		onstage?: () => void;
 	} = $props();
@@ -100,7 +106,7 @@
 					</span>
 				</span>
 				<span class="mt-1 block pl-6 text-sm {chip.value.trim() ? 'text-ink' : 'text-muted'}">
-					{chip.value.trim() || 'No value'}
+					{chip.value.trim() || (chip.key === baselineKey ? baselinePlaceholder : 'No value')}
 				</span>
 			</label>
 		{/if}

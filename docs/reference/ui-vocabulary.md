@@ -125,6 +125,15 @@ applied, so the writeback dialog's chooser is the field's chip row (or stacked r
 `long_text`) and the Write button is its Confirm.
 → [writeback-cockpit-handoff.md](../design/writeback-cockpit-handoff.md); HOLODEX-400
 
+**Golden record.** Holodex's own source of truth for an entity — baseline + enrichment shadow +
+standing decisions, as the resolver resolves them. Only the *mapped* subset of it (a
+`write_target` for the video's container) can reach the file; the rest lives in Holodex alone.
+A decision on an unmapped field is still a golden-record edit. The writeback dialog is the
+cockpit for the whole record and names, per row, which destination Write will touch: the file
+(`↧`), Holodex only (cylinder), or nothing.
+→ [writeback-cockpit-handoff.md](../design/writeback-cockpit-handoff.md) §"The golden record has
+two destinations"; HOLODEX-400
+
 **Baseline.** The entity's own record — the file layer for videos (`baselineKey='file'`), the
 row for persons/studios (`'record'`). Enrichment is an additive shadow over it; the resolver is
 the only merge point.
@@ -141,6 +150,8 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "the only time I care about a disagreement is when the file doesn't match the selected choice" (2026-09-16) | **applied vs. on file** | the writeback dialog opens a chooser only on rows where the winner ≠ the file's tag; sources that disagree while the file already matches the winner stay collapsed — no "3 sources disagree" signal |
 | "I don't care where the tags came from. I care about what tags are applied … and if they exist on the media file" (2026-09-16) | **applied vs. on file**, for a merge field | no per-tag provenance affordance (ADR-090: tags have no layer 2); the owner-only signal is set membership on the file — HOLODEX-401 |
 | "the writeback should be atomic for all values … there is no reason to write back to the file with an undecided entry; deciding should be the 'check' action" (2026-09-18) | **applied vs. on file**, write side | no per-row skip and no Select all in the writeback dialog: every standing decision that lags the file writes, an undecided row writes only once a chip is picked (the pick *is* the confirm), an untouched one never — HOLODEX-400 |
+| "the system source of truth, with a subset of data that CAN be written back to the file's metadata and some data that CANNOT because it isn't mapped … make it clear which data is available, which can and cannot be written to a file, and what the current decision is" (2026-09-19) | **golden record**, two destinations | the writeback dialog gives every replace field a chooser (unmapped included), states reachability on the header line (`→ tag` / `no file tag for this container`), and the gutter names the destination (`↧` file / cylinder Holodex-only / nothing) — HOLODEX-400 |
+| "if the record isn't being written to file, the icon shouldn't be a down arrow; it should be an icon that represents writing to the system" (2026-09-19) | **golden record**, system destination | the cylinder gutter glyph: a decision saved in Holodex with nothing written; replaces the red "Can't verify" line, whose real information (no read-back) moved onto the file chip as `not read back` |
 | "add a way for the component to be configured so the text can be more of a grey than white" | **a knob for tone** | it is a styling prop, so the question is whether the look should be the component's rule instead — `ExpandableText` had exactly this knob and lost it |
 | "the owner view and the visitor view should look the same" | **parity** | check computed typography of the value, not which component is named; the harness assertion is HOLODEX-366 |
 | "include the collapsible chevron" | **long prose** (`ExpandableText`) | the chevron is not a feature to add, it is part of the one rendering long prose gets |

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue, willWrite } from './writebackCockpit';
+import { isCockpitRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -140,5 +140,31 @@ describe('willWrite', () => {
 		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
 		const genres = field({ multi: true, candidates: [{ source: 'file', value: 'drama' }] });
 		expect(willWrite(genres, 'drama, action', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
+	});
+});
+
+describe('savesDecisionOnly', () => {
+	const tmdb = { key: 'provider:tmdb', custom: '' };
+	it('is false for an untouched row, whatever its state', () => {
+		const unmapped = field({ write_target: undefined });
+		expect(savesDecisionOnly(unmapped, sourceChips(unmapped), 'Blade Runner: Final Cut', { staged: tmdb, touched: false })).toBe(false);
+	});
+	it('is true for an unmapped field the owner decided here — the decision lands in Holodex only', () => {
+		const unmapped = field({ write_target: undefined });
+		expect(savesDecisionOnly(unmapped, sourceChips(unmapped), 'Blade Runner: Final Cut', { staged: tmdb, touched: true })).toBe(true);
+	});
+	it('is true for a decided, mapped row re-pointed at the file value (nothing to write)', () => {
+		const decided = field({ decision: { source: 'provider:tmdb', standing: true } });
+		expect(savesDecisionOnly(decided, sourceChips(decided), 'Blade Runner', { staged: { key: 'file', custom: '' }, touched: true })).toBe(true);
+	});
+	it('is false when the row writes to the file instead (the decision rides with the write)', () => {
+		const f = field();
+		expect(savesDecisionOnly(f, sourceChips(f), 'Blade Runner: Final Cut', { staged: tmdb, touched: true })).toBe(false);
+	});
+	it('is false when the staged pick equals the standing decision, or the Custom literal is blank', () => {
+		const decided = field({ write_target: undefined, decision: { source: 'provider:tmdb', standing: true } });
+		expect(savesDecisionOnly(decided, sourceChips(decided), 'Blade Runner: Final Cut', { staged: tmdb, touched: true })).toBe(false);
+		const unmapped = field({ write_target: undefined });
+		expect(savesDecisionOnly(unmapped, sourceChips(unmapped), '', { staged: { key: 'custom', custom: ' ' }, touched: true })).toBe(false);
 	});
 });
