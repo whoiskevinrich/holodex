@@ -47,8 +47,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [x] testing `testing-strategy` — §4 row (pacer on a fake clock, `RefreshPair`, sweep runner incl.
   single-flight + both breakers, API 503 / sweep endpoint, sidecar 429) + §5 row (`sweepLine` edge
   fires once, live three-skin verification) in `docs/testing-strategy.md`; 30 Go + 6 vitest cases
-- [/] security `security-review` — owner-gated mutation; no new outbound hosts (limiter only
-  slows existing allowlisted calls); `/describe.rate_limit` clamped like other untrusted fields
+- [x] security `security-review` — 2026-09-19, **no findings** (see session log): owner-gated
+  mutation; no new outbound hosts; `/describe.rate_limit` tolerant + clamped; `Retry-After` an
+  integer both ways; provider name echoed only from the registry; sweep principal = owner
 - [ ] `code-review high --fix` before each commit
 - [ ] three-skin QA (checklist in the handoff, items 1–11)
 
@@ -58,7 +59,7 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
 3. [x] [—] Frontend shipped (Option D); the confirm reads `Refresh N people (skipping any refreshed in
    the last 24 h)?` in P0 — the *due* count waits for P1-2's preview endpoint
-4. [x] [—] `/testing-strategy` — rows landed; `/security-review` next; handoff checklist items 8
+4. [x] [—] `/testing-strategy` + `/security-review` — both landed; handoff checklist items 8
    (429 fixture) + 11 (stop a sidecar mid-sweep) still open — the rest passed
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark PR #367 ready only when every gate is green; CI moves 421 → In Review / Done
@@ -211,3 +212,23 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   never called") — the one P0 criterion with no direct test.
 - handoff: next = `/security-review` (owner-gated `POST /admin/enrich/sweep/{kind}`; clamped untrusted
   `/describe.rate_limit`; no new outbound hosts; `Retry-After` never echoed raw). Then Kevin's look.
+
+### 2026-09-19 · security review — sign-off, no findings
+- skills: security-review
+- Scope: `git diff main...HEAD` minus docs/tests. Data flows traced: (a) `/describe.rate_limit` →
+  tolerant `UnmarshalJSON` → `Normalize` (NaN/Inf/negative dropped, clamped `[0.1,50]×[1,100]`) →
+  `rate.Limiter` — a hostile sidecar can only nudge its own pace; (b) sidecar `Retry-After` →
+  `strconv.Atoi` only, 30 s default / 300 s cap → outbound header is `Itoa` of that bounded int — no
+  header injection, nothing from the sidecar echoed raw; (c) `?batch=` → parameterized
+  `WHERE batch_id = ?` behind `requireOwner` → `{batch}` auto-escaped, `encodeURIComponent` href,
+  fixed `goto` path; (d) `{kind}` → fixed map → 404, re-validated in `Trigger`; (e) `{force}` bool;
+  (f) `providerError` echoes the provider name only on `*ErrProviderPaused`, minted only past
+  `Service.client()`'s registry check, via `writeJSON`, never `err.Error()` (no `base_url` leak);
+  (g) `sendAuthed` surfaces `body.error` — `writeError` writes fixed literals, `h.fail` writes
+  `"internal error"`; (h) TMDB pass-through validates `n > 0` else literal `"30"`;
+  (i) `newBatchID` = `crypto/rand`; (j) sweep runs as the owner (`BypassGalleryCap` only changes
+  gallery-cap semantics; every existing `Enrich` caller already passes `true` behind `requireOwner`),
+  dials only registry sources — SSRF allowlist unchanged.
+- handoff: **every gate green except the two open QA items (8: `429` fixture sidecar, 11: stop a
+  sidecar mid-sweep — human).** Next = merge main, Kevin's look, `gh pr ready` #367; on merge sweep
+  421 to Done by hand if CI misses it.
