@@ -206,3 +206,34 @@ func TestSweepRetriesOnceThenBreaksOnPauses(t *testing.T) {
 		t.Fatalf("skipped providers = %+v; want fake rate-limited", sum.SkippedProviders)
 	}
 }
+
+// A provider whose entity_types excludes the kind is never called (spec P0-2): the
+// sweep's provider set is the kind's supported sources, not every enabled one.
+func TestSweepSkipsProvidersThatDoNotSupportTheKind(t *testing.T) {
+	fake := NewFake("fake")
+	svc, r := newSvc(t, fake)
+	store, err := NewStore(writeSources(t, `
+sources:
+  - name: fake
+    base_url: http://fake:9100
+    entity_types: [studio]
+    enabled: true
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.store = store
+	seedPeople(t, r, "Hayao Miyazaki")
+	sr := NewSweepRunner(svc, r, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	if started, _ := sr.Trigger(model.EnrichEntityPerson, true); !started {
+		t.Fatal("trigger")
+	}
+	sum := waitIdle(t, sr)
+	if sum.Total != 1 || sum.SweepCounts != (SweepCounts{}) || len(sum.SkippedProviders) != 0 {
+		t.Fatalf("summary = %+v; want total 1 and every pair count 0", sum)
+	}
+	if fake.Calls != 0 {
+		t.Fatalf("a studio-only provider must not be dialed for a people sweep (calls=%d)", fake.Calls)
+	}
+}

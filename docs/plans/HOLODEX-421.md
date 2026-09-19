@@ -44,9 +44,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [x] frontend — status page buttons + inline confirm (count, `☐ Refresh everything` → `force`);
   shared `SweepStatusLine.svelte` (+ `sweepLine.ts`, unit-tested) on both list pages; `JobHistory`
   `?batch=` chip; `activity.active` includes sweep; TS types. QA'd live against the worktree backend
-- [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
-  limiter + breaker unit tests, `SweepStatusLine` running→idle edge fires `onfinished` once,
-  row in `docs/testing-strategy.md`
+- [x] testing `testing-strategy` — §4 row (pacer on a fake clock, `RefreshPair`, sweep runner incl.
+  single-flight + both breakers, API 503 / sweep endpoint, sidecar 429) + §5 row (`sweepLine` edge
+  fires once, live three-skin verification) in `docs/testing-strategy.md`; 30 Go + 6 vitest cases
 - [ ] security `security-review` — owner-gated mutation; no new outbound hosts (limiter only
   slows existing allowlisted calls); `/describe.rate_limit` clamped like other untrusted fields
 - [ ] `code-review high --fix` before each commit
@@ -58,8 +58,8 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
 3. [x] [—] Frontend shipped (Option D); the confirm reads `Refresh N people (skipping any refreshed in
    the last 24 h)?` in P0 — the *due* count waits for P1-2's preview endpoint
-4. [ ] [—] `/testing-strategy` (row in `docs/testing-strategy.md`) → `/security-review` → handoff
-   checklist items 8 (429 fixture) + 11 (stop a sidecar mid-sweep) still open — the rest passed
+4. [x] [—] `/testing-strategy` — rows landed; `/security-review` next; handoff checklist items 8
+   (429 fixture) + 11 (stop a sidecar mid-sweep) still open — the rest passed
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark PR #367 ready only when every gate is green; CI moves 421 → In Review / Done
 
@@ -201,3 +201,13 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   innerWidth`. Real TMDB sweep: 21 people 42.8 s → Linked 16 · 5 need review; second run 539 ms →
   16 recently refreshed. Open: 8 (needs the 429 fixture sidecar) and 11 (human).
 - handoff: next = `/testing-strategy` row + `/security-review`; then Kevin's look → `gh pr ready`.
+
+### 2026-09-19 · testing-strategy gate
+- skills: testing-strategy
+- `docs/testing-strategy.md`: Date entry + §4 backend row (what each of the 30 Go tests pins, incl.
+  the four review findings turned into assertions) + §5 frontend row (`sweepLine` pure pieces, the
+  live three-skin walk, the whitespace defect only the browser caught). Added
+  `TestSweepSkipsProvidersThatDoNotSupportTheKind` (spec P0-2's "entity_types excludes the kind →
+  never called") — the one P0 criterion with no direct test.
+- handoff: next = `/security-review` (owner-gated `POST /admin/enrich/sweep/{kind}`; clamped untrusted
+  `/describe.rate_limit`; no new outbound hosts; `Retry-After` never echoed raw). Then Kevin's look.
