@@ -214,18 +214,19 @@ per-row was locked first.
 
 ## Action Items
 
-1. [ ] Migration `NNNN_job_run_dismissals.{up,down}.sql` — the D1 DDL; down drops the table
-   (`.claude/rules/migrations.md`). Take the number at merge time: `0048` is held by HOLODEX-412's
-   in-flight branch, so this lands as `0049` unless something else merges first
-2. [ ] `repo.DismissJobRun(ctx, id) (bool, error)` — guarded `INSERT OR IGNORE`, `RowsAffected == 1`
-3. [ ] `repo.DismissJobFailures(ctx, days) (int64, error)` — D4 `INSERT … SELECT`
-4. [ ] `repo.JobRunDigest` / `ListJobRuns` — D3 `LEFT JOIN`, `last_dismissed` on `JobKindDigest`,
-   `DismissedAt *time.Time` on `model.JobRun` (`omitempty`)
-5. [ ] `POST /admin/activity/runs/{id}/dismiss` + `POST /admin/activity/failures/dismiss` inside
+1. [x] Migration `0048_job_run_dismissals.{up,down}.sql` — the D1 DDL; down drops the table
+   (`.claude/rules/migrations.md`). **Number collides with HOLODEX-412's in-flight
+   `0048_entity_completeness`** — golang-migrate never applies a version below the current one,
+   so whichever branch merges second must renumber before merging
+2. [x] `repo.DismissJobRun(ctx, id) (bool, error)` — guarded `INSERT OR IGNORE`, `RowsAffected == 1`
+3. [x] `repo.DismissJobFailures(ctx, days) (int64, error)` — D4 `INSERT … SELECT`
+4. [x] `repo.JobRunDigest` / `ListJobRuns` — D3 `LEFT JOIN` (`jobRunSelect`), `last_dismissed` on
+   `JobKindDigest`, `DismissedAt *time.Time` on `model.JobRun` (`omitempty`)
+5. [x] `POST /admin/activity/runs/{id}/dismiss` + `POST /admin/activity/failures/dismiss` inside
    the existing `requireOwner` group
-6. [ ] Tests: `TestPruneJobRuns_CascadesDismissal`, `TestJobRunDigest_ExcludesDismissed` (asserts
-   `errors`, `failures`, `last_status` *and* `last_dismissed` for the newest-run case), double
-   dismiss → `false`, non-error run → `false`, Dismiss-all does not touch a run inserted after the
-   window snapshot; handler 401 without the token
-7. [ ] `docs/testing-strategy.md` row for the two invariants above
+6. [x] Tests: `TestPruneJobRuns_CascadesDismissal`, `TestDismissJobRun_DigestAndHistory` (asserts
+   `errors`, `failures`, `last_status` *and* `last_dismissed` for the newest-run case, then a fresh
+   failure flips them back), `TestDismissJobFailures_WindowAtRequestTime`, double dismiss →
+   `false`, non-error run → `false`; `TestDismissJobRuns_OwnerGatedAndIdempotent` for the 401s
+7. [x] `docs/testing-strategy.md` row for the two invariants above
 8. [ ] Index entry in [README.md](README.md); spec P0-7 gate → `[x]` once merged

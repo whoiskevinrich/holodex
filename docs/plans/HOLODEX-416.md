@@ -22,27 +22,33 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   dismissed_at)`; sweep cascades via FK, not code; digest `LEFT JOIN` + bare-column `last_dismissed`
 - [x] design `design-handoff` — `docs/design/status-dismiss-failures-handoff.md` +
   `status-dismiss-failures-mockup.svg`; D1–D4 locked 2026-09-18 from the inline mockup
-- [ ] backend — migration → `repo.DismissJobRun` / `DismissJobFailures` → `POST
-  /admin/activity/runs/{id}/dismiss` + `/admin/activity/failures/dismiss` → digest LEFT JOIN
+- [x] backend — `0048_job_run_dismissals` → `repo.DismissJobRun` / `DismissJobFailures` → `POST
+  /admin/activity/runs/{id}/dismiss` + `/admin/activity/failures/dismiss` → digest/history
+  `LEFT JOIN` + `last_dismissed` (2026-09-18). **Migration number: `0048` collides with
+  HOLODEX-412's in-flight `0048_entity_completeness` — whoever merges second renumbers**
 - [ ] frontend — `api.ts` two calls; `JobDigest.svelte` row `btn-row btn-ghost` Dismiss +
   header `btn-quiet` Dismiss all N, owner-gated; `JobStatusBadge` `muted` prop + `· dismissed`
   on a kind whose newest run is dismissed (D5); `JobHistory.svelte` `· dismissed` marker
-- [ ] testing `testing-strategy` — repo digest-exclusion test, handler owner gate, double
-  dismiss no-op, component test that a row leaves and the kind's errors decrements
+- [ ] testing `testing-strategy` — Go half DONE: `jobrun_dismissals_test.go` (digest exclusion,
+  D5 both columns, fresh-failure-after-dismiss, window-at-request-time, FK cascade) +
+  `activity_dismiss_test.go` (owner gate, idempotent row/all); testing-strategy row added.
+  Open: component test that a row leaves and the kind's errors decrements
 - [~] security `security-review` — n/a: both endpoints sit under the existing `requireOwner`
   group; no new input beyond a path id and the digest's `days`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Backend per ADR-100 action items 1–6 (migration number at merge time — `0048` is
-   HOLODEX-412's), then frontend, then three-skin QA
-2. [ ] [—] `docs/testing-strategy.md` row (ADR-100 item 7) + testing gate
+1. [ ] [—] Frontend: `types.ts` (`dismissed_at?`, `last_dismissed`), `api.ts` two calls,
+   `JobDigest.svelte` row/header controls + local mutation, `JobStatusBadge` `muted` prop,
+   `JobHistory.svelte` marker; component test; three-skin QA
+2. [ ] [—] Before marking ready: re-check migration number against main (HOLODEX-412 also
+   holds `0048`) and merge main
 3. [ ] [—] Mark PR ready once every gate above is `[x]` — that fires In Review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-18 · design handoff
-- skills: design-handoff
+- skills: design-handoff, code-review
 - Grounded in `JobDigest.svelte` + `app.css` button roles + ADR-091's "job_runs is the audit
   record". Four questions put to Kevin with an inline mockup; all four recommendations taken.
   Filed HOLODEX-416, renamed the branch, In Progress fired, Draft PR opened.
@@ -68,3 +74,12 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   pin both.
 - handoff: all pre-implementation gates green; next session starts the backend at the migration
   (take the number at merge time).
+
+### 2026-09-18 · backend
+- skills: code-review high --fix (no findings)
+- Migration `0048` + `job_run_dismissals`; `jobRunSelect` (columns + `LEFT JOIN`) replaces the
+  bare column list in both run reads; digest kinds query gains `last_dismissed` as a bare-column
+  expression off the `MAX(started_at)` row — verified by test in both directions, not assumed.
+  Two repo methods, two owner routes. 3 repo tests + 1 HTTP test, `go test ./...` green.
+- handoff: backend green; next session is the frontend (`JobDigest.svelte` first, then the
+  badge `muted` prop, then `JobHistory.svelte`).
