@@ -24,25 +24,35 @@ reads cover art back and a decided poster would otherwise re-embed on every Writ
 - [x] spec `write-spec` — two lines in `docs/specs/field-source-of-truth.md` §Sync state (2026-09-19)
 - [x] architecture `architecture` — `docs/architecture/ADR-101-ledger-witnessed-image-sync.md` + index row (2026-09-19)
 - [x] design `design-handoff` — `docs/design/writeback-poster-chooser-handoff.md` + `writeback-poster-chooser-mockup.svg` (2026-09-19)
-- [ ] backend — `resolver.Options.LastWritten` + `replaceMarkers` image branch; `repo.LastWrittenValues`;
-  `resolveOptions` loads it for the video detail; tests
-- [ ] frontend — `curation/SourceImageTiles.svelte`; `isCockpitRow` admits `image_url`;
-  `needsDecision` stops excluding it; dialog wires tiles + upload placeholder/note; `curation/CLAUDE.md`
-- [ ] testing `testing-strategy` — row; `writebackCockpit.test.ts` image cases; Go tests above; live pass
-- [~] security `security-review` — n/a expected: no new endpoint; the image write path (SSRF allowlist,
-  ADR-039) is untouched; the ledger read is owner-gated with the detail it rides on — re-check at PR
+- [x] backend — `resolver.Options.LastWritten` + `ledgerWitness` branch in `replaceMarkers`;
+  `repo.LastWrittenValues`; `getMedia` loads it; `TestResolveFields_ImageSyncFromLedger`,
+  `TestLastWrittenValues` (2026-09-19)
+- [x] frontend — `curation/SourceImageTiles.svelte`; `isCockpitRow` admits `image_url` (+`isImageRow`);
+  `rowClass` witness clause keyed on `in_sync`; dialog wires tiles, `entityImage`/`entityImageUploaded`
+  props, placeholder + ADR-049 note, thumbnail on the `=` line; both `CLAUDE.md` tables (2026-09-19)
+- [x] testing `testing-strategy` — row; Vitest 364 / Go green; live pass incl. the 3-minute real write,
+  ledger row, `=` on re-open, decision-only, upload placeholder, keyboard, three skins (2026-09-19)
+- [~] security `security-review` — n/a: no new endpoint; the image write path (SSRF allowlist, ADR-039)
+  and the decision endpoint are untouched; the new ledger read is a SELECT on the video's own rows,
+  served inside the existing detail response
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] ADR-101 D1/D2 — `LastWrittenValues` (newest per `field_key`), `Options.LastWritten`,
-   `replaceMarkers` image branch, resolver tests
-2. [ ] [frontend] `SourceImageTiles.svelte` (chip-row keyboard handler verbatim), dialog wiring,
-   `isCockpitRow`/`needsDecision` admit `image_url`, upload placeholder + note
-3. [ ] [testing] tests + live pass on `backend-films` (Dune): pick tmdb → PUT + writeback; re-open → `=`
-4. [ ] [—] `/code-review high --fix`; three-skin QA
-5. [ ] [—] Fold `SourceBadge` onto `SourceChipRow` (carried over from HOLODEX-400's list)
+1. [ ] [—] Handoff §8.9 `[human]` — Kevin's look at the tiles in all three skins, then `gh pr ready`
+2. [ ] [—] Fold `SourceBadge` onto `SourceChipRow` (carried over from HOLODEX-400's list)
+3. [ ] [—] Preview-tool trap: `preview_start` is pinned to the session's launch dir, so a second
+   worktree's code is NOT what it serves — the backend can run through a junction (`wt403`) with a
+   launch entry whose `cwd` is under the session root, but Vite refuses the realpath; run Vite via
+   Bash from the worktree instead. Consider a memory/`reference-holodex-preview-testbeds` update
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-19 (b) · backend + frontend + tests
+- skills: code-review high --fix
+- handoff: ADR-101 witness implemented end to end and live-verified (real 21 GB write landed, ledger row,
+  `=` on re-open); tiles chooser shipped; two review findings fixed (witness keyed on `in_sync` not
+  display; standing manual literal keeps its tile). Draft PR #364 against `main`. Remaining: Kevin's
+  §8.9 look → `gh pr ready`.
 
 ### 2026-09-19 · gates
 - skills: design-handoff (house format), architecture (ADR-101, number via `adr-claims.mjs --reserve`)
