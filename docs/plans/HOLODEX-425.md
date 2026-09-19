@@ -21,8 +21,9 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 - [x] spec `write-spec` — `docs/specs/instance-skin.md` (F66), RD1–RD10 locked
 - [x] architecture `architecture` — [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)
   D1–D6; supersedes ADR-021 §5 only; index row + ADR-021 annotation landed
-- [ ] design `design-handoff` — Appearance tab cards, header picker removal, custom card;
-  mockup SVG committed next to the handoff
+- [x] design `design-handoff` — [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
+  [mockup SVG](../design/instance-skin-mockup.svg); option B (miniature browse preview) chosen;
+  active = accent border + outlined chip, never solid fill
 - [ ] backend — S1: migration `settings`, repo Get/Put, `PUT /admin/theme`, `/capabilities.theme`;
   S3: `theme.custom` parse/validate, contrast WARN
 - [ ] frontend — S1: `theme.svelte.ts` server-applied + paint cache, preference removed;
@@ -33,19 +34,17 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-427] design handoff + mockup SVG for the Appearance tab (OQ1: header slot at
-   narrow widths)
-2. [ ] [HOLODEX-426] S1 backend + SPA plumbing
-3. [ ] [HOLODEX-427] S2 Appearance tab, picker removed
-4. [ ] [HOLODEX-428] S3 custom palette, derivation (R11 gate), contrast WARN, docs
-5. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
+1. [ ] [HOLODEX-426] S1 backend + SPA plumbing
+2. [ ] [HOLODEX-427] S2 Appearance tab, picker removed
+3. [ ] [HOLODEX-428] S3 custom palette, derivation (R11 gate), contrast WARN, docs
+4. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
    all four to Done by hand (epic-keyed branch → CI fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-19 · brainstorm → epic → spec
-- skills: product-brainstorming, write-spec, architecture
+- skills: product-brainstorming, write-spec, architecture, design-handoff
 - handoff: epic HOLODEX-425 + stories 426/427/428 filed, branch renamed
-  `HOLODEX-425-instance-skin`, epic In Progress; spec + ADR-102 committed, Draft PR #365 open.
-  Next is the design handoff for 427 (fresh mockup — the brainstorm's header-chip picker is
-  superseded by the Appearance tab).
+  `HOLODEX-425-instance-skin`, epic In Progress; spec + ADR-102 (D2 = ownership test) + design
+  handoff (option B) committed, Draft PR #365 open. All pre-implementation gates green; next is
+  S1 code (HOLODEX-426) — testing strategy + security review ride the code.

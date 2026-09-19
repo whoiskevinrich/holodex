@@ -34,8 +34,9 @@ active skin is a P2 below, not part of either epic.
 **ADR**: [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md) — D1 instance identity ·
 D2 `settings` store + the library/deployment ownership boundary · D3 read/write channels · D4 derived palette applied
 inline · D5 validation posture · D6 restart-to-apply (supersedes ADR-021 §5 only).
-**Design**: *pending* — `docs/design/instance-skin-handoff.md` + mockup SVG (Appearance tab cards,
-header picker removal).
+**Design**: [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
+[mockup](../design/instance-skin-mockup.svg) — option B (miniature browse preview cards, real
+`.video-frame` tiles under `data-theme`) approved 2026-09-19; OQ1 resolved: nothing takes the header slot.
 
 ---
 
@@ -333,8 +334,9 @@ verification outcomes, not funnels.
 
 ## Open Questions
 
-1. **[design, non-blocking]** What, if anything, occupies the header slot the picker leaves at
-   narrow widths — nothing, or does the owner-mode toggle shift? Resolve in the design handoff.
+1. ~~**[design]** What occupies the header slot the picker leaves at narrow widths?~~ **Resolved
+   2026-09-19 (design handoff):** nothing — the right group is *Owner* + *Owner view* for owners,
+   empty for visitors; the removed control was the widest item so every breakpoint loosens.
 2. **[engineering, non-blocking]** Exact derivation ratios (`color-mix` percentages) that satisfy
    R11 for Cinémathèque — tuned during S3, not decided here.
 3. **[engineering, non-blocking]** Whether `accent-ink` / `warn-ink` luminance switching is

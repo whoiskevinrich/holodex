@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-labelledby="t d">
+  <title id="t">Owner › Appearance tab: skin cards as miniature browse previews; header before and after the picker is removed</title>
+  <desc id="d">Top: the Owner page with a tenth tab, Appearance, active. Four selectable cards — Cinémathèque (active, accent border and an outlined Active chip), Broadcast, Brutalist, and the custom palette Rich Archive based on Cinémathèque — each drawn in its own tokens with a two-tile miniature of the browse grid. Below: the custom card's empty state when no palette is configured, and the header for a signed-in owner before and after the skin picker is removed (Owner and Owner view remain; nothing takes the slot).</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .cap { font-size: 11px; fill: #5f5e5a; }
+    .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+    .serif { font-family: Georgia, "Times New Roman", serif; }
+    .mono { font-family: "Courier New", Consolas, monospace; }
+  </style>
+
+  <text x="8" y="14" class="ttl">Owner › Appearance — option B, miniature browse preview (chosen 2026-09-19)</text>
+
+  <!-- page frame (Cinémathèque instance) -->
+  <rect x="8" y="22" width="704" height="222" rx="3" fill="#0c0a09"/>
+  <text x="22" y="46" class="serif" font-size="17" fill="#f3ece1">Owner</text>
+  <text x="22" y="60" font-size="9" fill="#9b9082">Owner tools — visible only in your view, hidden from visitors.</text>
+  <!-- tab row -->
+  <g font-size="9" fill="#9b9082">
+    <text x="22" y="80">Status</text><text x="56" y="80">Metadata keys</text><text x="122" y="80">Attached keys</text><text x="186" y="80">Duplicates</text><text x="238" y="80">Deny-list</text><text x="284" y="80">Enrichment</text><text x="336" y="80">Extraction</text><text x="384" y="80">Completeness</text><text x="446" y="80">Trash</text>
+  </g>
+  <rect x="472" y="70" width="58" height="15" rx="2" fill="#181310"/>
+  <text x="479" y="80" font-size="9" fill="#f3ece1">Appearance</text>
+  <line x1="22" y1="90" x2="698" y2="90" stroke="#2a2622"/>
+
+  <!-- card 1: Cinémathèque, active -->
+  <g>
+    <rect x="22" y="100" width="160" height="112" rx="2" fill="#0c0a09" stroke="#e8a33d" stroke-width="2"/>
+    <rect x="128" y="106" width="48" height="13" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="137" y="115.5" font-size="8" fill="#e8a33d">ACTIVE</text>
+    <text x="30" y="122" class="serif" font-size="12" fill="#f3ece1">Cinémathèque</text>
+    <rect x="30" y="130" width="70" height="58" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="34" y="134" width="62" height="30" fill="#1e1814"/>
+    <rect x="34" y="134" width="3" height="30" fill="#0c0a09"/><rect x="93" y="134" width="3" height="30" fill="#0c0a09"/>
+    <rect x="34" y="170" width="44" height="4" fill="#f3ece1"/><rect x="34" y="178" width="28" height="3" fill="#9b9082"/>
+    <rect x="104" y="130" width="70" height="58" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="108" y="134" width="62" height="30" fill="#1e1814"/>
+    <rect x="108" y="134" width="3" height="30" fill="#0c0a09"/><rect x="167" y="134" width="3" height="30" fill="#0c0a09"/>
+    <rect x="108" y="170" width="36" height="4" fill="#f3ece1"/><rect x="108" y="178" width="24" height="3" fill="#e8a33d"/>
+    <text x="30" y="204" font-size="8" fill="#9b9082">Fraunces · Archivo · 2px</text>
+  </g>
+
+  <!-- card 2: Broadcast -->
+  <g>
+    <rect x="194" y="100" width="160" height="112" rx="2" fill="#060814" stroke="#1a2240"/>
+    <text x="202" y="122" class="mono" font-size="12" fill="#dfe9ff">BROADCAST</text>
+    <rect x="202" y="130" width="70" height="58" fill="#0b0f22" stroke="#1a2240"/>
+    <rect x="206" y="134" width="62" height="30" fill="#111834"/>
+    <g stroke="#060814" stroke-width="0.6" opacity="0.6"><line x1="206" y1="138" x2="268" y2="138"/><line x1="206" y1="144" x2="268" y2="144"/><line x1="206" y1="150" x2="268" y2="150"/><line x1="206" y1="156" x2="268" y2="156"/></g>
+    <rect x="206" y="170" width="44" height="4" fill="#dfe9ff"/><rect x="206" y="178" width="28" height="3" fill="#6f7da6"/>
+    <rect x="276" y="130" width="70" height="58" fill="#0b0f22" stroke="#1a2240"/>
+    <rect x="280" y="134" width="62" height="30" fill="#111834"/>
+    <g stroke="#060814" stroke-width="0.6" opacity="0.6"><line x1="280" y1="138" x2="342" y2="138"/><line x1="280" y1="144" x2="342" y2="144"/><line x1="280" y1="150" x2="342" y2="150"/><line x1="280" y1="156" x2="342" y2="156"/></g>
+    <rect x="280" y="170" width="36" height="4" fill="#dfe9ff"/><rect x="280" y="178" width="24" height="3" fill="#36e0d0"/>
+    <text x="202" y="204" class="mono" font-size="8" fill="#6f7da6">VT323 · Share Tech Mono · 0px</text>
+  </g>
+
+  <!-- card 3: Brutalist -->
+  <g>
+    <rect x="366" y="100" width="160" height="112" fill="#0a0a0a" stroke="#333333"/>
+    <text x="374" y="122" class="mono" font-size="11" fill="#fafafa">BRUTALIST</text>
+    <rect x="374" y="130" width="70" height="58" fill="#0e0e0e" stroke="#333333"/>
+    <rect x="378" y="134" width="62" height="30" fill="#171717"/>
+    <rect x="378" y="170" width="44" height="4" fill="#fafafa"/><rect x="378" y="178" width="28" height="3" fill="#8a8a8a"/>
+    <rect x="448" y="130" width="70" height="58" fill="#0e0e0e" stroke="#333333"/>
+    <rect x="452" y="134" width="62" height="30" fill="#171717"/>
+    <rect x="452" y="170" width="36" height="4" fill="#fafafa"/><rect x="452" y="178" width="24" height="3" fill="#d6ff3f"/>
+    <text x="374" y="204" class="mono" font-size="8" fill="#8a8a8a">Spline Sans Mono · 0px</text>
+  </g>
+
+  <!-- card 4: custom "Rich Archive" -->
+  <g>
+    <rect x="538" y="100" width="160" height="112" rx="2" fill="#0b0a0c" stroke="#2a2530"/>
+    <text x="546" y="122" class="serif" font-size="12" fill="#efe9e0">Rich Archive</text>
+    <rect x="546" y="130" width="70" height="58" rx="2" fill="#14121a" stroke="#2a2530"/>
+    <rect x="550" y="134" width="62" height="30" fill="#1d1a22"/>
+    <rect x="550" y="134" width="3" height="30" fill="#0b0a0c"/><rect x="609" y="134" width="3" height="30" fill="#0b0a0c"/>
+    <rect x="550" y="170" width="44" height="4" fill="#efe9e0"/><rect x="550" y="178" width="28" height="3" fill="#9a9188"/>
+    <rect x="620" y="130" width="70" height="58" rx="2" fill="#14121a" stroke="#2a2530"/>
+    <rect x="624" y="134" width="62" height="30" fill="#1d1a22"/>
+    <rect x="624" y="134" width="3" height="30" fill="#0b0a0c"/><rect x="683" y="134" width="3" height="30" fill="#0b0a0c"/>
+    <rect x="624" y="170" width="36" height="4" fill="#efe9e0"/><rect x="624" y="178" width="24" height="3" fill="#c0483f"/>
+    <text x="546" y="198" font-size="8" fill="#9a9188">based on Cinémathèque · holodex.yaml</text>
+    <text x="546" y="208" font-size="8" fill="#9a9188">contrast: all pairs pass</text>
+  </g>
+
+  <text x="22" y="232" font-size="9" fill="#9b9082">Click a card to apply it for every viewer. Saved instantly.</text>
+
+  <!-- empty custom state -->
+  <text x="8" y="264" class="cap">Custom card when no palette is configured</text>
+  <rect x="8" y="270" width="340" height="40" rx="3" fill="#0c0a09"/>
+  <rect x="18" y="277" width="320" height="26" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="3 2"/>
+  <text x="26" y="288" font-size="8.5" fill="#9b9082">No custom palette. Define <tspan class="mono" fill="#f3ece1">theme.custom</tspan> in holodex.yaml and restart —</text>
+  <text x="26" y="298" font-size="8.5" fill="#9b9082">see Configuration › Appearance.</text>
+
+  <!-- custom stored but config gone (P1 R16) -->
+  <text x="364" y="264" class="cap">Stored skin is “custom” but the block was removed (P1)</text>
+  <rect x="364" y="270" width="348" height="40" rx="3" fill="#0c0a09"/>
+  <rect x="374" y="277" width="328" height="26" rx="2" fill="none" stroke="#e2603f"/>
+  <text x="382" y="288" font-size="8.5" fill="#e2603f">Rich Archive is unavailable — theme.custom is missing. Showing Cinémathèque.</text>
+  <text x="382" y="298" font-size="8.5" fill="#9b9082">Restore the block and restart, or pick another skin.</text>
+
+  <!-- header before / after -->
+  <text x="8" y="334" class="cap">Header, owner signed in — before (today) / after (picker removed; nothing takes the slot)</text>
+  <rect x="8" y="340" width="348" height="32" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="18" y="360" class="serif" font-size="12" fill="#f3ece1">Holodex</text>
+  <rect x="196" y="348" width="40" height="16" rx="2" fill="none" stroke="#2a2622"/><text x="204" y="359" font-size="8" fill="#9b9082">Owner</text>
+  <rect x="240" y="348" width="54" height="16" rx="2" fill="#e8a33d"/><text x="246" y="359" font-size="8" fill="#1a1206">Owner view</text>
+  <rect x="298" y="348" width="50" height="16" rx="2" fill="none" stroke="#2a2622"/>
+  <circle cx="307" cy="356" r="3" fill="#e8a33d"/><circle cx="322" cy="356" r="3" fill="#36e0d0"/><circle cx="337" cy="356" r="3" fill="#d6ff3f"/>
+
+  <rect x="364" y="340" width="348" height="32" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="374" y="360" class="serif" font-size="12" fill="#f3ece1">Holodex</text>
+  <rect x="608" y="348" width="40" height="16" rx="2" fill="none" stroke="#2a2622"/><text x="616" y="359" font-size="8" fill="#9b9082">Owner</text>
+  <rect x="652" y="348" width="54" height="16" rx="2" fill="#e8a33d"/><text x="658" y="359" font-size="8" fill="#1a1206">Owner view</text>
+
+  <text x="8" y="396" class="cap">Visitor header after: only the wordmark and navigation — no skin control anywhere.</text>
+  <text x="8" y="410" class="cap">Active card = accent border + outlined ACTIVE chip (.btn-accent idiom); never a solid accent fill (reserved for a page's one primary action).</text>
+</svg>
