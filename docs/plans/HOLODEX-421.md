@@ -47,7 +47,7 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [x] testing `testing-strategy` — §4 row (pacer on a fake clock, `RefreshPair`, sweep runner incl.
   single-flight + both breakers, API 503 / sweep endpoint, sidecar 429) + §5 row (`sweepLine` edge
   fires once, live three-skin verification) in `docs/testing-strategy.md`; 30 Go + 6 vitest cases
-- [ ] security `security-review` — owner-gated mutation; no new outbound hosts (limiter only
+- [/] security `security-review` — owner-gated mutation; no new outbound hosts (limiter only
   slows existing allowlisted calls); `/describe.rate_limit` clamped like other untrusted fields
 - [ ] `code-review high --fix` before each commit
 - [ ] three-skin QA (checklist in the handoff, items 1–11)
@@ -66,7 +66,7 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-19 · design handoff + decisions
-- skills: design-handoff, code-review
+- skills: design-handoff, code-review, security-review
 - Created HOLODEX-421, renamed branch, fired In Progress. Explored list headers, per-entity
   Refresh-all (`refreshOneProvider`), activity read-model, extract-all/rescan precedents. Rendered
   five placements + two done-state revisions in-session; Kevin chose **D** and asked for a default
