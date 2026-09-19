@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-412
-status: in-progress
+status: in-review
 release_note: The completeness score now measures the required facets alone (extras are a separate number that overfills the ring), and every entity card shows a completeness ring in owner mode.
 ---
 
@@ -22,8 +22,8 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 - [x] design `design-handoff` — `docs/design/completeness-ring-badge-handoff.md` + `-mockup.svg`: card = bottom-left chip with Part N shifting right (HOLODEX-389 had taken the corner), rows = trailing before the count, `CompletenessRing` props/markup, numbered three-skin QA
 - [x] backend — migration 0048 (tables + triggers, incl. promotions/claims/hints in SQL), `resolver.Complete` Required/Extras, `repo.DrainCompleteness` under writeMu + `StoreCompleteness` self-heal, mark-all on boot/reload, SQL composite sort + missing-facet predicate, owner-only `completeness` on list items, registry demotions; 2026-09-18
 - [x] frontend — `CompletenessRing` + `ring.ts` (unit-tested), VideoCard bottom-left chip beside Part, `/people` + `/studios` rows before the count, panel headline `score` + `extras` (studio → extras is the number), `types.ts` v2 shapes; agent QA 2.1–2.5 green on all three skins; 2026-09-18
-- [ ] testing `testing-strategy` — trigger-coverage enumerating test, formula tables, sort composite, visitor redaction
-- [ ] security `security-review` — owner gating of the new list field; trigger migration
+- [x] testing `testing-strategy` — F65 rows (resolver bands, store triggers/repo/list surfaces, ring badge) + six invariants in `docs/testing-strategy.md`; tests already shipped with the code; 2026-09-18
+- [x] security `security-review` — clean 2026-09-18: entityType SQL concat is constants-only, sort whitelisted, missing_facet bound, drain/attach/self-heal all inside the owner check, facets endpoint in the requireOwner group, visitor items omit the key
 
 ## Up next — ordered (position = priority)
 
@@ -32,14 +32,15 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 3. [x] [—] `/design-handoff` — ring badge SVG + three-skin QA checklist
 4. [x] [—] Backend per ADR-099 action items 2–6 (2026-09-18)
 5. [x] [—] Frontend ring badge per the design handoff (2026-09-18); Kevin's eyeball items 3.1–3.4 + 1.2 (needs a multi-part video) still open on the prod skin
-6. [ ] [—] `/testing-strategy` F65 block (tests already exist: `internal/db/completeness_triggers_test.go`, `internal/repo/completeness_test.go`, `internal/api/completeness_store_test.go`, resolver worked examples) + `/security-review` (owner gating of `completeness`; trigger migration)
-7. [ ] [—] Spec nit: F65.3's acceptance says the chip "offers exactly" 8 video facets — the store-backed `/completeness/facets` (ADR-099 D3 GROUP BY) omits facets nobody is missing; reword to "offers at most"
-8. [ ] [—] On ready: this is an epic-keyed branch — CI fires nothing; move HOLODEX-412 to In Review by hand, Done on merge
+6. [x] [—] `/testing-strategy` F65 block + `/security-review` (2026-09-18)
+7. [x] [—] Spec nit: F65.3 reworded to "offers at most" (2026-09-18)
+8. [x] [—] Marked ready + HOLODEX-412 → In Review by hand 2026-09-18 (epic-keyed branch, CI fires nothing)
+9. [ ] [—] On merge: move HOLODEX-412 to Done by hand; Kevin's eyeball QA 3.1–3.4 + 1.2 on the prod skin
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-16 → 2026-09-18 · brainstorm → epic → ADR
-- skills: product-brainstorming, architecture, write-spec, design-handoff, code-review
+- skills: product-brainstorming, architecture, write-spec, design-handoff, code-review, testing-strategy, security-review
 - handoff: decisions locked via cards (required-only + extras overfill, binary tier, O2 ring
   always-on in owner mode, materialize, registry-level Optional); HOLODEX-412 filed + In Progress;
   branch renamed `HOLODEX-412-completeness-score-v2` and fast-forwarded to main; ADR-099 written;
@@ -74,3 +75,11 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
   bottom edge/8-col gap/visitor-zero all green on all three skins; row heights unchanged. Not
   exercised: a multi-part card (no `part` video in the fixture) — human 1.2 + 3.x remain. Next:
   `/testing-strategy` F65 block + `/security-review`, then mark ready.
+
+### 2026-09-18 · gates → ready
+- skills: testing-strategy, security-review
+- handoff: all seven gates green. Testing-strategy F65 rows + invariants landed (the "never blended",
+  "null not 100", "migration is the list", "drain under writeMu / self-heal never clears", "NOT EXISTS
+  not OR IGNORE", "visitor has no key" rules); security review clean. F65.3 reworded to "offers at
+  most". PR #350 marked ready, HOLODEX-412 → In Review by hand. Open: Kevin's eyeball QA on the prod
+  skin (handoff 3.1–3.4, 1.2 needs a multi-part video) and the by-hand Done sweep on merge.
