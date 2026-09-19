@@ -117,6 +117,14 @@ field (standing, the decision controls above). Every control in this document is
 control. Never put a competing provider value in an adoption row.
 → [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md)
 
+**Applied vs. on file.** The two columns a writeback surface shows for a video field: *applied*
+is the resolver's winner (decided or not); *on file* is the `·file` candidate — the tag value the
+file itself carries. A row is interesting exactly when the two differ; provenance is a label, never
+a reason to open a row. Sources are the *candidates* the owner picks from to change what is
+applied, so the writeback dialog's chooser is the field's chip row (or stacked rows for
+`long_text`) and the Write button is its Confirm.
+→ [writeback-cockpit-handoff.md](../design/writeback-cockpit-handoff.md); HOLODEX-400
+
 **Baseline.** The entity's own record — the file layer for videos (`baselineKey='file'`), the
 row for persons/studios (`'record'`). Enrichment is an additive shadow over it; the resolver is
 the only merge point.
@@ -130,6 +138,8 @@ the phrasing is kept as said so the next reading of it is consistent.
 
 | Owner said | Term | What that changes about the work |
 |---|---|---|
+| "the only time I care about a disagreement is when the file doesn't match the selected choice" (2026-09-16) | **applied vs. on file** | the writeback dialog opens a chooser only on rows where the winner ≠ the file's tag; sources that disagree while the file already matches the winner stay collapsed — no "3 sources disagree" signal |
+| "I don't care where the tags came from. I care about what tags are applied … and if they exist on the media file" (2026-09-16) | **applied vs. on file**, for a merge field | no per-tag provenance affordance (ADR-090: tags have no layer 2); the owner-only signal is set membership on the file — HOLODEX-401 |
 | "add a way for the component to be configured so the text can be more of a grey than white" | **a knob for tone** | it is a styling prop, so the question is whether the look should be the component's rule instead — `ExpandableText` had exactly this knob and lost it |
 | "the owner view and the visitor view should look the same" | **parity** | check computed typography of the value, not which component is named; the harness assertion is HOLODEX-366 |
 | "include the collapsible chevron" | **long prose** (`ExpandableText`) | the chevron is not a feature to add, it is part of the one rendering long prose gets |
