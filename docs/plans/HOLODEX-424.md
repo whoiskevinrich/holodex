@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-424
-status: in-progress
+status: in-review
 release_note: The media detail page now shows a provider link pill for the provider you matched the video to — a TMDB-matched video links to its TMDB page just as a matched person does — instead of only when the file carried an external-id tag.
 ---
 
@@ -43,14 +43,20 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
   match input and the re-match rule
 - [~] security — n/a: read-only projection; hrefs still come from validated templates /
   ingest-validated `_source_url`; `isHttpUrl` gate unchanged
-- [ ] three-skin QA — Aladdin (backend-films testbed) renders `1992 · IMDb TMDB` on one 24 px
-  line in all three skins; 375 px wraps per segment; a match-only fixture renders `· TMDB`
+- [x] three-skin QA — 2026-09-19 on backend-films (fresh scratch DB, this worktree's sidecar on
+  :9101 — the shared :9100 sidecar predates 391 and declares no templates, so every pill degraded
+  until swapped). Aladdin: **before the match, no pill at all** (the films mapping never fed
+  `external_provider_id` from the filename); after `tmdb:812`: `2016 · [IMDb] [TMDB]` on one 24 px
+  line ×3 skins (pill 22 px, gap 8, text AA 6.31 / 4.9 / 5.73), hrefs `imdb.com/title/tt0103639/` +
+  `themoviedb.org/movie/812`, `rel=noopener noreferrer`, aria "View … on X's site (opens in a new
+  tab)"; hover + keyboard `:focus-visible` (Tab from "+ Set part" → IMDb → TMDB) go accent border /
+  ink text; 375 px wraps to two lines, `scrollWidth == clientWidth`. **Match-only fixture** (provider
+  `external_provider_id` row dropped): `2016 · [TMDB]` ×3 skins — the reported gap. Unmatched
+  (300): no pill, no trailing `·`. Screenshots captured in-session (all three skins)
 
 ## Up next
 
-1. Three-skin QA on the backend-films testbed (Aladdin two-pill row, 375 px wrap, a match-only
-   fixture)
-2. Merge main, mark PR ready → CI fires In Review for 424
+1. PR #363 marked ready → CI fires In Review for 424; on merge CI fires Done
 4. Hand-sweep leftovers from F63: **HOLODEX-391, 393, 394 still `In Review`** (PR #344 merged;
    390 + 392 moved to Done this session; the other three were denied by the auto-mode classifier)
 
@@ -63,6 +69,9 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
 - **2026-09-19 (later)** — Backend implemented; `/code-review high --fix` found the re-match
   stale-id case → newest-row-per-provider rule + test; testing-strategy updated. **Handoff:** only
   three-skin QA on the testbed stands between this and `gh pr ready`.
+- **2026-09-19 (QA)** — Three-skin QA green (see gate). Merged main, PR marked ready. **Handoff:**
+  nothing open; on merge, CI moves 424 to Done. Leftover from F63: 391/393/394 still need the
+  by-hand Done sweep.
 
 ### 2026-09-19 · session
 - skills: code-review
