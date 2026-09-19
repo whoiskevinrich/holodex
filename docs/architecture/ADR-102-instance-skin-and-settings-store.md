@@ -1,4 +1,4 @@
-# ADR-102: Instance skin — the skin as owner-set instance identity, a `settings` store for UI-set operator settings, and a derived custom palette applied as inline custom properties
+# ADR-102: Instance skin — the skin as owner-set instance identity, a `settings` store for library-owned settings, and a derived custom palette applied as inline custom properties
 
 **Status:** Proposed
 **Date:** 2026-09-19
@@ -63,19 +63,40 @@ zero-config instance looks exactly as today.
 *Why:* on a self-hosted archive "what visitors see" is the owner's decision, and a viewer override
 contradicts it. Removing the preference also removes the stale-key trap in one stroke.
 
-### D2 — A generic `settings` key/value table holds UI-set operator settings; YAML stays declarative
+### D2 — A generic `settings` key/value table holds library-owned settings; YAML/env holds the deployment
 
 Migration adds `settings(key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)` with
 `GetSetting`/`PutSetting` in the repo, writes serialized under the existing `writeMu`. v1 stores
 exactly one key, `theme.active`. Validation of a value's domain lives in the handler that writes it,
 not in SQL, so the key set grows without a migration.
 
-The boundary this draws, for every future setting: a value belongs in **`settings`** when it is
-**set from the UI, single-valued, and takes effect without a restart**; it belongs in **YAML** when it
-is declarative or structural (multi-valued blocks, allowlists, mappings), operator-authored, or
-restart-scoped. The custom palette is YAML by that rule (D4); which skin is active is `settings`.
-Existing YAML keys (`card_layout`, …) are **not** migrated — the table is generic on purpose, not a
-mandate.
+The boundary this draws, for every future setting, is **ownership**, stated so an operator can answer
+it without reading code:
+
+- A value belongs in **`settings`** when it is **owned by the library** — it should survive a restore
+  of `/data` on a new host, and it would be *identical* on a staging copy of the same archive. The
+  active skin is the first such value; `card_layout`, the delete grace period and the gallery cap are
+  the same kind and are candidates to follow it when they gain a UI.
+- A value belongs in **YAML/env** when it is **owned by the deployment** — paths, ports, the owner
+  token, provider perimeters (`metadata-sources.yaml`), field mappings — it *differs* per environment
+  and is reproduced from `compose.yml` + the three YAML files, never from a DB restore.
+- **Tie-break for library-owned values that are *authored* rather than chosen** (a structured block
+  you write in an editor, not a pick from a closed set): they may stay in YAML until a UI exists to
+  author them. `theme.custom` is exactly this case in v1 — library-owned by the test above, YAML
+  because the editor (L2) is deferred; when an editor lands the palette moves to `settings`, and this
+  ADR says so now rather than pretending the v1 split is principled.
+- **Secrets and security perimeters are never `settings`** — nothing UI-writable may hold a token or
+  widen an allowlist.
+- **A pin is reserved, not built.** A `settings` key MAY later gain a YAML/env twin that, when set,
+  wins and renders its control read-only ("set by config") — the Immich `IMMICH_CONFIG_FILE` model —
+  so an infrastructure-as-code operator can reproduce an instance without a DB restore. v1 ships no
+  pin; the first "the skin reset when I recreated the container" report is answered by adding
+  `theme.active` as that twin, not by revisiting this decision.
+
+Existing YAML keys are **not** migrated by this ADR — the table is generic on purpose, not a mandate.
+One stated consequence the ownership test makes explicit: **a backup that omits the DB does not
+reproduce the instance's appearance.** That was already true of everything in `/data`; it is now a
+property the docs state.
 
 *Why not write the choice back into `holodex.yaml`:* the app rewriting its own config file is a new
 and fragile pattern (comments, ordering, a bind-mounted read-only file in Docker); a KV row under
@@ -177,9 +198,13 @@ owner chose an Appearance tab on `/owner` and no header control.
   revisited.
 - **A generic settings table for one key.** The table is the cross-cutting part and it ships with
   one row. The alternative — a `theme_active` column somewhere, or a one-off file — would need
-  redoing the moment a second UI-set setting appears, and D2's boundary rule is the useful output
-  either way: it says *which* future knobs move to the UI (single-valued, instant) and which stay
-  YAML (structural, restart-scoped).
+  redoing the moment a second library-owned setting appears, and D2's ownership test is the useful
+  output either way. Four rules were weighed for it: a *mechanism* rule (UI-set + single-valued +
+  instant → `settings`) is circular — it makes the split an accident of which features got a UI;
+  an *authored-vs-chosen* rule is legible but fuzzy for scalars; a *lock model* (DB + YAML pin, as
+  Immich does) satisfies IaC operators but is a pattern commitment no one-row table earns yet. The
+  ownership test is the one with an operator-visible consequence (what a restore brings back), so it
+  is the test, authored-vs-chosen is the tie-break, and the pin is reserved in writing.
 - **Derivation vs. expressiveness.** Five inputs cannot express Broadcast. That is accepted: the
   derived model is what makes a palette contrast-safe by construction, and the R11 gate is the
   honest test of whether "derived" is good enough — for Cinémathèque, which is the only base the
@@ -195,7 +220,8 @@ owner chose an Appearance tab on `/owner` and no header control.
 
 - **Easier:** an operator can make their instance look like theirs from five lines of YAML and one
   click; the three-skin QA rule gains one column ("and the custom override, when configured")
-  rather than a new matrix; adding a UI-set operator setting later is one key and one handler.
+  rather than a new matrix; adding a library-owned setting later is one key and one handler, and the
+  ownership test says which existing YAML keys are candidates.
 - **Harder / changed:** `theme.svelte.ts` loses its preference (ADR-021 §5); any test or doc that
   assumed `localStorage['holodex-theme']` is a preference must change — the key is renamed
   (`holodex-theme-cache`) so nothing reads the old one by accident. `app.css` grows a derivation

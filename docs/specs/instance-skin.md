@@ -32,7 +32,7 @@ HOLODEX-234) — branding there is icon/favicon only; wiring the manifest's `the
 active skin is a P2 below, not part of either epic.
 
 **ADR**: [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md) — D1 instance identity ·
-D2 `settings` store + the YAML/settings boundary · D3 read/write channels · D4 derived palette applied
+D2 `settings` store + the library/deployment ownership boundary · D3 read/write channels · D4 derived palette applied
 inline · D5 validation posture · D6 restart-to-apply (supersedes ADR-021 §5 only).
 **Design**: *pending* — `docs/design/instance-skin-handoff.md` + mockup SVG (Appearance tab cards,
 header picker removal).
@@ -90,7 +90,7 @@ not re-litigate them.
 |---|---|---|---|
 | RD1 | **Skin is instance identity, set by the owner, persisted server-side.** | Keep the per-browser preference and add an owner default (`default_theme` in YAML). | The owner choosing "what visitors see" is the whole point on a self-hosted archive; a viewer override contradicts it and the stale-`localStorage` trap (a viewer who ever touched the picker never sees the new default) disappears with it. |
 | RD2 | **The header skin picker is removed. The control is an Appearance tab on `/owner`.** | Keep the header picker as a fourth "custom" chip. | One control, owner-only, where the other operator settings live. Visitors get no control (RD1). |
-| RD3 | **Persistence is a `settings` key/value table — the first UI-set operator setting in Holodex.** | Write the choice back into `holodex.yaml`. | The app writing its own config file is a new and fragile pattern; a KV row under `writeMu` is the existing repo idiom. YAML stays the home of *declarative* config (the palette); the DB holds *runtime* choices (which skin). |
+| RD3 | **Persistence is a `settings` key/value table — the first UI-set operator setting in Holodex.** | Write the choice back into `holodex.yaml`. | The app writing its own config file is a new and fragile pattern; a KV row under `writeMu` is the existing repo idiom. ADR-102 D2 draws the boundary by *ownership*: library-owned values (survive a `/data` restore) → `settings`; deployment-owned → YAML/env. The v1 palette stays YAML only because it is *authored* and the editor is deferred. |
 | RD4 | **Custom palette = `base` skin + five primaries (`bg ink accent muted warn`); every other token is derived in CSS.** | Expose all ~15 tokens. | Pair partners typed by hand are exactly how HOLODEX-324 happened. Five inputs are enough for "Cinémathèque, but mine". |
 | RD5 | **Custom palette is declared in `holodex.yaml` (`theme.custom`), applied at boot, restart to apply.** | A hot-reloadable file or a DB-stored palette. | Same posture as `card_layout`; `/admin/reload-config` covers only `metadata-mappings.yaml` today and widening it is not this feature. |
 | RD6 | **Custom tokens are applied as inline `style` on `<html>` over the base's `data-theme`.** | A generated `[data-theme='custom']` stylesheet served at runtime. | Inline custom properties beat every selector, so the base's 15 `[data-theme]` flourishes and fonts stay for free; no runtime CSS generation, no bundle rebuild. |
