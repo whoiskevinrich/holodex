@@ -141,7 +141,10 @@ a change to F47/ADR-066, not to this spec.
   - **Interactive calls never wait on a paused bucket.** A single owner click (Enrich / Refresh /
     Re-match / per-entity Refresh all) that finds its provider's bucket paused fails **fast** with
     `503` + `Retry-After: <remaining seconds>`, which the existing inline status line renders as
-    `<provider> is rate-limiting — try again in 42 s`. Waiting on the normal bucket (≤ `burst / rps`,
+    `<provider> is rate-limiting — try again in 42 s`. The per-entity Refresh all is a fan-out, so
+    it reports the paused provider as its own result row (`status:"rate_limited"`, `retry_after`)
+    with the same line — the other providers' rows still land; the call itself is `200`. Waiting
+    on the normal bucket (≤ `burst / rps`,
     i.e. ≤ 2 s at the default) is fine; waiting on a `429` pause (up to 300 s) is not — the SPA
     request would sit or die at a proxy timeout with no feedback.
 - **RD9 — Per-provider circuit breaker (two trip conditions).** Within a sweep, one provider trips

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,17 @@ func (c *resolveCounter) Resolve(ctx context.Context, entityType string, hint en
 // resolve-call counter so tests can assert "Refresh never re-searches".
 func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Repo, pid, sid, vid int64, resolveCalls *int) {
 	t.Helper()
+	resolveCalls = new(int)
+	srv, r, pid, sid, vid = reviewServerWith(t, token, func(enrich.Source) enrich.ProviderClient {
+		return &resolveCounter{Fake: enrich.NewFake("fake"), n: resolveCalls}
+	})
+	return srv, r, pid, sid, vid, resolveCalls
+}
+
+// reviewServerWith is reviewServer over a caller-supplied provider-client factory —
+// for tests that need one shared fake they can reconfigure mid-test.
+func reviewServerWith(t *testing.T, token string, newClient func(enrich.Source) enrich.ProviderClient) (srv *httptest.Server, r *repo.Repo, pid, sid, vid int64) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -57,10 +69,7 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	resolveCalls = new(int)
-	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient {
-		return &resolveCounter{Fake: enrich.NewFake("fake"), n: resolveCalls}
-	})
+	svc := enrich.NewServiceWithClient(store, r, log, newClient)
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetEnrichment(svc)
@@ -89,7 +98,56 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err != nil {
 		t.Fatalf("person id: %v", err)
 	}
-	return srv, r, pid, sid, vid, resolveCalls
+	return srv, r, pid, sid, vid
+}
+
+// A paused provider bucket (F66 RD8, ADR-103 D4): a single click fails fast with
+// 503 + Retry-After and an owner-readable line; refresh-all reports it per row so
+// the other providers' results still land; nothing waits.
+func TestEnrichRateLimitedFailsFast(t *testing.T) {
+	fake := enrich.NewFake("fake")
+	srv, _, pid, _, _ := reviewServerWith(t, "", func(enrich.Source) enrich.ProviderClient { return fake })
+	base := srv.URL + "/api/v1/people/" + itoa(pid)
+
+	fake.RateLimited = 42 * time.Second
+	// The first call reaches the fake, which answers 429 → the bucket pauses.
+	code, body := postTok(t, base+"/enrich/resolve", "", map[string]any{"provider": "fake", "query": "miyazaki"})
+	if code != http.StatusServiceUnavailable {
+		t.Fatalf("resolve on 429 = %d %v, want 503", code, body)
+	}
+	if body["error"] != "fake is rate-limiting — try again in 42 s" || body["retry_after"] != float64(42) {
+		t.Fatalf("503 body = %v", body)
+	}
+	// The pause holds without dialing: the fake would now succeed if reached.
+	fake.RateLimited = 0
+	fake.LastHint = enrich.Hint{Query: "sentinel"} // Resolve would overwrite this
+	req, _ := http.NewRequest(http.MethodPost, base+"/enrich/resolve", strings.NewReader(`{"provider":"fake","query":"miyazaki"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable || resp.Header.Get("Retry-After") == "" {
+		t.Fatalf("paused resolve = %d Retry-After=%q, want 503 with the header", resp.StatusCode, resp.Header.Get("Retry-After"))
+	}
+	if fake.LastHint.Query != "sentinel" {
+		t.Fatalf("a paused bucket must not dial the provider (resolve reached the fake with %q)", fake.LastHint.Query)
+	}
+
+	// Refresh-all: the paused provider is one row, not a 503 for the whole call.
+	code, body = postTok(t, base+"/enrich/refresh-all", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("refresh-all while paused = %d %v, want 200", code, body)
+	}
+	results, _ := body["results"].([]any)
+	if len(results) != 1 {
+		t.Fatalf("results = %v, want one row", results)
+	}
+	row, _ := results[0].(map[string]any)
+	if row["status"] != "rate_limited" || row["retry_after"] == nil || row["retry_after"].(float64) < 1 {
+		t.Fatalf("row = %v, want rate_limited with retry_after", row)
+	}
 }
 
 // The queue is a zero-cost DB read (RD2/P0-1): every seeded entity appears unreviewed,

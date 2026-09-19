@@ -90,9 +90,12 @@ meaningful anyway).
 the client.** Both paths call the same `Service.Resolve`/`Enrich` and receive the same
 `*ErrProviderPaused`. The **sweep runner** sleeps `RetryAfter` (context-aware) and retries the pair
 **once**; a second pause counts the pair as `failed` and increments that provider's `429` streak.
-The **interactive handlers** (`enrich`, `resolve`, `enrichRefreshAll`, re-match) map the error to
-`503` + `Retry-After: <ceil(remaining)>` and the existing inline status line renders *"<provider> is
-rate-limiting — try again in N s"*. Chosen over a context-value flag or a `wait bool` parameter on
+The **interactive handlers** (`enrich`, `resolve`, refresh, re-match) map the error to
+`503` + `Retry-After: <ceil(remaining)>` with the same sentence in the body, and the existing inline
+status line renders *"<provider> is rate-limiting — try again in N s"*. `enrichRefreshAll` is a
+fan-out over providers, so it reports a paused provider as its own `rate_limited` row (with
+`retry_after`) rather than failing the whole call — the other providers' results still land, and
+the SPA puts that row's line on the same inline slot. Chosen over a context-value flag or a `wait bool` parameter on
 `Resolve`/`Enrich`: the client stays uniform and never blocks longer than one bucket delay, and the
 one place that may legitimately wait minutes is the one place that already owns a long-lived
 context and a breaker.

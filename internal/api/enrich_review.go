@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/go-chi/chi/v5"
@@ -120,8 +123,7 @@ func (h *Handlers) enrichRefresh(entityType string) http.HandlerFunc {
 		}
 		fields, err := h.enrich.Enrich(r.Context(), entityType, id, provider, externalID, h.auth.authorized(r))
 		if err != nil {
-			h.log.Warn("enrich refresh failed", "provider", provider, "entity_type", entityType, "err", err)
-			writeError(w, http.StatusBadGateway, "refresh failed")
+			h.providerError(w, "enrich refresh failed", provider, err, "refresh failed")
 			return
 		}
 		h.afterEnrichApply(r, entityType, id)
@@ -133,8 +135,12 @@ func (h *Handlers) enrichRefresh(entityType string) http.HandlerFunc {
 // (RD8/P1-2).
 type refreshAllResult struct {
 	Provider string                `json:"provider"`
-	Status   string                `json:"status"` // refreshed | auto_applied | needs_review | no_candidates
+	Status   string                `json:"status"` // refreshed | auto_applied | needs_review | no_candidates | rate_limited
 	Enriched []model.EnrichedField `json:"enriched,omitempty"`
+	// RetryAfter (seconds) accompanies rate_limited: the provider's bucket is paused
+	// (ADR-103 D4) and this row failed fast rather than waiting; the other providers'
+	// rows are unaffected, which is why the fan-out reports it per row, not as a 503.
+	RetryAfter int `json:"retry_after,omitempty"`
 }
 
 // enrichRefreshAll fans out over an entity's configured providers (RD8): a linked
@@ -230,6 +236,10 @@ func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int
 	case enrich.PairDismissed:
 		return refreshAllResult{}, true
 	case enrich.PairFailed:
+		var paused *enrich.ErrProviderPaused
+		if errors.As(out.Err, &paused) {
+			return refreshAllResult{Provider: provider, Status: "rate_limited", RetryAfter: paused.RetryAfterSeconds()}, false
+		}
 		h.log.Warn("refresh-all provider step failed", "provider", provider, "err", out.Err)
 		return refreshAllResult{Provider: provider, Status: string(enrich.PairNoCandidates)}, false
 	}
@@ -248,6 +258,33 @@ func (h *Handlers) afterEnrichApply(r *http.Request, entityType string, id int64
 		h.relinkPeople(r.Context(), id)
 		h.materializeTags(r.Context(), id) // F50 P0-9, ADR-075 D4
 	}
+}
+
+// rateLimitedLine is the owner-facing sentence for a paused provider (F66 RD8): the
+// same words the refresh-all result row and the sweep's status line use.
+func rateLimitedLine(provider string, secs int) string {
+	return fmt.Sprintf("%s is rate-limiting — try again in %d s", provider, secs)
+}
+
+// providerError answers an interactive provider call's failure. A paused bucket
+// (ADR-103 D4) is 503 + Retry-After, the body naming the provider and the seconds so
+// the SPA's inline status line can say "tmdb is rate-limiting — try again in 42 s";
+// every other error stays the generic 502 the caller used, logged with the raw
+// error (which may carry a base_url — never echoed to the client).
+func (h *Handlers) providerError(w http.ResponseWriter, op, provider string, err error, msg string) {
+	var paused *enrich.ErrProviderPaused
+	if errors.As(err, &paused) {
+		secs := paused.RetryAfterSeconds()
+		w.Header().Set("Retry-After", strconv.Itoa(secs))
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error":       rateLimitedLine(provider, secs),
+			"provider":    provider,
+			"retry_after": secs,
+		})
+		return
+	}
+	h.log.Warn(op, "provider", provider, "err", err)
+	writeError(w, http.StatusBadGateway, msg)
 }
 
 // enrichDismissedCheck writes 409 and returns false when (entityType, id, provider)

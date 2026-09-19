@@ -243,8 +243,7 @@ func (h *Handlers) enrichResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityPerson, enrich.Hint{Query: body.Query})
 	if err != nil {
-		h.log.Warn("enrich resolve failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "provider lookup failed")
+		h.providerError(w, "enrich resolve failed", body.Provider, err, "provider lookup failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
@@ -283,8 +282,7 @@ func (h *Handlers) enrichApply(w http.ResponseWriter, r *http.Request) {
 	// literal true keeps this correct if that mounting ever changes.
 	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityPerson, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
-		h.log.Warn("enrich apply failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "enrichment failed")
+		h.providerError(w, "enrich apply failed", body.Provider, err, "enrichment failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"enriched": fields})
@@ -355,8 +353,7 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, resolved, body.Query, querySource))
 	if err != nil {
-		h.log.Warn("video enrich resolve failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "provider lookup failed")
+		h.providerError(w, "video enrich resolve failed", body.Provider, err, "provider lookup failed")
 		return
 	}
 	// ResolveResult marshals as {"candidates": […], "searched": […]} — searched
@@ -391,8 +388,7 @@ func (h *Handlers) enrichVideoApply(w http.ResponseWriter, r *http.Request) {
 	}
 	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityVideo, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
-		h.log.Warn("video enrich apply failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "enrichment failed")
+		h.providerError(w, "video enrich apply failed", body.Provider, err, "enrichment failed")
 		return
 	}
 	// Shared post-apply side effects (F38 studio relink, F50 P0-9 tag materialization)
@@ -469,8 +465,7 @@ func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
 	if err != nil {
-		h.log.Warn("studio enrich resolve failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "provider lookup failed")
+		h.providerError(w, "studio enrich resolve failed", body.Provider, err, "provider lookup failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
@@ -506,8 +501,7 @@ func (h *Handlers) enrichStudioApply(w http.ResponseWriter, r *http.Request) {
 	}
 	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityStudio, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
-		h.log.Warn("studio enrich apply failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "enrichment failed")
+		h.providerError(w, "studio enrich apply failed", body.Provider, err, "enrichment failed")
 		return
 	}
 	// A provider's logo (and, once a provider supplies them, icon/poster) arrives as

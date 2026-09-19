@@ -38,9 +38,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6),
   `Service.RefreshPair` shared step (D7), `SweepRunner` + `sweep` block (D8), `batch_id` (D9), TMDB
   `429` pass-through (D10); README row; spec / contract §4.13 / F47 pointers → ADR-103
-- [ ] backend — **AI 1–4 shipped** (pacer + `rate_limit` carriage + `429` typed in `do` +
-  `Service.RefreshPair`); remaining: `503` mapping (AI 5), `SweepRunner` / activity / history /
-  `LibraryCounts.Studios` (AI 6), TMDB `429` pass-through (AI 7)
+- [ ] backend — **AI 1–5 shipped** (pacer + `rate_limit` carriage + `429` typed in `do` +
+  `Service.RefreshPair` + `503`/`rate_limited` mapping); remaining: `SweepRunner` / activity /
+  history / `LibraryCounts.Studios` (AI 6), TMDB `429` pass-through (AI 7)
 - [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
   pages; `JobHistory` batch chip; `activity.busy` includes sweep
 - [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
@@ -55,7 +55,7 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
-3. [ ] [—] Backend, ADR-103 action items **5 → 7** (`503` mapping → `SweepRunner`/activity/history
+3. [ ] [—] Backend, ADR-103 action items **6 → 7** (`SweepRunner`/activity/history/`LibraryCounts.Studios`
    → TMDB `429`), then frontend → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
@@ -129,3 +129,19 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   error renders `no_candidates` instead of dropping the provider.
 - handoff: next = AI 5 — interactive handlers map `*ErrProviderPaused` → `503` + `Retry-After`
   (enrich / resolve / refresh-all / re-match) + the SPA inline line.
+
+### 2026-09-19 · backend 3/3 (interactive side) — `503` + `Retry-After` mapping (AI 5)
+- skills: code-review
+- `Handlers.providerError` (enrich_review.go): `*ErrProviderPaused` → `503` + `Retry-After`, body
+  `{error:"<p> is rate-limiting — try again in N s", provider, retry_after}`; every other error stays
+  the generic `502` + warn. Wired at the 9 single-provider sites (person/video/studio/film resolve +
+  apply, refresh). **Refresh-all reports a paused provider per row** (`status:"rate_limited"`,
+  `retry_after`) so the other providers still land — spec RD8 + ADR-103 D4 amended to say so.
+  SPA: `sendAuthed` now passes the body `error` into `ApiError` (app-wide copy change: inline lines
+  read the server sentence instead of `API /path failed: N`; nothing branched on the old text);
+  `RefreshAllResult` gains `rate_limited`/`retry_after`; `runEnrichRefreshAll` puts the line on the
+  inline error slot. `Fake.RateLimited` knob for api-level tests. Tests: Go api (503 body/header,
+  paused bucket never dials, refresh-all row) + 2 vitest.
+- handoff: next = AI 6 — `enrich.SweepRunner` (TryLock across kinds, breaker, retry-once, `Status()`),
+  `POST /admin/enrich/sweep/{kind}` 202, `sweep` block + `busy` on `/admin/activity`,
+  `LibraryCounts.Studios`, `JobKindEnrichSweep`, `?batch=` on history.
