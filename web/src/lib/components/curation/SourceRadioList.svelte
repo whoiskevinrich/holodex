@@ -29,6 +29,8 @@
 	// different fields on one page never collide.
 	const name = $derived(`source-edit-${field.canonical}`);
 
+	// onclick as well as onchange: clicking the ALREADY-checked radio fires no change event,
+	// but that click is how the owner confirms an RD6 pending pick in the writeback dialog.
 	function setStaged(key: string) {
 		stagedKey = key;
 		onstage?.();
@@ -52,6 +54,7 @@
 						value="custom"
 						checked={stagedKey === 'custom'}
 						onchange={() => setStaged('custom')}
+						onclick={() => setStaged('custom')}
 					/>
 					<span
 						class="text-xs uppercase tracking-wide {stagedKey === 'custom' ? 'text-accent' : 'text-muted'}"
@@ -88,6 +91,7 @@
 						value={chip.key}
 						checked={stagedKey === chip.key}
 						onchange={() => setStaged(chip.key)}
+						onclick={() => setStaged(chip.key)}
 					/>
 					<span
 						class="text-xs uppercase tracking-wide {stagedKey === chip.key ? 'text-accent' : 'text-muted'}"

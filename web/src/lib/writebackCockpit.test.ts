@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue } from './writebackCockpit';
+import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -109,5 +109,35 @@ describe('needsDecision', () => {
 		expect(needsDecision(field({ display: 'image_url' }), [], { key: 'file', custom: '' })).toBe(false);
 		expect(needsDecision(field({ multi: true }), [], { key: 'file', custom: '' })).toBe(false);
 		expect(needsDecision(field(), sourceChips(field()), { key: null, custom: '' })).toBe(false);
+	});
+});
+
+describe('willWrite', () => {
+	const tmdb = { key: 'provider:tmdb', custom: '' };
+	const off = { touched: false, checked: false };
+	it('never writes a row that is unwritable or already matches the file', () => {
+		expect(willWrite(field({ write_target: undefined }), 'X', { staged: tmdb, ...off, touched: true })).toBe(false);
+		expect(willWrite(field(), 'Blade Runner', { staged: { key: 'file', custom: '' }, ...off, touched: true })).toBe(false);
+	});
+	it('never writes an undecided cockpit row the owner did not touch (the RD6 pending winner)', () => {
+		expect(willWrite(field(), 'Blade Runner: Final Cut', { staged: tmdb, ...off })).toBe(false);
+		const pending = field({ decision: { source: 'provider:tmdb', standing: false } });
+		expect(willWrite(pending, 'Blade Runner: Final Cut', { staged: tmdb, ...off })).toBe(false);
+	});
+	it('writes an undecided cockpit row once the owner picked a chip — picking is the confirm', () => {
+		expect(willWrite(field(), 'Blade Runner: Final Cut', { staged: tmdb, ...off, touched: true })).toBe(true);
+	});
+	it('always writes a standing-decided cockpit row that differs from the file, touched or not', () => {
+		const decided = field({ decision: { source: 'provider:tmdb', standing: true } });
+		expect(willWrite(decided, 'Blade Runner: Final Cut', { staged: tmdb, ...off })).toBe(true);
+	});
+	it('treats a blank Custom pick as nothing chosen', () => {
+		const decided = field({ decision: { source: 'provider:tmdb', standing: true } });
+		expect(willWrite(decided, '', { staged: { key: 'custom', custom: '  ' }, ...off, touched: true })).toBe(false);
+	});
+	it('gates a non-cockpit row on its opt-in checkbox alone', () => {
+		const poster = field({ display: 'image_url', candidates: [{ source: 'file', value: '' }] });
+		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: true, checked: false })).toBe(false);
+		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: false, checked: true })).toBe(true);
 	});
 });

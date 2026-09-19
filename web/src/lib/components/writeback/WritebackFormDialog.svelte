@@ -4,8 +4,11 @@
 	// resolved fields. A replace field whose value differs from the file renders its
 	// candidate CHOOSER — the same staged chip row / stacked rows the page's SourceBadge
 	// and SourceEditModal use — and the Write button is that chooser's Confirm: picks
-	// stage locally, submit() commits the decision, then enqueues the write. The
-	// operator can still uncheck fields to skip them. The write itself is fire-and-forget
+	// stage locally, submit() commits the decision, then enqueues the write. The write is
+	// atomic over everything DECIDED: a standing decision that lags the file is always
+	// written, an undecided provider value is written only once the owner picks it here
+	// (picking is the confirm — there is no checkbox and no "select all"), and an undecided
+	// row nobody touched is never written. The write itself is fire-and-forget
 	// (ADR-091): this dialog is a pre-flight confirm step that closes the instant the
 	// write is *enqueued*, not once it lands — outcome (pending/failed) is a page-level
 	// signal near the Metadata section, not this dialog's job to poll or display. Focus
@@ -21,7 +24,7 @@
 		sourceChips,
 		type SourceChip
 	} from '$lib/f36';
-	import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue } from '$lib/writebackCockpit';
+	import { isCockpitRow, isUnverifiable, needsDecision, rowClass, stagedValue, willWrite } from '$lib/writebackCockpit';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
 	import SourceRadioList from '../curation/SourceRadioList.svelte';
@@ -64,6 +67,12 @@
 		value: string;
 		// Open-time value, so the undecided group's tier sort never moves a row mid-edit.
 		originalValue: string;
+		// Cockpit rows: the owner picked a chip in THIS dialog. Picking is the confirm — an
+		// undecided row is written (and decided) only once touched. Never reset within a dialog
+		// lifetime; Cancel is the undo.
+		touched: boolean;
+		// Non-cockpit rows only (image_url, merge — no chooser yet, HOLODEX-403/401): the
+		// explicit opt-in checkbox, unchecked on open.
 		checked: boolean;
 		// A row that matches the file collapses to the "=" tier; `change` opens its chooser on
 		// demand (handoff §1, M → W promotion).
@@ -88,17 +97,17 @@
 			stagedCustomValue,
 			value: seed,
 			originalValue: seed,
-			checked: needsWriteback(f),
+			touched: false,
+			checked: false,
 			chooserOpen: false
 		};
 	}
 
-	// Only out-of-sync fields start checked, via the same needsWriteback() the header counts
-	// with — so "· {n} out of sync" and the initial selection cannot disagree (HOLODEX-213).
-	// Everything else (a provider value winning by mapping precedence, a file-won field, a
-	// merge field) is listed unchecked for explicit opt-in, so submitting never writes a value
-	// the owner never decided on — notably poster_url, whose write triggers a server-side
-	// download + cover-art embed. image_url fields show as thumbnail + URL (read-only).
+	// The rows that write on open are the standing decisions the file lags (leadRow) — the
+	// header's "· {n} out of sync" set plus any decided row whose sync state cannot be read
+	// back (ADR-093). Everything else is listed but inert until the owner acts: a cockpit row
+	// writes once a chip is picked (willWrite), a non-cockpit row once its box is checked —
+	// notably poster_url, whose write triggers a server-side download + cover-art embed.
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(fields.map(seedRow));
 
@@ -125,22 +134,24 @@
 		return isCockpitRow(row.field) && row.stagedKey === 'custom' && row.stagedCustomValue.trim() === '';
 	}
 
-	// The one predicate behind the footer count and submit()'s write set: checked, writable,
-	// differing from the file, and actually carrying a value.
+	// The one predicate behind the footer count and submit()'s write set (pure: willWrite).
 	function rowWillWrite(row: Row): boolean {
-		return row.checked && isWritable(row.field) && !rowMatchesFile(row) && !blankCustom(row);
+		return willWrite(row.field, rowValue(row), {
+			staged: { key: row.stagedKey, custom: row.stagedCustomValue },
+			touched: row.touched,
+			checked: row.checked
+		});
 	}
 
-	// checkedCount excludes a row that now matches the file (e.g. staged back to the file chip)
-	// even if still toggled on internally, so the footer button's count never promises to
-	// write a field submit() will actually skip.
-	const checkedCount = $derived(rows.filter(rowWillWrite).length);
+	// writeCount is recomputed from the LIVE staged picks, so the footer never promises a
+	// field submit() will skip (a row staged back onto the file value drops out immediately).
+	const writeCount = $derived(rows.filter(rowWillWrite).length);
 
 	// A row the owner re-pointed at the FILE value: it matches the file, so there is nothing
 	// to write and no checkbox — but the pick is still a decision (pin the baseline), and
 	// dropping it would leave the old provider/manual decision standing with the page still
 	// reading "out of sync". These ride along with a write, or save on their own when nothing
-	// is written. An unchecked, differing row is left alone: the checkbox means "act on this".
+	// is written.
 	function rowDecisionOnly(row: Row): boolean {
 		return (
 			isCockpitRow(row.field) &&
@@ -154,8 +165,7 @@
 	// The decided rows lead; the undecided provider values collapse behind one disclosure line
 	// (HOLODEX-213 option A), so the dialog's default state reads as "your decisions" without
 	// hiding anything — expanding or Select all brings them back at full contrast. Splitting on
-	// the same needsWriteback() that seeded `checked` means the two groups are exactly the
-	// checked and unchecked sets on open.
+	// leadRow() means the first group is exactly the set that writes on open.
 	//
 	// Row order within undecided (R4.4): writable-and-differing first, then a field that
 	// already matches the file, then a field with no tag mapping at all — sorted on the
@@ -165,26 +175,28 @@
 		const cls = rowClass(row.field, row.originalValue);
 		return cls === 'unwritable' ? 2 : cls === 'matches' ? 1 : 0;
 	}
-	const decided = $derived(rows.filter((r) => needsWriteback(r.field)));
-	const undecided = $derived(
-		rows.filter((r) => !needsWriteback(r.field)).sort((a, b) => rowTier(a) - rowTier(b))
-	);
+	// leadRow: writes on open — a standing decision the file lags (by the row's open-time
+	// value). This is needsWriteback() plus the decided rows whose sync state is UNKNOWN
+	// (ADR-093: no read-back source, so `in_sync` is absent and the header cannot count
+	// them). They still lead: a decided value the file does not carry is written, and hiding
+	// it behind the disclosure would let the footer promise a write the owner cannot see.
+	// The header's "· {n} out of sync" is therefore a lower bound on this group, never more.
+	function leadRow(row: Row): boolean {
+		if (!isCockpitRow(row.field)) return needsWriteback(row.field);
+		return !!row.field.decision?.standing && rowClass(row.field, row.originalValue) === 'write';
+	}
+	const decided = $derived(rows.filter(leadRow));
+	const undecided = $derived(rows.filter((r) => !leadRow(r)).sort((a, b) => rowTier(a) - rowTier(b)));
 	let showUndecided = $state(false);
 
-	function selectAllUndecided() {
-		showUndecided = true;
-		for (const row of undecided) row.checked = true;
-	}
-
-	// A staged pick changed. If the row now differs from the file it is (or just became) a
-	// will-write row — check it, since the owner just chose the value (the same rule as
-	// checking an undecided row: the pick IS the decision). A row staged back onto the file
-	// value keeps `checked` as-is; the "=" gutter hides the box and checkedCount skips it.
-	// The chooser stays open either way: collapsing it the instant a pick lands on the file
-	// value would unmount the very radiogroup the owner is arrowing through (focus to <body>).
+	// A staged pick changed — the owner acted on this row, so it is now decided-in-dialog
+	// (touched) and, if it differs from the file, will be written. Clicking the already
+	// highlighted RD6 pending chip counts: that click IS the confirm. The chooser stays open
+	// either way: collapsing it the instant a pick lands on the file value would unmount the
+	// very radiogroup the owner is arrowing through (focus to <body>).
 	function onStaged(row: Row) {
 		row.chooserOpen = true;
-		if (!rowMatchesFile(row) && !blankCustom(row)) row.checked = true;
+		row.touched = true;
 	}
 
 	// Provenance tag for a row's label: the namespace before the ':' in winning_source
@@ -215,13 +227,12 @@
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
-		// Focus the first interactive element of a decided row. Rows inside the collapsed group
-		// still match the selector, so filter on offsetParent (as trapTab does) — otherwise
-		// focus() lands on a display:none input and silently leaves focus on <body>, outside the
-		// trap. With nothing to write, fall back to the dialog itself (tabindex="-1").
+		// Focus the first control of the first row (the decided rows lead): the checked chip of
+		// a chip row, a radio/textarea of a stacked list, or a non-cockpit row's checkbox. Rows
+		// inside the collapsed group are excluded by focusables()'s offsetParent test. With no
+		// rows at all, fall back to the dialog itself (tabindex="-1").
 		const first =
-			focusables().find((el) => el.matches('input[type="checkbox"], textarea, input:not([type="checkbox"])')) ??
-			dialogEl;
+			focusables().find((el) => el.closest('[data-wb-rows]') !== null) ?? dialogEl;
 		first?.focus();
 		return () => {
 			trigger?.focus?.();
@@ -270,13 +281,10 @@
 	}
 
 	async function submit() {
-		if (busy || (checkedCount === 0 && decisionOnlyCount === 0)) return;
+		if (busy || (writeCount === 0 && decisionOnlyCount === 0)) return;
 		busy = true;
 		enqueueError = '';
 
-		// isWritable/rowMatchesFile are defense-in-depth filters, not the primary guard —
-		// an unwritable row never renders a checkbox and a matching row's checkbox is
-		// replaced by the "=" gutter glyph, so `checked` should already exclude both.
 		const checkedRows = rows.filter(rowWillWrite);
 
 		// Decisions to record: every written row that needs one (ensureDecision decides), plus
@@ -360,9 +368,9 @@
 		<!-- File path -->
 		<p class="mb-3 truncate font-mono text-xs text-muted" title={filePath}>{filePath}</p>
 
-		<!-- Decisions: the rows the file lags. These are the ones checked on open. -->
+		<!-- Decisions: the rows the file lags. These write on open, unconditionally. -->
 		{#if decided.length > 0}
-			<div class="space-y-3">
+			<div class="space-y-3" data-wb-rows>
 				{#each decided as row (row.field.canonical)}{@render fieldRow(row)}{/each}
 			</div>
 		{:else}
@@ -371,8 +379,10 @@
 			</p>
 		{/if}
 
-		<!-- Undecided provider values: one line until asked for, so the default selection and the
-		     dialog's visual weight both match what the header counted. -->
+		<!-- Undecided provider values: one line until asked for, so the dialog's default weight
+		     matches what the header counted. No "Select all": each row here is a decision the
+		     owner has not made, and a chip pick — one row at a time, eyes on the value — is the
+		     only way to make it. A bulk verdict belongs to the review queues (ADR-090), not here. -->
 		{#if undecided.length > 0}
 			<div class="mt-3 flex items-center gap-2 border-t border-rule pt-3">
 				<button
@@ -392,11 +402,8 @@
 						decided on</span
 					>
 				</button>
-				<button onclick={selectAllUndecided} disabled={busy} class="btn-row btn-accent btn-pill shrink-0"
-					>Select all</button
-				>
 			</div>
-			<div id="wb-undecided" hidden={!showUndecided} class="mt-3 space-y-3">
+			<div id="wb-undecided" hidden={!showUndecided} class="mt-3 space-y-3" data-wb-rows>
 				{#each undecided as row (row.field.canonical)}{@render fieldRow(row)}{/each}
 			</div>
 		{/if}
@@ -405,7 +412,7 @@
 	<!-- Footer -->
 	<div class="flex flex-col gap-2 border-t border-rule px-4 py-3">
 		{#if busy}
-			<p class="text-xs text-muted" aria-live="polite">Submitting {checkedCount} field{checkedCount === 1 ? '' : 's'}…</p>
+			<p class="text-xs text-muted" aria-live="polite">Submitting {writeCount} field{writeCount === 1 ? '' : 's'}…</p>
 		{:else if enqueueError}
 			<!-- R1.3: the write is fire-and-forget, the enqueue is not — this is the one
 			     failure mode the dialog itself still surfaces (not the queued write's own
@@ -423,15 +430,15 @@
 			     button says what it will actually do instead of promising "Write 0 fields". -->
 			<button
 				onclick={submit}
-				disabled={busy || (checkedCount === 0 && decisionOnlyCount === 0)}
+				disabled={busy || (writeCount === 0 && decisionOnlyCount === 0)}
 				class="rounded-theme bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-40"
 			>
 				{#if busy}
-					{checkedCount > 0 ? 'Writing…' : 'Saving…'}
-				{:else if checkedCount === 0 && decisionOnlyCount > 0}
+					{writeCount > 0 ? 'Writing…' : 'Saving…'}
+				{:else if writeCount === 0 && decisionOnlyCount > 0}
 					Save {decisionOnlyCount} decision{decisionOnlyCount === 1 ? '' : 's'}
 				{:else}
-					Write {checkedCount} field{checkedCount === 1 ? '' : 's'} to file
+					Write {writeCount} field{writeCount === 1 ? '' : 's'} to file
 				{/if}
 			</button>
 		</div>
@@ -486,19 +493,19 @@
 				     than re-deriving the comparison here, so the two can't drift apart — it compares
 				     the row's LIVE (staged) value against the file baseline, which is why it's
 				     recomputed per render rather than reading the frozen in_sync snapshot that
-				     needsWriteback() seeds `checked` from. -->
+				     needsWriteback() groups rows by. -->
 				{@const matchesFile = rowMatchesFile(row)}
 				<!-- No dimming for an unchecked row: the group heading above already says these are
 				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
 				     The checkbox carries the state; the label stays legible. -->
 				<div class="flex items-start gap-3">
-					<!-- Checkbox / static glyph. Three tiers (R4.3), each with its own glyph — no two
-					     ever mean the same thing: a checkbox means "will be written," an equals sign
-					     means "matches the file, nothing to write" (not checkable), a circle-minus
-					     means "no file tag for this container" (not checkable). Removing a value's
-					     ability to be checked, rather than showing a disabled checkbox, is deliberate:
-					     a checkbox that can never be checked reads as broken, a static glyph reads as
-					     informational. -->
+					<!-- Gutter glyph. Each tier has its own glyph — no two ever mean the same thing:
+					     ⊖ "no file tag for this container"; = "matches the file, nothing to write";
+					     an arrow-into-bar "will be written" (a standing decision, or a chip the owner
+					     picked here); a hollow circle "undecided — pick a source to write it". Only the
+					     non-cockpit rows (image_url, merge — no chooser yet) keep a real checkbox as
+					     their opt-in. A static glyph rather than a disabled checkbox is deliberate: a
+					     box that can never be checked reads as broken, a glyph reads as information. -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
 						{#if !writable}
 							<!-- No file-tag mapping for this container (HOLODEX-216): shown, not checkable —
@@ -521,6 +528,24 @@
 								<title>Matches the file — nothing to write</title>
 								<path stroke-linecap="round" d="M6 9h12M6 15h12" />
 							</svg>
+						{:else if cockpit && rowWillWrite(row)}
+							<svg
+								class="h-4 w-4 text-accent"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>Will be written to the file</title>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" />
+							</svg>
+						{:else if cockpit}
+							<svg
+								class="h-4 w-4 text-muted"
+								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+								role="img"
+							>
+								<title>Undecided — pick a source to write it</title>
+								<circle cx="12" cy="12" r="6" />
+							</svg>
 						{:else}
 							<input
 								type="checkbox"
@@ -535,9 +560,9 @@
 					<!-- Label + body -->
 					<div class="min-w-0 flex-1">
 						<div class="mb-1 flex items-center gap-1.5">
-							{#if writable && !matchesFile}
+							{#if writable && !matchesFile && !cockpit}
 								<!-- for= only when the gutter actually renders the checkbox this labels —
-								     a matching row's gutter is the static "=" glyph, not an input. -->
+								     a cockpit row's gutter is a static glyph, not an input. -->
 								<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
 									>{row.field.label}</label
 								>

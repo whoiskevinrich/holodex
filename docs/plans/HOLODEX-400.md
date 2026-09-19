@@ -25,12 +25,12 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
   (2026-09-18); vocabulary term **applied vs. on file** + two translations added to
   `docs/reference/ui-vocabulary.md`
 - [~] backend — n/a
-- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / M / ? / ⊖), staged picks, Write =
+- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / U / M / ? / ⊖), no checkbox / no Select all on cockpit rows (`willWrite`: standing ∨ touched), staged picks, Write =
   Confirm via `needsDecision`, `focusables()` excludes `tabIndex === -1`; lifted
   `curation/SourceChipRow.svelte` (from `SourceBadge`, which still keeps its own copy) and
   `curation/SourceRadioList.svelte` (from `SourceEditModal`, now rewired to it); pure helpers in
   `web/src/lib/writebackCockpit.ts`; both component `CLAUDE.md` tables updated (2026-09-18)
-- [x] testing `testing-strategy` — `writebackCockpit.test.ts` (14 cases) + live `[agent]` pass on
+- [x] testing `testing-strategy` — `writebackCockpit.test.ts` (20 cases) + live `[agent]` pass on
   `backend-films` (Dune, TMDB): 2 decision PUTs + 1 writeback POST for 3 checked rows, none for the
   untouched decided row; Tab lands on the checked chip; three-skin contrast all ≥ 4.5:1 (row in
   `docs/testing-strategy.md`)
@@ -45,6 +45,14 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
    before the human QA so a wrong `=` row is recognised as theirs, not this PR's
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-18 (c) · atomic write, no checkboxes
+- skills: code-review high --fix (prior)
+- handoff: Kevin — "atomic for all values; deciding should be the check action". Removed Select all
+  and every cockpit-row checkbox: `willWrite` gate (standing ∨ touched), `↧`/`○` gutter glyphs,
+  lead group = `leadRow` (standing ∧ lags file, incl. unverifiable). Interim checkbox kept on
+  image_url/merge rows only (403/401). Live-verified; mockup/handoff/vocab/testing row updated.
+  Remaining: Kevin's skin look (§9.11–9.12) → `gh pr ready`.
 
 ### 2026-09-18 (b) · frontend + tests
 - skills: design-handoff (prior), code-review high --fix, code-review
