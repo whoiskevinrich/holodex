@@ -86,7 +86,8 @@ volume of unambiguous confirmations, not the occasional real judgment call.
   spec's lazy, per-row-click model is chosen specifically to avoid needing it yet.
   **Amended 2026-09-19 (F66, HOLODEX-421):** [entity-refresh-sweep.md](entity-refresh-sweep.md)
   supplies that contract (core per-provider token bucket, `/describe.rate_limit`, `429 Retry-After`,
-  circuit breaker) and adds an owner-triggered **sweep** beside this queue — not *on* queue load, and
+  circuit breaker — decided in [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md))
+  and adds an owner-triggered **sweep** beside this queue — not *on* queue load, and
   not automatic. The sweep runs RD8's per-entity step over every person/studio; the routing table
   (RD1) is unchanged. This Non-Goal now reads: *no resolution the owner did not click for*.
 - **Cross-provider confidence calibration.** `confidence` stays provider-native and advisory

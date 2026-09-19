@@ -33,9 +33,11 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [x] spec `write-spec` — `docs/specs/entity-refresh-sweep.md` (**F66**; RD1–RD11, P0-1…P0-9);
   F47 `enrichment-review-workflow.md` Non-Goal + P2-1 amended to point here; contract doc
   `metadata-provider-contract.md` §2.0/§2.2/§2.5/§4.4 amended + new §4.13 `/describe.rate_limit`
-- [ ] architecture `architecture` — ADR: provider rate-limit contract (token bucket, `/describe`
-  declaration, yaml override precedence, 429/Retry-After, circuit breaker) + sweep job shape
-  (`enrich-sweep` JobKind, `sweep` block on `/admin/activity`, `TryLock` single-flight)
+- [x] architecture `architecture` — **ADR-103** `provider-traffic-contract-and-enrich-sweep.md`: pacer on
+  `enrich.Service` (D1, `x/time/rate` D2, ADR-080 carriage D3), typed `*ErrProviderPaused` the caller
+  decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6),
+  `Service.RefreshPair` shared step (D7), `SweepRunner` + `sweep` block (D8), `batch_id` (D9), TMDB
+  `429` pass-through (D10); README row; spec / contract §4.13 / F47 pointers → ADR-103
 - [ ] backend — `POST /admin/enrich/sweep/{people|studios}` (202), `sweep` on activity read-model,
   `LibraryCounts.Studios`, `?batch=` on history, rate limiter in `internal/enrich/client.go`
 - [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
@@ -51,18 +53,17 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 ## Up next — ordered (position = priority)
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
-2. [ ] [—] `/architecture` — rate-limit contract ADR (`node scripts/adr-claims.mjs` for the number);
-   pin: bucket clock (monotonic), breaker 5 failures / 3 `429` pauses, 429 defaults 30 s / cap 300 s,
-   interactive calls fail fast (`503` + `Retry-After`) on a paused bucket, `enrich-sweep` kind,
-   `sweep.kind` = entity type, `sweep` block shape, `TryLock` single-flight across kinds
-3. [ ] [—] Backend → frontend → tests, per the gates above
+2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
+3. [ ] [—] Backend, in ADR-103's action-item order (pacer → `rate_limit` carriage → `429` in `do` →
+   `RefreshPair` extraction → `503` mapping → `SweepRunner`/activity/history → TMDB `429`), then
+   frontend → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
-5. [ ] [—] Mark PR ready only when every gate is green; CI moves 421 → In Review / Done
+5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-19 · design handoff + decisions
-- skills: design-handoff
+- skills: design-handoff, code-review
 - Created HOLODEX-421, renamed branch, fired In Progress. Explored list headers, per-entity
   Refresh-all (`refreshOneProvider`), activity read-model, extract-all/rescan precedents. Rendered
   five placements + two done-state revisions in-session; Kevin chose **D** and asked for a default
@@ -82,3 +83,17 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   `429` pause (fail fast), consecutive `429`s trip the breaker too, `sweep.kind` pinned to the entity
   type, RD7 excludes `/healthz`+`/describe`, handoff synced (clamp, breaker N, `busy` change).
 - handoff: spec gate closed; next = `/architecture` for the rate-limit contract ADR.
+
+### 2026-09-19 · architecture gate (ADR-103) — after a premature merge
+- skills: architecture
+- PR #360 was merged to main (6fe1cf9) with only the design + spec gates green; Jira had moved 421 to
+  In Review. Continued on a fresh worktree branch `HOLODEX-421-refresh-sweep-adr`, moved 421 back to
+  In Progress by hand. Explore sweep of the seams found what the ADR had to answer: no per-provider
+  client outlives one call, `429` is an untyped string folded into `no_candidates`, `BatchRunner` has
+  no live progress, `RecordSearched` never sets `BatchID`, no `x/time/rate` dep.
+- ADR-103 written (D1–D10) + README row; "ADR pending" pointers in F66, contract §4.13 and F47
+  resolved; spec's clock open question closed (D5). Shape choices worth knowing before coding: the
+  pacer returns the pause as a typed error and *never* sleeps through it — the sweep runner is the
+  one that waits/retries; the breaker is runner state, not service state; `batchID` is an explicit
+  parameter, not a context value.
+- handoff: architecture gate closed; next session starts backend at ADR-103 action item 1 (pacer).
