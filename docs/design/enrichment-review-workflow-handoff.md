@@ -198,7 +198,7 @@ item, gated on `linked(p)`. Change:
 | `linked(p)` | Primary button | ⋯ overflow |
 |---|---|---|
 | `false` | "Enrich" (opens picker, unchanged) | none (menu absent, as today) |
-| `true` | **"Refresh"** — calls `apply(p, storedExternalId)` directly, no picker | **"Re-match…"** (opens picker to pick a different candidate — today's "Enrich" behavior, relabeled) + **"Clear {p} data"** (unchanged) |
+| `true` | **"Refresh"** — calls `apply(p, storedExternalId)` directly, no picker | **"Re-match…"** (opens picker to pick a different candidate — today's "Enrich" behavior, relabeled, **but with RD1 auto-apply off**: the chip fires `onenrich(p, { rematch: true })` and the page opens `EnrichPicker` with `autoApply={false}`, so a lone strong candidate is listed as "Strong match" rather than silently re-applied — HOLODEX-418) + **"Clear {p} data"** (unchanged) |
 
 The chip needs the stored `external_id` to call `apply()` directly — either passed in via a `linkedId`
 prop (`(p: string) => string | undefined`) alongside the existing `linked` predicate, or folded into one
@@ -280,7 +280,7 @@ empty for the new/changed files.
 | Queue row | after auto-apply | Chip → `auto_applied`; row action recalculates (may disappear if that was the last outstanding provider) |
 | Provider chip (unlinked) | click primary | Opens `EnrichPicker` ("Enrich"), unchanged |
 | Provider chip (linked) | click primary | Direct `apply()` call ("Refresh") — no `/resolve`, no picker; busy label "Refreshing…" |
-| Provider chip (linked) | ⋯ → Re-match | Opens `EnrichPicker` to pick a different candidate (today's default "Enrich" behavior) |
+| Provider chip (linked) | ⋯ → Re-match | Opens `EnrichPicker` to pick a different candidate (today's default "Enrich" behavior) with auto-apply **off** — the list always shows, nothing applies until clicked (HOLODEX-418) |
 | Provider chip (linked) | ⋯ → Clear | Unchanged existing behavior |
 | Refresh-all | click | Fans out per RD8; each provider's own chip reflects its own outcome; button shows "Refreshing…" while any are in flight |
 | Refresh-all | partial ambiguous result | The ambiguous provider's chip/row surfaces "needs review" inline — never silently skipped |
@@ -390,6 +390,10 @@ subset.)
 - **3.5** `[agent]` **Refresh vs Re-match vs Clear**: on a linked provider chip, primary action is
   "Refresh" (direct apply, no picker/network `/resolve` call); ⋯ menu offers "Re-match…" (opens picker)
   and "Clear {p} data" (unchanged); on an unlinked provider, primary is still "Enrich."
+- **3.5a** `[agent]` **Re-match never auto-applies** (HOLODEX-418): on a linked provider whose
+  `/resolve` returns exactly one `auto_apply` candidate, ⋯ → "Re-match…" shows the picker with that
+  candidate labelled "Strong match" and fires **no** `/enrich` apply until the owner clicks it; the
+  same entity's first "Enrich" (unlinked) still auto-applies per 3.2.
 - **3.6** `[agent]` **Refresh-all partial result**: on an entity with one linked + one ambiguous
   unlinked provider, "Refresh all" silently refreshes the linked one and surfaces "needs review" inline
   for the ambiguous one — never drops it silently.

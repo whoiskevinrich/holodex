@@ -8,6 +8,7 @@
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
 	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
 	import { SLOT_CLASS, showThumb, slotShape } from '$lib/candidateImage';
+	import { autoApplyPick } from '$lib/autoApply';
 	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '$lib/types';
 
 	let {
@@ -19,7 +20,8 @@
 		dismiss,
 		onclose,
 		onapplied,
-		ondismissed
+		ondismissed,
+		autoApply = true
 	}: {
 		entityName: string;
 		/** The kind being matched — decides the candidate slot's box (HOLODEX-414): a
@@ -44,6 +46,12 @@
 		 *  callers with no per-provider dismissal UI of their own (the detail pages) can
 		 *  omit it — closing the picker is already handled by `onclose`. */
 		ondismissed?: () => void;
+		/** Whether the initial, entity-seeded search may auto-apply a lone strong match
+		 *  (RD1). Default on — an unattended first match shouldn't cost a click. A manual
+		 *  re-match (HOLODEX-418) passes `false`: the owner is overriding the current link,
+		 *  so the previous match is suspect by definition and the list must always show —
+		 *  especially when the provider is confident it was right. */
+		autoApply?: boolean;
 	} = $props();
 
 	// Seed the search box with the entity's name; we want the initial value only
@@ -87,8 +95,9 @@
 		// immediately — the owner shouldn't have to retype the entity's own name.
 		// `auto` lets search() auto-apply a lone strong match without ever showing
 		// the list (RD1); only this initial, entity-seeded search qualifies — a
-		// search the owner typed themselves always waits for a manual pick.
-		if (query.trim().length >= 2) void search(query.trim(), true);
+		// search the owner typed themselves always waits for a manual pick — and
+		// only when the caller allows it (`autoApply`, off for a re-match).
+		if (query.trim().length >= 2) void search(query.trim(), autoApply);
 		// Focus-return: send focus back to the Enrich button when the picker closes.
 		return () => trigger?.focus?.();
 	});
@@ -151,12 +160,9 @@
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
 			// multiple, or weaker candidates) falls through to the normal picker list.
-			// Same exactly-one-auto_apply rule as the backend's SingleStrongMatch; other,
-			// weaker candidates in the list don't block it.
-			const strong = candidates.filter((c) => c.auto_apply);
-			if (auto && strong.length === 1) {
-				await confirm(strong[0]);
-			}
+			// The rule itself lives in autoApply.ts so it is unit-tested.
+			const pick = autoApplyPick(candidates, auto);
+			if (pick) await confirm(pick);
 		} catch (e) {
 			if (id !== searchId) return;
 			error = toMessage(e);
