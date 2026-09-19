@@ -1,0 +1,290 @@
+# Design Handoff: Writeback dialog as cockpit — applied vs. on file, chooser on differing rows
+
+**Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Writeback ·
+**ADRs**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) ·
+[ADR-091](../architecture/ADR-091-fire-and-forget-writeback-status.md) ·
+[ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md) ·
+[ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) (precedence layer only)
+**Builds on**: [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213 —
+the decided/undecided split and the three gutter tiers are ground truth here) ·
+[writeback-poster-and-decision-legibility-handoff.md](writeback-poster-and-decision-legibility-handoff.md)
+(HOLODEX-245 — the poster comparison row is untouched) ·
+[two-tier-field-editing-handoff.md](two-tier-field-editing-handoff.md) (the chip row this
+dialog now reuses).
+**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+[theming.md](theming.md) — **tokens only, QA all three skins.**
+**Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (the only file whose
+behaviour changes) · reuses `curation/CurationChip.svelte` (radio mode), `f36.ts`
+(`sourceChips`, `resolveSelection`), and the stacked-row idiom of `curation/SourceEditModal.svelte`.
+**Issue**: [HOLODEX-400](https://whoiskevinrich.atlassian.net/browse/HOLODEX-400) (parent epic
+HOLODEX-167). Frontend-only; no endpoint, no ADR.
+
+![Left: today's dialog — every differing row is a seeded free-text input with a "was:" line. Right: the cockpit — a differing row renders the field's candidate chooser (chip row for short fields, stacked radio rows for long text), a row that matches the file collapses to the "=" tier with a quiet "change" toggle, an unverifiable row says so, an unwritable row is unchanged](writeback-cockpit-mockup.svg)
+
+---
+
+## Overview
+
+The writeback dialog is the moment of highest intent — the owner is about to burn a value into
+the file — and today it is the surface with the *least* information. A differing row shows the
+winning value in a text input plus one muted `was: <file value>` line
+(`WritebackFormDialog.svelte` `fieldRow` snippet). The other candidates are invisible; the only
+way to change what gets written is to type over the winner, which commits as `manual`.
+
+The page already has the chooser: `SourceBadge`'s [chip row](../reference/ui-vocabulary.md#control-patterns-by-name)
+(Tier-2) and the pencil + modal for `long_text`. This handoff moves that chooser **into the
+dialog row** and lets the Write button be its Confirm.
+
+### The model the owner asked for: applied vs. on file
+
+> "The only time I care about a disagreement is when the file doesn't match the selected choice."
+> "I don't care where the tags came from." — 2026-09-16 brainstorm
+
+Two columns, not N sources: **applied** (what Holodex resolves — the winner, decided or not)
+and **on file** (the file's own tag value, the `·file` candidate). Sources are only the
+*candidates* the owner picks from when changing what's applied. A row is interesting exactly when
+applied ≠ on file. Provenance stays as the existing `·tmdb` label suffix; it is never a reason to
+open a row.
+
+This is a **precedence** control in ADR-090's terms — every chip pins which stored namespace wins.
+No adoption verdict is made here, and no competing provider value is ever put in an adoption row.
+
+### What does *not* change
+
+- The decided / undecided split, the disclosure line, and `Select all` (HOLODEX-213).
+- `needsWriteback()` as the pre-check predicate — the button still writes *decisions*.
+- The three gutter tiers (checkbox / `=` / `⊖`) and their glyphs (R4.3). The `=` tier gains one
+  affordance (below); nothing else moves.
+- `image_url` rows (HOLODEX-245's read-only comparison) — the poster chooser is
+  [HOLODEX-403](https://whoiskevinrich.atlassian.net/browse/HOLODEX-403).
+- Merge / multi rows — they stay listed, unchecked, without a decision (RD1); tag writeback is
+  [HOLODEX-401](https://whoiskevinrich.atlassian.net/browse/HOLODEX-401).
+- The footer, busy/enqueue-error states, fire-and-forget close (ADR-091), focus trap + return.
+- The row already names the file tag (`Overview → Comment`), so the "Comments vs Overview"
+  vocabulary gap from the brainstorm is a *page* issue, not a dialog one. No change here.
+
+---
+
+## Decided visual spec
+
+### 1. Row classes
+
+Replace-field rows fall into one of four classes. The class is derived from three things the
+dialog already computes: `isWritable(field)`, `rowMatchesFile(row)` (live staged value vs. the
+`·file` candidate), and `field.in_sync`.
+
+| Class | Condition | Gutter | Body | Pre-checked? |
+|---|---|---|---|---|
+| **W · will write** | writable ∧ staged value ≠ on-file value | checkbox | header + **chooser (expanded)** | iff `needsWriteback(field)` (unchanged) |
+| **M · matches file** | writable ∧ staged value = on-file value | `=` glyph | header + value + "— matches the file" + quiet **change** toggle | n/a (not checkable) |
+| **? · unverifiable** | writable ∧ `in_sync === undefined` | checkbox | as **W**, plus an amber note under the chooser | no |
+| **⊖ · unwritable** | `!isWritable(field)` | `⊖` glyph | unchanged (value + "no file tag for this container") | n/a |
+
+`?` is a **W** row with a note, not a fifth gutter glyph: it *can* be written, so the checkbox is
+honest; what is missing is the read-back that would let the row report `=` later (ADR-093).
+Copy: `Can't verify — {write_target} isn't read back from this file.` in `text-warn`, `text-xs`.
+
+**M → W promotion.** The `=` tier is the collapsed state, not a dead end (owner's call, 2026-09-18:
+"expandable on demand"). A quiet `change` toggle (`.btn-quiet`, `text-xs`, `aria-expanded`,
+`aria-controls` → the chooser) sits at the row's trailing edge. Expanding shows the same chooser
+as **W**. The moment the staged pick ≠ on-file value the row **becomes W**: the `=` glyph is
+replaced by a checkbox, checked (the owner just chose it — the same rule as checking an
+undecided row), and `checkedCount` includes it. Picking the `·file` chip again returns the row to
+**M** (glyph back, checkbox gone, count drops). `rowMatchesFile()` already reads the *live*
+value, so this is the existing tier logic applied to the staged chip value instead of the text
+input.
+
+### 2. The chooser
+
+One shape per `display`, mirroring the page's own split so the owner meets the same control in
+both places:
+
+| `display` | Chooser | Source of the idiom |
+|---|---|---|
+| everything but `long_text` | **chip row** — `role="radiogroup"` of `CurationChip` in `radio` mode built from `sourceChips(field)`, trailing **Custom** chip (inline `<input>` opener) | `SourceBadge.svelte` expanded state, minus its Confirm/Cancel |
+| `long_text` (Overview, tagline-length prose) | **stacked rows** — one full-width `role="radio"` row per chip: source label in a fixed left column (`text-[0.65rem]`, `text-muted`; `text-accent` when checked), value wrapped at full width; trailing **Custom** row is a `textarea` (`use:autoResize`, `max-height: 10rem`) | `SourceEditModal.svelte` |
+
+Both:
+
+- **Seed** the staged key from `resolveSelection(field, chips).key`; `selection.pending` (RD6
+  implicit winner, no standing decision) renders the checked chip with the existing dashed-ring
+  + hollow-dot treatment (`CurationChip radio.pending`).
+- **Folded chips** are the `sourceChips()` model as-is: a provider whose value equals the file
+  value folds into the `·file + tmdb` chip. A row whose every provider folds has two chips
+  (`·file + …`, Custom) — and is **M** unless a Custom value is staged.
+- **Empty baseline** (`·file` chip with `value === ''`) shows the existing `—` placeholder chip
+  from `SourceBadge`; picking it stages the baseline (a write of nothing is filtered by
+  `checkedRows` exactly as an empty edited input is today).
+- **Custom**: typing then blur/Enter stages `custom` with the typed value; an empty draft leaves
+  the previous staged pick untouched (`SourceBadge` rule). While a manual decision is standing,
+  the Custom chip shows the frozen literal (`sourceChips` already does this).
+- **No `on file:` / `was:` line.** The `·file` chip/row *is* the on-file value — a separate line
+  would say it twice (owner's call, 2026-09-18). The text `<input>` / `<textarea>` seeded with
+  the winner goes away for replace rows; Custom is the only free-text path.
+
+The stacked-row renderer should be lifted out of `SourceEditModal.svelte` into a shared
+`curation/` component (name it for the mechanism — e.g. `SourceRadioList.svelte`) rather than
+duplicated; add it to `curation/CLAUDE.md` in the same change. If the modal's rows are not yet
+separable, duplicating ≤ 40 lines is acceptable for this story, with the extraction filed.
+
+### 3. Commit semantics — the Write button is Confirm
+
+Nothing in the dialog hits the network until `submit()`. Chip clicks and arrow keys **stage**
+locally (as `SourceBadge` does before Confirm); Cancel/Escape/backdrop discard every staged pick.
+
+On submit, for each checked row (`checked ∧ isWritable ∧ !rowMatchesFile`):
+
+1. **Decide** when needed — generalize `ensureDecision(row)` from "create if none standing" to:
+   `decide(canonical, chip.decisionSource, customValue?)` **iff** no standing decision **or** the
+   staged key ≠ `resolveSelection(field, chips).key`. An untouched, already-decided row still
+   makes no call. `image_url` and merge rows stay excluded, as today.
+2. **Write** the staged chip's value: `values = [chip.value]` (Custom → the typed value). The
+   comma-split of a free-text input goes away with the input; a replace field is one value.
+   `source` stays `winning_source` (the server re-resolves after the decision lands — ADR-091 —
+   so the enqueued source is informational, as it is today).
+
+`checkedCount` / the footer label keep counting `checked ∧ !rowMatchesFile` — a row whose staged
+pick equals the file is never promised.
+
+This closes [HOLODEX-219](https://whoiskevinrich.atlassian.net/browse/HOLODEX-219) as a side
+effect: an undecided provider value can no longer be written without recording the decision,
+because the checkbox + staged chip *is* the decision.
+
+### 4. Layout and tokens
+
+| Element | Treatment |
+|---|---|
+| Dialog | unchanged — `max-w-xl`, `max-h-[60vh]` body scroll, `rounded-theme border border-rule bg-surface shadow-lg` |
+| Row | unchanged `flex items-start gap-3`; gutter `h-4 w-4` |
+| Row header | unchanged: `label` `text-xs font-medium text-muted` · `·{source}` `text-[0.65rem]` (`text-accent` provider / `text-muted` baseline) · `→ {write_target}` `text-[0.65rem] text-muted` |
+| Chip row | `mt-1 flex flex-wrap gap-1.5` — `CurationChip` radio styling as shipped (accent border + filled dot when checked; dashed ring + hollow dot when pending) |
+| Stacked row | `mt-1 space-y-1`; each row `flex items-start gap-2 rounded-theme border border-rule px-2 py-1 text-sm text-ink`; checked → `border-accent bg-accent/10`; label column `w-12 shrink-0 text-[0.65rem] text-muted` |
+| Custom textarea | the dialog's existing `textarea` classes (`bg-bg border-rule … focus:ring-accent`) |
+| **M** row body | `text-xs text-muted` with the value in `text-ink`, then `— matches the file`; the `change` toggle is `.btn-quiet text-xs` and sits `ml-auto` on the header line |
+| `?` note | `mt-1 text-xs text-warn` |
+| Busy | every chip, radio row, textarea, toggle and checkbox `disabled` (chips already withdraw their affordance rather than dimming — never `disabled:opacity` on `text-muted`) |
+
+No new tokens. No hardcoded values.
+
+### 5. Copy
+
+| Where | Text |
+|---|---|
+| **M** row | `{value} — matches the file` |
+| **M** toggle | `change` (collapsed) / `close` (expanded) — sentence case, no punctuation |
+| `?` note | `Can't verify — {write_target} isn't read back from this file.` |
+| Empty `·file` chip | `—` (existing placeholder) |
+| Custom opener | `Custom…` (chip) / `Write your own…` (textarea placeholder) |
+| Everything else | unchanged |
+
+### 6. Accessibility
+
+- **Nested radiogroups inside a dialog.** Each chooser is its own `role="radiogroup"` with roving
+  tabindex (one chip at `0`, the rest `-1`), `aria-labelledby` → the row's label element. Arrow
+  keys move focus and stage within the group (`SourceBadge` handler, verbatim); they must not
+  reach the dialog's `onKeydown` (it only handles Escape/Tab, so no conflict — but do not add
+  arrow handling at dialog level).
+- **`trapTab` must exclude `[tabindex="-1"]`.** Today's selector is
+  `'input, textarea, button, [tabindex="0"]'`; `CurationChip` radio renders as a `<button>`, so
+  every unchecked chip would become a Tab stop. Filter `el.tabIndex !== -1` (or select
+  `button:not([tabindex="-1"])`). The same fix applies to the `onMount` first-focus selector.
+- **Tab order per W row:** checkbox → checked chip → (Custom input when open) → next row. An M row:
+  `change` toggle only.
+- **Promotion announcement.** When an M row becomes W, the new checkbox is focused only if the
+  owner's focus was on the chip that caused it *and* the chip is not the Custom input (don't yank
+  focus out of a textarea). Otherwise focus stays put; the `checkedCount` change is reflected in
+  the footer button's visible label, which is sufficient — no `aria-live` region for the count.
+- **Pending chip**: `aria-checked="true"` plus the dashed ring; selection is never colour-only
+  (dot + border + `aria-checked`).
+- **Escape** while a Custom textarea has focus: first Escape closes the custom editor (discarding
+  the draft), second closes the dialog — as `SourceBadge`'s custom editor behaves.
+
+### 7. States
+
+| Element | State | Behaviour |
+|---|---|---|
+| W row | staged = current selection, decided | checkbox on/off only; submit writes, no decide |
+| W row | staged ≠ current selection | submit decides then writes |
+| W row | RD6 pending winner, unchecked | dashed ring; checking commits `provider:<x>` on submit (HOLODEX-219) |
+| W row | staged Custom, empty draft | previous staged pick stays; nothing changes |
+| M row | collapsed | `=` glyph, value line, `change` |
+| M row | expanded, staged = file | chooser open, still `=`; toggle reads `close` |
+| M row | expanded, staged ≠ file | **promoted to W**: checkbox (checked), counted |
+| ? row | any | as W + warn note; never pre-checked |
+| ⊖ row | any | unchanged |
+| Dialog | busy | all controls disabled; Escape/backdrop ignored (unchanged) |
+| Dialog | enqueue error | staged picks and check state preserved for retry (unchanged rule) |
+
+### 8. Edge cases
+
+- **Many differing rows.** A short-field chooser adds one wrapped chip line (~1.5rem); a
+  `long_text` chooser adds ~3 rows plus a textarea (~7rem). Typical media has ≤ 2 `long_text`
+  fields (overview, tagline), so the body scroll (`max-h-[60vh]`) absorbs it. No accordion —
+  collapsing a W row would hide the very thing the dialog exists to show.
+- **Long chip values** in a short field (e.g. a 60-char title): chips wrap via `flex-wrap`; the
+  chip's own `truncate`/`max-w` rules from `CurationChip` apply. If a short field's candidate
+  exceeds ~80 chars, treat it like `long_text` (stacked) — implement as `display === 'long_text'
+  || value.length > 80` on any candidate; document the threshold next to the code.
+- **Single candidate** (no providers, undecided): chips = `·file`, `Custom…`. The row is M unless
+  Custom is staged. Nothing to choose, nothing to show beyond today's `=` line + `change`.
+- **Provider value present, file value absent** (`·file` chip is `—`): W, RD6 pending when
+  undecided. Picking `—` stages the baseline; the write filters the empty value as today.
+- **Decision standing on a provider that no longer supplies a value**: `sourceChips` omits it;
+  `resolveSelection` falls back to the baseline key and reports `pending: false`. The row reads
+  as M or W by the file comparison alone. (Pre-existing behaviour; HOLODEX-339 covers the
+  no-op-write half.)
+- **Container changed since open** (unwritable at write time): unchanged — shows as a failed badge
+  on the page, not in the dialog (ADR-091).
+
+### 9. Verification checklist
+
+Numbered `section.item`; tagged by verifier; grouped by tag.
+
+#### Setup
+- 9.0 `[smoke]` `cd web && npm run check && npm run test` green; `f36.test.ts` unchanged (no
+  helper semantics change).
+
+#### Agent
+- 9.1 `[agent]` Open the dialog on a video with a decided, out-of-sync `year` and an undecided
+  `overview` where tmdb ≠ file: `year` is W + pre-checked with a chip row; `overview` is W,
+  unchecked, in the undecided disclosure, with **stacked** rows.
+- 9.2 `[agent]` Pick the `·file` chip on `year`: row flips to M (`=` glyph, "matches the file",
+  `change`); footer count drops by one. Pick `·tmdb` again: back to W, checked.
+- 9.3 `[agent]` On an M row click `change`, pick a provider chip: checkbox appears checked, count
+  rises. Click `close` with the pick staged: chooser hides, row stays W.
+- 9.4 `[agent]` Custom: type a value, blur → staged Custom; clear it and blur → previous pick
+  restored. Submit → `PUT …/decision` with `manual` + the value, then `POST …/writeback` with
+  `values: [<value>]` (single element, no comma split).
+- 9.5 `[agent]` Undecided tmdb row (dashed ring), check it, submit → one `decision` call
+  (`provider:tmdb`) precedes the writeback (HOLODEX-219).
+- 9.6 `[agent]` Already-decided row, untouched, submit → **no** `decision` call.
+- 9.7 `[agent]` Field with `in_sync === undefined` and a differing provider value: checkbox,
+  not pre-checked, chooser open, `text-warn` note naming the `write_target`.
+- 9.8 `[agent]` Keyboard: Tab from a W row's checkbox lands on its checked chip, **not** on an
+  unchecked chip; Shift+Tab from the first focusable wraps to the footer's last button; arrow
+  keys inside a radiogroup stage without leaving the group; Escape in a Custom textarea closes
+  the editor first, the dialog second.
+- 9.9 `[agent]` `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)' web/src/lib/components/writeback` and
+  `rg 'text-muted[^"]*disabled:opacity'` both empty.
+- 9.10 `[agent]` Three skins via `javascript_tool` computed styles: checked chip border vs.
+  `bg-surface` ≥ 3:1; `text-warn` note ≥ 4.5:1; stacked-row checked background does not swallow
+  `text-ink` (see `reference-holodex-skin-qa-without-screenshots`).
+
+#### Human
+- 9.11 `[human]` Open a media page you own (owner mode), press **Write decisions to file**. In
+  each skin (header picker: Cinémathèque, Broadcast, Brutalist) the differing rows should read as
+  "here are the candidates, this one is picked" without reading any labels — the picked chip is
+  the only one with a filled dot and a coloured border. The `=` rows should feel *quieter* than
+  the W rows, and `change` should be findable but not shouting.
+- 9.12 `[human]` With Overview differing: the three stacked rows should be fully readable at the
+  dialog's width — no truncated prose. If you can't tell which text is on the file vs. from tmdb
+  without hovering, the left label column is too faint on that skin.
+
+---
+
+## Not in scope (filed)
+
+- Tags as a set with per-tag on-file markers — HOLODEX-401.
+- Film link as a `film:` source (Album / Track) — HOLODEX-402.
+- Poster chooser in the dialog — HOLODEX-403.
+- The page-side "Overview vs. Comment" naming — no ticket; raise with HOLODEX-220 if it recurs.
