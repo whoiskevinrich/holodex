@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { theme, THEMES, THEME_LABELS } from '$lib/theme.svelte';
+	import { theme } from '$lib/theme.svelte';
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
@@ -43,7 +43,15 @@
 		if (pageScope) navSearch.activeTab = pageScope;
 	});
 
-	// Apply the saved skin + load search history on mount.
+	// The instance skin is the owner's choice for every viewer (ADR-102 D1): apply
+	// it whenever capabilities (re)load. No viewer preference exists any more.
+	$effect(() => {
+		// Guarded: a backend older than F66 serves no `theme` (preview-testbed mismatch).
+		if (activity.caps?.theme) theme.applyServer(activity.caps.theme);
+	});
+
+	// Paint-cache the skin + load search history on mount (F66: the skin itself is
+	// instance identity and arrives with capabilities below).
 	$effect(() => {
 		theme.init();
 		adminMode.init();
@@ -348,8 +356,8 @@
 		     presentation only — it never changes the admin token or any server gate
 		     (ADR-030). ON = accent fill (the active/primary semantic, doubling as the
 		     "powers on" indicator); OFF = muted outline. Icon swaps open-eye/eye-slash
-		     so meaning isn't color-only. Label tucks away below `sm`, like the skin
-		     picker. Backed by the (intentionally still-named) `adminMode` store. -->
+		     so meaning isn't color-only. Label tucks away below `sm`. Backed by the
+		     (intentionally still-named) `adminMode` store. -->
 		{#if activity.isOwner}
 			<button
 				type="button"
@@ -401,31 +409,6 @@
 				<span class="hidden sm:inline">Owner view</span>
 			</button>
 		{/if}
-
-		<!-- Skin switcher as a first-class segmented control: each option shows that
-		     skin's own accent (the swatch re-scopes --accent via data-theme). Only the
-		     active skin shows its label, keeping the bar compact. -->
-		<div
-			class="flex items-center gap-0.5 rounded-theme border border-rule p-0.5"
-			role="group"
-			aria-label="Theme skin"
-		>
-			{#each THEMES as t (t)}
-				<button
-					type="button"
-					onclick={() => theme.set(t)}
-					aria-pressed={theme.current === t}
-					title={THEME_LABELS[t]}
-					class="flex items-center gap-1.5 rounded-theme px-2 py-1 text-xs transition {theme.current ===
-					t
-						? 'bg-surface-2 text-ink'
-						: 'text-muted hover:text-ink'}"
-				>
-					<span data-theme={t} class="h-2.5 w-2.5 rounded-full bg-accent ring-1 ring-black/20"></span>
-					{#if theme.current === t}<span class="hidden sm:inline">{THEME_LABELS[t]}</span>{/if}
-				</button>
-			{/each}
-		</div>
 		</span>
 	</nav>
 </header>

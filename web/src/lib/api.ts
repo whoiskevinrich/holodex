@@ -58,7 +58,9 @@ import type {
 	FieldPromotionRequest,
 	FieldPromotionView,
 	FieldTarget,
-	PromotionEntityType
+	PromotionEntityType,
+	ThemeCapability,
+	ThemeId
 } from './types';
 
 const BASE = '/api/v1';
@@ -654,6 +656,13 @@ export const api = {
 	reloadConfig: async (): Promise<{ fields: number }> => {
 		const body = await sendAuthed<{ fields?: number }>('POST', `/admin/reload-config`);
 		return { fields: Number(body.fields ?? 0) };
+	},
+
+	// Instance skin (F66, ADR-102 D3). Owner-only; the value every viewer then gets
+	// in capabilities.theme. 400 for an unknown id or "custom" with no palette configured.
+	setTheme: async (theme: ThemeId): Promise<ThemeCapability> => {
+		const body = await sendAuthed<{ theme: ThemeCapability }>('PUT', `/admin/theme`, { theme });
+		return body.theme;
 	},
 
 	// Metadata source plugins — People enrichment (F22). All owner-gated.

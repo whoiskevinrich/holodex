@@ -135,6 +135,9 @@ type Handlers struct {
 	// cardLayout is the operator's preferred card aspect ratio ("wide" or "poster"),
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
+	// customTheme is the owner's configured palette (F66 S3); nil until config wires it.
+	// Read by themePayload for /capabilities and PUT /admin/theme.
+	customTheme *ThemeCustom
 
 	// filmsEnabled gates the Films entity (F56, ADR-085); default false. Surfaced
 	// via /capabilities so the SPA knows whether to render films routes/nav at all.
@@ -395,6 +398,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Get("/admin/activity/history", h.adminActivityHistory)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
+		r.Put("/admin/theme", h.adminSetTheme)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
 		r.Post("/admin/extract-all", h.adminExtractAll)
 		// Metadata source plugins — People enrichment (F22, ADR-033).

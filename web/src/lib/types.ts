@@ -623,6 +623,27 @@ export interface Capabilities {
 	// films_enabled gates the Films entity (F56, ADR-085) — routes, nav, video-list
 	// hiding, and the resolver-source injection are all suspended when false.
 	films_enabled: boolean;
+	// theme is the instance skin (F66, ADR-102 D1): the owner's choice, identical for
+	// every viewer. The SPA applies it on arrival and keeps no preference of its own.
+	theme: ThemeCapability;
+}
+
+// The three skins built into app.css (ADR-021) plus the owner's custom palette id.
+export type ShippedTheme = 'cinematheque' | 'broadcast' | 'brutalist';
+export type ThemeId = ShippedTheme | 'custom';
+
+// ThemeCustom is the owner's palette from holodex.yaml `theme.custom` (F66 R9): a
+// base skin for fonts/radius/flourishes plus five hex primaries the SPA sets as inline
+// custom properties on <html> (ADR-102 D4). Null until an operator configures one.
+export interface ThemeCustom {
+	name: string;
+	base: ShippedTheme;
+	tokens: Record<'bg' | 'ink' | 'accent' | 'muted' | 'warn', string>;
+}
+
+export interface ThemeCapability {
+	active: ThemeId;
+	custom: ThemeCustom | null;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
