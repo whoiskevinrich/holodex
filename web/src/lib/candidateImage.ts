@@ -43,14 +43,20 @@ export function slotShape(entityType: EnrichEntityKind): SlotShape {
 }
 
 /**
- * Explicit width AND height per shape, always 60 px tall so every collapsed row is
- * 76 px in every picker. Deliberately not `aspect-*`: an aspect box with a `w-full`
+ * Explicit width AND height per shape, always 60 px tall from `sm` up so every collapsed
+ * row is 76 px in every picker. Deliberately not `aspect-*`: an aspect box with a `w-full`
  * `<img>` inside can borrow the image's natural width (a w300 backdrop is 300 px), and
  * the geometry harness asserts the slot's px exactly. 108 (not 106.67) for 16:9 keeps
  * that assertion integer; the image `object-contain`s with a sub-pixel plate sliver.
+ *
+ * Below `sm` (a phone, or a 315 px dialog in a narrow pane) the two wide boxes drop to
+ * 80 wide at the same aspect — 80 × 45 landscape, 80 × 40 logo — because at that width a
+ * 120 px box left the name ~30 px beside "Strong match" (QA §4.4, 2026-09-18). The
+ * portrait box is already the narrowest and keeps 40 × 60 everywhere. The picker pairs
+ * this with stacking the match strength under the name below `sm`.
  */
 export const SLOT_CLASS: Record<SlotShape, string> = {
 	portrait: 'w-10 h-15',
-	landscape: 'w-27 h-15',
-	logo: 'w-30 h-15'
+	landscape: 'w-20 h-11.25 sm:w-27 sm:h-15',
+	logo: 'w-20 h-10 sm:w-30 sm:h-15'
 };

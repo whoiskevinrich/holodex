@@ -34,5 +34,7 @@ because the picker is where it was decided the second time. Handoff:
 adding a `SlotShape`, never an `{#if}` in the template. Both axes are explicit on purpose — an
 `aspect-*` box with a `w-full` `<img>` can borrow the image's natural width (the F64
 fixture-size trap), and the geometry harness asserts the slot's px exactly. The height is the
-row-height floor (76 px collapsed) in every picker; only the width changes per kind. Handoff:
-`docs/design/candidates-image-per-kind-handoff.md`.
+row-height floor (76 px collapsed) in every picker from `sm` up; only the width changes per
+kind. Below `sm` the two wide shapes drop to 80 wide at the same aspect and the row stacks the
+match strength under the name — a 315 px dialog left a studio name ~30 px otherwise (QA §4.4).
+Handoff: `docs/design/candidates-image-per-kind-handoff.md`.

@@ -35,8 +35,8 @@ stop — and makes **only its box shape** a function of the entity kind the pick
 |---|---|---|---|
 | Person | `profile_path` @ w185 — unchanged | 40 × 60 portrait | `w-10 h-15` |
 | Film | `poster_path` @ w185 — unchanged | 40 × 60 portrait | `w-10 h-15` |
-| Media (video) | **`backdrop_path` @ w300**; `poster_path` @ w185 when there is no backdrop | 108 × 60 landscape | `w-27 h-15` |
-| Studio | `logo_path` @ w185 — unchanged | 120 × 60 (2:1) logo | `w-30 h-15` |
+| Media (video) | **`backdrop_path` @ w300**; `poster_path` @ w185 when there is no backdrop | 108 × 60 landscape (80 × 45 below `sm`) | `w-20 h-11.25 sm:w-27 sm:h-15` |
+| Studio | `logo_path` @ w185 — unchanged | 120 × 60 (2:1) logo (80 × 40 below `sm`) | `w-20 h-10 sm:w-30 sm:h-15` |
 
 The row height is **locked at 60 px of slot in every picker** — the decision Kevin made from the
 two-option mockup (A: height locked, width follows the kind; B: width locked at 80, height
@@ -121,12 +121,21 @@ of the accessibility tree; the label carries the name.
 | ≥ 640 (dialog 512 − 2 border − 32 `p-4`; row − 24 `px-3` − 2 `border-l-2` = 452) | 400 px | 332 px | 320 px |
 | 375 (dialog 343; row inner 283 — **measured 2026-09-18**) | 231 px | 163 px | 151 px |
 
-No breakpoint-specific slot size — one size per kind everywhere. At 375 the media and studio
-label lines get tight: measured on the studio picker, "Hayao Miyazaki" got **61 px** before its
-ellipsis beside an 82 px "Possible match" (a long film title truncates earlier than it did).
-Accepted for now: the picker is a modal the owner opens deliberately, and the match-strength text
-stays `shrink-0` so the number never truncates. QA §4.4 asks a human whether that is too tight on
-a phone; if so the answer is a `sm:` step on the two wide classes, not a different height.
+**Below `sm` (640 px) two things change — decided 2026-09-18 from a four-panel mockup at
+Kevin's 315 px dialog, where "Six Point Harness" had ~30 px beside "Strong match":**
+
+1. The two wide boxes drop to **80 wide at the same aspect** — landscape 80 × 45, logo 80 × 40
+   (`w-20 h-11.25` / `w-20 h-10`, the `sm:` classes restore 108/120 × 60). The portrait box is
+   already the narrowest and keeps 40 × 60 everywhere.
+2. The **match strength stacks under the name** for every kind (`flex-col items-start` →
+   `sm:flex-row sm:items-center sm:justify-between sm:gap-2` on the label line; the label gains
+   `max-w-full` so `truncate` still works on a column's shrink-to-fit item).
+
+Measured at a 363 px viewport (dialog 331): studio slot 80 × 40, text block **180 px**, "Six Point
+Harness" (110 px) unclipped, rows 76 (name + match + link) / 92 (+ disambiguation). Neither
+change touches ≥ 640: boxes 108/120 × 60 and the label line row / center / space-between / 8 px
+gap, verified by computed style at 1280. Rejected on the same mockup: shrinking the boxes alone
+(name still "Six Poin…", ~70 px) and stacking alone (~124 px, clips this name by 4 px).
 
 ## Edge cases
 
@@ -149,7 +158,6 @@ a phone; if so the answer is a `sm:` step on the two wide classes, not a differe
 ## Non-goals
 
 - A different slot height per kind (Option B) — decided against, see Overview.
-- A `sm:` breakpoint step for the wide slots — held until QA §4.4 says 155 px is a problem.
 - Any change to the four detail pages' own image treatment, `FilmsRow`, `StudioLinkCard`,
   `EntityImageSlot`.
 - A backdrop for **films** — the film page's identity image is the poster; the film picker keeps it.

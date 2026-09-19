@@ -73,9 +73,8 @@ security-review gate.
 
 1. Merge `origin/main` into the branch, re-run `go test ./providers/tmdb`, `npm run check`,
    vitest; then `gh pr ready 352` (fires In Review).
-2. Human QA §4.1–4.5 on the real testbed (backend-films + provider-tmdb): does the still help;
-   does the poster-fallback read as "poster only"; §4.4 at 375 px — 61 px of name on the studio
-   picker; if too tight, a `sm:` step on `landscape`/`logo` widths, not a shorter slot.
+2. Human QA §4.1–4.3 on the real testbed (backend-films + provider-tmdb): does the still help;
+   does the poster-fallback read as "poster only". §4.4 is **answered** (see session 4).
 3. Post-merge, downstream: the sidecar repo's contract-sync note for §2.3's per-kind shape
    guidance (never from this branch).
 
@@ -94,6 +93,16 @@ security-review gate.
 - **2026-09-18 (3)** — frontend + stub + harness + testing strategy. Skills: `/code-review high
   --fix` (clean). Live QA on media + studio pickers, three skins, 375 px. Handoff: **every gate
   is green**; next session merges main and marks PR #352 ready, then hands §4 to Kevin.
+- **2026-09-18 (4)** — main merged, PR #352 marked ready (CI fired In Review). Kevin's §4.4
+  answer from a 315 px dialog: "Six P…" — too tight. Four-panel mockup at that width → **Option
+  3**: below `sm` the wide boxes drop to 80 (landscape 80 × 45 `h-11.25`, logo 80 × 40) AND the
+  match strength stacks under the name (`flex-col … sm:flex-row`, label `max-w-full`). Measured
+  at 363: slot 80 × 40, text block 180, "Six Point Harness" 110 px unclipped; probes at 1280
+  unchanged (108/120 × 60, row layout). Harness 27/27 (768 is above `sm`). Spec RD 10, handoff,
+  QA §3.10/§4.4, testing strategy, component rule updated. **Side effect to disclose:** three
+  Re-match attempts on media 204 (Aladdin) auto-applied its already-linked tmdb match via RD1 —
+  same record, three extra enrich-runs in its activity. Handoff: pushed to #352 (still ready);
+  §4.1–4.3 remain Kevin's.
 
 ### 2026-09-18 · session
 - skills: code-review

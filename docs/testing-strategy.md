@@ -2055,8 +2055,15 @@ Then it is exactly 76px: label + disambiguation + one 24px actions line + py-2 (
 ```
 Given the picker is opened for a person, film, video, or studio
 When slotShape(entityType) is asked which box to draw
-Then person and film → portrait (w-10 h-15), video → landscape (w-27 h-15), studio → logo
-     (w-30 h-15); every class carries h-15 and none carries aspect-* (vitest, candidateImage.test.ts)
+Then person and film → portrait (w-10 h-15), video → landscape (w-20 h-11.25 sm:w-27 sm:h-15),
+     studio → logo (w-20 h-10 sm:w-30 sm:h-15); every class carries an (sm:)h-15, none carries
+     aspect-*, and only the two wide shapes carry a below-sm step (vitest, candidateImage.test.ts)
+
+Given a viewport below sm (363 px) and the studio picker open
+When the slot and the label line are measured
+Then the slot is 80 × 40, the match-strength span sits below the label, and a 17-character
+     name is not clipped; at 1280 the slot is 120 × 60 and the label line is a row — live only,
+     the harness's narrowest cell (768) is above sm (QA §3.10)
 
 Given a mount of EnrichPicker that omits entityType
 When `npm run check` runs

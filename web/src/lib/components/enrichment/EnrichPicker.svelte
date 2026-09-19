@@ -389,8 +389,11 @@
 						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
-						<div class="flex items-center justify-between gap-2">
-							<span class="truncate text-sm text-ink">{c.label}</span>
+						<!-- Below `sm` the match strength stacks under the name (HOLODEX-414 QA §4.4):
+						     beside it, a 315px dialog left the name ~30px. `max-w-full` keeps `truncate`
+						     working on the column's shrink-to-fit item. -->
+						<div class="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+							<span class="max-w-full truncate text-sm text-ink">{c.label}</span>
 							<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
 						</div>
 						{#if c.disambiguation}

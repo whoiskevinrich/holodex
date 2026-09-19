@@ -45,13 +45,20 @@ describe('slotShape', () => {
 	it('gives studio the logo box', () => {
 		expect(slotShape('studio')).toBe('logo');
 	});
-	it('maps every shape to an explicit width and the shared 60px height, never an aspect class', () => {
+	it('maps every shape to an explicit width and the shared 60px height from sm up, never an aspect class', () => {
 		expect(SLOT_CLASS.portrait).toBe('w-10 h-15');
-		expect(SLOT_CLASS.landscape).toBe('w-27 h-15');
-		expect(SLOT_CLASS.logo).toBe('w-30 h-15');
+		expect(SLOT_CLASS.landscape).toBe('w-20 h-11.25 sm:w-27 sm:h-15');
+		expect(SLOT_CLASS.logo).toBe('w-20 h-10 sm:w-30 sm:h-15');
 		for (const cls of Object.values(SLOT_CLASS)) {
 			expect(cls).not.toMatch(/aspect-/);
-			expect(cls).toMatch(/\bh-15\b/);
+			expect(cls).toMatch(/(^|\s)(sm:)?h-15\b/);
 		}
+	});
+	it('narrows only the two wide boxes below sm, keeping each aspect (QA §4.4)', () => {
+		// 80 × 45 is 16:9, 80 × 40 is 2:1 — same shapes as their sm sizes, so the same
+		// image letterboxes the same way; the portrait box is already the narrowest.
+		expect(SLOT_CLASS.landscape).toMatch(/^w-20 h-11\.25 /);
+		expect(SLOT_CLASS.logo).toMatch(/^w-20 h-10 /);
+		expect(SLOT_CLASS.portrait).not.toMatch(/sm:/);
 	});
 });

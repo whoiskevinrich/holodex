@@ -147,12 +147,17 @@ the existing text block; the text block keeps its current structure (label + mat
 `disambiguation`, actions line, F61 `detail` list). *(Amended by HOLODEX-414; F64 as merged used
 one 40 × 60 box for every kind.)*
 
-| `entityType` | Box | Classes | Intended image |
-|---|---|---|---|
-| `person` | 40 × 60 portrait | `w-10 h-15` | profile / headshot |
-| `film` | 40 × 60 portrait | `w-10 h-15` | poster |
-| `video` | 108 × 60 landscape | `w-27 h-15` | backdrop / still (16:9); a poster letterboxes when that is all the provider has |
-| `studio` | 120 × 60 logo | `w-30 h-15` | logo — a wordmark spans the width, a symbol fills the height |
+| `entityType` | Box (≥ `sm`) | Box (< `sm`) | Classes | Intended image |
+|---|---|---|---|---|
+| `person` | 40 × 60 portrait | same | `w-10 h-15` | profile / headshot |
+| `film` | 40 × 60 portrait | same | `w-10 h-15` | poster |
+| `video` | 108 × 60 landscape | 80 × 45 | `w-20 h-11.25 sm:w-27 sm:h-15` | backdrop / still (16:9); a poster letterboxes when that is all the provider has |
+| `studio` | 120 × 60 logo | 80 × 40 | `w-20 h-10 sm:w-30 sm:h-15` | logo — a wordmark spans the width, a symbol fills the height |
+
+Below `sm` the two wide boxes narrow to 80 at the same aspect and the row's match-strength text
+stacks under the name (every kind), because a 315 px dialog left a studio name ~30 px beside
+"Strong match" (QA §4.4, Resolved Decision 10). The 60 px height — and therefore the 76 px row
+floor — holds from `sm` up, which is where the geometry harness measures.
 
 The picker takes a **required `entityType` prop** (`'person' | 'film' | 'video' | 'studio'`); its
 five mounts (the four detail pages and `EnrichQueueRow` via the queue row's `entity_type`) pass
@@ -312,6 +317,7 @@ Amended 2026-09-18 (HOLODEX-414, from a two-option inline mockup):
 | 7 | One box for every kind, or kind-shaped? | **Kind-shaped** — portrait / landscape / logo — retiring #1's "one box" and #3's "zero branching" (the branch is a pure `slotShape`, not a template conditional) | A video row is compared against a landscape file thumbnail; a studio row against a logo. A poster in a 2:3 box was the wrong evidence for both |
 | 8 | Height locked or width locked? | **Height locked at 60** (A): 40 / 108 / 120 wide. B (80 wide, rows shrink to the text stack) rejected | HOLODEX-406 §4.6 already ruled against handing row height to the text stack and thinning a logo's letterbox; 108 × 60 is the smallest recognisable still |
 | 9 | Media hit with no backdrop? | **Poster fallback**, letterboxed in the landscape box | Better identity evidence than a monogram; `object-contain` means it can never crop |
+| 10 | Narrow dialogs (QA §4.4, a 315 px dialog showed "Six P…")? | **Both** below `sm`: wide boxes to 80 at the same aspect **and** match strength under the name. Shrinking alone (~70 px for the name) and stacking alone (~124 px, clips a 128 px name) rejected from a four-panel mockup | The name is what the owner reads; 80 keeps a wordmark legible; nothing changes at ≥ 640 |
 
 ## Open Questions
 

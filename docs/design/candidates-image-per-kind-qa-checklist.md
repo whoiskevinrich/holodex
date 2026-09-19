@@ -66,9 +66,13 @@ list covers only what the shape change adds or alters.
 - **3.9** `[agent]` Three skins (`[data-theme]` = cinematheque / broadcast / brutalist): plate
   radius 2 / 0 / 0 on the 108 and 120 boxes, monogram contrast on plate unchanged from F64's
   12.2 / 13.0 / 15.3.
-- **3.10** `[agent]` 375 px viewport (`resize_window` mobile, reload): media slot still 108 × 60
-  and studio 120 × 60; label truncates; match-strength text intact and right-aligned; no
-  horizontal overflow on the dialog (`scrollWidth == clientWidth`).
+- **3.10** `[agent]` Below `sm` (`resize_window` 363 × 812, reload): media slot **80 × 45** and
+  studio **80 × 40** (`h-11.25` = 45 — Tailwind v4 emits the fractional step); the match-strength
+  span's `offsetTop` is below the label's (stacked); the label is not clipped for a 17-character
+  studio name; no horizontal overflow on the dialog (`scrollWidth == clientWidth`). At 1280 the
+  boxes are 108/120 × 60 and the label line's computed `flex-direction` is `row`. **As run
+  2026-09-18:** studio picker at 363 — slot 80 × 40, text block 180, "Six Point Harness" 110 px
+  unclipped, stacked; probes at 1280 — 108 × 60 / 120 × 60, `row` / `center` / `space-between`.
 - **3.11** `[agent]` Keyboard and click: unchanged — Tab from the search field lands on row 0,
   not the slot; clicking the backdrop applies the candidate.
 
@@ -84,7 +88,7 @@ list covers only what the shape change adds or alters.
   wide as it is tall; a wordmark spans the tile with plate above and below; a symbol fills the
   height with plate either side. Nothing is cropped.
 - **4.4** `[human]` On a phone-width window (≈ 375 px), open the media picker and the studio
-  picker. The name and the match percentage should both be readable on every row. If names are
-  truncating so early the rows stop being scannable, say so — the fix is a narrower tile on
-  small screens only, not a shorter one.
+  picker. The name and the match percentage should both be readable on every row. **Answered
+  2026-09-18:** Kevin's 315 px dialog showed "Six P…" — fixed by narrowing the wide tiles to 80
+  below `sm` and stacking the match strength under the name; re-check that a name now reads.
 - **4.5** `[human]` Open the picker on a person and on a film: nothing has changed from before.
