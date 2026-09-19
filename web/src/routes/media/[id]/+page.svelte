@@ -43,6 +43,7 @@
 	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
+	import PosterTile from '$lib/components/entity/PosterTile.svelte';
 	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
 	import { partBadgeLabel } from '$lib/components/video/partBadge';
@@ -1661,12 +1662,19 @@
 											>
 										{/if}
 									</div>
-									<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{f.film_name}</span>
 								{/snippet}
-								<li class="curation-chip group relative w-20 shrink-0">
-									<a href={`/films/${f.film_id}`} class="block space-y-1.5 text-ink" title={f.film_name}>
-										{@render filmPoster()}
-									</a>
+								<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):
+								     the scene pill owns the top-right corner the Scenes grid trained the
+								     eye to check. The two only share the tile while it is hovered or
+								     focused, since remove stays inside .curation-actions. -->
+								<PosterTile
+									href={`/films/${f.film_id}`}
+									name={f.film_name}
+									poster={filmPoster}
+									onRemove={isOwner ? () => removeFilm(f) : undefined}
+									busy={filmBusyKey === f.film_id}
+									removeSide="left"
+								>
 									<!-- `role` is semantically redundant on a real <button>, but svelte-check cannot
 									     see what <svelte:element> resolves to and fails a11y without it. Keep it. -->
 									<svelte:element
@@ -1681,22 +1689,7 @@
 									>
 										{sceneBadgeLabel(f.scene_number, f.is_full_film)}
 									</svelte:element>
-									{#if isOwner}
-										<!-- Remove docks top-LEFT here, unlike People's top-right (HOLODEX-328):
-										     the scene pill owns the top-right corner the Scenes grid trained the
-										     eye to check. The two only share the tile while it is hovered or
-										     focused, since remove stays inside .curation-actions. -->
-										<button
-											type="button"
-											onclick={() => removeFilm(f)}
-											disabled={filmBusyKey === f.film_id}
-											aria-label={`Remove ${f.film_name}`}
-											class="curation-actions absolute left-1.5 top-1.5 z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-										>
-											{filmBusyKey === f.film_id ? '…' : '×'}
-										</button>
-									{/if}
-								</li>
+								</PosterTile>
 							{/each}
 							{#if isOwner}
 								<li class="w-20 shrink-0">
