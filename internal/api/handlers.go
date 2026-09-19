@@ -486,10 +486,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	isOwner := h.auth.authorized(r)
 	if isOwner {
-		if err := h.drainCompleteness(r.Context()); err != nil {
-			h.fail(w, "list media", err)
-			return
-		}
+		h.drainCompleteness(r.Context())
 	}
 
 	items, total, err := h.repo.ListVideos(r.Context(), f)
@@ -573,10 +570,7 @@ func (h *Handlers) completenessFacets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "entity_type must be video, person, or studio")
 		return
 	}
-	if err := h.drainCompleteness(r.Context()); err != nil {
-		h.fail(w, "completeness facets", err)
-		return
-	}
+	h.drainCompleteness(r.Context())
 	var counts []repo.MissingFacetCount
 	var err error
 	if entityType == model.EnrichEntityVideo {
@@ -1179,10 +1173,7 @@ func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	}
 	isOwner := h.auth.authorized(r)
 	if isOwner {
-		if err := h.drainCompleteness(r.Context()); err != nil {
-			h.fail(w, "list people", err)
-			return
-		}
+		h.drainCompleteness(r.Context())
 	}
 	people, err := h.repo.ListPeopleFiltered(r.Context(), f)
 	if err != nil {

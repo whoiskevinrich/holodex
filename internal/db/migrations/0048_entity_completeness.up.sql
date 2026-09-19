@@ -92,87 +92,112 @@ END;
 -- ---------------------------------------------------------------------------
 -- Entity-typed shadow tables (entity_type, entity_id): the enrichment shadow
 -- store, curation, per-field source decisions, not-applicable marks, aliases.
+-- Only the three scored types are ever flagged: a film's shadow rows or a tag's
+-- aliases would otherwise leave dirty rows that exist only to be cleared.
 -- ---------------------------------------------------------------------------
 CREATE TRIGGER cd_entity_enrichment_ai AFTER INSERT ON entity_enrichment BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_entity_enrichment_au AFTER UPDATE ON entity_enrichment BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_entity_enrichment_ad AFTER DELETE ON entity_enrichment BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
 END;
 
 CREATE TRIGGER cd_metadata_curation_ai AFTER INSERT ON metadata_curation BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_metadata_curation_au AFTER UPDATE ON metadata_curation BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_metadata_curation_ad AFTER DELETE ON metadata_curation BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
 END;
 
 CREATE TRIGGER cd_field_source_decisions_ai AFTER INSERT ON field_source_decisions BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_field_source_decisions_au AFTER UPDATE ON field_source_decisions BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_field_source_decisions_ad AFTER DELETE ON field_source_decisions BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
 END;
 
 CREATE TRIGGER cd_facet_not_applicable_ai AFTER INSERT ON facet_not_applicable BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_facet_not_applicable_au AFTER UPDATE ON facet_not_applicable BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_facet_not_applicable_ad AFTER DELETE ON facet_not_applicable BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
 END;
 
 -- alternate_names is an optional facet today (listed, unscored) but it is an
 -- input Complete lists, so a future promotion to a band needs no new trigger.
 CREATE TRIGGER cd_entity_aliases_ai AFTER INSERT ON entity_aliases BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_entity_aliases_au AFTER UPDATE ON entity_aliases BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT new.entity_type, new.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
+        SELECT new.entity_type, new.entity_id WHERE new.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = new.entity_type AND entity_id = new.entity_id);
 END;
 CREATE TRIGGER cd_entity_aliases_ad AFTER DELETE ON entity_aliases BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
-        SELECT old.entity_type, old.entity_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
+        SELECT old.entity_type, old.entity_id WHERE old.entity_type IN ('video', 'person', 'studio')
+          AND NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = old.entity_type AND entity_id = old.entity_id);
 END;
 
 -- ---------------------------------------------------------------------------
--- Video-keyed tables: the file layer, and the link tables (which dirty the VIDEO
--- side only: no person or studio facet reads a link, ADR-099 D4).
+-- Video-keyed tables: the file layer, and the link tables. video_people and
+-- video_studios dirty BOTH sides: no person or studio facet reads a link
+-- (ADR-099 D4), but *listability* does — a person with no active video has no
+-- store row (the drain clears it), so re-linking must flag the person again or
+-- it would list with no ring until some unrelated input write.
 -- ---------------------------------------------------------------------------
 CREATE TRIGGER cd_video_metadata_ai AFTER INSERT ON video_metadata BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
@@ -192,31 +217,47 @@ END;
 CREATE TRIGGER cd_video_people_ai AFTER INSERT ON video_people BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', new.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = new.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'person', new.person_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'person' AND entity_id = new.person_id);
 END;
 CREATE TRIGGER cd_video_people_au AFTER UPDATE ON video_people BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', old.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = old.video_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', new.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = new.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'person', old.person_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'person' AND entity_id = old.person_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'person', new.person_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'person' AND entity_id = new.person_id);
 END;
 CREATE TRIGGER cd_video_people_ad AFTER DELETE ON video_people BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', old.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = old.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'person', old.person_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'person' AND entity_id = old.person_id);
 END;
 
 CREATE TRIGGER cd_video_studios_ai AFTER INSERT ON video_studios BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', new.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = new.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'studio', new.studio_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'studio' AND entity_id = new.studio_id);
 END;
 CREATE TRIGGER cd_video_studios_au AFTER UPDATE ON video_studios BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', old.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = old.video_id);
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', new.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = new.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'studio', old.studio_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'studio' AND entity_id = old.studio_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'studio', new.studio_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'studio' AND entity_id = new.studio_id);
 END;
 CREATE TRIGGER cd_video_studios_ad AFTER DELETE ON video_studios BEGIN
     INSERT INTO completeness_dirty (entity_type, entity_id)
         SELECT 'video', old.video_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = old.video_id);
+    INSERT INTO completeness_dirty (entity_type, entity_id)
+        SELECT 'studio', old.studio_id WHERE NOT EXISTS (SELECT 1 FROM completeness_dirty WHERE entity_type = 'studio' AND entity_id = old.studio_id);
 END;
 
 CREATE TRIGGER cd_video_tags_ai AFTER INSERT ON video_tags BEGIN

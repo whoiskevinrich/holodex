@@ -67,6 +67,36 @@ func TestListMedia_CompletenessOnItems_OwnerOnly(t *testing.T) {
 	}
 }
 
+// The owner gate's other half: a visitor read must never drain — never take
+// writeMu and write the store — so the dirty set seeded by the fixture's
+// inserts survives any number of visitor page loads and is consumed only by
+// the first owner read.
+func TestListMedia_VisitorReadNeverDrains(t *testing.T) {
+	srv, r := completenessBrowseServerWithRepo(t, "secret")
+	ctx := context.Background()
+
+	before, err := r.DirtyCompleteness(ctx)
+	if err != nil || len(before["video"]) != 3 {
+		t.Fatalf("dirty before = %v, %v; want the 3 seeded videos", before, err)
+	}
+	for _, path := range []string{"/api/v1/media", "/api/v1/people", "/api/v1/studios"} {
+		if code, _ := getJSONTok(t, srv.URL+path, ""); code != http.StatusOK {
+			t.Fatalf("visitor %s: want 200, got %d", path, code)
+		}
+	}
+	if after, _ := r.DirtyCompleteness(ctx); len(after["video"]) != 3 {
+		t.Errorf("dirty after visitor reads = %v, want the 3 seeded videos untouched", after)
+	}
+	if _, err := r.StoredCompleteness(ctx, model.EnrichEntityVideo, before["video"][0]); err != repo.ErrNotFound {
+		t.Errorf("store after visitor reads: err = %v, want ErrNotFound (nothing written)", err)
+	}
+
+	getJSONTok(t, srv.URL+"/api/v1/media", "secret")
+	if after, _ := r.DirtyCompleteness(ctx); len(after["video"]) != 0 {
+		t.Errorf("dirty after the first owner read = %v, want empty", after)
+	}
+}
+
 // F65.6: a mutation on an input table (here the enrichment shadow store)
 // reaches the badge on the next owner read with no restart and no backfill —
 // the trigger dirties the row, the list read drains it.

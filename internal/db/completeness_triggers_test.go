@@ -77,6 +77,45 @@ func TestMigration0048_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
 	}
 }
 
+// Link tables flag BOTH sides: no person/studio facet reads a link, but a
+// person with no active video has no store row (the drain clears it), so
+// re-linking must re-flag the person or it lists with no ring.
+func TestMigration0048_LinkTablesDirtyBothSides(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+
+	mustExec(t, db, `INSERT INTO video_people (video_id, person_id, role) VALUES (1, 1, 'actor')`)
+	mustExec(t, db, `INSERT INTO video_studios (video_id, studio_id) VALUES (1, 1)`)
+	for _, want := range []string{"('video', 1)", "('person', 1)", "('studio', 1)"} {
+		if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE (entity_type, entity_id) = `+want); n != 1 {
+			t.Errorf("link insert left %d dirty rows for %s, want 1", n, want)
+		}
+	}
+	mustExec(t, db, `DELETE FROM completeness_dirty`)
+	mustExec(t, db, `DELETE FROM video_people WHERE video_id = 1 AND person_id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE (entity_type, entity_id) = ('person', 1)`); n != 1 {
+		t.Errorf("link delete left %d dirty rows for the person, want 1", n)
+	}
+}
+
+// Shadow-table writes for an entity type nothing scores (a film's enrichment,
+// a tag's alias) must not leave dirty rows that exist only to be cleared.
+func TestMigration0048_UnscoredEntityTypesNeverDirty(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	mustExec(t, db, `INSERT INTO entity_enrichment (entity_type, entity_id, provider, field_key, value, fetched_at) VALUES ('film', 1, 'tmdb', 'overview', 'x', '2026-09-18T00:00:00Z')`)
+	mustExec(t, db, `INSERT INTO entity_aliases (entity_type, entity_id, alias) VALUES ('tag', 1, 'Drama')`)
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty`); n != 0 {
+		t.Errorf("unscored entity-type writes left %d dirty rows, want 0", n)
+	}
+}
+
 // The scanner rewrites every videos row on every scan (UpsertVideo's ON CONFLICT
 // DO UPDATE lists title among its SET columns even when unchanged); the videos
 // update trigger must fire only on a real change to a column Complete reads.

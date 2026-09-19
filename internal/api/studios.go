@@ -146,10 +146,7 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	}
 	isOwner := h.auth.authorized(r)
 	if isOwner {
-		if err := h.drainCompleteness(r.Context()); err != nil {
-			h.fail(w, "list studios", err)
-			return
-		}
+		h.drainCompleteness(r.Context())
 	}
 	studios, err := h.repo.ListStudiosFiltered(r.Context(), f)
 	if err != nil {

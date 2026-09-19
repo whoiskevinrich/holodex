@@ -118,18 +118,20 @@ func (r *Repo) writeCompleteness(ctx context.Context, entityType string, ids []i
 	}
 	defer tx.Rollback()
 
+	// One statement per table for the whole chunk, not per id — the boot /
+	// reload drain clears thousands of ids under writeMu.
+	in := " WHERE entity_type = ? AND entity_id IN (" + placeholders(len(ids)) + ")"
+	args := append([]any{entityType}, toAnySlice(ids)...)
 	clears := []string{
-		`DELETE FROM entity_completeness WHERE entity_type = ? AND entity_id = ?`,
-		`DELETE FROM entity_completeness_missing WHERE entity_type = ? AND entity_id = ?`,
+		`DELETE FROM entity_completeness` + in,
+		`DELETE FROM entity_completeness_missing` + in,
 	}
 	if clearDirty {
-		clears = append(clears, `DELETE FROM completeness_dirty WHERE entity_type = ? AND entity_id = ?`)
+		clears = append(clears, `DELETE FROM completeness_dirty`+in)
 	}
-	for _, id := range ids {
-		for _, q := range clears {
-			if _, err := tx.ExecContext(ctx, q, entityType, id); err != nil {
-				return fmt.Errorf("write completeness: clear %s/%d: %w", entityType, id, err)
-			}
+	for _, q := range clears {
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return fmt.Errorf("write completeness: clear %s: %w", entityType, err)
 		}
 	}
 	now := time.Now().UTC().Format(timeLayout)

@@ -83,3 +83,13 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
   not OR IGNORE", "visitor has no key" rules); security review clean. F65.3 reworded to "offers at
   most". PR #350 marked ready, HOLODEX-412 → In Review by hand. Open: Kevin's eyeball QA on the prod
   skin (handoff 3.1–3.4, 1.2 needs a multi-part video) and the by-hand Done sweep on merge.
+
+### 2026-09-18 · post-ready code review (xhigh)
+- skills: code-review xhigh --fix
+- handoff: nine findings, seven fixed, one no-change, one skipped (the bool list wrappers). Fixed:
+  drain failure no longer 500s the owner list pages (logs, serves the store as-is, ids stay dirty);
+  `/people` Poster View card was unwired — ring now rides the caption's count line under the row
+  rule (handoff § People Poster View + QA 3.5, live-verified 53/53 cards); link triggers flag the
+  person/studio side too (listability, not facets — ADR-099 implementation note); shadow-table
+  triggers skip unscored entity types; chunked DELETEs in the drain; stale v1 doc comments; a
+  visitor-never-drains test. PR #350 stays ready; nothing else open on the branch.

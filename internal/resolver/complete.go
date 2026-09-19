@@ -67,7 +67,7 @@ func (c Completeness) Missing() []FacetScore {
 
 // FacetScore is one scored facet's tier/status for the completeness breakdown
 // panel (F55). A not-applicable facet is still listed, so the UI can render its
-// muted status, but it is excluded from Completeness.Score and Actionability.
+// muted status, but it is excluded from both bands and from Actionability.
 type FacetScore struct {
 	Canonical     string `json:"canonical"`
 	Label         string `json:"label"`

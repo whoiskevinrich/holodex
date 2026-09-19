@@ -93,6 +93,15 @@ Card density: at the 8-column maximum (HOLODEX-331) a poster is ~130 px wide; a 
 | Chip | None — the ring sits directly on `bg-surface`; the `muted` track reads against it |
 | Select mode (people) | The snippet is shared by the checkbox-label and the link wrappers, so the ring appears in both — no special case |
 
+### People Poster View (`person/PersonPosterCard.svelte`)
+
+`/people` has a second layout — the F55 Poster View (HOLODEX-255) — whose card is a 2:3 portrait
+over a two-line caption (name, count). F65.4 covers every person card in a browse grid, so the ring
+rides the caption's count line under the **row rule**: `<CompletenessRing size="row" …/>` trailing,
+immediately before the count, in a `flex items-center gap-1.5` wrapper. The name line never moves
+between visitor and owner mode; no chip (the caption sits on the page surface, where the `muted`
+track reads). Added 2026-09-18 after code review found the poster grid unwired.
+
 ### Where it appears
 
 Wherever a video / person / studio item comes from a list endpoint that emits `completeness` (ADR-099
@@ -182,3 +191,4 @@ visitor (log out or private window).
 - 3.2 `[human]` Broadcast and Brutalist: on a fully-filled card, the solid ink circle is clearly different from the accent-only full ring next to it (the ink one looks white/pale; the accent one looks cyan/lime).
 - 3.3 `[human]` Brutalist (radius 0): the ring chip is square-cornered like the duration pill beside it; Cinémathèque: the chip's corners match the duration pill's. The ring itself is round on every skin — it is a meter, not a chip.
 - 3.4 `[human]` `/people` as owner: the rings sit visually on the same baseline as the counts and don't make the rows taller; toggle select mode — the rings are still there inside the checkbox rows.
+- 3.5 `[human]` `/people` as owner, Poster View: every card's count line carries the ring before the count; the person with no photo shows an empty muted ring under their placeholder portrait.

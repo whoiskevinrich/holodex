@@ -188,6 +188,22 @@ fills no longer touches the score. **Chosen over:** auto-muting facets that are 
 library-wide — the denominator would move as the library grows, and a badge whose scale changes
 under the owner cannot be explained.
 
+### Implementation notes (2026-09-18, recorded at build time; the decisions above stand)
+
+- **Link tables dirty both sides after all.** D4 says link tables dirty the video side only because no
+  person/studio *facet* reads a link. Correct for the score, wrong for the store: a person with no
+  active video is not in the listable set, so the drain clears their row, and when they are re-linked
+  nothing would flag them — they would list with no ring until an unrelated write. `video_people` and
+  `video_studios` therefore flag the person/studio too; the cost is one extra dirty row per link write.
+- **Promotion / claim / hint writes mark-all in SQL**, not in the four Go methods D4 names — the
+  same effect from the triggers, and any future writer of those tables is covered. Boot and mapping
+  reload remain the two Go-side mark-alls.
+- **Trigger bodies are `INSERT … SELECT … WHERE NOT EXISTS`**, not `INSERT OR IGNORE`: SQLite lets
+  the firing statement's conflict clause override a trigger's, and an upsert turned `OR IGNORE` into
+  an abort.
+- **The drain is best-effort on list pages.** A drain failure logs and the list is served from the
+  store as it stands; the ids stay dirty and the next owner read retries. The badge is not the page.
+
 ## Options Considered
 
 ### D1: aggregation

@@ -69,18 +69,17 @@ func injectSyntheticFacet(fields []mapping.Field, resolved []resolver.ResolvedFi
 	return fields, resolved
 }
 
-// completenessForVideos resolves and scores every active video matching f
-// (ADR-081 D4). Mirrors getMedia's resolve pipeline per video, batch-loading
-// each input instead of the detail handler's per-entity queries. Critically,
+// completenessForVideos resolves and scores every active video matching f —
+// the drain's dirty ids (f.IDs) or the queue's whole library. Mirrors getMedia's
+// resolve pipeline per video, batch-loading each input instead of the detail
+// handler's per-entity queries. Critically,
 // unlike applyBrowseTitles, it loads ExtraMetadataForVideos: studio/actors
 // (both critical facets) resolve from file tags that live only in
 // ExtraMetadata, not on model.Video, so skipping it would misreport them as
 // missing.
 //
 // f carries the caller's existing browse filters (tags/person/studio/query/
-// duration/year/mapped) so completeness sort and the missing-facet filter
-// compose with them instead of scoring the whole library regardless of what
-// the caller is looking at; f.Limit/Offset are ignored (ListAllVideos, D4).
+// duration/year/mapped); f.Limit/Offset are ignored (ListAllVideos).
 func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter) ([]VideoCompleteness, error) {
 	if h.mappings == nil {
 		return nil, nil
@@ -188,8 +187,9 @@ func (h *Handlers) loadEntityCompletenessBatch(ctx context.Context, entityType s
 }
 
 // completenessForPeople resolves and scores every person with at least one
-// active video (ADR-081 D4). Mirrors personResolved's pipeline per person,
-// batch-loading each input instead of personResolved's per-entity queries.
+// active video matching f (the drain's dirty ids, or the queue's whole set).
+// Mirrors personResolved's pipeline per person, batch-loading each input
+// instead of personResolved's per-entity queries.
 func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFilter) ([]PersonCompleteness, error) {
 	people, err := h.repo.ListPeopleFiltered(ctx, f)
 	if err != nil {
@@ -241,8 +241,9 @@ func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFi
 }
 
 // completenessForStudios resolves and scores every studio with at least one
-// active video (ADR-081 D4). Mirrors resolveStudio's pipeline per studio,
-// batch-loading each input instead of resolveStudio's per-entity queries.
+// active video matching f (the drain's dirty ids, or the queue's whole set).
+// Mirrors resolveStudio's pipeline per studio, batch-loading each input
+// instead of resolveStudio's per-entity queries.
 func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListFilter) ([]StudioCompleteness, error) {
 	studios, err := h.repo.ListStudiosFiltered(ctx, f)
 	if err != nil {
@@ -309,7 +310,18 @@ func wantsCompleteness(sort string, missingFacets []string) bool {
 // the repo holds writeMu for the whole read, resolve, write, which also
 // serializes two owner requests in flight together (the SPA fires /media and
 // /completeness/facets side by side) — the second finds an empty set.
-func (h *Handlers) drainCompleteness(ctx context.Context) error {
+//
+// Best-effort by design: the badge is not the page. A failure is logged and the
+// caller serves the list from whatever the store holds (a stale ring, or none)
+// rather than turning every owner browse page into a 500 over one entity whose
+// resolve blew up; the ids stay dirty, so the next owner read retries.
+func (h *Handlers) drainCompleteness(ctx context.Context) {
+	if err := h.drainCompletenessStrict(ctx); err != nil {
+		h.log.Warn("completeness drain", "err", err)
+	}
+}
+
+func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 	return h.repo.DrainCompleteness(ctx, func(entityType string, ids []int64) ([]repo.CompletenessRow, error) {
 		var rows []repo.CompletenessRow
 		switch entityType {
