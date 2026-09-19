@@ -1153,3 +1153,47 @@ func TestDescribeLinkTemplates(t *testing.T) {
 		}
 	}
 }
+
+// An upstream 429 is passed through as the contract's back-pressure signal (§2.0,
+// ADR-103 D10): 429 + Retry-After on both endpoints, TMDB's header verbatim when
+// it is delta-seconds and Holodex's 30 s default when absent or unparseable.
+func TestRateLimitedPassThrough(t *testing.T) {
+	retryAfter := "17"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if retryAfter != "" {
+			w.Header().Set("Retry-After", retryAfter)
+		}
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer upstream.Close()
+	h := newHandler(clientWith(upstream), newDiscardLogger())
+
+	call := func(path, body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		if path == "/resolve" {
+			h.resolve(w, req)
+		} else {
+			h.enrich(w, req)
+		}
+		return w
+	}
+
+	w := call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`)
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "17" {
+		t.Fatalf("resolve = %d Retry-After=%q, want 429 / 17", w.Code, w.Header().Get("Retry-After"))
+	}
+	w = call("/enrich", `{"entity_type":"person","external_id":"tmdb:608"}`)
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "17" {
+		t.Fatalf("enrich = %d Retry-After=%q, want 429 / 17", w.Code, w.Header().Get("Retry-After"))
+	}
+
+	retryAfter = ""
+	if w = call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`); w.Header().Get("Retry-After") != rateLimitedDefaultRetry {
+		t.Fatalf("absent upstream Retry-After should default to %s, got %q", rateLimitedDefaultRetry, w.Header().Get("Retry-After"))
+	}
+	retryAfter = "Sat, 19 Sep 2026 12:00:00 GMT"
+	if w = call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`); w.Header().Get("Retry-After") != rateLimitedDefaultRetry {
+		t.Fatalf("HTTP-date Retry-After should default to %s, got %q", rateLimitedDefaultRetry, w.Header().Get("Retry-After"))
+	}
+}

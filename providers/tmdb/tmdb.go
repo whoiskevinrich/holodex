@@ -21,6 +21,17 @@ import (
 
 var errNotFound = errors.New("not found")
 
+// errRateLimited is an upstream 429 (contract §2.0, ADR-103 D10): the handler passes
+// it through to Holodex as 429 + Retry-After so core pauses this provider's bucket
+// instead of counting a failure. RetryAfter is TMDB's header verbatim (delta-seconds),
+// "" when it sent none — the handler then uses rateLimitedDefaultRetry.
+type errRateLimited struct {
+	Path       string
+	RetryAfter string
+}
+
+func (e *errRateLimited) Error() string { return "TMDB rate-limited (429) on " + e.Path }
+
 // studioExternalIDsField is the reserved "_"-prefixed sidecar field-key that hands
 // per production-company TMDB ids to Holodex studio-link de-dup (HOLODEX-122,
 // ADR-054). It must match holodex/internal/model.StudioExternalIDsField — this
@@ -1207,7 +1218,7 @@ func (c *tmdbClient) get(ctx context.Context, path string, params url.Values, ou
 	case http.StatusNotFound:
 		return fmt.Errorf("%w: TMDB %s", errNotFound, path)
 	case http.StatusTooManyRequests:
-		return fmt.Errorf("TMDB rate-limited (429) on %s", path)
+		return &errRateLimited{Path: path, RetryAfter: strings.TrimSpace(resp.Header.Get("Retry-After"))}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("TMDB %s returned %d", path, resp.StatusCode)

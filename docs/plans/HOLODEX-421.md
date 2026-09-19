@@ -38,9 +38,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6),
   `Service.RefreshPair` shared step (D7), `SweepRunner` + `sweep` block (D8), `batch_id` (D9), TMDB
   `429` pass-through (D10); README row; spec / contract §4.13 / F47 pointers → ADR-103
-- [ ] backend — **AI 1–6 shipped** (pacer + `rate_limit` carriage + `429` typed in `do` +
+- [x] backend — ADR-103 action items 1–7: pacer + `rate_limit` carriage + `429` typed in `do` +
   `Service.RefreshPair` + `503`/`rate_limited` mapping + `SweepRunner` / `POST /admin/enrich/sweep/{kind}`
-  / `sweep` block / `?batch=` / `LibraryCounts.Studios`); remaining: TMDB `429` pass-through (AI 7)
+  / `sweep` block / `?batch=` / `LibraryCounts.Studios` + TMDB sidecar `429` pass-through
 - [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
   pages; `JobHistory` batch chip; `activity.busy` includes sweep
 - [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
@@ -55,9 +55,10 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
-3. [ ] [—] Backend AI **7** (TMDB sidecar `429` pass-through), then frontend (status-page buttons +
-   confirm, `SweepStatusLine`, `JobHistory` batch chip, `activity.active` includes sweep,
-   `LibraryCounts.studios` type) → tests, per the gates above
+3. [ ] [—] Frontend (status-page buttons + inline confirm with due count + checkbox,
+   `SweepStatusLine` on `/people` + `/studios`, `JobHistory` batch chip, `activity.active` includes
+   sweep, `LibraryCounts.studios` + `Activity.sweep` types), then `/testing-strategy` →
+   `/security-review` → three-skin QA, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
 
@@ -165,3 +166,15 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   cancellations counted toward the breaker.
 - handoff: next = AI 7 (TMDB sidecar passes upstream `429` + `Retry-After`; contract §2.0 already
   says so) — small; then the frontend gate.
+
+### 2026-09-19 · backend 5 — TMDB sidecar `429` pass-through (AI 7) — backend gate closed
+- skills: code-review
+- `providers/tmdb`: `get()` returns a typed `errRateLimited{Path, RetryAfter}` on an upstream 429
+  (header verbatim); `writeRateLimited` in the resolve/enrich handlers answers `429` + `Retry-After`
+  (TMDB's delta-seconds when positive, else `30` — core's default, so both sides agree). No contract
+  diff needed — §2.0/§2.5 already state it; the sidecar now complies. 1 handler-level test.
+- handoff: **backend gate closed.** Next session = frontend gate: `/owner/status` buttons + confirm
+  (`library.people`/`library.studios` due count, `☐ Refresh everything` → `force`), shared
+  `SweepStatusLine.svelte` fed by `activity.sweep`, `JobHistory` `?batch=` chip, `active` getter
+  includes `sweep.state === 'running'`, TS types for `sweep` + `library.studios`. Handoff doc:
+  `docs/design/entity-refresh-sweep-handoff.md` (Option D, seven states).
