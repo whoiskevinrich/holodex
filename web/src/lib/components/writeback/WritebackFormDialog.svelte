@@ -8,8 +8,10 @@
 	// atomic over everything DECIDED: a standing decision that lags the file is always
 	// written, an undecided provider value is written only once the owner picks it here
 	// (picking is the confirm — there is no checkbox and no "select all"), an undecided row
-	// nobody touched is never written, and a field with nothing to decide here (image_url,
-	// merge) is listed read-only and never written. The dialog is the cockpit for the GOLDEN
+	// nobody touched is never written, and a field with nothing to decide here (merge) is
+	// listed read-only and never written. Image fields are cockpit rows with a tile chooser
+	// (HOLODEX-403; their sync is witnessed by the write ledger, ADR-101). The dialog is the
+	// cockpit for the GOLDEN
 	// RECORD — Holodex's own truth for the video — of which only the mapped subset reaches the
 	// file: an unmapped field (no file tag for this container) still gets the chooser, and its
 	// pick is saved in Holodex alone; the gutter names which destination Write will touch
@@ -32,6 +34,7 @@
 	import {
 		isBlankCustom,
 		isCockpitRow,
+		isImageRow,
 		isUnverifiable,
 		needsDecision,
 		rowClass,
@@ -41,12 +44,15 @@
 	} from '$lib/writebackCockpit';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
+	import SourceImageTiles from '../curation/SourceImageTiles.svelte';
 	import SourceRadioList from '../curation/SourceRadioList.svelte';
 
 	let {
 		fields,
 		videoId,
 		filePath,
+		entityImage,
+		entityImageUploaded = false,
 		onclose,
 		onenqueued,
 		writeback,
@@ -55,6 +61,14 @@
 		fields: ResolvedField[];
 		videoId: number;
 		filePath: string;
+		// The video's own served poster (F53 route) — what the image chooser's `·file` tile
+		// shows (HOLODEX-403). The file candidate's VALUE is usually '' (no `file:` source in
+		// the mapping); the tile still has an image to show, this one. Omitted → placeholder.
+		entityImage?: string;
+		// true when that served poster is an owner upload (F52): it then is NOT the file's
+		// cover art (the upload overwrote the extracted tier), so the tile is a placeholder and
+		// the row carries the ADR-049 note (ADR-101 D4).
+		entityImageUploaded?: boolean;
 		onclose: () => void;
 		// Fires once the write is accepted (the 202 ack) — before anything has
 		// actually been written (ADR-091) — or, when only re-pointed-to-file decisions
@@ -76,8 +90,8 @@
 		selection: { key: string; pending: boolean };
 		stagedKey: string | null;
 		stagedCustomValue: string;
-		// Non-cockpit rows (image_url, merge) keep their seeded text `value`; for a cockpit row
-		// `value` is unused and rowValue() reads the staged pick instead.
+		// Non-cockpit rows (merge) keep their seeded text `value`; for a cockpit row `value` is
+		// unused and rowValue() reads the staged pick instead.
 		value: string;
 		// Open-time value, so the undecided group's tier sort never moves a row mid-edit.
 		originalValue: string;
@@ -97,9 +111,7 @@
 		const stagedCustomValue = f.decision?.source === 'manual' ? (f.decision.manual_value ?? '') : '';
 		const seed = isCockpitRow(f)
 			? stagedValue(chips, { key: stagedKey, custom: stagedCustomValue })
-			: f.display === 'image_url'
-				? (f.values[0] ?? '')
-				: f.values.join(', ');
+			: f.values.join(', ');
 		return {
 			field: f,
 			chips,
@@ -116,10 +128,9 @@
 	// The rows that write on open are the standing decisions the file lags (leadRow) — the
 	// header's "· {n} out of sync" set plus any decided row whose sync state cannot be read
 	// back (ADR-093). Everything else is listed but inert until the owner acts: a cockpit row
-	// writes once a chip is picked (willWrite). image_url and merge rows have nothing to decide
-	// here (no chooser yet — HOLODEX-403 / 401; merge fields carry no decision at all, RD1), so
-	// they are shown read-only and never written from this dialog — poster_url included, whose
-	// write would trigger a server-side download + cover-art embed.
+	// writes once a chip is picked (willWrite) — a poster tile included, whose write triggers
+	// the server-side download + cover-art embed. Merge rows have nothing to decide here (no
+	// decision model, RD1; tags as a set is HOLODEX-401), so they are read-only.
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(fields.map(seedRow));
 
@@ -167,7 +178,7 @@
 	//
 	// Row order within undecided (R4.4): mapped-and-differing first, then unmapped rows (still
 	// decidable here — the decision lands in Holodex alone), then rows that already match the
-	// file, then the rows nothing can be done with here (image_url/merge) — sorted on the row's
+	// file, then the rows nothing can be done with here (merge) — sorted on the row's
 	// ORIGINAL (open-time) value rather than the live one, so a row never jumps position while
 	// the owner is mid-pick.
 	function rowTier(row: Row): number {
@@ -265,9 +276,8 @@
 	// equivalent of the Tier-2 badge's explicit Confirm), so submit() records the decision
 	// before the write whenever one is needed — an undecided row, or a decided row whose
 	// staged pick differs from the standing selection. An untouched decided row is a no-op.
-	// image_url rows are excluded — picking a candidate there stays a SourceSelect-only
-	// decision (RD5, HOLODEX-403) — and merge (multi) rows never carry a decision (RD1;
-	// the resolver ignores one outright, so creating it would be a misleading ghost row).
+	// Merge (multi) rows never carry a decision (RD1; the resolver ignores one outright, so
+	// creating it would be a misleading ghost row).
 	async function ensureDecision(row: Row) {
 		if (isBlankCustom(stagedOf(row).staged)) return;
 		if (!needsDecision(row.field, row.chips, { key: row.stagedKey, custom: row.stagedCustomValue })) return;
@@ -451,7 +461,31 @@
 	     — the write happens, it just cannot be confirmed later. No warning line: this is a
 	     property of the mapping (the server logs which read-back key to add), not of the row. -->
 	{@const unverifiable = isUnverifiable(row.field)}
-	{#if row.field.display === 'long_text'}
+	{#if isImageRow(row.field)}
+		<!-- Image tiles (HOLODEX-403, ADR-101 D3): one per candidate, no Custom opener (a pasted
+		     URL cannot pass the asset-host allowlist) — though a manual literal that already
+		     stands (API-made) keeps its ·manual tile, or the group would have nothing checked.
+		     The ·file tile shows the video's own served poster — unless that is an owner
+		     upload, which is not the file's cover art (ADR-049): placeholder + note, and the
+		     upload is never a candidate. -->
+		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
+			<SourceImageTiles
+				field={row.field}
+				chips={row.chips.filter((c) => c.key !== 'custom' || c.value)}
+				selection={row.selection}
+				bind:stagedKey={row.stagedKey}
+				disabled={busy}
+				baselineImage={entityImageUploaded ? undefined : entityImage}
+				baselinePlaceholder={entityImageUploaded ? ['cover art', 'in file'] : ['no cover', 'art']}
+				onstage={() => onStaged(row)}
+			/>
+			{#if entityImageUploaded}
+				<p class="mt-1 text-xs text-muted">
+					Your uploaded poster stays on the page; this row is the cover art inside the file.
+				</p>
+			{/if}
+		</div>
+	{:else if row.field.display === 'long_text'}
 		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
 			<SourceRadioList
 				field={row.field}
@@ -605,47 +639,6 @@
 								{rowValue(row) || '—'}
 								<span class="block">No file tag for this container — can't be written.</span>
 							</p>
-						{:else if row.field.display === 'image_url'}
-							<!-- Read-only file-vs-enriched comparison (HOLODEX-245): an image needs a visual
-							     compare rather than a value string. Nothing to decide here — an image carries
-							     no decision yet (HOLODEX-403) — so this row is never written from the dialog. -->
-							<div class="flex items-start gap-3">
-								<div class="flex flex-col items-start gap-1">
-									<span class="text-[0.65rem] text-muted">File (current)</span>
-									{#if fileVal}
-										<img
-											src={fileVal}
-											alt="{row.field.label} — file"
-											class="h-14 w-14 shrink-0 rounded-theme border border-rule object-cover"
-										/>
-									{:else}
-										<div
-											class="flex h-14 w-14 shrink-0 items-center justify-center rounded-theme border border-rule text-muted"
-										>
-											<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-												<rect x="3" y="3" width="18" height="18" rx="2" />
-												<circle cx="8.5" cy="8.5" r="1.5" />
-												<path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5-9 9" />
-											</svg>
-										</div>
-									{/if}
-								</div>
-								<svg class="mt-6 h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-6-6m6 6l-6 6" />
-								</svg>
-								<div class="flex min-w-0 flex-col items-start gap-1">
-									<span class="text-[0.65rem] text-accent">Enriched</span>
-									{#if row.value}
-										<img
-											src={row.value}
-											alt="{row.field.label} — enriched{tag ? `, from ${tag.name}` : ''}"
-											class="h-14 w-14 shrink-0 rounded-theme border border-accent object-cover"
-										/>
-									{/if}
-									<p class="max-w-[10rem] break-all text-xs text-muted">{row.value || '—'}</p>
-								</div>
-							</div>
-							<p class="mt-1 text-xs text-muted">Nothing to decide here yet — not written from this dialog.</p>
 						{:else if cockpit}
 							<!-- Cockpit row. The chooser has ONE mount point for both the "=" and the
 							     will-write state, so staging a pick that flips the class never unmounts the
@@ -655,9 +648,15 @@
 							     so there is no separate "was:" line (handoff §2). -->
 							{#if matchesFile}
 								<!-- The gutter's own "=" glyph already signals this row's tier — no
-								     second icon here, or the two would say the same thing twice. -->
-								<p class="text-xs text-muted">
-									<span class="text-ink">{rowValue(row) || '—'}</span>
+								     second icon here, or the two would say the same thing twice. An image
+								     row shows a thumbnail + its source instead of the URL (HOLODEX-403). -->
+								<p class="flex items-center gap-2 text-xs text-muted">
+									{#if isImageRow(row.field) && rowValue(row)}
+										<img src={rowValue(row)} alt="" class="h-8 w-6 shrink-0 rounded-theme border border-rule object-cover" />
+										<span class="text-ink">{tag?.name ?? 'file'} {row.field.label.toLowerCase()}</span>
+									{:else}
+										<span class="text-ink">{rowValue(row) || '—'}</span>
+									{/if}
 									<span>— matches the file</span>
 								</p>
 							{/if}

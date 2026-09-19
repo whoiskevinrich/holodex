@@ -2350,6 +2350,8 @@
 			fields={resolved}
 			videoId={id}
 			filePath={video.file_path}
+			entityImage={video.poster_url ?? undefined}
+			entityImageUploaded={!!video.poster_uploaded}
 			writeback={api.writebackMedia}
 			decide={async (canonical, source, manualValue) => {
 				const res = await api.setFieldDecision(id, canonical, {

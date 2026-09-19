@@ -778,7 +778,16 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			var promoted map[string]bool
 			mfields, promoted = h.mergePromotions(r.Context(), model.EnrichEntityVideo, m.Fields(), enrichRows)
 			mfields = h.mergeClaims(r.Context(), model.EnrichEntityVideo, mfields)
-			resolved = resolver.Resolve(v, extra, enr, cur, mfields, h.resolveOptions(dec))
+			opts := h.resolveOptions(dec)
+			// ADR-101: the write ledger is the sync witness for image fields (nothing reads
+			// cover art back). Loaded only here, on the detail the writeback dialog reads —
+			// a failure degrades to "unknown", the pre-ADR-101 posture, never to "differs".
+			if written, wErr := h.repo.LastWrittenValues(r.Context(), id); wErr != nil {
+				h.log.Warn("last written values for detail", "id", id, "err", wErr)
+			} else {
+				opts.LastWritten = written
+			}
+			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
 			// P0-10 (F50, ADR-075 RD9): show the actual genre-writeback union (tags +

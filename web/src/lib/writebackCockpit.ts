@@ -20,11 +20,16 @@ export interface StagedPick {
 	custom: string;
 }
 
-// isCockpitRow is true for the rows that get the chooser: replace fields with a text value.
-// image_url rows keep HOLODEX-245's read-only comparison (the poster chooser is HOLODEX-403);
-// merge rows never carry a decision (RD1) and stay on their seeded text (HOLODEX-401).
+// isCockpitRow is true for the rows that get a chooser: every replace field — text (chip
+// row / stacked rows) and image_url (image tiles, HOLODEX-403 / ADR-101 D3). Merge rows
+// never carry a decision (RD1) and stay read-only (HOLODEX-401).
 export function isCockpitRow(field: ResolvedField): boolean {
-	return isReplaceField(field) && field.display !== 'image_url';
+	return isReplaceField(field);
+}
+
+// isImageRow: the cockpit row whose chooser is image tiles.
+export function isImageRow(field: ResolvedField): boolean {
+	return isCockpitRow(field) && field.display === 'image_url';
 }
 
 // stagedValue is the value the staged pick would write — the chip's value, or the trimmed
@@ -47,12 +52,22 @@ export function rowClass(field: ResolvedField, value: string): RowClass {
 	if (field.candidates !== undefined && value.trim() === fileCandidateValue(field).trim()) {
 		return 'matches';
 	}
+	// The backend's own sync verdict stands in for the file value when the staged pick is
+	// still the resolved winner: for an image row the file candidate never carries the
+	// embedded cover art's URL, so only the write ledger can say the file has it (ADR-101) —
+	// and that verdict must hold even when the allowlist degraded the row's display to text,
+	// so it is keyed on `in_sync`, not on isImageRow. For a text row the clause is redundant
+	// (in_sync true already means decided == file candidate). Re-pointing differs again.
+	if (field.in_sync === true && value.trim() === (field.values[0] ?? '').trim()) {
+		return 'matches';
+	}
 	return 'write';
 }
 
-// isUnverifiable: the field is writable but its mapping declares no file read-back source
-// (ADR-093 — `in_sync` absent), so the dialog can never later report `=` for it. The row still
-// gets a checkbox and a chooser; it just carries the "can't verify" note.
+// isUnverifiable: the field is writable but nothing can witness its sync state — no file
+// read-back source for a text field (ADR-093), no ledger row yet for an image field
+// (ADR-101) — so `in_sync` is absent. The row still gets its chooser; the baseline chip/tile
+// says "not read back" instead of claiming the file is empty.
 export function isUnverifiable(field: ResolvedField): boolean {
 	return isCockpitRow(field) && isWritable(field) && field.in_sync === undefined;
 }

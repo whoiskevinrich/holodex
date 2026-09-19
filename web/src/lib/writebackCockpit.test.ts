@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { isCockpitRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stagedValue, willWrite } from './writebackCockpit';
+import { isCockpitRow, isImageRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -21,11 +21,14 @@ function field(over: Partial<ResolvedField> = {}): ResolvedField {
 }
 
 describe('isCockpitRow', () => {
-	it('is true for a plain replace field and false for image_url and merge fields', () => {
+	it('is true for every replace field — text and image_url (HOLODEX-403) — and false for merge fields', () => {
 		expect(isCockpitRow(field())).toBe(true);
 		expect(isCockpitRow(field({ display: 'long_text' }))).toBe(true);
-		expect(isCockpitRow(field({ display: 'image_url' }))).toBe(false);
+		expect(isCockpitRow(field({ display: 'image_url' }))).toBe(true);
 		expect(isCockpitRow(field({ multi: true }))).toBe(false);
+		expect(isImageRow(field({ display: 'image_url' }))).toBe(true);
+		expect(isImageRow(field())).toBe(false);
+		expect(isImageRow(field({ display: 'image_url', multi: true }))).toBe(false);
 	});
 });
 
@@ -59,6 +62,24 @@ describe('rowClass', () => {
 	it('never matches when the field carries no candidates at all', () => {
 		expect(rowClass(field({ candidates: undefined }), '')).toBe('write');
 	});
+	it('lets the ledger witness stand in for the file value on an image row (ADR-101)', () => {
+		const url = 'https://x/p.jpg';
+		const base = {
+			display: 'image_url' as const,
+			write_target: 'cover.jpg',
+			values: [url],
+			candidates: [{ source: 'file' as const, value: '' }, { source: 'provider:tmdb' as const, provider: 'tmdb', value: url }],
+			decision: { source: 'provider:tmdb' as const, standing: true }
+		};
+		expect(rowClass(field({ ...base, in_sync: true }), url)).toBe('matches');
+		expect(rowClass(field({ ...base, in_sync: false }), url)).toBe('write');
+		expect(rowClass(field({ ...base, in_sync: undefined }), url)).toBe('write');
+		// witnessed, but re-pointed at another value → differs again
+		expect(rowClass(field({ ...base, in_sync: true }), 'https://x/other.jpg')).toBe('write');
+		// the verdict is keyed on in_sync, not display: a provider poster the allowlist
+		// degraded to text is still witnessed by the ledger
+		expect(rowClass(field({ ...base, display: undefined, in_sync: true }), url)).toBe('matches');
+	});
 });
 
 describe('isUnverifiable', () => {
@@ -67,7 +88,7 @@ describe('isUnverifiable', () => {
 		expect(isUnverifiable(field({ in_sync: false }))).toBe(false);
 		expect(isUnverifiable(field({ in_sync: true }))).toBe(false);
 		expect(isUnverifiable(field({ in_sync: undefined, write_target: undefined }))).toBe(false);
-		expect(isUnverifiable(field({ in_sync: undefined, display: 'image_url' }))).toBe(false);
+		expect(isUnverifiable(field({ in_sync: undefined, display: 'image_url' }))).toBe(true);
 	});
 });
 
@@ -105,8 +126,8 @@ describe('needsDecision', () => {
 		expect(needsDecision(f, chips, { key: 'custom', custom: ' Mine ' })).toBe(false);
 		expect(needsDecision(f, chips, { key: 'custom', custom: 'Yours' })).toBe(true);
 	});
-	it('is false for non-cockpit rows and for a null staged key', () => {
-		expect(needsDecision(field({ display: 'image_url' }), [], { key: 'file', custom: '' })).toBe(false);
+	it('is false for merge rows and for a null staged key; an image row decides like any other', () => {
+		expect(needsDecision(field({ display: 'image_url' }), [], { key: 'file', custom: '' })).toBe(true);
 		expect(needsDecision(field({ multi: true }), [], { key: 'file', custom: '' })).toBe(false);
 		expect(needsDecision(field(), sourceChips(field()), { key: null, custom: '' })).toBe(false);
 	});
@@ -135,11 +156,20 @@ describe('willWrite', () => {
 		const decided = field({ decision: { source: 'provider:tmdb', standing: true } });
 		expect(willWrite(decided, '', { staged: { key: 'custom', custom: '  ' }, ...off, touched: true })).toBe(false);
 	});
-	it('never writes a non-cockpit row — nothing there can be decided from the dialog', () => {
-		const poster = field({ display: 'image_url', candidates: [{ source: 'file', value: '' }] });
-		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
+	it('never writes a merge row — nothing there can be decided from the dialog', () => {
 		const genres = field({ multi: true, candidates: [{ source: 'file', value: 'drama' }] });
 		expect(willWrite(genres, 'drama, action', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
+	});
+	it('writes an image row exactly like a text row: picked provider tile → write; file tile → nothing', () => {
+		const poster = field({
+			display: 'image_url',
+			write_target: 'cover.jpg',
+			candidates: [{ source: 'file', value: '' }, { source: 'provider:tmdb', provider: 'tmdb', value: 'https://x/p.jpg' }]
+		});
+		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: 'provider:tmdb', custom: '' }, touched: true })).toBe(true);
+		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: 'provider:tmdb', custom: '' }, touched: false })).toBe(false);
+		expect(willWrite(poster, '', { staged: { key: 'file', custom: '' }, touched: true })).toBe(false);
+		expect(savesDecisionOnly(poster, sourceChips(poster), '', { staged: { key: 'file', custom: '' }, touched: true })).toBe(true);
 	});
 });
 

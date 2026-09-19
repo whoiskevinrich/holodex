@@ -184,6 +184,30 @@ func (r *Repo) InsertWriteback(ctx context.Context, videoID int64, fieldKey, tag
 	return nil
 }
 
+// LastWrittenValues returns, per field_key, the value of the newest successful
+// file_writebacks row for one video — the ADR-101 sync witness for image fields
+// (resolver.Options.LastWritten). One query; a video with no writes yields an empty
+// map, never an error.
+func (r *Repo) LastWrittenValues(ctx context.Context, videoID int64) (map[string]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT field_key, value FROM file_writebacks
+		WHERE id IN (SELECT MAX(id) FROM file_writebacks WHERE video_id = ? GROUP BY field_key)`,
+		videoID)
+	if err != nil {
+		return nil, fmt.Errorf("last written values: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, fmt.Errorf("last written values: %w", err)
+		}
+		out[k] = v
+	}
+	return out, rows.Err()
+}
+
 // HasWritebackFromProvider reports whether any file_writebacks audit row for the
 // video was attributed to provider (HOLODEX-370). The audit `source` is the
 // resolver's winning-source token ("<namespace>:<key>", e.g. "tmdb:title"), so the
