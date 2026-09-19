@@ -25,7 +25,7 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
   (2026-09-18); vocabulary term **applied vs. on file** + two translations added to
   `docs/reference/ui-vocabulary.md`
 - [~] backend — n/a
-- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / U / M / ? / ⊖), no checkbox / no Select all on cockpit rows (`willWrite`: standing ∨ touched), staged picks, Write =
+- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / U / M / ? / ⊖), **no checkbox anywhere**, no Select all (`willWrite`: cockpit ∧ standing ∨ touched; image_url/merge read-only), staged picks, Write =
   Confirm via `needsDecision`, `focusables()` excludes `tabIndex === -1`; lifted
   `curation/SourceChipRow.svelte` (from `SourceBadge`, which still keeps its own copy) and
   `curation/SourceRadioList.svelte` (from `SourceEditModal`, now rewired to it); pure helpers in
@@ -50,8 +50,10 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
 - skills: code-review high --fix (prior)
 - handoff: Kevin — "atomic for all values; deciding should be the check action". Removed Select all
   and every cockpit-row checkbox: `willWrite` gate (standing ∨ touched), `↧`/`○` gutter glyphs,
-  lead group = `leadRow` (standing ∧ lags file, incl. unverifiable). Interim checkbox kept on
-  image_url/merge rows only (403/401). Live-verified; mockup/handoff/vocab/testing row updated.
+  lead group = `leadRow` (standing ∧ lags file, incl. unverifiable). Then "you only eliminated
+  some of the checkboxes" → image_url/merge rows are read-only too (`⊖`, "Nothing to decide
+  here yet"); poster unwritable from the dialog until 403 — flagged on the ticket. Live-verified
+  (0 checkboxes, 0 text inputs); mockup/handoff/vocab/testing row updated.
   Remaining: Kevin's skin look (§9.11–9.12) → `gh pr ready`.
 
 ### 2026-09-18 (b) · frontend + tests

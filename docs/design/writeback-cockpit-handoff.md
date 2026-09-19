@@ -65,9 +65,12 @@ So the dialog has **no per-row checkbox and no Select all** on cockpit rows:
 - **Select all is gone.** With the checkbox now a decision, it had become "decide `provider:x`
   for 13 fields without reading them" — a bulk adoption verdict, which ADR-090 sends to the
   review queues, not here.
-- `image_url` (poster) and merge rows have no chooser yet (HOLODEX-403 / 401), so they keep an
-  explicit opt-in **checkbox** as the interim — otherwise the poster would become unwritable
-  from this dialog. They are the only checkboxes left.
+- **No checkbox anywhere.** `image_url` (poster) and merge rows have nothing to decide here —
+  no chooser yet (HOLODEX-403 / 401) and, for merge fields, no decision model at all (RD1) — so
+  they are listed read-only (`⊖`, "Nothing to decide here yet — not written from this dialog")
+  and never written. Consequence, accepted by the owner (2026-09-18, "you only eliminated some
+  of the checkboxes, not all of them"): **the poster cannot be written from this dialog until
+  HOLODEX-403 gives it a chooser**, and merge fields until HOLODEX-401.
 
 ### What does *not* change
 
@@ -101,7 +104,7 @@ dialog already computes: `isWritable(field)`, `rowMatchesFile(row)` (live staged
 | **M · matches file** | writable ∧ staged value = on-file value | `=` glyph | header + value + "— matches the file" + quiet **change** toggle | no (a re-point to file is a decision-only save, §3) |
 | **? · unverifiable** | writable ∧ `in_sync === undefined` | as **W** or **U** | as **W**/**U**, plus an amber note under the chooser | as **W**/**U** |
 | **⊖ · unwritable** | `!isWritable(field)` | `⊖` glyph | unchanged (value + "no file tag for this container") | no |
-| *(interim)* `image_url` / merge | non-cockpit | **checkbox**, unchecked on open | HOLODEX-245 comparison / seeded text | iff checked |
+| `image_url` / merge | non-cockpit — nothing to decide here | `⊖` glyph, title "Nothing to decide here — not written from this dialog" | HOLODEX-245 comparison (read-only, "Enriched") / value + `on file:` line, plus the note | no — HOLODEX-403 / 401 |
 
 `?` is a **W**/**U** row with a note, not a sixth gutter glyph: it *can* be written; what is
 missing is the read-back that would let the row report `=` later (ADR-093). A *decided* `?` row
@@ -158,8 +161,8 @@ separable, duplicating ≤ 40 lines is acceptable for this story, with the extra
 Nothing in the dialog hits the network until `submit()`. Chip clicks and arrow keys **stage**
 locally (as `SourceBadge` does before Confirm); Cancel/Escape/backdrop discard every staged pick.
 
-On submit, for each row that will write (`willWrite`: writable ∧ differs ∧ carries a value ∧
-(standing decision ∨ touched); non-cockpit rows: their checkbox):
+On submit, for each row that will write (`willWrite`: cockpit ∧ writable ∧ differs ∧ carries a
+value ∧ (standing decision ∨ touched)):
 
 1. **Decide** when needed — generalize `ensureDecision(row)` from "create if none standing" to:
    `decide(canonical, chip.decisionSource, customValue?)` **iff** no standing decision **or** the
@@ -221,10 +224,11 @@ No new tokens. No hardcoded values.
 
 ### 6. Accessibility
 
-- **No checkbox on cockpit rows.** The gutter glyphs are `role="img"` with a `<title>` each
-  (`Will be written to the file` / `Undecided — pick a source to write it`); the row label is a
-  plain `span`. The chooser radiogroup is the row's only control and carries its own
-  `aria-label`. The interim `image_url`/merge checkboxes keep their `label for=`.
+- **No checkbox on any row.** The gutter glyphs are `role="img"` with a `<title>` each
+  (`Will be written to the file` / `Undecided — pick a source to write it` / `Nothing to decide
+  here — not written from this dialog` / the existing `=` and `⊖` titles); the row label is a
+  plain `span`. The chooser radiogroup is a row's only control and carries its own
+  `aria-label`; a non-cockpit row has no control at all.
 - **Nested radiogroups inside a dialog.** Each chooser is its own `role="radiogroup"` with roving
   tabindex (one chip at `0`, the rest `-1`), `aria-labelledby` → the row's label element. Arrow
   keys move focus and stage within the group (`SourceBadge` handler, verbatim); they must not
@@ -303,8 +307,9 @@ Numbered `section.item`; tagged by verifier; grouped by tag.
 #### Agent
 - 9.1 `[agent]` Open the dialog on a video with a decided, out-of-sync `year` and an undecided
   `overview` where tmdb ≠ file: `year` leads with the `↧` glyph and a chip row; `overview` is U
-  (`○`) in the undecided disclosure, with **stacked** rows. No checkbox on either; no Select all
-  anywhere; the only checkboxes are the poster and merge rows.
+  (`○`) in the undecided disclosure, with **stacked** rows. No checkbox and no text input
+  anywhere in the dialog; no Select all; Genres / Actors / Poster read "Nothing to decide here
+  yet — not written from this dialog" behind a `⊖` glyph.
 - 9.2 `[agent]` Pick the `·file` chip on `year`: row flips to M (`=` glyph, "matches the file",
   `change`); footer count drops by one. Pick `·tmdb` again: back to W (`↧`).
 - 9.3 `[agent]` On an M row click `change`, pick a provider chip: `↧` appears, count rises. Click

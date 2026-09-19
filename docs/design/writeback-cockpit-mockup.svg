@@ -1,6 +1,6 @@
 <svg width="900" height="640" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
 <title>Writeback cockpit mockup (HOLODEX-400)</title>
-<desc>Left: the writeback dialog today — every differing row is a seeded free-text input with a "was:" line, so the owner sees only the winner. Right: the cockpit — a differing row renders the field's candidate chooser (chip row for short fields, stacked radio rows for long text) and the Write button commits the staged pick as the decision. There are no checkboxes and no Select all: a standing decision that lags the file always writes (arrow glyph), an undecided row writes only once the owner picks a chip (hollow circle until then), a row that matches the file collapses to the "=" tier with a quiet "change" toggle, an unverifiable row says so, an unwritable row is unchanged.</desc>
+<desc>Left: the writeback dialog today — every differing row is a seeded free-text input with a "was:" line, so the owner sees only the winner. Right: the cockpit — a differing row renders the field's candidate chooser (chip row for short fields, stacked radio rows for long text) and the Write button commits the staged pick as the decision. There are no checkboxes and no Select all: a standing decision that lags the file always writes (arrow glyph), an undecided row writes only once the owner picks a chip (hollow circle until then), a row that matches the file collapses to the "=" tier with a quiet "change" toggle, an unverifiable row says so, an unwritable row is unchanged; image_url and merge rows are read-only (nothing to decide here yet).</desc>
 <rect width="900" height="640" fill="#f4f2ee"/>
 
 <!-- ============ LEFT: TODAY ============ -->
@@ -141,7 +141,7 @@
 <text x="472" y="540" font-size="10" fill="#8a8478">● filled dot = staged pick · dashed ring = RD6 pending winner (undecided). Picking a chip — the pending</text>
 <text x="472" y="554" font-size="10" fill="#8a8478">one included — is the confirm; Write records it as the decision, then enqueues one atomic write.</text>
 <text x="472" y="576" font-size="10" fill="#8a8478">Gutter: ↧ will write (decided) · ○ undecided, pick to write · = matches file (change opens chooser) · ⊖ no tag.</text>
-<text x="472" y="590" font-size="10" fill="#8a8478">No Select all. Amber = in_sync unknown (ADR-093). image_url / merge rows keep an opt-in checkbox (403 / 401).</text>
+<text x="472" y="590" font-size="10" fill="#8a8478">No checkbox, no Select all. Amber = in_sync unknown (ADR-093). image_url / merge rows: ⊖ read-only until 403 / 401.</text>
 
 <text x="24" y="630" font-size="9" fill="#a39d92">Schematic — colours are illustrative; the component uses tokens only (bg-surface, text-ink, text-muted, border-rule, accent, warn). QA all three skins.</text>
 </svg>

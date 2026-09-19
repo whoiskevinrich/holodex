@@ -114,7 +114,7 @@ describe('needsDecision', () => {
 
 describe('willWrite', () => {
 	const tmdb = { key: 'provider:tmdb', custom: '' };
-	const off = { touched: false, checked: false };
+	const off = { touched: false };
 	it('never writes a row that is unwritable or already matches the file', () => {
 		expect(willWrite(field({ write_target: undefined }), 'X', { staged: tmdb, ...off, touched: true })).toBe(false);
 		expect(willWrite(field(), 'Blade Runner', { staged: { key: 'file', custom: '' }, ...off, touched: true })).toBe(false);
@@ -135,9 +135,10 @@ describe('willWrite', () => {
 		const decided = field({ decision: { source: 'provider:tmdb', standing: true } });
 		expect(willWrite(decided, '', { staged: { key: 'custom', custom: '  ' }, ...off, touched: true })).toBe(false);
 	});
-	it('gates a non-cockpit row on its opt-in checkbox alone', () => {
+	it('never writes a non-cockpit row — nothing there can be decided from the dialog', () => {
 		const poster = field({ display: 'image_url', candidates: [{ source: 'file', value: '' }] });
-		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: true, checked: false })).toBe(false);
-		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: false, checked: true })).toBe(true);
+		expect(willWrite(poster, 'https://x/p.jpg', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
+		const genres = field({ multi: true, candidates: [{ source: 'file', value: 'drama' }] });
+		expect(willWrite(genres, 'drama, action', { staged: { key: null, custom: '' }, touched: true })).toBe(false);
 	});
 });

@@ -72,20 +72,21 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 	return false;
 }
 
-// willWrite is the single gate behind the dialog's footer count and its write set. A
-// cockpit row is written when it is writable, differs from the file, carries a value, AND is
-// decided — either standing before the dialog opened, or `touched` (the owner picked a chip in
-// this dialog; picking IS the confirm). An undecided row the owner never touched is never
-// written and never decided, so opening the dialog and pressing Write can only ever sync
-// decisions the owner actually made. Non-cockpit rows (image_url, merge) have no chooser yet
-// (HOLODEX-403 / HOLODEX-401) and keep an explicit opt-in checkbox (`checked`) instead.
+// willWrite is the single gate behind the dialog's footer count and its write set. A row is
+// written when it is writable, differs from the file, carries a value, AND is decided — either
+// standing before the dialog opened, or `touched` (the owner picked a chip in this dialog;
+// picking IS the confirm). An undecided row the owner never touched is never written and never
+// decided, so opening the dialog and pressing Write can only ever sync decisions the owner
+// actually made. A non-cockpit row (image_url, merge) has no decision to make — no chooser yet
+// (HOLODEX-403 / HOLODEX-401) and, for merge fields, no decision model at all (RD1) — so it is
+// never written from the dialog. There is no checkbox anywhere: deciding is the check action.
 export function willWrite(
 	field: ResolvedField,
 	value: string,
-	opts: { staged: StagedPick; touched: boolean; checked: boolean }
+	opts: { staged: StagedPick; touched: boolean }
 ): boolean {
+	if (!isCockpitRow(field)) return false;
 	if (rowClass(field, value) !== 'write') return false;
-	if (!isCockpitRow(field)) return opts.checked;
 	if (opts.staged.key === 'custom' && opts.staged.custom.trim() === '') return false;
 	return !!field.decision?.standing || opts.touched;
 }

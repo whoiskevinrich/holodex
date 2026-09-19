@@ -7,8 +7,9 @@
 	// stage locally, submit() commits the decision, then enqueues the write. The write is
 	// atomic over everything DECIDED: a standing decision that lags the file is always
 	// written, an undecided provider value is written only once the owner picks it here
-	// (picking is the confirm — there is no checkbox and no "select all"), and an undecided
-	// row nobody touched is never written. The write itself is fire-and-forget
+	// (picking is the confirm — there is no checkbox and no "select all"), an undecided row
+	// nobody touched is never written, and a field with nothing to decide here (image_url,
+	// merge) is listed read-only and never written. The write itself is fire-and-forget
 	// (ADR-091): this dialog is a pre-flight confirm step that closes the instant the
 	// write is *enqueued*, not once it lands — outcome (pending/failed) is a page-level
 	// signal near the Metadata section, not this dialog's job to poll or display. Focus
@@ -71,9 +72,6 @@
 		// undecided row is written (and decided) only once touched. Never reset within a dialog
 		// lifetime; Cancel is the undo.
 		touched: boolean;
-		// Non-cockpit rows only (image_url, merge — no chooser yet, HOLODEX-403/401): the
-		// explicit opt-in checkbox, unchecked on open.
-		checked: boolean;
 		// A row that matches the file collapses to the "=" tier; `change` opens its chooser on
 		// demand (handoff §1, M → W promotion).
 		chooserOpen: boolean;
@@ -98,7 +96,6 @@
 			value: seed,
 			originalValue: seed,
 			touched: false,
-			checked: false,
 			chooserOpen: false
 		};
 	}
@@ -106,8 +103,10 @@
 	// The rows that write on open are the standing decisions the file lags (leadRow) — the
 	// header's "· {n} out of sync" set plus any decided row whose sync state cannot be read
 	// back (ADR-093). Everything else is listed but inert until the owner acts: a cockpit row
-	// writes once a chip is picked (willWrite), a non-cockpit row once its box is checked —
-	// notably poster_url, whose write triggers a server-side download + cover-art embed.
+	// writes once a chip is picked (willWrite). image_url and merge rows have nothing to decide
+	// here (no chooser yet — HOLODEX-403 / 401; merge fields carry no decision at all, RD1), so
+	// they are shown read-only and never written from this dialog — poster_url included, whose
+	// write would trigger a server-side download + cover-art embed.
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(fields.map(seedRow));
 
@@ -138,8 +137,7 @@
 	function rowWillWrite(row: Row): boolean {
 		return willWrite(row.field, rowValue(row), {
 			staged: { key: row.stagedKey, custom: row.stagedCustomValue },
-			touched: row.touched,
-			checked: row.checked
+			touched: row.touched
 		});
 	}
 
@@ -168,10 +166,12 @@
 	// leadRow() means the first group is exactly the set that writes on open.
 	//
 	// Row order within undecided (R4.4): writable-and-differing first, then a field that
-	// already matches the file, then a field with no tag mapping at all — sorted on the
-	// row's ORIGINAL (open-time) value rather than the live one, so a row never jumps
-	// position while the owner is mid-pick.
+	// already matches the file, then the rows nothing can be done with here — no decision
+	// model (image_url/merge) or no tag mapping at all — sorted on the row's ORIGINAL
+	// (open-time) value rather than the live one, so a row never jumps position while the
+	// owner is mid-pick.
 	function rowTier(row: Row): number {
+		if (!isCockpitRow(row.field)) return 2;
 		const cls = rowClass(row.field, row.originalValue);
 		return cls === 'unwritable' ? 2 : cls === 'matches' ? 1 : 0;
 	}
@@ -228,7 +228,7 @@
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
 		// Focus the first control of the first row (the decided rows lead): the checked chip of
-		// a chip row, a radio/textarea of a stacked list, or a non-cockpit row's checkbox. Rows
+		// a chip row, or a radio/textarea of a stacked list. Rows
 		// inside the collapsed group are excluded by focusables()'s offsetParent test. With no
 		// rows at all, fall back to the dialog itself (tabindex="-1").
 		const first =
@@ -291,18 +291,11 @@
 		// the re-pointed-to-file rows (rowDecisionOnly).
 		const decisionRows = rows.filter((r) => isCockpitRow(r.field) && (rowWillWrite(r) || rowDecisionOnly(r)));
 
+		// Every written row is a cockpit row (willWrite), so each writes exactly its staged
+		// value — a replace field is one value.
 		const fields = checkedRows.map((r) => ({
 			field: r.field.canonical,
-			// A cockpit row writes exactly its staged value (a replace field is one value);
-			// image_url rows pass the URL as a single value (don't comma-split); a merge row's
-			// seeded text still splits on commas as before.
-			values:
-				isCockpitRow(r.field) || r.field.display === 'image_url'
-					? [rowValue(r)].filter((v) => v.length > 0)
-					: r.value
-							.split(/\s*,\s*/)
-							.map((v) => v.trim())
-							.filter((v) => v.length > 0),
+			values: [rowValue(r)].filter((v) => v.length > 0),
 			source: r.field.winning_source ?? ''
 		}));
 
@@ -499,23 +492,23 @@
 				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
 				     The checkbox carries the state; the label stays legible. -->
 				<div class="flex items-start gap-3">
-					<!-- Gutter glyph. Each tier has its own glyph — no two ever mean the same thing:
-					     ⊖ "no file tag for this container"; = "matches the file, nothing to write";
-					     an arrow-into-bar "will be written" (a standing decision, or a chip the owner
-					     picked here); a hollow circle "undecided — pick a source to write it". Only the
-					     non-cockpit rows (image_url, merge — no chooser yet) keep a real checkbox as
-					     their opt-in. A static glyph rather than a disabled checkbox is deliberate: a
-					     box that can never be checked reads as broken, a glyph reads as information. -->
+					<!-- Gutter glyph — there is no checkbox anywhere; deciding is the check action.
+					     Each tier has its own glyph, no two ever mean the same thing: ⊖ "no file tag
+					     for this container" (also: nothing to decide here — image_url/merge); = "matches
+					     the file, nothing to write"; an arrow-into-bar "will be written" (a standing
+					     decision, or a chip the owner picked here); a hollow circle "undecided — pick a
+					     source to write it". Static glyphs rather than disabled checkboxes on purpose:
+					     a box that can never be checked reads as broken, a glyph reads as information. -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-						{#if !writable}
-							<!-- No file-tag mapping for this container (HOLODEX-216): shown, not checkable —
-							     never a bare checkbox that would only silently drop the value on write. -->
+						{#if !writable || !cockpit}
+							<!-- No file-tag mapping for this container (HOLODEX-216), or nothing to decide
+							     here (image_url / merge): shown, never written from this dialog. -->
 							<svg
 								class="h-4 w-4 text-muted"
 								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
 								role="img"
 							>
-								<title>No file tag for this container — can't be written</title>
+								<title>{writable ? 'Nothing to decide here — not written from this dialog' : "No file tag for this container — can't be written"}</title>
 								<circle cx="12" cy="12" r="9" />
 								<path stroke-linecap="round" d="M7 12h10" />
 							</svg>
@@ -537,7 +530,7 @@
 								<title>Will be written to the file</title>
 								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" />
 							</svg>
-						{:else if cockpit}
+						{:else}
 							<svg
 								class="h-4 w-4 text-muted"
 								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
@@ -546,29 +539,13 @@
 								<title>Undecided — pick a source to write it</title>
 								<circle cx="12" cy="12" r="6" />
 							</svg>
-						{:else}
-							<input
-								type="checkbox"
-								id="wb-{row.field.canonical}"
-								bind:checked={row.checked}
-								disabled={busy}
-								class="h-4 w-4 cursor-pointer accent-[var(--color-accent)] disabled:cursor-not-allowed"
-							/>
 						{/if}
 					</div>
 
 					<!-- Label + body -->
 					<div class="min-w-0 flex-1">
 						<div class="mb-1 flex items-center gap-1.5">
-							{#if writable && !matchesFile && !cockpit}
-								<!-- for= only when the gutter actually renders the checkbox this labels —
-								     a cockpit row's gutter is a static glyph, not an input. -->
-								<label for="wb-{row.field.canonical}" class="text-xs font-medium text-muted"
-									>{row.field.label}</label
-								>
-							{:else}
-								<span class="text-xs font-medium text-muted">{row.field.label}</span>
-							{/if}
+							<span class="text-xs font-medium text-muted">{row.field.label}</span>
 							{#if tag}
 								<span class="text-[0.65rem] {tag.isProvider ? 'text-accent' : 'text-muted'}"
 									>·{tag.name}</span
@@ -598,8 +575,8 @@
 							</p>
 						{:else if row.field.display === 'image_url'}
 							<!-- Read-only file-vs-enriched comparison (HOLODEX-245): an image needs a visual
-							     compare rather than a value string. No selection here — picking a candidate
-							     is a SourceSelect-only decision (RD5); the poster chooser is HOLODEX-403. -->
+							     compare rather than a value string. Nothing to decide here — an image carries
+							     no decision yet (HOLODEX-403) — so this row is never written from the dialog. -->
 							<div class="flex items-start gap-3">
 								<div class="flex flex-col items-start gap-1">
 									<span class="text-[0.65rem] text-muted">File (current)</span>
@@ -625,7 +602,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-6-6m6 6l-6 6" />
 								</svg>
 								<div class="flex min-w-0 flex-col items-start gap-1">
-									<span class="text-[0.65rem] text-accent">Enriched (will write)</span>
+									<span class="text-[0.65rem] text-accent">Enriched</span>
 									{#if row.value}
 										<img
 											src={row.value}
@@ -636,6 +613,7 @@
 									<p class="max-w-[10rem] break-all text-xs text-muted">{row.value || '—'}</p>
 								</div>
 							</div>
+							<p class="mt-1 text-xs text-muted">Nothing to decide here yet — not written from this dialog.</p>
 						{:else if cockpit}
 							<!-- Cockpit row. The chooser has ONE mount point for both the "=" and the
 							     will-write state, so staging a pick that flips the class never unmounts the
@@ -661,16 +639,15 @@
 								<span>— matches the file</span>
 							</p>
 						{:else}
-							<!-- Merge (multi) row: seeded text, editable, no decision (RD1; HOLODEX-401). -->
-							{#if row.field.candidates !== undefined}
-								<p class="mb-1 text-xs text-muted">was: {fileVal || '—'}</p>
-							{/if}
-							<input
-								type="text"
-								bind:value={row.value}
-								disabled={busy}
-								class="block w-full rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-							/>
+							<!-- Merge (multi) row: no decision model (RD1), so nothing to decide and nothing
+							     written from here — tags as a set is HOLODEX-401. Read-only. -->
+							<p class="text-xs text-muted">
+								<span class="text-ink">{row.value || '—'}</span>
+								{#if row.field.candidates !== undefined && fileVal !== row.value}
+									<span class="block">on file: {fileVal || '—'}</span>
+								{/if}
+								<span class="block">Nothing to decide here yet — not written from this dialog.</span>
+							</p>
 						{/if}
 					</div>
 				</div>
