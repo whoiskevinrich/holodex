@@ -13,7 +13,7 @@ import (
 // entity_completeness_missing cache resolver.Complete's output per entity so the
 // list surfaces can sort, filter and badge in SQL; completeness_dirty is the
 // trigger-fed set of entities whose inputs changed since they were last scored
-// (migration 0048 owns the trigger list). The API layer drains the dirty set on
+// (migration 0049 owns the trigger list). The API layer drains the dirty set on
 // owner reads through DrainCompleteness, supplying the resolve + Complete pass.
 
 // CompletenessRow is one entity's scored bands plus the scored facets it is

@@ -616,4 +616,8 @@ type JobRun struct {
 	// to, carried as a field so Revert reads it structurally instead of parsing
 	// it back out of Detail (ADR-071).
 	BatchID string `json:"batch_id,omitempty"`
+	// DismissedAt is set once the owner has marked a failed run as handled
+	// (HOLODEX-416, ADR-100). Read from job_run_dismissals, never a column on the
+	// run itself; nil for every run the owner has not dismissed.
+	DismissedAt *time.Time `json:"dismissed_at,omitempty"`
 }

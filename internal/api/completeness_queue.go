@@ -115,6 +115,10 @@ func (h *Handlers) remediationQueue(ctx context.Context) ([]FacetGroup, error) {
 	}
 
 	for _, vc := range videos {
+		// completenessForVideos hands back bare repo rows; the browse consumer runs
+		// prepareThumbnails on its page, and the queue row needs the same versioned
+		// URL (HOLODEX-415) — without it the SPA fell back to the bare route.
+		h.setThumbnailURL(&vc.Video)
 		for _, f := range vc.Completeness.Facets {
 			addRow(f, QueueRow{
 				EntityType:   model.EnrichEntityVideo,

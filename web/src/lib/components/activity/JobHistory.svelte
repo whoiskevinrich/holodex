@@ -83,7 +83,9 @@
 								: 'text-muted'}"
 							>{count(r, r.errors)}</td
 						>
-						<td class="py-2"><JobStatusBadge status={r.status} /></td>
+						<td class="py-2 whitespace-nowrap"
+							><JobStatusBadge status={r.status} dismissed={!!r.dismissed_at} /></td
+						>
 					</tr>
 					{#if r.detail || r.error_message}
 						{@const batch = batchId(r)}

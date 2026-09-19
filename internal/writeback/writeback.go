@@ -200,7 +200,7 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		// Add the new attachment.
 		addOut, addErr := exec.CommandContext(ctx, "mkvpropedit", tmp,
 			"--attachment-name", f.TagName,
-			"--attachment-mime-type", "image/jpeg",
+			"--attachment-mime-type", coverMIME(imgPath),
 			"--add-attachment", imgPath,
 		).CombinedOutput()
 		if addErr != nil {
@@ -217,7 +217,7 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 }
 
 // ffmpegImgEntry is a downloaded image field ready to attach via ffmpeg.
-type ffmpegImgEntry struct{ tagName, localPath string }
+type ffmpegImgEntry struct{ tagName, localPath, mime string }
 
 // buildFFmpegArgs builds the ffmpeg argument list for a writeback remux. Pure
 // (no I/O) so the stream-preservation and metadata-merge behavior can be unit
@@ -228,10 +228,22 @@ type ffmpegImgEntry struct{ tagName, localPath string }
 // Without it, ffmpeg's automatic stream selection drops attachment streams
 // entirely — a writeback that only touched text fields would silently erase
 // any existing embedded poster.
+//
+// When the batch writes a cover, the existing attachment of the same name is
+// excluded (-map -0:m:filename:NAME) so the new one replaces it rather than
+// stacking beside it — the same delete-then-add the mkvpropedit path does.
+// This also matters for recovery: ffmpeg exposes image attachments as
+// attached-pic video streams and refuses to copy one it cannot decode
+// ("dimensions not set"), so an undecodable cover blocks every writeback on
+// that file until a cover writeback drops it.
 func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntries []ffmpegImgEntry) []string {
 	// -y: overwrite output; -map 0: keep every stream; -map_metadata 0: carry
 	// existing container tags forward (unlisted -metadata keys are untouched).
-	args := []string{"-y", "-i", path, "-map", "0", "-c", "copy", "-map_metadata", "0", "-f", format}
+	args := []string{"-y", "-i", path, "-map", "0"}
+	for _, ie := range imgEntries {
+		args = append(args, "-map", "-0:m:filename:"+ie.tagName)
+	}
+	args = append(args, "-c", "copy", "-map_metadata", "0", "-f", format)
 
 	for _, f := range fields {
 		if f.IsImage {
@@ -243,7 +255,7 @@ func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntri
 	for i, ie := range imgEntries {
 		args = append(args,
 			"-attach", ie.localPath,
-			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype=image/jpeg",
+			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype="+ie.mime,
 			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
 		)
 	}
@@ -280,7 +292,7 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 			return fmt.Errorf("writeback: %w", err)
 		}
 		defer cleanup()
-		imgEntries = append(imgEntries, ffmpegImgEntry{f.TagName, imgPath})
+		imgEntries = append(imgEntries, ffmpegImgEntry{f.TagName, imgPath, coverMIME(imgPath)})
 	}
 
 	args := buildFFmpegArgs(path, newPath, format, fields, imgEntries)
@@ -499,6 +511,18 @@ func downloadImageToTemp(ctx context.Context, rawURL string) (path string, clean
 	}
 	tmp.Close()
 	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
+}
+
+// coverMIME returns the attachment mimetype for a temp cover written by
+// downloadImageToTemp, whose extension is the sniffed content type. Matroska
+// readers trust this label — ffmpeg decodes an image attachment with the codec
+// the mimetype names, so a PNG labelled image/jpeg becomes an undecodable
+// attached-pic stream that later blocks remuxing the file.
+func coverMIME(path string) string {
+	if strings.EqualFold(filepath.Ext(path), ".png") {
+		return "image/png"
+	}
+	return "image/jpeg"
 }
 
 func copyFile(src, dst string) error {

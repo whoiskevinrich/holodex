@@ -632,6 +632,13 @@ func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.Ex
 	if err := r.attachAssociations(ctx, one); err != nil {
 		return nil, nil, err
 	}
+	// The detail's Cast grid draws each person's poster from poster_version (the
+	// image row id, == its ?v= cache-buster). Without it the SPA builds a versionless
+	// URL that the immutable image cache pins forever, so a replaced poster never
+	// shows here. Detail-only: list cards never draw people images.
+	if err := r.attachPersonImageVersions(ctx, one[0].People); err != nil {
+		return nil, nil, err
+	}
 	extra, err := r.videoMetadata(ctx, id)
 	if err != nil {
 		return nil, nil, err

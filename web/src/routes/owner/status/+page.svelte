@@ -299,7 +299,9 @@
 	{#if !needToken}
 		<section class="space-y-3">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h2 class="skin-title text-lg font-semibold text-ink">Recent jobs</h2>
+				<!-- tabindex=-1: the digest parks focus here when a dismissed row was the
+				     callout's last, so focus never falls to <body> (HOLODEX-416). -->
+				<h2 class="skin-title text-lg font-semibold text-ink" tabindex="-1">Recent jobs</h2>
 				<div class="flex items-center gap-1" role="tablist" aria-label="Job view">
 					<button
 						role="tab"
@@ -325,7 +327,7 @@
 						Couldn't load job summary — {digestError}
 					</p>
 				{:else if digest}
-					<JobDigestView {digest} />
+					<JobDigestView {digest} {isOwner} onchange={(next) => (digest = next)} onerror={showToast} />
 				{/if}
 			{:else}
 				{#if historyLoading && !historyLoaded}

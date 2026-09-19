@@ -134,6 +134,13 @@
 	// RD8, distinct from the unrelated file-refresh `refreshing` below).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
+	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
+	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
+	let pickerRematch = $state(false);
+	function openPicker(p: string, opts?: { rematch: boolean }) {
+		pickerRematch = !!opts?.rematch; // before pickerProvider: the picker mounts on it
+		pickerProvider = p;
+	}
 	let enrichBusy = $state('');
 	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
@@ -572,25 +579,48 @@
 	// applyMediaDetail on every poll (which would repeatedly reassign resolved/video
 	// mid-poll), applying the full detail only once, on settlement.
 	//
-	// pollingWriteback guards against a real re-entrancy bug: applyMediaDetail
+	// pollingGeneration guards against a real re-entrancy bug: applyMediaDetail
 	// reassigns writebackStatus to a NEW object on every reloadDetail() call, and this
 	// page has ~20 unrelated call sites for reloadDetail() (decisions, tags, enrich,
 	// poster upload, completeness, ...). Since this $effect depends on writebackStatus
 	// by reference, any one of those unrelated reloads re-runs the effect while a write
 	// is still pending — without this guard, each re-run would start a brand-new,
 	// fully independent poll loop with nothing to cancel the ones already in flight.
-	let pollingWriteback = false;
+	//
+	// Keyed by pageGeneration rather than a bare boolean: a cancelled loop only
+	// notices at its next tick (up to 5 s at the backoff ceiling, the steady state
+	// of a long write), and this route component is reused across /media/[id]
+	// changes. A boolean still set by the previous video's winding-down loop would
+	// make the next video's effect return without polling, and nothing re-runs it.
+	let pollingGeneration: number | null = null;
 	$effect(() => {
-		if (!writebackStatus.pending || pollingWriteback) return;
-		pollingWriteback = true;
+		if (!writebackStatus.pending || pollingGeneration === pageGeneration) return;
 		const gen = pageGeneration;
+		pollingGeneration = gen;
 		const videoId = id;
 		waitForVideoWriteback(
 			async () => (await api.getMedia(videoId)).writeback_status ?? { pending: false, failed: false },
-			{ cancelled: () => unmounted || gen !== pageGeneration }
+			{
+				cancelled: () => unmounted || gen !== pageGeneration,
+				// No cap. The helper's default JOB_POLL_TIMEOUT_MS is sized for a dialog
+				// that refetches on timeout, but this page has nothing to hand off to: a
+				// multi-GB MKV goes through copy + ffmpeg remux and outruns 120 s, and
+				// giving up left the badge on "writing to file" and the poster stale
+				// until a manual refresh (HOLODEX-419). Unmount/navigation still cancels
+				// above, and the backoff caps the cost at one request per 5 s.
+				timeoutMs: Infinity
+			}
 		).then((settled) => {
-			pollingWriteback = false;
+			// The helper never rejects (an HTTP-status refusal settles as not-pending,
+			// HOLODEX-420), so this is the one place the guard clears — a .catch here
+			// would be guarding a path that does not exist.
+			if (pollingGeneration === gen) pollingGeneration = null;
 			if (unmounted || gen !== pageGeneration || settled.pending) return;
+			// Apply the settled state now rather than waiting on the reload: if the
+			// reload fails (reloadDetail swallows its error and the 404 that stopped
+			// the poll will fail it too), the badge would otherwise keep saying
+			// "writing to file" on the stale pending object.
+			writebackStatus = settled;
 			// The job landed or failed — re-resolve the full detail so in_sync
 			// recomputes against the post-write baseline (ADR-073 D1) and the
 			// out-of-sync pills clear alongside the badge.
@@ -1210,7 +1240,7 @@
 			(v) => (enrichRefreshingAll = v),
 			(v) => (enrichError = v),
 			reloadDetail,
-			(p) => (pickerProvider = p)
+			openPicker
 		);
 	}
 
@@ -1802,7 +1832,7 @@
 										busy={enrichBusy}
 										refreshingAll={enrichRefreshingAll}
 										size="xs"
-										onenrich={(p) => (pickerProvider = p)}
+										onenrich={openPicker}
 										onrefresh={refreshProvider}
 										onclear={clearProvider}
 										onrefreshall={refreshAllProviders}
@@ -2367,6 +2397,7 @@
 
 	{#if pickerProvider && video}
 		<EnrichPicker
+			entityType="video"
 			entityName={enrichQueries[pickerProvider] ?? displayTitle}
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
@@ -2376,6 +2407,7 @@
 				writtenBackProvider = res.written_back ? prov : '';
 				return res;
 			}}
+			autoApply={!pickerRematch}
 			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>

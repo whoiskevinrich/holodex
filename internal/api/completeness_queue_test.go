@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"testing"
 
 	"holodex/internal/model"
@@ -102,5 +104,32 @@ func TestRemediationQueue_ActionableSplit(t *testing.T) {
 	}
 	if got := g.CandidateReady[0].Provider; got != "tmdb" {
 		t.Errorf("candidate provider = %q, want tmdb", got)
+	}
+}
+
+// A video queue row carries the same versioned thumbnail_url the browse grid
+// does (HOLODEX-415). completenessForVideos hands back bare repo rows, and the
+// queue used to copy the empty ThumbnailURL straight through, so the SPA fell
+// back to the bare /thumbnail route with no ?v= cache-buster.
+func TestRemediationQueue_VideoRowThumbnailURL(t *testing.T) {
+	h, r := newCompletenessHandlers(t)
+	ctx := context.Background()
+
+	id := seedVideo(t, r, model.ExtraMetadata{SourceKey: "Publisher", Value: "Acme"})
+	if err := r.SetThumbnailState(ctx, id, "generated"); err != nil {
+		t.Fatal(err)
+	}
+
+	groups, err := h.remediationQueue(ctx)
+	if err != nil {
+		t.Fatalf("remediationQueue: %v", err)
+	}
+	g, ok := facetGroupByCanonical(groups, "poster_url")
+	if !ok || len(g.NeedsResearch) != 1 {
+		t.Fatalf("poster_url group = %+v, want one needs-research row", g)
+	}
+	got := g.NeedsResearch[0].ThumbnailURL
+	if !strings.Contains(got, "/media/"+strconv.FormatInt(id, 10)+"/thumbnail?v=") {
+		t.Errorf("row thumbnail_url = %q, want the versioned /media/%d/thumbnail?v= URL", got, id)
 	}
 }

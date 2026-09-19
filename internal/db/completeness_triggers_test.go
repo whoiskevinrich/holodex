@@ -10,7 +10,7 @@ import (
 	"holodex/internal/db/migrations"
 )
 
-// Migration 0048 (F65, ADR-099 D4): completeness_dirty is fed by triggers on
+// Migration 0049 (F65, ADR-099 D4): completeness_dirty is fed by triggers on
 // every table resolver.Complete reads from. This test is the enumeration the
 // ADR calls for — one write per input table, each of which must leave a dirty
 // row — and it cross-checks the table list against the migration text, so a
@@ -58,7 +58,7 @@ func seedCompletenessFixture(t *testing.T, db *sql.DB) {
 	mustExec(t, db, `DELETE FROM completeness_dirty`)
 }
 
-func TestMigration0048_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
+func TestMigration0049_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -80,7 +80,7 @@ func TestMigration0048_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
 // Link tables flag BOTH sides: no person/studio facet reads a link, but a
 // person with no active video has no store row (the drain clears it), so
 // re-linking must re-flag the person or it lists with no ring.
-func TestMigration0048_LinkTablesDirtyBothSides(t *testing.T) {
+func TestMigration0049_LinkTablesDirtyBothSides(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -103,7 +103,7 @@ func TestMigration0048_LinkTablesDirtyBothSides(t *testing.T) {
 
 // Shadow-table writes for an entity type nothing scores (a film's enrichment,
 // a tag's alias) must not leave dirty rows that exist only to be cleared.
-func TestMigration0048_UnscoredEntityTypesNeverDirty(t *testing.T) {
+func TestMigration0049_UnscoredEntityTypesNeverDirty(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -119,7 +119,7 @@ func TestMigration0048_UnscoredEntityTypesNeverDirty(t *testing.T) {
 // The scanner rewrites every videos row on every scan (UpsertVideo's ON CONFLICT
 // DO UPDATE lists title among its SET columns even when unchanged); the videos
 // update trigger must fire only on a real change to a column Complete reads.
-func TestMigration0048_VideoUpdateDirtiesOnlyOnScoredColumnChange(t *testing.T) {
+func TestMigration0049_VideoUpdateDirtiesOnlyOnScoredColumnChange(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -137,10 +137,10 @@ func TestMigration0048_VideoUpdateDirtiesOnlyOnScoredColumnChange(t *testing.T) 
 }
 
 // A conflict clause on the firing statement overrides the one inside a trigger
-// body in SQLite, which is why 0048 uses INSERT ... WHERE NOT EXISTS rather than
+// body in SQLite, which is why 0049 uses INSERT ... WHERE NOT EXISTS rather than
 // INSERT OR IGNORE: an already-dirty entity written again via an upsert must
 // neither fail nor duplicate.
-func TestMigration0048_TriggersSurviveUpsertConflictPolicy(t *testing.T) {
+func TestMigration0049_TriggersSurviveUpsertConflictPolicy(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -157,7 +157,7 @@ func TestMigration0048_TriggersSurviveUpsertConflictPolicy(t *testing.T) {
 
 // Deleting an entity row must drop every derived row, not leave a dirty
 // tombstone the drain can never resolve.
-func TestMigration0048_EntityDeleteDropsDerivedRows(t *testing.T) {
+func TestMigration0049_EntityDeleteDropsDerivedRows(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -176,8 +176,8 @@ func TestMigration0048_EntityDeleteDropsDerivedRows(t *testing.T) {
 
 // The test list above and the migration's trigger set must name the same
 // tables: this is what makes "the migration is the list" enforceable.
-func TestMigration0048_TriggerSetMatchesEnumeratedInputs(t *testing.T) {
-	src, err := migrations.FS.ReadFile("0048_entity_completeness.up.sql")
+func TestMigration0049_TriggerSetMatchesEnumeratedInputs(t *testing.T) {
+	src, err := migrations.FS.ReadFile("0049_entity_completeness.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,10 +191,10 @@ func TestMigration0048_TriggerSetMatchesEnumeratedInputs(t *testing.T) {
 		enumerated[tc.table] = true
 	}
 	if diff := setDiff(inMigration, enumerated); len(diff) > 0 {
-		t.Errorf("tables with a 0048 trigger but no entry in completenessInputs: %v", diff)
+		t.Errorf("tables with a 0049 trigger but no entry in completenessInputs: %v", diff)
 	}
 	if diff := setDiff(enumerated, inMigration); len(diff) > 0 {
-		t.Errorf("tables enumerated in completenessInputs with no 0048 trigger: %v", diff)
+		t.Errorf("tables enumerated in completenessInputs with no 0049 trigger: %v", diff)
 	}
 }
 

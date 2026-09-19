@@ -20,7 +20,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 - [x] spec `write-spec` — F55 spec amended in place (F65 RD1–RD8, F65.1–7, v2 § Scoring model + facet tables, worked examples); demoted list ruled 2026-09-18
 - [x] architecture `architecture` — ADR-099 (supersedes ADR-081 D3 + D4): required band, extras, `entity_completeness` + `_missing` + `completeness_dirty` with triggers, lazy drain on owner reads
 - [x] design `design-handoff` — `docs/design/completeness-ring-badge-handoff.md` + `-mockup.svg`: card = bottom-left chip with Part N shifting right (HOLODEX-389 had taken the corner), rows = trailing before the count, `CompletenessRing` props/markup, numbered three-skin QA
-- [x] backend — migration 0048 (tables + triggers, incl. promotions/claims/hints in SQL), `resolver.Complete` Required/Extras, `repo.DrainCompleteness` under writeMu + `StoreCompleteness` self-heal, mark-all on boot/reload, SQL composite sort + missing-facet predicate, owner-only `completeness` on list items, registry demotions; 2026-09-18
+- [x] backend — migration 0049 (tables + triggers, incl. promotions/claims/hints in SQL), `resolver.Complete` Required/Extras, `repo.DrainCompleteness` under writeMu + `StoreCompleteness` self-heal, mark-all on boot/reload, SQL composite sort + missing-facet predicate, owner-only `completeness` on list items, registry demotions; 2026-09-18
 - [x] frontend — `CompletenessRing` + `ring.ts` (unit-tested), VideoCard bottom-left chip beside Part, `/people` + `/studios` rows before the count, panel headline `score` + `extras` (studio → extras is the number), `types.ts` v2 shapes; agent QA 2.1–2.5 green on all three skins; 2026-09-18
 - [x] testing `testing-strategy` — F65 rows (resolver bands, store triggers/repo/list surfaces, ring badge) + six invariants in `docs/testing-strategy.md`; tests already shipped with the code; 2026-09-18
 - [x] security `security-review` — clean 2026-09-18: entityType SQL concat is constants-only, sort whitelisted, missing_facet bound, drain/attach/self-heal all inside the owner check, facets endpoint in the requireOwner group, visitor items omit the key
@@ -54,7 +54,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 
 ### 2026-09-18 · backend
 - skills: code-review high --fix
-- handoff: backend gate green, all Go tests pass. Migration 0048 = three tables + 20 input-table
+- handoff: backend gate green, all Go tests pass. Migration 0049 = three tables + 20 input-table
   trigger sets; `INSERT … WHERE NOT EXISTS` not `OR IGNORE` (SQLite lets the firing statement's
   conflict clause override the trigger's — an upsert turned OR IGNORE into an abort, caught by the
   existing repo suite); `videos` update trigger is scoped `OF title, active, deleted_at` + a WHEN

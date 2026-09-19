@@ -643,6 +643,15 @@ export const api = {
 	activityDigest: (days = 30) =>
 		getAuthed<JobDigest>(`/admin/activity/digest?days=${days}`),
 
+	// Dismiss handled failures from the digest (HOLODEX-416, ADR-100). A row
+	// dismiss is a safe no-op (dismissed: false) on a second call or a non-error
+	// run — never a 404/409. Dismiss-all covers every undismissed error run in the
+	// window server-side, including the ones beyond the digest's inline cap.
+	dismissJobRun: (id: number) =>
+		sendAuthed<{ dismissed: boolean }>('POST', `/admin/activity/runs/${id}/dismiss`),
+	dismissJobFailures: (days = 30) =>
+		sendAuthed<{ dismissed: number }>('POST', `/admin/activity/failures/dismiss`, { days }),
+
 	// Trigger a full re-index (F13.3). 202 + {started:false} means a scan was
 	// already running — not an error.
 	rescan: async (): Promise<{ started: boolean }> => {

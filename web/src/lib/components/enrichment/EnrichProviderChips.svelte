@@ -28,8 +28,10 @@
 		size?: 'sm' | 'xs';
 		// Unlinked primary click, and the ⋯ "Re-match…" item once linked — both open
 		// EnrichPicker for a fresh /resolve (RD7: the linked case is just a relabel of
-		// what used to be the only primary action).
-		onenrich: (p: string) => void;
+		// what used to be the only primary action). Re-match flags itself so the caller
+		// can open the picker with RD1 auto-apply off (HOLODEX-418): the owner is
+		// overriding the current link, so the list must show even for a lone strong match.
+		onenrich: (p: string, opts?: { rematch: boolean }) => void;
 		// Linked primary click — calls apply() directly against the stored external_id,
 		// no picker (RD7/P0-5).
 		onrefresh: (p: string) => void;
@@ -124,7 +126,7 @@
 							role="menuitem"
 							type="button"
 							onclick={() => {
-								onenrich(p);
+								onenrich(p, { rematch: true });
 								close();
 							}}
 							class="block w-full rounded-theme px-3 py-1.5 text-left {txt} text-ink hover:bg-surface-2"

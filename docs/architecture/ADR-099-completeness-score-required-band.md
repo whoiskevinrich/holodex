@@ -276,7 +276,7 @@ under the owner cannot be explained.
 
 1. [ ] Amend `docs/specs/entity-completeness-score.md` (F65): scoring model, the `null` rules,
        the composite sort, the demoted-facet list, the badge, the owner-only list field.
-2. [ ] Migration `0048`: `entity_completeness`, `entity_completeness_missing`,
+2. [ ] Migration `0049`: `entity_completeness`, `entity_completeness_missing`,
        `completeness_dirty`, and the trigger set over every input table; manual down drops all.
 3. [ ] `resolver.Complete`: `Required` / `Extras` (`*int`), binary presence, per-band
        not-applicable exclusion; keep `Facets[]` and actionability.

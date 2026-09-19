@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="960" height="420" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">
+  <title>Edit Description modal — overflow bug and the shipped fix</title>
+  <desc>Three viewports side by side. Left: the panel grows past the viewport and Save/Cancel are below the fold with nothing to scroll. Middle: option A, the panel is capped at 80vh, the body scrolls and the footer stays in flow. Right: option B, each source row is clamped to four lines with a Show more toggle so every source and the buttons are visible at once.</desc>
+  <defs>
+    <clipPath id="vp1"><rect x="16" y="40" width="296" height="340" rx="8"/></clipPath>
+    <clipPath id="vp2"><rect x="332" y="40" width="296" height="340" rx="8"/></clipPath>
+    <clipPath id="vp3"><rect x="648" y="40" width="296" height="340" rx="8"/></clipPath>
+  </defs>
+  <rect width="960" height="420" fill="#f4f1ea"/>
+
+  <!-- column labels -->
+  <rect x="16" y="12" width="58" height="18" rx="4" fill="#fcebeb"/>
+  <text x="45" y="25" text-anchor="middle" fill="#a32d2d" font-size="11">Now (bug)</text>
+  <rect x="332" y="12" width="98" height="18" rx="4" fill="#e6f1fb"/>
+  <text x="381" y="25" text-anchor="middle" fill="#185fa5" font-size="11">A · bound + scroll</text>
+  <rect x="648" y="12" width="98" height="18" rx="4" fill="#eaf3de"/>
+  <text x="697" y="25" text-anchor="middle" fill="#3b6d11" font-size="11">B · A + clamp rows</text>
+
+  <!-- ===== viewport 1: bug ===== -->
+  <g clip-path="url(#vp1)">
+    <rect x="16" y="40" width="296" height="340" fill="#1f1d1a" opacity="0.55"/>
+    <rect x="30" y="56" width="268" height="520" rx="6" fill="#fffdf8" stroke="#c9c2b4"/>
+    <text x="42" y="76" font-size="13" font-weight="600" fill="#1f1d1a">Edit Description</text>
+    <rect x="42" y="86" width="244" height="150" rx="4" fill="none" stroke="#d9d2c4"/>
+    <circle cx="52" cy="98" r="4" fill="none" stroke="#8a8073"/>
+    <text x="61" y="101" fill="#8a8073" letter-spacing="0.8" font-size="9">FILE</text>
+    <g fill="#1f1d1a" font-size="10">
+      <text x="61" y="116">A sweeping documentary following three</text>
+      <text x="61" y="129">generations of a fishing family as the</text>
+      <text x="61" y="142">coastal town they built slowly empties.</text>
+      <text x="61" y="155">Shot over four winters, it moves between</text>
+      <text x="61" y="168">kitchen tables and open water, letting</text>
+      <text x="61" y="181">long silences carry as much weight as</text>
+      <text x="61" y="194">any interview. The film resists tidy</text>
+      <text x="61" y="207">conclusions, instead letting the camera</text>
+      <text x="61" y="220">linger on hands mending nets, a radio…</text>
+    </g>
+    <rect x="42" y="244" width="244" height="150" rx="4" fill="#e9f0ee" stroke="#2f7a66"/>
+    <circle cx="52" cy="256" r="4" fill="none" stroke="#2f7a66" stroke-width="2.5"/>
+    <text x="61" y="259" fill="#2f7a66" letter-spacing="0.8" font-size="9">TMDB</text>
+    <g fill="#1f1d1a" font-size="10">
+      <text x="61" y="274">Across four winters in a dwindling</text>
+      <text x="61" y="287">harbour town, three generations of the</text>
+      <text x="61" y="300">same family keep fishing while everything</text>
+      <text x="61" y="313">around them closes. The documentary</text>
+      <text x="61" y="326">trades narration for patience, staying</text>
+      <text x="61" y="339">with mended nets, an empty radio channel</text>
+      <text x="61" y="352">and the single boat that still goes out</text>
+      <text x="61" y="365">at dawn. What emerges is a quiet,</text>
+      <text x="61" y="378">unsentimental portrait of work…</text>
+    </g>
+  </g>
+  <rect x="16" y="348" width="296" height="32" fill="#fcebeb"/>
+  <text x="164" y="368" text-anchor="middle" fill="#a32d2d" font-size="11">↓ Custom · Cancel · Save are down here</text>
+  <rect x="16" y="40" width="296" height="340" rx="8" fill="none" stroke="#c9c2b4"/>
+  <text x="164" y="402" text-anchor="middle" fill="#5f5e5a" font-size="11">Panel grows past the viewport; overlay is fixed, nothing scrolls</text>
+
+  <!-- ===== viewport 2: option A ===== -->
+  <g clip-path="url(#vp2)">
+    <rect x="332" y="40" width="296" height="340" fill="#1f1d1a" opacity="0.55"/>
+    <rect x="346" y="56" width="268" height="308" rx="6" fill="#fffdf8" stroke="#c9c2b4"/>
+    <text x="358" y="76" font-size="13" font-weight="600" fill="#1f1d1a">Edit Description</text>
+    <!-- scroll region -->
+    <rect x="358" y="86" width="238" height="220" rx="4" fill="none" stroke="#d9d2c4"/>
+    <circle cx="368" cy="98" r="4" fill="none" stroke="#8a8073"/>
+    <text x="377" y="101" fill="#8a8073" letter-spacing="0.8" font-size="9">FILE</text>
+    <g fill="#1f1d1a" font-size="10">
+      <text x="377" y="116">A sweeping documentary following three</text>
+      <text x="377" y="129">generations of a fishing family as the</text>
+      <text x="377" y="142">coastal town they built slowly empties.</text>
+      <text x="377" y="155">Shot over four winters, it moves between</text>
+      <text x="377" y="168">kitchen tables and open water, letting</text>
+      <text x="377" y="181">long silences carry as much weight as</text>
+      <text x="377" y="194">any interview. The film resists tidy</text>
+      <text x="377" y="207">conclusions, instead letting the camera</text>
+      <text x="377" y="220">linger on hands mending nets, a radio</text>
+      <text x="377" y="233">that no longer picks up the harbour</text>
+      <text x="377" y="246">channel, and the one boat that still</text>
+      <text x="377" y="259">leaves before dawn. Its final passage,</text>
+      <text x="377" y="272">a single unbroken take, follows the</text>
+      <text x="377" y="285">boat out past the breakwater as the</text>
+    </g>
+    <rect x="358" y="298" width="238" height="40" rx="4" fill="#e9f0ee" stroke="#2f7a66"/>
+    <circle cx="368" cy="310" r="4" fill="none" stroke="#2f7a66" stroke-width="2.5"/>
+    <text x="377" y="313" fill="#2f7a66" letter-spacing="0.8" font-size="9">TMDB</text>
+    <text x="377" y="328" fill="#1f1d1a" font-size="10">Across four winters in a dwindling</text>
+    <!-- mask the scroll region bottom -->
+    <rect x="346" y="318" width="268" height="46" fill="#fffdf8"/>
+    <!-- scrollbar -->
+    <rect x="600" y="88" width="4" height="228" rx="2" fill="#e5dfd2"/>
+    <rect x="600" y="88" width="4" height="86" rx="2" fill="#8a8073"/>
+    <!-- footer -->
+    <line x1="358" y1="322" x2="602" y2="322" stroke="#d9d2c4"/>
+    <rect x="510" y="332" width="44" height="22" rx="4" fill="none" stroke="#c9c2b4"/>
+    <text x="532" y="346" text-anchor="middle" fill="#1f1d1a">Cancel</text>
+    <rect x="560" y="332" width="42" height="22" rx="4" fill="#2f7a66"/>
+    <text x="581" y="346" text-anchor="middle" fill="#ffffff" font-weight="600">Save</text>
+  </g>
+  <rect x="332" y="40" width="296" height="340" rx="8" fill="none" stroke="#c9c2b4"/>
+  <text x="480" y="402" text-anchor="middle" fill="#5f5e5a" font-size="11">max-h 80vh, body scrolls, footer in flow — EnrichPicker's shell</text>
+
+  <!-- ===== viewport 3: option B ===== -->
+  <g clip-path="url(#vp3)">
+    <rect x="648" y="40" width="296" height="340" fill="#1f1d1a" opacity="0.55"/>
+    <rect x="662" y="56" width="268" height="308" rx="6" fill="#fffdf8" stroke="#c9c2b4"/>
+    <text x="674" y="76" font-size="13" font-weight="600" fill="#1f1d1a">Edit Description</text>
+    <!-- File row, clamped -->
+    <rect x="674" y="86" width="244" height="84" rx="4" fill="none" stroke="#d9d2c4"/>
+    <circle cx="684" cy="98" r="4" fill="none" stroke="#8a8073"/>
+    <text x="693" y="101" fill="#8a8073" letter-spacing="0.8" font-size="9">FILE</text>
+    <g fill="#1f1d1a" font-size="10">
+      <text x="693" y="116">A sweeping documentary following three</text>
+      <text x="693" y="129">generations of a fishing family as the</text>
+      <text x="693" y="142">coastal town they built slowly empties.</text>
+      <text x="693" y="155">Shot over four winters, it moves betw…</text>
+    </g>
+    <text x="693" y="167" fill="#8a8073" font-size="9">Show more ⌄</text>
+    <!-- TMDB row, clamped, selected -->
+    <rect x="674" y="178" width="244" height="84" rx="4" fill="#e9f0ee" stroke="#2f7a66"/>
+    <circle cx="684" cy="190" r="4" fill="none" stroke="#2f7a66" stroke-width="2.5"/>
+    <text x="693" y="193" fill="#2f7a66" letter-spacing="0.8" font-size="9">TMDB</text>
+    <g fill="#1f1d1a" font-size="10">
+      <text x="693" y="208">Across four winters in a dwindling</text>
+      <text x="693" y="221">harbour town, three generations of the</text>
+      <text x="693" y="234">same family keep fishing while everything</text>
+      <text x="693" y="247">around them closes. The documentary tr…</text>
+    </g>
+    <text x="693" y="259" fill="#8a8073" font-size="9">Show more ⌄</text>
+    <!-- Custom row -->
+    <rect x="674" y="270" width="244" height="50" rx="4" fill="none" stroke="#d9d2c4"/>
+    <circle cx="684" cy="282" r="4" fill="none" stroke="#8a8073"/>
+    <text x="693" y="285" fill="#8a8073" letter-spacing="0.8" font-size="9">CUSTOM</text>
+    <rect x="693" y="291" width="218" height="24" rx="3" fill="#fffdf8" stroke="#d9d2c4"/>
+    <text x="699" y="306" fill="#8a8073" font-size="10">Write a custom description…</text>
+    <!-- footer -->
+    <rect x="826" y="332" width="44" height="22" rx="4" fill="none" stroke="#c9c2b4"/>
+    <text x="848" y="346" text-anchor="middle" fill="#1f1d1a">Cancel</text>
+    <rect x="876" y="332" width="42" height="22" rx="4" fill="#2f7a66"/>
+    <text x="897" y="346" text-anchor="middle" fill="#ffffff" font-weight="600">Save</text>
+  </g>
+  <rect x="648" y="40" width="296" height="340" rx="8" fill="none" stroke="#c9c2b4"/>
+  <text x="796" y="402" text-anchor="middle" fill="#5f5e5a" font-size="11">Every source and the buttons visible; expand a row only to read it all</text>
+</svg>

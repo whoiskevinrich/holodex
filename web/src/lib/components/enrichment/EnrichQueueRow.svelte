@@ -130,6 +130,7 @@
 
 {#if pickerProvider}
 	<EnrichPicker
+		entityType={row.entity_type}
 		entityName={row.name}
 		provider={pickerProvider}
 		{resolve}

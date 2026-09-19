@@ -303,7 +303,7 @@ func wantsCompleteness(sort string, missingFacets []string) bool {
 }
 
 // drainCompleteness recomputes every entity in completeness_dirty and writes
-// the store (ADR-099 D4): the triggers in migration 0048 fill the set on every
+// the store (ADR-099 D4): the triggers in migration 0049 fill the set on every
 // input-table write, and the owner-gated store readers (listMedia, listPeople,
 // listStudios, completenessFacets) call this first, so a badge or sort never
 // reflects a stale row. Cost is O(entities mutated since the last owner read);

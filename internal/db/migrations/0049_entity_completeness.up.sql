@@ -1,4 +1,4 @@
--- 0048: materialized completeness score + trigger-fed dirty set (F65, ADR-099 D3/D4).
+-- 0049: materialized completeness score + trigger-fed dirty set (F65, ADR-099 D3/D4).
 --
 -- entity_completeness / entity_completeness_missing are a CACHE of
 -- resolver.Complete's output, never a source of truth. The detail page still

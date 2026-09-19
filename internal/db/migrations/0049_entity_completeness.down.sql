@@ -1,4 +1,4 @@
--- 0048 down: drop the completeness store, dirty set and every trigger 0048 added.
+-- 0049 down: drop the completeness store, dirty set and every trigger 0049 added.
 DROP TRIGGER IF EXISTS cd_videos_ai;
 DROP TRIGGER IF EXISTS cd_videos_au;
 DROP TRIGGER IF EXISTS cd_videos_ad;
