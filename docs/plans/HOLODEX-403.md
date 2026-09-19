@@ -11,9 +11,9 @@ release_note: The "Write metadata to file" dialog's Poster row is now a chooser 
 
 Pulled forward by the owner (2026-09-19) because the cockpit (HOLODEX-400) removed the last
 checkbox, leaving the poster with no writeback path: a field with nothing to decide is read-only,
-and the poster had nothing to decide only because it had no chooser. Branch is **stacked on
-`HOLODEX-400-writeback-cockpit`** (PR #359, In Review); the Draft PR targets that branch and
-retargets to `main` once #359 merges.
+and the poster had nothing to decide only because it had no chooser. Started stacked on
+`HOLODEX-400-writeback-cockpit`; #359 merged the same hour, so the branch merged `main` and the
+Draft PR targets `main` directly.
 
 Two halves: the **tile chooser** (frontend, third chooser shape) and the **sync witness**
 (ADR-101: for image fields `in_sync` comes from the newest `file_writebacks` row, because nothing
@@ -39,7 +39,7 @@ reads cover art back and a decided poster would otherwise re-embed on every Writ
 2. [ ] [frontend] `SourceImageTiles.svelte` (chip-row keyboard handler verbatim), dialog wiring,
    `isCockpitRow`/`needsDecision` admit `image_url`, upload placeholder + note
 3. [ ] [testing] tests + live pass on `backend-films` (Dune): pick tmdb → PUT + writeback; re-open → `=`
-4. [ ] [—] Retarget the PR to `main` after #359 merges; `/code-review high --fix`; three-skin QA
+4. [ ] [—] `/code-review high --fix`; three-skin QA
 5. [ ] [—] Fold `SourceBadge` onto `SourceChipRow` (carried over from HOLODEX-400's list)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -47,5 +47,5 @@ reads cover art back and a decided poster would otherwise re-embed on every Writ
 ### 2026-09-19 · gates
 - skills: design-handoff (house format), architecture (ADR-101, number via `adr-claims.mjs --reserve`)
 - handoff: worktree `HOLODEX-403-poster-chooser` stacked on the cockpit branch; Jira In Progress;
-  owner chose ledger-witnessed sync (B) and the upload placeholder; spec/ADR/design landed, Draft
-  PR open against `HOLODEX-400-writeback-cockpit`. Next: backend (Up next 1).
+  owner chose ledger-witnessed sync (B) and the upload placeholder; spec/ADR/design landed. #359
+  merged mid-session → merged `main`, Draft PR opened against `main`. Next: backend (Up next 1).
