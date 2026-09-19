@@ -2382,6 +2382,7 @@
 
 	{#if pickerProvider && video}
 		<EnrichPicker
+			entityType="video"
 			entityName={enrichQueries[pickerProvider] ?? displayTitle}
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}

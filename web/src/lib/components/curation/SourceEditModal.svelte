@@ -9,10 +9,13 @@
 	// `decide` until Save. Entity-generic like SourceBadge (`baselineKey`: 'file' for videos,
 	// 'record' for persons/studios). Modal chrome delegates to ConfirmDialog (focus trap, Esc,
 	// backdrop, focus-return), mirroring MergeCanonicalDialog's own radio-body usage of it.
+	// Each source value is clamped to four lines (SourceValueClamp, HOLODEX-417) so the
+	// candidates — and the Save/Cancel footer — stay on screen together at paragraph length.
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import { resolveSelection, sourceChips } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+	import SourceValueClamp from './SourceValueClamp.svelte';
 
 	let {
 		field,
@@ -103,12 +106,13 @@
 						<textarea
 							bind:value={stagedCustomValue}
 							onfocus={() => (stagedKey = 'custom')}
-							rows="3"
+							rows="5"
 							placeholder={`Write a custom ${field.label.toLowerCase()}…`}
 							class="mt-1 ml-6 block w-[calc(100%-1.5rem)] resize-none rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
 						></textarea>
 					</label>
 				{:else}
+					{@const value = chip.value.trim()}
 					<label
 						class="block cursor-pointer rounded-theme border p-2 {stagedKey === chip.key
 							? 'border-accent bg-accent/10'
@@ -129,8 +133,12 @@
 								{chip.labels.join(' + ')}
 							</span>
 						</span>
-						<span class="mt-1 block pl-6 text-sm {chip.value.trim() ? 'text-ink' : 'text-muted'}">
-							{chip.value.trim() || 'No value'}
+						<span class="mt-1 block pl-6 text-sm {value ? 'text-ink' : 'text-muted'}">
+							{#if value}
+								<SourceValueClamp text={value} label={chip.labels.join(' + ')} />
+							{:else}
+								No value
+							{/if}
 						</span>
 					</label>
 				{/if}
