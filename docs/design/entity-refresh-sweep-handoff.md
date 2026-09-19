@@ -1,7 +1,7 @@
-# Design Handoff: Entity refresh sweep — "Refresh all people / studios" from System Activity
+# Design Handoff: Entity refresh sweep — "Refresh all people / studios" from System Activity (F66)
 
-**Status**: Approved placement (Option D, 2026-09-19) · **Ticket**: HOLODEX-421 · **Spec**: *pending `/write-spec`* (feature
-number claimed at scaffold time via `node scripts/feature-claims.mjs`) · **ADR**: *pending `/architecture`* — provider
+**Status**: Approved placement (Option D, 2026-09-19) · **Ticket**: HOLODEX-421 · **Spec**:
+[entity-refresh-sweep.md](../specs/entity-refresh-sweep.md) (F66) · **ADR**: *pending `/architecture`* — provider
 rate-limit contract (the initiative F47 deferred; see "Backend contract this UI needs")
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
 **tokens only, QA all three skins.**
@@ -82,8 +82,13 @@ Actions
 - A button renders **only when the kind's count is `> 0`** (`a.library.people` / `a.library.studios`) — a
   sweep over nothing is not an action worth a disabled control.
 - Confirm replaces the whole button row, exactly as `confirmingRescan` does:
-  `Refresh all 212 people from their linked providers?  [Yes, refresh] [Cancel]`. The count is
-  `a.library.<kind>` — it is the number the job will iterate.
+  `Refresh 212 people (148 due, 64 refreshed in the last 24 h)?  ☐ Refresh everything  [Yes, refresh] [Cancel]`.
+  `212` is `a.library.<kind>`; *due* is the number of entities with at least one pair the sweep will
+  actually call (spec RD2/RD11 — P0 may show only the total until P1-2's preview endpoint lands, in
+  which case the line reads `Refresh all 212 people from their linked providers?`). The checkbox is a
+  plain `<label><input type="checkbox">` in the row, **unchecked on every open** (spec RD3 — a per-sweep
+  flag, nothing persists); ticking it flips the question to `Refresh all 212 people?` and sends
+  `force: true`.
 - Running: the row is back; the running kind's button is `disabled` and reads
   `Refreshing people 37 / 212…`; the other kind's button is `disabled` with `title="One refresh at a time"`.
   Rescan/Reload are **not** disabled by a sweep (different subsystems; the scan already has its own busy).
@@ -98,7 +103,7 @@ Refreshing people in the background — 37 of 212 · linked 4 · 6 need review �
 ```
 
 ```
-Refreshed 212 people in 6 m 40 s — Linked 23 · 31 need review · 2 failed · Skipped 44 (tmdb stopped responding) · View in System Activity · Dismiss
+Refreshed 212 people in 6 m 40 s — Linked 23 · 31 need review · 2 failed · Skipped 44 (tmdb stopped responding) · 64 recently refreshed · View in System Activity · Dismiss
 ```
 
 - Nothing renders when idle. A sweep of the **other** kind renders nothing here (D keeps list pages minimal).
@@ -147,7 +152,7 @@ with identical behavior; the status-page buttons stay inline like their Rescan s
 | Element | State | Behavior |
 |---|---|---|
 | `Refresh all people…` | Idle | Bordered neutral. Click → confirm row. Hidden when `library.people == 0`. |
-| Confirm row | Open | `Refresh all N people from their linked providers?` · `Yes, refresh` (solid accent) · `Cancel`. Clicking either closes the row. Keyboard: Tab order question → Yes → Cancel; no auto-focus move (parity with Rescan). |
+| Confirm row | Open | `Refresh N people (D due, S refreshed in the last 24 h)?` · `☐ Refresh everything` · `Yes, refresh` (solid accent) · `Cancel`. Ticking the checkbox rewrites the question to `Refresh all N people?`. Clicking Yes/Cancel closes the row and resets the checkbox. Keyboard: Tab order question → checkbox → Yes → Cancel; no auto-focus move (parity with Rescan). |
 | `Yes, refresh` | Click | `busy = true`; `POST …/sweep/people`; toast `Refresh started.` on `started: true`, `A refresh is already running.` on `started: false` (202 either way — not an error); `toMessage(e)` toast on failure; `activity.refresh()` in `finally`. |
 | Running kind's button | Running | `disabled`, label `Refreshing people 37 / 212…` from `sweep.done / sweep.total`. |
 | Other kind's button | Running | `disabled`, `title="One refresh at a time"`. |

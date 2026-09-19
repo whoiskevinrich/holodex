@@ -30,9 +30,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 - [x] design `design-handoff` — `docs/design/entity-refresh-sweep-handoff.md` +
   `entity-refresh-sweep-mockup.svg` (Option D, seven states, backend contract the UI needs)
-- [ ] spec `write-spec` — new spec (claim F## via `node scripts/feature-claims.mjs` at scaffold);
-  amends F47 `enrichment-review-workflow.md` Non-Goals / P2-1; contract doc
-  `metadata-provider-contract.md` gains `/describe.rate_limit`
+- [x] spec `write-spec` — `docs/specs/entity-refresh-sweep.md` (**F66**; RD1–RD11, P0-1…P0-9);
+  F47 `enrichment-review-workflow.md` Non-Goal + P2-1 amended to point here; contract doc
+  `metadata-provider-contract.md` §2.0/§2.2/§2.5/§4.4 amended + new §4.13 `/describe.rate_limit`
 - [ ] architecture `architecture` — ADR: provider rate-limit contract (token bucket, `/describe`
   declaration, yaml override precedence, 429/Retry-After, circuit breaker) + sweep job shape
   (`enrich-sweep` JobKind, `sweep` block on `/admin/activity`, `TryLock` single-flight)
@@ -50,9 +50,10 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/write-spec` — scaffold with `feature-claims.mjs`, fold in the handoff's "Backend
-   contract this UI needs" §1–5, amend F47 Non-Goals/P2-1
-2. [ ] [—] `/architecture` — rate-limit contract ADR (`node scripts/adr-claims.mjs` for the number)
+1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
+2. [ ] [—] `/architecture` — rate-limit contract ADR (`node scripts/adr-claims.mjs` for the number);
+   pin: bucket clock (monotonic), breaker N=5, 429 defaults 30 s / cap 300 s, `enrich-sweep` kind,
+   `sweep` block shape, `TryLock` single-flight across kinds
 3. [ ] [—] Backend → frontend → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark PR ready only when every gate is green; CI moves 421 → In Review / Done
@@ -66,3 +67,14 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   five placements + two done-state revisions in-session; Kevin chose **D** and asked for a default
   rate limit with sidecar self-declaration → traffic posture above.
 - handoff: design gate closed; open Draft PR; next session starts at `/write-spec`.
+
+### 2026-09-19 · spec gate (F66)
+- skills: write-spec
+- `feature-claims.mjs` said F65 was free — it wasn't (HOLODEX-412 claimed it as an in-place
+  amendment with no H1); pinned F65 in `.feature-claims`, reserved **F66**, filed the scanner gap
+  as HOLODEX-423. Two question cards → Kevin: **24 h staleness skip + "Refresh everything"
+  checkbox** (RD2/RD3); **films deferred to P2** (`{kind}` left open). Unlinked pairs have no
+  attempt marker (F47 P2-2), so the skip covers linked pairs only in P0 — P1-1 adds the marker.
+- Amended F47 (Non-Goal + P2-1 → F66) and the provider contract (§4.13 + 429 semantics; §4.4 from
+  "entirely provider-owned" to shared). Handoff + SVG synced (confirm row: due count + checkbox).
+- handoff: spec gate closed; next = `/architecture` for the rate-limit contract ADR.

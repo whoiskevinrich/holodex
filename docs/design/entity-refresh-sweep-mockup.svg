@@ -38,14 +38,16 @@
   <text x="579" y="83" class="t" text-anchor="middle">↻ Refresh all studios…</text>
 
   <!-- 2 · confirm -->
-  <text x="16" y="136" class="cap">2 · Inline confirm — replaces the row, count = library.people (mirrors Rescan's confirm)</text>
+  <text x="16" y="136" class="cap">2 · Inline confirm — due count + "Refresh everything" checkbox (unchecked on every open); mirrors Rescan's confirm</text>
   <rect x="16" y="146" width="888" height="74" rx="8" class="panel"/>
   <text x="32" y="168" class="sec">ACTIONS</text>
-  <text x="32" y="184" class="t">Refresh all 212 people from their linked providers?</text>
-  <rect x="330" y="178" width="98" height="28" rx="6" class="prim"/>
-  <text x="379" y="197" class="t" text-anchor="middle" style="fill:#fff;font-weight:600">Yes, refresh</text>
-  <rect x="436" y="178" width="66" height="28" rx="6" class="btn"/>
-  <text x="469" y="197" class="t" text-anchor="middle">Cancel</text>
+  <text x="32" y="184" class="t">Refresh 212 people (148 due, 64 refreshed in the last 24 h)?</text>
+  <rect x="392" y="185" width="12" height="12" rx="2" class="btn"/>
+  <text x="410" y="195" class="t">Refresh everything</text>
+  <rect x="530" y="178" width="98" height="28" rx="6" class="prim"/>
+  <text x="579" y="197" class="t" text-anchor="middle" style="fill:#fff;font-weight:600">Yes, refresh</text>
+  <rect x="636" y="178" width="66" height="28" rx="6" class="btn"/>
+  <text x="669" y="197" class="t" text-anchor="middle">Cancel</text>
 
   <!-- 3 · running -->
   <text x="16" y="250" class="cap">3 · Running — label carries progress from the 3 s activity poll; other kind blocked (one refresh at a time)</text>
@@ -98,7 +100,7 @@
   <rect x="826" y="552" width="66" height="26" rx="6" class="pill"/>
   <text x="859" y="570" class="t mut" text-anchor="middle">Grid · Poster</text>
   <line x1="32" y1="590" x2="888" y2="590" class="row"/>
-  <text x="32" y="614" class="t mut">Refreshed 212 people in 6 m 40 s — <tspan class="acc" style="text-decoration:underline">Linked 23</tspan> · <tspan class="acc" style="text-decoration:underline">31 need review</tspan> · <tspan class="warn">2 failed</tspan> · Skipped 44 (tmdb stopped responding) · <tspan class="acc" style="text-decoration:underline">View in System Activity</tspan> · Dismiss</text>
+  <text x="32" y="614" class="t mut">Refreshed 212 people in 6 m 40 s — <tspan class="acc" style="text-decoration:underline">Linked 23</tspan> · <tspan class="acc" style="text-decoration:underline">31 need review</tspan> · <tspan class="warn">2 failed</tspan> · Skipped 44 (tmdb) · 64 recent · <tspan class="acc" style="text-decoration:underline">View in System Activity</tspan> · Dismiss</text>
 
   <!-- 6 · Studios idle (nothing) -->
   <text x="16" y="668" class="cap">6 · /studios while a people sweep runs — nothing renders (D keeps list pages minimal); idle is identical</text>
