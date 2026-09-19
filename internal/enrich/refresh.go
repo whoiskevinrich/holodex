@@ -2,6 +2,7 @@ package enrich
 
 import (
 	"context"
+	"time"
 
 	"holodex/internal/model"
 )
@@ -12,26 +13,39 @@ import (
 type Match struct {
 	Provider   string `json:"provider"`
 	ExternalID string `json:"external_id"`
+	// FetchedAt is when the provider's rows were last stored — RefreshPair's
+	// staleness input (F66 RD2). Not part of the API payload.
+	FetchedAt time.Time `json:"-"`
 }
 
 // ProviderMatches returns the providers an entity is currently linked to, each with
 // the external id it was confirmed against, so a refresh can re-fetch them with no
 // picker (F31.3). Derived from the shadow store; a provider whose rows carry no
 // external id is skipped (re-enrich needs the id). Order is stable — the store
-// returns rows ordered by provider, and the first row per provider wins.
+// returns rows ordered by provider, and the first row per provider wins the id.
+// FetchedAt is the newest of the provider's rows: the store is additive, so a key
+// the provider stopped sending keeps its older row, which must not make a freshly
+// refreshed pair look stale.
 func (s *Service) ProviderMatches(ctx context.Context, entityType string, entityID int64) ([]Match, error) {
 	rows, err := s.repo.EnrichmentForEntity(ctx, entityType, entityID)
 	if err != nil {
 		return nil, err
 	}
-	seen := map[string]bool{}
+	index := map[string]int{}
 	var out []Match
 	for _, row := range rows {
-		if row.ExternalID == "" || seen[row.Provider] {
+		if row.ExternalID == "" {
 			continue
 		}
-		seen[row.Provider] = true
-		out = append(out, Match{Provider: row.Provider, ExternalID: row.ExternalID})
+		i, ok := index[row.Provider]
+		if !ok {
+			index[row.Provider] = len(out)
+			out = append(out, Match{Provider: row.Provider, ExternalID: row.ExternalID, FetchedAt: row.FetchedAt})
+			continue
+		}
+		if row.FetchedAt.After(out[i].FetchedAt) {
+			out[i].FetchedAt = row.FetchedAt
+		}
 	}
 	return out, nil
 }

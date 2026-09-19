@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -164,9 +163,9 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			h.fail(w, "refresh-all match lookup", err)
 			return
 		}
-		linked := make(map[string]string, len(matches))
-		for _, m := range matches {
-			linked[m.Provider] = m.ExternalID
+		linked := make(map[string]*enrich.Match, len(matches))
+		for i := range matches {
+			linked[matches[i].Provider] = &matches[i]
 		}
 
 		var supported []enrich.SourceInfo
@@ -189,10 +188,9 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			wg.Add(1)
 			go func(i int, name string) {
 				defer wg.Done()
-				externalID, isLinked := linked[name]
 				// Per-provider hint, built inside the goroutine (ADR-095 D8): each
 				// provider gets its own ADR-080 render and its own opted-in keys.
-				res, skip := h.refreshOneProvider(r, entityType, id, name, hintFor(name), externalID, isLinked)
+				res, skip := h.refreshOneProvider(r, entityType, id, name, hintFor(name), linked[name])
 				changed := !skip && (res.Status == "refreshed" || res.Status == "auto_applied")
 				outcomes[i] = outcome{res: res, skip: skip, changed: changed}
 			}(i, src.Name)
@@ -218,65 +216,24 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 	}
 }
 
-// refreshOneProvider is refresh-all's per-provider step (RD8): a linked provider
-// (externalID/isLinked from the caller's one batched ProviderMatches lookup) refreshes
-// directly; an unlinked one resolves and auto-applies a single strong match or leaves
-// itself for the owner. skip=true means the provider is left out of the response
-// entirely (only for a dismissed, unlinked provider — RD4's block on re-resolving it).
-// Runs concurrently with its sibling providers (see enrichRefreshAll); it does not call
-// afterEnrichApply itself — the caller runs that once, after the whole fan-out settles.
-func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int64, provider string, hint enrich.Hint, externalID string, isLinked bool) (result refreshAllResult, skip bool) {
-	ctx := r.Context()
-	// noCandidates logs and reports the shared "this provider produced nothing usable"
-	// outcome — every failure path below except a dismissed-skip reduces to it.
-	noCandidates := func(msg string, err error) (refreshAllResult, bool) {
-		h.log.Warn(msg, "provider", provider, "err", err)
-		return refreshAllResult{Provider: provider, Status: "no_candidates"}, false
-	}
-
-	if isLinked {
-		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, externalID, h.auth.authorized(r))
-		if err != nil {
-			return noCandidates("refresh-all refresh failed", err)
-		}
-		return refreshAllResult{Provider: provider, Status: "refreshed", Enriched: fields}, false
-	}
-
-	dismissed, err := h.repo.EnrichmentDismissed(ctx, entityType, id, provider)
-	if err != nil {
-		h.log.Warn("refresh-all dismissal lookup failed", "provider", provider, "err", err)
+// refreshOneProvider renders one provider's RefreshPair outcome (F66 RD1: the step
+// itself lives in enrich.Service so the sweep runs the identical routing). skip=true
+// means the provider is left out of the response entirely (a dismissed, unlinked
+// provider — RD4's block on re-resolving it). A failed call is logged and reported
+// as no_candidates, the pre-existing rendering. A click always forces (ADR-103 D7).
+func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int64, provider string, hint enrich.Hint, link *enrich.Match) (result refreshAllResult, skip bool) {
+	out := h.enrich.RefreshPair(r.Context(), entityType, id, provider, hint, link, enrich.RefreshOpts{
+		Force:            true,
+		BypassGalleryCap: h.auth.authorized(r),
+	})
+	switch out.Status {
+	case enrich.PairDismissed:
 		return refreshAllResult{}, true
+	case enrich.PairFailed:
+		h.log.Warn("refresh-all provider step failed", "provider", provider, "err", out.Err)
+		return refreshAllResult{Provider: provider, Status: string(enrich.PairNoCandidates)}, false
 	}
-	if dismissed {
-		return refreshAllResult{}, true // RD4: never re-resolved until an explicit "Try again"
-	}
-
-	started := time.Now()
-	res, err := h.enrich.Resolve(ctx, provider, entityType, hint)
-	if err != nil {
-		return noCandidates("refresh-all resolve failed", err)
-	}
-	cands := res.Candidates
-	// The only trace an unattended resolve leaves of what was actually tried
-	// (ADR-095 D6) and of which record it bound (F61 FR5) — a no-op when the
-	// provider reported neither. `applied` is passed only once the apply has
-	// actually succeeded: a failed Enrich records the resolve without it (and
-	// its own "(failed)" entry), so the audit line never claims a binding that
-	// didn't happen.
-	if strong, ok := enrich.SingleStrongMatch(cands); ok {
-		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, strong.ExternalID, h.auth.authorized(r))
-		if err != nil {
-			h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
-			return noCandidates("refresh-all auto-apply failed", err)
-		}
-		h.enrich.RecordSearched(started, provider, entityType, id, res, &strong)
-		return refreshAllResult{Provider: provider, Status: "auto_applied", Enriched: fields}, false
-	}
-	h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
-	if len(cands) == 0 {
-		return refreshAllResult{Provider: provider, Status: "no_candidates"}, false
-	}
-	return refreshAllResult{Provider: provider, Status: "needs_review"}, false
+	return refreshAllResult{Provider: provider, Status: string(out.Status), Enriched: out.Enriched}, false
 }
 
 // afterEnrichApply runs the same post-apply side effects the existing per-entity apply

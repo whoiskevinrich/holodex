@@ -39,6 +39,10 @@ type EnrichRepo interface {
 	// (entity_external_ids, ADR-096 D2) for person/studio/tag/film — never video.
 	AttachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error
 	DeleteEnrichmentByProvider(ctx context.Context, entityType string, entityID int64, provider string) (int64, error)
+	// EnrichmentDismissed reports the owner's durable "not matched" verdict for a
+	// pair (F47 RD4) — the guard RefreshPair consults before ever dialing a provider
+	// again for it.
+	EnrichmentDismissed(ctx context.Context, entityType string, entityID int64, provider string) (bool, error)
 	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
 	// effort — a recording failure never fails the enrichment.
 	RecordJobRun(ctx context.Context, run model.JobRun) error
@@ -604,9 +608,15 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // itself must not assume that — it takes the caller's privilege as an explicit input
 // rather than inferring it.
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
+	return s.enrichRecorded(ctx, entityType, entityID, provider, externalID, bypassGalleryCap, "")
+}
+
+// enrichRecorded is Enrich with the activity row stamped with batchID (ADR-103 D9)
+// — the sweep's audit key; a click passes "".
+func (s *Service) enrichRecorded(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool, batchID string) ([]model.EnrichedField, error) {
 	started := time.Now()
 	fields, notes, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, bypassGalleryCap)
-	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), notes, err)
+	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), notes, err, batchID)
 	return fields, err
 }
 
@@ -1054,8 +1064,8 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 // notes are the asset refusals downloadAssets reports (HOLODEX-386) — each one is a
 // ` · `-joined clause on the detail line, RecordSearched's idiom, and counted as
 // Skipped so the row reads as "stored less than offered" at a glance.
-func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, notes []string, enrichErr error) {
-	run := newEnrichRun(started, entityType, entityID)
+func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, notes []string, enrichErr error, batchID string) {
+	run := newEnrichRun(started, entityType, entityID, batchID)
 	if enrichErr != nil {
 		run.Status = model.JobStatusErr
 		run.Errors = 1
@@ -1080,15 +1090,16 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 // candidate it auto-applied carried detail lines (F61 FR5) — the only trace a
 // no-owner-present run leaves of the queries actually tried and of which record it
 // bound. applied is the SingleStrongMatch candidate when one applied, else nil.
-// Called by the batch path only; the interactive picker shows both directly. The
+// Called by RefreshPair only; the interactive picker shows both directly. The
 // detail keeps the F22.6b no-path invariant: a basename a provider echoes back is
 // not a path, and detail lines are the provider's text about its own record.
-func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult, applied *Candidate) {
+// batchID is the sweep's audit key (ADR-103 D9), "" for a click.
+func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult, applied *Candidate, batchID string) {
 	withDetail := applied != nil && len(applied.Detail) > 0
 	if len(res.Searched) == 0 && !withDetail {
 		return
 	}
-	run := newEnrichRun(started, entityType, entityID)
+	run := newEnrichRun(started, entityType, entityID, batchID)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s → %s #%d (%d candidates)", provider, entityType, entityID, len(res.Candidates))
 	if len(res.Searched) > 0 {
@@ -1102,7 +1113,7 @@ func (s *Service) RecordSearched(started time.Time, provider, entityType string,
 }
 
 // newEnrichRun is the JobRun skeleton every enrich-kind activity entry shares.
-func newEnrichRun(started time.Time, entityType string, entityID int64) model.JobRun {
+func newEnrichRun(started time.Time, entityType string, entityID int64, batchID string) model.JobRun {
 	now := time.Now()
 	return model.JobRun{
 		Kind:       model.JobKindEnrich,
@@ -1116,6 +1127,7 @@ func newEnrichRun(started time.Time, entityType string, entityID int64) model.Jo
 		// substring search. Ids only — no new information leaves the process.
 		EntityType: entityType,
 		EntityID:   entityID,
+		BatchID:    batchID,
 	}
 }
 
