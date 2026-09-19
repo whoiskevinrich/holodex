@@ -74,7 +74,8 @@ template-only badge can never link those.
   an ADR superseding 083. Not this block.
 - **Video joining the identity spine.** `entity_external_ids` exists for scan-time lookup; nothing
   looks a video up by external id. Video's badge reads the resolver's winning
-  `external_provider_id` (ADR-082), and `identityEntityType` keeps excluding video.
+  `external_provider_id` (ADR-082) plus, since P0-7b, the match id already stamped on its
+  enrichment rows — and `identityEntityType` keeps excluding video.
 - **A wrong-match recovery affordance next to the badge.** Clicking through and finding the
   wrong entity is a real failure mode; the correction path in v1 is the existing re-enrich flow
   (`EnrichPicker`). Recorded as a gap, not built here.
@@ -194,6 +195,26 @@ visitor/owner rule for entity data points):
     templates, then the pill renders degraded ("known to IMDb") — **owner ruling 2026-09-16**:
     the identity signal always renders, matching person/studio.
   - [x] Given `external_provider_id` has no value, then the meta line is byte-identical to today.
+- **P0-7b · Media badge also reads the provider match** (HOLODEX-424, handoff DD6 — amends P0-7,
+  owner 2026-09-19). P0-7 as shipped derives the pill from `external_provider_id` alone, so a video
+  matched to TMDB with no file tag shows no pill while a matched person does. `externalLinksForVideo`
+  now folds in the match id stamped on the video's enrichment rows (`EnrichmentRow.ExternalID`,
+  namespace-qualified per ADR-082; extraction rows carry `""` and are skipped): resolved value
+  first, then rows; split on `:`; dedup by lowercase namespace, first wins; URL via P0-5 per pill.
+  `external_links` may now hold N entries for a video; the page's existing `{#each}` renders them
+  and `sortExternalLinks` orders them A–Z. No identity row is written (RD4 holds). No frontend
+  change.
+  - [ ] Given a video with a `tmdb:812` match and no `external_provider_id` value, then
+    `external_links` is one linked TMDB pill (`themoviedb.org/movie/812` from the sidecar's
+    existing `video` template) — `TestExternalLinks_Video`.
+  - [ ] Given the same match plus a winning `imdb:tt0103639` file tag, then two pills, IMDb and
+    TMDB, each linked by its own namespace's precedence.
+  - [ ] Given a match and a file tag in the **same** namespace, then one pill keyed on the file
+    value.
+  - [ ] Given a match whose provider declares no `video` template and stored no `_source_url`,
+    then that pill renders degraded (RD8) — it is never dropped.
+  - [ ] Given only extraction rows (`ExternalID == ""`) and no field value, then `external_links`
+    is `null` and the meta line is byte-identical to today.
   - Under a provider that treats the media file as the canonical unit, the pill opens that file's
     own page; under TMDB it opens the film's — the provider's `video` template decides.
 
@@ -258,6 +279,7 @@ This is an owner-facing single-user surface; the metrics are correctness, not ad
 | RD9 | TMDB sidecar uses **templates only**; it does not also emit `_source_url` | spec 2026-09-16 |
 | RD10 | The production video provider **returns `_source_url` per entity on every `/enrich`** (its pages are item-keyed, not template-shaped); contract §4.12 is its implementation target | owner 2026-09-17 |
 | RD11 | `_source_url` rides the `_` sidecar field channel and is stored as an `entity_enrichment` row — no new table, no migration | ADR-098 D1, 2026-09-17 |
+| RD12 | Video's pill list = resolved `external_provider_id` **∪** the match ids on its enrichment rows, deduped by namespace; still no identity row (RD4's second half stands; HOLODEX-382 may move it later) | owner 2026-09-19 (HOLODEX-424, handoff DD6) |
 
 ## Open Questions
 
