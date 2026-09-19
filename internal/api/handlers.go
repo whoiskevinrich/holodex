@@ -393,6 +393,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Get("/admin/activity", h.adminActivity)
 		r.Get("/admin/activity/digest", h.adminActivityDigest)
 		r.Get("/admin/activity/history", h.adminActivityHistory)
+		// Dismiss handled failures from the digest (HOLODEX-416, ADR-100).
+		r.Post("/admin/activity/runs/{id}/dismiss", h.adminDismissJobRun)
+		r.Post("/admin/activity/failures/dismiss", h.adminDismissJobFailures)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).

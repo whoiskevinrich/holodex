@@ -251,9 +251,10 @@ export const ASSERTIONS = [
 			'thumbnail slot) + py-2 (16px) = 76, and both stacks land on 60 by design, so 76 ' +
 			'is the exact height. Above it: the actions line regaining a descent gap (77, ' +
 			'mutation-tested) or the slot growing with its image. Below it: the row losing ' +
-			'`py-2`. Not caught here: the slot losing `aspect-[2/3]` on a pictured row — the ' +
-			'image’s own 2:3 still makes it 60 tall; only a monogram row would show that, and ' +
-			'`flood` has none (§12.5). Row 3 rather than row 1 because row 1 is the active row and row 2 carries ' +
+			'`py-2`. Since HOLODEX-414 the slot is an explicit `w-27 h-15` (no aspect class), ' +
+			'so a slot losing `h-15` on a pictured row IS caught here: the `h-full` image ' +
+			'takes its intrinsic height at 108 wide and the row balloons. ' +
+			'Row 3 rather than row 1 because row 1 is the active row and row 2 carries ' +
 			'the 256-char line — neither changes the collapsed height, and a plain row proves ' +
 			'the rule alone.',
 		...stressedPicker,
@@ -279,27 +280,30 @@ export const ASSERTIONS = [
 	// --- Every candidate row starts its text at the same x (F64, HOLODEX-406) ---
 	//
 	// The design handoff's alignment rule: the thumbnail slot is always present and always
-	// the same size, so the label of a pictured row and the label of a monogram row share
-	// one left edge. The harness bounds one metric on one selector and has no cross-element
-	// x comparison, so the parity is asserted by construction — every slot in the list is
-	// exactly 40px wide (the `<li>` is `flex items-start gap-3`, so text x = slot width +
-	// 12 on every row). `applies: each` over all 25 `flood` rows; `atLeast: 25` so a
-	// selector that stops matching cannot pass vacuously. Mutation-tested: dropping `w-10`
-	// leaves the aspect box to take its image’s intrinsic width and every row fails — which
-	// is only true because the stub’s portraits are 80×120, not the slot’s own 40×60 (a
-	// thumb the size of its box masked this mutation on the first run; stub.js says why).
+	// the same size within one picker, so the label of a pictured row and the label of a
+	// monogram row share one left edge. The harness bounds one metric on one selector and
+	// has no cross-element x comparison, so the parity is asserted by construction — every
+	// slot in the list is exactly the kind's width (the `<li>` is `flex items-start
+	// gap-3`, so text x = slot width + 12 on every row). Since HOLODEX-414 the width is
+	// per kind — `SLOT_CLASS` in candidateImage.ts — and the stressed picker opens on a
+	// VIDEO page, so the kind here is `landscape` and the slot is `w-27` = 108. `applies:
+	// each` over all 25 `flood` rows; `atLeast: 25` so a selector that stops matching cannot
+	// pass vacuously. Mutation-tested: dropping `w-27` leaves the box to take its image’s
+	// intrinsic width (the stub’s 80-wide portraits) and every row fails; swapping in an
+	// `aspect-*` class is caught the same way because the bound is exact, not a minimum.
 	{
-		key: 'candidate-slot-is-40-wide-on-every-row',
+		key: 'candidate-slot-is-108-wide-on-every-row',
 		finds:
-			'A candidate row whose thumbnail slot is not exactly 40px wide — the slot ' +
-			'shrinking, growing with its image, or collapsing on a monogram row — which ' +
-			'shifts that row’s label off the x every other row uses.',
+			'A candidate row on a media page whose thumbnail slot is not exactly 108px wide ' +
+			'(the `landscape` kind, HOLODEX-414) — the slot shrinking, growing with its image, ' +
+			'or collapsing on a monogram row — which shifts that row’s label off the x every ' +
+			'other row uses.',
 		...stressedPicker,
 		selector: '[role="listbox"] > li > div[aria-hidden="true"]',
 		applies: 'each',
 		atLeast: 25,
 		measure: 'width',
-		expect: { min: 40, max: 40 }
+		expect: { min: 108, max: 108 }
 	},
 
 	{

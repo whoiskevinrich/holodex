@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { waitForWritebackJob, waitForWritebackBatch, waitForVideoWriteback } from './writebackJob';
+import {
+	waitForWritebackJob,
+	waitForWritebackBatch,
+	waitForVideoWriteback,
+	JOB_POLL_TIMEOUT_MS
+} from './writebackJob';
 
 // Tiny timings keep these on real timers without slowing the suite.
 const fast = { startMs: 1, timeoutMs: 500 };
@@ -221,5 +226,25 @@ describe('waitForVideoWriteback', () => {
 		const result = await waitForVideoWriteback(fetchStatus, { ...fast, cancelled: () => cancelled });
 		expect(fetchStatus).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ pending: true, failed: false });
+	});
+
+	it('polls past the default cap when timeoutMs is Infinity (the page-level wait)', async () => {
+		// The media page has nothing to hand off to on timeout, so it waits uncapped
+		// (HOLODEX-419): a multi-GB MKV remux outruns JOB_POLL_TIMEOUT_MS, and giving
+		// up left the badge on "writing to file" until a manual reload.
+		vi.useFakeTimers();
+		try {
+			// Enough pending answers that the backoff's clock runs well past the cap.
+			const answers = Array.from({ length: 40 }, () => ({ pending: true, failed: false }));
+			const fetchStatus = vi.fn(async () => answers.shift() ?? { pending: false, failed: false });
+
+			const wait = waitForVideoWriteback(fetchStatus, { timeoutMs: Infinity });
+			await vi.advanceTimersByTimeAsync(JOB_POLL_TIMEOUT_MS * 3);
+
+			await expect(wait).resolves.toEqual({ pending: false, failed: false });
+			expect(fetchStatus).toHaveBeenCalledTimes(41);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

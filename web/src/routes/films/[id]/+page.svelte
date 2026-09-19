@@ -1015,6 +1015,7 @@
      entire film-specific surface (ADR-089 D5). -->
 {#if pickerProvider}
 	<EnrichPicker
+		entityType="film"
 		entityName={film?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}

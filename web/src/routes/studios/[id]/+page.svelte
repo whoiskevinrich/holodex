@@ -577,6 +577,7 @@
 
 {#if pickerProvider}
 	<EnrichPicker
+		entityType="studio"
 		entityName={studio?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichStudioResolve(id, prov, q)}

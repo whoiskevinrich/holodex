@@ -579,24 +579,39 @@
 	// applyMediaDetail on every poll (which would repeatedly reassign resolved/video
 	// mid-poll), applying the full detail only once, on settlement.
 	//
-	// pollingWriteback guards against a real re-entrancy bug: applyMediaDetail
+	// pollingGeneration guards against a real re-entrancy bug: applyMediaDetail
 	// reassigns writebackStatus to a NEW object on every reloadDetail() call, and this
 	// page has ~20 unrelated call sites for reloadDetail() (decisions, tags, enrich,
 	// poster upload, completeness, ...). Since this $effect depends on writebackStatus
 	// by reference, any one of those unrelated reloads re-runs the effect while a write
 	// is still pending — without this guard, each re-run would start a brand-new,
 	// fully independent poll loop with nothing to cancel the ones already in flight.
-	let pollingWriteback = false;
+	//
+	// Keyed by pageGeneration rather than a bare boolean: a cancelled loop only
+	// notices at its next tick (up to 5 s at the backoff ceiling, the steady state
+	// of a long write), and this route component is reused across /media/[id]
+	// changes. A boolean still set by the previous video's winding-down loop would
+	// make the next video's effect return without polling, and nothing re-runs it.
+	let pollingGeneration: number | null = null;
 	$effect(() => {
-		if (!writebackStatus.pending || pollingWriteback) return;
-		pollingWriteback = true;
+		if (!writebackStatus.pending || pollingGeneration === pageGeneration) return;
 		const gen = pageGeneration;
+		pollingGeneration = gen;
 		const videoId = id;
 		waitForVideoWriteback(
 			async () => (await api.getMedia(videoId)).writeback_status ?? { pending: false, failed: false },
-			{ cancelled: () => unmounted || gen !== pageGeneration }
+			{
+				cancelled: () => unmounted || gen !== pageGeneration,
+				// No cap. The helper's default JOB_POLL_TIMEOUT_MS is sized for a dialog
+				// that refetches on timeout, but this page has nothing to hand off to: a
+				// multi-GB MKV goes through copy + ffmpeg remux and outruns 120 s, and
+				// giving up left the badge on "writing to file" and the poster stale
+				// until a manual refresh (HOLODEX-419). Unmount/navigation still cancels
+				// above, and the backoff caps the cost at one request per 5 s.
+				timeoutMs: Infinity
+			}
 		).then((settled) => {
-			pollingWriteback = false;
+			if (pollingGeneration === gen) pollingGeneration = null;
 			if (unmounted || gen !== pageGeneration || settled.pending) return;
 			// The job landed or failed — re-resolve the full detail so in_sync
 			// recomputes against the post-write baseline (ADR-073 D1) and the
@@ -2374,6 +2389,7 @@
 
 	{#if pickerProvider && video}
 		<EnrichPicker
+			entityType="video"
 			entityName={enrichQueries[pickerProvider] ?? displayTitle}
 			provider={pickerProvider}
 			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}

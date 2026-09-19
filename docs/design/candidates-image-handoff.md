@@ -1,5 +1,11 @@
 # Design Handoff: Candidate thumbnail in the Enrich picker (HOLODEX-406 / F64)
 
+> **Superseded in part by [candidates-image-per-kind-handoff.md](candidates-image-per-kind-handoff.md)
+> (HOLODEX-414):** the slot's box is now kind-shaped — 40 × 60 portrait for person/film,
+> 108 × 60 landscape (backdrop) for media, 120 × 60 logo for studio — always 60 px tall. The
+> "one 2:3 box for every kind" rule below and the "Per-entity-kind slot shape" non-goal no
+> longer hold; every other section still does.
+
 **Spec**: [candidates-image.md](../specs/candidates-image.md) FR3 (row slot), FR1/FR2 (what may
 reach the row) ·
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3
