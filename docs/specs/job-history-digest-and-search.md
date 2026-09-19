@@ -246,6 +246,6 @@ Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps
 - [x] **Spec** — this section + Q4 resolved (2026-09-18)
 - [x] **[ADR-100](../architecture/ADR-100-job-run-dismissals.md)** — `job_run_dismissals` sibling table, FK `ON DELETE CASCADE` retention (2026-09-18)
 - [x] **Design handoff** — [`status-dismiss-failures-handoff.md`](../design/status-dismiss-failures-handoff.md) + SVG mockup (2026-09-18)
-- [ ] **Testing strategy** — digest exclusion, owner gate, double-dismiss no-op, sweep cascade, component row-leaves-and-count-decrements
+- [x] **Testing strategy** — Go repo + HTTP tests, `dismissDigest.test.ts` for the client mutation; strategy row (2026-09-18)
 - [x] **Security review** — not required; both endpoints stay inside the existing `requireOwner` group, input is a path id and the digest's `days`
-- [ ] **Three-skin QA** — callout controls + Log marker
+- [x] **Three-skin QA** — callout controls, muted badge, Log marker; Cinémathèque, Broadcast, Brutalist + 375px (2026-09-18)

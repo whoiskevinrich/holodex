@@ -26,23 +26,23 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   /admin/activity/runs/{id}/dismiss` + `/admin/activity/failures/dismiss` → digest/history
   `LEFT JOIN` + `last_dismissed` (2026-09-18). **Migration number: `0048` collides with
   HOLODEX-412's in-flight `0048_entity_completeness` — whoever merges second renumbers**
-- [ ] frontend — `api.ts` two calls; `JobDigest.svelte` row `btn-row btn-ghost` Dismiss +
-  header `btn-quiet` Dismiss all N, owner-gated; `JobStatusBadge` `muted` prop + `· dismissed`
-  on a kind whose newest run is dismissed (D5); `JobHistory.svelte` `· dismissed` marker
-- [ ] testing `testing-strategy` — Go half DONE: `jobrun_dismissals_test.go` (digest exclusion,
-  D5 both columns, fresh-failure-after-dismiss, window-at-request-time, FK cascade) +
-  `activity_dismiss_test.go` (owner gate, idempotent row/all); testing-strategy row added.
-  Open: component test that a row leaves and the kind's errors decrements
+- [x] frontend — `api.ts` two calls; `JobDigest.svelte` row `btn-row btn-ghost` Dismiss +
+  header `btn-quiet` Dismiss all N, owner-gated, local mutation via `dismissDigest.ts` +
+  `onchange`; `JobStatusBadge` `dismissed` prop (muted badge + `· dismissed`, both tabs);
+  `JobHistory.svelte` marker; focus parks on next row / `h2` (2026-09-18)
+- [x] testing `testing-strategy` — Go: `jobrun_dismissals_test.go` (digest exclusion, D5 both
+  columns, fresh-failure-after-dismiss, window-at-request-time, FK cascade) +
+  `activity_dismiss_test.go` (owner gate, idempotent row/all). Web: `dismissDigest.test.ts`
+  (row leaves, kind's errors decrements, D5 flips only for the newest run, dismiss-all) — the
+  component-harness gap (HOLODEX-395) means the mutation is a pure module, tested there.
+  Strategy row added
 - [~] security `security-review` — n/a: both endpoints sit under the existing `requireOwner`
   group; no new input beyond a path id and the digest's `days`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Frontend: `types.ts` (`dismissed_at?`, `last_dismissed`), `api.ts` two calls,
-   `JobDigest.svelte` row/header controls + local mutation, `JobStatusBadge` `muted` prop,
-   `JobHistory.svelte` marker; component test; three-skin QA
-2. [ ] [—] Before marking ready: re-check migration number against main (HOLODEX-412 also
-   holds `0048`) and merge main
+1. [ ] [—] Kevin's look on the prod skin, then: re-check migration number against main
+   (HOLODEX-412 also holds `0048`), merge main, `gh pr ready` → In Review
 3. [ ] [—] Mark PR ready once every gate above is `[x]` — that fires In Review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -83,3 +83,18 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   Two repo methods, two owner routes. 3 repo tests + 1 HTTP test, `go test ./...` green.
 - handoff: backend green; next session is the frontend (`JobDigest.svelte` first, then the
   badge `muted` prop, then `JobHistory.svelte`).
+
+### 2026-09-18 · frontend
+- skills: code-review high --fix (no findings)
+- `dismissDigest.ts` holds the local mutation as pure functions (no component harness —
+  HOLODEX-395) with 6 unit tests; `JobDigest.svelte` reports the next digest up via `onchange`
+  rather than owning a copy, so the page's `loadDigest()` refresh path is unchanged.
+  `JobStatusBadge` gained `dismissed` (one prop, both tabs). Verified live on a seeded session
+  DB (ports 7811/5183, `data/416`): row dismiss → row leaves, count drops, badge mutes
+  `error · dismissed`, focus lands on the next row; Dismiss all → callout unmounts, focus on
+  `h2`; reload agrees with the server; Log shows the marker on every dismissed run.
+  Three skins + 375px checked — muted badge resolves to each skin's `--rule`/`--muted`, no
+  horizontal overflow. One as-built note recorded in the handoff: at 375px the Dismiss button
+  holds a stable right column rather than trailing the detail's last line.
+- handoff: every gate green; next = Kevin's prod-skin look, then migration-number re-check,
+  merge main, mark ready.

@@ -593,6 +593,9 @@ export interface JobRun {
 	entity_id?: number;
 	// Writeback snapshot batch (ADR-067) this run belongs to; drives Revert.
 	batch_id?: string;
+	// Set once the owner has dismissed this failed run (HOLODEX-416, ADR-100).
+	// The run itself is untouched — the Log still lists it, with a marker.
+	dismissed_at?: string;
 }
 
 // One kind's roll-up in the activity digest (ADR-071). last_status is the status
@@ -601,9 +604,12 @@ export interface JobRun {
 export interface JobKindDigest {
 	kind: string;
 	runs: number;
-	errors: number;
+	errors: number; // undismissed errors only (ADR-100 D3)
 	last_run: string;
 	last_status: string;
+	// True when the newest run is an error the owner has dismissed — the badge
+	// mutes instead of staying warn (handoff D5). last_status is still 'error'.
+	last_dismissed: boolean;
 }
 
 // The activity digest (ADR-071): a per-kind summary plus the window's failed

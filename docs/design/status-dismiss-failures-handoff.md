@@ -130,9 +130,11 @@ section heading `h2` ("Recent jobs") when the callout unmounts, so focus never l
 ## Edge cases
 
 - **Long detail** (`error_message` can be a full ffmpeg line): detail wraps under
-  `wrap-anywhere`; the button never wraps or shrinks (`shrink-0`). At 360px a row is:
-  kind + ago on line 1, detail on lines 2–n, Dismiss at the end of the last line (flex-wrap
-  puts it after the detail; `ml-auto` pushes it right).
+  `wrap-anywhere` inside its own `flex-1 min-w-0` cell; the button never wraps or shrinks
+  (`shrink-0`). At 375px a row is: kind + ago + the detail's first line, Dismiss holding a
+  stable right-hand column on line 1, detail continuing beneath. *(As built — the button
+  keeps one column across rows of any length rather than trailing the last line, which the
+  first draft of this note described; verified 2026-09-18, no horizontal overflow.)*
 - **More failures than shown** (N > 50): per-row buttons cover only the visible 50;
   `Dismiss all N` covers the window. After dismissing the visible 50 the next `loadDigest()`
   surfaces the next slice — the header count already told the owner they exist.
