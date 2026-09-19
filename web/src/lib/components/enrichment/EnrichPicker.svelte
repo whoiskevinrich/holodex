@@ -4,22 +4,31 @@
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
-	import { toMessage, isHttpUrl } from '$lib/format';
+	import { toMessage, isHttpUrl, monogram } from '$lib/format';
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
 	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
-	import type { EnrichCandidate, EnrichedField } from '$lib/types';
+	import { SLOT_CLASS, showThumb, slotShape } from '$lib/candidateImage';
+	import { autoApplyPick } from '$lib/autoApply';
+	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '$lib/types';
 
 	let {
 		entityName,
+		entityType,
 		provider,
 		resolve,
 		apply,
 		dismiss,
 		onclose,
 		onapplied,
-		ondismissed
+		ondismissed,
+		autoApply = true
 	}: {
 		entityName: string;
+		/** The kind being matched — decides the candidate slot's box (HOLODEX-414): a
+		 *  person/film row draws a 2:3 portrait, a video row a 16:9 landscape (the provider
+		 *  sends a backdrop), a studio row a 2:1 logo box. Required: a mount that forgets it
+		 *  is a type error, not a silently-portrait picker. */
+		entityType: EnrichEntityKind;
 		provider: string;
 		/** `searched` (ADR-095 D6) is what the provider actually asked upstream, in issue
 		 *  order — only the video resolver returns it; the person/studio/film callers'
@@ -37,6 +46,12 @@
 		 *  callers with no per-provider dismissal UI of their own (the detail pages) can
 		 *  omit it — closing the picker is already handled by `onclose`. */
 		ondismissed?: () => void;
+		/** Whether the initial, entity-seeded search may auto-apply a lone strong match
+		 *  (RD1). Default on — an unattended first match shouldn't cost a click. A manual
+		 *  re-match (HOLODEX-418) passes `false`: the owner is overriding the current link,
+		 *  so the previous match is suspect by definition and the list must always show —
+		 *  especially when the provider is confident it was right. */
+		autoApply?: boolean;
 	} = $props();
 
 	// Seed the search box with the entity's name; we want the initial value only
@@ -53,6 +68,10 @@
 	// ↑/↓ moving `active`. Describes the LAST response like `searched`: rebuilt from
 	// the label-collision rule with every response, dropped when the box is edited.
 	let open = $state<Record<string, boolean>>({});
+	// Per-row thumbnail failure (F64, HOLODEX-406): an <img> that fired `error` falls
+	// back to the monogram. Same lifecycle as `open` — describes the LAST response,
+	// so a retried query that returns a good image shows it again.
+	let failed = $state<Record<string, boolean>>({});
 	let active = $state(0);
 	let loading = $state(false);
 	let applying = $state(false);
@@ -76,8 +95,9 @@
 		// immediately — the owner shouldn't have to retype the entity's own name.
 		// `auto` lets search() auto-apply a lone strong match without ever showing
 		// the list (RD1); only this initial, entity-seeded search qualifies — a
-		// search the owner typed themselves always waits for a manual pick.
-		if (query.trim().length >= 2) void search(query.trim(), true);
+		// search the owner typed themselves always waits for a manual pick — and
+		// only when the caller allows it (`autoApply`, off for a re-match).
+		if (query.trim().length >= 2) void search(query.trim(), autoApply);
 		// Focus-return: send focus back to the Enrich button when the picker closes.
 		return () => trigger?.focus?.();
 	});
@@ -111,6 +131,7 @@
 		searched = [];
 		showAll = false;
 		open = {};
+		failed = {};
 		if (q.length < 2) {
 			candidates = [];
 			return;
@@ -134,21 +155,20 @@
 			searched = res.searched ?? []; // same stale-response guard as candidates
 			showAll = false;
 			open = collisionOpen(candidates); // same-label rows start open (handoff FR4)
+			failed = {};
 			active = 0;
 			// RD1: the initial, entity-seeded search auto-applies an unambiguous single
 			// strong match instead of making the owner confirm it — anything else (zero,
 			// multiple, or weaker candidates) falls through to the normal picker list.
-			// Same exactly-one-auto_apply rule as the backend's SingleStrongMatch; other,
-			// weaker candidates in the list don't block it.
-			const strong = candidates.filter((c) => c.auto_apply);
-			if (auto && strong.length === 1) {
-				await confirm(strong[0]);
-			}
+			// The rule itself lives in autoApply.ts so it is unit-tested.
+			const pick = autoApplyPick(candidates, auto);
+			if (pick) await confirm(pick);
 		} catch (e) {
 			if (id !== searchId) return;
 			error = toMessage(e);
 			candidates = [];
 			open = {};
+			failed = {};
 		} finally {
 			if (id === searchId) loading = false;
 		}
@@ -343,60 +363,92 @@
 					onkeydown={(e) => onOptionKey(e, i)}
 					onfocus={() => (active = i)}
 					onmouseenter={() => (active = i)}
-					class="cursor-pointer rounded-theme border-l-2 px-3 py-2 {i === active
+					class="flex cursor-pointer items-start gap-3 rounded-theme border-l-2 px-3 py-2 {i === active
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<div class="flex items-center justify-between gap-2">
-						<span class="truncate text-sm text-ink">{c.label}</span>
-						<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
-					</div>
-					{#if c.disambiguation}
-						<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
-					{/if}
-					{#snippet sourceLink()}
-						<a
-							href={c.profile_url}
-							target="_blank"
-							rel="noopener noreferrer"
-							onclick={(e) => e.stopPropagation()}
-							aria-label={`View ${c.label} on ${provider}'s site (opens in a new tab)`}
-							class="text-xs text-accent hover:underline"
-						>
-							view source ↗
-						</a>
-					{/snippet}
-					{#if hasDetail(c)}
-						<!-- `detail` reveal (F61, HOLODEX-380): the Searched caption's "+N more" idiom
-						     on the row's actions line — a baseline-aligned flex row like the caption's,
-						     so the inline-block button adds one text line and no descent gap. Lines
-						     expand in flow beneath the row so they scroll with it and never float or
-						     clip. Verbatim, one per entry. A row without detail keeps its exact DOM. -->
-						<div class="flex items-baseline gap-2">
-							{#if hasLink}{@render sourceLink()}{/if}
-							<button
-								type="button"
-								onclick={(e) => toggleDetail(e, c)}
-								onkeydown={onDetailKey}
-								aria-expanded={!!open[c.external_id]}
-								aria-controls="enrich-detail-{i}"
-								class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
-									? 'text-ink'
-									: ''}"
-							>
-								{detailLabel(!!open[c.external_id])}
-							</button>
-						</div>
-						{#if open[c.external_id]}
-							<ul id="enrich-detail-{i}" class="mt-1 border-l border-rule pl-2 text-xs text-muted">
-								{#each c.detail ?? [] as line, j (j)}
-									<li class="truncate" title={line}>{line}</li>
-								{/each}
-							</ul>
+					<!-- Candidate thumbnail (F64, HOLODEX-406): FilmsRow's plate idiom, object-contain
+					     because a candidate image's aspect is not gated at ingest (enrichment/CLAUDE.md
+					     rule) — the intended image fills, anything else letterboxes. The box is
+					     kind-shaped but always 60 tall (HOLODEX-414, SLOT_CLASS), so within one picker
+					     every row's text starts at the same x; it is decorative (the label carries the
+					     name), not a tab stop, and has no handler of its own — clicking it is clicking
+					     the row. -->
+					<div
+						aria-hidden="true"
+						class="flex shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate {SLOT_CLASS[
+							slotShape(entityType)
+						]}"
+					>
+						{#if showThumb(c, !!failed[c.external_id])}
+							<img
+								src={c.image_url}
+								alt=""
+								loading="lazy"
+								decoding="async"
+								referrerpolicy="no-referrer"
+								onerror={() => (failed[c.external_id] = true)}
+								class="h-full w-full object-contain"
+							/>
+						{:else}
+							<span class="font-display text-sm font-semibold text-logo-plate-ink">{monogram(c.label)}</span>
 						{/if}
-					{:else if hasLink}
-						{@render sourceLink()}
-					{/if}
+					</div>
+					<div class="min-w-0 flex-1">
+						<!-- Below `sm` the match strength stacks under the name (HOLODEX-414 QA §4.4):
+						     beside it, a 315px dialog left the name ~30px. `max-w-full` keeps `truncate`
+						     working on the column's shrink-to-fit item. -->
+						<div class="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+							<span class="max-w-full truncate text-sm text-ink">{c.label}</span>
+							<span class="shrink-0 text-xs {m.accent ? 'text-accent' : 'text-muted'}">{m.text}</span>
+						</div>
+						{#if c.disambiguation}
+							<p class="truncate text-xs text-muted" title={c.disambiguation}>{c.disambiguation}</p>
+						{/if}
+						{#snippet sourceLink()}
+							<a
+								href={c.profile_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={(e) => e.stopPropagation()}
+								aria-label={`View ${c.label} on ${provider}'s site (opens in a new tab)`}
+								class="text-xs text-accent hover:underline"
+							>
+								view source ↗
+							</a>
+						{/snippet}
+						{#if hasDetail(c)}
+							<!-- `detail` reveal (F61, HOLODEX-380): the Searched caption's "+N more" idiom
+							     on the row's actions line — a baseline-aligned flex row like the caption's,
+							     so the inline-block button adds one text line and no descent gap. Lines
+							     expand in flow beneath the row so they scroll with it and never float or
+							     clip. Verbatim, one per entry. A row without detail keeps its exact DOM. -->
+							<div class="flex items-baseline gap-2">
+								{#if hasLink}{@render sourceLink()}{/if}
+								<button
+									type="button"
+									onclick={(e) => toggleDetail(e, c)}
+									onkeydown={onDetailKey}
+									aria-expanded={!!open[c.external_id]}
+									aria-controls="enrich-detail-{i}"
+									class="btn-quiet px-1 py-1 text-xs underline decoration-dotted {open[c.external_id]
+										? 'text-ink'
+										: ''}"
+								>
+									{detailLabel(!!open[c.external_id])}
+								</button>
+							</div>
+							{#if open[c.external_id]}
+								<ul id="enrich-detail-{i}" class="mt-1 border-l border-rule pl-2 text-xs text-muted">
+									{#each c.detail ?? [] as line, j (j)}
+										<li class="truncate" title={line}>{line}</li>
+									{/each}
+								</ul>
+							{/if}
+						{:else if hasLink}
+							{@render sourceLink()}
+						{/if}
+					</div>
 				</li>
 			{/each}
 		</ul>

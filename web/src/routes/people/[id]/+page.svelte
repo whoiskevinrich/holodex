@@ -84,6 +84,13 @@
 	// refreshingAll is Refresh-all's own busy flag (F47 RD8 — it isn't one provider).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
+	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
+	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
+	let pickerRematch = $state(false);
+	function openPicker(p: string, opts?: { rematch: boolean }) {
+		pickerRematch = !!opts?.rematch; // before pickerProvider: the picker mounts on it
+		pickerProvider = p;
+	}
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	// Action errors render inline in the panel — never via the page-level `error`,
@@ -278,7 +285,7 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			(p) => (pickerProvider = p)
+			openPicker
 		);
 	}
 
@@ -465,7 +472,7 @@
 				     header there, a deliberate mobile tradeoff). The row itself carries `relative`
 				     so it (and every child, including the bio column) paints above the banner
 				     (a positioned z-index:0 element) in the overhang band — the same stacking trick
-				     `.person-hero-media` already gives the avatar. Without it, the bio's top lines
+				     `.media-lift` already gives the avatar. Without it, the bio's top lines
 				     were unreadable: an unpositioned element paints under a positioned z-index:0
 				     sibling regardless of DOM order. -->
 				<div
@@ -483,7 +490,7 @@
 						     identity badge on its lower-left corner (the bg-bg padding stands in for a
 						     separating ring so the badge reads as its own layer over the poster art). -->
 						<div class="relative shrink-0">
-							<div class="person-hero-media">
+							<div class="media-lift">
 								<PersonImageFrame
 									personId={id}
 									role="poster"
@@ -496,7 +503,7 @@
 								{@render editBtn('poster', 'right-1 top-1')}
 							</div>
 							<div class="absolute -bottom-2 -left-2 rounded-theme bg-bg p-0.5">
-								<div class="person-hero-media" id="field-photo-upload">
+								<div class="media-lift" id="field-photo-upload">
 									<PersonImageFrame
 										personId={id}
 										role="headshot"
@@ -510,7 +517,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="person-hero-media shrink-0" id="field-photo-upload">
+						<div class="media-lift shrink-0" id="field-photo-upload">
 							<PersonImageFrame
 								personId={id}
 								role="headshot"
@@ -652,7 +659,7 @@
 								linked={providerLinked}
 								{busy}
 								{refreshingAll}
-								onenrich={(p) => (pickerProvider = p)}
+								onenrich={openPicker}
 								onrefresh={refreshProvider}
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
@@ -806,11 +813,13 @@
 
 {#if pickerProvider}
 	<EnrichPicker
+		entityType="person"
 		entityName={person?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('person', id, prov)}
+		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>

@@ -24,7 +24,15 @@ func TestTagForField(t *testing.T) {
 		{"actors", "WebM", "Artist", true},
 		{"studio", "WebM", "Publisher", true},
 		// MP4 / QuickTime atoms
+		{"edition", "Matroska", "Edition", true},
+		{"part", "Matroska", "PART_NUMBER", true},
+		{"part", "WebM", "PART_NUMBER", true},
+		// MP4 / QuickTime atoms
 		{"title", "MP4", "QuickTime:Title", true},
+		{"edition", "MP4", "XMP-prism:Edition", true},
+		{"part", "MP4", "QuickTime:DiskNumber", true},
+		{"part", "mp3", "", false}, // audio containers have no part target
+		{"part", "flac", "", false},
 		{"overview", "MP4", "QuickTime:Comment", true},
 		{"release_date", "MP4", "QuickTime:Year", true},
 		{"genres", "MP4", "QuickTime:Genre", true},

@@ -349,7 +349,7 @@ func materializeVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 	// seeder bypasses the scanner by design (D1) — but it is what UpsertVideo
 	// identifies a row by, so it has to be derived from the address.
 	id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
-		title(dim, s), poolLinks(s), s.text.value)
+		title(dim, s), poolLinks(s), s.text.value, s.part)
 	if err != nil {
 		return 0, err
 	}
@@ -408,7 +408,7 @@ func materializeNamed(ctx context.Context, r *repo.Repo, ff fixtureFields, dim d
 	// you which one you are looking at.
 	carrier, err := upsertVideo(ctx, r, ff,
 		fmt.Sprintf("/stress/%s/%s.mp4", dim.key, rg.variant),
-		encodeName(dim.entity, s)+" carrier", l, "")
+		encodeName(dim.entity, s)+" carrier", l, "", "")
 	if err != nil {
 		return 0, fmt.Errorf("carrier video: %w", err)
 	}
@@ -506,7 +506,7 @@ func poolLinks(s spec) links {
 // upsertVideo writes one video, its file layer, and every relationship it
 // carries. Shared by the addressed rungs, the scene pool and the derived kinds'
 // carriers.
-func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, name string, l links, overview string) (int64, error) {
+func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, name string, l links, overview, part string) (int64, error) {
 	cast := l.cast
 	studios := l.studios
 
@@ -535,6 +535,11 @@ func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, 
 	// means, and leaves no empty metadata row for a later rescan to reason about.
 	if overview != "" {
 		extra = append(extra, model.ExtraMetadata{SourceKey: ff.overview.fileKey, Value: overview})
+	}
+	// The part is the same shape: a file fact under the mapping's container-tag key,
+	// absent rather than blank on the empty rung (HOLODEX-389).
+	if part != "" {
+		extra = append(extra, model.ExtraMetadata{SourceKey: ff.part.fileKey, Value: part})
 	}
 
 	now := time.Now().UTC()
@@ -677,7 +682,7 @@ func seedScenePool(ctx context.Context, r *repo.Repo, ff fixtureFields, size int
 		s.text = textPalette[i%len(textPalette)]
 
 		id, err := upsertVideo(ctx, r, ff, fmt.Sprintf("/stress/scene/%03d.mp4", i+1),
-			s.text.value, poolLinks(s), s.text.value)
+			s.text.value, poolLinks(s), s.text.value, "")
 		if err != nil {
 			return nil, fmt.Errorf("scene video %d: %w", i+1, err)
 		}

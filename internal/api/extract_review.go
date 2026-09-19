@@ -58,6 +58,7 @@ func (h *Handlers) extractionQueue(w http.ResponseWriter, r *http.Request) {
 	if rows == nil {
 		rows = []repo.ExtractionQueueRow{}
 	}
+	h.applyPartsToExtractionQueue(r.Context(), rows)
 	writeJSON(w, http.StatusOK, map[string]any{"rows": rows})
 }
 

@@ -68,6 +68,12 @@ type describeResponse struct {
 	// (TMDB's own logo is SVG, which Holodex's raster ingest rejects) rather than
 	// shipping a brittle default. Additive — an older Holodex ignores it.
 	BrandIcon *iconRef `json:"brand_icon,omitempty"`
+	// LinkTemplates declares how a namespace-qualified external id becomes an
+	// outbound link (Holodex contract §4.11, ADR-083 D2): namespace -> entity kind ->
+	// https template with exactly one "{id}". Keyed by namespace, so the foreign
+	// `imdb` ids this provider emits get a link too. Additive — an older Holodex
+	// ignores it.
+	LinkTemplates map[string]map[string]string `json:"link_templates,omitempty"`
 }
 
 // iconRef is a single provider-level image reference (the brand icon, §4.8).
@@ -95,6 +101,11 @@ type candidate struct {
 	// scheme-validates it server-side before ever rendering it as a link, so this
 	// sidecar just emits the real themoviedb.org URL.
 	ProfileURL string `json:"profile_url,omitempty"`
+	// ImageURL is the list-row thumbnail (F64, contract §2.3): the match's
+	// profile_path / poster_path / logo_path at TMDB's w185 rendition. Holodex
+	// renders it in the picker straight from image.tmdb.org — the host operators
+	// already allowlist for this provider's assets — and never stores it.
+	ImageURL string `json:"image_url,omitempty"`
 }
 
 type assetEntry struct {
@@ -133,6 +144,7 @@ type tmdbPerson struct {
 	Popularity         float64    `json:"popularity"`
 	KnownForDepartment string     `json:"known_for_department"`
 	KnownFor           []knownFor `json:"known_for"`
+	ProfilePath        string     `json:"profile_path"`
 }
 
 type knownFor struct {
@@ -149,6 +161,7 @@ type personDetails struct {
 	Deathday           string   `json:"deathday"`
 	PlaceOfBirth       string   `json:"place_of_birth"`
 	ProfilePath        string   `json:"profile_path"`
+	Homepage           string   `json:"homepage"`
 	AlsoKnownAs        []string `json:"also_known_as"`
 	KnownForDepartment string   `json:"known_for_department"`
 }
@@ -165,10 +178,12 @@ type movieSearchResult struct {
 }
 
 type movieSearchEntry struct {
-	ID          int     `json:"id"`
-	Title       string  `json:"title"`
-	ReleaseDate string  `json:"release_date"`
-	Popularity  float64 `json:"popularity"`
+	ID           int     `json:"id"`
+	Title        string  `json:"title"`
+	ReleaseDate  string  `json:"release_date"`
+	Popularity   float64 `json:"popularity"`
+	PosterPath   string  `json:"poster_path"`
+	BackdropPath string  `json:"backdrop_path"`
 }
 
 type movieGenre struct {
@@ -191,6 +206,7 @@ type movieDetails struct {
 	Tagline             string              `json:"tagline"`
 	OriginalLanguage    string              `json:"original_language"`
 	Status              string              `json:"status"`
+	Homepage            string              `json:"homepage"`
 	IMDbID              string              `json:"imdb_id"`
 	PosterPath          string              `json:"poster_path"`
 	BackdropPath        string              `json:"backdrop_path"`
@@ -254,7 +270,7 @@ type movieCrewEntry struct {
 func (c *tmdbClient) resolve(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
 	switch entityType {
 	case "video", "film":
-		return c.resolveMovie(ctx, h)
+		return c.resolveMovie(ctx, h, entityType)
 	case "studio":
 		return c.resolveStudio(ctx, h)
 	default:
@@ -284,6 +300,7 @@ func (c *tmdbClient) resolvePerson(ctx context.Context, h hintBody) ([]candidate
 				Namespace:  "tmdb",
 				Label:      det.Name,
 				Confidence: 1.0,
+				ImageURL:   tmdbThumbURL(det.ProfilePath),
 			}}, nil
 		case "imdb":
 			cands, err := c.findByIMDB(ctx, val)
@@ -320,7 +337,9 @@ func parseReleaseFilename(q string) (title, year string) {
 	return strings.ReplaceAll(m[1], ".", " "), m[2]
 }
 
-func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate, error) {
+// resolveMovie serves both the video and the film entity; entityType only decides
+// which image the candidate thumbnail shows (movieThumbURL).
+func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
 	for _, id := range h.ExternalIDs {
 		ns, val, ok := splitID(id)
 		if !ok {
@@ -343,9 +362,10 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 				Confidence:     1.0,
 				Disambiguation: movieDisambiguate(det),
 				ProfileURL:     tmdbMovieURL(det.ID, det.Title),
+				ImageURL:       movieThumbURL(entityType, det.BackdropPath, det.PosterPath),
 			}}, nil
 		case "imdb":
-			cands, err := c.findMovieByIMDB(ctx, val)
+			cands, err := c.findMovieByIMDB(ctx, val, entityType)
 			if err != nil {
 				return nil, err
 			}
@@ -358,7 +378,7 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 		return []candidate{}, nil
 	}
 	title, year := parseReleaseFilename(h.Query)
-	return c.searchMovie(ctx, title, year)
+	return c.searchMovie(ctx, title, year, entityType)
 }
 
 func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidate, error) {
@@ -384,6 +404,7 @@ func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidat
 			Confidence:     rankConfidence(i, p.Popularity),
 			Disambiguation: disambiguate(p),
 			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
+			ImageURL:       tmdbThumbURL(p.ProfilePath),
 		})
 	}
 	return out, nil
@@ -407,12 +428,13 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 			Confidence:     0.95,
 			Disambiguation: disambiguate(p),
 			ProfileURL:     tmdbPersonURL(p.ID, p.Name),
+			ImageURL:       tmdbThumbURL(p.ProfilePath),
 		})
 	}
 	return out, nil
 }
 
-func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]candidate, error) {
+func (c *tmdbClient) searchMovie(ctx context.Context, query, year, entityType string) ([]candidate, error) {
 	var result movieSearchResult
 	params := url.Values{
 		"query":    {query},
@@ -437,12 +459,13 @@ func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]can
 			Confidence:     rankConfidence(i, m.Popularity),
 			Disambiguation: movieYear(m.ReleaseDate),
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
+			ImageURL:       movieThumbURL(entityType, m.BackdropPath, m.PosterPath),
 		})
 	}
 	return out, nil
 }
 
-func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]candidate, error) {
+func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID, entityType string) ([]candidate, error) {
 	var result findResult
 	if err := c.get(ctx, "/3/find/"+url.PathEscape(imdbID), url.Values{
 		"external_source": {"imdb_id"},
@@ -463,6 +486,7 @@ func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]cand
 			Confidence:     0.95,
 			Disambiguation: dis,
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
+			ImageURL:       movieThumbURL(entityType, m.BackdropPath, m.PosterPath),
 		})
 	}
 	return out, nil
@@ -564,10 +588,13 @@ func buildMovieEnrichResponse(det movieDetails, credits movieCredits, entityType
 	if v := strings.TrimSpace(det.Tagline); v != "" {
 		fields["tagline"] = []string{v}
 	}
-	// The "Website" link points to this movie's TMDB page, not det.Homepage (the
-	// studio's official/marketing site — often short-lived or region-gated). TMDB is
-	// the provider's own durable record and the more useful destination.
-	fields["homepage"] = []string{tmdbMovieURL(det.ID, det.Title)}
+	// homepage is the film's own website (det.Homepage), omitted when TMDB has none.
+	// It used to be overwritten with the movie's TMDB page; that link now comes from
+	// the `tmdb` link template advertised in /describe (F63, HOLODEX-391), so
+	// emitting it here too would put the same TMDB link on the page twice.
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["homepage"] = []string{v}
+	}
 	if det.OriginalLanguage != "" {
 		fields["original_language"] = []string{det.OriginalLanguage}
 	}
@@ -721,6 +748,29 @@ func buildPeopleCredits(credits movieCredits) []personCredit {
 // joins a TMDB image path.
 func tmdbImageURL(path string) string {
 	return "https://image.tmdb.org/t/p/original" + path
+}
+
+// tmdbThumbURL builds the list-row rendition of a TMDB image path for a
+// candidate's image_url (F64): w185 is the smallest TMDB size that still reads at
+// the picker's 40×60 box on a 2× display, and it is never downloaded by Holodex —
+// only the owner's browser pays for it. Empty path → empty (the key is omitted).
+func tmdbThumbURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return "https://image.tmdb.org/t/p/w185" + path
+}
+
+// movieThumbURL picks a movie candidate's thumbnail by the entity Holodex is
+// matching (HOLODEX-414, contract §2.3): a video row compares against the file's
+// landscape thumbnail, so it gets the backdrop at w300 (TMDB's smallest backdrop
+// size; the picker box is 108×60) and falls back to the poster when the title has
+// none; a film row keeps the poster, the film page's own identity image.
+func movieThumbURL(entityType, backdropPath, posterPath string) string {
+	if entityType == "video" && backdropPath != "" {
+		return "https://image.tmdb.org/t/p/w300" + backdropPath
+	}
+	return tmdbThumbURL(posterPath)
 }
 
 // headshotFor builds a people[] headshot asset from a TMDB profile_path, or nil when
@@ -920,9 +970,13 @@ func buildEnrichResponse(det personDetails, imgs personImagesResult, tags tagged
 	if pob := strings.TrimSpace(det.PlaceOfBirth); pob != "" {
 		fields["nationality"] = []string{pob}
 	}
-	// The "Website" link points to this person's TMDB page, not det.Homepage (their
-	// personal/agency site — often stale or absent). TMDB is the durable record.
-	fields["website"] = []string{tmdbPersonURL(det.ID, det.Name)}
+	// website is the person's own site (det.Homepage — rarely set upstream), omitted
+	// when TMDB has none. It used to be overwritten with the TMDB person page; that
+	// link now comes from the `tmdb` link template advertised in /describe (F63,
+	// HOLODEX-391), so emitting it here too would link TMDB twice on the person page.
+	if v := strings.TrimSpace(det.Homepage); v != "" {
+		fields["website"] = []string{v}
+	}
 	var aliases []string
 	for _, a := range det.AlsoKnownAs {
 		if a = strings.TrimSpace(a); a != "" {
@@ -1036,6 +1090,7 @@ func (c *tmdbClient) resolveStudio(ctx context.Context, h hintBody) ([]candidate
 			Confidence:     1.0,
 			Disambiguation: det.OriginCountry,
 			ProfileURL:     tmdbEntityURL("company", det.ID, det.Name),
+			ImageURL:       tmdbThumbURL(det.LogoPath),
 		}}, nil
 	}
 	if h.Query == "" {
@@ -1068,6 +1123,7 @@ func (c *tmdbClient) searchCompany(ctx context.Context, query string) ([]candida
 			Confidence:     rankConfidence(i, 0),
 			Disambiguation: co.OriginCountry,
 			ProfileURL:     tmdbEntityURL("company", co.ID, co.Name),
+			ImageURL:       tmdbThumbURL(co.LogoPath),
 		})
 	}
 	return out, nil
@@ -1106,12 +1162,11 @@ func buildCompanyEnrichResponse(det companyDetails) enrichResponse {
 	if v := strings.TrimSpace(det.OriginCountry); v != "" {
 		fields["country"] = []string{v}
 	}
-	// Prefer the company's official homepage; fall back to its durable TMDB page when
-	// absent (mirrors the person/movie website behaviour — a link is always present).
+	// website is the company's official homepage, omitted when absent. The TMDB
+	// company page used to be the fallback; it is now the badge's link via the
+	// `tmdb` link template (F63, HOLODEX-391) — same rule as person/film.
 	if v := strings.TrimSpace(det.Homepage); v != "" {
 		fields["website"] = []string{v}
-	} else {
-		fields["website"] = []string{tmdbEntityURL("company", det.ID, det.Name)}
 	}
 	var assets []assetEntry
 	if det.LogoPath != "" {

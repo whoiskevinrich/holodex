@@ -217,6 +217,14 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("pruned old job history", "removed", n)
 	}
 
+	// Completeness scores are materialized (F65, ADR-099 D3) against registry
+	// criticality that is compiled in, so a build that re-tags a facet is only
+	// ever seen at boot: flag every entity for recompute on the first owner
+	// read (D4's denominator-change hook). The triggers cover everything else.
+	if err := repository.MarkAllCompletenessDirty(ctx); err != nil {
+		log.Warn("mark completeness dirty at boot failed", "err", err)
+	}
+
 	// Metadata source plugins (F22, ADR-033): a registry of sidecar providers; the
 	// service is the only thing that dials them, and only on an owner action.
 	sources, err := enrich.NewStore(cfg.MetadataSourcesPath, log)

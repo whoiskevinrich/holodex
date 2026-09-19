@@ -69,6 +69,8 @@ export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -185,6 +187,8 @@ export interface Studio {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -213,6 +217,8 @@ export interface Video {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	file_size: number;
 	title: string;
 	duration_sec: number;
@@ -227,6 +233,7 @@ export interface Video {
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
+	part?: string; // resolved part ordinal within a multi-file media, API-stamped on every summary (HOLODEX-389)
 	people?: Person[];
 	tags?: Tag[];
 }
@@ -441,6 +448,11 @@ export interface MediaDetailResponse {
 	// every writeback.WriteBatch failure embeds absolute filesystem paths, the same
 	// class of exposure FilePath/codecs are already redacted for on this response.
 	writeback_status?: VideoWritebackStatus;
+	// external_links is the provider-link badge projection for video (HOLODEX-394,
+	// ADR-098 D4): 0 or 1 entry, built from the resolver's winning external_provider_id
+	// rather than entity_external_ids (video has no identity rows). Read-only,
+	// visitor-visible; null when the field has no value.
+	external_links?: ExternalLink[] | null;
 }
 
 export interface VideoWritebackStatus {
@@ -587,6 +599,9 @@ export interface JobRun {
 	entity_id?: number;
 	// Writeback snapshot batch (ADR-067) this run belongs to; drives Revert.
 	batch_id?: string;
+	// Set once the owner has dismissed this failed run (HOLODEX-416, ADR-100).
+	// The run itself is untouched — the Log still lists it, with a marker.
+	dismissed_at?: string;
 }
 
 // One kind's roll-up in the activity digest (ADR-071). last_status is the status
@@ -595,9 +610,12 @@ export interface JobRun {
 export interface JobKindDigest {
 	kind: string;
 	runs: number;
-	errors: number;
+	errors: number; // undismissed errors only (ADR-100 D3)
 	last_run: string;
 	last_status: string;
+	// True when the newest run is an error the owner has dismissed — the badge
+	// mutes instead of staying warn (handoff D5). last_status is still 'error'.
+	last_dismissed: boolean;
 }
 
 // The activity digest (ADR-071): a per-kind summary plus the window's failed
@@ -661,6 +679,12 @@ export interface EnrichCandidate {
 	// newlines) and never `[]` — absent when the provider sent none. Presentation
 	// only; never stored or written back.
 	detail?: string[];
+	// image_url is the provider's optional list-row thumbnail (F64, contract §2.3):
+	// a portrait, poster, or logo the picker shows in a fixed 2:3 slot beside the
+	// label. Server-gated to the provider's asset-host allowlist (the same gate as a
+	// render:image_url field, ADR-056) and absent — never "" — when there is none or
+	// it was refused. Rendered by the browser, never fetched or stored by Holodex.
+	image_url?: string;
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
@@ -706,6 +730,7 @@ export interface EnrichQueueRow {
 	entity_type: EnrichEntityKind;
 	entity_id: number;
 	name: string;
+	part?: string; // video rows only: resolved part, so three parts of one media read apart (HOLODEX-389)
 	providers: EnrichQueueProviderState[];
 }
 
@@ -754,6 +779,7 @@ export interface ExtractionQueueRow {
 	id: number;
 	video_id: number;
 	video_title: string;
+	part?: string; // resolved part beside the title (HOLODEX-389)
 	file_path: string;
 	field_key: string;
 	filename_value: string;
@@ -934,6 +960,9 @@ export interface FilmDetailResponse {
 	// empty/0 with no provider cast, so an unenriched film renders as it always did.
 	billed_absent?: FilmBilledCredit[] | null;
 	billed_total?: number;
+	// external_links is the provider-link badge projection (HOLODEX-393, F63 P0-6) —
+	// the same read-only 0..N shape person and studio carry.
+	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	skipped_aliases?: SkippedAlias[];
 }
@@ -1020,13 +1049,25 @@ export interface CompletenessFacet {
 // Completeness is the F55 completeness score plus the separate actionability
 // signal for one entity — mirrors internal/resolver.Completeness. Present
 // only on an owner-authorized detail response (video/person/studio); null for
-// a visitor, mirroring enrich_queries' access-control shape.
+// a visitor, mirroring enrich_queries' access-control shape. v2 (F65, ADR-099
+// D1/D5): `score` is the required band alone (the key kept its v1 name) and
+// `extras` is the separate nice-to-have band — never blended; either is null
+// when its band has no applicable facet (a studio has no required band).
 export interface Completeness {
-	score: number;
+	score: number | null;
+	extras: number | null;
 	// undefined when there are no missing scored facets — the ratio is
 	// undefined, not zero.
 	actionability?: number;
 	facets: CompletenessFacet[];
+}
+
+// CompletenessSummary is the owner-only ring-badge payload on a list item
+// (F65.5, ADR-099 D5) — mirrors model.CompletenessSummary. Absent for a
+// visitor: the card renders the ring iff the item has the field.
+export interface CompletenessSummary {
+	required: number | null;
+	extras: number | null;
 }
 
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —

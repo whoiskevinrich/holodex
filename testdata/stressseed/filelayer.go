@@ -64,6 +64,11 @@ type fixtureFields struct {
 	// through whichever file tag the mapping points at (HOLODEX-346).
 	overview fileField
 
+	// part is the container tag the part ladder writes (HOLODEX-389): PartNumber on
+	// the example mapping. Loaded here so a mapping that does not declare `part`
+	// refuses the ladder before the seeder touches disk, like every other axis.
+	part fileField
+
 	// enrich is the shadow-store half rather than a file-layer field: which
 	// provider namespaces exist, and which canonical fields the mapping lets them
 	// disagree about (HOLODEX-348). It rides here because it is derived from the
@@ -156,7 +161,17 @@ func loadFields(mappingsPath, personasFile string, want ladderDemands) (fixtureF
 		return fixtureFields{}, err
 	}
 
-	return fixtureFields{person: person, studio: studio, overview: overview, enrich: plan}, nil
+	part, err := loadFileField(m, "part", mappingsPath, fieldHint{
+		tag:   "PartNumber",
+		multi: false,
+		why: "The part ladder writes a file's ordinal within a multi-file media as a container\n" +
+			"tag (HOLODEX-389); it resolves from the file layer or not at all",
+	})
+	if err != nil {
+		return fixtureFields{}, err
+	}
+
+	return fixtureFields{person: person, studio: studio, overview: overview, part: part, enrich: plan}, nil
 }
 
 // loadPersonField finds the first person-typed field whose configured mapping has

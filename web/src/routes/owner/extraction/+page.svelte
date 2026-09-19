@@ -11,6 +11,7 @@
 	import { toMessage } from '$lib/format';
 	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
 	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import {
 		buildPreviewItems,
 		groupByVideo,
@@ -171,8 +172,16 @@
 	{:else}
 		{#each groups as g (g.videoId)}
 			<section class="space-y-0 rounded-theme border border-rule bg-surface">
-				<h3 class="truncate border-b border-rule px-3 pb-2 pt-3 text-sm font-medium text-ink" title={g.filePath}>
-					{g.videoTitle}
+				<h3
+					class="flex min-w-0 items-center gap-2 border-b border-rule px-3 pb-2 pt-3 text-sm font-medium text-ink"
+					title={g.filePath}
+				>
+					<span class="min-w-0 truncate">{g.videoTitle}</span>
+					{#if g.part}
+						<span class="shrink-0 rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] font-normal text-muted"
+							>{partBadgeLabel(g.part)}</span
+						>
+					{/if}
 				</h3>
 				{#each g.rows as row (row.id)}
 					<ExtractionQueueRow

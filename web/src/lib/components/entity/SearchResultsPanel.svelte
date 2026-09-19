@@ -11,6 +11,7 @@
 	import type { Film, Person, SearchResponse, Studio, Tag, Video } from '$lib/types';
 	import { SEARCH_TABS, type SearchTab } from '$lib/navSearch.svelte';
 	import { monogram } from '$lib/format';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 
 	let {
 		results,
@@ -69,8 +70,10 @@
 	function tagRow(t: Tag): RowItem {
 		return { id: `t${t.id}`, label: t.name, sub: `${t.video_count ?? 0}`, href: `/tags/${t.id}` };
 	}
+	// The part rides the sub slot (where people/studios show a count and films a year), so
+	// three parts of one media read apart in the results list (HOLODEX-389 RD9).
 	function videoRow(v: Video): RowItem {
-		return { id: `v${v.id}`, label: v.title, sub: '', href: `/media/${v.id}` };
+		return { id: `v${v.id}`, label: v.title, sub: v.part ? partBadgeLabel(v.part) : '', href: `/media/${v.id}` };
 	}
 	function filmRow(f: Film): RowItem {
 		return { id: `f${f.id}`, label: f.display_name ?? f.name, sub: f.year ? String(f.year) : '', href: `/films/${f.id}`, thumb: true };

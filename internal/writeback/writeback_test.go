@@ -174,7 +174,7 @@ func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
 		wantAttach bool
 	}{
 		"text-only batch":       {textOnly, nil, false},
-		"batch including image": {withImage, []ffmpegImgEntry{{"Poster", "/tmp/poster.jpg"}}, true},
+		"batch including image": {withImage, []ffmpegImgEntry{{"Poster", "/tmp/poster.jpg", "image/jpeg"}}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", tc.fields, tc.imgEntries)
@@ -188,6 +188,46 @@ func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
 				t.Errorf("%s: -attach present = %v, want %v (args: %q)", name, got, tc.wantAttach, joined)
 			}
 		})
+	}
+}
+
+// TestBuildFFmpegArgs_ReplacesExistingCover verifies a cover writeback drops the
+// input's attachment of the same name (so the new one replaces it instead of
+// stacking beside it, and an undecodable one stops blocking the remux) and
+// labels the new attachment with its sniffed mimetype — a PNG attached as
+// image/jpeg is what produced the undecodable attachment in the first place.
+// Text-only batches must not carry the negative map: -map 0 alone preserves
+// whatever cover is already there.
+func TestBuildFFmpegArgs_ReplacesExistingCover(t *testing.T) {
+	entries := []ffmpegImgEntry{{"cover.jpg", "/tmp/holodex-cover-1.png", "image/png"}}
+	args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", nil, entries)
+	joined := strings.Join(args, " ")
+
+	for _, want := range []string{
+		"-map 0 -map -0:m:filename:cover.jpg -c copy",
+		"-metadata:s:t:0 mimetype=image/png",
+		"-metadata:s:t:0 filename=cover.jpg",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %q in args, got %q", want, joined)
+		}
+	}
+
+	textOnly := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska",
+		[]FieldWrite{{TagName: "Title", Values: []string{"T"}}}, nil)
+	if joined := strings.Join(textOnly, " "); strings.Contains(joined, "-map -0") {
+		t.Errorf("text-only batch must not exclude any stream, got %q", joined)
+	}
+}
+
+func TestCoverMIME(t *testing.T) {
+	for path, want := range map[string]string{
+		"/tmp/holodex-cover-1.png": "image/png",
+		"/tmp/holodex-cover-2.jpg": "image/jpeg",
+	} {
+		if got := coverMIME(path); got != want {
+			t.Errorf("coverMIME(%q) = %q, want %q", path, got, want)
+		}
 	}
 }
 
@@ -230,6 +270,45 @@ func TestMergeTagsXML(t *testing.T) {
 	}
 	if strings.Contains(got, "Old Genre") {
 		t.Errorf("stale value for a replaced tag survived:\n%s", got)
+	}
+}
+
+// TestMergeTagsXML_ReplacesPartNumber pins the other half of the PART_NUMBER story
+// (HOLODEX-389 RD5): TestMergeTagsXML proves a foreign PART_NUMBER survives a write
+// to some other tag; this proves a write to `part` REPLACES it rather than adding a
+// second Simple beside it. Two PART_NUMBERs would make exiftool's read-back
+// order-dependent and in_sync (ADR-093) a coin flip. The foreign copy sat on a
+// targeted Tag, so that Tag is dropped whole once emptied (Matroska requires a
+// Simple per Tag) and the survivor lands on the untargeted Tag Holodex writes.
+func TestMergeTagsXML_ReplacesPartNumber(t *testing.T) {
+	const existing = `<?xml version="1.0"?>
+<!DOCTYPE Tags SYSTEM "matroskatags.dtd">
+<Tags>
+<Tag>
+<Targets />
+<Simple><Name>ARTIST</Name><String>Prior Artist</String></Simple>
+</Tag>
+<Tag>
+<Targets><TargetTypeValue>30</TargetTypeValue></Targets>
+<Simple><Name>PART_NUMBER</Name><String>3</String></Simple>
+</Tag>
+</Tags>`
+
+	got, err := mergeTagsXML(existing, []FieldWrite{{TagName: "PART_NUMBER", Values: []string{"2"}}})
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+	if n := strings.Count(got, "<Name>PART_NUMBER</Name>"); n != 1 {
+		t.Fatalf("PART_NUMBER appears %d times, want exactly 1:\n%s", n, got)
+	}
+	if !strings.Contains(got, "<Name>PART_NUMBER</Name><String>2</String>") {
+		t.Errorf("new value not written:\n%s", got)
+	}
+	if strings.Contains(got, "<String>3</String>") || strings.Contains(got, "TargetTypeValue") {
+		t.Errorf("foreign PART_NUMBER (or its emptied Tag) survived a part write:\n%s", got)
+	}
+	if !strings.Contains(got, "<Name>ARTIST</Name><String>Prior Artist</String>") {
+		t.Errorf("unrelated tag lost:\n%s", got)
 	}
 }
 

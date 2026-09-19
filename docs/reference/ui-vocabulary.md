@@ -159,6 +159,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "co-locate owner and visitor views in the same file to reduce divergence" | **drift**, and the *owner branch* rule | co-location does not prevent drift; one unconditional rendering of the value does |
 | "a reuse mechanism for long prose — biographies, comments, descriptions" | **long prose** + **enforcement by subtraction** | the mechanism existed; it had a knob — the fix is removing the knob, not adding a component |
 | "where should the display name render — headers + search, or every surface?" (2026-09-15) | **display name** = *headers + search* | the heading and the search row read the resolved `name`; cards, tiles, link cards and pickers keep the canonical column — a `display_name` on cards is its own story, not a widening of this one |
+| "I need a mechanism to denote parts of a canonical media" (2026-09-16) | **a value, not an affordance** — a new canonical field rendered as a read-only badge/pill; the *affordance* is the existing chip row | the ask names a *mechanism* but the work is a field plus a rendering; no control is added on any surface — the media page Metadata row already is the control (HOLODEX-389, [media-parts-handoff.md](../design/media-parts-handoff.md)) |
 
 ## Saying it
 

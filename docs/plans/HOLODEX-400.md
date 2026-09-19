@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-400
-status: in-progress
+status: in-review
 release_note: The "Write metadata to file" dialog now shows every candidate value for a field that differs from the file and lets you pick which one to write — the chooser from the media page, inside the dialog, with the Write button as its confirm.
 ---
 
@@ -38,13 +38,21 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Handoff §9.11–9.12 `[human]` — Kevin's look in all three skins, then `gh pr ready`
+1. [ ] [—] On merge: sweep HOLODEX-400 to Done is CI's job (branch carries the key); nothing by hand
 2. [ ] [—] Fold `SourceBadge`'s expanded row onto `curation/SourceChipRow` (it still carries its own
    copy of the radiogroup + Custom-draft logic) → file as a HOLODEX task when picked up
-3. [ ] [—] HOLODEX-337 / 339 make `in_sync` lie in places; the cockpit keys on it — re-read both
-   before the human QA so a wrong `=` row is recognised as theirs, not this PR's
+3. [ ] [—] HOLODEX-403 (poster chooser) is now the only path to poster writeback from the dialog —
+   consider pulling it forward
+4. [ ] [—] HOLODEX-337 / 339 make `in_sync` lie in places; the cockpit keys on it
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-19 (b) · merged main, marked ready
+- skills: —
+- handoff: owner asked to mark ready (§9.11–9.12 human look = owner's call). Merged `origin/main`
+  (#355 touched the same modal body: `SourceValueClamp` + `rows=5` ported into `SourceRadioList`,
+  so the page modal and the dialog's stacked rows share it); curation `CLAUDE.md` + testing
+  strategy unioned. `check` clean, 362 tests. `gh pr ready` → CI fires In Review.
 
 ### 2026-09-19 · golden record, two destinations
 - skills: —

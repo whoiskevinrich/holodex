@@ -7,6 +7,7 @@
 	// embedding component owns Confirm/Save. Tokens only; QA 3 skins.
 	import type { SourceChip } from '$lib/f36';
 	import type { ResolvedField } from '$lib/types';
+	import SourceValueClamp from './SourceValueClamp.svelte';
 
 	let {
 		field,
@@ -78,12 +79,13 @@
 						stagedCustomValue = e.currentTarget.value;
 						onstage?.();
 					}}
-					rows="3"
+					rows="5"
 					placeholder={`Write a custom ${field.label.toLowerCase()}…`}
 					class="mt-1 ml-6 block w-[calc(100%-1.5rem)] resize-none rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed"
 				></textarea>
 			</label>
 		{:else}
+			{@const value = chip.value.trim()}
 			<label
 				class="block cursor-pointer rounded-theme border p-2 {stagedKey === chip.key
 					? 'border-accent bg-accent/10'
@@ -105,8 +107,14 @@
 						{chip.labels.join(' + ')}
 					</span>
 				</span>
-				<span class="mt-1 block pl-6 text-sm {chip.value.trim() ? 'text-ink' : 'text-muted'}">
-					{chip.value.trim() || (chip.key === baselineKey ? baselinePlaceholder : 'No value')}
+				<!-- Paragraph-length values clamp to four lines (SourceValueClamp, HOLODEX-417) so every
+				     candidate — and whatever footer the embedder has — stays on screen together. -->
+				<span class="mt-1 block pl-6 text-sm {value ? 'text-ink' : 'text-muted'}">
+					{#if value}
+						<SourceValueClamp text={value} label={chip.labels.join(' + ')} />
+					{:else}
+						{chip.key === baselineKey ? baselinePlaceholder : 'No value'}
+					{/if}
 				</span>
 			</label>
 		{/if}

@@ -423,3 +423,32 @@ func TestEnrichRefreshAll_FailedApplyNotLoggedAsApplied(t *testing.T) {
 		t.Errorf("no (failed) enrich entry among %d runs", len(runs))
 	}
 }
+
+// F64 (HOLODEX-406): the resolve handlers pass res.Candidates through untouched, so
+// the image_url gate must already have run in Service.Resolve. Over the wire: a
+// candidate whose image is on the provider's base_url host carries `image_url`; one
+// on a foreign host arrives without the key at all (omitempty after clearing), not
+// with an empty string the picker would have to special-case.
+func TestEnrichVideoResolve_ImageURLGatedOnTheWire(t *testing.T) {
+	studioed := optedIn("studioed", nil, nil)
+	studioed.People["tmdb:x1"] = enrich.FakePerson{Label: "Xena Pictured", ImageURL: "http://studioed:9100/t/w185/x1.jpg"}
+	studioed.People["tmdb:x2"] = enrich.FakePerson{Label: "Xena Foreign", ImageURL: "https://img.other.example/x2.jpg"}
+	srv, _, vid := hintServer(t, "s3cret", map[string]*enrich.Fake{"studioed": studioed})
+
+	_, body := postTok(t, srv.URL+"/api/v1/media/"+itoa(vid)+"/enrich/resolve", "s3cret", map[string]any{"provider": "studioed", "query": "xena"})
+	cands, _ := body["candidates"].([]any)
+	got := map[string]map[string]any{}
+	for _, c := range cands {
+		m, _ := c.(map[string]any)
+		got[m["external_id"].(string)] = m
+	}
+	if got["tmdb:x1"]["image_url"] != "http://studioed:9100/t/w185/x1.jpg" {
+		t.Errorf("own-host image_url on the wire = %v, want round-tripped", got["tmdb:x1"]["image_url"])
+	}
+	if v, present := got["tmdb:x2"]["image_url"]; present {
+		t.Errorf("foreign-host image_url must be omitted from the JSON, got %v", v)
+	}
+	if got["tmdb:x2"]["label"] != "Xena Foreign" {
+		t.Errorf("clearing image_url must leave the candidate intact: %v", got["tmdb:x2"])
+	}
+}

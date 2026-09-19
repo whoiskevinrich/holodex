@@ -29,6 +29,23 @@ func (h *handler) healthz(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// linkTemplates is the /describe.link_templates manifest (contract §4.11). Every
+// entry must be http(s) with exactly one {id} — TestDescribeLinkTemplates holds
+// the map against the same rules Holodex's ValidateLinkTemplate applies at ingest.
+var linkTemplates = map[string]map[string]string{
+	"tmdb": {
+		"person": "https://www.themoviedb.org/person/{id}",
+		"studio": "https://www.themoviedb.org/company/{id}",
+		"film":   "https://www.themoviedb.org/movie/{id}",
+		"video":  "https://www.themoviedb.org/movie/{id}",
+	},
+	"imdb": {
+		"person": "https://www.imdb.com/name/{id}/",
+		"film":   "https://www.imdb.com/title/{id}/",
+		"video":  "https://www.imdb.com/title/{id}/",
+	},
+}
+
 func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 	resp := describeResponse{
 		Provider:        "tmdb",
@@ -77,6 +94,11 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 		FieldHints: map[string]fieldHint{
 			"known_for_department": {Label: "Known for", Render: "text", Group: "attributes", Order: 10},
 		},
+		// F63 (Holodex contract §4.11): the per-namespace page URLs behind the provider
+		// link badge. Without these every pill Holodex renders for our ids is degraded
+		// text (HOLODEX-391). Bare-id form — TMDB resolves the page from the numeric id
+		// alone; the title slug tmdbEntityURL appends is cosmetic.
+		LinkTemplates: linkTemplates,
 	}
 	// Advertise the bundled TMDB brand mark (HOLODEX-161), served by this sidecar at
 	// /brand-icon.png. Its host is the one Holodex used to reach /describe (the request

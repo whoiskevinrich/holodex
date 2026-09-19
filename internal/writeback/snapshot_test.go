@@ -33,8 +33,8 @@ func TestReadCurrentValues_RoundTrips(t *testing.T) {
 }
 
 // TestReadCurrentValues_AbsentTagIsEmpty confirms a tag with no value reads
-// back as "" rather than erroring — matching the snapshot table's "'' if
-// previously absent" contract (ADR-067).
+// back as "" rather than erroring — matching the snapshot table's `"" if
+// previously absent` contract (ADR-067).
 func TestReadCurrentValues_AbsentTagIsEmpty(t *testing.T) {
 	requireExiftool(t)
 	dir := t.TempDir()

@@ -289,7 +289,8 @@ backend already shipped.)*
 - **P1-2**: **Provider link badge on films.** `ProviderLinkBadge` is already entity-agnostic;
   [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md)'s `LinkTemplates` map is
   keyed by entity kind and needs a `film` key. Deferred only because it is orthogonal to the field
-  vocabulary.
+  vocabulary. **Picked up by [provider-link-badge-coverage.md](provider-link-badge-coverage.md)
+  (F63, HOLODEX-393) as its P0-6 — shipped 2026-09-17: pills on the year line (handoff DD4).**
 - **P1-3**: **Success toast after a film enrich**, inheriting whatever HOLODEX-86 ships.
 
 ### Future considerations (P2)
@@ -366,7 +367,7 @@ P0-9); the film detail payload gains the film-level credits list and, with P1-1,
 | Header images | `EntityImageSlot` `variant="frame"` | **Reused.** Second instance for `role="banner"`; empty-state behaviour decided in the handoff |
 | Cast | `PeopleGrid` | **Reused** for the union; the difference group is a labelled second instance |
 | Owner enrich queue | `EnrichQueueRow` | **Reused unchanged**; the page's kind map gains `film` |
-| Provider link | `ProviderLinkBadge` | P1-2 only; needs an ADR-083 `LinkTemplates` film key |
+| Provider link | `ProviderLinkBadge` | **Reused** on the year line (F63 P0-6 / handoff DD4, HOLODEX-393); the `film` template key shipped in HOLODEX-391 |
 
 ## Success Metrics
 

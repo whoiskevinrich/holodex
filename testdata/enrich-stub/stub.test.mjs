@@ -104,3 +104,21 @@ test('the stressed cascade is exactly the §5 cap with a ~600-char second entry'
 	assert.equal(got[1].length, 600); // regardless of how short the query is
 	assert.ok(got.every((s) => s.length > 0));
 });
+
+// ADR-098 D3 has two link branches and the fixture must reach both: one persona
+// declares a link template (§4.11), another returns its page as _source_url (§4.12).
+// A persona doing both would be dead weight (the template wins), so none does.
+test('the persona table exercises both provider-badge link branches, never both on one persona', () => {
+	const templated = stub.PERSONAS.filter((p) => p.linkTemplates);
+	const sourced = stub.PERSONAS.filter((p) => p.sourceUrl);
+	assert.ok(templated.length >= 1, 'no persona declares link_templates');
+	assert.ok(sourced.length >= 1, 'no persona returns _source_url');
+	for (const p of templated) {
+		assert.ok(!p.sourceUrl, `${p.name}: declares link_templates AND returns _source_url`);
+		assert.deepEqual(stub.describeFor(p, 'http://127.0.0.1:9100').link_templates, p.linkTemplates);
+	}
+	for (const p of sourced) {
+		assert.deepEqual(stub.enrichFor(p).fields._source_url, [p.sourceUrl]);
+		assert.ok(!('_source_url' in (p.values || {})), `${p.name}: _source_url belongs in sourceUrl, not values`);
+	}
+});

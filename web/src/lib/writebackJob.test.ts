@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { waitForWritebackJob, waitForWritebackBatch, waitForVideoWriteback } from './writebackJob';
+import {
+	waitForWritebackJob,
+	waitForWritebackBatch,
+	waitForVideoWriteback,
+	JOB_POLL_TIMEOUT_MS
+} from './writebackJob';
 
 // Tiny timings keep these on real timers without slowing the suite.
 const fast = { startMs: 1, timeoutMs: 500 };
@@ -195,12 +200,24 @@ describe('waitForVideoWriteback', () => {
 		expect(calls).toBe(3);
 	});
 
-	it('surfaces a refusal that carries an HTTP status', async () => {
+	it('stops on a refusal that carries an HTTP status, settling as not-pending', async () => {
+		// The media page chains its guard-clearing + detail reload onto the resolved
+		// promise with no rejection path; a refusal that rejected left the poll
+		// guard set for the page's lifetime (HOLODEX-420). Still one fetch — a
+		// refusal is not something to poll through — but resolved, not thrown, and
+		// never the last-known pending state (which would tell the page to do
+		// nothing).
+		let calls = 0;
 		const fetchStatus = vi.fn(async () => {
-			throw Object.assign(new Error('API failed: 401'), { status: 401 });
+			calls++;
+			if (calls === 1) return { pending: true, failed: false };
+			throw Object.assign(new Error('API failed: 404'), { status: 404 });
 		});
-		await expect(waitForVideoWriteback(fetchStatus, fast)).rejects.toThrow('401');
-		expect(fetchStatus).toHaveBeenCalledTimes(1);
+		await expect(waitForVideoWriteback(fetchStatus, fast)).resolves.toEqual({
+			pending: false,
+			failed: false
+		});
+		expect(fetchStatus).toHaveBeenCalledTimes(2);
 	});
 
 	it('gives up at the timeout and resolves with the last-known state', async () => {
@@ -221,5 +238,25 @@ describe('waitForVideoWriteback', () => {
 		const result = await waitForVideoWriteback(fetchStatus, { ...fast, cancelled: () => cancelled });
 		expect(fetchStatus).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({ pending: true, failed: false });
+	});
+
+	it('polls past the default cap when timeoutMs is Infinity (the page-level wait)', async () => {
+		// The media page has nothing to hand off to on timeout, so it waits uncapped
+		// (HOLODEX-419): a multi-GB MKV remux outruns JOB_POLL_TIMEOUT_MS, and giving
+		// up left the badge on "writing to file" until a manual reload.
+		vi.useFakeTimers();
+		try {
+			// Enough pending answers that the backoff's clock runs well past the cap.
+			const answers = Array.from({ length: 40 }, () => ({ pending: true, failed: false }));
+			const fetchStatus = vi.fn(async () => answers.shift() ?? { pending: false, failed: false });
+
+			const wait = waitForVideoWriteback(fetchStatus, { timeoutMs: Infinity });
+			await vi.advanceTimersByTimeAsync(JOB_POLL_TIMEOUT_MS * 3);
+
+			await expect(wait).resolves.toEqual({ pending: false, failed: false });
+			expect(fetchStatus).toHaveBeenCalledTimes(41);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

@@ -166,6 +166,13 @@ type spec struct {
 	// whatever providers have stored rows.
 	namespaces int
 
+	// part is the file's ordinal within a multi-file media (HOLODEX-389), seeded as
+	// the container tag in the file layer and nothing else — the one source the list
+	// path never used to load. A string because the field is (the badge renders it
+	// verbatim); "" is the empty rung, which is also the baseline: most files have no
+	// part, and that is correct rather than a gap.
+	part string
+
 	// image is the one axis every entity kind that renders a picture shares, so
 	// unlike the two halves below it is not keyed to a kind: a video, a person, a
 	// studio and a film each have image slots, and the same rung means the same
@@ -393,6 +400,27 @@ var ladder = []dimension{
 		// renders the affordance only above one selectable chip — so it is the
 		// boundary, not a smaller version of five.
 		rungs: counts(func(s *spec, n int) { s.namespaces = n }, 0, 1, 5),
+	},
+	{
+		key:    "part",
+		entity: kindVideo,
+		block:  1000,
+		finds:  "the bottom-left card badge against the duration badge and the Brutalist reel counter, the header pill after edition, queue rows that name a video by title alone",
+		// HOLODEX-389. Every rung keeps the baseline title on purpose (ownsTitle with
+		// the text axis at baseline): three files of one media are an identical
+		// triplet on every list surface until the badge tells them apart, and that
+		// triplet is the bug class the field exists for. "12" is the two-digit width
+		// the badge and the header pill have to hold. The value goes in as the
+		// container tag only — the filename and decision sources are covered by the
+		// API tests (internal/api/parts_test.go); the tag is the source the list
+		// path forgot, so it is the one the fixture keeps honest.
+		ownsTitle: true,
+		rungs: []rung{
+			{variant: "00", value: "", apply: func(s *spec) { s.part = "" }},
+			{variant: "01", value: "1", apply: func(s *spec) { s.part = "1" }},
+			{variant: "02", value: "2", apply: func(s *spec) { s.part = "2" }},
+			{variant: "12", value: "12", apply: func(s *spec) { s.part = "12" }},
+		},
 	},
 	{
 		key:    "scenes",
@@ -680,8 +708,12 @@ func encodeName(kind entityKind, s spec) string {
 		// unique across the whole film half of the ladder.
 		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d image=%s", s.cast, s.scenes, s.image.key)
 	}
-	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s image=%s ns=%02d",
-		s.people, s.tags, s.studios, s.text.key, s.image.key, s.namespaces)
+	part := s.part
+	if part == "" {
+		part = "00"
+	}
+	return fmt.Sprintf("STRESS people=%02d tags=%02d studios=%02d text=%s image=%s ns=%02d part=%s",
+		s.people, s.tags, s.studios, s.text.key, s.image.key, s.namespaces, part)
 }
 
 // ladderDemands is the highest rung the table reaches on each axis that has to be

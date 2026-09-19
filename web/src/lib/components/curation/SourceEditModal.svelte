@@ -9,6 +9,10 @@
 	// `decide` until Save. Entity-generic like SourceBadge (`baselineKey`: 'file' for videos,
 	// 'record' for persons/studios). Modal chrome delegates to ConfirmDialog (focus trap, Esc,
 	// backdrop, focus-return), mirroring MergeCanonicalDialog's own radio-body usage of it.
+	// Each source value is clamped to four lines (SourceValueClamp, HOLODEX-417) so the
+	// candidates — and the Save/Cancel footer — stay on screen together at paragraph length.
+	// The rows themselves live in SourceRadioList (HOLODEX-400) so the writeback dialog can
+	// embed the same chooser; this modal only supplies the chrome and the Save commit.
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import { resolveSelection, sourceChips } from '$lib/f36';
 	import { toMessage } from '$lib/format';

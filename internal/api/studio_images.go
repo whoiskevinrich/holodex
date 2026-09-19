@@ -59,7 +59,7 @@ func studioImageRole(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return role, true
 }
 
-// serveStudioImage streams a studio's on-disk image JPEG for a role with a long
+// serveStudioImage streams a studio's on-disk image for a role with a long
 // immutable cache. The ?v={id} the model emits changes when the image is replaced, so
 // a stale image is never pinned. No placeholder: an absent role is 404 and the SPA
 // falls back to its own empty state. Public read, like every other studio read.
@@ -85,7 +85,8 @@ func (h *Handlers) serveStudioImage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get studio image", err)
 		return
 	}
-	serveEntityImageFile(w, r, studioimage.ImagePath(h.studioImageDir, id, img.ID))
+	path, err := studioimage.Find(h.studioImageDir, id, img.ID)
+	serveEntityImageFile(w, r, path, err)
 }
 
 // uploadStudioImage ingests a multipart upload (`image` file) for one role, normalizes

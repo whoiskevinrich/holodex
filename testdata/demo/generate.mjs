@@ -79,7 +79,9 @@ async function buildItem(item, index, args, postersDir, outDir) {
 		base.clone().resize(THUMB.w, THUMB.h).jpeg({ quality: 85 }).toFile(thumb)
 	]);
 
-	const out = join(outDir, `${item.slug}.mp4`);
+	// `filename` lets an item carry a filename convention (a `{part-N}` marker) while
+	// `slug` stays the stable key for --only and the poster temp files.
+	const out = join(outDir, `${item.filename ?? item.slug}.mp4`);
 	const ffArgs = [
 		'-y',
 		'-loglevel', 'error',
@@ -92,6 +94,10 @@ async function buildItem(item, index, args, postersDir, outDir) {
 		'-metadata', `artist=${item.people.join(', ')}`,
 		'-metadata', `genre=${item.tags.join(', ')}`,
 		'-metadata', `date=${item.year}-01-01`,
+		// The iTunes `disk` atom — exiftool reads it back as DiskNumber, the MP4 source
+		// of the `part` field (HOLODEX-389 RD5). ffmpeg's mov muxer maps the key `disc`
+		// (not `disk`) onto the atom; a bare N writes N/0, which reads back as bare N.
+		...(item.part ? ['-metadata', `disc=${item.part}`] : []),
 		'-movflags', '+faststart',
 		out
 	];

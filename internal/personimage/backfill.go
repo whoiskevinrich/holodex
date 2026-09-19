@@ -24,7 +24,7 @@ type BackfillRepo interface {
 // Go (the established repair-pass pattern, like PruneJobRuns at startup).
 //
 // Steps:
-//  1. For each row missing a hash, read its stored JPEG and record the hash. A
+//  1. For each row missing a hash, read its stored bytes and record the hash. A
 //     missing/unreadable file logs and is skipped (it stays unhashed and so never
 //     matches — retried next boot), rather than aborting the whole pass.
 //  2. Collapse duplicate gallery extras (keep earliest; an extra matching a core
@@ -38,7 +38,7 @@ func Backfill(ctx context.Context, r BackfillRepo, dir string, log *slog.Logger)
 		return 0, 0, fmt.Errorf("list unhashed images: %w", err)
 	}
 	for _, ref := range missing {
-		data, err := os.ReadFile(ImagePath(dir, ref.PersonID, ref.ID))
+		data, err := readStored(dir, ref.PersonID, ref.ID)
 		if err != nil {
 			// File gone (row outlived its bytes, or an interrupted write): leave the row
 			// unhashed so a later boot can retry once the file exists; it can't match
@@ -67,4 +67,14 @@ func Backfill(ctx context.Context, r BackfillRepo, dir string, log *slog.Logger)
 		}
 	}
 	return hashed, len(victims), nil
+}
+
+// readStored reads an image's on-disk bytes by id, whichever extension it was
+// written with (a missing file surfaces os.ErrNotExist from Find).
+func readStored(dir string, personID, imageID int64) ([]byte, error) {
+	path, err := Find(dir, personID, imageID)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
 }

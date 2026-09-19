@@ -165,10 +165,13 @@ entirely.
   400 on an unknown role, mirrors `POST /people/{id}/image` validation/size caps) and
   `DELETE /api/v1/studios/{id}/images/{role}`, both `requireOwner`. Upload runs the bytes
   through `personimage.Normalize` (metadata strip, bomb guard, decode-and-re-encode) before
-  storing — the same untrusted-bytes gate every other image upload passes.
+  storing — the same untrusted-bytes gate every other image upload passes. A non-opaque
+  upload (a logo with a transparent background) is kept as PNG rather than flattened to
+  JPEG, so the mark sits on the skin's surface with no painted-in box
+  ([ADR-097](../architecture/ADR-097-alpha-preserving-image-normalization.md), HOLODEX-396).
 - **P0-6 — Public serve route.** `GET /api/v1/studios/{id}/images/{role}` streams the
-  on-disk JPEG (`Cache-Control: public, max-age=31536000, immutable`,
-  `X-Content-Type-Options: nosniff`), 404 when the slot is empty (the SPA renders its
+  on-disk JPEG or PNG with the matching `Content-Type` (`Cache-Control: public,
+  max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`), 404 when the slot is empty (the SPA renders its
   existing per-role fallback — monogram for logo/icon, no poster placeholder needed since
   poster has no consumer yet). Replaces `GET /studios/{id}/logo`.
 - **P0-7 — Detail-page controls (RD1).** A role-generic image control (upload / replace /

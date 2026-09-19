@@ -97,7 +97,8 @@ func (h *Handlers) servePersonImageFile(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusNotFound, "image not available")
 		return
 	}
-	serveEntityImageFile(w, r, personimage.ImagePath(h.personImageDir, personID, imageID))
+	path, err := personimage.Find(h.personImageDir, personID, imageID)
+	serveEntityImageFile(w, r, path, err)
 }
 
 // servePlaceholder writes the themed placeholder SVG for an empty role. The skin
@@ -296,7 +297,12 @@ func (h *Handlers) promotePersonImage(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "promote: get image", err)
 		return
 	}
-	raw, err := os.ReadFile(personimage.ImagePath(h.personImageDir, id, imageID))
+	path, err := personimage.Find(h.personImageDir, id, imageID)
+	if err != nil {
+		h.fail(w, "promote: find image", err)
+		return
+	}
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		h.fail(w, "promote: read image", err)
 		return

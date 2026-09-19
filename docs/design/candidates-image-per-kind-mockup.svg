@@ -1,0 +1,169 @@
+<svg viewBox="0 0 960 900" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .panel { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .rowActive { fill: #1c1714; }
+      .rowBar { fill: #e8a33d; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .plate { fill: #e9e2d6; }
+      .plateInk { fill: #2a2622; font-family: 'Fraunces Variable', serif; font-weight: 600; }
+      .photo { fill: #6b5d4a; }
+      .photoInk { fill: #d9ccb8; }
+      .poster { fill: #3d4a5c; }
+      .posterInk { fill: #dbe3ee; }
+      .logoInk { fill: #8a2f2f; font-family: 'Fraunces Variable', serif; font-weight: 600; letter-spacing: 0.08em; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentMark { stroke: #e8a33d; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+      .dim { stroke: #9b9082; stroke-width: 1; fill: none; }
+      .label { font-size: 11px; letter-spacing: 0.06em; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .xs { font-size: 12px; }
+      .sm { font-size: 14px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="900" />
+
+  <text x="24" y="34" class="title ink" font-size="17">Enrich picker &#8212; candidate slot shape follows the entity kind (HOLODEX-414)</text>
+  <text x="24" y="54" class="muted xs">Skin 1 (Cin&#233;math&#232;que), 1:1 CSS px. Slot height locked at 60 in every picker; width follows the kind. Gold dashed outline = the slot box.</text>
+
+  <!-- ===== Panel 1: person picker (unchanged) ===== -->
+  <text x="24" y="90" class="muted label">PERSON PICKER &#8212; profile 2:3, 40 &#215; 60 (unchanged from F64)</text>
+  <rect x="24" y="100" width="456" height="92" class="panel" />
+  <rect x="24" y="108" width="456" height="76" class="rowActive" />
+  <rect x="24" y="108" width="2" height="76" class="rowBar" />
+  <rect x="38" y="116" width="40" height="60" rx="2" class="photo" />
+  <circle cx="58" cy="138" r="8" class="photoInk" />
+  <path d="M44 166 a14 12 0 0 1 28 0 z" class="photoInk" />
+  <rect x="38" y="116" width="40" height="60" rx="2" class="accentMark" />
+  <text x="90" y="131" class="ink sm">Mara Ellison</text>
+  <text x="470" y="130" class="accent xs" text-anchor="end">92% match</text>
+  <text x="90" y="148" class="muted xs">Actress &#183; born 1984 &#183; Toronto</text>
+  <text x="90" y="166" class="accent xs">view source &#8599;</text>
+  <text x="180" y="166" class="muted xs">&#183; details</text>
+
+  <!-- ===== Panel 2: film picker (unchanged) ===== -->
+  <text x="504" y="90" class="muted label">FILM PICKER &#8212; poster 2:3, 40 &#215; 60 (unchanged from F64)</text>
+  <rect x="504" y="100" width="432" height="92" class="panel" />
+  <rect x="518" y="116" width="40" height="60" rx="2" class="poster" />
+  <text x="538" y="151" class="posterInk" font-size="18" text-anchor="middle">&#9654;</text>
+  <rect x="518" y="116" width="40" height="60" rx="2" class="accentMark" />
+  <text x="570" y="131" class="ink sm">Night Harbour</text>
+  <text x="926" y="130" class="accent xs" text-anchor="end">88% match</text>
+  <text x="570" y="148" class="muted xs">2019 &#183; Night Harbour Productions</text>
+  <text x="570" y="166" class="accent xs">view source &#8599;</text>
+  <text x="660" y="166" class="muted xs">&#183; details</text>
+
+  <!-- ===== Panel 3: media picker — backdrop / poster fallback / monogram ===== -->
+  <text x="24" y="228" class="muted label">MEDIA PICKER &#8212; backdrop 16:9 in a 108 &#215; 60 box; poster letterboxes when there is no backdrop; monogram when there is no image</text>
+  <rect x="24" y="238" width="456" height="244" class="panel" />
+
+  <!-- row 0: backdrop, active -->
+  <rect x="24" y="246" width="456" height="76" class="rowActive" />
+  <rect x="24" y="246" width="2" height="76" class="rowBar" />
+  <rect x="38" y="254" width="108" height="60" rx="2" class="plate" />
+  <rect x="38.67" y="254" width="106.67" height="60" class="poster" />
+  <path d="M46 306 l22 -20 l14 12 l18 -24 l32 32 z" class="posterInk" />
+  <circle cx="126" cy="266" r="5" class="posterInk" />
+  <rect x="38" y="254" width="108" height="60" rx="2" class="accentMark" />
+  <text x="158" y="269" class="ink sm">Night Harbour</text>
+  <text x="470" y="268" class="accent xs" text-anchor="end">88% match</text>
+  <text x="158" y="286" class="muted xs">2019 &#183; Night Harbour Productions</text>
+  <text x="158" y="304" class="accent xs">view source &#8599;</text>
+  <text x="248" y="304" class="muted xs">&#183; details</text>
+
+  <!-- row 1: poster fallback letterboxed -->
+  <rect x="38" y="330" width="108" height="60" rx="2" class="plate" />
+  <rect x="72" y="330" width="40" height="60" class="poster" />
+  <text x="92" y="365" class="posterInk" font-size="16" text-anchor="middle">&#9654;</text>
+  <rect x="38" y="330" width="108" height="60" rx="2" class="accentMark" />
+  <text x="158" y="345" class="ink sm">Night Harbour (1962)</text>
+  <text x="470" y="344" class="accent xs" text-anchor="end">41% match</text>
+  <text x="158" y="362" class="muted xs">1962 &#183; no backdrop on TMDB &#8212; poster sent instead</text>
+  <text x="158" y="380" class="accent xs">view source &#8599;</text>
+  <text x="248" y="380" class="muted xs">&#183; details</text>
+
+  <!-- row 2: monogram -->
+  <rect x="38" y="406" width="108" height="60" rx="2" class="plate" />
+  <text x="92" y="441" class="plateInk" font-size="14" text-anchor="middle">N</text>
+  <rect x="38" y="406" width="108" height="60" rx="2" class="accentMark" />
+  <text x="158" y="421" class="ink sm">Night Harbour (short)</text>
+  <text x="470" y="420" class="accent xs" text-anchor="end">12% match</text>
+  <text x="158" y="438" class="muted xs">2007 &#183; no image</text>
+  <text x="158" y="456" class="accent xs">view source &#8599;</text>
+
+  <!-- ===== Panel 4: studio picker — logo ===== -->
+  <text x="504" y="228" class="muted label">STUDIO PICKER &#8212; logo in a 120 &#215; 60 (2:1) box, letterboxed on the plate</text>
+  <rect x="504" y="238" width="432" height="168" class="panel" />
+
+  <!-- row 0: wide wordmark -->
+  <rect x="504" y="246" width="432" height="76" class="rowActive" />
+  <rect x="504" y="246" width="2" height="76" class="rowBar" />
+  <rect x="518" y="254" width="120" height="60" rx="2" class="plate" />
+  <text x="578" y="289" class="logoInk" font-size="13" text-anchor="middle">LUMEN FILMS</text>
+  <rect x="518" y="254" width="120" height="60" rx="2" class="accentMark" />
+  <text x="650" y="269" class="ink sm">Lumen Films</text>
+  <text x="926" y="268" class="accent xs" text-anchor="end">95% match</text>
+  <text x="650" y="286" class="muted xs">Company &#183; Los Angeles</text>
+  <text x="650" y="304" class="accent xs">view source &#8599;</text>
+  <text x="740" y="304" class="muted xs">&#183; details</text>
+
+  <!-- row 1: square symbol logo -->
+  <rect x="518" y="330" width="120" height="60" rx="2" class="plate" />
+  <rect x="548" y="330" width="60" height="60" fill="#8a2f2f" />
+  <circle cx="578" cy="360" r="16" fill="#e9e2d6" />
+  <rect x="518" y="330" width="120" height="60" rx="2" class="accentMark" />
+  <text x="650" y="345" class="ink sm">Lumen Films (Japan)</text>
+  <text x="926" y="344" class="accent xs" text-anchor="end">60% match</text>
+  <text x="650" y="362" class="muted xs">Company &#183; Tokyo &#183; square symbol, plate shows either side</text>
+  <text x="650" y="380" class="accent xs">view source &#8599;</text>
+
+  <!-- ===== Panel 5: slot anatomy / geometry ===== -->
+  <text x="24" y="518" class="muted label">SLOT ANATOMY &#8212; one row per kind, dimensions in CSS px (dialog max-w-lg = 512, p-4, row px-3 py-2, gap-3)</text>
+  <rect x="24" y="528" width="912" height="350" class="panel" />
+
+  <!-- portrait -->
+  <text x="40" y="552" class="ink xs">person / film &#8212; portrait</text>
+  <rect x="40" y="562" width="40" height="60" rx="2" class="plate" />
+  <rect x="40" y="562" width="40" height="60" rx="2" class="accentMark" />
+  <line x1="40" y1="632" x2="80" y2="632" class="dim" />
+  <text x="60" y="646" class="muted label" text-anchor="middle">40</text>
+  <line x1="90" y1="562" x2="90" y2="622" class="dim" />
+  <text x="96" y="596" class="muted label">60</text>
+  <text x="40" y="672" class="muted xs">w-10 h-15 &#183; text block 404 px</text>
+  <text x="40" y="688" class="muted xs">profile_path / poster_path @ w185</text>
+
+  <!-- landscape -->
+  <text x="300" y="552" class="ink xs">media &#8212; landscape (backdrop)</text>
+  <rect x="300" y="562" width="108" height="60" rx="2" class="plate" />
+  <rect x="300" y="562" width="108" height="60" rx="2" class="accentMark" />
+  <line x1="300" y1="632" x2="408" y2="632" class="dim" />
+  <text x="354" y="646" class="muted label" text-anchor="middle">108</text>
+  <line x1="418" y1="562" x2="418" y2="622" class="dim" />
+  <text x="424" y="596" class="muted label">60</text>
+  <text x="300" y="672" class="muted xs">w-27 h-15 &#183; text block 336 px</text>
+  <text x="300" y="688" class="muted xs">backdrop_path @ w300, else poster_path @ w185</text>
+
+  <!-- logo -->
+  <text x="620" y="552" class="ink xs">studio &#8212; logo</text>
+  <rect x="620" y="562" width="120" height="60" rx="2" class="plate" />
+  <rect x="620" y="562" width="120" height="60" rx="2" class="accentMark" />
+  <line x1="620" y1="632" x2="740" y2="632" class="dim" />
+  <text x="680" y="646" class="muted label" text-anchor="middle">120</text>
+  <line x1="750" y1="562" x2="750" y2="622" class="dim" />
+  <text x="756" y="596" class="muted label">60</text>
+  <text x="620" y="672" class="muted xs">w-30 h-15 &#183; text block 324 px</text>
+  <text x="620" y="688" class="muted xs">logo_path @ w185</text>
+
+  <line x1="40" y1="712" x2="920" y2="712" class="rule" />
+  <text x="40" y="736" class="ink xs">Constant across kinds</text>
+  <text x="40" y="756" class="muted xs">&#183; height 60 (h-15) &#8594; every collapsed row is 76 px in every picker; the F61 geometry floor is unchanged</text>
+  <text x="40" y="774" class="muted xs">&#183; explicit width AND height per shape (no aspect-* box) so the img can never widen the slot to its natural width</text>
+  <text x="40" y="792" class="muted xs">&#183; bg-logo-plate + rounded-theme + overflow-hidden; img object-contain; monogram font-display text-sm font-semibold text-logo-plate-ink</text>
+  <text x="40" y="810" class="muted xs">&#183; aria-hidden, no handler, no tab stop &#8212; clicking the image is clicking the row; the shape is fixed per picker instance so x-parity holds within a list</text>
+  <text x="40" y="828" class="muted xs">&#183; shape comes from a new entityType prop on EnrichPicker (person | film | video | studio); slotShape() in candidateImage.ts maps it, unit-tested</text>
+  <text x="40" y="856" class="muted xs">At 375 px (dialog 343): text block 235 / 167 / 155 px &#8212; label truncates, match strength stays shrink-0. No breakpoint-specific slot size.</text>
+</svg>

@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="760" viewBox="0 0 920 760" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="13">
+  <title>StudioLinkCard with the studio logo — HOLODEX-397</title>
+  <desc>Before/after of the studio row on the Film and Media detail pages. Today the 48×48 plate draws icon_url only and shows a monogram for every TMDB-enriched studio. After: the plate is fixed-height (48px) and auto-width (min 48, max 192), drawing logo_url, then icon_url, then the monogram; the name and video count stay beside it. Shown across all three skins with stress states.</desc>
+  <rect width="920" height="760" fill="#ffffff"/>
+  <text x="20" y="28" font-size="17" font-weight="600" fill="#1a1a1a">StudioLinkCard — draw the studio logo when there is one (HOLODEX-397)</text>
+  <text x="20" y="48" fill="#555">Shared by /films/{id} and /media/{id}. Plate h-12; width auto within [w-12, max-w-48]; logo_url → icon_url → monogram. Name + count unchanged.</text>
+
+  <!-- A: today -->
+  <text x="20" y="80" font-size="12" font-weight="600" fill="#444">A · TODAY (icon_url only — TMDB fills logo, not icon, so enriched studios show a monogram)</text>
+  <g transform="translate(20,90)">
+    <rect width="440" height="76" rx="4" fill="#0c0a09"/>
+    <g transform="translate(14,14)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-dasharray="3 2"/>
+      <text x="24" y="30" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="14" fill="#2a2018">NP</text>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Northlight Pictures</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">14 videos</text>
+    </g>
+    <g transform="translate(230,14)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-dasharray="3 2"/>
+      <text x="24" y="30" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="14" fill="#2a2018">OW</text>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Orbital Works</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">3 videos</text>
+    </g>
+  </g>
+
+  <!-- B: after, Cinémathèque -->
+  <text x="20" y="196" font-size="12" font-weight="600" fill="#444">B · AFTER — Cinémathèque · wordmark logo (5:1) · symbol logo (1:1) · icon only · nothing</text>
+  <g transform="translate(20,206)">
+    <rect width="880" height="76" rx="4" fill="#0c0a09"/>
+    <g transform="translate(14,14)">
+      <rect width="192" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <text x="96" y="31" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="19" letter-spacing="2" fill="#2a2018">NORTHLIGHT</text>
+      <text x="204" y="20" font-size="15" fill="#f3ece1">Northlight Pictures</text>
+      <text x="204" y="38" font-size="12" fill="#9b9082">14 videos</text>
+    </g>
+    <g transform="translate(370,14)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <circle cx="24" cy="24" r="15" fill="none" stroke="#2a2018" stroke-width="3"/>
+      <circle cx="24" cy="24" r="6" fill="#2a2018"/>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Orbital Works</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">3 videos</text>
+    </g>
+    <g transform="translate(560,14)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <rect x="10" y="10" width="28" height="28" fill="none" stroke="#2a2018" stroke-width="2"/>
+      <text x="24" y="28" text-anchor="middle" font-family="Georgia, serif" font-size="10" font-weight="600" fill="#2a2018">ICN</text>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Kestrel Media</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">9 videos</text>
+    </g>
+    <g transform="translate(730,14)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-dasharray="3 2"/>
+      <text x="24" y="30" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="14" fill="#2a2018">VH</text>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Vantage House</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">1 video</text>
+    </g>
+  </g>
+
+  <!-- Broadcast -->
+  <text x="20" y="312" font-size="12" font-weight="600" fill="#444">B · Broadcast (radius 0, VT323 display face for the monogram)</text>
+  <g transform="translate(20,322)">
+    <rect width="880" height="76" fill="#060814"/>
+    <g transform="translate(14,14)">
+      <rect width="192" height="48" fill="#e4ebf8" stroke="#1a2240"/>
+      <text x="96" y="31" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="19" letter-spacing="2" fill="#1a2240">NORTHLIGHT</text>
+      <text x="204" y="20" font-size="15" fill="#dfe9ff">Northlight Pictures</text>
+      <text x="204" y="38" font-size="12" fill="#6f7da6">14 videos</text>
+    </g>
+    <g transform="translate(370,14)">
+      <rect width="48" height="48" fill="#e4ebf8" stroke="#1a2240"/>
+      <circle cx="24" cy="24" r="15" fill="none" stroke="#1a2240" stroke-width="3"/>
+      <circle cx="24" cy="24" r="6" fill="#1a2240"/>
+      <text x="60" y="20" font-size="15" fill="#dfe9ff">Orbital Works</text>
+      <text x="60" y="38" font-size="12" fill="#6f7da6">3 videos</text>
+    </g>
+    <g transform="translate(730,14)">
+      <rect width="48" height="48" fill="#e4ebf8" stroke="#1a2240" stroke-dasharray="3 2"/>
+      <text x="24" y="31" text-anchor="middle" font-family="monospace" font-weight="600" font-size="16" fill="#1a2240">VH</text>
+      <text x="60" y="20" font-size="15" fill="#dfe9ff">Vantage House</text>
+      <text x="60" y="38" font-size="12" fill="#6f7da6">1 video</text>
+    </g>
+  </g>
+
+  <!-- Brutalist -->
+  <text x="20" y="428" font-size="12" font-weight="600" fill="#444">B · Brutalist (radius 0, mono display face)</text>
+  <g transform="translate(20,438)">
+    <rect width="880" height="76" fill="#0a0a0a"/>
+    <g transform="translate(14,14)">
+      <rect width="192" height="48" fill="#f0f0f0" stroke="#333333"/>
+      <text x="96" y="31" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="19" letter-spacing="2" fill="#1a1a1a">NORTHLIGHT</text>
+      <text x="204" y="20" font-size="15" fill="#fafafa">Northlight Pictures</text>
+      <text x="204" y="38" font-size="12" fill="#8a8a8a">14 videos</text>
+    </g>
+    <g transform="translate(370,14)">
+      <rect width="48" height="48" fill="#f0f0f0" stroke="#333333"/>
+      <circle cx="24" cy="24" r="15" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+      <circle cx="24" cy="24" r="6" fill="#1a1a1a"/>
+      <text x="60" y="20" font-size="15" fill="#fafafa">Orbital Works</text>
+      <text x="60" y="38" font-size="12" fill="#8a8a8a">3 videos</text>
+    </g>
+    <g transform="translate(730,14)">
+      <rect width="48" height="48" fill="#f0f0f0" stroke="#333333" stroke-dasharray="3 2"/>
+      <text x="24" y="30" text-anchor="middle" font-family="monospace" font-weight="600" font-size="14" fill="#1a1a1a">VH</text>
+      <text x="60" y="20" font-size="15" fill="#fafafa">Vantage House</text>
+      <text x="60" y="38" font-size="12" fill="#8a8a8a">1 video</text>
+    </g>
+  </g>
+
+  <!-- Stress states -->
+  <text x="20" y="544" font-size="12" font-weight="600" fill="#444">STRESS · two wordmark studios in the 343px phone subject column — the row wraps, plates never shrink</text>
+  <g transform="translate(20,554)">
+    <rect width="371" height="150" rx="4" fill="#0c0a09"/>
+    <rect x="14" y="14" width="343" height="122" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+    <g transform="translate(24,26)">
+      <rect width="192" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <text x="96" y="31" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="19" letter-spacing="2" fill="#2a2018">NORTHLIGHT</text>
+      <text x="204" y="20" font-size="15" fill="#f3ece1">Northlight Pi…</text>
+      <text x="204" y="38" font-size="12" fill="#9b9082">14 videos</text>
+    </g>
+    <g transform="translate(24,86)">
+      <rect width="150" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <text x="75" y="30" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="16" letter-spacing="2" fill="#2a2018">MERIDIAN</text>
+      <text x="162" y="20" font-size="15" fill="#f3ece1">Meridian Films</text>
+      <text x="162" y="38" font-size="12" fill="#9b9082">6 videos</text>
+    </g>
+  </g>
+  <text x="420" y="544" font-size="12" font-weight="600" fill="#444">STRESS · 12:1 wordmark hits the 192px cap and letterboxes · portrait logo pads to a square</text>
+  <g transform="translate(420,554)">
+    <rect width="480" height="150" rx="4" fill="#0c0a09"/>
+    <g transform="translate(14,14)">
+      <rect width="192" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <text x="96" y="28" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="11" letter-spacing="1.5" fill="#2a2018">SILVERLINE ENTERTAINMENT</text>
+      <text x="204" y="20" font-size="15" fill="#f3ece1">Silverline Entertai…</text>
+      <text x="204" y="38" font-size="12" fill="#9b9082">2 videos</text>
+    </g>
+    <g transform="translate(14,84)">
+      <rect width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+      <rect x="17" y="6" width="14" height="36" fill="#2a2018"/>
+      <text x="60" y="20" font-size="15" fill="#f3ece1">Tallboy Studio</text>
+      <text x="60" y="38" font-size="12" fill="#9b9082">5 videos</text>
+    </g>
+    <text x="14" y="145" font-size="11" fill="#9b9082">Plate: h-12 · min-w-12 · max-w-48 · p-1 · bg-logo-plate · border-rule (dashed only when no image at all)</text>
+  </g>
+
+  <text x="20" y="736" font-size="11" fill="#777">Logos shown are placeholders. Real logos are raster (the enrich pipeline rejects SVG), drawn on the light neutral logo-plate so black/white marks read on every dark skin.</text>
+</svg>

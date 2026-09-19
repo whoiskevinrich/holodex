@@ -33,9 +33,22 @@ func TestMapExiftool(t *testing.T) {
 	if !ex.HasCoverArt {
 		t.Errorf("HasCoverArt should be true for CoverArt key")
 	}
-	// Publisher is captured; FileSize/CoverArt are excluded from Extra.
-	if len(ex.Extra) != 1 || ex.Extra[0].SourceKey != "Publisher" || ex.Extra[0].Value != "UGC" {
-		t.Errorf("extra = %+v", ex.Extra)
+	// Publisher is captured; FileSize/CoverArt are excluded from Extra. The
+	// person tag is captured verbatim as well (HOLODEX-408): video_people is
+	// derived from the resolved actors field, whose file:Artist source reads
+	// video_metadata — ex.People alone never reaches the resolver.
+	extra := map[string]string{}
+	for _, e := range ex.Extra {
+		extra[e.SourceKey] = e.Value
+	}
+	want := map[string]string{"Publisher": "UGC", "Artist": "Audrey Tautou, Mathieu Kassovitz"}
+	if len(ex.Extra) != len(want) {
+		t.Errorf("extra = %+v, want %d entries", ex.Extra, len(want))
+	}
+	for k, v := range want {
+		if extra[k] != v {
+			t.Errorf("Extra[%q] = %q, want %q", k, extra[k], v)
+		}
 	}
 }
 
@@ -52,6 +65,7 @@ func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 		"SeasonNumber-und": "2",      // unmapped → Extra as "SeasonNumber" (file:<Key>-addressable)
 		"EpisodeSort-und":  "5",
 		"Edition-und":      "Final Cut", // F60 RD8: the EDITION SimpleTag lands as bare "Edition"
+		"PartNumber-und":   "2",         // HOLODEX-389 RD2: the PART_NUMBER SimpleTag lands as bare "PartNumber"
 		"CRC-32":           "deadbeef",  // digit guard: must NOT be stripped to "CRC"
 	}
 	ex := mapExiftool(raw)
@@ -76,14 +90,49 @@ func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 		"SeasonNumber": "2",
 		"EpisodeSort":  "5",
 		"Edition":      "Final Cut",
+		"PartNumber":   "2",
+		"Artist":       "Alex Morgan", // person tags land in Extra too (HOLODEX-408)
 		"CRC-32":       "deadbeef",
 	} {
 		if extra[key] != want {
 			t.Errorf("Extra[%q] = %q, want %q (all extra: %+v)", key, extra[key], want, ex.Extra)
 		}
 	}
-	if len(ex.Extra) != 5 {
-		t.Errorf("extra = %+v, want 5 entries", ex.Extra)
+	if len(ex.Extra) != 7 {
+		t.Errorf("extra = %+v, want 7 entries", ex.Extra)
+	}
+}
+
+// TestMapExiftoolOrdinalKeys pins HOLODEX-389 OQ1: a foreign "N of M" on the part
+// tags stores the leading integer, leading zeros dropped, and nothing else is
+// touched — a value with no leading integer passes through, and a non-ordinal key
+// keeps its "N of M" verbatim.
+func TestMapExiftoolOrdinalKeys(t *testing.T) {
+	cases := []struct {
+		key, val, want string
+	}{
+		{"DiskNumber", "2 of 3", "2"},
+		{"DiskNumber", "2/3", "2"},
+		{"DiskNumber", "02 of 03", "2"},
+		{"DiskNumber", "2", "2"},
+		{"PartNumber-und", "3 of 3", "3"},     // Matroska: suffix stripped first, then normalised
+		{"PartNumber", "0", "0"},              // never emptied (stays "0"; the resolver shows what the file says)
+		{"PartNumber", "two", "two"},          // no leading integer → untouched (RD8 shows what was written)
+		{"TrackNumber", "2 of 12", "2 of 12"}, // not an ordinal key → verbatim
+	}
+	for _, c := range cases {
+		t.Run(c.key+"="+c.val, func(t *testing.T) {
+			ex := mapExiftool(map[string]any{c.key: c.val})
+			if len(ex.Extra) != 1 {
+				t.Fatalf("extra = %+v, want exactly one entry", ex.Extra)
+			}
+			if got := ex.Extra[0].Value; got != c.want {
+				t.Errorf("%s=%q → %q, want %q", c.key, c.val, got, c.want)
+			}
+		})
+	}
+	if ex := mapExiftool(map[string]any{"DiskNumber": "   "}); len(ex.Extra) != 0 {
+		t.Errorf("blank DiskNumber stored as %+v, want dropped", ex.Extra)
 	}
 }
 

@@ -328,6 +328,13 @@ type VideoFilter struct {
 	// fixed seed makes holo_shuffle(id, seed) a stable order, so LIMIT/OFFSET
 	// pages tile without duplicate or skipped rows. Ignored unless Sort=="random".
 	Seed int64
+	// MissingFacets restricts to videos whose materialized completeness row
+	// (entity_completeness_missing, ADR-099 D3) lacks every listed canonical —
+	// AND semantics, like TagIDs/StudioIDs. The browse "Missing facet" chip.
+	MissingFacets []string
+	// IDs restricts to exactly these video ids (any order; the sort still
+	// applies). The completeness drain's "only the dirty ones" read.
+	IDs []int64
 }
 
 // MappedFilter matches videos carrying a metadata row whose source_key is one of
@@ -361,6 +368,10 @@ func (f VideoFilter) orderBy() (string, []any) {
 		return "v.width ASC, v.height ASC, v.id ASC", nil
 	case "random":
 		return "holo_shuffle(v.id, ?), v.id ASC", []any{f.Seed}
+	case SortCompletenessAsc:
+		return completenessOrder("video", "v.id", "ASC") + ", v.indexed_at DESC, v.id DESC", nil
+	case SortCompletenessDesc:
+		return completenessOrder("video", "v.id", "DESC") + ", v.indexed_at DESC, v.id DESC", nil
 	default: // "added_desc" and anything unrecognized
 		return "v.indexed_at DESC, v.id DESC", nil
 	}
@@ -504,6 +515,14 @@ func (f VideoFilter) build() (string, []any) {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN (SELECT tag_id FROM category_tags WHERE category_id = ?))")
 		args = append(args, cid)
 	}
+	for _, c := range f.MissingFacets {
+		clauses = append(clauses, missingFacetClause("video", "v.id"))
+		args = append(args, c)
+	}
+	if len(f.IDs) > 0 {
+		clauses = append(clauses, "v.id IN ("+placeholders(len(f.IDs))+")")
+		args = append(args, toAnySlice(f.IDs)...)
+	}
 	if f.DurationMinSec > 0 {
 		clauses = append(clauses, "v.duration_sec >= ?")
 		args = append(args, f.DurationMinSec)
@@ -611,6 +630,13 @@ func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.Ex
 	}
 	one := []model.Video{v}
 	if err := r.attachAssociations(ctx, one); err != nil {
+		return nil, nil, err
+	}
+	// The detail's Cast grid draws each person's poster from poster_version (the
+	// image row id, == its ?v= cache-buster). Without it the SPA builds a versionless
+	// URL that the immutable image cache pins forever, so a replaced poster never
+	// shows here. Detail-only: list cards never draw people images.
+	if err := r.attachPersonImageVersions(ctx, one[0].People); err != nil {
 		return nil, nil, err
 	}
 	extra, err := r.videoMetadata(ctx, id)
@@ -792,14 +818,33 @@ func (r *Repo) videoMetadata(ctx context.Context, videoID int64) ([]model.ExtraM
 // read that skipped this would misreport them as missing rather than curated.
 // Missing keys mean no extra metadata for that video.
 func (r *Repo) ExtraMetadataForVideos(ctx context.Context, ids []int64) (map[int64][]model.ExtraMetadata, error) {
+	return r.extraMetadataForVideos(ctx, ids, nil)
+}
+
+// ExtraMetadataForVideosByKey is ExtraMetadataForVideos narrowed to the given
+// source keys, for a list-path resolve of one file-tag-sourced field (HOLODEX-389
+// `part`): the caller wants two keys per video, not the whole tag set.
+func (r *Repo) ExtraMetadataForVideosByKey(ctx context.Context, ids []int64, keys []string) (map[int64][]model.ExtraMetadata, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return r.extraMetadataForVideos(ctx, ids, keys)
+}
+
+func (r *Repo) extraMetadataForVideos(ctx context.Context, ids []int64, keys []string) (map[int64][]model.ExtraMetadata, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	q := `
 		SELECT video_id, source_key, value
 		FROM video_metadata
-		WHERE video_id IN (`+placeholders(len(ids))+`)
-		ORDER BY video_id, source_key`, toAnySlice(ids)...)
+		WHERE video_id IN (` + placeholders(len(ids)) + `)`
+	args := toAnySlice(ids)
+	if len(keys) > 0 {
+		q += ` AND source_key IN (` + placeholders(len(keys)) + `)`
+		args = append(args, toAnySlice(keys)...)
+	}
+	rows, err := r.db.QueryContext(ctx, q+` ORDER BY video_id, source_key`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("extra metadata for videos: %w", err)
 	}
@@ -953,41 +998,104 @@ func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool,
 // cnt=0 — set only by ListTags (HOLODEX-243: a tag can now be created bare
 // via "+ New" on /tags, no video attach); ListStudios keeps the inner-join
 // default, since studios have no such empty-creation path.
-func namedCountQuery(table, junction, fk string, sortByCount, includeZero bool) string {
-	order := "e.name COLLATE NOCASE ASC"
-	if sortByCount {
-		order = "cnt DESC, e.name COLLATE NOCASE ASC"
-	}
+func namedCountQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (string, []any) {
 	joinKind := "JOIN"
 	if includeZero {
 		joinKind = "LEFT JOIN"
 	}
+	where, args := f.build(entityType, "e.id")
 	return fmt.Sprintf(`
 		SELECT e.id, e.name, COUNT(v.id) AS cnt
 		FROM %s e
 		%s %s j     ON j.%s = e.id
 		%s videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		%s
 		GROUP BY e.id, e.name
-		ORDER BY %s`, table, joinKind, junction, fk, joinKind, order)
+		ORDER BY %s`, table, joinKind, junction, fk, joinKind, where, f.orderBy(entityType, "e.id")), args
+}
+
+// Completeness sort keys (F55.5) shared by every list surface; the SQL they
+// map to reads the materialized store (ADR-099 D2/D3).
+const (
+	SortCompletenessAsc  = "completeness_asc"
+	SortCompletenessDesc = "completeness_desc"
+)
+
+// NamedListFilter is the people / studios / tags list read's options: the sort
+// key ("name" default, "count", or a completeness key) plus the two store-backed
+// restrictions VideoFilter also carries (MissingFacets, IDs).
+type NamedListFilter struct {
+	Sort          string
+	MissingFacets []string
+	IDs           []int64
+}
+
+func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
+	var clauses []string
+	var args []any
+	for _, c := range f.MissingFacets {
+		clauses = append(clauses, missingFacetClause(entityType, idCol))
+		args = append(args, c)
+	}
+	if len(f.IDs) > 0 {
+		clauses = append(clauses, idCol+" IN ("+placeholders(len(f.IDs))+")")
+		args = append(args, toAnySlice(f.IDs)...)
+	}
+	if len(clauses) == 0 {
+		return "", nil
+	}
+	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func (f NamedListFilter) orderBy(entityType, idCol string) string {
+	switch f.Sort {
+	case "count":
+		return "cnt DESC, e.name COLLATE NOCASE ASC"
+	case SortCompletenessAsc:
+		return completenessOrder(entityType, idCol, "ASC") + ", e.name COLLATE NOCASE ASC"
+	case SortCompletenessDesc:
+		return completenessOrder(entityType, idCol, "DESC") + ", e.name COLLATE NOCASE ASC"
+	default:
+		return "e.name COLLATE NOCASE ASC"
+	}
+}
+
+// completenessOrder is the composite completeness sort (ADR-099 D2) over the
+// materialized store: primary key = required, falling back to extras where
+// required is NULL (the D1 null rule — a studio has no required band, so its
+// extras IS its score), tiebreak = extras. Correlated subqueries rather than a
+// join so every caller's FROM clause stays untouched; entityType is a trusted
+// model constant, never request input.
+func completenessOrder(entityType, idCol, dir string) string {
+	row := "(SELECT %s FROM entity_completeness ec WHERE ec.entity_type = '" + entityType + "' AND ec.entity_id = " + idCol + ")"
+	return fmt.Sprintf(row, "COALESCE(ec.required, ec.extras)") + " " + dir + ", " + fmt.Sprintf(row, "ec.extras") + " " + dir
+}
+
+// missingFacetClause is the store-backed "entity is missing facet ?" predicate
+// (F55.6 — the chip's counts and the filter read the same rows, ADR-099 D3).
+func missingFacetClause(entityType, idCol string) string {
+	return "EXISTS (SELECT 1 FROM entity_completeness_missing m WHERE m.entity_type = '" + entityType + "' AND m.entity_id = " + idCol + " AND m.canonical = ?)"
 }
 
 // ListPeople returns every person with at least one active video, with counts and the
 // headshot/poster image ids (the list read's ?v= cache-busters, so avatar/poster URLs
-// refresh when either image changes — F25.29, F55 P0-6). sortByCount orders by video
-// count desc (else name asc).
+// refresh when either image changes — F25.29, F55 P0-6). f picks the order (name,
+// count, or the store-backed completeness sort) and the optional missing-facet / id
+// restrictions. ListPeople is the pre-F65 name/count-only form.
 func (r *Repo) ListPeople(ctx context.Context, sortByCount bool) ([]model.Person, error) {
-	order := "e.name COLLATE NOCASE ASC"
+	return r.ListPeopleFiltered(ctx, countSortFilter(sortByCount))
+}
+
+func countSortFilter(sortByCount bool) NamedListFilter {
 	if sortByCount {
-		order = "cnt DESC, e.name COLLATE NOCASE ASC"
+		return NamedListFilter{Sort: "count"}
 	}
-	q := fmt.Sprintf(`
-		SELECT e.id, e.name, COUNT(j.video_id) AS cnt
-		FROM people e
-		JOIN video_people j ON j.person_id = e.id
-		JOIN videos v       ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
-		GROUP BY e.id, e.name
-		ORDER BY %s`, order)
-	rows, err := r.db.QueryContext(ctx, q)
+	return NamedListFilter{}
+}
+
+func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]model.Person, error) {
+	q, args := namedCountQuery("people", "video_people", "person_id", model.EnrichEntityPerson, f, false)
+	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list people: %w", err)
 	}
@@ -1066,7 +1174,8 @@ func (r *Repo) attachPersonImageVersions(ctx context.Context, people []model.Per
 
 // ListTags mirrors ListPeople for tags.
 func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("tags", "video_tags", "tag_id", sortByCount, true))
+	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", countSortFilter(sortByCount), true)
+	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
 	}

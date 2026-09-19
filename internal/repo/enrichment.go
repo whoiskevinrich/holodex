@@ -121,15 +121,30 @@ func (r *Repo) EnrichmentForVideos(ctx context.Context, ids []int64) (map[int64]
 // F55 list-wide completeness resolve (ADR-081 D4) needs the same batch shape for
 // person/studio, which EnrichmentForVideos' hardcoded "video" can't serve.
 func (r *Repo) EnrichmentForEntities(ctx context.Context, entityType string, ids []int64) (map[int64][]EnrichmentRow, error) {
+	return r.enrichmentForEntities(ctx, entityType, ids, "")
+}
+
+// EnrichmentForVideosField is EnrichmentForVideos narrowed to one field key, for a
+// list-path resolve of a single field (HOLODEX-389 `part`) that must not pay for
+// every provider's every field on a 500-video entity page.
+func (r *Repo) EnrichmentForVideosField(ctx context.Context, ids []int64, fieldKey string) (map[int64][]EnrichmentRow, error) {
+	return r.enrichmentForEntities(ctx, "video", ids, fieldKey)
+}
+
+func (r *Repo) enrichmentForEntities(ctx context.Context, entityType string, ids []int64, fieldKey string) (map[int64][]EnrichmentRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := append([]any{entityType}, toAnySlice(ids)...)
-	rows, err := r.db.QueryContext(ctx, `
+	q := `
 		SELECT entity_id, provider, field_key, value, external_id, fetched_at
 		FROM entity_enrichment
-		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
-		ORDER BY entity_id, provider, field_key`, args...)
+		WHERE entity_type = ? AND entity_id IN (` + placeholders(len(ids)) + `)`
+	args := append([]any{entityType}, toAnySlice(ids)...)
+	if fieldKey != "" {
+		q += ` AND field_key = ?`
+		args = append(args, fieldKey)
+	}
+	rows, err := r.db.QueryContext(ctx, q+` ORDER BY entity_id, provider, field_key`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("enrichment for entities: %w", err)
 	}

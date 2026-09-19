@@ -80,22 +80,22 @@ function pngChunk(type, data) {
   return Buffer.concat([len, typed, crc]);
 }
 
-// solidPng renders a size×size truecolour PNG in one flat colour.
-function solidPng(size, [r, g, b]) {
-  const stride = size * 3 + 1; // one filter byte per scanline
-  const raw = Buffer.alloc(size * stride);
-  for (let y = 0; y < size; y++) {
+// solidPng renders a width×height truecolour PNG in one flat colour.
+function solidPng(width, height, [r, g, b]) {
+  const stride = width * 3 + 1; // one filter byte per scanline
+  const raw = Buffer.alloc(height * stride);
+  for (let y = 0; y < height; y++) {
     const o = y * stride;
     raw[o] = 0; // filter: none
-    for (let x = 0; x < size; x++) {
+    for (let x = 0; x < width; x++) {
       raw[o + 1 + x * 3] = r;
       raw[o + 2 + x * 3] = g;
       raw[o + 3 + x * 3] = b;
     }
   }
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; // bit depth
   ihdr[9] = 2; // colour type: truecolour
   return Buffer.concat([
@@ -174,6 +174,34 @@ function namespaceOf(externalID) {
   return externalID.slice(0, colon);
 }
 
+// Candidate thumbnails (F64, contract §2.3 candidates[].image_url)
+//
+// Served from the persona's own path prefix like the brand icon, because the same
+// ADR-039 allowlist gates them: core keeps an image_url only when its host is the
+// provider's base_url host (or an operator asset_hosts entry) — so a thumb on this
+// stub's host reaches the picker and one on `img.other.example` (below) must not.
+// Three shapes, one per picker box (HOLODEX-414): a 2:3 portrait (fills the
+// person/film 40×60 box), a 16:9 landscape "backdrop" (fills the video 108×60 box),
+// and a 4:1 wide "logo" (letterboxes in the studio 120×60 box). The portrait is
+// 80×120 and the landscape 300×169 — deliberately NOT the box's own size: a thumb the
+// exact size of its slot would let the slot lose its width class and still measure
+// right from the image's intrinsic size, which is precisely the regression the
+// geometry harness's slot-width assertion exists to catch. The colour is derived from
+// the id so eight same-label rows are eight visibly different faces. Any other name
+// is a 404 — the QA row whose image errors out and falls back to the monogram.
+const THUMB = /^\/thumb\/((portrait|landscape)-(\d+)|wide)\.png$/;
+function thumbPng(name) {
+  const m = THUMB.exec(name);
+  if (!m) return null;
+  if (m[1] === 'wide') return solidPng(64, 16, [138, 47, 47]);
+  const n = Number(m[3]);
+  const rgb = [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)];
+  return m[2] === 'landscape' ? solidPng(300, 169, rgb) : solidPng(80, 120, rgb);
+}
+function thumbURL(persona, origin, name) {
+  return `${origin}/p/${persona.slug}/thumb/${name}.png`;
+}
+
 // candidate builds one candidate with its namespace derived from the id rather than
 // written beside it, so the pair cannot be edited apart. That divergence is the whole
 // defect this shape exists to prevent, and a hand-written second copy of the prefix
@@ -190,13 +218,20 @@ function idNamespaceFor(persona) {
   return namespaceOf(candidatesFor(persona, '')[0].external_id);
 }
 
-function candidatesFor(persona, query) {
+// origin is this stub's own `http://host:port` (from the request), which the F64
+// thumbnails need to be absolute URLs on the allowlisted host. The conformance test
+// calls without one; it only reads ids and namespaces. entityType is the request's
+// entity_type: the twins persona pictures a video the way TMDB does (HOLODEX-414).
+function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`, entityType = 'person') {
   if (persona.candidates === 'flood') {
     return Array.from({ length: 30 }, (_, i) =>
       candidate(`flood:${100 + i}`, {
         label: `${query || 'Candidate'} ${String(i + 1).padStart(2, '0')}`,
         confidence: Number((WEAK - i * 0.01).toFixed(2)),
         disambiguation: `Result ${i + 1} of 30 · flooded list`,
+        // F64: every row pictured, so the 25-row list exercises lazy loading and the
+        // row-height floor at once (QA §3.11).
+        image_url: thumbURL(persona, origin, `portrait-${100 + i}`),
         // F61 candidates[].detail on DISTINCT labels: every row carries a toggle and
         // every row starts collapsed — the "zero cost when unneeded" half of the rule.
         // Eight lines on row 1 and one 256-char line on row 2 are the §5 caps exactly.
@@ -220,11 +255,31 @@ function candidatesFor(persona, query) {
       'Composer · 1950 · unaffiliated',
       'Director · 1941 · Studio Ghibli' // a genuine duplicate: even the tiebreaker ties
     ];
+    // F64 candidates[].image_url — every slot state in one same-label list (QA §1.2):
+    // rows 0–3 a portrait each (four visibly different faces behind one name), row 4
+    // a wide 4:1 "logo" that must letterbox, row 5 a path this stub 404s (→ monogram
+    // via onerror), row 6 a foreign host core must strip before the browser sees it,
+    // row 7 no key at all (the pre-F64 provider, also the no-detail member).
+    // For a video (HOLODEX-414) the same walk in the landscape box: rows 0–3 a 16:9
+    // backdrop each, row 4 a portrait — the poster a provider sends when the title
+    // has no backdrop, which must letterbox, never crop.
+    const video = entityType === 'video';
+    const thumbs = [
+      thumbURL(persona, origin, video ? 'landscape-200' : 'portrait-200'),
+      thumbURL(persona, origin, video ? 'landscape-201' : 'portrait-201'),
+      thumbURL(persona, origin, video ? 'landscape-202' : 'portrait-202'),
+      thumbURL(persona, origin, video ? 'landscape-203' : 'portrait-203'),
+      thumbURL(persona, origin, video ? 'portrait-204' : 'wide'),
+      thumbURL(persona, origin, 'missing'),
+      'https://img.other.example/miyazaki-206.jpg',
+      undefined
+    ];
     return where.map((d, i) =>
       candidate(`twins:${200 + i}`, {
         label: 'Hayao Miyazaki',
         confidence: WEAK,
         disambiguation: d,
+        image_url: thumbs[i],
         // F61 candidates[].detail on a LABEL COLLISION: eight same-label rows, so the
         // picker opens every one on first render (handoff FR4). The Studio line is the
         // disambiguation's third segment; the Record line is the completeness tiebreak
@@ -268,7 +323,18 @@ function describeFor(persona, origin) {
   // hint.filename / hint.query_source on video resolves; one that doesn't gets the
   // pre-ADR-095 request byte-for-byte — both shapes are worth having on the wire.
   if (persona.resolveHints) body.resolve_hints = persona.resolveHints;
+  // ADR-083 D2 / contract §4.11: the template-first branch of the provider badge.
+  if (persona.linkTemplates) body.link_templates = persona.linkTemplates;
   return body;
+}
+
+// enrichFor is the /enrich body: the persona's values, plus its own page as the
+// _source_url sidecar (contract §4.12, ADR-098 D1) when it has one — the fallback
+// branch of the provider badge, for a persona that declares no link template.
+function enrichFor(persona) {
+  const fields = { ...(persona.values || {}) };
+  if (persona.sourceUrl) fields._source_url = [persona.sourceUrl];
+  return { fields };
 }
 
 // searchedFor is the ADR-095 D6 searched[] a persona reports on a VIDEO resolve
@@ -318,7 +384,7 @@ function route(path) {
 
 // Exported so the conformance test can check the persona table without binding a port;
 // the server only starts when this file is run directly, not when it is required.
-module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, namespaceOf, idNamespaceFor, searchedFor };
+module.exports = { PERSONAS, LEGACY, candidatesFor, describeFor, enrichFor, namespaceOf, idNamespaceFor, searchedFor };
 
 if (require.main !== module) return;
 
@@ -333,8 +399,19 @@ http
       return res.end(JSON.stringify({ error: 'unknown persona', known: [...BY_SLUG.keys()] }));
     }
 
+    if (persona !== LEGACY && endpoint.startsWith('/thumb/')) {
+      const png = thumbPng(endpoint);
+      if (!png) {
+        res.statusCode = 404;
+        return res.end();
+      }
+      res.setHeader('content-type', 'image/png');
+      res.setHeader('content-length', png.length);
+      return res.end(png);
+    }
+
     if (endpoint === '/icon.png' && persona.icon) {
-      const png = solidPng(64, persona.icon);
+      const png = solidPng(64, 64, persona.icon);
       res.setHeader('content-type', 'image/png');
       res.setHeader('content-length', png.length);
       return res.end(png);
@@ -380,11 +457,14 @@ http
         const hit = q.length >= 2 && 'hayao miyazaki'.includes(q);
         return res.end(JSON.stringify({ candidates: hit ? candidatesFor(persona, q) : [], searched }));
       }
-      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query), searched }));
+      const origin = `http://${req.headers.host || `${HOST}:${PORT}`}`;
+      return res.end(
+        JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query, origin, body.entity_type), searched })
+      );
     }
 
     if (endpoint === '/enrich') {
-      return res.end(JSON.stringify({ fields: persona.values || {} }));
+      return res.end(JSON.stringify(enrichFor(persona)));
     }
 
     res.statusCode = 404;
