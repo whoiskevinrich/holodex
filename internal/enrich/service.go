@@ -136,6 +136,15 @@ type Service struct {
 	// restart, before any owner has acted on this provider) simply falls through to
 	// them, exactly as if the provider advertised nothing.
 	preferredPatterns atomic.Pointer[map[string]string]
+	// describedLimits caches each provider's most-recently-observed, normalized
+	// /describe rate_limit (ADR-103 D3 tier 2), keyed by provider name — the same
+	// in-memory, warmed-on-/describe posture as preferredPatterns.
+	describedLimits atomic.Pointer[map[string]RateLimit]
+	// pacers holds one token bucket per provider name (ADR-103 D1), created on first
+	// use and never re-created, so tokens and an active 429 pause survive a
+	// reload-config. Guarded by pacersMu; the pacer itself is safe for concurrent use.
+	pacers   map[string]*pacer
+	pacersMu sync.Mutex
 	// linkTemplates caches the persisted provider outbound-link templates
 	// (HOLODEX-266, ADR-083 D2) behind an atomic pointer, keyed by namespace then
 	// entity kind — lazily loaded and refreshed on /describe. Unlike
@@ -232,7 +241,39 @@ func (s *Service) client(provider string) (Source, ProviderClient, error) {
 	if !ok {
 		return Source{}, nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	return src, s.newClient(src), nil
+	return src, s.paced(provider, s.newClient(src)), nil
+}
+
+// paced wraps a provider client with its pacer (ADR-103 D1). The limit closure is
+// re-evaluated on every admission, so a changed yaml or /describe value applies on
+// the next call.
+func (s *Service) paced(provider string, c ProviderClient) ProviderClient {
+	s.pacersMu.Lock()
+	p, ok := s.pacers[provider]
+	if !ok {
+		if s.pacers == nil {
+			s.pacers = map[string]*pacer{}
+		}
+		p = newPacer(provider, s.rateLimitFor(provider))
+		s.pacers[provider] = p
+	}
+	s.pacersMu.Unlock()
+	return &pacedClient{inner: c, p: p, limit: func() RateLimit { return s.rateLimitFor(provider) }}
+}
+
+// rateLimitFor resolves a provider's pace with ADR-103 D3's precedence: operator
+// yaml rate_limit → the provider's cached /describe declaration → DefaultRateLimit.
+// Every tier is already normalized, so the result is always in range.
+func (s *Service) rateLimitFor(provider string) RateLimit {
+	if src, ok := s.store.Current().ByName(provider); ok && src.RateLimit != nil {
+		return *src.RateLimit
+	}
+	if p := s.describedLimits.Load(); p != nil {
+		if rl, ok := (*p)[provider]; ok {
+			return rl
+		}
+	}
+	return DefaultRateLimit
 }
 
 // verifyProtocol refuses a provider whose contract major version this build does
@@ -266,6 +307,7 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	}
 	s.persistFieldHints(ctx, provider, m)
 	s.persistPreferredPattern(provider, m)
+	s.persistRateLimit(provider, m)
 	s.persistLinkTemplates(ctx, provider, m)
 	return src, c, m, nil
 }
@@ -274,7 +316,8 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 // (ADR-059) — the accessor the provider-icon relink uses to read `brand_icon` without
 // running a resolve/enrich. An unknown/disabled provider is an error, never a dialed
 // URL (the SSRF allowlist). Does not persist field hints; icon relink is a boot /
-// config-reload concern, not part of the owner enrich hot path.
+// config-reload concern, not part of the owner enrich hot path. It does cache the
+// provider's rate_limit declaration (ADR-103 D3) — that one is a boot concern.
 func (s *Service) DescribeProvider(ctx context.Context, provider string) (Manifest, error) {
 	_, c, err := s.client(provider)
 	if err != nil {
@@ -287,6 +330,9 @@ func (s *Service) DescribeProvider(ctx context.Context, provider string) (Manife
 	if err := verifyProtocol(m); err != nil {
 		return Manifest{}, err
 	}
+	// The traffic contract is re-read on every /describe, boot and reload included
+	// (§4.13), so a declared pace is live before any owner acts on the provider.
+	s.persistRateLimit(provider, m)
 	return m, nil
 }
 
@@ -360,6 +406,24 @@ func (s *Service) persistPreferredPattern(provider string, m Manifest) {
 		cur[provider] = pattern
 	}
 	s.preferredPatterns.Store(&cur)
+}
+
+// persistRateLimit refreshes the in-memory cache of a provider's advertised
+// rate_limit from its /describe manifest (ADR-103 D3 tier 2). Out-of-range values
+// are clamped and logged; a malformed object is logged and treated as absent; an
+// absent key clears any previously cached one (the provider falls back to the
+// default, same as one that never declared).
+func (s *Service) persistRateLimit(provider string, m Manifest) {
+	cur := map[string]RateLimit{}
+	if p := s.describedLimits.Load(); p != nil {
+		cur = maps.Clone(*p)
+	}
+	if rl := validatedRateLimit(m.RateLimit, provider+"./describe.rate_limit", s.log); rl != nil {
+		cur[provider] = *rl
+	} else {
+		delete(cur, provider)
+	}
+	s.describedLimits.Store(&cur)
 }
 
 // PreferredSearchPattern returns provider's last-observed, validated /describe

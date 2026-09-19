@@ -38,8 +38,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6),
   `Service.RefreshPair` shared step (D7), `SweepRunner` + `sweep` block (D8), `batch_id` (D9), TMDB
   `429` pass-through (D10); README row; spec / contract §4.13 / F47 pointers → ADR-103
-- [ ] backend — `POST /admin/enrich/sweep/{people|studios}` (202), `sweep` on activity read-model,
-  `LibraryCounts.Studios`, `?batch=` on history, rate limiter in `internal/enrich/client.go`
+- [ ] backend — **AI 1–3 shipped** (pacer + `rate_limit` carriage + `429` typed in `do`);
+  remaining: `RefreshPair` extraction (AI 4), `503` mapping (AI 5), `SweepRunner` / activity /
+  history / `LibraryCounts.Studios` (AI 6), TMDB `429` pass-through (AI 7)
 - [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
   pages; `JobHistory` batch chip; `activity.busy` includes sweep
 - [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
@@ -54,9 +55,8 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
-3. [ ] [—] Backend, in ADR-103's action-item order (pacer → `rate_limit` carriage → `429` in `do` →
-   `RefreshPair` extraction → `503` mapping → `SweepRunner`/activity/history → TMDB `429`), then
-   frontend → tests, per the gates above
+3. [ ] [—] Backend, ADR-103 action items **4 → 7** (`RefreshPair` extraction → `503` mapping →
+   `SweepRunner`/activity/history → TMDB `429`), then frontend → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
 
@@ -97,3 +97,18 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   one that waits/retries; the breaker is runner state, not service state; `batchID` is an explicit
   parameter, not a context value.
 - handoff: architecture gate closed; next session starts backend at ADR-103 action item 1 (pacer).
+
+### 2026-09-19 · backend 1/3 — pacer, `rate_limit` carriage, typed `429`
+- skills: code-review
+- `internal/enrich/pacer.go`: `RateLimit` (+ `Normalize`, tolerant `UnmarshalJSON`), `pacer`
+  (`x/time/rate` bucket + `pausedUntil`, injected `now`/`sleep`), `*ErrProviderPaused`,
+  `errRateLimited`, `parseRetryAfter`, `pacedClient`. `Service.client` now wraps every client
+  (fakes too) via a per-provider pacer map; `rateLimitFor` = yaml → `/describe` cache → default;
+  `persistRateLimit` on both `verifiedClient` and `DescribeProvider`. `do` returns the typed `429`.
+  `metadata-sources.yaml.example` documents `rate_limit:`. 14 tests on a fake clock.
+- `code-review high --fix`: 2 findings fixed — a non-numeric `/describe.rate_limit` failed the
+  whole manifest (now marked malformed and dropped with a warning); `DescribeProvider` didn't cache
+  the declaration so it wasn't live at boot.
+- Behaviour note: until AI 5, an interactive click on a paused bucket still renders `no_candidates`
+  (the pre-existing collapse) — no regression, the `503` mapping is the next item.
+- handoff: next = AI 4, extract `Service.RefreshPair` from `refreshOneProvider` with `Force`/`BatchID`.
