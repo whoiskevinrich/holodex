@@ -31,8 +31,9 @@ stories [426](https://whoiskevinrich.atlassian.net/browse/HOLODEX-426) settings 
 HOLODEX-234) — branding there is icon/favicon only; wiring the manifest's `theme_color` to the
 active skin is a P2 below, not part of either epic.
 
-**ADR**: *pending* — settings store + skin as instance identity (supersedes ADR-021 in part; number
-via `node scripts/adr-claims.mjs`).
+**ADR**: [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md) — D1 instance identity ·
+D2 `settings` store + the YAML/settings boundary · D3 read/write channels · D4 derived palette applied
+inline · D5 validation posture · D6 restart-to-apply (supersedes ADR-021 §5 only).
 **Design**: *pending* — `docs/design/instance-skin-handoff.md` + mockup SVG (Appearance tab cards,
 header picker removal).
 
