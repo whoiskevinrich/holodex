@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-416
-status: in-progress
+status: in-review
 release_note: The status page's Recent failures callout now has a Dismiss on each row and a Dismiss all in its header, so failures the owner has already handled stop crowding out new ones — the Log tab keeps every run as the audit record.
 ---
 
@@ -41,8 +41,9 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Kevin's look on the prod skin, then: re-check migration number against main
-   (HOLODEX-412 also holds `0048`), merge main, `gh pr ready` → In Review
+1. [ ] [—] On merge: HOLODEX-412 (#350) must renumber its `0048_entity_completeness` → `0049`
+   before it lands (golang-migrate never applies a version below current) — leave a note on #350
+2. [ ] [—] Once merged: memory + this worklog to done; release note stands
 3. [ ] [—] Mark PR ready once every gate above is `[x]` — that fires In Review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -98,3 +99,10 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
   holds a stable right column rather than trailing the detail's last line.
 - handoff: every gate green; next = Kevin's prod-skin look, then migration-number re-check,
   merge main, mark ready.
+
+### 2026-09-18 · ready
+- skills: —
+- Main still tops out at `0047` (HOLODEX-412 #350 is an open Draft), so `0048` stays ours and
+  412 renumbers on its side. Merged `origin/main` clean (`e5130cd`); Go + web checks and tests
+  green on the merged tree. Marked PR #354 ready → In Review.
+- handoff: in review; nothing to do until merge, then sweep the worklog to done.
