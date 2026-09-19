@@ -134,6 +134,13 @@
 	// RD8, distinct from the unrelated file-refresh `refreshing` below).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
+	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
+	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
+	let pickerRematch = $state(false);
+	function openPicker(p: string, opts?: { rematch: boolean }) {
+		pickerRematch = !!opts?.rematch; // before pickerProvider: the picker mounts on it
+		pickerProvider = p;
+	}
 	let enrichBusy = $state('');
 	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
@@ -1210,7 +1217,7 @@
 			(v) => (enrichRefreshingAll = v),
 			(v) => (enrichError = v),
 			reloadDetail,
-			(p) => (pickerProvider = p)
+			openPicker
 		);
 	}
 
@@ -1802,7 +1809,7 @@
 										busy={enrichBusy}
 										refreshingAll={enrichRefreshingAll}
 										size="xs"
-										onenrich={(p) => (pickerProvider = p)}
+										onenrich={openPicker}
 										onrefresh={refreshProvider}
 										onclear={clearProvider}
 										onrefreshall={refreshAllProviders}
@@ -2376,6 +2383,7 @@
 				writtenBackProvider = res.written_back ? prov : '';
 				return res;
 			}}
+			autoApply={!pickerRematch}
 			onclose={() => (pickerProvider = '')}
 			onapplied={onApplied}
 		/>

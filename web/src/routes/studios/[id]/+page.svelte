@@ -80,6 +80,13 @@
 	// via the page `error`. refreshingAll is Refresh-all's own busy flag (F47 RD8).
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
+	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
+	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
+	let pickerRematch = $state(false);
+	function openPicker(p: string, opts?: { rematch: boolean }) {
+		pickerRematch = !!opts?.rematch; // before pickerProvider: the picker mounts on it
+		pickerProvider = p;
+	}
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
@@ -223,7 +230,7 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			(p) => (pickerProvider = p)
+			openPicker
 		);
 	}
 
@@ -447,7 +454,7 @@
 								linked={providerLinked}
 								{busy}
 								{refreshingAll}
-								onenrich={(p) => (pickerProvider = p)}
+								onenrich={openPicker}
 								onrefresh={refreshProvider}
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
@@ -575,6 +582,7 @@
 		resolve={(prov, q) => api.enrichStudioResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichStudioApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('studio', id, prov)}
+		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>
