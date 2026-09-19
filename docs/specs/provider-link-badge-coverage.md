@@ -200,21 +200,26 @@ visitor/owner rule for entity data points):
   matched to TMDB with no file tag shows no pill while a matched person does. `externalLinksForVideo`
   now folds in the match id stamped on the video's enrichment rows (`EnrichmentRow.ExternalID`,
   namespace-qualified per ADR-082; extraction rows carry `""` and are skipped): resolved value
-  first, then rows; split on `:`; dedup by lowercase namespace, first wins; URL via P0-5 per pill.
+  first, then **one id per provider from its newest row** (`fetched_at` — a re-match upserts
+  without clearing, so rows the new payload omitted still carry the old id); split on `:`;
+  dedup by lowercase namespace, first wins; URL via P0-5 per pill.
   `external_links` may now hold N entries for a video; the page's existing `{#each}` renders them
   and `sortExternalLinks` orders them A–Z. No identity row is written (RD4 holds). No frontend
   change.
-  - [ ] Given a video with a `tmdb:812` match and no `external_provider_id` value, then
+  - [x] Given a video with a `tmdb:812` match and no `external_provider_id` value, then
     `external_links` is one linked TMDB pill (`themoviedb.org/movie/812` from the sidecar's
     existing `video` template) — `TestExternalLinks_Video`.
-  - [ ] Given the same match plus a winning `imdb:tt0103639` file tag, then two pills, IMDb and
+  - [x] Given the same match plus a winning `imdb:tt0103639` file tag, then two pills, IMDb and
     TMDB, each linked by its own namespace's precedence.
-  - [ ] Given a match and a file tag in the **same** namespace, then one pill keyed on the file
+  - [x] Given a match and a file tag in the **same** namespace, then one pill keyed on the file
     value.
-  - [ ] Given a match whose provider declares no `video` template and stored no `_source_url`,
+  - [x] Given a match whose provider declares no `video` template and stored no `_source_url`,
     then that pill renders degraded (RD8) — it is never dropped.
-  - [ ] Given only extraction rows (`ExternalID == ""`) and no field value, then `external_links`
+  - [x] Given only extraction rows (`ExternalID == ""`) and no field value, then `external_links`
     is `null` and the meta line is byte-identical to today.
+  - [x] Given a re-match to a different id whose payload omits a field the first match stored,
+    then the pill follows the newest row's id, not the leftover row's — `code-review` finding
+    2026-09-19, pinned by the `re-match wins…` case.
   - Under a provider that treats the media file as the canonical unit, the pill opens that file's
     own page; under TMDB it opens the film's — the provider's `video` template decides.
 

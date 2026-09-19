@@ -211,9 +211,11 @@ It is a **derivation gap, not a missing UI**: nothing on the page changes.
 qualified like every id since ADR-082). The function now folds those in alongside the resolved
 field:
 
-1. **Inputs**, in order: the resolved `external_provider_id` value (today's only input), then each
-   enrichment row with a non-empty `ExternalID`. Extraction rows (`internal/extract`) write
-   `ExternalID: ""` and are skipped by that check.
+1. **Inputs**, in order: the resolved `external_provider_id` value (today's only input), then one
+   id per provider — the `ExternalID` on that provider's **newest** row (`fetched_at`). A re-match
+   upserts without clearing, so rows for keys the new payload omitted still carry the old id; the
+   freshest row is the current match. Extraction rows (`internal/extract`) write `ExternalID: ""`
+   and are skipped.
 2. **Split** each on the first `:`; drop malformed values (no namespace or no id), exactly as
    `externalLinksForEntity` does.
 3. **Dedup by lowercase namespace, first occurrence wins.** The file-layer value is listed first so

@@ -31,13 +31,16 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
   wording
 - [~] architecture — n/a: ADR-098 D4 ("video has no identity rows") and RD4 still hold; this reads
   a second input from rows the handler already fetches. Flag if a superseding note is wanted.
-- [ ] backend — `externalLinksForVideo`: merge resolved value + `enrichRows[].ExternalID`, dedup
-  by namespace, same `ProviderLink` precedence; `TestExternalLinks_Video` gains the five P0-7b
-  rows (match only · match + foreign-ns tag · same-ns dedup · degraded match · extraction-only →
-  `null`)
+- [x] backend — `externalLinksForVideo`: resolved value + one id per provider from its **newest**
+  enrichment row (a re-match upserts without clearing — `/code-review high` caught the stale-id
+  case), dedup by namespace through the new shared `linksFromIDs` (also what
+  `externalLinksForEntity` now calls); `TestExternalLinks_Video` re-tabled on a `match` column +
+  namespace→url `want` map, six new cases incl. the backdated re-match; mutation-checked both
+  ways; `go test ./internal/api/` green
 - [~] frontend — none: page already `{#each}`es `external_links`; `enrichment/CLAUDE.md`
   `ProviderLinkBadge` row refreshed (it still said "video later")
-- [ ] testing `testing-strategy` — §4 projection row extended to the match input
+- [x] testing `testing-strategy` — §4 projection row + §11 P0 coverage map extended to the
+  match input and the re-match rule
 - [~] security — n/a: read-only projection; hrefs still come from validated templates /
   ingest-validated `_source_url`; `isHttpUrl` gate unchanged
 - [ ] three-skin QA — Aladdin (backend-films testbed) renders `1992 · IMDb TMDB` on one 24 px
@@ -45,9 +48,9 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
 
 ## Up next
 
-1. Implement the backend change + tests; `go test ./internal/api/...`
-2. Testing-strategy row; three-skin QA on the testbed
-3. Mark PR ready → CI fires In Review for 424
+1. Three-skin QA on the backend-films testbed (Aladdin two-pill row, 375 px wrap, a match-only
+   fixture)
+2. Merge main, mark PR ready → CI fires In Review for 424
 4. Hand-sweep leftovers from F63: **HOLODEX-391, 393, 394 still `In Review`** (PR #344 merged;
    390 + 392 moved to Done this session; the other three were denied by the auto-mode classifier)
 
@@ -56,5 +59,10 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
 - **2026-09-19** — `/design-handoff`. Traced the gap to `externalLinksForVideo`; rendered the
   three-skin mockup; Kevin picked Option A. Filed HOLODEX-424, renamed the branch, In Progress
   fired. Handoff §6, SVG, spec P0-7b/RD12, this worklog. Draft PR opened. **Handoff:** the design
-  and spec gates are green; the next session implements the ~20-line backend change in
-  `externalLinksForVideo` and its five test rows, then QAs on the testbed.
+  and spec gates are green.
+- **2026-09-19 (later)** — Backend implemented; `/code-review high --fix` found the re-match
+  stale-id case → newest-row-per-provider rule + test; testing-strategy updated. **Handoff:** only
+  three-skin QA on the testbed stands between this and `gh pr ready`.
+
+### 2026-09-19 · session
+- skills: code-review
