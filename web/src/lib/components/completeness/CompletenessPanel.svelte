@@ -33,6 +33,13 @@
 	let error = $state('');
 	let expanded = $state(false);
 
+	// v2 headline (F55.9, ADR-099 D1/D5): `score` is the required band and is
+	// the number; `extras` sits beside it, never blended. Where the type has no
+	// required band (studios: score null) extras *is* the number — the same
+	// rule the ring badge and the sort apply.
+	const headline = $derived(completeness?.score ?? completeness?.extras ?? 0);
+	const showExtras = $derived(completeness?.score !== null && completeness?.extras !== null && completeness?.extras !== undefined);
+
 	async function toggleNotApplicable(canonical: string, notApplicable: boolean) {
 		if (!videoId || busy) return;
 		busy = true;
@@ -63,7 +70,12 @@
 			{:else}
 				<div class="space-y-1.5">
 					<div class="flex items-center justify-between gap-3">
-						<span class="font-display text-2xl text-ink">{completeness.score}%</span>
+						<span class="flex items-baseline gap-2">
+							<span class="font-display text-2xl text-ink">{headline}%</span>
+							{#if showExtras}
+								<span class="text-xs text-muted">extras {completeness.extras}%</span>
+							{/if}
+						</span>
 						<button
 							type="button"
 							onclick={() => (expanded = !expanded)}
@@ -89,9 +101,9 @@
 					<div
 						class="h-1.5 w-full overflow-hidden rounded-theme bg-surface-2"
 						role="img"
-						aria-label={`${completeness.score}% complete`}
+						aria-label={`${headline}% complete`}
 					>
-						<div class="h-full bg-accent" style={`width: ${completeness.score}%`}></div>
+						<div class="h-full bg-accent" style={`width: ${headline}%`}></div>
 					</div>
 					{#if completeness.actionability === undefined}
 						<p class="text-xs text-muted">Fully complete</p>

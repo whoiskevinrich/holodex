@@ -122,7 +122,14 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 // studios never appear (prune-on-empty removes them; the INNER JOIN also excludes a
 // studio whose only videos are soft-deleted).
 func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studio, error) {
-	rows, err := r.db.QueryContext(ctx, namedCountQuery("studios", "video_studios", "studio_id", sortByCount, false))
+	return r.ListStudiosFiltered(ctx, countSortFilter(sortByCount))
+}
+
+// ListStudiosFiltered is ListStudios with the full NamedListFilter (completeness
+// sort, missing-facet chip, id restriction — F65).
+func (r *Repo) ListStudiosFiltered(ctx context.Context, f NamedListFilter) ([]model.Studio, error) {
+	q, args := namedCountQuery("studios", "video_studios", "studio_id", model.EnrichEntityStudio, f, false)
+	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list studios: %w", err)
 	}

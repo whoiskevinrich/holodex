@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-labelledby="t d">
+  <title id="t">Completeness ring badge (F65): video-card states, row-list states, and ring geometry</title>
+  <desc id="d">Cinémathèque skin. Top row: five video cards showing the ring chip in the bottom-left corner — required 100 with extras 67 (full accent ring with an ink second lap two-thirds round), required 75 with extras 100 (three-quarter ring, no overfill), required 100 with extras 0 (full ring, no overfill), required 0 (empty muted track), and a card that also has a Part 2 badge sitting to the right of the ring chip. Middle row: person and studio list rows with a 12px ring between the name and the count — a person with photo and half the extras (full ring, half lap), a person with no photo (empty ring), a studio with branding (full ring; studios have no required band so extras is the ring), a studio with nothing (empty ring). Bottom: the ring geometry — a 20-unit viewBox, radius 7, stroke 3, arcs start at twelve o'clock and run clockwise, the overfill lap drawn over the required ring in ink.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #f3ece1; }
+    .cap { font-size: 12px; fill: #5f5e5a; }
+    .h { font-size: 12px; font-weight: 600; }
+    .lbl { font-size: 10px; fill: #9b9082; }
+    .sm { font-size: 9px; fill: #9b9082; }
+    .ink { font-size: 10px; fill: #f3ece1; }
+    .vp { fill: #0c0a09; stroke: #d3d1c7; stroke-width: 1; }
+    .poster { fill: #1c1815; stroke: #2a2622; stroke-width: 1; }
+    .chip { fill: #000000; opacity: 0.7; }
+    .pill { fill: #000000; opacity: 0.7; }
+    .row { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+    .av { fill: #3a332c; }
+    .track { fill: none; stroke: #9b9082; stroke-width: 3; }
+    .req { fill: none; stroke: #e8a33d; stroke-width: 3; }
+    .over { fill: none; stroke: #f3ece1; stroke-width: 3; }
+    .bucket { fill: #e8a33d; }
+    .bucketTxt { font-size: 7px; font-weight: 600; fill: #1a1400; }
+    .pillTxt { font-size: 8px; fill: #f3ece1; }
+    .geo { fill: none; stroke: #5f5e5a; stroke-width: 0.5; stroke-dasharray: 2 2; }
+  </style>
+
+  <text x="12" y="16" class="cap">Completeness ring badge — F65 · HOLODEX-412 · Cinémathèque skin</text>
+  <rect x="12" y="24" width="696" height="364" class="vp"/>
+
+  <!-- ===== Row 1: video cards ===== -->
+  <text x="24" y="42" class="h">Video cards — bottom-left chip, 14px ring</text>
+
+  <!-- helper: a card is 96×144 poster, chip at (6,138-20) -->
+  <!-- Card 1: required 100 · extras 67 -->
+  <g transform="translate(24,50)">
+    <rect width="96" height="144" class="poster"/>
+    <rect x="5" y="5" width="26" height="11" rx="2" class="bucket"/><text x="8" y="13" class="bucketTxt">1080p</text>
+    <rect x="70" y="124" width="21" height="14" rx="2" class="pill"/><text x="73" y="134" class="pillTxt">4:12</text>
+    <rect x="5" y="119" width="22" height="19" rx="2" class="chip"/>
+    <g transform="translate(9,122) scale(0.7)">
+      <circle cx="10" cy="10" r="7" class="req"/>
+      <circle cx="10" cy="10" r="7" class="over" stroke-dasharray="29.5 44" transform="rotate(-90 10 10)"/>
+    </g>
+    <text x="0" y="158" class="lbl">required 100 · extras 67</text>
+    <text x="0" y="170" class="sm">full ring + ⅔ ink lap</text>
+  </g>
+
+  <!-- Card 2: required 75 · extras 100 -->
+  <g transform="translate(160,50)">
+    <rect width="96" height="144" class="poster"/>
+    <rect x="5" y="5" width="26" height="11" rx="2" class="bucket"/><text x="8" y="13" class="bucketTxt">1080p</text>
+    <rect x="70" y="124" width="21" height="14" rx="2" class="pill"/><text x="73" y="134" class="pillTxt">4:12</text>
+    <rect x="5" y="119" width="22" height="19" rx="2" class="chip"/>
+    <g transform="translate(9,122) scale(0.7)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+      <circle cx="10" cy="10" r="7" class="req" stroke-dasharray="33 44" transform="rotate(-90 10 10)"/>
+    </g>
+    <text x="0" y="158" class="lbl">required 75 · extras 100</text>
+    <text x="0" y="170" class="sm">¾ ring — never overfills</text>
+  </g>
+
+  <!-- Card 3: required 100 · extras 0 -->
+  <g transform="translate(296,50)">
+    <rect width="96" height="144" class="poster"/>
+    <rect x="5" y="5" width="26" height="11" rx="2" class="bucket"/><text x="8" y="13" class="bucketTxt">1080p</text>
+    <rect x="70" y="124" width="21" height="14" rx="2" class="pill"/><text x="73" y="134" class="pillTxt">4:12</text>
+    <rect x="5" y="119" width="22" height="19" rx="2" class="chip"/>
+    <g transform="translate(9,122) scale(0.7)">
+      <circle cx="10" cy="10" r="7" class="req"/>
+    </g>
+    <text x="0" y="158" class="lbl">required 100 · extras 0</text>
+    <text x="0" y="170" class="sm">full ring, no lap</text>
+  </g>
+
+  <!-- Card 4: required 0 -->
+  <g transform="translate(432,50)">
+    <rect width="96" height="144" class="poster"/>
+    <rect x="5" y="5" width="26" height="11" rx="2" class="bucket"/><text x="8" y="13" class="bucketTxt">1080p</text>
+    <rect x="70" y="124" width="21" height="14" rx="2" class="pill"/><text x="73" y="134" class="pillTxt">4:12</text>
+    <rect x="5" y="119" width="22" height="19" rx="2" class="chip"/>
+    <g transform="translate(9,122) scale(0.7)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+    </g>
+    <text x="0" y="158" class="lbl">required 0 · extras 50</text>
+    <text x="0" y="170" class="sm">empty track only</text>
+  </g>
+
+  <!-- Card 5: with Part 2 badge -->
+  <g transform="translate(568,50)">
+    <rect width="96" height="144" class="poster"/>
+    <rect x="5" y="5" width="26" height="11" rx="2" class="bucket"/><text x="8" y="13" class="bucketTxt">1080p</text>
+    <rect x="70" y="124" width="21" height="14" rx="2" class="pill"/><text x="73" y="134" class="pillTxt">4:12</text>
+    <rect x="5" y="119" width="22" height="19" rx="2" class="chip"/>
+    <g transform="translate(9,122) scale(0.7)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+      <circle cx="10" cy="10" r="7" class="req" stroke-dasharray="33 44" transform="rotate(-90 10 10)"/>
+    </g>
+    <rect x="31" y="124" width="30" height="14" rx="2" class="pill"/><text x="34" y="134" class="pillTxt">Part 2</text>
+    <text x="0" y="158" class="lbl">+ Part badge (HOLODEX-389)</text>
+    <text x="0" y="170" class="sm">ring first, part shifts right</text>
+  </g>
+
+  <!-- ===== Row 2: list rows ===== -->
+  <text x="24" y="242" class="h">People / studio rows — trailing, before the count, 12px ring</text>
+
+  <!-- row template width 320, height 30 -->
+  <g transform="translate(24,250)">
+    <rect width="320" height="30" rx="3" class="row"/>
+    <circle cx="19" cy="15" r="9" class="av"/>
+    <text x="36" y="19" class="ink">Ana Torres</text>
+    <g transform="translate(276,9) scale(0.6)">
+      <circle cx="10" cy="10" r="7" class="req"/>
+      <circle cx="10" cy="10" r="7" class="over" stroke-dasharray="22 44" transform="rotate(-90 10 10)"/>
+    </g>
+    <text x="298" y="19" class="lbl">14</text>
+    <text x="0" y="44" class="sm">person · photo ✓ · extras 50 → full ring + half lap</text>
+  </g>
+  <g transform="translate(24,306)">
+    <rect width="320" height="30" rx="3" class="row"/>
+    <circle cx="19" cy="15" r="9" class="av"/>
+    <text x="36" y="19" class="ink">Ben Okafor</text>
+    <g transform="translate(276,9) scale(0.6)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+    </g>
+    <text x="298" y="19" class="lbl">3</text>
+    <text x="0" y="44" class="sm">person · photo ✗ → empty ring (required 0)</text>
+  </g>
+  <g transform="translate(372,250)">
+    <rect width="320" height="30" rx="3" class="row"/>
+    <rect x="8" y="8" width="24" height="14" rx="2" class="av"/>
+    <text x="40" y="19" class="ink">Meridian Pictures</text>
+    <g transform="translate(276,9) scale(0.6)">
+      <circle cx="10" cy="10" r="7" class="req"/>
+    </g>
+    <text x="298" y="19" class="lbl">27</text>
+    <text x="0" y="44" class="sm">studio · required null · extras 100 → extras is the ring, no lap ever</text>
+  </g>
+  <g transform="translate(372,306)">
+    <rect width="320" height="30" rx="3" class="row"/>
+    <rect x="8" y="8" width="24" height="14" rx="2" class="av"/>
+    <text x="40" y="19" class="ink">Untitled Studio</text>
+    <g transform="translate(276,9) scale(0.6)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+    </g>
+    <text x="298" y="19" class="lbl">2</text>
+    <text x="0" y="44" class="sm">studio · required null · extras 0 → empty ring</text>
+  </g>
+
+  <!-- ===== Geometry callout ===== -->
+  <g transform="translate(24,362)">
+    <g transform="translate(0,-4) scale(1.1)">
+      <circle cx="10" cy="10" r="7" class="track"/>
+      <circle cx="10" cy="10" r="7" class="req" stroke-dasharray="33 44" transform="rotate(-90 10 10)"/>
+      <line x1="10" y1="0" x2="10" y2="20" class="geo"/><line x1="0" y1="10" x2="20" y2="10" class="geo"/>
+    </g>
+    <text x="30" y="8" class="sm">viewBox 0 0 20 20 · r 7 · stroke 3 · C = 2π·7 ≈ 44 · dasharray = pct/100 × 44, 44 · rotate(-90) so 0 is twelve o'clock, clockwise</text>
+    <text x="30" y="20" class="sm">track = muted · required = accent · overfill = ink, drawn over the required ring only when required === 100 · rendered 14px (card chip) / 12px (row)</text>
+  </g>
+</svg>

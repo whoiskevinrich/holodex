@@ -473,22 +473,23 @@ func (h *Handlers) Mount(r chi.Router) {
 // sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
 // duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
 // completeness_desc; default added_desc. completeness_asc/desc, and the
-// repeatable missing_facet param, are owner-only (F55.5/F55.6, ADR-081 D4) —
-// score/actionability is an owner curation signal, never public library
-// metadata (spec "Access control & security"), so a non-owner request using
-// either is rejected rather than silently ignored.
+// repeatable missing_facet param, are owner-only (F55.5/F55.6) — score is an
+// owner curation signal, never public library metadata (spec "Access control &
+// security"), so a non-owner request using either is rejected rather than
+// silently ignored. Both are ordinary SQL over the materialized store (ADR-099
+// D2/D3), so they page like every other sort. For the owner, every item also
+// carries `completeness` (F65.5) — drained first so the badge is current.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := h.videoFilterFromQuery(q)
 	f.HideFullFilmVideos = h.filmsEnabled
-
-	missingFacets := q["missing_facet"]
-	if wantsCompleteness(f.Sort, missingFacets) {
-		if !h.requireOwnerInline(w, r) {
-			return
-		}
-		h.listMediaByCompleteness(w, r, f, missingFacets)
+	f.MissingFacets = q["missing_facet"]
+	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return
+	}
+	isOwner := h.auth.authorized(r)
+	if isOwner {
+		h.drainCompleteness(r.Context())
 	}
 
 	items, total, err := h.repo.ListVideos(r.Context(), f)
@@ -503,7 +504,13 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
 	}
 	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
+	if isOwner {
+		if err := h.attachVideoCompleteness(r.Context(), items); err != nil {
+			h.fail(w, "list media", err)
+			return
+		}
+	}
+	redactFileMetadataForVisitors(items, isOwner)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
@@ -550,96 +557,37 @@ func (h *Handlers) videoFilterFromQuery(q url.Values) repo.VideoFilter {
 	return f
 }
 
-// listMediaByCompleteness serves GET /media once listMedia has determined the
-// request is sorted by completeness or filtered by missing facet (F55.5/
-// F55.6, ADR-081 D4): a Go-side rank/filter/paginate pass over
-// completenessForVideos, sharing the exact predicate the remediation queue
-// will read. f.Sort still carries the caller's non-completeness sort (e.g.
-// title_asc) when only missing_facet was given — completenessForVideos already
-// applied it via SQL, so relative order is preserved unless f.Sort is itself a
-// completeness key. Caller (listMedia) has already checked owner auth.
-func (h *Handlers) listMediaByCompleteness(w http.ResponseWriter, r *http.Request, f repo.VideoFilter, missingFacets []string) {
-	scored, err := h.completenessForVideos(r.Context(), f)
-	if err != nil {
-		h.fail(w, "list media by completeness", err)
-		return
-	}
-	filtered := make([]VideoCompleteness, 0, len(scored))
-	for _, vc := range scored {
-		if isMissingAll(vc.Completeness, missingFacets) {
-			filtered = append(filtered, vc)
-		}
-	}
-	if f.Sort == sortCompletenessAsc || f.Sort == sortCompletenessDesc {
-		sortByScore(filtered, func(vc VideoCompleteness) int { return vc.Completeness.Score }, f.Sort == sortCompletenessDesc)
-	}
-
-	total := len(filtered)
-	limit := f.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-	start := max(min(f.Offset, total), 0)
-	end := min(start+limit, total)
-	page := filtered[start:end]
-
-	items := make([]model.Video, len(page))
-	for i, vc := range page {
-		items[i] = vc.Video
-	}
-	h.prepareThumbnails(items)
-	if h.mappings != nil {
-		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
-	}
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
-	writeJSON(w, http.StatusOK, map[string]any{
-		"items": items, "total": total, "limit": limit, "offset": f.Offset,
-	})
-}
-
 // completenessFacets handles GET /completeness/facets?entity_type=video|
 // person|studio (F55.6): the "Missing facet" filter chip's option list, with
-// a live missing-count per facet from the same completeness pass the
-// corresponding listXByCompleteness path scores — so the chip's counts can
-// never disagree with what selecting a facet actually filters to. video
-// additionally accepts /media's other filter params (q, tag, person, ...) so
-// the counts reflect the caller's current browse filters, not the whole
-// library. Owner-only: mounted in the requireOwner group (Mount).
+// a missing-count per facet from entity_completeness_missing (F65.7) — the
+// same rows the corresponding list's missing_facet filter selects on, so the
+// chip's counts can never disagree with what selecting a facet actually
+// filters to. video additionally accepts /media's other filter params (q, tag,
+// person, ...) so the counts reflect the caller's current browse filters, not
+// the whole library. Owner-only: mounted in the requireOwner group (Mount).
 func (h *Handlers) completenessFacets(w http.ResponseWriter, r *http.Request) {
-	switch entityType := r.URL.Query().Get("entity_type"); entityType {
-	case "video":
-		vf := h.videoFilterFromQuery(r.URL.Query())
-		vf.HideFullFilmVideos = h.filmsEnabled
-		scored, err := h.completenessForVideos(r.Context(), vf)
-		if err != nil {
-			h.fail(w, "completeness facets", err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"facets": summarizeFacets(scored, func(vc VideoCompleteness) resolver.Completeness { return vc.Completeness }),
-		})
-	case "person":
-		scored, err := h.completenessForPeople(r.Context())
-		if err != nil {
-			h.fail(w, "completeness facets", err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"facets": summarizeFacets(scored, func(pc PersonCompleteness) resolver.Completeness { return pc.Completeness }),
-		})
-	case "studio":
-		scored, err := h.completenessForStudios(r.Context())
-		if err != nil {
-			h.fail(w, "completeness facets", err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"facets": summarizeFacets(scored, func(sc StudioCompleteness) resolver.Completeness { return sc.Completeness }),
-		})
+	entityType := r.URL.Query().Get("entity_type")
+	switch entityType {
+	case model.EnrichEntityVideo, model.EnrichEntityPerson, model.EnrichEntityStudio:
 	default:
 		writeError(w, http.StatusBadRequest, "entity_type must be video, person, or studio")
+		return
 	}
+	h.drainCompleteness(r.Context())
+	var counts []repo.MissingFacetCount
+	var err error
+	if entityType == model.EnrichEntityVideo {
+		vf := h.videoFilterFromQuery(r.URL.Query())
+		vf.HideFullFilmVideos = h.filmsEnabled
+		counts, err = h.repo.MissingFacetCountsForVideos(r.Context(), vf)
+	} else {
+		counts, err = h.repo.MissingFacetCounts(r.Context(), entityType)
+	}
+	if err != nil {
+		h.fail(w, "completeness facets", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"facets": facetSummaries(counts)})
 }
 
 // setThumbnailURL fills ThumbnailURL when an image exists on disk (ADR-009). The
@@ -899,6 +847,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			}
 			c := resolver.Complete(mfields, resolved, na)
 			completeness = &c
+			h.selfHealCompleteness(r.Context(), model.EnrichEntityVideo, id, c)
 		}
 	}
 	// Writeback status (ADR-091, HOLODEX-323, spec R2.1): per-video pending/failed
@@ -1116,6 +1065,12 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "reload config", err)
 		return
 	}
+	// The field list is a completeness denominator (ADR-099 D4): every stored
+	// score is suspect once the mappings change, so flag them all for recompute.
+	if err := h.repo.MarkAllCompletenessDirty(r.Context()); err != nil {
+		h.fail(w, "reload config", err)
+		return
+	}
 	// Reload the filename-pattern list alongside the mappings (F48.1a, ADR-067)
 	// so an edited metadata-patterns.yaml takes effect without a restart.
 	if h.patterns != nil {
@@ -1231,41 +1186,31 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 // listPeople handles GET /people (F19): name-sorted (or count-sorted, or
 // completeness-sorted/filtered) people with active-video counts. sort=
 // completeness_asc|completeness_desc and the repeatable missing_facet param
-// are owner-only (F55.5/F55.6, ADR-081 D4), same posture as listMedia.
+// are owner-only (F55.5/F55.6), same posture as listMedia; both read the
+// materialized store in SQL (ADR-099 D2/D3), and the owner's items carry
+// `completeness` (F65.5).
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	sort := q.Get("sort")
-	missingFacets := q["missing_facet"]
-	if wantsCompleteness(sort, missingFacets) {
-		if !h.requireOwnerInline(w, r) {
-			return
-		}
-		h.listPeopleByCompleteness(w, r, sort == sortCompletenessDesc, missingFacets)
+	f := repo.NamedListFilter{Sort: q.Get("sort"), MissingFacets: q["missing_facet"]}
+	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return
 	}
-	people, err := h.repo.ListPeople(r.Context(), sort == "count")
+	isOwner := h.auth.authorized(r)
+	if isOwner {
+		h.drainCompleteness(r.Context())
+	}
+	people, err := h.repo.ListPeopleFiltered(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list people", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": people})
-}
-
-// listPeopleByCompleteness serves GET /people once listPeople has determined
-// the request is completeness-sorted or missing-facet-filtered (F55.5/F55.6).
-// Unlike video, people has no other browse filter to preserve order from, and
-// no pagination — filter, sort, and return the full set. Caller has already
-// checked owner auth.
-func (h *Handlers) listPeopleByCompleteness(w http.ResponseWriter, r *http.Request, desc bool, missingFacets []string) {
-	scored, err := h.completenessForPeople(r.Context())
-	if err != nil {
-		h.fail(w, "list people by completeness", err)
-		return
+	if isOwner {
+		if err := h.attachPersonCompleteness(r.Context(), people); err != nil {
+			h.fail(w, "list people", err)
+			return
+		}
 	}
-	writeCompletenessList(w, scored, missingFacets, desc,
-		func(pc PersonCompleteness) resolver.Completeness { return pc.Completeness },
-		func(pc PersonCompleteness) model.Person { return pc.Person },
-	)
+	writeJSON(w, http.StatusOK, map[string]any{"items": people})
 }
 
 func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
@@ -1308,6 +1253,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 			registry.Lookup("alternate_names").Label, len(p.Aliases) > 0)
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
+		h.selfHealCompleteness(r.Context(), model.EnrichEntityPerson, id, c)
 	}
 	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
 	// lookup failure logs and serves the page with no badges rather than failing it.

@@ -16,36 +16,34 @@ const (
 	TierCurated  = "curated"
 )
 
-// tier pairs a facet's source-trust weight with its display name (F55, ADR-081 D3
-// tier table) so the two can never drift apart under a future edit — classifyTier
-// returns exactly one of the three package vars below, comparable by ==.
-type tier struct {
-	weight float64
-	name   string
-}
+// tier names a facet's resolved provenance for the breakdown panel (F55). v2
+// (F65, ADR-099 D1) dropped the per-tier scoring weight — presence is binary, so
+// the tier is display-only — but the three values are still compared by == below.
+type tier string
 
-var (
-	missingTier  = tier{0.0, TierMissing}
-	providerTier = tier{0.7, TierProvider}
-	curatedTier  = tier{1.0, TierCurated}
-)
-
-// Criticality weights (spec § Scoring model, facet weight/tier table). Distinct
-// from registry.CriticalityCritical/CriticalityNiceToHave, which name the weight
-// class; these are the numeric weights the formula applies for each class.
 const (
-	weightCritical   = 3
-	weightNiceToHave = 1
+	missingTier  tier = TierMissing
+	providerTier tier = TierProvider
+	curatedTier  tier = TierCurated
 )
 
 // Completeness is the F55 completeness score plus the separate actionability
 // signal for one entity, computed as a pure post-pass over its resolved fields
 // (ADR-081 D3) — mirrors Derive's shape, but needs no clock since nothing here is
-// time-based.
+// time-based. v2 (F65, ADR-099 D1): the score is the required band alone and
+// extras is a separate number; the two are never combined.
 type Completeness struct {
-	// Score is round(100 * Σ(weight*tier) / Σ(weight)) over the entity's scored,
-	// non-not-applicable facets. 0 when there are none to score.
-	Score int `json:"score"`
+	// Required is round(100 × present / applicable) over the entity's critical
+	// facets — THE score: the panel headline, the card ring, the primary sort
+	// key. nil when the entity has no applicable critical facet (studios; or a
+	// video with every critical facet marked not-applicable) — never a vacuous
+	// 100. Serialized as `score` so the detail payload's key is unchanged from
+	// v1 (ADR-099 D5).
+	Required *int `json:"score"`
+	// Extras is the same ratio over the nice_to_have band: the sort tiebreaker
+	// and the ring's overfill, never blended into Required. nil when there is
+	// no applicable nice_to_have facet.
+	Extras *int `json:"extras"`
 	// Actionability is the fraction of missing scored facets that have a cached,
 	// unapplied provider candidate — nil (not zero) when there are no missing
 	// scored facets, since the ratio is undefined rather than zero.
@@ -53,9 +51,23 @@ type Completeness struct {
 	Facets        []FacetScore `json:"facets"`
 }
 
+// Missing returns the scored (critical / nice_to_have), applicable facets the
+// entity lacks — the rows entity_completeness_missing stores for the "Missing
+// facet" chip and its counts (ADR-099 D3). Optional and not-applicable facets
+// are never missing.
+func (c Completeness) Missing() []FacetScore {
+	var out []FacetScore
+	for _, f := range c.Facets {
+		if f.Tier == TierMissing && !f.NotApplicable && f.Criticality != registry.CriticalityOptional {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 // FacetScore is one scored facet's tier/status for the completeness breakdown
 // panel (F55). A not-applicable facet is still listed, so the UI can render its
-// muted status, but it is excluded from Completeness.Score and Actionability.
+// muted status, but it is excluded from both bands and from Actionability.
 type FacetScore struct {
 	Canonical     string `json:"canonical"`
 	Label         string `json:"label"`
@@ -82,21 +94,21 @@ type FacetScore struct {
 	Curatable bool `json:"curatable,omitempty"`
 }
 
-// Complete computes the completeness score and actionability signal for one
+// Complete computes the completeness bands and actionability signal for one
 // entity from its configured fields, already-resolved values, and not-applicable
-// exclusions (F55, ADR-081 D3).
+// exclusions (F55, ADR-081 D3; formula per ADR-099 D1).
 //
 // fields is the same field list passed to ResolveFields — Complete needs it, not
 // just resolved, because ResolveFields drops an empty, undecided field entirely
 // (spec RD-adjacent behavior predating F55): a genuinely missing scored facet may
-// have no row in resolved at all, and dropping it from the score's denominator
+// have no row in resolved at all, and dropping it from the band's denominator
 // would silently inflate every entity's completeness. notApplicable is keyed by
 // canonical, same casing FacetsNotApplicableForEntity returns.
 //
-// Per-facet tier is derived entirely from ResolvedField.WinningSource — no new
-// per-field resolution logic (D3): a field absent from resolved (WinningSource
-// "") is missing; a "file:"/"manual:" namespace is curated; any other namespace
-// is a matched provider. A field with no registry.FieldDef.Criticality tag
+// Presence is binary and read entirely off ResolvedField.WinningSource — a field
+// absent from resolved (WinningSource "") is missing, anything else is present.
+// The provider/curated distinction survives only as FacetScore.Tier for the
+// panel's ProvenanceBadge. A field with no registry.FieldDef.Criticality tag
 // (including every Computed field, D1's invariant) is skipped entirely — never
 // scored, never listed.
 func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable map[string]bool) Completeness {
@@ -105,7 +117,7 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 		byCanonical[rf.Canonical] = rf
 	}
 
-	var weightSum, weightedSum float64
+	var required, extras band
 	var missing, actionable int
 	facets := make([]FacetScore, 0, len(fields))
 
@@ -121,7 +133,7 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 			Canonical:   f.Canonical,
 			Label:       def.Label,
 			Criticality: def.Criticality,
-			Tier:        t.name,
+			Tier:        string(t),
 			Curatable:   !f.Multi && !f.Merge && display == "",
 		}
 		if notApplicable[f.Canonical] {
@@ -136,9 +148,11 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 			continue
 		}
 
-		weight := criticalityWeight(def.Criticality)
-		weightSum += weight
-		weightedSum += weight * t.weight
+		b := &extras
+		if def.Criticality == registry.CriticalityCritical {
+			b = &required
+		}
+		b.applicable++
 		switch t {
 		case missingTier:
 			missing++
@@ -148,21 +162,36 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 				actionable++
 			}
 		case providerTier:
+			b.present++
 			fs.Provider = winningNamespace(rf.WinningSource)
+		default:
+			b.present++
 		}
 		facets = append(facets, fs)
 	}
 
-	score := 0
-	if weightSum > 0 {
-		score = int(math.Round(100 * weightedSum / weightSum))
-	}
 	var actionability *float64
 	if missing > 0 {
 		a := float64(actionable) / float64(missing)
 		actionability = &a
 	}
-	return Completeness{Score: score, Actionability: actionability, Facets: facets}
+	return Completeness{Required: required.score(), Extras: extras.score(), Actionability: actionability, Facets: facets}
+}
+
+// band tallies one criticality band's applicable and present facet counts
+// (ADR-099 D1): required over critical facets, extras over nice_to_have.
+type band struct {
+	applicable, present int
+}
+
+// score is round(100 × present / applicable), or nil when the band has no
+// applicable facet — the spec's null rule, never a vacuous 100.
+func (b band) score() *int {
+	if b.applicable == 0 {
+		return nil
+	}
+	s := int(math.Round(100 * float64(b.present) / float64(b.applicable)))
+	return &s
 }
 
 // classifyTier maps a resolved field's winning source to its completeness tier
@@ -186,16 +215,6 @@ func classifyTier(winningSource string) tier {
 func winningNamespace(winningSource string) string {
 	ns, _, _ := strings.Cut(winningSource, ":")
 	return ns
-}
-
-// criticalityWeight maps a facet's criticality tag to its numeric scoring weight
-// (spec § Scoring model). Any tag other than critical is nice_to_have by
-// construction — Complete's caller already filtered out the untagged ("") case.
-func criticalityWeight(c string) float64 {
-	if c == registry.CriticalityCritical {
-		return weightCritical
-	}
-	return weightNiceToHave
 }
 
 // actionableCandidate reports the provider namespace of a missing replace

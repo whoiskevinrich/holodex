@@ -2,9 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"sort"
+	"strings"
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
@@ -14,18 +15,15 @@ import (
 	"holodex/internal/resolver"
 )
 
-// List-wide entity completeness (F55, ADR-081 D4). Browse-page completeness
-// sort, the "missing facet" filter, and the remediation queue all read the
-// same three functions below — the one backend predicate the design handoff
-// (§9/§1) requires. Each fetches the full per-type entity set (bypassing SQL
-// LIMIT/OFFSET, per D4), resolves every entity's fields exactly as its detail
-// handler does, and scores it via resolver.Complete — leaving sort, filter,
-// and pagination to the caller in Go, not here (D4 draws that seam at "return
-// a scored slice," not at any particular consumer's shape).
-//
-// Every entity in the returned set is resolved and scored — the ADR's cost
-// envelope is personal-library scale (hundreds to low thousands), the same
-// assumption ExtractionQueue's full-table read already leans on.
+// Entity completeness (F55; v2 F65, ADR-099). The three completenessFor*
+// functions below resolve and score a set of entities exactly as their detail
+// handlers do — the one backend predicate the design handoff (§9/§1) requires.
+// Two consumers remain on the live pass: the remediation queue (it needs
+// actionability, whose candidate inputs are not stored) and the dirty-set
+// drain (drainCompleteness), which is how the materialized store
+// (entity_completeness, ADR-099 D3) gets filled. Every list surface — browse
+// sort, the "Missing facet" chip and its counts, the ring badge — reads the
+// store in SQL instead (repo.VideoFilter / repo.NamedListFilter).
 
 // VideoCompleteness pairs one video with its computed completeness.
 type VideoCompleteness struct {
@@ -71,18 +69,17 @@ func injectSyntheticFacet(fields []mapping.Field, resolved []resolver.ResolvedFi
 	return fields, resolved
 }
 
-// completenessForVideos resolves and scores every active video matching f
-// (ADR-081 D4). Mirrors getMedia's resolve pipeline per video, batch-loading
-// each input instead of the detail handler's per-entity queries. Critically,
+// completenessForVideos resolves and scores every active video matching f —
+// the drain's dirty ids (f.IDs) or the queue's whole library. Mirrors getMedia's
+// resolve pipeline per video, batch-loading each input instead of the detail
+// handler's per-entity queries. Critically,
 // unlike applyBrowseTitles, it loads ExtraMetadataForVideos: studio/actors
 // (both critical facets) resolve from file tags that live only in
 // ExtraMetadata, not on model.Video, so skipping it would misreport them as
 // missing.
 //
 // f carries the caller's existing browse filters (tags/person/studio/query/
-// duration/year/mapped) so completeness sort and the missing-facet filter
-// compose with them instead of scoring the whole library regardless of what
-// the caller is looking at; f.Limit/Offset are ignored (ListAllVideos, D4).
+// duration/year/mapped); f.Limit/Offset are ignored (ListAllVideos).
 func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter) ([]VideoCompleteness, error) {
 	if h.mappings == nil {
 		return nil, nil
@@ -190,10 +187,11 @@ func (h *Handlers) loadEntityCompletenessBatch(ctx context.Context, entityType s
 }
 
 // completenessForPeople resolves and scores every person with at least one
-// active video (ADR-081 D4). Mirrors personResolved's pipeline per person,
-// batch-loading each input instead of personResolved's per-entity queries.
-func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleteness, error) {
-	people, err := h.repo.ListPeople(ctx, false)
+// active video matching f (the drain's dirty ids, or the queue's whole set).
+// Mirrors personResolved's pipeline per person, batch-loading each input
+// instead of personResolved's per-entity queries.
+func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFilter) ([]PersonCompleteness, error) {
+	people, err := h.repo.ListPeopleFiltered(ctx, f)
 	if err != nil {
 		return nil, fmt.Errorf("list people: %w", err)
 	}
@@ -243,10 +241,11 @@ func (h *Handlers) completenessForPeople(ctx context.Context) ([]PersonCompleten
 }
 
 // completenessForStudios resolves and scores every studio with at least one
-// active video (ADR-081 D4). Mirrors resolveStudio's pipeline per studio,
-// batch-loading each input instead of resolveStudio's per-entity queries.
-func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioCompleteness, error) {
-	studios, err := h.repo.ListStudios(ctx, false)
+// active video matching f (the drain's dirty ids, or the queue's whole set).
+// Mirrors resolveStudio's pipeline per studio, batch-loading each input
+// instead of resolveStudio's per-entity queries.
+func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListFilter) ([]StudioCompleteness, error) {
+	studios, err := h.repo.ListStudiosFiltered(ctx, f)
 	if err != nil {
 		return nil, fmt.Errorf("list studios: %w", err)
 	}
@@ -295,27 +294,166 @@ func (h *Handlers) completenessForStudios(ctx context.Context) ([]StudioComplete
 	return out, nil
 }
 
-// Sort keys the browse "Completeness" sort recognizes (F55.5); a listMedia/
-// listPeople/listStudios request specifying either one, or any missing_facet
-// param, routes to the Go-side completeness path below instead of the normal
-// SQL-paginated one.
-const (
-	sortCompletenessAsc  = "completeness_asc"
-	sortCompletenessDesc = "completeness_desc"
-)
-
 // wantsCompleteness reports whether a listMedia/listPeople/listStudios request
-// needs the owner-gated completeness path — either sort asks for it, or any
-// missing_facet is present.
+// touches the owner-only completeness surface (F55.5/F55.6) — either sort asks
+// for it, or any missing_facet is present — so a visitor is rejected rather
+// than silently served the default order.
 func wantsCompleteness(sort string, missingFacets []string) bool {
-	return sort == sortCompletenessAsc || sort == sortCompletenessDesc || len(missingFacets) > 0
+	return sort == repo.SortCompletenessAsc || sort == repo.SortCompletenessDesc || len(missingFacets) > 0
 }
 
-// FacetSummary is one scored facet's metadata plus how many entities in the
-// scored set are currently missing it — the "Missing facet" filter chip's
-// option list and live counts (F55.6). Built by summarizeFacets from the same
-// completeness pass a sort/filter request scores, so the chip's counts can
-// never disagree with what the filter itself returns.
+// drainCompleteness recomputes every entity in completeness_dirty and writes
+// the store (ADR-099 D4): the triggers in migration 0049 fill the set on every
+// input-table write, and the owner-gated store readers (listMedia, listPeople,
+// listStudios, completenessFacets) call this first, so a badge or sort never
+// reflects a stale row. Cost is O(entities mutated since the last owner read);
+// the repo holds writeMu for the whole read, resolve, write, which also
+// serializes two owner requests in flight together (the SPA fires /media and
+// /completeness/facets side by side) — the second finds an empty set.
+//
+// Best-effort by design: the badge is not the page. A failure is logged and the
+// caller serves the list from whatever the store holds (a stale ring, or none)
+// rather than turning every owner browse page into a 500 over one entity whose
+// resolve blew up; the ids stay dirty, so the next owner read retries.
+func (h *Handlers) drainCompleteness(ctx context.Context) {
+	if err := h.drainCompletenessStrict(ctx); err != nil {
+		h.log.Warn("completeness drain", "err", err)
+	}
+}
+
+func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
+	return h.repo.DrainCompleteness(ctx, func(entityType string, ids []int64) ([]repo.CompletenessRow, error) {
+		var rows []repo.CompletenessRow
+		switch entityType {
+		case model.EnrichEntityVideo:
+			scored, err := h.completenessForVideos(ctx, repo.VideoFilter{IDs: ids})
+			if err != nil {
+				return nil, err
+			}
+			for _, vc := range scored {
+				rows = append(rows, completenessRow(entityType, vc.Video.ID, vc.Completeness))
+			}
+		case model.EnrichEntityPerson:
+			scored, err := h.completenessForPeople(ctx, repo.NamedListFilter{IDs: ids})
+			if err != nil {
+				return nil, err
+			}
+			for _, pc := range scored {
+				rows = append(rows, completenessRow(entityType, pc.Person.ID, pc.Completeness))
+			}
+		case model.EnrichEntityStudio:
+			scored, err := h.completenessForStudios(ctx, repo.NamedListFilter{IDs: ids})
+			if err != nil {
+				return nil, err
+			}
+			for _, sc := range scored {
+				rows = append(rows, completenessRow(entityType, sc.Studio.ID, sc.Completeness))
+			}
+			// default: nothing scores this entity type (a film's shadow-store
+			// write lands here) — no rows, and the drain clears the flags.
+		}
+		return rows, nil
+	})
+}
+
+// completenessRow projects a live Completeness onto the store's shape: the
+// two bands plus the missing scored facets with their band.
+func completenessRow(entityType string, id int64, c resolver.Completeness) repo.CompletenessRow {
+	row := repo.CompletenessRow{EntityType: entityType, EntityID: id, Required: c.Required, Extras: c.Extras}
+	for _, f := range c.Missing() {
+		row.Missing = append(row.Missing, repo.MissingFacet{Canonical: f.Canonical, Band: f.Criticality})
+	}
+	return row
+}
+
+// selfHealCompleteness is the detail page's belt-and-braces over the triggers
+// (ADR-099 D3): the page always computes live, and when that result differs
+// from the stored row — or there is none — it rewrites the row, so a stale
+// badge can never outlive a look at the entity. The dirty flag is left to the
+// drain (see repo.StoreCompleteness). Best-effort: a store failure logs and
+// the page is served regardless.
+func (h *Handlers) selfHealCompleteness(ctx context.Context, entityType string, id int64, c resolver.Completeness) {
+	want := completenessRow(entityType, id, c)
+	have, err := h.repo.StoredCompleteness(ctx, entityType, id)
+	switch {
+	case err == nil && sameCompletenessRow(*have, want):
+		return
+	case err != nil && !errors.Is(err, repo.ErrNotFound):
+		h.log.Warn("completeness self-heal read", "type", entityType, "id", id, "err", err)
+		return
+	}
+	if err := h.repo.StoreCompleteness(ctx, want); err != nil {
+		h.log.Warn("completeness self-heal write", "type", entityType, "id", id, "err", err)
+	}
+}
+
+func sameCompletenessRow(a, b repo.CompletenessRow) bool {
+	return sameIntPtr(a.Required, b.Required) && sameIntPtr(a.Extras, b.Extras) &&
+		missingKey(a.Missing) == missingKey(b.Missing)
+}
+
+func sameIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+// missingKey renders a missing-facet set order-independently for comparison.
+func missingKey(m []repo.MissingFacet) string {
+	parts := make([]string, len(m))
+	for i, f := range m {
+		parts[i] = f.Canonical + "=" + f.Band
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
+}
+
+// attachCompleteness stamps the owner-only ring-badge payload (F65.5, ADR-099
+// D5) onto one page of list items from the store. Never called for a visitor
+// — the caller gates on h.auth.authorized, the same seam that strips file
+// metadata — so a visitor's items simply never carry the field.
+func attachCompleteness[T any](ctx context.Context, h *Handlers, entityType string, items []T, id func(*T) int64, slot func(*T) **model.CompletenessSummary) error {
+	ids := make([]int64, len(items))
+	for i := range items {
+		ids[i] = id(&items[i])
+	}
+	stored, err := h.repo.CompletenessForEntities(ctx, entityType, ids)
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		if c, ok := stored[id(&items[i])]; ok {
+			*slot(&items[i]) = &c
+		}
+	}
+	return nil
+}
+
+func (h *Handlers) attachVideoCompleteness(ctx context.Context, items []model.Video) error {
+	return attachCompleteness(ctx, h, model.EnrichEntityVideo, items,
+		func(v *model.Video) int64 { return v.ID },
+		func(v *model.Video) **model.CompletenessSummary { return &v.Completeness })
+}
+
+func (h *Handlers) attachPersonCompleteness(ctx context.Context, items []model.Person) error {
+	return attachCompleteness(ctx, h, model.EnrichEntityPerson, items,
+		func(p *model.Person) int64 { return p.ID },
+		func(p *model.Person) **model.CompletenessSummary { return &p.Completeness })
+}
+
+func (h *Handlers) attachStudioCompleteness(ctx context.Context, items []model.Studio) error {
+	return attachCompleteness(ctx, h, model.EnrichEntityStudio, items,
+		func(s *model.Studio) int64 { return s.ID },
+		func(s *model.Studio) **model.CompletenessSummary { return &s.Completeness })
+}
+
+// FacetSummary is one scored facet's metadata plus how many entities of the
+// type are currently missing it — the "Missing facet" filter chip's option
+// list and counts (F55.6). Read from entity_completeness_missing (F65.7), the
+// same rows the missing_facet filter selects on, so the chip's counts can
+// never disagree with what the filter itself returns. A facet nobody is
+// missing has no row and is not offered — there is nothing to filter to.
 type FacetSummary struct {
 	Canonical    string `json:"canonical"`
 	Label        string `json:"label"`
@@ -323,85 +461,15 @@ type FacetSummary struct {
 	MissingCount int    `json:"missing_count"`
 }
 
-// summarizeFacets aggregates missing-facet counts across a scored entity set,
-// in first-seen facet order (stable, since every entity in a set is scored
-// against the same field list). Not-applicable facets never count as missing.
-func summarizeFacets[T any](items []T, score func(T) resolver.Completeness) []FacetSummary {
-	var order []string
-	byCanonical := make(map[string]*FacetSummary)
-	for _, item := range items {
-		for _, f := range score(item).Facets {
-			if f.NotApplicable {
-				continue
-			}
-			s, ok := byCanonical[f.Canonical]
-			if !ok {
-				s = &FacetSummary{Canonical: f.Canonical, Label: f.Label, Criticality: f.Criticality}
-				byCanonical[f.Canonical] = s
-				order = append(order, f.Canonical)
-			}
-			if f.Tier == resolver.TierMissing {
-				s.MissingCount++
-			}
-		}
-	}
-	out := make([]FacetSummary, len(order))
-	for i, c := range order {
-		out[i] = *byCanonical[c]
+func facetSummaries(counts []repo.MissingFacetCount) []FacetSummary {
+	out := make([]FacetSummary, 0, len(counts)) // non-nil: `[]`, never `null`
+	for _, c := range counts {
+		out = append(out, FacetSummary{
+			Canonical:    c.Canonical,
+			Label:        registry.Lookup(c.Canonical).Label,
+			Criticality:  c.Band,
+			MissingCount: c.Count,
+		})
 	}
 	return out
-}
-
-// isMissingAll reports whether every canonical in want is a missing, non-not-
-// applicable facet on c — AND semantics across multiple selections, matching
-// this app's existing multi-select filter convention (TagIDs, StudioIDs).
-func isMissingAll(c resolver.Completeness, want []string) bool {
-	if len(want) == 0 {
-		return true
-	}
-	missing := make(map[string]bool, len(c.Facets))
-	for _, f := range c.Facets {
-		if f.Tier == resolver.TierMissing && !f.NotApplicable {
-			missing[f.Canonical] = true
-		}
-	}
-	for _, w := range want {
-		if !missing[w] {
-			return false
-		}
-	}
-	return true
-}
-
-// sortByScore orders items by completeness score in place; desc for highest-
-// first. Stable, so items tied on score keep the caller's prior relative
-// order (e.g. the underlying SQL sort, or ListAllVideos' added-desc default).
-func sortByScore[T any](items []T, score func(T) int, desc bool) {
-	sort.SliceStable(items, func(i, j int) bool {
-		si, sj := score(items[i]), score(items[j])
-		if desc {
-			return si > sj
-		}
-		return si < sj
-	})
-}
-
-// writeCompletenessList is listPeopleByCompleteness/listStudiosByCompleteness's
-// shared body: filter by missing_facet, sort by score, map each scored item down
-// to its plain entity, and write the {"items": [...]} response. completenessOf
-// and toEntity let each caller supply its own pairing type and entity mapping
-// (e.g. studios also stamp image URLs) without duplicating the rest.
-func writeCompletenessList[T any, E any](w http.ResponseWriter, scored []T, missingFacets []string, desc bool, completenessOf func(T) resolver.Completeness, toEntity func(T) E) {
-	filtered := make([]T, 0, len(scored))
-	for _, item := range scored {
-		if isMissingAll(completenessOf(item), missingFacets) {
-			filtered = append(filtered, item)
-		}
-	}
-	sortByScore(filtered, func(item T) int { return completenessOf(item).Score }, desc)
-	items := make([]E, len(filtered))
-	for i, item := range filtered {
-		items[i] = toEntity(item)
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }

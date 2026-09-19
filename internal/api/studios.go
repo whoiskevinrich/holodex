@@ -136,19 +136,19 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 // completeness-sorted/filtered) studios with active-video counts. Public,
 // mirroring people/tags, except sort=completeness_asc|completeness_desc and
 // the repeatable missing_facet param, which are owner-only (F55.5/F55.6,
-// ADR-081 D4), same posture as listMedia/listPeople. Empty studios never appear.
+// ADR-099 D2/D3 via the store), same posture as listMedia/listPeople; the
+// owner's items carry `completeness` (F65.5). Empty studios never appear.
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	sort := q.Get("sort")
-	missingFacets := q["missing_facet"]
-	if wantsCompleteness(sort, missingFacets) {
-		if !h.requireOwnerInline(w, r) {
-			return
-		}
-		h.listStudiosByCompleteness(w, r, sort == sortCompletenessDesc, missingFacets)
+	f := repo.NamedListFilter{Sort: q.Get("sort"), MissingFacets: q["missing_facet"]}
+	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return
 	}
-	studios, err := h.repo.ListStudios(r.Context(), sort == "count")
+	isOwner := h.auth.authorized(r)
+	if isOwner {
+		h.drainCompleteness(r.Context())
+	}
+	studios, err := h.repo.ListStudiosFiltered(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list studios", err)
 		return
@@ -156,23 +156,13 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	for i := range studios {
 		setStudioImageURLs(&studios[i])
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
-}
-
-// listStudiosByCompleteness serves GET /studios once listStudios has
-// determined the request is completeness-sorted or missing-facet-filtered
-// (F55.5/F55.6). No other browse filter or pagination to preserve, like
-// people. Caller has already checked owner auth.
-func (h *Handlers) listStudiosByCompleteness(w http.ResponseWriter, r *http.Request, desc bool, missingFacets []string) {
-	scored, err := h.completenessForStudios(r.Context())
-	if err != nil {
-		h.fail(w, "list studios by completeness", err)
-		return
+	if isOwner {
+		if err := h.attachStudioCompleteness(r.Context(), studios); err != nil {
+			h.fail(w, "list studios", err)
+			return
+		}
 	}
-	writeCompletenessList(w, scored, missingFacets, desc,
-		func(sc StudioCompleteness) resolver.Completeness { return sc.Completeness },
-		func(sc StudioCompleteness) model.Studio { return sc.Studio },
-	)
+	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
 }
 
 // getStudio handles GET /studios/{id} (F38): the studio, its resolved[] fields (record
@@ -215,6 +205,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 			registry.Lookup("alternate_names").Label, len(s.Aliases) > 0)
 		c := resolver.Complete(cFields, cResolved, na)
 		completeness = &c
+		h.selfHealCompleteness(r.Context(), model.EnrichEntityStudio, id, c)
 	}
 	// HOLODEX-266 (ADR-083): the provider-link badge projection — best-effort, a
 	// lookup failure logs and serves the page with no badges rather than failing it.

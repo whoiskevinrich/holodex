@@ -9,6 +9,7 @@
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
 	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
+	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
 	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
@@ -193,6 +194,10 @@
 							{/if}
 						</span>
 						<span class="flex-1 truncate">{s.name}</span>
+						{#if s.completeness}
+							<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count. -->
+							<CompletenessRing required={s.completeness.required} extras={s.completeness.extras} size="row" />
+						{/if}
 						<span class="text-xs text-muted">{s.video_count}</span>
 					</a>
 				</li>
