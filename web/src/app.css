@@ -344,10 +344,18 @@
 		border: 1px solid var(--rule);
 		border-radius: var(--radius);
 	}
+	/* Skin flourishes on .video-frame come in two branches so a preview tile inside
+	   a `.skin-card` (the Appearance tab, F66) takes the *card's* skin, not the page's:
+	   the page-level rule is fenced with `:not(.skin-card *)`, and a `.skin-card[data-
+	   theme='X']` branch re-applies it inside a card of that skin. A plain descendant
+	   selector would match through <html data-theme> into every card. Tokens need no
+	   fence — nearest ancestor already wins for custom properties. */
 	/* Cinémathèque: letterbox bars. Suppressed in poster mode — fixed-height bars
 	   read as widescreen chrome and look wrong on portrait cards. */
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		content: '';
 		position: absolute;
 		left: 0;
@@ -356,14 +364,17 @@
 		background: #000;
 		z-index: 1;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
 		top: 0;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		bottom: 0;
 	}
 	/* Broadcast: scanline wash over each still. */
-	[data-theme='broadcast'] .video-frame::after {
+	[data-theme='broadcast'] .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='broadcast'] .video-frame::after {
 		content: '';
 		position: absolute;
 		inset: 0;
@@ -643,7 +654,8 @@
 	.video-frame {
 		counter-increment: reel;
 	}
-	[data-theme='brutalist'] .video-frame::before {
+	[data-theme='brutalist'] .video-frame:not(.skin-card *)::before,
+	.skin-card[data-theme='brutalist'] .video-frame::before {
 		content: counter(reel, decimal-leading-zero);
 		position: absolute;
 		left: 0.45rem;

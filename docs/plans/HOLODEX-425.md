@@ -26,9 +26,10 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
   active = accent border + outlined chip, never solid fill
 - [/] backend — **S1 done**: migration 0048 `settings`, `repo.GetSetting/PutSetting`, `PUT /admin/theme`,
   `/capabilities.theme` (theme.go + tests); S3 still open: `theme.custom` parse/validate, contrast WARN
-- [/] frontend — **S1 done**: `theme.svelte.ts` server-applied + paint cache, preference removed,
-  **header picker deleted here** (it called the removed `theme.set`; moved up from S2); S2 still open:
-  `/owner/appearance`; S3: derivation layer in `app.css`
+- [/] frontend — **S1 + S2 done**: `theme.svelte.ts` server-applied + paint cache, preference removed,
+  header picker deleted; `/owner/appearance` option B cards (real `.video-frame` tiles under the card's
+  `data-theme`, `.skin-card` two-branch fence in `app.css` so the page skin doesn't bleed into cards);
+  S3 still open: derivation layer in `app.css`
 - [ ] testing `testing-strategy` — R1–R3 handler/repo tests, R11 derivation gate, R12 contrast
   unit test, three-skin + custom QA matrix
 - [/] security `security-review` — S1 reviewed clean 2026-09-19 (CSRF/authz/SQL/DOM-CSS/cache/exposure);
@@ -36,17 +37,19 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-427] S2 Appearance tab (`/owner/appearance`, option B cards) — picker already gone
-2. [ ] [HOLODEX-428] S3 custom palette, derivation (R11 gate), contrast WARN, docs
-3. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
+1. [ ] [HOLODEX-428] S3 custom palette, derivation (R11 gate), contrast WARN, docs
+2. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
    all four to Done by hand (epic-keyed branch → CI fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-19 · brainstorm → epic → spec → ADR → design → S1
+### 2026-09-19 · brainstorm → epic → spec → ADR → design → S1 → S2
 - skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
 - handoff: epic HOLODEX-425 + stories 426/427/428 filed, branch renamed
   `HOLODEX-425-instance-skin`, epic In Progress; spec + ADR-102 (D2 = ownership test) + design
   handoff (option B) committed; **S1 shipped** (backend + SPA plumbing, picker removed, live-verified:
   owner PUT → visitor reload lands Broadcast tokens, no picker). Code-review 4 findings fixed, security
-  review clean. Draft PR #365. Next is S2 (HOLODEX-427): `/owner/appearance` with option B cards.
+  review clean. **S2 shipped**: Appearance tab live-verified (cards in their own tokens + flourishes,
+  click → server persisted → page re-skinned, keyboard roving, 403 revert + alert, phone two-up, no
+  picker). Found and fixed the descendant-selector bleed with the `.skin-card` fence. Draft PR #365.
+  Next is S3 (HOLODEX-428): `theme.custom` config, derivation layer + R11 gate, contrast WARN, docs.
