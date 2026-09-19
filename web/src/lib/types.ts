@@ -639,6 +639,10 @@ export interface ThemeCustom {
 	name: string;
 	base: ShippedTheme;
 	tokens: Record<'bg' | 'ink' | 'accent' | 'muted' | 'warn', string>;
+	// contrast is the server's boot-time WCAG check of the four load-bearing pairs
+	// (F66 R12), shown on the Appearance card (R15). Absent in a paint cache written
+	// by an older build, hence optional.
+	contrast?: { pair: string; ratio: number; pass: boolean }[];
 }
 
 export interface ThemeCapability {

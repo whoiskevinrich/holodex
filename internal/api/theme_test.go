@@ -3,11 +3,39 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"holodex/internal/api"
+	"holodex/internal/db"
+	"holodex/internal/repo"
+	"holodex/internal/theme"
 )
+
+// themedServer is authServer with the Handlers exposed, so a test can wire a palette
+// the way main.go does (SetCustomTheme) before hitting the routes.
+func themedServer(t *testing.T, token string) (*httptest.Server, *api.Handlers) {
+	t.Helper()
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetActivity(nil, api.NewHealth(), "test", time.Time{}, true)
+	h.SetAuth(api.NewAuth(token), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+	return srv, h
+}
 
 // putTok issues PUT url with a JSON body and an optional owner token.
 func putTok(t *testing.T, url, token string, body any) (int, map[string]any) {
@@ -101,5 +129,37 @@ func TestThemeStoredCustomWithoutConfigFallsBack(t *testing.T) {
 	}
 	if v, _, _ := r.GetSetting(t.Context(), "theme.active"); v != "custom" {
 		t.Fatalf("stored row = %q, want untouched \"custom\"", v)
+	}
+}
+
+// With a palette configured, "custom" is selectable and every viewer receives the
+// palette (name, base, normalised tokens, contrast) in capabilities (spec R3, R9, R15).
+func TestSetThemeCustomWhenConfigured(t *testing.T) {
+	srv, h := themedServer(t, "tok")
+	custom, err := theme.Parse(theme.Input{Name: "Rich Archive", Base: "cinematheque",
+		BG: "#0b0a0c", Ink: "#efe9e0", Accent: "#C0483F", Muted: "#9a9188", Warn: "#e2603f"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.SetCustomTheme(custom)
+
+	code, body := putTok(t, srv.URL+"/api/v1/admin/theme", "tok", map[string]string{"theme": "custom"})
+	if code != http.StatusOK {
+		t.Fatalf("set custom = %d %v", code, body)
+	}
+	_, body = getTok(t, srv.URL+"/api/v1/capabilities", "")
+	th := themeOf(t, body)
+	if th["active"] != "custom" {
+		t.Fatalf("active = %v, want custom", th["active"])
+	}
+	c, ok := th["custom"].(map[string]any)
+	if !ok || c["name"] != "Rich Archive" || c["base"] != "cinematheque" {
+		t.Fatalf("custom = %v", th["custom"])
+	}
+	if tokens := c["tokens"].(map[string]any); tokens["accent"] != "#c0483f" || len(tokens) != 5 {
+		t.Fatalf("tokens = %v, want five normalised hexes", tokens)
+	}
+	if pairs := c["contrast"].([]any); len(pairs) != 4 {
+		t.Fatalf("contrast pairs = %d, want 4", len(pairs))
 	}
 }

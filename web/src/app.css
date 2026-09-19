@@ -160,6 +160,28 @@
 	--radius: 0px;
 }
 
+/* ---- Custom palette (F66, ADR-102 D4) — derived tokens ----
+   Active only where the SPA (or an Appearance card) sets data-palette="custom" next to
+   the base skin's data-theme and the five primaries (--bg --ink --accent --muted --warn)
+   as inline custom properties. Every pair-partner token is derived from them here, so a
+   palette cannot recreate the HOLODEX-324 class of contrast bug by hand. Inert without
+   the attribute: the three shipped blocks above render exactly as before.
+
+   MIRROR: internal/theme/theme.go Derive() replicates this block for the boot-time
+   contrast WARN, and TestDeriveMatchesCinematheque gates both against the hand-tuned
+   Cinémathèque values (ΔE*ab ≤ 2). Change a percentage here, change it there. */
+[data-palette='custom'] {
+	--surface: color-mix(in oklab, var(--bg), var(--ink) 4.5%);
+	--surface-2: color-mix(in oklab, var(--bg), var(--ink) 6%);
+	--rule: color-mix(in oklab, var(--bg), var(--ink) 15.5%);
+	/* Ink on a fill: the fill tinted toward the background, then deepened toward black —
+	   a near-black that keeps the fill's hue. */
+	--accent-ink: color-mix(in oklab, color-mix(in oklab, var(--accent), var(--bg) 84%), black 23%);
+	--warn-ink: color-mix(in oklab, color-mix(in oklab, var(--warn), var(--bg) 84%), black 23%);
+	--logo-plate: color-mix(in oklab, color-mix(in oklab, var(--ink), var(--bg) 3%), var(--accent) 7%);
+	--logo-plate-ink: color-mix(in oklab, var(--surface-2), var(--accent) 11%);
+}
+
 @layer base {
 	body {
 		background-color: var(--bg);

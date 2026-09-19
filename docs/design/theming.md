@@ -10,7 +10,13 @@ the owner picks it on **Owner › Appearance**, it persists server-side and arri
 `/capabilities.theme`, and the SPA applies it as `data-theme` on `<html>` for every viewer —
 there is no per-browser preference (only a paint cache, `holodex-theme-cache`, that the server
 value always overwrites). A custom palette (`theme.custom` in `holodex.yaml`) rides a base
-skin's `data-theme` plus five inline custom properties on `<html>`.
+skin's `data-theme` plus five inline custom properties on `<html>`, and `data-palette="custom"`
+switches on the derivation block in `app.css` that computes every pair-partner token
+(`surface`, `surface-2`, `rule`, `accent-ink`, `warn-ink`, `logo-plate`, `logo-plate-ink`) from
+them with oklab `color-mix()`. `internal/theme` mirrors that block in Go for the boot-time
+contrast WARN, and `TestDeriveMatchesCinematheque` gates both: Cinémathèque re-expressed as its
+five primaries must land within ΔE\*ab ≤ 2 of the hand-tuned block. **Change a percentage in one
+place, change it in the other** — the test is what notices when you forget.
 
 ## Design tokens (the contract)
 

@@ -97,6 +97,7 @@
 				tabindex={active ? 0 : -1}
 				bind:this={buttons[i]}
 				data-theme={c.base}
+				data-palette={c.custom ? 'custom' : undefined}
 				style:--bg={c.custom?.tokens.bg}
 				style:--ink={c.custom?.tokens.ink}
 				style:--accent={c.custom?.tokens.accent}
@@ -135,6 +136,17 @@
 					{/each}
 				</span>
 				<span class="mt-2 block text-xs text-muted">{c.subline}</span>
+				{#if c.custom?.contrast}
+					{@const failing = c.custom.contrast.filter((p) => !p.pass)}
+					<!-- R15: the boot-time contrast check, so the owner sees the WARN without logs. -->
+					{#if failing.length === 0}
+						<span class="mt-1 block text-xs text-muted">contrast: all pairs pass</span>
+					{:else}
+						<span class="mt-1 block text-xs text-warn">
+							contrast: {failing.map((p) => `${p.pair} ${p.ratio}:1`).join(' · ')}
+						</span>
+					{/if}
+				{/if}
 			</button>
 		{/each}
 

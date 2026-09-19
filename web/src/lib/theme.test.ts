@@ -9,7 +9,7 @@ import type { ThemeCapability, ThemeCustom } from './types';
 function fakeRoot() {
 	const props = new Map<string, string>();
 	return {
-		dataset: {} as Record<string, string>,
+		dataset: {} as Record<string, string | undefined>,
 		style: {
 			setProperty: (k: string, v: string) => void props.set(k, v),
 			removeProperty: (k: string) => void props.delete(k)
@@ -57,12 +57,14 @@ describe('theme (F66 instance skin)', () => {
 		const t = new ThemeState();
 		t.applyServer({ active: 'custom', custom: CUSTOM });
 		expect(root.dataset.theme).toBe('cinematheque');
+		expect(root.dataset.palette).toBe('custom');
 		expect(t.current).toBe('cinematheque');
 		expect(t.active).toBe('custom');
 		for (const k of CUSTOM_TOKENS) expect(root.props.get(`--${k}`)).toBe(CUSTOM.tokens[k]);
 
 		t.applyServer({ active: 'brutalist', custom: CUSTOM });
 		expect(root.dataset.theme).toBe('brutalist');
+		expect(root.dataset.palette).toBeUndefined();
 		expect(root.props.size).toBe(0);
 		expect(t.custom).toEqual(CUSTOM); // still configured, just not active
 	});
@@ -97,6 +99,16 @@ describe('theme (F66 instance skin)', () => {
 			}
 		};
 		expect(() => new ThemeState().init()).not.toThrow();
+	});
+
+	it('init ignores a cached palette whose token is not a hex colour', () => {
+		localStorage.setItem(
+			'holodex-theme-cache',
+			JSON.stringify({ active: 'custom', custom: { ...CUSTOM, tokens: { ...CUSTOM.tokens, bg: 'red; x' } } })
+		);
+		new ThemeState().init();
+		expect(root.dataset.theme).toBeUndefined();
+		expect(root.props.size).toBe(0);
 	});
 
 	it('init ignores a cached custom palette with missing tokens', () => {

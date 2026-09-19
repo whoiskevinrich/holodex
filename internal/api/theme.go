@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"net/http"
+
+	"holodex/internal/theme"
 )
 
 // Instance skin (F66, ADR-102). The skin is instance identity: one server-held value,
@@ -25,11 +27,24 @@ var shippedThemes = map[string]bool{"cinematheque": true, "broadcast": true, "br
 // ThemeCustom is the owner's custom palette as configured in holodex.yaml
 // `theme.custom` (spec R9): a base skin for fonts/radius/flourishes plus five hex
 // primaries the SPA applies as inline custom properties on <html> (ADR-102 D4). Nil
-// on Handlers until S3 wires config parsing.
+// on Handlers until SetCustomTheme is called.
 type ThemeCustom struct {
 	Name   string            `json:"name"`
 	Base   string            `json:"base"`
 	Tokens map[string]string `json:"tokens"`
+	// Contrast is the boot-time WCAG check of the four load-bearing pairs (spec R12),
+	// surfaced so the Appearance card can show it (R15).
+	Contrast []theme.Pair `json:"contrast"`
+}
+
+// SetCustomTheme wires the owner's parsed palette from config (F66 S3); nil means
+// none is configured. Called once at startup before serving.
+func (h *Handlers) SetCustomTheme(c *theme.Custom) {
+	if c == nil {
+		h.customTheme = nil
+		return
+	}
+	h.customTheme = &ThemeCustom{Name: c.Name, Base: c.Base, Tokens: c.Tokens, Contrast: theme.Contrast(c)}
 }
 
 // ThemePayload is /capabilities.theme — identical for every viewer.

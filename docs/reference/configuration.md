@@ -313,6 +313,34 @@ This is an operator setting: all visitors see the same layout. It is applied as 
 
 > **Related settings:** `thumbnail_width` controls the pixel width of the stored image; `card_layout` controls the display shape. Both are independent — changing `card_layout` does not regenerate thumbnails.
 
+## Appearance
+
+The **skin** is instance identity ([ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)): the owner picks it once on **Owner › Appearance** and every viewer sees it. That choice is *not* a config key — it is a library-owned setting stored in the database (it travels with `/data` and survives a restore; a backup that omits the database does not reproduce the instance's appearance). Three skins ship: Cinémathèque (default), Broadcast, Brutalist.
+
+What config declares is an optional **custom palette** the Appearance tab can then select:
+
+| `holodex.yaml` key | Env var | Default | Description |
+|--------------------|---------|---------|-------------|
+| `theme.custom` | — (YAML only) | none | An owner-defined palette: a base skin plus five colours. Restart to apply. |
+
+```yaml
+theme:
+  custom:
+    name: "Rich Archive"   # label on the Appearance card (1–40 characters)
+    base: cinematheque     # fonts, radius and flourishes come from the base; v1: cinematheque only
+    bg:     "#0b0a0c"      # page background
+    ink:    "#efe9e0"      # primary text
+    accent: "#c0483f"      # primary / active colour
+    muted:  "#9a9188"      # secondary text
+    warn:   "#e2603f"      # error / attention — keep it distinct from accent
+```
+
+- **Five colours, nothing else.** Every other token (surfaces, rules, the ink that sits on an accent or warn fill, the logo plate) is derived from these in CSS, so a palette cannot produce an unreadable fill/ink pair by hand. Colours are `#rgb` or `#rrggbb` only.
+- **Restart to apply.** `holodex.yaml` is read at boot; `/admin/reload-config` does not reload it. After a restart the palette appears as a fourth card on Owner › Appearance — it becomes the instance skin only when you pick it there.
+- **A malformed block is ignored, never fatal.** One log line names the offending key and the server boots with three skins.
+- **Low contrast is a warning, not a refusal.** At boot the server checks four pairs against WCAG AA (4.5:1) — `ink` on `bg`, `muted` on `bg`, the derived ink on `accent`, the derived ink on `warn` — and logs `theme.custom contrast below AA` for each failing pair. The palette is still applied; the Appearance card shows the same result under the palette's name.
+- If the stored choice is the custom palette and the block is later removed, the instance falls back to Cinémathèque and the choice is kept, so restoring the block restores the skin.
+
 ## Films
 
 | `holodex.yaml` key | Env var | Default | Description |

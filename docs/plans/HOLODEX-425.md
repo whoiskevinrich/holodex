@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-425
-status: in-progress
+status: in-progress  # all gates green; awaiting human QA before ready-for-review
 release_note: The skin is now the instance's identity — the owner picks it once on the new Appearance tab and every viewer sees it; an owner can also declare a custom palette (five colors on top of Cinémathèque) in holodex.yaml.
 ---
 
@@ -24,26 +24,30 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 - [x] design `design-handoff` — [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
   [mockup SVG](../design/instance-skin-mockup.svg); option B (miniature browse preview) chosen;
   active = accent border + outlined chip, never solid fill
-- [/] backend — **S1 done**: migration 0048 `settings`, `repo.GetSetting/PutSetting`, `PUT /admin/theme`,
-  `/capabilities.theme` (theme.go + tests); S3 still open: `theme.custom` parse/validate, contrast WARN
-- [/] frontend — **S1 + S2 done**: `theme.svelte.ts` server-applied + paint cache, preference removed,
-  header picker deleted; `/owner/appearance` option B cards (real `.video-frame` tiles under the card's
-  `data-theme`, `.skin-card` two-branch fence in `app.css` so the page skin doesn't bleed into cards);
-  S3 still open: derivation layer in `app.css`
-- [ ] testing `testing-strategy` — R1–R3 handler/repo tests, R11 derivation gate, R12 contrast
-  unit test, three-skin + custom QA matrix
-- [/] security `security-review` — S1 reviewed clean 2026-09-19 (CSRF/authz/SQL/DOM-CSS/cache/exposure);
-  re-run after S3 lands the YAML → CSS surface
+- [x] backend — S1: migration 0048 `settings`, `repo.GetSetting/PutSetting`, `PUT /admin/theme`,
+  `/capabilities.theme`; S3: `internal/theme` (Parse / Derive / Contrast + the R11 gate
+  `TestDeriveMatchesCinematheque`), `config.Theme`, boot wiring with contrast WARNs
+- [x] frontend — S1: `theme.svelte.ts` server-applied + paint cache, preference removed, header picker
+  deleted; S2: `/owner/appearance` option B cards (`.skin-card` two-branch fence in `app.css`); S3:
+  `[data-palette='custom']` derivation block, `data-palette` on `<html>` and the custom card, R15
+  contrast readout
+- [x] testing `testing-strategy` — §13 added: Go gate + contrast/parse tests, repo + API tests, store
+  tests, agent/human rows; CSS ↔ Go cross-check done live (7/7 tokens match to the hex)
+- [x] security `security-review` — S1 and S3 reviewed clean 2026-09-19; the YAML → CSS path is hex-only
+  by construction (regex + re-emit), the paint cache now holds the same shape
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-428] S3 custom palette, derivation (R11 gate), contrast WARN, docs
-2. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
+1. [ ] [HOLODEX-425] **human QA** 3.1–3.4 from the handoff (Kevin's look on the real skins + a real
+   `theme.custom`), then mark PR #365 ready — that is the In Review transition
+2. [ ] [HOLODEX-429] luminance-switched ink partners (spec OQ3) — a mid-tone accent derives a dark ink
+   that fails AA (the sample red lands at 3.91:1); follow-up, not a v1 blocker
+3. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
    all four to Done by hand (epic-keyed branch → CI fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-19 · brainstorm → epic → spec → ADR → design → S1 → S2
+### 2026-09-19 · brainstorm → epic → spec → ADR → design → S1 → S2 → S3
 - skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
 - handoff: epic HOLODEX-425 + stories 426/427/428 filed, branch renamed
   `HOLODEX-425-instance-skin`, epic In Progress; spec + ADR-102 (D2 = ownership test) + design
@@ -51,5 +55,8 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
   owner PUT → visitor reload lands Broadcast tokens, no picker). Code-review 4 findings fixed, security
   review clean. **S2 shipped**: Appearance tab live-verified (cards in their own tokens + flourishes,
   click → server persisted → page re-skinned, keyboard roving, 403 revert + alert, phone two-up, no
-  picker). Found and fixed the descendant-selector bleed with the `.skin-card` fence. Draft PR #365.
-  Next is S3 (HOLODEX-428): `theme.custom` config, derivation layer + R11 gate, contrast WARN, docs.
+  picker). Found and fixed the descendant-selector bleed with the `.skin-card` fence. **S3 shipped**:
+  `theme.custom` config → `internal/theme` → boot WARNs → `/capabilities`; `app.css` derivation block
+  mirrored in Go with the R11 gate green (all seven tokens ΔE ≤ 2, browser and Go agree to the hex
+  live); docs + example + testing-strategy §13. Every gate is green; PR #365 stays Draft only for
+  Kevin's human QA. Filed HOLODEX-429 (mid-tone accent → dark ink fails AA).

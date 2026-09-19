@@ -90,6 +90,21 @@ metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 #   "poster"           — 2:3 poster cards; suited to film libraries with cover art.
 # card_layout: "wide"              # CARD_LAYOUT
 
+# theme.custom declares an owner-defined palette (F66, ADR-102). Which skin is
+# ACTIVE is not config — pick it on Owner › Appearance; this block only adds a
+# fourth card there. Five colours (#rgb or #rrggbb); everything else is derived.
+# YAML only, restart to apply; a malformed block is logged and ignored; low
+# contrast is logged as a WARN, not refused. See docs/reference/configuration.md.
+# theme:
+#   custom:
+#     name: "Rich Archive"
+#     base: cinematheque            # v1: cinematheque only
+#     bg:     "#0b0a0c"
+#     ink:    "#efe9e0"
+#     accent: "#c0483f"
+#     muted:  "#9a9188"
+#     warn:   "#e2603f"
+
 # films_enabled turns on the Films entity (F56, ADR-085): browsable films with
 # owner-asserted video/scene attachments, resolver-source Album/Title writeback,
 # and inherited cast/tags. Off by default. Film-library operators typically pair

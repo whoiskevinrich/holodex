@@ -23,6 +23,10 @@ const DEFAULT: ShippedTheme = 'cinematheque';
 // preference as if it were the instance skin.
 const CACHE_KEY = 'holodex-theme-cache';
 
+// The server only ever emits #rrggbb (spec R9); the cache is held to the same shape so a
+// tampered entry cannot put anything but a colour into a custom property.
+const HEX = /^#[0-9a-f]{6}$/i;
+
 function isShipped(v: unknown): v is ShippedTheme {
 	return typeof v === 'string' && (THEMES as readonly string[]).includes(v);
 }
@@ -39,7 +43,7 @@ function isCustom(v: unknown): v is ThemeCustom {
 		isShipped(c.base) &&
 		typeof c.tokens === 'object' &&
 		c.tokens !== null &&
-		CUSTOM_TOKENS.every((k) => typeof c.tokens?.[k] === 'string')
+		CUSTOM_TOKENS.every((k) => HEX.test(c.tokens?.[k] ?? ''))
 	);
 }
 
@@ -119,6 +123,10 @@ export class ThemeState {
 		if (typeof document === 'undefined') return;
 		const root = document.documentElement;
 		root.dataset.theme = base;
+		// data-palette switches on app.css's derivation block (ADR-102 D4): every
+		// pair-partner token is computed from the five primaries below.
+		if (custom) root.dataset.palette = 'custom';
+		else delete root.dataset.palette;
 		// Inline primaries outrank every [data-theme] block (ADR-102 D4); clearing them
 		// returns the base to its stock values with no residue (spec R4).
 		for (const k of CUSTOM_TOKENS) {
