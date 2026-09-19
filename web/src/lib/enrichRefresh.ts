@@ -7,34 +7,34 @@
 // and the path comes from ENRICH_ENTITY_BASE, so widening the union was enough. A
 // film-specific branch in this file would be a regression, not a fix — api.test.ts pins
 // that films drive the generic path.
-import { api } from "./api";
-import { toMessage } from "./format";
-import type { EnrichEntityKind } from "./types";
+import { api } from './api';
+import { toMessage } from './format';
+import type { EnrichEntityKind } from './types';
 
 export async function runEnrichRefresh(
-  kind: EnrichEntityKind,
-  id: number,
-  provider: string,
-  setBusy: (v: string) => void,
-  setError: (v: string) => void,
-  reloadDetail: () => Promise<void>,
+	kind: EnrichEntityKind,
+	id: number,
+	provider: string,
+	setBusy: (v: string) => void,
+	setError: (v: string) => void,
+	reloadDetail: () => Promise<void>
 ): Promise<void> {
-  setBusy(provider);
-  setError("");
-  try {
-    await api.enrichRefresh(kind, id, provider);
-    await reloadDetail();
-  } catch (e) {
-    setError(toMessage(e));
-  } finally {
-    setBusy("");
-  }
+	setBusy(provider);
+	setError('');
+	try {
+		await api.enrichRefresh(kind, id, provider);
+		await reloadDetail();
+	} catch (e) {
+		setError(toMessage(e));
+	} finally {
+		setBusy('');
+	}
 }
 
 // rateLimitedLine is the inline status text for a paused provider (F66 RD8) — the
 // same sentence the single-call 503 body carries.
 export function rateLimitedLine(provider: string, secs: number): string {
-  return `${provider} is rate-limiting — try again in ${secs} s`;
+	return `${provider} is rate-limiting — try again in ${secs} s`;
 }
 
 // A provider that resolved ambiguously must not be silently dropped — openPicker is
@@ -42,31 +42,27 @@ export function rateLimitedLine(provider: string, secs: number): string {
 // rate-limited provider (ADR-103 D4) is reported per row, so the other providers'
 // results still land; its line goes on the same inline error slot a failed call uses.
 export async function runEnrichRefreshAll(
-  kind: EnrichEntityKind,
-  id: number,
-  setRefreshingAll: (v: boolean) => void,
-  setError: (v: string) => void,
-  reloadDetail: () => Promise<void>,
-  openPicker: (provider: string) => void,
+	kind: EnrichEntityKind,
+	id: number,
+	setRefreshingAll: (v: boolean) => void,
+	setError: (v: string) => void,
+	reloadDetail: () => Promise<void>,
+	openPicker: (provider: string) => void
 ): Promise<void> {
-  setRefreshingAll(true);
-  setError("");
-  try {
-    const { results } = await api.enrichRefreshAll(kind, id);
-    await reloadDetail();
-    const limited = results.filter((r) => r.status === "rate_limited");
-    if (limited.length) {
-      setError(
-        limited
-          .map((r) => rateLimitedLine(r.provider, r.retry_after ?? 0))
-          .join(" · "),
-      );
-    }
-    const needsReview = results.find((r) => r.status === "needs_review");
-    if (needsReview) openPicker(needsReview.provider);
-  } catch (e) {
-    setError(toMessage(e));
-  } finally {
-    setRefreshingAll(false);
-  }
+	setRefreshingAll(true);
+	setError('');
+	try {
+		const { results } = await api.enrichRefreshAll(kind, id);
+		await reloadDetail();
+		const limited = results.filter((r) => r.status === 'rate_limited');
+		if (limited.length) {
+			setError(limited.map((r) => rateLimitedLine(r.provider, r.retry_after ?? 0)).join(' · '));
+		}
+		const needsReview = results.find((r) => r.status === 'needs_review');
+		if (needsReview) openPicker(needsReview.provider);
+	} catch (e) {
+		setError(toMessage(e));
+	} finally {
+		setRefreshingAll(false);
+	}
 }

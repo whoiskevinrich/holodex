@@ -36,7 +36,9 @@ class ActivityState {
 	// active drives the header indicator: any background work in progress.
 	get active(): boolean {
 		const d = this.data;
-		return !!d && (d.scan.state === 'running' || d.thumbnails.depth > 0);
+		return (
+			!!d && (d.scan.state === 'running' || d.thumbnails.depth > 0 || d.sweep?.state === 'running')
+		);
 	}
 
 	// Capability predicates live here (next to caps) so every surface interprets

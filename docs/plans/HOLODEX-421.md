@@ -41,8 +41,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [x] backend — ADR-103 action items 1–7: pacer + `rate_limit` carriage + `429` typed in `do` +
   `Service.RefreshPair` + `503`/`rate_limited` mapping + `SweepRunner` / `POST /admin/enrich/sweep/{kind}`
   / `sweep` block / `?batch=` / `LibraryCounts.Studios` + TMDB sidecar `429` pass-through
-- [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
-  pages; `JobHistory` batch chip; `activity.busy` includes sweep
+- [x] frontend — status page buttons + inline confirm (count, `☐ Refresh everything` → `force`);
+  shared `SweepStatusLine.svelte` (+ `sweepLine.ts`, unit-tested) on both list pages; `JobHistory`
+  `?batch=` chip; `activity.active` includes sweep; TS types. QA'd live against the worktree backend
 - [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
   limiter + breaker unit tests, `SweepStatusLine` running→idle edge fires `onfinished` once,
   row in `docs/testing-strategy.md`
@@ -55,12 +56,12 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
-3. [ ] [—] Frontend (status-page buttons + inline confirm with due count + checkbox,
-   `SweepStatusLine` on `/people` + `/studios`, `JobHistory` batch chip, `activity.active` includes
-   sweep, `LibraryCounts.studios` + `Activity.sweep` types), then `/testing-strategy` →
-   `/security-review` → three-skin QA, per the gates above
+3. [x] [—] Frontend shipped (Option D); the confirm reads `Refresh N people (skipping any refreshed in
+   the last 24 h)?` in P0 — the *due* count waits for P1-2's preview endpoint
+4. [ ] [—] `/testing-strategy` (row in `docs/testing-strategy.md`) → `/security-review` → handoff
+   checklist items 8 (429 fixture) + 11 (stop a sidecar mid-sweep) still open — the rest passed
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
-5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
+5. [ ] [—] Mark PR #367 ready only when every gate is green; CI moves 421 → In Review / Done
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -178,3 +179,25 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   `SweepStatusLine.svelte` fed by `activity.sweep`, `JobHistory` `?batch=` chip, `active` getter
   includes `sweep.state === 'running'`, TS types for `sweep` + `library.studios`. Handoff doc:
   `docs/design/entity-refresh-sweep-handoff.md` (Option D, seven states).
+
+### 2026-09-19 · frontend gate — Option D shipped + three-skin QA
+- skills: code-review
+- `web/src/lib/components/activity/SweepStatusLine.svelte` (+ `sweepLine.ts`: `doneLineFor`,
+  `sweepFinished` once-only edge, `skippedText` grouped by reason — 4 vitest cases); mounted on
+  `/people` and `/studios` above `DuplicatesBanner` with `onfinished={reload}`. `/owner/status`: two
+  bordered buttons after Sign out (hidden when the kind's count is 0), inline confirm with the
+  checkbox (reset on every open), running label `Refreshing people 37 / 212…`, other kind disabled
+  with `title` + `aria-describedby`, digest reloads on the sweep's running→idle edge, `?batch=` opens
+  the Log scoped with the `JobHistory` chip (× → `goto('/owner/status')`). `api.sweepEntities`,
+  `activityHistory(days, batch?)`, `Activity.sweep` / `LibraryCounts.studios` types, `active` getter.
+  `activity/CLAUDE.md` table updated.
+- **Formatting churn undone:** commit 79208d3 had run prettier (no repo config → defaults) over
+  `api.ts`, `types.ts`, `api.test.ts`, `enrichRefresh.ts` (~2 500 lines of tab→space churn). This
+  commit restores the originals and re-applies only the semantic edits; never `prettier --write` a
+  `web/src/lib/*.ts` file here without `--use-tabs --single-quote`.
+- QA (worktree backend on :7810 / Vite :5183 — session-local `launch.json` entries `backend-films-421`,
+  `web-421`; :7800 was another session's): checklist 1–3, 5–7, 9–10 pass on Cinémathèque, Broadcast,
+  Brutalist; 4 by eye (tokens only, no literals); mobile 375 px: confirm wraps, `scrollWidth ==
+  innerWidth`. Real TMDB sweep: 21 people 42.8 s → Linked 16 · 5 need review; second run 539 ms →
+  16 recently refreshed. Open: 8 (needs the 429 fixture sidecar) and 11 (human).
+- handoff: next = `/testing-strategy` row + `/security-review`; then Kevin's look → `gh pr ready`.
