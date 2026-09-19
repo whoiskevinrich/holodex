@@ -71,6 +71,8 @@ These constraints come from the calling client; a provider must stay within them
 | Request methods / paths | `GET /healthz`, `GET /describe`, `POST /resolve`, `POST /enrich` | Exactly these four; other methods/paths are unused. Reject unknown paths/methods |
 | Request headers sent by Holodex | `Accept: application/json`; `Content-Type: application/json` on POSTs | **No auth header is sent to the provider** — the provider is reached only over the trusted internal network. Do not depend on Holodex authenticating to you |
 | Per-call timeout | **8 seconds** | Holodex aborts any single call (incl. `/healthz`, `/describe`, `/resolve`, `/enrich`) at 8 s. Answer well within this; do your own upstream calls on a tighter budget |
+| Outbound pacing | **Per-provider token bucket** — default `2 req/s`, burst `4` | Holodex paces every call it makes to you (F66). You may raise or lower this by declaring `rate_limit` in `/describe` ([§4.13](#413-rate-limit-declaration-describerate_limit)); the operator's `metadata-sources.yaml` `rate_limit:` overrides both |
+| `429` back-pressure | Honoured: `Retry-After` seconds (default 30 s if absent/unparseable, cap 300 s) | A `429` pauses Holodex's bucket for **your** provider only. A sweep retries the call once after the pause; an owner's single click fails fast with a "rate-limiting — try again in N s" line instead of waiting. It is **not** counted as a failure (three consecutive pauses during a sweep do stop that sweep calling you — [§4.13](#413-rate-limit-declaration-describerate_limit)). Use it when your upstream says no — never hold a connection past 8 s instead |
 | Response body cap | **1 MiB** | Holodex reads at most 1 MiB of any response body and decodes that as JSON. Keep responses small (cap candidates, trim long text — see [§5](#5-non-functional-requirements)) |
 | Success status | `2xx` | Any non-2xx is treated as a failed call (see error handling below) |
 | Redirects | Cross-host 30x is **not followed** (treated as the final response); ≤5 same-host hops are followed | Respond **directly** with the JSON body and a 2xx; never redirect Holodex to another host |
@@ -148,6 +150,7 @@ provider loudly.
 | `brand_icon` | object | optional | Your provider's **brand icon** — an [asset object](#43-assets) `{ "url": "…" }` Holodex downloads, normalizes, self-hosts, and shows in place of the repeated "from `<name>`" provenance text. One provider-level image, **not** a per-entity asset. Subject to the full [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules (allowlisted host, https cross-host, no credentials, ≤16 MiB, ≤4096 px). Omit if you have none — Holodex falls back to a monogram. See [§4.8](#48-provider-brand-icon-describebrand_icon). Additive (unknown key, ignored by older Holodex) |
 | `preferred_search_pattern` | string | optional | **`video` only.** A search-query shape you'd like Holodex to build `/resolve`'s `hint.query` from instead of the raw/sanitized title — see [§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern). Consulted only when the *operator* hasn't configured their own override for you (operator config always wins). Malformed/unparseable → ignored (logged on the Holodex side), never an error to you. Omit if you have no opinion — the sanitized-title fallback already applies unconditionally either way. Additive (unknown key, ignored by older Holodex) |
 | `resolve_hints` | string[] | optional | **`video` only.** The structured `/resolve` hint keys you want **in addition to** `hint.query` — any of `"fields"`, `"filename"` — see [§4.10](#410-structured-resolve-hints-describeresolve_hints). Holodex sends `hint.fields` only if you list `"fields"`, `hint.filename` only if you list `"filename"` (and the operator hasn't denied it), and `hint.query_source` alongside either. **Omit it and your `/resolve` request is byte-for-byte what it is today** — this is the opt-in that lets the request body grow without a protocol bump, because [§2.3](#23-post-resolve--identity-match-disambiguation) makes no unknown-key promise for requests. Unknown entries ignored, known ones honored. Additive (unknown key, ignored by older Holodex) |
+| `rate_limit` | object | optional | `{ "requests_per_second": number, "burst": integer }` — the pace you want Holodex to hold **all** its calls to you at ([§4.13](#413-rate-limit-declaration-describerate_limit)). Clamped Holodex-side to `[0.1, 50]` / `[1, 100]`; malformed → ignored with a warning, default applies. The operator's `metadata-sources.yaml` `rate_limit:` wins over yours. Additive (unknown key, ignored by older Holodex) |
 | `link_templates` | object | optional | How a namespace-qualified external id becomes an **outbound link** — `{ "<namespace>": { "<entity kind>": "<http(s) URL template with exactly one {id}>" } }`, entity kinds `person` / `studio` / `film` / `video` — see [§4.11](#411-outbound-link-templates-describelink_templates). Keyed by **namespace**, not provider, so you may declare templates for a foreign namespace you emit (e.g. `imdb`). Feeds the provider link badge on entity pages; without it every pill for your ids renders as plain "known to `<name>`" text. Invalid entries are dropped **per entry** (never the whole manifest). Omit if you have no public page per id. Additive (unknown key, ignored by older Holodex) |
 
 ### 2.3 `POST /resolve` — identity match (disambiguation)
@@ -292,9 +295,11 @@ rules, formats, sizes, and aspect guidance are in [§4.3](#43-assets).
 | `GET /describe` | `200` | — (static; should always succeed) |
 | `POST /resolve` | `200` (incl. empty `candidates`) | `502`/`503` on upstream failure; `400` on a malformed request body |
 | `POST /enrich` | `200` | `404`/`400` for an unknown/bad `external_id`; `502`/`503` on upstream failure |
+| `POST /resolve`, `POST /enrich` | — | `429` + `Retry-After: <seconds>` when your upstream is rate-limiting **you** — Holodex pauses your bucket and retries once ([§2.0](#20-transport-behaviour-the-holodex-client-enforces)); not a failure |
 
-Holodex maps **any** non-2xx to a generic owner-facing error and a warning log — exact codes
-beyond "2xx vs not" are for the provider's own clarity/observability.
+Holodex maps **any** non-2xx **except `429`** to a generic owner-facing error and a warning log — exact
+codes beyond "2xx vs not" are for the provider's own clarity/observability. `429` is the one code with
+its own semantics (back-pressure, [§2.0](#20-transport-behaviour-the-holodex-client-enforces)).
 
 ---
 
@@ -642,9 +647,14 @@ serves its own copy. Stay inside these so nothing is rejected or silently altere
 - **Credentials** for your upstream (API keys, tokens) are read from the **container's own
   environment** (see [§7](#7-configuration)). They are **never** passed to, stored by, logged
   by, or returned to Holodex.
-- **Rate limits / backoff** are entirely the provider's responsibility. Because Holodex's
-  per-call budget is **8 s**, any retry must fit inside that window — prefer at most one quick
-  retry, then return a non-2xx so Holodex fails the single call cleanly rather than hanging.
+- **Rate limits / backoff** are shared (amended by F66, HOLODEX-421 — previously "entirely the
+  provider's responsibility"). Holodex **paces** its calls to you with a per-provider token bucket
+  (default `2 req/s`, burst `4`) that you can tune via [§4.13](#413-rate-limit-declaration-describerate_limit)
+  and the operator can cap; you own the **upstream** side. When your upstream rate-limits you,
+  answer **`429` with `Retry-After`** and Holodex pauses your bucket ([§2.0](#20-transport-behaviour-the-holodex-client-enforces)).
+  Because Holodex's per-call budget is still **8 s**, any retry you do yourself must fit inside
+  that window — prefer at most one quick retry, then `429` (rate-limited) or `502`/`503`
+  (broken) so Holodex handles the single call cleanly rather than hanging.
 - Any caching of upstream responses is internal to the provider and must not be required for
   correctness (the container stays stateless w.r.t. Holodex).
 
@@ -1045,6 +1055,45 @@ matched, or carry a slug Holodex cannot derive — return the page itself, per e
 **Practical guidance:** the video provider is **expected** to return this on every `/enrich` — it is what
 makes the media page's provider pill a link. Return the canonical, shareable form of the page (no session
 tokens, no tracking parameters); it is shown to visitors as-is.
+
+---
+
+### 4.13 Rate limit declaration (`/describe.rate_limit`)
+
+> **Status: additive extension** (F66 — [entity-refresh-sweep.md](entity-refresh-sweep.md), HOLODEX-421;
+> ADR pending). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
+> that omits it stays fully conformant at Holodex's default pace, and an older Holodex that doesn't parse it
+> is unaffected. **No protocol bump.**
+
+Holodex paces **every** call it makes to a provider — a single owner click and an owner-triggered
+**sweep** over a whole library alike — through a per-provider token bucket. The default (`2 req/s`,
+burst `4`) is conservative enough for any public upstream at a personal library's scale. If your upstream
+allows more (or less), say so once:
+
+```json
+{
+  "provider": "tmdb",
+  "protocol_version": 1,
+  "entity_types": ["person", "video", "studio", "film"],
+  "rate_limit": { "requests_per_second": 10, "burst": 20 }
+}
+```
+
+| Rule | Detail |
+|---|---|
+| Shape | `{ "requests_per_second": number > 0, "burst": integer ≥ 1 }`. Both keys optional; a missing key takes the default for that key |
+| Clamping | `requests_per_second` → `[0.1, 50]`, `burst` → `[1, 100]`. Out-of-range values are clamped **and logged** Holodex-side; malformed (non-numeric, negative, NaN) → the whole object is ignored with a warning and the default applies. Never an error response to you |
+| Precedence | **Operator > you > default.** A `rate_limit:` entry for your provider in `metadata-sources.yaml` wins outright — the same rule `search_pattern` uses over your `preferred_search_pattern` ([§4.9](#49-preferred-search-query-pattern-describepreferred_search_pattern)) |
+| Scope | One bucket per provider, across all entity types and both endpoints (`/resolve` and `/enrich` share it). `/healthz` and `/describe` are not paced |
+| Back-pressure | Independent of the bucket: a `429` with `Retry-After` pauses the bucket for that many seconds (default 30 s, cap 300 s). A sweep retries the call once after the pause; an owner's single click does not wait — it fails fast and the owner sees "try again in N s". Use it for the moments your declared pace was still too fast for upstream |
+| Fault isolation | During a sweep, **5 consecutive** non-`429` failures (5xx, timeout, transport) **or 3 consecutive `429` pauses** from you stop the sweep calling you for its remainder; the owner sees `Skipped N (<name> stopped responding)` or `(<name> rate-limited)`. The breaker is per sweep — the next sweep tries you again. Single owner clicks are not subject to it |
+| Re-read | On every `/describe` (startup, `reload-config`), like the rest of the manifest |
+
+**Practical guidance:** declare the pace your upstream *actually* allows for one API key, minus headroom
+for the provider's own retries — not the theoretical ceiling. If you run your own queue in front of a
+scarce upstream, declare a generous `rate_limit` and answer `429 Retry-After` when the queue is full;
+Holodex will wait rather than pile on. Batching many entities into one upstream call is a separate,
+future extension ([HOLODEX-422](https://whoiskevinrich.atlassian.net/browse/HOLODEX-422)).
 
 ---
 
