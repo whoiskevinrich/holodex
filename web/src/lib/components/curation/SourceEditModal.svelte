@@ -11,11 +11,13 @@
 	// backdrop, focus-return), mirroring MergeCanonicalDialog's own radio-body usage of it.
 	// Each source value is clamped to four lines (SourceValueClamp, HOLODEX-417) so the
 	// candidates — and the Save/Cancel footer — stay on screen together at paragraph length.
+	// The rows themselves live in SourceRadioList (HOLODEX-400) so the writeback dialog can
+	// embed the same chooser; this modal only supplies the chrome and the Save commit.
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import { resolveSelection, sourceChips } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
-	import SourceValueClamp from './SourceValueClamp.svelte';
+	import SourceRadioList from './SourceRadioList.svelte';
 
 	let {
 		field,
@@ -79,70 +81,8 @@
 	oncancel={onclose}
 >
 	{#snippet body()}
-		<fieldset class="space-y-2">
-			<legend class="sr-only">Source for {field.label}</legend>
-			{#each chips as chip (chip.key)}
-				{#if chip.key === 'custom'}
-					<label
-						class="block rounded-theme border p-2 {stagedKey === 'custom'
-							? 'border-accent bg-accent/10'
-							: 'border-rule'}"
-					>
-						<span class="flex items-center gap-2">
-							<input
-								type="radio"
-								name={`source-edit-${field.canonical}`}
-								class="accent-accent"
-								value="custom"
-								checked={stagedKey === 'custom'}
-								onchange={() => (stagedKey = 'custom')}
-							/>
-							<span
-								class="text-xs uppercase tracking-wide {stagedKey === 'custom' ? 'text-accent' : 'text-muted'}"
-							>
-								Custom
-							</span>
-						</span>
-						<textarea
-							bind:value={stagedCustomValue}
-							onfocus={() => (stagedKey = 'custom')}
-							rows="5"
-							placeholder={`Write a custom ${field.label.toLowerCase()}…`}
-							class="mt-1 ml-6 block w-[calc(100%-1.5rem)] resize-none rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
-						></textarea>
-					</label>
-				{:else}
-					{@const value = chip.value.trim()}
-					<label
-						class="block cursor-pointer rounded-theme border p-2 {stagedKey === chip.key
-							? 'border-accent bg-accent/10'
-							: 'border-rule hover:bg-surface-2'}"
-					>
-						<span class="flex items-center gap-2">
-							<input
-								type="radio"
-								name={`source-edit-${field.canonical}`}
-								class="accent-accent"
-								value={chip.key}
-								checked={stagedKey === chip.key}
-								onchange={() => (stagedKey = chip.key)}
-							/>
-							<span
-								class="text-xs uppercase tracking-wide {stagedKey === chip.key ? 'text-accent' : 'text-muted'}"
-							>
-								{chip.labels.join(' + ')}
-							</span>
-						</span>
-						<span class="mt-1 block pl-6 text-sm {value ? 'text-ink' : 'text-muted'}">
-							{#if value}
-								<SourceValueClamp text={value} label={chip.labels.join(' + ')} />
-							{:else}
-								No value
-							{/if}
-						</span>
-					</label>
-				{/if}
-			{/each}
-		</fieldset>
+		<!-- The candidate rows live in SourceRadioList (HOLODEX-400) so the writeback dialog can
+		     embed the same chooser; this modal only supplies the chrome and the Save commit. -->
+		<SourceRadioList {field} {chips} bind:stagedKey bind:stagedCustomValue disabled={busy} />
 	{/snippet}
 </ConfirmDialog>
