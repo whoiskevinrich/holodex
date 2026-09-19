@@ -38,9 +38,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6),
   `Service.RefreshPair` shared step (D7), `SweepRunner` + `sweep` block (D8), `batch_id` (D9), TMDB
   `429` pass-through (D10); README row; spec / contract §4.13 / F47 pointers → ADR-103
-- [ ] backend — **AI 1–5 shipped** (pacer + `rate_limit` carriage + `429` typed in `do` +
-  `Service.RefreshPair` + `503`/`rate_limited` mapping); remaining: `SweepRunner` / activity /
-  history / `LibraryCounts.Studios` (AI 6), TMDB `429` pass-through (AI 7)
+- [ ] backend — **AI 1–6 shipped** (pacer + `rate_limit` carriage + `429` typed in `do` +
+  `Service.RefreshPair` + `503`/`rate_limited` mapping + `SweepRunner` / `POST /admin/enrich/sweep/{kind}`
+  / `sweep` block / `?batch=` / `LibraryCounts.Studios`); remaining: TMDB `429` pass-through (AI 7)
 - [ ] frontend — status page buttons + confirm; shared `SweepStatusLine.svelte` on both list
   pages; `JobHistory` batch chip; `activity.busy` includes sweep
 - [ ] testing `testing-strategy` — handler 202/single-flight, `SingleStrongMatch` path reuse,
@@ -55,8 +55,9 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [x] [—] `/architecture` — ADR-103 (number 102 went to HOLODEX-425 mid-session; claims file reserved 103)
-3. [ ] [—] Backend, ADR-103 action items **6 → 7** (`SweepRunner`/activity/history/`LibraryCounts.Studios`
-   → TMDB `429`), then frontend → tests, per the gates above
+3. [ ] [—] Backend AI **7** (TMDB sidecar `429` pass-through), then frontend (status-page buttons +
+   confirm, `SweepStatusLine`, `JobHistory` batch chip, `activity.active` includes sweep,
+   `LibraryCounts.studios` type) → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark the **new** PR ready only when every gate is green; CI moves 421 → In Review / Done
 
@@ -145,3 +146,22 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - handoff: next = AI 6 — `enrich.SweepRunner` (TryLock across kinds, breaker, retry-once, `Status()`),
   `POST /admin/enrich/sweep/{kind}` 202, `sweep` block + `busy` on `/admin/activity`,
   `LibraryCounts.Studios`, `JobKindEnrichSweep`, `?batch=` on history.
+
+### 2026-09-19 · backend 4 — `SweepRunner` + endpoint + activity block (AI 6)
+- skills: code-review
+- `internal/enrich/sweep.go`: `SweepRunner` (`NewSweepRunner(svc, lister, log)`, `SetBaseContext`,
+  `Trigger(kind, force) (started, err)`, `Status()`); one `TryLock` across kinds; entities sequential,
+  providers of one entity concurrent; per-provider breaker (5 failures / 3 pauses, reset on success,
+  shutdown cancellations don't count); retry-once after an injected `sleep` on a pause; `SweepStatus`
+  = spec P0-3 shape (`skipped_providers` = `[{provider, reason}]`, always `[]` not `null`);
+  `linked` = auto_applied + refreshed; summary `JobKindEnrichSweep` run with `Detail` per P0-4.
+  API: `POST /admin/enrich/sweep/{people|studios}` `{force}` → `202 {started}` (404 unknown kind,
+  503 unwired); `activityResponse.Sweep`; `?batch=` on history via `repo.ListJobRunsByBatch`;
+  `LibraryCounts.Studios`. Wired in `cmd/holodex/main.go` on the server-lifetime ctx.
+  Tests: 4 runner tests (batch runs, staleness/force, single-flight across kinds via a gated fake,
+  dead-provider breaker, pause retry + breaker) + 1 endpoint test (401/404/202, poll to idle,
+  `?batch=`, `library.studios`).
+- `code-review high --fix`: 2 fixed — `Status()`'s copy turned `[]` into `null`; shutdown
+  cancellations counted toward the breaker.
+- handoff: next = AI 7 (TMDB sidecar passes upstream `429` + `Retry-After`; contract §2.0 already
+  says so) — small; then the frontend gate.

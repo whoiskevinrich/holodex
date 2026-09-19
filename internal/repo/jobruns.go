@@ -95,6 +95,20 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 	return scanJobRuns(rows)
 }
 
+// ListJobRunsByBatch returns every run recorded under one batch id, newest-first
+// (F66 RD6, ADR-103 D9): the sweep's summary row plus each per-entity enrich run it
+// produced. No index — job_runs is 30-day-pruned and this is an owner-only audit read.
+func (r *Repo) ListJobRunsByBatch(ctx context.Context, batchID string) ([]model.JobRun, error) {
+	rows, err := r.db.QueryContext(ctx, jobRunSelect+`
+		WHERE batch_id = ?
+		ORDER BY started_at DESC, id DESC`, batchID)
+	if err != nil {
+		return nil, fmt.Errorf("list job runs by batch: %w", err)
+	}
+	defer rows.Close()
+	return scanJobRuns(rows)
+}
+
 // jobRunColumns is the one select list every job-run read shares, so a new
 // column can't be added to the scan order in one query and forgotten in another.
 // The names are unqualified on purpose: job_run_dismissals shares none of them,
@@ -288,6 +302,7 @@ type LibraryCounts struct {
 	VideosActive   int `json:"videos_active"`
 	VideosInactive int `json:"videos_inactive"`
 	People         int `json:"people"`
+	Studios        int `json:"studios"`
 	Tags           int `json:"tags"`
 }
 
@@ -301,9 +316,11 @@ func (r *Repo) LibraryCounts(ctx context.Context) (LibraryCounts, error) {
 		  (SELECT COUNT(*) FROM videos WHERE active = 0 AND deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vp.person_id) FROM video_people vp
 		     JOIN videos v ON v.id = vp.video_id AND v.active = 1 AND v.deleted_at IS NULL),
+		  (SELECT COUNT(DISTINCT vs.studio_id) FROM video_studios vs
+		     JOIN videos v ON v.id = vs.video_id AND v.active = 1 AND v.deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vt.tag_id) FROM video_tags vt
 		     JOIN videos v ON v.id = vt.video_id AND v.active = 1 AND v.deleted_at IS NULL)`).
-		Scan(&c.VideosActive, &c.VideosInactive, &c.People, &c.Tags)
+		Scan(&c.VideosActive, &c.VideosInactive, &c.People, &c.Studios, &c.Tags)
 	if err != nil {
 		return LibraryCounts{}, fmt.Errorf("library counts: %w", err)
 	}

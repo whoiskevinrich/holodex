@@ -79,7 +79,10 @@ type Handlers struct {
 	// than reached through extract.Orchestrator's composition.
 	extract      *extract.Orchestrator
 	extractBatch *extract.BatchRunner
-	patterns     *extract.PatternStore
+	// Entity refresh sweep (F66, ADR-103 D8). nil disables the trigger (503) and
+	// leaves the activity `sweep` block idle.
+	sweep    *enrich.SweepRunner
+	patterns *extract.PatternStore
 
 	// Activity surface (F21.1, ADR-028). All optional/nil-safe. Thumbnail stats
 	// come from the existing thumbs seam; scan status from scanStatus.
@@ -208,6 +211,10 @@ func (h *Handlers) SetExtraction(orch *extract.Orchestrator, batch *extract.Batc
 		h.patterns = orch.Patterns
 	}
 }
+
+// SetSweep wires the entity refresh sweep runner (F66, ADR-103 D8). Called once
+// at startup before serving; nil-safe.
+func (h *Handlers) SetSweep(s *enrich.SweepRunner) { h.sweep = s }
 
 // SetPersonImages wires per-person image storage (F25, ADR-038): the on-disk root,
 // the upload bounds, and the default skin used when a placeholder is served without
@@ -400,6 +407,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/admin/reload-config", h.adminReloadConfig)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
 		r.Post("/admin/extract-all", h.adminExtractAll)
+		// Entity refresh sweep — one background pass per kind (F66, ADR-103 D8).
+		r.Post("/admin/enrich/sweep/{kind}", h.adminEnrichSweep)
 		// Metadata source plugins — People enrichment (F22, ADR-033).
 		h.mountEnrich(r)
 		// Person aliases — owner-curated alternate names (F23, ADR-036).

@@ -73,6 +73,7 @@ func reviewServerWith(t *testing.T, token string, newClient func(enrich.Source) 
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetEnrichment(svc)
+	h.SetSweep(enrich.NewSweepRunner(svc, r, log))
 	h.SetAuth(api.NewAuth(token), false)
 	srv = httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
@@ -460,5 +461,58 @@ func TestEnrichRefreshAll(t *testing.T) {
 	}
 	if results, _ := body["results"].([]any); len(results) != 0 {
 		t.Fatalf("dismissed provider must be left out of refresh-all: %v", results)
+	}
+}
+
+// The sweep trigger and its read-model (F66 P0-2/P0-3/P0-4, ADR-103 D8/D9): 202 with
+// started, the activity poll's `sweep` block, and ?batch= on history.
+func TestEnrichSweepEndpoint(t *testing.T) {
+	srv, _, _, _, _, _ := reviewServer(t, "s3cret")
+	base := srv.URL + "/api/v1/admin"
+
+	if code := sendTok(t, http.MethodPost, base+"/enrich/sweep/people", ""); code != http.StatusUnauthorized {
+		t.Fatalf("no-token sweep = %d, want 401", code)
+	}
+	if code, _ := postTok(t, base+"/enrich/sweep/films", "s3cret", nil); code != http.StatusNotFound {
+		t.Fatalf("unknown kind = %d, want 404", code)
+	}
+	code, body := postTok(t, base+"/enrich/sweep/people", "s3cret", map[string]any{"force": true})
+	if code != http.StatusAccepted || body["started"] != true {
+		t.Fatalf("sweep = %d %v, want 202 started:true", code, body)
+	}
+
+	var sweep map[string]any
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		_, act := getJSONTok(t, base+"/activity", "s3cret")
+		sweep, _ = act["sweep"].(map[string]any)
+		if sweep != nil && sweep["state"] == "idle" && sweep["last_run"] != nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	last, _ := sweep["last_run"].(map[string]any)
+	if last == nil || last["kind"] != "person" || last["total"] != float64(1) || last["linked"] != float64(1) {
+		t.Fatalf("sweep block after the run = %v", sweep)
+	}
+	batch, _ := last["batch_id"].(string)
+	if batch == "" {
+		t.Fatalf("last_run carries no batch_id: %v", last)
+	}
+
+	_, hist := getJSONTok(t, base+"/activity/history?batch="+batch, "s3cret")
+	runs, _ := hist["runs"].([]any)
+	if len(runs) < 2 {
+		t.Fatalf("history?batch= = %v, want the summary + the per-entity run", hist)
+	}
+	for _, r := range runs {
+		if run, _ := r.(map[string]any); run["batch_id"] != batch {
+			t.Errorf("run outside the batch: %v", run)
+		}
+	}
+	_, counts := getJSONTok(t, base+"/activity", "s3cret")
+	lib, _ := counts["library"].(map[string]any)
+	if lib["studios"] != float64(1) {
+		t.Fatalf("library.studios = %v, want 1", lib)
 	}
 }
