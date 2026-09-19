@@ -91,3 +91,41 @@ func (h *Handlers) adminActivityDigest(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, digest)
 }
+
+// adminDismissJobRun marks one failed run as handled (HOLODEX-416, ADR-100 D1)
+// so it leaves the digest's failure list and error count while the history
+// keeps it. Idempotent by contract: an already-dismissed, non-error or absent run
+// answers 200 {dismissed:false}, never 404/409 — a second tab or a double click
+// costs the owner nothing.
+func (h *Handlers) adminDismissJobRun(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	dismissed, err := h.repo.DismissJobRun(r.Context(), id)
+	if err != nil {
+		h.fail(w, "dismiss job run", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dismissed": dismissed})
+}
+
+// adminDismissJobFailures dismisses every undismissed error run in the digest
+// window (ADR-100 D4). The body carries the same `days` the digest was read
+// with; an empty body means the full window. The window is resolved
+// server-side at request time, so runs beyond the digest's inline failure cap
+// are covered and a failure that lands after the call is not.
+func (h *Handlers) adminDismissJobFailures(w http.ResponseWriter, r *http.Request) {
+	req := struct {
+		Days int `json:"days"`
+	}{Days: 30}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
+	n, err := h.repo.DismissJobFailures(r.Context(), req.Days)
+	if err != nil {
+		h.fail(w, "dismiss job failures", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dismissed": n})
+}
