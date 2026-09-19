@@ -21,7 +21,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 - [x] architecture `architecture` — ADR-099 (supersedes ADR-081 D3 + D4): required band, extras, `entity_completeness` + `_missing` + `completeness_dirty` with triggers, lazy drain on owner reads
 - [x] design `design-handoff` — `docs/design/completeness-ring-badge-handoff.md` + `-mockup.svg`: card = bottom-left chip with Part N shifting right (HOLODEX-389 had taken the corner), rows = trailing before the count, `CompletenessRing` props/markup, numbered three-skin QA
 - [x] backend — migration 0048 (tables + triggers, incl. promotions/claims/hints in SQL), `resolver.Complete` Required/Extras, `repo.DrainCompleteness` under writeMu + `StoreCompleteness` self-heal, mark-all on boot/reload, SQL composite sort + missing-facet predicate, owner-only `completeness` on list items, registry demotions; 2026-09-18
-- [ ] frontend — ring badge on VideoCard / people / studio cards (owner only), panel shows `extras`
+- [x] frontend — `CompletenessRing` + `ring.ts` (unit-tested), VideoCard bottom-left chip beside Part, `/people` + `/studios` rows before the count, panel headline `score` + `extras` (studio → extras is the number), `types.ts` v2 shapes; agent QA 2.1–2.5 green on all three skins; 2026-09-18
 - [ ] testing `testing-strategy` — trigger-coverage enumerating test, formula tables, sort composite, visitor redaction
 - [ ] security `security-review` — owner gating of the new list field; trigger migration
 
@@ -31,7 +31,7 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
 2. [x] [—] `/write-spec` amendment — demoted list ruled: video 8 (six TMDB-shaped + director + runtime), person nationality + alternate_names, studio description + country
 3. [x] [—] `/design-handoff` — ring badge SVG + three-skin QA checklist
 4. [x] [—] Backend per ADR-099 action items 2–6 (2026-09-18)
-5. [ ] [—] Frontend: `CompletenessRing` per the design handoff on VideoCard / people / studio rows; `types.ts` `Completeness.score` is now `number | null` + `extras`, list items carry `completeness?: {required, extras}`; panel headline shows extras; three-skin QA
+5. [x] [—] Frontend ring badge per the design handoff (2026-09-18); Kevin's eyeball items 3.1–3.4 + 1.2 (needs a multi-part video) still open on the prod skin
 6. [ ] [—] `/testing-strategy` F65 block (tests already exist: `internal/db/completeness_triggers_test.go`, `internal/repo/completeness_test.go`, `internal/api/completeness_store_test.go`, resolver worked examples) + `/security-review` (owner gating of `completeness`; trigger migration)
 7. [ ] [—] Spec nit: F65.3's acceptance says the chip "offers exactly" 8 video facets — the store-backed `/completeness/facets` (ADR-099 D3 GROUP BY) omits facets nobody is missing; reword to "offers at most"
 8. [ ] [—] On ready: this is an epic-keyed branch — CI fires nothing; move HOLODEX-412 to In Review by hand, Done on merge
@@ -63,3 +63,14 @@ Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55
   drain now lives in `repo.DrainCompleteness` under writeMu (compute callback), and the detail
   self-heal writes the row but never clears the dirty flag. `ListPeople/ListStudios(bool)` kept as
   wrappers over `*Filtered(NamedListFilter)` (50 test call sites). Next: frontend ring badge.
+
+### 2026-09-18 · frontend
+- skills: code-review high --fix (no findings)
+- handoff: ring badge shipped per the handoff — `completeness/CompletenessRing.svelte` over a pure
+  `ring.ts` (reading + arc, 6 vitest cases), VideoCard bottom-left flex row (ring chip first, Part
+  shifts right; chip needed `inline-flex` or it inherited the line box and ran 30 px tall), people +
+  studio rows trailing before the count, panel headline = required with `extras N%` beside it and
+  extras standing in when required is null. Live QA on backend-films: tokens/overfill/radii/level
+  bottom edge/8-col gap/visitor-zero all green on all three skins; row heights unchanged. Not
+  exercised: a multi-part card (no `part` video in the fixture) — human 1.2 + 3.x remain. Next:
+  `/testing-strategy` F65 block + `/security-review`, then mark ready.

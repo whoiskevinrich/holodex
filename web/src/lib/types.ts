@@ -69,6 +69,8 @@ export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -185,6 +187,8 @@ export interface Studio {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -213,6 +217,8 @@ export interface Video {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	file_size: number;
 	title: string;
 	duration_sec: number;
@@ -1037,13 +1043,25 @@ export interface CompletenessFacet {
 // Completeness is the F55 completeness score plus the separate actionability
 // signal for one entity — mirrors internal/resolver.Completeness. Present
 // only on an owner-authorized detail response (video/person/studio); null for
-// a visitor, mirroring enrich_queries' access-control shape.
+// a visitor, mirroring enrich_queries' access-control shape. v2 (F65, ADR-099
+// D1/D5): `score` is the required band alone (the key kept its v1 name) and
+// `extras` is the separate nice-to-have band — never blended; either is null
+// when its band has no applicable facet (a studio has no required band).
 export interface Completeness {
-	score: number;
+	score: number | null;
+	extras: number | null;
 	// undefined when there are no missing scored facets — the ratio is
 	// undefined, not zero.
 	actionability?: number;
 	facets: CompletenessFacet[];
+}
+
+// CompletenessSummary is the owner-only ring-badge payload on a list item
+// (F65.5, ADR-099 D5) — mirrors model.CompletenessSummary. Absent for a
+// visitor: the card renders the ring iff the item has the field.
+export interface CompletenessSummary {
+	required: number | null;
+	extras: number | null;
 }
 
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
