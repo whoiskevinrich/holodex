@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 // actually invoking the fake provider once rather than writing the repo table
 // directly, or the test would skip the D2 wiring it exists to cover.
 type externalLinksEnv struct {
+	db   *sql.DB
 	repo *repo.Repo
 	srv  *httptest.Server
 	svc  *enrich.Service
@@ -117,7 +119,7 @@ func newExternalLinksEnv(t *testing.T, linkTemplates map[string]map[string]strin
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	return &externalLinksEnv{repo: r, srv: srv, svc: svc}
+	return &externalLinksEnv{db: database, repo: r, srv: srv, svc: svc}
 }
 
 // seedSourceURLPerson creates a person carrying a foreign "other:1" id (attached
@@ -445,11 +447,13 @@ func TestExternalLinks_MalformedIDSkipped(t *testing.T) {
 	}
 }
 
-// TestExternalLinks_Video covers ADR-098 D4 end to end: the media page's single
-// pill is the resolver's winning external_provider_id, linked through the same
-// per-pill precedence as the entity kinds — template, else the winning provider's
-// own stored _source_url, else degraded — and absent entirely when the field has
-// no value (F63 P0-7: the meta line stays byte-identical).
+// TestExternalLinks_Video covers ADR-098 D4 + HOLODEX-424 (spec P0-7b) end to end:
+// the media page's pills come from the resolver's winning external_provider_id and
+// from the provider match stamped on the video's enrichment rows, deduped by
+// namespace with the resolved value first, each linked through the same per-pill
+// precedence as the entity kinds — template, else that provider's own stored
+// _source_url, else degraded — and absent entirely when neither yields an id
+// (F63 P0-7: the meta line stays byte-identical).
 func TestExternalLinks_Video(t *testing.T) {
 	env := newExternalLinksEnv(t, map[string]map[string]string{
 		"tmdb": {"video": "https://tmdb.example/movie/{id}"},
@@ -461,14 +465,14 @@ func TestExternalLinks_Video(t *testing.T) {
 		path     string
 		extra    []model.ExtraMetadata
 		enriched map[string][]string // fake provider's shadow rows, nil for none
-		wantNS   string
-		wantURL  string // "" = degraded (url omitted)
+		match    string              // external id stamped on those rows; "" = extraction-style
+		want     map[string]string   // namespace -> url; "" = degraded (url omitted)
 	}{
 		{
 			name:     "provider value with a template",
 			path:     "/m/templated.mkv",
 			enriched: map[string][]string{"external_provider_id": {"tmdb:603"}},
-			wantNS:   "tmdb", wantURL: "https://tmdb.example/movie/603",
+			want:     map[string]string{"tmdb": "https://tmdb.example/movie/603"},
 		},
 		{
 			name: "provider value falls back to its own stored _source_url",
@@ -477,7 +481,7 @@ func TestExternalLinks_Video(t *testing.T) {
 				"external_provider_id": {"fake:99"},
 				model.SourceURLField:   {"https://fake.example/videos/99"},
 			},
-			wantNS: "fake", wantURL: "https://fake.example/videos/99",
+			want: map[string]string{"fake": "https://fake.example/videos/99"},
 		},
 		{
 			name: "a stored page never backs a foreign namespace (RD3)",
@@ -486,13 +490,50 @@ func TestExternalLinks_Video(t *testing.T) {
 				"external_provider_id": {"other:7"},
 				model.SourceURLField:   {"https://fake.example/videos/7"},
 			},
-			wantNS: "other", wantURL: "",
+			want: map[string]string{"other": ""},
 		},
 		{
-			name:   "file-layer winner with no template renders degraded",
-			path:   "/m/file.mkv",
-			extra:  []model.ExtraMetadata{{SourceKey: "ExternalId", Value: "imdb:tt0133093"}},
-			wantNS: "imdb", wantURL: "",
+			name:  "file-layer winner with no template renders degraded",
+			path:  "/m/file.mkv",
+			extra: []model.ExtraMetadata{{SourceKey: "ExternalId", Value: "imdb:tt0133093"}},
+			want:  map[string]string{"imdb": ""},
+		},
+		// HOLODEX-424 — the match itself is a pill input.
+		{
+			name:     "match only, no field value, links through the template",
+			path:     "/m/match.mkv",
+			enriched: map[string][]string{"description": {"matched"}},
+			match:    "tmdb:812",
+			want:     map[string]string{"tmdb": "https://tmdb.example/movie/812"},
+		},
+		{
+			name:     "match plus a foreign-namespace file tag is two pills",
+			path:     "/m/match-tag.mkv",
+			extra:    []model.ExtraMetadata{{SourceKey: "ExternalId", Value: "imdb:tt0103639"}},
+			enriched: map[string][]string{"description": {"matched"}},
+			match:    "tmdb:812",
+			want:     map[string]string{"imdb": "", "tmdb": "https://tmdb.example/movie/812"},
+		},
+		{
+			name:     "match in the file tag's namespace dedups to the resolved value",
+			path:     "/m/match-same.mkv",
+			extra:    []model.ExtraMetadata{{SourceKey: "ExternalId", Value: "tmdb:1"}},
+			enriched: map[string][]string{"description": {"matched"}},
+			match:    "tmdb:812",
+			want:     map[string]string{"tmdb": "https://tmdb.example/movie/1"},
+		},
+		{
+			name:     "match with no template and no _source_url renders degraded",
+			path:     "/m/match-degraded.mkv",
+			enriched: map[string][]string{"description": {"matched"}},
+			match:    "fake:5",
+			want:     map[string]string{"fake": ""},
+		},
+		{
+			name:     "extraction-style rows with no match id yield no pill",
+			path:     "/m/extracted.mkv",
+			enriched: map[string][]string{"description": {"extracted"}},
+			want:     map[string]string{},
 		},
 	}
 	for _, tc := range cases {
@@ -505,26 +546,60 @@ func TestExternalLinks_Video(t *testing.T) {
 				t.Fatalf("seed video: %v", err)
 			}
 			if tc.enriched != nil {
-				if err := env.repo.UpsertEnrichment(ctx, "video", vid, "fake", "fake:x", tc.enriched); err != nil {
+				if err := env.repo.UpsertEnrichment(ctx, "video", vid, "fake", tc.match, tc.enriched); err != nil {
 					t.Fatalf("upsert enrichment: %v", err)
 				}
 			}
 			_, body := getJSON(t, env.srv.URL+"/api/v1/media/"+itoa(vid))
 			links, _ := body["external_links"].([]any)
-			if len(links) != 1 {
-				t.Fatalf("external_links = %v, want exactly one pill", body["external_links"])
+			if len(links) != len(tc.want) {
+				t.Fatalf("external_links = %v, want %d pill(s) %v", body["external_links"], len(tc.want), tc.want)
 			}
-			lm := linksByProvider(t, links)[tc.wantNS]
-			if lm == nil {
-				t.Fatalf("pill namespace = %v, want %q", links, tc.wantNS)
-			}
-			if got, present := lm["url"]; tc.wantURL == "" && present {
-				t.Errorf("url = %v, want omitted (degraded)", got)
-			} else if tc.wantURL != "" && got != tc.wantURL {
-				t.Errorf("url = %v, want %q", got, tc.wantURL)
+			got := linksByProvider(t, links)
+			for ns, wantURL := range tc.want {
+				lm := got[ns]
+				if lm == nil {
+					t.Fatalf("pill namespace %q missing from %v", ns, links)
+				}
+				if u, present := lm["url"]; wantURL == "" && present {
+					t.Errorf("%s url = %v, want omitted (degraded)", ns, u)
+				} else if wantURL != "" && u != wantURL {
+					t.Errorf("%s url = %v, want %q", ns, u, wantURL)
+				}
 			}
 		})
 	}
+
+	// A re-match to a different id upserts without clearing (Service.Enrich), so a
+	// key the new payload omits keeps the old id on its row. backdrop_url sorts
+	// before description in EnrichmentForEntity's field_key order, so without the
+	// newest-row rule the stale tmdb:1 would win the namespace dedup.
+	t.Run("re-match wins over rows the new payload left behind", func(t *testing.T) {
+		vid := seedVideo(t, env.repo, "/m/rematch.mkv", "Rematched Clip")
+		if err := env.repo.UpsertEnrichment(ctx, "video", vid, "fake", "tmdb:1",
+			map[string][]string{"backdrop_url": {"https://fake.example/a.jpg"}, "description": {"first"}}); err != nil {
+			t.Fatalf("first match: %v", err)
+		}
+		// fetched_at is second-resolution (RFC3339); backdate the first match so the
+		// re-match below is strictly newer instead of racing the wall clock.
+		if _, err := env.db.ExecContext(ctx,
+			`UPDATE entity_enrichment SET fetched_at = ? WHERE entity_type = 'video' AND entity_id = ?`,
+			time.Now().UTC().Add(-time.Minute).Format(time.RFC3339), vid); err != nil {
+			t.Fatalf("backdate: %v", err)
+		}
+		if err := env.repo.UpsertEnrichment(ctx, "video", vid, "fake", "tmdb:812",
+			map[string][]string{"description": {"second"}}); err != nil {
+			t.Fatalf("re-match: %v", err)
+		}
+		_, body := getJSON(t, env.srv.URL+"/api/v1/media/"+itoa(vid))
+		links, _ := body["external_links"].([]any)
+		if len(links) != 1 {
+			t.Fatalf("external_links = %v, want one pill", body["external_links"])
+		}
+		if got := linksByProvider(t, links)["tmdb"]["url"]; got != "https://tmdb.example/movie/812" {
+			t.Errorf("url = %v, want the re-matched movie 812", got)
+		}
+	})
 
 	bare := seedVideo(t, env.repo, "/m/bare.mkv", "Bare Clip")
 	_, body := getJSON(t, env.srv.URL+"/api/v1/media/"+itoa(bare))

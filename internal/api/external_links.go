@@ -88,6 +88,13 @@ func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string
 			h.log.Warn("stored provider source urls", "entity_type", entityType, "id", entityID, "err", err)
 		}
 	}
+	return h.linksFromIDs(ctx, entityType, ids, stored), nil
+}
+
+// linksFromIDs is the projection shared by every entity kind: each "<namespace>:<id>"
+// becomes one ExternalLink, malformed values are skipped, and the list is deduped by
+// namespace with the first occurrence winning — callers order ids by precedence.
+func (h *Handlers) linksFromIDs(ctx context.Context, entityType string, ids []string, stored map[string]string) []ExternalLink {
 	out := make([]ExternalLink, 0, len(ids))
 	seenNamespaces := make(map[string]bool, len(ids))
 	for _, raw := range ids {
@@ -111,34 +118,57 @@ func (h *Handlers) externalLinksForEntity(ctx context.Context, entityType string
 		}
 		out = append(out, link)
 	}
-	return out, nil
+	return out
 }
 
 // externalLinksForVideo is the video half of the projection (HOLODEX-394, ADR-098
-// D4): video has no identity rows, so its one pill is the resolver's winning
-// external_provider_id — a "<namespace>:<id>" scalar (ADR-082) — with the URL built
-// by the same ProviderLink precedence as person/studio/film, keyed on that value's
-// namespace. A winner from the file layer whose namespace no provider templates
-// renders degraded (label, no URL) — the identity signal always renders (F63 P0-7).
-// enrichRows are the rows getMedia already fetched; the stored _source_url map is
-// read from them rather than from the store a second time. Nil when the field has
-// no value, so the meta line stays byte-identical to today.
+// D4): video has no identity rows, so its ids come from two places — the resolver's
+// winning external_provider_id, a "<namespace>:<id>" scalar (ADR-082), and the
+// provider match stamped on each of its enrichment rows (HOLODEX-424, spec P0-7b:
+// the same id the entity kinds hold in entity_external_ids, read from the rows
+// getMedia already fetched; extraction rows carry "" and drop out). The resolved
+// value is listed first so a file tag in the match's namespace keeps the value the
+// resolver already chose. URLs come from the same ProviderLink precedence as
+// person/studio/film, keyed on each id's namespace; a namespace no provider
+// templates renders degraded (label, no URL) — the identity signal always renders
+// (F63 P0-7). Nil when nothing yields an id, so the meta line stays byte-identical
+// to today.
 func (h *Handlers) externalLinksForVideo(ctx context.Context, resolved []resolver.ResolvedField, enrichRows []repo.EnrichmentRow) []ExternalLink {
-	field, ok := resolvedByCanonical(resolved, "external_provider_id")
-	if !ok || len(field.Values) == 0 {
-		return nil
+	var ids []string
+	if field, ok := resolvedByCanonical(resolved, "external_provider_id"); ok && len(field.Values) > 0 {
+		ids = append(ids, field.Values[0])
 	}
-	namespace, id, ok := strings.Cut(field.Values[0], ":")
-	if !ok || namespace == "" || id == "" {
-		return nil
-	}
-	namespace = strings.ToLower(namespace)
-	link := ExternalLink{Namespace: namespace, Label: namespaceLabel(namespace)}
-	if h.enrich != nil {
-		stored := enrich.SourceURLsFromRows(enrichRows)
-		if u, ok := h.enrich.ProviderLink(ctx, namespace, model.EnrichEntityVideo, id, stored); ok {
-			link.URL = u
+	// One id per provider, taken from its newest row: a re-match to a different id
+	// upserts without clearing (Service.Enrich), so rows for keys the new payload
+	// omitted still carry the old id — the freshest fetched_at is the current match.
+	// Rows arrive ordered by provider, so the append order is deterministic.
+	newest := make(map[string]repo.EnrichmentRow)
+	var providers []string
+	for _, row := range enrichRows {
+		if row.ExternalID == "" {
+			continue
+		}
+		cur, seen := newest[row.Provider]
+		if !seen {
+			providers = append(providers, row.Provider)
+		}
+		if !seen || row.FetchedAt.After(cur.FetchedAt) {
+			newest[row.Provider] = row
 		}
 	}
-	return []ExternalLink{link}
+	for _, provider := range providers {
+		ids = append(ids, newest[provider].ExternalID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var stored map[string]string
+	if h.enrich != nil {
+		stored = enrich.SourceURLsFromRows(enrichRows)
+	}
+	links := h.linksFromIDs(ctx, model.EnrichEntityVideo, ids, stored)
+	if len(links) == 0 {
+		return nil
+	}
+	return links
 }
