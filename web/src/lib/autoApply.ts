@@ -4,7 +4,7 @@
 
 /** The slice of a candidate the decision reads. */
 export interface AutoApplyCandidate {
-  auto_apply: boolean;
+	auto_apply: boolean;
 }
 
 /**
@@ -19,10 +19,10 @@ export interface AutoApplyCandidate {
  * so the previous match is suspect by definition), pass false and always see the list.
  */
 export function autoApplyPick<C extends AutoApplyCandidate>(
-  candidates: C[],
-  allowed: boolean,
+	candidates: C[],
+	allowed: boolean
 ): C | undefined {
-  if (!allowed) return undefined;
-  const strong = candidates.filter((c) => c.auto_apply);
-  return strong.length === 1 ? strong[0] : undefined;
+	if (!allowed) return undefined;
+	const strong = candidates.filter((c) => c.auto_apply);
+	return strong.length === 1 ? strong[0] : undefined;
 }
