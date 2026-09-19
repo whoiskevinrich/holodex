@@ -47,7 +47,7 @@ slot the scene pill renders into. No visible or behavioral change.
 
 ## Up next
 
-- Mark #<PR> ready once Kevin has had a look → CI moves HOLODEX-296 to In Review; Done on merge.
+- Mark #366 ready once Kevin has had a look → CI moves HOLODEX-296 to In Review; Done on merge.
 
 ## Session log
 
