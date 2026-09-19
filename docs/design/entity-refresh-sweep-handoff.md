@@ -55,7 +55,8 @@ status page.
 - **Toast** — the page's local `showToast()` (4 s auto-clear `text-sm text-muted`): `Refresh started.` /
   `A refresh is already running.` / the `toMessage(e)` error — mirroring `doRescan`.
 - **Live state** — the `activity` store's existing 3 s poll of `GET /admin/activity`; the sweep is a new
-  block on that read-model, so the nav `.activity-dot` lights for free (`busy` derives from it) and both
+  block on that read-model; once `activity.busy` also reads `sweep.state` (one-line change, Components
+  table) the nav `.activity-dot` lights for a running sweep exactly as it does for a scan, and both
   pages read one source of truth that survives navigation and reload.
 - **List-page status line** — the extraction page's `<p class="text-sm text-muted" role="status"
   aria-live="polite">` and its `text-warn role="alert"` sibling.
@@ -185,11 +186,14 @@ with identical behavior; the status-page buttons stay inline like their Rescan s
   all); `sweep.state` comes back `idle` with `last_run` unset for the partial pass. The list line shows
   nothing; the partial per-entity runs remain in history under their batch id. No resume — documented,
   not designed around.
-- **Provider goes down mid-sweep** — circuit breaker: after N consecutive failures from one provider the
-  sweep stops calling it and counts the remaining pairs as `skipped`; the done line names the provider.
-  Other providers continue.
-- **Provider returns 429** — core honours `Retry-After` (default 30 s when absent) by pausing that
-  provider's bucket; the sweep keeps going on the others. Visible only as a slower `done` counter.
+- **Provider goes down mid-sweep** — circuit breaker: after **5** consecutive non-`429` failures (or
+  **3** consecutive `429` pauses) from one provider the sweep stops calling it and counts the remaining
+  pairs as `skipped`; the done line names the provider and the reason (`stopped responding` /
+  `rate-limited`). Other providers continue. (Spec RD9.)
+- **Provider returns 429** — core honours `Retry-After` (default 30 s when absent, cap 300 s) by pausing
+  that provider's bucket; the sweep keeps going on the others. Visible only as a slower `done` counter.
+  An owner's single click on that provider meanwhile does **not** wait — it fails fast and the existing
+  inline status line reads `<provider> is rate-limiting — try again in N s` (spec RD8).
 - **Owner navigates away and back** — state is server truth on the 3 s poll; the line reappears in
   whatever state the sweep is in. A dismissed done line stays dismissed for the route's lifetime.
 - **Sweep finishes while the list page is loading** — the running→idle edge is observed in an `$effect`
@@ -248,7 +252,8 @@ Design-level requirements only; the spec and ADR decide the exact shapes.
 5. **Provider rate-limit contract** (the ADR; amends F47's "Queue-wide bulk resolution" non-goal /
    P2-1): per-provider token bucket in core's sidecar client for **all** outbound calls, default
    `2 req/s, burst 4`; optional `/describe.rate_limit {requests_per_second, burst}` self-declaration,
-   clamped to `[0.1, 50]` like every other untrusted `/describe` field; optional `rate_limit:` operator
+   clamped to `requests_per_second ∈ [0.1, 50]`, `burst ∈ [1, 100]` like every other untrusted `/describe`
+   field; optional `rate_limit:` operator
    override in `metadata-sources.yaml` with the established precedence **yaml → `/describe` → default**
    (as `search_pattern` does today); honour `429` + `Retry-After`; per-provider circuit breaker after N
    consecutive 5xx/timeouts. Contract doc update in `docs/specs/metadata-provider-contract.md`; sidecar
@@ -278,11 +283,14 @@ Numbered, tagged `[smoke]` / `[agent]` / `[human]`, grouped by tag (project conv
 6. `?batch=<id>` on `/owner/status` scopes JobHistory and shows the chip; `×` clears it.
 7. Second `POST …/sweep/people` while running → 202 `{started:false}` and toast `A refresh is already
    running.`; the studios button is disabled with `aria-describedby` text present.
+8. With provider C's bucket paused by a `429` (fixture sidecar answering `429 Retry-After: 120`), a
+   single-entity Refresh on C answers `503` + `Retry-After` in ≤ 2 s and the inline line reads
+   `C is rate-limiting — try again in N s`; no request waits on the pause.
 
 **[human]**
-8. Fire a sweep, navigate to People mid-run: the status line is present and counting; leave and return —
+9. Fire a sweep, navigate to People mid-run: the status line is present and counting; leave and return —
    still there. Studios page shows nothing.
-9. Let it finish on People: `reload()` visibly refreshes cards; done line's `Linked N` opens System
+10. Let it finish on People: `reload()` visibly refreshes cards; done line's `Linked N` opens System
    Activity filtered to the batch; `Dismiss` clears it and a reload does not bring it back.
-10. Stop a sidecar mid-sweep: the done line names it under `Skipped`; the other provider's counts kept
+11. Stop a sidecar mid-sweep: the done line names it under `Skipped`; the other provider's counts kept
     moving.

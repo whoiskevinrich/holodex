@@ -125,19 +125,32 @@ a change to F47/ADR-066, not to this spec.
   and every per-entity run the sweep produces through the existing `RecordSearched` path carry the same
   `batch_id`. History gains `?batch=`. This is the audit trail behind the done line's counts, and the
   only reason an unattended auto-link is acceptable.
-- **RD7 — Core paces every outbound sidecar call, not only the sweep's.** A per-provider token bucket
-  in `internal/enrich/client.go`, default **`2 req/s`, burst `4`**. Precedence for the limit:
+- **RD7 — Core paces every `/resolve` and `/enrich` call, not only the sweep's.** A per-provider token
+  bucket in `internal/enrich/client.go`, default **`2 req/s`, burst `4`**, shared by both endpoints and
+  every entity type. `/healthz` and `/describe` are **not** paced (they are Holodex's own probes, never
+  upstream traffic — pacing them would slow readiness and `reload-config` for nothing). Precedence for the limit:
   `metadata-sources.yaml` `rate_limit:` → `/describe.rate_limit` → default — the precedence
   `search_pattern` already established. `/describe.rate_limit` is untrusted input and is clamped to
   `requests_per_second ∈ [0.1, 50]`, `burst ∈ [1, 100]`, like every other `/describe` field.
 - **RD8 — `429` is back-pressure, not failure.** A `429` from a sidecar pauses **that provider's**
   bucket for `Retry-After` seconds (default **30 s** when the header is absent or unparseable; cap
-  **300 s**) and the pair is retried once after the pause. Other providers continue. This is how a
-  sidecar that owns its own queue says "not yet" without holding a connection past the 8 s ceiling.
-- **RD9 — Per-provider circuit breaker.** After **5** consecutive non-`429` failures (5xx, timeout,
-  transport) from one provider within a sweep, the sweep stops calling that provider for its remainder
-  and counts each remaining pair as `skipped`; the summary names the provider. The breaker is
-  per-sweep state, not persisted — the next sweep tries again.
+  **300 s**). Other providers continue. This is how a sidecar that owns its own queue says "not yet"
+  without holding a connection past the 8 s ceiling. **Sweep vs. click differ in what happens next:**
+  - **Sweep calls wait.** The pair is retried once after the pause; if the retry also `429`s the pair
+    counts as `failed` and the pause counts toward RD9's `429` breaker.
+  - **Interactive calls never wait on a paused bucket.** A single owner click (Enrich / Refresh /
+    Re-match / per-entity Refresh all) that finds its provider's bucket paused fails **fast** with
+    `503` + `Retry-After: <remaining seconds>`, which the existing inline status line renders as
+    `<provider> is rate-limiting — try again in 42 s`. Waiting on the normal bucket (≤ `burst / rps`,
+    i.e. ≤ 2 s at the default) is fine; waiting on a `429` pause (up to 300 s) is not — the SPA
+    request would sit or die at a proxy timeout with no feedback.
+- **RD9 — Per-provider circuit breaker (two trip conditions).** Within a sweep, one provider trips
+  the breaker on **5 consecutive non-`429` failures** (5xx, timeout, transport) **or 3 consecutive
+  `429` pauses** (the provider is saturated, not broken — but 212 × 300 s is still 17 h of waiting).
+  A successful call resets both counters. Once tripped, the sweep stops calling that provider for its
+  remainder and counts each remaining pair as `skipped`; the summary names the provider and the
+  reason (`stopped responding` / `rate-limited`). The breaker is per-sweep state, not persisted — the
+  next sweep tries again. Single owner clicks are not subject to it.
 - **RD10 — The list-page status line reports only its own kind.** `/people` shows a people sweep;
   `/studios` a studios sweep; neither shows the other. Idle renders nothing. A finished sweep's line
   persists until *Dismiss* or leaving the route; a page-local `dismissedBatch` keeps a reload from
@@ -177,7 +190,12 @@ a change to F47/ADR-066, not to this spec.
   - Given two candidates `>= 0.85`, Then nothing applies and the pair counts as `needs_review`.
   - Given a dismissed pair, Then no `/resolve` is issued.
   - Given a provider whose `entity_types` excludes the kind, Then it is never called.
-- **P0-3 — Activity read-model `sweep` block (RD5).** `GET /admin/activity` returns
+- **P0-3 — Activity read-model `sweep` block (RD5).** `kind` is always the **entity type**
+  (`"person"` | `"studio"`, `model.EnrichEntity*`) — never the route plural; the route segment
+  `{people|studios}` maps through the existing `"people" → EnrichEntityPerson` table
+  (`internal/model/model.go`), and `SweepStatusLine kind="person"` compares against this field.
+  `LibraryCounts` keeps its plural JSON keys (`library.people`, `library.studios`) — they are counts,
+  not kinds. `GET /admin/activity` returns
   `sweep: { state:"idle"|"running", kind, started_at, batch_id, total, done, linked, needs_review,
   no_candidates, failed, skipped, stale_skipped, last_run: { kind, finished_at, duration_ms, batch_id,
   total, linked, needs_review, no_candidates, failed, skipped, stale_skipped, skipped_providers:[],
@@ -223,6 +241,12 @@ a change to F47/ADR-066, not to this spec.
     sweep, its remaining pairs count as `skipped`, `skipped_providers` includes `B`, and provider A's
     pairs keep completing.
   - Given the same provider B on the **next** sweep, Then it is called again (breaker not persisted).
+  - Given provider C answers `429` on three consecutive pairs during a sweep, Then C trips the breaker,
+    its remaining pairs count as `skipped`, and the summary says `rate-limited`.
+  - Given C's bucket is paused (a `429` 40 s ago with `Retry-After: 120`), When the owner clicks
+    Refresh on C for one person, Then the request answers `503` with `Retry-After: 80` within the
+    normal bucket wait (≤ 2 s), and the inline status line reads `C is rate-limiting — try again in 80 s`.
+  - Given `/healthz` and `/describe` calls at startup, Then none of them consume bucket tokens.
 - **P0-9 — Contract doc amendment.** `metadata-provider-contract.md` gains §4.13 `/describe.rate_limit`
   (optional, additive, no `protocol_version` bump), a `429` row in §2.0/§2.5, and §4.4 is amended from
   "entirely provider-owned" to the shared posture. Sidecar sync is downstream (the sidecar repos own
@@ -278,7 +302,8 @@ P1-1 adds a column or table for `last_attempted_at` — its own numbered migrati
 | Sidecar | `/describe.rate_limit {requests_per_second, burst}` — optional, clamped | absent → default |
 | Operator | `metadata-sources.yaml` `rate_limit:` | absent → sidecar's declaration |
 | Back-pressure | `429` + `Retry-After` pauses that provider's bucket (30 s default, 300 s cap), one retry | — |
-| Fault isolation | 5 consecutive non-`429` failures → provider skipped for the rest of the sweep | — |
+| Fault isolation | 5 consecutive non-`429` failures **or** 3 consecutive `429` pauses → provider skipped for the rest of the sweep | — |
+| Interactive calls | Never wait on a `429` pause — fail fast with `503` + `Retry-After`, surfaced inline | — |
 
 Why a static bucket and not adaptive: a personal-scale library finishes a 212-entity sweep in about two
 minutes per provider at 2 req/s. Getting it right adaptively is P2-4; getting it *safe* is a constant.

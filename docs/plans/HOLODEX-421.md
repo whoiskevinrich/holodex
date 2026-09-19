@@ -46,14 +46,15 @@ Decisions locked 2026-09-19 (in-session, Kevin):
 - [ ] security `security-review` — owner-gated mutation; no new outbound hosts (limiter only
   slows existing allowlisted calls); `/describe.rate_limit` clamped like other untrusted fields
 - [ ] `code-review high --fix` before each commit
-- [ ] three-skin QA (checklist in the handoff, items 1–10)
+- [ ] three-skin QA (checklist in the handoff, items 1–11)
 
 ## Up next — ordered (position = priority)
 
 1. [x] [—] `/write-spec` — F66 shipped; F47 + contract doc amended
 2. [ ] [—] `/architecture` — rate-limit contract ADR (`node scripts/adr-claims.mjs` for the number);
-   pin: bucket clock (monotonic), breaker N=5, 429 defaults 30 s / cap 300 s, `enrich-sweep` kind,
-   `sweep` block shape, `TryLock` single-flight across kinds
+   pin: bucket clock (monotonic), breaker 5 failures / 3 `429` pauses, 429 defaults 30 s / cap 300 s,
+   interactive calls fail fast (`503` + `Retry-After`) on a paused bucket, `enrich-sweep` kind,
+   `sweep.kind` = entity type, `sweep` block shape, `TryLock` single-flight across kinds
 3. [ ] [—] Backend → frontend → tests, per the gates above
 4. [x] [—] `/resolve/batch` sidecar endpoint follow-up filed → HOLODEX-422
 5. [ ] [—] Mark PR ready only when every gate is green; CI moves 421 → In Review / Done
@@ -77,4 +78,7 @@ Decisions locked 2026-09-19 (in-session, Kevin):
   attempt marker (F47 P2-2), so the skip covers linked pairs only in P0 — P1-1 adds the marker.
 - Amended F47 (Non-Goal + P2-1 → F66) and the provider contract (§4.13 + 429 semantics; §4.4 from
   "entirely provider-owned" to shared). Handoff + SVG synced (confirm row: due count + checkbox).
+- `code-review high --fix` on the docs: 7 findings, all applied — interactive calls must not wait on a
+  `429` pause (fail fast), consecutive `429`s trip the breaker too, `sweep.kind` pinned to the entity
+  type, RD7 excludes `/healthz`+`/describe`, handoff synced (clamp, breaker N, `busy` change).
 - handoff: spec gate closed; next = `/architecture` for the rate-limit contract ADR.
