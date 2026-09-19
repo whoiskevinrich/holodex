@@ -77,6 +77,10 @@ security-review gate.
    does the poster-fallback read as "poster only". §4.4 is **answered** (see session 4).
 3. Post-merge, downstream: the sidecar repo's contract-sync note for §2.3's per-kind shape
    guidance (never from this branch).
+4. **Spun off:** [HOLODEX-418](https://whoiskevinrich.atlassian.net/browse/HOLODEX-418) —
+   "Re-match…" on a linked provider must never RD1-auto-apply (found by the media 204 incident
+   above; Kevin: a manual re-match means the previous match is suspect). Own branch/PR, not this
+   one.
 
 ## Session log
 
