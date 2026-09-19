@@ -84,6 +84,11 @@ volume of unambiguous confirmations, not the occasional real judgment call.
 - **Queue-wide bulk/background resolution** (auto-resolving every visible row on queue load).
   Explicitly deferred until the provider rate-limit contract exists as its own initiative — this
   spec's lazy, per-row-click model is chosen specifically to avoid needing it yet.
+  **Amended 2026-09-19 (F66, HOLODEX-421):** [entity-refresh-sweep.md](entity-refresh-sweep.md)
+  supplies that contract (core per-provider token bucket, `/describe.rate_limit`, `429 Retry-After`,
+  circuit breaker) and adds an owner-triggered **sweep** beside this queue — not *on* queue load, and
+  not automatic. The sweep runs RD8's per-entity step over every person/studio; the routing table
+  (RD1) is unchanged. This Non-Goal now reads: *no resolution the owner did not click for*.
 - **Cross-provider confidence calibration.** `confidence` stays provider-native and advisory
   (per the existing contract); this spec thresholds the same frontend value already computed by
   `EnrichPicker.matchLabel` (`>=0.85` strong) — it does not attempt to normalize confidence
@@ -243,6 +248,8 @@ volume of unambiguous confirmations, not the occasional real judgment call.
 ### Future considerations (P2)
 
 - **P2-1 — Queue-wide bulk/background resolution** — once the provider rate-limit contract exists.
+  **→ Delivered as F66** ([entity-refresh-sweep.md](entity-refresh-sweep.md), HOLODEX-421): the
+  contract plus an owner-triggered sweep from System Activity. Remaining here only as the pointer.
 - **P2-2 — "Last checked" annotation for the no-data-yet state** — requires persisting an
   attempt marker on every resolve, not just dismissals; deferred pending real need (Open
   Questions Q2).
