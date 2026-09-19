@@ -35,9 +35,9 @@ ffmpeg remux (~4× file size in I/O), so the films testbed's multi-GB MKVs hit i
 ## Up next — ordered (position = priority)
 
 1. [ ] [—] On merge, HOLODEX-419 → Done via CI (branch-keyed)
-2. [ ] [—] Pre-existing, not fixed here: a poll fetch that rethrows an HTTP-status error (owner
-   session expiring mid-write) leaves `pollingWriteback` stuck `true` with an unhandled rejection —
-   file if it bites
+2. [ ] [—] Pre-existing, not fixed here — filed as HOLODEX-420: a poll fetch that rethrows an
+   HTTP-status error (video trashed/deleted mid-write → 404, or a 5xx) leaves `pollingGeneration`
+   set with an unhandled rejection
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
