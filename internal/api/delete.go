@@ -93,7 +93,7 @@ func (h *Handlers) restoreMedia(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "load restored", err)
 		return
 	}
-	setThumbnailURL(v)
+	h.setThumbnailURL(v)
 	writeJSON(w, http.StatusOK, map[string]any{"video": v, "metadata": extra})
 }
 

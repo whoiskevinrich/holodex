@@ -75,20 +75,23 @@
 		bind:this={dialogEl}
 		onkeydown={trapTab}
 		tabindex="-1"
-		class="confirm-pop w-full max-w-md rounded-theme border border-rule bg-surface p-4 shadow-xl"
+		class="confirm-pop flex max-h-[80vh] w-full max-w-md flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="confirm-title"
 		aria-describedby="confirm-body"
 	>
 		<h2 id="confirm-title" class="skin-title text-lg font-semibold text-ink">{title}</h2>
-		<div id="confirm-body" class="mt-2 space-y-2 text-sm text-ink">
+		<!-- The body is the only part allowed to scroll (HOLODEX-417): SourceEditModal renders a
+		     paragraph per source, and an unbounded panel inside a fixed overlay put Save/Cancel
+		     below the viewport with nothing to scroll. Same flex-column shell as EnrichPicker. -->
+		<div id="confirm-body" class="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto text-sm text-ink">
 			{@render body()}
 		</div>
 		{#if error}
-			<p class="mt-3 text-sm text-warn" aria-live="polite">{error}</p>
+			<p class="mt-3 shrink-0 text-sm text-warn" aria-live="polite">{error}</p>
 		{/if}
-		<div class="mt-4 flex flex-wrap items-center justify-end gap-2">
+		<div class="mt-4 flex shrink-0 flex-wrap items-center justify-end gap-2">
 			<button
 				bind:this={cancelBtn}
 				onclick={cancel}

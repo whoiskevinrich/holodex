@@ -178,11 +178,12 @@ type movieSearchResult struct {
 }
 
 type movieSearchEntry struct {
-	ID          int     `json:"id"`
-	Title       string  `json:"title"`
-	ReleaseDate string  `json:"release_date"`
-	Popularity  float64 `json:"popularity"`
-	PosterPath  string  `json:"poster_path"`
+	ID           int     `json:"id"`
+	Title        string  `json:"title"`
+	ReleaseDate  string  `json:"release_date"`
+	Popularity   float64 `json:"popularity"`
+	PosterPath   string  `json:"poster_path"`
+	BackdropPath string  `json:"backdrop_path"`
 }
 
 type movieGenre struct {
@@ -269,7 +270,7 @@ type movieCrewEntry struct {
 func (c *tmdbClient) resolve(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
 	switch entityType {
 	case "video", "film":
-		return c.resolveMovie(ctx, h)
+		return c.resolveMovie(ctx, h, entityType)
 	case "studio":
 		return c.resolveStudio(ctx, h)
 	default:
@@ -336,7 +337,9 @@ func parseReleaseFilename(q string) (title, year string) {
 	return strings.ReplaceAll(m[1], ".", " "), m[2]
 }
 
-func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate, error) {
+// resolveMovie serves both the video and the film entity; entityType only decides
+// which image the candidate thumbnail shows (movieThumbURL).
+func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody, entityType string) ([]candidate, error) {
 	for _, id := range h.ExternalIDs {
 		ns, val, ok := splitID(id)
 		if !ok {
@@ -359,10 +362,10 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 				Confidence:     1.0,
 				Disambiguation: movieDisambiguate(det),
 				ProfileURL:     tmdbMovieURL(det.ID, det.Title),
-				ImageURL:       tmdbThumbURL(det.PosterPath),
+				ImageURL:       movieThumbURL(entityType, det.BackdropPath, det.PosterPath),
 			}}, nil
 		case "imdb":
-			cands, err := c.findMovieByIMDB(ctx, val)
+			cands, err := c.findMovieByIMDB(ctx, val, entityType)
 			if err != nil {
 				return nil, err
 			}
@@ -375,7 +378,7 @@ func (c *tmdbClient) resolveMovie(ctx context.Context, h hintBody) ([]candidate,
 		return []candidate{}, nil
 	}
 	title, year := parseReleaseFilename(h.Query)
-	return c.searchMovie(ctx, title, year)
+	return c.searchMovie(ctx, title, year, entityType)
 }
 
 func (c *tmdbClient) searchPerson(ctx context.Context, query string) ([]candidate, error) {
@@ -431,7 +434,7 @@ func (c *tmdbClient) findByIMDB(ctx context.Context, imdbID string) ([]candidate
 	return out, nil
 }
 
-func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]candidate, error) {
+func (c *tmdbClient) searchMovie(ctx context.Context, query, year, entityType string) ([]candidate, error) {
 	var result movieSearchResult
 	params := url.Values{
 		"query":    {query},
@@ -456,13 +459,13 @@ func (c *tmdbClient) searchMovie(ctx context.Context, query, year string) ([]can
 			Confidence:     rankConfidence(i, m.Popularity),
 			Disambiguation: movieYear(m.ReleaseDate),
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
-			ImageURL:       tmdbThumbURL(m.PosterPath),
+			ImageURL:       movieThumbURL(entityType, m.BackdropPath, m.PosterPath),
 		})
 	}
 	return out, nil
 }
 
-func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]candidate, error) {
+func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID, entityType string) ([]candidate, error) {
 	var result findResult
 	if err := c.get(ctx, "/3/find/"+url.PathEscape(imdbID), url.Values{
 		"external_source": {"imdb_id"},
@@ -483,7 +486,7 @@ func (c *tmdbClient) findMovieByIMDB(ctx context.Context, imdbID string) ([]cand
 			Confidence:     0.95,
 			Disambiguation: dis,
 			ProfileURL:     tmdbMovieURL(m.ID, m.Title),
-			ImageURL:       tmdbThumbURL(m.PosterPath),
+			ImageURL:       movieThumbURL(entityType, m.BackdropPath, m.PosterPath),
 		})
 	}
 	return out, nil
@@ -756,6 +759,18 @@ func tmdbThumbURL(path string) string {
 		return ""
 	}
 	return "https://image.tmdb.org/t/p/w185" + path
+}
+
+// movieThumbURL picks a movie candidate's thumbnail by the entity Holodex is
+// matching (HOLODEX-414, contract §2.3): a video row compares against the file's
+// landscape thumbnail, so it gets the backdrop at w300 (TMDB's smallest backdrop
+// size; the picker box is 108×60) and falls back to the poster when the title has
+// none; a film row keeps the poster, the film page's own identity image.
+func movieThumbURL(entityType, backdropPath, posterPath string) string {
+	if entityType == "video" && backdropPath != "" {
+		return "https://image.tmdb.org/t/p/w300" + backdropPath
+	}
+	return tmdbThumbURL(posterPath)
 }
 
 // headshotFor builds a people[] headshot asset from a TMDB profile_path, or nil when

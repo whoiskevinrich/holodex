@@ -180,20 +180,23 @@ function namespaceOf(externalID) {
 // ADR-039 allowlist gates them: core keeps an image_url only when its host is the
 // provider's base_url host (or an operator asset_hosts entry) — so a thumb on this
 // stub's host reaches the picker and one on `img.other.example` (below) must not.
-// Two shapes: a 2:3 portrait (fills the picker's 40×60 box) and a 4:1 wide "logo"
-// (letterboxes in it). The portrait is 80×120, deliberately NOT the box's own 40×60:
-// a thumb the exact size of its slot would let the slot lose its `w-10` and still
-// measure 40 wide from the image's intrinsic size, which is precisely the regression
-// the geometry harness's slot-width assertion exists to catch. The colour is derived
-// from the id so eight same-label rows are eight visibly different faces. Any other
-// name is a 404 — the QA row whose image errors out and falls back to the monogram.
-const THUMB = /^\/thumb\/(portrait-(\d+)|wide)\.png$/;
+// Three shapes, one per picker box (HOLODEX-414): a 2:3 portrait (fills the
+// person/film 40×60 box), a 16:9 landscape "backdrop" (fills the video 108×60 box),
+// and a 4:1 wide "logo" (letterboxes in the studio 120×60 box). The portrait is
+// 80×120 and the landscape 300×169 — deliberately NOT the box's own size: a thumb the
+// exact size of its slot would let the slot lose its width class and still measure
+// right from the image's intrinsic size, which is precisely the regression the
+// geometry harness's slot-width assertion exists to catch. The colour is derived from
+// the id so eight same-label rows are eight visibly different faces. Any other name
+// is a 404 — the QA row whose image errors out and falls back to the monogram.
+const THUMB = /^\/thumb\/((portrait|landscape)-(\d+)|wide)\.png$/;
 function thumbPng(name) {
   const m = THUMB.exec(name);
   if (!m) return null;
   if (m[1] === 'wide') return solidPng(64, 16, [138, 47, 47]);
-  const n = Number(m[2]);
-  return solidPng(80, 120, [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)]);
+  const n = Number(m[3]);
+  const rgb = [60 + ((n * 37) % 160), 60 + ((n * 91) % 160), 60 + ((n * 53) % 160)];
+  return m[2] === 'landscape' ? solidPng(300, 169, rgb) : solidPng(80, 120, rgb);
 }
 function thumbURL(persona, origin, name) {
   return `${origin}/p/${persona.slug}/thumb/${name}.png`;
@@ -217,8 +220,9 @@ function idNamespaceFor(persona) {
 
 // origin is this stub's own `http://host:port` (from the request), which the F64
 // thumbnails need to be absolute URLs on the allowlisted host. The conformance test
-// calls without one; it only reads ids and namespaces.
-function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
+// calls without one; it only reads ids and namespaces. entityType is the request's
+// entity_type: the twins persona pictures a video the way TMDB does (HOLODEX-414).
+function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`, entityType = 'person') {
   if (persona.candidates === 'flood') {
     return Array.from({ length: 30 }, (_, i) =>
       candidate(`flood:${100 + i}`, {
@@ -256,12 +260,16 @@ function candidatesFor(persona, query, origin = `http://${HOST}:${PORT}`) {
     // a wide 4:1 "logo" that must letterbox, row 5 a path this stub 404s (→ monogram
     // via onerror), row 6 a foreign host core must strip before the browser sees it,
     // row 7 no key at all (the pre-F64 provider, also the no-detail member).
+    // For a video (HOLODEX-414) the same walk in the landscape box: rows 0–3 a 16:9
+    // backdrop each, row 4 a portrait — the poster a provider sends when the title
+    // has no backdrop, which must letterbox, never crop.
+    const video = entityType === 'video';
     const thumbs = [
-      thumbURL(persona, origin, 'portrait-200'),
-      thumbURL(persona, origin, 'portrait-201'),
-      thumbURL(persona, origin, 'portrait-202'),
-      thumbURL(persona, origin, 'portrait-203'),
-      thumbURL(persona, origin, 'wide'),
+      thumbURL(persona, origin, video ? 'landscape-200' : 'portrait-200'),
+      thumbURL(persona, origin, video ? 'landscape-201' : 'portrait-201'),
+      thumbURL(persona, origin, video ? 'landscape-202' : 'portrait-202'),
+      thumbURL(persona, origin, video ? 'landscape-203' : 'portrait-203'),
+      thumbURL(persona, origin, video ? 'portrait-204' : 'wide'),
       thumbURL(persona, origin, 'missing'),
       'https://img.other.example/miyazaki-206.jpg',
       undefined
@@ -450,7 +458,9 @@ http
         return res.end(JSON.stringify({ candidates: hit ? candidatesFor(persona, q) : [], searched }));
       }
       const origin = `http://${req.headers.host || `${HOST}:${PORT}`}`;
-      return res.end(JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query, origin), searched }));
+      return res.end(
+        JSON.stringify({ candidates: candidatesFor(persona, body.hint && body.hint.query, origin, body.entity_type), searched })
+      );
     }
 
     if (endpoint === '/enrich') {

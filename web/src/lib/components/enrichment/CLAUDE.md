@@ -15,13 +15,26 @@ provenance/brand-icon system, and the enrichment review queue row.
 
 ## Rules
 
-### Ungated-aspect image slots use the 2:3 plate with `object-contain`
+### Ungated-aspect image slots use the plate with `object-contain`
 
 A thumbnail whose source aspect Holodex does **not** enforce at ingest — a `/resolve`
 `candidates[].image_url` (F64), any provider-hot-linked render — sits in the `FilmsRow` tile
-idiom (`aspect-[2/3] rounded-theme bg-logo-plate overflow-hidden`, monogram `font-display
-font-semibold text-logo-plate-ink`) with **`object-contain`**, so a wide logo letterboxes and a
-portrait fills. `object-cover` is reserved for roles whose aspect ingest guards (film
-banner/poster, HOLODEX-386). Same rule as `entity/CLAUDE.md` "Frame follows source aspect";
-recorded here because the picker is where it was decided the second time. Handoff:
+idiom (`rounded-theme bg-logo-plate overflow-hidden`, monogram `font-display font-semibold
+text-logo-plate-ink`) with **`object-contain`**, so a wide logo letterboxes and a portrait
+fills. `object-cover` is reserved for roles whose aspect ingest guards (film banner/poster,
+HOLODEX-386). Same rule as `entity/CLAUDE.md` "Frame follows source aspect"; recorded here
+because the picker is where it was decided the second time. Handoff:
 `docs/design/candidates-image-handoff.md`.
+
+### The candidate slot's box is kind-shaped, always 60 px tall, never `aspect-*`
+
+`EnrichPicker` takes a required `entityType` and draws the slot from
+`SLOT_CLASS[slotShape(entityType)]` (`$lib/candidateImage`): person/film `w-10 h-15`, video
+`w-27 h-15` (the provider sends a backdrop), studio `w-30 h-15` (HOLODEX-414). Add a kind by
+adding a `SlotShape`, never an `{#if}` in the template. Both axes are explicit on purpose — an
+`aspect-*` box with a `w-full` `<img>` can borrow the image's natural width (the F64
+fixture-size trap), and the geometry harness asserts the slot's px exactly. The height is the
+row-height floor (76 px collapsed) in every picker from `sm` up; only the width changes per
+kind. Below `sm` the two wide shapes drop to 80 wide at the same aspect and the row stacks the
+match strength under the name — a 315 px dialog left a studio name ~30 px otherwise (QA §4.4).
+Handoff: `docs/design/candidates-image-per-kind-handoff.md`.
