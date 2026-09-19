@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1010" width="920" height="1010" role="img" aria-labelledby="t d">
+  <title id="t">Entity refresh sweep — Option D</title>
+  <desc id="d">Trigger on the System Activity Actions block (idle, confirm, running); People list page status line (running, done); System Activity history filtered to the sweep's batch.</desc>
+  <style>
+    text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;fill:#1f2328}
+    .cap{font-size:12px;fill:#6e7781}
+    .h{font-size:13px;font-weight:600;fill:#1f2328}
+    .sec{font-size:11px;fill:#6e7781;letter-spacing:.08em}
+    .t{font-size:12px}
+    .mut{fill:#6e7781}
+    .warn{fill:#9a6700}
+    .acc{fill:#0969da}
+    .h1{font-size:19px;font-weight:600}
+    .panel{fill:#ffffff;stroke:#d0d7de;stroke-width:1}
+    .btn{fill:#ffffff;stroke:#8c959f;stroke-width:1}
+    .btnd{fill:#f6f8fa;stroke:#d0d7de;stroke-width:1}
+    .prim{fill:#0969da;stroke:none}
+    .pill{fill:#f6f8fa;stroke:#d0d7de;stroke-width:1}
+    .chip{fill:#ddf4ff;stroke:#54aeff;stroke-width:1}
+    .row{stroke:#d8dee4;stroke-width:1}
+    .bar{fill:#eaeef2}
+    .fill{fill:#0969da}
+  </style>
+
+  <!-- 1 · Actions idle -->
+  <text x="16" y="22" class="cap">1 · /owner/status → Actions · idle (owner + Admin mode)</text>
+  <rect x="16" y="32" width="888" height="74" rx="8" class="panel"/>
+  <text x="32" y="54" class="sec">ACTIONS</text>
+  <rect x="32" y="64" width="112" height="28" rx="6" class="prim"/>
+  <text x="88" y="83" class="t" text-anchor="middle" style="fill:#fff;font-weight:600">Rescan library</text>
+  <rect x="152" y="64" width="104" height="28" rx="6" class="btn"/>
+  <text x="204" y="83" class="t" text-anchor="middle">Reload config</text>
+  <rect x="264" y="64" width="72" height="28" rx="6" class="btn"/>
+  <text x="300" y="83" class="t" text-anchor="middle">Sign out</text>
+  <rect x="344" y="64" width="150" height="28" rx="6" class="btn"/>
+  <text x="419" y="83" class="t" text-anchor="middle">↻ Refresh all people…</text>
+  <rect x="502" y="64" width="154" height="28" rx="6" class="btn"/>
+  <text x="579" y="83" class="t" text-anchor="middle">↻ Refresh all studios…</text>
+
+  <!-- 2 · confirm -->
+  <text x="16" y="136" class="cap">2 · Inline confirm — due count + "Refresh everything" checkbox (unchecked on every open); mirrors Rescan's confirm</text>
+  <rect x="16" y="146" width="888" height="74" rx="8" class="panel"/>
+  <text x="32" y="168" class="sec">ACTIONS</text>
+  <text x="32" y="184" class="t">Refresh 212 people (148 due, 64 refreshed in the last 24 h)?</text>
+  <rect x="392" y="185" width="12" height="12" rx="2" class="btn"/>
+  <text x="410" y="195" class="t">Refresh everything</text>
+  <rect x="530" y="178" width="98" height="28" rx="6" class="prim"/>
+  <text x="579" y="197" class="t" text-anchor="middle" style="fill:#fff;font-weight:600">Yes, refresh</text>
+  <rect x="636" y="178" width="66" height="28" rx="6" class="btn"/>
+  <text x="669" y="197" class="t" text-anchor="middle">Cancel</text>
+
+  <!-- 3 · running -->
+  <text x="16" y="250" class="cap">3 · Running — label carries progress from the 3 s activity poll; other kind blocked (one refresh at a time)</text>
+  <rect x="16" y="260" width="888" height="74" rx="8" class="panel"/>
+  <text x="32" y="282" class="sec">ACTIONS</text>
+  <rect x="32" y="292" width="112" height="28" rx="6" class="prim"/>
+  <text x="88" y="311" class="t" text-anchor="middle" style="fill:#fff;font-weight:600">Rescan library</text>
+  <rect x="152" y="292" width="104" height="28" rx="6" class="btn"/>
+  <text x="204" y="311" class="t" text-anchor="middle">Reload config</text>
+  <rect x="264" y="292" width="72" height="28" rx="6" class="btn"/>
+  <text x="300" y="311" class="t" text-anchor="middle">Sign out</text>
+  <rect x="344" y="292" width="182" height="28" rx="6" class="btnd"/>
+  <text x="435" y="311" class="t mut" text-anchor="middle">↻ Refreshing people 37 / 212…</text>
+  <rect x="534" y="292" width="154" height="28" rx="6" class="btnd"/>
+  <text x="611" y="311" class="t mut" text-anchor="middle">↻ Refresh all studios…</text>
+  <text x="700" y="311" class="t mut">Refresh started.</text>
+
+  <!-- 4 · People running -->
+  <text x="16" y="366" class="cap">4 · /people · running — owner-only status line between the header and DuplicatesBanner</text>
+  <rect x="16" y="376" width="888" height="118" rx="8" class="panel"/>
+  <text x="32" y="408" class="h1">People</text>
+  <rect x="470" y="392" width="94" height="26" rx="6" class="btn"/>
+  <text x="517" y="410" class="t" text-anchor="middle">Merge people…</text>
+  <rect x="572" y="392" width="72" height="26" rx="6" class="pill"/>
+  <text x="608" y="410" class="t mut" text-anchor="middle">Sort · A–Z</text>
+  <rect x="652" y="392" width="92" height="26" rx="6" class="pill"/>
+  <text x="698" y="410" class="t mut" text-anchor="middle">Completeness</text>
+  <rect x="752" y="392" width="66" height="26" rx="6" class="pill"/>
+  <text x="785" y="410" class="t mut" text-anchor="middle">Missing ▾</text>
+  <rect x="826" y="392" width="66" height="26" rx="6" class="pill"/>
+  <text x="859" y="410" class="t mut" text-anchor="middle">Grid · Poster</text>
+  <line x1="32" y1="430" x2="888" y2="430" class="row"/>
+  <rect x="32" y="442" width="856" height="3" rx="1.5" class="bar"/>
+  <rect x="32" y="442" width="150" height="3" rx="1.5" class="fill"/>
+  <text x="32" y="470" class="t mut">Refreshing people in the background — 37 of 212 · <tspan class="acc">linked 4</tspan> · 6 need review · <tspan class="warn">2 failed</tspan>. You can leave this page.</text>
+  <text x="32" y="486" class="cap">role="status" aria-live="polite" · list reload() fires once on the running → idle edge</text>
+
+  <!-- 5 · People done -->
+  <text x="16" y="526" class="cap">5 · /people · done — every count is a link into the batch; persists until Dismiss or navigation</text>
+  <rect x="16" y="536" width="888" height="100" rx="8" class="panel"/>
+  <text x="32" y="568" class="h1">People</text>
+  <rect x="470" y="552" width="94" height="26" rx="6" class="btn"/>
+  <text x="517" y="570" class="t" text-anchor="middle">Merge people…</text>
+  <rect x="572" y="552" width="72" height="26" rx="6" class="pill"/>
+  <text x="608" y="570" class="t mut" text-anchor="middle">Sort · A–Z</text>
+  <rect x="652" y="552" width="92" height="26" rx="6" class="pill"/>
+  <text x="698" y="570" class="t mut" text-anchor="middle">Completeness</text>
+  <rect x="752" y="552" width="66" height="26" rx="6" class="pill"/>
+  <text x="785" y="570" class="t mut" text-anchor="middle">Missing ▾</text>
+  <rect x="826" y="552" width="66" height="26" rx="6" class="pill"/>
+  <text x="859" y="570" class="t mut" text-anchor="middle">Grid · Poster</text>
+  <line x1="32" y1="590" x2="888" y2="590" class="row"/>
+  <text x="32" y="614" class="t mut">Refreshed 212 people in 6 m 40 s — <tspan class="acc" style="text-decoration:underline">Linked 23</tspan> · <tspan class="acc" style="text-decoration:underline">31 need review</tspan> · <tspan class="warn">2 failed</tspan> · Skipped 44 (tmdb) · 64 recent · <tspan class="acc" style="text-decoration:underline">View in System Activity</tspan> · Dismiss</text>
+
+  <!-- 6 · Studios idle (nothing) -->
+  <text x="16" y="668" class="cap">6 · /studios while a people sweep runs — nothing renders (D keeps list pages minimal); idle is identical</text>
+  <rect x="16" y="678" width="888" height="62" rx="8" class="panel"/>
+  <text x="32" y="712" class="h1">Studios</text>
+  <rect x="640" y="696" width="72" height="26" rx="6" class="pill"/>
+  <text x="676" y="714" class="t mut" text-anchor="middle">Sort · A–Z</text>
+  <rect x="720" y="696" width="92" height="26" rx="6" class="pill"/>
+  <text x="766" y="714" class="t mut" text-anchor="middle">Completeness</text>
+  <rect x="820" y="696" width="66" height="26" rx="6" class="pill"/>
+  <text x="853" y="714" class="t mut" text-anchor="middle">Missing ▾</text>
+
+  <!-- 7 · History filtered to batch -->
+  <text x="16" y="772" class="cap">7 · /owner/status?batch=a1b2c3 · Job history scoped to the sweep — the audit trail behind "Linked 23"</text>
+  <rect x="16" y="782" width="888" height="212" rx="8" class="panel"/>
+  <text x="32" y="806" class="h">Job history</text>
+  <rect x="118" y="792" width="118" height="22" rx="11" class="chip"/>
+  <text x="177" y="807" class="t acc" text-anchor="middle">batch a1b2c3  ×</text>
+  <line x1="32" y1="822" x2="888" y2="822" class="row"/>
+  <text x="32" y="842" class="t"><tspan style="font-weight:600">enrich-sweep</tspan>  <tspan class="mut">people · 212 · linked 23 · 31 need review · 2 failed · 44 skipped (tmdb) · 6 m 40 s</tspan></text>
+  <line x1="32" y1="854" x2="888" y2="854" class="row"/>
+  <text x="32" y="874" class="t"><tspan style="font-weight:600">enrich</tspan>  <tspan class="mut">tmdb → person #18 (5 fields) · auto-applied</tspan></text>
+  <line x1="32" y1="886" x2="888" y2="886" class="row"/>
+  <text x="32" y="906" class="t"><tspan style="font-weight:600">enrich</tspan>  <tspan class="mut">provider-b → person #41 (3 fields) · auto-applied</tspan></text>
+  <line x1="32" y1="918" x2="888" y2="918" class="row"/>
+  <text x="32" y="938" class="t"><tspan style="font-weight:600">enrich</tspan>  <tspan class="mut">tmdb → person #77 (failed) · timeout</tspan></text>
+  <line x1="32" y1="950" x2="888" y2="950" class="row"/>
+  <text x="32" y="970" class="t mut">… 24 more in this batch</text>
+  <text x="32" y="988" class="cap">Each auto-applied link is revertable via the entity page's per-field Revert (F36 / ADR-051)</text>
+</svg>
