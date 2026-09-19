@@ -136,6 +136,12 @@ still differs.
 payload so `in_sync` recomputes against the post-write baseline (ADR-073 D1) and the out-of-sync
 badge clears without a manual refresh.
 
+**R2.5a** The page-level wait has **no time cap** — only unmount/navigation ends it. The helper's
+default 120 s cap (`JOB_POLL_TIMEOUT_MS`) exists for a dialog that refetches on timeout; the page
+has nothing to hand off to, and a multi-GB MKV (copy + ffmpeg remux when `mkvpropedit` is absent)
+routinely outruns it. Giving up left the badge on *writing to file* and the poster stale until a
+manual reload (HOLODEX-419). The backoff ceiling bounds the cost at one status request per 5 s.
+
 **R2.6** Both badges and the failed detail line are owner-only, gated on the same condition as the
 existing `canWriteback` — not a blanket owner check around the section.
 
