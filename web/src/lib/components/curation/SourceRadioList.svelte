@@ -1,0 +1,104 @@
+<script lang="ts">
+	// Stacked full-width candidate rows for a `long_text` replace field (HOLODEX-400). Lifted
+	// out of SourceEditModal's body so the writeback dialog can embed the same chooser per row:
+	// one native radio row per SourceChip plus an inline Custom textarea. Paragraph-length
+	// values need their own line each — a chip row truncates the very text being compared
+	// (HOLODEX-303). Selecting a row STAGES (binds `stagedKey` / `stagedCustomValue`); the
+	// embedding component owns Confirm/Save. Tokens only; QA 3 skins.
+	import type { SourceChip } from '$lib/f36';
+	import type { ResolvedField } from '$lib/types';
+
+	let {
+		field,
+		chips,
+		stagedKey = $bindable(),
+		stagedCustomValue = $bindable(''),
+		disabled = false,
+		onstage
+	}: {
+		field: ResolvedField;
+		chips: SourceChip[];
+		stagedKey: string | null;
+		stagedCustomValue?: string;
+		disabled?: boolean;
+		// Fires after every staged change (radio pick, Custom focus, Custom edit).
+		onstage?: () => void;
+	} = $props();
+
+	// Radios share a name per field so the browser groups them; two chooser instances for
+	// different fields on one page never collide.
+	const name = $derived(`source-edit-${field.canonical}`);
+
+	function setStaged(key: string) {
+		stagedKey = key;
+		onstage?.();
+	}
+</script>
+
+<fieldset class="space-y-2" {disabled}>
+	<legend class="sr-only">Source for {field.label}</legend>
+	{#each chips as chip (chip.key)}
+		{#if chip.key === 'custom'}
+			<label
+				class="block rounded-theme border p-2 {stagedKey === 'custom'
+					? 'border-accent bg-accent/10'
+					: 'border-rule'}"
+			>
+				<span class="flex items-center gap-2">
+					<input
+						type="radio"
+						{name}
+						class="accent-accent"
+						value="custom"
+						checked={stagedKey === 'custom'}
+						onchange={() => setStaged('custom')}
+					/>
+					<span
+						class="text-xs uppercase tracking-wide {stagedKey === 'custom' ? 'text-accent' : 'text-muted'}"
+					>
+						Custom
+					</span>
+				</span>
+				<!-- value + oninput rather than bind:value, so `onstage` always observes the
+				     already-updated literal on the same keystroke (handler order is not guaranteed
+				     between a bind listener and a sibling oninput). -->
+				<textarea
+					value={stagedCustomValue}
+					onfocus={() => setStaged('custom')}
+					oninput={(e) => {
+						stagedCustomValue = e.currentTarget.value;
+						onstage?.();
+					}}
+					rows="3"
+					placeholder={`Write a custom ${field.label.toLowerCase()}…`}
+					class="mt-1 ml-6 block w-[calc(100%-1.5rem)] resize-none rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed"
+				></textarea>
+			</label>
+		{:else}
+			<label
+				class="block cursor-pointer rounded-theme border p-2 {stagedKey === chip.key
+					? 'border-accent bg-accent/10'
+					: 'border-rule hover:bg-surface-2'}"
+			>
+				<span class="flex items-center gap-2">
+					<input
+						type="radio"
+						{name}
+						class="accent-accent"
+						value={chip.key}
+						checked={stagedKey === chip.key}
+						onchange={() => setStaged(chip.key)}
+					/>
+					<span
+						class="text-xs uppercase tracking-wide {stagedKey === chip.key ? 'text-accent' : 'text-muted'}"
+					>
+						{chip.labels.join(' + ')}
+					</span>
+				</span>
+				<span class="mt-1 block pl-6 text-sm {chip.value.trim() ? 'text-ink' : 'text-muted'}">
+					{chip.value.trim() || 'No value'}
+				</span>
+			</label>
+		{/if}
+	{/each}
+</fieldset>

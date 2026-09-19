@@ -146,6 +146,20 @@ On submit, for each checked row (`checked ∧ isWritable ∧ !rowMatchesFile`):
 `checkedCount` / the footer label keep counting `checked ∧ !rowMatchesFile` — a row whose staged
 pick equals the file is never promised.
 
+Two rules added at implementation (2026-09-18, from `/code-review`):
+
+- **A blank Custom pick is "nothing chosen yet."** The stacked rows stage `custom` the moment
+  the textarea takes focus (the `SourceEditModal` idiom), so a row can sit on an empty literal.
+  It is excluded from the count, the write and the decision — never `values: []` or
+  `manual:''`. (The modal refuses the same state at Save.)
+- **Re-pointing a row at the `·file` chip is still a decision.** That row matches the file, so
+  there is nothing to write and no checkbox — but the pick pins the baseline, and dropping it
+  would leave the old provider/manual decision standing with the page still reading "out of
+  sync". Such rows ride along with a write; when nothing is written the button reads
+  **`Save N decision(s)`**, stays enabled, and submit records the decisions without enqueuing
+  an empty job. An unchecked, differing row is still left alone: the checkbox means "act on
+  this one".
+
 This closes [HOLODEX-219](https://whoiskevinrich.atlassian.net/browse/HOLODEX-219) as a side
 effect: an undecided provider value can no longer be written without recording the decision,
 because the checkbox + staged chip *is* the decision.
@@ -172,6 +186,7 @@ No new tokens. No hardcoded values.
 |---|---|
 | **M** row | `{value} — matches the file` |
 | **M** toggle | `change` (collapsed) / `close` (expanded) — sentence case, no punctuation |
+| Footer, nothing to write but decisions staged | `Save {n} decision{s}` (busy: `Saving…`) |
 | `?` note | `Can't verify — {write_target} isn't read back from this file.` |
 | Empty `·file` chip | `—` (existing placeholder) |
 | Custom opener | `Custom…` (chip) / `Write your own…` (textarea placeholder) |
@@ -190,10 +205,16 @@ No new tokens. No hardcoded values.
   `button:not([tabindex="-1"])`). The same fix applies to the `onMount` first-focus selector.
 - **Tab order per W row:** checkbox → checked chip → (Custom input when open) → next row. An M row:
   `change` toggle only.
-- **Promotion announcement.** When an M row becomes W, the new checkbox is focused only if the
-  owner's focus was on the chip that caused it *and* the chip is not the Custom input (don't yank
-  focus out of a textarea). Otherwise focus stays put; the `checkedCount` change is reflected in
-  the footer button's visible label, which is sufficient — no `aria-live` region for the count.
+- **Promotion / demotion never moves focus.** When a pick flips a row between M and W, focus
+  stays on the chip that caused it; the `checkedCount` change is reflected in the footer button's
+  visible label, which is sufficient — no `aria-live` region for the count. *(Implementation
+  note, 2026-09-18: this requires two things — the chooser stays open once the owner has
+  interacted with it, even when the pick lands back on the file value, and the chooser has a
+  single mount point across the `=` and will-write branches. Either the row body switching
+  `{#if}` branches or the chooser collapsing on demotion unmounts the radiogroup mid-arrow-key
+  and drops focus to `<body>`; both were caught live in §9.2.)* After an Enter-commit of the
+  Custom input, focus returns to the Custom chip (the input unmounts); a blur-commit never pulls
+  focus back.
 - **Pending chip**: `aria-checked="true"` plus the dashed ring; selection is never colour-only
   (dot + border + `aria-checked`).
 - **Escape** while a Custom textarea has focus: first Escape closes the custom editor (discarding
@@ -208,7 +229,8 @@ No new tokens. No hardcoded values.
 | W row | RD6 pending winner, unchecked | dashed ring; checking commits `provider:<x>` on submit (HOLODEX-219) |
 | W row | staged Custom, empty draft | previous staged pick stays; nothing changes |
 | M row | collapsed | `=` glyph, value line, `change` |
-| M row | expanded, staged = file | chooser open, still `=`; toggle reads `close` |
+| M row | expanded, staged = file | chooser open, still `=`; toggle reads `close` — also the state a W row lands in when demoted, so the chooser never disappears under the owner. If the field was decided elsewhere, this is a decision-only row: counted in `Save N decisions`, decided on submit, not written |
+| W row | staged Custom, empty literal (stacked rows) | not counted, not written, not decided — "nothing chosen yet" |
 | M row | expanded, staged ≠ file | **promoted to W**: checkbox (checked), counted |
 | ? row | any | as W + warn note; never pre-checked |
 | ⊖ row | any | unchanged |

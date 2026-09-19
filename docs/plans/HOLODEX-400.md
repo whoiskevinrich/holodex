@@ -25,23 +25,34 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
   (2026-09-18); vocabulary term **applied vs. on file** + two translations added to
   `docs/reference/ui-vocabulary.md`
 - [~] backend — n/a
-- [ ] frontend — `WritebackFormDialog.svelte`: chooser per row class (W / M / ? / ⊖), staged picks,
-  generalized `ensureDecision`, `trapTab` excludes `[tabindex="-1"]`; lift `SourceEditModal`'s
-  stacked rows into `curation/SourceRadioList.svelte` (+ `curation/CLAUDE.md` row)
-- [ ] testing `testing-strategy` — dialog row-class + submit-payload tests (decide-before-write,
-  single-value payload, no decide on untouched decided row); `trapTab` exclusion
+- [x] frontend — `WritebackFormDialog.svelte` cockpit rows (W / M / ? / ⊖), staged picks, Write =
+  Confirm via `needsDecision`, `focusables()` excludes `tabIndex === -1`; lifted
+  `curation/SourceChipRow.svelte` (from `SourceBadge`, which still keeps its own copy) and
+  `curation/SourceRadioList.svelte` (from `SourceEditModal`, now rewired to it); pure helpers in
+  `web/src/lib/writebackCockpit.ts`; both component `CLAUDE.md` tables updated (2026-09-18)
+- [x] testing `testing-strategy` — `writebackCockpit.test.ts` (14 cases) + live `[agent]` pass on
+  `backend-films` (Dune, TMDB): 2 decision PUTs + 1 writeback POST for 3 checked rows, none for the
+  untouched decided row; Tab lands on the checked chip; three-skin contrast all ≥ 4.5:1 (row in
+  `docs/testing-strategy.md`)
 - [~] security `security-review` — n/a: no auth/access/infra change; same owner-gated endpoints
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Implement per handoff §1–§3; keep HOLODEX-213's decided/undecided split intact
-2. [ ] [frontend] `trapTab` / first-focus selectors exclude `tabindex="-1"` (handoff §6) — do this
-   first, it is the one place the reuse breaks the dialog's a11y
-3. [ ] [testing] Component tests for §9.4–9.6 payload shapes; three-skin QA §9.10 via javascript_tool
-4. [ ] [—] Handoff §9.11–9.12 `[human]` — Kevin's look in all three skins, then `gh pr ready`
-5. [ ] [—] Read HOLODEX-337 / 339 before QA — both make `in_sync` lie, and the cockpit keys on it
+1. [ ] [—] Handoff §9.11–9.12 `[human]` — Kevin's look in all three skins, then `gh pr ready`
+2. [ ] [—] Fold `SourceBadge`'s expanded row onto `curation/SourceChipRow` (it still carries its own
+   copy of the radiogroup + Custom-draft logic) → file as a HOLODEX task when picked up
+3. [ ] [—] HOLODEX-337 / 339 make `in_sync` lie in places; the cockpit keys on it — re-read both
+   before the human QA so a wrong `=` row is recognised as theirs, not this PR's
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-18 (b) · frontend + tests
+- skills: design-handoff (prior), code-review high --fix, code-review
+- handoff: cockpit implemented and live-verified end to end (decisions + writeback enqueued on the
+  Dune fixture); two focus bugs found live and fixed (chooser stays open; single mount point);
+  code-review found two more (blank Custom counted as a write; file-chip pick on a decided row
+  dropped) — fixed, `Save N decisions` path added and verified. Remaining: Kevin's three-skin
+  look (§9.11–9.12), then mark ready.
 
 ### 2026-09-18 · design gate
 - skills: product-brainstorming (2026-09-16), design-handoff
