@@ -142,6 +142,14 @@ has nothing to hand off to, and a multi-GB MKV (copy + ffmpeg remux when `mkvpro
 routinely outruns it. Giving up left the badge on *writing to file* and the poster stale until a
 manual reload (HOLODEX-419). The backoff ceiling bounds the cost at one status request per 5 s.
 
+**R2.5b** A status fetch refused with an HTTP status (the video trashed or re-indexed under a new
+id while a write was queued → 404; a 5xx) ends the wait but **settles it as not-pending** rather
+than rejecting — the page never sees a rejection on this path. The page then applies that settled
+state and re-resolves the detail as in R2.5; whatever that reload returns (or fails with) is what
+renders. Before this clause the refusal rejected the wait unhandled, and because the page cleared
+its poll re-entrancy guard only on the resolved path, no later reload could re-arm the poll — the
+badge sat on *writing to file* until navigation (HOLODEX-420).
+
 **R2.6** Both badges and the failed detail line are owner-only, gated on the same condition as the
 existing `canWriteback` — not a blanket owner check around the section.
 
