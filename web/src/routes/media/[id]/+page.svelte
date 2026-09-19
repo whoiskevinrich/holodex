@@ -611,8 +611,16 @@
 				timeoutMs: Infinity
 			}
 		).then((settled) => {
+			// The helper never rejects (an HTTP-status refusal settles as not-pending,
+			// HOLODEX-420), so this is the one place the guard clears — a .catch here
+			// would be guarding a path that does not exist.
 			if (pollingGeneration === gen) pollingGeneration = null;
 			if (unmounted || gen !== pageGeneration || settled.pending) return;
+			// Apply the settled state now rather than waiting on the reload: if the
+			// reload fails (reloadDetail swallows its error and the 404 that stopped
+			// the poll will fail it too), the badge would otherwise keep saying
+			// "writing to file" on the stale pending object.
+			writebackStatus = settled;
 			// The job landed or failed — re-resolve the full detail so in_sync
 			// recomputes against the post-write baseline (ADR-073 D1) and the
 			// out-of-sync pills clear alongside the badge.

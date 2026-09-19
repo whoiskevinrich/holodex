@@ -200,12 +200,24 @@ describe('waitForVideoWriteback', () => {
 		expect(calls).toBe(3);
 	});
 
-	it('surfaces a refusal that carries an HTTP status', async () => {
+	it('stops on a refusal that carries an HTTP status, settling as not-pending', async () => {
+		// The media page chains its guard-clearing + detail reload onto the resolved
+		// promise with no rejection path; a refusal that rejected left the poll
+		// guard set for the page's lifetime (HOLODEX-420). Still one fetch — a
+		// refusal is not something to poll through — but resolved, not thrown, and
+		// never the last-known pending state (which would tell the page to do
+		// nothing).
+		let calls = 0;
 		const fetchStatus = vi.fn(async () => {
-			throw Object.assign(new Error('API failed: 401'), { status: 401 });
+			calls++;
+			if (calls === 1) return { pending: true, failed: false };
+			throw Object.assign(new Error('API failed: 404'), { status: 404 });
 		});
-		await expect(waitForVideoWriteback(fetchStatus, fast)).rejects.toThrow('401');
-		expect(fetchStatus).toHaveBeenCalledTimes(1);
+		await expect(waitForVideoWriteback(fetchStatus, fast)).resolves.toEqual({
+			pending: false,
+			failed: false
+		});
+		expect(fetchStatus).toHaveBeenCalledTimes(2);
 	});
 
 	it('gives up at the timeout and resolves with the last-known state', async () => {
