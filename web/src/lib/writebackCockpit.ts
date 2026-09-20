@@ -120,18 +120,6 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 // has two destinations per row — the file (willWrite) and the system alone
 // (savesDecisionOnly) — and its gutter names which one Write will touch.
 
-// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
-// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
-// reaches the file: a field with a `write_target` for this container. The dialog therefore
-// has two destinations per row — the file (willWrite) and the system alone
-// (savesDecisionOnly) — and its gutter names which one Write will touch.
-
-// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
-// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
-// reaches the file: a field with a `write_target` for this container. The dialog therefore
-// has two destinations per row — the file (willWrite) and the system alone
-// (savesDecisionOnly) — and its gutter names which one Write will touch.
-
 // willWrite is the single gate behind the dialog's footer count and its write set. A row is
 // written when it is writable, differs from the file, carries a value, AND is decided — either
 // standing before the dialog opened, or `touched` (the owner picked a chip in this dialog;
