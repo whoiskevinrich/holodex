@@ -164,7 +164,9 @@ export function parseGrep(text, ref) {
   return rows;
 }
 
-function scanRefs(cwd) {
+// Exported for scripts/hooks/feature-claims-guard.mjs, which needs the same claim set
+// at /write-spec time without shelling out and re-parsing this script's output.
+export function scanRefs(cwd) {
   const rows = [];
   for (const [sha, ref] of refsBySha(cwd)) {
     let out;
@@ -180,7 +182,7 @@ function scanRefs(cwd) {
   return rows;
 }
 
-function readReservations(file) {
+export function readReservations(file) {
   try {
     return parseReservations(readFileSync(file, "utf8"));
   } catch {

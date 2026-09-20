@@ -219,5 +219,10 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   refreshes its gitignored `.adr-claims` / `.feature-claims` file at the **main** worktree
   root. If the ADR/spec will not be pushed immediately, hold the number with
   `--reserve <slug>` so a parallel session in another worktree does not take it.
+  **The feature half is enforced by a hook** (`scripts/hooks/feature-claims-guard.mjs`, wired in
+  `.claude/settings.json`): invoking `/write-spec` injects the next free `F##` as context, and a
+  Write/Edit to `docs/specs/*.md` whose H1 takes a number another spec already claims — on any
+  branch, or via a reservation — is **blocked** with the rival and the next free number named.
+  The ADR half is still by hand.
 - Specs live in `docs/specs/`; the testing strategy in `docs/testing-strategy.md`.
 - Keep the ADR index and spec cross-references up to date when adding either.
