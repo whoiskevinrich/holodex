@@ -80,6 +80,25 @@ describe('rowClass', () => {
 		// degraded to text is still witnessed by the ledger
 		expect(rowClass(field({ ...base, display: undefined, in_sync: true }), url)).toBe('matches');
 	});
+	it('ignores the in_sync verdict on an undecided row — it is true by construction (HOLODEX-433)', () => {
+		const url = 'https://x/p.jpg';
+		const undecided = {
+			display: 'image_url' as const,
+			write_target: 'cover.jpg',
+			values: [url],
+			candidates: [{ source: 'file' as const, value: '' }, { source: 'provider:tmdb' as const, provider: 'tmdb', value: url }],
+			in_sync: true
+		};
+		expect(rowClass(field({ ...undecided, decision: { source: 'provider:tmdb', standing: false } }), url)).toBe('write');
+		expect(rowClass(field({ ...undecided, decision: undefined }), url)).toBe('write');
+		// same for an undecided provider-winning text row
+		expect(
+			rowClass(
+				field({ values: ['Blade Runner: Final Cut'], decision: { source: 'provider:tmdb', standing: false } }),
+				'Blade Runner: Final Cut'
+			)
+		).toBe('write');
+	});
 });
 
 describe('isUnverifiable', () => {

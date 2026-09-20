@@ -56,9 +56,17 @@ export function rowClass(field: ResolvedField, value: string): RowClass {
 	// still the resolved winner: for an image row the file candidate never carries the
 	// embedded cover art's URL, so only the write ledger can say the file has it (ADR-101) —
 	// and that verdict must hold even when the allowlist degraded the row's display to text,
-	// so it is keyed on `in_sync`, not on isImageRow. For a text row the clause is redundant
-	// (in_sync true already means decided == file candidate). Re-pointing differs again.
-	if (field.in_sync === true && value.trim() === (field.values[0] ?? '').trim()) {
+	// so it is keyed on `in_sync`, not on isImageRow. Only a STANDING decision is witnessed:
+	// the resolver reports `in_sync: true` for every undecided field by construction (nothing
+	// decided, nothing to lag), which says nothing about the file — an undecided provider
+	// poster that reads as "matches" here would save a decision and never write
+	// (HOLODEX-433). For a decided text row the clause is redundant (in_sync true already
+	// means decided == file candidate). Re-pointing differs again.
+	if (
+		field.decision?.standing === true &&
+		field.in_sync === true &&
+		value.trim() === (field.values[0] ?? '').trim()
+	) {
 		return 'matches';
 	}
 	return 'write';
