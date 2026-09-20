@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-435
-status: in-progress
+status: in-review
 release_note: The completeness ring on cards and rows is now a button — click it to refresh that one video, person or studio from every provider, the same way the bulk sweep does, and watch the ring redraw.
 ---
 
@@ -36,12 +36,13 @@ RD9 · Design: [handoff § F65.8](../design/completeness-ring-badge-handoff.md) 
 - [x] code-review `code-review high --fix` — 2 fixed (shared per-entity refresh state so duplicate mounts
   spin/redraw together; studios row indentation), 1 skipped (override keyed to prior bands can mask an
   exact revert — needs a fetch generation the lists don't expose)
-- [ ] Kevin's look on the testbed (ring press on a card; select-mode row) → `gh pr ready`
+- [x] Kevin marked #373 ready 2026-09-20 without a testbed pass (his call) — the live `[agent]` checks in the
+  testing-strategy row stand as the verification record
 
 ## Up next — ordered (position = priority)
 
 1. [x] [HOLODEX-435] `/code-review high --fix`, commit, push, Draft PR
-2. [ ] [HOLODEX-435] Kevin's look → mark ready (CI moves 435 to In Review; it is not epic-keyed)
+2. [x] [HOLODEX-435] PR #373 marked ready 2026-09-20 (CI moves 435 to In Review; story-keyed branch)
 3. [ ] [HOLODEX-431] after merge: rebase PR #369 on main, then the `RelatedShelf` flip prototype
 4. [ ] [HOLODEX-412] on merge of 435, the epic's remaining sweep is Kevin's — 435 is a child, so
    CI moves only 435; the epic stays where it is
@@ -63,3 +64,10 @@ RD9 · Design: [handoff § F65.8](../design/completeness-ring-badge-handoff.md) 
   found the landing page mounts each video twice → busy/bands moved to a per-entity store
   (`ringRefresh.svelte.ts`), re-verified live (twins spin and redraw together). Draft PR open;
   next: Kevin's look → ready.
+
+### 2026-09-20 · ready for review
+- skills: —
+- handoff: Kevin: "mark #373 ready and stop the servers". Mergeable + clean, 0 behind main, so
+  `gh pr ready` fires the jira-sync In Review cleanly; hand-started worktree servers (backend
+  :7800, Vite :5174) and the shared TMDB sidecar stopped. Nothing open on this branch; on merge,
+  rebase PR #369 (F68) and continue there.
