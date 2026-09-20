@@ -1,6 +1,6 @@
 # Design handoff: `/studios` list rows draw the studio logo
 
-**Status:** Approved — **option B** (owner's pick, 2026-09-20; C had been recommended, see §1); implemented the same day
+**Status:** Approved — **option B** (owner's pick, 2026-09-20; C had been recommended, see §1); implemented the same day. **Revised 2026-09-20 (same day):** a light **halo** behind logos and icons, owner ask after the first look (§1 "Halo")
 **Story:** [HOLODEX-432](https://whoiskevinrich.atlassian.net/browse/HOLODEX-432) (child of F51, HOLODEX-246)
 **Owner:** Project owner
 **Date:** 2026-09-19
@@ -10,7 +10,9 @@
 **Supersedes:** [studio-images-handoff.md §1](studio-images-handoff.md) ("`/studios` list — logo
 well data source change only": the well reads `icon_url`) and the "`/studios` list well stays
 `icon_url` → monogram" bullet of
-[studio-logo-link-card-handoff.md §10](studio-logo-link-card-handoff.md)
+[studio-logo-link-card-handoff.md §10](studio-logo-link-card-handoff.md), and that handoff's §1
+"Plate under a logo" rejection of a drop-shadow halo (the owner asked for one after seeing a dark
+wordmark alone on a dark row — it now applies to the shared box, so the card gets it too)
 
 ## Overview
 
@@ -51,6 +53,7 @@ every option. **The owner chose B on 2026-09-20**, over the recommended C.
 | Precedence per row | `logo_url` → `icon_url` → monogram | Same order as `StudioLinkCard` (HOLODEX-397). The list stops being the one surface that ignores the role TMDB actually fills. |
 | Plate | **Logo: none** — bare on `bg-surface`. **Icon / monogram: the card's 48×48 `border-rule bg-logo-plate` plate** (dashed when there is no image at all), replacing the list's old 40×26 plate. | HOLODEX-411: a transparent brand mark on a cream box read as a floating badge on the dark skins. The plate is the card's, not the old well's, so a legacy row is the card's icon state exactly. |
 | Screen-reader name, once and only once | Name shown as text → `alt=""` (decorative). Name hidden (wordmark, or a bare logo still loading) → `alt={name}`, plus `title={name}` on the row link. The monogram stays `aria-hidden`. | Today's `alt="{name} icon"` next to the visible name announced the studio twice. `studioLogo.ts` `imageAlt()` owns the rule so the card and the row can't drift. |
+| Halo (owner ask, 2026-09-20, after the first look) | **Yes — a `drop-shadow` halo in the plate colour on the image, both roles**: `.logo-halo` in `app.css` = `drop-shadow(0 0 1px var(--logo-plate)) drop-shadow(0 0 3px var(--logo-plate))`, applied to `StudioLogoBox`'s single `<img>`. Follows the mark's own silhouette (a thin light outline + soft glow); on the icon plate it is plate-on-plate and disappears, so one class serves both roles. HOLODEX-411 had rejected this as "fussier than the problem"; with the name gone from wordmark rows (B) the problem got bigger — the SLM-style dark wordmark was invisible on the row. The card inherits it through the shared box. | A halo lifts a dark-on-transparent mark off a dark surface without putting a box behind it — the plate's job, without the plate. Token-driven so it re-skins and follows a custom palette (`--logo-plate` is derived there). |
 | Row height | 70px (48px box + `py-2.5` + 1px borders), was 46px | Consequence of B; `/people` rows stay 46px. Accepted. |
 | Where the rule lives | `web/src/lib/components/entity/studioLogo.ts` (`isWordmark`, `showName`, `imageAlt`) + `StudioLogoBox.svelte`; both `StudioLinkCard` and the new `StudioListRow` consume them. | Two surfaces, one implementation — the aspect threshold and the alt rule cannot diverge. |
 
@@ -106,6 +109,7 @@ batch query over `studio_images`). No new field, no new query, no migration, no 
 | `text-ink`, `text-muted` | Name, count (unchanged) |
 | `border-rule`, `bg-logo-plate`, `text-logo-plate-ink` | Icon / monogram plate only — never under a logo |
 | `font-display` | Monogram glyph (unchanged) |
+| `.logo-halo` (app.css hook) → `--logo-plate` | The drop-shadow halo on the image, both roles |
 | `h-12 max-w-48 min-w-12`, `w-12` | Box — spacing-scale utilities only; the old `h-[26px]` arbitrary value is gone |
 
 No literal colours, radii, or fonts (`.claude/rules/frontend-theming.md`). The logo box has no
@@ -147,8 +151,8 @@ the viewport. (The owner-only sort/facet toolbar above the grid does overflow at
   the in-place nav-search filter both work on data, not on visible text, so they still land on
   and keep the row; the row's `title` supplies the name on hover and its `alt` to assistive
   tech. Browser find-in-page will not match a wordmark studio's name. A dark-on-transparent
-  wordmark on a dark skin reads faint **with nothing beside it** (HOLODEX-411's known cost,
-  now without the name as a fallback label) — do not add a halo or a plate.
+  wordmark on a dark skin used to read faint **with nothing beside it** — the `.logo-halo`
+  (§1) is the answer: a light silhouette glow, not a plate.
 - **Name column alignment (accepted cost of B):** names start at 16 + boxWidth + 12px, so a
   symbol-mark or icon row's name sits at ~76px, a portrait logo's at ~60px and a 1.9:1 logo's
   at ~120px. Same as the card.
@@ -208,10 +212,11 @@ multipart field named `image`.
 - 11.9 `[agent]` Every row `<a>` is 70px tall. ✅
 - 11.10 `[agent]` Viewport 375px: every row narrower than the viewport, boxes 48–192px; one grid column. ✅ (rows 327px; the toolbar overflow above the grid is pre-existing — see §10)
 - 11.11 `[agent]` Repeat 11.3, 11.6, 11.7 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: logo box transparent in every skin; plate `background-color` = `#e9e0d0` / `#e4ebf8` / `#f0f0f0`; plate `border-radius` 2px / 0 / 0. ✅
+- 11.11b `[agent]` Halo: the `<img>` in every logo/icon row has class `logo-halo` and computed `filter` = `drop-shadow(<plate> 0px 0px 1px) drop-shadow(<plate> 0px 0px 3px)` where `<plate>` is that skin's `--logo-plate` (`rgb(233, 224, 208)` / `rgb(228, 235, 248)` / `rgb(240, 240, 240)`); the monogram `<span>` has no filter. ✅ 2026-09-20, all three skins
 - 11.12 `[agent]` Sort by name, click the letter of a wordmark studio in the jump-nav: the row scrolls into view (its name is in `alt`/`title`, not text).
 - 11.13 `[agent]` `/media/{id}` and `/films/{id}` with a logo-bearing studio: `StudioLinkCard` renders exactly as on `main` (same box width, caption rule, alt/title) — the extraction changed no behaviour.
 
 **Human**
-- 11.14 `[human]` Open `/studios` in each skin. Enriched studios show their logo sitting directly on the row, no cream box, at the same size as on a film page; wordmark studios show the logo alone with the count at the right; symbol-mark, icon and logo-less studios show image + name. Rows are visibly taller than People rows.
+- 11.14 `[human]` Open `/studios` in each skin. Enriched studios show their logo sitting directly on the row, no cream box, with a thin light glow tracing the mark so a dark logo still reads on the dark row; at the same size as on a film page; wordmark studios show the logo alone with the count at the right; symbol-mark, icon and logo-less studios show image + name. Rows are visibly taller than People rows.
 - 11.15 `[human]` Hover a wordmark row: the browser tooltip shows the studio name.
 - 11.16 `[human]` Open a film whose studio has a logo: the studio row under the year looks exactly as it did before this change.

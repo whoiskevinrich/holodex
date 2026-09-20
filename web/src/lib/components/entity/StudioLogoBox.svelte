@@ -49,7 +49,7 @@
 			loading={eager ? 'eager' : 'lazy'}
 			src={image}
 			alt={imageAlt(studio.name, bare, wordmark)}
-			class="h-full w-auto max-w-full object-contain p-1"
+			class="logo-halo h-full w-auto max-w-full object-contain p-1"
 			onload={decide}
 			onerror={() => (wordmark = false)}
 		/>
