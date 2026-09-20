@@ -19,6 +19,24 @@
             "command": "C:/Users/whois/.local/bin/graphify.EXE hook-guard read"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/feature-claims-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/feature-claims-guard.mjs"
+          }
+        ]
       }
     ]
   }
