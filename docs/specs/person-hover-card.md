@@ -1,6 +1,6 @@
 # Spec: Person hover card — floating preview with headshot, age, counts and a link row on text-only person links (F68)
 
-**Status**: Draft
+**Status**: Implemented 2026-09-20 (PR #369)
 **Phase**: Phase 3 (presentation) — rides the resolver (F27), person images (F26), aliases
 (F23) and unified external ids (F60); adds one read endpoint and one component, no new subsystem
 **Owner**: Project owner
@@ -142,8 +142,10 @@ headshot frame (`PersonImageFrame` role=`headshot`, 1:1, 48 px) and a text colum
 (display name when set, else name) + `NationalityFlags` + `CompletenessRing size="row"` when
 `completeness` is present, meta line "`{age}` · `N titles` · `N films`" with absent segments
 dropped, optional "also credited as a, b, c" (max 3, `+N more` not shown) — then the link row.
-- [ ] Link row order: Titles · Films · external-id badges (`ProviderLinkBadge`, sorted by
-  `sortExternalLinks`). Films omitted when `film_count = 0`. No owner-only links.
+- [x] Link row order: **Videos** · Films · external-id badges (`ProviderLinkBadge`, sorted by
+  `sortExternalLinks`). Films omitted when `film_count = 0`. No owner-only links. (Built as
+  "Videos", not the mockup's "Titles": the app's vocabulary for the count and the profile
+  section is *videos* — `videoCount()`, `EntityVideos` — and the card follows it.)
 - [ ] The ring renders iff the payload carries `completeness`; it is never given the detail
   read's `score/facets` object. It is a **sibling** of the header `<a>` in the name row (never
   nested in it); `onrefreshed` re-fetches `/card` for this id and replaces the cached entry.
@@ -170,10 +172,11 @@ included only when `h.auth.authorized(r)`, exactly as the list reads do (ADR-099
   "completeness": { "required": 60, "extras": 20 }
 }
 ```
-- [ ] Implementation budget: `repo.GetPerson` (name/display_name/video_count/aliases) +
-  `personImageVersions([id])` + one `COUNT` over the `ListFilmsForEntity` EXISTS clause +
-  `externalLinksForEntity` + a **3-field** `ResolveFields` subset (`birthdate`, `deathdate`,
-  `nationality`) followed by `resolver.Derive` — promotions/claims/auto-register skipped.
+- [x] Implementation: `repo.GetPerson` (name/video_count/aliases) + `PersonImageVersions([id])`
+  + `CountFilmsForPerson` (the `ListFilmsForEntity` EXISTS clause as a COUNT) +
+  `externalLinksForEntity` + **the full `personResolve`** (built: the 3-field subset was not
+  worth a second resolve path — `personResolve` skips the video list and image set, and reusing
+  it means the card's age, nationality and display spelling cannot drift from the profile).
 - [ ] 404 for an unknown or soft-deleted person; `Cache-Control: private, max-age=300`.
 - [ ] `age` and `age_at_death` are mutually exclusive, exactly as `deriveAge` emits them.
 - [ ] `completeness` is absent (not null) for an unauthenticated request; present for the

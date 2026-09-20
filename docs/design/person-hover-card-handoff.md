@@ -1,6 +1,6 @@
 # Person hover card — floating preview with a link row on text-only person links — design handoff
 
-**Ticket:** HOLODEX-431 (F68) · **Status:** Approved for build · **Date:** 2026-09-20 (rev 2) ·
+**Ticket:** HOLODEX-431 (F68) · **Status:** Built 2026-09-20 (rev 3 + build notes) · **Date:** 2026-09-20 ·
 **Spec:** [`person-hover-card.md`](../specs/person-hover-card.md) R1–R8, RD1–RD12 · **ADR:** none
 unless RD10 falls (positioning needs `@floating-ui/dom`); rides ADR-099 (completeness ring) and
 ADR-102 (skin = instance identity)
@@ -190,3 +190,23 @@ lists the first person.
   card want a one-line "refreshed" note?
 - 2.3 `[human]` Does the loading → filled transition feel like a card *appearing*, or like a
   flicker? If flicker, raise the intent delay to 300 ms before adding a skeleton.
+
+## Build notes (2026-09-20)
+
+- **The chip wraps, it does not render.** `PersonLinkChip` takes the consumer's `<a>` as
+  children and finds it in the DOM (`querySelector('a')`); `aria-describedby` is set on that link
+  from an effect. This is what let the `/search` rows keep `role="option"`, roving `tabindex` and
+  four handlers with zero prop plumbing, and `PosterTile` keep its remove badge outside.
+- **"Videos", not "Titles."** The meta line and the first link use the app's word (`videoCount()`,
+  the profile's `EntityVideos` section); the mockup's "titles" was mine, not the vocabulary's.
+- **Typography resets on the card root** (`text-sm font-normal normal-case tracking-normal
+  text-left`): the shelf trigger lives inside an `uppercase tracking-wide` `<h2>`, and without the
+  resets the card shouted.
+- **Loading state holds the slot with an empty `.portrait-frame`**, not a `PersonImageFrame` with
+  no version — the latter fetched the headshot twice (once versionless, once with `?v=`).
+- **Anchors:** `EntityVideos` wraps its grid in `id="videos"`, `FilmsRow`'s section is
+  `id="films"`, both `scroll-mt-16`.
+- **Clamp, not flip, on x:** measured live on a right-column Cast tile — `translateX(−135.8px)`,
+  right edge at 1264 of 1280 — and pinned in `personCard.test.ts` with the OQ1 numbers.
+- **Human pass still owed** on the real library: the film page's billed-absent chips (the testbed
+  had none), and 2.1–2.3 above.

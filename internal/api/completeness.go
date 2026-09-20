@@ -489,14 +489,8 @@ func (h *Handlers) entityCompletenessSummary(entityType string) http.HandlerFunc
 		if !ok {
 			return
 		}
-		h.drainCompleteness(r.Context())
-		stored, err := h.repo.CompletenessForEntities(r.Context(), entityType, []int64{id})
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "completeness")
-			return
-		}
-		c, ok := stored[id]
-		if !ok {
+		c := h.storedCompleteness(r.Context(), entityType, id)
+		if c == nil {
 			writeError(w, http.StatusNotFound, "no completeness for entity")
 			return
 		}

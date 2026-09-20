@@ -76,6 +76,13 @@ exceptions.
 with staged selection + Confirm/Cancel. The Tier-2 default for scalar fields.
 → [two-tier-field-editing-handoff.md](../design/two-tier-field-editing-handoff.md)
 
+**Hover card.** A transient, non-modal preview anchored to an entity link: opens on
+hover-intent or keyboard focus, closes on leave / Escape / outside click, never on touch, one open
+at a time; the link inside stays the navigation and the card adds facts plus a few links beside
+it. It is *chrome around a link*, not a control — nothing in it edits. First instance: the person
+hover card (F68, `person/PersonLinkChip` + `PersonHoverCard`).
+→ [person-hover-card-handoff.md](../design/person-hover-card-handoff.md)
+
 **Pencil + modal.** A pencil in the field's heading opens `SourceEditModal` — one full-width
 radio row per candidate source plus a Custom textarea. The pattern for `long_text` (Person bio,
 media Overview).
@@ -162,6 +169,8 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "where should the display name render — headers + search, or every surface?" (2026-09-15) | **display name** = *headers + search* | the heading and the search row read the resolved `name`; cards, tiles, link cards and pickers keep the canonical column — a `display_name` on cards is its own story, not a widening of this one |
 | "I need a mechanism to denote parts of a canonical media" (2026-09-16) | **a value, not an affordance** — a new canonical field rendered as a read-only badge/pill; the *affordance* is the existing chip row | the ask names a *mechanism* but the work is a field plus a rendering; no control is added on any surface — the media page Metadata row already is the control (HOLODEX-389, [media-parts-handoff.md](../design/media-parts-handoff.md)) |
 | "Don't truncate strings in the writeback dialogue; for items that would be truncated stack the options — when the strings are truncated I can't verify the correctness between options" (2026-09-19) | **chip row → stacked rows**, keyed on the candidate, not the field | `stacksCandidates` in `writebackCockpit.ts`: the stacked list (`SourceRadioList`) is no longer reserved for `long_text` — any cockpit row with a candidate over `CHIP_VALUE_MAX_CHARS` (32, the widest skin font's fit in a chip) stacks, so every candidate is readable whole; a chip never carries a value the owner has to compare — HOLODEX-434 |
+| "a hover event for entities that has an overlay with an image, if it's available and some quick details with clickable links" (2026-09-16) | **hover card** | a preview beside the link, not a tooltip and not a dialog: the link keeps navigating, the card is `role="group"` with real links inside, and it is hidden under `pointer: coarse` because a hover affordance is never the only path |
+| "I'm not seeing the hover card" — said on a Cast tile that the spec had excluded (2026-09-20) | **hover card** on a surface that already shows the face | the exclusion argued the image is redundant; the tile still lacks age, counts, aliases and the ring, so the tiles became a v1 surface via one more mount, not a second pattern |
 
 ## Saying it
 
