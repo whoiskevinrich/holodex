@@ -122,7 +122,8 @@ is the resolver's winner (decided or not); *on file* is the `·file` candidate �
 file itself carries. A row is interesting exactly when the two differ; provenance is a label, never
 a reason to open a row. Sources are the *candidates* the owner picks from to change what is
 applied, so the writeback dialog's chooser is the field's chip row (or stacked rows for
-`long_text`) and the Write button is its Confirm.
+`long_text` — and for any field whose candidate a chip would truncate, HOLODEX-434) and the
+Write button is its Confirm.
 → [writeback-cockpit-handoff.md](../design/writeback-cockpit-handoff.md); HOLODEX-400
 
 **Golden record.** Holodex's own source of truth for an entity — baseline + enrichment shadow +
@@ -160,6 +161,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "a reuse mechanism for long prose — biographies, comments, descriptions" | **long prose** + **enforcement by subtraction** | the mechanism existed; it had a knob — the fix is removing the knob, not adding a component |
 | "where should the display name render — headers + search, or every surface?" (2026-09-15) | **display name** = *headers + search* | the heading and the search row read the resolved `name`; cards, tiles, link cards and pickers keep the canonical column — a `display_name` on cards is its own story, not a widening of this one |
 | "I need a mechanism to denote parts of a canonical media" (2026-09-16) | **a value, not an affordance** — a new canonical field rendered as a read-only badge/pill; the *affordance* is the existing chip row | the ask names a *mechanism* but the work is a field plus a rendering; no control is added on any surface — the media page Metadata row already is the control (HOLODEX-389, [media-parts-handoff.md](../design/media-parts-handoff.md)) |
+| "Don't truncate strings in the writeback dialogue; for items that would be truncated stack the options — when the strings are truncated I can't verify the correctness between options" (2026-09-19) | **chip row → stacked rows**, keyed on the candidate, not the field | `stacksCandidates` in `writebackCockpit.ts`: the stacked list (`SourceRadioList`) is no longer reserved for `long_text` — any cockpit row with a candidate over `CHIP_VALUE_MAX_CHARS` (32, the widest skin font's fit in a chip) stacks, so every candidate is readable whole; a chip never carries a value the owner has to compare — HOLODEX-434 |
 
 ## Saying it
 
