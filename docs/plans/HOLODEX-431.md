@@ -46,7 +46,7 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-20 · design rev 2 after main moved
-- skills: design-handoff
+- skills: design-handoff, code-review
 - handoff: rebased onto main (#365 instance skin, #350 completeness ring). Kevin: focus the
   mockup on the default skin (skin is instance identity now; Cinémathèque tokens unchanged) and
   drop the owner Enrich/Edit links — the F65 ring is the owner's indicator, clicking the card
