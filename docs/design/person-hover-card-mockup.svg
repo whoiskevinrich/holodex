@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 618" width="760" height="618" role="img" aria-labelledby="t d">
+<title id="t">Person hover card — F68 mockup, six panels</title>
+<desc id="d">Top row: the card opened from each v1 surface, one per skin — a film page “Billed on the release” dashed chip in Cinémathèque, a /search page person row in Broadcast, a “More with” shelf title in Brutalist. Each card: 48px 1:1 headshot at left; name in the display font with a nationality flag; a muted meta line “41 · 27 titles · 3 films”; an italic “also credited as” alias line; a rule; a link row Profile · Titles · Films · TMDB provider badge; and, for the owner only, a second row Enrich · Edit. Bottom row, all Cinémathèque: the loading state (name line only, no spinner), a sparse visitor state (no age, no films → those segments and the Films link are simply absent; the headshot is the backend’s themed placeholder), and the corner case where the chip sits at the bottom-right of the viewport so the card opens above it, end-aligned.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif}</style>
+<text x="8" y="18" font-size="12" font-weight="600" fill="#2c2c2a">Person hover card (F68) — one card, three skins, three surfaces; loading, sparse and corner states</text>
+<!-- Cinémathèque · film billed chip (owner-only surface) -->
+<rect x="8" y="30" width="236" height="262" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<text x="20" y="48" font-size="7" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" letter-spacing="0.6">BILLED ON THE RELEASE — IN NO SCENE YOU OWN</text>
+<rect x="20" y="56" width="102" height="18" rx="9" fill="none" stroke="#e8a33d" stroke-dasharray="3 2"/>
+<text x="28" y="68.5" font-size="10.5" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Maya Rodriguez</text>
+<rect x="130" y="56" width="64" height="18" rx="9" fill="none" stroke="#2a2622" stroke-dasharray="3 2"/>
+<text x="138" y="68.5" font-size="10.5" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Dev Patel</text>
+<rect x="22" y="89" width="212" height="126" rx="2" fill="#000" opacity="0.45"/>
+<rect x="20" y="84" width="212" height="126" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="30" y="94" width="48" height="48" rx="2" fill="#181310" stroke="#2a2622"/>
+<clipPath id="c3094"><rect x="31" y="95" width="46" height="46"/></clipPath>
+<g clip-path="url(#c3094)"><rect x="31" y="95" width="46" height="46" fill="#9b9082" opacity="0.28"/><circle cx="54" cy="112" r="9" fill="#f3ece1" opacity="0.85"/><ellipse cx="54" cy="140" rx="17" ry="14" fill="#f3ece1" opacity="0.85"/></g>
+<text x="88" y="108" font-size="12" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<rect x="186" y="99" width="14" height="10" rx="2" fill="#181310" stroke="#2a2622"/><rect x="187" y="100" width="12" height="3" fill="#2e9e4a"/><rect x="187" y="103" width="12" height="3" fill="#f5d442"/><rect x="187" y="106" width="12" height="2" fill="#2e5bd6"/>
+<text x="88" y="124" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >41 · 27 titles · 3 films</text>
+<text x="88" y="138" font-size="9.5" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" font-style="italic">also credited as M. Rodrigues</text>
+<line x1="30" y1="154" x2="222" y2="154" stroke="#2a2622"/>
+<text x="30" y="171" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Profile</text>
+<text x="77.19999999999999" y="171" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Titles</text>
+<text x="118.79999999999998" y="171" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Films</text>
+<rect x="154.79999999999998" y="160" width="46" height="16" rx="8" fill="none" stroke="#2a2622"/><circle cx="163.79999999999998" cy="168" r="4.5" fill="#9b9082" opacity="0.8"/>
+<text x="171.79999999999998" y="171" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >TMDB</text>
+<text x="30" y="189" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Enrich</text>
+<text x="72" y="189" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Edit</text>
+<text x="222" y="189" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="end" opacity="0.7">owner only</text>
+<text x="8" y="305" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Cinémathèque · film billed chip (owner-only surface)</text>
+<!-- Broadcast · /search page row (variant=page) -->
+<rect x="262" y="30" width="236" height="262" rx="3" fill="#060814" stroke="#1a2240"/>
+<text x="274" y="48" font-size="7" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" letter-spacing="0.6">PEOPLE</text>
+<rect x="274" y="54" width="212" height="22" rx="0" fill="#0a0e1f"/>
+<text x="284" y="68.5" font-size="11" fill="#dfe9ff" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Maya Rodriguez</text>
+<text x="478" y="68" font-size="9" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="end" >27</text>
+<text x="284" y="90" font-size="11" fill="#dfe9ff" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Sam Okafor</text>
+<text x="478" y="89.5" font-size="9" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="end" >4</text>
+<rect x="276" y="107" width="212" height="126" rx="0" fill="#000" opacity="0.45"/>
+<rect x="274" y="102" width="212" height="126" rx="0" fill="#0b0f22" stroke="#1a2240"/>
+<rect x="284" y="112" width="48" height="48" rx="0" fill="#0a0e1f" stroke="#1a2240"/>
+<clipPath id="c284112"><rect x="285" y="113" width="46" height="46"/></clipPath>
+<g clip-path="url(#c284112)"><rect x="285" y="113" width="46" height="46" fill="#6f7da6" opacity="0.28"/><circle cx="308" cy="130" r="9" fill="#dfe9ff" opacity="0.85"/><ellipse cx="308" cy="158" rx="17" ry="14" fill="#dfe9ff" opacity="0.85"/></g>
+<line x1="285" y1="115" x2="331" y2="115" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="119" x2="331" y2="119" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="123" x2="331" y2="123" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="127" x2="331" y2="127" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="131" x2="331" y2="131" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="135" x2="331" y2="135" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="139" x2="331" y2="139" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="143" x2="331" y2="143" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="147" x2="331" y2="147" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="151" x2="331" y2="151" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="155" x2="331" y2="155" stroke="#36e0d0" stroke-opacity="0.12"/>
+<line x1="285" y1="159" x2="331" y2="159" stroke="#36e0d0" stroke-opacity="0.12"/>
+<text x="342" y="126" font-size="12" fill="#dfe9ff" font-family="'Courier New', monospace" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<rect x="440" y="117" width="14" height="10" rx="0" fill="#0a0e1f" stroke="#1a2240"/><rect x="441" y="118" width="12" height="3" fill="#2e9e4a"/><rect x="441" y="121" width="12" height="3" fill="#f5d442"/><rect x="441" y="124" width="12" height="2" fill="#2e5bd6"/>
+<text x="342" y="142" font-size="10" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >41 · 27 titles · 3 films</text>
+<text x="342" y="156" font-size="9.5" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" font-style="italic">also credited as M. Rodrigues</text>
+<line x1="284" y1="172" x2="476" y2="172" stroke="#1a2240"/>
+<text x="284" y="189" font-size="10" fill="#36e0d0" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Profile</text>
+<text x="331.2" y="189" font-size="10" fill="#36e0d0" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Titles</text>
+<text x="372.79999999999995" y="189" font-size="10" fill="#36e0d0" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Films</text>
+<rect x="408.79999999999995" y="178" width="46" height="16" rx="8" fill="none" stroke="#1a2240"/><circle cx="417.79999999999995" cy="186" r="4.5" fill="#6f7da6" opacity="0.8"/>
+<text x="425.79999999999995" y="189" font-size="9" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >TMDB</text>
+<text x="284" y="207" font-size="10" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Enrich</text>
+<text x="326" y="207" font-size="10" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Edit</text>
+<text x="476" y="207" font-size="8" fill="#6f7da6" font-family="'Courier New', monospace" font-weight="normal" text-anchor="end" opacity="0.7">owner only</text>
+<text x="262" y="305" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Broadcast · /search page row (variant=page)</text>
+<!-- Brutalist · “More with …” shelf title -->
+<rect x="516" y="30" width="236" height="262" rx="3" fill="#0a0a0a" stroke="#333333"/>
+<text x="528" y="52" font-size="9" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="bold" text-anchor="start" letter-spacing="0.8">MORE WITH</text>
+<text x="604" y="52" font-size="9" fill="#fafafa" font-family="'Courier New', monospace" font-weight="bold" text-anchor="start" letter-spacing="0.8" text-decoration="underline">MAYA RODRIGUEZ</text>
+<rect x="530" y="69" width="212" height="126" rx="0" fill="#000" opacity="0.45"/>
+<rect x="528" y="64" width="212" height="126" rx="0" fill="#0e0e0e" stroke="#333333"/>
+<rect x="538" y="74" width="48" height="48" rx="0" fill="#111111" stroke="#333333"/>
+<clipPath id="c53874"><rect x="539" y="75" width="46" height="46"/></clipPath>
+<g clip-path="url(#c53874)"><rect x="539" y="75" width="46" height="46" fill="#8a8a8a" opacity="0.28"/><circle cx="562" cy="92" r="9" fill="#fafafa" opacity="0.85"/><ellipse cx="562" cy="120" rx="17" ry="14" fill="#fafafa" opacity="0.85"/></g>
+<text x="596" y="88" font-size="12" fill="#fafafa" font-family="'Courier New', monospace" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<rect x="694" y="79" width="14" height="10" rx="0" fill="#111111" stroke="#333333"/><rect x="695" y="80" width="12" height="3" fill="#2e9e4a"/><rect x="695" y="83" width="12" height="3" fill="#f5d442"/><rect x="695" y="86" width="12" height="2" fill="#2e5bd6"/>
+<text x="596" y="104" font-size="10" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >41 · 27 titles · 3 films</text>
+<text x="596" y="118" font-size="9.5" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" font-style="italic">also credited as M. Rodrigues</text>
+<line x1="538" y1="134" x2="730" y2="134" stroke="#333333"/>
+<text x="538" y="151" font-size="10" fill="#d6ff3f" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Profile</text>
+<text x="585.2" y="151" font-size="10" fill="#d6ff3f" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Titles</text>
+<text x="626.8000000000001" y="151" font-size="10" fill="#d6ff3f" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Films</text>
+<rect x="662.8000000000001" y="140" width="46" height="16" rx="8" fill="none" stroke="#333333"/><circle cx="671.8000000000001" cy="148" r="4.5" fill="#8a8a8a" opacity="0.8"/>
+<text x="679.8000000000001" y="151" font-size="9" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >TMDB</text>
+<text x="538" y="169" font-size="10" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Enrich</text>
+<text x="580" y="169" font-size="10" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="start" >Edit</text>
+<text x="730" y="169" font-size="8" fill="#8a8a8a" font-family="'Courier New', monospace" font-weight="normal" text-anchor="end" opacity="0.7">owner only</text>
+<rect x="528" y="208" width="68" height="40" rx="0" fill="#111111" stroke="#333333" opacity="0.5"/>
+<rect x="600" y="208" width="68" height="40" rx="0" fill="#111111" stroke="#333333" opacity="0.5"/>
+<rect x="672" y="208" width="68" height="40" rx="0" fill="#111111" stroke="#333333" opacity="0.5"/>
+<text x="516" y="305" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Brutalist · “More with …” shelf title</text>
+<!-- Loading — name line only, no spinner -->
+<rect x="8" y="326" width="236" height="262" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="20" y="352" width="102" height="18" rx="9" fill="none" stroke="#e8a33d" stroke-dasharray="3 2"/>
+<text x="28" y="364.5" font-size="10.5" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Maya Rodriguez</text>
+<rect x="22" y="385" width="212" height="66" rx="2" fill="#000" opacity="0.45"/>
+<rect x="20" y="380" width="212" height="66" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="30" y="390" width="48" height="48" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="88" y="404" font-size="12" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<text x="88" y="420" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >…</text>
+<text x="20" y="466" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >opens at 250 ms with the name it already has;</text>
+<text x="20" y="477" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >fills in when GET /people/{id}/card lands — no spinner</text>
+<text x="8" y="601" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Loading — name line only, no spinner</text>
+<!-- Sparse / visitor — segments dropped, not dashed -->
+<rect x="262" y="326" width="236" height="262" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="274" y="350" width="212" height="22" rx="2" fill="#181310"/>
+<text x="284" y="364.5" font-size="11" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Maya Rodriguez</text>
+<text x="478" y="364" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="end" >12</text>
+<rect x="276" y="385" width="212" height="104" rx="2" fill="#000" opacity="0.45"/>
+<rect x="274" y="380" width="212" height="104" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="284" y="390" width="48" height="48" rx="2" fill="#181310" stroke="#2a2622"/>
+<circle cx="308" cy="408" r="9" fill="none" stroke="#9b9082" stroke-dasharray="2 2" opacity="0.6"/><path d="M292 436 a16 14 0 0 1 32 0" fill="none" stroke="#9b9082" stroke-dasharray="2 2" opacity="0.6"/>
+<text x="342" y="404" font-size="12" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<text x="342" y="420" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >12 titles</text>
+<line x1="284" y1="438" x2="476" y2="438" stroke="#2a2622"/>
+<text x="284" y="455" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Profile</text>
+<text x="331.2" y="455" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Titles</text>
+<rect x="372.79999999999995" y="444" width="46" height="16" rx="8" fill="none" stroke="#2a2622"/><circle cx="381.79999999999995" cy="452" r="4.5" fill="#9b9082" opacity="0.8"/>
+<text x="389.79999999999995" y="455" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >TMDB</text>
+<text x="274" y="506" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >visitor · no birthdate → no age · 0 films → no</text>
+<text x="274" y="517" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >Films link · headshot = backend themed placeholder</text>
+<text x="262" y="601" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Sparse / visitor — segments dropped, not dashed</text>
+<!-- Corner — flips above + end-aligned -->
+<rect x="516" y="326" width="236" height="262" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<text x="528" y="344" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" letter-spacing="0.8">MORE WITH</text>
+<text x="604" y="344" font-size="9" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" letter-spacing="0.8">MAYA RODRIGUEZ</text>
+<rect x="530" y="451" width="212" height="106" rx="2" fill="#000" opacity="0.45"/>
+<rect x="528" y="446" width="212" height="106" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="538" y="456" width="48" height="48" rx="2" fill="#181310" stroke="#2a2622"/>
+<clipPath id="c538456"><rect x="539" y="457" width="46" height="46"/></clipPath>
+<g clip-path="url(#c538456)"><rect x="539" y="457" width="46" height="46" fill="#9b9082" opacity="0.28"/><circle cx="562" cy="474" r="9" fill="#f3ece1" opacity="0.85"/><ellipse cx="562" cy="502" rx="17" ry="14" fill="#f3ece1" opacity="0.85"/></g>
+<text x="596" y="470" font-size="12" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<rect x="694" y="461" width="14" height="10" rx="2" fill="#181310" stroke="#2a2622"/><rect x="695" y="462" width="12" height="3" fill="#2e9e4a"/><rect x="695" y="465" width="12" height="3" fill="#f5d442"/><rect x="695" y="468" width="12" height="2" fill="#2e5bd6"/>
+<text x="596" y="486" font-size="10" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >41 · 27 titles · 3 films</text>
+<text x="596" y="500" font-size="9.5" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" font-style="italic">also credited as M. Rodrigues</text>
+<line x1="538" y1="516" x2="730" y2="516" stroke="#2a2622"/>
+<text x="538" y="533" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Profile</text>
+<text x="585.2" y="533" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Titles</text>
+<text x="626.8000000000001" y="533" font-size="10" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Films</text>
+<rect x="662.8000000000001" y="522" width="46" height="16" rx="8" fill="none" stroke="#2a2622"/><circle cx="671.8000000000001" cy="530" r="4.5" fill="#9b9082" opacity="0.8"/>
+<text x="679.8000000000001" y="533" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >TMDB</text>
+<rect x="638" y="558" width="102" height="18" rx="9" fill="none" stroke="#e8a33d" stroke-dasharray="3 2"/>
+<text x="646" y="570.5" font-size="10.5" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Maya Rodriguez</text>
+<path d="M740 556 v-4" stroke="#e8a33d" stroke-width="1.5"/>
+<text x="528" y="366" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >viewport edge → flips above,</text>
+<text x="528" y="377" font-size="8" fill="#9b9082" font-family="Arial" font-weight="normal" text-anchor="start" >end-aligned to the chip</text>
+<text x="516" y="601" font-size="9.5" fill="#5f5e5a" font-family="Arial" font-weight="normal" text-anchor="start" >Corner — flips above + end-aligned</text>
+</svg>

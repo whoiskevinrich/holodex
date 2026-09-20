@@ -138,8 +138,10 @@ credited as a, b, c" (max 3, `+N more` not shown), then the link row.
 - [ ] Link row order: Profile · Titles · Films · external-id badges (`ProviderLinkBadge`, sorted
   by `sortExternalLinks`) · Enrich · Edit. Films omitted when `film_count = 0`. Enrich/Edit
   rendered only when `isOwner`.
-- [ ] Titles → `/people/{id}#videos`; Films → `/people/{id}#films`; Enrich/Edit → the profile
-  with its existing deep links (`#field-photo-upload` / the enrich picker's anchor).
+- [ ] Titles → `/people/{id}#videos`; Films → `/people/{id}#films` — **these two anchors do not
+  exist yet**; the build adds `id="videos"` to the profile's video-grid section and `id="films"`
+  to its `FilmsRow` heading. Enrich → `/people/{id}#enrich-providers`; Edit →
+  `/people/{id}#field-photo-upload` (both exist).
 - [ ] `role="dialog"` is **not** used; the card is `role="group"` with `aria-label="{name}"`
   and the chip carries `aria-describedby` only while open.
 
@@ -172,9 +174,9 @@ on the profile today). Shape:
   aborts via `AbortController`.
 - [ ] While loading, the card shows the name line only (no spinner) and fills in when data lands.
 
-**R7 — Theming.** Tokens only: `bg-surface-2 border-rule rounded-theme text-ink text-muted`;
-the card's shadow lives in `app.css` under a `.hover-card` hook per skin, never inline. QA all
-three skins.
+**R7 — Theming.** Tokens only: `bg-surface border-rule rounded-theme shadow-lg text-ink
+text-muted` — the same floating-panel recipe as the header search dropdown; there is no per-skin
+shadow hook in the app and this does not introduce one. QA all three skins.
 
 **R8 — Tests.** Component tests for R2 (timers, focus order, single-open), a positioning test
 for R3 at the corner, an API test for R5 (shape, 404, age exclusivity), and a geometry-harness
@@ -251,9 +253,10 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
   the `RelatedShelf` header (a flex row that may itself be clipped)? Prototype there first; if
   it needs `position: fixed` + scroll listeners, that is the trigger for the floating-ui ADR
   (RD10).
-- **OQ2 (design, non-blocking):** does the film-billed dashed-accent pill keep its dashed border
-  when wrapped in the chip, or does the chip normalize to the solid `TagLinkChip` pill? Decide
-  in the design handoff.
+- ~~**OQ2 (design):** dashed vs solid pill for the film-billed chips~~ — **resolved in the design
+  handoff:** the chip is a transparent wrapper that keeps the consumer's classes. The dashed
+  accent border encodes "billed but in no owned scene" (`films/[id]/+page.svelte:752-783`) and
+  must survive; only the card is uniform. Note that surface is **owner-only**.
 - **OQ3 (data, non-blocking):** should `film_count` count films via `film_videos ⋈ video_people`
   (what the profile's Films row shows) or `film_people_roles` (billing)? The spec says the
   former so the card and the profile agree; confirm nothing on the profile uses the latter for
@@ -264,7 +267,7 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
 | Gate | Artifact | Status |
 |---|---|---|
 | Spec | this document | ✔ |
-| Design | `docs/design/person-hover-card-handoff.md` + SVG | pending |
+| Design | [`docs/design/person-hover-card-handoff.md`](../design/person-hover-card-handoff.md) + [SVG](../design/person-hover-card-mockup.svg) | ✔ |
 | ADR | only if RD10 falls (floating-ui) | n/a unless triggered |
 | Testing strategy | `docs/testing-strategy.md` section | pending |
 | Security review | public read of visitor-visible fields — not required unless the endpoint grows an owner branch | n/a |
