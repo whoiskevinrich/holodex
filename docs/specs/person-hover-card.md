@@ -51,7 +51,7 @@ that lands on the exact surfaces where the profile's facts are furthest away.
 - **Age at release** — "27 when this title came out" needs the video's year threaded into the
   card; deferred, the endpoint leaves room for it (P2).
 - **Touch long-press** — no hover, no card; the link works.
-- **Enrichment from the card** — no Refresh/Enrich action here (RD12); the profile owns writes.
+- **Enrichment beyond the ring** — no Refresh/Enrich links; the ring (RD12, F65.6) is the one action.
 - **Prefetching profiles / any change to `video.people[]`** — it stays `id + name + role`.
 
 ## Resolved Decisions
@@ -71,7 +71,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | RD9 | **Hidden under `@media (pointer: coarse)`**; hover-intent delay 250 ms; leave grace 150 ms. | First hover-only affordance in the app — state the touch posture once, in CSS. |
 | RD10 | **No positioning library in v1.** Card is absolutely positioned beside the trigger and flips horizontally/vertically from one `getBoundingClientRect` measure. `@floating-ui/dom` only if the prototype proves ugly → then an ADR. | The app has no floating-ui / anchor positioning today; keep the dependency decision behind evidence. |
 | RD11 | `PersonLinkChip` lives in `web/src/lib/components/person/`; the card is `PersonHoverCard.svelte` beside it, mounted **only** by the chip. | Single entity → `person/` per the components `CLAUDE.md`. |
-| RD12 | **The card never fires enrichment.** `CompletenessRing` stays `role="img"` / non-interactive (its folder contract); `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). | A hover surface should not own a write; the profile already has Refresh-all + the `e` hotkey (F62). |
+| RD12 | **The ring is the card's only action.** `CompletenessRing` becomes a button under **F65.6 (HOLODEX-435)** — clicking it fires the single-entity refresh-all, sweep semantics; the card mounts it beside the name as a sibling of the header link and passes `entity={{kind:'person', id}}` + `onrefreshed` (re-fetch `/card`, bypassing the session cache). `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). F68 depends on HOLODEX-435 merging first. | Kevin 2026-09-20: the ring should act, not just indicate. Nothing else on the card writes. |
 
 ## User Stories
 
@@ -141,7 +141,8 @@ dropped, optional "also credited as a, b, c" (max 3, `+N more` not shown) — th
 - [ ] Link row order: Titles · Films · external-id badges (`ProviderLinkBadge`, sorted by
   `sortExternalLinks`). Films omitted when `film_count = 0`. No owner-only links.
 - [ ] The ring renders iff the payload carries `completeness`; it is never given the detail
-  read's `score/facets` object.
+  read's `score/facets` object. It is a **sibling** of the header `<a>` in the name row (never
+  nested in it); `onrefreshed` re-fetches `/card` for this id and replaces the cached entry.
 - [ ] Titles → `/people/{id}#videos`; Films → `/people/{id}#films` — **these two anchors do not
   exist yet**; the build adds `id="videos"` to the profile's video-grid section and `id="films"`
   to its `FilmsRow` heading. Enrich → `/people/{id}#enrich-providers`; Edit →
@@ -278,5 +279,6 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
 | ADR | only if RD10 falls (floating-ui) | n/a unless triggered |
 | Testing strategy | `docs/testing-strategy.md` section | pending |
 | Security review | the endpoint has one owner branch (`completeness`) — run `/security-review` on the handler | pending |
+| Dependency | HOLODEX-435 (F65.6 ring button) merged to main | pending |
 
 Single story; no epic. Draft PR opens with this spec (ADR-069).

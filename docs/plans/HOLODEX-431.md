@@ -29,16 +29,18 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 - [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
   shape, geometry rung)
 - [ ] security `security-review` — required: `/card` gates `completeness` on `authorized` (RD12)
+- [ ] dependency — **HOLODEX-435** (F65.6 ring button) merged; rebase #369 on it before frontend
 
 ## Up next — ordered (position = priority)
 
 1. [x] [HOLODEX-431] design handoff with SVG mockup (three skins) — OQ2 decided
-2. [ ] [HOLODEX-431] prototype the positioning flip inside `RelatedShelf` first (OQ1) before
+2. [ ] [HOLODEX-435] ship the ring button first (own branch/PR, F65.6) — F68 consumes it
+3. [ ] [HOLODEX-431] prototype the positioning flip inside `RelatedShelf` first (OQ1) before
    writing the chip — this decides whether an ADR is needed
-3. [ ] [HOLODEX-431] backend card endpoint + test
-4. [ ] [HOLODEX-431] frontend chip + card + consumers; QA all three skins; geometry rung
-5. [ ] [HOLODEX-431] testing-strategy section, /code-review, mark PR ready (→ In Review by CI)
-6. [ ] file follow-ups from the spec's Deferred list as HOLODEX issues: in-tile reveal for
+4. [ ] [HOLODEX-431] backend card endpoint + test
+5. [ ] [HOLODEX-431] frontend chip + card + consumers; QA all three skins; geometry rung
+6. [ ] [HOLODEX-431] testing-strategy section, /code-review, mark PR ready (→ In Review by CI)
+7. [ ] file follow-ups from the spec's Deferred list as HOLODEX issues: in-tile reveal for
    `PeopleGrid`, age-at-release, curation chips + header dropdown, Studio/Film cards
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -50,7 +52,11 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
   drop the owner Enrich/Edit links — the F65 ring is the owner's indicator, clicking the card
   (header block → profile) is the edit path. Ring stays non-interactive per its contract; `/card`
   returns `completeness` owner-only, which makes the security gate real. Spec RD3/RD4/RD12,
-  R4/R5 amended; mockup regenerated. Next unchanged: prototype the flip in `RelatedShelf`.
+  R4/R5 amended; mockup regenerated. **Then Kevin reversed the ring call:** the ring should
+  fire enrichment (sweep semantics, single entity) — filed as its own story **HOLODEX-435**
+  (F65.6, child of 412) with its own branch/PR to merge first; RD12 now says the ring is the
+  card's one action, mounted as a sibling of the header link. Next: build 435, then the flip
+  prototype here.
 
 ### 2026-09-19 · brainstorm → story → spec → design
 - skills: product-brainstorming, write-spec, design-handoff

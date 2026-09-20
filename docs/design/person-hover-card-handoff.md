@@ -26,9 +26,12 @@ looks, one card:
 the **`CompletenessRing`** from F65 beside the name — a static indicator of whether the profile
 needs work — and the **header block is the profile link** for everyone, which for the owner is
 also the edit path: the profile carries Refresh-all / the `e` hotkey (F62) and every field editor.
-The card never fires enrichment itself; `CompletenessRing` is `role="img"` and non-interactive by
-its folder contract, and a hover surface should not own a write. With the header as the profile
-link, a separate "Profile" text link would be redundant, so the row is Titles · Films · badges.
+**Rev 3 (2026-09-20):** the ring *acts* — under F65.6 (HOLODEX-435) `CompletenessRing` becomes a
+button that fires the single-entity refresh-all with sweep semantics, so in the card it is the
+owner's one action, mounted as a **sibling of the header `<a>`** in the name row (a button may not
+nest in a link). While busy it spins; on `onrefreshed` the card re-fetches `/card` and redraws.
+With the header as the profile link, a separate "Profile" text link would be redundant, so the row
+is Titles · Films · badges.
 
 **Skin:** since ADR-102 the skin is instance identity — one skin per install, chosen by the owner,
 no per-browser switching. The mockup therefore renders every state in the **default skin,
@@ -69,7 +72,7 @@ point; A's simplicity is recovered by keeping the card non-modal and single-open
 |---|---|---|
 | Header block | `<a href="/people/{id}" class="flex gap-3 group">` wrapping headshot + name/meta/alias column | The profile link for everyone; for the owner it is the edit path. `group-hover:text-accent` on the name only — the block does not get a background. |
 | Headshot | `PersonImageFrame` `role="headshot"` `frameClass="portrait-frame--1x1 w-12"` | 48 px; face-biased crop and the Broadcast scanline overlay come from `.portrait-frame` for free. No client fallback needed — the backend always serves a real or themed placeholder image. |
-| Name line | `display_name ?? name` · `NationalityFlags values={nationality}` (`h-4`) · `CompletenessRing size="row" required extras` **only when `card.completeness` is present** (owner, by payload) | `truncate` on the name; flags and ring `shrink-0`. Ring = 12 px, muted track, accent arc, ink overfill lap — exactly as on the people index rows (`routes/people/+page.svelte:263`). Never feed it the detail read's `score/facets` object. |
+| Name line | `display_name ?? name` · `NationalityFlags values={nationality}` (`h-4`) inside the header `<a>`; `CompletenessRing size="row" required extras entity={{kind:'person', id}} onrefreshed` as the **next sibling** of the `<a>` in a `flex items-center gap-1.5` row, **only when `card.completeness` is present** (owner, by payload) | `truncate` on the name; flags and ring `shrink-0`. Ring = 12 px, muted track, accent arc, ink overfill lap — as on the people index rows. It is a button (F65.6): idle → busy (spinning) → `onrefreshed` → the card re-fetches `/card` and redraws. Never feed it the detail read's `score/facets` object. |
 | Meta line | segments `age` · `videoCount(video_count)` · `N films`, joined with ` · `; **absent segments are dropped**, never rendered as "—" | `age_at_death` renders as `†41`. `0 films` → segment dropped. |
 | Aliases | "also credited as a, b, c" — first three aliases, no "+N" in v1 (P1) | Omitted entirely when empty. |
 | Link row | `flex flex-wrap gap-x-3 gap-y-1` · Titles `/people/{id}#videos` · Films `/people/{id}#films` (only when `film_count > 0`) · one `ProviderLinkBadge` per `sortExternalLinks(external_links)` | **Anchors do not exist yet** — the build adds `id="videos"` on the profile's video grid section and `id="films"` on its `FilmsRow` heading. No owner row. |
@@ -110,8 +113,9 @@ Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own toke
 | Pointer leaves chip *and* card | close | **150 ms** grace; re-entering either cancels |
 | Pointer moves onto the card | stays open; header block and links are hoverable | the 6 px gap is inside the grace window |
 | Click on the header block | navigate to the profile (owner: this is "edit") | — |
+| Click on the ring (owner) | fires `POST /people/{id}/enrich/refresh-all` (F65.6); card stays open, ring busy; on completion `/card` is re-fetched and the card redraws in place | no navigation, no picker, no toast — sweep semantics |
 | Chip receives focus | open **immediately** | no intent delay for keyboard |
-| Tab from chip | into the card: header block → Titles → Films → badges, DOM order | card is the chip's next sibling so no focus management is needed |
+| Tab from chip | into the card: header block → ring (owner) → Titles → Films → badges, DOM order | card is the chip's next sibling so no focus management is needed |
 | Tab past the last link / Shift+Tab from chip | close, focus continues naturally | — |
 | Escape / outside click | close via `use:dismissable` (`inside` = the chip wrapper) | focus returns to the chip if it was inside the card |
 | Click on the chip | **navigate** — never intercepted | the card is beside, not over, the chip so an in-flight click cannot land on it |
@@ -129,9 +133,8 @@ Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own toke
   contains interactive children.
 - Focus order = DOM order: chip → header block (profile) → Titles → Films → provider badges →
   next chip. No roving tabindex (these are links, not a list).
-- The ring keeps its own `role="img"` + "Completeness: required N, extras N" label inside the
-  header link; the link's accessible name is the name text (the ring's label is supplementary,
-  `aria-hidden` is **not** applied so the owner hears the score).
+- The ring is a `<button>` (F65.6) with `aria-label="Refresh enrichment — completeness: required
+  N, extras N"`, `aria-busy` while running; it sits after the header link in the tab order.
 - Screen readers hear the link text (the name) and, once open, the card as a described group.
   Loading state announces nothing extra.
 - Coarse pointers get the link, which is the complete fallback — the card is never the only
@@ -141,7 +144,7 @@ Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own toke
 
 `PeopleGrid` / `PersonPosterCard` / people-index rows (already show the face), the header
 search dropdown (popover-in-popover), curation chips (collide with `PopoverMenu`), Studio / Film
-cards, age at release, touch long-press, alias "+N more", any enrichment action from the card.
+cards, age at release, touch long-press, alias "+N more", any enrichment action other than the ring.
 
 ## QA
 
@@ -172,7 +175,10 @@ lists the first person.
   `completeness` key and no ring renders.
 - 2.1 `[human]` On the film page, does the dashed chip still read as "not in your scenes" with
   the card open beside it, or does the card make it look linked? (Expect: unchanged.)
-- 2.2 `[human]` Click the header block as the owner — does landing on the profile feel like the
-  natural "go fix it" move, or is a Refresh affordance missed in the card?
+- 1.9 `[agent]` Owner: click the ring — `POST /people/{id}/enrich/refresh-all` fires, the card
+  does not close or navigate, the ring is `aria-busy` until the response, then `/card` is
+  re-fetched and the ring's `required` matches the people index row afterwards.
+- 2.2 `[human]` Click the ring as the owner — is the spin + redraw enough feedback, or does the
+  card want a one-line "refreshed" note?
 - 2.3 `[human]` Does the loading → filled transition feel like a card *appearing*, or like a
   flicker? If flicker, raise the intent delay to 300 ms before adding a skeleton.
