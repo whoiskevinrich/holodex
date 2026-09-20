@@ -1,6 +1,6 @@
 # Instance skin — Appearance tab & header picker removal — design handoff
 
-**Ticket:** HOLODEX-427 (epic HOLODEX-425, F66) · **Status:** option B approved by the owner
+**Ticket:** HOLODEX-427 (epic HOLODEX-425, F67) · **Status:** option B approved by the owner
 2026-09-19 · **Date:** 2026-09-19 · **Spec:** [instance-skin.md](../specs/instance-skin.md) R5–R8, R15–R16 ·
 **ADR:** [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md) D1/D3
 

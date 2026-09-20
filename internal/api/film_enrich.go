@@ -41,8 +41,7 @@ func (h *Handlers) filmEnrichResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityFilm, enrich.Hint{Query: body.Query})
 	if err != nil {
-		h.log.Warn("film enrich resolve failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "provider lookup failed")
+		h.providerError(w, "film enrich resolve failed", body.Provider, err, "provider lookup failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
@@ -78,8 +77,7 @@ func (h *Handlers) filmEnrichApply(w http.ResponseWriter, r *http.Request) {
 	}
 	fields, err := h.enrich.Enrich(r.Context(), model.EnrichEntityFilm, id, body.Provider, body.ExternalID, h.auth.authorized(r))
 	if err != nil {
-		h.log.Warn("film enrich apply failed", "provider", body.Provider, "err", err)
-		writeError(w, http.StatusBadGateway, "enrichment failed")
+		h.providerError(w, "film enrich apply failed", body.Provider, err, "enrichment failed")
 		return
 	}
 	// A provider's poster arrives as an image asset and is already stored by Enrich's

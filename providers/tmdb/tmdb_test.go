@@ -202,6 +202,89 @@ func TestTMDBResolveProfileURL(t *testing.T) {
 	}
 }
 
+// F64 (HOLODEX-406): every candidate builder emits image_url at the w185 rendition
+// of the match's own image path — person profile_path, movie poster_path, company
+// logo_path — and omits the key when the path is empty. Never `original`: Holodex
+// does not download this one, the owner's browser does.
+func TestTMDBResolveImageURL(t *testing.T) {
+	srv := fakeTMDB(t)
+	c := clientWith(srv)
+	ctx := context.Background()
+
+	person, err := c.resolve(ctx, hintBody{Query: "Hayao Miyazaki"}, "person")
+	if err != nil || len(person) == 0 {
+		t.Fatalf("resolve person: cands=%v err=%v", person, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/akhpeJSfFKMValElDDjsKi2jryl.jpg"; person[0].ImageURL != want {
+		t.Errorf("person search image_url = %q, want %q", person[0].ImageURL, want)
+	}
+	byID, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"tmdb:608"}}, "person")
+	if err != nil || len(byID) == 0 {
+		t.Fatalf("resolve person by id: cands=%v err=%v", byID, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/akhpeJSfFKMValElDDjsKi2jryl.jpg"; byID[0].ImageURL != want {
+		t.Errorf("person by-id image_url = %q, want %q", byID[0].ImageURL, want)
+	}
+
+	// Movie hits serve two entities (HOLODEX-414): a video row gets the w300
+	// backdrop (poster when the title has none), a film row always the w185 poster.
+	const backdrop = "https://image.tmdb.org/t/p/w300/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"
+	const poster = "https://image.tmdb.org/t/p/w185/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+	movie, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "video")
+	if err != nil || len(movie) < 3 {
+		t.Fatalf("resolve movie: cands=%v err=%v", movie, err)
+	}
+	if movie[0].ImageURL != backdrop {
+		t.Errorf("video search image_url = %q, want the backdrop %q", movie[0].ImageURL, backdrop)
+	}
+	if movie[1].ImageURL != "" {
+		t.Errorf("movie with neither path must omit image_url, got %q", movie[1].ImageURL)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/remaster_poster.jpg"; movie[2].ImageURL != want {
+		t.Errorf("video hit without a backdrop falls back to the poster: got %q, want %q", movie[2].ImageURL, want)
+	}
+	film, err := c.resolve(ctx, hintBody{Query: "Fight Club"}, "film")
+	if err != nil || len(film) < 1 {
+		t.Fatalf("resolve film: cands=%v err=%v", film, err)
+	}
+	if film[0].ImageURL != poster {
+		t.Errorf("film search image_url = %q, want the poster %q", film[0].ImageURL, poster)
+	}
+	for _, tc := range []struct{ entity, want string }{{"video", backdrop}, {"film", poster}} {
+		byTMDB, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"tmdb:550"}}, tc.entity)
+		if err != nil || len(byTMDB) != 1 {
+			t.Fatalf("resolve %s by tmdb id: cands=%v err=%v", tc.entity, byTMDB, err)
+		}
+		if byTMDB[0].ImageURL != tc.want {
+			t.Errorf("%s by-id image_url = %q, want %q", tc.entity, byTMDB[0].ImageURL, tc.want)
+		}
+		byIMDB, err := c.resolve(ctx, hintBody{ExternalIDs: []string{"imdb:tt0137523"}}, tc.entity)
+		if err != nil || len(byIMDB) != 1 {
+			t.Fatalf("resolve %s by imdb id: cands=%v err=%v", tc.entity, byIMDB, err)
+		}
+		if byIMDB[0].ImageURL != tc.want {
+			t.Errorf("%s by-imdb image_url = %q, want %q", tc.entity, byIMDB[0].ImageURL, tc.want)
+		}
+	}
+
+	studio, err := c.resolve(ctx, hintBody{Query: "Studio Ghibli"}, "studio")
+	if err != nil || len(studio) == 0 {
+		t.Fatalf("resolve studio: cands=%v err=%v", studio, err)
+	}
+	if want := "https://image.tmdb.org/t/p/w185/eS79pslnoLbjIeoBIkjfgDkD2LN.png"; studio[0].ImageURL != want {
+		t.Errorf("studio search image_url = %q, want %q", studio[0].ImageURL, want)
+	}
+
+	// The wire shape: present as `image_url`, absent (not "") when there is none.
+	raw, _ := json.Marshal(movie)
+	if !strings.Contains(string(raw), `"image_url":"https://image.tmdb.org/t/p/w300/`) {
+		t.Errorf("image_url missing from the JSON candidate: %s", raw)
+	}
+	if strings.Contains(string(raw), `"image_url":""`) {
+		t.Errorf("an empty image_url must be omitted, not sent as \"\": %s", raw)
+	}
+}
+
 func TestTMDBEnrich(t *testing.T) {
 	srv := fakeTMDB(t)
 	c := clientWith(srv)
@@ -219,9 +302,10 @@ func TestTMDBEnrich(t *testing.T) {
 	if len(res.Fields["aliases"]) == 0 {
 		t.Error("aliases field missing")
 	}
-	// website is the person's TMDB page (not their personal site).
-	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/person/608-hayao-miyazaki" {
-		t.Errorf("website = %v, want [https://www.themoviedb.org/person/608-hayao-miyazaki]", got)
+	// website is the person's own site, never the TMDB page — that link is the
+	// badge's, via link_templates (F63, HOLODEX-391).
+	if got := res.Fields["website"]; len(got) != 1 || got[0] != "https://www.ghibli.jp/" {
+		t.Errorf("website = %v, want [https://www.ghibli.jp/]", got)
 	}
 	// Expect: headshot (first profile) + gallery (second profile) + banner (first backdrop).
 	if len(res.Assets) < 3 {
@@ -367,9 +451,10 @@ func TestTMDBEnrichMovie(t *testing.T) {
 	if sidecar[1] != "tmdb:711 Fox 2000 Pictures" {
 		t.Errorf("sidecar[1] = %q, want %q", sidecar[1], "tmdb:711 Fox 2000 Pictures")
 	}
-	// homepage is the movie's TMDB page (not the studio's official site).
-	if got := res.Fields["homepage"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/movie/550-fight-club" {
-		t.Errorf("homepage = %v, want [https://www.themoviedb.org/movie/550-fight-club]", got)
+	// homepage is the film's own site, never the TMDB page — that link is the
+	// badge's, via link_templates (F63, HOLODEX-391).
+	if got := res.Fields["homepage"]; len(got) != 1 || got[0] != "http://www.foxmovies.com/movies/fight-club" {
+		t.Errorf("homepage = %v, want [http://www.foxmovies.com/movies/fight-club]", got)
 	}
 	// Movie fields go into Fields, not Assets.
 	if len(res.Assets) != 0 {
@@ -416,6 +501,12 @@ func TestTMDBEnrichMovieNoPoster(t *testing.T) {
 	res := buildMovieEnrichResponse(det, movieCredits{}, "video")
 	if _, ok := res.Fields["poster_url"]; ok {
 		t.Error("poster_url should not be set when PosterPath is empty")
+	}
+	// No homepage on TMDB → the field is omitted, not filled with the TMDB page
+	// (F63 P0-3: the TMDB link belongs to the badge, and an empty row is worse than
+	// no row).
+	if got, ok := res.Fields["homepage"]; ok {
+		t.Errorf("homepage = %v, want omitted when TMDB has none", got)
 	}
 }
 
@@ -516,15 +607,16 @@ func TestTMDBEnrichStudio(t *testing.T) {
 	}
 }
 
-func TestTMDBEnrichStudioWebsiteFallback(t *testing.T) {
+func TestTMDBEnrichStudioNoWebsite(t *testing.T) {
 	c := clientWith(fakeTMDB(t))
 	res, err := c.enrich(context.Background(), "tmdb:9999", "studio")
 	if err != nil {
 		t.Fatalf("enrich studio: %v", err)
 	}
-	// No homepage → website falls back to the durable TMDB company page.
-	if got := res.Fields["website"]; len(got) == 0 || got[0] != "https://www.themoviedb.org/company/9999-bare-films" {
-		t.Errorf("website = %v, want the TMDB company page fallback", got)
+	// No homepage → website omitted; the TMDB company page is the badge's link via
+	// link_templates, no longer a field fallback (F63 P0-3).
+	if got, ok := res.Fields["website"]; ok {
+		t.Errorf("website = %v, want omitted when TMDB has no homepage", got)
 	}
 	// No logo_path → no logo field (nothing to render).
 	if _, ok := res.Fields["logo"]; ok {
@@ -640,6 +732,11 @@ func TestBuildEnrichResponseFallsBackToProfilePath(t *testing.T) {
 	if res.Assets[0].Kind != "headshot" {
 		t.Errorf("assets[0].kind = %q, want headshot", res.Assets[0].Kind)
 	}
+	// No homepage on TMDB → website omitted, not filled with the TMDB person page
+	// (F63 P0-3: that link belongs to the badge).
+	if got, ok := res.Fields["website"]; ok {
+		t.Errorf("website = %v, want omitted when TMDB has none", got)
+	}
 }
 
 func TestBuildEnrichResponseSkipsEmptyFilePath(t *testing.T) {
@@ -735,12 +832,12 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/search/person":
 			q := r.URL.Query().Get("query")
 			if strings.Contains(strings.ToLower(q), "miyazaki") {
-				io.WriteString(w, `{"results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"known_for_department":"Directing","known_for":[{"title":"Spirited Away","release_date":"2001-07-20"}]}]}`) //nolint:errcheck
+				io.WriteString(w, `{"results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","known_for_department":"Directing","known_for":[{"title":"Spirited Away","release_date":"2001-07-20"}]}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
 		case r.URL.Path == "/3/person/608":
-			io.WriteString(w, `{"id":608,"name":"Hayao Miyazaki","biography":"Japanese filmmaker and co-founder of Studio Ghibli.","birthday":"1941-01-05","place_of_birth":"Bunkyō, Tokyo, Japan","profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","also_known_as":["宮崎駿","Miyazaki Hayao"]}`) //nolint:errcheck
+			io.WriteString(w, `{"id":608,"name":"Hayao Miyazaki","biography":"Japanese filmmaker and co-founder of Studio Ghibli.","birthday":"1941-01-05","place_of_birth":"Bunkyō, Tokyo, Japan","profile_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","homepage":"https://www.ghibli.jp/","also_known_as":["宮崎駿","Miyazaki Hayao"]}`) //nolint:errcheck
 		case r.URL.Path == "/3/person/608/images":
 			io.WriteString(w, `{"profiles":[{"file_path":"/akhpeJSfFKMValElDDjsKi2jryl.jpg","aspect_ratio":0.667,"vote_average":5.4},{"file_path":"/secondprofile.jpg","aspect_ratio":0.667,"vote_average":4.8}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/person/608/tagged_images":
@@ -750,7 +847,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/search/movie":
 			q := r.URL.Query().Get("query")
 			if strings.Contains(strings.ToLower(q), "fight club") {
-				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1}]}`) //nolint:errcheck
+				io.WriteString(w, `{"results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"},{"id":551,"title":"Fight Club (fan cut)","release_date":"2004-01-01","popularity":1.2},{"id":552,"title":"Fight Club (remaster)","release_date":"2019-10-15","popularity":0.9,"poster_path":"/remaster_poster.jpg"}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"results":[]}`) //nolint:errcheck
 			}
@@ -761,7 +858,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			// flat-actors path, ADR-055).
 			io.WriteString(w, `{"cast":[{"id":287,"name":"Brad Pitt","order":0,"profile_path":"/cckcYc2v0yh1tc9QjRelptcOBko.jpg"},{"id":819,"name":"Edward Norton","order":1},{"name":"Helena Bonham Carter","order":2}],"crew":[{"id":7467,"name":"David Fincher","job":"Director","profile_path":"/dcBHejOcOdghH0itOws5dc4tXvw.jpg"},{"id":11284,"name":"Art Linson","job":"Producer"}]}`) //nolint:errcheck
 		case r.URL.Path == "/3/movie/550":
-			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
+			io.WriteString(w, `{"id":550,"title":"Fight Club","original_title":"Fight Club","overview":"An insomniac office worker forms an underground fight club.","release_date":"1999-10-15","runtime":139,"genres":[{"name":"Drama"},{"name":"Thriller"}],"tagline":"Mischief. Mayhem. Soap.","original_language":"en","status":"Released","homepage":"http://www.foxmovies.com/movies/fight-club","imdb_id":"tt0137523","poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg","production_companies":[{"id":508,"name":"Regency Enterprises"},{"id":711,"name":"Fox 2000 Pictures"}]}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
 			http.NotFound(w, r)
 		case r.URL.Path == "/3/search/company":
@@ -774,7 +871,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 		case r.URL.Path == "/3/company/10342":
 			io.WriteString(w, `{"id":10342,"name":"Studio Ghibli","description":"Studio Ghibli is a Japanese animation film studio.","homepage":"https://www.ghibli.jp","logo_path":"/eS79pslnoLbjIeoBIkjfgDkD2LN.png","origin_country":"JP"}`) //nolint:errcheck
 		case r.URL.Path == "/3/company/9999":
-			// A company with no homepage or logo — website falls back to the TMDB page.
+			// A company with no homepage or logo — website is omitted (F63).
 			io.WriteString(w, `{"id":9999,"name":"Bare Films","description":"A studio with no homepage.","origin_country":"US"}`) //nolint:errcheck
 		case strings.HasPrefix(r.URL.Path, "/3/company/"):
 			http.NotFound(w, r)
@@ -782,7 +879,7 @@ func fakeTMDB(t *testing.T) *httptest.Server {
 			if strings.Contains(r.URL.Path, "nm0594503") {
 				io.WriteString(w, `{"person_results":[{"id":608,"name":"Hayao Miyazaki","popularity":25.3,"known_for_department":"Directing","known_for":[]}],"movie_results":[]}`) //nolint:errcheck
 			} else if strings.Contains(r.URL.Path, "tt0137523") {
-				io.WriteString(w, `{"person_results":[],"movie_results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1}]}`) //nolint:errcheck
+				io.WriteString(w, `{"person_results":[],"movie_results":[{"id":550,"title":"Fight Club","release_date":"1999-10-15","popularity":42.1,"poster_path":"/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","backdrop_path":"/hZkgoQYus5vegHoetLkCJzb17zJ.jpg"}]}`) //nolint:errcheck
 			} else {
 				io.WriteString(w, `{"person_results":[],"movie_results":[]}`) //nolint:errcheck
 			}
@@ -1000,5 +1097,103 @@ func TestBuildMovieEnrichResponse_FilmAliases(t *testing.T) {
 	}
 	if got := buildMovieEnrichResponse(movieDetails{Title: "Dune"}, movieCredits{}, "film").Fields["aliases"]; got != nil {
 		t.Errorf("no other titles must mean no aliases key, got %v", got)
+	}
+}
+
+// TestDescribeLinkTemplates holds the /describe.link_templates manifest (F63,
+// HOLODEX-391) to the shape Holodex enforces at ingest (enrich.ValidateLinkTemplate:
+// http(s) scheme + exactly one "{id}" token), and to the exact namespace/kind set
+// the spec promises — so a person, studio, film or video pill for a tmdb or imdb id
+// is never degraded for want of a template.
+func TestDescribeLinkTemplates(t *testing.T) {
+	h := newHandler(nil, newDiscardLogger())
+	w := httptest.NewRecorder()
+	h.describe(w, httptest.NewRequest("GET", "/describe", nil))
+	var body describeResponse
+	json.NewDecoder(w.Body).Decode(&body) //nolint:errcheck
+
+	want := map[string]map[string]string{
+		"tmdb": {
+			"person": "https://www.themoviedb.org/person/{id}",
+			"studio": "https://www.themoviedb.org/company/{id}",
+			"film":   "https://www.themoviedb.org/movie/{id}",
+			"video":  "https://www.themoviedb.org/movie/{id}",
+		},
+		"imdb": {
+			"person": "https://www.imdb.com/name/{id}/",
+			"film":   "https://www.imdb.com/title/{id}/",
+			"video":  "https://www.imdb.com/title/{id}/",
+		},
+	}
+	if len(body.LinkTemplates) != len(want) {
+		t.Fatalf("link_templates namespaces = %v, want %v", body.LinkTemplates, want)
+	}
+	for ns, kinds := range want {
+		got := body.LinkTemplates[ns]
+		if len(got) != len(kinds) {
+			t.Errorf("link_templates[%q] = %v, want %v", ns, got, kinds)
+			continue
+		}
+		for kind, tmpl := range kinds {
+			if got[kind] != tmpl {
+				t.Errorf("link_templates[%q][%q] = %q, want %q", ns, kind, got[kind], tmpl)
+			}
+		}
+	}
+	// Ingest rules mirrored from Holodex's ValidateLinkTemplate (the sidecar cannot
+	// import internal/enrich): http(s) only, exactly one {id}, no other brace token.
+	for ns, kinds := range body.LinkTemplates {
+		for kind, tmpl := range kinds {
+			if !strings.HasPrefix(tmpl, "https://") && !strings.HasPrefix(tmpl, "http://") {
+				t.Errorf("link_templates[%q][%q] = %q: not http(s)", ns, kind, tmpl)
+			}
+			if strings.Count(tmpl, "{id}") != 1 || strings.Count(tmpl, "{") != 1 || strings.Count(tmpl, "}") != 1 {
+				t.Errorf("link_templates[%q][%q] = %q: want exactly one {id} token", ns, kind, tmpl)
+			}
+		}
+	}
+}
+
+// An upstream 429 is passed through as the contract's back-pressure signal (§2.0,
+// ADR-103 D10): 429 + Retry-After on both endpoints, TMDB's header verbatim when
+// it is delta-seconds and Holodex's 30 s default when absent or unparseable.
+func TestRateLimitedPassThrough(t *testing.T) {
+	retryAfter := "17"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if retryAfter != "" {
+			w.Header().Set("Retry-After", retryAfter)
+		}
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer upstream.Close()
+	h := newHandler(clientWith(upstream), newDiscardLogger())
+
+	call := func(path, body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		if path == "/resolve" {
+			h.resolve(w, req)
+		} else {
+			h.enrich(w, req)
+		}
+		return w
+	}
+
+	w := call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`)
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "17" {
+		t.Fatalf("resolve = %d Retry-After=%q, want 429 / 17", w.Code, w.Header().Get("Retry-After"))
+	}
+	w = call("/enrich", `{"entity_type":"person","external_id":"tmdb:608"}`)
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "17" {
+		t.Fatalf("enrich = %d Retry-After=%q, want 429 / 17", w.Code, w.Header().Get("Retry-After"))
+	}
+
+	retryAfter = ""
+	if w = call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`); w.Header().Get("Retry-After") != rateLimitedDefaultRetry {
+		t.Fatalf("absent upstream Retry-After should default to %s, got %q", rateLimitedDefaultRetry, w.Header().Get("Retry-After"))
+	}
+	retryAfter = "Sat, 19 Sep 2026 12:00:00 GMT"
+	if w = call("/resolve", `{"entity_type":"person","hint":{"query":"miyazaki"}}`); w.Header().Get("Retry-After") != rateLimitedDefaultRetry {
+		t.Fatalf("HTTP-date Retry-After should default to %s, got %q", rateLimitedDefaultRetry, w.Header().Get("Retry-After"))
 	}
 }

@@ -56,6 +56,6 @@
 	});
 </script>
 
-<div bind:this={wrap} class="person-hero-media person-hero-media--static">
+<div bind:this={wrap} class="media-lift media-lift--static">
 	<PersonImageFrame {personId} role="banner" {name} {version} {eager} frameClass="portrait-frame--banner w-full" />
 </div>

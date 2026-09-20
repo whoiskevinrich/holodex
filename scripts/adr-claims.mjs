@@ -121,7 +121,8 @@ export function describeRivals(claim) {
 export function parseReservations(text) {
   const out = [];
   for (const line of text.split(/\r?\n/)) {
-    const m = /^(\d+)\s+RESERVED\s+(\S+)\s+(\S+)/.exec(line.trim());
+    // Optional F prefix: feature-claims.mjs renders its holds as "F65  RESERVED  …".
+    const m = /^F?(\d+)\s+RESERVED\s+(\S+)\s+(\S+)/.exec(line.trim());
     if (m) out.push({ num: Number(m[1]), slug: m[2], at: m[3] });
   }
   return out;
@@ -181,7 +182,7 @@ export function renderFile(claims, reservations, next, now = new Date()) {
 
 // ---------------------------------------------------------------- git + IO (impure)
 
-function git(args, cwd) {
+export function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
 }
 
@@ -192,7 +193,11 @@ export function mainWorktreeRoot(cwd) {
   return dirname(git(["rev-parse", "--path-format=absolute", "--git-common-dir"], cwd).trim());
 }
 
-function scanRefs(cwd) {
+// Every local + remote branch, keyed by commit and reduced to the best-ranked ref name
+// for that commit (main > origin/* > local). Many branches point at the same commit;
+// scanning a tree once per SHA keeps this fast on a repo with dozens of stale branches.
+// Shared with scripts/feature-claims.mjs.
+export function refsBySha(cwd) {
   const refs = git(["for-each-ref", "--format=%(objectname) %(refname)", "refs/heads", "refs/remotes"], cwd)
     .split("\n")
     .filter(Boolean)
@@ -202,26 +207,27 @@ function scanRefs(cwd) {
     })
     .filter((r) => !r.ref.endsWith("/HEAD"));
 
-  // Many branches point at the same commit; scanning a tree once per SHA keeps this
-  // fast on a repo with dozens of stale branches.
   const bySha = new Map();
   for (const r of refs) {
     if (!bySha.has(r.sha)) bySha.set(r.sha, []);
     bySha.get(r.sha).push(r.ref);
   }
+  for (const [sha, names] of bySha) {
+    bySha.set(sha, names.sort((a, b) => rankRef(a) - rankRef(b) || a.localeCompare(b))[0]);
+  }
+  return bySha;
+}
 
+function scanRefs(cwd) {
   const rows = [];
-  for (const [sha, refNames] of bySha) {
+  for (const [sha, ref] of refsBySha(cwd)) {
     let listing;
     try {
       listing = git(["ls-tree", "-r", "--name-only", sha, "--", `${ADR_DIR}/`], cwd);
     } catch {
       continue; // ref we cannot read (partial clone, pruned object) — skip, don't fail the run
     }
-    const parsed = listing.split("\n").map(parseAdrPath).filter(Boolean);
-    if (!parsed.length) continue;
-    const ref = [...refNames].sort((a, b) => rankRef(a) - rankRef(b) || a.localeCompare(b))[0];
-    for (const p of parsed) rows.push({ ...p, ref });
+    for (const p of listing.split("\n").map(parseAdrPath).filter(Boolean)) rows.push({ ...p, ref });
   }
   return rows;
 }

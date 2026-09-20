@@ -159,7 +159,7 @@ Set up local Holodex pointing at the provider sidecar:
 **8a.1** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"studio","hint":{"query":"Pixar"}}` → `200`, at least one candidate with `external_id` prefixed `tmdb:`, `namespace:"tmdb"`  
 **8a.2** [smoke] `POST http://localhost:9200/resolve` with body `{"entity_type":"studio","hint":{"query":"xyzzy_no_match_999"}}` → `200`, `{"candidates":[]}`  
 **8a.3** [smoke] `POST http://localhost:9200/enrich` with body `{"entity_type":"studio","external_id":"tmdb:3"}` (Pixar) → `200`, fields include `description`, `country`, `website`, `logo` starting with `"https://image.tmdb.org/t/p/original/"`; **no** `assets[]` in the response  
-**8a.4** [smoke] A studio with no `homepage` upstream still returns a non-empty `website` (falls back to the studio's TMDB page — see `tmdbEntityURL` in `providers/tmdb/tmdb.go`)
+**8a.4** [smoke] A studio with no `homepage` upstream returns **no** `website` key (the TMDB company page is the provider badge's link via `/describe.link_templates`, F63 — no field fallback)
 
 ### 8b. End-to-end via Holodex UI
 

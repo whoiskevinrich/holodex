@@ -236,6 +236,23 @@ var excludedKeys = newKeySet(
 // every ISO-639 code while leaving keys like "CRC-32" and MP4 atom names alone.
 var mkvLangSuffix = regexp.MustCompile(`(?i)-[a-z]{2,3}$`)
 
+// ordinalKeys are container tags whose value is an ordinal that other taggers
+// may write as "N of M" — exiftool renders the iTunes `disk` atom as
+// DiskNumber "2 of 3", and a foreign PART_NUMBER can carry the same shape.
+// Holodex's `part` field is ordinal-only (HOLODEX-389 RD1/RD5, OQ1: normalised
+// here, not in the mapping), so the stored value is the leading integer with
+// leading zeros dropped; a value with no leading integer passes through untouched.
+var ordinalKeys = newKeySet("PartNumber", "DiskNumber")
+
+var leadingIntRe = regexp.MustCompile(`^0*(\d+)`)
+
+func leadingOrdinal(v string) string {
+	if m := leadingIntRe.FindStringSubmatch(v); m != nil {
+		return m[1]
+	}
+	return v
+}
+
 // canonicalKey strips a trailing Matroska language suffix so a tag is addressed
 // the same whether it came from an MKV (suffixed) or an MP4 atom (bare) — both
 // for classification and as the Extra SourceKey persisted to extra_metadata, so a
@@ -263,6 +280,14 @@ func mapExiftool(m map[string]any) Extracted {
 			}
 		case peopleKeys.has(ck):
 			ex.People = append(ex.People, splitMulti(val)...)
+			// A person tag ALSO lands in Extra (video_metadata). Since ADR-072 the
+			// scanner no longer writes video_people from ex.People; links are derived
+			// from the resolved actors/director fields, whose file sources
+			// (file:Artist, file:Director, …) read video_metadata — so a person tag
+			// kept out of Extra could never link (HOLODEX-408).
+			if v := strings.TrimSpace(val); v != "" {
+				ex.Extra = append(ex.Extra, model.ExtraMetadata{SourceKey: ck, Value: v})
+			}
 		case tagKeys.has(ck):
 			ex.Tags = append(ex.Tags, splitMulti(val)...)
 		case dateKeys.has(ck):
@@ -281,7 +306,11 @@ func mapExiftool(m map[string]any) Extracted {
 		case excludedKeys.has(ck) || isBinaryValue(val):
 			// skip
 		default:
-			if v := strings.TrimSpace(val); v != "" {
+			v := strings.TrimSpace(val)
+			if ordinalKeys.has(ck) {
+				v = leadingOrdinal(v)
+			}
+			if v != "" {
 				ex.Extra = append(ex.Extra, model.ExtraMetadata{SourceKey: ck, Value: v})
 			}
 		}

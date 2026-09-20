@@ -52,6 +52,7 @@ export function sortRows(rows: ExtractionQueueRow[]): ExtractionQueueRow[] {
 export interface VideoGroup {
 	videoId: number;
 	videoTitle: string;
+	part?: string; // resolved part, shown beside the title (HOLODEX-389)
 	filePath: string;
 	rows: ExtractionQueueRow[];
 }
@@ -68,7 +69,13 @@ export function groupByVideo(rows: ExtractionQueueRow[]): VideoGroup[] {
 	}
 	const out: VideoGroup[] = [...byVideo.entries()].map(([videoId, items]) => {
 		const sorted = sortRows(items);
-		return { videoId, videoTitle: sorted[0].video_title, filePath: sorted[0].file_path, rows: sorted };
+		return {
+			videoId,
+			videoTitle: sorted[0].video_title,
+			part: sorted[0].part,
+			filePath: sorted[0].file_path,
+			rows: sorted
+		};
 	});
 	out.sort((a, b) => b.rows.length - a.rows.length || a.videoTitle.localeCompare(b.videoTitle));
 	return out;

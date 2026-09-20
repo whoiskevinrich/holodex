@@ -160,7 +160,7 @@
 	--radius: 0px;
 }
 
-/* ---- Custom palette (F66, ADR-102 D4) — derived tokens ----
+/* ---- Custom palette (F67, ADR-102 D4) — derived tokens ----
    Active only where the SPA (or an Appearance card) sets data-palette="custom" next to
    the base skin's data-theme and the five primaries (--bg --ink --accent --muted --warn)
    as inline custom properties. Every pair-partner token is derived from them here, so a
@@ -367,7 +367,7 @@
 		border-radius: var(--radius);
 	}
 	/* Skin flourishes on .video-frame come in two branches so a preview tile inside
-	   a `.skin-card` (the Appearance tab, F66) takes the *card's* skin, not the page's:
+	   a `.skin-card` (the Appearance tab, F67) takes the *card's* skin, not the page's:
 	   the page-level rule is fenced with `:not(.skin-card *)`, and a `.skin-card[data-
 	   theme='X']` branch re-applies it inside a card of that skin. A plain descendant
 	   selector would match through <html data-theme> into every card. Tokens need no
@@ -496,7 +496,7 @@
 		max-height: 540px;
 	}
 	/* Legibility fade (HOLODEX-305): the hero row overhangs the banner and paints above it
-	   (see `.person-hero-media` below + the row's own `relative` in +page.svelte), but the
+	   (see `.media-lift` below + the row's own `relative` in +page.svelte), but the
 	   photo underneath is arbitrary, owner-uploaded content — nothing guarantees the name/bio
 	   text has contrast against it. A pure top-to-bottom fade is weakest exactly where the bio
 	   column's label/first line land: that column top-aligns within the row (unlike the
@@ -562,26 +562,28 @@
 		);
 	}
 
-	/* ---- Person hero image bring-to-front on hover (F25 hero) ----
-	   The banner, poster, and headshot overlap by design (the headshot badge sits on the
-	   poster's corner; the row overlaps the banner above it), which can hide part of
-	   whichever image is underneath. Hovering (or focusing an Edit button inside) the
-	   poster/headshot raises it above its overlapping neighbors and nudges it slightly
-	   larger, without disturbing layout (transform doesn't affect flow). */
-	.person-hero-media {
+	/* ---- Media lift: bring-to-front + nudge on hover ----
+	   Born as the person hero's hover (F25 / HOLODEX-302): the banner, poster, and headshot
+	   overlap by design (the headshot badge sits on the poster's corner; the row overlaps the
+	   banner above it), which can hide part of whichever image is underneath. Hovering (or
+	   focusing a control inside) raises the element above its neighbors and nudges it
+	   slightly larger, without disturbing layout (transform doesn't affect flow). HOLODEX-384
+	   generalised the name so the entity Films row's poster tiles share the exact same
+	   affordance rather than a copy — one place to retune. */
+	.media-lift {
 		position: relative;
 		z-index: 0;
 	}
-	.person-hero-media:hover,
-	.person-hero-media:focus-within {
+	.media-lift:hover,
+	.media-lift:focus-within {
 		z-index: 5;
 	}
 	@media (prefers-reduced-motion: no-preference) {
-		.person-hero-media {
+		.media-lift {
 			transition: transform 0.15s ease-out;
 		}
-		.person-hero-media:hover,
-		.person-hero-media:focus-within {
+		.media-lift:hover,
+		.media-lift:focus-within {
 			transform: scale(1.06);
 		}
 	}
@@ -590,10 +592,40 @@
 	   shared position:relative/z-index:0 base above, which is what lets the overhanging row
 	   paint above it in the first place. Compounded with the base class so this wins on
 	   specificity, not source order — safe against the base rule being reordered later. */
-	.person-hero-media.person-hero-media--static:hover,
-	.person-hero-media.person-hero-media--static:focus-within {
+	.media-lift.media-lift--static:hover,
+	.media-lift.media-lift--static:focus-within {
 		z-index: 0;
 		transform: none;
+	}
+
+	/* ---- Entity Films row shelf (HOLODEX-384) ----
+	   The Films row under a person/studio/tag's video grid sizes its poster tiles against
+	   the grid above it, not against a fixed width: `--cols` is set inline from the same
+	   `effectiveDensity()` VideoGrid renders with, and the shelf is a size container, so
+	   `--card-w` is exactly the width of one `minmax(0, 1fr)` track under `gap-4` (1rem).
+	   Wide layout: the video frame is 16:9, so a 2:3 poster matching its height is 3/8 of a
+	   card wide. Poster layout: the frames are already 2:3, so the tile *is* a column. The
+	   `<li>` reads `--film-w`; `aspect-[2/3]` on the frame turns the width into the height.
+	   `--lift-slack` is the padding the `<ul>` (a scroll container, so it clips on every edge)
+	   reserves for the 6% `.media-lift` scale: 6% of the tile width covers 3% of a 2:3 tile's
+	   height plus its caption at every size, where a fixed 8px only covered tiles under ~270px.
+	   Horizontally that slack is handed back as negative margins, which must never exceed the
+	   page gutter (`<main class="px-6">`, +layout.svelte) or the shelf's box pokes past the
+	   viewport and the page gains horizontal scroll (the HOLODEX-356 rung) — so `--lift-slack-x`
+	   caps it at 1.5rem. Update that cap if the gutter ever changes. Vertical slack is
+	   unbounded; nothing above or below it is edge-sensitive.
+	   Note `container-type` implies layout containment, so the section is its own stacking
+	   context — the lift's z-index orders tiles against each other, not against anything
+	   outside the shelf; nothing outside needs it today. */
+	.films-shelf {
+		container-type: inline-size;
+		--card-w: calc((100cqw - (var(--cols) - 1) * 1rem) / var(--cols));
+		--film-w: calc(var(--card-w) * 9 / 16 * 2 / 3);
+		--lift-slack: calc(var(--film-w) * 0.06);
+		--lift-slack-x: min(var(--lift-slack), 1.5rem);
+	}
+	.films-shelf[data-layout='poster'] {
+		--film-w: var(--card-w);
 	}
 
 	/* ---- People poster-grid card hover-lift (F55) ----
@@ -685,6 +717,12 @@
 		z-index: 1;
 		font-size: 0.6rem;
 		color: var(--muted);
+	}
+	/* HOLODEX-389: the part badge takes the poster's one free corner, which is the
+	   counter's. A fact outranks a flourish, so on a card that has a part the counter
+	   steps up to sit above the badge instead of being covered by it. */
+	[data-theme='brutalist'] .video-frame:has(> .part-badge)::before {
+		bottom: 2.1rem;
 	}
 
 	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced).

@@ -2,6 +2,7 @@ package personimage
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -71,7 +72,7 @@ func TestBackfillHashesAndRemoves(t *testing.T) {
 	if _, ok := r.hashed[11]; ok {
 		t.Error("missing-file row should not be hashed")
 	}
-	if _, err := os.Stat(ImagePath(dir, 1, 12)); !os.IsNotExist(err) {
+	if _, err := Find(dir, 1, 12); !errors.Is(err, os.ErrNotExist) {
 		t.Error("collapse victim file should be removed")
 	}
 }

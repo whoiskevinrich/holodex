@@ -28,7 +28,8 @@ frontend scaffolding (empty/degraded states) doesn't need real data to start.
   use the shared component instead of a one-off
 - **Scope of this handoff**: the person/studio placement and the 0/1/N + degraded-link states. It
   does not re-decide the badge's own visual anatomy (pill shape, icon, hover/focus) — see "Badge
-  anatomy (recap, unchanged)" below.
+  anatomy (recap, unchanged)" below. **§5 (F63, HOLODEX-390) extends it** to the film and media
+  headers — the two surfaces the badge never reached — under the same DD1–DD3 rules.
 
 ---
 
@@ -126,3 +127,130 @@ template still carries that signal.
 The badge line has no independent loading state — it renders as part of the page's existing
 detail-fetch (person/studio load once, same as `videoCount`). No skeleton; the line is simply
 absent from the DOM until the page's data resolves, same as today.
+
+## 5. Film and media headers (F63 — HOLODEX-390, spec [provider-link-badge-coverage.md](../specs/provider-link-badge-coverage.md))
+
+**Owner rulings**: film placement ruled 2026-09-17 (mockup-backed, this section); media placement
+ruled 2026-09-16 as the spec's RD7. Both are the same rule DD1 set: **pills trail the last passive
+fact on the entity's existing muted line, after a `·` — never a new row.** Person's line is its
+video count; film's is its year; media's is its resolution/duration/year row. The pill itself, its
+0/1/N cardinality (§2), degraded state (§3), and accessibility (§4) are unchanged — this section
+decides only *which line* on the two new pages.
+
+![Film header in all three skins with the pills on the year line; the owner hover row, the no-ids row, the rejected own-line option; the media meta row with a single pill after the year; and the person reference row](provider-link-badge-film-media-mockup.svg)
+
+### DD4 — Film: pills join the year line (HOLODEX-393)
+
+The film header (`routes/films/[id]/+page.svelte`) is poster | title / **year** / studio. It has no
+video-count line, and its year is not a plain `<p>` but a `NameEditControl` (`as="p"`,
+`headingClass="text-sm text-muted"`) with the docked owner pencil. The pills render through that
+control's existing **`trailing` snippet** — between the value and the pencil, exactly where the
+person title already mounts its nationality flags — as `1999 · [IMDb] [TMDB]`:
+
+- The snippet body is `{#if links.length}` → `<span class="flex flex-wrap items-center gap-x-2
+  gap-y-1 text-sm text-muted">` holding the `·` and the sorted pills. `.name-edit-row` itself does
+  not wrap, so the inner flex-wrap is what lets 3+ pills fold under the year (DD2) instead of
+  widening the header.
+- **No ids → nothing renders, no separator** — the line is byte-identical to today (§2's 0 row).
+- **Owner pencil** lands after the pills (`1999 · IMDb TMDB ✎`), hover-revealed as before; its
+  accessible name stays "Change the year for this film", so nothing about the pills reads as
+  editable. **While the year is being edited** the pills disappear with the rest of the resting
+  row (the edit form replaces it) and return on save/cancel — no layout reserved for them.
+- **Visitor** sees `1999 · IMDb TMDB` with no pencil; `No year set · IMDb` is the owner-only
+  placeholder case and reads as intended (the year slot is absent, the identity signal is not).
+- Sorting is DD3 (alphabetical by label), done on the page from the payload's `external_links`.
+
+**Chosen over** a conditional line of pills under the year (mockup panel 2, dashed). Rejected:
+it spends a header line whenever ids exist, detaches the pills from the passive-metadata line
+every other entity uses, and gains nothing — the pencil-after-pills order it would avoid is
+already the person title's shipped shape.
+
+**Chosen over** widening `NameEditControl` with a second slot after the pencil. Rejected as a
+component change for one caller with no visible benefit over `trailing`.
+
+### DD5 — Media: one pill after the year on the meta row (HOLODEX-394, spec RD7)
+
+The media header (`routes/media/[id]/+page.svelte`, the `flex flex-wrap items-center gap-2
+text-sm text-muted` row after the title) reads `[1080p] 1920×1080 · 2h 16m · 1999`. The pill is
+appended as ` · [TMDB]` after the year — `{#if links.length}<span>·</span>{#each …}` at the end of
+that row, the same fragment `EntityVideoMeta` renders. Video always resolves 0 or 1 pill (the
+resolver's winning `external_provider_id`), so the row never wraps for this; when the year is
+absent the pill follows the duration instead (`2h 16m · [TMDB]`) — the separator logic is
+per-segment, as it already is for the year.
+
+- **Degraded pill renders** when the winning id's namespace has no `video` template (RD8) — the
+  file-layer `imdb:` case — as §3's non-interactive "Known to IMDb".
+- **No value → the row is byte-identical to today**; the Metadata grid's `External ID` chip is
+  untouched (the ruling was header pill *instead of* linking that chip, not in addition).
+
+### What this does not change
+
+- No new component, no new token, no skin-specific work: the pill's classes are the ADR-083 set
+  (`border-rule text-muted`, accent on hover/focus) and pass all three skins already; the QA for
+  P0-8 is placement + wrap only.
+- `EntityVideoMeta` stays person/studio's; film and media mount `ProviderLinkBadge` directly
+  because neither line has a video count to lead with.
+
+
+## 6. Media header: the provider match is a pill too (HOLODEX-424)
+
+![Media header pill derived from the provider match, three skins, plus the derivation](provider-link-badge-media-match-mockup.svg)
+
+**Why this exists.** DD5 shipped (PR #344) and works as specced — but "as specced" meant the pill
+reads *only* the resolver's winning `external_provider_id`. Person, studio, and film derive their
+pills from the **accepted match** (`entity_external_ids`), so linking a person to TMDB shows a pill
+immediately. Linking a video to TMDB shows nothing unless TMDB also knows an IMDb id (the sidecar
+emits `external_provider_id = imdb:<id>`, [tmdb.go](../../providers/tmdb/tmdb.go)) — and even then
+the pill is IMDb, never TMDB. Owner surfaced it 2026-09-19 as "media needs the pill Person has".
+It is a **derivation gap, not a missing UI**: nothing on the page changes.
+
+### DD6 — The match id stamped on the video's enrichment rows is a second pill input
+
+`externalLinksForVideo` (`internal/api/external_links.go`) already receives the video's
+`enrichRows`; every row carries the provider match as `ExternalID` (`"tmdb:812"`, namespace-
+qualified like every id since ADR-082). The function now folds those in alongside the resolved
+field:
+
+1. **Inputs**, in order: the resolved `external_provider_id` value (today's only input), then one
+   id per provider — the `ExternalID` on that provider's **newest** row (`fetched_at`). A re-match
+   upserts without clearing, so rows for keys the new payload omitted still carry the old id; the
+   freshest row is the current match. Extraction rows (`internal/extract`) write `ExternalID: ""`
+   and are skipped.
+2. **Split** each on the first `:`; drop malformed values (no namespace or no id), exactly as
+   `externalLinksForEntity` does.
+3. **Dedup by lowercase namespace, first occurrence wins.** The file-layer value is listed first so
+   a video whose tag and match share a namespace (`tmdb:812` on file and `tmdb:812` matched) renders
+   one pill, keyed on the file value the resolver already chose.
+4. **URL** per pill via the unchanged `ProviderLink(ns, video, id, stored)` precedence
+   (template ?? that provider's `_source_url` ?? degraded — ADR-098). TMDB already declares a
+   `video` template (`themoviedb.org/movie/{id}`), so the match pill links with **no sidecar
+   change**.
+5. **Order** is the frontend's: `sortExternalLinks` A–Z by label, the same rule `EntityVideoMeta`
+   applies on the person page. Aladdin reads `1992 · [IMDb] [TMDB]`.
+
+Chosen over **Option B** — do HOLODEX-382 first (move video matches onto `entity_external_ids`)
+and let the media page call `externalLinksForEntity` like everyone else. Cleaner end state, but a
+data-model migration gating a ~20-line read; RD4 ("video stays on the resolver; no identity row")
+still holds under DD6, so 382 can land later without undoing this.
+
+### States (all pre-existing — see §2–§4; the mockup restates them for the media row)
+
+| Video state | Pills | Notes |
+|---|---|---|
+| Matched, no file tag (the reported gap) | `[TMDB]` | New. Today renders nothing. |
+| Matched + file tag in another namespace | `[IMDb] [TMDB]` | Two pills, wraps per DD2 at 375 px |
+| Matched + file tag in the **same** namespace | one pill | Dedup; file value keyed |
+| File tag only, namespace no provider templates | degraded `Known to IMDb` | Unchanged (RD8) |
+| Matched to a provider with no `video` template and no `_source_url` | degraded `Known to X` | §3 state; identity still renders |
+| Unmatched, no tag | no pill, no separator | Row byte-identical to DD5 |
+| Match cleared / dismissed (HOLODEX-370) | pill disappears on reload | Rows are deleted with the match; nothing extra |
+
+### What this does not change
+
+- **Nothing in `web/`.** Slot (after the year, DD5), component, classes, `aria-label`s, the
+  `{#if externalLinks.length}` separator guard — all as shipped. The three-skin QA is a re-run of
+  P0-8's placement + wrap check with a two-pill row, not new theming work.
+- **Layer 2 is untouched (ADR-090).** A pill says "known to X"; *which* source won a field is the
+  `SourceBadge`'s job. No provenance distinction between a match-derived and a tag-derived pill.
+- **The Metadata grid's `External ID` chip** stays as ADR-082 left it.
+- **No new provider contract surface** — the match id and the `video` template already exist.

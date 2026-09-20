@@ -13,7 +13,8 @@ const GOOD: Activity = {
 	scan: { state: 'idle' } as Activity['scan'],
 	thumbnails: { depth: 0 } as Activity['thumbnails'],
 	library: {} as Activity['library'],
-	system: {} as Activity['system']
+	system: {} as Activity['system'],
+	sweep: { state: 'idle' } as Activity['sweep']
 };
 
 describe('activity poll resilience (HOLODEX-127)', () => {

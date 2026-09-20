@@ -218,6 +218,14 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("pruned old job history", "removed", n)
 	}
 
+	// Completeness scores are materialized (F65, ADR-099 D3) against registry
+	// criticality that is compiled in, so a build that re-tags a facet is only
+	// ever seen at boot: flag every entity for recompute on the first owner
+	// read (D4's denominator-change hook). The triggers cover everything else.
+	if err := repository.MarkAllCompletenessDirty(ctx); err != nil {
+		log.Warn("mark completeness dirty at boot failed", "err", err)
+	}
+
 	// Metadata source plugins (F22, ADR-033): a registry of sidecar providers; the
 	// service is the only thing that dials them, and only on an owner action.
 	sources, err := enrich.NewStore(cfg.MetadataSourcesPath, log)
@@ -291,6 +299,9 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	sweep := enrich.NewSweepRunner(enrichSvc, repository, log)
+	sweep.SetBaseContext(ctx)
+	handlers.SetSweep(sweep)
 	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
 	// forced-extract seam (no change-detection); the repo resolves the target and
 	// persists the file layer; the enrich service re-pulls linked providers.
@@ -418,7 +429,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
-	// Custom palette (F66, ADR-102 D5): a malformed block is logged and treated as
+	// Custom palette (F67, ADR-102 D5): a malformed block is logged and treated as
 	// absent; a low-contrast one is applied with a WARN per failing pair.
 	if tc := cfg.Theme.Custom; tc != nil {
 		custom, err := theme.Parse(theme.Input(*tc)) // same fields, same order; a conversion, not a copy
@@ -576,7 +587,7 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 // backfillPersonLinks runs the one-time video→person link derivation cutover
 // (F40, ADR-072 P0-4). Unlike studio's video_studios (greenfield table),
 // migration 0037 CARRIES FORWARD the pre-existing raw-extraction video_people
-// rows (role=''), so a non-empty table does not mean the backfill already ran —
+// rows (role=”), so a non-empty table does not mean the backfill already ran —
 // this gates purely on the job-run marker, not PersonLinkCount. Loss-guarded
 // (ADR-072 RD9): logs loudly (never panics) if the post-backfill active link
 // count shrinks vs. pre-backfill, which would mean the derivation's source set

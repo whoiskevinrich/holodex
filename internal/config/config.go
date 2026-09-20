@@ -66,7 +66,7 @@ type Config struct {
 	PosterWidth int `yaml:"poster_width"`
 
 	// Person images (F25, ADR-038). Bytes live at DataPath/person-images/{personID}/
-	// {id}.jpg; the path is derived like ThumbnailPath. The bounds guard untrusted
+	// {id}.jpg or .png (ADR-097); the path is derived like ThumbnailPath. The bounds guard untrusted
 	// uploads: PersonImageMaxBytes caps the request body, PersonImageMaxDimension the
 	// stored (downscaled) longest side.
 	PersonImagePath         string `yaml:"-"` // derived: DataPath/person-images
@@ -78,21 +78,21 @@ type Config struct {
 	PersonGalleryMax int `yaml:"person_gallery_max"`
 
 	// Studio images (F51, ADR-079; generalizes HOLODEX-130/ADR-057's single logo cache
-	// to icon/logo/poster). Bytes live at DataPath/studio-images/{studioID}/{id}.jpg,
+	// to icon/logo/poster). Bytes live at DataPath/studio-images/{studioID}/{id}.jpg|.png,
 	// derived like PersonImagePath. The bounds mirror the person ones.
 	StudioImagePath         string `yaml:"-"` // derived: DataPath/studio-images
 	StudioImageMaxBytes     int64  `yaml:"studio_image_max_bytes"`
 	StudioImageMaxDimension int    `yaml:"studio_image_max_dimension"`
 
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). Bytes live at
-	// DataPath/film-images/{filmID}/{id}.jpg, derived like StudioImagePath. The
+	// DataPath/film-images/{filmID}/{id}.jpg|.png, derived like StudioImagePath. The
 	// bounds mirror the studio ones.
 	FilmImagePath         string `yaml:"-"` // derived: DataPath/film-images
 	FilmImageMaxBytes     int64  `yaml:"film_image_max_bytes"`
 	FilmImageMaxDimension int    `yaml:"film_image_max_dimension"`
 
 	// Self-hosted provider brand icon (HOLODEX-134, ADR-059). One normalized icon per
-	// provider at DataPath/provider-icons/{id}.jpg, derived like StudioImagePath.
+	// provider at DataPath/provider-icons/{id}.jpg|.png, derived like StudioImagePath.
 	// ProviderIconMaxDimension bounds the stored (downscaled) longest side — icons are
 	// tiny glyphs, so this is small.
 	ProviderIconPath         string `yaml:"-"` // derived: DataPath/provider-icons
@@ -130,7 +130,7 @@ type Config struct {
 	// flag; it gates behavior, not schema.
 	FilmsEnabled bool `yaml:"films_enabled"`
 
-	// Theme holds the owner's custom palette (F66, ADR-102 D4). Which skin is *active*
+	// Theme holds the owner's custom palette (F67, ADR-102 D4). Which skin is *active*
 	// is not config — it is a library-owned setting the owner picks on Owner ›
 	// Appearance (ADR-102 D2); this block only declares the palette that selection may
 	// point at. YAML-only (a multi-value block; no env override), restart to apply.
@@ -488,7 +488,7 @@ func envBool(key string, def bool) bool {
 	return def
 }
 
-// ThemeConfig is the `theme:` block of holodex.yaml (F66).
+// ThemeConfig is the `theme:` block of holodex.yaml (F67).
 type ThemeConfig struct {
 	// Custom is the owner-defined palette, or nil when none is declared. Validated by
 	// internal/theme.Parse at boot: a malformed block is logged and treated as absent —

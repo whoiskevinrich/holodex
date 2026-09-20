@@ -110,10 +110,31 @@ func parse(data []byte) (*Mappings, error) {
 			}
 		}
 		f.ParsedSources = parseSources(f.Sources)
+		def := registry.Lookup(f.Canonical)
+		// A person-typed field (registry.PersonTypedFields, ADR-072) is a set by
+		// definition: video_people is derived from its resolved values, so a
+		// comma-joined name must always split. Force merge-mode instead of trusting
+		// an optional `multi: true` in the YAML (HOLODEX-409).
+		if def.EntityKind == registry.EntityKindPerson {
+			f.Multi = true
+		}
+		if def.FileOnly {
+			for _, s := range f.ParsedSources {
+				if s.Namespace != "file" && s.Namespace != filenameNamespace {
+					return nil, fmt.Errorf("parse metadata mappings: field %q is a file fact and "+
+						"cannot be sourced from provider %q (%s:%s) — only file tags and filename:%s are allowed",
+						f.Canonical, s.Namespace, s.Namespace, s.Key, f.Canonical)
+				}
+			}
+		}
 		m.fields = append(m.fields, f)
 	}
 	return m, nil
 }
+
+// filenameNamespace is the F48 filename-parser namespace (internal/extract.Provider);
+// spelled here because mapping cannot import extract.
+const filenameNamespace = "filename"
 
 // parseSources splits each raw source string on the first colon.
 // "tmdb:title"  → {Namespace:"tmdb", Key:"title"}

@@ -71,6 +71,12 @@ describe('groupByVideo', () => {
 		expect(groups[0].rows.map((r) => r.field_key)).toEqual(['people', 'title']);
 	});
 
+	it('carries the video part onto the group so the heading can show it (HOLODEX-389)', () => {
+		const groups = groupByVideo([row({ id: 1, part: '2' }), row({ id: 2, video_id: 3, video_title: 'Solo' })]);
+		expect(groups.find((g) => g.videoId === 1)?.part).toBe('2');
+		expect(groups.find((g) => g.videoId === 3)?.part).toBeUndefined();
+	});
+
 	it('returns a single group when every row shares one video', () => {
 		const groups = groupByVideo([row({ id: 1 }), row({ id: 2, field_key: 'studio' })]);
 		expect(groups).toHaveLength(1);

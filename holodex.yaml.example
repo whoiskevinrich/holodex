@@ -90,7 +90,7 @@ metadata_sources_path: "./metadata-sources.yaml"     # METADATA_SOURCES_PATH
 #   "poster"           — 2:3 poster cards; suited to film libraries with cover art.
 # card_layout: "wide"              # CARD_LAYOUT
 
-# theme.custom declares an owner-defined palette (F66, ADR-102). Which skin is
+# theme.custom declares an owner-defined palette (F67, ADR-102). Which skin is
 # ACTIVE is not config — pick it on Owner › Appearance; this block only adds a
 # fourth card there. Five colours (#rgb or #rrggbb); everything else is derived.
 # YAML only, restart to apply; a malformed block is logged and ignored; low

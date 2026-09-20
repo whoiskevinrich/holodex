@@ -132,10 +132,20 @@ export interface VideoWritebackState {
 // error to propagate — unlike waitForWritebackJob, whose only caller needed the
 // throw to flip a dialog row to "error". On cancel/timeout, resolves with the
 // last-known state (or the not-pending zero value) rather than hanging.
+//
+// A refusal that carries an HTTP status (the video trashed or re-indexed under a
+// new id while a write was queued → 404, or a 5xx) still stops the loop, but
+// settles as the not-pending zero value instead of rejecting: the page chains
+// its guard-clearing and detail reload onto the resolved promise, and an
+// unhandled rejection there left the re-entrancy guard set for the rest of the
+// page's life — no later reload could re-arm the poll, so the badge sat on
+// "writing to file" until navigation (HOLODEX-420). The reload that follows is
+// the source of truth for what to render; this loop has nothing to add.
 export async function waitForVideoWriteback(
 	fetchStatus: () => Promise<VideoWritebackState>,
 	opts: WaitOptions = {}
 ): Promise<VideoWritebackState> {
-	const state = await pollUntilSettled(fetchStatus, (s) => !s.pending, opts);
+	// Only an HTTP-status refusal escapes pollUntilSettled (see above).
+	const state = await pollUntilSettled(fetchStatus, (s) => !s.pending, opts).catch(() => null);
 	return state ?? { pending: false, failed: false };
 }

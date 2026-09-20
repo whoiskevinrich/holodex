@@ -3,6 +3,8 @@
 	import { api } from '$lib/api';
 	import { formatDuration, resolutionBucket } from '$lib/format';
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
+	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
 
 	let {
 		video,
@@ -82,6 +84,28 @@
 			>
 				{formatDuration(video.duration_sec)}
 			</span>
+			{#if video.completeness || video.part}
+				<!-- Bottom-left group: the completeness ring chip (F65.4, HOLODEX-412) then the
+				     part badge (HOLODEX-389), both in the duration badge's neutral treatment so
+				     they read as facts along the bottom edge. The ring is owner-only by payload
+				     — it mounts iff the list item carries `completeness` (the API strips it for
+				     visitors), so a visitor's part badge sits exactly where it did before the
+				     ring existed: the wrapper's inset equals the badge's old inset. Neither is
+				     interactive, so both stay inside the <a> like duration — the media page row
+				     is the part badge's only edit mount (RD8). -->
+				<span class="absolute bottom-1.5 left-1.5 z-[2] flex items-center gap-1">
+					{#if video.completeness}
+						<span class="completeness-chip inline-flex items-center rounded-theme bg-black/70 px-1 py-[3px]">
+							<CompletenessRing required={video.completeness.required} extras={video.completeness.extras} size="card" />
+						</span>
+					{/if}
+					{#if video.part}
+						<span class="part-badge rounded-theme bg-black/70 px-1.5 py-0.5 text-xs text-ink">
+							{partBadgeLabel(video.part)}
+						</span>
+					{/if}
+				</span>
+			{/if}
 			{#if video.width > 0}
 				<span
 					class="absolute left-1.5 top-1.5 z-[2] rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink shadow-xs ring-1 ring-black/20"

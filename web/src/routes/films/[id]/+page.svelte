@@ -7,15 +7,18 @@
 		releaseYear,
 		providerFromWinningSource,
 		aliasHint,
-		videoCount
+		videoCount,
+		sortExternalLinks
 	} from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
+	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
 	import { isReplaceField, providerOf } from '$lib/f36';
 	import type {
 		DecisionSource,
 		EnrichSource,
 		EntityRef,
+		ExternalLink,
 		Film,
 		FilmBilledCredit,
 		FilmYearCollision,
@@ -32,6 +35,7 @@
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
+	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
 	import { expandedField } from '$lib/expandedField.svelte';
 	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
@@ -67,6 +71,12 @@
 	// `variant="frame"` hero mode owns upload/replace/remove there, replacing the old
 	// dedicated Images section; the `thumb` role had no consumer, so it was dropped.
 	let film = $state<Film | null>(null);
+	// Provider-link pills (HOLODEX-393, F63 P0-6): one per stored external id, joined
+	// to the year line below — the film's passive-metadata line, as person's video
+	// count and media's meta row are theirs. Sorted here so DD3's alphabetical order
+	// holds regardless of the payload's row order.
+	let externalLinks = $state<ExternalLink[]>([]);
+	const sortedLinks = $derived(sortExternalLinks(externalLinks));
 	// Other titles on the identity spine (HOLODEX-376), bound into AliasPanel; a rename
 	// keeps the old title as one (RD5) so the old spelling still routes on create.
 	let aliases = $state<PersonAlias[]>([]);
@@ -99,6 +109,13 @@
 	// the Details section, never via the page-level `error`.
 	let sources = $state<EnrichSource[]>([]);
 	let pickerProvider = $state('');
+	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
+	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
+	let pickerRematch = $state(false);
+	function openPicker(p: string, opts?: { rematch: boolean }) {
+		pickerRematch = !!opts?.rematch; // before pickerProvider: the picker mounts on it
+		pickerProvider = p;
+	}
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
@@ -265,6 +282,7 @@
 		studios = res.studios ?? [];
 		billedAbsent = res.billed_absent ?? [];
 		billedTotal = res.billed_total ?? 0;
+		externalLinks = res.external_links ?? [];
 	}
 
 	function load(current: number) {
@@ -335,7 +353,7 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			(p) => (pickerProvider = p)
+			openPicker
 		);
 	}
 
@@ -564,6 +582,23 @@
 								onCommit={commitYear}
 								id="field-year"
 							>
+								<!-- Provider pills ride the year line (F63 handoff DD4): `1999 · IMDb TMDB`,
+								     the film's reading of "join the entity's passive metadata line" —
+								     person appends to its video count, media to its meta row after the
+								     year. `trailing` puts them between the value and the docked pencil,
+								     exactly where the person title's nationality flags sit; the inner
+								     flex-wrap lets 3+ pills wrap inside the non-wrapping name-edit-row.
+								     Nothing renders — no separator either — when the film has no ids. -->
+								{#snippet trailing()}
+									{#if sortedLinks.length}
+										<span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+											<span aria-hidden="true">·</span>
+											{#each sortedLinks as link (link.provider)}
+												<ProviderLinkBadge {link} entityName={film?.name ?? ''} />
+											{/each}
+										</span>
+									{/if}
+								{/snippet}
 								{#snippet verdict(c: FilmYearCollision, resolve: () => void)}
 									<div class="mt-2 space-y-2 rounded-theme border border-rule bg-surface p-3">
 										<p class="text-sm text-ink">
@@ -775,7 +810,7 @@
 										linked={providerLinked}
 										{busy}
 										{refreshingAll}
-										onenrich={(p) => (pickerProvider = p)}
+										onenrich={openPicker}
 										onrefresh={refreshProvider}
 										onclear={clearProvider}
 										onrefreshall={refreshAll}
@@ -839,6 +874,16 @@
 													href={`/media/${fv.video.id}#field-edition`}
 													class="shrink-0 rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
 													>+ Set edition</a
+												>
+											{/if}
+											<!-- Part (HOLODEX-389 RD9) after edition, and deliberately no "+ Set part"
+											     twin of the link above: most files have no part and never will, so a dashed
+											     link on every row would be chrome for a rare fact — part is set from the
+											     media page's Metadata row (design handoff §3). -->
+											{#if fv.video.part}
+												<span
+													class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-1.5 py-0.5 text-[10px] text-muted"
+													>{partBadgeLabel(fv.video.part)}</span
 												>
 											{/if}
 										</span>
@@ -970,11 +1015,13 @@
      entire film-specific surface (ADR-089 D5). -->
 {#if pickerProvider}
 	<EnrichPicker
+		entityType="film"
 		entityName={film?.name ?? ''}
 		provider={pickerProvider}
 		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}
 		apply={(prov, extId) => api.enrichFilmApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
+		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
 		onapplied={reloadDetail}
 	/>

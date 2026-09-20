@@ -77,7 +77,8 @@ func (c *httpClient) Enrich(ctx context.Context, entityType, externalID string) 
 
 // do issues one request to the provider and decodes a size-capped JSON response.
 // A non-2xx status, transport error, or malformed body fails just this call —
-// the caller turns that into a single failed fetch, never a crash (F22.9b).
+// the caller turns that into a single failed fetch, never a crash (F22.9b). A 429
+// is the one status with its own type (errRateLimited, ADR-103 D2).
 func (c *httpClient) do(ctx context.Context, method, path string, body any, out any) error {
 	var reqBody io.Reader
 	if body != nil {
@@ -101,6 +102,11 @@ func (c *httpClient) do(ctx context.Context, method, path string, body any, out 
 		return fmt.Errorf("provider request: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		// The contract's one back-pressure signal (§2.0, ADR-103 D2): typed so the
+		// pacer can pause this provider's bucket; every other non-2xx stays generic.
+		return &errRateLimited{RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("provider returned %d", resp.StatusCode)
 	}

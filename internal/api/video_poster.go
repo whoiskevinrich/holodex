@@ -88,7 +88,8 @@ func (h *Handlers) uploadVideoPoster(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "could not read image")
 		return
 	}
-	norm, _, _, err := personimage.Normalize(raw, h.personImageMaxDim)
+	// JPEG-only: the bytes land in the thumbnail pipeline's {id}.jpg slots (ADR-097).
+	norm, _, _, err := personimage.NormalizeJPEG(raw, h.personImageMaxDim)
 	if err != nil {
 		h.log.Warn("video poster normalize failed", "video", id, "err", err)
 		writeError(w, http.StatusBadRequest, "unsupported or invalid image")

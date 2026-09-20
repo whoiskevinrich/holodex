@@ -405,7 +405,7 @@ A STRIDE-style pass over the new surface. Each control is a hard requirement the
 
 | # | Threat | Vector | Required control |
 |---|---|---|---|
-| T1 | **Malicious upload → RCE/XSS** | Polyglot / renamed non-image / SVG-with-script as upload | Sniff-decode with the stdlib decoder; **reject on decode failure**; re-encode to JPEG (drops any script/markup); **never accept SVG** as an uploadable image; serve with an explicit raster `Content-Type` + `X-Content-Type-Options: nosniff` |
+| T1 | **Malicious upload → RCE/XSS** | Polyglot / renamed non-image / SVG-with-script as upload | Sniff-decode with the stdlib decoder; **reject on decode failure**; re-encode to JPEG, or PNG when the image carries alpha (ADR-097) — either stdlib encoder drops any script/markup; **never accept SVG** as an uploadable image; serve with an explicit raster `Content-Type` + `X-Content-Type-Options: nosniff` |
 | T2 | **Path traversal / overwrite** | Crafted role/filename/person id in the upload or serving path | Filenames are **server-assigned from the row id**; `role` is validated against the fixed enum; person id is an int from the route; no request value ever concatenated into a filesystem path |
 | T3 | **SSRF via enrichment asset URL** | Provider returns `http://169.254.169.254/…` or a redirect to an internal host | Reuse F22 guards verbatim: **allowlist**, **refuse cross-host redirects**, response-size cap, timeout; fetch only over the provider's configured base where applicable; the asset host must pass the same allowlist |
 | T4 | **Decompression bomb / OOM** | Tiny file, enormous pixel dimensions; or huge upload body | `MaxBytesReader` on the request; **check declared dimensions/pixel-area before full decode**; bound decoded dimensions and re-encoded byte size |

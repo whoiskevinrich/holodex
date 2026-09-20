@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Appearance — the instance skin picker (F66 S2, ADR-102 D1/D3, design handoff
+	// Appearance — the instance skin picker (F67 S2, ADR-102 D1/D3, design handoff
 	// docs/design/instance-skin-handoff.md). One radio card per shipped skin plus the
 	// owner's custom palette when one is configured; picking a card applies it for
 	// every viewer and saves instantly (selection *is* the save). Each card renders in

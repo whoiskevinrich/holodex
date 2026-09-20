@@ -236,22 +236,74 @@ export const ASSERTIONS = [
 	// aligned flex actions line; the toggle then gained `py-1` for a 24px touch target (QA
 	// §4.6, the owner's call), which is the actions line's height now. This is the number
 	// both changes moved.
+	//
+	// F64 (HOLODEX-406) then put a 40×60 thumbnail slot beside the text block, so a row is
+	// now max(text stack, 60) + py-2 and 76 is a floor as well as a ceiling — the bound
+	// became an equality. That floor also swallowed one of the two mutations this used to
+	// catch (a toggle without `py-1` makes the text stack 52, and the slot still holds the
+	// row at 76), which is why the text block gets its own assertion right after.
 	{
 		key: 'collapsed-detail-row-costs-one-line',
 		finds:
 			'A collapsed candidate row growing past the one actions line its `details` toggle is ' +
 			'allowed to add — the "zero cost when unneeded" half of the reveal rule. The row ' +
-			'is label (20px) + disambiguation (16px) + the toggle’s line (16px text + py-1 = ' +
-			'24px) + py-2 (16px); 76 is that sum and the ceiling. The floor catches two ' +
-			'opposite regressions: the toggle losing its py-1 (66.6px, the touch target gone) ' +
-			'and a row with `detail` but no actions line at all (~51px, the toggle missing). ' +
-			'Row 3 rather than row 1 because row 1 is the active row and row 2 carries the ' +
-			'256-char line — neither changes the collapsed height, and a plain row proves the ' +
-			'rule alone.',
+			'is max(label 20px + disambiguation 16px + the toggle’s line 24px, the 60px ' +
+			'thumbnail slot) + py-2 (16px) = 76, and both stacks land on 60 by design, so 76 ' +
+			'is the exact height. Above it: the actions line regaining a descent gap (77, ' +
+			'mutation-tested) or the slot growing with its image. Below it: the row losing ' +
+			'`py-2`. Since HOLODEX-414 the slot is an explicit `w-27 h-15` (no aspect class), ' +
+			'so a slot losing `h-15` on a pictured row IS caught here: the `h-full` image ' +
+			'takes its intrinsic height at 108 wide and the row balloons. ' +
+			'Row 3 rather than row 1 because row 1 is the active row and row 2 carries ' +
+			'the 256-char line — neither changes the collapsed height, and a plain row proves ' +
+			'the rule alone.',
 		...stressedPicker,
 		selector: '#enrich-opt-2',
 		measure: 'height',
-		expect: { min: 70, max: 76 }
+		expect: { min: 76, max: 76 }
+	},
+	{
+		key: 'collapsed-detail-text-block-costs-one-line',
+		finds:
+			'The text block of a collapsed candidate row drifting off its three lines — the ' +
+			'half of the F61 rule the 60px thumbnail floor can no longer see from the row’s ' +
+			'own height. Label (20px) + disambiguation (16px) + the toggle’s line (16px text + ' +
+			'py-1 = 24px) = 60 exactly. A toggle without `py-1` lands it at 52 (the 24px touch ' +
+			'target gone, QA §4.6); a bare <div> actions line lands it at 61 (the descent gap ' +
+			'back).',
+		...stressedPicker,
+		selector: '#enrich-opt-2 > div.min-w-0',
+		measure: 'height',
+		expect: { min: 60, max: 60 }
+	},
+
+	// --- Every candidate row starts its text at the same x (F64, HOLODEX-406) ---
+	//
+	// The design handoff's alignment rule: the thumbnail slot is always present and always
+	// the same size within one picker, so the label of a pictured row and the label of a
+	// monogram row share one left edge. The harness bounds one metric on one selector and
+	// has no cross-element x comparison, so the parity is asserted by construction — every
+	// slot in the list is exactly the kind's width (the `<li>` is `flex items-start
+	// gap-3`, so text x = slot width + 12 on every row). Since HOLODEX-414 the width is
+	// per kind — `SLOT_CLASS` in candidateImage.ts — and the stressed picker opens on a
+	// VIDEO page, so the kind here is `landscape` and the slot is `w-27` = 108. `applies:
+	// each` over all 25 `flood` rows; `atLeast: 25` so a selector that stops matching cannot
+	// pass vacuously. Mutation-tested: dropping `w-27` leaves the box to take its image’s
+	// intrinsic width (the stub’s 80-wide portraits) and every row fails; swapping in an
+	// `aspect-*` class is caught the same way because the bound is exact, not a minimum.
+	{
+		key: 'candidate-slot-is-108-wide-on-every-row',
+		finds:
+			'A candidate row on a media page whose thumbnail slot is not exactly 108px wide ' +
+			'(the `landscape` kind, HOLODEX-414) — the slot shrinking, growing with its image, ' +
+			'or collapsing on a monogram row — which shifts that row’s label off the x every ' +
+			'other row uses.',
+		...stressedPicker,
+		selector: '[role="listbox"] > li > div[aria-hidden="true"]',
+		applies: 'each',
+		atLeast: 25,
+		measure: 'width',
+		expect: { min: 108, max: 108 }
 	},
 
 	{
@@ -270,6 +322,70 @@ export const ASSERTIONS = [
 		applies: 'count',
 		expect: { max: 200 },
 		blockedBy: 'HOLODEX-354'
+	},
+
+	// --- Media parts (HOLODEX-389). The part ladder seeds three files of one media
+	// whose only part source is the container tag — the source the list path never
+	// used to load — under one shared title, so the browse grid filtered to that
+	// title is the identical-triplet surface the field exists for. Addressed by
+	// `sort=title_asc`: the ladder's "Stress baseline" titles sort ahead of every
+	// coordinate-encoded `STRESS …` name and the breadth pool's `stress bulk …`, so
+	// the whole triplet lands on page one. (`/?q=` would be the natural address, but
+	// that deep link renders "No videos match" today — HOLODEX-404.) What the harness
+	// can express is presence and box size per element; the two-rect checks the
+	// design handoff asks for (badge vs duration, badge vs Brutalist reel counter)
+	// need a metric the probe does not have and were measured by hand instead
+	// (docs/design/media-parts-handoff.md §3, worklog HOLODEX-389).
+	{
+		key: 'part-badge-reaches-the-grid',
+		finds:
+			'Fewer part badges on the browse grid than the part ladder seeded — the ' +
+			'container-tag-only regression: the list path resolved parts from the filename ' +
+			'candidate and decisions but never loaded the file layer, so a part that lived ' +
+			'only as PartNumber/DiskNumber drew nothing on the card.',
+		urls: ['/?sort=title_asc'],
+		selector: '.video-grid .part-badge',
+		applies: 'count',
+		atLeast: 3,
+		expect: { min: 3 }
+	},
+
+	{
+		key: 'part-badge-is-a-real-box',
+		finds:
+			'A part badge collapsed or inflated: it shares the duration badge\'s text-xs + ' +
+			'py-0.5 treatment, so its box is the duration badge\'s box on every skin — a ' +
+			'height outside that band means the two no longer read as a pair along the ' +
+			'bottom edge, or a skin override reached one and not the other.',
+		urls: ['/?sort=title_asc'],
+		selector: '.video-grid .part-badge',
+		measure: 'height',
+		atLeast: 3,
+		expect: { min: 18, max: 26 }
+	},
+
+	{
+		key: 'part-pill-beside-the-title',
+		finds:
+			'The header part pill missing on a video the ladder gave a part, or rendered ' +
+			'twice. Exactly one: the slot shows the pill when a value exists and the owner ' +
+			'"+ Set part" control when it does not, never both.',
+		when: (e) => e.entity === 'video' && !!e.axes.video?.part,
+		selector: '.part-pill',
+		applies: 'count',
+		expect: { min: 1, max: 1 }
+	},
+
+	{
+		key: 'part-pill-holds-two-digits',
+		finds:
+			'The header pill clipping or wrapping "Part 12": the pill is shrink-0 + ' +
+			'wrap-anywhere in the title row, so a two-digit ordinal must still be one line ' +
+			'at every width.',
+		when: (e) => e.entity === 'video' && e.axes.video?.part === '12',
+		selector: '.part-pill',
+		measure: 'height',
+		expect: { min: 18, max: 26 }
 	}
 ];
 

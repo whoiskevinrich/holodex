@@ -58,6 +58,11 @@ type FieldDef struct {
 	// automatic exclusion, reusing the invariant ADR-063 already established for
 	// age/age_at_death rather than re-deriving it here.
 	Criticality string
+	// FileOnly marks a file fact (HOLODEX-389 RD2): a mapping may source it from the
+	// file layer (a bare/`file:` tag) or the F48 filename parser only. The mapping
+	// loader rejects a provider-namespaced source for it at load time — "no provider
+	// source" is enforced, not merely left out of the example.
+	FileOnly bool
 }
 
 // EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
@@ -70,7 +75,7 @@ const (
 const (
 	CriticalityCritical   = "critical"
 	CriticalityNiceToHave = "nice_to_have"
-	// CriticalityOptional (F60 RD6): the facet is emitted — so the SPA knows the
+	// CriticalityOptional (F60 RD6; F65 RD4 widened the list): the facet is emitted — so the SPA knows the
 	// field exists, its label and whether it is curatable — but carries no
 	// weight, never counts as missing and never enters the remediation queue or
 	// breakdown panel. For fields that are legitimately empty on most entities
@@ -94,7 +99,7 @@ var KnownFields = []FieldDef{
 		Label:       "Original Title",
 		Display:     "",
 		Description: "Title in the original language when it differs from the primary title.",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "overview",
@@ -108,7 +113,7 @@ var KnownFields = []FieldDef{
 		Label:       "Tagline",
 		Display:     "",
 		Description: "Short marketing tagline.",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "release_date",
@@ -125,11 +130,19 @@ var KnownFields = []FieldDef{
 		Criticality: CriticalityOptional, // most files have no edition, and that is not a gap
 	},
 	{
+		Canonical:   "part",
+		Label:       "Part",
+		Display:     "",
+		Description: "This file's ordinal within a multi-file media (1, 2, 3). A file fact, never a film or provider property (HOLODEX-389 RD1).",
+		Criticality: CriticalityOptional, // most files have no part, and that is not a gap
+		FileOnly:    true,
+	},
+	{
 		Canonical:   "runtime",
 		Label:       "Runtime (min)",
 		Display:     "",
 		Description: "Runtime in minutes (integer string).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "genres",
@@ -143,21 +156,21 @@ var KnownFields = []FieldDef{
 		Label:       "Status",
 		Display:     "",
 		Description: "Release status (e.g. Released, Post Production, In Production).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "original_language",
 		Label:       "Language",
 		Display:     "",
 		Description: "ISO 639-1 language code of the original language.",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "homepage",
 		Label:       "Website",
 		Display:     "url",
 		Description: "Official website URL for the film. Rendered as a link (opens in a new tab).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		// F55 (ADR-081 D5, value shape per ADR-082): generalized from the old
@@ -206,7 +219,7 @@ var KnownFields = []FieldDef{
 		Label:       "Nationality",
 		Display:     "",
 		Description: "Place of birth or nationality string as provided by the source.",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		// Excluded from completeness scoring (F55, ADR-081): low signal for "is
@@ -232,7 +245,7 @@ var KnownFields = []FieldDef{
 		Label:       "Alternate names",
 		Display:     "",
 		Description: "Whether the entity has at least one alternate name in the identity spine (F58, ADR-088).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "photo",
@@ -269,14 +282,14 @@ var KnownFields = []FieldDef{
 		Label:       "Description",
 		Display:     "long_text",
 		Description: "Studio description or summary. Trimmed to ≤4000 chars at a sentence boundary.",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "country",
 		Label:       "Country",
 		Display:     "",
 		Description: "Origin country of the studio (ISO 3166-1 code as provided by the source).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	// "logo" was a plain image_url field through F38 (ADR-057); retired in F51
 	// (ADR-079) — the studio logo (plus icon/poster) is now a downloaded asset in
@@ -319,7 +332,7 @@ var KnownFields = []FieldDef{
 		Label:       "Film",
 		Display:     "",
 		Description: "The film or collection this video belongs to. Sourced from the Album file tag by default (remappable in metadata-mappings.yaml).",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
 		Canonical:   "director",
@@ -328,7 +341,7 @@ var KnownFields = []FieldDef{
 		Description: "Director(s). Multi-valued.",
 		EntityKind:  EntityKindPerson,
 		Role:        "director",
-		Criticality: CriticalityNiceToHave,
+		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 }
 

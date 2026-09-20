@@ -121,15 +121,30 @@ func (r *Repo) EnrichmentForVideos(ctx context.Context, ids []int64) (map[int64]
 // F55 list-wide completeness resolve (ADR-081 D4) needs the same batch shape for
 // person/studio, which EnrichmentForVideos' hardcoded "video" can't serve.
 func (r *Repo) EnrichmentForEntities(ctx context.Context, entityType string, ids []int64) (map[int64][]EnrichmentRow, error) {
+	return r.enrichmentForEntities(ctx, entityType, ids, "")
+}
+
+// EnrichmentForVideosField is EnrichmentForVideos narrowed to one field key, for a
+// list-path resolve of a single field (HOLODEX-389 `part`) that must not pay for
+// every provider's every field on a 500-video entity page.
+func (r *Repo) EnrichmentForVideosField(ctx context.Context, ids []int64, fieldKey string) (map[int64][]EnrichmentRow, error) {
+	return r.enrichmentForEntities(ctx, "video", ids, fieldKey)
+}
+
+func (r *Repo) enrichmentForEntities(ctx context.Context, entityType string, ids []int64, fieldKey string) (map[int64][]EnrichmentRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := append([]any{entityType}, toAnySlice(ids)...)
-	rows, err := r.db.QueryContext(ctx, `
+	q := `
 		SELECT entity_id, provider, field_key, value, external_id, fetched_at
 		FROM entity_enrichment
-		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)
-		ORDER BY entity_id, provider, field_key`, args...)
+		WHERE entity_type = ? AND entity_id IN (` + placeholders(len(ids)) + `)`
+	args := append([]any{entityType}, toAnySlice(ids)...)
+	if fieldKey != "" {
+		q += ` AND field_key = ?`
+		args = append(args, fieldKey)
+	}
+	rows, err := r.db.QueryContext(ctx, q+` ORDER BY entity_id, provider, field_key`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("enrichment for entities: %w", err)
 	}
@@ -167,6 +182,30 @@ func (r *Repo) InsertWriteback(ctx context.Context, videoID int64, fieldKey, tag
 		return fmt.Errorf("insert writeback: %w", err)
 	}
 	return nil
+}
+
+// LastWrittenValues returns, per field_key, the value of the newest successful
+// file_writebacks row for one video — the ADR-101 sync witness for image fields
+// (resolver.Options.LastWritten). One query; a video with no writes yields an empty
+// map, never an error.
+func (r *Repo) LastWrittenValues(ctx context.Context, videoID int64) (map[string]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT field_key, value FROM file_writebacks
+		WHERE id IN (SELECT MAX(id) FROM file_writebacks WHERE video_id = ? GROUP BY field_key)`,
+		videoID)
+	if err != nil {
+		return nil, fmt.Errorf("last written values: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, fmt.Errorf("last written values: %w", err)
+		}
+		out[k] = v
+	}
+	return out, rows.Err()
 }
 
 // HasWritebackFromProvider reports whether any file_writebacks audit row for the

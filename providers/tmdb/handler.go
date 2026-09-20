@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,23 @@ func (h *handler) healthz(w http.ResponseWriter, _ *http.Request) {
 		"provider": "tmdb",
 		"version":  providerVersion,
 	})
+}
+
+// linkTemplates is the /describe.link_templates manifest (contract §4.11). Every
+// entry must be http(s) with exactly one {id} — TestDescribeLinkTemplates holds
+// the map against the same rules Holodex's ValidateLinkTemplate applies at ingest.
+var linkTemplates = map[string]map[string]string{
+	"tmdb": {
+		"person": "https://www.themoviedb.org/person/{id}",
+		"studio": "https://www.themoviedb.org/company/{id}",
+		"film":   "https://www.themoviedb.org/movie/{id}",
+		"video":  "https://www.themoviedb.org/movie/{id}",
+	},
+	"imdb": {
+		"person": "https://www.imdb.com/name/{id}/",
+		"film":   "https://www.imdb.com/title/{id}/",
+		"video":  "https://www.imdb.com/title/{id}/",
+	},
 }
 
 func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +95,11 @@ func (h *handler) describe(w http.ResponseWriter, r *http.Request) {
 		FieldHints: map[string]fieldHint{
 			"known_for_department": {Label: "Known for", Render: "text", Group: "attributes", Order: 10},
 		},
+		// F63 (Holodex contract §4.11): the per-namespace page URLs behind the provider
+		// link badge. Without these every pill Holodex renders for our ids is degraded
+		// text (HOLODEX-391). Bare-id form — TMDB resolves the page from the numeric id
+		// alone; the title slug tmdbEntityURL appends is cosmetic.
+		LinkTemplates: linkTemplates,
 	}
 	// Advertise the bundled TMDB brand mark (HOLODEX-161), served by this sidecar at
 	// /brand-icon.png. Its host is the one Holodex used to reach /describe (the request
@@ -126,11 +149,35 @@ func (h *handler) resolve(w http.ResponseWriter, r *http.Request) {
 	}
 	candidates, err := h.tmdb.resolve(r.Context(), req.Hint, req.EntityType)
 	if err != nil {
+		if writeRateLimited(w, err) {
+			return
+		}
 		h.log.Warn("resolve failed", "entity_type", req.EntityType, "err", err)
 		http.Error(w, "upstream error", http.StatusBadGateway)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": candidates})
+}
+
+// rateLimitedDefaultRetry is the Retry-After the sidecar sends when TMDB's 429 carried
+// none — Holodex's own default for a missing header, so both sides agree (§2.0).
+const rateLimitedDefaultRetry = "30"
+
+// writeRateLimited answers an upstream 429 as the contract's one back-pressure signal
+// (§2.0, ADR-103 D10): 429 + Retry-After, so Holodex pauses this provider's bucket
+// rather than counting a failure. Reports whether it wrote the response.
+func writeRateLimited(w http.ResponseWriter, err error) bool {
+	var rl *errRateLimited
+	if !errors.As(err, &rl) {
+		return false
+	}
+	retry := rl.RetryAfter
+	if n, perr := strconv.Atoi(retry); perr != nil || n <= 0 {
+		retry = rateLimitedDefaultRetry // absent, HTTP-date or non-positive: same rule as core
+	}
+	w.Header().Set("Retry-After", retry)
+	http.Error(w, "rate-limited", http.StatusTooManyRequests)
+	return true
 }
 
 type enrichRequest struct {
@@ -152,6 +199,9 @@ func (h *handler) enrich(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if writeRateLimited(w, err) {
 			return
 		}
 		h.log.Warn("enrich failed", "entity_type", req.EntityType, "external_id", req.ExternalID, "err", err)

@@ -67,9 +67,26 @@ type Video struct {
 	// PosterUploaded reports whether the current poster is an owner upload (F52) —
 	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
 	PosterUploaded bool `json:"poster_uploaded,omitempty"`
+	// Part is this file's resolved ordinal within a multi-file media (HOLODEX-389
+	// RD9) — stamped by the API layer on every list/summary payload (like
+	// ThumbnailURL), not a column: its baseline is a container tag in video_metadata
+	// and the pure resolver is the only thing that may merge it.
+	Part string `json:"part,omitempty"`
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`
+	// Completeness is the owner-only ring-badge payload (F65.5, ADR-099 D5),
+	// attached to list items from the materialized store; absent for a visitor.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+}
+
+// CompletenessSummary is the two completeness bands a list item carries for the
+// owner (F65.5, ADR-099 D5): required is the ring, extras its overfill. Either is
+// nil when its band has no applicable facet (ADR-099 D1's null rule — a studio
+// has no required band). Read from entity_completeness, never computed inline.
+type CompletenessSummary struct {
+	Required *int `json:"required"`
+	Extras   *int `json:"extras"`
 }
 
 type Person struct {
@@ -102,6 +119,8 @@ type Person struct {
 	// two Person entries sharing the same ID. Omitted elsewhere (people-list, person
 	// detail), same convention as HeadshotVersion/PosterVersion above.
 	Role string `json:"role,omitempty"`
+	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
 }
 
 // EntityAlias is one alternate name for a named entity — person, studio, or tag —
@@ -324,6 +343,8 @@ type Studio struct {
 	// setStudioImageURLs. Absent role = no image. Mirrors the old LogoVersion field,
 	// generalized to a map across three roles instead of one int.
 	ImageVersions map[string]int64 `json:"-"`
+	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
+	Completeness *CompletenessSummary `json:"completeness,omitempty"`
 }
 
 // Film image roles (F56/HOLODEX-280, ADR-086): poster is the self-hosted portrait
@@ -428,6 +449,7 @@ const (
 	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
 	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
 	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
+	JobKindEnrichSweep       = "enrich-sweep"        // owner-triggered refresh of every person/studio (F66, ADR-103)
 	JobStatusOK              = "success"
 	JobStatusErr             = "error"
 )
@@ -478,8 +500,8 @@ func SplitJoined(joined string) []string {
 // InternalFieldPrefix marks a provider→core "sidecar" enrichment field-key: it is
 // persisted in entity_enrichment like any other field but is never displayed
 // (FieldsFromRows skips it) and never resolved (it is not a mapped canonical field).
-// It carries plumbing the core consumes directly. See StudioExternalIDsField and
-// ADR-054.
+// It carries plumbing the core consumes directly. See StudioExternalIDsField,
+// PersonExternalIDsField and SourceURLField, and ADR-054.
 const InternalFieldPrefix = "_"
 
 // StudioExternalIDsField is the wire field-key a video provider uses to hand per
@@ -498,6 +520,14 @@ const StudioExternalIDsField = InternalFieldPrefix + "studio_external_ids"
 // RelinkVideoPeople's caller can recover a name→external_id map the same way studio
 // already does. Same self-describing "<namespace>:<id> <name>" value shape.
 const PersonExternalIDsField = InternalFieldPrefix + "person_external_ids"
+
+// SourceURLField is the wire field-key a provider returns its own page URL for the
+// enriched entity under (contract §4.12, ADR-098 D1) — the per-pill fallback the
+// provider badge uses when the provider declared no link_templates entry for its
+// namespace. Single-valued: ingest keeps the first http(s) value (ADR-098 D2). Stored
+// as an ordinary entity_enrichment row so it is cleared with the provider's other rows;
+// the InternalFieldPrefix keeps it out of every field list and the resolver.
+const SourceURLField = InternalFieldPrefix + "source_url"
 
 // ProviderAliasesField is the wire field-key a provider returns alternate names under
 // (TMDB maps `also_known_as` onto it). Deliberately not internal-prefixed: it is a
@@ -587,4 +617,8 @@ type JobRun struct {
 	// to, carried as a field so Revert reads it structurally instead of parsing
 	// it back out of Detail (ADR-071).
 	BatchID string `json:"batch_id,omitempty"`
+	// DismissedAt is set once the owner has marked a failed run as handled
+	// (HOLODEX-416, ADR-100). Read from job_run_dismissals, never a column on the
+	// run itself; nil for every run the owner has not dismissed.
+	DismissedAt *time.Time `json:"dismissed_at,omitempty"`
 }

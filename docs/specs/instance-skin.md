@@ -1,11 +1,11 @@
-# Spec: Instance skin — owner-set skin on an Appearance tab + custom palette from `holodex.yaml` (F66)
+# Spec: Instance skin — owner-set skin on an Appearance tab + custom palette from `holodex.yaml` (F67)
 
 **Status**: Draft
 **Phase**: Phase 3 (presentation / operability) — rides ADR-021's token substrate; adds one
 operator setting and one config block, no new subsystem
 **Owner**: Project owner
 **Date**: 2026-09-19
-**Feature block**: **F66** — the skin stops being a *per-browser viewer preference* and becomes
+**Feature block**: **F67** — the skin stops being a *per-browser viewer preference* and becomes
 **instance identity** the owner sets. The header skin picker is removed; an **Appearance** tab on
 `/owner` selects one of the three shipped skins or an owner-defined **custom palette** declared in
 `holodex.yaml`. The selection persists **server-side** and ships to every viewer.
@@ -23,7 +23,7 @@ stories [426](https://whoiskevinrich.atlassian.net/browse/HOLODEX-426) settings 
   `[data-theme]`-gated flourishes (`.app-atmosphere`, `.video-frame`, `.skin-title`). This spec
   **supersedes the viewer-preference half** of ADR-021 (F8.2's `localStorage` persistence).
 - Operator config → SPA bootstrap — `holodex.yaml` keys reach the SPA read-only through the ungated
-  `/capabilities` payload (`card_layout`, `films_enabled`, …). F66 adds `theme` to it.
+  `/capabilities` payload (`card_layout`, `films_enabled`, …). F67 adds `theme` to it.
 - Owner mode (F29, `requireOwner`) — every mutation in this spec is owner-gated.
 - The `/owner` tab shell (`web/src/routes/owner/+layout.svelte`) — Appearance is its tenth tab.
 

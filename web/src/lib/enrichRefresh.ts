@@ -31,8 +31,16 @@ export async function runEnrichRefresh(
 	}
 }
 
+// rateLimitedLine is the inline status text for a paused provider (F66 RD8) — the
+// same sentence the single-call 503 body carries.
+export function rateLimitedLine(provider: string, secs: number): string {
+	return `${provider} is rate-limiting — try again in ${secs} s`;
+}
+
 // A provider that resolved ambiguously must not be silently dropped — openPicker is
-// called with the first `needs_review` result so the owner sees it immediately.
+// called with the first `needs_review` result so the owner sees it immediately. A
+// rate-limited provider (ADR-103 D4) is reported per row, so the other providers'
+// results still land; its line goes on the same inline error slot a failed call uses.
 export async function runEnrichRefreshAll(
 	kind: EnrichEntityKind,
 	id: number,
@@ -46,6 +54,10 @@ export async function runEnrichRefreshAll(
 	try {
 		const { results } = await api.enrichRefreshAll(kind, id);
 		await reloadDetail();
+		const limited = results.filter((r) => r.status === 'rate_limited');
+		if (limited.length) {
+			setError(limited.map((r) => rateLimitedLine(r.provider, r.retry_after ?? 0)).join(' · '));
+		}
 		const needsReview = results.find((r) => r.status === 'needs_review');
 		if (needsReview) openPicker(needsReview.provider);
 	} catch (e) {

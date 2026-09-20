@@ -13,8 +13,10 @@
 	import PersonViewToggle from '$lib/components/person/PersonViewToggle.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
 	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
+	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
 	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
+	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
@@ -209,6 +211,9 @@
 		</div>
 	</div>
 
+	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle. -->
+	<SweepStatusLine kind="person" onfinished={reload} />
+
 	<DuplicatesBanner entityType="person" />
 
 	{#if selecting}
@@ -252,6 +257,11 @@
 		{#snippet personRow(p: Person, i: number)}
 			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
 			<span class="flex-1 truncate">{p.name}</span>
+			{#if p.completeness}
+				<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count, so names
+				     don't move between visitor and owner mode. -->
+				<CompletenessRing required={p.completeness.required} extras={p.completeness.extras} size="row" />
+			{/if}
 			<span class="text-xs text-muted">{p.video_count}</span>
 		{/snippet}
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">

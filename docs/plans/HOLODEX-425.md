@@ -6,7 +6,7 @@ status: in-review
 release_note: The skin is now the instance's identity — the owner picks it once on the new Appearance tab and every viewer sees it; an owner can also declare a custom palette (five colors on top of Cinémathèque) in holodex.yaml.
 ---
 
-# HOLODEX-425 · F66 Instance skin — owner-set skin on an Appearance tab + custom palette
+# HOLODEX-425 · F67 Instance skin — owner-set skin on an Appearance tab + custom palette
 
 The skin stops being a per-browser `localStorage` preference and becomes instance identity: the
 header picker goes, an **Appearance** tab on `/owner` selects a shipped skin or the owner's
@@ -18,7 +18,7 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` — `docs/specs/instance-skin.md` (F66), RD1–RD10 locked
+- [x] spec `write-spec` — `docs/specs/instance-skin.md` (F67), RD1–RD10 locked
 - [x] architecture `architecture` — [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)
   D1–D6; supersedes ADR-021 §5 only; index row + ADR-021 annotation landed
 - [x] design `design-handoff` — [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
@@ -65,4 +65,4 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 - skills: —
 - handoff: 3.1–3.4 passed on the dev testbed with the sample palette (the one hiccup was my stopped
   backend, not code). PR #365 marked **ready**; 425–428 In Review. Nothing open on the branch; on
-  merge sweep all four to Done by hand, then HOLODEX-429 is the next piece of F66.
+  merge sweep all four to Done by hand, then HOLODEX-429 is the next piece of F67.

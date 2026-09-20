@@ -160,6 +160,14 @@ flagged people as still exposed to.
   fixed: migrate → backfill → serve; the add-column default is **unset `''`** (RD3), an honest value
   for the pre-derivation moment (old raw-extraction links were role-flat anyway), which the backfill
   then overwrites with field-sourced roles — so there is no "wrong default" to hide.
+  **RD9 addendum (2026-09-17, HOLODEX-408/409):** "reachable through a marked field" has two
+  concrete halves that (b) alone did not guarantee. (d) The extractor must persist every `peopleKeys`
+  tag into `video_metadata` (`Extra`), because that is what a `file:<Tag>` source reads — `ex.People`
+  never reaches the resolver, so a person tag kept out of `Extra` links **nothing** on a fresh import
+  (the loss-guard could not see this: it counted pre-migration links, which raw extraction had
+  already created). (e) A person-typed field is **always** merge-mode: the mapping loader forces
+  `multi: true` on `entity: person` fields, so a comma-joined `Artist` splits regardless of whether
+  the operator's YAML says `multi: true` — a replace-mode `actors` had derived `"A, B"` as one person.
 - **RD11 — Studio parity (P0, ships with people), amending F38's no-writeback non-goal.** The owner gets the *same*
   approach for studios: an owner-view **studio link picker** (search existing `studios` / inline
   create) that curates the `studio` field, and **writeback** of the resolved `studio` → `Publisher`
@@ -313,8 +321,9 @@ on a person-typed field. Never at read time. `resolveOrCreatePerson` supplies al
 Write: resolved `actors` → `Artist` (comma-delimited), values = linked people's **canonical** names,
 through the existing sanitized, owner-gated `POST /media/{id}/writeback`
 ([`internal/api/writeback.go`](../../internal/api/writeback.go), [`tags.go`](../../internal/writeback/tags.go)).
-Read: the scanner's `splitMulti` splits `Artist` back into `ex.People` (test-proven:
-`"Audrey Tautou, Mathieu Kassovitz"` → 2). Because P0-3 makes derivation the writer, the re-scanned
+Read: the scanner persists `Artist` verbatim into `video_metadata` (RD9 (d)); the resolver's
+merge path splits it (`"Audrey Tautou, Mathieu Kassovitz"` → 2; RD9 (e) guarantees the merge path
+for a person-typed field). Because P0-3 makes derivation the writer, the re-scanned
 names flow through the resolved `actors` field → `RelinkVideoPeople` → same entities. Round-trip is
 closed **only** if writeback uses canonical names (RD5) and the delimiter matches the extractor's
 split — both asserted in tests.

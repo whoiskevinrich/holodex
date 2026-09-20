@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -233,7 +234,7 @@ func TestFilmImage_DeleteClearsProviderRow(t *testing.T) {
 	if code := served(); code != http.StatusNotFound {
 		t.Fatalf("banner after delete = %d, want 404 (provider row survived)", code)
 	}
-	if _, err := os.Stat(filmimage.ImagePath(dir, fid, providerID)); !os.IsNotExist(err) {
+	if _, err := filmimage.Find(dir, fid, providerID); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("provider file still on disk: %v", err)
 	}
 	f, _ := r.GetFilm(ctx, fid)

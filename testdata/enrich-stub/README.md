@@ -29,7 +29,7 @@ server. `TestShippedSourcesRegisterEveryPersona` keeps the last two in step.
 | group | personas | what it exercises |
 |---|---|---|
 | `precedence` | `alpha` `bravo` `charlie` `delta` `stress-provider-with-a-very-long-name-40` | ADR-090 **layer 2** — five namespaces with *different* values for the same field, so the ADR-051 `SourceBadge` chip row has something to choose between |
-| `adoption` | `flood` `twins` | ADR-090 **layer 1** — `EnrichPicker` candidate lists |
+| `adoption` | `flood` `twins` | ADR-090 **layer 1** — `EnrichPicker` candidate lists. Both carry F64 `image_url` thumbnails served from `/p/<slug>/thumb/…png`; `twins` walks every slot state (portrait · wide logo · 404 · foreign host · no key) |
 | `fault` | `slow` `boom` `garbage` | loading and error states, on demand |
 
 Two personas carry a deliberate deformity: **`charlie` advertises no `brand_icon`**, so the
@@ -37,6 +37,12 @@ Two personas carry a deliberate deformity: **`charlie` advertises no `brand_icon
 because two places render a provider name with no truncation and no max-width — the
 expanded chip's `·{provenance}` suffix (`CurationChip.svelte`) and the owner's
 per-provider action chips (`EnrichProviderChips.svelte`).
+
+The provider badge's two link branches (ADR-098 D3) are split across two personas: **`alpha`
+declares `link_templates`** (`/describe`, contract §4.11) and **`bravo` returns `_source_url`**
+(`/enrich`, §4.12). Adopt an `alpha` candidate on a person and its pill links through the
+template; adopt `bravo` and the pill links to the stored page; any other persona's pill renders
+degraded (no href). No persona does both — the template would win and the URL be dead weight.
 
 Values inside a group are **all distinct on purpose**: the chip row folds by *value*
 (`web/src/lib/f36.ts`), so five providers that agreed would render as one chip and teach

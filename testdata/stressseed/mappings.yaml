@@ -63,6 +63,15 @@ fields:
     sources:
       - file:Album
 
+  # --- Part (HOLODEX-389). The part ladder writes the ordinal as the container
+  # tag; the filename candidate is listed so the field's chip row has the same
+  # shape as the operator's, but the seeder never produces one (no scanner, D1).
+  - canonical: part
+    sources:
+      - PartNumber
+      - DiskNumber
+      - filename:part
+
   # --- Provider namespaces (HOLODEX-348) -----------------------------------
   # A VIDEO's field set comes from this file, so a provider only becomes a
   # competing candidate on the media page if `<name>:<field>` appears in that

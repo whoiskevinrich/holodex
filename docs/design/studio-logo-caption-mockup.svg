@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200" font-family="Archivo, Helvetica, Arial, sans-serif">
+<title>StudioLinkCard caption options beside a logo, HOLODEX-411</title>
+<rect width="720" height="200" fill="#0c0a09"/>
+<text x="20" y="30" font-size="12" fill="#9b9082">A · Logo + name + count (today)</text>
+<text x="20" y="81" font-family="Fraunces, Georgia, serif" font-size="19" letter-spacing="2" fill="#f8f4ee">LEGENDARY</text>
+<text x="150" y="71" font-size="13" fill="#f3ece1">Legendary Pictures</text>
+<text x="150" y="87" font-size="11" fill="#9b9082">1 video</text>
+<circle cx="42" cy="140" r="20" fill="none" stroke="#f8f4ee" stroke-width="3"/>
+<text x="42" y="147" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" fill="#f8f4ee">6</text>
+<text x="76" y="137" font-size="13" fill="#f3ece1">Six Point Harness</text>
+<text x="76" y="153" font-size="11" fill="#9b9082">1 video</text>
+<text x="255" y="30" font-size="12" fill="#9b9082">B · Logo only (symbol-only studio unnamed)</text>
+<text x="255" y="81" font-family="Fraunces, Georgia, serif" font-size="19" letter-spacing="2" fill="#f8f4ee">LEGENDARY</text>
+<circle cx="277" cy="140" r="20" fill="none" stroke="#f8f4ee" stroke-width="3"/>
+<text x="277" y="147" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" fill="#f8f4ee">6</text>
+<text x="311" y="145" font-size="11" fill="#9b9082">(unnamed)</text>
+<text x="490" y="30" font-size="12" fill="#9b9082">C · Aspect rule (chosen)</text>
+<text x="490" y="81" font-family="Fraunces, Georgia, serif" font-size="19" letter-spacing="2" fill="#f8f4ee">LEGENDARY</text>
+<circle cx="512" cy="140" r="20" fill="none" stroke="#f8f4ee" stroke-width="3"/>
+<text x="512" y="147" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" fill="#f8f4ee">6</text>
+<text x="546" y="137" font-size="13" fill="#f3ece1">Six Point Harness</text>
+<text x="546" y="153" font-size="11" fill="#9b9082">1 video</text>
+<text x="20" y="188" font-size="11" fill="#9b9082">A wordmark (top) and a symbol mark (bottom) in each treatment. C: natural width ≥ 2 × height → logo alone, name in alt/title; squarer → keep the caption.</text>
+</svg>

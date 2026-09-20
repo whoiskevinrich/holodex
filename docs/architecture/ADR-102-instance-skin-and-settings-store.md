@@ -10,7 +10,7 @@ persists; supersedes the dark/light toggle") and its first-paint consequence —
 tokens as custom properties, Tailwind utilities mapped to tokens, all visual difference in CSS under
 `[data-theme]`, fonts bundled offline) **stand unchanged and are the substrate this ADR rides on**.
 
-**Spec:** [F66 instance-skin.md](../specs/instance-skin.md) (RD1–RD10) ·
+**Spec:** [F67 instance-skin.md](../specs/instance-skin.md) (RD1–RD10) ·
 **Epic:** [HOLODEX-425](https://whoiskevinrich.atlassian.net/browse/HOLODEX-425)
 
 ## Context

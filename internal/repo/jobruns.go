@@ -85,9 +85,8 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 		days = jobRunRetentionDays
 	}
 	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(timeLayout)
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT `+jobRunColumns+`
-		FROM job_runs WHERE started_at >= ?
+	rows, err := r.db.QueryContext(ctx, jobRunSelect+`
+		WHERE started_at >= ?
 		ORDER BY started_at DESC, id DESC`, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("list job runs: %w", err)
@@ -96,32 +95,101 @@ func (r *Repo) ListJobRuns(ctx context.Context, days int) ([]model.JobRun, error
 	return scanJobRuns(rows)
 }
 
+// ListJobRunsByBatch returns every run recorded under one batch id, newest-first
+// (F66 RD6, ADR-103 D9): the sweep's summary row plus each per-entity enrich run it
+// produced. No index — job_runs is 30-day-pruned and this is an owner-only audit read.
+func (r *Repo) ListJobRunsByBatch(ctx context.Context, batchID string) ([]model.JobRun, error) {
+	rows, err := r.db.QueryContext(ctx, jobRunSelect+`
+		WHERE batch_id = ?
+		ORDER BY started_at DESC, id DESC`, batchID)
+	if err != nil {
+		return nil, fmt.Errorf("list job runs by batch: %w", err)
+	}
+	defer rows.Close()
+	return scanJobRuns(rows)
+}
+
 // jobRunColumns is the one select list every job-run read shares, so a new
 // column can't be added to the scan order in one query and forgotten in another.
+// The names are unqualified on purpose: job_run_dismissals shares none of them,
+// so the LEFT JOIN in jobRunSelect stays unambiguous.
 const jobRunColumns = `id, kind, trigger, status, started_at, finished_at, duration_ms,
 	       seen, added, updated, removed, skipped, errors, error_message, detail,
 	       entity_type, entity_id, batch_id`
 
-// scanJobRuns drains rows selected with jobRunColumns.
+// jobRunSelect is jobRunColumns plus the owner's dismissal (ADR-100 D3), joined
+// so every run still reads — a dismissed run is hidden from the digest's error
+// accounting, never from the history.
+const jobRunSelect = `SELECT ` + jobRunColumns + `, d.dismissed_at
+		FROM job_runs LEFT JOIN job_run_dismissals d ON d.job_run_id = job_runs.id`
+
+// scanJobRuns drains rows selected with jobRunSelect.
 func scanJobRuns(rows *sql.Rows) ([]model.JobRun, error) {
 	var out []model.JobRun
 	for rows.Next() {
 		var (
-			j          model.JobRun
-			startedStr string
-			finStr     string
+			j            model.JobRun
+			startedStr   string
+			finStr       string
+			dismissedStr sql.NullString
 		)
 		if err := rows.Scan(&j.ID, &j.Kind, &j.Trigger, &j.Status, &startedStr, &finStr,
 			&j.DurationMs, &j.Seen, &j.Added, &j.Updated, &j.Removed, &j.Skipped,
 			&j.Errors, &j.ErrorMessage, &j.Detail,
-			&j.EntityType, &j.EntityID, &j.BatchID); err != nil {
+			&j.EntityType, &j.EntityID, &j.BatchID, &dismissedStr); err != nil {
 			return nil, err
 		}
 		j.StartedAt, _ = time.Parse(timeLayout, startedStr)
 		j.FinishedAt, _ = time.Parse(timeLayout, finStr)
+		if dismissedStr.Valid {
+			if at, err := time.Parse(timeLayout, dismissedStr.String); err == nil {
+				j.DismissedAt = &at
+			}
+		}
 		out = append(out, j)
 	}
 	return out, rows.Err()
+}
+
+// DismissJobRun records the owner's "handled" verdict on one failed run
+// (HOLODEX-416, ADR-100 D1). Reports whether a dismissal was actually written:
+// false for a run that is already dismissed, is not an error, or does not exist
+// — all the same harmless no-op, so a double click or a second tab never earns a
+// 404/409 (the DismissFailedWriteback posture).
+func (r *Repo) DismissJobRun(ctx context.Context, id int64) (bool, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	res, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO job_run_dismissals (job_run_id, dismissed_at)
+		SELECT id, ? FROM job_runs WHERE id = ? AND status = ?`,
+		time.Now().UTC().Format(timeLayout), id, model.JobStatusErr)
+	if err != nil {
+		return false, fmt.Errorf("dismiss job run %d: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
+// DismissJobFailures dismisses every undismissed error run inside the last
+// `days` (clamped like the digest) and returns how many it wrote (ADR-100 D4).
+// The window is evaluated here, at request time, from the rows that exist now —
+// no client id list, so the digest's failure cap is irrelevant and a run that
+// starts after this call is by construction not dismissed by it.
+func (r *Repo) DismissJobFailures(ctx context.Context, days int) (int64, error) {
+	if days <= 0 || days > jobRunRetentionDays {
+		days = jobRunRetentionDays
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(timeLayout)
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	res, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO job_run_dismissals (job_run_id, dismissed_at)
+		SELECT id, ? FROM job_runs WHERE status = ? AND started_at >= ?`,
+		time.Now().UTC().Format(timeLayout), model.JobStatusErr, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("dismiss job failures: %w", err)
+	}
+	return res.RowsAffected()
 }
 
 func jobRunCutoff() string {
@@ -133,11 +201,16 @@ func jobRunCutoff() string {
 // the status of that most recent run, so the UI can flag a kind whose latest pass
 // failed even when older passes in the window succeeded.
 type JobKindDigest struct {
-	Kind       string    `json:"kind"`
-	Runs       int       `json:"runs"`
-	Errors     int       `json:"errors"`
-	LastRun    time.Time `json:"last_run"`
-	LastStatus string    `json:"last_status"`
+	Kind    string    `json:"kind"`
+	Runs    int       `json:"runs"`
+	Errors  int       `json:"errors"` // undismissed errors only (ADR-100 D3)
+	LastRun time.Time `json:"last_run"`
+	// LastStatus is the newest run's status, dismissed or not — the digest never
+	// shows an older ok for a kind whose latest run failed. LastDismissed is true
+	// when that newest run is an error the owner has dismissed, so the UI can
+	// mute the badge instead of leaving it warn (handoff D5).
+	LastStatus    string `json:"last_status"`
+	LastDismissed bool   `json:"last_dismissed"`
 }
 
 // JobRunDigest is the whole digest read (ADR-071 D3): one aggregate row per kind
@@ -171,26 +244,32 @@ func (r *Repo) JobRunDigest(ctx context.Context, days int) (JobRunDigest, error)
 	// last_status is a bare column paired with MAX(started_at): SQLite takes each
 	// bare column's value from the same row that produced the max, so it is the
 	// status of the most recent run per kind — not an arbitrary one (asserted in
-	// TestJobRunDigest).
+	// TestJobRunDigest). last_dismissed rides the same rule off the LEFT JOIN, so
+	// it is true exactly when that newest run is a dismissed error (ADR-100 D3);
+	// errors counts only undismissed ones, runs counts every run.
 	kindRows, err := r.db.QueryContext(ctx, `
 		SELECT kind, COUNT(*) AS runs,
-		       SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS errors,
-		       MAX(started_at) AS last_run, status AS last_status
-		FROM job_runs WHERE started_at >= ?
+		       SUM(CASE WHEN status = ? AND d.job_run_id IS NULL THEN 1 ELSE 0 END) AS errors,
+		       MAX(started_at) AS last_run, status AS last_status,
+		       (status = ? AND d.job_run_id IS NOT NULL) AS last_dismissed
+		FROM job_runs LEFT JOIN job_run_dismissals d ON d.job_run_id = job_runs.id
+		WHERE started_at >= ?
 		GROUP BY kind
-		ORDER BY last_run DESC`, model.JobStatusErr, cutoff)
+		ORDER BY last_run DESC`, model.JobStatusErr, model.JobStatusErr, cutoff)
 	if err != nil {
 		return JobRunDigest{}, fmt.Errorf("job digest kinds: %w", err)
 	}
 	defer kindRows.Close()
 	for kindRows.Next() {
 		var (
-			k          JobKindDigest
-			lastRunStr string
+			k             JobKindDigest
+			lastRunStr    string
+			lastDismissed int
 		)
-		if err := kindRows.Scan(&k.Kind, &k.Runs, &k.Errors, &lastRunStr, &k.LastStatus); err != nil {
+		if err := kindRows.Scan(&k.Kind, &k.Runs, &k.Errors, &lastRunStr, &k.LastStatus, &lastDismissed); err != nil {
 			return JobRunDigest{}, err
 		}
+		k.LastDismissed = lastDismissed == 1
 		k.LastRun, _ = time.Parse(timeLayout, lastRunStr)
 		d.Kinds = append(d.Kinds, k)
 	}
@@ -198,9 +277,8 @@ func (r *Repo) JobRunDigest(ctx context.Context, days int) (JobRunDigest, error)
 		return JobRunDigest{}, err
 	}
 
-	failRows, err := r.db.QueryContext(ctx, `
-		SELECT `+jobRunColumns+`
-		FROM job_runs WHERE started_at >= ? AND status = ?
+	failRows, err := r.db.QueryContext(ctx, jobRunSelect+`
+		WHERE started_at >= ? AND status = ? AND d.job_run_id IS NULL
 		ORDER BY started_at DESC, id DESC
 		LIMIT ?`, cutoff, model.JobStatusErr, digestFailureCap)
 	if err != nil {
@@ -224,6 +302,7 @@ type LibraryCounts struct {
 	VideosActive   int `json:"videos_active"`
 	VideosInactive int `json:"videos_inactive"`
 	People         int `json:"people"`
+	Studios        int `json:"studios"`
 	Tags           int `json:"tags"`
 }
 
@@ -237,9 +316,11 @@ func (r *Repo) LibraryCounts(ctx context.Context) (LibraryCounts, error) {
 		  (SELECT COUNT(*) FROM videos WHERE active = 0 AND deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vp.person_id) FROM video_people vp
 		     JOIN videos v ON v.id = vp.video_id AND v.active = 1 AND v.deleted_at IS NULL),
+		  (SELECT COUNT(DISTINCT vs.studio_id) FROM video_studios vs
+		     JOIN videos v ON v.id = vs.video_id AND v.active = 1 AND v.deleted_at IS NULL),
 		  (SELECT COUNT(DISTINCT vt.tag_id) FROM video_tags vt
 		     JOIN videos v ON v.id = vt.video_id AND v.active = 1 AND v.deleted_at IS NULL)`).
-		Scan(&c.VideosActive, &c.VideosInactive, &c.People, &c.Tags)
+		Scan(&c.VideosActive, &c.VideosInactive, &c.People, &c.Studios, &c.Tags)
 	if err != nil {
 		return LibraryCounts{}, fmt.Errorf("library counts: %w", err)
 	}

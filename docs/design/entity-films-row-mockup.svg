@@ -1,0 +1,151 @@
+<svg viewBox="0 0 900 1156" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">Entity Films row — current fixed shelf vs. proposed height-matched shelf with hover lift</title>
+  <desc id="desc">Three panels. A: the current person-page Films row, a 4-column video grid above a shelf of fixed 80 by 120 poster tiles that are taller than the video frames. B: the proposed row, where each film poster is exactly as tall as the video frame above it, carries the same 1px rule border, and the third tile is drawn lifted and scaled 6 percent with an accent border to show the hover state. C: the same proposal rendered in the Broadcast and Brutalist skins at 2-column density.</desc>
+  <rect width="900" height="1156" fill="#0c0a09"/>
+<text x="30" y="30" fill="#9b9082" font-size="12" letter-spacing="1">A · CURRENT — fixed 80px tiles, height ignores the grid density, no hover</text>
+<rect x="30" y="45" width="198.0" height="111.4" rx="2" fill="#5a3d26" stroke="#2a2622"/>
+<rect x="36" y="51" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="53" y="61" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="192" y="136.375" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="207" y="146.875" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="42" y="178.375" fill="#f3ece1" font-size="13" font-weight="500">Neon Reverie</text>
+<rect x="244" y="45" width="198.0" height="111.4" rx="2" fill="#26485a" stroke="#2a2622"/>
+<rect x="250" y="51" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="267" y="61" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="406" y="136.375" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="421" y="146.875" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="256" y="178.375" fill="#f3ece1" font-size="13" font-weight="500">Static Bloom pt. II</text>
+<rect x="458" y="45" width="198.0" height="111.4" rx="2" fill="#4a2a5a" stroke="#2a2622"/>
+<rect x="464" y="51" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="481" y="61" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="620" y="136.375" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="635" y="146.875" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="470" y="178.375" fill="#f3ece1" font-size="13" font-weight="500">Afterimage</text>
+<rect x="672" y="45" width="198.0" height="111.4" rx="2" fill="#5a5226" stroke="#2a2622"/>
+<rect x="678" y="51" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="695" y="61" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="834" y="136.375" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="849" y="146.875" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="684" y="178.375" fill="#f3ece1" font-size="13" font-weight="500">Long Exposure</text>
+<text x="30" y="210.375" fill="#9b9082" font-size="11" letter-spacing="1">FILMS</text>
+<rect x="30" y="220.375" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="70" y="285.375" fill="#2a2018" font-size="14" font-weight="bold" font-family="Georgia, serif" text-anchor="middle">NR</text>
+<text x="30" y="354.375" fill="#9b9082" font-size="11">Neon Reverie</text>
+<rect x="122" y="220.375" width="80" height="120" rx="2" fill="#3f6a55"/>
+<text x="122" y="354.375" fill="#9b9082" font-size="11">Static Bloom</text>
+<rect x="214" y="220.375" width="80" height="120" rx="2" fill="#e9e0d0"/>
+<text x="254" y="285.375" fill="#2a2018" font-size="14" font-weight="bold" font-family="Georgia, serif" text-anchor="middle">AF</text>
+<text x="214" y="354.375" fill="#9b9082" font-size="11">Afterimage</text>
+<rect x="306" y="220.375" width="80" height="120" rx="2" fill="#5a2f3a"/>
+<text x="306" y="354.375" fill="#9b9082" font-size="11">Long Exposure</text>
+<line x1="878" y1="45" x2="878" y2="156.4" stroke="#e2603f" stroke-width="1"/>
+<text x="882" y="104.7" fill="#e2603f" font-size="10">111</text>
+<line x1="878" y1="220.375" x2="878" y2="340.375" stroke="#e2603f" stroke-width="1"/>
+<text x="882" y="284.375" fill="#e2603f" font-size="10">120</text>
+<text x="30" y="400.375" fill="#9b9082" font-size="12" letter-spacing="1">B · PROPOSED — poster height = .video-frame height, framed, hero-style lift on hover (3rd tile)</text>
+<rect x="30" y="415.375" width="198.0" height="111.4" rx="2" fill="#5a3d26" stroke="#2a2622"/>
+<rect x="36" y="421.375" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="53" y="431.375" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="192" y="506.75" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="207" y="517.25" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="42" y="548.75" fill="#f3ece1" font-size="13" font-weight="500">Neon Reverie</text>
+<rect x="244" y="415.375" width="198.0" height="111.4" rx="2" fill="#26485a" stroke="#2a2622"/>
+<rect x="250" y="421.375" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="267" y="431.375" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="406" y="506.75" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="421" y="517.25" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="256" y="548.75" fill="#f3ece1" font-size="13" font-weight="500">Static Bloom pt. II</text>
+<rect x="458" y="415.375" width="198.0" height="111.4" rx="2" fill="#4a2a5a" stroke="#2a2622"/>
+<rect x="464" y="421.375" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="481" y="431.375" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="620" y="506.75" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="635" y="517.25" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="470" y="548.75" fill="#f3ece1" font-size="13" font-weight="500">Afterimage</text>
+<rect x="672" y="415.375" width="198.0" height="111.4" rx="2" fill="#5a5226" stroke="#2a2622"/>
+<rect x="678" y="421.375" width="34" height="14" rx="2" fill="#e8a33d"/>
+<text x="695" y="431.375" fill="#1a1206" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="834" y="506.75" width="30" height="14" rx="2" fill="#000" fill-opacity="0.7"/>
+<text x="849" y="517.25" fill="#f3ece1" font-size="9" text-anchor="middle">4:12</text>
+<text x="684" y="548.75" fill="#f3ece1" font-size="13" font-weight="500">Long Exposure</text>
+<text x="30" y="580.75" fill="#9b9082" font-size="11" letter-spacing="1">FILMS</text>
+<g>
+<rect x="30.0" y="590.75" width="74.3" height="111.4" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+<text x="67.1" y="651.4" fill="#2a2018" font-size="13" font-weight="bold" font-family="Georgia, serif" text-anchor="middle">NR</text>
+<text x="34.0" y="722.125" fill="#f3ece1" font-size="12" font-weight="500"><tspan x="34.0" dy="0">Neon</tspan><tspan x="34.0" dy="15">Reverie</tspan></text>
+</g>
+<g>
+<rect x="116.3" y="590.75" width="74.3" height="111.4" rx="2" fill="#3f6a55" stroke="#2a2622"/>
+<text x="120.3" y="722.125" fill="#f3ece1" font-size="12" font-weight="500"><tspan x="120.3" dy="0">Static</tspan><tspan x="120.3" dy="15">Bloom</tspan></text>
+</g>
+<g>
+<rect x="288.8" y="590.75" width="74.3" height="111.4" rx="2" fill="#5a2f3a" stroke="#2a2622"/>
+<text x="292.8" y="722.125" fill="#f3ece1" font-size="12" font-weight="500"><tspan x="292.8" dy="0">Long</tspan><tspan x="292.8" dy="15">Exposure</tspan></text>
+</g>
+<g transform="translate(239.6 666.4) scale(1.06) translate(-239.6 -666.4)">
+<rect x="202.5" y="590.75" width="74.3" height="111.4" rx="2" fill="#e9e0d0" stroke="#e8a33d"/>
+<text x="239.6" y="651.4" fill="#2a2018" font-size="13" font-weight="bold" font-family="Georgia, serif" text-anchor="middle">AF</text>
+<text x="206.5" y="722.125" fill="#e8a33d" font-size="12" font-weight="500"><tspan x="206.5" dy="0">Afterimage</tspan></text>
+</g>
+<line x1="878" y1="415.375" x2="878" y2="526.8" stroke="#36e0d0" stroke-width="1"/>
+<text x="882" y="475.1" fill="#36e0d0" font-size="10">111</text>
+<line x1="878" y1="590.75" x2="878" y2="702.1" stroke="#36e0d0" stroke-width="1"/>
+<text x="882" y="650.4" fill="#36e0d0" font-size="10">111</text>
+<text x="405" y="608.75" fill="#9b9082" font-size="11"><tspan x="405" dy="0">card-w = (100cqw − (cols−1)·gap) / cols</tspan><tspan x="405" dy="16">poster-h = card-w · 9/16   (= column width in poster layout)</tspan><tspan x="405" dy="16">poster-w = poster-h · 2/3</tspan><tspan x="405" dy="22">hover: z-index 5 + scale(1.06), 150ms ease-out, :focus-within,</tspan><tspan x="405" dy="16">gated on prefers-reduced-motion — the HOLODEX-302 hero hook, renamed</tspan></text>
+<text x="30" y="782.125" fill="#9b9082" font-size="12" letter-spacing="1">C · SAME PROPOSAL — Broadcast and Brutalist skins (2-column density)</text>
+<rect x="30" y="797.125" width="414" height="338.4" rx="4" fill="#060814" stroke="#1a2240"/>
+<rect x="44" y="811.125" width="187.0" height="105.2" rx="0" fill="#5a3d26" stroke="#1a2240"/>
+<rect x="50" y="817.125" width="34" height="14" rx="0" fill="#36e0d0"/>
+<text x="67" y="827.125" fill="#04121a" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="195" y="896.3125" width="30" height="14" rx="0" fill="#000" fill-opacity="0.7"/>
+<text x="210" y="906.8125" fill="#dfe9ff" font-size="9" text-anchor="middle">4:12</text>
+<text x="56" y="938.3125" fill="#dfe9ff" font-size="13" font-weight="500">Neon Reverie</text>
+<rect x="243" y="811.125" width="187.0" height="105.2" rx="0" fill="#26485a" stroke="#1a2240"/>
+<rect x="249" y="817.125" width="34" height="14" rx="0" fill="#36e0d0"/>
+<text x="266" y="827.125" fill="#04121a" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="394" y="896.3125" width="30" height="14" rx="0" fill="#000" fill-opacity="0.7"/>
+<text x="409" y="906.8125" fill="#dfe9ff" font-size="9" text-anchor="middle">4:12</text>
+<text x="255" y="938.3125" fill="#dfe9ff" font-size="13" font-weight="500">Static Bloom</text>
+<text x="44" y="966.3125" fill="#6f7da6" font-size="11" letter-spacing="1">FILMS</text>
+<g>
+<rect x="44.0" y="976.3125" width="70.1" height="105.2" rx="0" fill="#e4ebf8" stroke="#1a2240"/>
+<text x="79.1" y="1033.9" fill="#1a2240" font-size="13" font-weight="bold" font-family="Helvetica, Arial, sans-serif" text-anchor="middle">NR</text>
+<text x="48.0" y="1101.5" fill="#dfe9ff" font-size="12" font-weight="500"><tspan x="48.0" dy="0">Neon</tspan><tspan x="48.0" dy="15">Reverie</tspan></text>
+</g>
+<g>
+<rect x="204.3" y="976.3125" width="70.1" height="105.2" rx="0" fill="#e4ebf8" stroke="#1a2240"/>
+<text x="239.3" y="1033.9" fill="#1a2240" font-size="13" font-weight="bold" font-family="Helvetica, Arial, sans-serif" text-anchor="middle">AF</text>
+<text x="208.3" y="1101.5" fill="#dfe9ff" font-size="12" font-weight="500"><tspan x="208.3" dy="0">Afterimage</tspan></text>
+</g>
+<g transform="translate(159.2 1048.9) scale(1.06) translate(-159.2 -1048.9)">
+<rect x="124.1" y="976.3125" width="70.1" height="105.2" rx="0" fill="#3f6a55" stroke="#36e0d0"/>
+<text x="128.1" y="1101.5" fill="#36e0d0" font-size="12" font-weight="500"><tspan x="128.1" dy="0">Static</tspan><tspan x="128.1" dy="15">Bloom</tspan></text>
+</g>
+<rect x="456" y="797.125" width="414" height="338.4" rx="4" fill="#0a0a0a" stroke="#333333"/>
+<rect x="470" y="811.125" width="187.0" height="105.2" rx="0" fill="#5a3d26" stroke="#333333"/>
+<rect x="476" y="817.125" width="34" height="14" rx="0" fill="#d6ff3f"/>
+<text x="493" y="827.125" fill="#0a0a0a" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="621" y="896.3125" width="30" height="14" rx="0" fill="#000" fill-opacity="0.7"/>
+<text x="636" y="906.8125" fill="#fafafa" font-size="9" text-anchor="middle">4:12</text>
+<text x="482" y="938.3125" fill="#fafafa" font-size="13" font-weight="500">Neon Reverie</text>
+<rect x="669" y="811.125" width="187.0" height="105.2" rx="0" fill="#26485a" stroke="#333333"/>
+<rect x="675" y="817.125" width="34" height="14" rx="0" fill="#d6ff3f"/>
+<text x="692" y="827.125" fill="#0a0a0a" font-size="9" font-weight="bold" text-anchor="middle">1080p</text>
+<rect x="820" y="896.3125" width="30" height="14" rx="0" fill="#000" fill-opacity="0.7"/>
+<text x="835" y="906.8125" fill="#fafafa" font-size="9" text-anchor="middle">4:12</text>
+<text x="681" y="938.3125" fill="#fafafa" font-size="13" font-weight="500">Static Bloom</text>
+<text x="470" y="966.3125" fill="#8a8a8a" font-size="11" letter-spacing="1">FILMS</text>
+<g>
+<rect x="470.0" y="976.3125" width="70.1" height="105.2" rx="0" fill="#f0f0f0" stroke="#333333"/>
+<text x="505.1" y="1033.9" fill="#1a1a1a" font-size="13" font-weight="bold" font-family="Helvetica, Arial, sans-serif" text-anchor="middle">NR</text>
+<text x="474.0" y="1101.5" fill="#fafafa" font-size="12" font-weight="500"><tspan x="474.0" dy="0">Neon</tspan><tspan x="474.0" dy="15">Reverie</tspan></text>
+</g>
+<g>
+<rect x="630.3" y="976.3125" width="70.1" height="105.2" rx="0" fill="#f0f0f0" stroke="#333333"/>
+<text x="665.3" y="1033.9" fill="#1a1a1a" font-size="13" font-weight="bold" font-family="Helvetica, Arial, sans-serif" text-anchor="middle">AF</text>
+<text x="634.3" y="1101.5" fill="#fafafa" font-size="12" font-weight="500"><tspan x="634.3" dy="0">Afterimage</tspan></text>
+</g>
+<g transform="translate(585.2 1048.9) scale(1.06) translate(-585.2 -1048.9)">
+<rect x="550.1" y="976.3125" width="70.1" height="105.2" rx="0" fill="#3f6a55" stroke="#d6ff3f"/>
+<text x="554.1" y="1101.5" fill="#d6ff3f" font-size="12" font-weight="500"><tspan x="554.1" dy="0">Static</tspan><tspan x="554.1" dy="15">Bloom</tspan></text>
+</g>
+</svg>

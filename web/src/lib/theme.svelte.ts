@@ -1,4 +1,4 @@
-// Instance skin (F66, ADR-102). The skin is instance identity: the owner's choice
+// Instance skin (F67, ADR-102). The skin is instance identity: the owner's choice
 // arrives in /capabilities.theme and is applied to <html> for every viewer. There is
 // no viewer preference any more (ADR-021 §5 superseded) — the only localStorage use
 // is a paint cache of the last server-applied value, read once before first paint so

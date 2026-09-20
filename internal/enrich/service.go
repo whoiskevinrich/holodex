@@ -39,6 +39,10 @@ type EnrichRepo interface {
 	// (entity_external_ids, ADR-096 D2) for person/studio/tag/film — never video.
 	AttachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error
 	DeleteEnrichmentByProvider(ctx context.Context, entityType string, entityID int64, provider string) (int64, error)
+	// EnrichmentDismissed reports the owner's durable "not matched" verdict for a
+	// pair (F47 RD4) — the guard RefreshPair consults before ever dialing a provider
+	// again for it.
+	EnrichmentDismissed(ctx context.Context, entityType string, entityID int64, provider string) (bool, error)
 	// RecordJobRun appends an enrich pass to the activity history (F22.6b). Best
 	// effort — a recording failure never fails the enrichment.
 	RecordJobRun(ctx context.Context, run model.JobRun) error
@@ -136,6 +140,15 @@ type Service struct {
 	// restart, before any owner has acted on this provider) simply falls through to
 	// them, exactly as if the provider advertised nothing.
 	preferredPatterns atomic.Pointer[map[string]string]
+	// describedLimits caches each provider's most-recently-observed, normalized
+	// /describe rate_limit (ADR-103 D3 tier 2), keyed by provider name — the same
+	// in-memory, warmed-on-/describe posture as preferredPatterns.
+	describedLimits atomic.Pointer[map[string]RateLimit]
+	// pacers holds one token bucket per provider name (ADR-103 D1), created on first
+	// use and never re-created, so tokens and an active 429 pause survive a
+	// reload-config. Guarded by pacersMu; the pacer itself is safe for concurrent use.
+	pacers   map[string]*pacer
+	pacersMu sync.Mutex
 	// linkTemplates caches the persisted provider outbound-link templates
 	// (HOLODEX-266, ADR-083 D2) behind an atomic pointer, keyed by namespace then
 	// entity kind — lazily loaded and refreshed on /describe. Unlike
@@ -232,7 +245,39 @@ func (s *Service) client(provider string) (Source, ProviderClient, error) {
 	if !ok {
 		return Source{}, nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	return src, s.newClient(src), nil
+	return src, s.paced(provider, s.newClient(src)), nil
+}
+
+// paced wraps a provider client with its pacer (ADR-103 D1). The limit closure is
+// re-evaluated on every admission, so a changed yaml or /describe value applies on
+// the next call.
+func (s *Service) paced(provider string, c ProviderClient) ProviderClient {
+	s.pacersMu.Lock()
+	p, ok := s.pacers[provider]
+	if !ok {
+		if s.pacers == nil {
+			s.pacers = map[string]*pacer{}
+		}
+		p = newPacer(provider, s.rateLimitFor(provider))
+		s.pacers[provider] = p
+	}
+	s.pacersMu.Unlock()
+	return &pacedClient{inner: c, p: p, limit: func() RateLimit { return s.rateLimitFor(provider) }}
+}
+
+// rateLimitFor resolves a provider's pace with ADR-103 D3's precedence: operator
+// yaml rate_limit → the provider's cached /describe declaration → DefaultRateLimit.
+// Every tier is already normalized, so the result is always in range.
+func (s *Service) rateLimitFor(provider string) RateLimit {
+	if src, ok := s.store.Current().ByName(provider); ok && src.RateLimit != nil {
+		return *src.RateLimit
+	}
+	if p := s.describedLimits.Load(); p != nil {
+		if rl, ok := (*p)[provider]; ok {
+			return rl
+		}
+	}
+	return DefaultRateLimit
 }
 
 // verifyProtocol refuses a provider whose contract major version this build does
@@ -266,6 +311,7 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 	}
 	s.persistFieldHints(ctx, provider, m)
 	s.persistPreferredPattern(provider, m)
+	s.persistRateLimit(provider, m)
 	s.persistLinkTemplates(ctx, provider, m)
 	return src, c, m, nil
 }
@@ -274,7 +320,8 @@ func (s *Service) verifiedClient(ctx context.Context, provider, entityType strin
 // (ADR-059) — the accessor the provider-icon relink uses to read `brand_icon` without
 // running a resolve/enrich. An unknown/disabled provider is an error, never a dialed
 // URL (the SSRF allowlist). Does not persist field hints; icon relink is a boot /
-// config-reload concern, not part of the owner enrich hot path.
+// config-reload concern, not part of the owner enrich hot path. It does cache the
+// provider's rate_limit declaration (ADR-103 D3) — that one is a boot concern.
 func (s *Service) DescribeProvider(ctx context.Context, provider string) (Manifest, error) {
 	_, c, err := s.client(provider)
 	if err != nil {
@@ -287,6 +334,9 @@ func (s *Service) DescribeProvider(ctx context.Context, provider string) (Manife
 	if err := verifyProtocol(m); err != nil {
 		return Manifest{}, err
 	}
+	// The traffic contract is re-read on every /describe, boot and reload included
+	// (§4.13), so a declared pace is live before any owner acts on the provider.
+	s.persistRateLimit(provider, m)
 	return m, nil
 }
 
@@ -360,6 +410,24 @@ func (s *Service) persistPreferredPattern(provider string, m Manifest) {
 		cur[provider] = pattern
 	}
 	s.preferredPatterns.Store(&cur)
+}
+
+// persistRateLimit refreshes the in-memory cache of a provider's advertised
+// rate_limit from its /describe manifest (ADR-103 D3 tier 2). Out-of-range values
+// are clamped and logged; a malformed object is logged and treated as absent; an
+// absent key clears any previously cached one (the provider falls back to the
+// default, same as one that never declared).
+func (s *Service) persistRateLimit(provider string, m Manifest) {
+	cur := map[string]RateLimit{}
+	if p := s.describedLimits.Load(); p != nil {
+		cur = maps.Clone(*p)
+	}
+	if rl := validatedRateLimit(m.RateLimit, provider+"./describe.rate_limit", s.log); rl != nil {
+		cur[provider] = *rl
+	} else {
+		delete(cur, provider)
+	}
+	s.describedLimits.Store(&cur)
 }
 
 // PreferredSearchPattern returns provider's last-observed, validated /describe
@@ -458,6 +526,52 @@ func (s *Service) BuildProviderLink(ctx context.Context, namespace, entityKind, 
 	return BuildLink(tmpl, id), true
 }
 
+// SourceURLs reads an entity's stored provider page URLs (ADR-098 D2, contract
+// §4.12), keyed by lowercased provider name — one read per request, shared by every
+// pill ProviderLink then builds for that entity. A provider whose row was cleared to
+// empty (it last sent garbage) is absent from the map.
+func (s *Service) SourceURLs(ctx context.Context, entityType string, entityID int64) (map[string]string, error) {
+	rows, err := s.repo.EnrichmentForEntity(ctx, entityType, entityID)
+	if err != nil {
+		return nil, err
+	}
+	return SourceURLsFromRows(rows), nil
+}
+
+// SourceURLsFromRows is SourceURLs over rows the caller already holds — getMedia
+// fetches an entity's enrichment once for the resolver and the per-provider table,
+// and the video pill (ADR-098 D4) reads the same rows rather than a third time.
+func SourceURLsFromRows(rows []repo.EnrichmentRow) map[string]string {
+	out := map[string]string{}
+	for _, row := range rows {
+		if row.FieldKey != model.SourceURLField || len(row.Values) == 0 || row.Values[0] == "" {
+			continue
+		}
+		out[strings.ToLower(row.Provider)] = row.Values[0]
+	}
+	return out
+}
+
+// ProviderLink is the per-pill precedence of ADR-098 D3:
+// template(namespace, kind) ?? stored[namespace] ?? degraded. stored is the entity's
+// SourceURLs map, keyed by provider — looking it up by the pill's namespace is what
+// confines a provider's stored page to its own pill (F63 RD3): a TMDB row is keyed
+// "tmdb", so the "imdb" pill on the same entity can only ever take an imdb template.
+// ok is false in the degraded state (no template, no own-provider URL) — the badge
+// still renders, just without an href.
+func (s *Service) ProviderLink(ctx context.Context, namespace, entityKind, id string, stored map[string]string) (link string, ok bool) {
+	if link, ok = s.BuildProviderLink(ctx, namespace, entityKind, id); ok {
+		return link, true
+	}
+	if id == "" {
+		return "", false
+	}
+	if u := stored[strings.ToLower(strings.TrimSpace(namespace))]; u != "" {
+		return u, true
+	}
+	return "", false
+}
+
 // Resolve asks a provider for identity candidates (F22.5b). hint carries any
 // embedded external ids (deterministic path) and/or a name query (fallback), plus
 // ADR-095's structured keys, which gateHint trims to what this provider's manifest
@@ -473,7 +587,7 @@ func (s *Service) Resolve(ctx context.Context, provider, entityType string, hint
 	if err != nil {
 		return ResolveResult{}, err
 	}
-	res.Candidates = sanitizeCandidates(res.Candidates)
+	res.Candidates = sanitizeCandidates(src, res.Candidates)
 	res.Searched = sanitizeSearched(res.Searched)
 	return res, nil
 }
@@ -494,9 +608,15 @@ func (s *Service) ExistingMatch(ctx context.Context, entityType string, entityID
 // itself must not assume that — it takes the caller's privilege as an explicit input
 // rather than inferring it.
 func (s *Service) Enrich(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool) ([]model.EnrichedField, error) {
+	return s.enrichRecorded(ctx, entityType, entityID, provider, externalID, bypassGalleryCap, "")
+}
+
+// enrichRecorded is Enrich with the activity row stamped with batchID (ADR-103 D9)
+// — the sweep's audit key; a click passes "".
+func (s *Service) enrichRecorded(ctx context.Context, entityType string, entityID int64, provider, externalID string, bypassGalleryCap bool, batchID string) ([]model.EnrichedField, error) {
 	started := time.Now()
 	fields, notes, err := s.runEnrich(ctx, entityType, entityID, provider, externalID, bypassGalleryCap)
-	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), notes, err)
+	s.recordEnrichJob(started, provider, entityType, entityID, len(fields), notes, err, batchID)
 	return fields, err
 }
 
@@ -525,6 +645,12 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	// since UpsertEnrichment never deletes a key merely absent from this map).
 	if raw, ok := fields[model.StudioExternalIDsField]; ok {
 		fields[model.StudioExternalIDsField] = sanitizeStudioExternalIDs(raw)
+	}
+	// ADR-098 D2: the provider's own page URL (contract §4.12) rides the same sidecar
+	// channel with the same raw/ok rule — sent-but-garbage overwrites (clears a stale
+	// row), omitted leaves the last good URL alone. Single-valued: first http(s) survivor.
+	if raw, ok := fields[model.SourceURLField]; ok {
+		fields[model.SourceURLField] = sanitizeSourceURL(raw)
 	}
 	// F32 (contract §4.5): a video's structured people[] credits become an internal
 	// _person_external_ids sidecar field, synthesized here (unlike _studio_external_ids,
@@ -652,6 +778,20 @@ func sanitizePeople(in []ProviderPerson) []ProviderPerson {
 		out = append(out, p)
 	}
 	return out
+}
+
+// sanitizeSourceURL reduces a provider's _source_url values (ADR-098 D2) to at most
+// one absolute http(s) URL — the first that passes validHTTPURL — or an empty slice
+// when none does. It becomes an outbound href on the entity page, never dialed
+// server-side, so the posture is sanitizeProfileURL's: a bad value is dropped, never
+// an error.
+func sanitizeSourceURL(values []string) []string {
+	for _, v := range values {
+		if u := sanitizeProfileURL(v); u != "" {
+			return []string{u}
+		}
+	}
+	return []string{}
 }
 
 // sanitizeStudioExternalIDs rejects any _studio_external_ids value whose id token (the text
@@ -924,8 +1064,8 @@ func (s *Service) downloadAssets(ctx context.Context, entityType string, entityI
 // notes are the asset refusals downloadAssets reports (HOLODEX-386) — each one is a
 // ` · `-joined clause on the detail line, RecordSearched's idiom, and counted as
 // Skipped so the row reads as "stored less than offered" at a glance.
-func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, notes []string, enrichErr error) {
-	run := newEnrichRun(started, entityType, entityID)
+func (s *Service) recordEnrichJob(started time.Time, provider, entityType string, entityID int64, n int, notes []string, enrichErr error, batchID string) {
+	run := newEnrichRun(started, entityType, entityID, batchID)
 	if enrichErr != nil {
 		run.Status = model.JobStatusErr
 		run.Errors = 1
@@ -950,15 +1090,16 @@ func (s *Service) recordEnrichJob(started time.Time, provider, entityType string
 // candidate it auto-applied carried detail lines (F61 FR5) — the only trace a
 // no-owner-present run leaves of the queries actually tried and of which record it
 // bound. applied is the SingleStrongMatch candidate when one applied, else nil.
-// Called by the batch path only; the interactive picker shows both directly. The
+// Called by RefreshPair only; the interactive picker shows both directly. The
 // detail keeps the F22.6b no-path invariant: a basename a provider echoes back is
 // not a path, and detail lines are the provider's text about its own record.
-func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult, applied *Candidate) {
+// batchID is the sweep's audit key (ADR-103 D9), "" for a click.
+func (s *Service) RecordSearched(started time.Time, provider, entityType string, entityID int64, res ResolveResult, applied *Candidate, batchID string) {
 	withDetail := applied != nil && len(applied.Detail) > 0
 	if len(res.Searched) == 0 && !withDetail {
 		return
 	}
-	run := newEnrichRun(started, entityType, entityID)
+	run := newEnrichRun(started, entityType, entityID, batchID)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s → %s #%d (%d candidates)", provider, entityType, entityID, len(res.Candidates))
 	if len(res.Searched) > 0 {
@@ -972,7 +1113,7 @@ func (s *Service) RecordSearched(started time.Time, provider, entityType string,
 }
 
 // newEnrichRun is the JobRun skeleton every enrich-kind activity entry shares.
-func newEnrichRun(started time.Time, entityType string, entityID int64) model.JobRun {
+func newEnrichRun(started time.Time, entityType string, entityID int64, batchID string) model.JobRun {
 	now := time.Now()
 	return model.JobRun{
 		Kind:       model.JobKindEnrich,
@@ -986,6 +1127,7 @@ func newEnrichRun(started time.Time, entityType string, entityID int64) model.Jo
 		// substring search. Ids only — no new information leaves the process.
 		EntityType: entityType,
 		EntityID:   entityID,
+		BatchID:    batchID,
 	}
 }
 
@@ -1106,7 +1248,9 @@ func sanitizeFields(in map[string][]string) map[string][]string {
 	return out
 }
 
-func sanitizeCandidates(in []Candidate) []Candidate {
+// sanitizeCandidates bounds every candidate a provider returned. src is the
+// provider's registry entry — the image_url gate needs its asset-host allowlist.
+func sanitizeCandidates(src Source, in []Candidate) []Candidate {
 	if len(in) > maxCandidates {
 		in = in[:maxCandidates]
 	}
@@ -1118,8 +1262,26 @@ func sanitizeCandidates(in []Candidate) []Candidate {
 		in[i].AutoApply = in[i].Confidence >= StrongMatchThreshold
 		in[i].ProfileURL = sanitizeProfileURL(in[i].ProfileURL)
 		in[i].Detail = sanitizeDetail(in[i].Detail)
+		in[i].ImageURL = sanitizeImageURL(src, in[i].ImageURL)
 	}
 	return in
+}
+
+// sanitizeImageURL bounds a candidate's provider-supplied image_url (F64, contract
+// §2.3): it becomes an <img src> in the owner's browser, so it must pass the very
+// gate a render:image_url field value passes — assetHostAllowed, i.e. checkHost's
+// scheme + allowlist + https-off-base policy (ADR-039/ADR-056). Anything else is
+// cleared rather than erroring; the candidate stays usable behind a monogram. An
+// over-cap URL is cleared, not truncated — a truncated image URL is never useful.
+func sanitizeImageURL(src Source, raw string) string {
+	if len(raw) > maxFieldLen {
+		return ""
+	}
+	raw = SanitizeValue(raw)
+	if raw == "" || !assetHostAllowed(src, raw) {
+		return ""
+	}
+	return raw
 }
 
 // sanitizeProfileURL bounds a candidate's provider-supplied profile_url (F47,

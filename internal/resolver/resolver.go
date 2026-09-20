@@ -164,6 +164,16 @@ type Options struct {
 	// behind the listed ones; empty means today's mapping-order fallback.
 	ProviderTrustOrder []string
 
+	// LastWritten is the write-ledger witness for image fields (ADR-101): canonical →
+	// the value of the newest successful file_writebacks row for this entity, as loaded
+	// by repo.LastWrittenValues. Nothing reads embedded cover art back, so for a field
+	// whose Display is image_url and which carries a standing decision, in_sync is
+	// decided-value == LastWritten[canonical] when a row exists, and unknown (nil) when
+	// none does — never the file read-back the text fields use. Text fields ignore it.
+	// nil (the zero value) means "no ledger loaded": every decided image field reads
+	// unknown, which is exactly ADR-093's posture before this witness existed.
+	LastWritten map[string]string
+
 	// ImageURLAllowed reports whether a provider's declared image_url value's host
 	// is on that provider's asset-host allowlist (ADR-039). ResolveFields consults
 	// it for every field whose Display resolves to image_url and whose winning
@@ -356,7 +366,15 @@ func ResolveFields(
 		// F36 markers are replace-only (RD1): merge fields keep F30 per-value
 		// curation and carry no source decision.
 		if !rf.Multi {
-			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items, filmNS)
+			// The witness is consulted on the field's *declared* display, not the gated
+			// one: a provider poster degraded to text by the allowlist is still an image
+			// field whose sync the file cannot answer.
+			var witness *ledgerWitness
+			if _, declared := LabelAndDisplay(f); declared == registry.DisplayImageURL {
+				w, ok := opts.LastWritten[f.Canonical]
+				witness = &ledgerWitness{value: w, present: ok}
+			}
+			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items, filmNS, witness)
 		}
 		out = append(out, rf)
 	}
@@ -695,7 +713,15 @@ func hasFilmCandidate(enrichment Enrichment, filmNS []string, canonical string) 
 // field is out of sync only when a *standing* decision's value differs from the
 // file-embedded value — an undecided (file-default) field is in sync by construction,
 // and a field with no baseline source at all reports nil (unknown, ADR-093).
-func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue, filmNS []string) (*FieldDecision, []FieldCandidate, *bool) {
+// ledgerWitness is the ADR-101 sync witness for one image field: whether the write
+// ledger holds a row for it, and that row's value. nil means "not an image field —
+// use the file read-back".
+type ledgerWitness struct {
+	value   string
+	present bool
+}
+
+func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decision, f mapping.Field, items []ResolvedValue, filmNS []string, witness *ledgerWitness) (*FieldDecision, []FieldCandidate, *bool) {
 	// File baseline candidate (always present; Value may be "").
 	fileRaw, _, _, fileDeclared := baselineValue(baseline, f)
 	fileVal := applyCasing(fileRaw, f.Casing)
@@ -750,6 +776,21 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		marker.Standing = true
 		if dec.Source == fieldsource.Manual {
 			marker.ManualValue = strings.TrimSpace(dec.ManualValue)
+		}
+		if witness != nil {
+			// Image field (ADR-101 D1): the file cannot be read back, the ledger can. A
+			// newest successful write of exactly the decided value is "in sync"; a write
+			// of something else is "out of sync"; no write on record is unknown — the
+			// ADR-093 tri-state with a different witness.
+			if !witness.present {
+				return marker, candidates, nil
+			}
+			decided := ""
+			if len(items) > 0 {
+				decided = items[0].Value
+			}
+			inSync = decided == witness.value
+			return marker, candidates, &inSync
 		}
 		if !fileDeclared {
 			// fileVal is "" for want of anywhere to read it, not because the file is

@@ -84,6 +84,12 @@ volume of unambiguous confirmations, not the occasional real judgment call.
 - **Queue-wide bulk/background resolution** (auto-resolving every visible row on queue load).
   Explicitly deferred until the provider rate-limit contract exists as its own initiative — this
   spec's lazy, per-row-click model is chosen specifically to avoid needing it yet.
+  **Amended 2026-09-19 (F66, HOLODEX-421):** [entity-refresh-sweep.md](entity-refresh-sweep.md)
+  supplies that contract (core per-provider token bucket, `/describe.rate_limit`, `429 Retry-After`,
+  circuit breaker — decided in [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md))
+  and adds an owner-triggered **sweep** beside this queue — not *on* queue load, and
+  not automatic. The sweep runs RD8's per-entity step over every person/studio; the routing table
+  (RD1) is unchanged. This Non-Goal now reads: *no resolution the owner did not click for*.
 - **Cross-provider confidence calibration.** `confidence` stays provider-native and advisory
   (per the existing contract); this spec thresholds the same frontend value already computed by
   `EnrichPicker.matchLabel` (`>=0.85` strong) — it does not attempt to normalize confidence
@@ -108,6 +114,15 @@ volume of unambiguous confirmations, not the occasional real judgment call.
   trigger: a `/resolve` call returning **exactly one** strong-confidence candidate applies it
   immediately via the existing `apply()` call; two-or-more strong, any possible-only, or
   weak-only results always require the owner's pick.
+  **Scope (HOLODEX-418, 2026-09-18):** auto-apply exists so an *unattended first match* doesn't
+  cost a click. It fires only on the initial, entity-seeded search of an **unlinked** provider —
+  a first "Enrich", a queue row's open/"Try again" (RD3 — the row is not linked, so a lone strong
+  candidate is the right outcome), or Refresh-all's needs-review hand-off (RD8). A ⋯
+  **"Re-match…"** on a linked provider (RD7) **never** auto-applies: the owner is overriding the
+  current link, so the previous match is suspect by definition, and the picker must show the list
+  even (especially) when the provider returns exactly the same lone strong candidate — otherwise
+  Re-match silently re-applies the match the owner just said was wrong. `EnrichPicker` takes
+  `autoApply` (default `true`); the chips' Re-match path opens it with `false`.
 - **RD2 — Queue list/count is a zero-cost DB signal.** Membership = "this entity is missing an
   `entity_enrichment` row for at least one provider whose `entity_types` includes its type." No
   `/resolve` call happens until a row is opened; the badge count is the same query, count-only.
@@ -134,8 +149,9 @@ volume of unambiguous confirmations, not the occasional real judgment call.
 - **RD7 — A linked provider's primary chip action flips to Refresh.** Once a provider chip is
   linked (an `external_id` is stored), `EnrichProviderChips`'s primary button changes from
   "Enrich" (open picker) to **"Refresh"** (call `apply()` directly with the stored id — no
-  `/resolve`, no picker). **"Re-match…"** (reopen the picker to pick a different candidate) and
-  **"Clear"** move into the ⋯ overflow alongside each other.
+  `/resolve`, no picker). **"Re-match…"** (reopen the picker to pick a different candidate —
+  with RD1 auto-apply **off**, see RD1's scope note) and **"Clear"** move into the ⋯ overflow
+  alongside each other.
 - **RD8 — Refresh-all is per-entity, bounded, and reuses RD1's routing.** A single **"Refresh
   all"** action fans out across only that entity's configured providers (today: 2–4, operator
   bounded, not catalog-sized). Each provider independently: refreshes if linked, or resolves +
@@ -189,6 +205,10 @@ volume of unambiguous confirmations, not the occasional real judgment call.
   - Given a queue row's only outstanding provider returns exactly one candidate with
     `confidence >= 0.85`, When the owner opens that row, Then the field values apply without a
     second confirmation click, and the row shows "auto-applied."
+  - Given a provider already linked to the entity returns exactly one `auto_apply` candidate,
+    When the owner opens ⋯ → "Re-match…" on that chip, Then the picker shows the list with that
+    candidate labelled "Strong match" and **nothing is applied** until the owner clicks it
+    (HOLODEX-418).
   - Given two candidates both score `>= 0.85`, When resolved, Then neither auto-applies — the row
     shows "needs review" and opens the picker as today.
 - **P0-3 — Auto-applied results are revertable via the existing decision model (F36).** No new
@@ -229,6 +249,8 @@ volume of unambiguous confirmations, not the occasional real judgment call.
 ### Future considerations (P2)
 
 - **P2-1 — Queue-wide bulk/background resolution** — once the provider rate-limit contract exists.
+  **→ Delivered as F66** ([entity-refresh-sweep.md](entity-refresh-sweep.md), HOLODEX-421): the
+  contract plus an owner-triggered sweep from System Activity. Remaining here only as the pointer.
 - **P2-2 — "Last checked" annotation for the no-data-yet state** — requires persisting an
   attempt marker on every resolve, not just dismissals; deferred pending real need (Open
   Questions Q2).

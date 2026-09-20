@@ -1,0 +1,119 @@
+<svg width="900" height="560" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Provider link badge — film and media header placement (F63, HOLODEX-390)</title>
+<desc>Top: the film page header in all three skins with the provider pills appended to the year line after a middle-dot separator (DD4, ruled over a dedicated pill line). Middle: the owner's docked pencil lands after the pills, and the no-ids case renders the year alone. Bottom: the media header meta row with a single pill after the year (RD7, HOLODEX-394), and the person reference row the pattern generalises.</desc>
+<rect width="900" height="560" fill="#f4f2ee"/>
+
+<text x="24" y="28" font-size="11" letter-spacing="1" fill="#8a8478">1 · FILM HEADER — DD4: PILLS JOIN THE YEAR LINE (CHOSEN)</text>
+
+<!-- Cinematheque -->
+<rect x="24" y="40" width="276" height="150" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+<text x="36" y="56" font-size="9" fill="#9b9082">Cinematheque</text>
+<rect x="36" y="66" width="44" height="66" fill="#15110e" stroke="#2a2622"/>
+<text x="92" y="84" font-size="16" font-family="Georgia, serif" font-weight="600" fill="#f3ece1">The Matrix</text>
+<text x="92" y="106" font-size="12" fill="#9b9082">1999</text>
+<text x="122" y="106" font-size="12" fill="#9b9082">·</text>
+<rect x="132" y="94" width="50" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<rect x="138" y="98" width="10" height="10" rx="2" fill="#e9e0d0"/><text x="140" y="106" font-size="7" font-weight="600" fill="#2a2018">I</text>
+<text x="152" y="106" font-size="10" fill="#9b9082">IMDb</text>
+<rect x="188" y="94" width="54" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<rect x="194" y="98" width="10" height="10" rx="2" fill="#e9e0d0"/><text x="196" y="106" font-size="7" font-weight="600" fill="#2a2018">T</text>
+<text x="208" y="106" font-size="10" fill="#9b9082">TMDB</text>
+<rect x="92" y="122" width="96" height="22" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="98" y="127" width="12" height="12" rx="2" fill="#e9e0d0"/><text x="100" y="136" font-size="8" font-weight="600" fill="#2a2018">W</text>
+<text x="116" y="137" font-size="10" fill="#f3ece1">Warner Bros.</text>
+
+<!-- Broadcast -->
+<rect x="312" y="40" width="276" height="150" rx="0" fill="#060814" stroke="#1a2240"/>
+<text x="324" y="56" font-size="9" fill="#6f7da6">Broadcast</text>
+<rect x="324" y="66" width="44" height="66" fill="#0b0f22" stroke="#1a2240"/>
+<text x="380" y="84" font-size="16" font-family="Courier New, monospace" font-weight="600" fill="#dfe9ff">The Matrix</text>
+<text x="380" y="106" font-size="12" font-family="Courier New, monospace" fill="#6f7da6">1999</text>
+<text x="414" y="106" font-size="12" fill="#6f7da6">·</text>
+<rect x="424" y="94" width="50" height="18" rx="9" fill="none" stroke="#1a2240"/>
+<rect x="430" y="98" width="10" height="10" rx="0" fill="#e4ebf8"/><text x="432" y="106" font-size="7" font-weight="600" fill="#1a2240">I</text>
+<text x="444" y="106" font-size="10" font-family="Courier New, monospace" fill="#6f7da6">IMDb</text>
+<rect x="480" y="94" width="54" height="18" rx="9" fill="none" stroke="#1a2240"/>
+<rect x="486" y="98" width="10" height="10" rx="0" fill="#e4ebf8"/><text x="488" y="106" font-size="7" font-weight="600" fill="#1a2240">T</text>
+<text x="500" y="106" font-size="10" font-family="Courier New, monospace" fill="#6f7da6">TMDB</text>
+<rect x="380" y="122" width="102" height="22" rx="0" fill="#0b0f22" stroke="#1a2240"/>
+<rect x="386" y="127" width="12" height="12" rx="0" fill="#e4ebf8"/><text x="388" y="136" font-size="8" font-weight="600" fill="#1a2240">W</text>
+<text x="404" y="137" font-size="10" font-family="Courier New, monospace" fill="#dfe9ff">Warner Bros.</text>
+
+<!-- Brutalist -->
+<rect x="600" y="40" width="276" height="150" rx="0" fill="#0a0a0a" stroke="#333333"/>
+<text x="612" y="56" font-size="9" fill="#8a8a8a">Brutalist</text>
+<rect x="612" y="66" width="44" height="66" fill="#0e0e0e" stroke="#333333"/>
+<text x="668" y="84" font-size="16" font-family="Courier New, monospace" font-weight="600" fill="#fafafa">The Matrix</text>
+<text x="668" y="106" font-size="12" font-family="Courier New, monospace" fill="#8a8a8a">1999</text>
+<text x="702" y="106" font-size="12" fill="#8a8a8a">·</text>
+<rect x="712" y="94" width="50" height="18" rx="9" fill="none" stroke="#333333"/>
+<rect x="718" y="98" width="10" height="10" rx="0" fill="#f0f0f0"/><text x="720" y="106" font-size="7" font-weight="600" fill="#1a1a1a">I</text>
+<text x="732" y="106" font-size="10" font-family="Courier New, monospace" fill="#8a8a8a">IMDb</text>
+<rect x="768" y="94" width="54" height="18" rx="9" fill="none" stroke="#333333"/>
+<rect x="774" y="98" width="10" height="10" rx="0" fill="#f0f0f0"/><text x="776" y="106" font-size="7" font-weight="600" fill="#1a1a1a">T</text>
+<text x="788" y="106" font-size="10" font-family="Courier New, monospace" fill="#8a8a8a">TMDB</text>
+<rect x="668" y="122" width="102" height="22" rx="0" fill="#0e0e0e" stroke="#333333"/>
+<rect x="674" y="127" width="12" height="12" rx="0" fill="#f0f0f0"/><text x="676" y="136" font-size="8" font-weight="600" fill="#1a1a1a">W</text>
+<text x="692" y="137" font-size="10" font-family="Courier New, monospace" fill="#fafafa">Warner Bros.</text>
+
+<text x="24" y="218" font-size="11" letter-spacing="1" fill="#8a8478">2 · OWNER ROW ON HOVER (PENCIL DOCKS AFTER THE PILLS) · NO-IDS ROW · REJECTED: OWN LINE</text>
+
+<rect x="24" y="230" width="276" height="96" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+<text x="36" y="248" font-size="9" fill="#9b9082">Owner, row hovered — `1999 · IMDb TMDB ✎`</text>
+<text x="36" y="276" font-size="12" fill="#9b9082">1999</text>
+<text x="66" y="276" font-size="12" fill="#9b9082">·</text>
+<rect x="76" y="264" width="50" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<rect x="82" y="268" width="10" height="10" rx="2" fill="#e9e0d0"/><text x="84" y="276" font-size="7" font-weight="600" fill="#2a2018">I</text>
+<text x="96" y="276" font-size="10" fill="#9b9082">IMDb</text>
+<rect x="132" y="264" width="54" height="18" rx="9" fill="none" stroke="#e8a33d"/>
+<rect x="138" y="268" width="10" height="10" rx="2" fill="#e9e0d0"/><text x="140" y="276" font-size="7" font-weight="600" fill="#2a2018">T</text>
+<text x="152" y="276" font-size="10" fill="#f3ece1">TMDB</text>
+<rect x="194" y="262" width="22" height="22" rx="2" fill="none" stroke="#2a2622"/>
+<path d="M200 278 l1.5-4 8-8 2.5 2.5-8 8z" fill="none" stroke="#9b9082" stroke-width="1.2"/>
+<text x="36" y="308" font-size="9" fill="#6f6a5f">TMDB pill hovered: border → accent, text → ink. Pencil label stays "Change the year".</text>
+
+<rect x="312" y="230" width="276" height="96" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+<text x="324" y="248" font-size="9" fill="#9b9082">No ids — visitor / owner at rest</text>
+<text x="324" y="276" font-size="12" fill="#9b9082">1999</text>
+<text x="324" y="308" font-size="9" fill="#6f6a5f">Line is byte-identical to today: no pill, no `·`.</text>
+
+<rect x="600" y="230" width="276" height="96" rx="4" fill="#0c0a09" stroke="#2a2622" stroke-dasharray="4 3"/>
+<text x="612" y="248" font-size="9" fill="#9b9082">Rejected — pills on their own line</text>
+<text x="612" y="270" font-size="12" fill="#9b9082">1999</text>
+<rect x="612" y="280" width="50" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<text x="632" y="292" font-size="10" fill="#9b9082">IMDb</text>
+<rect x="668" y="280" width="54" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<text x="688" y="292" font-size="10" fill="#9b9082">TMDB</text>
+<text x="612" y="316" font-size="9" fill="#6f6a5f">Costs a header line; breaks the one-placement rule.</text>
+
+<text x="24" y="356" font-size="11" letter-spacing="1" fill="#8a8478">3 · MEDIA HEADER — RD7: ONE PILL AFTER THE YEAR (HOLODEX-394) · PERSON REFERENCE ROW</text>
+
+<rect x="24" y="368" width="564" height="80" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+<text x="36" y="386" font-size="9" fill="#9b9082">Media page meta row — `1080p 1920×1080 · 2h 16m · 1999 · TMDB`</text>
+<text x="36" y="412" font-size="16" font-family="Georgia, serif" font-weight="600" fill="#f3ece1">The Matrix (1999).mkv</text>
+<rect x="36" y="424" width="42" height="16" rx="2" fill="#e8a33d"/><text x="42" y="436" font-size="10" fill="#1a1206">1080p</text>
+<text x="86" y="436" font-size="11" fill="#9b9082">1920×1080</text>
+<text x="146" y="436" font-size="11" fill="#9b9082">·</text>
+<text x="156" y="436" font-size="11" fill="#9b9082">2h 16m</text>
+<text x="196" y="436" font-size="11" fill="#9b9082">·</text>
+<text x="206" y="436" font-size="11" fill="#9b9082">1999</text>
+<text x="234" y="436" font-size="11" fill="#9b9082">·</text>
+<rect x="244" y="423" width="54" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<rect x="250" y="427" width="10" height="10" rx="2" fill="#e9e0d0"/><text x="252" y="435" font-size="7" font-weight="600" fill="#2a2018">T</text>
+<text x="264" y="435" font-size="10" fill="#9b9082">TMDB</text>
+
+<rect x="600" y="368" width="276" height="80" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+<text x="612" y="386" font-size="9" fill="#9b9082">Person (shipped, HOLODEX-266) — `12 videos · IMDb TMDB`</text>
+<text x="612" y="412" font-size="16" font-family="Georgia, serif" font-weight="600" fill="#f3ece1">Keanu Reeves</text>
+<text x="612" y="436" font-size="11" fill="#9b9082">12 videos</text>
+<text x="666" y="436" font-size="11" fill="#9b9082">·</text>
+<rect x="676" y="423" width="50" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<text x="696" y="435" font-size="10" fill="#9b9082">IMDb</text>
+<rect x="732" y="423" width="54" height="18" rx="9" fill="none" stroke="#2a2622"/>
+<text x="752" y="435" font-size="10" fill="#9b9082">TMDB</text>
+
+<text x="24" y="480" font-size="10" fill="#6f6a5f">One rule, four entities: pills trail the last passive fact on the entity's existing muted line after a `·` — never a new row, never a section.</text>
+<text x="24" y="498" font-size="10" fill="#6f6a5f">Film's passive line is the year (an owner-editable NameEditControl); the pills ride its `trailing` slot, so they hide with the resting row while the year is being edited.</text>
+<text x="24" y="516" font-size="10" fill="#6f6a5f">Tokens only — text-muted / border-rule / accent on hover — so the pill needs no per-skin work; the three panels above differ only by skin tokens and fonts.</text>
+<text x="24" y="540" font-size="9" fill="#8a8478">docs/design/provider-link-badge-handoff.md §5 · HOLODEX-393 / HOLODEX-394 · 2026-09-17</text>
+</svg>

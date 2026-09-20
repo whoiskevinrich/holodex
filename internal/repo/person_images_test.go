@@ -599,3 +599,62 @@ func TestPersonImagesMissingHashAndSet(t *testing.T) {
 		t.Errorf("missing after set = %d, want 0", len(missing))
 	}
 }
+
+// GetVideo's people and FilmCast carry poster_version (the image row id) like
+// ListPeople does: the media/film detail Cast grid builds each poster URL from it,
+// and the image route is served immutable — so a versionless URL pins the first
+// poster in the browser cache and a replaced poster never shows on those pages.
+func TestDetailCastPosterVersion(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/Alice.mkv", "T", []string{"Alice"}, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, vid, []repo.PersonRoleName{{Name: "Alice", Role: "actor"}}, nil); err != nil {
+		t.Fatalf("reconcile people: %v", err)
+	}
+	pid := personIDByName(t, r, "Alice")
+	fid, err := r.CreateFilm(ctx, "F", 2001)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, fid, vid, nil, true); err != nil {
+		t.Fatalf("attach film video: %v", err)
+	}
+
+	posterVersions := func() (video, film int64) {
+		t.Helper()
+		v, _, err := r.GetVideo(ctx, vid)
+		if err != nil {
+			t.Fatalf("get video: %v", err)
+		}
+		cast, err := r.FilmCast(ctx, fid)
+		if err != nil {
+			t.Fatalf("film cast: %v", err)
+		}
+		return posterVersionOf(v.People, pid), posterVersionOf(cast, pid)
+	}
+
+	if v, f := posterVersions(); v != 0 || f != 0 {
+		t.Fatalf("poster_version with no poster = video %d / film %d, want 0 / 0", v, f)
+	}
+	first, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImagePoster, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("insert poster: %v", err)
+	}
+	if v, f := posterVersions(); v != first || f != first {
+		t.Fatalf("poster_version = video %d / film %d, want the image id %d", v, f, first)
+	}
+	// A replace mints a new row id, so the version — and the URL — must advance.
+	second, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: model.PersonImagePoster, Source: model.PersonImageSourceUpload, Width: 10, Height: 10, ByteSize: 1})
+	if err != nil {
+		t.Fatalf("replace poster: %v", err)
+	}
+	if second == first {
+		t.Fatalf("replace reused image id %d", first)
+	}
+	if v, f := posterVersions(); v != second || f != second {
+		t.Fatalf("poster_version after replace = video %d / film %d, want %d", v, f, second)
+	}
+}

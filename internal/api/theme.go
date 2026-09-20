@@ -7,7 +7,7 @@ import (
 	"holodex/internal/theme"
 )
 
-// Instance skin (F66, ADR-102). The skin is instance identity: one server-held value,
+// Instance skin (F67, ADR-102). The skin is instance identity: one server-held value,
 // applied to every viewer via /capabilities, set by the owner through PUT /admin/theme.
 // There is no viewer preference (ADR-021 §5 is superseded).
 
@@ -37,7 +37,7 @@ type ThemeCustom struct {
 	Contrast []theme.Pair `json:"contrast"`
 }
 
-// SetCustomTheme wires the owner's parsed palette from config (F66 S3); nil means
+// SetCustomTheme wires the owner's parsed palette from config (F67 S3); nil means
 // none is configured. Called once at startup before serving.
 func (h *Handlers) SetCustomTheme(c *theme.Custom) {
 	if c == nil {

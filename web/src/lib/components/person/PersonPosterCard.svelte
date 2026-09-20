@@ -7,6 +7,7 @@
 	// the person-detail PersonPoster are unaffected.
 	import type { Person } from '$lib/types';
 	import PersonImageFrame from './PersonImageFrame.svelte';
+	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
 
 	let { person, eager = false }: { person: Person; eager?: boolean } = $props();
 
@@ -28,6 +29,13 @@
 		<h3 class="skin-title line-clamp-1 text-sm font-medium text-ink" title={person.name}>
 			{person.name}
 		</h3>
-		<span class="text-xs text-muted">{person.video_count}</span>
+		<span class="flex items-center gap-1.5">
+			{#if person.completeness}
+				<!-- Owner-only by payload (F65.4/F65.5): the row rule applied to the caption —
+				     trailing, before the count, so the caption's name line never moves. -->
+				<CompletenessRing required={person.completeness.required} extras={person.completeness.extras} size="row" />
+			{/if}
+			<span class="text-xs text-muted">{person.video_count}</span>
+		</span>
 	</div>
 </a>

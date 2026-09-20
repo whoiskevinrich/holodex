@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"holodex/internal/enrich"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/thumbnail"
@@ -17,6 +18,9 @@ type activityResponse struct {
 	Thumbnails thumbnail.QueueStats `json:"thumbnails"`
 	Library    repo.LibraryCounts   `json:"library"`
 	System     activitySystem       `json:"system"`
+	// Sweep is the entity refresh sweep's live state (F66 RD5, ADR-103 D8): both the
+	// status page and the list-page status line derive from this one block.
+	Sweep enrich.SweepStatus `json:"sweep"`
 }
 
 // activitySystem carries non-sensitive runtime info. No-secrets invariant
@@ -33,9 +37,12 @@ type activitySystem struct {
 
 // adminActivity serves the live activity read-model (F21.1).
 func (h *Handlers) adminActivity(w http.ResponseWriter, r *http.Request) {
-	resp := activityResponse{Scan: model.ScanStatus{State: "idle"}}
+	resp := activityResponse{Scan: model.ScanStatus{State: "idle"}, Sweep: enrich.SweepStatus{State: "idle"}}
 	if h.scanStatus != nil {
 		resp.Scan = h.scanStatus.Status()
+	}
+	if h.sweep != nil {
+		resp.Sweep = h.sweep.Status()
 	}
 	if h.thumbs != nil {
 		resp.Thumbnails = h.thumbs.QueueStats()
@@ -62,10 +69,17 @@ func (h *Handlers) adminActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 // adminActivityHistory serves the persisted 30-day job-run history newest-first
-// (F21.3). ?days= is clamped to the retention window by the repo.
+// (F21.3). ?days= is clamped to the retention window by the repo. ?batch= scopes
+// the list to one sweep's runs (F66 RD6, ADR-103 D9) — the audit trail behind the
+// done line's counts.
 func (h *Handlers) adminActivityHistory(w http.ResponseWriter, r *http.Request) {
-	days := atoiDefault(r.URL.Query().Get("days"), 30)
-	runs, err := h.repo.ListJobRuns(r.Context(), days)
+	var runs []model.JobRun
+	var err error
+	if batch := r.URL.Query().Get("batch"); batch != "" {
+		runs, err = h.repo.ListJobRunsByBatch(r.Context(), batch)
+	} else {
+		runs, err = h.repo.ListJobRuns(r.Context(), atoiDefault(r.URL.Query().Get("days"), 30))
+	}
 	if err != nil {
 		h.fail(w, "job history", err)
 		return
@@ -90,4 +104,42 @@ func (h *Handlers) adminActivityDigest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, digest)
+}
+
+// adminDismissJobRun marks one failed run as handled (HOLODEX-416, ADR-100 D1)
+// so it leaves the digest's failure list and error count while the history
+// keeps it. Idempotent by contract: an already-dismissed, non-error or absent run
+// answers 200 {dismissed:false}, never 404/409 — a second tab or a double click
+// costs the owner nothing.
+func (h *Handlers) adminDismissJobRun(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	dismissed, err := h.repo.DismissJobRun(r.Context(), id)
+	if err != nil {
+		h.fail(w, "dismiss job run", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dismissed": dismissed})
+}
+
+// adminDismissJobFailures dismisses every undismissed error run in the digest
+// window (ADR-100 D4). The body carries the same `days` the digest was read
+// with; an empty body means the full window. The window is resolved
+// server-side at request time, so runs beyond the digest's inline failure cap
+// are covered and a failure that lands after the call is not.
+func (h *Handlers) adminDismissJobFailures(w http.ResponseWriter, r *http.Request) {
+	req := struct {
+		Days int `json:"days"`
+	}{Days: 30}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
+	n, err := h.repo.DismissJobFailures(r.Context(), req.Days)
+	if err != nil {
+		h.fail(w, "dismiss job failures", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dismissed": n})
 }

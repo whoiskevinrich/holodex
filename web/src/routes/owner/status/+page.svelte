@@ -3,9 +3,11 @@
 	// 30-day job history. Reads the shared activity store (also driving the header
 	// indicator) and owns history fetching.
 	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { activity } from '$lib/activity.svelte';
 	import { api, startSession, ReauthError } from '$lib/api';
-	import type { JobRun, JobDigest } from '$lib/types';
+	import type { JobRun, JobDigest, SweepKind } from '$lib/types';
 	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
 	import StatusCard from '$lib/components/activity/StatusCard.svelte';
 	import JobHistory from '$lib/components/activity/JobHistory.svelte';
@@ -31,6 +33,14 @@
 	let toast = $state('');
 	let confirmingRescan = $state(false);
 	let busy = $state(false);
+	// Entity refresh sweep (F66, handoff Option D): the confirm replaces the button row
+	// like Rescan's; the checkbox is a per-sweep flag, reset on every open (spec RD3).
+	let confirmingSweep = $state<SweepKind | null>(null);
+	let sweepForce = $state(false);
+	const SWEEP_PLURAL: Record<SweepKind, string> = { person: 'people', studio: 'studios' };
+	const sweepCount = (kind: SweepKind) => (kind === 'person' ? a?.library.people : a?.library.studios) ?? 0;
+	// ?batch=<id> scopes the log to one sweep (spec P0-7); the done line links here.
+	const batch = $derived(page.url.searchParams.get('batch') ?? '');
 
 	// Toasts auto-clear so a stale "Scan started." doesn't linger.
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -66,7 +76,7 @@
 	async function loadHistory() {
 		historyLoading = true;
 		try {
-			runs = (await api.activityHistory()).runs ?? [];
+			runs = (await api.activityHistory(30, batch || undefined)).runs ?? [];
 			historyLoaded = true;
 			historyError = '';
 		} catch (e) {
@@ -86,22 +96,37 @@
 	onMount(() => {
 		activity.start();
 		loadDigest();
+		if (batch) showLog();
+	});
+	// A batch filter change (deep link -> x) refetches the log it scopes.
+	let prevBatch: string | undefined;
+	$effect(() => {
+		const b = batch;
+		if (prevBatch !== undefined && b !== prevBatch) {
+			historyLoaded = false;
+			if (b) showLog();
+			else if (jobMode === 'log') loadHistory();
+		}
+		prevBatch = b;
 	});
 	onDestroy(() => {
 		activity.stop();
 		clearTimeout(toastTimer);
 	});
 
-	// Refresh whenever a scan finishes (running -> idle): the digest always (it's
-	// the default view), and the log only if it's been opened.
+	// Refresh whenever a scan or a sweep finishes (running -> idle): the digest
+	// always (it's the default view), and the log only if it's been opened.
 	let prevState: string | undefined;
+	let prevSweep: string | undefined;
 	$effect(() => {
 		const s = a?.scan.state;
-		if (prevState === 'running' && s === 'idle') {
+		const w = a?.sweep?.state;
+		if ((prevState === 'running' && s === 'idle') || (prevSweep === 'running' && w === 'idle')) {
 			loadDigest();
 			if (historyLoaded) loadHistory();
 		}
 		prevState = s;
+		prevSweep = w;
 	});
 
 	async function submitToken(e: Event) {
@@ -154,6 +179,27 @@
 		try {
 			const r = await api.rescan();
 			showToast(r.started ? 'Scan started.' : 'A scan is already running.');
+		} catch (e) {
+			showToast(toMessage(e));
+		} finally {
+			busy = false;
+			activity.refresh();
+		}
+	}
+
+	function openSweepConfirm(kind: SweepKind) {
+		sweepForce = false;
+		confirmingSweep = kind;
+	}
+
+	async function doSweep(kind: SweepKind) {
+		const force = sweepForce;
+		confirmingSweep = null;
+		sweepForce = false;
+		busy = true;
+		try {
+			const r = await api.sweepEntities(kind, force);
+			showToast(r.started ? 'Refresh started.' : 'A refresh is already running.');
 		} catch (e) {
 			showToast(toMessage(e));
 		} finally {
@@ -278,11 +324,51 @@
 						<span class="text-sm text-ink">Rescan the whole library?</span>
 						<button onclick={doRescan} disabled={busy} class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60">Yes, rescan</button>
 						<button onclick={() => (confirmingRescan = false)} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2">Cancel</button>
+					{:else if confirmingSweep}
+						{@const kind = confirmingSweep}
+						<span class="text-sm text-ink">
+							{#if sweepForce}
+								Refresh all {sweepCount(kind).toLocaleString()} {SWEEP_PLURAL[kind]}?
+							{:else}
+								Refresh {sweepCount(kind).toLocaleString()} {SWEEP_PLURAL[kind]} (skipping any refreshed in the last 24 h)?
+							{/if}
+						</span>
+						<label class="flex items-center gap-1.5 text-sm text-ink">
+							<input type="checkbox" bind:checked={sweepForce} />
+							Refresh everything
+						</label>
+						<button onclick={() => doSweep(kind)} disabled={busy} class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60">Yes, refresh</button>
+						<button onclick={() => (confirmingSweep = null)} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2">Cancel</button>
 					{:else}
 						<button onclick={() => (confirmingRescan = true)} disabled={busy} class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60">Rescan library</button>
 						<button onclick={doReload} disabled={busy} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60">Reload config</button>
 						{#if activity.caps?.auth_required}
 							<button onclick={signOut} disabled={busy} class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60">Sign out</button>
+						{/if}
+						<!-- Entity refresh sweep (F66): one button per kind with entities, people then
+						     studios. The running kind's button carries the live count; the other
+						     kind's says why it waits (one refresh at a time - server single-flight). -->
+						{#each ['person', 'studio'] as const as kind (kind)}
+							{#if sweepCount(kind) > 0}
+								{@const running = a?.sweep?.state === 'running'}
+								{@const thisRunning = running && a?.sweep?.kind === kind}
+								<button
+									onclick={() => openSweepConfirm(kind)}
+									disabled={busy || running}
+									title={running && !thisRunning ? 'One refresh at a time' : undefined}
+									aria-describedby={running && !thisRunning ? 'sweep-one-at-a-time' : undefined}
+									class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
+								>
+									{#if thisRunning}
+										Refreshing {SWEEP_PLURAL[kind]} {a?.sweep?.done.toLocaleString()} / {a?.sweep?.total.toLocaleString()}…
+									{:else}
+										Refresh all {SWEEP_PLURAL[kind]}…
+									{/if}
+								</button>
+							{/if}
+						{/each}
+						{#if a?.sweep?.state === 'running'}
+							<span id="sweep-one-at-a-time" class="sr-only">One refresh at a time</span>
 						{/if}
 					{/if}
 					{#if toast}<span class="text-sm text-muted">{toast}</span>{/if}
@@ -299,7 +385,9 @@
 	{#if !needToken}
 		<section class="space-y-3">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h2 class="skin-title text-lg font-semibold text-ink">Recent jobs</h2>
+				<!-- tabindex=-1: the digest parks focus here when a dismissed row was the
+				     callout's last, so focus never falls to <body> (HOLODEX-416). -->
+				<h2 class="skin-title text-lg font-semibold text-ink" tabindex="-1">Recent jobs</h2>
 				<div class="flex items-center gap-1" role="tablist" aria-label="Job view">
 					<button
 						role="tab"
@@ -325,7 +413,7 @@
 						Couldn't load job summary — {digestError}
 					</p>
 				{:else if digest}
-					<JobDigestView {digest} />
+					<JobDigestView {digest} {isOwner} onchange={(next) => (digest = next)} onerror={showToast} />
 				{/if}
 			{:else}
 				{#if historyLoading && !historyLoaded}
@@ -335,7 +423,7 @@
 						Couldn't load job history — {historyError}
 					</p>
 				{:else}
-					<JobHistory {runs} />
+					<JobHistory {runs} {batch} onclearbatch={() => goto('/owner/status', { replaceState: true })} />
 				{/if}
 			{/if}
 		</section>

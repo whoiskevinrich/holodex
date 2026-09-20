@@ -69,6 +69,8 @@ export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -185,6 +187,8 @@ export interface Studio {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -213,6 +217,8 @@ export interface Video {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
+	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
+	completeness?: CompletenessSummary;
 	file_size: number;
 	title: string;
 	duration_sec: number;
@@ -227,6 +233,7 @@ export interface Video {
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
+	part?: string; // resolved part ordinal within a multi-file media, API-stamped on every summary (HOLODEX-389)
 	people?: Person[];
 	tags?: Tag[];
 }
@@ -441,6 +448,11 @@ export interface MediaDetailResponse {
 	// every writeback.WriteBatch failure embeds absolute filesystem paths, the same
 	// class of exposure FilePath/codecs are already redacted for on this response.
 	writeback_status?: VideoWritebackStatus;
+	// external_links is the provider-link badge projection for video (HOLODEX-394,
+	// ADR-098 D4): 0 or 1 entry, built from the resolver's winning external_provider_id
+	// rather than entity_external_ids (video has no identity rows). Read-only,
+	// visitor-visible; null when the field has no value.
+	external_links?: ExternalLink[] | null;
 }
 
 export interface VideoWritebackStatus {
@@ -545,7 +557,48 @@ export interface LibraryCounts {
 	videos_active: number;
 	videos_inactive: number;
 	people: number;
+	studios: number;
 	tags: number;
+}
+
+// Entity refresh sweep (F67 RD5/RD11, ADR-103 D8): the `sweep` block on the
+// activity poll. `kind` is the entity type ('person' | 'studio'), never the route
+// plural. Counts are per pair; total/done are per entity. last_run outlives the run
+// until the next sweep starts or the process restarts.
+export type SweepKind = 'person' | 'studio';
+
+export interface SweepCounts {
+	linked: number;
+	needs_review: number;
+	no_candidates: number;
+	failed: number;
+	skipped: number;
+	stale_skipped: number;
+}
+
+export interface SweepSkippedProvider {
+	provider: string;
+	reason: 'stopped responding' | 'rate-limited' | string;
+}
+
+export interface SweepSummary extends SweepCounts {
+	kind: SweepKind;
+	finished_at: string;
+	duration_ms: number;
+	batch_id: string;
+	total: number;
+	skipped_providers: SweepSkippedProvider[];
+	error?: string;
+}
+
+export interface SweepStatus extends SweepCounts {
+	state: 'idle' | 'running';
+	kind?: SweepKind;
+	started_at?: string;
+	batch_id?: string;
+	total: number;
+	done: number;
+	last_run: SweepSummary | null;
 }
 
 export interface ActivitySystem {
@@ -561,6 +614,7 @@ export interface Activity {
 	thumbnails: ThumbnailStats;
 	library: LibraryCounts;
 	system: ActivitySystem;
+	sweep: SweepStatus;
 }
 
 // JobRun is one row of the 30-day activity history (F21.3).
@@ -587,6 +641,9 @@ export interface JobRun {
 	entity_id?: number;
 	// Writeback snapshot batch (ADR-067) this run belongs to; drives Revert.
 	batch_id?: string;
+	// Set once the owner has dismissed this failed run (HOLODEX-416, ADR-100).
+	// The run itself is untouched — the Log still lists it, with a marker.
+	dismissed_at?: string;
 }
 
 // One kind's roll-up in the activity digest (ADR-071). last_status is the status
@@ -595,9 +652,12 @@ export interface JobRun {
 export interface JobKindDigest {
 	kind: string;
 	runs: number;
-	errors: number;
+	errors: number; // undismissed errors only (ADR-100 D3)
 	last_run: string;
 	last_status: string;
+	// True when the newest run is an error the owner has dismissed — the badge
+	// mutes instead of staying warn (handoff D5). last_status is still 'error'.
+	last_dismissed: boolean;
 }
 
 // The activity digest (ADR-071): a per-kind summary plus the window's failed
@@ -623,7 +683,7 @@ export interface Capabilities {
 	// films_enabled gates the Films entity (F56, ADR-085) — routes, nav, video-list
 	// hiding, and the resolver-source injection are all suspended when false.
 	films_enabled: boolean;
-	// theme is the instance skin (F66, ADR-102 D1): the owner's choice, identical for
+	// theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical for
 	// every viewer. The SPA applies it on arrival and keeps no preference of its own.
 	theme: ThemeCapability;
 }
@@ -632,7 +692,7 @@ export interface Capabilities {
 export type ShippedTheme = 'cinematheque' | 'broadcast' | 'brutalist';
 export type ThemeId = ShippedTheme | 'custom';
 
-// ThemeCustom is the owner's palette from holodex.yaml `theme.custom` (F66 R9): a
+// ThemeCustom is the owner's palette from holodex.yaml `theme.custom` (F67 R9): a
 // base skin for fonts/radius/flourishes plus five hex primaries the SPA sets as inline
 // custom properties on <html> (ADR-102 D4). Null until an operator configures one.
 export interface ThemeCustom {
@@ -640,7 +700,7 @@ export interface ThemeCustom {
 	base: ShippedTheme;
 	tokens: Record<'bg' | 'ink' | 'accent' | 'muted' | 'warn', string>;
 	// contrast is the server's boot-time WCAG check of the four load-bearing pairs
-	// (F66 R12), shown on the Appearance card (R15). Absent in a paint cache written
+	// (F67 R12), shown on the Appearance card (R15). Absent in a paint cache written
 	// by an older build, hence optional.
 	contrast?: { pair: string; ratio: number; pass: boolean }[];
 }
@@ -686,6 +746,12 @@ export interface EnrichCandidate {
 	// newlines) and never `[]` — absent when the provider sent none. Presentation
 	// only; never stored or written back.
 	detail?: string[];
+	// image_url is the provider's optional list-row thumbnail (F64, contract §2.3):
+	// a portrait, poster, or logo the picker shows in a fixed 2:3 slot beside the
+	// label. Server-gated to the provider's asset-host allowlist (the same gate as a
+	// render:image_url field, ADR-056) and absent — never "" — when there is none or
+	// it was refused. Rendered by the browser, never fetched or stored by Holodex.
+	image_url?: string;
 }
 
 // EnrichedField is a resolved field with provenance (F22.7). Provider is the
@@ -731,16 +797,20 @@ export interface EnrichQueueRow {
 	entity_type: EnrichEntityKind;
 	entity_id: number;
 	name: string;
+	part?: string; // video rows only: resolved part, so three parts of one media read apart (HOLODEX-389)
 	providers: EnrichQueueProviderState[];
 }
 
 // RefreshAllResult is one provider's outcome from POST .../enrich/refresh-all (RD8/P1-2):
 // a linked provider refreshes directly; an unlinked one resolves and either auto-applies a
-// single strong match or comes back needs_review — never silently dropped.
+// single strong match or comes back needs_review — never silently dropped. rate_limited
+// (F67 RD8, ADR-103 D4) is a provider whose bucket is paused: the row failed fast with
+// retry_after seconds instead of waiting; the other providers' rows are unaffected.
 export interface RefreshAllResult {
 	provider: string;
-	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates';
+	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates' | 'rate_limited';
 	enriched?: EnrichedField[];
+	retry_after?: number;
 }
 
 // Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted
@@ -779,6 +849,7 @@ export interface ExtractionQueueRow {
 	id: number;
 	video_id: number;
 	video_title: string;
+	part?: string; // resolved part beside the title (HOLODEX-389)
 	file_path: string;
 	field_key: string;
 	filename_value: string;
@@ -959,6 +1030,9 @@ export interface FilmDetailResponse {
 	// empty/0 with no provider cast, so an unenriched film renders as it always did.
 	billed_absent?: FilmBilledCredit[] | null;
 	billed_total?: number;
+	// external_links is the provider-link badge projection (HOLODEX-393, F63 P0-6) —
+	// the same read-only 0..N shape person and studio carry.
+	external_links?: ExternalLink[] | null;
 	// skipped_aliases feeds the Aliases panel's collision review line (F58, ADR-088 D5).
 	skipped_aliases?: SkippedAlias[];
 }
@@ -1045,13 +1119,25 @@ export interface CompletenessFacet {
 // Completeness is the F55 completeness score plus the separate actionability
 // signal for one entity — mirrors internal/resolver.Completeness. Present
 // only on an owner-authorized detail response (video/person/studio); null for
-// a visitor, mirroring enrich_queries' access-control shape.
+// a visitor, mirroring enrich_queries' access-control shape. v2 (F65, ADR-099
+// D1/D5): `score` is the required band alone (the key kept its v1 name) and
+// `extras` is the separate nice-to-have band — never blended; either is null
+// when its band has no applicable facet (a studio has no required band).
 export interface Completeness {
-	score: number;
+	score: number | null;
+	extras: number | null;
 	// undefined when there are no missing scored facets — the ratio is
 	// undefined, not zero.
 	actionability?: number;
 	facets: CompletenessFacet[];
+}
+
+// CompletenessSummary is the owner-only ring-badge payload on a list item
+// (F65.5, ADR-099 D5) — mirrors model.CompletenessSummary. Absent for a
+// visitor: the card renders the ring iff the item has the field.
+export interface CompletenessSummary {
+	required: number | null;
+	extras: number | null;
 }
 
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —

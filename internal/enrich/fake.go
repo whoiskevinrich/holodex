@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"holodex/internal/model"
 )
@@ -25,6 +26,9 @@ type Fake struct {
 	// Fields list is person/studio-shaped and names none of the video search keys).
 	ResolveHints []string
 	ExtraFields  []string
+	// LinkTemplates is advertised verbatim on /describe (ADR-083 D2) so ProviderLink's
+	// template-first precedence (ADR-098 D3) is testable in-process.
+	LinkTemplates map[string]map[string]string
 	// Searched is echoed back on every Resolve as the provider's searched[] reply
 	// (ADR-095 D6); LastHint records the hint the most recent Resolve received, AFTER
 	// the Service's gate — what a real provider would have seen on the wire.
@@ -33,6 +37,10 @@ type Fake struct {
 	// EnrichErr, when set, makes every Enrich fail with it — the unattended
 	// auto-apply failure path (F61 FR5: a failed apply must not log "applied:").
 	EnrichErr error
+	// RateLimited, when > 0, makes every Resolve and Enrich answer as a sidecar that
+	// sent 429 + Retry-After of that many seconds (ADR-103 D2) — the knob api-level
+	// tests turn to exercise the paused-bucket paths without a real transport.
+	RateLimited time.Duration
 }
 
 // FakePerson is one canned upstream record (used for people, studios, and video
@@ -42,6 +50,7 @@ type FakePerson struct {
 	Disambiguation string   // the picker hint (entity-appropriate: known-for, origin country, …)
 	ProfileURL     string   // optional view-source link (F47, RD6/P1-1); tests may set a hostile scheme
 	Detail         []string // optional revealable record summary (F61, contract §2.3 candidates[].detail)
+	ImageURL       string   // optional list-row thumbnail (F64, contract §2.3 candidates[].image_url); tests may set a foreign host
 	Fields         map[string][]string
 	Assets         []Asset          // optional image assets (F25) the enrich response carries
 	People         []ProviderPerson // structured video credits (F32, contract §4.5)
@@ -127,19 +136,23 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 		Fields:          append([]string{"bio", "birthdate", "nationality", "website", "aliases", "description", "country"}, f.ExtraFields...),
 		AssetKinds:      []string{"photo", "logo", "poster"},
 		ResolveHints:    f.ResolveHints,
+		LinkTemplates:   f.LinkTemplates,
 	}, nil
 }
 
 func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (ResolveResult, error) {
 	f.Calls++
 	f.LastHint = hint
+	if f.RateLimited > 0 {
+		return ResolveResult{}, &errRateLimited{RetryAfter: f.RateLimited}
+	}
 	records := f.records(entityType)
 	// Embedded-id path: echo back any provided id as a strong match.
 	for _, id := range hint.ExternalIDs {
 		if p, ok := records[id]; ok {
 			return ResolveResult{Candidates: []Candidate{{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 1, ProfileURL: p.ProfileURL, Detail: p.Detail,
+				Confidence: 1, ProfileURL: p.ProfileURL, Detail: p.Detail, ImageURL: p.ImageURL,
 			}}, Searched: f.Searched}, nil
 		}
 	}
@@ -150,7 +163,7 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 		if q != "" && strings.Contains(strings.ToLower(p.Label), q) {
 			out = append(out, Candidate{
 				ExternalID: id, Namespace: idNamespace(id), Label: p.Label,
-				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL, Detail: p.Detail,
+				Confidence: 0.9, Disambiguation: p.Disambiguation, ProfileURL: p.ProfileURL, Detail: p.Detail, ImageURL: p.ImageURL,
 			})
 		}
 	}
@@ -159,6 +172,9 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 
 func (f *Fake) Enrich(_ context.Context, entityType, externalID string) (EnrichResult, error) {
 	f.Calls++
+	if f.RateLimited > 0 {
+		return EnrichResult{}, &errRateLimited{RetryAfter: f.RateLimited}
+	}
 	if f.EnrichErr != nil {
 		return EnrichResult{}, f.EnrichErr
 	}

@@ -44,6 +44,7 @@ import type {
 	SearchResponse,
 	Studio,
 	StudioDetailResponse,
+	SweepKind,
 	StudioImageRole,
 	FilmImageRole,
 	Tag,
@@ -202,7 +203,11 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 	});
 	checkRedirect(res);
 	if (!res.ok && res.status !== 204) {
-		throw new ApiError(res.status, path);
+		// The body's `error` is the owner-facing line when the server wrote one (a
+		// paused provider's "tmdb is rate-limiting — try again in 42 s", ADR-103 D4);
+		// uploadAuthed already does this, and the status still rides on the error.
+		const body = (await res.json().catch(() => ({}))) as { error?: string };
+		throw new ApiError(res.status, path, body.error);
 	}
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
@@ -637,13 +642,40 @@ export const api = {
 
 	activity: () => getAuthed<Activity>(`/admin/activity`),
 
-	activityHistory: (days = 30) =>
-		getAuthed<{ runs: JobRun[] }>(`/admin/activity/history?days=${days}`),
+	// ?batch= scopes the list to one sweep's runs (F67 RD6): the summary row plus
+	// every per-entity run it produced — the audit trail behind the done line.
+	activityHistory: (days = 30, batch?: string) =>
+		getAuthed<{ runs: JobRun[] }>(
+			batch
+				? `/admin/activity/history?batch=${encodeURIComponent(batch)}`
+				: `/admin/activity/history?days=${days}`
+		),
+
+	// Start one background refresh sweep over every person or studio (F67,
+	// ADR-103 D8). 202 + {started:false} means a sweep of either kind is already
+	// running — not an error. force ignores the 24 h staleness skip (RD3).
+	sweepEntities: async (kind: SweepKind, force = false): Promise<{ started: boolean }> => {
+		const body = await sendAuthed<{ started?: boolean }>(
+			'POST',
+			`/admin/enrich/sweep/${kind === 'person' ? 'people' : 'studios'}`,
+			{ force }
+		);
+		return { started: Boolean(body.started) };
+	},
 
 	// Per-kind digest of the same window (ADR-071): a fixed-size summary that
 	// answers "did anything fail" without loading every run.
 	activityDigest: (days = 30) =>
 		getAuthed<JobDigest>(`/admin/activity/digest?days=${days}`),
+
+	// Dismiss handled failures from the digest (HOLODEX-416, ADR-100). A row
+	// dismiss is a safe no-op (dismissed: false) on a second call or a non-error
+	// run — never a 404/409. Dismiss-all covers every undismissed error run in the
+	// window server-side, including the ones beyond the digest's inline cap.
+	dismissJobRun: (id: number) =>
+		sendAuthed<{ dismissed: boolean }>('POST', `/admin/activity/runs/${id}/dismiss`),
+	dismissJobFailures: (days = 30) =>
+		sendAuthed<{ dismissed: number }>('POST', `/admin/activity/failures/dismiss`, { days }),
 
 	// Trigger a full re-index (F13.3). 202 + {started:false} means a scan was
 	// already running — not an error.
@@ -658,7 +690,7 @@ export const api = {
 		return { fields: Number(body.fields ?? 0) };
 	},
 
-	// Instance skin (F66, ADR-102 D3). Owner-only; the value every viewer then gets
+	// Instance skin (F67, ADR-102 D3). Owner-only; the value every viewer then gets
 	// in capabilities.theme. 400 for an unknown id or "custom" with no palette configured.
 	setTheme: async (theme: ThemeId): Promise<ThemeCapability> => {
 		const body = await sendAuthed<{ theme: ThemeCapability }>('PUT', `/admin/theme`, { theme });

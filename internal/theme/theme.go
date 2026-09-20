@@ -1,4 +1,4 @@
-// Package theme is the server side of the custom palette (F66, ADR-102 D4/D5): it
+// Package theme is the server side of the custom palette (F67, ADR-102 D4/D5): it
 // parses `theme.custom` from holodex.yaml, derives the pair-partner tokens by the
 // same rule app.css uses (so the boot-time contrast check judges what the browser
 // will actually paint), and computes WCAG contrast for the four load-bearing pairs.

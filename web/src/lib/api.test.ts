@@ -368,6 +368,32 @@ describe('film enrichment clients (F59)', () => {
 		expect(opened).toEqual(['tmdb']);
 	});
 
+	// F66 RD8 / ADR-103 D4: a paused provider fails fast and the owner reads why.
+	it('runEnrichRefreshAll reports a rate_limited row on the inline error slot', async () => {
+		stub(200, {
+			results: [
+				{ provider: 'tmdb', status: 'rate_limited', retry_after: 42 },
+				{ provider: 'other', status: 'refreshed' }
+			]
+		});
+		const errors: string[] = [];
+		const reload = vi.fn().mockResolvedValue(undefined);
+
+		await runEnrichRefreshAll('person', 3, () => {}, (v) => errors.push(v), reload, () => {});
+
+		expect(reload).toHaveBeenCalledTimes(1); // the other provider's refresh still landed
+		expect(errors.at(-1)).toBe('tmdb is rate-limiting — try again in 42 s');
+	});
+
+	it('runEnrichRefresh surfaces the 503 body line for a paused provider', async () => {
+		stub(503, { error: 'tmdb is rate-limiting — try again in 17 s', provider: 'tmdb', retry_after: 17 });
+		const errors: string[] = [];
+
+		await runEnrichRefresh('person', 3, 'tmdb', () => {}, (v) => errors.push(v), async () => {});
+
+		expect(errors.at(-1)).toBe('tmdb is rate-limiting — try again in 17 s');
+	});
+
 	it('surfaces a films-disabled 404 as an error instead of a silent no-op', async () => {
 		// Film enrich routes are unregistered when films_enabled is off, so the only honest
 		// client behaviour is to report the failure — the page renders it inline.

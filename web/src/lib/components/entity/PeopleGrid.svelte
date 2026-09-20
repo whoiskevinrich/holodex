@@ -23,6 +23,7 @@
 	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
 	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
 	import PersonPicker from './PersonPicker.svelte';
+	import PosterTile from './PosterTile.svelte';
 
 	let {
 		title,
@@ -78,27 +79,20 @@
 		     back to id alone. -->
 		<ul class="flex flex-wrap gap-3">
 			{#each people as p (personKey(p))}
-				<li class="curation-chip group relative w-20 shrink-0">
-					<a href={`/people/${p.id}`} class="block space-y-1.5 text-ink" title={p.name}>
+				<PosterTile
+					href={`/people/${p.id}`}
+					name={p.name}
+					onRemove={editable ? () => onRemove?.(p) : undefined}
+					busy={busyKey === personKey(p)}
+				>
+					{#snippet poster()}
 						<div class="rounded-theme transition group-hover:opacity-90">
-							<PersonPoster personId={p.id} name={p.name} />
+							<!-- poster_version is the ?v= cache-buster: the image route is served
+							     immutable, so a versionless URL would pin the first poster forever. -->
+							<PersonPoster personId={p.id} name={p.name} version={p.poster_version} />
 						</div>
-						<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{p.name}</span>
-					</a>
-					{#if editable}
-						<!-- Hover-reveal remove badge (HOLODEX-272), a sibling of <a> rather than
-						     nested inside it (a nested interactive control inside an anchor is invalid). -->
-						<button
-							type="button"
-							onclick={() => onRemove?.(p)}
-							disabled={busyKey === personKey(p)}
-							aria-label={`Remove ${p.name}`}
-							class="curation-actions absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule bg-surface-2/90 text-sm text-muted hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent disabled:cursor-default"
-						>
-							{busyKey === personKey(p) ? '…' : '×'}
-						</button>
-					{/if}
-				</li>
+					{/snippet}
+				</PosterTile>
 			{/each}
 			{#if editable}
 				<li class="w-20 shrink-0">{@render personPicker(true)}</li>

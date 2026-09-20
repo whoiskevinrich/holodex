@@ -43,7 +43,7 @@ beforeEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('theme (F66 instance skin)', () => {
+describe('theme (F67 instance skin)', () => {
 	it('applies the server skin to <html> and never keeps a preference', () => {
 		const t = new ThemeState();
 		t.applyServer({ active: 'broadcast', custom: null });
