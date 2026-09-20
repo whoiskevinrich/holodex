@@ -1,0 +1,168 @@
+<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; }
+      .surface2 { fill: #181310; }
+      .rule { stroke: #2a2622; stroke-width: 1; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .accent { fill: #e8a33d; }
+      .accentStroke { stroke: #e8a33d; }
+      .warn { fill: #d9534f; }
+      .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .title { font-family: 'Fraunces Variable', serif; }
+      .mono { font-family: ui-monospace, monospace; font-size: 9px; }
+      .chip { fill: #181310; stroke: #2a2622; stroke-width: 1; }
+      .chipOn { fill: #2b2112; stroke: #e8a33d; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1000" height="560" />
+  <text x="24" y="30" class="ink title" font-size="18" font-weight="600">Writeback dialog — every chooser open, no disclosure, wider on desktop</text>
+  <text x="24" y="50" class="muted" font-size="12">Cinémathèque tokens · left: before (max-w-xl, 576px) · right: after (max-w-3xl, 768px) · bottom-right: phone, unchanged</text>
+
+  <!-- ===== LEFT: before ===== -->
+  <g transform="translate(24,80)">
+    <text x="0" y="0" class="muted label">Before — HOLODEX-400 cockpit</text>
+    <rect x="0" y="14" width="330" height="300" rx="2" class="surface" stroke="#2a2622" />
+    <text x="12" y="34" class="ink" font-size="11" font-weight="600">Write metadata to file</text>
+    <line x1="0" y1="44" x2="330" y2="44" class="rule" />
+    <text x="12" y="60" class="muted mono">/media/Black Dynamite (2009)/Black Dynamite.mkv</text>
+
+    <!-- decided row: Title -->
+    <path d="M17 74v8m0 0l-3-3m3 3l3-3M12 86h10" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" />
+    <text x="30" y="80" class="muted" font-size="10" font-weight="600">Title</text>
+    <text x="54" y="80" class="accent" font-size="8">·tmdb</text>
+    <text x="80" y="80" class="muted" font-size="8">→ title</text>
+    <rect x="30" y="86" width="98" height="16" rx="8" class="chipOn" />
+    <circle cx="40" cy="94" r="3" class="accent" />
+    <text x="47" y="98" class="ink" font-size="9">Black Dynamite ·tmdb</text>
+    <rect x="134" y="86" width="118" height="16" rx="8" class="chip" />
+    <circle cx="144" cy="94" r="3" fill="none" stroke="#9b9082" />
+    <text x="151" y="98" class="ink" font-size="9">Black Dynamite (2009) ·file</text>
+    <rect x="258" y="86" width="52" height="16" rx="8" class="chip" />
+    <text x="267" y="98" class="muted" font-size="9">✎ Custom</text>
+
+    <!-- disclosure -->
+    <line x1="12" y1="116" x2="318" y2="116" class="rule" />
+    <path d="M16 126l4 4-4 4" fill="none" stroke="#9b9082" stroke-width="1.5" />
+    <text x="26" y="134" class="muted" font-size="10">4 provider values you haven't decided on</text>
+    <rect x="12" y="120" width="230" height="18" rx="2" fill="none" stroke="#d9534f" stroke-dasharray="3 2" />
+    <text x="250" y="133" class="warn" font-size="9">removed</text>
+
+    <!-- (rows hidden) -->
+    <text x="26" y="156" class="muted" font-size="9" font-style="italic">rows hidden until clicked …</text>
+
+    <!-- "=" row with change toggle, shown expanded for reference -->
+    <path d="M13 178h8M13 182h8" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" />
+    <text x="30" y="184" class="muted" font-size="10" font-weight="600">Director</text>
+    <text x="72" y="184" class="muted" font-size="8">→ director</text>
+    <text x="290" y="184" class="muted" font-size="9" text-decoration="underline">change</text>
+    <rect x="284" y="174" width="36" height="14" rx="2" fill="none" stroke="#d9534f" stroke-dasharray="3 2" />
+    <text x="30" y="198" class="ink" font-size="9">Scott Sanders</text>
+    <text x="92" y="198" class="muted" font-size="9">— matches the file</text>
+
+    <!-- footer -->
+    <line x1="0" y1="278" x2="330" y2="278" class="rule" />
+    <rect x="200" y="288" width="118" height="18" rx="2" class="accent" />
+    <text x="212" y="300" font-size="9" fill="#0c0a09" font-weight="600">Write 1 field to file</text>
+  </g>
+
+  <!-- ===== RIGHT: after (desktop) ===== -->
+  <g transform="translate(390,80)">
+    <text x="0" y="0" class="muted label">After — desktop, max-w-3xl</text>
+    <rect x="0" y="14" width="440" height="300" rx="2" class="surface" stroke="#2a2622" />
+    <text x="12" y="34" class="ink" font-size="11" font-weight="600">Write metadata to file</text>
+    <line x1="0" y1="44" x2="440" y2="44" class="rule" />
+    <text x="12" y="60" class="muted mono">/media/Black Dynamite (2009)/Black Dynamite.mkv</text>
+
+    <!-- decided row: Title -->
+    <path d="M17 74v8m0 0l-3-3m3 3l3-3M12 86h10" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" />
+    <text x="30" y="80" class="muted" font-size="10" font-weight="600">Title</text>
+    <text x="54" y="80" class="accent" font-size="8">·tmdb</text>
+    <text x="80" y="80" class="muted" font-size="8">→ title</text>
+    <rect x="30" y="86" width="98" height="16" rx="8" class="chipOn" />
+    <circle cx="40" cy="94" r="3" class="accent" />
+    <text x="47" y="98" class="ink" font-size="9">Black Dynamite ·tmdb</text>
+    <rect x="134" y="86" width="118" height="16" rx="8" class="chip" />
+    <circle cx="144" cy="94" r="3" fill="none" stroke="#9b9082" />
+    <text x="151" y="98" class="ink" font-size="9">Black Dynamite (2009) ·file</text>
+    <rect x="258" y="86" width="52" height="16" rx="8" class="chip" />
+    <text x="267" y="98" class="muted" font-size="9">✎ Custom</text>
+
+    <!-- static caption -->
+    <line x1="12" y1="116" x2="428" y2="116" class="rule" />
+    <text x="12" y="132" class="muted" font-size="10">Not yet decided</text>
+
+    <!-- undecided: Year -->
+    <circle cx="17" cy="152" r="4" fill="none" stroke="#9b9082" stroke-width="1.5" />
+    <text x="30" y="156" class="muted" font-size="10" font-weight="600">Year</text>
+    <text x="54" y="156" class="muted" font-size="8">→ date</text>
+    <rect x="30" y="162" width="58" height="16" rx="8" class="chip" />
+    <circle cx="40" cy="170" r="3" fill="none" stroke="#9b9082" />
+    <text x="47" y="174" class="ink" font-size="9">2008 ·file</text>
+    <rect x="94" y="162" width="64" height="16" rx="8" class="chip" />
+    <circle cx="104" cy="170" r="3" fill="none" stroke="#9b9082" />
+    <text x="111" y="174" class="ink" font-size="9">2009 ·tmdb</text>
+    <rect x="164" y="162" width="52" height="16" rx="8" class="chip" />
+    <text x="173" y="174" class="muted" font-size="9">✎ Custom</text>
+
+    <!-- "=" row, chooser always open -->
+    <path d="M13 196h8M13 200h8" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" />
+    <text x="30" y="202" class="muted" font-size="10" font-weight="600">Director</text>
+    <text x="72" y="202" class="muted" font-size="8">→ director</text>
+    <text x="30" y="216" class="ink" font-size="9">Scott Sanders</text>
+    <text x="92" y="216" class="muted" font-size="9">— matches the file</text>
+    <rect x="30" y="222" width="96" height="16" rx="8" class="chipOn" />
+    <circle cx="40" cy="230" r="3" class="accent" />
+    <text x="47" y="234" class="ink" font-size="9">Scott Sanders ·file</text>
+    <rect x="132" y="222" width="102" height="16" rx="8" class="chip" />
+    <circle cx="142" cy="230" r="3" fill="none" stroke="#9b9082" />
+    <text x="149" y="234" class="ink" font-size="9">Scott Sanders ·tmdb</text>
+    <rect x="240" y="222" width="52" height="16" rx="8" class="chip" />
+    <text x="249" y="234" class="muted" font-size="9">✎ Custom</text>
+
+    <!-- unmapped: Genre -->
+    <circle cx="17" cy="256" r="4" fill="none" stroke="#9b9082" stroke-width="1.5" />
+    <text x="30" y="260" class="muted" font-size="10" font-weight="600">Genre</text>
+    <text x="62" y="260" class="muted" font-size="8">no file tag for this container</text>
+    <rect x="30" y="266" width="60" height="6" rx="3" class="chip" />
+    <rect x="96" y="266" width="92" height="6" rx="3" class="chip" />
+
+    <!-- footer -->
+    <line x1="0" y1="278" x2="440" y2="278" class="rule" />
+    <rect x="310" y="288" width="118" height="18" rx="2" class="accent" />
+    <text x="322" y="300" font-size="9" fill="#0c0a09" font-weight="600">Write 1 field to file</text>
+  </g>
+
+  <!-- ===== BOTTOM: phone, unchanged width ===== -->
+  <g transform="translate(24,410)">
+    <text x="0" y="0" class="muted label">After — phone (375px): width unchanged, chips wrap</text>
+    <rect x="0" y="14" width="200" height="126" rx="2" class="surface" stroke="#2a2622" />
+    <text x="10" y="32" class="ink" font-size="10" font-weight="600">Write metadata to file</text>
+    <line x1="0" y1="40" x2="200" y2="40" class="rule" />
+    <path d="M14 52v7m0 0l-2.5-2.5m2.5 2.5l2.5-2.5M10 62h8" fill="none" stroke="#e8a33d" stroke-width="1.3" stroke-linecap="round" />
+    <text x="24" y="58" class="muted" font-size="9" font-weight="600">Title</text>
+    <text x="44" y="58" class="accent" font-size="7">·tmdb</text>
+    <rect x="24" y="64" width="88" height="14" rx="7" class="chipOn" />
+    <text x="32" y="74" class="ink" font-size="8">Black Dynamite ·tmdb</text>
+    <rect x="24" y="82" width="110" height="14" rx="7" class="chip" />
+    <text x="32" y="92" class="ink" font-size="8">Black Dynamite (2009) ·file</text>
+    <rect x="140" y="82" width="46" height="14" rx="7" class="chip" />
+    <text x="147" y="92" class="muted" font-size="8">✎ Custom</text>
+    <line x1="10" y1="104" x2="190" y2="104" class="rule" />
+    <text x="10" y="118" class="muted" font-size="9">Not yet decided</text>
+    <circle cx="14" cy="130" r="3.5" fill="none" stroke="#9b9082" stroke-width="1.3" />
+    <text x="24" y="134" class="muted" font-size="9" font-weight="600">Year</text>
+  </g>
+
+  <!-- legend -->
+  <g transform="translate(390,410)">
+    <text x="0" y="0" class="muted label">What changes</text>
+    <text x="0" y="22" class="ink" font-size="11">1. The "n provider values you haven't decided on" disclosure is gone — rows render under a static caption.</text>
+    <text x="0" y="42" class="ink" font-size="11">2. The per-row "change" toggle is gone — every cockpit row's chooser is always mounted.</text>
+    <text x="0" y="62" class="ink" font-size="11">3. max-w-xl → max-w-3xl. The overlay's px-4 gutter binds first on a phone, so 375px is unchanged.</text>
+    <text x="0" y="90" class="muted" font-size="10">Gutter glyphs, chip row, radio list, image tiles, footer copy and the Write button's semantics are untouched.</text>
+  </g>
+</svg>

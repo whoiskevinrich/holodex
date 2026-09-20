@@ -99,9 +99,6 @@
 		// undecided row is written (and decided) only once touched. Never reset within a dialog
 		// lifetime; Cancel is the undo.
 		touched: boolean;
-		// A row that matches the file collapses to the "=" tier; `change` opens its chooser on
-		// demand (handoff §1, M → W promotion).
-		chooserOpen: boolean;
 	}
 
 	function seedRow(f: ResolvedField): Row {
@@ -120,8 +117,7 @@
 			stagedCustomValue,
 			value: seed,
 			originalValue: seed,
-			touched: false,
-			chooserOpen: false
+			touched: false
 		};
 	}
 
@@ -171,10 +167,10 @@
 	}
 	const decisionOnlyCount = $derived(rows.filter(rowDecisionOnly).length);
 
-	// The decided rows lead; the undecided provider values collapse behind one disclosure line
-	// (HOLODEX-213 option A), so the dialog's default state reads as "your decisions" without
-	// hiding anything — expanding or Select all brings them back at full contrast. Splitting on
-	// leadRow() means the first group is exactly the set that writes on open.
+	// The decided rows lead; the undecided provider values follow under a static "Not yet
+	// decided" caption (HOLODEX-434 — the HOLODEX-213 disclosure is gone: every row shows its
+	// chooser, so the owner never clicks before they can act). Splitting on leadRow() means the
+	// first group is exactly the set that writes on open.
 	//
 	// Row order within undecided (R4.4): mapped-and-differing first, then unmapped rows (still
 	// decidable here — the decision lands in Holodex alone), then rows that already match the
@@ -198,15 +194,11 @@
 	}
 	const decided = $derived(rows.filter(leadRow));
 	const undecided = $derived(rows.filter((r) => !leadRow(r)).sort((a, b) => rowTier(a) - rowTier(b)));
-	let showUndecided = $state(false);
 
 	// A staged pick changed — the owner acted on this row, so it is now decided-in-dialog
 	// (touched) and, if it differs from the file, will be written. Clicking the already
-	// highlighted RD6 pending chip counts: that click IS the confirm. The chooser stays open
-	// either way: collapsing it the instant a pick lands on the file value would unmount the
-	// very radiogroup the owner is arrowing through (focus to <body>).
+	// highlighted RD6 pending chip counts: that click IS the confirm.
 	function onStaged(row: Row) {
-		row.chooserOpen = true;
 		row.touched = true;
 	}
 
@@ -238,10 +230,10 @@
 
 	onMount(() => {
 		trigger = document.activeElement as HTMLElement | null;
-		// Focus the first control of the first row (the decided rows lead): the checked chip of
-		// a chip row, or a radio/textarea of a stacked list. Rows
-		// inside the collapsed group are excluded by focusables()'s offsetParent test. With no
-		// rows at all, fall back to the dialog itself (tabindex="-1").
+		// Focus the first control of the first row (the decided rows lead; with none, the first
+		// undecided row — every chooser is mounted, HOLODEX-434): the checked chip of a chip
+		// row, or a radio/textarea of a stacked list. With no rows at all, fall back to the
+		// dialog itself (tabindex="-1").
 		const first =
 			focusables().find((el) => el.closest('[data-wb-rows]') !== null) ?? dialogEl;
 		first?.focus();
@@ -351,7 +343,7 @@
 	aria-labelledby="writeback-title"
 	tabindex="-1"
 	onkeydown={onKeydown}
-	class="w-full max-w-xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
+	class="w-full max-w-3xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
 >
 	<div class="flex items-center justify-between border-b border-rule px-4 py-3">
 		<h2 id="writeback-title" class="text-sm font-semibold text-ink">Write metadata to file</h2>
@@ -382,31 +374,13 @@
 			</p>
 		{/if}
 
-		<!-- Undecided provider values: one line until asked for, so the dialog's default weight
-		     matches what the header counted. No "Select all": each row here is a decision the
-		     owner has not made, and a chip pick — one row at a time, eyes on the value — is the
-		     only way to make it. A bulk verdict belongs to the review queues (ADR-090), not here. -->
+		<!-- Undecided provider values, always shown, under a caption that is information rather
+		     than a control (HOLODEX-434). No "Select all": each row here is a decision the owner
+		     has not made, and a chip pick — one row at a time, eyes on the value — is the only
+		     way to make it. A bulk verdict belongs to the review queues (ADR-090), not here. -->
 		{#if undecided.length > 0}
-			<div class="mt-3 flex items-center gap-2 border-t border-rule pt-3">
-				<button
-					onclick={() => (showUndecided = !showUndecided)}
-					aria-expanded={showUndecided}
-					aria-controls="wb-undecided"
-					class="btn-quiet flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs"
-				>
-					<svg
-						class="h-3 w-3 shrink-0 transition-transform {showUndecided ? 'rotate-90' : ''}"
-						viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-					</svg>
-					<span class="truncate"
-						>{undecided.length} provider value{undecided.length === 1 ? '' : 's'} you haven't
-						decided on</span
-					>
-				</button>
-			</div>
-			<div id="wb-undecided" hidden={!showUndecided} class="mt-3 space-y-3" data-wb-rows>
+			<p class="mt-3 border-t border-rule pt-3 text-xs text-muted">Not yet decided</p>
+			<div class="mt-3 space-y-3" data-wb-rows>
 				{#each undecided as row (row.field.canonical)}{@render fieldRow(row)}{/each}
 			</div>
 		{/if}
@@ -468,7 +442,7 @@
 		     The ·file tile shows the video's own served poster — unless that is an owner
 		     upload, which is not the file's cover art (ADR-049): placeholder + note, and the
 		     upload is never a candidate. -->
-		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
+		<div class="mt-1">
 			<SourceImageTiles
 				field={row.field}
 				chips={row.chips.filter((c) => c.key !== 'custom' || c.value)}
@@ -486,7 +460,7 @@
 			{/if}
 		</div>
 	{:else if row.field.display === 'long_text'}
-		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
+		<div class="mt-1">
 			<SourceRadioList
 				field={row.field}
 				chips={row.chips}
@@ -498,7 +472,7 @@
 			/>
 		</div>
 	{:else}
-		<div class="mt-1" id="wb-chooser-{row.field.canonical}">
+		<div class="mt-1">
 			<SourceChipRow
 				field={row.field}
 				chips={row.chips}
@@ -620,18 +594,6 @@
 								     visible): unmapped for this container, decidable here all the same. -->
 								<span class="text-[0.65rem] text-muted">no file tag for this container</span>
 							{/if}
-							{#if matchesFile && cockpit}
-								<!-- The "=" tier is collapsed, not dead (handoff §1): `change` opens the same
-								     chooser a differing row shows; a non-file pick promotes the row. -->
-								<button
-									type="button"
-									onclick={() => (row.chooserOpen = !row.chooserOpen)}
-									disabled={busy}
-									aria-expanded={row.chooserOpen}
-									aria-controls="wb-chooser-{row.field.canonical}"
-									class="btn-quiet ml-auto text-xs"
-								>{row.chooserOpen ? 'close' : 'change'}</button>
-							{/if}
 						</div>
 
 						{#if !writable && !cockpit}
@@ -640,12 +602,12 @@
 								<span class="block">No file tag for this container — can't be written.</span>
 							</p>
 						{:else if cockpit}
-							<!-- Cockpit row. The chooser has ONE mount point for both the "=" and the
-							     will-write state, so staging a pick that flips the class never unmounts the
-							     radiogroup the owner is arrowing through (focus would land on <body>). The
-							     "matches the file" line toggles above it; the chooser shows whenever the row
-							     differs OR the owner opened it. The ·file chip/row carries the on-file value,
-							     so there is no separate "was:" line (handoff §2). -->
+							<!-- Cockpit row. The chooser is always mounted (HOLODEX-434) — one mount point
+							     for both the "=" and the will-write state, so staging a pick that flips the
+							     class never unmounts the radiogroup the owner is arrowing through (focus
+							     would land on <body>). The "matches the file" line toggles above it. The
+							     ·file chip/row carries the on-file value, so there is no separate "was:"
+							     line (handoff §2). -->
 							{#if matchesFile}
 								<!-- The gutter's own "=" glyph already signals this row's tier — no
 								     second icon here, or the two would say the same thing twice. An image
@@ -660,9 +622,7 @@
 									<span>— matches the file</span>
 								</p>
 							{/if}
-							{#if !matchesFile || row.chooserOpen}
-								{@render chooser(row)}
-							{/if}
+							{@render chooser(row)}
 						{:else if matchesFile}
 							<!-- Merge row whose seeded text equals the file value. -->
 							<p class="text-xs text-muted">
