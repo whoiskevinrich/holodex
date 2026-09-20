@@ -4,10 +4,12 @@
 	import { imageAlt, isWordmark, type Wordmark } from './studioLogo';
 
 	// The studio image box shared by StudioLinkCard (Film/Media detail) and the /studios list
-	// rows (HOLODEX-432): `logo_url` → `icon_url` → monogram. A logo draws bare — no plate
-	// (HOLODEX-411) — in a box that follows its own aspect (fixed 48px height, width clamped
-	// to [48, 192]px, never a cover-crop; see entity/CLAUDE.md "Frame follows source aspect").
-	// Icon and monogram keep the plate; dashed border only when there is no image at all.
+	// rows (HOLODEX-432): `logo_url` → `icon_url` → monogram. Any image draws bare — no plate
+	// (HOLODEX-411 for logos, HOLODEX-437 for icons) — wearing the `.logo-halo` instead, in a
+	// box that follows its own aspect (fixed 48px height, width clamped to [48, 192]px, never
+	// a cover-crop; see entity/CLAUDE.md "Frame follows source aspect"). The `p-1` inset is
+	// transparent room for the halo inside the `overflow-hidden` box. Only the monogram keeps
+	// the plate (dashed) — it is text and needs a ground.
 	//
 	// `wordmark` is bound OUT: the caller decides whether to render the name beside the box
 	// (studioLogo.ts `showName`). It is read from the loaded image's natural size, so it stays
@@ -37,9 +39,9 @@
 </script>
 
 <span
-	class="flex h-12 max-w-48 min-w-12 shrink-0 items-center justify-center overflow-hidden rounded-theme {bare
+	class="flex h-12 max-w-48 min-w-12 shrink-0 items-center justify-center overflow-hidden rounded-theme {image
 		? ''
-		: 'border border-rule bg-logo-plate'} {image ? '' : 'w-12 border-dashed'}"
+		: 'w-12 border border-dashed border-rule bg-logo-plate'}"
 >
 	{#if image}
 		<!-- `loading` before `src`: a fetch that has already started is not deferred by a
