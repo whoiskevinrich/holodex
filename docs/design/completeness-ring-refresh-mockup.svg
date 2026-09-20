@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" width="760" height="470" role="img" aria-labelledby="t d">
+<title id="t">Completeness ring as a button — F65.8 states and hoisted mounts</title>
+<desc id="d">Top: the ring button’s six states in the default skin — idle (cursor pointer, title “Refresh enrichment”), keyboard focus (accent focus ring), busy (a fixed quarter accent arc that spins, aria-busy, disabled), done (redrawn to the re-read bands), reduced motion (arc held still, ring dimmed), and failed or rate-limited (back to idle with the bands it had). Bottom: how each mount lifts the ring out of its link — the video card puts the bottom-left badge group in a sibling overlay that mirrors the frame’s aspect ratio; the person poster card wraps a stretched link whose ::after covers the card with the ring as a z-indexed sibling on the caption line; the people and studio rows carry the border on a wrapper div, stretch the link or select-mode label the same way, and render ring plus count as a trailing sibling snippet.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif}</style>
+<text x="8" y="18" font-size="12" fill="#2c2c2a" font-family="Arial, Helvetica, sans-serif" font-weight="600" text-anchor="start" >Completeness ring as a button (F65.8) — states, then the hoisted mounts</text>
+<rect x="8" y="30" width="744" height="118" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<rect x="24" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(28,55) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<text x="24" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >idle</text>
+<text x="24" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >cursor-pointer</text>
+<text x="24" y="117" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >title “Refresh enrichment”</text>
+<rect x="146" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(150,55) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<circle cx="157.0" cy="62.0" r="9.0" fill="none" stroke="#e8a33d" stroke-width="1"/>
+<text x="146" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >focus</text>
+<text x="146" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >focus-visible:ring-1 ring-accent</text>
+<rect x="268" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(272,55) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 0 1 17.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<text x="268" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >busy</text>
+<text x="268" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >quarter arc spins 0.9 s</text>
+<text x="268" y="117" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >aria-busy</text>
+<text x="268" y="128" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >disabled</text>
+<path d="M298 62 a7 7 0 0 1 3 -6" fill="none" stroke="#e8a33d" stroke-width="1" marker-end="url(#ar)"/>
+<rect x="390" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(394,55) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<circle cx="10" cy="10" r="7" fill="none" stroke="#e8a33d" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.87 13.37" fill="none" stroke="#f3ece1" stroke-width="3"/>
+</g>
+<text x="390" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >done</text>
+<text x="390" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >re-read landed</text>
+<text x="390" y="117" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >redraws in place</text>
+<rect x="512" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(516,55) scale(0.7)" opacity="0.6">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 0 1 17.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<text x="512" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >reduced motion</text>
+<text x="512" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >arc held still</text>
+<text x="512" y="117" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >60 % opacity</text>
+<rect x="634" y="52" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(638,55) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<text x="634" y="92" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="start" >failed / rate-limited</text>
+<text x="634" y="106" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >back to idle with the bands it had</text>
+<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#e8a33d"/></marker></defs>
+<text x="8" y="161" font-size="9.5" fill="#5f5e5a" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Busy is the only arc that ever moves — motion, not length, marks it. No toast, no picker, no confirm.</text>
+<rect x="8" y="182" width="236" height="250" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<text x="8" y="445" font-size="9.5" fill="#5f5e5a" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >VideoCard — group in a frame-mirroring overlay sibling</text>
+<rect x="20" y="194" width="212" height="119" rx="2" fill="#181310" stroke="#2a2622"/>
+<rect x="20" y="194" width="212" height="119" rx="2" fill="none" stroke="#e8a33d" stroke-dasharray="3 3" opacity="0.8"/>
+<text x="226" y="206" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="end" >.video-frame-overlay</text>
+<rect x="26" y="287" width="22" height="20" rx="2" fill="#000" opacity="0.7"/>
+<g transform="translate(30,290) scale(0.7)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.00 10.00" fill="none" stroke="#e8a33d" stroke-width="3"/>
+</g>
+<rect x="52" y="287" width="36" height="20" rx="2" fill="#000" opacity="0.7"/>
+<text x="58" y="300.5" font-size="9" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Part 2</text>
+<rect x="186" y="287" width="40" height="20" rx="2" fill="#000" opacity="0.7"/>
+<text x="206" y="300.5" font-size="9" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="middle" >2:16:34</text>
+<text x="20" y="335" font-size="12" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Dune: Part One</text>
+<text x="20" y="360" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >&lt;a&gt; holds frame + title; the overlay is its sibling,</text>
+<text x="20" y="371" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >pointer-events-none, aspect-ratio mirrors .video-frame</text>
+<text x="20" y="382" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >(16:9, or 2:3 under [data-layout='poster']); only the</text>
+<text x="20" y="393" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >ring chip is pointer-events-auto — Part falls through</text>
+<rect x="262" y="182" width="236" height="250" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<text x="262" y="445" font-size="9.5" fill="#5f5e5a" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >PersonPosterCard — stretched link + sibling caption</text>
+<rect x="274" y="194" width="96" height="144" rx="2" fill="#181310" stroke="#2a2622"/>
+<circle cx="322" cy="246" r="18" fill="#f3ece1" opacity="0.8"/><ellipse cx="322" cy="312" rx="36" ry="30" fill="#f3ece1" opacity="0.8"/>
+<text x="274" y="354" font-size="11" fill="#f3ece1" font-family="Georgia, serif" font-weight="bold" text-anchor="start" >Maya Rodriguez</text>
+<g transform="translate(274,360) scale(0.6)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+<circle cx="10" cy="10" r="7" fill="none" stroke="#e8a33d" stroke-width="3"/>
+<path d="M10 3 A7 7 0 1 1 3.87 13.37" fill="none" stroke="#f3ece1" stroke-width="3"/>
+</g>
+<text x="290" y="370" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >27</text>
+<rect x="271" y="191" width="102" height="168" rx="2" fill="none" stroke="#e8a33d" stroke-dasharray="3 3" opacity="0.8"/>
+<text x="378" y="208" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >&lt;a&gt; …::after</text>
+<text x="378" y="219" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >covers the card</text>
+<text x="378" y="370" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >← ring z-[1]</text>
+<text x="274" y="382" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >.poster-card moves to the wrapper div; hover-lift</text>
+<text x="274" y="393" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >off the wrapper, focus-lift off :has(a:focus-visible)</text>
+<rect x="516" y="182" width="236" height="250" rx="3" fill="#0c0a09" stroke="#2a2622"/>
+<text x="516" y="445" font-size="9.5" fill="#5f5e5a" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >/people + /studios rows — stretched link, rowTrail</text>
+<rect x="528" y="196" width="212" height="34" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="536" y="201" width="24" height="24" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="568" y="217" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Sam Okafor</text>
+<g transform="translate(700,207) scale(0.6)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+</g>
+<text x="732" y="217" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="end" >4</text>
+<rect x="530" y="198" width="150" height="30" rx="2" fill="none" stroke="#e8a33d" stroke-dasharray="3 3" opacity="0.8"/>
+<text x="534" y="242" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >&lt;a&gt; box (avatar + name); its ::after stretches over the row</text>
+<rect x="528" y="254" width="212" height="34" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="536" y="265" width="12" height="12" rx="2" fill="none" stroke="#9b9082"/>
+<rect x="556" y="259" width="24" height="24" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="588" y="275" font-size="10" fill="#f3ece1" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >Sam Okafor</text>
+<g transform="translate(700,265) scale(0.6)" opacity="1">
+<circle cx="10" cy="10" r="7" fill="none" stroke="#9b9082" stroke-width="3"/>
+</g>
+<text x="732" y="275" font-size="9" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="end" >4</text>
+<text x="534" y="300" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >select mode: &lt;label&gt; is stretched the same way —</text>
+<text x="534" y="311" font-size="8" fill="#e8a33d" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >ring click leaves the box unchecked, count click toggles</text>
+<text x="528" y="360" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >border + hover:border-accent + has-[a:focus-visible]</text>
+<text x="528" y="371" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >live on the wrapper div; the &lt;a&gt;/&lt;label&gt; is unpositioned</text>
+<text x="528" y="382" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >so its ::after spans the wrapper; ring is a sibling at</text>
+<text x="528" y="393" font-size="8" fill="#9b9082" font-family="Arial, Helvetica, sans-serif" font-weight="normal" text-anchor="start" >relative z-[1] — never inside the link or the label</text>
+</svg>

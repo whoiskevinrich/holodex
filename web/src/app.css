@@ -415,6 +415,17 @@
 	.video-grid[data-layout='poster'] .video-frame {
 		aspect-ratio: 2 / 3;
 	}
+	/* F65.8: the bottom-left badge group is hoisted out of the card's <a> (the ring is a
+	   button, and a button may not nest in a link — the scene-badge precedent). This
+	   overlay is a sibling of the <a> that mirrors .video-frame's box exactly, so the
+	   group lands where it always did; only the ring button takes pointer events, every
+	   other badge falls through to the link beneath. */
+	.video-frame-overlay {
+		aspect-ratio: 16 / 9;
+	}
+	.video-grid[data-layout='poster'] .video-frame-overlay {
+		aspect-ratio: 2 / 3;
+	}
 
 	/* ---- Stage-aligned grid (HOLODEX-331 §9.6) ----
 	   Opt-in via VideoGrid's `stageAligned` prop, used by the film page's Scenes list.
@@ -526,6 +537,28 @@
 			animation: portrait-fade 0.18s ease-out both;
 		}
 	}
+	/* F65.8: the completeness ring while its refresh is in flight — a fixed quarter
+	   arc that spins. Under reduced motion the arc holds still and the ring dims, so
+	   "busy" still reads without movement. */
+	@media (prefers-reduced-motion: no-preference) {
+		.completeness-ring .ring-busy {
+			animation: ring-busy-spin 0.9s linear infinite;
+			transform-origin: 10px 10px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.completeness-ring[aria-busy='true'] {
+			opacity: 0.6;
+		}
+	}
+	@keyframes ring-busy-spin {
+		from {
+			transform: rotate(-90deg);
+		}
+		to {
+			transform: rotate(270deg);
+		}
+	}
 	@keyframes portrait-fade {
 		from {
 			opacity: 0;
@@ -635,11 +668,11 @@
 	   in this app; every existing transition/animation lives in app.css gated by the raw
 	   prefers-reduced-motion query, e.g. reel-rise/portrait-fade/thumb-shimmer below). */
 	.poster-card:hover .poster-card-frame,
-	.poster-card:focus-visible .poster-card-frame {
+	.poster-card:has(a:focus-visible) .poster-card-frame {
 		box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.35);
 	}
 	.poster-card:hover,
-	.poster-card:focus-visible {
+	.poster-card:has(a:focus-visible) {
 		z-index: 1; /* the lifted card overlaps neighbors, not the reverse */
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -647,7 +680,7 @@
 			transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 		}
 		.poster-card:hover .poster-card-frame,
-		.poster-card:focus-visible .poster-card-frame {
+		.poster-card:has(a:focus-visible) .poster-card-frame {
 			transform: scale(1.045);
 		}
 	}

@@ -174,36 +174,51 @@
 						: undefined}
 					class="scroll-mt-16"
 				>
-					<a
-						href={`/studios/${s.id}`}
-						class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
+					<!-- Row = a positioned wrapper carrying the border, with a stretched <a>
+					     (its ::after covers the row, so the whole row still navigates) and the
+					     completeness ring — a <button> since F65.8 — as a sibling above the
+					     stretch rather than inside the link. -->
+					<div
+						class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent"
 					>
-						<!-- Leading icon well (HOLODEX-126, generalized to the icon role by F51/
-						     ADR-079): a consistent ~40×26 plate keeps rows aligned whether or not
-						     the studio has an icon. Enriched/uploaded → real icon; otherwise a
-						     monogram (decorative — the name is adjacent). -->
-						<span
-							class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+						<a
+							href={`/studios/${s.id}`}
+							class="flex min-w-0 flex-1 items-center gap-3 after:absolute after:inset-0 after:content-['']"
 						>
-							{#if s.icon_url}
-								<img
-									src={s.icon_url}
-									alt={`${s.name} icon`}
-									class="h-full w-full object-contain p-0.5"
-								/>
-							{:else}
-								<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
-									>{monogram(s.name)}</span
-								>
-							{/if}
-						</span>
-						<span class="flex-1 truncate">{s.name}</span>
+							<!-- Leading icon well (HOLODEX-126, generalized to the icon role by F51/
+							     ADR-079): a consistent ~40×26 plate keeps rows aligned whether or not
+							     the studio has an icon. Enriched/uploaded → real icon; otherwise a
+							     monogram (decorative — the name is adjacent). -->
+							<span
+								class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+							>
+								{#if s.icon_url}
+									<img
+										src={s.icon_url}
+										alt={`${s.name} icon`}
+										class="h-full w-full object-contain p-0.5"
+									/>
+								{:else}
+									<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
+										>{monogram(s.name)}</span
+									>
+								{/if}
+							</span>
+							<span class="flex-1 truncate">{s.name}</span>
+						</a>
 						{#if s.completeness}
 							<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count. -->
-							<CompletenessRing required={s.completeness.required} extras={s.completeness.extras} size="row" />
+							<span class="relative z-[1] inline-flex">
+								<CompletenessRing
+									required={s.completeness.required}
+									extras={s.completeness.extras}
+									size="row"
+									entity={{ kind: 'studio', id: s.id }}
+								/>
+							</span>
 						{/if}
 						<span class="text-xs text-muted">{s.video_count}</span>
-					</a>
+					</div>
 				</li>
 			{/each}
 		</ul>

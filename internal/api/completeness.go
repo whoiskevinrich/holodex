@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 
@@ -472,4 +473,33 @@ func facetSummaries(counts []repo.MissingFacetCount) []FacetSummary {
 		})
 	}
 	return out
+}
+
+// entityCompletenessSummary handles GET /{people|studios|media|films}/{id}/completeness
+// (F65.8, HOLODEX-435): the one-entity form of the ring-badge payload. The ring
+// became a button that fires refresh-all; afterwards it re-reads its own bands
+// here and redraws without its list re-fetching. Drains first, exactly as a
+// list read does, so the row already reflects the enrichment the refresh wrote.
+// Mounted in the owner group, so a visitor never reaches it — the same posture
+// as the list field (F65.5). 404 when the store has no row for the entity
+// (an unscored type, or an id that does not exist).
+func (h *Handlers) entityCompletenessSummary(entityType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := pathID(w, r)
+		if !ok {
+			return
+		}
+		h.drainCompleteness(r.Context())
+		stored, err := h.repo.CompletenessForEntities(r.Context(), entityType, []int64{id})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "completeness")
+			return
+		}
+		c, ok := stored[id]
+		if !ok {
+			writeError(w, http.StatusNotFound, "no completeness for entity")
+			return
+		}
+		writeJSON(w, http.StatusOK, c)
+	}
 }
