@@ -20,14 +20,15 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 
 - [x] spec `write-spec` — `docs/specs/person-hover-card.md` (F68), RD1–RD11 locked
 - [x] design `design-handoff` — [person-hover-card-handoff.md](../design/person-hover-card-handoff.md)
-  + [mockup SVG](../design/person-hover-card-mockup.svg) (three skins × three surfaces; loading,
-  sparse, corner); OQ2 resolved = chip keeps the consumer's classes (dashed encodes meaning)
+  + [mockup SVG](../design/person-hover-card-mockup.svg) rev 2: default skin only (ADR-102),
+  owner vs visitor, loading/sparse/corner; OQ2 resolved = chip keeps the consumer's classes;
+  owner row replaced by the F65 `CompletenessRing` + header-block-as-profile-link (RD12)
 - [ ] architecture `architecture` — only if RD10 falls (positioning needs `@floating-ui/dom`)
 - [ ] backend — `GET /people/{id}/card` (R5) + API test
 - [ ] frontend — `PersonLinkChip` + `PersonHoverCard` (R1–R4, R6, R7), three consumers wired
 - [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
   shape, geometry rung)
-- [ ] security `security-review` — n/a unless the endpoint grows an owner branch
+- [ ] security `security-review` — required: `/card` gates `completeness` on `authorized` (RD12)
 
 ## Up next — ordered (position = priority)
 
@@ -41,6 +42,15 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
    `PeopleGrid`, age-at-release, curation chips + header dropdown, Studio/Film cards
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-20 · design rev 2 after main moved
+- skills: design-handoff
+- handoff: rebased onto main (#365 instance skin, #350 completeness ring). Kevin: focus the
+  mockup on the default skin (skin is instance identity now; Cinémathèque tokens unchanged) and
+  drop the owner Enrich/Edit links — the F65 ring is the owner's indicator, clicking the card
+  (header block → profile) is the edit path. Ring stays non-interactive per its contract; `/card`
+  returns `completeness` owner-only, which makes the security gate real. Spec RD3/RD4/RD12,
+  R4/R5 amended; mockup regenerated. Next unchanged: prototype the flip in `RelatedShelf`.
 
 ### 2026-09-19 · brainstorm → story → spec → design
 - skills: product-brainstorming, write-spec, design-handoff

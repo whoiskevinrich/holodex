@@ -8,9 +8,9 @@
 **Jira**: [HOLODEX-431](https://whoiskevinrich.atlassian.net/browse/HOLODEX-431)
 **Feature block**: **F68** — hovering (or focusing) a **text-only** person link opens a small
 floating **hover card**: headshot, name with nationality flags, current age, title and film
-counts, "also credited as" aliases, and a **link row** (Profile · Titles · Films · external ids ·
-owner-only Enrich / Edit). Person gets its first shared link component, `PersonLinkChip`, which is
-the only place the card is mounted.
+counts, "also credited as" aliases, the owner's **completeness ring** (F65), and a **link row**
+(Titles · Films · external ids); the header block is the profile link. Person gets its first
+shared link component, `PersonLinkChip`, which is the only place the card is mounted.
 
 ## Problem Statement
 
@@ -51,6 +51,7 @@ that lands on the exact surfaces where the profile's facts are furthest away.
 - **Age at release** — "27 when this title came out" needs the video's year threaded into the
   card; deferred, the endpoint leaves room for it (P2).
 - **Touch long-press** — no hover, no card; the link works.
+- **Enrichment from the card** — no Refresh/Enrich action here (RD12); the profile owns writes.
 - **Prefetching profiles / any change to `video.people[]`** — it stays `id + name + role`.
 
 ## Resolved Decisions
@@ -61,8 +62,8 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 |---|---|---|
 | RD1 | **Interaction model B — card with a link row**, not a read-only preview (A) or an enriched chip (C). | Kevin's call; the link row is the point. Costs hover-intent + leave-grace + Tab order, all specified below. |
 | RD2 | **Surfaces (v1):** film "Billed on the release" chips, `/search` page person rows, "More with …" shelf title on media pages. | Text-only links only — where the face is furthest away. |
-| RD3 | **Content:** headshot · name + `NationalityFlags` · current age · "N titles" · "N films" · "also credited as …" (aliases, up to 3) · link row. | The profile's recognition cues, nothing editable. |
-| RD4 | **Link row:** Profile · Titles (`#videos`) · Films (`#films`) · one badge per external id (same `ExternalLink[]` as `EntityVideoMeta`) · **owner-only** Enrich · Edit. | All four link groups chosen by Kevin. Owner links follow the visitor/owner rule: content stays visible to visitors, only the two owner actions are gated. |
+| RD3 | **Content:** headshot · name + `NationalityFlags` + (owner) `CompletenessRing` · current age · "N titles" · "N films" · "also credited as …" (aliases, up to 3) · link row. | The profile's recognition cues, nothing editable. |
+| RD4 | **Link row:** Titles (`#videos`) · Films (`#films`) · one badge per external id (same `ExternalLink[]` as `EntityVideoMeta`). The **header block (headshot + name) is the profile link.** No owner links. | Rev 2 (2026-09-20): Kevin dropped Enrich/Edit — the owner's affordance is the F65 ring as an *indicator*, and clicking the card (→ profile) is the edit/enrich path. "Profile" as a text link became redundant once the header is the link. |
 | RD5 | **Age = the resolver's derived `age`** (→ `age_at_death` when a death date exists), same rule as the profile. | One truth; no client-side date math. |
 | RD6 | `/search` page only, **not** the header dropdown. | Avoids a floating card inside a floating panel and the dropdown's own outside-click dismiss. |
 | RD7 | Curation chips **deferred**. | Editing surface; collides with `PopoverMenu`. |
@@ -70,6 +71,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | RD9 | **Hidden under `@media (pointer: coarse)`**; hover-intent delay 250 ms; leave grace 150 ms. | First hover-only affordance in the app — state the touch posture once, in CSS. |
 | RD10 | **No positioning library in v1.** Card is absolutely positioned beside the trigger and flips horizontally/vertically from one `getBoundingClientRect` measure. `@floating-ui/dom` only if the prototype proves ugly → then an ADR. | The app has no floating-ui / anchor positioning today; keep the dependency decision behind evidence. |
 | RD11 | `PersonLinkChip` lives in `web/src/lib/components/person/`; the card is `PersonHoverCard.svelte` beside it, mounted **only** by the chip. | Single entity → `person/` per the components `CLAUDE.md`. |
+| RD12 | **The card never fires enrichment.** `CompletenessRing` stays `role="img"` / non-interactive (its folder contract); `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). | A hover surface should not own a write; the profile already has Refresh-all + the `e` hotkey (F62). |
 
 ## User Stories
 
@@ -87,8 +89,8 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 
 **Owner**
 
-- As the owner, I want Enrich and Edit in the card's link row, so a missing headshot or wrong
-  age seen in the card is one click from fixable.
+- As the owner, I want the completeness ring beside the name, so a profile that needs work
+  is visible at a glance — and clicking the card takes me to the profile to fix it.
 
 **Edge cases**
 
@@ -131,13 +133,15 @@ overflow the right edge. One measure on open, re-measure on window resize/scroll
 - [ ] A chip at the bottom-right corner of the viewport shows a fully visible card.
 - [ ] The card never causes horizontal page overflow (HOLODEX-356 guard applies).
 
-**R4 — Card content (RD3/RD4).** Layout: headshot frame left (`PersonImageFrame`
-role=`headshot`, 1:1, ~56 px), name line (display name when set, else name) + `NationalityFlags`,
-meta line "`{age}` · `N titles` · `N films`" with absent segments dropped, optional "also
-credited as a, b, c" (max 3, `+N more` not shown), then the link row.
-- [ ] Link row order: Profile · Titles · Films · external-id badges (`ProviderLinkBadge`, sorted
-  by `sortExternalLinks`) · Enrich · Edit. Films omitted when `film_count = 0`. Enrich/Edit
-  rendered only when `isOwner`.
+**R4 — Card content (RD3/RD4).** Layout: a header block `<a href="/people/{id}">` wrapping the
+headshot frame (`PersonImageFrame` role=`headshot`, 1:1, 48 px) and a text column — name line
+(display name when set, else name) + `NationalityFlags` + `CompletenessRing size="row"` when
+`completeness` is present, meta line "`{age}` · `N titles` · `N films`" with absent segments
+dropped, optional "also credited as a, b, c" (max 3, `+N more` not shown) — then the link row.
+- [ ] Link row order: Titles · Films · external-id badges (`ProviderLinkBadge`, sorted by
+  `sortExternalLinks`). Films omitted when `film_count = 0`. No owner-only links.
+- [ ] The ring renders iff the payload carries `completeness`; it is never given the detail
+  read's `score/facets` object.
 - [ ] Titles → `/people/{id}#videos`; Films → `/people/{id}#films` — **these two anchors do not
   exist yet**; the build adds `id="videos"` to the profile's video-grid section and `id="films"`
   to its `FilmsRow` heading. Enrich → `/people/{id}#enrich-providers`; Edit →
@@ -145,8 +149,8 @@ credited as a, b, c" (max 3, `+N more` not shown), then the link row.
 - [ ] `role="dialog"` is **not** used; the card is `role="group"` with `aria-label="{name}"`
   and the chip carries `aria-describedby` only while open.
 
-**R5 — `GET /people/{id}/card`.** Public read (no owner branch — every field is visitor-visible
-on the profile today). Shape:
+**R5 — `GET /people/{id}/card`.** Public read with **one** owner branch: `completeness` is
+included only when `h.auth.authorized(r)`, exactly as the list reads do (ADR-099). Shape:
 
 ```json
 {
@@ -157,7 +161,8 @@ on the profile today). Shape:
   "age": 41, "age_at_death": null,
   "nationality": ["Brazilian"],
   "aliases": ["M. Rodrigues"],
-  "external_links": [{ "provider": "tmdb", "label": "TMDB", "url": "https://…" }]
+  "external_links": [{ "provider": "tmdb", "label": "TMDB", "url": "https://…" }],
+  "completeness": { "required": 60, "extras": 20 }
 }
 ```
 - [ ] Implementation budget: `repo.GetPerson` (name/display_name/video_count/aliases) +
@@ -166,6 +171,8 @@ on the profile today). Shape:
   `nationality`) followed by `resolver.Derive` — promotions/claims/auto-register skipped.
 - [ ] 404 for an unknown or soft-deleted person; `Cache-Control: private, max-age=300`.
 - [ ] `age` and `age_at_death` are mutually exclusive, exactly as `deriveAge` emits them.
+- [ ] `completeness` is absent (not null) for an unauthenticated request; present for the
+  owner, read from the F65 materialized store the list reads use.
 
 **R6 — Client fetch discipline.**
 - [ ] One request per person per session (module-level `Map<id, Promise<Card>>`); a failed
@@ -220,7 +227,7 @@ No migration. `film_count` is computed; nothing new is stored.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/people/{id}/card` | public | R5 shape; 404 unknown/soft-deleted; `Cache-Control: private, max-age=300` |
+| GET | `/people/{id}/card` | public; `completeness` owner-only | R5 shape; 404 unknown/soft-deleted; `Cache-Control: private, max-age=300` |
 
 Registered beside `/people/{id}/images` in `handlers.go`. Not exposed on MCP in v1.
 
@@ -270,6 +277,6 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
 | Design | [`docs/design/person-hover-card-handoff.md`](../design/person-hover-card-handoff.md) + [SVG](../design/person-hover-card-mockup.svg) | ✔ |
 | ADR | only if RD10 falls (floating-ui) | n/a unless triggered |
 | Testing strategy | `docs/testing-strategy.md` section | pending |
-| Security review | public read of visitor-visible fields — not required unless the endpoint grows an owner branch | n/a |
+| Security review | the endpoint has one owner branch (`completeness`) — run `/security-review` on the handler | pending |
 
 Single story; no epic. Draft PR opens with this spec (ADR-069).
