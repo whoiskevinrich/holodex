@@ -117,7 +117,7 @@
 <section class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			{#if !completenessDir && sort === 'random'}
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
