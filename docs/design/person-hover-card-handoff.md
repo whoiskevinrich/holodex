@@ -21,6 +21,7 @@ looks, one card:
 | Film page "Billed on the release" | `rounded-full border border-dashed border-accent px-2.5 py-0.5 text-sm text-accent hover:border-solid` | owner only (the section is owner-gated) |
 | `/search` page person row | `SearchResultsPanel` row, `variant="page"` only — `hoverCards` prop, default `false`; the header dropdown never sets it | everyone |
 | "More with …" shelf title | `RelatedShelf` heading link `text-ink hover:text-accent` | everyone |
+| Cast / People grid tiles (added 2026-09-20) | `PeopleGrid` → `PosterTile` link (`li.curation-chip > a.block`); the tile is the trigger, the card anchors below-start of the tile. `PosterTile` gains an opt-in `hoverCard` prop that `PeopleGrid` sets and film tiles never do. The owner's remove badge stays outside the chip wrapper. | everyone |
 
 **Rev 2 (2026-09-20):** the owner row (Enrich · Edit links) is gone. The owner's affordance is
 the **`CompletenessRing`** from F65 beside the name — a static indicator of whether the profile
@@ -149,7 +150,7 @@ Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own toke
 
 ## Not in scope
 
-`PeopleGrid` / `PersonPosterCard` / people-index rows (already show the face), the header
+`PersonPosterCard` / people-index rows (already show face, count and ring), the header
 search dropdown (popover-in-popover), curation chips (collide with `PopoverMenu`), Studio / Film
 cards, age at release, touch long-press, alias "+N more", any enrichment action other than the ring.
 

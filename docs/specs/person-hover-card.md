@@ -39,9 +39,10 @@ that lands on the exact surfaces where the profile's facts are furthest away.
 
 ## Non-Goals
 
-- **Surfaces that already show the face** — `PeopleGrid` tiles, `PersonPosterCard`, the people
-  index list rows. A card re-showing the headshot beside the headshot is noise; an *in-tile*
-  stats reveal is a separate follow-up (HOLODEX follow-up, see Deferred).
+- **The people index** — `PersonPosterCard` and the list rows already show the face *and* the
+  count and ring; nothing the card adds is missing there. (The Cast / People grid tiles were in
+  this bullet until 2026-09-20 — see RD2 rev 2: Kevin reached for the card on a Cast tile, and
+  the tile lacks age, counts and aliases, so it is a v1 surface after all.)
 - **The header search dropdown** — it is itself a popover; the card lands on the `/search` page
   only (RD6). Popover-on-popover is deferred until it earns a design.
 - **Curation chips** (`CurationChip` person values) — the owner's chip row already opens its own
@@ -61,7 +62,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | # | Decision | Rationale |
 |---|---|---|
 | RD1 | **Interaction model B — card with a link row**, not a read-only preview (A) or an enriched chip (C). | Kevin's call; the link row is the point. Costs hover-intent + leave-grace + Tab order, all specified below. |
-| RD2 | **Surfaces (v1):** film "Billed on the release" chips, `/search` page person rows, "More with …" shelf title on media pages. | Text-only links only — where the face is furthest away. |
+| RD2 | **Surfaces (v1):** film "Billed on the release" chips, `/search` page person rows, "More with …" shelf title on media pages, and — **rev 2, 2026-09-20** — the **Cast / People grid tiles** (`PeopleGrid` → `PosterTile`, on the film and media pages). | Text-only links first, where the face is furthest away; the tiles joined when Kevin reached for the card on one — the tile shows the face but not age, counts, aliases or the ring, and the chip is a transparent wrapper so a tile is one more mount. `PosterTile` is shared with films, so the mount rides an opt-in prop that film tiles never set. |
 | RD3 | **Content:** headshot · name + `NationalityFlags` + (owner) `CompletenessRing` · current age · "N titles" · "N films" · "also credited as …" (aliases, up to 3) · link row. | The profile's recognition cues, nothing editable. |
 | RD4 | **Link row:** Titles (`#videos`) · Films (`#films`) · one badge per external id (same `ExternalLink[]` as `EntityVideoMeta`). The **header block (headshot + name) is the profile link.** No owner links. | Rev 2 (2026-09-20): Kevin dropped Enrich/Edit — the owner's affordance is the F65 ring as an *indicator*, and clicking the card (→ profile) is the edit/enrich path. "Profile" as a text link became redundant once the header is the link. |
 | RD5 | **Age = the resolver's derived `age`** (→ `age_at_death` when a death date exists), same rule as the profile. | One truth; no client-side date math. |
@@ -110,7 +111,9 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 existing pill (`rounded-full border border-rule bg-surface-2 px-2.5 py-0.5 text-sm`) or the
 consumer's supplied classes around `<a href="/people/{id}">`; owns the hover/focus state that
 mounts `PersonHoverCard`.
-- [ ] The three RD2 surfaces render through the chip; no other `<a href="/people/…">` is touched.
+- [ ] The four RD2 surfaces render through the chip; no other `<a href="/people/…">` is touched.
+- [ ] On a `PosterTile` the card anchors below-start of the tile; the owner's remove badge stays
+  a sibling outside the chip wrapper so its click never opens or closes the card.
 - [ ] Given `pointer: coarse`, the chip renders and navigates; the card never mounts.
 
 **R2 — Open / close behavior.**
@@ -201,8 +204,8 @@ rung asserting no horizontal overflow with the card open at max density.
 
 - **Age at release** — `GET /people/{id}/card?year=2019` adds `age_at: 27`; the media page
   passes its resolved year. The endpoint shape reserves the field name.
-- **In-tile stats reveal** for `PeopleGrid` — same card data, rendered inside the tile's
-  existing `group-hover:` reveal.
+- **In-tile stats reveal** for the people index cards — same card data, rendered inside an
+  existing `group-hover:` reveal (the grid tiles now get the floating card instead).
 - **Studio / Film cards** — a `StudioHoverCard` over `StudioLinkCard` reusing the chip's
   open/close logic (extract to a `use:hoverCard` action when the second consumer arrives, not
   before).

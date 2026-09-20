@@ -26,7 +26,8 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 - [x] architecture `architecture` — not needed: the OQ1 probe (2026-09-20) showed one measure +
   a horizontal clamp does it inside `RelatedShelf`; RD10 stands, no floating-ui, no ADR
 - [ ] backend — `GET /people/{id}/card` (R5) + API test
-- [ ] frontend — `PersonLinkChip` + `PersonHoverCard` (R1–R4, R6, R7), three consumers wired
+- [ ] frontend — `PersonLinkChip` + `PersonHoverCard` (R1–R4, R6, R7), **four** consumers wired
+  (billed chips, `/search` rows, More-with title, `PosterTile` via `PeopleGrid` — added 2026-09-20)
 - [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
   shape, geometry rung)
 - [ ] security `security-review` — required: `/card` gates `completeness` on `authorized` (RD12)
@@ -81,3 +82,11 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
   be a clamp, not an end-align (a 400 px window overflowed by 8 px start-aligned; end-aligned would
   underflow). RD10 + R3 + handoff amended; no ADR. Next: backend `GET /people/{id}/card` + test,
   then the chip + card (remember: `bottom-full`/`mb-1.5` only exist once a source file uses them).
+
+### 2026-09-20 · scope: grid tiles join v1
+- skills: —
+- handoff: Kevin clicked a Cast tile expecting the card ("I'm not seeing the hover card") — nothing
+  is built yet, and that tile was a Non-Goal. He chose to add the Cast / People grid tiles as a
+  fourth v1 surface (RD2 rev 2): `PosterTile` gets an opt-in prop, `PeopleGrid` sets it, film tiles
+  don't; remove badge stays outside the chip. Spec, handoff, Jira updated. Next: build — backend
+  `GET /people/{id}/card` first.
