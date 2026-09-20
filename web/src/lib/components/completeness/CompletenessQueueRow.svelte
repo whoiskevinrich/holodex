@@ -93,10 +93,13 @@
 		<PersonAvatar personId={row.entity_id} name={row.name} version={row.headshot_version} size="sm" />
 	{:else}
 		<span
-			class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
+			class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme {row.icon_url
+				? ''
+				: 'bg-logo-plate'}"
 		>
 			{#if row.icon_url}
-				<img src={row.icon_url} alt="" class="h-full w-full object-contain p-0.5" />
+				<!-- Bare + halo, plate only under the monogram (HOLODEX-437). -->
+				<img src={row.icon_url} alt="" class="logo-halo h-full w-full object-contain p-0.5" />
 			{:else}
 				<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
 					>{monogram(row.name)}</span
