@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { isCockpitRow, isImageRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stagedValue, willWrite } from './writebackCockpit';
+import { CHIP_VALUE_MAX_CHARS, isCockpitRow, isImageRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -29,6 +29,27 @@ describe('isCockpitRow', () => {
 		expect(isImageRow(field({ display: 'image_url' }))).toBe(true);
 		expect(isImageRow(field())).toBe(false);
 		expect(isImageRow(field({ display: 'image_url', multi: true }))).toBe(false);
+	});
+});
+
+describe('stacksCandidates', () => {
+	it('stacks long_text always, and any row with a candidate a chip would truncate (HOLODEX-434)', () => {
+		const short = field();
+		expect(stacksCandidates(short, sourceChips(short))).toBe(false);
+		expect(stacksCandidates(field({ display: 'long_text' }), sourceChips(short))).toBe(true);
+		const long = 'https://www.sonypictures.com/movies/blackdynamite';
+		expect(long.length).toBeGreaterThan(CHIP_VALUE_MAX_CHARS);
+		const url = field({ candidates: [{ source: 'file', value: 'x' }, { source: 'provider:tmdb', provider: 'tmdb', value: long }] });
+		expect(stacksCandidates(url, sourceChips(url))).toBe(true);
+	});
+	it('counts a standing manual literal (it renders as a value chip), never image rows or merge fields', () => {
+		const long = 'a'.repeat(CHIP_VALUE_MAX_CHARS + 1);
+		const manual = field({ decision: { source: 'manual', manual_value: long, standing: true } } as Partial<ResolvedField>);
+		expect(stacksCandidates(manual, sourceChips(manual))).toBe(true);
+		expect(stacksCandidates(field(), sourceChips(field()))).toBe(false);
+		const img = field({ display: 'image_url', candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://image.tmdb.org/t/p/original/abcdef.jpg' }] });
+		expect(stacksCandidates(img, sourceChips(img))).toBe(false);
+		expect(stacksCandidates(field({ multi: true }), [])).toBe(false);
 	});
 });
 
