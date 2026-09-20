@@ -34,7 +34,7 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 ## Up next — ordered (position = priority)
 
 1. [x] [HOLODEX-431] design handoff with SVG mockup (three skins) — OQ2 decided
-2. [ ] [HOLODEX-435] ship the ring button first (own branch/PR, F65.6) — F68 consumes it
+2. [ ] [HOLODEX-435] ship the ring button first (own branch/PR, F65.8) — F68 consumes it
 3. [ ] [HOLODEX-431] prototype the positioning flip inside `RelatedShelf` first (OQ1) before
    writing the chip — this decides whether an ADR is needed
 4. [ ] [HOLODEX-431] backend card endpoint + test

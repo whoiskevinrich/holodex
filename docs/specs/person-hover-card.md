@@ -51,7 +51,7 @@ that lands on the exact surfaces where the profile's facts are furthest away.
 - **Age at release** — "27 when this title came out" needs the video's year threaded into the
   card; deferred, the endpoint leaves room for it (P2).
 - **Touch long-press** — no hover, no card; the link works.
-- **Enrichment beyond the ring** — no Refresh/Enrich links; the ring (RD12, F65.6) is the one action.
+- **Enrichment beyond the ring** — no Refresh/Enrich links; the ring (RD12, F65.8) is the one action.
 - **Prefetching profiles / any change to `video.people[]`** — it stays `id + name + role`.
 
 ## Resolved Decisions

@@ -113,7 +113,7 @@ Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own toke
 | Pointer leaves chip *and* card | close | **150 ms** grace; re-entering either cancels |
 | Pointer moves onto the card | stays open; header block and links are hoverable | the 6 px gap is inside the grace window |
 | Click on the header block | navigate to the profile (owner: this is "edit") | — |
-| Click on the ring (owner) | fires `POST /people/{id}/enrich/refresh-all` (F65.6); card stays open, ring busy; on completion `/card` is re-fetched and the card redraws in place | no navigation, no picker, no toast — sweep semantics |
+| Click on the ring (owner) | fires `POST /people/{id}/enrich/refresh-all` (F65.8); card stays open, ring busy; on completion `/card` is re-fetched and the card redraws in place | no navigation, no picker, no toast — sweep semantics |
 | Chip receives focus | open **immediately** | no intent delay for keyboard |
 | Tab from chip | into the card: header block → ring (owner) → Titles → Films → badges, DOM order | card is the chip's next sibling so no focus management is needed |
 | Tab past the last link / Shift+Tab from chip | close, focus continues naturally | — |
