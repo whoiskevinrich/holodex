@@ -22,7 +22,7 @@ change dialog. Remove the '…provider values you haven't decided on' chevron. E
 behave as if 'change' were clicked. Increase the modal width for wider screens; mobile width
 should stay the same."*
 
-Three changes, all subtractive except the width:
+Four changes — three subtractive, plus the width and a wider stacking rule:
 
 1. **No disclosure.** The HOLODEX-213 chevron defended "the dialog's default weight matches the
    header count". It cost every undecided row a click before the owner could act on it. The
@@ -37,6 +37,16 @@ Three changes, all subtractive except the width:
 3. **Wider on desktop.** `max-w-xl` (576px) → `max-w-3xl` (768px). The overlay is `px-4`, so on
    a 375px phone the dialog is 343px either way — mobile is unchanged for free. `max-w-3xl` is
    the size `FilmBulkAttachDialog` already uses.
+4. **No truncated candidates** (owner, same day: *"When the strings are truncated, I can't
+   verify the correctness between options."*). A `CurationChip` clips its value at
+   `max-w-[14rem] truncate`; a clipped candidate cannot be compared with its neighbours, and
+   comparing them is the row's whole job. The stacked list (`SourceRadioList`) is therefore no
+   longer reserved for `long_text`: `stacksCandidates(field, chips)` in `writebackCockpit.ts`
+   stacks any cockpit row with a candidate — a standing manual literal included, it is a value
+   chip too — over `CHIP_VALUE_MAX_CHARS` (32 — what
+   the widest skin font fits in 14rem at `text-xs`, so the rule is conservative in every skin).
+   Deterministic, not measured after render, so a row never flips layout under the owner. Image
+   rows keep their tiles. The stacked Custom textarea is 5 rows for `long_text`, 2 otherwise.
 
 ### What does *not* change
 
@@ -56,6 +66,8 @@ unmounts under the keyboard" guarantee holds trivially.
 | `=` row header | `change` / `close` `.btn-quiet ml-auto text-xs` toggle | no toggle |
 | `=` row body | value line; chooser only when `row.chooserOpen` | value line, then the chooser |
 | Chooser ids | `id="wb-chooser-{canonical}"` (target of `aria-controls`) | dropped — nothing points at them |
+| Chooser shape | chip row unless `display === 'long_text'` | chip row unless `stacksCandidates(field, chips)` — `long_text`, or any candidate > 32 chars |
+| Stacked Custom textarea | `rows="5"` | `rows={display === 'long_text' ? 5 : 2}` |
 
 No new tokens. No hardcoded values.
 
@@ -78,5 +90,8 @@ No new tokens. No hardcoded values.
    `·file` again: glyph and count revert.
 4. `[agent]` Desktop viewport ≥ 900px: dialog `getBoundingClientRect().width` = 768. 375px
    viewport: width = 343 (unchanged from main).
-5. `[human]` Three skins (Cinémathèque, Broadcast, Brutalist): caption contrast, chip rows wrap
+5. `[agent]` A row with a candidate over 32 characters (Website URL, Tagline on the films
+   testbed) renders stacked rows; no `.truncate` span inside the dialog has
+   `scrollWidth > clientWidth` other than the header's file-path line.
+6. `[human]` Three skins (Cinémathèque, Broadcast, Brutalist): caption contrast, chip rows wrap
    cleanly at 768 and at 343, the body scrolls rather than the page when the row count is high.

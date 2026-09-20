@@ -26,6 +26,7 @@ either way).
 - [x] frontend — dialog edited in place; `web/src/lib/components/writeback/CLAUDE.md` updated
 - [~] testing `testing-strategy` — n/a: no test referenced the removed controls; the pure predicates in `writebackCockpit.ts` are untouched (380/380 green)
 - [~] security `security-review` — n/a
+- [x] follow-up (owner, 2026-09-19): no truncated candidates — `stacksCandidates` + `CHIP_VALUE_MAX_CHARS` in `writebackCockpit.ts` (tests), stacked rows for any long candidate; translation recorded in `ui-vocabulary.md`
 - [x] `code-review high --fix` — one finding (stale focus comment), applied
 - [x] three-skin QA — Cinémathèque / Broadcast / Brutalist: caption contrast 6.0 / 4.7 / 5.6 : 1, 768px desktop, 343px phone, no overflow; M → W promotion round-trips on the `=` Poster row with focus kept
 
@@ -37,9 +38,16 @@ either way).
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-19 · critique → mockup → implemented and QA'd
-- skills: design-critique, code-review high --fix
+- skills: design-critique, code-review high --fix, code-review
 - Mockup (current vs. proposed desktop vs. proposed phone) approved in-session; caption kept,
   `max-w-3xl` chosen over `2xl` for parity with `FilmBulkAttachDialog`.
 - Verified live on the films testbed (`/media/3`): no chevron, no `change`, caption present,
   `=` rows (Title/Studio/Poster) carry their choosers, promotion flips glyph + footer and back.
 - handoff: everything shipped and verified; Draft PR open for the owner's skin look.
+
+### 2026-09-19 (later) · no truncated candidates
+- skills: code-review high --fix
+- Owner: chips clipped long values so options could not be compared → stacked rows for any
+  cockpit row with a candidate over 32 chars (pure predicate + tests); Tagline and Website stack
+  on the films testbed, zero clipped `.truncate` spans across three skins, phone still 343px.
+- handoff: pushed to the same Draft PR; still waiting on the owner's prod-skin look.

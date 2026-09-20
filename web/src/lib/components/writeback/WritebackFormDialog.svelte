@@ -39,6 +39,7 @@
 		needsDecision,
 		rowClass,
 		savesDecisionOnly,
+		stacksCandidates,
 		stagedValue,
 		willWrite
 	} from '$lib/writebackCockpit';
@@ -426,7 +427,8 @@
 </div>
 
 <!-- The chooser for a cockpit row: the chip row for short fields, stacked full-width rows for
-     long_text (the page's own chip-row vs. pencil+modal split, handoff §2). Both stage into the
+     long_text and for any candidate a chip would truncate (stacksCandidates; the page's own
+     chip-row vs. pencil+modal split, handoff §2, widened by HOLODEX-434). Both stage into the
      row; onStaged() promotes a matching row to will-write the moment the pick differs. -->
 {#snippet chooser(row: Row)}
 	<!-- ADR-093: a field whose tag is written but never read back has an always-empty file
@@ -459,7 +461,9 @@
 				</p>
 			{/if}
 		</div>
-	{:else if row.field.display === 'long_text'}
+	{:else if stacksCandidates(row.field, row.chips)}
+		<!-- Stacked rows for long_text AND for any row a chip would truncate (HOLODEX-434): the
+		     owner compares candidates here, and a clipped value cannot be compared. -->
 		<div class="mt-1">
 			<SourceRadioList
 				field={row.field}
