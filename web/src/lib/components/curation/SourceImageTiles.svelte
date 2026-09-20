@@ -105,7 +105,7 @@
 				<img
 					{src}
 					alt=""
-					class="h-20 w-14 shrink-0 rounded-theme border object-cover {checked
+					class="h-20 w-auto min-w-14 shrink-0 rounded-theme border object-contain {checked
 						? `border-2 border-accent ${pending ? 'border-dashed' : ''}`
 						: 'border-rule'}"
 				/>

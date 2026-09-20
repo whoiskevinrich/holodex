@@ -652,7 +652,7 @@
 								     row shows a thumbnail + its source instead of the URL (HOLODEX-403). -->
 								<p class="flex items-center gap-2 text-xs text-muted">
 									{#if isImageRow(row.field) && rowValue(row)}
-										<img src={rowValue(row)} alt="" class="h-8 w-6 shrink-0 rounded-theme border border-rule object-cover" />
+										<img src={rowValue(row)} alt="" class="h-8 w-auto min-w-6 shrink-0 rounded-theme border border-rule object-contain" />
 										<span class="text-ink">{tag?.name ?? 'file'} {row.field.label.toLowerCase()}</span>
 									{:else}
 										<span class="text-ink">{rowValue(row) || '—'}</span>
