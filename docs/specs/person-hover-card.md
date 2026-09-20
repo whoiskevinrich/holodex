@@ -71,7 +71,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | RD9 | **Hidden under `@media (pointer: coarse)`**; hover-intent delay 250 ms; leave grace 150 ms. | First hover-only affordance in the app — state the touch posture once, in CSS. |
 | RD10 | **No positioning library in v1.** Card is absolutely positioned beside the trigger and flips horizontally/vertically from one `getBoundingClientRect` measure. `@floating-ui/dom` only if the prototype proves ugly → then an ADR. | The app has no floating-ui / anchor positioning today; keep the dependency decision behind evidence. |
 | RD11 | `PersonLinkChip` lives in `web/src/lib/components/person/`; the card is `PersonHoverCard.svelte` beside it, mounted **only** by the chip. | Single entity → `person/` per the components `CLAUDE.md`. |
-| RD12 | **The ring is the card's only action.** `CompletenessRing` becomes a button under **F65.6 (HOLODEX-435)** — clicking it fires the single-entity refresh-all, sweep semantics; the card mounts it beside the name as a sibling of the header link and passes `entity={{kind:'person', id}}` + `onrefreshed` (re-fetch `/card`, bypassing the session cache). `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). F68 depends on HOLODEX-435 merging first. | Kevin 2026-09-20: the ring should act, not just indicate. Nothing else on the card writes. |
+| RD12 | **The ring is the card's only action.** `CompletenessRing` becomes a button under **F65.8 (HOLODEX-435)** — clicking it fires the single-entity refresh-all, sweep semantics; the card mounts it beside the name as a sibling of the header link and passes `entity={{kind:'person', id}}` + `onrefreshed` (re-fetch `/card`, bypassing the session cache). `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). F68 depends on HOLODEX-435 merging first. | Kevin 2026-09-20: the ring should act, not just indicate. Nothing else on the card writes. |
 
 ## User Stories
 
@@ -279,6 +279,6 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
 | ADR | only if RD10 falls (floating-ui) | n/a unless triggered |
 | Testing strategy | `docs/testing-strategy.md` section | pending |
 | Security review | the endpoint has one owner branch (`completeness`) — run `/security-review` on the handler | pending |
-| Dependency | HOLODEX-435 (F65.6 ring button) merged to main | pending |
+| Dependency | HOLODEX-435 (F65.8 ring button) merged to main | pending |
 
 Single story; no epic. Draft PR opens with this spec (ADR-069).

@@ -29,7 +29,7 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 - [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
   shape, geometry rung)
 - [ ] security `security-review` — required: `/card` gates `completeness` on `authorized` (RD12)
-- [ ] dependency — **HOLODEX-435** (F65.6 ring button) merged; rebase #369 on it before frontend
+- [ ] dependency — **HOLODEX-435** (F65.8 ring button) merged; rebase #369 on it before frontend
 
 ## Up next — ordered (position = priority)
 
@@ -54,7 +54,7 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
   returns `completeness` owner-only, which makes the security gate real. Spec RD3/RD4/RD12,
   R4/R5 amended; mockup regenerated. **Then Kevin reversed the ring call:** the ring should
   fire enrichment (sweep semantics, single entity) — filed as its own story **HOLODEX-435**
-  (F65.6, child of 412) with its own branch/PR to merge first; RD12 now says the ring is the
+  (F65.8, child of 412) with its own branch/PR to merge first; RD12 now says the ring is the
   card's one action, mounted as a sibling of the header link. Next: build 435, then the flip
   prototype here.
 
